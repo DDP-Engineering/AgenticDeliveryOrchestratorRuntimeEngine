@@ -1,0 +1,19 @@
+# Secrets - never commit real credentials
+.env
+.env.*
+!.env.example
+
+# ADOR runtime state and artifacts
+.ador/
+worktrees/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# OS / editor
+.DS_Store
+Thumbs.db
