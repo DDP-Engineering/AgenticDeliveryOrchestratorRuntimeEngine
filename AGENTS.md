@@ -35,6 +35,26 @@ A deeper `AGENTS.md` overrides this file for its subtree.
 - Bound every autonomous run with explicit limits (iterations, wall-clock,
   cost, files touched).
 
+## Testing Rules
+
+- **Every public behavior gets one clear-path (happy) test plus negative tests
+  at its trust boundaries.** A contract is proven twice: once that it works,
+  once that it fails closed on bad input (corner cases).
+- **Trust boundaries that require negative tests** are everything crossing into
+  the orchestrator from outside: Git-platform CLI output (glab/gh JSON, URLs),
+  config files typed by humans, ticket comments written by humans, persisted
+  state read back after a crash, executor output, and container/git exit codes.
+- **Fail closed on corrupt input:** raise a typed error (for example
+  `StateError`, `ForgeError`) so the caller can skip or escalate
+  deterministically. Never silently reinitialize, guess, or continue with
+  partial data. Writing the negative test forces this decision at
+  implementation time.
+- **Test contracts, not internals.** Private helpers are covered through the
+  public surface; do not test implementation details directly, and do not
+  force a negative test onto branch-free plumbing.
+- **Tests must run offline.** External CLIs are faked through the injectable
+  command runner; no network and no real glab/gh/git/docker in unit tests.
+
 ## License Header
 
 - **Every generated file must carry the project legal/license header**, adapted
@@ -111,5 +131,19 @@ Two independent revision markers, both bumped in the same change that causes the
 
 ## Status
 
-Early scaffold: folder structure, per-folder READMEs, and a stubbed `04_Software`
-package skeleton (interfaces and Doxygen headers; logic not implemented).
+Phase 1 (base services) implemented under `04_Software/`: util (command
+runner), typed config + validation, marker-based identity, local state store,
+forge adapters (GitLab/GitHub, live-verified read-only against GitLab), CLI
+wiring (`config`/`status`/`runs`/`pause`/`resume`), and an offline test
+suite. Phase 2 done and live-verified (Docker in WSL2): isolation (worktree +
+container lifecycle, `docker/Dockerfile.executor`) and the executor launcher
+(file-based gate protocol; mutating opencode spike passed). Phase 3 done: the
+thick-conductor engine (polling, selection, per-gate loop with verification
+and budgets, clarification park/resume, TTL/timeouts) wired to the CLI.
+Phases 3 and 4 were live-piloted END TO END on a real ticket: #45 went from
+the `agent-ready` label to draft MR !29 on the real repository, fully
+conducted by ADOR (prereq report sections 15-16, including all ten hardening
+findings fixed with regression tests along the way). Still pending: the
+post-MR revise cycle (agent-revise label), metrics, the remaining CLI stubs
+(`reset`/`cleanup`/`stats`/`report`/`export`), and the security decisions in
+00_Planning/TODO.md (container egress allowlist, executor credentials).

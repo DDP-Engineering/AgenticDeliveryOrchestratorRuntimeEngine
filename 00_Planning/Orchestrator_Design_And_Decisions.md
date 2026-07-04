@@ -167,7 +167,9 @@ human reviewer -> approves and merges
     git commit author name.
   - `agent.slug` - lowercase token (default `"ador"`; derived from `name` if
     empty) used to build the local state dir (`.<slug>/runs/...`), the branch
-    prefix (`<slug>/<run-id>`), the container name (`<slug>-run-<run-id>`), the
+    prefix (`<slug>/<run-id>`; overridable via `[worktree] branch_template`
+    for repos whose push rules mandate e.g. a `feature/` prefix - added
+    2026-07-03), the container name (`<slug>-run-<run-id>`), the
     questions file (`<SLUG>_QUESTIONS.md`), and the comment marker.
 
   ```toml
@@ -272,9 +274,12 @@ human reviewer -> approves and merges
 
 - **The target repo's `.agentic` layer is the ground truth for "done."** Gates,
   invariants, and `delivery-preflight` decide readiness â€” not the agent's word.
-- **Gates:** `intake -> requirement -> check -> implementation -> validation ->
-  delivery`. The `agentic-development` skill covers stages 1-5;
-  `agentic-delivery` covers delivery.
+- **Gates:** `intake -> alignment -> requirement -> check -> implementation ->
+  validation -> delivery` (alignment added 2026-07-03, matching the workflow
+  CLI's canonical STAGES per the template's Intent_Alignment_Stage_Plan: a
+  pre-requirement intent check - understanding, scope, assumptions,
+  proceed/pause). The `agentic-development` skill covers the development
+  stages; `agentic-delivery` covers delivery.
 - **Between gates**, the orchestrator runs `invariants` / reads exit codes and
   decides advance, retry, or escalate.
 - **Objective stop condition:** loop until `delivery-preflight` exits 0 (and CI
@@ -814,6 +819,10 @@ html_out         = ".ador/metrics/stats.html"
 - Whether to also keep a fully-headless skill variant (single-shot) alongside the
   thick conductor for high-confidence tickets.
 - Model/provider selection and credential handling for the executor.
+  (2026-07-03 finding: the dev host's opencode auth is OAuth/ChatGPT-account,
+  not an API key - `.env` injection has nothing to inject there. Options and
+  trade-offs in `Setup_And_Credentials.md` 3.1; production requires a real
+  provider API key.)
 - `LICENSE.txt` contents (currently referenced but not yet added).
 
 ## 16. Reference

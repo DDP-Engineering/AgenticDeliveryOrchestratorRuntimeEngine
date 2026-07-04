@@ -1,0 +1,65 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+#
+# =============================================================================
+# CRAWL-PHASE PILOT configuration (2026-07-03) - supervised, tight budgets.
+# Target ticket: #45 "PILOT: add a Last updated line to README.md".
+# Run with:  uv run ador run --dry-run   then   uv run ador run --once
+# =============================================================================
+
+[agent]
+name  = "ADOR"
+slug  = "ador"
+email = "ador-bot@examplexdigital.fr"
+
+[platform]
+kind = "gitlab"
+repo = "rd/internal/france/delivery-tools/delivery-cockpit/cockpit-gcp"
+
+[worktree]
+# Local clone of the target repo (verified: origin/develop present, fresh).
+repo_path = "D:/2026_Agentic_Delivery_Platform/04_Software"
+root      = "worktrees"
+# Repo convention: pushed branches must carry the feature/ prefix.
+branch_template = "feature/{slug}-{iid}"
+# The repo's actual GitLab push rule; config validate checks the template
+# renders a compliant branch name before any run starts.
+branch_rule = '^(feature|bugfix|release|hotfix)\/.*$'
+
+[container]
+# Docker Engine inside WSL2 (no Docker Desktop).
+runtime = "wsl -d Ubuntu-24.04 -- docker"
+image   = "ador-executor:latest"
+
+[executor]
+default        = "opencode"
+# PILOT-ONLY: bridge the host's opencode OAuth session into the container
+# (no provider API key exists yet; see Setup_And_Credentials.md 3.1).
+stage_host_auth = true
+
+[executor.opencode]
+command = "opencode run --dir {worktree} -m {model} --format json {prompt}"
+model   = "openai/gpt-5.5"
+
+# Tight pilot budgets: fail fast and cheap, not expensively.
+[budgets]
+max_iterations         = 6
+max_wall_clock_seconds = 2700
+max_cost_usd           = 5.0
+max_files_touched      = 10
+
+[clarification]
+max_rounds     = 2
+reminder_after = "30m"
+answer_timeout = "2h"
+
+[delivery]
+target_branch = "develop"
+reviewers     = ["dan.pasare"]
+
+[polling]
+mode                = "once"
+max_concurrent_runs = 1

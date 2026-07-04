@@ -1,0 +1,284 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-  # noqa: UP009
+# -----------------------------------------------------------------------------
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+# -----------------------------------------------------------------------------
+"""
+@file util.py
+@brief Shared low-level helpers: subprocess runner, durations, timestamps.
+@details The CommandRunner protocol lets every shell-out (glab/gh/git/docker)
+         be injected and faked in tests. Output is always captured, never
+         streamed (see Prerequisites_Check_Report.md finding on buffering).
+         Also: timestamps, quiet-hours windows, and dotenv loading.
+@author Eng. Dan Dumitru Pasare
+@date 2026-07-02
+@version 0.1.1
+"""
+
+from __future__ import annotations
+
+# IMPORTS
+from collections.abc import Sequence
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from pathlib import Path
+import re
+import subprocess
+from typing import Protocol
+
+# CONSTANTS
+
+_DURATION_RE = re.compile(r"^\s*(\d+)\s*([smhd]?)\s*$", re.IGNORECASE)
+_DURATION_UNITS = {"": 1, "s": 1, "m": 60, "h": 3600, "d": 86400}
+
+DEFAULT_COMMAND_TIMEOUT = 600.0
+
+# DATA MODELS / TYPEDEFINITIONS
+
+
+@dataclass
+class CommandResult:
+    """
+    @brief   Captured outcome of one external command invocation.
+    @author  Eng. Dan Dumitru Pasare
+    @date    2026-07-02
+    @version 0.1.0
+    """
+
+    argv: list[str] = field(default_factory=list)
+    exit_code: int = 0
+    stdout: str = ""
+    stderr: str = ""
+
+    @property
+    def ok(self) -> bool:
+        """
+        @brief   True when the command exited with code 0.
+        @return  Success flag.
+        @author  Eng. Dan Dumitru Pasare
+        @date    2026-07-02
+        @version 0.1.0
+        """
+        return self.exit_code == 0
+
+
+class CommandRunner(Protocol):
+    """
+    @brief   Callable contract for running external commands.
+    @details Concrete default is run_command; tests inject fakes so no real
+             CLI (glab/gh/git/docker) is needed.
+    @author  Eng. Dan Dumitru Pasare
+    @date    2026-07-02
+    @version 0.1.0
+    """
+
+    def __call__(
+        self,
+        argv: Sequence[str],
+        *,
+        cwd: str | Path | None = None,
+        timeout: float | None = None,
+        env: dict[str, str] | None = None,
+    ) -> CommandResult:
+        """
+        @brief      Run one command and capture its output.
+        @param[in]  argv Command and arguments (no shell).
+        @param[in]  cwd Optional working directory.
+        @param[in]  timeout Optional wall-clock limit in seconds.
+        @param[in]  env Optional replacement environment.
+        @return     The captured CommandResult.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-02
+        @version    0.1.0
+        """
+        ...  # pragma: no cover - protocol signature only
+
+
+# HELPER FUNCTIONS
+
+
+def _decode(stream: bytes | str | None) -> str:
+    """
+    @brief      Normalize a captured stream (bytes/str/None) to text.
+    @param[in]  stream Raw stream from a TimeoutExpired exception.
+    @return     Decoded text (empty when the stream is None).
+    @author     Eng. Dan Dumitru Pasare
+    @date       2026-07-02
+    @version    0.1.0
+    """
+    if isinstance(stream, bytes):
+        return stream.decode("utf-8", "replace")
+    return stream or ""
+
+
+# PUBLIC API
+
+
+def run_command(
+    argv: Sequence[str],
+    *,
+    cwd: str | Path | None = None,
+    timeout: float | None = DEFAULT_COMMAND_TIMEOUT,
+    env: dict[str, str] | None = None,
+) -> CommandResult:
+    """
+    @brief      Run an external command without a shell, capturing all output.
+    @details    Never raises for command failure; errors are reported through
+                the exit code (127 = binary missing, 124 = timeout) so callers
+                decide deterministically. Output is decoded as UTF-8 with
+                replacement to survive Windows console encodings.
+    @param[in]  argv Command and arguments (no shell).
+    @param[in]  cwd Optional working directory.
+    @param[in]  timeout Optional wall-clock limit in seconds.
+    @param[in]  env Optional replacement environment.
+    @return     The captured CommandResult.
+    @author     Eng. Dan Dumitru Pasare
+    @date       2026-07-02
+    @version    0.1.0
+    """
+    argv_list = [str(part) for part in argv]
+    try:
+        completed = subprocess.run(  # noqa: S603 - fixed argv, no shell
+            argv_list,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            cwd=str(cwd) if cwd is not None else None,
+            timeout=timeout,
+            env=env,
+            check=False,
+        )
+    except FileNotFoundError as exc:
+        return CommandResult(argv=argv_list, exit_code=127, stderr=str(exc))
+    except subprocess.TimeoutExpired as exc:
+        stdout = _decode(exc.stdout)
+        stderr = _decode(exc.stderr)
+        return CommandResult(
+            argv=argv_list,
+            exit_code=124,
+            stdout=stdout,
+            stderr=stderr or f"timeout after {timeout}s",
+        )
+    return CommandResult(
+        argv=argv_list,
+        exit_code=completed.returncode,
+        stdout=completed.stdout or "",
+        stderr=completed.stderr or "",
+    )
+
+
+def parse_duration(text: str | int | float) -> int:
+    """
+    @brief      Parse a human duration ("90s", "30m", "24h", "7d", 60) to seconds.
+    @param[in]  text Duration string with an optional s/m/h/d suffix, or a number
+                     of seconds.
+    @return     The duration in whole seconds.
+    @exception  ValueError When the value cannot be parsed.
+    @author     Eng. Dan Dumitru Pasare
+    @date       2026-07-02
+    @version    0.1.0
+    """
+    if isinstance(text, int | float):
+        if text < 0:
+            raise ValueError(f"negative duration: {text!r}")
+        return int(text)
+    match = _DURATION_RE.match(text)
+    if not match:
+        raise ValueError(f"invalid duration: {text!r}")
+    value, unit = match.groups()
+    return int(value) * _DURATION_UNITS[unit.lower()]
+
+
+def utc_now_iso() -> str:
+    """
+    @brief   Current UTC time as a compact ISO-8601 string (Z suffix).
+    @return  Timestamp like "2026-07-02T14:02:33Z".
+    @author  Eng. Dan Dumitru Pasare
+    @date    2026-07-02
+    @version 0.1.0
+    """
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def iso_to_datetime(text: str) -> datetime | None:
+    """
+    @brief      Parse an ISO-8601 timestamp (Z or offset form) to aware UTC.
+    @param[in]  text Timestamp like "2026-07-02T14:02:33Z".
+    @return     The aware datetime, or None when unparseable/empty.
+    @author     Eng. Dan Dumitru Pasare
+    @date       2026-07-03
+    @version    0.1.0
+    """
+    if not text:
+        return None
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
+def in_quiet_hours(windows: Sequence[str], now: datetime | None = None) -> bool:
+    """
+    @brief      Whether the current time falls in a configured quiet window.
+    @details    Windows are "HH:MM-HH:MM" local time; a window crossing
+                midnight ("22:00-06:00") wraps. Malformed windows are ignored
+                (config validation reports them separately).
+    @param[in]  windows Window strings from [polling] quiet_hours.
+    @param[in]  now Override for tests (defaults to local now).
+    @return     True when polling should pause.
+    @author     Eng. Dan Dumitru Pasare
+    @date       2026-07-03
+    @version    0.1.0
+    """
+    moment = (now or datetime.now()).time()
+    for window in windows:
+        match = re.match(r"^(\d{2}):(\d{2})-(\d{2}):(\d{2})$", str(window))
+        if not match:
+            continue
+        h1, m1, h2, m2 = (int(part) for part in match.groups())
+        start = h1 * 60 + m1
+        end = h2 * 60 + m2
+        current = moment.hour * 60 + moment.minute
+        inside = start <= current < end if start <= end else current >= start or current < end
+        if inside:
+            return True
+    return False
+
+
+def load_env_file(path: str | Path = ".env") -> dict[str, str]:
+    """
+    @brief      Load a dotenv-style file (KEY=VALUE lines) into a mapping.
+    @details    Comments (#) and blank lines are skipped; surrounding quotes
+                on values are stripped; a missing file yields {} (secrets are
+                optional when the platform CLI auth already covers them).
+    @param[in]  path Path to the .env file.
+    @return     Mapping of the declared variables.
+    @author     Eng. Dan Dumitru Pasare
+    @date       2026-07-03
+    @version    0.1.0
+    """
+    env_path = Path(path)
+    if not env_path.is_file():
+        return {}
+    values: dict[str, str] = {}
+    for raw in env_path.read_text(encoding="utf-8", errors="replace").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        value = value.strip().strip("'\"")
+        if key:
+            values[key] = value
+    return values
+
+
+# END OF FILE

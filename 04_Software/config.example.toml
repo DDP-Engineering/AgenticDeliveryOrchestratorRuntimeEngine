@@ -1,0 +1,286 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+#
+# =============================================================================
+# ADOR example configuration.
+#
+# Copy this file to `config.toml` next to where you run `ador`, adjust the
+# values, then check it with:  ador config validate
+#
+# Rules:
+#   - Secrets (tokens, API keys) do NOT belong here; they live in the
+#     environment or a gitignored `.env` (template: `.env.example`).
+#   - Every key shown here has a sensible default; you can delete any line or
+#     whole section you do not want to override. The only values you MUST set
+#     are [platform] repo, [executor.<name>] command/model, and
+#     [delivery] reviewers.
+#   - Full reference with all defaults and rationale:
+#     00_Planning/Configuration_Reference.md
+# =============================================================================
+
+# ----- Bot identity ----------------------------------------------------------
+# Renaming the bot is a single change here: every derived identifier follows.
+[agent]
+# Display/brand string: visible comment tag ("[ADOR]"), MR/PR titles, and the
+# git commit author name.
+name = "ADOR"
+# Lowercase token deriving all local names: state dir (".ador/"), branch
+# prefix ("ador/<run-id>"), container name ("ador-run-<run-id>"), questions
+# file ("ADOR_QUESTIONS.md"), and the hidden comment marker ("<!-- ador:... -->").
+# Leave out (or empty) to derive it from `name`.
+slug = "ador"
+# Git commit author email used inside the executor container (with `name` as
+# the author name). Leave out to derive "<slug>-bot@local"; use a recognizable
+# address in production, e.g. "ador-bot@examplexdigital.fr".
+email = "ador-bot@examplexdigital.fr"
+
+# ----- Git platform ----------------------------------------------------------
+[platform]
+# Which adapter to use: "gitlab" (glab CLI) or "github" (gh CLI).
+# The matching CLI must be installed and authenticated on the host.
+kind = "gitlab"
+# Project path (GitLab: GROUP/.../PROJECT) or repository (GitHub: OWNER/REPO).
+# REQUIRED - there is no default.
+repo = "rd/internal/france/delivery-tools/delivery-cockpit/cockpit-gcp"
+
+# ----- State signaling -------------------------------------------------------
+# How run state is reflected ON THE TICKET for humans. The authoritative state
+# always lives locally under the store_root; the ticket only mirrors it.
+[state]
+# "comments" = one status comment (default; avoids label churn),
+# "labels"   = lifecycle labels only,
+# "both"     = comment and labels.
+channel = "comments"
+# In comment mode: "single-edited" keeps ONE status comment edited in place;
+# "new-per-change" posts a new comment on every state change (noisy).
+status_comment = "single-edited"
+# Local authoritative state directory (runs, lock, pause flag, metrics).
+# Leave out to derive ".<slug>".
+store_root = ".ador"
+
+# ----- Polling ---------------------------------------------------------------
+# v1 trigger is polling; no webhook or inbound service.
+[polling]
+# "loop" = long-running process sleeping between passes (service mode);
+# "once" = a single pass per invocation, scheduled externally by cron (Linux)
+#          or Task Scheduler (Windows).
+mode = "loop"
+# Base wait between poll passes, in seconds.
+poll_interval_seconds = 60
+# Random +/- jitter added to each wait, to avoid a fixed cadence.
+poll_jitter_seconds = 5
+# Lengthen the interval after Git-platform errors / rate limits.
+poll_backoff = true
+# How many tickets may be in flight at once (worktree + container each).
+max_concurrent_runs = 1
+# Windows where polling pauses entirely, e.g. ["22:00-06:00"]. Empty = never.
+quiet_hours = []
+
+# ----- Readiness filter (selection) --------------------------------------------
+# Applied AFTER the eligibility label: a ticket that is `agent-ready` but fails
+# these checks is left for a human instead of being picked.
+[readiness]
+# Skip tickets whose body has no acceptance criteria.
+require_acceptance_criteria = true
+# Require one of the priority labels (see [labels.selection]).
+require_priority_label = true
+# Require the ticket to map to a known component of the target repo.
+require_known_component = true
+# Skip tickets estimated larger than this scope hint.
+max_scope_hint = "small"
+
+# ----- Labels ------------------------------------------------------------------
+# All label STRINGS are configurable; the orchestrator refers to labels only by
+# their role, so a team can rename any label without code changes.
+
+# Lifecycle labels - managed by the orchestrator (only applied when
+# state.channel includes "labels"). `ready` and `answered` are the two a HUMAN
+# applies to move a ticket into / back into the flow.
+[labels.lifecycle]
+ready    = "agent-ready"      # eligible, not yet picked (human opt-in)
+working  = "agent-working"    # claimed - the lock against double pickup
+clarify  = "agent-clarify"    # parked, waiting on a human clarification answer
+answered = "agent-answered"   # human override: force-resume a parked run
+review   = "agent-mr"         # draft MR/PR opened, awaiting human review
+failed   = "agent-failed"     # gave up after retries/budgets, needs a human
+done     = "agent-done"       # optional: set after the human merges
+
+# Selection labels - human-managed, read at pickup for ordering and typing.
+# Priority: high wins; teams can add tiers (e.g. P0) by renaming here.
+[labels.selection]
+priority_high   = "P1"
+priority_medium = "P2"
+priority_low    = "P3"
+type_feature    = "feature"
+type_bug        = "bug"
+
+# Control labels - human overrides, checked BEFORE eligibility (they always win).
+[labels.control]
+hold    = "agent-hold"        # never pick while present, even if agent-ready
+exclude = "no-agent"          # permanently human-only, ignore always
+
+# Executor pin - optional per-ticket executor override, e.g. a ticket labelled
+# "agent-exec:opencode" forces that executor for its run.
+[labels.executor]
+prefix = "agent-exec:"
+
+# ----- Executor ----------------------------------------------------------------
+[executor]
+# Which executor to launch: "opencode" | "pi" | "codex".
+# Must have a matching [executor.<name>] table below.
+default = "opencode"
+# "thick"    = the orchestrator drives gate-by-gate and verifies in between
+#              (recommended; matches the workflow's stop-after-each-gate design).
+# "headless" = single-shot: launch once and read the final result only.
+mode = "thick"
+# File the executor writes blocking questions to before stopping; its presence
+# after a gate is the deterministic "needs clarification" signal.
+# Leave out to derive "<SLUG>_QUESTIONS.md".
+questions_file = "ADOR_QUESTIONS.md"
+# The ONLY environment variables passed into the executor container (values
+# come from the host environment or .env; design: scope secrets minimally).
+env_keys = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]
+# PILOT-ONLY: copy the host's opencode auth.json (OAuth/ChatGPT-account
+# session) into the run container at provision. Use when no provider API key
+# exists yet (Setup_And_Credentials.md 3.1). Fragile for long-running use
+# (refresh tokens rotate); production needs a real key in .env instead.
+stage_host_auth = false
+
+# One table per executor. `command` is a template; ADOR substitutes {prompt},
+# {model}, and {worktree}. SAFETY: never add --auto (it would auto-approve the
+# push/merge permissions that must stay blocked; the executor never touches
+# the remote - the orchestrator owns push and MR creation).
+[executor.opencode]
+command = "opencode run --dir {worktree} -m {model} --format json {prompt}"
+# Model in provider/model form; the provider API key comes from .env.
+model = "openai/gpt-5.4-fast"
+
+# [executor.pi] / [executor.codex] follow the same command-template shape.
+
+# ----- Clarification -----------------------------------------------------------
+# Bounds for parked runs (executor asked a question, waiting on a human).
+[clarification]
+# Ask/answer cycles allowed before the run escalates to `failed`.
+max_rounds = 3
+# Optional single nudge comment (@-mentions assignee) this long after parking.
+# Durations accept s/m/h/d suffixes, e.g. "90m", "24h", "3d".
+reminder_after = "24h"
+# Hard timeout: with no human reply for this long, post a closing comment,
+# release the ticket back to humans, and end the run.
+answer_timeout = "72h"
+# Terminal state applied on that timeout: "failed" or "stale".
+timeout_state = "failed"
+
+# ----- Container / isolation ---------------------------------------------------
+# Execution isolation: the executor always runs inside a container; the git
+# worktree is mounted in. Both exist once per run-id.
+[container]
+# "docker" | "podman", optionally wrapped when the daemon lives elsewhere -
+# e.g. Docker Engine inside WSL2 (no Docker Desktop):
+#   runtime = "wsl -d Ubuntu-24.04 -- docker"
+# In WSL mode ADOR translates mount paths (D:\x -> /mnt/d/x) and propagates
+# container env values across the WSL boundary via WSLENV automatically.
+runtime = "docker"
+# Executor image with the base tooling baked in (Python 3.11 + uv, Node 20,
+# git, executor CLI, glab/gh). Built once; never installs tooling per run.
+image = "ador-executor:latest"
+# Keep the container (stopped) when a run parks, so resume is a fast start.
+keep_parked = true
+# How the parked-container grace period is measured: "polls" | "seconds".
+parked_ttl_mode = "polls"
+# Reap (stop+remove) a parked container after this many seconds (mode=seconds)...
+parked_ttl_seconds = 7200
+# ...or after this many poll cycles without an answer (mode=polls).
+# Reaping the container never ends the run; worktree and state persist.
+parked_ttl_polls = 30
+# On park: "stopped" (keeps FS + deps, fast resume) or "removed" (free disk now).
+parked_state = "stopped"
+# Persistent cache volumes so per-run `uv sync` / `npm ci` stay fast.
+uv_cache_volume  = "ador-uv-cache"
+npm_cache_volume = "ador-npm-cache"
+
+# ----- Worktree ------------------------------------------------------------------
+[worktree]
+# Local clone of the target repository that per-run worktrees are created
+# from. REQUIRED for isolation: it is mounted (with the worktree) into the
+# executor container, so runs share its object store.
+repo_path = "../cockpit-gcp"
+# Host directory holding the per-run git worktrees (<root>/<run-id>).
+root = "worktrees"
+# Run branch name; placeholders: {slug}, {run_id}, {iid}. Must contain
+# {run_id} or {iid} (uniqueness). Adjust to the repo's naming convention,
+# e.g. a mandatory feature/ prefix:  "feature/{slug}-{iid}"
+branch_template = "{slug}/{run_id}"
+# Optional: the repo's branch-name push rule (regex). When set,
+# `ador config validate` verifies the rendered template would be ACCEPTED
+# by the rule, so a push-rule rejection can never surprise a run.
+# Example (GitLab):  branch_rule = '^(feature|bugfix|release|hotfix)\/.*$'
+branch_rule = ""
+
+# ----- Run budgets ---------------------------------------------------------------
+# Hard bounds per run; exceeding any of them escalates to `failed` instead of
+# thrashing forever.
+[budgets]
+max_iterations         = 20     # executor (re)launches per run
+max_wall_clock_seconds = 3600   # total wall-clock per run
+max_cost_usd           = 5.0    # model spend per run
+max_files_touched      = 40     # files a run may change
+
+# ----- Delivery ------------------------------------------------------------------
+# The hard boundary: ADOR opens a DRAFT MR/PR and stops. It never merges, and
+# `draft = false` is rejected by `ador config validate`.
+[delivery]
+# Branch the MR/PR targets.
+target_branch = "develop"
+# Always true: a draft cannot be merged until a human marks it ready.
+draft = true
+# Human reviewer(s) assigned to the MR/PR. REQUIRED - at least one.
+reviewers = ["dan.pasare"]
+# Delete the run branch when the human merges (GitLab option).
+remove_source_branch = true
+
+# ----- Post-MR review loop ----------------------------------------------------
+# How ADOR reacts to review feedback on its draft MR. It never auto-reacts to
+# every comment: by default a reviewer explicitly requests a revision.
+[review]
+# "label" (recommended) = reviewer applies revise_label to request changes;
+# "comment-marker" = a marked comment triggers it; "auto" = react to any
+# change-request (not recommended).
+trigger = "label"
+# The label a reviewer applies to request an agent revision.
+revise_label = "agent-revise"
+# Revise cycles before the run escalates to `failed`.
+max_review_rounds = 3
+# Optional nudge if the MR sits undecided this long.
+review_reminder_after = "48h"
+
+# ----- Reconciliation ------------------------------------------------------------
+# Reactions when the outside world changes under an active/parked run, so a
+# deleted or closed ticket never leaves a zombie run or orphaned container.
+[reconcile]
+# Ticket deleted: "abort-cleanup" (stop + remove container/worktree) | "ignore".
+on_ticket_deleted = "abort-cleanup"
+# Ticket closed by a human mid-run: "cancel" (graceful stop + comment) | "ignore".
+on_ticket_closed = "cancel"
+# Trigger label removed / hold added mid-run: "pause" | "abort" | "ignore".
+on_trigger_removed = "pause"
+
+# ----- Metrics / statistics ------------------------------------------------------
+# Standard-library-only statistics (sqlite3 + json). Access is CLI-first
+# (`ador stats`, `ador report`, `ador export`) plus an optional static HTML
+# file; there is no Prometheus endpoint or hosted service.
+[metrics]
+enabled = true
+# SQLite database of run summaries. Leave out to derive "<store_root>/metrics.db".
+db_path = ".ador/metrics.db"
+# Mirrored append-only JSONL export of the same summaries.
+export_jsonl = ".ador/metrics/runs.jsonl"
+# Record executor token usage per run/gate (from the executor CLI stats).
+capture_tokens = true
+# Probe container/disk resource stats (docker stats / disk usage).
+capture_resource = true
+# Output path for the self-contained `ador stats --html` dashboard.
+html_out = ".ador/metrics/stats.html"

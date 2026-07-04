@@ -1,0 +1,74 @@
+<!--
+Copyright (c) 2026 DDP Engineering
+This software is licensed under the PolyForm Noncommercial License 1.0.0.
+Commercial use requires a separate commercial license.
+See the LICENSE.txt file for full license details.
+SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+-->
+
+# ADOR - Agentic Delivery Orchestrator
+
+Runnable implementation of the orchestrator described in
+`00_Planning/Orchestrator_Design_And_Decisions.md`.
+
+## Package layout
+
+- `ador/` - the Python package (standard library only at runtime).
+  - `cli.py` - the `ador` command surface (argparse).
+  - `config.py` - typed `config.toml` loading and validation.
+  - `identity.py` - marker-based comment identity + slug-derived names (5c/5d).
+  - `state.py` - authoritative local run state: `.ador/runs/<run-id>/`
+    (ticket.json, state.json, journal.jsonl), run-id, content hash,
+    single-instance lock, pause flag (8a).
+  - `util.py` - injectable command runner, duration parsing, timestamps.
+  - `forge/` - Git-platform adapters: `gitlab.py` (glab) and `github.py` (gh)
+    behind one `Forge` interface. Merging is absent from the interface.
+  - `isolation.py` - per-run git worktree + executor container lifecycle
+    (mounting model: repo at `/ador/repo`, worktree at `/ador/work`,
+    git driven by GIT_DIR/GIT_WORK_TREE inside the container).
+  - `executor/` - executor launcher: headless gate launches via the
+    file-based gate protocol (gate.sh + captured event stream in the run's
+    io dir), session continuation, questions detection.
+  - `orchestrator.py` - the thick-conductor engine: polling, selection, the
+    per-gate loop, clarification park/resume, budgets, ticket signaling.
+  - `gates.py` - `.agentic` workflow CLI wrappers (the conductor's
+    verification between gates).
+  - `metrics.py` - SQLite run statistics. *(stub)*
+- `docker/` - `Dockerfile.executor` for the `ador-executor:latest` image
+  (Python 3.11 + uv, Node 20, git, opencode, glab/gh) plus build docs.
+- `config.example.toml` - example configuration (copy to `config.toml`).
+- `.env.example` - the canonical list of required secrets.
+- `tests/` - offline unit tests (adapters run against a fake command runner).
+
+## Implementation phases
+
+1. **Base services (done):** util, config, identity, state store, forge
+   adapters, CLI wiring for `config` / `status` / `runs` / `pause` / `resume`.
+2. **Isolation + executor launcher (done, live-verified):** worktree +
+   container lifecycle, the executor image, and the opencode gate launcher.
+3. **The thick-conductor engine (done, live-piloted on ticket #45):**
+   polling, selection, per-gate loop with verification and budgets,
+   clarification park/resume, TTL/timeouts, cancel/retry. Wired to
+   `ador run --loop|--once|--dry-run`, `cancel`, `retry`, `logs`, `delete`.
+4. **Delivery (done):** the 11a sequence - merge target branch (executor
+   resolves conflicts), re-run gates, delivery-preflight, push, DRAFT MR
+   with reviewers, environment retained; post-MR merge/close detection
+   completes or ends the run. Still pending: the revise cycle
+   (agent-revise), metrics - `stats`/`report`/`export`/`cleanup`/`reset`
+   still exit 2.
+
+## Development
+
+```bash
+uv run --group dev pytest        # tests
+uv run --group dev ruff check .  # lint
+uv run ador -c config.example.toml config validate
+```
+
+Testing convention (see the Testing Rules in the repository `AGENTS.md`):
+every public behavior gets a happy-path test plus negative tests at its trust
+boundaries (CLI output, config files, human comments, persisted state), and
+corrupt input must fail closed with a typed error (`StateError`, `ForgeError`).
+
+Runtime target: Python 3.11+; runs on Ubuntu 22 (production) and Windows 11
+(first tests).

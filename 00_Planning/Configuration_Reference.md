@@ -18,6 +18,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 [agent]
 name = "ADOR"                 # display/brand: comment tags, MR titles, commit author
 slug = "ador"                 # derived names: .ador/ state dir, branch, container, marker
+email = "ador-bot@example.com"  # commit author email in the container (derived if empty)
 
 # ----- Git platform -----
 [platform]
@@ -76,6 +77,8 @@ prefix = "agent-exec:"       # e.g. "agent-exec:opencode"
 default        = "opencode"  # "opencode" | "pi" | "codex"
 mode           = "thick"     # "thick" (gate-by-gate) | "headless" (single-shot)
 questions_file = "ADOR_QUESTIONS.md"
+env_keys       = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]  # only these reach the container
+stage_host_auth = false      # pilot-only OAuth bridge (see Setup_And_Credentials.md 3.1)
 
 [executor.opencode]
 command = "opencode run --model {model} \"{prompt}\""
@@ -103,7 +106,13 @@ uv_cache_volume    = "ador-uv-cache"
 npm_cache_volume   = "ador-npm-cache"
 
 [worktree]
-root = "worktrees"           # host dir holding per-run git worktrees
+repo_path = "../cockpit-gcp" # local clone the run worktrees are created from (required)
+root      = "worktrees"      # host dir holding per-run git worktrees
+branch_template = "{slug}/{run_id}"  # run branch name; {slug}/{run_id}/{iid} placeholders
+                                     # e.g. "feature/{slug}-{iid}" for feature/-prefix push rules
+branch_rule = ""             # optional: the repo's branch push-rule regex; validation
+                             # rejects a template the rule would reject, e.g.
+                             # '^(feature|bugfix|release|hotfix)\/.*$' (cockpit-gcp)
 
 # ----- Run budgets -----
 [budgets]
@@ -148,6 +157,7 @@ html_out         = ".ador/metrics/stats.html"
 |---|---|---|
 | `name` | Display/brand string; appears in comment tags, MR/PR titles, commit author. `ADOR` = Agentic Delivery Orchestrator by examplex. | `"ADOR"` |
 | `slug` | Lowercase token that derives the state dir (`.<slug>/`), branch prefix, container name, questions file, and comment marker. Derived from `name` if empty. | `"ador"` |
+| `email` | Git commit author email inside the executor container (`name` is the author name). Derived as `<slug>-bot@local` if empty. | (derived) |
 
 ## `[platform]` - Git Platform Selection
 
@@ -206,7 +216,9 @@ teams can rename without code changes; the orchestrator refers to labels by role
 | `default` | Which executor to launch (`opencode` / `pi` / `codex`). | `"opencode"` |
 | `mode` | `thick` = orchestrator drives gate-by-gate; `headless` = single-shot. | `"thick"` |
 | `questions_file` | File the executor writes clarification questions to. | `"ADOR_QUESTIONS.md"` |
-| `[executor.<name>].command` | Command template for that executor; `{prompt}`, `{model}` substituted. | per executor |
+| `env_keys` | The only environment variables (from host env / `.env`) injected into the executor container. | `["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]` |
+| `stage_host_auth` | Pilot-only: copy the host's opencode `auth.json` (OAuth session) into the run container at provision (see Setup_And_Credentials.md 3.1). | `false` |
+| `[executor.<name>].command` | Command template for that executor; `{prompt}` (shell-quoted), `{model}`, and `{worktree}` (container path `/ador/work`) substituted. `--auto` is forbidden (it would auto-approve the executor's own push/merge). | per executor |
 | `[executor.<name>].model` | Model/provider string for that executor. | (required) |
 
 ## `[clarification]` - Clarification
@@ -222,7 +234,7 @@ teams can rename without code changes; the orchestrator refers to labels by role
 
 | Key | Meaning | Default |
 |---|---|---|
-| `runtime` | Container runtime. | `"docker"` |
+| `runtime` | Container runtime command: `docker` / `podman`, optionally wrapped, e.g. `"wsl -d Ubuntu-24.04 -- docker"` for Docker Engine inside WSL2 (ADOR then translates mount paths and propagates env via WSLENV). | `"docker"` |
 | `image` | Executor image (base tooling baked in). | `"ador-executor:latest"` |
 | `keep_parked` | Keep (stopped) the container after parking instead of removing. | `true` |
 | `parked_ttl_mode` | Grace period unit: `seconds` or `polls`. | `"polls"` |
@@ -236,7 +248,10 @@ teams can rename without code changes; the orchestrator refers to labels by role
 
 | Key | Meaning | Default |
 |---|---|---|
+| `repo_path` | Local clone of the target repository that per-run worktrees are created from; mounted (with the worktree) into the executor container. | (required) |
 | `root` | Host directory holding per-run git worktrees (`<root>/<run-id>`). | `"worktrees"` |
+| `branch_template` | Run branch name; `{slug}`, `{run_id}`, `{iid}` placeholders (must keep `{run_id}` or `{iid}` for uniqueness). Set e.g. `"feature/{slug}-{iid}"` for repos whose push rules require a `feature/` prefix. | `"{slug}/{run_id}"` |
+| `branch_rule` | Optional regex mirroring the repo's branch-name push rule (cockpit-gcp: `^(feature\|bugfix\|release\|hotfix)\/.*$`); validation rejects a template the rule would reject. | `""` |
 
 ## `[budgets]` - Run Budgets
 

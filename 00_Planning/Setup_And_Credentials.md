@@ -136,6 +136,49 @@ model-provider API key. This is the credential you almost certainly must supply.
   command template in `config.toml` selects the tool.
 - **Never bake keys into the container image.** Pass them at launch only.
 
+### 3.1 OAuth (ChatGPT account) vs API key - finding 2026-07-03
+
+The current dev host's opencode auth is **`type=oauth`** (a ChatGPT-account
+login: rotating access + refresh tokens in
+`~/.local/share/opencode/auth.json`), **not an API key**. There is no
+`sk-...` string to put into `.env` - `OPENAI_API_KEY` only works with a real
+API key. The options:
+
+1. **API key (required for production).** Create a key on
+   platform.openai.com (API billing is separate from the ChatGPT
+   subscription; for corporate use, a company OpenAI API account or internal
+   gateway key). `OPENAI_API_KEY=sk-...` in `.env`; ADOR injects it into the
+   container; opencode reads it from the environment. Per-token billing is
+   what the `max_cost_usd` run budget bounds. Put this on the security
+   sign-off list.
+2. **Stage the host OAuth session (pilot-only).** Copy the host `auth.json`
+   into the container at provision (the 2026-07-03 spike did this manually;
+   now available as `[executor] stage_host_auth = true`). Caveats: the refresh
+   token **rotates** - container and host sessions can invalidate each
+   other, so it is fragile for anything long-running; and subscription
+   accounts are intended for interactive use, so an unattended service on
+   one is shaky both technically and terms-wise. Acceptable for crawl-phase
+   tests on the dev machine only.
+3. **A different provider with a plain API key** (e.g. `ANTHROPIC_API_KEY`,
+   or a direct DeepSeek key) - same `.env` mechanism, different `model =`
+   in `config.toml`. Note the "free" DeepSeek route *through opencode's
+   gateway* also needs an opencode OAuth login, so it shares option 2's
+   problem; a direct provider key does not.
+4. **opencode's free gateway models** (verified available 2026-07-03:
+   `opencode/nemotron-3-ultra-free`, `opencode/deepseek-v4-flash-free`,
+   `opencode/mimo-v2.5-free`, `opencode/north-mini-code-free`). Needs a
+   one-time `opencode auth login` for the opencode provider on the host;
+   `stage_host_auth` then carries it into the container unchanged - and an
+   opencode account avoids the ChatGPT subscription-terms concern entirely.
+   Caveats: free-tier rate limits and weaker gate-work quality (pilots yes,
+   real tickets to be assessed), and **data flow**: corporate code routes
+   through opencode's gateway to the upstream provider on a free tier -
+   needs the same security sign-off as any provider before non-throwaway
+   use.
+
+**Decision pending:** which option the pilot and production use. Until then,
+runs launched by ADOR need one of the above arranged manually.
+
 ## 4. Git Identity for the Bot
 
 Not a secret, but required so commits are attributed consistently:
