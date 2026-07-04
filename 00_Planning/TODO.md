@@ -8,6 +8,11 @@ The orchestrator's own stdout isn't persisted by ADOR itself — fine interactiv
 ## Implement for podman
 
 ## how the ADOR will be deployed? Scripts?
+   DONE 2026-07-04: 04_Software/deploy/ - install-ubuntu.sh (+ ador.service
+   systemd template) and install-windows.ps1 (Task Scheduler: loop at logon
+   or repeating --once). See deploy/README.md and Component_Deployment.md.
+   Note: deployment does NOT change the egress posture - the allowlist-proxy
+   decision below still gates unattended running.
 
 ## Create interface for PI Agent and Qwen Code
 
@@ -74,9 +79,11 @@ worktree immediately after `docker rm -f` can fail with ENOSYS ("Function not
 implemented") because the container's 9P bind-mount on the directory has not
 fully released yet; seconds later everything succeeds. The run still ends
 correctly (`done`; failure only logged), but a husk directory can remain.
-Fix ideas: short retry/backoff on worktree removal after container removal,
-and make the pending `ador cleanup` sweep exactly this (deregistered-but-
-present worktree dirs, stale locks, orphaned containers).
+PARTLY COVERED 2026-07-04: `ador cleanup` is implemented and sweeps exactly
+this (deregistered-but-present worktree dirs via a read-only-tolerant
+rmtree, stale instance locks, orphaned containers; active runs and corrupt
+state are never touched). Still open: an automatic short retry/backoff on
+worktree removal right after container removal, so the husk never forms.
 
 -----------------------------------
 

@@ -13,10 +13,11 @@
 @details The CommandRunner protocol lets every shell-out (glab/gh/git/docker)
          be injected and faked in tests. Output is always captured, never
          streamed (see Prerequisites_Check_Report.md finding on buffering).
-         Also: timestamps, quiet-hours windows, and dotenv loading.
+         Also: timestamps, quiet-hours windows, dotenv loading, and the
+         read-only-tolerant force_rmtree used by teardown and cleanup.
 @author Eng. Dan Dumitru Pasare
-@date 2026-07-02
-@version 0.1.1
+@date 2026-07-04
+@version 0.2.0
 """
 
 from __future__ import annotations

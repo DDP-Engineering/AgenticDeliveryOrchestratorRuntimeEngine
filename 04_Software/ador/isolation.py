@@ -22,8 +22,8 @@
          WSL mode mount sources are translated to /mnt/<drive>/ paths and
          env-value propagation crosses the WSL boundary via WSLENV.
 @author Eng. Dan Dumitru Pasare
-@date 2026-07-03
-@version 0.1.2
+@date 2026-07-04
+@version 0.2.0
 """
 
 from __future__ import annotations

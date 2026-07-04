@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Util (`ador/util.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/ador/util.py` - file version 0.1.0.
+> Source: `04_Software/ador/util.py` - file version 0.2.0.
 
 ## 1. Purpose
 
@@ -26,7 +26,15 @@ docker, the executor CLI) happens in exactly one place with one error model.
   unit-tested offline with a fake runner.
 - Parse duration strings ("90s", "30m", "24h", "7d", bare seconds) to
   seconds (`parse_duration`).
-- Produce compact UTC ISO-8601 timestamps (`utc_now_iso`).
+- Produce compact UTC ISO-8601 timestamps (`utc_now_iso`) and parse them
+  back to aware datetimes (`iso_to_datetime`).
+- Evaluate `[polling] quiet_hours` windows, including windows crossing
+  midnight (`in_quiet_hours`).
+- Load dotenv-style secret files (`load_env_file`; missing file = `{}`).
+- Remove directory trees that contain read-only entries
+  (`force_rmtree` - Windows git objects are read-only and plain
+  `shutil.rmtree` fails on them; missing paths are fine, so teardown and
+  `ador cleanup` stay idempotent).
 
 Explicitly not owned: interpreting command output (each caller parses its own
 JSON/URLs) and retry/backoff policy (the orchestrator's concern).

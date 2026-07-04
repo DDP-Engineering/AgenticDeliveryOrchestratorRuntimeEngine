@@ -147,6 +147,13 @@ findings fixed with regression tests along the way). The post-MR revise cycle wa
 the human merge closed the full lifecycle. Metrics (design 13) are
 implemented: per-launch usage journaling, SQLite run summaries at terminal
 states, `ador stats|report|export` + static HTML dashboard (pilot run
-backfilled via `stats --rebuild`). Still pending: `reset`/`cleanup` CLI,
-deployment scripts, and the security decisions in 00_Planning/TODO.md
-(container egress allowlist, executor credentials).
+backfilled via `stats --rebuild`). The operator commands are wired:
+`ador reset <run-id> --to <stage> --force` (state surgery, then `ador
+retry`) and `ador cleanup` (stale lock, orphaned containers, orphaned/husk
+worktrees; corrupt state reported, never auto-deleted). The full design-12a
+CLI surface is implemented except `config set`. Deployment scripts are in
+`04_Software/deploy/` (design 12a): systemd unit + installer for Ubuntu 22+,
+Task Scheduler installer for Windows 11 (loop at logon or repeating
+`--once`), both fail-fast/idempotent, secrets never in argv. Still pending:
+the security decisions in 00_Planning/TODO.md (container egress allowlist
+before unattended running, executor credentials).

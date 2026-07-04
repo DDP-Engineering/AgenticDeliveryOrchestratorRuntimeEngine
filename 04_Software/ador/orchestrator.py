@@ -19,8 +19,8 @@
          labels, and timestamps. All collaborators are injected so the whole
          machine is unit-testable offline.
 @author Eng. Dan Dumitru Pasare
-@date 2026-07-03
-@version 0.2.0
+@date 2026-07-04
+@version 0.3.0
 """
 
 from __future__ import annotations

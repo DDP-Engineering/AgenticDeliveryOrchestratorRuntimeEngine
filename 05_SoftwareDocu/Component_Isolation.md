@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Isolation (`ador/isolation.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/ador/isolation.py` - file version 0.1.1.
+> Source: `04_Software/ador/isolation.py` - file version 0.2.0.
 > Design: Orchestrator_Design_And_Decisions.md sections 8b, 10, 10a.
 > Image: `04_Software/docker/Dockerfile.executor` (see `docker/README.md`).
 
@@ -32,11 +32,15 @@ guardrails, not a sandbox (design 10).
   max_files_touched budget), the delivery git plumbing - `merge` (conflict =
   data, left in progress for the executor), `merge_in_progress`, and `push`
   (the ONLY remote-writing git call in ADOR) - plus the committed-state
-  checks `is_dirty` / `commits_ahead`.
+  checks `is_dirty` / `commits_ahead`, and `list_dirs` (every directory
+  under the worktrees root, including husks deregistered but not deleted
+  after the WSL bind-mount teardown race - the input `ador cleanup` sweeps).
 - `ContainerManager(runtime, image, uv_cache_volume, npm_cache_volume)` -
   container lifecycle: `ensure_volumes`, idempotent `provision`
   (running -> no-op, stopped -> start, absent -> create), `start` / `stop`
-  (park) / `remove` (reap), `status`, and `exec` (the seam the executor
+  (park) / `remove` (reap), `status`, `list_containers(prefix)` (all
+  containers in any state whose name starts with `<slug>-run-`; feeds
+  `ador cleanup`'s orphan sweep), and `exec` (the seam the executor
   launcher runs commands through).
 - `build_container_env(git_dir_name, git_name, git_email)` - the git
   environment injected at provision (see section 3).

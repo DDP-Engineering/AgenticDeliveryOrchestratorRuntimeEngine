@@ -37,6 +37,9 @@ Runnable implementation of the orchestrator described in
     mirror, aggregation, CSV export, static HTML dashboard.
 - `docker/` - `Dockerfile.executor` for the `ador-executor:latest` image
   (Python 3.11 + uv, Node 20, git, opencode, glab/gh) plus build docs.
+- `deploy/` - deployment scripts (design 12a): `install-ubuntu.sh` +
+  `ador.service` (systemd), `install-windows.ps1` (Task Scheduler), and the
+  deployment procedure in `deploy/README.md`.
 - `config.example.toml` - example configuration (copy to `config.toml`).
 - `.env.example` - the canonical list of required secrets.
 - `tests/` - offline unit tests (adapters run against a fake command runner).
@@ -59,8 +62,15 @@ Runnable implementation of the orchestrator described in
    delivery tail -> same MR updated, bounded by max_review_rounds).
 5. **Metrics (done):** per-launch token usage journaled, run summaries in
    SQLite at terminal states, `ador stats|report|export` + static HTML.
-   Still pending: `cleanup`/`reset` (exit 2), deployment scripts, and the
-   security decisions in 00_Planning/TODO.md.
+6. **Operator commands (done):** `ador reset <run-id> --to <stage> --force`
+   (state surgery; follow with `ador retry`) and `ador cleanup` (stale lock,
+   orphaned containers, orphaned/husk worktrees; corrupt state reported,
+   never auto-deleted).
+7. **Deployment (done):** `deploy/` scripts for both hosts - systemd unit on
+   Ubuntu 22+, Task Scheduler (loop at logon or repeating `--once`) on
+   Windows 11; fail-fast prerequisite checks, locked env sync, config
+   validation, image build/verify. Still pending: the security decisions in
+   00_Planning/TODO.md (container egress allowlist before unattended runs).
 
 ## Development
 

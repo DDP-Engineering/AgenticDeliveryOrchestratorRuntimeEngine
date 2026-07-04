@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Orchestrator (`ador/orchestrator.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/ador/orchestrator.py` - file version 0.2.0.
+> Source: `04_Software/ador/orchestrator.py` - file version 0.3.0.
 > Design: Orchestrator_Design_And_Decisions.md sections 5a, 7a, 8, 9, 10.
 
 ## 1. Purpose
@@ -61,8 +61,15 @@ the executor.
 - **Ticket signaling** (design 5d): one status comment edited in place
   and/or lifecycle-label transitions, per `[state] channel`; signaling
   failures never break a run - local state is authoritative.
-- **Operator commands** (design 8c): `cancel` (teardown, keep state) and
-  `retry` (re-arm from the stored stage), used by the CLI.
+- **Operator commands** (design 8c), used by the CLI: `cancel` (teardown,
+  keep state), `retry` (re-arm from the stored stage), `reset` (state
+  surgery - force the stage pointer to any gate or `delivery`, leave the run
+  failed/retry-able; `ador retry` then conducts from exactly that stage),
+  and `cleanup` (garbage collection - clear a stale instance lock, remove
+  containers and worktree directories whose runs are terminal or unknown,
+  including husk directories left by the WSL bind-mount teardown race).
+  Cleanup never touches active runs (working/parked/in-review/validated)
+  and only reports corrupt run state - deleting that is `delete`'s job.
 
 - **Delivery** (design 11a, exact order): fetch + merge the target branch
   (conflicts -> executor resolves, budget-bounded), re-run `gates run`, the
