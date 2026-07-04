@@ -76,10 +76,18 @@ the executor.
   iid - merged -> `done` + full teardown (state kept for audit); closed
   without merge -> `failed` + teardown. Legacy `validated` runs from before
   phase 4 are delivered by reconciliation.
+- **The revise cycle** (design 11b): the `agent-revise` label on the open MR
+  is the trigger - a plain comment never auto-reacts. Exact order: rounds
+  cap (`max_review_rounds` -> failed), clear the trigger label FIRST,
+  restart the retained environment, launch the executor with the MR review
+  thread, then re-run the delivery tail (merge, gates, preflight, push to
+  the SAME branch - the MR updates in place and stays draft) and post the
+  kind=delivery update comment. Revise questions park into the normal
+  clarification flow. Trigger modes `comment-marker`/`auto` are treated as
+  `label` until implemented.
 
 Explicitly not owned: merging (structurally absent from the forge
-interface), the revise cycle (agent-revise label -> rework; next
-increment), and metrics.
+interface) and metrics.
 
 ## 3. Implementation Overview
 

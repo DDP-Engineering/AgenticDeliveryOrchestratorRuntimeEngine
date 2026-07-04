@@ -47,6 +47,12 @@ change as the component (see the Documentation Rules in the repository
 - `Component_Gates.md` - the .agentic workflow CLI wrappers (the conductor's
   objective verification between gates) (`ador/gates.py`).
 
+## Component documentation (phase 4 - delivery and observability)
+
+- `Component_Metrics.md` - statistics capture and query: journal -> SQLite
+  run summaries, stats/report/export CLI, static HTML dashboard
+  (`ador/metrics.py`).
+
 ## Planned contents (later phases)
 
 - `State_Machine.md` - the run states and transitions (pick, isolate, gate loop,
@@ -54,5 +60,3 @@ change as the component (see the Documentation Rules in the repository
   that bound them.
 - `Idempotency_And_Recovery.md` - how the orchestrator recovers after a restart
   without double-posting comments or re-opening MRs.
-- Component documents for delivery and metrics as those components are
-  implemented (phase 4).

@@ -26,6 +26,7 @@
 from __future__ import annotations
 
 # IMPORTS
+import json
 from pathlib import Path
 import re
 import shlex
@@ -155,6 +156,7 @@ class OpencodeExecutor(Executor):
             return self.run_gate(execute, worktree, io_dir, prompt,
                                  session="", timeout=timeout)
         questions = self._read(questions_path)
+        tokens_in, tokens_out, cost = self._extract_usage(output)
         return GateRun(
             exit_code=result.exit_code,
             has_questions=questions_path.is_file(),
@@ -162,6 +164,9 @@ class OpencodeExecutor(Executor):
             session_id=self._extract_session_id(output) or session,
             output=output,
             stderr=stderr,
+            tokens_in=tokens_in,
+            tokens_out=tokens_out,
+            cost_usd=cost,
         )
 
     # -- internals ------------------------------------------------------------------
@@ -180,6 +185,36 @@ class OpencodeExecutor(Executor):
             return path.read_text(encoding="utf-8", errors="replace")
         except OSError:
             return ""
+
+    @staticmethod
+    def _extract_usage(output: str) -> tuple[int, int, float]:
+        """
+        @brief      Sum token usage and cost from the event stream.
+        @details    opencode's step_finish events carry
+                    part.tokens{input,output,...} and part.cost (schema
+                    pinned live 2026-07-03). Tolerant of malformed lines -
+                    usage capture must never break a gate.
+        @param[in]  output Raw --format json event stream text.
+        @return     (tokens_in, tokens_out, cost_usd) totals for the launch.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-04
+        @version    0.1.0
+        """
+        tokens_in = tokens_out = 0
+        cost = 0.0
+        for line in output.splitlines():
+            line = line.strip()
+            if not line or '"tokens"' not in line:
+                continue
+            try:
+                part = json.loads(line).get("part", {})
+            except (json.JSONDecodeError, AttributeError):
+                continue
+            tokens = part.get("tokens") or {}
+            tokens_in += int(tokens.get("input", 0) or 0)
+            tokens_out += int(tokens.get("output", 0) or 0)
+            cost += float(part.get("cost", 0) or 0)
+        return tokens_in, tokens_out, cost
 
     @staticmethod
     def _extract_session_id(output: str) -> str:

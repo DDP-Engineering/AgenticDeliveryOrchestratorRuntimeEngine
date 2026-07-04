@@ -256,6 +256,31 @@ def test_session_not_found_self_heals_with_fresh_session(tmp_path: Path) -> None
     assert "--session" not in calls[1]
 
 
+def test_usage_extraction_from_event_stream(tmp_path: Path) -> None:
+    """
+    @brief   step_finish token/cost totals are summed into the GateRun;
+             malformed lines never break the gate (design 13).
+    @version 0.1.0
+    """
+    worktree, io_dir = _dirs(tmp_path)
+
+    def write_stream() -> None:
+        (io_dir / OUTPUT_FILE).write_text(
+            '{"type":"step_finish","part":{"tokens":{"input":100,"output":20},'
+            '"cost":0.01},"sessionID":"s"}\n'
+            "not json with tokens keyword\n"
+            '{"type":"step_finish","part":{"tokens":{"input":200,"output":30},'
+            '"cost":0.02}}\n',
+            encoding="utf-8",
+        )
+
+    run = _executor().run_gate(FakeExec(CommandResult(exit_code=0), write_stream),
+                               worktree, io_dir, "p")
+    assert run.tokens_in == 300
+    assert run.tokens_out == 50
+    assert abs(run.cost_usd - 0.03) < 1e-9
+
+
 def test_auto_flag_is_rejected_at_construction() -> None:
     """
     @brief   --auto in the command template fails closed immediately: it

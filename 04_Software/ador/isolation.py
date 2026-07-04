@@ -272,6 +272,20 @@ class WorktreeManager:
                 return Path(gitdir).name
         raise IsolationError(f"worktree pointer has no gitdir line for run {run_id!r}")
 
+    def list_dirs(self) -> list[Path]:
+        """
+        @brief   Directories currently under the worktrees root.
+        @details Includes husks (deregistered but not deleted, e.g. after the
+                 WSL bind-mount race) - exactly what `ador cleanup` sweeps.
+        @return  Child directories, sorted.
+        @author  Eng. Dan Dumitru Pasare
+        @date    2026-07-04
+        @version 0.1.0
+        """
+        if not self.root.is_dir():
+            return []
+        return sorted(entry for entry in self.root.iterdir() if entry.is_dir())
+
     def fetch(self, remote: str = "origin") -> None:
         """
         @brief      Fetch the remote into the local clone.
@@ -506,6 +520,22 @@ class ContainerManager:
         if any(marker in text for marker in _ABSENT_MARKERS):
             return "absent"
         raise IsolationError(f"{self.runtime} inspect failed", result.argv, result.stderr)
+
+    def list_containers(self, prefix: str) -> list[str]:
+        """
+        @brief      Names of all containers (any state) with a name prefix.
+        @param[in]  prefix Container-name prefix ("<slug>-run-").
+        @return     Matching container names.
+        @exception  IsolationError When the runtime fails.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-04
+        @version    0.1.0
+        """
+        result = self._run(
+            [*self.runtime_argv, "ps", "--all",
+             "--filter", f"name={prefix}", "--format", "{{.Names}}"]
+        )
+        return [line.strip() for line in result.stdout.splitlines() if line.strip()]
 
     def ensure_volumes(self) -> None:
         """

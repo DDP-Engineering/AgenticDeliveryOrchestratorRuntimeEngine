@@ -143,7 +143,10 @@ and budgets, clarification park/resume, TTL/timeouts) wired to the CLI.
 Phases 3 and 4 were live-piloted END TO END on a real ticket: #45 went from
 the `agent-ready` label to draft MR !29 on the real repository, fully
 conducted by ADOR (prereq report sections 15-16, including all ten hardening
-findings fixed with regression tests along the way). Still pending: the
-post-MR revise cycle (agent-revise label), metrics, the remaining CLI stubs
-(`reset`/`cleanup`/`stats`/`report`/`export`), and the security decisions in
-00_Planning/TODO.md (container egress allowlist, executor credentials).
+findings fixed with regression tests along the way). The post-MR revise cycle was live-verified (MR !29 revised on request) and
+the human merge closed the full lifecycle. Metrics (design 13) are
+implemented: per-launch usage journaling, SQLite run summaries at terminal
+states, `ador stats|report|export` + static HTML dashboard (pilot run
+backfilled via `stats --rebuild`). Still pending: `reset`/`cleanup` CLI,
+deployment scripts, and the security decisions in 00_Planning/TODO.md
+(container egress allowlist, executor credentials).

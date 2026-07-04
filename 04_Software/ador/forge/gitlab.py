@@ -235,7 +235,50 @@ class GitLabForge(Forge):
             state=data.get("state", "opened"),
             web_url=data.get("web_url", ""),
             draft=bool(data.get("draft", data.get("work_in_progress", False))),
+            labels=list(data.get("labels") or []),
         )
+
+    def list_mr_comments(self, mr_iid: int) -> list[Comment]:
+        """
+        @brief      Read all MR notes oldest-first via the notes API.
+        @param[in]  mr_iid MR iid.
+        @return     All notes, system notes flagged.
+        @exception  ForgeError When glab fails.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-04
+        @version    0.1.0
+        """
+        endpoint = (
+            f"projects/{self._project_enc}/merge_requests/{mr_iid}/notes"
+            "?order_by=created_at&sort=asc&per_page=100"
+        )
+        result = self._run(["glab", "api", endpoint])
+        return [
+            Comment(
+                id=int(note["id"]),
+                body=note.get("body", ""),
+                author=(note.get("author") or {}).get("username", ""),
+                created_at=note.get("created_at", ""),
+                system=bool(note.get("system", False)),
+            )
+            for note in self._parse_json(result, list)
+        ]
+
+    def remove_mr_labels(self, mr_iid: int, labels: list[str]) -> None:
+        """
+        @brief      Remove MR labels via the API (PUT remove_labels).
+        @param[in]  mr_iid MR iid.
+        @param[in]  labels Labels to remove.
+        @exception  ForgeError When glab fails.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-04
+        @version    0.1.0
+        """
+        if not labels:
+            return
+        endpoint = f"projects/{self._project_enc}/merge_requests/{mr_iid}"
+        self._run(["glab", "api", "--method", "PUT", endpoint,
+                   "--raw-field", f"remove_labels={','.join(labels)}"])
 
     def open_merge_request(
         self,

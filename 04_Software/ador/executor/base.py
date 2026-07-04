@@ -85,6 +85,9 @@ class GateRun:
     session_id: str = ""
     output: str = ""
     stderr: str = ""
+    tokens_in: int = 0
+    tokens_out: int = 0
+    cost_usd: float = 0.0
 
     @property
     def ok(self) -> bool:

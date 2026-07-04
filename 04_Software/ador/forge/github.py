@@ -249,6 +249,39 @@ class GitHubForge(Forge):
             state="opened" if state == "open" else state,
             web_url=data.get("url", ""),
             draft=bool(data.get("isDraft", False)),
+            labels=[label["name"] for label in data.get("labels") or []],
+        )
+
+    def list_mr_comments(self, mr_iid: int) -> list[Comment]:
+        """
+        @brief      Read PR conversation comments oldest-first (REST API).
+        @details    PRs are issues on GitHub, so the issues comments endpoint
+                    covers the conversation; inline review-thread comments
+                    are a later refinement.
+        @param[in]  mr_iid PR number.
+        @return     All conversation comments.
+        @exception  ForgeError When gh fails.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-04
+        @version    0.1.0
+        """
+        return self.list_comments(mr_iid)
+
+    def remove_mr_labels(self, mr_iid: int, labels: list[str]) -> None:
+        """
+        @brief      Remove PR labels via `gh pr edit --remove-label`.
+        @param[in]  mr_iid PR number.
+        @param[in]  labels Labels to remove.
+        @exception  ForgeError When gh fails.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-04
+        @version    0.1.0
+        """
+        if not labels:
+            return
+        self._run(
+            ["gh", "pr", "edit", str(mr_iid), "--repo", self.repo,
+             "--remove-label", ",".join(labels)]
         )
 
     def open_merge_request(

@@ -28,10 +28,16 @@ the GitLab instance it runs on today and GitHub.
   - signaling: `list_comments(iid)`, `post_comment(iid, body)`,
     `edit_comment(iid, comment_id, body)`, `add_labels` / `remove_labels`;
   - delivery: `open_merge_request(source, target, title, body, draft=True,
-    reviewers, remove_source_branch)` and `get_merge_request(ref)` (by
+    reviewers, remove_source_branch, cwd)` and `get_merge_request(ref)` (by
     iid/number or source branch; branch lookup finds only OPEN MRs, so the
-    post-MR poll uses the stored iid). `MergeRequest` state is normalized to
-    opened/merged/closed.
+    post-MR poll uses the stored iid). `MergeRequest` carries the normalized
+    state (opened/merged/closed) and the labels (the revise trigger reads
+    them);
+  - review loop: `list_mr_comments(mr_iid)` (the review thread fed to the
+    executor; GitHub v1 covers conversation comments, inline review threads
+    are a refinement) and `remove_mr_labels(mr_iid, labels)` (clears the
+    revise trigger; GitLab via API PUT remove_labels, GitHub via
+    `gh pr edit --remove-label`).
 - `GitLabForge` (`gitlab.py`, over `glab`) and `GitHubForge` (`github.py`,
   over `gh`) implement it; `build_forge(kind, repo, runner)` selects one from
   `[platform]` config.

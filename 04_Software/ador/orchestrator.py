@@ -36,7 +36,7 @@ import re
 import shutil
 import time
 
-from ador import gates
+from ador import gates, metrics
 from ador.config import Config
 from ador.executor.base import Executor
 from ador.executor.launcher import build_executor
@@ -49,7 +49,13 @@ from ador.isolation import (
     build_container_env,
 )
 from ador.state import RunState, StateError, StateStore, content_hash, derive_run_id
-from ador.util import in_quiet_hours, iso_to_datetime, load_env_file, utc_now_iso
+from ador.util import (
+    force_rmtree,
+    in_quiet_hours,
+    iso_to_datetime,
+    load_env_file,
+    utc_now_iso,
+)
 
 # CONSTANTS
 
@@ -88,6 +94,12 @@ _GATE_GOALS = {
         "Run the VALIDATION gate: run invariants, audit traceability, audit "
         "coverage, impact, and gates run; inspect the diff for scope creep, "
         "weakened assertions, and secrets."
+    ),
+    "revise": (
+        "A human reviewer requested changes on the draft merge request (the "
+        "review thread is above). Make exactly the requested changes - no "
+        "more - update tests and workflow evidence accordingly, re-run the "
+        "gates, and commit everything."
     ),
 }
 
@@ -245,7 +257,8 @@ class Orchestrator:
             own_lock = True
         try:
             summary: dict = {"resumed": 0, "reaped": 0, "timed_out": 0,
-                             "done": 0, "mr_closed": 0, "picked": None}
+                             "done": 0, "mr_closed": 0, "revised": 0,
+                             "picked": None}
             if not dry_run:
                 self._reconcile_parked(summary)
             if self.store.is_paused():
@@ -288,6 +301,7 @@ class Orchestrator:
         self.store.save(run)
         self.store.journal(run_id, "cancelled", outcome=outcome)
         self._try_mark(run, outcome, run.stage)
+        self._record_metrics(run)
         self.log(f"{run_id}: cancelled ({outcome})")
         return True
 
@@ -320,6 +334,78 @@ class Orchestrator:
         else:
             self._conduct(run, ticket)
         return True
+
+    def reset(self, run_id: str, stage: str) -> bool:
+        """
+        @brief      State surgery (design 8c): force a run back to a stage.
+        @details    Sets the stage pointer and leaves the run retry-able
+                    (`ador retry` then re-arms budgets and conducts from
+                    there). Destructive by nature - the CLI requires --force.
+        @param[in]  run_id Stable run identifier.
+        @param[in]  stage Target stage (a gate name or "delivery").
+        @return     True when the run existed and the stage is valid.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-04
+        @version    0.1.0
+        """
+        if stage not in (*GATES, "delivery"):
+            self.log(f"invalid stage {stage!r}; valid: {', '.join(GATES)}, delivery")
+            return False
+        try:
+            run = self.store.load(run_id)
+        except (FileNotFoundError, StateError):
+            return False
+        run.stage = stage
+        run.lifecycle = "failed"
+        run.outcome = f"reset to {stage}"
+        self.store.save(run)
+        self.store.journal(run_id, "reset", stage=stage)
+        self.log(f"{run_id}: reset to stage {stage}; run `ador retry {run_id}` "
+                 "to continue")
+        return True
+
+    def cleanup(self) -> dict:
+        """
+        @brief      Garbage-collect leftovers (design 8c): stale lock,
+                    orphaned containers, orphaned/husk worktrees.
+        @details    Anything belonging to an ACTIVE run (working / parked /
+                    in-review / validated) is never touched. Corrupt run
+                    state is reported, never deleted (fail closed - that is
+                    `ador delete`'s explicit job). Invoking cleanup asserts
+                    no poller is running, so a leftover lock is cleared.
+        @return     Report: lock_cleared, containers_removed,
+                    worktrees_removed, corrupt_runs.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-04
+        @version    0.1.0
+        """
+        report: dict = {"lock_cleared": False, "containers_removed": [],
+                        "worktrees_removed": [], "corrupt_runs": []}
+        if self.store.lock_info() is not None:
+            self.store.release_lock()
+            report["lock_cleared"] = True
+        active = {
+            run.run_id for run in self.store.list_runs()
+            if run.lifecycle in ("working", "parked", "in-review", "validated")
+        }
+        prefix = f"{self.identity.slug}-run-"
+        with contextlib.suppress(IsolationError):
+            for name in self.containers.list_containers(prefix):
+                run_id = name[len(prefix):]
+                if run_id and run_id not in active:
+                    with contextlib.suppress(IsolationError):
+                        self.containers.remove(name)
+                        report["containers_removed"].append(name)
+        for path in self.worktrees.list_dirs():
+            run_id = path.name
+            if run_id in active:
+                continue
+            with contextlib.suppress(IsolationError):
+                self.worktrees.remove(run_id)
+            force_rmtree(path)  # husks survive deregistration (WSL race)
+            report["worktrees_removed"].append(run_id)
+        report["corrupt_runs"] = self.store.invalid_runs()
+        return report
 
     # -- selection --------------------------------------------------------------
 
@@ -471,6 +557,7 @@ class Orchestrator:
             )
             run.executor_session = result.session_id or run.executor_session
             self.store.save(run)
+            self._journal_usage(run, gate, result)
             if result.has_questions:
                 self._park(run, result.questions)
                 return
@@ -537,7 +624,8 @@ class Orchestrator:
 
     # -- delivery (design 11a) -------------------------------------------------
 
-    def _deliver(self, run: RunState, ticket: Ticket, thread: str = "") -> None:
+    def _deliver(self, run: RunState, ticket: Ticket, thread: str = "",
+                 revise: bool = False) -> None:
         """
         @brief      The delivery sequence: integrate, retest, preflight, push,
                     open the DRAFT MR (design 11a - exact order).
@@ -548,10 +636,12 @@ class Orchestrator:
                     duplicated (idempotent recovery). Never merges.
         @param[in]  run The run with all development gates green.
         @param[in]  ticket Current ticket.
-        @param[in]  thread Rendered clarification thread ("" outside resume).
+        @param[in]  thread Rendered clarification/review thread.
+        @param[in]  revise True inside the revise cycle: skip MR adoption and
+                    update the existing MR instead of creating one.
         @author     Eng. Dan Dumitru Pasare
         @date       2026-07-03
-        @version    0.1.1
+        @version    0.1.2
         """
         run.stage = "delivery"
         run.lifecycle = "working"
@@ -565,12 +655,13 @@ class Orchestrator:
             self._escalate(run, f"delivery isolation failed: {exc}")
             return
         execute = partial(self.containers.exec, run.container)
-        # idempotent recovery: adopt an MR that already exists for this branch
-        with contextlib.suppress(ForgeError):
-            existing = self.forge.get_merge_request(run.mr_iid or run.branch)
-            if existing and existing.state == "opened":
-                self._enter_review(run, existing)
-                return
+        if not revise:
+            # idempotent recovery: adopt an MR already open for this branch
+            with contextlib.suppress(ForgeError):
+                existing = self.forge.get_merge_request(run.mr_iid or run.branch)
+                if existing and existing.state == "opened":
+                    self._enter_review(run, existing)
+                    return
         # 2. integrate the target branch (conflicts -> executor resolves)
         while True:
             if not self.worktrees.merge_in_progress(run.run_id):
@@ -614,6 +705,12 @@ class Orchestrator:
             self._escalate(run, f"push failed: {(push.stderr or push.stdout)[-300:]}")
             return
         self.store.journal(run.run_id, "pushed", branch=run.branch)
+        if revise and run.mr_iid:
+            # the same branch backs the MR: the push updated it in place and
+            # it stays a draft; just re-enter review with an update comment
+            self.store.journal(run.run_id, "mr-updated", mr=run.mr_url)
+            self._enter_review(run, None)
+            return
         # 6. open the DRAFT MR - never a merge flag, never merge
         title = f"Resolve #{ticket.iid}: {ticket.title}"
         body = self._mr_description(run, ticket, execute, preflight_output)
@@ -674,6 +771,7 @@ class Orchestrator:
         )
         run.executor_session = result.session_id or run.executor_session
         self.store.save(run)
+        self._journal_usage(run, "delivery-fix", result)
         if result.has_questions:
             self._park(run, result.questions)
             return False
@@ -712,15 +810,16 @@ class Orchestrator:
 
     def _check_review(self, run: RunState, summary: dict) -> None:
         """
-        @brief      Post-MR poll (design 11b terminal outcomes).
-        @details    Merged -> done + full teardown (state kept for audit);
-                    closed without merge -> failed + teardown. The revise
-                    cycle (agent-revise label) is a later increment.
+        @brief      Post-MR poll (design 11b).
+        @details    Open + revise label -> the revise cycle; merged -> done +
+                    full teardown (state kept for audit); closed without
+                    merge -> failed + teardown. A plain comment without the
+                    label never triggers anything (11b: no auto-react).
         @param[in]  run The in-review run.
         @param[in,out] summary Poll summary counters.
         @author     Eng. Dan Dumitru Pasare
         @date       2026-07-03
-        @version    0.1.0
+        @version    0.1.1
         """
         try:
             mr = self.forge.get_merge_request(run.mr_iid or run.branch)
@@ -730,12 +829,20 @@ class Orchestrator:
         if mr is None:
             self.log(f"{run.run_id}: MR {run.mr_iid or run.branch} not found")
             return
+        if mr.state == "opened":
+            # design 11b: never auto-react to mere comments; the explicit
+            # revise label is the trigger (trigger modes other than "label"
+            # are treated as "label" until implemented)
+            if self.config.review.revise_label in mr.labels:
+                self._revise(run, mr, summary)
+            return
         if mr.state == "merged":
             run.lifecycle = "done"
             run.outcome = "merged"
             self.store.save(run)
             self.store.journal(run.run_id, "merged", mr=run.mr_url)
             self._mark(run, "done", "delivery")
+            self._record_metrics(run)
             self._teardown(run, remove_worktree=True)
             summary["done"] += 1
             self.log(f"{run.run_id}: MR merged by a human; run done")
@@ -745,9 +852,78 @@ class Orchestrator:
             self.store.save(run)
             self.store.journal(run.run_id, "mr-closed", mr=run.mr_url)
             self._mark(run, "failed", "delivery")
+            self._record_metrics(run)
             self._teardown(run, remove_worktree=True)
             summary["mr_closed"] += 1
             self.log(f"{run.run_id}: MR closed without merge; run ended")
+
+    def _revise(self, run: RunState, mr: MergeRequest, summary: dict) -> None:
+        """
+        @brief      The revise cycle (design 11b): reviewer asked for changes.
+        @details    Exact order: 1. rounds cap (exceeded -> failed); 2. clear
+                    the trigger label FIRST (a re-applied label re-triggers
+                    the next poll, never loops this one); 3. restart the
+                    retained environment; 4. launch the executor with the MR
+                    review thread; 5. re-run the delivery tail (merge, gates,
+                    preflight, push to the SAME branch - the MR updates and
+                    stays draft) and post the kind=delivery update comment.
+        @param[in]  run The in-review run.
+        @param[in]  mr The open MR carrying the revise label.
+        @param[in,out] summary Poll summary counters.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-04
+        @version    0.1.0
+        """
+        run.review_rounds += 1
+        if run.review_rounds > self.config.review.max_review_rounds:
+            self._escalate(run, "review rounds exhausted")
+            return
+        ticket = self.forge.get_ticket(run.ticket_iid)
+        if ticket is None:
+            self._teardown(run, remove_worktree=True)
+            run.lifecycle = "failed"
+            run.outcome = "orphaned"
+            self.store.save(run)
+            self.store.journal(run.run_id, "orphaned")
+            self._record_metrics(run)
+            return
+        with contextlib.suppress(ForgeError):
+            self.forge.remove_mr_labels(mr.iid, [self.config.review.revise_label])
+        run.lifecycle = "working"
+        run.created_at = ""  # review wait is not work time; save() re-stamps
+        run.iterations = 0
+        self.store.save(run)
+        self.store.journal(run.run_id, "revise-start", round=run.review_rounds)
+        self._mark(run, "working", "revise")
+        self.log(f"{run.run_id}: reviewer requested changes "
+                 f"(round {run.review_rounds}); revising")
+        try:
+            self._provision(run)
+        except IsolationError as exc:
+            self._escalate(run, f"revise isolation failed: {exc}")
+            return
+        thread = self._render_thread(self.forge.list_mr_comments(mr.iid))
+        execute = partial(self.containers.exec, run.container)
+        run.iterations += 1
+        self.store.save(run)
+        result = self.executor.run_gate(
+            execute,
+            self.worktrees.path_for(run.run_id),
+            self._io_dir(run.run_id),
+            self._gate_prompt("revise", ticket, "", thread),
+            session=run.executor_session,
+            timeout=self.config.budgets.max_wall_clock_seconds,
+        )
+        run.executor_session = result.session_id or run.executor_session
+        self.store.save(run)
+        self._journal_usage(run, "revise", result)
+        if result.has_questions:
+            self._park(run, result.questions)
+            return
+        summary["revised"] += 1
+        # re-run the full delivery tail; the existing MR is updated, not
+        # recreated (run.mr_iid is set), and stays a draft
+        self._deliver(run, ticket, thread, revise=True)
 
     def _mr_description(self, run: RunState, ticket: Ticket, execute,
                         preflight_output: str) -> str:
@@ -775,12 +951,36 @@ class Orchestrator:
         ]
         if report.ok and report.output.strip():
             parts.append("### Workflow report\n```\n"
-                         + report.output.strip()[-2500:] + "\n```")
+                         + self._tail_lines(report.output, 2500) + "\n```")
         if preflight_output.strip():
             parts.append("### delivery-preflight\n```\n"
-                         + preflight_output.strip()[-1500:] + "\n```")
+                         + self._tail_lines(preflight_output, 1500) + "\n```")
         parts.append(self.identity.make_marker(run.run_id, "delivery"))
         return "\n\n".join(parts)
+
+    @staticmethod
+    def _tail_lines(text: str, limit: int) -> str:
+        """
+        @brief      Tail-truncate on a LINE boundary, never mid-line.
+        @details    Character slicing left the MR description starting with
+                    dangling fragments like `g",` (pilot review finding
+                    2026-07-04); dropping the partial first line keeps the
+                    embedded evidence readable.
+        @param[in]  text Full text.
+        @param[in]  limit Approximate character budget for the tail.
+        @return     The last <= limit characters, starting at a full line,
+                    with a truncation marker when clipped.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-04
+        @version    0.1.0
+        """
+        text = text.strip()
+        if len(text) <= limit:
+            return text
+        clipped = text[-limit:]
+        _, separator, rest = clipped.partition("\n")
+        body = rest if separator else clipped
+        return "[... truncated ...]\n" + body.strip()
 
     @staticmethod
     def _parse_mr_iid(url: str) -> int | None:
@@ -874,6 +1074,7 @@ class Orchestrator:
                 run.outcome = "orphaned"
                 self.store.save(run)
                 self.store.journal(run.run_id, "orphaned")
+                self._record_metrics(run)
                 self.log(f"{run.run_id}: ticket deleted; run orphaned")
                 continue
             if ticket.state != "opened":
@@ -1001,6 +1202,7 @@ class Orchestrator:
             run.outcome = "answer-timeout"
             self._mark(run, clar.timeout_state, run.stage)
             self.store.journal(run.run_id, "answer-timeout")
+            self._record_metrics(run)
             summary["timed_out"] += 1
             self.log(f"{run.run_id}: answer timeout; ticket released")
         self.store.save(run)
@@ -1227,6 +1429,7 @@ class Orchestrator:
         self._mark(run, "failed", run.stage)
         with contextlib.suppress(IsolationError):
             self.containers.stop(run.container)
+        self._record_metrics(run)
         self.log(f"{run.run_id}: escalated to failed ({reason})")
 
     def _teardown(self, run: RunState, *, remove_worktree: bool) -> None:
@@ -1248,6 +1451,56 @@ class Orchestrator:
                 self.worktrees.remove(run.run_id, delete_branch=run.branch)
             except IsolationError as exc:
                 self.log(f"{run.run_id}: worktree removal failed: {exc}")
+
+    def _journal_usage(self, run: RunState, context: str, result) -> None:
+        """
+        @brief      Journal one executor launch's token usage (design 13).
+        @details    The io event stream is overwritten per gate, so usage is
+                    captured incrementally into the journal - the append-only
+                    truth metrics are computed from. Gated by
+                    [metrics] capture_tokens.
+        @param[in]  run The run.
+        @param[in]  context Gate name or fix phase.
+        @param[in]  result The GateRun carrying the extracted totals.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-04
+        @version    0.1.0
+        """
+        if not self.config.metrics.capture_tokens:
+            return
+        if result.tokens_in or result.tokens_out or result.cost_usd:
+            self.store.journal(
+                run.run_id, "usage", context=context,
+                tokens_in=result.tokens_in, tokens_out=result.tokens_out,
+                cost_usd=result.cost_usd,
+            )
+
+    def _record_metrics(self, run: RunState) -> None:
+        """
+        @brief      Persist the run summary at a terminal state (design 13).
+        @details    Best-effort by contract: metrics failures are logged and
+                    never break a run. Called BEFORE teardown on merge/close
+                    so files-changed is still measurable; INSERT OR REPLACE
+                    keeps re-records (retry -> fail again) duplicate-free.
+        @param[in]  run The run at a terminal state.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-04
+        @version    0.1.0
+        """
+        if not self.config.metrics.enabled:
+            return
+        try:
+            files = 0
+            if run.base_ref and self.worktrees.exists(run.run_id):
+                with contextlib.suppress(IsolationError):
+                    files = self.worktrees.changed_files(run.run_id, run.base_ref)
+            summary = metrics.summarize_run(self.store, run.run_id, files)
+            metrics.record_summary(
+                self.config.metrics.db_path, summary,
+                self.config.metrics.export_jsonl,
+            )
+        except Exception as exc:  # noqa: BLE001 - metrics never break a run
+            self.log(f"{run.run_id}: metrics recording failed: {exc}")
 
     def _mark(self, run: RunState, state: str, stage: str) -> None:
         """

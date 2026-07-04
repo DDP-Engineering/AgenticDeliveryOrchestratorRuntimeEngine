@@ -11,25 +11,27 @@
 @file cli.py
 @brief Command-line interface for ADOR over the ador.core library.
 @details Defines the `ador` command surface (lifecycle, operations, statistics,
-         config) using only the standard library (argparse). Base services
-         (config, status, runs, pause/resume) are wired; engine commands report
-         "not implemented yet" with exit code 2 until their phase lands.
+         config) using only the standard library (argparse). All commands are
+         wired except `config set` (edit config.toml directly); destructive
+         commands (delete, reset) require --force per design 8c.
 @author Eng. Dan Dumitru Pasare
-@date 2026-07-02
-@version 0.1.0
+@date 2026-07-04
+@version 0.2.0
 """
 
 from __future__ import annotations
 
 # IMPORTS
 import argparse
+from dataclasses import asdict
 import json
 import tomllib
 
-from ador import __version__
+from ador import __version__, metrics
 from ador.config import Config, load_config, validate_config
 from ador.orchestrator import Orchestrator
 from ador.state import StateStore
+from ador.util import parse_duration
 
 # CONSTANTS
 
@@ -37,9 +39,6 @@ EXIT_OK = 0
 EXIT_ERROR = 1
 EXIT_NOT_IMPLEMENTED = 2
 
-_NOT_IMPLEMENTED = frozenset(
-    {"reset", "stats", "report", "export", "cleanup"}
-)
 
 # HELPER FUNCTIONS
 
@@ -79,11 +78,16 @@ def _build_parser() -> argparse.ArgumentParser:
     reset = sub.add_parser("reset", help="Force a run back to a stage")
     reset.add_argument("run_id")
     reset.add_argument("--to", required=True, help="Target gate")
+    reset.add_argument("--force", action="store_true",
+                       help="Required: resetting re-runs work (cost, churn)")
 
     stats = sub.add_parser("stats", help="Show statistics")
-    stats.add_argument("--since")
-    stats.add_argument("--by")
-    stats.add_argument("--html", action="store_true")
+    stats.add_argument("--since", help='Window, e.g. "30d" or "12h"')
+    stats.add_argument("--by", choices=["priority", "outcome"])
+    stats.add_argument("--html", action="store_true",
+                       help="Write the static HTML dashboard")
+    stats.add_argument("--rebuild", action="store_true",
+                       help="Re-summarize all terminal runs into the database")
 
     report = sub.add_parser("report", help="Show a run report")
     report.add_argument("run_id")
@@ -349,6 +353,145 @@ def _cmd_run_op(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _cmd_stats(args: argparse.Namespace) -> int:
+    """
+    @brief      Handle `ador stats [--since] [--by] [--html] [--rebuild]`.
+    @param[in]  args Parsed arguments.
+    @return     Process exit code.
+    @author     Eng. Dan Dumitru Pasare
+    @date       2026-07-04
+    @version    0.1.0
+    """
+    config = _load(args)
+    if config is None:
+        return EXIT_ERROR
+    store = _store(config)
+    if args.rebuild:
+        rebuilt = 0
+        for run in store.list_runs():
+            if metrics.is_terminal(run.lifecycle):
+                summary = metrics.summarize_run(store, run.run_id)
+                metrics.record_summary(config.metrics.db_path, summary,
+                                       config.metrics.export_jsonl)
+                rebuilt += 1
+        print(f"rebuilt {rebuilt} run summarie(s)")
+    since = None
+    if args.since:
+        try:
+            since = parse_duration(args.since)
+        except ValueError:
+            print(f'error: invalid --since window: {args.since!r} (use e.g. "30d")')
+            return EXIT_ERROR
+    summaries = metrics.load_summaries(config.metrics.db_path, since)
+    if args.html:
+        path = metrics.render_html(summaries, config.metrics.html_out)
+        print(f"wrote {path} ({len(summaries)} run(s))")
+        return EXIT_OK
+    if not summaries:
+        print("no recorded runs (try `ador stats --rebuild`)")
+        return EXIT_OK
+    groups = metrics.aggregate(summaries, args.by or "")
+    header = (f"{'GROUP':<14} {'RUNS':>4} {'MERGED':>6} {'FAILED':>6} "
+              f"{'AVG-SPAN':>9} {'LAUNCHES':>8} {'TOK-IN':>9} {'TOK-OUT':>8} "
+              f"{'COST':>8}")
+    print(header)
+    for name, row in groups.items():
+        print(f"{name:<14} {row['runs']:>4} {row['merged']:>6} "
+              f"{row['failed']:>6} {row['avg_span_s']:>8}s {row['launches']:>8} "
+              f"{row['tokens_in']:>9} {row['tokens_out']:>8} "
+              f"{row['cost_usd']:>8}")
+    return EXIT_OK
+
+
+def _cmd_report(args: argparse.Namespace) -> int:
+    """
+    @brief      Handle `ador report <run-id>`: live summary from the journal.
+    @param[in]  args Parsed arguments.
+    @return     Process exit code.
+    @author     Eng. Dan Dumitru Pasare
+    @date       2026-07-04
+    @version    0.1.0
+    """
+    config = _load(args)
+    if config is None:
+        return EXIT_ERROR
+    store = _store(config)
+    if not store.exists(args.run_id):
+        print(f"no such run: {args.run_id}")
+        return EXIT_ERROR
+    summary = metrics.summarize_run(store, args.run_id)
+    print(json.dumps(asdict(summary), indent=2, ensure_ascii=False))
+    return EXIT_OK
+
+
+def _cmd_export(args: argparse.Namespace) -> int:
+    """
+    @brief      Handle `ador export --csv`: CSV of all summaries to stdout.
+    @param[in]  args Parsed arguments.
+    @return     Process exit code.
+    @author     Eng. Dan Dumitru Pasare
+    @date       2026-07-04
+    @version    0.1.0
+    """
+    config = _load(args)
+    if config is None:
+        return EXIT_ERROR
+    summaries = metrics.load_summaries(config.metrics.db_path)
+    print(metrics.export_csv(summaries), end="")
+    return EXIT_OK
+
+
+def _cmd_reset(args: argparse.Namespace) -> int:
+    """
+    @brief      Handle `ador reset <run-id> --to <stage> --force`.
+    @details    Destructive (re-runs completed work), so it requires --force
+                per the design 8c guardrail. The run is left retry-able.
+    @param[in]  args Parsed arguments.
+    @return     Process exit code.
+    @author     Eng. Dan Dumitru Pasare
+    @date       2026-07-04
+    @version    0.1.0
+    """
+    if not args.force:
+        print("reset discards progress and re-runs completed gates "
+              "(executor cost, ticket churn); re-run with --force")
+        return EXIT_ERROR
+    built = _engine(args)
+    if built is None:
+        return EXIT_ERROR
+    _, engine = built
+    if not engine.reset(args.run_id, args.to):
+        print(f"cannot reset {args.run_id} to {args.to!r} "
+              "(unknown run or invalid stage)")
+        return EXIT_ERROR
+    print(f"{args.run_id}: stage set to {args.to}; run `ador retry "
+          f"{args.run_id}` to continue from there")
+    return EXIT_OK
+
+
+def _cmd_cleanup(args: argparse.Namespace) -> int:
+    """
+    @brief      Handle `ador cleanup`: sweep stale lock + orphaned resources.
+    @details    Only touches containers/worktrees whose runs are terminal or
+                unknown; corrupt run state is reported, never deleted.
+    @param[in]  args Parsed arguments.
+    @return     Process exit code.
+    @author     Eng. Dan Dumitru Pasare
+    @date       2026-07-04
+    @version    0.1.0
+    """
+    built = _engine(args)
+    if built is None:
+        return EXIT_ERROR
+    _, engine = built
+    report = engine.cleanup()
+    print(json.dumps(report, indent=2, ensure_ascii=False))
+    if report["corrupt_runs"]:
+        print("note: corrupt run state is never auto-deleted; inspect it, "
+              "then use `ador delete <run-id> --force`")
+    return EXIT_OK
+
+
 # PUBLIC API
 
 
@@ -377,9 +520,16 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_run(args)
     if args.command in ("cancel", "retry", "logs", "delete"):
         return _cmd_run_op(args)
-    if args.command in _NOT_IMPLEMENTED:
-        print(f"ador {args.command}: not implemented yet")
-        return EXIT_NOT_IMPLEMENTED
+    if args.command == "stats":
+        return _cmd_stats(args)
+    if args.command == "report":
+        return _cmd_report(args)
+    if args.command == "export":
+        return _cmd_export(args)
+    if args.command == "reset":
+        return _cmd_reset(args)
+    if args.command == "cleanup":
+        return _cmd_cleanup(args)
     parser.error(f"unknown command: {args.command}")
     return EXIT_ERROR  # pragma: no cover - parser.error exits
 

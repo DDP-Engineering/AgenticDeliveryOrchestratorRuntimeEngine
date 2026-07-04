@@ -25,8 +25,11 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+import os
 from pathlib import Path
 import re
+import shutil
+import stat
 import subprocess
 from typing import Protocol
 
@@ -251,6 +254,25 @@ def in_quiet_hours(windows: Sequence[str], now: datetime | None = None) -> bool:
         if inside:
             return True
     return False
+
+
+def force_rmtree(path: str | Path) -> None:
+    """
+    @brief      Remove a directory tree, retrying read-only entries.
+    @details    Windows git objects are read-only and plain rmtree fails on
+                them; missing paths are fine (idempotent cleanup).
+    @param[in]  path Directory to remove.
+    @author     Eng. Dan Dumitru Pasare
+    @date       2026-07-04
+    @version    0.1.0
+    """
+    def _chmod_retry(func, target, _exc) -> None:
+        os.chmod(target, stat.S_IWRITE)
+        func(target)
+
+    target = Path(path)
+    if target.exists():
+        shutil.rmtree(target, onerror=_chmod_retry)
 
 
 def load_env_file(path: str | Path = ".env") -> dict[str, str]:

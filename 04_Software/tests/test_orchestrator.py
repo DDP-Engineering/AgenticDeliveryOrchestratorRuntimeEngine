@@ -60,6 +60,7 @@ class FakeForge(Forge):
         self.comments: dict[int, list[Comment]] = {}
         self.mrs: dict[int, MergeRequest] = {}
         self.mrs_by_branch: dict[str, int] = {}
+        self.mr_comments: dict[int, list[Comment]] = {}
         self.mr_creations: list[dict] = []
         self.calls: list[tuple] = []
         self._next_comment_id = 100
@@ -141,6 +142,16 @@ class FakeForge(Forge):
         # branch lookup only finds OPEN MRs (platform behavior)
         return mr if mr is not None and mr.state == "opened" else None
 
+    def list_mr_comments(self, mr_iid: int) -> list[Comment]:
+        return list(self.mr_comments.get(mr_iid, []))
+
+    def remove_mr_labels(self, mr_iid: int, labels: list[str]) -> None:
+        self.calls.append(("remove_mr_labels", mr_iid, tuple(labels)))
+        if mr_iid in self.mrs:
+            self.mrs[mr_iid].labels = [
+                x for x in self.mrs[mr_iid].labels if x not in labels
+            ]
+
     def open_merge_request(self, source, target, title, body, *, draft=True,
                            reviewers=None, remove_source_branch=True,
                            cwd=None) -> str:
@@ -197,6 +208,11 @@ class FakeWorktrees:
     def admin_dir_name(self, run_id: str) -> str:
         return run_id
 
+    def list_dirs(self) -> list[Path]:
+        if not self.root.is_dir():
+            return []
+        return sorted(entry for entry in self.root.iterdir() if entry.is_dir())
+
     def remove(self, run_id: str, *, delete_branch: str | None = None) -> None:
         self.removed.append((run_id, delete_branch))
 
@@ -238,6 +254,7 @@ class FakeContainers:
         self.events: list[tuple[str, str]] = []
         self.invariants_results: list[int] = []
         self.exec_calls: list[list[str]] = []
+        self.report_output = "report"
 
     def status(self, name: str) -> str:
         return self.states.get(name, "absent")
@@ -265,11 +282,16 @@ class FakeContainers:
         self.states.pop(name, None)
         self.events.append(("remove", name))
 
+    def list_containers(self, prefix: str) -> list[str]:
+        return [name for name in self.states if name.startswith(prefix)]
+
     def exec(self, name, argv, *, timeout=None) -> CommandResult:
         self.exec_calls.append([str(part) for part in argv])
         if "invariants" in argv:
             code = self.invariants_results.pop(0) if self.invariants_results else 0
             return CommandResult(exit_code=code, stdout="invariants")
+        if "report" in argv:
+            return CommandResult(exit_code=0, stdout=self.report_output)
         return CommandResult(exit_code=0)
 
 
@@ -318,6 +340,8 @@ def make_config(tmp_path: Path, **overrides) -> Config:
     config.delivery.reviewers = ["r"]
     config.executor.questions_file = "ADOR_QUESTIONS.md"
     config.executor.commands["opencode"] = ExecutorCommand("x {prompt}", "m")
+    config.metrics.db_path = str(tmp_path / ".ador" / "metrics.db")
+    config.metrics.export_jsonl = str(tmp_path / ".ador" / "runs.jsonl")
     for path, value in overrides.items():
         section, key = path.split(".")
         setattr(getattr(config, section), key, value)
@@ -1010,6 +1034,27 @@ def test_recreated_container_resets_the_executor_session(tmp_path: Path) -> None
     assert "session-reset" in events
 
 
+def test_mr_description_truncates_on_line_boundaries(tmp_path: Path) -> None:
+    """
+    @brief   Long evidence blocks in the MR description are tail-truncated
+             at LINE boundaries with a marker - never mid-line fragments like
+             `g",` (MR !29 review finding 2026-07-04).
+    @version 0.1.0
+    """
+    engine, forge, containers, _ = make_engine(tmp_path, FakeExecutor([gate_ok()] * 6))
+    containers.report_output = "\n".join(
+        f"- `E-{i:04}` gate/pass: line {i}" for i in range(200)
+    )
+    forge.add_ticket(14)
+    engine.poll_once()
+    body = forge.mr_creations[0]["body"]
+    report_block = body.split("### Workflow report\n```\n")[1].split("\n```")[0]
+    lines = report_block.splitlines()
+    assert lines[0] == "[... truncated ...]"
+    assert lines[1].startswith("- `E-")  # complete line, bullet intact
+    assert lines[-1].startswith("- `E-0199`")
+
+
 # PUBLIC API / TESTS - delivery (design 11a/11b)
 
 
@@ -1145,6 +1190,112 @@ def test_closed_mr_ends_the_run(tmp_path: Path) -> None:
     assert (run_id, run.branch) in worktrees.removed
 
 
+def _delivered_run(tmp_path: Path, executor_results: int = 6):
+    """
+    @brief      An engine with a run already delivered to in-review.
+    @param[in]  tmp_path pytest tmp dir.
+    @param[in]  executor_results Clean gate results to queue.
+    @return     (engine, forge, run_id).
+    @author     Eng. Dan Dumitru Pasare
+    @date       2026-07-04
+    @version    0.1.0
+    """
+    engine, forge, _, _ = make_engine(tmp_path,
+                                      FakeExecutor([gate_ok()] * executor_results))
+    forge.add_ticket(14)
+    engine.poll_once()
+    return engine, forge, engine._run_id(14)
+
+
+def test_revise_label_triggers_the_revise_cycle(tmp_path: Path) -> None:
+    """
+    @brief   The agent-revise label on the open MR triggers exactly the 11b
+             cycle: label cleared FIRST, executor launched with the review
+             thread, delivery tail re-run, same branch pushed, MR updated
+             (never recreated), update comment posted, back to in-review.
+    @version 0.1.0
+    """
+    engine, forge, run_id = _delivered_run(tmp_path)
+    run = engine.store.load(run_id)
+    forge.mrs[run.mr_iid].labels.append("agent-revise")
+    forge.mr_comments[run.mr_iid] = [
+        Comment(id=900, body="Please use ISO week format", author="reviewer"),
+    ]
+    engine.executor.results = [gate_ok("ses_rev")]
+    summary = engine.poll_once()
+    assert summary["revised"] == 1
+    run = engine.store.load(run_id)
+    assert run.lifecycle == "in-review"
+    assert run.review_rounds == 1
+    # trigger cleared before work; label removal recorded
+    assert ("remove_mr_labels", run.mr_iid, ("agent-revise",)) in forge.calls
+    assert "agent-revise" not in forge.mrs[run.mr_iid].labels
+    # executor saw the review thread and the revise instruction
+    revise_prompt = engine.executor.prompts[-1]
+    assert "ISO week format" in revise_prompt
+    assert "requested changes" in revise_prompt
+    # same MR: exactly one creation ever; update comment posted
+    assert len(forge.mr_creations) == 1
+    delivery_posts = [c for c in forge.calls
+                      if c[0] == "post" and "kind=delivery" in c[2]]
+    assert len(delivery_posts) == 2  # initial + revise update
+    events = [e["event"] for e in engine.store.read_journal(run_id)]
+    assert "revise-start" in events and "mr-updated" in events
+
+
+def test_plain_mr_comment_never_triggers_revise(tmp_path: Path) -> None:
+    """
+    @brief   Design 11b: no auto-react - a reviewer comment WITHOUT the
+             revise label leaves the run untouched.
+    @version 0.1.0
+    """
+    engine, forge, run_id = _delivered_run(tmp_path)
+    run = engine.store.load(run_id)
+    forge.mr_comments[run.mr_iid] = [
+        Comment(id=900, body="just thinking out loud", author="reviewer"),
+    ]
+    launches_before = len(engine.executor.prompts)
+    summary = engine.poll_once()
+    assert summary["revised"] == 0
+    assert len(engine.executor.prompts) == launches_before
+    assert engine.store.load(run_id).lifecycle == "in-review"
+
+
+def test_review_rounds_cap_escalates(tmp_path: Path) -> None:
+    """
+    @brief   Exceeding max_review_rounds escalates instead of revising
+             forever.
+    @version 0.1.0
+    """
+    engine, forge, run_id = _delivered_run(tmp_path)
+    run = engine.store.load(run_id)
+    run.review_rounds = engine.config.review.max_review_rounds
+    engine.store.save(run)
+    forge.mrs[run.mr_iid].labels.append("agent-revise")
+    engine.poll_once()
+    run = engine.store.load(run_id)
+    assert run.lifecycle == "failed"
+    assert "review rounds" in run.outcome
+
+
+def test_revise_questions_park_the_run(tmp_path: Path) -> None:
+    """
+    @brief   A revise launch that asks questions parks normally (the
+             clarification flow owns it from there).
+    @version 0.1.0
+    """
+    engine, forge, run_id = _delivered_run(tmp_path)
+    run = engine.store.load(run_id)
+    forge.mrs[run.mr_iid].labels.append("agent-revise")
+    engine.executor.results = [
+        GateRun(exit_code=0, has_questions=True, questions="Which format?")
+    ]
+    engine.poll_once()
+    run = engine.store.load(run_id)
+    assert run.lifecycle == "parked"
+    assert run.clarification_rounds == 1
+
+
 def test_legacy_validated_run_gets_delivered(tmp_path: Path) -> None:
     """
     @brief   A pre-phase-4 run stopped at validated-delivery-pending is
@@ -1164,6 +1315,111 @@ def test_legacy_validated_run_gets_delivered(tmp_path: Path) -> None:
     run = engine.store.load(run_id)
     assert run.lifecycle == "in-review"
     assert forge.mr_creations and forge.mr_creations[0]["source"] == "feature/ador-14"
+
+
+# PUBLIC API / TESTS - operator commands: reset / cleanup (design 8c)
+
+
+def test_reset_sets_the_stage_and_retry_continues_there(tmp_path: Path) -> None:
+    """
+    @brief   reset is state surgery: stage pointer moved, run left
+             retry-able; retry then conducts from exactly that stage. An
+             invalid stage or unknown run fails cleanly.
+    @version 0.1.0
+    """
+    engine, forge, _, _ = make_engine(tmp_path, FakeExecutor())
+    run_id = park_run(engine, forge)
+    assert engine.reset(run_id, "check") is True
+    run = engine.store.load(run_id)
+    assert run.stage == "check" and run.lifecycle == "failed"
+    assert engine.reset(run_id, "bogus") is False
+    assert engine.reset("nope", "check") is False
+    engine.executor.results = [gate_ok()] * 3  # check, implementation, validation
+    assert engine.retry(run_id) is True
+    assert engine.store.load(run_id).lifecycle == "in-review"
+    # first retried prompt is the check gate, not intake
+    assert "CHECK gate" in engine.executor.prompts[1]
+
+
+def test_cleanup_sweeps_orphans_but_never_active_runs(tmp_path: Path) -> None:
+    """
+    @brief   cleanup clears a stale lock, removes containers/worktrees whose
+             runs are terminal or unknown, keeps everything active, and only
+             REPORTS corrupt state.
+    @version 0.1.0
+    """
+    engine, forge, containers, worktrees = make_engine(tmp_path, FakeExecutor())
+    run_id = park_run(engine, forge)          # active (parked) run
+    active_container = engine.store.load(run_id).container
+    containers.states[active_container] = "exited"
+    # orphans: a container and a worktree husk for an unknown run
+    containers.states["ador-run-ghost-1"] = "exited"
+    (worktrees.root / "ghost-2").mkdir(parents=True)
+    # a corrupt run: reported, not touched
+    engine.store.save(RunState(run_id="broken", ticket_iid=9))
+    (engine.store.run_dir("broken") / "state.json").write_text("garbage",
+                                                               encoding="utf-8")
+    engine.store.acquire_lock()               # stale lock
+
+    report = engine.cleanup()
+    assert report["lock_cleared"] is True
+    assert report["containers_removed"] == ["ador-run-ghost-1"]
+    assert active_container in containers.states       # active kept
+    assert "ghost-2" in report["worktrees_removed"]
+    assert not (worktrees.root / "ghost-2").exists()
+    assert worktrees.exists(run_id)                    # active worktree kept
+    assert report["corrupt_runs"] == ["broken"]
+    assert engine.store.exists("broken")               # reported, not deleted
+
+
+# PUBLIC API / TESTS - metrics recording (design 13)
+
+
+def test_terminal_states_record_metrics(tmp_path: Path) -> None:
+    """
+    @brief   A merged run lands one summary row (usage summed from journal
+             events); a later escalation of another run adds its own row -
+             never a duplicate for re-records.
+    @version 0.1.0
+    """
+    from ador.metrics import load_summaries
+
+    engine, forge, _, _ = make_engine(
+        tmp_path,
+        FakeExecutor([GateRun(exit_code=0, session_id="s", tokens_in=100,
+                              tokens_out=10, cost_usd=0.01)] * 6),
+    )
+    forge.add_ticket(14)
+    engine.poll_once()
+    run = engine.store.load(engine._run_id(14))
+    forge.mrs[run.mr_iid].state = "merged"
+    engine.poll_once()
+    rows = load_summaries(engine.config.metrics.db_path)
+    assert len(rows) == 1
+    row = rows[0]
+    assert row.outcome == "merged"
+    assert row.tokens_in == 600 and row.tokens_out == 60  # 6 launches
+    assert abs(row.cost_usd - 0.06) < 1e-9
+    assert row.executor_launches == 6
+    assert row.time_to_mr_seconds >= 0 and row.mr_url
+
+
+def test_metrics_disabled_records_nothing(tmp_path: Path) -> None:
+    """
+    @brief   [metrics] enabled=false switches recording off entirely.
+    @version 0.1.0
+    """
+    from ador.metrics import load_summaries
+
+    config = make_config(tmp_path)
+    config.metrics.enabled = False
+    engine, forge, _, _ = make_engine(tmp_path, FakeExecutor(), config)
+    forge.add_ticket(14)
+    engine.executor.results = [
+        GateRun(exit_code=1, stderr="x")] * engine.config.budgets.max_iterations
+    engine.poll_once()  # escalates on budget
+    assert engine.store.load(engine._run_id(14)).lifecycle == "failed"
+    assert load_summaries(engine.config.metrics.db_path) == []
 
 
 def test_gate_order_matches_the_workflow_cli_stages() -> None:

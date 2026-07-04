@@ -82,6 +82,7 @@ class MergeRequest:
     state: str = "opened"
     web_url: str = ""
     draft: bool = True
+    labels: list[str] = field(default_factory=list)
 
 
 class ForgeError(RuntimeError):
@@ -218,6 +219,31 @@ class Forge(ABC):
         @return     The MergeRequest, or None when none exists.
         @author     Eng. Dan Dumitru Pasare
         @date       2026-07-03
+        @version    0.1.0
+        """
+
+    @abstractmethod
+    def list_mr_comments(self, mr_iid: int) -> list[Comment]:
+        """
+        @brief      List an MR/PR's discussion comments oldest-first.
+        @details    The revise cycle feeds these to the executor as the
+                    review thread (design 11b step 3).
+        @param[in]  mr_iid MR iid / PR number.
+        @return     All comments, system notes flagged where the platform
+                    reports them.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-04
+        @version    0.1.0
+        """
+
+    @abstractmethod
+    def remove_mr_labels(self, mr_iid: int, labels: list[str]) -> None:
+        """
+        @brief      Remove labels from an MR/PR (clear the revise trigger).
+        @param[in]  mr_iid MR iid / PR number.
+        @param[in]  labels Label names to remove.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-04
         @version    0.1.0
         """
 

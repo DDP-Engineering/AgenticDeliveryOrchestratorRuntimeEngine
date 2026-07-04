@@ -385,6 +385,23 @@ Real conflict resolution was also exercised: `develop` moved mid-pilot and
 the executor resolved a genuine `.agentic/current_run` merge conflict and
 committed the merge (design 11a step 2 proven live).
 
+**Revise cycle (design 11b) live-verified 2026-07-04 15:03 UTC: PASS, first
+try.** Reviewer comment "also add the weekday to the Last updated line" +
+`agent-revise` label on MR !29 -> one poll: trigger detected, label cleared,
+retained container warm-started, executor made exactly the requested change
+(README line AND the traceability test updated to match), delivery tail
+re-ran green (merge, gates, preflight), same branch pushed, MR !29 updated
+in place and still a draft, update comment posted. ~10 minutes label to
+updated MR. Commit: "docs: add weekday to README last updated line" (ADOR).
+
+**Merge/done leg live-verified 2026-07-04 15:12 UTC: PASS.** Human merged
+MR !29; the next poll detected it, marked the run `done`, and tore down the
+environment (one WSL teardown race noted in TODO.md: the worktree delete can
+hit the not-yet-released 9P bind-mount and needs a retry; state was correct
+throughout, audit journal kept). **The complete ticket lifecycle - label ->
+gates -> clarification -> delivery -> review -> revise -> human merge ->
+done + teardown - has now run live on the real repository.**
+
 **OUTCOME (2026-07-04 04:53 UTC): PASS end to end.** Ticket #45 went from
 the `agent-ready` label to **draft MR !29** on the real repository, fully
 conducted by ADOR: all six development gates, clarification park/answer/

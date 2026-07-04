@@ -275,7 +275,7 @@ teams can rename without code changes; the orchestrator refers to labels by role
 
 | Key | Meaning | Default |
 |---|---|---|
-| `trigger` | How a revise cycle starts: `label` (explicit), `comment-marker`, or `auto`. | `"label"` |
+| `trigger` | How a revise cycle starts: `label` (explicit; implemented), `comment-marker`, or `auto` (both currently treated as `label`). | `"label"` |
 | `revise_label` | Label a reviewer applies to request an agent revision. | `"agent-revise"` |
 | `max_review_rounds` | Revise cycles before escalating the run to `failed`. | `3` |
 | `review_reminder_after` | Optional nudge if the MR sits undecided. | `"48h"` |

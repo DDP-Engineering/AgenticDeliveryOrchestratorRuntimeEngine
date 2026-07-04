@@ -33,7 +33,8 @@ Runnable implementation of the orchestrator described in
     per-gate loop, clarification park/resume, budgets, ticket signaling.
   - `gates.py` - `.agentic` workflow CLI wrappers (the conductor's
     verification between gates).
-  - `metrics.py` - SQLite run statistics. *(stub)*
+  - `metrics.py` - statistics: journal -> SQLite run summaries + JSONL
+    mirror, aggregation, CSV export, static HTML dashboard.
 - `docker/` - `Dockerfile.executor` for the `ador-executor:latest` image
   (Python 3.11 + uv, Node 20, git, opencode, glab/gh) plus build docs.
 - `config.example.toml` - example configuration (copy to `config.toml`).
@@ -50,12 +51,16 @@ Runnable implementation of the orchestrator described in
    polling, selection, per-gate loop with verification and budgets,
    clarification park/resume, TTL/timeouts, cancel/retry. Wired to
    `ador run --loop|--once|--dry-run`, `cancel`, `retry`, `logs`, `delete`.
-4. **Delivery (done):** the 11a sequence - merge target branch (executor
-   resolves conflicts), re-run gates, delivery-preflight, push, DRAFT MR
-   with reviewers, environment retained; post-MR merge/close detection
-   completes or ends the run. Still pending: the revise cycle
-   (agent-revise), metrics - `stats`/`report`/`export`/`cleanup`/`reset`
-   still exit 2.
+4. **Delivery (done, live-piloted to draft MR !29):** the 11a sequence -
+   merge target branch (executor resolves conflicts), re-run gates,
+   delivery-preflight, push, DRAFT MR with reviewers, environment retained;
+   post-MR merge/close detection completes or ends the run; the 11b revise
+   cycle (agent-revise label -> executor rework with the review thread ->
+   delivery tail -> same MR updated, bounded by max_review_rounds).
+5. **Metrics (done):** per-launch token usage journaled, run summaries in
+   SQLite at terminal states, `ador stats|report|export` + static HTML.
+   Still pending: `cleanup`/`reset` (exit 2), deployment scripts, and the
+   security decisions in 00_Planning/TODO.md.
 
 ## Development
 

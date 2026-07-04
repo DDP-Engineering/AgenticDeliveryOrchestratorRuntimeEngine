@@ -140,18 +140,51 @@ def test_cli_status_pause_resume_runs(
     assert "no runs" in capsys.readouterr().out
 
 
-def test_cli_unwired_commands_still_exit_two(
+def test_cli_reset_guardrail_and_cleanup_report(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """
-    @brief   Phase-4 commands exit 2 with a message, never a traceback.
-    @version 0.1.1
+    @brief   reset refuses without --force (design 8c), fails cleanly on an
+             unknown run with --force, and cleanup prints a JSON report.
+    @version 0.2.0
     """
     config = _config_file(tmp_path)
-    assert main(["-c", config, "stats"]) == EXIT_NOT_IMPLEMENTED
-    assert main(["-c", config, "cleanup"]) == EXIT_NOT_IMPLEMENTED
-    out = capsys.readouterr().out
-    assert "not implemented" in out
+    assert main(["-c", config, "reset", "x", "--to", "intake"]) == EXIT_ERROR
+    assert "--force" in capsys.readouterr().out
+    assert main(["-c", config, "reset", "x", "--to", "intake",
+                 "--force"]) == EXIT_ERROR
+    assert "cannot reset" in capsys.readouterr().out
+    assert main(["-c", config, "cleanup"]) == EXIT_OK
+    assert '"lock_cleared": false' in capsys.readouterr().out
+
+
+def test_cli_config_set_still_exits_two(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """
+    @brief   The one remaining stub (`config set`) exits 2 with a message,
+             never a traceback.
+    @version 0.1.0
+    """
+    config = _config_file(tmp_path)
+    assert main(["-c", config, "config", "set", "a", "b"]) == EXIT_NOT_IMPLEMENTED
+    assert "not implemented" in capsys.readouterr().out
+
+
+def test_cli_stats_and_export_work_empty(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """
+    @brief   stats/export on an empty store answer cleanly (exit 0), and
+             report on an unknown run errors cleanly.
+    @version 0.1.0
+    """
+    config = _config_file(tmp_path)
+    assert main(["-c", config, "stats"]) == EXIT_OK
+    assert "no recorded runs" in capsys.readouterr().out
+    assert main(["-c", config, "export", "--csv"]) == EXIT_OK
+    assert capsys.readouterr().out.startswith("run_id,")
+    assert main(["-c", config, "report", "nope"]) == EXIT_ERROR
 
 
 def test_cli_run_ops_on_unknown_run_fail_cleanly(
