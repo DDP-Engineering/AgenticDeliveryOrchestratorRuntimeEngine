@@ -22,8 +22,8 @@
          WSL mode mount sources are translated to /mnt/<drive>/ paths and
          env-value propagation crosses the WSL boundary via WSLENV.
 @author Eng. Dan Dumitru Pasare
-@date 2026-07-04
-@version 0.2.0
+@date 2026-07-05
+@version 0.3.0
 """
 
 from __future__ import annotations
@@ -47,6 +47,9 @@ CONTAINER_UV_CACHE_MOUNT = f"{CONTAINER_HOME}/.cache/uv"
 CONTAINER_NPM_CACHE_MOUNT = f"{CONTAINER_HOME}/.npm"
 
 _ABSENT_MARKERS = ("no such container", "no such object", "not found")
+# podman `volume create` errors when the volume already exists; docker is
+# idempotent and stays silent (live finding 2026-07-05, podman pilot).
+_EXISTS_MARKERS = ("already exists",)
 _DRIVE_RE = re.compile(r"^([A-Za-z]):[\\/]")
 
 # DATA MODELS / TYPEDEFINITIONS
@@ -545,14 +548,26 @@ class ContainerManager:
 
     def ensure_volumes(self) -> None:
         """
-        @brief   Create the persistent cache volumes (idempotent).
-        @exception IsolationError When the runtime fails.
+        @brief   Create the persistent cache volumes, idempotently.
+        @details docker `volume create` is idempotent, but podman errors when
+                 the volume already exists (live finding 2026-07-05); an
+                 existing volume is the success case for both, so that error
+                 is tolerated while any other failure still raises.
+        @exception IsolationError When the runtime fails for another reason.
         @author  Eng. Dan Dumitru Pasare
-        @date    2026-07-03
-        @version 0.1.1
+        @date    2026-07-05
+        @version 0.2.0
         """
         for volume in (self.uv_cache_volume, self.npm_cache_volume):
-            self._run([*self.runtime_argv, "volume", "create", volume])
+            result = self.runner([*self.runtime_argv, "volume", "create", volume])
+            if result.ok:
+                continue
+            text = (result.stderr + result.stdout).lower()
+            if any(marker in text for marker in _EXISTS_MARKERS):
+                continue
+            raise IsolationError(
+                f"{self.runtime} volume create failed", result.argv, result.stderr
+            )
 
     def provision(
         self,

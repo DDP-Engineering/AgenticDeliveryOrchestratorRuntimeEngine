@@ -378,6 +378,24 @@ def test_container_ensure_volumes_and_failure() -> None:
         _manager(FakeRunner(_fail("daemon down"))).ensure_volumes()
 
 
+def test_container_ensure_volumes_tolerates_existing_volume() -> None:
+    """
+    @brief   podman errors when a cache volume already exists (docker is
+             silent); an existing volume is the success case, so that error
+             is swallowed while an unrelated failure still raises.
+    @version 0.1.0
+    """
+    exists = _fail(
+        "Error: volume with name uv-cache already exists: volume already exists",
+        exit_code=125,
+    )
+    runner = FakeRunner(exists, _ok())  # uv exists, npm created fresh
+    _manager(runner).ensure_volumes()  # must not raise
+    assert len(runner.calls) == 2
+    with pytest.raises(IsolationError):  # a different error is NOT tolerated
+        _manager(FakeRunner(_fail("permission denied"))).ensure_volumes()
+
+
 def test_container_exec_returns_result_as_data() -> None:
     """
     @brief   exec passes the exit code through as data - a failing gate

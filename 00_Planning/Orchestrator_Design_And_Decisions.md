@@ -197,8 +197,8 @@ human reviewer -> approves and merges
 
   ```toml
   [state]
-  channel        = "comments"       # "comments" | "labels" | "both"
-  status_comment = "single-edited"  # "single-edited" | "new-per-change"
+  channel = "comments"  # "comments" | "labels" | "both"
+  # the status comment is always one comment edited in place
   ```
 
 - **The claim lock lives in local state.** Because labels are now optional, the
@@ -219,12 +219,13 @@ human reviewer -> approves and merges
 - **Marking format:** a human-readable line plus a hidden machine marker.
 
   ```text
-  ADOR status: working - stage intake - run gitlab-cockpitgcp-14 - updated 2026-07-02 14:02
+  [ADOR] status: working - stage intake - run gitlab-cockpitgcp-14 - updated 2026-07-02 14:02
   <!-- ador:run=gitlab-cockpitgcp-14 kind=status state=working stage=intake -->
   ```
 
   The visible tag (`[ADOR]`) and the marker prefix (`ador:`) derive from
-  `agent.name` / `agent.slug`. The hidden marker is invisible when rendered but
+  `agent.name` / `agent.slug`. Every comment kind (status, question, delivery,
+  reminder, timeout) leads with this same `[ADOR]` tag for a uniform prefix. The hidden marker is invisible when rendered but
   lets the orchestrator find and update its own comment, and lets resume
   detection tell agent comments from human replies (section 9).
 - **Comment kinds, all carrying the marker with a `kind` field:**

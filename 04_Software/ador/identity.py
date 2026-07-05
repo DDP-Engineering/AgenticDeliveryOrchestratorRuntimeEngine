@@ -16,8 +16,8 @@
          parses those markers, formats the status comment, and derives every
          slug-based name (branch, container, state dir, questions file).
 @author Eng. Dan Dumitru Pasare
-@date 2026-07-02
-@version 0.1.0
+@date 2026-07-05
+@version 0.1.1
 """
 
 from __future__ import annotations
@@ -151,17 +151,20 @@ class AgentIdentity:
     def status_comment(self, run_id: str, state: str, stage: str, updated: str) -> str:
         """
         @brief      Format the single edited status comment (design doc 5d).
+        @details    Leads with the visible tag ("[ADOR]") like every other
+                    comment the agent posts, so all ADOR comments share one
+                    prefix on the ticket.
         @param[in]  run_id Stable run identifier.
         @param[in]  state Run state (working | parked | in-review | failed...).
         @param[in]  stage Current gate (intake | requirement | ...).
         @param[in]  updated Human-readable UTC timestamp.
         @return     The full comment body (visible line + hidden marker).
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.0
+        @date       2026-07-05
+        @version    0.2.0
         """
         visible = (
-            f"{self.name} status: {state} - stage {stage} - run {run_id} - updated {updated}"
+            f"{self.tag} status: {state} - stage {stage} - run {run_id} - updated {updated}"
         )
         marker = self.make_marker(run_id, "status", state=state, stage=stage)
         return f"{visible}\n{marker}"

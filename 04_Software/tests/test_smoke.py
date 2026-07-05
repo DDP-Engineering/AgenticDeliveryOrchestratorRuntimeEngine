@@ -37,6 +37,7 @@ repo = "group/project"
 
 [worktree]
 repo_path = "../cockpit-gcp"
+root      = "__WORKTREE_ROOT__"
 
 [executor.opencode]
 command = "opencode run --dir {worktree} -m {model} {prompt}"
@@ -51,15 +52,19 @@ reviewers = ["dan.pasare"]
 
 def _config_file(tmp_path: Path, text: str = VALID_CONFIG) -> str:
     """
-    @brief      Write a config.toml with a tmp-scoped state root.
+    @brief      Write a config.toml with a tmp-scoped state and worktree root.
+    @details    The worktree root is tmp-scoped so operator commands that
+                sweep it (`ador cleanup`) never touch the real worktrees/.
     @param[in]  tmp_path pytest tmp dir.
     @param[in]  text TOML content.
     @return     The config path as a string for the CLI.
     @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-02
-    @version    0.1.0
+    @date       2026-07-05
+    @version    0.1.1
     """
     store_root = (tmp_path / ".ador").as_posix()
+    worktree_root = (tmp_path / "worktrees").as_posix()
+    text = text.replace("__WORKTREE_ROOT__", worktree_root)
     path = tmp_path / "config.toml"
     path.write_text(text + f'\n[state]\nstore_root = "{store_root}"\n', encoding="utf-8")
     return str(path)

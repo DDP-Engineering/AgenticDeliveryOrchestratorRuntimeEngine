@@ -83,8 +83,10 @@ def test_status_comment_format() -> None:
     """
     body = IDENTITY.status_comment("gitlab-x-14", "working", "intake", "2026-07-02 14:02")
     lines = body.splitlines()
+    # Leads with the same [ADOR] tag as every other comment kind (uniform prefix).
+    assert lines[0].startswith(IDENTITY.tag + " ")
     assert lines[0] == (
-        "ADOR status: working - stage intake - run gitlab-x-14 - updated 2026-07-02 14:02"
+        "[ADOR] status: working - stage intake - run gitlab-x-14 - updated 2026-07-02 14:02"
     )
     fields = IDENTITY.parse_marker(body)
     assert fields is not None

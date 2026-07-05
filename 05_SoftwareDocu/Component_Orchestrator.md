@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Orchestrator (`ador/orchestrator.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/ador/orchestrator.py` - file version 0.3.0.
+> Source: `04_Software/ador/orchestrator.py` - file version 0.4.0.
 > Design: Orchestrator_Design_And_Decisions.md sections 5a, 7a, 8, 9, 10.
 
 ## 1. Purpose
@@ -83,6 +83,12 @@ the executor.
   iid - merged -> `done` + full teardown (state kept for audit); closed
   without merge -> `failed` + teardown. Legacy `validated` runs from before
   phase 4 are delivered by reconciliation.
+- **Teardown** (`_teardown`): removes the container, then the worktree +
+  branch. On WSL2 the container's 9P bind mount releases asynchronously, so
+  worktree removal is retried with backoff (~7s) but ONLY on the transient
+  mount-race signatures (ENOSYS/EBUSY/ENOTEMPTY); a real error is not
+  retried, and a still-stuck mount leaves a husk that `ador cleanup` sweeps.
+  Native docker/Linux succeeds on the first try. Run state always survives.
 - **The revise cycle** (design 11b): the `agent-revise` label on the open MR
   is the trigger - a plain comment never auto-reacts. Exact order: rounds
   cap (`max_review_rounds` -> failed), clear the trigger label FIRST,

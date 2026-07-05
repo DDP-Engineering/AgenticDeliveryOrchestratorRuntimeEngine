@@ -54,9 +54,8 @@ repo = "rd/internal/france/delivery-tools/delivery-cockpit/cockpit-gcp"
 # "labels"   = lifecycle labels only,
 # "both"     = comment and labels.
 channel = "comments"
-# In comment mode: "single-edited" keeps ONE status comment edited in place;
-# "new-per-change" posts a new comment on every state change (noisy).
-status_comment = "single-edited"
+# In comment mode ADOR keeps ONE status comment and edits it in place on each
+# state change; clarification and delivery notices are separate comments.
 # Local authoritative state directory (runs, lock, pause flag, metrics).
 # Leave out to derive ".<slug>".
 store_root = ".ador"
@@ -228,9 +227,15 @@ branch_rule = ""
 
 # ----- Run budgets ---------------------------------------------------------------
 # Hard bounds per run; exceeding any of them escalates to `failed` instead of
-# thrashing forever.
+# thrashing forever. Tripping a budget never loses work: `ador retry` re-arms
+# the counters and continues from the stored stage (it never redoes passed
+# gates).
 [budgets]
-max_iterations         = 20     # executor (re)launches per run
+# Executor LAUNCHES per run: one per gate (6 = one clean pass) + one per fix
+# launch (merge conflict / failing gate during delivery) + one per revise
+# round. Clean delivery adds zero. Sizing: 6 = crawl pilot (no headroom),
+# 12-15 = supervised with fix headroom, 20 = unattended headroom.
+max_iterations         = 20
 max_wall_clock_seconds = 3600   # total wall-clock per run
 max_cost_usd           = 5.0    # model spend per run
 max_files_touched      = 40     # files a run may change

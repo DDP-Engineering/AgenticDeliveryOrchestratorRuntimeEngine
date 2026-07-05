@@ -15,8 +15,19 @@ The orchestrator's own stdout isn't persisted by ADOR itself — fine interactiv
    run_args = ["--userns=keep-id"] (validated config option, inserted after
    `run --detach`; regression-tested). Benign note: `sleep infinity` ignores
    SIGTERM so podman warns before SIGKILL on stop (~10 s; docker behaves the
-   same silently). Remaining before calling podman production-ready: one
-   disposable-ticket pilot with runtime = podman.
+   same silently). PILOT COMPLETE 2026-07-05: ticket #47 conducted END TO END
+   on rootless podman -> draft MR !30 (agent-ready -> 6 gates, incl. one
+   invariant self-correction retry + one delivery merge-conflict fix -> merge
+   origin/develop -> preflight -> push feature/ador-47 -> draft MR). Two
+   podman/docker PARITY BUGS found live and fixed with regression tests:
+   (a) ensure_volumes - `podman volume create` errors on an existing volume
+   (docker idempotent); now tolerates "already exists" [isolation.py
+   _EXISTS_MARKERS]. (b) force_rmtree - `uv sync` inside the Linux container
+   makes `.venv/lib64 -> lib`, a reparse point Windows scandir refuses
+   (WinError 1920); now drops the link entry directly [util.py]. Verdict:
+   podman is runtime-equivalent to docker for ADOR (set runtime = podman +
+   run_args = ["--userns=keep-id"]). NB the earlier #46 attempt was blocked
+   only by the TARGET-REPO TMPDIR trap below - which #47's own change fixes.
 
 ## how the ADOR will be deployed? Scripts?
    DONE 2026-07-04: 04_Software/deploy/ - install-ubuntu.sh (+ ador.service
@@ -90,11 +101,35 @@ worktree immediately after `docker rm -f` can fail with ENOSYS ("Function not
 implemented") because the container's 9P bind-mount on the directory has not
 fully released yet; seconds later everything succeeds. The run still ends
 correctly (`done`; failure only logged), but a husk directory can remain.
-PARTLY COVERED 2026-07-04: `ador cleanup` is implemented and sweeps exactly
-this (deregistered-but-present worktree dirs via a read-only-tolerant
-rmtree, stale instance locks, orphaned containers; active runs and corrupt
-state are never touched). Still open: an automatic short retry/backoff on
-worktree removal right after container removal, so the husk never forms.
+RESOLVED 2026-07-05: `_teardown` now retries worktree removal with backoff
+(delays 1/2/4s, ~7s ceiling) ONLY on the transient mount-race signatures
+(_TEARDOWN_RACE_MARKERS: ENOSYS "function not implemented", EBUSY, ENOTEMPTY)
+via the injectable `self.sleep` seam - a real error is never retried, and if
+the mount is genuinely stuck the husk is still left for `ador cleanup` (no
+regression). Native docker/Linux succeeds on the first try (no sleeps).
+Backstop unchanged: `ador cleanup` + reparse-point-safe force_rmtree sweeps
+any husk that does survive. Regression-tested (transient->retry->success;
+real-error->no-retry).
+
+-----------------------------------
+
+TMPDIR-in-worktree breaks go-plugin tools in containers on Windows hosts
+(found by podman pilot #46, 2026-07-05; affects docker IDENTICALLY - probed
+both): the target repo's Makefile exports TMPDIR := $(CURDIR)/.tmp, i.e.
+into the bind-mounted worktree; on a Windows host that mount is 9P/drvfs,
+which does not support unix sockets (Errno 95); tflint's ruleset runs as a
+go-plugin child that creates its socket in TMPDIR -> instant death ->
+"failed to negotiate handshake" -> make lint-infra red -> INV-4 blocks
+validation. Latent since 2026-06-25 (commit 407a1ec in cockpit-gcp);
+pilot #45's gate runs never exercised this leg. Fix belongs in the TARGET
+repo: make the TMPDIR relocation Windows-host-only (ifeq ($(OS),Windows_NT))
+or point it at a socket-capable path when inside a container. ADOR-side
+lesson recorded in docker/README.md: repos must not force TMPDIR into the
+worktree; a bind-mounted worktree cannot host unix sockets on Windows hosts.
+FIXED 2026-07-05: ADOR itself conducted the fix as ticket #47 -> draft MR
+!30 (Makefile: wrap the TMPDIR/TMP/TEMP relocation in
+ifeq ($(OS),Windows_NT), and drop a now-redundant inline TMPDIR=/tmp
+override on the tflint call). Pending human review/merge of !30.
 
 -----------------------------------
 

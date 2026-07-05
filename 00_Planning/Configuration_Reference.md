@@ -29,7 +29,6 @@ repo = "rd/internal/france/delivery-tools/delivery-cockpit/cockpit-gcp"
 # ----- State signaling -----
 [state]
 channel        = "comments"  # "comments" | "labels" | "both"
-status_comment = "single-edited"   # "single-edited" | "new-per-change"
 store_root     = ".ador"      # local authoritative state dir (derived from slug)
 
 # ----- Polling -----
@@ -174,8 +173,7 @@ the host. No separate bot account is required (identity is marker-based).
 
 | Key | Meaning | Default |
 |---|---|---|
-| `channel` | How run state is reflected on the ticket: `comments`, `labels`, or `both`. Authoritative state always lives locally. | `"comments"` |
-| `status_comment` | In comment mode: keep one comment edited in place, or post a new one per change. | `"single-edited"` |
+| `channel` | How run state is reflected on the ticket: `comments`, `labels`, or `both`. Authoritative state always lives locally. In comment mode ADOR keeps one status comment and edits it in place. | `"comments"` |
 | `store_root` | Local authoritative state directory. | `".ador"` |
 
 ## `[polling]` - Polling
@@ -259,8 +257,8 @@ teams can rename without code changes; the orchestrator refers to labels by role
 
 | Key | Meaning | Default |
 |---|---|---|
-| `max_iterations` | Max executor iterations before escalating. | `20` |
-| `max_wall_clock_seconds` | Max wall-clock per run. | `3600` |
+| `max_iterations` | Max **executor launches** per run before failing closed. What counts: one launch per gate (6 for a clean pass) plus one per fix launch (merge-conflict resolution or a failing-gate fix during delivery) and per revise round. Clean delivery (no conflicts, gates green) launches the executor **zero** extra times - merge/preflight/push/MR are deterministic orchestrator actions. Sizing: `6` = clean pass only, zero fix headroom (crawl pilots); `12`-`15` = supervised operation with fix headroom; `20` (default) = unattended headroom. Tripping the budget never loses work: the run fails with the reason journaled and posted, and `ador retry` re-arms the counters and continues from the stored stage. | `20` |
+| `max_wall_clock_seconds` | Max wall-clock of **active work** per run; the clock restarts on `ador retry` and on resume-from-park (parked waiting time is bounded by `[clarification] answer_timeout` instead). | `3600` |
 | `max_cost_usd` | Max model spend per run. | `5.0` |
 | `max_files_touched` | Max files a run may change. | `40` |
 

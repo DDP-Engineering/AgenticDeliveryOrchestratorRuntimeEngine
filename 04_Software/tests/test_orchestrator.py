@@ -30,6 +30,7 @@ from pathlib import Path
 from ador.config import Config, ExecutorCommand
 from ador.executor.base import Executor, GateRun
 from ador.forge import Comment, Forge, MergeRequest, Ticket
+from ador.isolation import IsolationError
 from ador.orchestrator import GATES, Orchestrator
 from ador.state import RunState, StateStore
 from ador.util import CommandResult
@@ -183,6 +184,7 @@ class FakeWorktrees:
         self.root = root
         self.repo_path = root / "repo"
         self.removed: list[tuple[str, str | None]] = []
+        self.remove_errors: list[Exception] = []  # raised (popped) before success
         self.touched = 0
         self.dirty = False
         self.ahead = 1
@@ -214,6 +216,8 @@ class FakeWorktrees:
         return sorted(entry for entry in self.root.iterdir() if entry.is_dir())
 
     def remove(self, run_id: str, *, delete_branch: str | None = None) -> None:
+        if self.remove_errors:
+            raise self.remove_errors.pop(0)
         self.removed.append((run_id, delete_branch))
 
     def changed_files(self, run_id: str, base_ref: str) -> int:
@@ -1370,6 +1374,52 @@ def test_cleanup_sweeps_orphans_but_never_active_runs(tmp_path: Path) -> None:
     assert worktrees.exists(run_id)                    # active worktree kept
     assert report["corrupt_runs"] == ["broken"]
     assert engine.store.exists("broken")               # reported, not deleted
+
+
+# PUBLIC API / TESTS - teardown WSL bind-mount race (design 8b)
+
+
+def test_teardown_retries_past_the_wsl_bind_mount_race(tmp_path: Path) -> None:
+    """
+    @brief   Worktree removal that transiently fails with the WSL mount-race
+             signature (ENOSYS) is retried with backoff until it succeeds -
+             no husk left, no manual cleanup needed.
+    @version 0.1.0
+    """
+    engine, _, _, worktrees = make_engine(tmp_path, FakeExecutor())
+    sleeps: list[float] = []
+    engine.sleep = lambda d: sleeps.append(d)
+    run = RunState(run_id="r-14", ticket_iid=14, container="ador-run-r-14",
+                   branch="feature/x")
+    enosys = IsolationError("git worktree failed",
+                            stderr="failed to delete '...': Function not implemented")
+    worktrees.remove_errors = [enosys, enosys]  # clears on the 3rd attempt
+
+    engine._teardown(run, remove_worktree=True)
+
+    assert worktrees.removed == [("r-14", "feature/x")]  # eventually removed
+    assert len(sleeps) == 2                              # two backoff waits
+
+
+def test_teardown_does_not_retry_a_real_worktree_error(tmp_path: Path) -> None:
+    """
+    @brief   A non-transient removal error is NOT retried (retries must not
+             mask real failures); the husk is left for `ador cleanup`.
+    @version 0.1.0
+    """
+    engine, _, _, worktrees = make_engine(tmp_path, FakeExecutor())
+    sleeps: list[float] = []
+    engine.sleep = lambda d: sleeps.append(d)
+    run = RunState(run_id="r-15", ticket_iid=15, container="ador-run-r-15",
+                   branch="feature/y")
+    real = IsolationError("git failed", stderr="fatal: not a valid object name")
+    worktrees.remove_errors = [real, real]
+
+    engine._teardown(run, remove_worktree=True)
+
+    assert worktrees.removed == []              # never succeeded
+    assert sleeps == []                         # no retry on a real error
+    assert len(worktrees.remove_errors) == 1    # only one attempt consumed
 
 
 # PUBLIC API / TESTS - metrics recording (design 13)

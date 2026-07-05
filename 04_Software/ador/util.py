@@ -24,6 +24,7 @@ from __future__ import annotations
 
 # IMPORTS
 from collections.abc import Sequence
+import contextlib
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 import os
@@ -259,21 +260,37 @@ def in_quiet_hours(windows: Sequence[str], now: datetime | None = None) -> bool:
 
 def force_rmtree(path: str | Path) -> None:
     """
-    @brief      Remove a directory tree, retrying read-only entries.
-    @details    Windows git objects are read-only and plain rmtree fails on
-                them; missing paths are fine (idempotent cleanup).
+    @brief      Remove a directory tree, tolerating read-only files and
+                container-created symlinks.
+    @details    Two Windows hazards this handles: git objects are read-only
+                (plain rmtree fails - clear the bit and retry), and a
+                worktree that ran `uv sync` inside the Linux container holds
+                POSIX symlinks like `.venv/lib64 -> lib` that surface as
+                reparse points Windows scandir refuses (WinError 1920) - the
+                link entry is removed directly instead of recursed into. A
+                missing path is fine (idempotent cleanup).
     @param[in]  path Directory to remove.
     @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-04
-    @version    0.1.0
+    @date       2026-07-05
+    @version    0.2.0
     """
-    def _chmod_retry(func, target, _exc) -> None:
-        os.chmod(target, stat.S_IWRITE)
-        func(target)
+    def _on_error(func, target, _exc) -> None:
+        with contextlib.suppress(OSError):
+            os.chmod(target, stat.S_IWRITE)
+        with contextlib.suppress(OSError):
+            func(target)
+            return
+        # Reparse point / symlink unreadable to Windows: drop the link entry
+        # itself (never follows into the target) rather than recursing.
+        with contextlib.suppress(OSError):
+            os.rmdir(target)
+            return
+        with contextlib.suppress(OSError):
+            os.unlink(target)
 
     target = Path(path)
-    if target.exists():
-        shutil.rmtree(target, onerror=_chmod_retry)
+    if target.exists() or target.is_symlink():
+        shutil.rmtree(target, onerror=_on_error)
 
 
 def load_env_file(path: str | Path = ".env") -> dict[str, str]:

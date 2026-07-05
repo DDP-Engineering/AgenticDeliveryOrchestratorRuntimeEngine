@@ -95,6 +95,12 @@ rootless on Ubuntu-24.04/WSL2). Podman notes:
   SIGKILLs (10 s) - benign; docker does the same silently.
 - On SELinux hosts (Fedora/RHEL) bind mounts may additionally need
   `:z`/`:Z` labels - record the finding if you hit it; Ubuntu is unaffected.
+- **Bind-mounted worktrees on Windows hosts cannot host unix sockets**
+  (9P/drvfs, `Errno 95`; identical under docker and podman - probed
+  2026-07-05). Consequence: a target repo's build MUST NOT force `TMPDIR`
+  (or any socket path) into the worktree, or go-plugin tools like tflint
+  die at the handshake under `make` while passing standalone. Caught live
+  by pilot ticket #46.
 
 A green pass means you can set `[container] runtime = "podman"` (or
 `"wsl -d <distro> -- podman"`) and confirm with a disposable-ticket pilot.

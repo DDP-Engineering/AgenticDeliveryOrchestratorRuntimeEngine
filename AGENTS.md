@@ -154,6 +154,11 @@ worktrees; corrupt state reported, never auto-deleted). The full design-12a
 CLI surface is implemented except `config set`. Deployment scripts are in
 `04_Software/deploy/` (design 12a): systemd unit + installer for Ubuntu 22+,
 Task Scheduler installer for Windows 11 (loop at logon or repeating
-`--once`), both fail-fast/idempotent, secrets never in argv. Still pending:
-the security decisions in 00_Planning/TODO.md (container egress allowlist
-before unattended running, executor credentials).
+`--once`), both fail-fast/idempotent, secrets never in argv. Runtime
+portability: both docker (WSL2) and rootless podman are live-verified END TO
+END - podman conducted ticket #47 agent-ready -> draft MR !30 on 2026-07-05
+(needs `run_args = ["--userns=keep-id"]`); two podman/docker parity bugs were
+found and fixed with regression tests (idempotent `ensure_volumes`,
+reparse-point-safe `force_rmtree`). Still pending: the security decisions in
+00_Planning/TODO.md (container egress allowlist before unattended running,
+executor credentials).

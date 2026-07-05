@@ -93,13 +93,14 @@ class PlatformConfig:
 class StateConfig:
     """
     @brief   [state] - how run state is signaled on the ticket.
+    @details The status comment is always one comment edited in place; there
+             is no per-change mode.
     @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-02
-    @version 0.1.0
+    @date    2026-07-05
+    @version 0.2.0
     """
 
     channel: str = "comments"
-    status_comment: str = "single-edited"
     store_root: str = ""
 
 
@@ -646,11 +647,6 @@ def validate_config(config: Config) -> list[str]:
     check(
         config.state.channel in ("comments", "labels", "both"),
         f"[state] channel must be comments/labels/both: {config.state.channel!r}",
-    )
-    check(
-        config.state.status_comment in ("single-edited", "new-per-change"),
-        f"[state] status_comment must be single-edited/new-per-change: "
-        f"{config.state.status_comment!r}",
     )
 
     check(

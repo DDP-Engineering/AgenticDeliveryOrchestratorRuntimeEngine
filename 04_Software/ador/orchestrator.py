@@ -19,8 +19,8 @@
          labels, and timestamps. All collaborators are injected so the whole
          machine is unit-testable offline.
 @author Eng. Dan Dumitru Pasare
-@date 2026-07-04
-@version 0.3.0
+@date 2026-07-05
+@version 0.4.0
 """
 
 from __future__ import annotations
@@ -62,6 +62,19 @@ from ador.util import (
 GATES = ("intake", "alignment", "requirement", "check", "implementation",
          "validation")
 
+# Worktree removal right after container removal can transiently fail on WSL2:
+# `docker/podman rm` returns before the kernel releases the container's
+# 9P/drvfs bind mount on the worktree, so git's delete hits these errors until
+# the mount clears (a few seconds). Retrying past them avoids leaving a husk
+# for `ador cleanup` (live finding 2026-07-04/05).
+_TEARDOWN_RACE_MARKERS = (
+    "function not implemented",   # ENOSYS - the observed WSL signature
+    "device or resource busy",    # EBUSY  - mount still attached
+    "resource busy",
+    "directory not empty",        # ENOTEMPTY - files not yet released
+)
+_TEARDOWN_RETRY_DELAYS = (1.0, 2.0, 4.0)  # ~7s ceiling; the race clears in seconds
+
 _GATE_GOALS = {
     "intake": (
         "Run the INTAKE gate: classify the request, start the agentic workflow "
@@ -102,6 +115,23 @@ _GATE_GOALS = {
         "gates, and commit everything."
     ),
 }
+
+# HELPER FUNCTIONS
+
+
+def _is_teardown_race(exc: IsolationError) -> bool:
+    """
+    @brief      Whether a worktree-removal failure is the transient WSL
+                bind-mount teardown race (worth retrying) vs a real error.
+    @param[in]  exc The IsolationError raised by worktree removal.
+    @return     True when the stderr matches a known mount-release signature.
+    @author     Eng. Dan Dumitru Pasare
+    @date       2026-07-05
+    @version    0.1.0
+    """
+    text = (getattr(exc, "stderr", "") or str(exc)).lower()
+    return any(marker in text for marker in _TEARDOWN_RACE_MARKERS)
+
 
 # PUBLIC API
 
@@ -1437,21 +1467,52 @@ class Orchestrator:
         """
         @brief      Remove the run's container (and optionally worktree).
         @details    `<store>/runs/<run-id>` state always survives for audit.
+                    Worktree removal is retried past the WSL bind-mount
+                    teardown race (see _remove_worktree).
         @param[in]  run The run.
         @param[in]  remove_worktree Also remove worktree + branch.
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
+        @date       2026-07-05
+        @version    0.2.0
         """
         try:
             self.containers.remove(run.container)
         except IsolationError as exc:
             self.log(f"{run.run_id}: container removal failed: {exc}")
         if remove_worktree:
+            self._remove_worktree(run)
+
+    def _remove_worktree(self, run: RunState) -> None:
+        """
+        @brief      Remove the run's worktree, retrying the WSL teardown race.
+        @details    On WSL2 the container's 9P/drvfs bind mount is released
+                    asynchronously after `rm`, so an immediate git worktree
+                    remove can fail with ENOSYS/EBUSY until it clears. Retry
+                    with backoff ONLY on those transient signatures; a real
+                    error is not retried. If it still fails, log and leave the
+                    husk - `ador cleanup` sweeps it (no regression). Native
+                    docker/Linux succeeds on the first try (no sleeps).
+        @param[in]  run The run whose worktree + branch to remove.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-05
+        @version    0.1.0
+        """
+        last: IsolationError | None = None
+        for attempt, delay in enumerate((0.0, *_TEARDOWN_RETRY_DELAYS)):
+            if delay:
+                self.sleep(delay)
             try:
                 self.worktrees.remove(run.run_id, delete_branch=run.branch)
+                if attempt:
+                    self.log(f"{run.run_id}: worktree removed after "
+                             f"{attempt} retr{'y' if attempt == 1 else 'ies'}")
+                return
             except IsolationError as exc:
-                self.log(f"{run.run_id}: worktree removal failed: {exc}")
+                last = exc
+                if not _is_teardown_race(exc):
+                    break  # a real failure - do not burn retries masking it
+        self.log(f"{run.run_id}: worktree removal failed: {last} "
+                 "(husk left for `ador cleanup`)")
 
     def _journal_usage(self, run: RunState, context: str, result) -> None:
         """
