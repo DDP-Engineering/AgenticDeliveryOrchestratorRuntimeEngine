@@ -65,6 +65,40 @@ match the target repo's CI, `GLAB_VERSION`, `OPENCODE_PACKAGE`); override with
   never baked into this image, never on the command line (`--env KEY` with
   the value passed through the docker CLI's process environment).
 
+## Runtime verification (docker or podman)
+
+`verify-runtime.sh` proves a container runtime compatible with ADOR before
+`config.toml` points at it. It mirrors, flag for flag, every runtime CLI
+call `ContainerManager` makes (17 steps: mounts, bare `--env` secret
+propagation, HOME inline, tool usability, git via GIT_DIR/GIT_WORK_TREE
+with the commit visible host-side, park/resume, listing, reap, absence
+detection). Run it ON the Linux side - an Ubuntu host, or inside the WSL
+distro:
+
+```bash
+# inside WSL (or on an Ubuntu host), from this directory:
+RUNTIME=docker ./verify-runtime.sh                             # baseline: 17/17
+RUNTIME=podman RUN_ARGS="--userns=keep-id" ./verify-runtime.sh # podman: 17/17
+```
+
+Both passes are green as of 2026-07-04 (docker in WSL2; podman 4.9.3
+rootless on Ubuntu-24.04/WSL2). Podman notes:
+
+- **Rootless podman REQUIRES `--userns=keep-id`** - set
+  `[container] run_args = ["--userns=keep-id"]` in `config.toml` (the
+  script's `RUN_ARGS` mirrors that option). Without it, container uid 1000
+  (`ador`) maps to a subuid that cannot write the bind-mounted worktree
+  (verified live: first write fails with "Permission denied").
+- Install with `sudo apt-get install -y podman uidmap slirp4netns`; the
+  image is built separately per runtime (podman has its own storage).
+- `podman stop` warns that `sleep infinity` ignores SIGTERM before it
+  SIGKILLs (10 s) - benign; docker does the same silently.
+- On SELinux hosts (Fedora/RHEL) bind mounts may additionally need
+  `:z`/`:Z` labels - record the finding if you hit it; Ubuntu is unaffected.
+
+A green pass means you can set `[container] runtime = "podman"` (or
+`"wsl -d <distro> -- podman"`) and confirm with a disposable-ticket pilot.
+
 ## First-build verification checklist
 
 Run once after building (all read-only):

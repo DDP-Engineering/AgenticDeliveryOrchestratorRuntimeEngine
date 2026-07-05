@@ -308,6 +308,25 @@ def test_container_provision_creates_when_absent(tmp_path: Path) -> None:
     assert runner.envs[1]["ANTHROPIC_API_KEY"] == "sk-secret"
 
 
+def test_container_provision_inserts_run_args(tmp_path: Path) -> None:
+    """
+    @brief   [container] run_args tokens land right after `run --detach`
+             (e.g. --userns=keep-id for rootless podman - live finding
+             2026-07-04). The default (no run_args) is proven clean by
+             test_container_provision_creates_when_absent's argv prefix.
+    @version 0.1.0
+    """
+    runner = FakeRunner(_fail("Error: No such object: p-run-x"), _ok("cid"))
+    manager = ContainerManager("podman", "ador-executor:latest", "uv-cache",
+                               "npm-cache", runner,
+                               run_args=["--userns=keep-id"])
+    manager.provision("p-run-x", tmp_path / "repo", tmp_path / "wt",
+                      tmp_path / "io", {"HOME": "/home/ador"})
+    run_argv = runner.calls[1]
+    assert run_argv[:4] == ["podman", "run", "--detach", "--userns=keep-id"]
+    assert run_argv[4:6] == ["--name", "p-run-x"]
+
+
 def test_container_provision_is_idempotent(tmp_path: Path) -> None:
     """
     @brief   running -> no-op; exited -> start (keep-warm resume).

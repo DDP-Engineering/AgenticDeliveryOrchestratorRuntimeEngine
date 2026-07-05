@@ -6,6 +6,17 @@ The orchestrator's own stdout isn't persisted by ADOR itself — fine interactiv
 ===================================
 
 ## Implement for podman
+   VERIFIED 2026-07-04 (podman 4.9.3 rootless, Ubuntu-24.04/WSL2): 17/17 on
+   04_Software/docker/verify-runtime.sh (which mirrors every runtime CLI
+   call ADOR makes; docker baseline also 17/17). FINDING: rootless podman
+   needs `--userns=keep-id` - container uid 1000 (ador) otherwise maps to a
+   subuid that cannot write the bind-mounted worktree ("Permission denied"
+   on the first file the executor creates). IMPLEMENTED as [container]
+   run_args = ["--userns=keep-id"] (validated config option, inserted after
+   `run --detach`; regression-tested). Benign note: `sleep infinity` ignores
+   SIGTERM so podman warns before SIGKILL on stop (~10 s; docker behaves the
+   same silently). Remaining before calling podman production-ready: one
+   disposable-ticket pilot with runtime = podman.
 
 ## how the ADOR will be deployed? Scripts?
    DONE 2026-07-04: 04_Software/deploy/ - install-ubuntu.sh (+ ador.service

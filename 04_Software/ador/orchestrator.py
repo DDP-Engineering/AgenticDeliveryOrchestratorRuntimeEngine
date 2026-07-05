@@ -183,6 +183,7 @@ class Orchestrator:
                 config.container.image,
                 config.container.uv_cache_volume,
                 config.container.npm_cache_volume,
+                run_args=config.container.run_args,
             ),
             executor=build_executor(
                 config.executor.default,

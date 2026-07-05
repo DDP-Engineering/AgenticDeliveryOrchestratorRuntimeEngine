@@ -297,9 +297,12 @@ class ClarificationConfig:
 class ContainerConfig:
     """
     @brief   [container] - execution isolation and parked-container TTL.
+    @details run_args are extra option tokens for `<runtime> run` (e.g.
+             "--userns=keep-id" for rootless podman - live finding
+             2026-07-04 - or resource limits like "--memory=2g").
     @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-02
-    @version 0.1.0
+    @date    2026-07-04
+    @version 0.2.0
     """
 
     runtime: str = "docker"
@@ -311,6 +314,7 @@ class ContainerConfig:
     parked_state: str = "stopped"
     uv_cache_volume: str = "ador-uv-cache"
     npm_cache_volume: str = "ador-npm-cache"
+    run_args: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -705,6 +709,12 @@ def validate_config(config: Config) -> list[str]:
         "[container] runtime must be docker/podman, optionally wrapped "
         f'(e.g. "wsl -d Ubuntu-24.04 -- docker"): {config.container.runtime!r}',
     )
+    for arg in config.container.run_args:
+        check(
+            isinstance(arg, str) and arg.startswith("-") and " " not in arg,
+            "[container] run_args entries must be single option tokens "
+            f'starting with "-" (e.g. "--userns=keep-id"): {arg!r}',
+        )
     check(
         config.container.parked_ttl_mode in ("seconds", "polls"),
         f"[container] parked_ttl_mode must be seconds/polls: "

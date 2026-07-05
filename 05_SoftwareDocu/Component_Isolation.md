@@ -35,7 +35,8 @@ guardrails, not a sandbox (design 10).
   checks `is_dirty` / `commits_ahead`, and `list_dirs` (every directory
   under the worktrees root, including husks deregistered but not deleted
   after the WSL bind-mount teardown race - the input `ador cleanup` sweeps).
-- `ContainerManager(runtime, image, uv_cache_volume, npm_cache_volume)` -
+- `ContainerManager(runtime, image, uv_cache_volume, npm_cache_volume,
+  run_args=...)` -
   container lifecycle: `ensure_volumes`, idempotent `provision`
   (running -> no-op, stopped -> start, absent -> create), `start` / `stop`
   (park) / `remove` (reap), `status`, `list_containers(prefix)` (all
@@ -162,6 +163,12 @@ result = containers.exec("ador-run-gitlab-x-14", ["opencode", "--version"])
   provision idempotency, absent-vs-error status, idempotent-but-fail-closed
   stop/remove, volume creation, and exec-returns-data.
 - Minimum validation after a change: `uv run --group dev pytest tests/test_isolation.py`.
+- `docker/verify-runtime.sh` is the LIVE compatibility pass for a runtime:
+  17 steps mirroring every runtime CLI call this component makes (mount/env
+  shape, bare-key secrets, HOME inline, tool usability, in-container git
+  with host-visible commits, park/resume, listing, reap, absence). Docker
+  baseline green 2026-07-04 (17/17); run with `RUNTIME=podman` before
+  pointing config at podman.
 - **Live verification done 2026-07-03** (Docker Engine in WSL2, scratch repo,
   19/19 steps; Prerequisites_Check_Report.md section 12): image build and
   tooling checks, WSLENV secret propagation, git status/commit **inside** the
@@ -182,8 +189,12 @@ result = containers.exec("ador-run-gitlab-x-14", ["opencode", "--version"])
 - CPU/RAM/network limits (`--memory`, `--cpus`, `--network`) are not yet
   passed to `docker run`; add as `[container]` keys when the budgets phase
   lands.
-- Podman is accepted by config but only Docker syntax is exercised; verify
-  on Ubuntu 22 when production hosting is set up.
+- Podman VERIFIED 2026-07-04 (4.9.3 rootless, Ubuntu-24.04/WSL2): 17/17 on
+  `docker/verify-runtime.sh`. Rootless mode requires
+  `[container] run_args = ["--userns=keep-id"]` (without it, container uid
+  1000 cannot write the bind-mounted worktree - caught live by the pass).
+  Remaining: a disposable-ticket pilot with `runtime = "podman"`; SELinux
+  hosts (Fedora/RHEL) may additionally need `:z`/`:Z` mount labels.
 - With a WSL-wrapped runtime, `wsl.exe` re-joins arguments before the WSL
   shell re-parses them, so argv elements containing spaces can be split. The
   executor launcher must pass prompts through a file, never through argv

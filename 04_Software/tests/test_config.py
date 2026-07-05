@@ -222,4 +222,21 @@ def test_validation_rejects_auto_flag_in_executor_command(tmp_path: Path) -> Non
     assert any("--auto" in issue for issue in issues)
 
 
+def test_validation_checks_container_run_args(tmp_path: Path) -> None:
+    """
+    @brief   run_args entries must be single option tokens; a bare word or a
+             token with spaces (would corrupt the run argv) is reported,
+             while a valid option like --userns=keep-id passes.
+    @version 0.1.0
+    """
+    text = MINIMAL_VALID + """
+[container]
+run_args = ["--userns=keep-id", "rm", "--memory 2g"]
+"""
+    issues = validate_config(load_config(_write_config(tmp_path, text)))
+    run_args_issues = [issue for issue in issues if "run_args" in issue]
+    assert len(run_args_issues) == 2  # "rm" and "--memory 2g"; keep-id is fine
+    assert any("'rm'" in issue for issue in run_args_issues)
+
+
 # END OF FILE

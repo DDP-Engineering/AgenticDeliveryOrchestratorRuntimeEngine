@@ -477,6 +477,8 @@ class ContainerManager:
         uv_cache_volume: str,
         npm_cache_volume: str,
         runner: CommandRunner = run_command,
+        *,
+        run_args: Sequence[str] = (),
     ) -> None:
         """
         @brief      Configure the manager from the [container] section.
@@ -489,9 +491,12 @@ class ContainerManager:
         @param[in]  uv_cache_volume Persistent uv cache volume name.
         @param[in]  npm_cache_volume Persistent npm cache volume name.
         @param[in]  runner Command runner (injectable for tests).
+        @param[in]  run_args Extra option tokens for `<runtime> run`
+                             ([container] run_args; e.g. "--userns=keep-id"
+                             for rootless podman, live finding 2026-07-04).
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.1
+        @date       2026-07-04
+        @version    0.2.0
         """
         self.runtime = runtime
         self.runtime_argv = shlex.split(runtime)
@@ -500,6 +505,7 @@ class ContainerManager:
         self.uv_cache_volume = uv_cache_volume
         self.npm_cache_volume = npm_cache_volume
         self.runner = runner
+        self.run_args = [str(arg) for arg in run_args]
 
     def status(self, name: str) -> str:
         """
@@ -585,8 +591,8 @@ class ContainerManager:
                     gone; live finding 2026-07-03).
         @exception  IsolationError When the runtime fails.
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.3
+        @date       2026-07-04
+        @version    0.1.4
         """
         state = self.status(name)
         if state == "running":
@@ -596,7 +602,7 @@ class ContainerManager:
             return "started"
         Path(io_path).mkdir(parents=True, exist_ok=True)
         argv = [
-            *self.runtime_argv, "run", "--detach",
+            *self.runtime_argv, "run", "--detach", *self.run_args,
             "--name", name,
             "--volume", f"{self._mount_source(repo_path)}:{CONTAINER_REPO_MOUNT}",
             "--volume", f"{self._mount_source(worktree_path)}:{CONTAINER_WORKTREE_MOUNT}",

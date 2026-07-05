@@ -201,6 +201,12 @@ parked_state = "stopped"
 # Persistent cache volumes so per-run `uv sync` / `npm ci` stay fast.
 uv_cache_volume  = "ador-uv-cache"
 npm_cache_volume = "ador-npm-cache"
+# Extra option tokens for `<runtime> run` - one option per entry, no spaces.
+# ROOTLESS PODMAN REQUIRES ["--userns=keep-id"] (verified live 2026-07-04:
+# without it, container uid 1000 maps to a subuid that cannot write the
+# bind-mounted worktree). Also the place for future resource limits, e.g.
+# "--memory=2g", "--cpus=2".
+run_args = []
 
 # ----- Worktree ------------------------------------------------------------------
 [worktree]
