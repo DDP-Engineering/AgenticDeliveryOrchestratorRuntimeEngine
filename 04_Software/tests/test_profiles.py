@@ -1,0 +1,282 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-  # noqa: UP009
+# -----------------------------------------------------------------------------
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+# -----------------------------------------------------------------------------
+"""
+@file test_profiles.py
+@brief Tests for the runtime-project profile store (config home, CRUD, active
+       pointer, config-path resolution) - all offline in a tmp ADOR home.
+@author Eng. Dan Dumitru Pasare
+@date 2026-07-05
+@version 0.1.0
+"""
+
+from __future__ import annotations
+
+# IMPORTS
+import json
+from pathlib import Path
+
+from ador.profiles import (
+    ProfileError,
+    ProfileStore,
+    _home_for,
+    ador_home,
+    resolve_config_path,
+)
+import pytest
+
+# CONSTANTS
+
+FIXED_NOW = "2026-07-05T00:00:00Z"
+
+# HELPER FUNCTIONS
+
+
+def _store(tmp_path: Path) -> ProfileStore:
+    """
+    @brief      A store rooted in a tmp ADOR home with a fixed clock.
+    @param[in]  tmp_path pytest tmp dir.
+    @return     The ProfileStore.
+    @author     Eng. Dan Dumitru Pasare
+    @date       2026-07-05
+    @version    0.1.0
+    """
+    return ProfileStore(tmp_path / "home", now=lambda: FIXED_NOW)
+
+
+# PUBLIC API / TESTS - config home resolution
+
+
+def test_home_override_wins_on_any_os(tmp_path: Path) -> None:
+    """
+    @brief   ADOR_HOME overrides the OS-native location on both platforms.
+    @version 0.1.0
+    """
+    env = {"ADOR_HOME": str(tmp_path / "custom"), "APPDATA": "ignored"}
+    assert _home_for("nt", env) == tmp_path / "custom"
+    assert _home_for("posix", env) == tmp_path / "custom"
+
+
+def test_home_windows_uses_appdata_then_localappdata(tmp_path: Path) -> None:
+    """
+    @brief   On Windows the home is %APPDATA%\\ador, falling back to
+             %LOCALAPPDATA%\\ador.
+    @version 0.1.0
+    """
+    assert _home_for("nt", {"APPDATA": str(tmp_path / "roaming")}) == (
+        tmp_path / "roaming" / "ador"
+    )
+    assert _home_for("nt", {"LOCALAPPDATA": str(tmp_path / "local")}) == (
+        tmp_path / "local" / "ador"
+    )
+
+
+def test_home_posix_uses_xdg_then_default(tmp_path: Path) -> None:
+    """
+    @brief   On POSIX the home is $XDG_CONFIG_HOME/ador, or ~/.config/ador.
+    @version 0.1.0
+    """
+    assert _home_for("posix", {"XDG_CONFIG_HOME": str(tmp_path / "xdg")}) == (
+        tmp_path / "xdg" / "ador"
+    )
+    assert _home_for("posix", {}) == Path.home() / ".config" / "ador"
+
+
+def test_ador_home_reads_env_at_call_time(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    @brief   The public entry point honours a live ADOR_HOME override (safe:
+             no os.name patching, which would break pathlib process-wide).
+    @version 0.1.0
+    """
+    monkeypatch.setenv("ADOR_HOME", str(tmp_path / "live"))
+    assert ador_home() == tmp_path / "live"
+
+
+# PUBLIC API / TESTS - CRUD round-trip
+
+
+def test_profile_crud_round_trip(tmp_path: Path) -> None:
+    """
+    @brief   create -> load returns equal metadata; list is sorted; touch bumps
+             the usage counters; the profile owns its state root.
+    @version 0.1.0
+    """
+    store = _store(tmp_path)
+    created = store.create("cockpit-gcp", repo="g/p", platform="gitlab",
+                           runtime="docker")
+    assert created.created_at == FIXED_NOW and created.use_count == 0
+    assert store.exists("cockpit-gcp")
+    assert store.config_path("cockpit-gcp").name == "config.toml"
+    assert store.default_store_root("cockpit-gcp").name == "state"
+
+    loaded = store.load("cockpit-gcp")
+    assert loaded == created
+
+    store.create("beta", platform="github")
+    assert [p.name for p in store.list_profiles()] == ["beta", "cockpit-gcp"]
+
+    touched = store.touch("cockpit-gcp")
+    assert touched.use_count == 1 and touched.last_used_at == FIXED_NOW
+
+
+def test_profile_create_rejects_duplicate_without_overwrite(tmp_path: Path) -> None:
+    """
+    @brief   Re-creating an existing profile fails closed unless overwrite=True.
+    @version 0.1.0
+    """
+    store = _store(tmp_path)
+    store.create("dup")
+    with pytest.raises(ProfileError):
+        store.create("dup")
+    store.create("dup", overwrite=True, repo="g/p2")  # allowed
+    assert store.load("dup").repo == "g/p2"
+
+
+def test_profile_rename_and_delete(tmp_path: Path) -> None:
+    """
+    @brief   rename moves the directory and keeps identity; delete removes it
+             (idempotent) and both keep the active pointer consistent.
+    @version 0.1.0
+    """
+    store = _store(tmp_path)
+    store.create("old", repo="g/p")
+    store.set_active("old")
+
+    store.rename("old", "new")
+    assert not store.exists("old") and store.exists("new")
+    assert store.load("new").name == "new"      # metadata name follows the dir
+    assert store.get_active() == "new"          # active pointer repointed
+
+    store.delete("new")
+    assert not store.exists("new")
+    assert store.get_active() is None           # active cleared on delete
+    store.delete("new")                         # idempotent, no raise
+
+
+def test_profile_rename_rejects_missing_or_colliding(tmp_path: Path) -> None:
+    """
+    @brief   rename fails closed for an unknown source or an existing target.
+    @version 0.1.0
+    """
+    store = _store(tmp_path)
+    store.create("a")
+    store.create("b")
+    with pytest.raises(ProfileError):
+        store.rename("ghost", "c")   # source missing
+    with pytest.raises(ProfileError):
+        store.rename("a", "b")       # target exists
+
+
+# PUBLIC API / TESTS - active pointer
+
+
+def test_active_pointer_lifecycle(tmp_path: Path) -> None:
+    """
+    @brief   set/get/clear the active profile; setting an unknown one fails.
+    @version 0.1.0
+    """
+    store = _store(tmp_path)
+    assert store.get_active() is None
+    store.create("proj")
+    store.set_active("proj")
+    assert store.get_active() == "proj"
+    store.clear_active()
+    assert store.get_active() is None
+    with pytest.raises(ProfileError):
+        store.set_active("nope")
+
+
+# PUBLIC API / TESTS - config-path resolution order (decision D3)
+
+
+def test_resolve_config_path_precedence(tmp_path: Path) -> None:
+    """
+    @brief   Explicit -c wins over --profile wins over the active pointer wins
+             over the legacy ./config.toml; an unknown --profile fails closed;
+             a stale active pointer falls through to the default.
+    @version 0.1.0
+    """
+    store = _store(tmp_path)
+    store.create("proj")
+
+    # explicit file beats everything
+    path, used = resolve_config_path("custom.toml", "proj", store=store)
+    assert path == Path("custom.toml") and used is None
+
+    # named profile
+    path, used = resolve_config_path(None, "proj", store=store)
+    assert path == store.config_path("proj") and used == "proj"
+
+    # unknown named profile fails closed
+    with pytest.raises(ProfileError):
+        resolve_config_path(None, "ghost", store=store)
+
+    # active pointer
+    store.set_active("proj")
+    path, used = resolve_config_path(None, None, store=store)
+    assert path == store.config_path("proj") and used == "proj"
+
+    # legacy default when nothing is set
+    store.clear_active()
+    path, used = resolve_config_path(None, None, store=store)
+    assert path == Path("config.toml") and used is None
+
+
+# PUBLIC API / TESTS - fail-closed on corrupt metadata
+
+
+def test_corrupt_profile_json_fails_closed(tmp_path: Path) -> None:
+    """
+    @brief   A corrupt profile.json raises ProfileError on load and is reported
+             by invalid_profiles() while list_profiles() skips it (never a
+             silent reinitialize).
+    @version 0.1.0
+    """
+    store = _store(tmp_path)
+    store.create("good", repo="g/p")
+    bad_dir = store.profile_dir("bad")
+    bad_dir.mkdir(parents=True)
+    (bad_dir / "profile.json").write_text("{not json", encoding="utf-8")
+
+    with pytest.raises(ProfileError):
+        store.load("bad")
+    assert store.invalid_profiles() == ["bad"]
+    assert [p.name for p in store.list_profiles()] == ["good"]
+
+
+def test_load_missing_profile_raises(tmp_path: Path) -> None:
+    """
+    @brief   Loading a non-existent profile fails closed (distinct message).
+    @version 0.1.0
+    """
+    store = _store(tmp_path)
+    with pytest.raises(ProfileError):
+        store.load("absent")
+
+
+def test_profile_json_ignores_unknown_keys(tmp_path: Path) -> None:
+    """
+    @brief   Forward compatibility: an unknown key in profile.json is dropped,
+             the directory name overrides any stored name.
+    @version 0.1.0
+    """
+    store = _store(tmp_path)
+    store.create("proj", repo="g/p")
+    meta = store.profile_dir("proj") / "profile.json"
+    data = json.loads(meta.read_text(encoding="utf-8"))
+    data["future_field"] = "x"
+    data["name"] = "WRONG"
+    meta.write_text(json.dumps(data), encoding="utf-8")
+    loaded = store.load("proj")
+    assert loaded.name == "proj" and loaded.repo == "g/p"
+
+
+# END OF FILE

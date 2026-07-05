@@ -701,9 +701,17 @@ review_reminder_after = "48h"          # optional nudge if the MR sits undecided
   - **Statistics:** `ador stats`, `ador report <run-id>`, `ador export --csv`,
     `ador stats --html`.
   - **Config:** `ador config show | validate | set`.
+  - **Assisted setup & profiles:** `ador init` (guided, per-project) and
+    `ador profile list|show|use|rename|delete|path` + a global `--profile`
+    (see Assisted_Config_And_Profiles_Plan.md).
 - **Settings via TOML, no GUI.** `config.toml` is the source of truth; edit it by
   hand plus the `ador config` helpers. `ador config validate` at startup catches
-  typos before the loop runs. A settings GUI is intentionally out of scope.
+  typos before the loop runs. A settings GUI is intentionally out of scope. The
+  `ador init` wizard and `ador profile` commands are consistent with this: they
+  are one-shot CLI "config helpers" (stdlib prompts, no dependency) that generate
+  and manage `config.toml` profiles - not a hosted settings UI or server. One
+  ADOR install can thus serve many runtime projects, each a named profile under a
+  cross-platform config home (`%APPDATA%\ador` / `~/.config/ador`, `ADOR_HOME`).
 - **Startup / running as a service:**
   - Foreground (dev / Windows first tests): `ador run --loop`.
   - Ubuntu 22: a **systemd** unit running `ador run --loop` (auto-restart,

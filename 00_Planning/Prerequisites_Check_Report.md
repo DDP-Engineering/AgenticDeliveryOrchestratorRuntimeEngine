@@ -420,3 +420,39 @@ container manually (works, but refresh tokens rotate and subscription
 accounts are not meant for unattended use). Options and recommendation are
 documented in `Setup_And_Credentials.md` section 3.1; production needs a
 real API key (or another provider's key).
+
+## 17. Assisted-Config + Profiles Cross-Platform E2E - 2026-07-05
+
+Verification of the assisted-config feature (Assisted_Config_And_Profiles_Plan
+tasks 1-6) on BOTH supported hosts. Both green.
+
+**Windows 11 (native, `ador` console script):** live throughout tasks 3-5.
+`ador init cockpit-gcp --answers answers.toml` printed the environment check
+against the real git/glab (authenticated), emitted a minimal license-headered
+`config.toml` under `%APPDATA%`-style ADOR home, self-validated it, and printed
+next steps. `ador profile list/use/path` and `ador --profile cockpit-gcp config
+validate` all resolved correctly; `use_count`/`last_used_at` bumped on
+resolution; seeded metrics rendered RUNS/MERGED in `list` and the full stats
+block in `show`. Windows paths and the regex `branch_rule` round-tripped via
+literal single-quoted TOML (no escaping).
+
+**Ubuntu 24.04 / WSL2 (POSIX, `python3 -m ador` - runtime is stdlib-only, no
+venv needed):** full E2E green.
+- **Config home:** default resolved to `/home/<user>/.config/ador`; with
+  `XDG_CONFIG_HOME` set, to `$XDG_CONFIG_HOME/ador` (both live).
+- **Runtime detection:** `docker=True podman=True wsl_distros=[]` - WSL is
+  correctly NOT probed on Linux; native runtimes found.
+- **`ador init`:** the environment check ran on a host that genuinely LACKS
+  `glab`, printing the exact Linux install guidance (`.deb` / `apt-get`) and the
+  token-creation guidance (`glpat-` format, `glab auth login`), then proceeded
+  (informational, non-blocking) and wrote a POSIX profile with a profile-owned
+  `store_root`. `config validate` OK; `profile use/list` + `status` (via the
+  active profile) all clean.
+
+**Guidance-text drift check:** the Ubuntu install/token guidance was confirmed
+against a real host (glab genuinely absent) and matches reality. The Windows
+guidance strings (`winget install Git.Git` / `GLab.GLab` / `GitHub.cli`, scoop
+alternative) are best-effort pointers to standard package managers; no drift
+requiring a code change was found. Executor/glab AUTH remains an operator step
+(section 16 credential finding still applies) - the wizard only surfaces the
+guidance, it never handles secrets.

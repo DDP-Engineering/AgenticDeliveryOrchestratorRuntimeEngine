@@ -11,6 +11,38 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 > so far, its meaning, default value, and examples. Keys are grouped by section.
 > Defaults are proposals and may change during implementation.
 
+## Profiles & assisted setup (recommended)
+
+You do not have to hand-write `config.toml`. `ador init` runs a guided,
+per-project wizard that detects prerequisites, prompts explicitly (with
+examples and validation), and writes a **minimal, validated** config as a named
+**runtime-project profile** - so one ADOR install serves many projects.
+
+- **Config home (cross-platform):** profiles live under `%APPDATA%\ador`
+  (Windows) / `~/.config/ador` (`$XDG_CONFIG_HOME` respected on Linux), override
+  with the `ADOR_HOME` environment variable. Each profile is
+  `<home>/profiles/<name>/{config.toml, profile.json}`; an `active_profile`
+  pointer names the default.
+- **Create:** `ador init [name] [--force] [--answers FILE]`
+  (`--answers` = non-interactive, for CI/servers; keys are the wizard field
+  names). See the onboarding guide (`00_Planning/Onboarding_New_Project.md`) for
+  the full prompt list and the non-ADOR prerequisite steps.
+- **Manage:** `ador profile list|show|use|rename|delete|path`
+  (`list`/`show` include run statistics from the profile's metrics DB;
+  `delete` needs `--force`).
+- **Use:** any command resolves its config in this order -
+  explicit `-c FILE` > `--profile NAME` > the active profile > `./config.toml`.
+  Single-config users (no profile) are unaffected. Example:
+  `ador --profile cockpit-gcp run --dry-run`.
+- **Profile-owned state (default):** a profile's `[state] store_root` points
+  under the profile (`<home>/profiles/<name>/state`), so each project's runs,
+  metrics, and lock stay isolated; the wizard can instead co-locate a `.ador`
+  beside the clone.
+
+Secrets are never written to a profile - only env-key NAMES; tokens/keys stay
+in a `.env` beside the clone (or CLI host-auth). The rest of this document
+describes every key the wizard (or you) can set.
+
 ## Full Example `config.toml`
 
 ```toml

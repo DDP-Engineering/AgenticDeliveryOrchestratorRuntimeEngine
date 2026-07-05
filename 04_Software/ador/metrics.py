@@ -17,8 +17,8 @@
          optional self-contained static HTML file - no server, no exporter.
          This data is the crawl -> walk -> run promotion signal.
 @author Eng. Dan Dumitru Pasare
-@date 2026-07-04
-@version 0.2.0
+@date 2026-07-05
+@version 0.3.0
 """
 
 from __future__ import annotations
@@ -284,6 +284,37 @@ def aggregate(summaries: list[RunSummary],
             "cost_usd": round(sum(m.cost_usd for m in members), 4),
         }
     return result
+
+
+def profile_stats(db_path: str | Path) -> dict[str, Any]:
+    """
+    @brief      One project's headline run statistics from its metrics DB.
+    @details    Reuses aggregate() over all summaries; a missing/empty database
+                yields zeros (never an error), so a freshly-created profile
+                renders cleanly. success_rate is merged/runs as a percentage.
+    @param[in]  db_path SQLite database path (may not exist yet).
+    @return     {runs, merged, failed, success_rate, avg_span_s, launches,
+                tokens_in, tokens_out, cost_usd, last_run}.
+    @author     Eng. Dan Dumitru Pasare
+    @date       2026-07-05
+    @version    0.1.0
+    """
+    summaries = load_summaries(db_path) if db_path else []
+    row = aggregate(summaries).get("all", {})
+    runs = row.get("runs", 0)
+    merged = row.get("merged", 0)
+    return {
+        "runs": runs,
+        "merged": merged,
+        "failed": row.get("failed", 0),
+        "success_rate": round(100.0 * merged / runs, 1) if runs else 0.0,
+        "avg_span_s": row.get("avg_span_s", 0),
+        "launches": row.get("launches", 0),
+        "tokens_in": row.get("tokens_in", 0),
+        "tokens_out": row.get("tokens_out", 0),
+        "cost_usd": row.get("cost_usd", 0.0),
+        "last_run": summaries[-1].ended_at if summaries else "",
+    }
 
 
 def export_csv(summaries: list[RunSummary]) -> str:

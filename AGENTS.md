@@ -159,6 +159,13 @@ portability: both docker (WSL2) and rootless podman are live-verified END TO
 END - podman conducted ticket #47 agent-ready -> draft MR !30 on 2026-07-05
 (needs `run_args = ["--userns=keep-id"]`); two podman/docker parity bugs were
 found and fixed with regression tests (idempotent `ensure_volumes`,
-reparse-point-safe `force_rmtree`). Still pending: the security decisions in
-00_Planning/TODO.md (container egress allowlist before unattended running,
-executor credentials).
+reparse-point-safe `force_rmtree`). Assisted config + multi-project profiles are
+implemented (Assisted_Config_And_Profiles_Plan.md, all 8 tasks): `ador init`
+wizard (`ador/wizard.py`), environment detection/guidance (`ador/doctor.py`),
+profile store + resolution (`ador/profiles.py`), `ador profile ...` +
+`--profile` with per-profile statistics, under a cross-platform config home
+(`%APPDATA%`/`~/.config/ador`/`ADOR_HOME`); one install serves many projects.
+Cross-platform E2E green on Windows 11 and Ubuntu 24.04/WSL2 (prereq report
+§17); onboarding in 00_Planning/Onboarding_New_Project.md. Still pending: the
+security decisions in 00_Planning/TODO.md (container egress allowlist before
+unattended running, executor credentials).

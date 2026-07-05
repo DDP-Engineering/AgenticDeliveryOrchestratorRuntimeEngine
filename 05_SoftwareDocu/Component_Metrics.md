@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Metrics (`ador/metrics.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/ador/metrics.py` - file version 0.2.0.
+> Source: `04_Software/ador/metrics.py` - file version 0.3.0.
 > Design: Orchestrator_Design_And_Decisions.md section 13.
 
 ## 1. Purpose
@@ -33,6 +33,9 @@ optional self-contained static HTML file.
 - Query/rendering: `load_summaries` (optional since-window on ended_at),
   `aggregate` (grouped by priority/outcome), `export_csv`, `render_html`
   (script-free, HTML-escaped, opens directly in a browser).
+- `profile_stats(db_path)` - one project's headline figures (runs, merged,
+  failed, success_rate, avg_span_s, launches, tokens, cost, last_run) for the
+  `ador profile list`/`show` commands; a missing DB yields zeros.
 - `is_terminal(lifecycle)` - which states are recordable.
 
 Explicitly not owned: when to record (orchestrator, at terminal

@@ -26,6 +26,7 @@ from ador.metrics import (
     export_csv,
     is_terminal,
     load_summaries,
+    profile_stats,
     record_summary,
     render_html,
     summarize_run,
@@ -181,6 +182,29 @@ def test_csv_and_html_outputs(tmp_path: Path) -> None:
     assert "<script" not in document
     assert "r&lt;1&gt;" in document
     assert "&quot;hi&quot;" in document
+
+
+def test_profile_stats_empty_and_seeded(tmp_path: Path) -> None:
+    """
+    @brief   profile_stats yields zeros for a missing DB and headline figures
+             (runs/merged/failed/success_rate/last_run) for a seeded one.
+    @version 0.1.0
+    """
+    db = tmp_path / "metrics.db"
+    empty = profile_stats(db)
+    assert empty["runs"] == 0 and empty["merged"] == 0
+    assert empty["success_rate"] == 0.0 and empty["last_run"] == ""
+
+    record_summary(db, RunSummary(run_id="1", outcome="merged", lifecycle="done",
+                                  span_seconds=100, tokens_in=10, executor_launches=5,
+                                  ended_at="2026-07-01T00:00:00Z"))
+    record_summary(db, RunSummary(run_id="2", outcome="failed", lifecycle="failed",
+                                  span_seconds=300, ended_at="2026-07-02T00:00:00Z"))
+    stats = profile_stats(db)
+    assert stats["runs"] == 2 and stats["merged"] == 1 and stats["failed"] == 1
+    assert stats["success_rate"] == 50.0
+    assert stats["avg_span_s"] == 200 and stats["launches"] == 5
+    assert stats["last_run"] == "2026-07-02T00:00:00Z"   # newest by ended_at
 
 
 def test_is_terminal_classification() -> None:

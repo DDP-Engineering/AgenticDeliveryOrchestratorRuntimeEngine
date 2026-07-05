@@ -9,8 +9,9 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: CLI (`ador/cli.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/ador/cli.py` - file version 0.2.0.
-> Design: Orchestrator_Design_And_Decisions.md section 12a.
+> Source: `04_Software/ador/cli.py` - file version 0.3.0.
+> Design: Orchestrator_Design_And_Decisions.md section 12a;
+> Assisted_Config_And_Profiles_Plan.md (init / profile / --profile).
 
 ## 1. Purpose
 
@@ -46,6 +47,20 @@ the `ador` package; no REST API or web UI exists in v1 by design.
     and orphaned/husk worktree directories; prints a JSON report. Corrupt
     run state is reported but never auto-deleted (that is `ador delete
     <run-id> --force`'s explicit job).
+- Wire assisted-config + profiles (Assisted_Config_And_Profiles_Plan):
+  - `ador init [name] [--force] [--answers FILE]` - the setup wizard
+    (delegates to `ador.wizard`); writes a validated runtime-project profile.
+  - `ador profile list|show|use|rename|delete|path` - manage profiles
+    (`delete` needs `--force`; `list` shows platform/repo/runtime plus run
+    stats RUNS/MERGED and last-used/uses, active marked `*`; `show` adds the
+    full stats block - runs/merged/failed/success-rate/launches/tokens/
+    avg-span/last-run - from the profile's metrics DB, zeros when empty).
+  - global `--profile NAME` - resolve any command's config from a profile.
+- **Config resolution (`_load`, decision D3):** explicit `-c FILE` >
+  `--profile NAME` > the active profile pointer > `./config.toml`. The
+  resolved path is shown in messages, and resolving a profile records a use
+  (use_count / last_used_at). Single-config users (no profile) are
+  unaffected.
 
 Explicitly not owned: any engine behavior; the handlers are thin views over
 `config`, `state`, and the orchestrator.
@@ -69,15 +84,19 @@ Explicitly not owned: any engine behavior; the handlers are thin views over
 
 - Internal: `ador.config` (load/validate), `ador.state` (`StateStore`),
   `ador.orchestrator` (engine commands), `ador.metrics` (stats/report/
-  export), `ador.util` (`parse_duration`), `ador.__version__`.
+  export), `ador.profiles` (`ProfileStore`, `resolve_config_path`),
+  `ador.wizard` (`run_wizard`, askers), `ador.util` (`parse_duration`),
+  `ador.__version__`.
 - External: Python standard library only (`argparse`, `json`, `tomllib`,
-  `dataclasses`).
+  `dataclasses`, `contextlib`).
 
 ## 5. Inputs And Outputs
 
-- Inputs: argv; `-c/--config` (default `config.toml`).
+- Inputs: argv; `-c/--config` (default resolves to `./config.toml`);
+  `--profile NAME`; the active-profile pointer under the ADOR config home.
 - Outputs: stdout text (human-oriented; `config show` prints JSON), the
-  process exit code, and pause-flag changes in the state store.
+  process exit code, pause-flag changes, and profile creation/edits under the
+  ADOR config home.
 
 ## 6. Data Contracts
 
@@ -108,6 +127,11 @@ ador runs
 ador pause && ador resume
 ador reset ador-gitlab-g-p-14 --to check --force   # then: ador retry <run-id>
 ador cleanup                                       # after a crash / husk dirs
+
+ador init cockpit-gcp                 # assisted setup -> a profile
+ador profile list                     # profiles with dates + use counts
+ador profile use cockpit-gcp          # make it the active profile
+ador --profile cockpit-gcp run --dry-run   # any command against a profile
 ```
 
 ## 9. Validation And Tests

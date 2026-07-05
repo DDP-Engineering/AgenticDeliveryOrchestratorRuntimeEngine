@@ -34,7 +34,11 @@ Runnable implementation of the orchestrator described in
   - `gates.py` - `.agentic` workflow CLI wrappers (the conductor's
     verification between gates).
   - `metrics.py` - statistics: journal -> SQLite run summaries + JSONL
-    mirror, aggregation, CSV export, static HTML dashboard.
+    mirror, aggregation, CSV export, static HTML dashboard, per-profile stats.
+  - `profiles.py` - runtime-project profiles: cross-platform config home,
+    CRUD, active pointer, config-path resolution (one install, many projects).
+  - `doctor.py` - environment detection + OS-specific prerequisite guidance.
+  - `wizard.py` - the `ador init` assisted-config wizard.
 - `docker/` - `Dockerfile.executor` for the `ador-executor:latest` image
   (Python 3.11 + uv, Node 20, git, opencode, glab/gh) plus build docs.
 - `deploy/` - deployment scripts (design 12a): `install-ubuntu.sh` +
@@ -69,8 +73,14 @@ Runnable implementation of the orchestrator described in
 7. **Deployment (done):** `deploy/` scripts for both hosts - systemd unit on
    Ubuntu 22+, Task Scheduler (loop at logon or repeating `--once`) on
    Windows 11; fail-fast prerequisite checks, locked env sync, config
-   validation, image build/verify. Still pending: the security decisions in
-   00_Planning/TODO.md (container egress allowlist before unattended runs).
+   validation, image build/verify.
+8. **Assisted config + profiles (done, cross-platform verified):** `ador init`
+   guided wizard, `ador profile list|show|use|rename|delete|path`, global
+   `--profile`, per-project profiles under a cross-platform config home, run
+   statistics. One install serves many projects. See
+   `00_Planning/Onboarding_New_Project.md`. Still pending: the security
+   decisions in 00_Planning/TODO.md (container egress allowlist before
+   unattended runs).
 
 ## Development
 

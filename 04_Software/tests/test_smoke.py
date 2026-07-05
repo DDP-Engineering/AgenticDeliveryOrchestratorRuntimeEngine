@@ -241,4 +241,75 @@ def test_cli_surfaces_corrupt_runs(tmp_path: Path, capsys: pytest.CaptureFixture
     assert "CORRUPT" in capsys.readouterr().out
 
 
+# PUBLIC API / TESTS - `ador init` through main()
+
+
+def _answers_file(tmp_path: Path) -> str:
+    """
+    @brief      Write a valid non-interactive answers file + a clone dir.
+    @param[in]  tmp_path pytest tmp dir.
+    @return     The answers file path.
+    @author     Eng. Dan Dumitru Pasare
+    @date       2026-07-05
+    @version    0.1.0
+    """
+    clone = tmp_path / "clone"
+    (clone / ".git").mkdir(parents=True)
+    answers = tmp_path / "answers.toml"
+    answers.write_text(
+        f'kind = "gitlab"\nhosting = "public"\nvisibility = "private"\n'
+        f'repo = "grp/proj"\nrepo_path = "{clone.as_posix()}"\n'
+        f'has_push_rule = "no"\nruntime = "docker"\nmodel = "openai/gpt-5.5"\n'
+        f'auth_mode = "api-key"\nreviewers = "dan.pasare"\n'
+        f'budgets_choice = "recommended"\npolling_mode = "once"\n'
+        f'state_location = "profile"\nconfirm = "yes"\n',
+        encoding="utf-8",
+    )
+    return str(answers)
+
+
+def test_cli_init_via_main_writes_profile(
+    ador_home: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """
+    @brief   `ador init <name> --answers FILE` creates a profile through the CLI
+             wiring; `profile list` then shows it.
+    @version 0.1.0
+    """
+    assert main(["init", "smoketest", "--answers", _answers_file(tmp_path)]) == EXIT_OK
+    capsys.readouterr()
+    assert main(["profile", "list"]) == EXIT_OK
+    assert "smoketest" in capsys.readouterr().out
+
+
+def test_cli_init_answers_file_errors(
+    ador_home: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """
+    @brief   A missing or invalid --answers file is a clean error (exit 1).
+    @version 0.1.0
+    """
+    assert main(["init", "p", "--answers", str(tmp_path / "nope.toml")]) == EXIT_ERROR
+    assert "not found" in capsys.readouterr().out
+    bad = tmp_path / "bad.toml"
+    bad.write_text("this = = broken", encoding="utf-8")
+    assert main(["init", "p", "--answers", str(bad)]) == EXIT_ERROR
+    assert "not valid TOML" in capsys.readouterr().out
+
+
+def test_cli_init_wizard_error_exits_one(
+    ador_home: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """
+    @brief   A wizard failure (existing profile without --force) surfaces as a
+             clean `init failed:` error, exit 1.
+    @version 0.1.0
+    """
+    answers = _answers_file(tmp_path)
+    assert main(["init", "dup", "--answers", answers]) == EXIT_OK
+    capsys.readouterr()
+    assert main(["init", "dup", "--answers", answers]) == EXIT_ERROR
+    assert "init failed" in capsys.readouterr().out
+
+
 # END OF FILE
