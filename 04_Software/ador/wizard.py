@@ -51,6 +51,8 @@ _LICENSE_LINES = (
     "# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0",
 )
 _OPENCODE_COMMAND = "opencode run --dir {worktree} -m {model} --format json {prompt}"
+_PI_COMMAND = "pi -p --mode json --model {model} {prompt}"
+_KNOWN_EXECUTORS = ("opencode", "pi")
 _DEFAULT_MODEL = "openai/gpt-5.5"
 _RECOMMENDED_BUDGETS = {
     "max_iterations": 12,
@@ -514,8 +516,9 @@ def run_wizard(
     ), asker, out)
     executor_cli = ask(FieldSpec(
         "executor_cli", "Executor CLI:",
-        "the agent that runs each gate", "opencode", default="opencode",
-        validate=_require,
+        "the agent that runs each gate (both read AGENTS.md and get their "
+        "push/merge guardrails from the repo adapter)", "opencode",
+        default="opencode", choices=_KNOWN_EXECUTORS,
     ), asker, out)
     model = ask(FieldSpec(
         "model", "Model id (provider/model):",
@@ -630,6 +633,8 @@ def _command_for(executor_cli: str) -> str:
     """
     if executor_cli == "opencode":
         return _OPENCODE_COMMAND
+    if executor_cli == "pi":
+        return _PI_COMMAND
     return f"{executor_cli} run --dir {{worktree}} -m {{model}} {{prompt}}"
 
 

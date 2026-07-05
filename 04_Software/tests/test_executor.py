@@ -29,6 +29,7 @@ from ador.executor.launcher import (
     GATE_SCRIPT,
     OUTPUT_FILE,
     OpencodeExecutor,
+    PiExecutor,
     build_executor,
 )
 from ador.util import CommandResult
@@ -37,6 +38,7 @@ import pytest
 # CONSTANTS
 
 TEMPLATE = "opencode run --dir {worktree} -m {model} --format json {prompt}"
+PI_TEMPLATE = "pi -p --mode json --model {model} {prompt}"
 
 # DATA MODELS / TYPEDEFINITIONS
 
@@ -304,6 +306,81 @@ def test_factory_wires_questions_file() -> None:
     assert executor.questions_file == "ROBO_QUESTIONS.md"
     with pytest.raises(ValueError):
         build_executor("codex", TEMPLATE, "m")
+
+
+# PUBLIC API / TESTS - Pi executor (config-selectable alternative)
+
+
+def test_factory_selects_pi() -> None:
+    """
+    @brief   `[executor] default = "pi"` selects the PiExecutor; a Pi template
+             needs no --auto guard (Pi has no such flag) and is accepted.
+    @version 0.1.0
+    """
+    executor = build_executor("pi", PI_TEMPLATE, "openai/gpt-5.5")
+    assert isinstance(executor, PiExecutor)
+    # the shared file protocol is inherited: same gate.sh, same argv shape
+    assert executor.questions_file == "ADOR_QUESTIONS.md"
+
+
+def test_pi_gate_uses_shared_protocol_and_session(tmp_path: Path) -> None:
+    """
+    @brief   Pi runs through the same WSL-safe gate.sh protocol and appends
+             `--session` for continuation, exactly like opencode.
+    @version 0.1.0
+    """
+    worktree, io_dir = _dirs(tmp_path)
+    executor = PiExecutor(PI_TEMPLATE, "openai/gpt-5.5")
+    run = executor.run_gate(FakeExec(CommandResult(exit_code=0)), worktree, io_dir,
+                            "next gate", session="ses_prev", timeout=900)
+    calls_script = (io_dir / GATE_SCRIPT).read_text(encoding="utf-8")
+    assert "pi -p --mode json --model openai/gpt-5.5" in calls_script
+    assert "--session ses_prev" in calls_script
+    assert "\r" not in calls_script and "cd /ador/work" in calls_script
+    assert run.session_id == "ses_prev"     # no output -> keep the known id
+
+
+def test_pi_session_id_parsed_from_session_header(tmp_path: Path) -> None:
+    """
+    @brief   Pi's JSON stream opens with a {"type":"session","id":...} header;
+             the id is read from that event (not opencode's sessionID key).
+    @version 0.1.0
+    """
+    worktree, io_dir = _dirs(tmp_path)
+
+    def write_stream() -> None:
+        (io_dir / OUTPUT_FILE).write_text(
+            '{"type":"session","version":3,"id":"pi-uuid-123","cwd":"/ador/work"}\n'
+            '{"type":"message_update","assistantMessageEvent":{"type":"text_delta",'
+            '"delta":"working"}}\n',
+            encoding="utf-8",
+        )
+
+    run = PiExecutor(PI_TEMPLATE, "m").run_gate(
+        FakeExec(CommandResult(exit_code=0), write_stream), worktree, io_dir, "p")
+    assert run.session_id == "pi-uuid-123"
+    # Pi does not report usage in the stream today -> zeros (metrics tolerate)
+    assert run.tokens_in == 0 and run.tokens_out == 0 and run.cost_usd == 0.0
+
+
+def test_pi_questions_and_failure_behave_like_the_shared_base(tmp_path: Path) -> None:
+    """
+    @brief   Clarification parking and fail-closed pass-through are inherited
+             unchanged from the shared protocol.
+    @version 0.1.0
+    """
+    worktree, io_dir = _dirs(tmp_path)
+
+    def ask() -> None:
+        (worktree / "ADOR_QUESTIONS.md").write_text("1. Which region?\n", encoding="utf-8")
+
+    parked = PiExecutor(PI_TEMPLATE, "m").run_gate(
+        FakeExec(CommandResult(exit_code=0), ask), worktree, io_dir, "p")
+    assert parked.has_questions and "Which region" in parked.questions
+
+    failed = PiExecutor(PI_TEMPLATE, "m").run_gate(
+        FakeExec(CommandResult(exit_code=124, stderr="timeout")), worktree, io_dir, "p")
+    assert not failed.ok and failed.exit_code == 124
 
 
 # END OF FILE

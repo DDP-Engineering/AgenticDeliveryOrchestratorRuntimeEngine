@@ -22,6 +22,9 @@ FROM ubuntu:22.04
 ARG NODE_MAJOR=20
 ARG GLAB_VERSION=1.55.0
 ARG OPENCODE_PACKAGE=opencode-ai
+# Pi is the config-selectable alternative executor ([executor] default = "pi").
+# Package name from the workflow template's .pi peerDependency.
+ARG PI_PACKAGE=@earendil-works/pi-coding-agent
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -62,8 +65,11 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
     && apt-get install -y --no-install-recommends gh \
     && rm -rf /var/lib/apt/lists/*
 
-# --- Executor CLI: opencode (via npm) -----------------------------------------
+# --- Executor CLIs (via npm) --------------------------------------------------
+# opencode is the default; pi is the config-selectable alternative. Kept in
+# separate layers so the proven opencode install is isolated from pi.
 RUN npm install -g "${OPENCODE_PACKAGE}"
+RUN npm install -g "${PI_PACKAGE}"
 
 # --- Target-repo gate tooling (live finding 2026-07-03: `make lint`/`make
 # test` are the workflow's gates and hard-require these binaries) --------------

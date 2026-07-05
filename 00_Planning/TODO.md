@@ -37,6 +37,21 @@ The orchestrator's own stdout isn't persisted by ADOR itself — fine interactiv
    decision below still gates unattended running.
 
 ## Create interface for PI Agent and Qwen Code
+   PI: CODE DONE 2026-07-05. Executors refactored to a shared
+   FileProtocolExecutor base; `PiExecutor` added; `build_executor` selects
+   opencode|pi from `[executor] default` (no engine change); wizard offers pi;
+   config.example + Dockerfile (pi npm package) + docs updated; 4 pi unit
+   tests (suite 217, ruff clean); a `default = "pi"` config validates and the
+   factory returns PiExecutor (verified). PENDING LIVE SPIKE (cannot run pi
+   here - not installed): (1) build the executor image with
+   `@earendil-works/pi-coding-agent` and confirm it runs; (2) `pi -p --mode
+   json` runs the `.agentic` CLI non-interactively + commits; (3) pin the
+   session-header schema and find a token-usage field (usage is 0 until then);
+   (4) PROJECT TRUST - Pi loads its `.pi` agentic-guard + skills only after the
+   project is trusted (`ctx.isProjectTrusted()`); ADOR must pre-trust the
+   worktree for headless runs, else the guard does not load (container
+   isolation still blocks remote writes). Find/verify the non-interactive
+   trust mechanism. Qwen: same pattern once PI is proven (trivial subclass).
 
 ## A fail-fast tool check — a small planned improvement: [container] required_tools = ["make", "tflint", ...] verified at provision (one which exec per tool), so a missing binary fails in 2 seconds with a clear message instead of surfacing mid-delivery through a model-driven fix loop. Tonight's make-shaped detour is exactly what that check prevents
 

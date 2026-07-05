@@ -157,7 +157,14 @@ command = "opencode run --dir {worktree} -m {model} --format json {prompt}"
 # Model in provider/model form; the provider API key comes from .env.
 model = "openai/gpt-5.4-fast"
 
-# [executor.pi] / [executor.codex] follow the same command-template shape.
+# Alternative executor: Pi (@earendil-works/pi-coding-agent). To use it, set
+# `default = "pi"` above and uncomment this table. Pi reads AGENTS.md natively
+# and gets its push/merge guardrails from the repo's `.pi` agentic-guard
+# extension (enforced in headless/json mode). It must be installed in the
+# executor image, and the project must be trusted for headless runs.
+# [executor.pi]
+# command = "pi -p --mode json --model {model} {prompt}"
+# model = "openai/gpt-5.5"
 
 # ----- Clarification -----------------------------------------------------------
 # Bounds for parked runs (executor asked a question, waiting on a human).

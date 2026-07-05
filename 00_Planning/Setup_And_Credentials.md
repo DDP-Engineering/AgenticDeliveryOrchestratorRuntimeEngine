@@ -122,8 +122,9 @@ export GITHUB_TOKEN=<token>        # or non-interactive
 
 ## 3. Executor and Model Provider Credentials
 
-The executor (opencode / pi / codex) runs **inside the container** and needs a
+The executor (**opencode or pi**) runs **inside the container** and needs a
 model-provider API key. This is the credential you almost certainly must supply.
+Select the executor with `[executor] default` in `config.toml`.
 
 - **Which key** depends on the executor's configured provider, e.g.
   `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, or a gateway key. Put it in `.env`; ADOR
@@ -132,8 +133,16 @@ model-provider API key. This is the credential you almost certainly must supply.
   permissions) plus the provider key in the environment. The repo's
   `opencode.json` already sets tool permissions and marks `git push` /
   `gh pr create` as `ask` (which safely blocks the executor from pushing).
-- **pi / codex:** same pattern - a provider key in the environment; the launcher
-  command template in `config.toml` selects the tool.
+- **pi** (`@earendil-works/pi-coding-agent`, config-selectable): same key pattern
+  - a provider key in the environment (`--api-key` / env var). Pi reads
+  `AGENTS.md` natively and gets its push/merge guardrails from the target repo's
+  `.pi` **agentic-guard** extension (a return-value block enforced in every mode,
+  including headless `--mode json`). **One caveat for unattended use:** Pi loads
+  its project-local guard/skills only after the project is **trusted**
+  (`ctx.isProjectTrusted()`), so the worktree must be pre-trusted for headless
+  runs, or the guard does not load (container isolation still blocks remote
+  writes regardless). Pinning the non-interactive trust step is part of the Pi
+  live spike (00_Planning/TODO.md). codex/qwen are not implemented yet.
 - **Never bake keys into the container image.** Pass them at launch only.
 
 ### 3.1 OAuth (ChatGPT account) vs API key - finding 2026-07-03

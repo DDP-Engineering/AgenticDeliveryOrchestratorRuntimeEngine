@@ -9,27 +9,34 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Executor Launcher (`ador/executor/`)
 
 > Component documentation per `component_documentation_template.md`.
-> Sources: `04_Software/ador/executor/{base,launcher}.py` - file versions 0.1.1.
+> Sources: `04_Software/ador/executor/base.py` (0.1.1),
+> `04_Software/ador/executor/launcher.py` (0.2.0).
 > Design: Orchestrator_Design_And_Decisions.md sections 6 and 7a;
 > Prerequisites_Check_Report.md sections 5-6 and 12-13.
 
 ## 1. Purpose
 
-Launch the configured executor (opencode in v1; pi/codex behind the same
-factory later) headless inside the run's container, one gate per launch, and
-read every result back deterministically. All code reasoning lives in the
-executor; the launcher only composes commands and collects outcomes.
+Launch the configured executor - **opencode or pi**, chosen by `[executor]
+default` - headless inside the run's container, one gate per launch, and read
+every result back deterministically. All code reasoning lives in the executor;
+the launcher only composes commands and collects outcomes.
 
 ## 2. Responsibilities
 
 - `Executor` (ABC in `base.py`) + `ExecTarget` protocol (the container exec
   seam, bound by the orchestrator to the run's container) + `GateRun` (the
   conductor's decision inputs: exit code, questions, session id, raw output).
-- `OpencodeExecutor` (`launcher.py`): template substitution, the file-based
-  gate protocol (section 3), session continuation (`--session <id>`),
-  questions-file detection, and the `--auto` refusal.
-- `build_executor(kind, command_template, model, questions_file)` - factory
-  from `[executor]` config.
+- `FileProtocolExecutor` (`launcher.py`): the shared, executor-agnostic
+  file-based gate protocol (section 3), template substitution, session
+  continuation (`--session <id>`), questions-file detection, and the dead-
+  session self-heal. Subclasses supply only the JSON parsers.
+- `OpencodeExecutor`: the `--auto` refusal, `sessionID` parsing, and
+  `step_finish` token/cost usage.
+- `PiExecutor`: Pi (`@earendil-works/pi-coding-agent`); session id from Pi's
+  `{"type":"session","id":...}` stream header; usage falls back to zeros (Pi
+  does not report tokens in its stream today).
+- `build_executor(kind, command_template, model, questions_file)` - the config
+  selection point (`kind` = `opencode` | `pi`).
 
 Explicitly not owned: *which* gate to run and what to do with the outcome
 (orchestrator, design 7a), container lifecycle (isolation), posting anything
@@ -56,10 +63,18 @@ buffers stdout so live streaming looks hung (prereq 9).
    tokens, immune to WSL argv splitting. The script's exit status is the
    executor's.
 5. Read back from the HOST filesystem: the event stream and stderr from the
-   io dir, questions from `<worktree>/<questions_file>`. Extract the session
-   id from the event stream by key name (`sessionID`/`session_id`, regex,
-   nesting-tolerant). A missing output file is NOT an error - the exit code
-   carries the failure and the conductor decides.
+   io dir, questions from `<worktree>/<questions_file>`. The session id is
+   parsed per executor (opencode: the `sessionID` key; Pi: the `id` of the
+   `{"type":"session",...}` header event). A missing output file is NOT an
+   error - the exit code carries the failure and the conductor decides.
+
+Steps 1-5 and the `--session` continuation live in `FileProtocolExecutor` and
+are shared by both executors; opencode and pi differ ONLY in the session-id
+and usage parsers (and the config-provided command template). Both read the
+repo's `AGENTS.md` gate contract natively and get their push/merge guardrails
+from the repo adapter (opencode.json permissions / the `.pi` agentic-guard
+extension) PLUS container isolation - there are no remote credentials in the
+container, so the executor cannot push regardless.
 - Gate artifacts (`gate.sh`, `output.jsonl`, `stderr.log`) persist in
   `.ador/runs/<run-id>/io/` for audit; being outside the worktree, the
   executor can never `git add` them.
@@ -144,8 +159,17 @@ elif run.ok:
 
 ## 10. Limitations And Future Work
 
-- Only opencode is implemented; pi/codex need their own session-continuation
-  idioms behind the same factory.
+- **opencode is live-proven; pi is wired but not yet live-verified.** The
+  `PiExecutor` code path + config selection are implemented and unit-tested
+  (offline), but a live spike is still owed (see 00_Planning/TODO.md), to
+  confirm on a real host: (a) `pi -p --mode json` runs the `.agentic` CLI
+  non-interactively and commits; (b) the session-header schema and whether any
+  event carries token usage (usage is zero until then); (c) that Pi's
+  project-**trust** requirement is satisfied for headless runs so the `.pi`
+  agentic-guard loads (container isolation blocks remote writes regardless);
+  (d) the executor image builds with the pi npm package.
+- codex/qwen would now be trivial: a new `FileProtocolExecutor` subclass with
+  its two parsers + a `build_executor` branch.
 - Observed event schema (live, 2026-07-03): NDJSON with `step_start` /
   `tool_use` / `step_finish` events, top-level `sessionID`, full tool
   inputs/outputs/exit codes; `step_finish` carries `tokens`

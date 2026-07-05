@@ -105,17 +105,23 @@ prefix = "agent-exec:"       # e.g. "agent-exec:opencode"
 
 # ----- Executor -----
 [executor]
-default        = "opencode"  # "opencode" | "pi" | "codex"
+default        = "opencode"  # "opencode" | "pi"  (config selection point)
 mode           = "thick"     # "thick" (gate-by-gate) | "headless" (single-shot)
 questions_file = "ADOR_QUESTIONS.md"
 env_keys       = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]  # only these reach the container
 stage_host_auth = false      # pilot-only OAuth bridge (see Setup_And_Credentials.md 3.1)
 
 [executor.opencode]
-command = "opencode run --model {model} \"{prompt}\""
+command = "opencode run --dir {worktree} -m {model} --format json {prompt}"
 model   = "<provider/model>"
 
-# [executor.pi] / [executor.codex] follow the same command-template shape.
+# To use Pi instead, set `default = "pi"` and add:
+# [executor.pi]
+# command = "pi -p --mode json --model {model} {prompt}"
+# model   = "<provider/model>"
+# Pi reads AGENTS.md natively and gets its push/merge guardrails from the repo's
+# .pi agentic-guard extension (see Setup_And_Credentials.md 3). codex/qwen are
+# not implemented yet (a small subclass each behind the same factory).
 
 # ----- Clarification -----
 [clarification]
@@ -244,12 +250,12 @@ teams can rename without code changes; the orchestrator refers to labels by role
 
 | Key | Meaning | Default |
 |---|---|---|
-| `default` | Which executor to launch (`opencode` / `pi` / `codex`). | `"opencode"` |
+| `default` | Which executor to launch: `opencode` (default, live-proven) or `pi` (Pi, `@earendil-works/pi-coding-agent`; wired, pending a live spike). The `[executor.<name>]` table must match. codex/qwen are not implemented yet. | `"opencode"` |
 | `mode` | `thick` = orchestrator drives gate-by-gate; `headless` = single-shot. | `"thick"` |
 | `questions_file` | File the executor writes clarification questions to. | `"ADOR_QUESTIONS.md"` |
 | `env_keys` | The only environment variables (from host env / `.env`) injected into the executor container. | `["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]` |
 | `stage_host_auth` | Pilot-only: copy the host's opencode `auth.json` (OAuth session) into the run container at provision (see Setup_And_Credentials.md 3.1). | `false` |
-| `[executor.<name>].command` | Command template for that executor; `{prompt}` (shell-quoted), `{model}`, and `{worktree}` (container path `/ador/work`) substituted. `--auto` is forbidden (it would auto-approve the executor's own push/merge). | per executor |
+| `[executor.<name>].command` | Command template for that executor; `{prompt}` (shell-quoted), `{model}`, and `{worktree}` (container path `/ador/work`) substituted; a continuing session appends `--session <id>`. opencode forbids `--auto` (it would auto-approve the executor's own push/merge); Pi's guardrails come from the repo's `.pi` agentic-guard extension. Examples: opencode `opencode run --dir {worktree} -m {model} --format json {prompt}`; pi `pi -p --mode json --model {model} {prompt}`. | per executor |
 | `[executor.<name>].model` | Model/provider string for that executor. | (required) |
 
 ## `[clarification]` - Clarification
