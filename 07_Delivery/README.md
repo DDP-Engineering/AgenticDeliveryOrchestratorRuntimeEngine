@@ -7,18 +7,27 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Delivery
 
-Deployment, packaging, and release material for the Agentic Delivery
-Orchestrator belong here.
+Runtime packages, release artifacts, and operator handoff material for the
+Agentic Delivery Orchestrator belong here.
 
-Planned contents:
+The current implemented packaging flow is a trimmed runtime bundle created by
+the scripts in `02_Tools/`:
 
-- `Deployment_Ubuntu22.md` - how to run the orchestrator on an Ubuntu 22 server
-  (service/cron setup, container runtime, forge and model credentials).
-- `Deployment_Windows11.md` - first-test setup on Windows 11.
-- `Container.md` - the executor container image contents and build/publish steps.
-- `Release_Notes.md` - notable release and change history.
+```powershell
+.\02_Tools\package_runtime.ps1
+```
 
-Delivery model: the orchestrator is delivered as a Python package plus an
-executor container image. Python 3.11+ is the only host runtime requirement for
-the orchestrator itself; the executor and target-repo tooling run inside the
-container.
+```bash
+bash 02_Tools/package_runtime.sh
+```
+
+The generated bundle is named from the project release version, for example
+`ador-runtime-0.1.0.zip` on Windows or `ador-runtime-0.1.0.tar.gz` on POSIX. It
+contains the runnable `04_Software` package contents and the existing deployment
+scripts under `deploy/`, but excludes development files, test suites, virtual
+environments, worktrees, local `.ador` state, and secrets.
+
+Delivery model: ADOR is delivered as a Python package directory plus an executor
+container image. Python 3.11+ and `uv` prepare the host-side `.venv` executable;
+the executor and target-repo tooling run inside the container. Native Windows
+single-file executables and Ubuntu `.deb` packages are not implemented yet.

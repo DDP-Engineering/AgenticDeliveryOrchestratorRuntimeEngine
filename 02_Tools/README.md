@@ -7,31 +7,47 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Tools
 
-This folder holds **all scripts needed to work with the project across its whole
-lifecycle** - from setting up a development environment, through building and
-packaging, to delivery. In short: every script required to set the project up for
-development and take it all the way to packaging and release belongs here.
+This folder holds repository-level scripts used outside the runtime package.
+The current implemented tool is the runtime-bundle packager:
 
-Planned contents:
+- `package_runtime.ps1` - Windows PowerShell packager; writes a trimmed
+  `ador-runtime-<version>.zip` or directory under `07_Delivery/`.
+- `package_runtime.cmd` - cmd.exe wrapper around the PowerShell packager.
+- `package_runtime.sh` - POSIX/Bash packager; writes a trimmed
+  `ador-runtime-<version>.tar.gz`, `.zip`, or directory under `07_Delivery/`.
 
-- **Development environment setup** scripts (Windows PowerShell and Bash) that
-  install the orchestrator's Python environment (via `uv`) and verify that
-  `glab`/`gh`, `git`, the chosen executor CLI, and the container runtime are
-  available.
-- **Build / container** helpers for the executor image (bundling the target
-  repo's `.agentic` CLI, an executor, and the Git-platform CLI) and its cache
-  volumes.
-- **Packaging** scripts that build the distributable ADOR package (wheel/sdist)
-  and the executor image.
-- **Delivery / release** scripts for publishing the package/image and handling
-  any release bookkeeping.
-- Local lint/test convenience wrappers.
+The runtime bundle contains the runnable contents of `04_Software/` needed on a
+deployment host: `ador/`, `deploy/`, `docker/`, package metadata, lockfile,
+examples, and changelog. It excludes development/test/runtime state such as
+`tests/`, `.venv/`, `.ador/`, `worktrees/`, caches, and `.env`.
+
+The package includes the existing setup scripts in `deploy/`; it does not
+replace them. After unpacking, use `deploy/install-windows.ps1` for Windows Task
+Scheduler setup or `deploy/install-ubuntu.sh` for Ubuntu systemd setup.
+
+Examples:
+
+```powershell
+.\02_Tools\package_runtime.ps1
+.\02_Tools\package_runtime.ps1 -Format directory
+.\02_Tools\package_runtime.cmd -OutputDir D:\packages
+```
+
+```bash
+bash 02_Tools/package_runtime.sh
+bash 02_Tools/package_runtime.sh --format zip
+bash 02_Tools/package_runtime.sh --include-config
+```
+
+By default, `config.toml` is not copied because it is target-specific, and
+`.env` is never copied. Use the explicit config option only for a controlled
+operator handoff where that target config is meant to travel with the bundle.
 
 ## Conventions
 
 - Scripts are provided as **Bash (`.sh`)**, **PowerShell (`.ps1`)**, and
-  **cmd (`.bat`/`.cmd`)** as appropriate, so the project can be set up and
-  delivered on both Ubuntu 22 (production) and Windows 11 (first tests).
+  **cmd (`.bat`/`.cmd`)** as appropriate, so packaging and deployment can be
+  driven from both Ubuntu 22+ and Windows 11.
 - Every script is **commented for each stage** - a short comment before each
   meaningful step explains what that stage does - so the scripts double as
   readable, step-by-step runbooks.

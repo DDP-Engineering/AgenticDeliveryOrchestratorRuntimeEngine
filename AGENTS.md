@@ -117,6 +117,24 @@ Two independent revision markers, both bumped in the same change that causes the
   file-level `@version` tags to `pyproject.toml` / the release version; they need
   not match the release number.
 
+### Release versioning and changelog rules
+
+- The repository-root `CHANGELOG.md` is the canonical record of notable ADOR
+  project updates. Accrue changes under `## [Unreleased]` using Keep a
+  Changelog sections (`Added`, `Changed`, `Fixed`, `Removed`).
+- The project release version is declared in both
+  `04_Software/pyproject.toml` and `04_Software/ador/__init__.py`; keep these
+  values aligned.
+- When the user asks to assign or cut a release version, in the same change:
+  1. roll `## [Unreleased]` into a dated `## [x.y.z] - YYYY-MM-DD` section in
+     the root `CHANGELOG.md`;
+  2. bump every release-version declaration to the same `x.y.z`;
+  3. keep generated runtime package names in `02_Tools/package_runtime.*`
+     derived from that version rather than hardcoding a separate one.
+- Use Semantic Versioning: MAJOR for breaking CLI/config/state/executor
+  contracts, MINOR for backward-compatible capabilities, and PATCH for fixes
+  with no contract change.
+
 ## Documentation Rules
 
 - **After every component creation or update, create or update that component's

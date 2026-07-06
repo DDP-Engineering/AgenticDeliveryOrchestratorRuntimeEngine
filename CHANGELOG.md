@@ -12,8 +12,15 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-06
+
 ### Added
 
+- Runtime bundle packaging scripts in `02_Tools/` for PowerShell, cmd.exe, and
+  Bash; bundles include the existing Task Scheduler/systemd deployment scripts.
+- Release versioning and changelog rules aligned with the workflow-template
+  convention: root changelog plus synchronized `pyproject.toml` and
+  `ador.__version__` release metadata.
 - Initial repository scaffold: top-level folder structure
   (`00_Planning`, `01_Documentation`, `02_Tools`, `04_Software`,
   `05_SoftwareDocu`, `07_Delivery`, `09_Others`) mirroring the Agentic

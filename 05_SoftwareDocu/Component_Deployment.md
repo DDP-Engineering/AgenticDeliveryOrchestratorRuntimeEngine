@@ -44,8 +44,9 @@ this one directory as scripts, not code.
 Explicitly not owned: installing prerequisites (checks fail closed with the
 install hint - deterministic, no surprise system changes), secret contents
 (placement only; design 12b), the container egress posture (a pending
-security decision in `00_Planning/TODO.md`), and packaging (exe/deb is a
-separate backlog item).
+security decision in `00_Planning/TODO.md`), and native OS packaging
+(single-file exe / deb are separate backlog items). The lightweight runtime
+bundle is owned by `02_Tools/package_runtime.*`.
 
 ## 3. Implementation Overview
 
@@ -127,8 +128,8 @@ Start-ScheduledTask -TaskName "ADOR Orchestrator"
   service account is on the organizational checklist (prereq report).
 - No allowlist-proxy egress setup yet - REQUIRED before unattended
   production running (security decision, `00_Planning/TODO.md`).
-- Packaging (Windows exe / Ubuntu deb) and podman support are separate
-  backlog items; the scripts assume a git checkout + uv.
+- Native packaging (Windows exe / Ubuntu deb) is separate future work; the
+  implemented handoff artifact is the runtime bundle from `02_Tools/`.
 - The Windows loop task starts at logon (not boot); running as a service
   account at boot needs NSSM or a `-User/-Password` registration - add when
   a dedicated runner machine exists.

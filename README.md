@@ -17,7 +17,7 @@ It keeps planning, documentation, tooling, implementation code, implementation
 notes, delivery material, and support files in separate top-level folders, in
 the same layout convention as the Agentic Development Workflow Template.
 
-The runnable Python package will live in:
+The runnable Python package lives in:
 
 `04_Software/`
 
@@ -55,17 +55,20 @@ human reviewer -> approves and merges
   orchestrator.
 - `01_Documentation/` - operator and configuration documentation for running
   the orchestrator.
-- `02_Tools/` - repository-level helper scripts and utilities.
+- `02_Tools/` - repository-level helper scripts, including runtime packaging.
 - `04_Software/` - the runnable orchestrator Python package (implementation).
 - `05_SoftwareDocu/` - implementation notes and deeper technical contracts.
-- `07_Delivery/` - deployment, packaging, and release material.
+- `07_Delivery/` - generated runtime bundles, packaging, and release material.
 - `09_Others/` - miscellaneous support material and local reference files.
 
 ## Status
 
-Early scaffold. This commit establishes the folder structure and per-folder
-READMEs only. The orchestrator implementation under `04_Software/` is planned
-and not yet started.
+ADOR has an implemented CLI under `04_Software/` with config/profile setup,
+state tracking, forge adapters, isolated executor runs, delivery to draft
+MR/PR, metrics, cleanup/reset operations, and deployment scripts for Windows
+Task Scheduler and Ubuntu systemd. `02_Tools/package_runtime.*` creates trimmed
+runtime bundles under `07_Delivery/` for operator handoff without copying the
+whole repository.
 
 ## License
 

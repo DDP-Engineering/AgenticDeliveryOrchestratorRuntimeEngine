@@ -52,6 +52,10 @@ change as the component (see the Documentation Rules in the repository
 - `Component_Metrics.md` - statistics capture and query: journal -> SQLite
   run summaries, stats/report/export CLI, static HTML dashboard
   (`ador/metrics.py`).
+- `Component_Deployment.md` - Task Scheduler/systemd deployment scripts and
+  service setup (`04_Software/deploy/`).
+- `Component_Packaging.md` - runtime-bundle packaging scripts
+  (`02_Tools/package_runtime.*`).
 
 ## Planned contents (later phases)
 
