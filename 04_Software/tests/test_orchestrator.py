@@ -27,13 +27,16 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from ador import gates
 from ador.config import Config, ExecutorCommand
 from ador.executor.base import Executor, GateRun
 from ador.forge import Comment, Forge, MergeRequest, Ticket
+from ador.gates import GateResult
 from ador.isolation import IsolationError
 from ador.orchestrator import GATES, Orchestrator
 from ador.state import RunState, StateStore
 from ador.util import CommandResult
+import pytest
 
 # CONSTANTS
 
@@ -193,6 +196,7 @@ class FakeWorktrees:
         self.merge_results: list[CommandResult] = []
         self.pushed: list[str] = []
         self.push_result = CommandResult(exit_code=0)
+        self.delivery_commits: list[tuple[str, str]] = []
 
     def path_for(self, run_id: str) -> Path:
         return self.root / run_id
@@ -222,6 +226,14 @@ class FakeWorktrees:
 
     def changed_files(self, run_id: str, base_ref: str) -> int:
         return self.touched
+
+    def commit_all_if_dirty(self, run_id: str, message: str) -> bool:
+        if not self.dirty:
+            return False
+        self.delivery_commits.append((run_id, message))
+        self.dirty = False
+        self.ahead += 1
+        return True
 
     def is_dirty(self, run_id: str) -> bool:
         return self.dirty
@@ -258,6 +270,8 @@ class FakeContainers:
         self.events: list[tuple[str, str]] = []
         self.invariants_results: list[int] = []
         self.exec_calls: list[list[str]] = []
+        self.exec_envs: list[dict[str, str] | None] = []
+        self.provision_envs: list[dict[str, str]] = []
         self.report_output = "report"
 
     def status(self, name: str) -> str:
@@ -272,6 +286,7 @@ class FakeContainers:
         )
         self.states[name] = "running"
         self.events.append(("provision", name))
+        self.provision_envs.append(dict(env))
         return action
 
     def start(self, name: str) -> None:
@@ -289,8 +304,9 @@ class FakeContainers:
     def list_containers(self, prefix: str) -> list[str]:
         return [name for name in self.states if name.startswith(prefix)]
 
-    def exec(self, name, argv, *, timeout=None) -> CommandResult:
+    def exec(self, name, argv, *, timeout=None, env=None) -> CommandResult:
         self.exec_calls.append([str(part) for part in argv])
+        self.exec_envs.append(dict(env) if env is not None else None)
         if "invariants" in argv:
             code = self.invariants_results.pop(0) if self.invariants_results else 0
             return CommandResult(exit_code=code, stdout="invariants")
@@ -792,6 +808,61 @@ def test_stage_host_auth_off_by_default_and_missing_file(tmp_path: Path) -> None
     assert any("missing" in line for line in logged)
 
 
+def test_host_auth_path_is_per_executor(tmp_path: Path) -> None:
+    """
+    @brief   The OAuth-bridge source + container dir follow the configured
+             executor; Codex host auth is copied into ADOR's isolated
+             container CODEX_HOME.
+    @version 0.1.0
+    """
+    opencode_engine, _, _, _ = make_engine(tmp_path)
+    assert opencode_engine.host_auth_container_dir.endswith("opencode")
+    assert str(opencode_engine.host_auth_path).endswith("auth.json")
+
+    codex_config = make_config(tmp_path / "cx", **{"executor.default": "codex"})
+    codex_engine, _, _, _ = make_engine(tmp_path / "cx", config=codex_config)
+    assert codex_engine.host_auth_container_dir == "/home/ador/.ador-codex"
+    assert str(codex_engine.host_auth_path).replace("\\", "/").endswith(".codex/auth.json")
+
+
+def test_codex_provision_uses_isolated_codex_home(tmp_path: Path) -> None:
+    """
+    @brief   Selecting the Codex executor injects an ADOR-owned CODEX_HOME;
+             opencode does not receive Codex-specific environment.
+    @version 0.1.0
+    """
+    codex_config = make_config(tmp_path / "cx", **{"executor.default": "codex"})
+    engine, forge, containers, _ = make_engine(tmp_path / "cx",
+                                               FakeExecutor([gate_ok()] * 5),
+                                               codex_config)
+    forge.add_ticket(14)
+    engine.poll_once()
+    assert containers.provision_envs[-1]["CODEX_HOME"] == "/home/ador/.ador-codex"
+
+    opencode_engine, opencode_forge, opencode_containers, _ = make_engine(
+        tmp_path / "op", FakeExecutor([gate_ok()] * 5)
+    )
+    opencode_forge.add_ticket(14)
+    opencode_engine.poll_once()
+    assert "CODEX_HOME" not in opencode_containers.provision_envs[-1]
+
+
+def test_runtime_env_reaches_provision_and_exec(tmp_path: Path) -> None:
+    """
+    @brief   Non-secret [container] runtime_env values are injected on both
+             container creation and exec calls, so wrapped runtimes do not
+             drop them between gate launches.
+    @version 0.1.0
+    """
+    config = make_config(tmp_path, **{"container.runtime_env": {"UV_LINK_MODE": "copy"}})
+    engine, forge, containers, _ = make_engine(tmp_path, FakeExecutor([gate_ok()] * 5),
+                                               config)
+    forge.add_ticket(14)
+    engine.poll_once()
+    assert containers.provision_envs[-1]["UV_LINK_MODE"] == "copy"
+    assert any(env and env["UV_LINK_MODE"] == "copy" for env in containers.exec_envs)
+
+
 def test_uncommitted_work_relaunches_validation(tmp_path: Path) -> None:
     """
     @brief   A passing validation gate with a dirty tree (or zero commits) is
@@ -1091,6 +1162,33 @@ def test_delivery_sequence_and_draft_mr(tmp_path: Path) -> None:
                       "in-review"]
     events = [e["event"] for e in engine.store.read_journal(run.run_id)]
     assert [e for e in events if e in expected_order] == expected_order
+
+
+def test_delivery_commits_conductor_generated_artifacts_before_push(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    @brief   Delivery gates/report may write final workflow metadata after the
+             executor's last commit; ADOR commits those artifacts before it
+             pushes and opens the draft MR.
+    @version 0.1.0
+    """
+    engine, forge, _, worktrees = make_engine(tmp_path, FakeExecutor([gate_ok()] * 6))
+
+    def dirty_gates_run(execute, timeout=1800):
+        worktrees.dirty = True
+        return GateResult(ok=True, exit_code=0, output="gates ok")
+
+    monkeypatch.setattr(gates, "gates_run", dirty_gates_run)
+    forge.add_ticket(14, title="Refresh")
+    engine.poll_once()
+    run = engine.store.load(engine._run_id(14))
+    assert worktrees.delivery_commits == [
+        (run.run_id, "Record delivery verification for ticket 14")
+    ]
+    events = [e["event"] for e in engine.store.read_journal(run.run_id)]
+    assert events.index("delivery-artifacts-committed") < events.index("pushed")
+    assert worktrees.pushed == [run.branch]
 
 
 def test_merge_conflict_relaunches_executor_to_resolve(tmp_path: Path) -> None:

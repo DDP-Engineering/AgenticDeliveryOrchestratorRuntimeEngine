@@ -35,6 +35,17 @@ from ador.util import parse_duration
 
 _QUIET_HOURS_RE = re.compile(r"^\d{2}:\d{2}-\d{2}:\d{2}$")
 _SLUG_RE = re.compile(r"^[a-z][a-z0-9-]*$")
+_MANAGED_CONTAINER_ENV = frozenset({
+    "HOME",
+    "GIT_DIR",
+    "GIT_COMMON_DIR",
+    "GIT_WORK_TREE",
+    "GIT_AUTHOR_NAME",
+    "GIT_AUTHOR_EMAIL",
+    "GIT_COMMITTER_NAME",
+    "GIT_COMMITTER_EMAIL",
+    "CODEX_HOME",
+})
 
 KNOWN_SECTIONS = frozenset(
     {
@@ -301,9 +312,12 @@ class ContainerConfig:
     @details run_args are extra option tokens for `<runtime> run` (e.g.
              "--userns=keep-id" for rootless podman - live finding
              2026-07-04 - or resource limits like "--memory=2g").
+             runtime_env is the non-secret environment injected into both
+             container creation and exec calls; values travel through the same
+             non-secret/secret split as executor env.
     @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-04
-    @version 0.2.0
+    @date    2026-07-06
+    @version 0.3.0
     """
 
     runtime: str = "docker"
@@ -316,6 +330,7 @@ class ContainerConfig:
     uv_cache_volume: str = "ador-uv-cache"
     npm_cache_volume: str = "ador-npm-cache"
     run_args: list[str] = field(default_factory=list)
+    runtime_env: dict[str, str] = field(default_factory=lambda: {"UV_LINK_MODE": "copy"})
 
 
 @dataclass
@@ -620,8 +635,8 @@ def validate_config(config: Config) -> list[str]:
     @param[in]  config The configuration to validate.
     @return     Empty list when valid; otherwise one message per issue.
     @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-02
-    @version    0.1.1
+    @date       2026-07-06
+    @version    0.1.5
     """
     issues: list[str] = []
 
@@ -683,6 +698,40 @@ def validate_config(config: Config) -> list[str]:
             "auto-approve the push/pr/merge permissions that keep the "
             "executor off the remote)",
         )
+        if default == "codex":
+            command = entry.command
+            check(
+                "--json" in command
+                and (
+                    "--sandbox workspace-write" in command
+                    or "--dangerously-bypass-approvals-and-sandbox" in command
+                    or "--full-auto" in command
+                ),
+                "[executor.codex] command must run non-interactively: add "
+                "--json with --sandbox workspace-write, --full-auto, or "
+                "--dangerously-bypass-approvals-and-sandbox so Codex does not "
+                "block waiting for approval headless",
+            )
+            check(
+                "--ignore-user-config" in command.split(),
+                "[executor.codex] command must include --ignore-user-config so "
+                "headless runs use ADOR's staged CODEX_HOME instead of a "
+                "machine-local desktop config/plugin state",
+            )
+            check(
+                "--disable plugins" in command,
+                "[executor.codex] command must include --disable plugins so "
+                "Codex does not materialize its bundled plugin marketplace "
+                "inside the target worktree",
+            )
+        if default == "qwen":
+            command = entry.command
+            check(
+                "--yolo" not in command.split() and "--approval-mode yolo" not in command,
+                "[executor.qwen] command must not use --yolo / --approval-mode yolo "
+                "(auto-approves all tools; rely on the .qwen deny-hooks + "
+                "container isolation)",
+            )
 
     check(config.clarification.max_rounds >= 1, "[clarification] max_rounds must be >= 1")
     for key in ("reminder_after", "answer_timeout"):
@@ -711,6 +760,24 @@ def validate_config(config: Config) -> list[str]:
             "[container] run_args entries must be single option tokens "
             f'starting with "-" (e.g. "--userns=keep-id"): {arg!r}',
         )
+    check(
+        isinstance(config.container.runtime_env, dict),
+        "[container] runtime_env must be a TOML inline table or section",
+    )
+    if isinstance(config.container.runtime_env, dict):
+        for key, value in config.container.runtime_env.items():
+            check(
+                isinstance(key, str) and bool(key.strip()),
+                "[container] runtime_env keys must be non-empty strings",
+            )
+            check(
+                isinstance(value, str),
+                f"[container] runtime_env.{key} must be a string",
+            )
+            check(
+                key not in _MANAGED_CONTAINER_ENV,
+                f"[container] runtime_env.{key} is managed by ADOR and cannot be overridden",
+            )
     check(
         config.container.parked_ttl_mode in ("seconds", "polls"),
         f"[container] parked_ttl_mode must be seconds/polls: "

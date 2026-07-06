@@ -7,10 +7,10 @@
 # =============================================================================
 # ADOR executor image (ador-executor:latest)
 #
-# Base tooling baked in ONCE (design doc 10a): Python 3.11 + uv, Node 20
-# (pinned to match the target repo's CI), git, the executor CLI (opencode),
-# and glab/gh. Project dependencies are NOT installed here - they resolve at
-# container runtime into the mounted cache volumes.
+# Base tooling baked in ONCE (design doc 10a): Python 3.11 + uv, Node 24,
+# git, the executor CLI (opencode), and glab/gh. Project dependencies are NOT
+# installed here - they resolve at container runtime into the mounted cache
+# volumes.
 #
 # Build:   docker build -f Dockerfile.executor -t ador-executor:latest .
 # Secrets: never baked in; ADOR injects the executor's env subset at run time.
@@ -19,12 +19,16 @@
 FROM ubuntu:22.04
 
 # Pinned tool versions - bump deliberately, in one place.
-ARG NODE_MAJOR=20
+ARG NODE_MAJOR=24
 ARG GLAB_VERSION=1.55.0
 ARG OPENCODE_PACKAGE=opencode-ai
 # Pi is the config-selectable alternative executor ([executor] default = "pi").
 # Package name from the workflow template's .pi peerDependency.
-ARG PI_PACKAGE=@earendil-works/pi-coding-agent
+ARG PI_PACKAGE=@earendil-works/pi-coding-agent@0.80.3
+# OpenAI Codex is the config-selectable alternative ([executor] default = "codex").
+ARG CODEX_PACKAGE=@openai/codex
+# Qwen Code is the config-selectable alternative ([executor] default = "qwen").
+ARG QWEN_PACKAGE=@qwen-code/qwen-code
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -39,7 +43,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && ln -s /usr/bin/python3.11 /usr/local/bin/python \
     && rm -rf /var/lib/apt/lists/*
 
-# --- Node 20 (pinned major to match the target repo's .gitlab-ci.yml) --------
+# --- Node 24 (required by Pi >= 0.80.3) --------------------------------------
 RUN curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR}.x" | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
@@ -66,10 +70,13 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
     && rm -rf /var/lib/apt/lists/*
 
 # --- Executor CLIs (via npm) --------------------------------------------------
-# opencode is the default; pi is the config-selectable alternative. Kept in
-# separate layers so the proven opencode install is isolated from pi.
+# opencode is the default; pi, codex, and qwen are config-selectable
+# alternatives. Kept in separate layers so the proven opencode install is
+# isolated from the alternatives.
 RUN npm install -g "${OPENCODE_PACKAGE}"
-RUN npm install -g "${PI_PACKAGE}"
+RUN npm install -g --ignore-scripts "${PI_PACKAGE}"
+RUN npm install -g "${CODEX_PACKAGE}"
+RUN npm install -g "${QWEN_PACKAGE}"
 
 # --- Target-repo gate tooling (live finding 2026-07-03: `make lint`/`make
 # test` are the workflow's gates and hard-require these binaries) --------------

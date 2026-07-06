@@ -10,16 +10,17 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 > Component documentation per `component_documentation_template.md`.
 > Sources: `04_Software/ador/executor/base.py` (0.1.1),
-> `04_Software/ador/executor/launcher.py` (0.2.0).
+> `04_Software/ador/executor/launcher.py` (0.4.0).
 > Design: Orchestrator_Design_And_Decisions.md sections 6 and 7a;
 > Prerequisites_Check_Report.md sections 5-6 and 12-13.
 
 ## 1. Purpose
 
-Launch the configured executor - **opencode or pi**, chosen by `[executor]
-default` - headless inside the run's container, one gate per launch, and read
-every result back deterministically. All code reasoning lives in the executor;
-the launcher only composes commands and collects outcomes.
+Launch the configured executor - **opencode, pi, codex, or qwen**, chosen by
+`[executor] default` - headless inside the run's container, one gate per
+launch, and read every result back deterministically. All code reasoning
+lives in the executor; the launcher only composes commands and collects
+outcomes.
 
 ## 2. Responsibilities
 
@@ -35,8 +36,13 @@ the launcher only composes commands and collects outcomes.
 - `PiExecutor`: Pi (`@earendil-works/pi-coding-agent`); session id from Pi's
   `{"type":"session","id":...}` stream header; usage falls back to zeros (Pi
   does not report tokens in its stream today).
+- `CodexExecutor`: OpenAI Codex CLI; first gate uses `codex exec`, later gates
+  rewrite `{resume}` to `resume --last ` because Codex continuation changes
+  the subcommand shape instead of using a `--session` flag.
+- `QwenExecutor`: Qwen Code; stateless per gate, so session continuation is
+  intentionally ignored.
 - `build_executor(kind, command_template, model, questions_file)` - the config
-  selection point (`kind` = `opencode` | `pi`).
+  selection point (`kind` = `opencode` | `pi` | `codex` | `qwen`).
 
 Explicitly not owned: *which* gate to run and what to do with the outcome
 (orchestrator, design 7a), container lifecycle (isolation), posting anything
@@ -65,30 +71,35 @@ buffers stdout so live streaming looks hung (prereq 9).
 5. Read back from the HOST filesystem: the event stream and stderr from the
    io dir, questions from `<worktree>/<questions_file>`. The session id is
    parsed per executor (opencode: the `sessionID` key; Pi: the `id` of the
-   `{"type":"session",...}` header event). A missing output file is NOT an
-   error - the exit code carries the failure and the conductor decides.
+   `{"type":"session",...}` header event; Codex: session-thread events when
+   present). A missing output file is NOT an error - the exit code carries the
+   failure and the conductor decides.
 
-Steps 1-5 and the `--session` continuation live in `FileProtocolExecutor` and
-are shared by both executors; opencode and pi differ ONLY in the session-id
-and usage parsers (and the config-provided command template). Both read the
-repo's `AGENTS.md` gate contract natively and get their push/merge guardrails
-from the repo adapter (opencode.json permissions / the `.pi` agentic-guard
-extension) PLUS container isolation - there are no remote credentials in the
-container, so the executor cannot push regardless.
+Steps 1-5 live in `FileProtocolExecutor`; subclasses customize only session
+continuation shape and stream parsing. All supported executors read the repo's
+`AGENTS.md` gate contract natively and get their push/merge guardrails from
+the repo adapter plus container isolation - there are no remote credentials in
+the container, so the executor cannot push regardless.
 - Gate artifacts (`gate.sh`, `output.jsonl`, `stderr.log`) persist in
   `.ador/runs/<run-id>/io/` for audit; being outside the worktree, the
   executor can never `git add` them.
 - **Safety:** `--auto` anywhere in the template raises `ValueError` at
   construction, and `validate_config` reports it before any run starts - it
   would auto-approve the push/pr/merge permissions that keep the executor
-  off the remote (prereq report section 6).
+  off the remote (prereq report section 6). Codex full-auto is allowed only
+  because ADOR owns the external container/worktree sandbox and keeps remote
+  delivery outside the executor; `validate_config` still requires `--json`,
+  a non-interactive sandbox mode, `--ignore-user-config`, and
+  `--disable plugins` so workstation plugin/marketplace state cannot be
+  materialized into the target worktree.
 
 ## 4. Dependencies
 
 - Internal: `ador.isolation` (mount constants; `ContainerManager.exec` is
   the usual `ExecTarget`), `ador.util.CommandResult`; `[executor]` config.
-- External: the executor CLI inside the `ador-executor` image; the target
-  repo's `opencode.json` (permissions) arrives with the worktree.
+- External: the executor CLI inside the `ador-executor` image; target-repo
+  executor policy files such as `opencode.json`, `.pi`, `.codex`, and `.qwen`
+  arrive with the worktree.
 
 ## 5. Inputs And Outputs
 
@@ -143,7 +154,9 @@ elif run.ok:
   protocol (two-token argv, LF-only script, quoted prompt, redirections),
   session continuation and fallback, questions detection, stale-questions
   clearing, failure/timeout as data, `--auto` rejection, factory wiring.
-- `tests/test_config.py`: `--auto` flagged by `validate_config`.
+- `tests/test_config.py`: `--auto` flagged by `validate_config`; Codex must
+  be non-interactive JSON, ignore machine-local user config, and disable
+  bundled plugins.
 - **Live verification done 2026-07-03** (real container, Docker in WSL2,
   8/8 steps; prereq report section 13): a hostile prompt (quotes, `$`,
   backticks, `%`, newline) round-trips byte-exact through the WSL boundary;
@@ -159,17 +172,14 @@ elif run.ok:
 
 ## 10. Limitations And Future Work
 
-- **opencode is live-proven; pi is wired but not yet live-verified.** The
-  `PiExecutor` code path + config selection are implemented and unit-tested
-  (offline), but a live spike is still owed (see 00_Planning/TODO.md), to
-  confirm on a real host: (a) `pi -p --mode json` runs the `.agentic` CLI
-  non-interactively and commits; (b) the session-header schema and whether any
-  event carries token usage (usage is zero until then); (c) that Pi's
-  project-**trust** requirement is satisfied for headless runs so the `.pi`
-  agentic-guard loads (container isolation blocks remote writes regardless);
-  (d) the executor image builds with the pi npm package.
-- codex/qwen would now be trivial: a new `FileProtocolExecutor` subclass with
-  its two parsers + a `build_executor` branch.
+- **opencode is live-proven; pi/codex/qwen are selectable variants with
+  offline contract coverage.** Live pilots remain executor-specific because
+  each CLI has its own trust/auth/session quirks.
+- Codex live finding 2026-07-06: avoid copying host desktop Codex config into
+  the run. Use `--ignore-user-config`; the orchestrator stages only
+  `auth.json` into an ADOR-owned `CODEX_HOME`. Use `--disable plugins` as
+  well; otherwise Codex may materialize bundled plugin marketplace files in
+  the target worktree during headless runs.
 - Observed event schema (live, 2026-07-03): NDJSON with `step_start` /
   `tool_use` / `step_finish` events, top-level `sessionID`, full tool
   inputs/outputs/exit codes; `step_finish` carries `tokens`

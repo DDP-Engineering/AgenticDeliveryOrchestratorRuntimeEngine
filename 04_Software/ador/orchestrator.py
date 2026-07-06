@@ -19,8 +19,8 @@
          labels, and timestamps. All collaborators are injected so the whole
          machine is unit-testable offline.
 @author Eng. Dan Dumitru Pasare
-@date 2026-07-05
-@version 0.4.0
+@date 2026-07-06
+@version 0.4.1
 """
 
 from __future__ import annotations
@@ -74,6 +74,18 @@ _TEARDOWN_RACE_MARKERS = (
     "directory not empty",        # ENOTEMPTY - files not yet released
 )
 _TEARDOWN_RETRY_DELAYS = (1.0, 2.0, 4.0)  # ~7s ceiling; the race clears in seconds
+
+# stage_host_auth OAuth-bridge paths per executor: (host path under ~, container
+# dir). Codex is staged into an ADOR-owned CODEX_HOME so host plugin/config
+# state cannot bleed into a run while auth.json still comes from ~/.codex.
+_HOST_AUTH_PATHS = {
+    "opencode": (".local/share/opencode/auth.json", "/home/ador/.local/share/opencode"),
+    "codex": (".codex/auth.json", "/home/ador/.ador-codex"),
+}
+
+_EXECUTOR_CONTAINER_ENV = {
+    "codex": {"CODEX_HOME": "/home/ador/.ador-codex"},
+}
 
 _GATE_GOALS = {
     "intake": (
@@ -173,8 +185,8 @@ class Orchestrator:
         @param[in]  sleep Sleep function (test override).
         @param[in]  log Line logger (stdout by default; journald in service).
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
+        @date       2026-07-05
+        @version    0.1.1
         """
         self.config = config
         self.forge = forge
@@ -187,7 +199,14 @@ class Orchestrator:
         self.log = log
         self.identity = AgentIdentity(name=config.agent.name, slug=config.agent.slug)
         self.questions_file = config.executor.questions_file or "ADOR_QUESTIONS.md"
-        self.host_auth_path = Path.home() / ".local" / "share" / "opencode" / "auth.json"
+        # OAuth-bridge (stage_host_auth) source + container dir, per executor.
+        # Codex reads host ~/.codex/auth.json but runs with ADOR-owned
+        # CODEX_HOME inside the container, not the host desktop config dir.
+        host_src, container_dir = _HOST_AUTH_PATHS.get(
+            config.executor.default, _HOST_AUTH_PATHS["opencode"]
+        )
+        self.host_auth_path = Path.home() / host_src
+        self.host_auth_container_dir = container_dir
 
     @classmethod
     def from_config(cls, config: Config, env_file: str = ".env") -> Orchestrator:
@@ -557,7 +576,7 @@ class Orchestrator:
         except IsolationError as exc:
             self._escalate(run, f"isolation failed: {exc}")
             return
-        execute = partial(self.containers.exec, run.container)
+        execute = partial(self.containers.exec, run.container, env=self._container_env(run))
         failure_context = ""
         if run.stage not in GATES:
             # fail closed: silently restarting from intake regressed a
@@ -671,8 +690,8 @@ class Orchestrator:
         @param[in]  revise True inside the revise cycle: skip MR adoption and
                     update the existing MR instead of creating one.
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.2
+        @date       2026-07-06
+        @version    0.1.3
         """
         run.stage = "delivery"
         run.lifecycle = "working"
@@ -685,7 +704,7 @@ class Orchestrator:
         except IsolationError as exc:
             self._escalate(run, f"delivery isolation failed: {exc}")
             return
-        execute = partial(self.containers.exec, run.container)
+        execute = partial(self.containers.exec, run.container, env=self._container_env(run))
         if not revise:
             # idempotent recovery: adopt an MR already open for this branch
             with contextlib.suppress(ForgeError):
@@ -730,6 +749,20 @@ class Orchestrator:
                 )
                 if not self._delivery_fix(run, ticket, execute, context, thread):
                     return
+        # Compose the MR body before pushing: the report command can generate
+        # `.agentic` artifacts that must be committed with the delivered branch.
+        title = f"Resolve #{ticket.iid}: {ticket.title}"
+        body = "" if revise and run.mr_iid else self._mr_description(
+            run, ticket, execute, preflight_output
+        )
+        try:
+            if self.worktrees.commit_all_if_dirty(
+                run.run_id, f"Record delivery verification for ticket {ticket.iid}"
+            ):
+                self.store.journal(run.run_id, "delivery-artifacts-committed")
+        except IsolationError as exc:
+            self._escalate(run, f"delivery artifact commit failed: {exc}")
+            return
         # 5. push (the only remote-writing git call; executor cannot push)
         push = self.worktrees.push(run.run_id, run.branch)
         if not push.ok:
@@ -743,8 +776,6 @@ class Orchestrator:
             self._enter_review(run, None)
             return
         # 6. open the DRAFT MR - never a merge flag, never merge
-        title = f"Resolve #{ticket.iid}: {ticket.title}"
-        body = self._mr_description(run, ticket, execute, preflight_output)
         try:
             url = self.forge.open_merge_request(
                 run.branch,
@@ -849,8 +880,8 @@ class Orchestrator:
         @param[in]  run The in-review run.
         @param[in,out] summary Poll summary counters.
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.1
+        @date       2026-07-06
+        @version    0.1.2
         """
         try:
             mr = self.forge.get_merge_request(run.mr_iid or run.branch)
@@ -934,7 +965,7 @@ class Orchestrator:
             self._escalate(run, f"revise isolation failed: {exc}")
             return
         thread = self._render_thread(self.forge.list_mr_comments(mr.iid))
-        execute = partial(self.containers.exec, run.container)
+        execute = partial(self.containers.exec, run.container, env=self._container_env(run))
         run.iterations += 1
         self.store.save(run)
         result = self.executor.run_gate(
@@ -1083,8 +1114,8 @@ class Orchestrator:
                     (deliver them) - design 8b/8c/9/11b.
         @param[in,out] summary Poll summary counters to update.
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.1
+        @date       2026-07-06
+        @version    0.1.3
         """
         for run in self.store.list_runs():
             if run.lifecycle == "in-review":
@@ -1296,12 +1327,7 @@ class Orchestrator:
         worktree = self.worktrees.create(run.run_id, run.branch,
                                          run.base_ref or "HEAD")
         run.worktree = str(worktree)
-        env = build_container_env(
-            self.worktrees.admin_dir_name(run.run_id),
-            self.config.agent.name,
-            self.config.agent.email,
-        )
-        env.update(self.secrets)
+        env = self._container_env(run)
         self.containers.ensure_volumes()
         action = self.containers.provision(
             run.container, self.worktrees.repo_path, worktree,
@@ -1316,19 +1342,49 @@ class Orchestrator:
             self._stage_host_auth(run)
         self.store.save(run)
 
+    def _container_env(self, run: RunState) -> dict[str, str]:
+        """
+        @brief      Compose the selected executor's container and exec env.
+        @details    Used both when the container is created and when commands
+                    are launched via `docker/podman exec`, because wrapped
+                    runtimes may not inherit create-time env during exec. The
+                    `[container] runtime_env` map is intentionally non-secret
+                    and lets a project tune portable runtime behavior such as
+                    uv link mode without code changes.
+        @param[in]  run The run whose worktree admin dir is mounted.
+        @return     Git env, configured executor secrets, and selected
+                    executor/runtime env.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-06
+        @version    0.2.0
+        """
+        env = build_container_env(
+            self.worktrees.admin_dir_name(run.run_id),
+            self.config.agent.name,
+            self.config.agent.email,
+        )
+        env.update(self.config.container.runtime_env)
+        env.update(self.secrets)
+        env.update(_EXECUTOR_CONTAINER_ENV.get(self.config.executor.default, {}))
+        return env
+
     def _stage_host_auth(self, run: RunState) -> None:
         """
-        @brief      Copy the host's opencode auth.json into the container.
+        @brief      Copy the host's executor auth.json into the container.
         @details    Pilot-only bridge for OAuth (ChatGPT-account) sessions
-                    that have no API key (Setup_And_Credentials.md 3.1). The
-                    file travels through the io mount and is deleted from it
-                    immediately - the secret never stays on disk outside the
-                    container. A missing host file only logs: the executor
-                    will fail visibly with an auth error.
+                    that have no API key (Setup_And_Credentials.md 3.1). Source
+                    and container destination are per-executor
+                    (_HOST_AUTH_PATHS): opencode's
+                    `~/.local/share/opencode/auth.json` or codex's host
+                    `~/.codex/auth.json` staged into ADOR's container-only
+                    `CODEX_HOME`. The file travels through the io mount and is
+                    deleted from it immediately - the secret never stays on
+                    disk outside the container. A missing host file only logs:
+                    the executor will fail visibly with an auth error.
         @param[in]  run The provisioned run.
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
+        @date       2026-07-06
+        @version    0.2.1
         """
         if not self.host_auth_path.is_file():
             self.log(f"{run.run_id}: stage_host_auth on, but {self.host_auth_path} "
@@ -1339,11 +1395,11 @@ class Orchestrator:
         staged = io_dir / "host-auth.json"
         shutil.copy2(self.host_auth_path, staged)
         try:
-            execute = partial(self.containers.exec, run.container)
-            execute(["mkdir", "-p", "/home/ador/.local/share/opencode"])
+            execute = partial(self.containers.exec, run.container, env=self._container_env(run))
+            execute(["mkdir", "-p", self.host_auth_container_dir])
             result = execute([
                 "cp", "/ador/io/host-auth.json",
-                "/home/ador/.local/share/opencode/auth.json",
+                f"{self.host_auth_container_dir}/auth.json",
             ])
             if not result.ok:
                 self.log(f"{run.run_id}: auth staging failed: {result.stderr}")

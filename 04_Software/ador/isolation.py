@@ -15,15 +15,15 @@
          object store) mounted into a container (execution isolation). The
          worktree's `.git` pointer file holds an absolute HOST path, invalid
          inside the container, so the repo and worktree are mounted at fixed
-         container paths and git is directed with GIT_DIR / GIT_WORK_TREE
-         environment variables instead of path discovery. The container
+         container paths and git is directed with GIT_DIR / GIT_COMMON_DIR /
+         GIT_WORK_TREE environment variables instead of path discovery. The container
          runtime may be a wrapped command (for example
          "wsl -d Ubuntu-24.04 -- docker" for Docker Engine inside WSL2); in
          WSL mode mount sources are translated to /mnt/<drive>/ paths and
          env-value propagation crosses the WSL boundary via WSLENV.
 @author Eng. Dan Dumitru Pasare
-@date 2026-07-05
-@version 0.3.0
+@date 2026-07-06
+@version 0.3.2
 """
 
 from __future__ import annotations
@@ -51,6 +51,20 @@ _ABSENT_MARKERS = ("no such container", "no such object", "not found")
 # idempotent and stays silent (live finding 2026-07-05, podman pilot).
 _EXISTS_MARKERS = ("already exists",)
 _DRIVE_RE = re.compile(r"^([A-Za-z]):[\\/]")
+_INLINE_ENV_KEYS = frozenset({
+    "HOME",
+    "GIT_DIR",
+    "GIT_COMMON_DIR",
+    "GIT_WORK_TREE",
+    "GIT_AUTHOR_NAME",
+    "GIT_AUTHOR_EMAIL",
+    "GIT_COMMITTER_NAME",
+    "GIT_COMMITTER_EMAIL",
+    "CODEX_HOME",
+    "UV_CACHE_DIR",
+    "UV_LINK_MODE",
+    "UV_PROJECT_ENVIRONMENT",
+})
 
 # DATA MODELS / TYPEDEFINITIONS
 
@@ -113,9 +127,12 @@ def build_container_env(git_dir_name: str, git_name: str, git_email: str) -> dic
     """
     @brief      Compose the git environment injected into a run's container.
     @details    GIT_DIR points at the worktree's admin dir under the mounted
-                repo, GIT_WORK_TREE at the mounted worktree - this bypasses
-                the worktree's `.git` pointer file, whose absolute host path
-                is meaningless inside the container. The identity variables
+                repo, GIT_COMMON_DIR at the mounted repository's common
+                object/config store, and GIT_WORK_TREE at the mounted
+                worktree. This bypasses the worktree's `.git` pointer file,
+                whose absolute host path is meaningless inside the container,
+                while keeping linked-worktree git discovery stable for CLIs
+                that inspect the repository deeply. The identity variables
                 give commits the configured bot authorship
                 (Setup_And_Credentials.md section 4).
     @param[in]  git_dir_name The worktree admin dir name under
@@ -124,8 +141,8 @@ def build_container_env(git_dir_name: str, git_name: str, git_email: str) -> dic
     @param[in]  git_email Commit author/committer email (agent.email).
     @return     Environment mapping for ContainerManager.provision.
     @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-03
-    @version    0.1.0
+    @date       2026-07-06
+    @version    0.1.1
     """
     return {
         # Force the container user's home explicitly: some daemons (Docker
@@ -134,6 +151,7 @@ def build_container_env(git_dir_name: str, git_name: str, git_email: str) -> dic
         # bundled plugin, uv, npm, opencode auth (live finding 2026-07-04).
         "HOME": CONTAINER_HOME,
         "GIT_DIR": f"{CONTAINER_REPO_MOUNT}/.git/worktrees/{git_dir_name}",
+        "GIT_COMMON_DIR": f"{CONTAINER_REPO_MOUNT}/.git",
         "GIT_WORK_TREE": CONTAINER_WORKTREE_MOUNT,
         "GIT_AUTHOR_NAME": git_name,
         "GIT_AUTHOR_EMAIL": git_email,
@@ -311,9 +329,10 @@ class WorktreeManager:
         @param[in]  ref Ref to merge (for example "origin/develop").
         @return     The captured CommandResult.
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
+        @date       2026-07-06
+        @version    0.1.1
         """
+        self.scrub_container_worktree_config()
         return self.runner(
             ["git", "-C", str(self.path_for(run_id)), "merge", "--no-edit", ref]
         )
@@ -324,9 +343,10 @@ class WorktreeManager:
         @param[in]  run_id Stable run identifier.
         @return     True when MERGE_HEAD exists (conflicts not yet committed).
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
+        @date       2026-07-06
+        @version    0.1.1
         """
+        self.scrub_container_worktree_config()
         result = self.runner(
             ["git", "-C", str(self.path_for(run_id)),
              "rev-parse", "-q", "--verify", "MERGE_HEAD"]
@@ -343,9 +363,10 @@ class WorktreeManager:
         @param[in]  branch Branch name to push.
         @return     The captured CommandResult.
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
+        @date       2026-07-06
+        @version    0.1.1
         """
+        self.scrub_container_worktree_config()
         return self.runner(
             ["git", "-C", str(self.path_for(run_id)),
              "push", "--set-upstream", "origin", branch]
@@ -406,6 +427,69 @@ class WorktreeManager:
                 names.add(line[3:].strip())
         return len(names)
 
+    def commit_all_if_dirty(self, run_id: str, message: str) -> bool:
+        """
+        @brief      Commit pending worktree changes when delivery checks
+                    generated artifacts after the last executor commit.
+        @details    Used by the conductor after its own delivery gates/report
+                    commands. `git add -A` includes non-ignored workflow
+                    artifacts (for example `.agentic/.../report.md`) while
+                    naturally leaving ignored dependency caches out of the
+                    branch. Empty status is a no-op.
+        @param[in]  run_id Stable run identifier.
+        @param[in]  message Commit message.
+        @return     True when a commit was created.
+        @exception  IsolationError When git fails.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-06
+        @version    0.1.0
+        """
+        wt = str(self.path_for(run_id))
+        if not self._run_wt(wt, "status", "--porcelain").stdout.strip():
+            return False
+        self._run_wt(wt, "add", "-A")
+        if not self._run_wt(wt, "status", "--porcelain").stdout.strip():
+            return False
+        self._run_wt(wt, "commit", "-m", message)
+        return True
+
+    def scrub_container_worktree_config(self) -> None:
+        """
+        @brief   Remove ADOR container worktree paths from the host repo config.
+        @details Some executor CLIs or git recovery paths may persist
+                 `core.worktree = /ador/work` into the shared `.git/config`
+                 when Git is driven through container-only GIT_DIR/GIT_WORK_TREE
+                 values. That breaks host Git after the container exits because
+                 `/ador/work` is not a host path. This scrub is intentionally
+                 narrow: it removes only `[core] worktree` values pointing at
+                 ADOR's `/ador/...` container mount, leaving legitimate host
+                 paths and all other config intact.
+        @author  Eng. Dan Dumitru Pasare
+        @date    2026-07-06
+        @version 0.1.0
+        """
+        config_path = self.repo_path / ".git" / "config"
+        try:
+            lines = config_path.read_text(encoding="utf-8").splitlines(keepends=True)
+        except OSError:
+            return
+        in_core = False
+        changed = False
+        kept: list[str] = []
+        for line in lines:
+            stripped = line.strip()
+            lowered = stripped.lower()
+            if lowered.startswith("[") and lowered.endswith("]"):
+                in_core = lowered == "[core]"
+            if in_core and lowered.startswith("worktree"):
+                _, _, value = stripped.partition("=")
+                if value.strip().startswith("/ador/"):
+                    changed = True
+                    continue
+            kept.append(line)
+        if changed:
+            config_path.write_text("".join(kept), encoding="utf-8")
+
     # -- internals ------------------------------------------------------------------
 
     def _branch_exists(self, branch: str) -> bool:
@@ -417,6 +501,7 @@ class WorktreeManager:
         @date       2026-07-03
         @version    0.1.0
         """
+        self.scrub_container_worktree_config()
         result = self.runner(
             [
                 "git", "-C", str(self.repo_path),
@@ -432,9 +517,10 @@ class WorktreeManager:
         @return     The successful CommandResult.
         @exception  IsolationError When git exits non-zero.
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
+        @date       2026-07-06
+        @version    0.1.1
         """
+        self.scrub_container_worktree_config()
         argv = ["git", "-C", str(self.repo_path), *args]
         result = self.runner(argv)
         if not result.ok:
@@ -449,9 +535,10 @@ class WorktreeManager:
         @return     The successful CommandResult.
         @exception  IsolationError When git exits non-zero.
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
+        @date       2026-07-06
+        @version    0.1.1
         """
+        self.scrub_container_worktree_config()
         argv = ["git", "-C", worktree, *args]
         result = self.runner(argv)
         if not result.ok:
@@ -582,13 +669,15 @@ class ContainerManager:
         @details    Idempotent against the current state: running -> no-op;
                     stopped/created -> start (keep-warm resume, design 8b);
                     absent -> create fresh with the mounts and env. Secrets
-                    never appear in argv: env keys are passed as bare
+                    never appear in argv: secret env keys are passed as bare
                     `--env KEY` and the values travel via the runtime CLI's
-                    own process environment. In WSL mode the mount sources
-                    are translated to /mnt/<drive>/ form and the env keys are
-                    additionally listed in WSLENV so Windows-side values
-                    cross into the WSL process (wsl.exe does not forward
-                    arbitrary env vars otherwise).
+                    own process environment. Safe runtime variables (HOME,
+                    Git mount paths, CODEX_HOME, bot identity) are passed
+                    inline so they survive wrapped runtimes consistently. In
+                    WSL mode the mount sources are translated to /mnt/<drive>/
+                    form and bare env keys are additionally listed in WSLENV
+                    so Windows-side secret values cross into the WSL process
+                    (wsl.exe does not forward arbitrary env vars otherwise).
         @param[in]  name Container name ("<slug>-run-<run-id>").
         @param[in]  repo_path Host path of the local clone (mounted at
                               /ador/repo; needed for the shared object store).
@@ -606,8 +695,8 @@ class ContainerManager:
                     gone; live finding 2026-07-03).
         @exception  IsolationError When the runtime fails.
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-04
-        @version    0.1.4
+        @date       2026-07-06
+        @version    0.1.5
         """
         state = self.status(name)
         if state == "running":
@@ -626,14 +715,15 @@ class ContainerManager:
             "--volume", f"{self.npm_cache_volume}:{CONTAINER_NPM_CACHE_MOUNT}",
             "--workdir", CONTAINER_WORKTREE_MOUNT,
         ]
-        # HOME goes inline with its value: it is not a secret, and the
-        # bare-key/WSLENV path does NOT survive the WSL login shell (which
-        # resets HOME), silently overriding the image's correct ENV (live
-        # finding 2026-07-04). Bare keys stay reserved for secrets.
+        # Safe runtime values go inline: they are not secrets, and the
+        # bare-key/WSLENV path is brittle across wrapped runtimes (HOME is
+        # reset by login shells; CODEX_HOME was dropped by the WSL/Podman
+        # path in the Codex pilot). Bare keys stay reserved for secrets.
         secret_env = dict(env)
-        home = secret_env.pop("HOME", None)
-        if home:
-            argv += ["--env", f"HOME={home}"]
+        for key in _INLINE_ENV_KEYS:
+            value = secret_env.pop(key, None)
+            if value is not None:
+                argv += ["--env", f"{key}={value}"]
         for key in secret_env:
             argv += ["--env", key]
         argv += [self.image, "sleep", "infinity"]
@@ -693,6 +783,7 @@ class ContainerManager:
         argv: Sequence[str],
         *,
         timeout: float | None = None,
+        env: dict[str, str] | None = None,
     ) -> CommandResult:
         """
         @brief      Run a command inside the container (the executor seam).
@@ -703,13 +794,28 @@ class ContainerManager:
         @param[in]  name Container name.
         @param[in]  argv Command and arguments to run inside.
         @param[in]  timeout Optional wall-clock bound (run budgets).
+        @param[in]  env Optional exec-time env; safe values go inline, secrets
+                        are passed by bare key/process environment.
         @return     The captured CommandResult.
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.1
+        @date       2026-07-06
+        @version    0.1.2
         """
-        full = [*self.runtime_argv, "exec", name, *[str(part) for part in argv]]
-        return self.runner(full, timeout=timeout)
+        full = [*self.runtime_argv, "exec"]
+        secret_env = dict(env or {})
+        for key in _INLINE_ENV_KEYS:
+            value = secret_env.pop(key, None)
+            if value is not None:
+                full += ["--env", f"{key}={value}"]
+        for key in secret_env:
+            full += ["--env", key]
+        full += [name, *[str(part) for part in argv]]
+        process_env = {**os.environ, **secret_env}
+        if self.wsl_mode and secret_env:
+            existing = process_env.get("WSLENV", "")
+            shared = ":".join(secret_env)
+            process_env["WSLENV"] = f"{existing}:{shared}" if existing else shared
+        return self.runner(full, timeout=timeout, env=process_env if env else None)
 
     # -- internals ------------------------------------------------------------------
 

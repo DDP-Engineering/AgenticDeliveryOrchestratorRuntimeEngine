@@ -31,10 +31,11 @@ guardrails, not a sandbox (design 10).
   `changed_files` (committed + pending paths vs the base ref; feeds the
   max_files_touched budget), the delivery git plumbing - `merge` (conflict =
   data, left in progress for the executor), `merge_in_progress`, and `push`
-  (the ONLY remote-writing git call in ADOR) - plus the committed-state
-  checks `is_dirty` / `commits_ahead`, and `list_dirs` (every directory
-  under the worktrees root, including husks deregistered but not deleted
-  after the WSL bind-mount teardown race - the input `ador cleanup` sweeps).
+  (the ONLY remote-writing git call in ADOR) - `commit_all_if_dirty` for
+  conductor-generated delivery artifacts, plus the committed-state checks
+  `is_dirty` / `commits_ahead`, and `list_dirs` (every directory under the
+  worktrees root, including husks deregistered but not deleted after the WSL
+  bind-mount teardown race - the input `ador cleanup` sweeps).
 - `ContainerManager(runtime, image, uv_cache_volume, npm_cache_volume,
   run_args=...)` -
   container lifecycle: `ensure_volumes`, idempotent `provision`
@@ -75,6 +76,12 @@ side keeps working normally with its absolute paths. The admin dir name is
   `--env KEY` and the values travel via the runtime CLI's own process
   environment, so `docker run` command lines (process listings, journals)
   never contain a key.
+- **Safe runtime values go inline:** ADOR-managed Git/Home/Codex variables
+  plus common uv runtime controls (`UV_LINK_MODE`, `UV_CACHE_DIR`,
+  `UV_PROJECT_ENVIRONMENT`) are non-secret and are passed as
+  `--env KEY=value`. This keeps wrapped Docker/Podman runtimes from dropping
+  them between create-time and exec-time launches. Other configured env still
+  uses the bare-key path.
 - **Wrapped runtimes / Docker-in-WSL2:** `[container] runtime` may be a full
   command (e.g. `"wsl -d Ubuntu-24.04 -- docker"` when Docker Engine runs
   inside WSL2 without Docker Desktop). WSL mode is auto-detected from the
@@ -98,13 +105,15 @@ side keeps working normally with its absolute paths. The admin dir name is
 - External: `git` on the host; Docker or Podman - native or wrapped (Docker
   Engine inside WSL2 via `wsl -d <distro> -- docker`); the
   `ador-executor:latest` image (built from `docker/Dockerfile.executor`:
-  Ubuntu 22.04, Python 3.11 + uv, Node 20, git with `safe.directory *`,
-  opencode, glab/gh, non-root user `ador`).
+  Ubuntu 22.04, Python 3.11 + uv, current Node LTS, git with
+  `safe.directory *`, opencode/pi/codex/qwen CLIs as configured, glab/gh,
+  non-root user `ador`).
 
 ## 5. Inputs And Outputs
 
 - Inputs: run-id, branch and base ref, container name, the env mapping
-  (git env + the executor's secret subset).
+  (git env + `[container] runtime_env` + executor-specific runtime env + the
+  executor's secret subset).
 - Outputs: a worktree directory under `<root>/<run-id>`, a provisioned
   container, container state strings, and `CommandResult`s from `exec`.
 
@@ -116,12 +125,18 @@ side keeps working normally with its absolute paths. The admin dir name is
   event streams out; outside the worktree so the executor can never commit
   them), uv cache volume -> `/home/ador/.cache/uv`, npm cache volume ->
   `/home/ador/.npm`.
+- Git env contract inside the container: `GIT_DIR` points at the mounted
+  linked-worktree admin dir, `GIT_COMMON_DIR` at `/ador/repo/.git`, and
+  `GIT_WORK_TREE` at `/ador/work`. This keeps Git usable even though the
+  worktree's `.git` pointer file contains a host path.
 - `status()` returns the runtime's state string (`running`, `exited`,
   `created`, ...) or `"absent"`; "no such container/object" is absence, any
   other failure raises.
-- Project dependencies resolve into the cache volumes / container paths,
-  never into the bind-mounted worktree (cross-OS `.venv` breakage,
-  design 10a).
+- Project package caches resolve into the cache volumes / container paths.
+  The default `UV_LINK_MODE=copy` avoids fragile cross-OS hard-link behavior;
+  repos that need to move uv virtualenvs out of the worktree can set a
+  project-specific non-secret `UV_PROJECT_ENVIRONMENT` in `[container]
+  runtime_env`.
 
 ## 7. Workflow Integration
 
@@ -146,6 +161,7 @@ containers = ContainerManager("docker", "ador-executor:latest",
 path = worktrees.create("gitlab-x-14", "ador/gitlab-x-14", "origin/develop")
 env = build_container_env(worktrees.admin_dir_name("gitlab-x-14"),
                           "ADOR", "ador-bot@local")
+env["UV_LINK_MODE"] = "copy"              # non-secret runtime behavior
 env["ANTHROPIC_API_KEY"] = "..."          # executor's secret subset only
 containers.ensure_volumes()
 containers.provision("ador-run-gitlab-x-14", "../cockpit-gcp", path, env)
@@ -162,6 +178,9 @@ result = containers.exec("ador-run-gitlab-x-14", ["opencode", "--version"])
   `--env KEY`, secret value absent from argv but present in process env),
   provision idempotency, absent-vs-error status, idempotent-but-fail-closed
   stop/remove, volume creation, and exec-returns-data.
+- `tests/test_orchestrator.py` covers the delivery integration case where
+  conductor-owned gate/report commands generate final workflow artifacts and
+  ADOR commits them before push.
 - Minimum validation after a change: `uv run --group dev pytest tests/test_isolation.py`.
 - `docker/verify-runtime.sh` is the LIVE compatibility pass for a runtime:
   17 steps mirroring every runtime CLI call this component makes (mount/env

@@ -166,6 +166,31 @@ model = "openai/gpt-5.4-fast"
 # command = "pi -p --mode json --model {model} {prompt}"
 # model = "openai/gpt-5.5"
 
+# Alternative executor: OpenAI Codex (@openai/codex). To use it, set
+# `default = "codex"` above and uncomment this table. Codex reads AGENTS.md
+# natively. {resume} becomes `resume --last ` on continuation (Codex resumes
+# the previous gate's session - keep it). SAFETY: full-auto Codex mode is
+# acceptable only because ADOR runs executors inside an external container/
+# worktree sandbox and keeps push/MR ownership outside the executor.
+# `--ignore-user-config` plus `--disable plugins` prevents workstation-local
+# and bundled Codex plugin/marketplace state from bleeding into the container;
+# ADOR stages only auth.json into an isolated CODEX_HOME when
+# `stage_host_auth = true`.
+# [executor.codex]
+# command = "codex exec {resume}--json --model {model} --ignore-user-config --disable plugins --dangerously-bypass-approvals-and-sandbox {prompt}"
+# model = "gpt-5.5"
+
+# Alternative executor: Qwen Code (@qwen-code/qwen-code, a Gemini-CLI fork). To
+# use it, set `default = "qwen"` above and uncomment this table. Qwen reads
+# AGENTS.md natively and is guarded by the repo's `.qwen` hooks + deny list.
+# It runs STATELESS per gate (no session continuation). SAFETY: the command
+# must not use --yolo / --approval-mode yolo (validation enforces this). Auth is
+# OpenAI-compatible: OPENAI_API_KEY (+ OPENAI_BASE_URL for the Qwen/Dashscope
+# endpoint) in .env, or the Qwen OAuth free tier.
+# [executor.qwen]
+# command = "qwen -p --model {model} --output-format json {prompt}"
+# model = "qwen3-coder-plus"
+
 # ----- Clarification -----------------------------------------------------------
 # Bounds for parked runs (executor asked a question, waiting on a human).
 [clarification]
@@ -190,7 +215,7 @@ timeout_state = "failed"
 # In WSL mode ADOR translates mount paths (D:\x -> /mnt/d/x) and propagates
 # container env values across the WSL boundary via WSLENV automatically.
 runtime = "docker"
-# Executor image with the base tooling baked in (Python 3.11 + uv, Node 20,
+# Executor image with the base tooling baked in (Python 3.11 + uv, Node 24,
 # git, executor CLI, glab/gh). Built once; never installs tooling per run.
 image = "ador-executor:latest"
 # Keep the container (stopped) when a run parks, so resume is a fast start.
@@ -207,6 +232,11 @@ parked_state = "stopped"
 # Persistent cache volumes so per-run `uv sync` / `npm ci` stay fast.
 uv_cache_volume  = "ador-uv-cache"
 npm_cache_volume = "ador-npm-cache"
+# Non-secret runtime environment injected at container creation and every
+# `exec`. ADOR reserves HOME/GIT_*/CODEX_HOME for isolation; use this for
+# portable tool behavior. Default keeps uv package links copy-based, which is
+# safer on Windows/WSL bind mounts.
+runtime_env = { UV_LINK_MODE = "copy" }
 # Extra option tokens for `<runtime> run` - one option per entry, no spaces.
 # ROOTLESS PODMAN REQUIRES ["--userns=keep-id"] (verified live 2026-07-04:
 # without it, container uid 1000 maps to a subuid that cannot write the

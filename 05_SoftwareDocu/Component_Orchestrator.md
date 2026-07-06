@@ -73,7 +73,8 @@ the executor.
 
 - **Delivery** (design 11a, exact order): fetch + merge the target branch
   (conflicts -> executor resolves, budget-bounded), re-run `gates run`, the
-  authoritative `delivery-preflight` (fix loops on both), push the run
+  authoritative `delivery-preflight` (fix loops on both), compose the MR
+  report, commit any conductor-generated workflow artifacts, push the run
   branch (the only remote-writing git call; the executor cannot push), open
   the DRAFT MR (reviewers assigned, "Related to #N", never a merge flag),
   post the kind=delivery comment, and retain the environment (container
@@ -114,10 +115,17 @@ interface) and metrics.
   `containers`, `executor`, `sleep`, `log`); `from_config` wires production
   implementations and pulls the executor secret subset
   (`[executor] env_keys`) from the environment / `.env`.
-- `[executor] stage_host_auth` (pilot-only): at provision, the host's
-  opencode `auth.json` is copied into the container through the io mount and
-  scrubbed from io immediately - the OAuth bridge from
-  Setup_And_Credentials.md 3.1.
+- `[executor] stage_host_auth` (pilot-only): at provision, the selected
+  executor's host `auth.json` is copied into the container through the io
+  mount and scrubbed from io immediately - the OAuth bridge from
+  Setup_And_Credentials.md 3.1. Codex uses host `~/.codex/auth.json` as the
+  source but stages it into `/home/ador/.ador-codex`, which is also injected
+  as `CODEX_HOME`, so machine-local Codex plugin/config state is not reused.
+- `_container_env` composes the environment used for both container creation
+  and every `exec`: ADOR-managed Git/Home variables, non-secret
+  `[container] runtime_env` values such as `UV_LINK_MODE=copy`, executor
+  secrets from `[executor] env_keys`, and selected-executor runtime values
+  such as Codex `CODEX_HOME`.
 - **Executor sessions live inside the container**: provision reports
   created/started/running, and a "created" container resets the stored
   session id (journal: `session-reset`) - a fresh container can never be
@@ -183,7 +191,8 @@ ador logs <run-id>
   answered-label override, round-cap escalation, gate retry with context +
   iterations budget, invariants-failure relaunch, TTL reap vs run survival,
   answer timeout release, pause/capacity, deleted/closed reconciliation,
-  cancel/retry round trip, labels-channel transitions.
+  cancel/retry round trip, labels-channel transitions, and delivery artifact
+  commit-before-push ordering.
 - Minimum validation after a change: `uv run --group dev pytest tests/test_orchestrator.py`.
 - Live pilot pending: first supervised run against a real `agent-ready`
   ticket (crawl phase) - will also confirm the `.agentic` CLI verbs used by

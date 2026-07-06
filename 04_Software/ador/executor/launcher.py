@@ -9,7 +9,7 @@
 # -----------------------------------------------------------------------------
 """
 @file launcher.py
-@brief Configurable executor launchers (opencode / pi) and factory.
+@brief Configurable executor launchers (opencode / pi / codex / qwen) and factory.
 @details Runs the configured executor headless inside the run's container, one
          gate per launch, over a shared file-based gate protocol
          (FileProtocolExecutor): the gate command (with the shell-quoted prompt
@@ -17,16 +17,16 @@
          `sh /ador/io/gate.sh` - so no prompt content ever travels through argv
          (wsl.exe splits argv elements containing spaces) and the event stream
          is captured to a file, never streamed from stdout. Executors differ
-         only in how they parse their own JSON event stream (session id, token
-         usage); everything else - the WSL-safe protocol, `--session`
-         continuation, clarification-questions detection, the session self-heal
-         - is shared. Both executors read the repo's AGENTS.md gate contract
-         natively and get their push/merge guardrails from the repo's adapter
-         (opencode.json permissions / the .pi agentic-guard extension) plus
-         container isolation (no remote credentials in the container).
+         only in how they continue sessions and parse their own JSON event
+         stream (session id, token usage); everything else - the WSL-safe
+         protocol, clarification-questions detection, and session self-heal -
+         is shared. Supported executors read the repo's AGENTS.md gate
+         contract natively and get their push/merge guardrails from the repo's
+         adapter plus container isolation (no remote credentials in the
+         container).
 @author Eng. Dan Dumitru Pasare
-@date 2026-07-05
-@version 0.2.0
+@date 2026-07-06
+@version 0.4.0
 """
 
 from __future__ import annotations
@@ -145,13 +145,12 @@ class FileProtocolExecutor(Executor):
         questions_path = worktree / self.questions_file
         questions_path.unlink(missing_ok=True)
 
-        command = self.command_template.format(
+        command = self._build_command(
             prompt=shlex.quote(prompt),
             model=shlex.quote(self.model),
             worktree=CONTAINER_WORKTREE_MOUNT,
+            session=session,
         )
-        if session:
-            command += f" --session {shlex.quote(session)}"
         # No `exec` prefix: the template may be a compound command, and the
         # script's exit status is the command's status either way.
         script = (
@@ -187,7 +186,31 @@ class FileProtocolExecutor(Executor):
             cost_usd=cost,
         )
 
-    # -- executor-specific parsing (subclasses) -----------------------------------
+    # -- executor-specific command build + parsing (subclasses) -------------------
+
+    def _build_command(self, *, prompt: str, model: str, worktree: str, session: str) -> str:
+        """
+        @brief      Compose the executor command (shared default: append
+                    `--session <id>` to continue).
+        @details    Overridable so an executor whose continuation changes the
+                    command STRUCTURE (e.g. Codex's `exec` -> `exec resume`)
+                    can express it, rather than only appending a flag. `prompt`
+                    and `model` arrive already shell-quoted; `session` is raw.
+        @param[in]  prompt Shell-quoted prompt text.
+        @param[in]  model Shell-quoted model string.
+        @param[in]  worktree Container worktree mount (/ador/work).
+        @param[in]  session Session id to continue ("" = new).
+        @return     The full command string embedded into gate.sh.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-05
+        @version    0.1.0
+        """
+        command = self.command_template.format(
+            prompt=prompt, model=model, worktree=worktree
+        )
+        if session:
+            command += f" --session {shlex.quote(session)}"
+        return command
 
     def _extract_session_id(self, output: str) -> str:
         """
@@ -352,6 +375,177 @@ class PiExecutor(FileProtocolExecutor):
         return match.group(1) if match else ""
 
 
+class CodexExecutor(FileProtocolExecutor):
+    """
+    @brief   OpenAI Codex (`@openai/codex`, the Rust CLI) executor launcher.
+    @details Runs headless via `codex exec` from the [executor.codex] template,
+             e.g. `codex exec {resume}--json --model {model}
+             --ignore-user-config --disable plugins
+             --dangerously-bypass-approvals-and-sandbox {prompt}`. Codex reads
+             AGENTS.md natively and gets its guardrails from ADOR container
+             isolation (no remote credentials in the container).
+
+             Two Codex specifics vs opencode/pi:
+             1. **Continuation is a subcommand, not a flag.** The first gate is
+                `codex exec ...`; a later gate resumes the previous gate's
+                session in the same container/cwd with `codex exec resume
+                --last ...`. `_build_command` substitutes the `{resume}`
+                placeholder accordingly - no session id is tracked (one session
+                per run container); `_extract_session_id` is best-effort/audit.
+             2. **Approval model is inverted.** The command MUST run
+                non-interactively (`--sandbox workspace-write`,
+                `--full-auto`, or
+                `--dangerously-bypass-approvals-and-sandbox`, enforced by
+                config validation). In ADOR, the container/worktree boundary
+                is the external sandbox for full-auto Codex runs.
+             3. **User config/plugins are ignored.** The orchestrator stages
+                only auth.json into an isolated CODEX_HOME and the command
+                disables the Codex `plugins` feature so workstation-local or
+                bundled plugin marketplace state cannot alter a portable run.
+
+             Usage is parsed best-effort from `codex exec --json`; the exact
+             field schema is pinned by the live spike (until then, absent usage
+             reads as zeros, which metrics tolerate).
+    @author  Eng. Dan Dumitru Pasare
+    @date    2026-07-06
+    @version 0.1.1
+    """
+
+    forbidden_flags: tuple[str, ...] = ()
+
+    def _build_command(self, *, prompt: str, model: str, worktree: str, session: str) -> str:
+        """
+        @brief      Codex command: `exec` (new) or `exec resume --last` (cont.).
+        @details    Substitutes the template's `{resume}` placeholder. A
+                    template without `{resume}` degrades gracefully to
+                    stateless (each gate a fresh session) since str.format
+                    ignores the unused key.
+        @param[in]  prompt Shell-quoted prompt.
+        @param[in]  model Shell-quoted model.
+        @param[in]  worktree Container worktree mount.
+        @param[in]  session Non-empty -> resume the previous gate's session.
+        @return     The full command string.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-05
+        @version    0.1.0
+        """
+        resume = "resume --last " if session else ""
+        return self.command_template.format(
+            prompt=prompt, model=model, worktree=worktree, resume=resume
+        )
+
+    def _extract_session_id(self, output: str) -> str:
+        """
+        @brief      Best-effort Codex session/thread id from `--json` (audit
+                    only; Codex continues via `resume --last`, not an id).
+        @param[in]  output Raw json-lines event stream.
+        @return     The id, or "".
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-05
+        @version    0.1.0
+        """
+        for raw in output.splitlines():
+            line = raw.strip()
+            if '"session' not in line and '"thread' not in line:
+                continue
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(event, dict):
+                sid = event.get("session_id") or event.get("thread_id")
+                if sid:
+                    return str(sid)
+        return ""
+
+    def _extract_usage(self, output: str) -> tuple[int, int, float]:
+        """
+        @brief      Best-effort token usage from Codex `--json` events.
+        @details    Sums any event carrying a `usage`/token object with
+                    input_tokens/output_tokens (+ optional cost_usd). The exact
+                    schema is PROVISIONAL - pinned by the live spike; malformed
+                    lines are ignored so usage capture never breaks a gate.
+        @param[in]  output Raw json-lines event stream.
+        @return     (tokens_in, tokens_out, cost_usd).
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-05
+        @version    0.1.0
+        """
+        tokens_in = tokens_out = 0
+        cost = 0.0
+        for raw in output.splitlines():
+            line = raw.strip()
+            if '"input_tokens"' not in line and '"usage"' not in line:
+                continue
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(event, dict):
+                continue
+            usage = event.get("usage") if isinstance(event.get("usage"), dict) else event
+            tokens_in += int(usage.get("input_tokens", 0) or 0)
+            tokens_out += int(usage.get("output_tokens", 0) or 0)
+            cost += float(usage.get("cost_usd", 0) or 0)
+        return tokens_in, tokens_out, cost
+
+
+class QwenExecutor(FileProtocolExecutor):
+    """
+    @brief   Qwen Code (`@qwen-code/qwen-code`, a Gemini-CLI fork) launcher.
+    @details Runs headless via `qwen -p` from the [executor.qwen] template, e.g.
+             `qwen -p --model {model} --output-format json {prompt}`. Qwen reads
+             AGENTS.md natively and gets its guardrails from the repo's `.qwen`
+             settings (native PreToolUse/PostToolUse hooks reusing the shared
+             `.agentic` guards + a push/pr/merge deny list) plus ADOR container
+             isolation.
+
+             Unlike opencode/pi/codex, Qwen has **no session continuation** -
+             each gate is a fresh `qwen -p` run. This is viable because the
+             workflow's state lives in files (`.agentic/`, git, the ticket
+             thread ADOR re-sends on resume), so `_build_command` ignores the
+             `session` argument (stateless) and `_extract_session_id` returns
+             "". Whether stateless-per-gate holds in practice is the key spike
+             assumption.
+
+             Safety: `forbidden_flags` rejects `--yolo` (auto-approve all
+             tools); config validation additionally bans `--approval-mode yolo`.
+             Usage is not parsed yet (Qwen's `--output-format json` `stats`
+             block is nested/model-keyed; pinned by the live spike), so it reads
+             as zeros (metrics tolerate it), like Pi.
+    @author  Eng. Dan Dumitru Pasare
+    @date    2026-07-05
+    @version 0.1.0
+    """
+
+    forbidden_flags = ("--yolo",)
+
+    def _build_command(self, *, prompt: str, model: str, worktree: str, session: str) -> str:
+        """
+        @brief      Stateless command build: no session/resume (Qwen has none).
+        @param[in]  prompt Shell-quoted prompt.
+        @param[in]  model Shell-quoted model.
+        @param[in]  worktree Container worktree mount.
+        @param[in]  session Ignored (Qwen does not continue sessions).
+        @return     The formatted command.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-05
+        @version    0.1.0
+        """
+        return self.command_template.format(prompt=prompt, model=model, worktree=worktree)
+
+    def _extract_session_id(self, output: str) -> str:
+        """
+        @brief      No session id (Qwen runs stateless).
+        @param[in]  output Ignored.
+        @return     "".
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-05
+        @version    0.1.0
+        """
+        return ""
+
+
 def build_executor(
     kind: str,
     command_template: str,
@@ -360,7 +554,7 @@ def build_executor(
 ) -> Executor:
     """
     @brief      Construct the configured executor (config selection point).
-    @param[in]  kind Executor kind ("opencode" | "pi").
+    @param[in]  kind Executor kind ("opencode" | "pi" | "codex" | "qwen").
     @param[in]  command_template Command template for the executor.
     @param[in]  model Model in provider/model form.
     @param[in]  questions_file Clarification questions filename.
@@ -369,13 +563,19 @@ def build_executor(
                 forbidden flag.
     @author     Eng. Dan Dumitru Pasare
     @date       2026-07-05
-    @version    0.2.0
+    @version    0.4.0
     """
     if kind == "opencode":
         return OpencodeExecutor(command_template, model, questions_file)
     if kind == "pi":
         return PiExecutor(command_template, model, questions_file)
-    raise ValueError(f"unsupported executor kind: {kind!r} (use opencode | pi)")
+    if kind == "codex":
+        return CodexExecutor(command_template, model, questions_file)
+    if kind == "qwen":
+        return QwenExecutor(command_template, model, questions_file)
+    raise ValueError(
+        f"unsupported executor kind: {kind!r} (use opencode | pi | codex | qwen)"
+    )
 
 
 # END OF FILE

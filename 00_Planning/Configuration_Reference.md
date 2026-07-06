@@ -141,6 +141,7 @@ parked_ttl_polls   = 30         # used when mode = "polls"
 parked_state       = "stopped"  # "stopped" (fast resume) | "removed" (free disk)
 uv_cache_volume    = "ador-uv-cache"
 npm_cache_volume   = "ador-npm-cache"
+runtime_env        = { UV_LINK_MODE = "copy" }
 run_args           = []         # extra `run` options; rootless podman: ["--userns=keep-id"]
 
 [worktree]
@@ -280,6 +281,7 @@ teams can rename without code changes; the orchestrator refers to labels by role
 | `parked_state` | On park: `stopped` (fast resume) or `removed` (free disk now). | `"stopped"` |
 | `uv_cache_volume` | Persistent uv cache volume for fast `uv sync`. | `"ador-uv-cache"` |
 | `npm_cache_volume` | Persistent npm cache volume for fast `npm ci`. | `"ador-npm-cache"` |
+| `runtime_env` | Non-secret environment injected at container creation and every `exec`. Use it for portable tool behavior such as `UV_LINK_MODE=copy` or a project-specific `UV_PROJECT_ENVIRONMENT`; ADOR rejects overrides of managed isolation keys (`HOME`, `GIT_*`, `CODEX_HOME`). | `{ UV_LINK_MODE = "copy" }` |
 | `run_args` | Extra option tokens for `<runtime> run` (one option per entry, no spaces; validated). ROOTLESS PODMAN REQUIRES `["--userns=keep-id"]` (verified 2026-07-04: without it container uid 1000 maps to a subuid that cannot write the bind-mounted worktree). Also the seam for future resource limits (`"--memory=2g"`). | `[]` |
 
 ## `[worktree]` - Worktree

@@ -239,4 +239,162 @@ run_args = ["--userns=keep-id", "rm", "--memory 2g"]
     assert any("'rm'" in issue for issue in run_args_issues)
 
 
+def _codex_config(command: str) -> str:
+    """
+    @brief      A minimal config with codex as the default executor.
+    @param[in]  command The [executor.codex] command template to test.
+    @return     The TOML text.
+    @author     Eng. Dan Dumitru Pasare
+    @date       2026-07-05
+    @version    0.1.0
+    """
+    return f"""
+[platform]
+kind = "gitlab"
+repo = "group/project"
+
+[worktree]
+repo_path = "../cockpit-gcp"
+
+[executor]
+default = "codex"
+
+[executor.codex]
+command = "{command}"
+model   = "gpt-5.5-codex"
+
+[delivery]
+reviewers = ["dan.pasare"]
+"""
+
+
+def test_codex_requires_non_interactive_sandboxed_json(tmp_path: Path) -> None:
+    """
+    @brief   A codex command without JSON + workspace sandboxing is reported;
+             adding the current non-interactive CLI shape fixes it.
+    @version 0.1.1
+    """
+    blocking = "codex exec {resume}--json --model {model} {prompt}"
+    issues = validate_config(load_config(_write_config(tmp_path, _codex_config(blocking))))
+    assert any("non-interactively" in issue for issue in issues)
+
+    ok = (
+        "codex exec {resume}--json --model {model} --ignore-user-config "
+        "--disable plugins --sandbox workspace-write {prompt}"
+    )
+    assert validate_config(load_config(_write_config(tmp_path, _codex_config(ok)))) == []
+
+
+def test_codex_accepts_external_container_sandbox_bypass(tmp_path: Path) -> None:
+    """
+    @brief   Codex full-auto mode is accepted because ADOR provides the
+             external container sandbox boundary.
+    @version 0.1.1
+    """
+    bypass = (
+        "codex exec {resume}--json --model {model} "
+        "--ignore-user-config --disable plugins "
+        "--dangerously-bypass-approvals-and-sandbox {prompt}"
+    )
+    assert validate_config(load_config(_write_config(tmp_path, _codex_config(bypass)))) == []
+
+
+def test_codex_rejects_machine_local_user_config(tmp_path: Path) -> None:
+    """
+    @brief   Codex runs must ignore machine-local user config/plugin state and
+             use ADOR's staged CODEX_HOME instead.
+    @version 0.1.0
+    """
+    command = (
+        "codex exec {resume}--json --model {model} "
+        "--dangerously-bypass-approvals-and-sandbox {prompt}"
+    )
+    issues = validate_config(load_config(_write_config(tmp_path, _codex_config(command))))
+    assert any("--ignore-user-config" in issue for issue in issues)
+
+
+def test_codex_rejects_plugin_materialization(tmp_path: Path) -> None:
+    """
+    @brief   Codex runs must disable bundled plugins so marketplace files are
+             not materialized into the target worktree.
+    @version 0.1.0
+    """
+    command = (
+        "codex exec {resume}--json --model {model} --ignore-user-config "
+        "--dangerously-bypass-approvals-and-sandbox {prompt}"
+    )
+    issues = validate_config(load_config(_write_config(tmp_path, _codex_config(command))))
+    assert any("--disable plugins" in issue for issue in issues)
+
+
+def test_qwen_bans_yolo(tmp_path: Path) -> None:
+    """
+    @brief   A qwen command with --yolo (or --approval-mode yolo) is reported;
+             a plain qwen command is accepted.
+    @version 0.1.0
+    """
+    base = """
+[platform]
+kind = "gitlab"
+repo = "group/project"
+
+[worktree]
+repo_path = "../cockpit-gcp"
+
+[executor]
+default = "qwen"
+
+[executor.qwen]
+command = "{command}"
+model   = "qwen3-coder-plus"
+
+[delivery]
+reviewers = ["dan.pasare"]
+"""
+    yolo = base.replace("{command}",
+                        "qwen -p --model {model} --yolo {prompt}")
+    assert any("--yolo" in i for i in
+               validate_config(load_config(_write_config(tmp_path, yolo))))
+
+    ok = base.replace("{command}",
+                     "qwen -p --model {model} --output-format json {prompt}")
+    qwen_issues = [i for i in validate_config(load_config(_write_config(tmp_path, ok)))
+                   if "qwen" in i]
+    assert qwen_issues == []
+
+
+def test_container_runtime_env_defaults_and_validation(tmp_path: Path) -> None:
+    """
+    @brief   [container] runtime_env is a non-secret customization surface:
+             uv copy-link mode defaults on, while managed git env cannot be
+             overridden by human config.
+    @version 0.1.0
+    """
+    base = """
+[platform]
+kind = "gitlab"
+repo = "group/project"
+
+[worktree]
+repo_path = "../cockpit-gcp"
+
+[executor.opencode]
+command = "opencode run --dir {worktree} -m {model} --format json {prompt}"
+model   = "openai/gpt-5.4-fast"
+
+[delivery]
+reviewers = ["dan.pasare"]
+"""
+    config = load_config(_write_config(tmp_path, base))
+    assert config.container.runtime_env["UV_LINK_MODE"] == "copy"
+    assert validate_config(config) == []
+
+    overridden = base + """
+[container.runtime_env]
+GIT_DIR = "/tmp/nope"
+"""
+    issues = validate_config(load_config(_write_config(tmp_path, overridden)))
+    assert any("runtime_env.GIT_DIR is managed by ADOR" in issue for issue in issues)
+
+
 # END OF FILE

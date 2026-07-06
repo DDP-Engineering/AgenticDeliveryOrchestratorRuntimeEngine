@@ -255,16 +255,48 @@ def test_worktree_admin_dir_name_fails_closed(tmp_path: Path) -> None:
 
 def test_build_container_env_targets_the_mounts() -> None:
     """
-    @brief   GIT_DIR/GIT_WORK_TREE point into the fixed container mounts and
-             the bot identity fills the author fields.
+    @brief   GIT_DIR/GIT_COMMON_DIR/GIT_WORK_TREE point into the fixed
+             container mounts and the bot identity fills the author fields.
     @version 0.1.0
     """
     env = build_container_env("run-1", "ADOR", "ador-bot@local")
     assert env["HOME"] == "/home/ador"  # force correct home over daemon leak
     assert env["GIT_DIR"] == f"{CONTAINER_REPO_MOUNT}/.git/worktrees/run-1"
+    assert env["GIT_COMMON_DIR"] == f"{CONTAINER_REPO_MOUNT}/.git"
     assert env["GIT_WORK_TREE"] == CONTAINER_WORKTREE_MOUNT
     assert env["GIT_AUTHOR_NAME"] == "ADOR"
     assert env["GIT_COMMITTER_EMAIL"] == "ador-bot@local"
+
+
+def test_scrub_container_worktree_config_only_removes_ador_mount(tmp_path: Path) -> None:
+    """
+    @brief   If a container git command persists `/ador/work` into the host
+             repo config, ADOR scrubs that host-breaking value only.
+    @version 0.1.0
+    """
+    repo = tmp_path / "repo"
+    git_dir = repo / ".git"
+    git_dir.mkdir(parents=True)
+    config_path = git_dir / "config"
+    config_path.write_text(
+        "[core]\n"
+        "\trepositoryformatversion = 0\n"
+        "\tworktree = /ador/work\n"
+        "\tbare = false\n"
+        "[remote \"origin\"]\n"
+        "\turl = git@example/repo.git\n",
+        encoding="utf-8",
+    )
+    manager = WorktreeManager(repo, tmp_path / "worktrees", FakeRunner())
+    manager.scrub_container_worktree_config()
+    scrubbed = config_path.read_text(encoding="utf-8")
+    assert "worktree = /ador/work" not in scrubbed
+    assert "repositoryformatversion = 0" in scrubbed
+    assert "url = git@example/repo.git" in scrubbed
+
+    config_path.write_text("[core]\n\tworktree = D:/repo\n", encoding="utf-8")
+    manager.scrub_container_worktree_config()
+    assert "worktree = D:/repo" in config_path.read_text(encoding="utf-8")
 
 
 # PUBLIC API / TESTS - containers
@@ -273,9 +305,9 @@ def test_build_container_env_targets_the_mounts() -> None:
 def test_container_provision_creates_when_absent(tmp_path: Path) -> None:
     """
     @brief   An absent container is created with all four mounts, workdir,
-             env keys (values via process env, never argv), and sleep
+             safe runtime env inline, secret keys without values, and sleep
              infinity; the io dir is created on demand.
-    @version 0.1.1
+    @version 0.1.2
     """
     runner = FakeRunner(_fail("Error: No such object: ador-run-x"), _ok("cid"))
     manager = _manager(runner)
@@ -286,14 +318,19 @@ def test_container_provision_creates_when_absent(tmp_path: Path) -> None:
         tmp_path / "worktrees" / "x",
         io_dir,
         {"HOME": "/home/ador", "GIT_DIR": "/ador/repo/.git/worktrees/x",
+         "CODEX_HOME": "/home/ador/.ador-codex", "UV_LINK_MODE": "copy",
          "ANTHROPIC_API_KEY": "sk-secret"},
     )
     run_argv = runner.calls[1]
     assert run_argv[:3] == ["docker", "run", "--detach"]
-    # HOME travels inline (not a secret; WSL login shells reset a bare HOME)
+    # Safe runtime values travel inline; they are not secrets and must survive
+    # wrapped runtimes consistently.
     env_values = [run_argv[i + 1] for i, part in enumerate(run_argv[:-1])
                   if part == "--env"]
     assert "HOME=/home/ador" in env_values
+    assert "GIT_DIR=/ador/repo/.git/worktrees/x" in env_values
+    assert "CODEX_HOME=/home/ador/.ador-codex" in env_values
+    assert "UV_LINK_MODE=copy" in env_values
     assert "HOME" not in env_values  # bare key would take the WSL user's HOME
     assert f"{(tmp_path / 'repo').as_posix()}:{CONTAINER_REPO_MOUNT}" in run_argv
     assert f"{io_dir.as_posix()}:{CONTAINER_IO_MOUNT}" in run_argv
@@ -408,6 +445,30 @@ def test_container_exec_returns_result_as_data() -> None:
     assert runner.calls[0][:3] == ["docker", "exec", "c"]
 
 
+def test_container_exec_passes_safe_env_inline_and_secret_env_bare() -> None:
+    """
+    @brief   Exec-time env mirrors provision: CODEX_HOME is inline so Podman
+             exec sees it; secret values stay out of argv.
+    @version 0.1.0
+    """
+    runner = FakeRunner(_ok())
+    _manager(runner).exec(
+        "c",
+        ["env"],
+        env={"CODEX_HOME": "/home/ador/.ador-codex", "UV_LINK_MODE": "copy",
+             "OPENAI_API_KEY": "sk-secret"},
+    )
+    argv = runner.calls[0]
+    assert argv[:2] == ["docker", "exec"]
+    assert "CODEX_HOME=/home/ador/.ador-codex" in argv
+    assert "UV_LINK_MODE=copy" in argv
+    assert "OPENAI_API_KEY" in argv
+    assert not any("sk-secret" in part for part in argv)
+    assert argv[-2:] == ["c", "env"]
+    assert runner.envs[0] is not None
+    assert runner.envs[0]["OPENAI_API_KEY"] == "sk-secret"
+
+
 def test_worktree_relative_root_resolves_against_cwd(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -493,10 +554,9 @@ def test_wsl_runtime_prefixes_every_command() -> None:
 
 def test_wsl_provision_translates_mounts_and_sets_wslenv(tmp_path: Path) -> None:
     """
-    @brief   In WSL mode mount sources are /mnt/<drive>/ paths and env keys
-             are listed in WSLENV so the values cross the WSL boundary;
-             values still never appear in argv.
-    @version 0.1.1
+    @brief   In WSL mode mount sources are /mnt/<drive>/ paths; safe runtime
+             env values are inline, while secret env values cross via WSLENV.
+    @version 0.1.2
     """
     runner = FakeRunner(_fail("No such container"), _ok("cid"))
     manager = _wsl_manager(runner)
@@ -512,10 +572,13 @@ def test_wsl_provision_translates_mounts_and_sets_wslenv(tmp_path: Path) -> None
     assert f"/mnt/d/repos/cockpit:{CONTAINER_REPO_MOUNT}" in run_argv
     assert f"/mnt/d/ador/worktrees/x:{CONTAINER_WORKTREE_MOUNT}" in run_argv
     assert f"{wsl_mount_path(io_dir)}:{CONTAINER_IO_MOUNT}" in run_argv
+    env_values = [run_argv[i + 1] for i, part in enumerate(run_argv[:-1])
+                  if part == "--env"]
+    assert "GIT_DIR=/ador/repo/.git/worktrees/x" in env_values
     assert not any("sk-secret" in part for part in run_argv)
     process_env = runner.envs[1]
     assert process_env is not None
-    assert "GIT_DIR" in process_env["WSLENV"]
+    assert "GIT_DIR" not in process_env["WSLENV"]
     assert "ANTHROPIC_API_KEY" in process_env["WSLENV"]
     assert "HOME" not in process_env["WSLENV"]  # WSL login resets HOME
 

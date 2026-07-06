@@ -52,7 +52,13 @@ _LICENSE_LINES = (
 )
 _OPENCODE_COMMAND = "opencode run --dir {worktree} -m {model} --format json {prompt}"
 _PI_COMMAND = "pi -p --mode json --model {model} {prompt}"
-_KNOWN_EXECUTORS = ("opencode", "pi")
+_CODEX_COMMAND = (
+    "codex exec {resume}--json --model {model} "
+    "--ignore-user-config --disable plugins "
+    "--dangerously-bypass-approvals-and-sandbox {prompt}"
+)
+_QWEN_COMMAND = "qwen -p --model {model} --output-format json {prompt}"
+_KNOWN_EXECUTORS = ("opencode", "pi", "codex", "qwen")
 _DEFAULT_MODEL = "openai/gpt-5.5"
 _RECOMMENDED_BUDGETS = {
     "max_iterations": 12,
@@ -635,6 +641,10 @@ def _command_for(executor_cli: str) -> str:
         return _OPENCODE_COMMAND
     if executor_cli == "pi":
         return _PI_COMMAND
+    if executor_cli == "codex":
+        return _CODEX_COMMAND
+    if executor_cli == "qwen":
+        return _QWEN_COMMAND
     return f"{executor_cli} run --dir {{worktree}} -m {{model}} {{prompt}}"
 
 

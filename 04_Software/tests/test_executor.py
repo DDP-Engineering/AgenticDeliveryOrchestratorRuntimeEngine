@@ -28,8 +28,10 @@ from pathlib import Path
 from ador.executor.launcher import (
     GATE_SCRIPT,
     OUTPUT_FILE,
+    CodexExecutor,
     OpencodeExecutor,
     PiExecutor,
+    QwenExecutor,
     build_executor,
 )
 from ador.util import CommandResult
@@ -39,6 +41,12 @@ import pytest
 
 TEMPLATE = "opencode run --dir {worktree} -m {model} --format json {prompt}"
 PI_TEMPLATE = "pi -p --mode json --model {model} {prompt}"
+CODEX_TEMPLATE = (
+    "codex exec {resume}--json --model {model} "
+    "--ignore-user-config --disable plugins "
+    "--dangerously-bypass-approvals-and-sandbox {prompt}"
+)
+QWEN_TEMPLATE = "qwen -p --model {model} --output-format json {prompt}"
 
 # DATA MODELS / TYPEDEFINITIONS
 
@@ -305,7 +313,145 @@ def test_factory_wires_questions_file() -> None:
     assert isinstance(executor, OpencodeExecutor)
     assert executor.questions_file == "ROBO_QUESTIONS.md"
     with pytest.raises(ValueError):
-        build_executor("codex", TEMPLATE, "m")
+        build_executor("gemini", TEMPLATE, "m")   # a genuinely unknown kind
+
+
+# PUBLIC API / TESTS - Qwen executor (stateless per gate)
+
+
+def test_factory_selects_qwen_and_bans_yolo() -> None:
+    """
+    @brief   `default = "qwen"` selects QwenExecutor; --yolo (auto-approve all
+             tools) is rejected at construction.
+    @version 0.1.0
+    """
+    executor = build_executor("qwen", QWEN_TEMPLATE, "qwen3-coder-plus")
+    assert isinstance(executor, QwenExecutor)
+    with pytest.raises(ValueError, match="--yolo"):
+        QwenExecutor(QWEN_TEMPLATE + " --yolo", "m")
+
+
+def test_qwen_is_stateless_no_session_or_resume(tmp_path: Path) -> None:
+    """
+    @brief   Qwen runs each gate fresh: a fresh gate surfaces no session id (so
+             the conductor never propagates one), and even when a session id is
+             passed the gate.sh carries neither --session nor a resume - the
+             workflow's file-based state carries context.
+    @version 0.1.0
+    """
+    worktree, io_dir = _dirs(tmp_path)
+    executor = QwenExecutor(QWEN_TEMPLATE, "qwen3-coder-plus")
+
+    fresh = executor.run_gate(FakeExec(CommandResult(exit_code=0)), worktree, io_dir,
+                              "gate one")
+    assert fresh.session_id == ""           # nothing to continue; stays empty in flow
+    assert fresh.tokens_in == 0 and fresh.cost_usd == 0.0   # usage pinned in spike
+
+    executor.run_gate(FakeExec(CommandResult(exit_code=0)), worktree, io_dir,
+                      "gate two", session="ignored-by-qwen")
+    script = (io_dir / GATE_SCRIPT).read_text(encoding="utf-8")
+    assert "qwen -p --model qwen3-coder-plus --output-format json" in script
+    assert "--session" not in script and "resume" not in script
+
+
+def test_qwen_questions_and_failure_inherited(tmp_path: Path) -> None:
+    """
+    @brief   Clarification parking and fail-closed pass-through come from the
+             shared base unchanged.
+    @version 0.1.0
+    """
+    worktree, io_dir = _dirs(tmp_path)
+
+    def ask() -> None:
+        (worktree / "ADOR_QUESTIONS.md").write_text("1. Which target?\n", encoding="utf-8")
+
+    parked = QwenExecutor(QWEN_TEMPLATE, "m").run_gate(
+        FakeExec(CommandResult(exit_code=0), ask), worktree, io_dir, "p")
+    assert parked.has_questions and "Which target" in parked.questions
+
+    failed = QwenExecutor(QWEN_TEMPLATE, "m").run_gate(
+        FakeExec(CommandResult(exit_code=124, stderr="timeout")), worktree, io_dir, "p")
+    assert not failed.ok and failed.exit_code == 124
+
+
+# PUBLIC API / TESTS - Codex executor (subcommand-resume + approval model)
+
+
+def test_factory_selects_codex_and_allows_container_full_auto() -> None:
+    """
+    @brief   `default = "codex"` selects CodexExecutor; full-auto is allowed
+             because ADOR relies on the executor container as the sandbox.
+    @version 0.1.1
+    """
+    executor = build_executor("codex", CODEX_TEMPLATE, "gpt-5.5-codex")
+    assert isinstance(executor, CodexExecutor)
+
+
+def test_codex_first_gate_vs_resume_command_structure(tmp_path: Path) -> None:
+    """
+    @brief   The first gate runs `codex exec ...`; a continuing gate rewrites
+             the structure to `codex exec resume --last ...` (not an appended
+             --session flag).
+    @version 0.1.0
+    """
+    worktree, io_dir = _dirs(tmp_path)
+    executor = CodexExecutor(CODEX_TEMPLATE, "gpt-5.5-codex")
+
+    executor.run_gate(FakeExec(CommandResult(exit_code=0)), worktree, io_dir, "gate one")
+    new_script = (io_dir / GATE_SCRIPT).read_text(encoding="utf-8")
+    assert "codex exec --json" in new_script
+    assert "resume" not in new_script
+    assert "--session" not in new_script          # codex never uses --session
+
+    executor.run_gate(FakeExec(CommandResult(exit_code=0)), worktree, io_dir,
+                      "gate two", session="anything-truthy")
+    resume_script = (io_dir / GATE_SCRIPT).read_text(encoding="utf-8")
+    assert "codex exec resume --last --json" in resume_script
+
+
+def test_codex_parses_usage_from_json(tmp_path: Path) -> None:
+    """
+    @brief   Codex --json usage (input/output tokens, cost) is summed into the
+             GateRun; a session/thread id is read best-effort. Schema is
+             provisional (pinned by the spike); malformed lines are ignored.
+    @version 0.1.0
+    """
+    worktree, io_dir = _dirs(tmp_path)
+
+    def write_stream() -> None:
+        (io_dir / OUTPUT_FILE).write_text(
+            '{"type":"thread.started","thread_id":"th_abc"}\n'
+            "not json with usage keyword\n"
+            '{"type":"turn.completed","usage":{"input_tokens":120,"output_tokens":30,'
+            '"cost_usd":0.02}}\n',
+            encoding="utf-8",
+        )
+
+    run = CodexExecutor(CODEX_TEMPLATE, "m").run_gate(
+        FakeExec(CommandResult(exit_code=0), write_stream), worktree, io_dir, "p")
+    assert run.tokens_in == 120 and run.tokens_out == 30
+    assert abs(run.cost_usd - 0.02) < 1e-9
+    assert run.session_id == "th_abc"
+
+
+def test_codex_questions_and_failure_inherited(tmp_path: Path) -> None:
+    """
+    @brief   Clarification parking and fail-closed pass-through come from the
+             shared base unchanged.
+    @version 0.1.0
+    """
+    worktree, io_dir = _dirs(tmp_path)
+
+    def ask() -> None:
+        (worktree / "ADOR_QUESTIONS.md").write_text("1. Which env?\n", encoding="utf-8")
+
+    parked = CodexExecutor(CODEX_TEMPLATE, "m").run_gate(
+        FakeExec(CommandResult(exit_code=0), ask), worktree, io_dir, "p")
+    assert parked.has_questions and "Which env" in parked.questions
+
+    failed = CodexExecutor(CODEX_TEMPLATE, "m").run_gate(
+        FakeExec(CommandResult(exit_code=124, stderr="timeout")), worktree, io_dir, "p")
+    assert not failed.ok and failed.exit_code == 124
 
 
 # PUBLIC API / TESTS - Pi executor (config-selectable alternative)
