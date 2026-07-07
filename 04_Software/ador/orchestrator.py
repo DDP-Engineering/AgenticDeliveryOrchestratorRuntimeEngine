@@ -1316,13 +1316,13 @@ class Orchestrator:
         @brief      Bring up (or back) the run's worktree and container.
         @details    Idempotent by run-id: restart and resume reuse the same
                     resources (design 8a/8b). Secrets = the configured env
-                    subset only (design 12b), plus the optional host-auth
-                    staging for OAuth pilots.
+                    subset only (design 12b), project-image tool checks, plus
+                    the optional host-auth staging for OAuth pilots.
         @param[in]  run The run.
         @exception  IsolationError When git or the container runtime fails.
         @author     Eng. Dan Dumitru Pasare
         @date       2026-07-03
-        @version    0.1.1
+        @version    0.1.2
         """
         worktree = self.worktrees.create(run.run_id, run.branch,
                                          run.base_ref or "HEAD")
@@ -1338,6 +1338,11 @@ class Orchestrator:
             # means the stored session is gone (live finding 2026-07-03)
             run.executor_session = ""
             self.store.journal(run.run_id, "session-reset", cause="container-recreated")
+        self.containers.verify_required_tools(
+            run.container,
+            self.config.container.required_tool_checks,
+            env=env,
+        )
         if self.config.executor.stage_host_auth:
             self._stage_host_auth(run)
         self.store.save(run)

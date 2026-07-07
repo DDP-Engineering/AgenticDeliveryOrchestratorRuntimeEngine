@@ -212,9 +212,13 @@ This is what makes "the agent never merges" a hard rule rather than a convention
 ## 6. Container Runtime and Image
 
 - Install Docker/Podman (section 1).
-- Build the **executor image** once (`ador-executor:latest`) with the base
-  tooling baked in: Python 3.11 + `uv`, Node 20 + `npm`, `git`, the executor CLI,
-  `glab`/`gh`, and the target repo's build/test tools (matching `.gitlab-ci.yml`).
+- Build the **executor base image** once (`ador-executor-base:0.2.0`) with
+  ADOR/executor tooling baked in: Python 3.11 + `uv`, Node 24 + `npm`, `git`,
+  executor CLIs, and `glab`/`gh`.
+- Build one **runtime-project image** per target project, extending the base
+  image with that project's build/test tools. Cockpit-GCP uses
+  `ador-executor-cockpit-gcp:latest` for `make`, `shellcheck`, Terraform, and
+  `tflint`.
 - Create the persistent cache volumes referenced in `config.toml`
   (`ador-uv-cache`, `ador-npm-cache`) so `uv sync` / `npm ci` are fast.
 

@@ -10,7 +10,7 @@
 # @brief   Deploy ADOR on Ubuntu 22+ (design doc 12/12a).
 # @details Fail-fast, idempotent, re-runnable. Steps: check host prerequisites,
 #          sync the Python environment (uv), validate config.toml, build the
-#          executor image when absent, and optionally install + start the
+#          executor base image when absent, and optionally install + start the
 #          systemd unit (ador.service template in this directory).
 #          Secrets are never echoed and never appear in argv; they stay in
 #          .env / an EnvironmentFile (design 12b).
@@ -21,7 +21,7 @@
 #            --uninstall stop/disable/remove the systemd unit (sudo)
 # @author  Eng. Dan Dumitru Pasare
 # @date    2026-07-04
-# @version 0.1.0
+# @version 0.2.0
 # -----------------------------------------------------------------------------
 set -euo pipefail
 
@@ -30,7 +30,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOFTWARE_DIR="$(dirname "${SCRIPT_DIR}")"
 UNIT_TEMPLATE="${SCRIPT_DIR}/ador.service"
 UNIT_PATH="/etc/systemd/system/ador.service"
-IMAGE_TAG="ador-executor:latest"
+IMAGE_TAG="${IMAGE_TAG:-ador-executor-base:0.2.0}"
+IMAGE_DOCKERFILE="${IMAGE_DOCKERFILE:-Dockerfile.executor-base}"
 ADOR_USER="${ADOR_USER:-$(id -un)}"
 
 # LOCAL HELPERS
@@ -107,14 +108,14 @@ if [ ! -f "${SOFTWARE_DIR}/.env" ]; then
     note "      see .env.example for the canonical secret list)"
 fi
 
-# 4. executor image (build only when absent; rebuilds are an explicit choice)
+# 4. executor base image (build only when absent; rebuilds are an explicit choice)
 if [ "${SKIP_IMAGE}" -eq 0 ]; then
     need_cmd docker "Install Docker Engine, or re-run with --skip-image for a wrapped runtime"
     if docker image inspect "${IMAGE_TAG}" >/dev/null 2>&1; then
         note "executor image ${IMAGE_TAG} already present"
     else
         note "building executor image ${IMAGE_TAG}"
-        docker build -f "${SOFTWARE_DIR}/docker/Dockerfile.executor" \
+        docker build -f "${SOFTWARE_DIR}/docker/${IMAGE_DOCKERFILE}" \
             -t "${IMAGE_TAG}" "${SOFTWARE_DIR}/docker"
     fi
 else

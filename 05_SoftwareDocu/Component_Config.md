@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Config (`ador/config.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/ador/config.py` - file version 0.1.0.
+> Source: `04_Software/ador/config.py` - file version 0.2.0.
 > Setting-by-setting reference: `00_Planning/Configuration_Reference.md`.
 
 ## 1. Purpose
@@ -36,6 +36,8 @@ environment / `.env`).
 - `[container] runtime_env` names non-secret runtime variables injected into
   both `run` and `exec` calls. ADOR-managed isolation variables
   (`HOME`, `GIT_*`, `CODEX_HOME`) are rejected if configured there.
+- `[container] required_tool_checks` names shell-free commands that validate a
+  runtime-project image contains its required build/test tools before gates run.
 
 Explicitly not owned: reading secrets, writing config (`ador config set` is
 future work), and any behavior driven by the values.
@@ -109,7 +111,8 @@ CLI: `ador config show`, `ador config validate`.
   values never overridden, bad enums / missing repo, missing executor table,
   invalid durations, `draft = false` rejection, unknown sections, invalid
   slug / non-positive interval / malformed quiet-hours, Codex command
-  hardening, Qwen yolo rejection, and `[container] runtime_env` validation.
+  hardening, Qwen yolo rejection, `[container] runtime_env` validation, and
+  `[container] required_tool_checks` validation.
 - Minimum validation after a change: `uv run --group dev pytest tests/test_config.py`
   and `uv run ador -c config.example.toml config validate`.
 

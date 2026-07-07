@@ -104,12 +104,12 @@ over the daemon leak via the existing --env/WSLENV path). Lesson: a binary being
 present is not the same as being usable; the required_tools check should verify
 usability (e.g. `tflint --version` exit 0 in the container env), not just presence.
 
-Per-project executor images: the current Dockerfile is monolithic (one target
-repo). When a second project arrives, split into Dockerfile.base (python/uv, node,
-git, opencode, glab/gh, user) + Dockerfile.<project> (that repo's gate toolchain,
-ideally FROM the project's own CI image so "passes in container" == "passes in
-CI"). Each project gets its own config.toml + .ador store; per-store lock lets
-multiple ADOR instances coexist on one host.
+Per-project executor images: IMPLEMENTED 2026-07-06 as
+Dockerfile.executor-base (ADOR/executor tooling only) plus
+Dockerfile.executor-cockpit-gcp (Cockpit-GCP gate toolchain). Future projects
+should derive their own runtime-project image from `ador-executor-base:0.2.0`
+and set it in that project's profile. Each project gets its own config.toml +
+.ador store; per-store lock lets multiple ADOR instances coexist on one host.
 
 Teardown race on WSL (observed at the done-leg, 2026-07-04): removing the
 worktree immediately after `docker rm -f` can fail with ENOSYS ("Function not

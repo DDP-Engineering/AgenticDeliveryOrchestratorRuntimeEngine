@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Assisted-Config Wizard (`ador/wizard.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/ador/wizard.py` - file version 0.1.0.
+> Source: `04_Software/ador/wizard.py` - file version 0.2.0.
 > Plan: `00_Planning/Assisted_Config_And_Profiles_Plan.md` (task 3 of 8).
 > CLI: `ador init` (wired in `ador/cli.py`).
 
@@ -60,9 +60,11 @@ commands + `--profile` resolution (plan task 4).
 - **Minimal + valid output:** required-for-validation fields are always written
   (platform, repo, worktree, executor command/model, reviewers, runtime, image,
   profile-owned state_root); optional fields only when they differ from the
-  dataclass default. Rootless podman auto-adds `run_args=["--userns=keep-id"]`;
-  the executor `env_keys` are derived from the model's provider (names only,
-  never secret values - D5).
+  dataclass default. The image prompt defaults to the generic executor base
+  (`ador-executor-base:0.2.0`) and points project profiles at derived
+  runtime-project images when needed. Rootless podman auto-adds
+  `run_args=["--userns=keep-id"]`; the executor `env_keys` are derived from the
+  model's provider (names only, never secret values - D5).
 - **TOML emission** prefers literal single-quoted strings, so regexes and
   Windows paths (backslashes) need no escaping.
 

@@ -36,8 +36,14 @@ branch_rule = '^(feature|bugfix|release|hotfix)\/.*$'
 # container's ador (uid 1000) can write the bind-mounted worktree.
 runtime  = "wsl -d Ubuntu-24.04 -- podman"
 run_args = ["--userns=keep-id"]
-image    = "ador-executor:latest"
+image    = "ador-executor-cockpit-gcp:latest"
 runtime_env = { UV_LINK_MODE = "copy" }
+required_tool_checks = [
+    "make --version",
+    "shellcheck --version",
+    "terraform --version",
+    "tflint --version",
+]
 
 [executor]
 default = "codex"

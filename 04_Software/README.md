@@ -39,8 +39,9 @@ Runnable implementation of the orchestrator described in
     CRUD, active pointer, config-path resolution (one install, many projects).
   - `doctor.py` - environment detection + OS-specific prerequisite guidance.
   - `wizard.py` - the `ador init` assisted-config wizard.
-- `docker/` - `Dockerfile.executor` for the `ador-executor:latest` image
-  (Python 3.11 + uv, Node 20, git, opencode, glab/gh) plus build docs.
+- `docker/` - `Dockerfile.executor-base` for the generic
+  `ador-executor-base:0.2.0` executor environment, plus runtime-project images
+  such as `Dockerfile.executor-cockpit-gcp`.
 - `deploy/` - deployment scripts (design 12a): `install-ubuntu.sh` +
   `ador.service` (systemd), `install-windows.ps1` (Task Scheduler), and the
   deployment procedure in `deploy/README.md`.

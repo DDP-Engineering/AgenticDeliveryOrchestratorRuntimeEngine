@@ -9,9 +9,11 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Isolation (`ador/isolation.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/ador/isolation.py` - file version 0.2.0.
+> Source: `04_Software/ador/isolation.py` - file version 0.4.0.
 > Design: Orchestrator_Design_And_Decisions.md sections 8b, 10, 10a.
-> Image: `04_Software/docker/Dockerfile.executor` (see `docker/README.md`).
+> Images: `04_Software/docker/Dockerfile.executor-base` plus
+> runtime-project images such as `Dockerfile.executor-cockpit-gcp`
+> (see `docker/README.md`).
 
 ## 1. Purpose
 
@@ -42,8 +44,9 @@ guardrails, not a sandbox (design 10).
   (running -> no-op, stopped -> start, absent -> create), `start` / `stop`
   (park) / `remove` (reap), `status`, `list_containers(prefix)` (all
   containers in any state whose name starts with `<slug>-run-`; feeds
-  `ador cleanup`'s orphan sweep), and `exec` (the seam the executor
-  launcher runs commands through).
+  `ador cleanup`'s orphan sweep), `verify_required_tools` (project-image
+  checks run inside the provisioned container), and `exec` (the seam the
+  executor launcher runs commands through).
 - `build_container_env(git_dir_name, git_name, git_email)` - the git
   environment injected at provision (see section 3).
 - `IsolationError` - typed fail-closed error carrying argv + stderr.
@@ -104,10 +107,10 @@ side keeps working normally with its absolute paths. The admin dir name is
   (`runtime`, `image`, cache volumes) config.
 - External: `git` on the host; Docker or Podman - native or wrapped (Docker
   Engine inside WSL2 via `wsl -d <distro> -- docker`); the
-  `ador-executor:latest` image (built from `docker/Dockerfile.executor`:
-  Ubuntu 22.04, Python 3.11 + uv, current Node LTS, git with
-  `safe.directory *`, opencode/pi/codex/qwen CLIs as configured, glab/gh,
-  non-root user `ador`).
+  `ador-executor-base:0.2.0` image (built from
+  `docker/Dockerfile.executor-base`: Ubuntu 22.04, Python 3.11 + uv, Node
+  24, git with `safe.directory *`, opencode/pi/codex/qwen CLIs as configured,
+  glab/gh, non-root user `ador`) or a runtime-project image derived from it.
 
 ## 5. Inputs And Outputs
 
@@ -137,6 +140,10 @@ side keeps working normally with its absolute paths. The admin dir name is
   repos that need to move uv virtualenvs out of the worktree can set a
   project-specific non-secret `UV_PROJECT_ENVIRONMENT` in `[container]
   runtime_env`.
+- `[container] required_tool_checks` is a list of shell-free command strings
+  run inside the provisioned container. Failure raises `IsolationError`, so a
+  profile with the wrong runtime-project image fails before any executor gate
+  starts.
 
 ## 7. Workflow Integration
 
@@ -155,7 +162,7 @@ from ador.isolation import (
 )
 
 worktrees = WorktreeManager("../cockpit-gcp", "worktrees")
-containers = ContainerManager("docker", "ador-executor:latest",
+containers = ContainerManager("docker", "ador-executor-base:0.2.0",
                               "ador-uv-cache", "ador-npm-cache")
 
 path = worktrees.create("gitlab-x-14", "ador/gitlab-x-14", "origin/develop")
@@ -183,11 +190,12 @@ result = containers.exec("ador-run-gitlab-x-14", ["opencode", "--version"])
   ADOR commits them before push.
 - Minimum validation after a change: `uv run --group dev pytest tests/test_isolation.py`.
 - `docker/verify-runtime.sh` is the LIVE compatibility pass for a runtime:
-  17 steps mirroring every runtime CLI call this component makes (mount/env
-  shape, bare-key secrets, HOME inline, tool usability, in-container git
-  with host-visible commits, park/resume, listing, reap, absence). Docker
-  baseline green 2026-07-04 (17/17); run with `RUNTIME=podman` before
-  pointing config at podman.
+  18 steps mirroring every runtime CLI call this component makes (mount/env
+  shape, bare-key secrets, HOME inline, executor-base tool usability, optional
+  runtime-project tool checks, in-container git with host-visible commits,
+  park/resume, listing, reap, absence). Docker baseline green 2026-07-04
+  (17/17 on the previous verifier); current Cockpit-GCP Podman pass green
+  2026-07-06 (18/18).
 - **Live verification done 2026-07-03** (Docker Engine in WSL2, scratch repo,
   19/19 steps; Prerequisites_Check_Report.md section 12): image build and
   tooling checks, WSLENV secret propagation, git status/commit **inside** the
@@ -208,8 +216,9 @@ result = containers.exec("ador-run-gitlab-x-14", ["opencode", "--version"])
 - CPU/RAM/network limits (`--memory`, `--cpus`, `--network`) are not yet
   passed to `docker run`; add as `[container]` keys when the budgets phase
   lands.
-- Podman VERIFIED 2026-07-04 (4.9.3 rootless, Ubuntu-24.04/WSL2): 17/17 on
-  `docker/verify-runtime.sh`. Rootless mode requires
+- Podman VERIFIED 2026-07-04 (4.9.3 rootless, Ubuntu-24.04/WSL2), and
+  re-verified 2026-07-06 with `ador-executor-cockpit-gcp:latest` plus
+  required tool checks. Rootless mode requires
   `[container] run_args = ["--userns=keep-id"]` (without it, container uid
   1000 cannot write the bind-mounted worktree - caught live by the pass).
   Remaining: a disposable-ticket pilot with `runtime = "podman"`; SELinux

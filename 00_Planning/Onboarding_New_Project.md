@@ -81,11 +81,13 @@ The executor (opencode) needs a model key. In production, set
 crawl-pilot host-auth OAuth bridge is not for unattended use - see
 `Setup_And_Credentials.md` §3.1.)
 
-### Build the executor image (once)
+### Build the executor images (once)
 
-`docker/README.md` has the exact build command (and the WSL2 variant). The
-wizard suggests the image name (`ador-executor:latest`) and can check whether it
-exists.
+`docker/README.md` has the exact build commands (and the WSL2 variant). Build
+`ador-executor-base:0.2.0` for the generic executor environment, then build one
+runtime-project image with the target project's dependencies. For Cockpit-GCP,
+use `ador-executor-cockpit-gcp:latest`; new projects should create their own
+image from the same base.
 
 ---
 

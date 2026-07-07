@@ -1,0 +1,41 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+#
+# =============================================================================
+# Cockpit-GCP runtime-project executor image (ador-executor-cockpit-gcp:latest)
+#
+# Project-specific layer for Cockpit-GCP gates. It extends the generic ADOR
+# executor base and adds only the build/test tools required by this runtime
+# project.
+#
+# Build:
+#   docker build -f Dockerfile.executor-base -t ador-executor-base:0.2.0 .
+#   docker build -f Dockerfile.executor-cockpit-gcp -t ador-executor-cockpit-gcp:latest .
+# =============================================================================
+
+ARG BASE_IMAGE=ador-executor-base:0.2.0
+FROM ${BASE_IMAGE}
+
+ARG TFLINT_VERSION=0.63.1
+
+USER root
+
+# Cockpit-GCP gate tooling (`make lint` / `make test`).
+RUN curl -fsSL https://apt.releases.hashicorp.com/gpg \
+        | gpg --dearmor -o /usr/share/keyrings/hashicorp.gpg \
+    && echo "deb [signed-by=/usr/share/keyrings/hashicorp.gpg] https://apt.releases.hashicorp.com jammy main" \
+        > /etc/apt/sources.list.d/hashicorp.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends make shellcheck terraform unzip \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -fsSL -o /tmp/tflint.zip \
+        "https://github.com/terraform-linters/tflint/releases/download/v${TFLINT_VERSION}/tflint_linux_amd64.zip" \
+    && unzip -q /tmp/tflint.zip -d /tmp/tflint \
+    && install -m 0755 /tmp/tflint/tflint /usr/local/bin/tflint \
+    && rm -rf /tmp/tflint /tmp/tflint.zip \
+    && tflint --version
+
+USER ador

@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Environment Doctor (`ador/doctor.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/ador/doctor.py` - file version 0.1.0.
+> Source: `04_Software/ador/doctor.py` - file version 0.1.1.
 > Plan: `00_Planning/Assisted_Config_And_Profiles_Plan.md` (task 2 of 8).
 > Scope note: the **detection + guidance data/text layer**. The `ador init`
 > wizard (task 3) consumes it to decide what to ask and what to print; a future

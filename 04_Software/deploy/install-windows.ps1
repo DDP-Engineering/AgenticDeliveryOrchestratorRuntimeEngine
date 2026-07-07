@@ -9,18 +9,19 @@
 # @brief   Deploy ADOR on Windows 11 (design doc 12/12a).
 # @details Fail-fast, idempotent, re-runnable; Windows PowerShell 5.1
 #          compatible. Steps: check host prerequisites, sync the Python
-#          environment (uv), validate config.toml, verify the executor image
+#          environment (uv), validate config.toml, verify the executor/base image
 #          exists for the configured runtime, and optionally register a Task
 #          Scheduler job - either the long-running poll loop at logon (-Mode
 #          loop, the default) or a repeating single pass (-Mode once
 #          -IntervalMinutes N). Secrets are never echoed and never appear in
 #          argv; ADOR reads .env from its working directory (design 12b).
 # @usage   .\deploy\install-windows.ps1 [-Mode loop|once] [-IntervalMinutes 10]
-#              [-Runtime "docker"] [-SkipImageCheck] [-NoTask] [-Uninstall]
+#              [-Runtime "docker"] [-ImageTag "ador-executor-base:0.2.0"]
+#              [-SkipImageCheck] [-NoTask] [-Uninstall]
 #          With Docker Engine in WSL2: -Runtime "wsl -d Ubuntu-24.04 -- docker"
 # @author  Eng. Dan Dumitru Pasare
 # @date    2026-07-04
-# @version 0.1.0
+# @version 0.2.0
 # -----------------------------------------------------------------------------
 [CmdletBinding()]
 param(
@@ -29,6 +30,7 @@ param(
     [ValidateRange(1, 1440)]
     [int]$IntervalMinutes = 10,
     [string]$Runtime = "docker",
+    [string]$ImageTag = "ador-executor-base:0.2.0",
     [switch]$SkipImageCheck,
     [switch]$NoTask,
     [switch]$Uninstall
@@ -40,7 +42,6 @@ $ErrorActionPreference = "Stop"
 $TaskName    = "ADOR Orchestrator"
 $SoftwareDir = Split-Path -Parent $PSScriptRoot
 $AdorExe     = Join-Path $SoftwareDir ".venv\Scripts\ador.exe"
-$ImageTag    = "ador-executor:latest"
 
 # LOCAL HELPERS
 function Fail([string]$Message) {
@@ -119,7 +120,8 @@ if (-not $SkipImageCheck) {
     if ($LASTEXITCODE -ne 0) {
         Note "executor image '$ImageTag' not found via runtime '$Runtime'."
         Note "Build it first (exact commands, incl. the WSL2 variant, in docker\README.md), e.g.:"
-        Note "    cd $SoftwareDir\docker; docker build -f Dockerfile.executor -t $ImageTag ."
+        Note "    cd $SoftwareDir\docker; docker build -f Dockerfile.executor-base -t ador-executor-base:0.2.0 ."
+        Note "For Cockpit-GCP also build: docker build -f Dockerfile.executor-cockpit-gcp -t ador-executor-cockpit-gcp:latest ."
         Fail "executor image missing"
     }
     Note "executor image $ImageTag present"

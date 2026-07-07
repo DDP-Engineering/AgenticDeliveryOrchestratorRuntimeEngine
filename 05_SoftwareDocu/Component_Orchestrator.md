@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Orchestrator (`ador/orchestrator.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/ador/orchestrator.py` - file version 0.4.0.
+> Source: `04_Software/ador/orchestrator.py` - file version 0.4.1.
 > Design: Orchestrator_Design_And_Decisions.md sections 5a, 7a, 8, 9, 10.
 
 ## 1. Purpose
@@ -126,6 +126,9 @@ interface) and metrics.
   `[container] runtime_env` values such as `UV_LINK_MODE=copy`, executor
   secrets from `[executor] env_keys`, and selected-executor runtime values
   such as Codex `CODEX_HOME`.
+- `_provision` also asks the isolation layer to run
+  `[container] required_tool_checks`, so a profile with the wrong
+  runtime-project image fails before the executor starts a gate.
 - **Executor sessions live inside the container**: provision reports
   created/started/running, and a "created" container resets the stored
   session id (journal: `session-reset`) - a fresh container can never be
@@ -142,7 +145,7 @@ interface) and metrics.
   executor launcher, gates wrappers, util (durations, timestamps, quiet
   hours, dotenv).
 - External: only what the collaborators need (git, container runtime,
-  glab/gh, the executor image).
+  glab/gh, and the selected executor base/runtime-project image).
 
 ## 5. Inputs And Outputs
 

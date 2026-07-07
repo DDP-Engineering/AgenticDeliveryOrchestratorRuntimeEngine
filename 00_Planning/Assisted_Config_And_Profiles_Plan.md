@@ -256,8 +256,10 @@ printed when a check fails; both Windows and Ubuntu instructions are given.
 - **F1 (from A3) Runtime string** — assembled from the A3 choice + distro; e.g.
   `wsl -d Ubuntu-24.04 -- podman`. -> `[container] runtime` (+ `run_args`).
 - **F2 Executor image** *(confirm default)* — *the built image name; build it per*
-  `docker/README.md` *before the first run* — `ador-executor:latest` — non-empty;
-  offer to check presence (`<runtime> image inspect`) and warn if absent.
+  `docker/README.md` *before the first run* —
+  `ador-executor-base:0.2.0` for executor-only validation, or a runtime-project
+  image such as `ador-executor-cockpit-gcp:latest` — non-empty; offer to check
+  presence (`<runtime> image inspect`) and warn if absent.
   -> `[container] image`.
 - **F3 Executor CLI + model** — **F3a** *which executor* — `opencode` — one of the
   known executors; **F3b Model** — *provider/model id* — `openai/gpt-5.5` —

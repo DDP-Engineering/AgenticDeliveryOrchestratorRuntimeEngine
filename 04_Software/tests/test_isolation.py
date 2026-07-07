@@ -16,7 +16,7 @@
          offline. Worktree-on-disk states are simulated with tmp_path files.
 @author Eng. Dan Dumitru Pasare
 @date 2026-07-03
-@version 0.1.0
+@version 0.2.0
 """
 
 from __future__ import annotations
@@ -120,9 +120,10 @@ def _manager(runner: FakeRunner) -> ContainerManager:
     @return     The manager (docker, test image, test volumes).
     @author     Eng. Dan Dumitru Pasare
     @date       2026-07-03
-    @version    0.1.0
+    @version    0.1.1
     """
-    return ContainerManager("docker", "ador-executor:latest", "uv-cache", "npm-cache", runner)
+    return ContainerManager("docker", "ador-executor-base:0.2.0", "uv-cache",
+                            "npm-cache", runner)
 
 
 def _fake_worktree(tmp_path: Path, run_id: str, gitdir: str) -> WorktreeManager:
@@ -354,7 +355,7 @@ def test_container_provision_inserts_run_args(tmp_path: Path) -> None:
     @version 0.1.0
     """
     runner = FakeRunner(_fail("Error: No such object: p-run-x"), _ok("cid"))
-    manager = ContainerManager("podman", "ador-executor:latest", "uv-cache",
+    manager = ContainerManager("podman", "ador-executor-base:0.2.0", "uv-cache",
                                "npm-cache", runner,
                                run_args=["--userns=keep-id"])
     manager.provision("p-run-x", tmp_path / "repo", tmp_path / "wt",
@@ -469,6 +470,42 @@ def test_container_exec_passes_safe_env_inline_and_secret_env_bare() -> None:
     assert runner.envs[0]["OPENAI_API_KEY"] == "sk-secret"
 
 
+def test_container_verify_required_tools_execs_checks() -> None:
+    """
+    @brief   Required project-image tool checks are parsed without a shell and
+             executed inside the container with the provision env.
+    @version 0.1.0
+    """
+    runner = FakeRunner(_ok(), _ok())
+    _manager(runner).verify_required_tools(
+        "c",
+        ["make --version", "terraform --version"],
+        env={"UV_LINK_MODE": "copy"},
+    )
+    assert runner.calls[0] == [
+        "docker", "exec", "--env", "UV_LINK_MODE=copy", "c", "make", "--version",
+    ]
+    assert runner.calls[1] == [
+        "docker", "exec", "--env", "UV_LINK_MODE=copy", "c", "terraform", "--version",
+    ]
+
+
+def test_container_verify_required_tools_fails_closed() -> None:
+    """
+    @brief   Malformed checks and non-zero exits raise IsolationError with
+             command context.
+    @version 0.1.0
+    """
+    with pytest.raises(IsolationError):
+        _manager(FakeRunner()).verify_required_tools("c", ['"unterminated'])
+    with pytest.raises(IsolationError) as excinfo:
+        _manager(FakeRunner(_fail("terraform: not found"))).verify_required_tools(
+            "c", ["terraform --version"]
+        )
+    assert "terraform --version" in str(excinfo.value)
+    assert "not found" in str(excinfo.value)
+
+
 def test_worktree_relative_root_resolves_against_cwd(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -521,7 +558,7 @@ def _wsl_manager(runner: FakeRunner) -> ContainerManager:
     """
     return ContainerManager(
         "wsl -d Ubuntu-24.04 -- docker",
-        "ador-executor:latest",
+        "ador-executor-base:0.2.0",
         "uv-cache",
         "npm-cache",
         runner,

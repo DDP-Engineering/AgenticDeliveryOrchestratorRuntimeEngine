@@ -12,6 +12,17 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+### Changed
+
+- Split executor images into a generic `ador-executor-base:0.2.0` and a
+  Cockpit-GCP runtime-project image with Terraform/gate tooling; live-verified
+  the Cockpit image on rootless Podman through `docker/verify-runtime.sh`.
+
+### Added
+
+- `[container] required_tool_checks` for fail-fast validation that a selected
+  runtime-project image contains required build/test tools.
+
 ## [0.2.0] - 2026-07-06
 
 ### Added

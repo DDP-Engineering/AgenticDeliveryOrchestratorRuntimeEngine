@@ -22,7 +22,7 @@
          fake runner; no prompting and no network calls of its own live here.
 @author Eng. Dan Dumitru Pasare
 @date 2026-07-05
-@version 0.1.0
+@version 0.1.1
 """
 
 from __future__ import annotations
@@ -114,8 +114,9 @@ GUIDANCE: dict[str, dict[str, str]] = {
     },
     OPENCODE: {
         "*": (
-            "opencode is baked into the executor image, so you only need it on "
-            "the HOST for the `host` runtime. Install it per docker/README.md."
+            "opencode is baked into the executor base image, so you only need "
+            "it on the HOST for the `host` runtime. Build the base and any "
+            "runtime-project image per docker/README.md."
         )
     },
 }

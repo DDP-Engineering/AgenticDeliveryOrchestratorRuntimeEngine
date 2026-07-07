@@ -33,8 +33,8 @@ change as the component (see the Documentation Rules in the repository
 ## Component documentation (phase 2 - isolation and executor)
 
 - `Component_Isolation.md` - per-run git worktree + executor container
-  lifecycle, the GIT_DIR/GIT_WORK_TREE mounting model, and the executor image
-  (`ador/isolation.py`, `docker/Dockerfile.executor`).
+  lifecycle, the GIT_DIR/GIT_WORK_TREE mounting model, and executor
+  base/runtime-project images (`ador/isolation.py`, `docker/`).
 - `Component_Executor_Launcher.md` - headless gate launches through the
   file-based gate protocol (WSL-safe, output captured to files), session
   continuation, questions detection (`ador/executor/`).

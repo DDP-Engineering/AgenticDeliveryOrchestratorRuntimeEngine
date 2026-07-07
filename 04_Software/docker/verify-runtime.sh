@@ -30,18 +30,21 @@
 #          RUN_ARGS="--userns=keep-id" - live finding 2026-07-04: without it
 #          container uid 1000 maps to a subuid that cannot write the
 #          bind-mounted worktree).
-#          IMAGE=<tag> overrides the image (default ador-executor:latest);
-#          it is built from Dockerfile.executor in this directory if absent.
+#          IMAGE=<tag> overrides the image (default
+#          ador-executor-base:0.2.0); the default base image is built from
+#          Dockerfile.executor-base in this directory if absent.
+#          REQUIRED_TOOL_CHECKS="make --version;terraform --version" adds
+#          runtime-project image checks.
 # @author  Eng. Dan Dumitru Pasare
 # @date    2026-07-04
-# @version 0.2.0
+# @version 0.3.0
 # -----------------------------------------------------------------------------
 # shellcheck disable=SC2015  # `check && ok || bad` is safe: ok is a bare echo
 set -euo pipefail
 
 # CONSTANTS (mount targets mirror ador/isolation.py CONTAINER_* constants)
 RUNTIME="${RUNTIME:-docker}"
-IMAGE="${IMAGE:-ador-executor:latest}"
+IMAGE="${IMAGE:-ador-executor-base:0.2.0}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NAME="ador-verify-$$"
 VOL_UV="ador-verify-uv-$$"
@@ -84,7 +87,7 @@ if "${RT[@]}" image inspect "${IMAGE}" >/dev/null 2>&1; then
     ok
 else
     echo "absent - building (this takes a few minutes)"
-    "${RT[@]}" build -f "${SCRIPT_DIR}/Dockerfile.executor" -t "${IMAGE}" "${SCRIPT_DIR}"
+    "${RT[@]}" build -f "${SCRIPT_DIR}/Dockerfile.executor-base" -t "${IMAGE}" "${SCRIPT_DIR}"
 fi
 
 # 3. volumes (ContainerManager.ensure_volumes)
@@ -143,11 +146,11 @@ step "HOME is /home/ador inside"
 [ "$("${RT[@]}" exec "${NAME}" printenv HOME)" = "/home/ador" ] && ok || bad "wrong HOME"
 
 # 9. tool usability (exit 0, not mere presence)
-step "gate toolchain usable (python/uv/node/git/opencode/make/shellcheck/terraform/tflint)"
+step "executor-base toolchain usable (python/uv/node/git/opencode/pi/codex/qwen)"
 TOOLS_OK=1
 for tool_cmd in "python --version" "uv --version" "node --version" \
-                "git --version" "opencode --version" "make --version" \
-                "shellcheck --version" "terraform --version" "tflint --version"; do
+                "git --version" "opencode --version" "pi --help" \
+                "codex --version" "qwen --version"; do
     # shellcheck disable=SC2086
     if ! "${RT[@]}" exec "${NAME}" ${tool_cmd} >/dev/null 2>&1; then
         TOOLS_OK=0
@@ -156,6 +159,22 @@ for tool_cmd in "python --version" "uv --version" "node --version" \
     fi
 done
 [ "${TOOLS_OK}" -eq 1 ] && ok || bad "one or more tools unusable"
+
+if [ -n "${REQUIRED_TOOL_CHECKS:-}" ]; then
+    step "runtime-project required tool checks"
+    PROJECT_TOOLS_OK=1
+    IFS=';' read -r -a PROJECT_CHECKS <<< "${REQUIRED_TOOL_CHECKS}"
+    for tool_cmd in "${PROJECT_CHECKS[@]}"; do
+        [ -n "${tool_cmd// }" ] || continue
+        # shellcheck disable=SC2086
+        if ! "${RT[@]}" exec "${NAME}" ${tool_cmd} >/dev/null 2>&1; then
+            PROJECT_TOOLS_OK=0
+            echo
+            echo "    NOT USABLE: ${tool_cmd}"
+        fi
+    done
+    [ "${PROJECT_TOOLS_OK}" -eq 1 ] && ok || bad "one or more project tools unusable"
+fi
 
 # 10-11. git inside via GIT_DIR/GIT_WORK_TREE, commit visible host-side
 step "git status works inside (GIT_DIR/GIT_WORK_TREE model)"

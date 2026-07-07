@@ -12,7 +12,7 @@
 @brief Tests for typed config loading, derived names, and validation.
 @author Eng. Dan Dumitru Pasare
 @date 2026-07-02
-@version 0.1.1
+@version 0.2.0
 """
 
 from __future__ import annotations
@@ -183,6 +183,8 @@ def test_defaults_without_file_sections() -> None:
     @version 0.1.0
     """
     config = Config()
+    assert config.container.image == "ador-executor-base:0.2.0"
+    assert config.container.required_tool_checks == []
     assert config.container.parked_ttl_polls == 30
     assert config.clarification.max_rounds == 3
     assert config.reconcile.on_trigger_removed == "pause"
@@ -395,6 +397,35 @@ GIT_DIR = "/tmp/nope"
 """
     issues = validate_config(load_config(_write_config(tmp_path, overridden)))
     assert any("runtime_env.GIT_DIR is managed by ADOR" in issue for issue in issues)
+
+
+def test_container_required_tool_checks_validation(tmp_path: Path) -> None:
+    """
+    @brief   required_tool_checks accepts shell-free command strings and
+             rejects malformed or shell-controlled entries.
+    @version 0.1.0
+    """
+    valid = MINIMAL_VALID + """
+[container]
+required_tool_checks = ["make --version", "terraform --version"]
+"""
+    config = load_config(_write_config(tmp_path, valid))
+    assert config.container.required_tool_checks == [
+        "make --version",
+        "terraform --version",
+    ]
+    assert validate_config(config) == []
+
+    invalid = MINIMAL_VALID + """
+[container]
+required_tool_checks = ["", "--version", "make --version && rm -rf /", "unterminated 'quote"]
+"""
+    issues = validate_config(load_config(_write_config(tmp_path, invalid)))
+    assert sum("required_tool_checks" in issue for issue in issues) == 4
+    assert any("must not be empty" in issue for issue in issues)
+    assert any("must start with a tool name" in issue for issue in issues)
+    assert any("shell control" in issue for issue in issues)
+    assert any("not parseable" in issue for issue in issues)
 
 
 # END OF FILE

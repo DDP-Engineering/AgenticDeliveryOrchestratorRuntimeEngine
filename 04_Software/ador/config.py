@@ -17,7 +17,7 @@
          Secrets are read from the environment, never from here.
 @author Eng. Dan Dumitru Pasare
 @date 2026-07-02
-@version 0.1.0
+@version 0.2.0
 """
 
 from __future__ import annotations
@@ -26,6 +26,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 import re
+import shlex
 import tomllib
 from typing import Any
 
@@ -46,6 +47,7 @@ _MANAGED_CONTAINER_ENV = frozenset({
     "GIT_COMMITTER_EMAIL",
     "CODEX_HOME",
 })
+_SHELL_CONTROL_CHARS = frozenset("|&;<>")
 
 KNOWN_SECTIONS = frozenset(
     {
@@ -314,14 +316,16 @@ class ContainerConfig:
              2026-07-04 - or resource limits like "--memory=2g").
              runtime_env is the non-secret environment injected into both
              container creation and exec calls; values travel through the same
-             non-secret/secret split as executor env.
+             non-secret/secret split as executor env. required_tool_checks are
+             project-image checks run after provision so a profile fails fast
+             when the selected runtime-project image lacks required tooling.
     @author  Eng. Dan Dumitru Pasare
     @date    2026-07-06
-    @version 0.3.0
+    @version 0.4.0
     """
 
     runtime: str = "docker"
-    image: str = "ador-executor:latest"
+    image: str = "ador-executor-base:0.2.0"
     keep_parked: bool = True
     parked_ttl_mode: str = "polls"
     parked_ttl_seconds: int = 7200
@@ -331,6 +335,7 @@ class ContainerConfig:
     npm_cache_volume: str = "ador-npm-cache"
     run_args: list[str] = field(default_factory=list)
     runtime_env: dict[str, str] = field(default_factory=lambda: {"UV_LINK_MODE": "copy"})
+    required_tool_checks: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -636,7 +641,7 @@ def validate_config(config: Config) -> list[str]:
     @return     Empty list when valid; otherwise one message per issue.
     @author     Eng. Dan Dumitru Pasare
     @date       2026-07-06
-    @version    0.1.5
+    @version    0.1.6
     """
     issues: list[str] = []
 
@@ -778,6 +783,43 @@ def validate_config(config: Config) -> list[str]:
                 key not in _MANAGED_CONTAINER_ENV,
                 f"[container] runtime_env.{key} is managed by ADOR and cannot be overridden",
             )
+    check(
+        isinstance(config.container.required_tool_checks, list),
+        "[container] required_tool_checks must be a list of command strings",
+    )
+    if isinstance(config.container.required_tool_checks, list):
+        for check_cmd in config.container.required_tool_checks:
+            if not isinstance(check_cmd, str):
+                issues.append(
+                    f"[container] required_tool_checks entries must be strings: {check_cmd!r}"
+                )
+                continue
+            stripped = check_cmd.strip()
+            if not stripped:
+                issues.append("[container] required_tool_checks entries must not be empty")
+                continue
+            if any(char in stripped for char in _SHELL_CONTROL_CHARS):
+                issues.append(
+                    "[container] required_tool_checks entries must be simple commands "
+                    f"without shell control characters: {check_cmd!r}"
+                )
+                continue
+            try:
+                parts = shlex.split(stripped)
+            except ValueError as exc:
+                issues.append(
+                    f"[container] required_tool_checks entry is not parseable: "
+                    f"{check_cmd!r} ({exc})"
+                )
+                continue
+            if not parts:
+                issues.append("[container] required_tool_checks entries must not be empty")
+                continue
+            if parts[0].startswith("-"):
+                issues.append(
+                    "[container] required_tool_checks command must start with a tool name: "
+                    f"{check_cmd!r}"
+                )
     check(
         config.container.parked_ttl_mode in ("seconds", "polls"),
         f"[container] parked_ttl_mode must be seconds/polls: "

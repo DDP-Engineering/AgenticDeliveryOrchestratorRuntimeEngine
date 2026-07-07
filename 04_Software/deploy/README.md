@@ -17,7 +17,8 @@ lives entirely in this directory.
 Both scripts are **fail-fast, idempotent, and re-runnable**: they check
 prerequisites with a clear hint instead of auto-installing, sync the locked
 Python environment, validate `config.toml` (a bad config stops deployment,
-not the 3 a.m. service start), and verify/build the executor image.
+not the 3 a.m. service start), and verify/build the configured executor base
+or runtime-project image.
 Re-running after a `git pull` updates the environment in place.
 
 ## Before either script
@@ -28,14 +29,17 @@ Re-running after a `git pull` updates the environment in place.
 3. Authenticate `glab` (or `gh`) on the host, or provide tokens via `.env`
    (`cp .env.example .env`; the file is gitignored). Secrets never go in
    `config.toml` and never appear on command lines (design 12b).
-4. Have a container runtime: native Docker Engine on Ubuntu; on Windows
+4. Build the generic executor base image and any runtime-project image required
+   by the profile; for Cockpit-GCP, build `ador-executor-cockpit-gcp:latest`
+   from `docker/README.md`.
+5. Have a container runtime: native Docker Engine on Ubuntu; on Windows
    either native or Docker Engine inside WSL2
    (`runtime = "wsl -d Ubuntu-24.04 -- docker"`, see `docker/README.md`).
 
 ## Ubuntu 22+ (systemd)
 
 ```bash
-./deploy/install-ubuntu.sh              # prepare only (env, config, image)
+./deploy/install-ubuntu.sh              # prepare only (env, config, base image)
 ./deploy/install-ubuntu.sh --service    # + install/enable/start ador.service
 ./deploy/install-ubuntu.sh --uninstall  # stop/remove the unit (state kept)
 ```
@@ -70,7 +74,8 @@ Re-running after a `git pull` updates the environment in place.
   `-Mode once`: runs `run --once` every `-IntervalMinutes` (design 12a's
   cron-style alternative; each pass exits, auditable per run).
 - The image is only **verified** on Windows (building through a WSL-wrapped
-  runtime needs path translation); the exact build commands are in
+  runtime needs path translation); use `-ImageTag ador-executor-cockpit-gcp:latest`
+  when the profile points at the Cockpit-GCP image. Exact build commands are in
   `docker/README.md`.
 
 ## What deployment deliberately does NOT do

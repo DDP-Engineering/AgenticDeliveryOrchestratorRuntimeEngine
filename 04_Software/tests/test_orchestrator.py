@@ -18,7 +18,7 @@
          reap, answer timeout, and reconciliation of deleted/closed tickets.
 @author Eng. Dan Dumitru Pasare
 @date 2026-07-03
-@version 0.1.0
+@version 0.2.0
 """
 
 from __future__ import annotations
@@ -262,7 +262,7 @@ class FakeContainers:
     @brief   Container manager double; invariants results are scriptable.
     @author  Eng. Dan Dumitru Pasare
     @date    2026-07-03
-    @version 0.1.0
+    @version 0.2.0
     """
 
     def __init__(self) -> None:
@@ -272,6 +272,8 @@ class FakeContainers:
         self.exec_calls: list[list[str]] = []
         self.exec_envs: list[dict[str, str] | None] = []
         self.provision_envs: list[dict[str, str]] = []
+        self.tool_checks: list[str] = []
+        self.tool_check_failure: str = ""
         self.report_output = "report"
 
     def status(self, name: str) -> str:
@@ -288,6 +290,14 @@ class FakeContainers:
         self.events.append(("provision", name))
         self.provision_envs.append(dict(env))
         return action
+
+    def verify_required_tools(self, name, checks, *, env=None) -> None:
+        if not checks:
+            return
+        self.tool_checks.extend([str(check) for check in checks])
+        self.exec_envs.append(dict(env) if env is not None else None)
+        if self.tool_check_failure:
+            raise IsolationError(self.tool_check_failure)
 
     def start(self, name: str) -> None:
         self.states[name] = "running"
@@ -861,6 +871,50 @@ def test_runtime_env_reaches_provision_and_exec(tmp_path: Path) -> None:
     engine.poll_once()
     assert containers.provision_envs[-1]["UV_LINK_MODE"] == "copy"
     assert any(env and env["UV_LINK_MODE"] == "copy" for env in containers.exec_envs)
+
+
+def test_required_tool_checks_run_after_provision(tmp_path: Path) -> None:
+    """
+    @brief   Project-image required tool checks run immediately after the
+             container is provisioned and use the same runtime env as gates.
+    @version 0.1.0
+    """
+    config = make_config(
+        tmp_path,
+        **{
+            "container.required_tool_checks": ["make --version", "tflint --version"],
+            "container.runtime_env": {"UV_LINK_MODE": "copy"},
+        },
+    )
+    engine, forge, containers, _ = make_engine(tmp_path, FakeExecutor([gate_ok()] * 6),
+                                               config)
+    forge.add_ticket(14)
+    engine.poll_once()
+    assert containers.tool_checks[:2] == ["make --version", "tflint --version"]
+    assert len(containers.tool_checks) >= 2
+    assert any(env and env["UV_LINK_MODE"] == "copy" for env in containers.exec_envs)
+
+
+def test_required_tool_check_failure_fails_run_closed(tmp_path: Path) -> None:
+    """
+    @brief   A missing project-image tool escalates the run before the
+             executor spends any gate iterations.
+    @version 0.1.0
+    """
+    config = make_config(
+        tmp_path,
+        **{"container.required_tool_checks": ["terraform --version"]},
+    )
+    executor = FakeExecutor([gate_ok()] * 6)
+    engine, forge, containers, _ = make_engine(tmp_path, executor, config)
+    containers.tool_check_failure = "required tool check failed: terraform --version"
+    forge.add_ticket(14)
+    engine.poll_once()
+    run = engine.store.list_runs()[0]
+    assert run.lifecycle == "failed"
+    assert "isolation failed" in run.outcome
+    assert "terraform --version" in run.outcome
+    assert executor.prompts == []
 
 
 def test_uncommitted_work_relaunches_validation(tmp_path: Path) -> None:

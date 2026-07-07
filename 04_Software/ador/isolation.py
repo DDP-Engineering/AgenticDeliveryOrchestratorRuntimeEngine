@@ -23,7 +23,7 @@
          env-value propagation crosses the WSL boundary via WSLENV.
 @author Eng. Dan Dumitru Pasare
 @date 2026-07-06
-@version 0.3.2
+@version 0.4.0
 """
 
 from __future__ import annotations
@@ -557,7 +557,7 @@ class ContainerManager:
              mounted cache volumes, never into the worktree (design 10a).
     @author  Eng. Dan Dumitru Pasare
     @date    2026-07-03
-    @version 0.1.1
+    @version 0.2.0
     """
 
     def __init__(
@@ -736,6 +736,47 @@ class ContainerManager:
         if not result.ok:
             raise IsolationError(f"{self.runtime} run failed", result.argv, result.stderr)
         return "created"
+
+    def verify_required_tools(
+        self,
+        name: str,
+        checks: Sequence[str],
+        *,
+        env: dict[str, str] | None = None,
+    ) -> None:
+        """
+        @brief      Run project-image required tool checks inside the container.
+        @details    Each check is a shell-free command string parsed with
+                    shlex and executed through the same `exec` path as gates.
+                    This catches a missing runtime-project dependency at
+                    provision time, before an executor spends iterations
+                    discovering it mid-delivery.
+        @param[in]  name Container name.
+        @param[in]  checks Command strings such as "terraform --version".
+        @param[in]  env Optional exec-time environment.
+        @exception  IsolationError When a check is malformed or exits non-zero.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-06
+        @version    0.1.0
+        """
+        for check in checks:
+            try:
+                argv = shlex.split(check)
+            except ValueError as exc:
+                raise IsolationError(
+                    f"required tool check is not parseable: {check!r}",
+                    stderr=str(exc),
+                ) from exc
+            if not argv:
+                raise IsolationError("required tool check is empty")
+            result = self.exec(name, argv, env=env)
+            if not result.ok:
+                stderr = result.stderr or result.stdout
+                raise IsolationError(
+                    f"required tool check failed: {check}",
+                    result.argv,
+                    stderr,
+                )
 
     def start(self, name: str) -> None:
         """

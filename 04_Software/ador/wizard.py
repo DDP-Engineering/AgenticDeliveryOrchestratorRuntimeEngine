@@ -24,7 +24,7 @@
          the same field keys (decision D7).
 @author Eng. Dan Dumitru Pasare
 @date 2026-07-05
-@version 0.1.0
+@version 0.2.0
 """
 
 from __future__ import annotations
@@ -245,7 +245,7 @@ def _slugify(name: str) -> str:
     @return     A lowercase [a-z][a-z0-9-]* slug (fallback "ador").
     @author     Eng. Dan Dumitru Pasare
     @date       2026-07-05
-    @version    0.1.0
+    @version    0.1.1
     """
     slug = re.sub(r"[^a-z0-9-]", "", name.lower())
     return slug if re.match(r"^[a-z][a-z0-9-]*$", slug) else "ador"
@@ -517,8 +517,9 @@ def run_wizard(
         out("  note: rootless podman -> adding run_args = [\"--userns=keep-id\"].")
     image = ask(FieldSpec(
         "image", "Executor image name:",
-        "build it once per docker/README.md before the first run",
-        "ador-executor:latest", default="ador-executor:latest", validate=_require,
+        "base image for executor-only validation, or a runtime-project image",
+        "ador-executor-base:0.2.0  |  ador-executor-cockpit-gcp:latest",
+        default="ador-executor-base:0.2.0", validate=_require,
     ), asker, out)
     executor_cli = ask(FieldSpec(
         "executor_cli", "Executor CLI:",
