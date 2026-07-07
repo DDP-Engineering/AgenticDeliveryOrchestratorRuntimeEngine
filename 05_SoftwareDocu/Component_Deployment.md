@@ -43,10 +43,9 @@ this one directory as scripts, not code.
 
 Explicitly not owned: installing prerequisites (checks fail closed with the
 install hint - deterministic, no surprise system changes), secret contents
-(placement only; design 12b), the container egress posture (a pending
-security decision in `00_Planning/TODO.md`), and native OS packaging
-(single-file exe / deb are separate backlog items). The lightweight runtime
-bundle is owned by `02_Tools/package_runtime.*`.
+(placement only; design 12b), and native OS packaging (single-file exe / deb
+are separate backlog items). The lightweight runtime bundle is owned by
+`02_Tools/package_runtime.*`.
 
 ## 3. Implementation Overview
 
@@ -67,6 +66,11 @@ bundle is owned by `02_Tools/package_runtime.*`.
   **verified** on Windows: building through a WSL-wrapped runtime needs
   mount-path translation, and the canonical commands live in
   `docker/README.md` - the script prints them and fails closed.
+- Unattended egress fails closed: `--service` / Task Scheduler registration
+  refuse `[container.egress] mode = "open"` unless the operator passes
+  `--allow-open-egress` / `-AllowOpenEgress`. `allowlist-proxy` verifies the
+  proxy image; Ubuntu may build it, Windows prints the exact build command if
+  it is absent.
 - Uninstall on both platforms removes only the service/task; `.ador/` state,
   worktrees, and containers are `ador cleanup` / `ador delete` territory.
 
@@ -81,10 +85,11 @@ bundle is owned by `02_Tools/package_runtime.*`.
 
 ## 5. Inputs And Outputs
 
-- Inputs: flags (`--service`, `--skip-image`, `--uninstall` /
+- Inputs: flags (`--service`, `--skip-image`, `--allow-open-egress`,
+  `--uninstall` /
   `-Mode`, `-IntervalMinutes`, `-Runtime`, `-SkipImageCheck`, `-NoTask`,
-  `-Uninstall`), the `ADOR_USER` override (Ubuntu), the checkout location
-  (derived from the script's own path - run from anywhere).
+  `-AllowOpenEgress`, `-Uninstall`), the `ADOR_USER` override (Ubuntu), the
+  checkout location (derived from the script's own path - run from anywhere).
 - Outputs: a synced `.venv`, the `ador-executor-base:0.2.0` image (Ubuntu),
   `/etc/systemd/system/ador.service` or the "ADOR Orchestrator" scheduled
   task, and human-readable progress notes.
@@ -102,6 +107,7 @@ Operations afterwards go through the CLI (`status`, `pause`, `cleanup`,
 ```bash
 # Ubuntu
 ./deploy/install-ubuntu.sh --service          # full: env, config, image, unit
+./deploy/install-ubuntu.sh --allow-open-egress --service
 journalctl -u ador -f                          # logs
 ./deploy/install-ubuntu.sh --uninstall         # remove the unit, keep state
 ```
@@ -109,6 +115,7 @@ journalctl -u ador -f                          # logs
 ```powershell
 # Windows
 .\deploy\install-windows.ps1 -Runtime "wsl -d Ubuntu-24.04 -- docker"
+.\deploy\install-windows.ps1 -AllowOpenEgress
 Start-ScheduledTask -TaskName "ADOR Orchestrator"
 .\deploy\install-windows.ps1 -Uninstall
 ```
@@ -127,8 +134,8 @@ Start-ScheduledTask -TaskName "ADOR Orchestrator"
 
 - The Ubuntu service runs as a normal user with docker access; a dedicated
   service account is on the organizational checklist (prereq report).
-- No allowlist-proxy egress setup yet - REQUIRED before unattended
-  production running (security decision, `00_Planning/TODO.md`).
+- Egress proxy is HTTP/HTTPS proxy based; SSH and other non-proxy-aware
+  protocols remain outside v1.
 - Native packaging (Windows exe / Ubuntu deb) is separate future work; the
   implemented handoff artifact is the runtime bundle from `02_Tools/`.
 - The Windows loop task starts at logon (not boot); running as a service

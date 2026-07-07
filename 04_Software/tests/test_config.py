@@ -12,7 +12,7 @@
 @brief Tests for typed config loading, derived names, and validation.
 @author Eng. Dan Dumitru Pasare
 @date 2026-07-02
-@version 0.2.0
+@version 0.3.0
 """
 
 from __future__ import annotations
@@ -184,6 +184,7 @@ def test_defaults_without_file_sections() -> None:
     """
     config = Config()
     assert config.container.image == "ador-executor-base:0.2.0"
+    assert config.container.egress.mode == "open"
     assert config.container.required_tool_checks == []
     assert config.container.parked_ttl_polls == 30
     assert config.clarification.max_rounds == 3
@@ -426,6 +427,73 @@ required_tool_checks = ["", "--version", "make --version && rm -rf /", "untermin
     assert any("must start with a tool name" in issue for issue in issues)
     assert any("shell control" in issue for issue in issues)
     assert any("not parseable" in issue for issue in issues)
+
+
+def test_container_egress_defaults_and_valid_modes(tmp_path: Path) -> None:
+    """
+    @brief   Missing [container.egress] stays backward-compatible as open;
+             none and allowlist-proxy validate when explicitly configured.
+    @version 0.1.0
+    """
+    defaulted = load_config(_write_config(tmp_path, MINIMAL_VALID))
+    assert defaulted.container.egress.mode == "open"
+    assert validate_config(defaulted) == []
+
+    none = load_config(_write_config(tmp_path, MINIMAL_VALID + """
+[container.egress]
+mode = "none"
+"""))
+    assert none.container.egress.mode == "none"
+    assert validate_config(none) == []
+
+    proxy = load_config(_write_config(tmp_path, MINIMAL_VALID + """
+[container.egress]
+mode = "allowlist-proxy"
+allowlist = ["gitlab.example.com", "*.pythonhosted.org"]
+no_proxy = ["localhost", "127.0.0.1", "::1", "*.internal.example"]
+proxy_image = "ador-egress-proxy:0.1.0"
+proxy_port = 3128
+network_prefix = "ador-egress"
+"""))
+    assert proxy.container.egress.allowlist == [
+        "gitlab.example.com",
+        "*.pythonhosted.org",
+    ]
+    assert validate_config(proxy) == []
+
+
+def test_container_egress_rejects_bad_allowlist_entries(tmp_path: Path) -> None:
+    """
+    @brief   allowlist-proxy fails closed on empty or unsafe host patterns.
+    @version 0.1.0
+    """
+    empty = load_config(_write_config(tmp_path, MINIMAL_VALID + """
+[container.egress]
+mode = "allowlist-proxy"
+allowlist = []
+"""))
+    assert any("non-empty allowlist" in issue for issue in validate_config(empty))
+
+    invalid = load_config(_write_config(tmp_path, MINIMAL_VALID + """
+[container.egress]
+mode = "allowlist-proxy"
+allowlist = ["https://api.openai.com", "gitlab.example.com/path", "bad host", "ok.com;rm"]
+"""))
+    issues = validate_config(invalid)
+    assert sum("allowlist entries" in issue for issue in issues) == 4
+
+
+def test_container_egress_proxy_env_is_managed(tmp_path: Path) -> None:
+    """
+    @brief   Humans cannot override ADOR-managed proxy env through runtime_env.
+    @version 0.1.0
+    """
+    text = MINIMAL_VALID + """
+[container.runtime_env]
+HTTPS_PROXY = "http://example.invalid:3128"
+"""
+    issues = validate_config(load_config(_write_config(tmp_path, text)))
+    assert any("runtime_env.HTTPS_PROXY is managed by ADOR" in issue for issue in issues)
 
 
 # END OF FILE

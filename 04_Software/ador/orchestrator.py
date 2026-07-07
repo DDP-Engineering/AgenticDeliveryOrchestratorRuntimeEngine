@@ -216,8 +216,8 @@ class Orchestrator:
         @param[in]  env_file Dotenv file holding the executor secrets.
         @return     A ready Orchestrator.
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
+        @date       2026-07-07
+        @version    0.1.1
         """
         entry = config.executor.commands[config.executor.default]
         env = {**load_env_file(env_file), **os.environ}
@@ -233,6 +233,7 @@ class Orchestrator:
                 config.container.uv_cache_volume,
                 config.container.npm_cache_volume,
                 run_args=config.container.run_args,
+                egress=config.container.egress,
             ),
             executor=build_executor(
                 config.executor.default,
@@ -426,10 +427,11 @@ class Orchestrator:
         @return     Report: lock_cleared, containers_removed,
                     worktrees_removed, corrupt_runs.
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-04
-        @version    0.1.0
+        @date       2026-07-07
+        @version    0.2.0
         """
         report: dict = {"lock_cleared": False, "containers_removed": [],
+                        "proxy_containers_removed": [], "egress_networks_removed": [],
                         "worktrees_removed": [], "corrupt_runs": []}
         if self.store.lock_info() is not None:
             self.store.release_lock()
@@ -441,11 +443,34 @@ class Orchestrator:
         prefix = f"{self.identity.slug}-run-"
         with contextlib.suppress(IsolationError):
             for name in self.containers.list_containers(prefix):
+                if name.endswith("-egress-proxy"):
+                    continue
                 run_id = name[len(prefix):]
                 if run_id and run_id not in active:
                     with contextlib.suppress(IsolationError):
                         self.containers.remove(name)
                         report["containers_removed"].append(name)
+            if self.config.container.egress.mode == "allowlist-proxy":
+                for name in self.containers.list_containers(prefix):
+                    if not name.endswith("-egress-proxy"):
+                        continue
+                    run_id = name[len(prefix):-len("-egress-proxy")]
+                    if run_id and run_id not in active:
+                        with contextlib.suppress(IsolationError):
+                            self.containers.remove_egress(f"{prefix}{run_id}")
+                            report["proxy_containers_removed"].append(name)
+        if self.config.container.egress.mode == "allowlist-proxy":
+            with contextlib.suppress(IsolationError):
+                network_prefix = self.config.container.egress.network_prefix
+                full_prefix = f"{network_prefix}-{prefix}"
+                for name in self.containers.list_egress_networks(network_prefix):
+                    if not name.startswith(full_prefix):
+                        continue
+                    run_id = name[len(full_prefix):]
+                    if run_id and run_id not in active:
+                        with contextlib.suppress(IsolationError):
+                            self.containers.remove_egress(f"{prefix}{run_id}")
+                            report["egress_networks_removed"].append(name)
         for path in self.worktrees.list_dirs():
             run_id = path.name
             if run_id in active:

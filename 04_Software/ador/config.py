@@ -16,8 +16,8 @@
          the agent slug (state dir, questions file) are resolved at load time.
          Secrets are read from the environment, never from here.
 @author Eng. Dan Dumitru Pasare
-@date 2026-07-02
-@version 0.2.0
+@date 2026-07-07
+@version 0.3.0
 """
 
 from __future__ import annotations
@@ -46,8 +46,17 @@ _MANAGED_CONTAINER_ENV = frozenset({
     "GIT_COMMITTER_NAME",
     "GIT_COMMITTER_EMAIL",
     "CODEX_HOME",
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "ALL_PROXY",
+    "NO_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "all_proxy",
+    "no_proxy",
 })
 _SHELL_CONTROL_CHARS = frozenset("|&;<>")
+_HOST_LABEL_RE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$")
 
 KNOWN_SECTIONS = frozenset(
     {
@@ -273,6 +282,26 @@ class ExecutorConfig:
 
 
 @dataclass
+class ContainerEgressConfig:
+    """
+    @brief   [container.egress] - outbound network policy for executor runs.
+    @details open preserves legacy behavior; none disables container
+             networking; allowlist-proxy routes HTTP/HTTPS through a per-run
+             ADOR proxy with exact/wildcard hostname allowlists.
+    @author  Eng. Dan Dumitru Pasare
+    @date    2026-07-07
+    @version 0.1.0
+    """
+
+    mode: str = "open"
+    allowlist: list[str] = field(default_factory=list)
+    no_proxy: list[str] = field(default_factory=lambda: ["localhost", "127.0.0.1", "::1"])
+    proxy_image: str = "ador-egress-proxy:0.1.0"
+    proxy_port: int = 3128
+    network_prefix: str = "ador-egress"
+
+
+@dataclass
 class ClarificationConfig:
     """
     @brief   [clarification] - park/resume bounds and timeouts.
@@ -319,9 +348,10 @@ class ContainerConfig:
              non-secret/secret split as executor env. required_tool_checks are
              project-image checks run after provision so a profile fails fast
              when the selected runtime-project image lacks required tooling.
+             egress controls the run container's outbound network boundary.
     @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-06
-    @version 0.4.0
+    @date    2026-07-07
+    @version 0.5.0
     """
 
     runtime: str = "docker"
@@ -336,6 +366,7 @@ class ContainerConfig:
     run_args: list[str] = field(default_factory=list)
     runtime_env: dict[str, str] = field(default_factory=lambda: {"UV_LINK_MODE": "copy"})
     required_tool_checks: list[str] = field(default_factory=list)
+    egress: ContainerEgressConfig = field(default_factory=ContainerEgressConfig)
 
 
 @dataclass
@@ -559,6 +590,52 @@ def _build_executor(data: Any) -> ExecutorConfig:
     return section
 
 
+def _build_container(data: Any) -> ContainerConfig:
+    """
+    @brief      Build [container] including the nested [container.egress].
+    @param[in]  data Raw [container] mapping.
+    @return     A populated ContainerConfig.
+    @author     Eng. Dan Dumitru Pasare
+    @date       2026-07-07
+    @version    0.1.0
+    """
+    if not isinstance(data, dict):
+        return ContainerConfig()
+    scalars = {key: value for key, value in data.items() if key != "egress"}
+    section = _build_section(ContainerConfig, scalars)
+    section.egress = _build_section(ContainerEgressConfig, data.get("egress"))
+    return section
+
+
+def _valid_hostname_pattern(value: str) -> bool:
+    """
+    @brief      Check an egress allowlist hostname or leading wildcard.
+    @param[in]  value Hostname pattern, optionally starting with "*.".
+    @return     True when the pattern is syntactically safe.
+    @author     Eng. Dan Dumitru Pasare
+    @date       2026-07-07
+    @version    0.1.0
+    """
+    host = value[2:] if value.startswith("*.") else value
+    if not host or len(host) > 253 or host.endswith(".") or "." not in host:
+        return False
+    return all(_HOST_LABEL_RE.match(label) for label in host.split("."))
+
+
+def _valid_no_proxy_entry(value: str) -> bool:
+    """
+    @brief      Check a NO_PROXY entry accepted by ADOR config validation.
+    @param[in]  value Hostname, leading wildcard, localhost, or loopback IP.
+    @return     True when the value is syntactically safe.
+    @author     Eng. Dan Dumitru Pasare
+    @date       2026-07-07
+    @version    0.1.0
+    """
+    if value in ("localhost", "127.0.0.1", "::1"):
+        return True
+    return _valid_hostname_pattern(value)
+
+
 def _derive_names(config: Config) -> None:
     """
     @brief      Resolve slug-derived defaults left empty in the file.
@@ -603,8 +680,8 @@ def load_config(path: str | Path) -> Config:
     @exception  FileNotFoundError When the file does not exist.
     @exception  tomllib.TOMLDecodeError When the file is not valid TOML.
     @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-02
-    @version    0.1.0
+    @date       2026-07-07
+    @version    0.1.1
     """
     with Path(path).open("rb") as handle:
         raw = tomllib.load(handle)
@@ -617,7 +694,7 @@ def load_config(path: str | Path) -> Config:
         labels=_build_labels(raw.get("labels")),
         executor=_build_executor(raw.get("executor")),
         clarification=_build_section(ClarificationConfig, raw.get("clarification")),
-        container=_build_section(ContainerConfig, raw.get("container")),
+        container=_build_container(raw.get("container")),
         worktree=_build_section(WorktreeConfig, raw.get("worktree")),
         budgets=_build_section(BudgetsConfig, raw.get("budgets")),
         delivery=_build_section(DeliveryConfig, raw.get("delivery")),
@@ -640,8 +717,8 @@ def validate_config(config: Config) -> list[str]:
     @param[in]  config The configuration to validate.
     @return     Empty list when valid; otherwise one message per issue.
     @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-06
-    @version    0.1.6
+    @date       2026-07-07
+    @version    0.1.7
     """
     issues: list[str] = []
 
@@ -830,6 +907,83 @@ def validate_config(config: Config) -> list[str]:
         f"[container] parked_state must be stopped/removed: {config.container.parked_state!r}",
     )
     check(bool(config.container.image.strip()), "[container] image is required")
+    egress = config.container.egress
+    check(
+        egress.mode in ("open", "allowlist-proxy", "none"),
+        f'[container.egress] mode must be "open", "allowlist-proxy", or "none": '
+        f"{egress.mode!r}",
+    )
+    check(
+        isinstance(egress.allowlist, list),
+        "[container.egress] allowlist must be a list of hostnames",
+    )
+    if isinstance(egress.allowlist, list):
+        if egress.mode == "allowlist-proxy":
+            check(
+                bool(egress.allowlist),
+                "[container.egress] allowlist-proxy requires a non-empty allowlist",
+            )
+        for item in egress.allowlist:
+            if not isinstance(item, str):
+                issues.append(
+                    f"[container.egress] allowlist entries must be strings: {item!r}"
+                )
+                continue
+            value = item.strip()
+            if (
+                not value
+                or value != item
+                or "://" in value
+                or "/" in value
+                or "\\" in value
+                or any(char.isspace() for char in value)
+                or any(char in value for char in _SHELL_CONTROL_CHARS)
+                or not _valid_hostname_pattern(value)
+            ):
+                issues.append(
+                    "[container.egress] allowlist entries must be exact or wildcard "
+                    f"hostnames only: {item!r}"
+                )
+    check(
+        isinstance(egress.no_proxy, list),
+        "[container.egress] no_proxy must be a list of hostnames",
+    )
+    if isinstance(egress.no_proxy, list):
+        for item in egress.no_proxy:
+            if not isinstance(item, str):
+                issues.append(
+                    f"[container.egress] no_proxy entries must be strings: {item!r}"
+                )
+                continue
+            value = item.strip()
+            if (
+                not value
+                or value != item
+                or "://" in value
+                or "/" in value
+                or "\\" in value
+                or any(char.isspace() for char in value)
+                or any(char in value for char in _SHELL_CONTROL_CHARS)
+                or not _valid_no_proxy_entry(value)
+            ):
+                issues.append(
+                    "[container.egress] no_proxy entries must be safe hostnames "
+                    f"or loopback values: {item!r}"
+                )
+    check(
+        isinstance(egress.proxy_port, int) and 0 < egress.proxy_port < 65536,
+        "[container.egress] proxy_port must be 1-65535",
+    )
+    check(
+        isinstance(egress.proxy_image, str) and bool(egress.proxy_image.strip()),
+        "[container.egress] proxy_image is required",
+    )
+    check(
+        isinstance(egress.network_prefix, str)
+        and bool(re.match(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$", egress.network_prefix)),
+        "[container.egress] network_prefix must contain only letters, digits, dot, "
+        "underscore, or dash",
+    )
 
     check(
         bool(config.worktree.repo_path.strip()),

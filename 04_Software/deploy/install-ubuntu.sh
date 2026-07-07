@@ -14,14 +14,15 @@
 #          systemd unit (ador.service template in this directory).
 #          Secrets are never echoed and never appear in argv; they stay in
 #          .env / an EnvironmentFile (design 12b).
-# @usage   ./deploy/install-ubuntu.sh [--service] [--skip-image] [--uninstall]
+# @usage   ./deploy/install-ubuntu.sh [--service] [--skip-image]
+#            [--allow-open-egress] [--uninstall]
 #            (no flag)   prepare only: env sync + config validate + image
 #            --service   also install/enable/start the systemd unit (sudo)
 #            --skip-image  do not check/build the executor image
 #            --uninstall stop/disable/remove the systemd unit (sudo)
 # @author  Eng. Dan Dumitru Pasare
 # @date    2026-07-04
-# @version 0.2.0
+# @version 0.3.0
 # -----------------------------------------------------------------------------
 set -euo pipefail
 
@@ -46,26 +47,30 @@ as_root() {
 
 usage() {
     cat <<'EOF'
-usage: ./deploy/install-ubuntu.sh [--service] [--skip-image] [--uninstall]
-  (no flag)     prepare only: env sync + config validate + executor image
-  --service     also install/enable/start the systemd unit (uses sudo;
-                service user from ADOR_USER, default: the invoking user)
-  --skip-image  do not check/build the executor image
-  --uninstall   stop/disable/remove the systemd unit (all state is kept)
+usage: ./deploy/install-ubuntu.sh [--service] [--skip-image] [--allow-open-egress] [--uninstall]
+  (no flag)             prepare only: env sync + config validate + executor image
+  --service             also install/enable/start the systemd unit (uses sudo;
+                        service user from ADOR_USER, default: the invoking user)
+  --skip-image          do not check/build the executor image
+  --allow-open-egress   allow unattended service install while [container.egress]
+                        mode is "open" (supervised pilots only)
+  --uninstall           stop/disable/remove the systemd unit (all state is kept)
 EOF
 }
 
 # ARGUMENTS
 WITH_SERVICE=0
 SKIP_IMAGE=0
+ALLOW_OPEN_EGRESS=0
 MODE="install"
 for arg in "$@"; do
     case "${arg}" in
-        --service)    WITH_SERVICE=1 ;;
-        --skip-image) SKIP_IMAGE=1 ;;
-        --uninstall)  MODE="uninstall" ;;
-        -h|--help)    usage; exit 0 ;;
-        *)            usage; fail "unknown option: ${arg}" ;;
+        --service)           WITH_SERVICE=1 ;;
+        --skip-image)        SKIP_IMAGE=1 ;;
+        --allow-open-egress) ALLOW_OPEN_EGRESS=1 ;;
+        --uninstall)         MODE="uninstall" ;;
+        -h|--help)           usage; exit 0 ;;
+        *)                   usage; fail "unknown option: ${arg}" ;;
     esac
 done
 
@@ -102,6 +107,20 @@ note "syncing the Python environment (uv sync --frozen)"
     || fail "config.toml not found; copy config.example.toml and adjust it first"
 note "validating config.toml"
 ( cd "${SOFTWARE_DIR}" && ./.venv/bin/ador -c config.toml config validate )
+CONFIG_JSON="$(cd "${SOFTWARE_DIR}" && ./.venv/bin/ador -c config.toml config show)"
+json_field() {
+    printf '%s' "${CONFIG_JSON}" | "${SOFTWARE_DIR}/.venv/bin/python" -c \
+        'import json, sys; data=json.load(sys.stdin); cur=data
+for part in sys.argv[1].split("."):
+    cur = cur[part]
+print(cur)' "$1"
+}
+EGRESS_MODE="$(json_field container.egress.mode)"
+PROXY_IMAGE="$(json_field container.egress.proxy_image)"
+if [ "${WITH_SERVICE}" -eq 1 ] && [ "${EGRESS_MODE}" = "open" ] \
+    && [ "${ALLOW_OPEN_EGRESS}" -eq 0 ]; then
+    fail "refusing unattended service install with [container.egress] mode='open'; set allowlist-proxy/none or pass --allow-open-egress for a supervised pilot"
+fi
 
 if [ ! -f "${SOFTWARE_DIR}/.env" ]; then
     note "note: no .env file (fine when glab/gh host auth covers everything;"
@@ -120,6 +139,17 @@ if [ "${SKIP_IMAGE}" -eq 0 ]; then
     fi
 else
     note "skipping executor image check (--skip-image)"
+fi
+
+if [ "${EGRESS_MODE}" = "allowlist-proxy" ]; then
+    need_cmd docker "Install Docker Engine, or build/verify ${PROXY_IMAGE} before service install"
+    if docker image inspect "${PROXY_IMAGE}" >/dev/null 2>&1; then
+        note "egress proxy image ${PROXY_IMAGE} already present"
+    else
+        note "building egress proxy image ${PROXY_IMAGE}"
+        docker build -f "${SOFTWARE_DIR}/docker/Dockerfile.egress-proxy" \
+            -t "${PROXY_IMAGE}" "${SOFTWARE_DIR}/docker"
+    fi
 fi
 
 # 5. systemd unit (optional; the design's Ubuntu service mode, 12a)

@@ -35,9 +35,13 @@ environment / `.env`).
   the executor container (secret scoping, design 12b).
 - `[container] runtime_env` names non-secret runtime variables injected into
   both `run` and `exec` calls. ADOR-managed isolation variables
-  (`HOME`, `GIT_*`, `CODEX_HOME`) are rejected if configured there.
+  (`HOME`, `GIT_*`, `CODEX_HOME`) and proxy variables are rejected if
+  configured there.
 - `[container] required_tool_checks` names shell-free commands that validate a
   runtime-project image contains its required build/test tools before gates run.
+- `[container.egress]` names the executor network policy (`open`,
+  `allowlist-proxy`, or `none`) plus proxy image, port, network prefix, and
+  exact/wildcard host allowlist validation.
 
 Explicitly not owned: reading secrets, writing config (`ador config set` is
 future work), and any behavior driven by the values.
@@ -63,6 +67,10 @@ future work), and any behavior driven by the values.
   hard-link/symlink behavior that is fragile on Windows/WSL bind mounts while
   remaining safe for monorepos. Projects that need stronger uv control can
   set additional non-secret keys such as `UV_PROJECT_ENVIRONMENT`.
+- Container egress defaults to `open` for backward compatibility. Validation
+  requires a non-empty hostname allowlist in `allowlist-proxy` mode and
+  rejects schemes, paths, whitespace, shell metacharacters, empty entries, and
+  invalid hostnames.
 - **Guardrail:** `delivery.draft = false` is rejected - ADOR must never open
   a mergeable (non-draft) MR (design doc section 11).
 
@@ -112,7 +120,7 @@ CLI: `ador config show`, `ador config validate`.
   invalid durations, `draft = false` rejection, unknown sections, invalid
   slug / non-positive interval / malformed quiet-hours, Codex command
   hardening, Qwen yolo rejection, `[container] runtime_env` validation, and
-  `[container] required_tool_checks` validation.
+  `[container] required_tool_checks` plus `[container.egress]` validation.
 - Minimum validation after a change: `uv run --group dev pytest tests/test_config.py`
   and `uv run ador -c config.example.toml config validate`.
 

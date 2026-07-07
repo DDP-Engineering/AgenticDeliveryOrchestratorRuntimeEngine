@@ -201,6 +201,7 @@ Linux with Docker:
 
 ```bash
 docker build -f docker/Dockerfile.executor-base -t ador-executor-base:0.2.0 docker
+docker build -f docker/Dockerfile.egress-proxy -t ador-egress-proxy:0.1.0 docker
 docker build -f docker/Dockerfile.executor-project -t ador-executor-project:latest docker
 docker image inspect ador-executor-project:latest
 ```
@@ -213,6 +214,10 @@ wsl -d Ubuntu-24.04 -- docker build `
   -t ador-executor-base:0.2.0 `
   /mnt/c/path/to/ador-runtime-0.2.0/docker
 wsl -d Ubuntu-24.04 -- docker build `
+  -f /mnt/c/path/to/ador-runtime-0.2.0/docker/Dockerfile.egress-proxy `
+  -t ador-egress-proxy:0.1.0 `
+  /mnt/c/path/to/ador-runtime-0.2.0/docker
+wsl -d Ubuntu-24.04 -- docker build `
   -f /mnt/c/path/to/ador-runtime-0.2.0/docker/Dockerfile.executor-project `
   -t ador-executor-project:latest `
   /mnt/c/path/to/ador-runtime-0.2.0/docker
@@ -222,6 +227,18 @@ wsl -d Ubuntu-24.04 -- docker image inspect ador-executor-project:latest
 Replace `Dockerfile.executor-project` and `ador-executor-project:latest` with
 the runtime project's Dockerfile and image tag. Adjust the WSL distro name and
 `/mnt/...` path to match the installation host.
+
+Choose the executor network posture before unattended operation:
+
+- `open`: current supervised-pilot behavior. Manual `ador run --once` is
+  allowed, but service/task installers require an explicit
+  `--allow-open-egress` or `-AllowOpenEgress` override.
+- `allowlist-proxy`: recommended for unattended runs. Set
+  `[container.egress] allowlist` to exact or wildcard hostnames such as
+  `gitlab.example.com`, `api.openai.com`, or `*.pythonhosted.org`; build the
+  `ador-egress-proxy:0.1.0` image as shown above.
+- `none`: offline/pre-provisioned mode. Executor containers start with
+  `--network none` and receive no proxy variables.
 
 ## 8. Validate The Profile
 
@@ -337,6 +354,7 @@ Useful Windows variants:
 
 ```powershell
 .\deploy\install-windows.ps1 -Mode once -IntervalMinutes 10
+.\deploy\install-windows.ps1 -AllowOpenEgress
 .\deploy\install-windows.ps1 -Uninstall
 ```
 
@@ -352,6 +370,7 @@ Useful Linux variants:
 
 ```bash
 bash deploy/install-ubuntu.sh --skip-image
+bash deploy/install-ubuntu.sh --allow-open-egress --service
 bash deploy/install-ubuntu.sh --uninstall
 ```
 

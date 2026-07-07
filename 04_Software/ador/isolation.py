@@ -23,7 +23,7 @@
          env-value propagation crosses the WSL boundary via WSLENV.
 @author Eng. Dan Dumitru Pasare
 @date 2026-07-06
-@version 0.4.0
+@version 0.5.0
 """
 
 from __future__ import annotations
@@ -35,6 +35,7 @@ from pathlib import Path
 import re
 import shlex
 
+from ador.config import ContainerEgressConfig
 from ador.util import CommandResult, CommandRunner, run_command
 
 # CONSTANTS
@@ -50,7 +51,11 @@ _ABSENT_MARKERS = ("no such container", "no such object", "not found")
 # podman `volume create` errors when the volume already exists; docker is
 # idempotent and stays silent (live finding 2026-07-05, podman pilot).
 _EXISTS_MARKERS = ("already exists",)
+_CONNECTED_MARKERS = ("already exists", "is already connected")
 _DRIVE_RE = re.compile(r"^([A-Za-z]):[\\/]")
+_SAFE_NAME_RE = re.compile(r"[^A-Za-z0-9_.-]+")
+_PROXY_SUFFIX = "-egress-proxy"
+PROXY_ALIAS = "ador-egress-proxy"
 _INLINE_ENV_KEYS = frozenset({
     "HOME",
     "GIT_DIR",
@@ -64,6 +69,14 @@ _INLINE_ENV_KEYS = frozenset({
     "UV_CACHE_DIR",
     "UV_LINK_MODE",
     "UV_PROJECT_ENVIRONMENT",
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "ALL_PROXY",
+    "NO_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "all_proxy",
+    "no_proxy",
 })
 
 # DATA MODELS / TYPEDEFINITIONS
@@ -556,8 +569,8 @@ class ContainerManager:
              and repo are bind-mounted; project dependencies resolve into the
              mounted cache volumes, never into the worktree (design 10a).
     @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-03
-    @version 0.2.0
+    @date    2026-07-07
+    @version 0.3.0
     """
 
     def __init__(
@@ -569,6 +582,7 @@ class ContainerManager:
         runner: CommandRunner = run_command,
         *,
         run_args: Sequence[str] = (),
+        egress: ContainerEgressConfig | None = None,
     ) -> None:
         """
         @brief      Configure the manager from the [container] section.
@@ -584,9 +598,10 @@ class ContainerManager:
         @param[in]  run_args Extra option tokens for `<runtime> run`
                              ([container] run_args; e.g. "--userns=keep-id"
                              for rootless podman, live finding 2026-07-04).
+        @param[in]  egress Optional egress policy for executor containers.
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-04
-        @version    0.2.0
+        @date       2026-07-07
+        @version    0.3.0
         """
         self.runtime = runtime
         self.runtime_argv = shlex.split(runtime)
@@ -596,6 +611,7 @@ class ContainerManager:
         self.npm_cache_volume = npm_cache_volume
         self.runner = runner
         self.run_args = [str(arg) for arg in run_args]
+        self.egress = egress or ContainerEgressConfig()
 
     def status(self, name: str) -> str:
         """
@@ -630,6 +646,23 @@ class ContainerManager:
         result = self._run(
             [*self.runtime_argv, "ps", "--all",
              "--filter", f"name={prefix}", "--format", "{{.Names}}"]
+        )
+        return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+
+    def list_egress_networks(self, prefix: str | None = None) -> list[str]:
+        """
+        @brief      Names of ADOR egress networks.
+        @param[in]  prefix Optional network-name prefix override.
+        @return     Matching network names.
+        @exception  IsolationError When the runtime fails.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-07
+        @version    0.1.0
+        """
+        network_prefix = prefix or self.egress.network_prefix
+        result = self._run(
+            [*self.runtime_argv, "network", "ls",
+             "--filter", f"name={network_prefix}", "--format", "{{.Name}}"]
         )
         return [line.strip() for line in result.stdout.splitlines() if line.strip()]
 
@@ -695,12 +728,14 @@ class ContainerManager:
                     gone; live finding 2026-07-03).
         @exception  IsolationError When the runtime fails.
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-06
-        @version    0.1.5
+        @date       2026-07-07
+        @version    0.2.0
         """
         state = self.status(name)
         if state == "running":
             return "running"
+        if self.egress.mode == "allowlist-proxy":
+            self._ensure_proxy_context(name, io_path)
         if state != "absent":
             self.start(name)
             return "started"
@@ -715,6 +750,11 @@ class ContainerManager:
             "--volume", f"{self.npm_cache_volume}:{CONTAINER_NPM_CACHE_MOUNT}",
             "--workdir", CONTAINER_WORKTREE_MOUNT,
         ]
+        if self.egress.mode == "none":
+            argv += ["--network", "none"]
+        elif self.egress.mode == "allowlist-proxy":
+            argv += ["--network", self._egress_network_name(name)]
+            env = {**env, **self._proxy_env()}
         # Safe runtime values go inline: they are not secrets, and the
         # bare-key/WSLENV path is brittle across wrapped runtimes (HOME is
         # reset by login shells; CODEX_HOME was dropped by the WSL/Podman
@@ -811,12 +851,41 @@ class ContainerManager:
         @param[in]  name Container name.
         @exception  IsolationError When the runtime fails for another reason.
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.1
+        @date       2026-07-07
+        @version    0.2.0
         """
         result = self.runner([*self.runtime_argv, "rm", "--force", name])
         if not result.ok and self.status(name) != "absent":
             raise IsolationError(f"{self.runtime} rm failed", result.argv, result.stderr)
+        self.remove_egress(name)
+
+    def remove_egress(self, name: str) -> None:
+        """
+        @brief      Remove the proxy container and network for one run.
+        @param[in]  name Executor container name.
+        @exception  IsolationError When the runtime fails unexpectedly.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-07
+        @version    0.1.0
+        """
+        if self.egress.mode != "allowlist-proxy":
+            return
+        proxy_name = self._proxy_name(name)
+        proxy_result = self.runner([*self.runtime_argv, "rm", "--force", proxy_name])
+        if not proxy_result.ok and self.status(proxy_name) != "absent":
+            raise IsolationError(
+                f"{self.runtime} proxy rm failed", proxy_result.argv, proxy_result.stderr
+            )
+        network = self._egress_network_name(name)
+        network_result = self.runner([*self.runtime_argv, "network", "rm", network])
+        if network_result.ok:
+            return
+        text = (network_result.stderr + network_result.stdout).lower()
+        if any(marker in text for marker in _ABSENT_MARKERS):
+            return
+        raise IsolationError(
+            f"{self.runtime} network rm failed", network_result.argv, network_result.stderr
+        )
 
     def exec(
         self,
@@ -839,11 +908,14 @@ class ContainerManager:
                         are passed by bare key/process environment.
         @return     The captured CommandResult.
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-06
-        @version    0.1.2
+        @date       2026-07-07
+        @version    0.2.0
         """
         full = [*self.runtime_argv, "exec"]
-        secret_env = dict(env or {})
+        exec_env = dict(env or {})
+        if self.egress.mode == "allowlist-proxy":
+            exec_env.update(self._proxy_env())
+        secret_env = exec_env
         for key in _INLINE_ENV_KEYS:
             value = secret_env.pop(key, None)
             if value is not None:
@@ -856,9 +928,147 @@ class ContainerManager:
             existing = process_env.get("WSLENV", "")
             shared = ":".join(secret_env)
             process_env["WSLENV"] = f"{existing}:{shared}" if existing else shared
-        return self.runner(full, timeout=timeout, env=process_env if env else None)
+        return self.runner(full, timeout=timeout, env=process_env if exec_env else None)
 
     # -- internals ------------------------------------------------------------------
+
+    def _safe_name(self, value: str, *, limit: int = 48) -> str:
+        """
+        @brief      Convert a run/container id into a runtime resource suffix.
+        @param[in]  value Raw name.
+        @param[in]  limit Maximum returned length.
+        @return     Runtime-safe name segment.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-07
+        @version    0.1.0
+        """
+        safe = _SAFE_NAME_RE.sub("-", value).strip("-._")
+        return (safe or "run")[:limit]
+
+    def _egress_network_name(self, name: str) -> str:
+        """
+        @brief      Per-run internal egress network name.
+        @param[in]  name Executor container name.
+        @return     Network name.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-07
+        @version    0.1.0
+        """
+        return f"{self.egress.network_prefix}-{self._safe_name(name)}"
+
+    def _proxy_name(self, name: str) -> str:
+        """
+        @brief      Per-run proxy container name.
+        @param[in]  name Executor container name.
+        @return     Proxy container name.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-07
+        @version    0.1.0
+        """
+        return f"{self._safe_name(name, limit=50)}{_PROXY_SUFFIX}"
+
+    def _proxy_env(self) -> dict[str, str]:
+        """
+        @brief      Proxy variables injected into executor containers/execs.
+        @return     Uppercase and lowercase HTTP proxy environment mapping.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-07
+        @version    0.1.0
+        """
+        proxy_url = f"http://{PROXY_ALIAS}:{self.egress.proxy_port}"
+        no_proxy = ",".join(self.egress.no_proxy)
+        return {
+            "HTTP_PROXY": proxy_url,
+            "HTTPS_PROXY": proxy_url,
+            "ALL_PROXY": proxy_url,
+            "NO_PROXY": no_proxy,
+            "http_proxy": proxy_url,
+            "https_proxy": proxy_url,
+            "all_proxy": proxy_url,
+            "no_proxy": no_proxy,
+        }
+
+    def _squid_domain(self, pattern: str) -> str:
+        """
+        @brief      Convert an ADOR hostname pattern to Squid dstdomain form.
+        @param[in]  pattern Exact or wildcard hostname.
+        @return     Squid dstdomain token.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-07
+        @version    0.1.0
+        """
+        return f".{pattern[2:]}" if pattern.startswith("*.") else pattern
+
+    def _write_proxy_config(self, io_path: str | Path) -> Path:
+        """
+        @brief      Write the per-run Squid allowlist configuration.
+        @param[in]  io_path Run IO directory.
+        @return     Host path to the generated Squid config.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-07
+        @version    0.1.0
+        """
+        proxy_dir = Path(io_path) / "egress-proxy"
+        proxy_dir.mkdir(parents=True, exist_ok=True)
+        domains = " ".join(self._squid_domain(host) for host in self.egress.allowlist)
+        config_path = proxy_dir / "squid.conf"
+        config_path.write_text(
+            "\n".join([
+                f"http_port {self.egress.proxy_port}",
+                f"acl allowed_domains dstdomain {domains}",
+                "http_access allow allowed_domains",
+                "http_access deny all",
+                "access_log stdio:/dev/stdout",
+                "cache_log /dev/stderr",
+                "coredump_dir /var/spool/squid",
+                "",
+            ]),
+            encoding="utf-8",
+        )
+        return config_path
+
+    def _ensure_proxy_context(self, name: str, io_path: str | Path) -> None:
+        """
+        @brief      Ensure the per-run proxy network and proxy container exist.
+        @param[in]  name Executor container name.
+        @param[in]  io_path Run IO directory for generated proxy config.
+        @exception  IsolationError When any runtime operation fails.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-07
+        @version    0.1.0
+        """
+        network = self._egress_network_name(name)
+        result = self.runner([*self.runtime_argv, "network", "create", "--internal", network])
+        if not result.ok:
+            text = (result.stderr + result.stdout).lower()
+            if not any(marker in text for marker in _EXISTS_MARKERS):
+                raise IsolationError(
+                    f"{self.runtime} network create failed", result.argv, result.stderr
+                )
+        proxy_name = self._proxy_name(name)
+        proxy_state = self.status(proxy_name)
+        if proxy_state == "absent":
+            config_path = self._write_proxy_config(io_path)
+            self._run([
+                *self.runtime_argv, "run", "--detach",
+                "--name", proxy_name,
+                "--volume", f"{self._mount_source(config_path)}:/etc/squid/squid.conf:ro",
+                self.egress.proxy_image,
+            ])
+        elif proxy_state != "running":
+            self.start(proxy_name)
+        connect = self.runner([
+            *self.runtime_argv, "network", "connect",
+            "--alias", PROXY_ALIAS, network, proxy_name,
+        ])
+        if connect.ok:
+            return
+        text = (connect.stderr + connect.stdout).lower()
+        if any(marker in text for marker in _CONNECTED_MARKERS):
+            return
+        raise IsolationError(
+            f"{self.runtime} network connect failed", connect.argv, connect.stderr
+        )
 
     def _mount_source(self, path: str | Path) -> str:
         """

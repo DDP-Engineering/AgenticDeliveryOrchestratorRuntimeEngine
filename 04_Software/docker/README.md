@@ -18,6 +18,9 @@ ADOR uses a two-layer image contract:
 - Runtime-project images extend the base and add that project’s build/test
   dependencies. The current Cockpit-GCP image is
   `Dockerfile.executor-cockpit-gcp` -> `ador-executor-cockpit-gcp:latest`.
+- `Dockerfile.egress-proxy` builds `ador-egress-proxy:0.1.0`, a generic Squid
+  proxy image. ADOR mounts a generated per-run allowlist config into it; no
+  runtime-project hosts are baked into the image.
 
 `[container].image` selects the runtime-project image per ADOR profile. Use
 `ador-executor-base:0.2.0` for executor-only validation, and a project image for
@@ -28,6 +31,7 @@ real delivery runs.
 ```bash
 cd 04_Software/docker
 docker build -f Dockerfile.executor-base -t ador-executor-base:0.2.0 .
+docker build -f Dockerfile.egress-proxy -t ador-egress-proxy:0.1.0 .
 ```
 
 For the current Cockpit-GCP runtime project:
@@ -42,6 +46,11 @@ With Docker Engine inside WSL2 (no Docker Desktop), build from PowerShell as:
 wsl -d Ubuntu-24.04 -- docker build `
   -f /mnt/d/TEMP/2026_AgenticDeliveryOrchestrator/04_Software/docker/Dockerfile.executor-base `
   -t ador-executor-base:0.2.0 `
+  /mnt/d/TEMP/2026_AgenticDeliveryOrchestrator/04_Software/docker
+
+wsl -d Ubuntu-24.04 -- docker build `
+  -f /mnt/d/TEMP/2026_AgenticDeliveryOrchestrator/04_Software/docker/Dockerfile.egress-proxy `
+  -t ador-egress-proxy:0.1.0 `
   /mnt/d/TEMP/2026_AgenticDeliveryOrchestrator/04_Software/docker
 
 wsl -d Ubuntu-24.04 -- docker build `
@@ -84,12 +93,37 @@ required_tool_checks = [
 The required checks run after container provision and fail closed before any
 executor gate starts.
 
+## Egress Proxy Image
+
+When `[container.egress] mode = "allowlist-proxy"`, ADOR creates one internal
+network and one proxy container per run. The executor container joins only that
+internal network. The proxy container keeps normal outbound access and is also
+connected to the internal network with alias `ador-egress-proxy`.
+
+Build the generic proxy image once per runtime:
+
+```bash
+docker build -f Dockerfile.egress-proxy -t ador-egress-proxy:0.1.0 .
+```
+
+Then set only hostnames in project config:
+
+```toml
+[container.egress]
+mode = "allowlist-proxy"
+allowlist = ["gitlab.example.com", "api.openai.com", "*.pythonhosted.org"]
+```
+
+The allowlist accepts exact hostnames and leading wildcards only. SSH and other
+non-proxy-aware protocols are out of scope for this mode.
+
 ## Runtime Verification
 
 `verify-runtime.sh` proves a container runtime compatible with ADOR before a
 profile points at it. It mirrors the runtime CLI calls `ContainerManager` makes:
-image inspect/build, volume create, run with mounts/env, exec, git via
-GIT_DIR/GIT_WORK_TREE, park/resume, listing, reap, and absence detection.
+image inspect/build, volume create, run with mounts/env, egress modes, exec,
+git via GIT_DIR/GIT_WORK_TREE, park/resume, listing, reap, and absence
+detection.
 
 ```bash
 # Generic executor-base validation.
@@ -101,6 +135,16 @@ RUNTIME=podman RUN_ARGS="--userns=keep-id" ./verify-runtime.sh
 # Cockpit-GCP project image validation.
 IMAGE=ador-executor-cockpit-gcp:latest \
 REQUIRED_TOOL_CHECKS="make --version;shellcheck --version;terraform --version;tflint --version" \
+./verify-runtime.sh
+
+# No-network executor validation.
+EGRESS_MODE=none ./verify-runtime.sh
+
+# Allowlist proxy validation.
+EGRESS_MODE=allowlist-proxy \
+ALLOWLIST="example.com" \
+ALLOWED_URL="https://example.com" \
+DENIED_URL="https://github.com" \
 ./verify-runtime.sh
 ```
 

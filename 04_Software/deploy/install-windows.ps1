@@ -17,11 +17,11 @@
 #          argv; ADOR reads .env from its working directory (design 12b).
 # @usage   .\deploy\install-windows.ps1 [-Mode loop|once] [-IntervalMinutes 10]
 #              [-Runtime "docker"] [-ImageTag "ador-executor-base:0.2.0"]
-#              [-SkipImageCheck] [-NoTask] [-Uninstall]
+#              [-SkipImageCheck] [-AllowOpenEgress] [-NoTask] [-Uninstall]
 #          With Docker Engine in WSL2: -Runtime "wsl -d Ubuntu-24.04 -- docker"
 # @author  Eng. Dan Dumitru Pasare
 # @date    2026-07-04
-# @version 0.2.0
+# @version 0.3.0
 # -----------------------------------------------------------------------------
 [CmdletBinding()]
 param(
@@ -32,6 +32,7 @@ param(
     [string]$Runtime = "docker",
     [string]$ImageTag = "ador-executor-base:0.2.0",
     [switch]$SkipImageCheck,
+    [switch]$AllowOpenEgress,
     [switch]$NoTask,
     [switch]$Uninstall
 )
@@ -99,8 +100,14 @@ Push-Location $SoftwareDir
 try {
     & $AdorExe -c config.toml config validate
     if ($LASTEXITCODE -ne 0) { Fail "config validation failed" }
+    $ConfigData = (& $AdorExe -c config.toml config show | Out-String | ConvertFrom-Json)
 } finally {
     Pop-Location
+}
+$EgressMode = [string]$ConfigData.container.egress.mode
+$ProxyImage = [string]$ConfigData.container.egress.proxy_image
+if (-not $NoTask -and $EgressMode -eq "open" -and -not $AllowOpenEgress) {
+    Fail "refusing unattended Task Scheduler install with [container.egress] mode='open'; set allowlist-proxy/none or pass -AllowOpenEgress for a supervised pilot"
 }
 if (-not (Test-Path (Join-Path $SoftwareDir ".env"))) {
     Note "note: no .env file (fine when glab/gh host auth covers everything;"
@@ -127,6 +134,24 @@ if (-not $SkipImageCheck) {
     Note "executor image $ImageTag present"
 } else {
     Note "skipping executor image check (-SkipImageCheck)"
+}
+
+if ($EgressMode -eq "allowlist-proxy") {
+    $runtimeArgv = $Runtime -split "\s+"
+    $runtimeExe = $runtimeArgv[0]
+    Need-Command $runtimeExe "Configure [container] runtime before using allowlist-proxy"
+    $inspectArgs = @()
+    if ($runtimeArgv.Count -gt 1) { $inspectArgs += $runtimeArgv[1..($runtimeArgv.Count - 1)] }
+    $inspectArgs += @("image", "inspect", $ProxyImage)
+    & $runtimeExe @inspectArgs *> $null
+    if ($LASTEXITCODE -ne 0) {
+        Note "egress proxy image '$ProxyImage' not found via runtime '$Runtime'."
+        Note "Build it first with:"
+        Note "    cd $SoftwareDir\docker; docker build -f Dockerfile.egress-proxy -t $ProxyImage ."
+        Note "For WSL2 Docker, run inside the distro with the /mnt/... path to this docker directory."
+        Fail "egress proxy image missing"
+    }
+    Note "egress proxy image $ProxyImage present"
 }
 
 # 5. Task Scheduler job (optional; the design's Windows service mode, 12a)

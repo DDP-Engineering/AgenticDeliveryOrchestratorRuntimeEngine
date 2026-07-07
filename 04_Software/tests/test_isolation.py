@@ -16,7 +16,7 @@
          offline. Worktree-on-disk states are simulated with tmp_path files.
 @author Eng. Dan Dumitru Pasare
 @date 2026-07-03
-@version 0.2.0
+@version 0.3.0
 """
 
 from __future__ import annotations
@@ -25,6 +25,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from ador.config import ContainerEgressConfig
 from ador.isolation import (
     CONTAINER_IO_MOUNT,
     CONTAINER_REPO_MOUNT,
@@ -365,6 +366,126 @@ def test_container_provision_inserts_run_args(tmp_path: Path) -> None:
     assert run_argv[4:6] == ["--name", "p-run-x"]
 
 
+def test_container_provision_none_uses_no_network(tmp_path: Path) -> None:
+    """
+    @brief   [container.egress] mode none starts the executor with
+             --network none and injects no proxy variables.
+    @version 0.1.0
+    """
+    runner = FakeRunner(_fail("No such container"), _ok("cid"))
+    manager = ContainerManager(
+        "docker",
+        "ador-executor-base:0.2.0",
+        "uv-cache",
+        "npm-cache",
+        runner,
+        egress=ContainerEgressConfig(mode="none"),
+    )
+    manager.provision("ador-run-x", tmp_path / "repo", tmp_path / "wt",
+                      tmp_path / "io", {"HOME": "/home/ador"})
+    run_argv = runner.calls[1]
+    network_index = run_argv.index("--network")
+    assert run_argv[network_index + 1] == "none"
+    assert not any("HTTP_PROXY" in part for part in run_argv)
+
+
+def test_container_provision_allowlist_proxy_lifecycle(tmp_path: Path) -> None:
+    """
+    @brief   allowlist-proxy creates the internal network, starts the proxy,
+             connects it with the alias, and starts the executor on that
+             network with proxy env inline.
+    @version 0.1.0
+    """
+    runner = FakeRunner(
+        _fail("No such container: ador-run-x"),
+        _ok("network"),
+        _fail("No such container: ador-run-x-egress-proxy"),
+        _ok("proxy"),
+        _ok(),
+        _ok("cid"),
+    )
+    manager = ContainerManager(
+        "docker",
+        "ador-executor-base:0.2.0",
+        "uv-cache",
+        "npm-cache",
+        runner,
+        egress=ContainerEgressConfig(
+            mode="allowlist-proxy",
+            allowlist=["api.openai.com", "*.pythonhosted.org"],
+        ),
+    )
+    io_dir = tmp_path / "io"
+    manager.provision("ador-run-x", tmp_path / "repo", tmp_path / "wt",
+                      io_dir, {"HOME": "/home/ador"})
+
+    assert runner.calls[1] == [
+        "docker", "network", "create", "--internal", "ador-egress-ador-run-x",
+    ]
+    proxy_run = runner.calls[3]
+    assert proxy_run[:5] == ["docker", "run", "--detach", "--name",
+                             "ador-run-x-egress-proxy"]
+    assert "ador-egress-proxy:0.1.0" in proxy_run
+    proxy_config = io_dir / "egress-proxy" / "squid.conf"
+    proxy_config_text = proxy_config.read_text(encoding="utf-8")
+    assert "api.openai.com" in proxy_config_text
+    assert ".pythonhosted.org" in proxy_config_text
+
+    assert runner.calls[4] == [
+        "docker", "network", "connect", "--alias", "ador-egress-proxy",
+        "ador-egress-ador-run-x", "ador-run-x-egress-proxy",
+    ]
+    executor_run = runner.calls[5]
+    network_index = executor_run.index("--network")
+    assert executor_run[network_index + 1] == "ador-egress-ador-run-x"
+    env_values = [executor_run[i + 1] for i, part in enumerate(executor_run[:-1])
+                  if part == "--env"]
+    assert "HTTP_PROXY=http://ador-egress-proxy:3128" in env_values
+    assert "NO_PROXY=localhost,127.0.0.1,::1" in env_values
+
+
+def test_container_provision_allowlist_proxy_failure_raises(tmp_path: Path) -> None:
+    """
+    @brief   Proxy network/runtime failures fail closed with IsolationError.
+    @version 0.1.0
+    """
+    runner = FakeRunner(_fail("No such container: ador-run-x"), _fail("daemon down"))
+    manager = ContainerManager(
+        "docker",
+        "ador-executor-base:0.2.0",
+        "uv-cache",
+        "npm-cache",
+        runner,
+        egress=ContainerEgressConfig(mode="allowlist-proxy", allowlist=["example.com"]),
+    )
+    with pytest.raises(IsolationError):
+        manager.provision("ador-run-x", tmp_path / "repo", tmp_path / "wt",
+                          tmp_path / "io", {})
+
+
+def test_container_remove_allowlist_proxy_removes_proxy_and_network() -> None:
+    """
+    @brief   Terminal cleanup removes executor, per-run proxy, and egress
+             network in proxy mode.
+    @version 0.1.0
+    """
+    runner = FakeRunner(_ok(), _ok(), _ok())
+    manager = ContainerManager(
+        "docker",
+        "ador-executor-base:0.2.0",
+        "uv-cache",
+        "npm-cache",
+        runner,
+        egress=ContainerEgressConfig(mode="allowlist-proxy", allowlist=["example.com"]),
+    )
+    manager.remove("ador-run-x")
+    assert runner.calls == [
+        ["docker", "rm", "--force", "ador-run-x"],
+        ["docker", "rm", "--force", "ador-run-x-egress-proxy"],
+        ["docker", "network", "rm", "ador-egress-ador-run-x"],
+    ]
+
+
 def test_container_provision_is_idempotent(tmp_path: Path) -> None:
     """
     @brief   running -> no-op; exited -> start (keep-warm resume).
@@ -618,6 +739,36 @@ def test_wsl_provision_translates_mounts_and_sets_wslenv(tmp_path: Path) -> None
     assert "GIT_DIR" not in process_env["WSLENV"]
     assert "ANTHROPIC_API_KEY" in process_env["WSLENV"]
     assert "HOME" not in process_env["WSLENV"]  # WSL login resets HOME
+
+
+def test_wsl_allowlist_proxy_prefixes_network_commands(tmp_path: Path) -> None:
+    """
+    @brief   WSL-wrapped runtimes prefix proxy network/create/connect and
+             executor run commands consistently.
+    @version 0.1.0
+    """
+    runner = FakeRunner(
+        _fail("No such container: ador-run-x"),
+        _ok("network"),
+        _fail("No such container: ador-run-x-egress-proxy"),
+        _ok("proxy"),
+        _ok(),
+        _ok("cid"),
+    )
+    manager = ContainerManager(
+        "wsl -d Ubuntu-24.04 -- docker",
+        "ador-executor-base:0.2.0",
+        "uv-cache",
+        "npm-cache",
+        runner,
+        egress=ContainerEgressConfig(mode="allowlist-proxy", allowlist=["example.com"]),
+    )
+    manager.provision("ador-run-x", r"D:\repo", r"D:\wt", tmp_path / "io", {})
+    for call in runner.calls:
+        assert call[:5] == ["wsl", "-d", "Ubuntu-24.04", "--", "docker"]
+    assert runner.calls[1][5:8] == ["network", "create", "--internal"]
+    assert runner.calls[4][5:8] == ["network", "connect", "--alias"]
+    assert runner.calls[5][5:7] == ["run", "--detach"]
 
 
 def test_plain_docker_runtime_does_not_set_wslenv(tmp_path: Path) -> None:

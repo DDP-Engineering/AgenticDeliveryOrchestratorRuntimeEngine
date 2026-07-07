@@ -254,6 +254,25 @@ required_tool_checks = [
   "tflint --version",
 ]
 
+[container.egress]
+# "open" = legacy/supervised pilot behavior, no runtime network restriction.
+# "none" = start executor containers with --network none for fully offline,
+#          pre-provisioned runs.
+# "allowlist-proxy" = executor has no direct internet; HTTP/HTTPS egress goes
+#                     through an ADOR-managed per-run proxy container.
+mode = "open"
+# Exact or wildcard hostnames only. Runtime projects fill this with the
+# minimum hosts their executor and package manager require, e.g.
+# ["gitlab.example.com", "api.openai.com", "*.pythonhosted.org"].
+allowlist = []
+# Bypassed by proxy-aware tools. Keep loopback defaults unless your executor
+# also needs an internal hostname.
+no_proxy = ["localhost", "127.0.0.1", "::1"]
+# Build from docker/Dockerfile.egress-proxy.
+proxy_image = "ador-egress-proxy:0.1.0"
+proxy_port = 3128
+network_prefix = "ador-egress"
+
 # ----- Worktree ------------------------------------------------------------------
 [worktree]
 # Local clone of the target repository that per-run worktrees are created

@@ -12,6 +12,15 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-07-07
+
+### Added
+
+- Added `[container.egress]` with `open`, `none`, and `allowlist-proxy` modes,
+  including the generic Squid proxy image, per-run proxy/network lifecycle,
+  cleanup sweep support, deployment guardrails, and live runtime verification
+  coverage.
+
 ### Changed
 
 - Clarified repository folder ownership and AI-agent documentation update

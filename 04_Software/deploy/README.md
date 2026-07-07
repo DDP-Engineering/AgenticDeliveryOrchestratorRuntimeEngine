@@ -41,6 +41,7 @@ Re-running after a `git pull` updates the environment in place.
 ```bash
 ./deploy/install-ubuntu.sh              # prepare only (env, config, base image)
 ./deploy/install-ubuntu.sh --service    # + install/enable/start ador.service
+./deploy/install-ubuntu.sh --allow-open-egress --service  # supervised pilot override
 ./deploy/install-ubuntu.sh --uninstall  # stop/remove the unit (state kept)
 ```
 
@@ -54,6 +55,10 @@ Re-running after a `git pull` updates the environment in place.
   OS-level secret path on a server).
 - Logs: `journalctl -u ador -f`. Control: `systemctl {status,stop,restart} ador`.
 - `--skip-image` skips the image check/build (e.g. remote daemon).
+- Service install refuses `[container.egress] mode = "open"` unless
+  `--allow-open-egress` is passed. Use `allowlist-proxy` or `none` for
+  unattended operation. In `allowlist-proxy` mode the installer verifies, and
+  if needed builds, the proxy image from `docker/Dockerfile.egress-proxy`.
 
 ## Windows 11 (Task Scheduler)
 
@@ -61,6 +66,7 @@ Re-running after a `git pull` updates the environment in place.
 .\deploy\install-windows.ps1                              # loop at logon
 .\deploy\install-windows.ps1 -Mode once -IntervalMinutes 10  # repeating single pass
 .\deploy\install-windows.ps1 -Runtime "wsl -d Ubuntu-24.04 -- docker"  # WSL2 docker
+.\deploy\install-windows.ps1 -AllowOpenEgress          # supervised pilot override
 .\deploy\install-windows.ps1 -NoTask                      # prepare only
 .\deploy\install-windows.ps1 -Uninstall                   # remove the task (state kept)
 ```
@@ -77,6 +83,10 @@ Re-running after a `git pull` updates the environment in place.
   runtime needs path translation); use `-ImageTag ador-executor-cockpit-gcp:latest`
   when the profile points at the Cockpit-GCP image. Exact build commands are in
   `docker/README.md`.
+- Task registration refuses `[container.egress] mode = "open"` unless
+  `-AllowOpenEgress` is passed. In `allowlist-proxy` mode the proxy image is
+  verified through the configured runtime; if absent, the script prints the
+  exact `docker build -f Dockerfile.egress-proxy ...` command and exits.
 
 ## What deployment deliberately does NOT do
 
@@ -84,9 +94,9 @@ Re-running after a `git pull` updates the environment in place.
   boundary; the service only opens draft MRs.
 - **No secret handling beyond placement** - scripts never read, print, or
   pass secrets; they only point at `.env` / `EnvironmentFile`.
-- **No unattended posture change** - the container egress decision
-  (allowlist proxy; `00_Planning/TODO.md`) must be resolved before running
-  unattended outside supervised pilots.
+- **No silent open egress for unattended installs** - service/task installers
+  fail when `[container.egress] mode = "open"` unless the operator passes the
+  explicit supervised-pilot override.
 - **Uninstall keeps all state** - `.ador/`, worktrees, and containers
   survive; use `ador cleanup` / `ador delete <run-id> --force` for those.
 

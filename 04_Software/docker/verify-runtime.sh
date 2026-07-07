@@ -34,10 +34,13 @@
 #          ador-executor-base:0.2.0); the default base image is built from
 #          Dockerfile.executor-base in this directory if absent.
 #          REQUIRED_TOOL_CHECKS="make --version;terraform --version" adds
-#          runtime-project image checks.
+#          runtime-project image checks. EGRESS_MODE=open|none|allowlist-proxy
+#          verifies the new network posture; in proxy mode, ALLOWLIST is a
+#          comma-separated hostname list and ALLOWED_URL / DENIED_URL prove the
+#          proxy permits only the configured hosts.
 # @author  Eng. Dan Dumitru Pasare
 # @date    2026-07-04
-# @version 0.3.0
+# @version 0.4.0
 # -----------------------------------------------------------------------------
 # shellcheck disable=SC2015  # `check && ok || bad` is safe: ok is a bare echo
 set -euo pipefail
@@ -45,8 +48,15 @@ set -euo pipefail
 # CONSTANTS (mount targets mirror ador/isolation.py CONTAINER_* constants)
 RUNTIME="${RUNTIME:-docker}"
 IMAGE="${IMAGE:-ador-executor-base:0.2.0}"
+EGRESS_MODE="${EGRESS_MODE:-open}"
+ALLOWLIST="${ALLOWLIST:-example.com}"
+ALLOWED_URL="${ALLOWED_URL:-https://example.com}"
+DENIED_URL="${DENIED_URL:-https://github.com}"
+PROXY_IMAGE="${PROXY_IMAGE:-ador-egress-proxy:0.1.0}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NAME="ador-verify-$$"
+PROXY_NAME="${NAME}-egress-proxy"
+EGRESS_NETWORK="ador-verify-egress-$$"
 VOL_UV="ador-verify-uv-$$"
 VOL_NPM="ador-verify-npm-$$"
 SCRATCH="$(mktemp -d)"
@@ -66,6 +76,8 @@ bad() { echo "FAIL: $*"; FAILURES=$((FAILURES + 1)); }
 
 cleanup() {
     "${RT[@]}" rm --force "${NAME}" >/dev/null 2>&1 || true
+    "${RT[@]}" rm --force "${PROXY_NAME}" >/dev/null 2>&1 || true
+    "${RT[@]}" network rm "${EGRESS_NETWORK}" >/dev/null 2>&1 || true
     "${RT[@]}" volume rm "${VOL_UV}" "${VOL_NPM}" >/dev/null 2>&1 || true
     rm -rf "${SCRATCH}"
 }
@@ -75,7 +87,7 @@ command -v git >/dev/null 2>&1 || { echo "error: git is required on this host"; 
 command -v "${RT[0]}" >/dev/null 2>&1 || { echo "error: '${RT[0]}' not found"; exit 1; }
 
 echo "ADOR runtime verification: RUNTIME='${RUNTIME}', IMAGE='${IMAGE}'," \
-     "RUN_ARGS='${RUN_ARGS:-}'"
+     "RUN_ARGS='${RUN_ARGS:-}', EGRESS_MODE='${EGRESS_MODE}'"
 echo
 
 # 1-2. runtime + image
@@ -88,6 +100,17 @@ if "${RT[@]}" image inspect "${IMAGE}" >/dev/null 2>&1; then
 else
     echo "absent - building (this takes a few minutes)"
     "${RT[@]}" build -f "${SCRIPT_DIR}/Dockerfile.executor-base" -t "${IMAGE}" "${SCRIPT_DIR}"
+fi
+
+if [ "${EGRESS_MODE}" = "allowlist-proxy" ]; then
+    step "egress proxy image ${PROXY_IMAGE} present (image inspect; build if absent)"
+    if "${RT[@]}" image inspect "${PROXY_IMAGE}" >/dev/null 2>&1; then
+        ok
+    else
+        echo "absent - building"
+        "${RT[@]}" build -f "${SCRIPT_DIR}/Dockerfile.egress-proxy" \
+            -t "${PROXY_IMAGE}" "${SCRIPT_DIR}" >/dev/null && ok || bad "proxy image build"
+    fi
 fi
 
 # 3. volumes (ContainerManager.ensure_volumes)
@@ -104,6 +127,59 @@ git -C "${SCRATCH}/repo" worktree add -q -b verify-branch "${SCRATCH}/work" deve
 mkdir -p "${SCRATCH}/io"
 ADMIN_DIR="$(basename "$(sed 's/^gitdir: //' "${SCRATCH}/work/.git")")"
 [ -n "${ADMIN_DIR}" ] && ok || bad "worktree admin dir not readable"
+
+NETWORK_ARGS=()
+PROXY_ENV_ARGS=()
+if [ "${EGRESS_MODE}" = "none" ]; then
+    NETWORK_ARGS=(--network none)
+elif [ "${EGRESS_MODE}" = "allowlist-proxy" ]; then
+    step "egress proxy network + proxy container"
+    PROXY_CONF="${SCRATCH}/squid.conf"
+    DOMAINS=""
+    IFS=',' read -r -a ALLOWLIST_ITEMS <<< "${ALLOWLIST}"
+    for host in "${ALLOWLIST_ITEMS[@]}"; do
+        host="${host#"${host%%[![:space:]]*}"}"
+        host="${host%"${host##*[![:space:]]}"}"
+        [ -n "${host}" ] || continue
+        if [[ "${host}" == \*.* ]]; then
+            host=".${host:2}"
+        fi
+        DOMAINS="${DOMAINS} ${host}"
+    done
+    cat > "${PROXY_CONF}" <<EOF
+http_port 3128
+acl allowed_domains dstdomain${DOMAINS}
+http_access allow allowed_domains
+http_access deny all
+access_log stdio:/dev/stdout
+cache_log /dev/stderr
+coredump_dir /var/spool/squid
+EOF
+    "${RT[@]}" network create --internal "${EGRESS_NETWORK}" >/dev/null \
+        && "${RT[@]}" run --detach --name "${PROXY_NAME}" \
+            --volume "${PROXY_CONF}:/etc/squid/squid.conf:ro" \
+            "${PROXY_IMAGE}" >/dev/null \
+        && "${RT[@]}" network connect --alias ador-egress-proxy \
+            "${EGRESS_NETWORK}" "${PROXY_NAME}" \
+        && ok || bad "proxy setup"
+    NETWORK_ARGS=(--network "${EGRESS_NETWORK}")
+    export HTTP_PROXY="http://ador-egress-proxy:3128"
+    export HTTPS_PROXY="${HTTP_PROXY}"
+    export ALL_PROXY="${HTTP_PROXY}"
+    export NO_PROXY="localhost,127.0.0.1,::1"
+    export http_proxy="${HTTP_PROXY}"
+    export https_proxy="${HTTP_PROXY}"
+    export all_proxy="${HTTP_PROXY}"
+    export no_proxy="${NO_PROXY}"
+    PROXY_ENV_ARGS=(
+        --env "HTTP_PROXY=${HTTP_PROXY}" --env "HTTPS_PROXY=${HTTPS_PROXY}"
+        --env "ALL_PROXY=${ALL_PROXY}" --env "NO_PROXY=${NO_PROXY}"
+        --env "http_proxy=${http_proxy}" --env "https_proxy=${https_proxy}"
+        --env "all_proxy=${all_proxy}" --env "no_proxy=${no_proxy}"
+    )
+elif [ "${EGRESS_MODE}" != "open" ]; then
+    bad "unknown EGRESS_MODE: ${EGRESS_MODE}"
+fi
 
 # 5. provision - the EXACT argv shape from ContainerManager.provision:
 #    HOME inline (not a secret; must beat any daemon-injected value), all
@@ -122,7 +198,9 @@ export GIT_COMMITTER_NAME="ADOR" GIT_COMMITTER_EMAIL="ador-bot@local"
     --volume "${VOL_UV}:/home/ador/.cache/uv" \
     --volume "${VOL_NPM}:/home/ador/.npm" \
     --workdir /ador/work \
+    ${NETWORK_ARGS[@]+"${NETWORK_ARGS[@]}"} \
     --env "HOME=/home/ador" \
+    ${PROXY_ENV_ARGS[@]+"${PROXY_ENV_ARGS[@]}"} \
     --env ADOR_VERIFY_SECRET \
     --env GIT_DIR --env GIT_WORK_TREE \
     --env GIT_AUTHOR_NAME --env GIT_AUTHOR_EMAIL \
@@ -144,6 +222,31 @@ step "container user is 'ador'"
 
 step "HOME is /home/ador inside"
 [ "$("${RT[@]}" exec "${NAME}" printenv HOME)" = "/home/ador" ] && ok || bad "wrong HOME"
+
+if [ "${EGRESS_MODE}" = "allowlist-proxy" ]; then
+    step "allowlist-proxy permits ALLOWED_URL"
+    "${RT[@]}" exec "${NAME}" python -c \
+        'import sys, urllib.request; urllib.request.urlopen(sys.argv[1], timeout=20).read(1)' \
+        "${ALLOWED_URL}" >/dev/null 2>&1 && ok || bad "allowed URL failed"
+
+    step "allowlist-proxy denies DENIED_URL"
+    if "${RT[@]}" exec "${NAME}" python -c \
+        'import sys, urllib.request; urllib.request.urlopen(sys.argv[1], timeout=20).read(1)' \
+        "${DENIED_URL}" >/dev/null 2>&1; then
+        bad "denied URL succeeded"
+    else
+        ok
+    fi
+elif [ "${EGRESS_MODE}" = "none" ]; then
+    step "network none cannot reach ALLOWED_URL"
+    if "${RT[@]}" exec "${NAME}" python -c \
+        'import sys, urllib.request; urllib.request.urlopen(sys.argv[1], timeout=10).read(1)' \
+        "${ALLOWED_URL}" >/dev/null 2>&1; then
+        bad "network none reached the internet"
+    else
+        ok
+    fi
+fi
 
 # 9. tool usability (exit 0, not mere presence)
 step "executor-base toolchain usable (python/uv/node/git/opencode/pi/codex/qwen)"

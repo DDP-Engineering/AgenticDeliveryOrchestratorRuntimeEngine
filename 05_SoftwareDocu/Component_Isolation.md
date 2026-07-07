@@ -11,8 +11,9 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 > Component documentation per `component_documentation_template.md`.
 > Source: `04_Software/ador/isolation.py` - file version 0.4.0.
 > Design: Orchestrator_Design_And_Decisions.md sections 8b, 10, 10a.
-> Images: `04_Software/docker/Dockerfile.executor-base` plus
-> runtime-project images such as `Dockerfile.executor-project`
+> Images: `04_Software/docker/Dockerfile.executor-base`,
+> `04_Software/docker/Dockerfile.egress-proxy`, plus runtime-project images
+> such as `Dockerfile.executor-project`
 > (see `docker/README.md`).
 
 ## 1. Purpose
@@ -39,14 +40,15 @@ guardrails, not a sandbox (design 10).
   worktrees root, including husks deregistered but not deleted after the WSL
   bind-mount teardown race - the input `ador cleanup` sweeps).
 - `ContainerManager(runtime, image, uv_cache_volume, npm_cache_volume,
-  run_args=...)` -
+  run_args=..., egress=...)` -
   container lifecycle: `ensure_volumes`, idempotent `provision`
   (running -> no-op, stopped -> start, absent -> create), `start` / `stop`
   (park) / `remove` (reap), `status`, `list_containers(prefix)` (all
   containers in any state whose name starts with `<slug>-run-`; feeds
-  `ador cleanup`'s orphan sweep), `verify_required_tools` (project-image
-  checks run inside the provisioned container), and `exec` (the seam the
-  executor launcher runs commands through).
+  `ador cleanup`'s orphan sweep), `list_egress_networks(prefix)`,
+  `remove_egress(name)`, `verify_required_tools` (project-image checks run
+  inside the provisioned container), and `exec` (the seam the executor launcher
+  runs commands through).
 - `build_container_env(git_dir_name, git_name, git_email)` - the git
   environment injected at provision (see section 3).
 - `IsolationError` - typed fail-closed error carrying argv + stderr.
@@ -96,6 +98,13 @@ side keeps working normally with its absolute paths. The admin dir name is
 - `exec` returns the `CommandResult` as **data** - a failing gate command is
   a conductor signal, not an isolation failure. Only runtime-level failures
   (daemon down, image missing) raise `IsolationError`.
+- **Executor egress:** `[container.egress] mode = "open"` preserves the legacy
+  runtime argv. `none` adds `--network none`. `allowlist-proxy` creates an
+  internal per-run network, starts a per-run proxy container from
+  `Dockerfile.egress-proxy`, connects it to that network as
+  `ador-egress-proxy`, starts the executor only on the internal network, and
+  injects uppercase/lowercase proxy environment variables at provision and
+  exec time.
 - Windows host paths are normalized (`Path.as_posix()`) for mount syntax.
 - Commit authorship comes from `agent.name` / `agent.email` via
   `GIT_AUTHOR_*` / `GIT_COMMITTER_*` (setup doc section 4).
@@ -104,7 +113,7 @@ side keeps working normally with its absolute paths. The admin dir name is
 
 - Internal: `ador.util` (`CommandRunner`, `CommandResult`, `run_command`);
   values from `[worktree]` (`repo_path`, `root`) and `[container]`
-  (`runtime`, `image`, cache volumes) config.
+  (`runtime`, `image`, cache volumes, `egress`) config.
 - External: `git` on the host; Docker or Podman - native or wrapped (Docker
   Engine inside WSL2 via `wsl -d <distro> -- docker`); the
   `ador-executor-base:0.2.0` image (built from
@@ -144,6 +153,12 @@ side keeps working normally with its absolute paths. The admin dir name is
   run inside the provisioned container. Failure raises `IsolationError`, so a
   profile with the wrong runtime-project image fails before any executor gate
   starts.
+- `[container.egress] allowlist-proxy` writes generated Squid config under the
+  run IO directory, uses one proxy container named
+  `<executor-container>-egress-proxy`, and one network named
+  `<network_prefix>-<safe-executor-container-name>`. Cleanup removes executor,
+  proxy container, and network; `ador cleanup` also sweeps orphan proxies and
+  networks for inactive runs.
 
 ## 7. Workflow Integration
 
