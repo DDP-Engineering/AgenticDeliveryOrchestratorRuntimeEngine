@@ -53,7 +53,8 @@ Re-running after a `git pull` updates the environment in place.
   `WorkingDirectory` at the checkout, `Restart=on-failure` + 30 s backoff,
   and an optional `EnvironmentFile=<checkout>/.env` (the design-preferred
   OS-level secret path on a server).
-- Logs: `journalctl -u ador -f`. Control: `systemctl {status,stop,restart} ador`.
+- Logs: `journalctl -u ador -f`. ADOR also mirrors `run` output to
+  `<store_root>/ador.log`. Control: `systemctl {status,stop,restart} ador`.
 - `--skip-image` skips the image check/build (e.g. remote daemon).
 - Service install refuses `[container.egress] mode = "open"` unless
   `--allow-open-egress` is passed. Use `allowlist-proxy` or `none` for
@@ -79,6 +80,9 @@ Re-running after a `git pull` updates the environment in place.
 - `-Mode loop` (default): starts `run --loop` at logon.
   `-Mode once`: runs `run --once` every `-IntervalMinutes` (design 12a's
   cron-style alternative; each pass exits, auditable per run).
+- ADOR mirrors `run --loop`, `run --once`, and `run --dry-run` output to the
+  rotating `<store_root>\ador.log`, which is the first place to inspect
+  Task Scheduler runs after `ador status` / `ador runs`.
 - The image is only **verified** on Windows (building through a WSL-wrapped
   runtime needs path translation); use `-ImageTag ador-executor-cockpit-gcp:latest`
   when the profile points at the Cockpit-GCP image. Exact build commands are in

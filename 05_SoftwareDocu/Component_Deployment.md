@@ -92,7 +92,8 @@ are separate backlog items). The lightweight runtime bundle is owned by
   checkout location (derived from the script's own path - run from anywhere).
 - Outputs: a synced `.venv`, the `ador-executor-base:0.2.0` image (Ubuntu),
   `/etc/systemd/system/ador.service` or the "ADOR Orchestrator" scheduled
-  task, and human-readable progress notes.
+  task, human-readable progress notes, and ADOR-owned run logs under
+  `<store_root>/ador.log` once the installed service/task starts polling.
 
 ## 7. Workflow Integration
 
@@ -108,7 +109,8 @@ Operations afterwards go through the CLI (`status`, `pause`, `cleanup`,
 # Ubuntu
 ./deploy/install-ubuntu.sh --service          # full: env, config, image, unit
 ./deploy/install-ubuntu.sh --allow-open-egress --service
-journalctl -u ador -f                          # logs
+journalctl -u ador -f                          # host service logs
+tail -f .ador/ador.log                         # ADOR-owned run log
 ./deploy/install-ubuntu.sh --uninstall         # remove the unit, keep state
 ```
 

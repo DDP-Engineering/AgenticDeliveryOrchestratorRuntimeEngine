@@ -9,8 +9,8 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Executor Launcher (`ador/executor/`)
 
 > Component documentation per `component_documentation_template.md`.
-> Sources: `04_Software/ador/executor/base.py` (0.1.1),
-> `04_Software/ador/executor/launcher.py` (0.4.0).
+> Sources: `04_Software/ador/executor/base.py` (0.2.0),
+> `04_Software/ador/executor/launcher.py` (0.5.0).
 > Design: Orchestrator_Design_And_Decisions.md sections 6 and 7a;
 > Prerequisites_Check_Report.md sections 5-6 and 12-13.
 
@@ -26,11 +26,13 @@ outcomes.
 
 - `Executor` (ABC in `base.py`) + `ExecTarget` protocol (the container exec
   seam, bound by the orchestrator to the run's container) + `GateRun` (the
-  conductor's decision inputs: exit code, questions, session id, raw output).
+  conductor's decision inputs: exit code, questions, session id, raw output,
+  immutable artifact archive directories).
 - `FileProtocolExecutor` (`launcher.py`): the shared, executor-agnostic
   file-based gate protocol (section 3), template substitution, session
-  continuation (`--session <id>`), questions-file detection, and the dead-
-  session self-heal. Subclasses supply only the JSON parsers.
+  continuation (`--session <id>`), questions-file detection, per-launch
+  archiving, and the dead-session self-heal. Subclasses supply only the JSON
+  parsers.
 - `OpencodeExecutor`: the `--auto` refusal, `sessionID` parsing, and
   `step_finish` token/cost usage.
 - `PiExecutor`: Pi (`@earendil-works/pi-coding-agent`); session id from Pi's
@@ -74,15 +76,20 @@ buffers stdout so live streaming looks hung (prereq 9).
    `{"type":"session",...}` header event; Codex: session-thread events when
    present). A missing output file is NOT an error - the exit code carries the
    failure and the conductor decides.
+6. When the orchestrator supplies `archive_stem`, copy the just-finished
+   launch into `io/archive/<stem>-attemptN/` with `gate.sh`, `output.jsonl`,
+   `stderr.log`, and `meta.json` before any self-heal retry can overwrite the
+   live files.
 
 Steps 1-5 live in `FileProtocolExecutor`; subclasses customize only session
 continuation shape and stream parsing. All supported executors read the repo's
 `AGENTS.md` gate contract natively and get their push/merge guardrails from
 the repo adapter plus container isolation - there are no remote credentials in
 the container, so the executor cannot push regardless.
-- Gate artifacts (`gate.sh`, `output.jsonl`, `stderr.log`) persist in
-  `.ador/runs/<run-id>/io/` for audit; being outside the worktree, the
-  executor can never `git add` them.
+- The live exchange files (`gate.sh`, `output.jsonl`, `stderr.log`) remain in
+  `.ador/runs/<run-id>/io/` and are overwritten by the next launch. Immutable
+  per-launch archives persist under `io/archive/`; being outside the worktree,
+  the executor can never `git add` them.
 - **Safety:** `--auto` anywhere in the template raises `ValueError` at
   construction, and `validate_config` reports it before any run starts - it
   would auto-approve the push/pr/merge permissions that keep the executor
@@ -104,14 +111,20 @@ the container, so the executor cannot push regardless.
 ## 5. Inputs And Outputs
 
 - Inputs: gate prompt, host worktree path, host io-dir path, optional
-  session id and timeout (run budgets).
-- Outputs: a `GateRun`; persisted gate artifacts in the io dir; whatever the
-  executor itself did to the worktree (edits, local commits).
+  session id, timeout (run budgets), and archive stem.
+- Outputs: a `GateRun`; live exchange files in the io dir; immutable archive
+  directories when requested; whatever the executor itself did to the
+  worktree (edits, local commits).
 
 ## 6. Data Contracts
 
-- io-dir filenames: `gate.sh`, `output.jsonl`, `stderr.log` (module
-  constants shared with tests).
+- io-dir filenames: `gate.sh`, `output.jsonl`, `stderr.log`; archive root:
+  `archive/` (module constants shared with tests).
+- Archive directory shape: `<stem>-attempt<N>` with a numeric suffix on rare
+  collisions so archives are never overwritten. Missing output/stderr becomes
+  an empty archive file with presence flags in `meta.json`.
+- Archive write failure is returned as a failed `GateRun`, not silently
+  ignored.
 - `GateRun.ok` = exit code 0; necessary but not sufficient to advance - the
   conductor still checks `has_questions` and runs `invariants`.
 - `GateRun.session_id` falls back to the passed-in session when the output
@@ -141,7 +154,7 @@ executor = build_executor("opencode",
                           "openai/gpt-5.4-fast")
 execute = partial(containers.exec, "ador-run-<run-id>")
 run = executor.run_gate(execute, worktree_path, io_path, intake_prompt,
-                        timeout=3600)
+                        timeout=3600, archive_stem="001-intake")
 if run.has_questions:
     park(run.questions)
 elif run.ok:
@@ -153,7 +166,9 @@ elif run.ok:
 - `tests/test_executor.py` (offline, fake exec seam): WSL-safe script
   protocol (two-token argv, LF-only script, quoted prompt, redirections),
   session continuation and fallback, questions detection, stale-questions
-  clearing, failure/timeout as data, `--auto` rejection, factory wiring.
+  clearing, failure/timeout as data, normal/missing-output/nonzero/session-
+  reset archive behavior, archive-write failure as data, `--auto` rejection,
+  factory wiring.
 - `tests/test_config.py`: `--auto` flagged by `validate_config`; Codex must
   be non-interactive JSON, ignore machine-local user config, and disable
   bundled plugins.

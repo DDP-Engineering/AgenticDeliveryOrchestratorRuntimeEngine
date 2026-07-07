@@ -18,7 +18,7 @@
          `ador profile ...` manages profiles (with run statistics).
 @author Eng. Dan Dumitru Pasare
 @date 2026-07-05
-@version 0.4.0
+@version 0.5.0
 """
 
 from __future__ import annotations
@@ -34,6 +34,7 @@ import tomllib
 from ador import __version__, metrics
 from ador.config import Config, load_config, validate_config
 from ador.orchestrator import Orchestrator
+from ador.process_log import ProcessLogger, process_log_path
 from ador.profiles import ProfileError, ProfileStore, resolve_config_path
 from ador.state import StateStore
 from ador.util import parse_duration
@@ -337,15 +338,17 @@ def _cmd_run(args: argparse.Namespace) -> int:
     @return     Process exit code.
     @author     Eng. Dan Dumitru Pasare
     @date       2026-07-03
-    @version    0.1.0
+    @version    0.2.0
     """
     built = _engine(args)
     if built is None:
         return EXIT_ERROR
     config, engine = built
+    logger = ProcessLogger(process_log_path(config.state.store_root))
+    engine.log = logger.emit
     if args.dry_run:
         summary = engine.poll_once(dry_run=True)
-        print(json.dumps(summary))
+        logger.emit(json.dumps(summary))
         return EXIT_OK
     loop = args.loop or (config.polling.mode == "loop" and not args.once)
     if loop:
@@ -354,11 +357,11 @@ def _cmd_run(args: argparse.Namespace) -> int:
         summary = engine.poll_once()
     except RuntimeError as exc:
         store = _store(config)
-        print(f"error: {exc} ({store.lock_path})")
-        print("hint: if no other ador process is running, remove the stale "
-              "lock file and re-run")
+        logger.emit(f"error: {exc} ({store.lock_path})")
+        logger.emit("hint: if no other ador process is running, remove the stale "
+                    "lock file and re-run")
         return EXIT_ERROR
-    print(json.dumps(summary))
+    logger.emit(json.dumps(summary))
     return EXIT_OK
 
 

@@ -20,7 +20,7 @@
          machine is unit-testable offline.
 @author Eng. Dan Dumitru Pasare
 @date 2026-07-06
-@version 0.4.1
+@version 0.5.0
 """
 
 from __future__ import annotations
@@ -299,7 +299,7 @@ class Orchestrator:
         @exception  ForgeError When the platform is unreachable (loop backs off).
         @author     Eng. Dan Dumitru Pasare
         @date       2026-07-03
-        @version    0.1.0
+        @version    0.2.0
         """
         own_lock = False
         if not dry_run and not locked:
@@ -629,9 +629,11 @@ class Orchestrator:
                 prompt,
                 session=run.executor_session,
                 timeout=self.config.budgets.max_wall_clock_seconds,
+                archive_stem=f"{run.iterations:03d}-{gate}",
             )
             run.executor_session = result.session_id or run.executor_session
             self.store.save(run)
+            self._journal_artifacts(run, gate, result)
             self._journal_usage(run, gate, result)
             if result.has_questions:
                 self._park(run, result.questions)
@@ -680,7 +682,7 @@ class Orchestrator:
         @return     Failure context for the relaunch, or "" when committed.
         @author     Eng. Dan Dumitru Pasare
         @date       2026-07-03
-        @version    0.1.0
+        @version    0.2.0
         """
         try:
             if self.worktrees.is_dirty(run.run_id):
@@ -855,9 +857,11 @@ class Orchestrator:
             self._gate_prompt("validation", ticket, context, thread),
             session=run.executor_session,
             timeout=self.config.budgets.max_wall_clock_seconds,
+            archive_stem=f"{run.iterations:03d}-delivery-fix",
         )
         run.executor_session = result.session_id or run.executor_session
         self.store.save(run)
+        self._journal_artifacts(run, "delivery-fix", result)
         self._journal_usage(run, "delivery-fix", result)
         if result.has_questions:
             self._park(run, result.questions)
@@ -875,7 +879,7 @@ class Orchestrator:
         @param[in]  adopted An already-open MR when adopting, else None.
         @author     Eng. Dan Dumitru Pasare
         @date       2026-07-03
-        @version    0.1.0
+        @version    0.2.0
         """
         if adopted is not None:
             run.mr_iid = adopted.iid
@@ -1000,9 +1004,11 @@ class Orchestrator:
             self._gate_prompt("revise", ticket, "", thread),
             session=run.executor_session,
             timeout=self.config.budgets.max_wall_clock_seconds,
+            archive_stem=f"{run.iterations:03d}-revise",
         )
         run.executor_session = result.session_id or run.executor_session
         self.store.save(run)
+        self._journal_artifacts(run, "revise", result)
         self._journal_usage(run, "revise", result)
         if result.has_questions:
             self._park(run, result.questions)
@@ -1621,6 +1627,27 @@ class Orchestrator:
                 run.run_id, "usage", context=context,
                 tokens_in=result.tokens_in, tokens_out=result.tokens_out,
                 cost_usd=result.cost_usd,
+            )
+
+    def _journal_artifacts(self, run: RunState, context: str, result) -> None:
+        """
+        @brief      Journal immutable executor archive directories for a launch.
+        @details    The raw live exchange files stay under io/, but each launch
+                    may now also produce immutable archives. Journaling the
+                    paths makes `ador logs <run-id>` point operators at the
+                    exact raw evidence for Task Scheduler and unattended runs.
+        @param[in]  run The run.
+        @param[in]  context Gate name or fix phase.
+        @param[in]  result The GateRun carrying archive paths.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-07
+        @version    0.1.0
+        """
+        if result.artifact_dirs:
+            self.store.journal(
+                run.run_id, "executor-artifacts",
+                context=context,
+                artifacts=result.artifact_dirs,
             )
 
     def _record_metrics(self, run: RunState) -> None:

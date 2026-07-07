@@ -15,7 +15,7 @@
          exercised together.
 @author Eng. Dan Dumitru Pasare
 @date 2026-07-02
-@version 0.1.1
+@version 0.2.0
 """
 
 from __future__ import annotations
@@ -26,6 +26,7 @@ from pathlib import Path
 from ador import __version__
 from ador.cli import EXIT_ERROR, EXIT_NOT_IMPLEMENTED, EXIT_OK, main
 from ador.executor.launcher import OpencodeExecutor, build_executor
+from ador.process_log import ProcessLogger, process_log_path
 import pytest
 
 # CONSTANTS
@@ -190,6 +191,76 @@ def test_cli_stats_and_export_work_empty(
     assert main(["-c", config, "export", "--csv"]) == EXIT_OK
     assert capsys.readouterr().out.startswith("run_id,")
     assert main(["-c", config, "report", "nope"]) == EXIT_ERROR
+
+
+def test_cli_run_once_writes_process_log(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    @brief   `ador run --once` preserves stdout and appends the same run-owned
+             lines to `<store_root>/ador.log`.
+    @version 0.1.0
+    """
+    config = _config_file(tmp_path)
+
+    class FakeEngine:
+        """
+        @brief   Minimal engine for run-command CLI smoke coverage.
+        @author  Eng. Dan Dumitru Pasare
+        @date    2026-07-07
+        @version 0.1.0
+        """
+
+        def __init__(self) -> None:
+            """
+            @brief   Initialize with the same log slot Orchestrator exposes.
+            @author  Eng. Dan Dumitru Pasare
+            @date    2026-07-07
+            @version 0.1.0
+            """
+            self.log = print
+
+        def poll_once(self, *, dry_run: bool = False) -> dict:
+            """
+            @brief      Emit one engine line and return a summary.
+            @param[in]  dry_run Whether the CLI requested dry-run.
+            @return     Poll summary.
+            @author     Eng. Dan Dumitru Pasare
+            @date       2026-07-07
+            @version    0.1.0
+            """
+            self.log("engine line")
+            return {"picked": None, "dry_run": dry_run}
+
+    monkeypatch.setattr("ador.cli.Orchestrator.from_config", lambda _config: FakeEngine())
+
+    assert main(["-c", config, "run", "--once"]) == EXIT_OK
+
+    out = capsys.readouterr().out
+    assert "engine line" in out
+    assert '"picked": null' in out
+    log_text = process_log_path(tmp_path / ".ador").read_text(encoding="utf-8")
+    assert "engine line" in log_text
+    assert '"picked": null' in log_text
+
+
+def test_process_log_rotates(tmp_path: Path) -> None:
+    """
+    @brief   The ADOR process log keeps a bounded current file and numbered
+             backups with the newest backup at `.1`.
+    @version 0.1.0
+    """
+    path = tmp_path / "ador.log"
+    logger = ProcessLogger(path, max_bytes=50, backups=2)
+
+    logger.append("first payload")
+    logger.append("second payload")
+    logger.append("third payload")
+
+    assert "third payload" in path.read_text(encoding="utf-8")
+    assert "second payload" in (tmp_path / "ador.log.1").read_text(encoding="utf-8")
+    assert "first payload" in (tmp_path / "ador.log.2").read_text(encoding="utf-8")
+    assert not (tmp_path / "ador.log.3").exists()
 
 
 def test_cli_run_ops_on_unknown_run_fail_cleanly(

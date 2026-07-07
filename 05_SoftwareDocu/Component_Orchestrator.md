@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Orchestrator (`ador/orchestrator.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/ador/orchestrator.py` - file version 0.4.1.
+> Source: `04_Software/ador/orchestrator.py` - file version 0.5.0.
 > Design: Orchestrator_Design_And_Decisions.md sections 5a, 7a, 8, 9, 10.
 
 ## 1. Purpose
@@ -38,7 +38,9 @@ the executor.
 - **The per-gate loop** (design 7a): mark status -> launch the executor for
   one gate -> inspect (questions / exit code) -> verify with the workflow
   CLI's `invariants` -> advance, retry with failure context, park, or
-  escalate - bounded by run budgets.
+  escalate - bounded by run budgets. Each executor launch receives a stable
+  archive stem (`NNN-gate` / `NNN-delivery-fix` / `NNN-revise`), and any
+  returned archive directories are journaled as `executor-artifacts`.
 - **Clarification** (design 9): the exact park order (questions comment
   FIRST, then status, rounds cap, parked_at, container stop) and the exact
   resume order (marker/system-aware answer detection or the answered-label
@@ -135,6 +137,10 @@ interface) and metrics.
   asked to continue a dead session (live finding 2026-07-04).
 - Gate failures and invariant failures relaunch the same gate with the
   failure tail as added prompt context; the iterations budget ends the loop.
+- After every executor `GateRun`, `_journal_artifacts` appends immutable
+  archive paths to the run journal when the launcher returned any. This makes
+  `ador logs <run-id>` the index into raw gate evidence without changing the
+  current live io exchange files.
 - The status comment is posted once (id in state.json) and edited in place
   afterwards; comment identity is marker-based throughout.
 - `poll_once(dry_run=True)` selects and reports without any side effect.
@@ -151,9 +157,9 @@ interface) and metrics.
 
 - Inputs: `config.toml`, ready tickets and comments from the platform,
   executor GateRuns, `.env` secrets.
-- Outputs: per-run state + journal under `<store>/runs/<run-id>/`, worktrees
-  and containers, ticket comments/labels, log lines; a validated branch
-  awaiting phase-4 delivery.
+- Outputs: per-run state + journal under `<store>/runs/<run-id>/`, executor
+  archive path journal events, worktrees and containers, ticket
+  comments/labels, log lines; draft MR delivery state.
 
 ## 6. Data Contracts
 
@@ -170,9 +176,8 @@ interface) and metrics.
 ## 7. Workflow Integration
 
 `ador run --loop` (service) or `--once` (cron/Task Scheduler) enters here.
-Phase 4 plugs the delivery sequence (design 11a) where
-`_complete_validation` currently stops, and the review loop (11b) on top of
-the same state machine.
+Delivery and review reuse the same executor-launch archive mechanism for
+conflict/preflight fixes and reviewer-requested revise work.
 
 ## 8. Usage
 
@@ -195,7 +200,8 @@ ador logs <run-id>
   iterations budget, invariants-failure relaunch, TTL reap vs run survival,
   answer timeout release, pause/capacity, deleted/closed reconciliation,
   cancel/retry round trip, labels-channel transitions, and delivery artifact
-  commit-before-push ordering.
+  commit-before-push ordering, archive-stem passing, and executor-artifact
+  journal entries.
 - Minimum validation after a change: `uv run --group dev pytest tests/test_orchestrator.py`.
 - Live pilot pending: first supervised run against a real `agent-ready`
   ticket (crawl phase) - will also confirm the `.agentic` CLI verbs used by

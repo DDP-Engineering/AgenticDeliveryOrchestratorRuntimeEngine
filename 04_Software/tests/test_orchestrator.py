@@ -18,7 +18,7 @@
          reap, answer timeout, and reconciliation of deleted/closed tickets.
 @author Eng. Dan Dumitru Pasare
 @date 2026-07-03
-@version 0.2.0
+@version 0.3.0
 """
 
 from __future__ import annotations
@@ -337,11 +337,13 @@ class FakeExecutor(Executor):
         self.results = list(results or [])
         self.prompts: list[str] = []
         self.sessions: list[str] = []
+        self.archive_stems: list[str] = []
 
     def run_gate(self, execute, worktree, io_dir, prompt, *,
-                 session="", timeout=None) -> GateRun:
+                 session="", timeout=None, archive_stem="") -> GateRun:
         self.prompts.append(prompt)
         self.sessions.append(session)
+        self.archive_stems.append(archive_stem)
         if self.results:
             return self.results.pop(0)
         return GateRun(exit_code=0, session_id="ses_1")
@@ -473,6 +475,14 @@ def test_pick_and_conduct_all_gates_to_validated(tmp_path: Path) -> None:
     assert run.mr_iid == 1 and "/merge_requests/1" in run.mr_url
     assert run.executor_session == "ses_5"
     assert executor.sessions == ["", "ses_0", "ses_1", "ses_2", "ses_3", "ses_4"]
+    assert executor.archive_stems == [
+        "001-intake",
+        "002-alignment",
+        "003-requirement",
+        "004-check",
+        "005-implementation",
+        "006-validation",
+    ]
     events = [e["event"] for e in engine.store.read_journal(run.run_id)]
     assert events.count("gate-passed") == 6
     assert "validation-complete" in events
@@ -484,6 +494,32 @@ def test_pick_and_conduct_all_gates_to_validated(tmp_path: Path) -> None:
     assert len(posts) == 2 and len(edits) >= 4
     assert any("kind=delivery" in c[2] and run.mr_url in c[2] for c in posts)
     assert containers.events[-1] == ("stop", run.container)  # retained, not removed
+
+
+def test_executor_artifacts_are_journaled(tmp_path: Path) -> None:
+    """
+    @brief   GateRun artifact archive paths are surfaced through the run
+             journal so `ador logs <run-id>` points at raw evidence.
+    @version 0.1.0
+    """
+    executor = FakeExecutor([
+        GateRun(exit_code=1, stderr="boom", artifact_dirs=[".ador/runs/r/io/archive/a"])
+    ])
+    config = make_config(tmp_path)
+    config.budgets.max_iterations = 1
+    engine, forge, _, _ = make_engine(tmp_path, executor, config)
+    forge.add_ticket(14)
+
+    engine.poll_once()
+
+    run = engine.store.load(engine._run_id(14))
+    artifact_events = [
+        event for event in engine.store.read_journal(run.run_id)
+        if event["event"] == "executor-artifacts"
+    ]
+    assert len(artifact_events) == 1
+    assert artifact_events[0]["context"] == "intake"
+    assert artifact_events[0]["artifacts"] == [".ador/runs/r/io/archive/a"]
 
 
 def test_selection_priority_and_filters(tmp_path: Path) -> None:

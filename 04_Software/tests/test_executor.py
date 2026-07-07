@@ -16,18 +16,21 @@
          continuation, questions detection, and the fail-closed negatives.
 @author Eng. Dan Dumitru Pasare
 @date 2026-07-03
-@version 0.1.0
+@version 0.2.0
 """
 
 from __future__ import annotations
 
 # IMPORTS
 from collections.abc import Callable, Sequence
+import json
 from pathlib import Path
 
 from ador.executor.launcher import (
+    ARCHIVE_DIR,
     GATE_SCRIPT,
     OUTPUT_FILE,
+    STDERR_FILE,
     CodexExecutor,
     OpencodeExecutor,
     PiExecutor,
@@ -235,6 +238,130 @@ def test_executor_failure_passes_through_as_data(tmp_path: Path) -> None:
     assert "timeout" in run.stderr
 
 
+def test_gate_launch_archive_preserves_output_and_meta(tmp_path: Path) -> None:
+    """
+    @brief   A normal launch keeps the live exchange files and also creates an
+             immutable per-launch archive with gate.sh/output/stderr/meta.
+    @version 0.1.0
+    """
+    worktree, io_dir = _dirs(tmp_path)
+
+    def write_output() -> None:
+        (io_dir / OUTPUT_FILE).write_text('{"sessionID":"ses_archive"}\n',
+                                          encoding="utf-8")
+        (io_dir / STDERR_FILE).write_text("minor warning\n", encoding="utf-8")
+
+    run = _executor().run_gate(
+        FakeExec(CommandResult(exit_code=0), write_output),
+        worktree,
+        io_dir,
+        "p",
+        archive_stem="001-intake",
+    )
+
+    archive = io_dir / ARCHIVE_DIR / "001-intake-attempt1"
+    assert run.artifact_dirs == [str(archive)]
+    assert (io_dir / OUTPUT_FILE).read_text(encoding="utf-8") == (
+        archive / OUTPUT_FILE
+    ).read_text(encoding="utf-8")
+    assert "minor warning" in (archive / STDERR_FILE).read_text(encoding="utf-8")
+    assert "opencode run" in (archive / GATE_SCRIPT).read_text(encoding="utf-8")
+    meta = json.loads((archive / "meta.json").read_text(encoding="utf-8"))
+    assert meta["exit_code"] == 0
+    assert meta["archive_stem"] == "001-intake"
+    assert meta["output_file_present"] is True
+    assert meta["stderr_file_present"] is True
+
+
+def test_archive_records_missing_output_as_empty_file(tmp_path: Path) -> None:
+    """
+    @brief   Missing output.jsonl remains a valid executor outcome and is
+             archived as an empty file with presence pinned in meta.json.
+    @version 0.1.0
+    """
+    worktree, io_dir = _dirs(tmp_path)
+    run = _executor().run_gate(
+        FakeExec(CommandResult(exit_code=0)),
+        worktree,
+        io_dir,
+        "p",
+        archive_stem="002-check",
+    )
+
+    archive = io_dir / ARCHIVE_DIR / "002-check-attempt1"
+    assert run.ok
+    assert run.artifact_dirs == [str(archive)]
+    assert (archive / OUTPUT_FILE).read_text(encoding="utf-8") == ""
+    meta = json.loads((archive / "meta.json").read_text(encoding="utf-8"))
+    assert meta["output_file_present"] is False
+    assert meta["stderr_file_present"] is False
+
+
+def test_archive_records_nonzero_exit(tmp_path: Path) -> None:
+    """
+    @brief   A failed executor launch still archives the partial output and
+             stderr before the conductor decides whether to retry.
+    @version 0.1.0
+    """
+    worktree, io_dir = _dirs(tmp_path)
+
+    def write_partial() -> None:
+        (io_dir / OUTPUT_FILE).write_text("partial stream\n", encoding="utf-8")
+        (io_dir / STDERR_FILE).write_text("tool exploded\n", encoding="utf-8")
+
+    run = _executor().run_gate(
+        FakeExec(CommandResult(exit_code=124), write_partial),
+        worktree,
+        io_dir,
+        "p",
+        archive_stem="003-requirement",
+    )
+
+    archive = io_dir / ARCHIVE_DIR / "003-requirement-attempt1"
+    assert not run.ok
+    assert run.artifact_dirs == [str(archive)]
+    assert "partial stream" in (archive / OUTPUT_FILE).read_text(encoding="utf-8")
+    assert "tool exploded" in (archive / STDERR_FILE).read_text(encoding="utf-8")
+    meta = json.loads((archive / "meta.json").read_text(encoding="utf-8"))
+    assert meta["exit_code"] == 124
+
+
+def test_archive_write_failure_fails_gate_as_data(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    @brief   An archive write failure never silently advances the gate; it is
+             returned as a failed GateRun for the conductor to handle.
+    @version 0.1.0
+    """
+    worktree, io_dir = _dirs(tmp_path)
+    executor = _executor()
+
+    def fail_archive(*_args, **_kwargs):
+        """
+        @brief   Simulate a disk failure while writing the archive.
+        @author  Eng. Dan Dumitru Pasare
+        @date    2026-07-07
+        @version 0.1.0
+        """
+        raise OSError("disk full")
+
+    monkeypatch.setattr(executor, "_archive_launch", fail_archive)
+
+    run = executor.run_gate(
+        FakeExec(CommandResult(exit_code=0)),
+        worktree,
+        io_dir,
+        "p",
+        archive_stem="004-validation",
+    )
+
+    assert not run.ok
+    assert "archive write failed" in run.stderr
+    assert "disk full" in run.stderr
+    assert run.artifact_dirs == []
+
+
 def test_session_not_found_self_heals_with_fresh_session(tmp_path: Path) -> None:
     """
     @brief   A dead session (container recreated / pruned) relaunches once
@@ -258,12 +385,27 @@ def test_session_not_found_self_heals_with_fresh_session(tmp_path: Path) -> None
                                           encoding="utf-8")
         return CommandResult(exit_code=0)
 
-    run = executor.run_gate(exec_target, worktree, io_dir, "p", session="ses_dead")
+    run = executor.run_gate(
+        exec_target,
+        worktree,
+        io_dir,
+        "p",
+        session="ses_dead",
+        archive_stem="004-implementation",
+    )
     assert run.ok
     assert run.session_id == "ses_fresh"
     assert len(calls) == 2
     assert "--session ses_dead" in calls[0]
     assert "--session" not in calls[1]
+    assert run.artifact_dirs == [
+        str(io_dir / ARCHIVE_DIR / "004-implementation-attempt1"),
+        str(io_dir / ARCHIVE_DIR / "004-implementation-attempt2"),
+    ]
+    first = Path(run.artifact_dirs[0])
+    second = Path(run.artifact_dirs[1])
+    assert "Session not found" in (first / STDERR_FILE).read_text(encoding="utf-8")
+    assert "ses_fresh" in (second / OUTPUT_FILE).read_text(encoding="utf-8")
 
 
 def test_usage_extraction_from_event_stream(tmp_path: Path) -> None:

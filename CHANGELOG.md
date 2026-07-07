@@ -12,6 +12,14 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-07-08
+
+### Added
+
+- Persisted immutable executor-launch archives under each run's io directory
+  and added an ADOR-owned rotating `<store_root>/ador.log` for `ador run`
+  commands, improving auditability for Task Scheduler and `--once` runs.
+
 ## [0.4.0] - 2026-07-07
 
 ### Added

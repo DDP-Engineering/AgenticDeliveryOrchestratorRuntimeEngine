@@ -18,7 +18,7 @@
          worktree) - never from live stdout.
 @author Eng. Dan Dumitru Pasare
 @date 2026-07-03
-@version 0.1.1
+@version 0.2.0
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ from __future__ import annotations
 # IMPORTS
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 
@@ -73,10 +73,11 @@ class GateRun:
              code, whether the executor asked clarification questions, and
              the session id for continuing the same executor session at the
              next gate. `output` is the raw event stream (also persisted in
-             the run's io dir for audit).
+             the run's io dir for audit). `artifact_dirs` names immutable
+             per-launch archive directories created by the file protocol.
     @author  Eng. Dan Dumitru Pasare
     @date    2026-07-03
-    @version 0.1.0
+    @version 0.2.0
     """
 
     exit_code: int
@@ -88,6 +89,7 @@ class GateRun:
     tokens_in: int = 0
     tokens_out: int = 0
     cost_usd: float = 0.0
+    artifact_dirs: list[str] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
@@ -111,7 +113,7 @@ class Executor(ABC):
     @brief   Abstract executor launcher (opencode/pi/codex).
     @author  Eng. Dan Dumitru Pasare
     @date    2026-07-03
-    @version 0.1.1
+    @version 0.2.0
     """
 
     @abstractmethod
@@ -124,6 +126,7 @@ class Executor(ABC):
         *,
         session: str = "",
         timeout: float | None = None,
+        archive_stem: str = "",
     ) -> GateRun:
         """
         @brief      Launch the executor for a single workflow gate.
@@ -135,10 +138,11 @@ class Executor(ABC):
                            travels through argv).
         @param[in]  session Executor session id to continue ("" = new).
         @param[in]  timeout Wall-clock bound (run budgets).
+        @param[in]  archive_stem Optional immutable archive name stem.
         @return     A GateRun describing the outcome.
         @author     Eng. Dan Dumitru Pasare
         @date       2026-07-03
-        @version    0.1.1
+        @version    0.2.0
         """
 
 

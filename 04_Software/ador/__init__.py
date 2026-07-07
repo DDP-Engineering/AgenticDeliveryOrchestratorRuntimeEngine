@@ -12,12 +12,12 @@
 @brief Package marker and version for the Agentic Delivery Orchestrator (ADOR).
 @details Exposes the package version. ADOR is standard-library only at runtime.
 @author Eng. Dan Dumitru Pasare
-@date 2026-07-07
-@version 0.1.3
+@date 2026-07-08
+@version 0.1.4
 """
 
 # CONSTANTS
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 # END OF FILE

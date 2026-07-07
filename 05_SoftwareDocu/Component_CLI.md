@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: CLI (`ador/cli.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/ador/cli.py` - file version 0.3.0.
+> Source: `04_Software/ador/cli.py` - file version 0.5.0.
 > Design: Orchestrator_Design_And_Decisions.md section 12a;
 > Assisted_Config_And_Profiles_Plan.md (init / profile / --profile).
 
@@ -32,10 +32,12 @@ the `ador` package; no REST API or web UI exists in v1 by design.
   - `ador pause` / `ador resume` - toggle the global pickup flag.
 - Wire the phase-3 engine commands (all refuse to start on an invalid
   config): `ador run --loop|--once|--dry-run` (default mode from
-  `[polling] mode`; `--once` prints the poll summary as JSON),
+  `[polling] mode`; `--once` prints the poll summary as JSON; all `run`
+  modes also mirror their output to `<store_root>/ador.log`),
   `ador cancel <run-id>`, `ador retry <run-id>`, `ador logs <run-id>`
-  (journal), and `ador delete <run-id> --force` (destructive; refuses
-  without `--force`, design 8c guardrail).
+  (journal, including executor archive paths when present), and
+  `ador delete <run-id> --force` (destructive; refuses without `--force`,
+  design 8c guardrail).
 - Wire the metrics commands (phase 5): `ador stats [--since 30d] [--by
   priority|outcome] [--html] [--rebuild]`, `ador report <run-id>` (live
   journal summary as JSON), `ador export --csv` (all summaries to stdout).
@@ -74,6 +76,10 @@ Explicitly not owned: any engine behavior; the handlers are thin views over
 - A held/stale instance lock on `run --once` prints the lock path and a
   removal hint instead of a traceback; `ador cleanup` clears it (invoking
   cleanup asserts no poller is running).
+- `_cmd_run` wraps the engine logger with `ProcessLogger`, so engine log
+  lines and the final `--once` / `--dry-run` JSON summary are both printed to
+  stdout and appended to `<store_root>/ador.log`. Other commands remain
+  stdout-only.
 - `_store` builds the `StateStore` from `[state] store_root` + `[agent] slug`.
 - Corrupt runs (from `StateStore.invalid_runs()`) are surfaced in both
   `status` and `runs` so damaged state is visible, not hidden.
@@ -83,10 +89,10 @@ Explicitly not owned: any engine behavior; the handlers are thin views over
 ## 4. Dependencies
 
 - Internal: `ador.config` (load/validate), `ador.state` (`StateStore`),
-  `ador.orchestrator` (engine commands), `ador.metrics` (stats/report/
-  export), `ador.profiles` (`ProfileStore`, `resolve_config_path`),
-  `ador.wizard` (`run_wizard`, askers), `ador.util` (`parse_duration`),
-  `ador.__version__`.
+  `ador.orchestrator` (engine commands), `ador.process_log` (run command
+  tee + rotation), `ador.metrics` (stats/report/export), `ador.profiles`
+  (`ProfileStore`, `resolve_config_path`), `ador.wizard` (`run_wizard`,
+  askers), `ador.util` (`parse_duration`), `ador.__version__`.
 - External: Python standard library only (`argparse`, `json`, `tomllib`,
   `dataclasses`, `contextlib`).
 
@@ -95,8 +101,8 @@ Explicitly not owned: any engine behavior; the handlers are thin views over
 - Inputs: argv; `-c/--config` (default resolves to `./config.toml`);
   `--profile NAME`; the active-profile pointer under the ADOR config home.
 - Outputs: stdout text (human-oriented; `config show` prints JSON), the
-  process exit code, pause-flag changes, and profile creation/edits under the
-  ADOR config home.
+  process exit code, `run` command process-log lines under `<store_root>`,
+  pause-flag changes, and profile creation/edits under the ADOR config home.
 
 ## 6. Data Contracts
 
@@ -140,7 +146,8 @@ ador --profile sample-project run --dry-run   # any command against a profile
   in a tmp dir: validate OK / with issues, missing config file, invalid TOML,
   status/pause/resume/runs together, corrupt runs surfaced, stats/export on
   an empty store, reset refusing without `--force` and failing cleanly on an
-  unknown run, cleanup printing its JSON report, and the one remaining stub
+  unknown run, cleanup printing its JSON report, `run --once` writing
+  `<store_root>/ador.log`, process-log rotation, and the one remaining stub
   (`config set`) exiting 2.
 - `tests/test_orchestrator.py` covers the engine side of `reset` (stage set +
   journaled, invalid stage/run refused, retry continues from the reset

@@ -25,7 +25,9 @@ deterministic run identity, and the fail-closed handling of damaged state.
   - `ticket.json` - the ticket snapshot taken at pickup,
   - `state.json` - the `RunState` (stage, lifecycle, comment ids, rounds,
     budget counters, park bookkeeping, resource names, timestamps),
-  - `journal.jsonl` - append-only orchestrator events.
+  - `journal.jsonl` - append-only orchestrator events,
+  - `io/` - live executor exchange files plus `io/archive/` immutable
+    per-launch copies (written by the executor launcher).
 - `derive_run_id(platform, project, iid)` - deterministic, filesystem-safe,
   stable across restart/resume (never random; design 8a).
 - `content_hash(title, description)` - drift detection: a changed hash on
@@ -64,7 +66,8 @@ deciding transitions (orchestrator).
 - Inputs: store root + slug (from config), `RunState` objects, ticket
   mappings, journal events.
 - Outputs: the persisted `.ador/` tree; loaded `RunState` / ticket / journal
-  records; lock and pause status.
+  records; lock and pause status. The same store root also holds
+  `ador.log`, owned by the process-log component.
 
 ## 6. Data Contracts
 
@@ -72,6 +75,8 @@ deciding transitions (orchestrator).
   dir, the branch (`ador/<run-id>`), the container (`ador-run-<run-id>`), and
   the state dir - one identity for every per-run resource.
 - Journal record shape: `{"ts": <iso>, "event": <name>, ...fields}`.
+  Executor archives are indexed with `event = "executor-artifacts"` and an
+  `artifacts` list of archive directories.
 - Lock record shape: `{"pid": <int>, "acquired_at": <iso>}`; `lock_info()`
   returns `{}` when held-but-unreadable and `None` when free.
 - The orchestrator run state is fully independent from the target repo's
@@ -81,9 +86,10 @@ deciding transitions (orchestrator).
 
 Every poll pass reads and writes through this store: pickup snapshots the
 ticket, each gate transition updates `state.json` and appends journal events,
-park/resume rely on the recorded comment ids and `parked_at`, and metrics
-(later phase) summarize the journal at terminal states. The CLI (`status`,
-`runs`, `pause`, `resume`) is a thin view over it.
+park/resume rely on the recorded comment ids and `parked_at`, executor
+archive paths are journaled for `ador logs <run-id>`, and metrics summarize
+the journal at terminal states. The CLI (`status`, `runs`, `pause`,
+`resume`) is a thin view over it.
 
 ## 8. Usage
 

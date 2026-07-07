@@ -317,7 +317,11 @@ Linux:
 `status` shows config health, pause state, lock state, and run counts. `runs`
 shows each run id, ticket, stage, and lifecycle. `logs <run-id>` shows the
 per-run journal, including picked tickets, gate launches, gate results,
-executor usage, failures, and delivery events.
+executor usage, failures, delivery events, and executor archive locations.
+The latest live executor exchange remains under
+`<store_root>/runs/<run-id>/io/` (`gate.sh`, `output.jsonl`, `stderr.log`);
+immutable per-launch copies are under
+`<store_root>/runs/<run-id>/io/archive/`.
 
 ## 11. Optional: Make A Profile Active
 
@@ -357,6 +361,10 @@ Useful Windows variants:
 .\deploy\install-windows.ps1 -AllowOpenEgress
 .\deploy\install-windows.ps1 -Uninstall
 ```
+
+For scheduled Windows runs, ADOR also writes its own rotating process log at
+`<store_root>\ador.log`, so `run --once` invocations remain auditable even
+when Task Scheduler stdout is inconvenient to inspect.
 
 Ubuntu systemd:
 

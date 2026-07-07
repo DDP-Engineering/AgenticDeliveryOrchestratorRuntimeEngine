@@ -26,7 +26,7 @@
          container).
 @author Eng. Dan Dumitru Pasare
 @date 2026-07-06
-@version 0.4.0
+@version 0.5.0
 """
 
 from __future__ import annotations
@@ -36,18 +36,22 @@ import json
 from pathlib import Path
 import re
 import shlex
+import shutil
 
 from ador.executor.base import ExecTarget, Executor, GateRun
 from ador.isolation import CONTAINER_IO_MOUNT, CONTAINER_WORKTREE_MOUNT
+from ador.util import utc_now_iso
 
 # CONSTANTS
 
 GATE_SCRIPT = "gate.sh"
 OUTPUT_FILE = "output.jsonl"
 STDERR_FILE = "stderr.log"
+ARCHIVE_DIR = "archive"
 
 # opencode tags each event with "sessionID" / "session_id".
 _OPENCODE_SESSION_RE = re.compile(r'"session_?[iI][dD]"\s*:\s*"([^"]+)"')
+_ARCHIVE_STEM_RE = re.compile(r"[^A-Za-z0-9_.-]+")
 
 # PUBLIC API
 
@@ -59,6 +63,10 @@ class FileProtocolExecutor(Executor):
              (the command with the shell-quoted prompt) into the io dir, exec
              it in the container, and read every result back from files
              (output stream, stderr, questions) - never from live stdout.
+             When an archive stem is provided, each actual launch copies its
+             gate.sh/output/stderr/meta into an immutable archive directory
+             before any dead-session self-heal can relaunch and overwrite the
+             live exchange files.
              Continuation appends `--session <id>` (the convention shared by
              opencode and pi). Subclasses supply only the JSON parsers:
              `_extract_session_id` (required) and `_extract_usage` (optional,
@@ -66,7 +74,7 @@ class FileProtocolExecutor(Executor):
              `session_reset_markers` are per-executor class attributes.
     @author  Eng. Dan Dumitru Pasare
     @date    2026-07-05
-    @version 0.1.0
+    @version 0.2.0
     """
 
     #: Command-template tokens rejected at construction (a bypass of the
@@ -115,6 +123,7 @@ class FileProtocolExecutor(Executor):
         *,
         session: str = "",
         timeout: float | None = None,
+        archive_stem: str = "",
     ) -> GateRun:
         """
         @brief      Run one gate headless; read every result from files.
@@ -124,7 +133,10 @@ class FileProtocolExecutor(Executor):
                     the container, then read the event stream, stderr, and
                     questions file back from the host filesystem. A missing
                     output file is not an error - the exit code carries the
-                    failure and the conductor decides. A dead session
+                    failure and the conductor decides. When archive_stem is
+                    set, the live files are copied to
+                    `io/archive/<stem>-attemptN/` after each actual launch. A
+                    dead session
                     (session_reset_markers in stderr) self-heals by relaunching
                     once with a fresh session.
         @param[in]  execute Exec seam bound to the run's container.
@@ -133,9 +145,54 @@ class FileProtocolExecutor(Executor):
         @param[in]  prompt Gate instruction (never enters argv).
         @param[in]  session Executor session id to continue ("" = new).
         @param[in]  timeout Wall-clock bound (run budgets).
+        @param[in]  archive_stem Optional immutable archive name stem.
         @return     A GateRun describing the outcome.
         @author     Eng. Dan Dumitru Pasare
         @date       2026-07-05
+        @version    0.2.0
+        """
+        return self._run_gate_attempt(
+            execute,
+            worktree,
+            io_dir,
+            prompt,
+            session=session,
+            timeout=timeout,
+            archive_stem=archive_stem,
+            attempt=1,
+            artifact_dirs=[],
+        )
+
+    def _run_gate_attempt(
+        self,
+        execute: ExecTarget,
+        worktree: str | Path,
+        io_dir: str | Path,
+        prompt: str,
+        *,
+        session: str,
+        timeout: float | None,
+        archive_stem: str,
+        attempt: int,
+        artifact_dirs: list[str],
+    ) -> GateRun:
+        """
+        @brief      Run one physical executor launch, archiving before retry.
+        @details    Split from run_gate so a dead-session self-heal can carry
+                    forward the first attempt's archive path before relaunching
+                    with a fresh session.
+        @param[in]  execute Exec seam bound to the run's container.
+        @param[in]  worktree HOST path of the run's worktree.
+        @param[in]  io_dir HOST path of the run's io exchange dir.
+        @param[in]  prompt Gate instruction.
+        @param[in]  session Executor session id for this attempt.
+        @param[in]  timeout Wall-clock bound.
+        @param[in]  archive_stem Optional immutable archive name stem.
+        @param[in]  attempt Attempt number for this stem.
+        @param[in]  artifact_dirs Archive dirs already produced.
+        @return     A GateRun describing the final outcome.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-07
         @version    0.1.0
         """
         worktree = Path(worktree)
@@ -165,13 +222,49 @@ class FileProtocolExecutor(Executor):
 
         result = execute(["sh", f"{CONTAINER_IO_MOUNT}/{GATE_SCRIPT}"], timeout=timeout)
 
-        output = self._read(io_dir / OUTPUT_FILE)
-        stderr = self._read(io_dir / STDERR_FILE) or result.stderr
+        output_path = io_dir / OUTPUT_FILE
+        stderr_path = io_dir / STDERR_FILE
+        output = self._read(output_path)
+        stderr = self._read(stderr_path) or result.stderr
+        artifacts = list(artifact_dirs)
+        if archive_stem:
+            try:
+                archive_dir = self._archive_launch(
+                    io_dir,
+                    archive_stem,
+                    attempt,
+                    result,
+                    output,
+                    stderr,
+                    timeout,
+                    session,
+                    output_path.is_file(),
+                    stderr_path.is_file(),
+                )
+            except OSError as exc:
+                archive_error = f"archive write failed: {exc}"
+                return GateRun(
+                    exit_code=result.exit_code or 1,
+                    session_id=self._extract_session_id(output) or session,
+                    output=output,
+                    stderr=(stderr + "\n" + archive_error).strip(),
+                    artifact_dirs=artifacts,
+                )
+            artifacts.append(str(archive_dir))
         if not result.ok and session and self._is_session_reset(stderr):
             # the stored session died with its container (or was pruned);
             # self-heal by relaunching once with a fresh session
-            return self.run_gate(execute, worktree, io_dir, prompt,
-                                 session="", timeout=timeout)
+            return self._run_gate_attempt(
+                execute,
+                worktree,
+                io_dir,
+                prompt,
+                session="",
+                timeout=timeout,
+                archive_stem=archive_stem,
+                attempt=attempt + 1,
+                artifact_dirs=artifacts,
+            )
         questions = self._read(questions_path)
         tokens_in, tokens_out, cost = self._extract_usage(output)
         return GateRun(
@@ -184,6 +277,7 @@ class FileProtocolExecutor(Executor):
             tokens_in=tokens_in,
             tokens_out=tokens_out,
             cost_usd=cost,
+            artifact_dirs=artifacts,
         )
 
     # -- executor-specific command build + parsing (subclasses) -------------------
@@ -238,6 +332,83 @@ class FileProtocolExecutor(Executor):
         return 0, 0, 0.0
 
     # -- internals ----------------------------------------------------------------
+
+    def _archive_launch(
+        self,
+        io_dir: Path,
+        archive_stem: str,
+        attempt: int,
+        result,
+        output: str,
+        stderr: str,
+        timeout: float | None,
+        session: str,
+        output_present: bool,
+        stderr_present: bool,
+    ) -> Path:
+        """
+        @brief      Copy one completed launch's live exchange files to archive.
+        @details    Creates a unique directory under `io/archive`. Empty
+                    output/stderr files are still written so absence is visible
+                    in meta.json without making operators guess whether a file
+                    was skipped.
+        @param[in]  io_dir Host io exchange directory.
+        @param[in]  archive_stem Base name supplied by the orchestrator.
+        @param[in]  attempt Physical launch number for this stem.
+        @param[in]  result Container exec result.
+        @param[in]  output Captured output stream or "".
+        @param[in]  stderr Captured stderr stream or fallback stderr.
+        @param[in]  timeout Launch timeout.
+        @param[in]  session Session id used for this launch.
+        @param[in]  output_present Whether live output.jsonl existed.
+        @param[in]  stderr_present Whether live stderr.log existed.
+        @return     Archive directory path.
+        @exception  OSError When any archive write fails.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-07
+        @version    0.1.0
+        """
+        archive_root = io_dir / ARCHIVE_DIR
+        archive_root.mkdir(parents=True, exist_ok=True)
+        base_name = f"{self._safe_archive_stem(archive_stem)}-attempt{attempt}"
+        archive_dir = archive_root / base_name
+        suffix = 2
+        while archive_dir.exists():
+            archive_dir = archive_root / f"{base_name}-{suffix}"
+            suffix += 1
+        archive_dir.mkdir()
+        shutil.copy2(io_dir / GATE_SCRIPT, archive_dir / GATE_SCRIPT)
+        (archive_dir / OUTPUT_FILE).write_text(output, encoding="utf-8")
+        (archive_dir / STDERR_FILE).write_text(stderr, encoding="utf-8")
+        meta = {
+            "created_at": utc_now_iso(),
+            "archive_stem": archive_stem,
+            "attempt": attempt,
+            "exit_code": result.exit_code,
+            "argv": result.argv,
+            "timeout": timeout,
+            "session": session,
+            "output_file_present": output_present,
+            "stderr_file_present": stderr_present,
+        }
+        (archive_dir / "meta.json").write_text(
+            json.dumps(meta, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        return archive_dir
+
+    @staticmethod
+    def _safe_archive_stem(value: str) -> str:
+        """
+        @brief      Make an archive stem safe as one directory name segment.
+        @param[in]  value Raw stem.
+        @return     Filesystem-safe non-empty stem.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-07
+        @version    0.1.0
+        """
+        safe = _ARCHIVE_STEM_RE.sub("-", value.strip()).strip(".-")
+        return safe or "launch"
 
     def _is_session_reset(self, stderr: str) -> bool:
         """

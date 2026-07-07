@@ -35,6 +35,8 @@ Runnable implementation of the orchestrator described in
     verification between gates).
   - `metrics.py` - statistics: journal -> SQLite run summaries + JSONL
     mirror, aggregation, CSV export, static HTML dashboard, per-profile stats.
+  - `process_log.py` - fixed rotating process log for `ador run`
+    (`<store_root>/ador.log`) so scheduled runs keep ADOR-owned stdout history.
   - `profiles.py` - runtime-project profiles: cross-platform config home,
     CRUD, active pointer, config-path resolution (one install, many projects).
   - `doctor.py` - environment detection + OS-specific prerequisite guidance.
@@ -65,8 +67,10 @@ Runnable implementation of the orchestrator described in
    post-MR merge/close detection completes or ends the run; the 11b revise
    cycle (agent-revise label -> executor rework with the review thread ->
    delivery tail -> same MR updated, bounded by max_review_rounds).
-5. **Metrics (done):** per-launch token usage journaled, run summaries in
-   SQLite at terminal states, `ador stats|report|export` + static HTML.
+5. **Metrics + execution logs (done):** per-launch token usage journaled,
+   immutable executor-launch archives under each run's `io/archive/`, run
+   summaries in SQLite at terminal states, rotating `<store_root>/ador.log`,
+   `ador stats|report|export` + static HTML.
 6. **Operator commands (done):** `ador reset <run-id> --to <stage> --force`
    (state surgery; follow with `ador retry`) and `ador cleanup` (stale lock,
    orphaned containers, orphaned/husk worktrees; corrupt state reported,
