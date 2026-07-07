@@ -279,6 +279,29 @@ Linux:
 Use this mode while validating labels, readiness rules, container runtime,
 executor auth, and review behavior.
 
+After the poll starts or picks a ticket, monitor the run:
+
+Windows:
+
+```powershell
+.\.venv\Scripts\ador.exe status
+.\.venv\Scripts\ador.exe runs
+.\.venv\Scripts\ador.exe logs <run-id>
+```
+
+Linux:
+
+```bash
+./.venv/bin/ador status
+./.venv/bin/ador runs
+./.venv/bin/ador logs <run-id>
+```
+
+`status` shows config health, pause state, lock state, and run counts. `runs`
+shows each run id, ticket, stage, and lifecycle. `logs <run-id>` shows the
+per-run journal, including picked tickets, gate launches, gate results,
+executor usage, failures, and delivery events.
+
 ## 11. Optional: Make A Profile Active
 
 Making a profile active lets commands omit `--profile`.
@@ -344,6 +367,8 @@ Windows:
 .\.venv\Scripts\ador.exe runs
 .\.venv\Scripts\ador.exe pause
 .\.venv\Scripts\ador.exe resume
+.\.venv\Scripts\ador.exe logs <run-id>
+.\.venv\Scripts\ador.exe report <run-id>
 .\.venv\Scripts\ador.exe cleanup
 ```
 
@@ -354,13 +379,98 @@ Linux:
 ./.venv/bin/ador runs
 ./.venv/bin/ador pause
 ./.venv/bin/ador resume
+./.venv/bin/ador logs <run-id>
+./.venv/bin/ador report <run-id>
 ./.venv/bin/ador cleanup
 ```
 
 Pause stops new ticket pickup; in-flight runs continue. Cleanup handles stale
 locks and orphaned resources but does not delete corrupt run state silently.
 
-## 14. Safe Startup Order
+## 14. Steering A Run
+
+Use steering commands when a run fails, needs to be stopped, or must restart
+from a known workflow stage.
+
+Windows:
+
+```powershell
+.\.venv\Scripts\ador.exe cancel <run-id>
+.\.venv\Scripts\ador.exe retry <run-id>
+.\.venv\Scripts\ador.exe reset <run-id> --to <stage> --force
+.\.venv\Scripts\ador.exe delete <run-id> --force
+```
+
+Linux:
+
+```bash
+./.venv/bin/ador cancel <run-id>
+./.venv/bin/ador retry <run-id>
+./.venv/bin/ador reset <run-id> --to <stage> --force
+./.venv/bin/ador delete <run-id> --force
+```
+
+`cancel` stops the run and keeps auditable state. `retry` re-arms a failed or
+cancelled run from its stored stage. `reset` moves the stage pointer and leaves
+the run retry-able; follow it with `retry`. `delete` permanently removes local
+run state and requires `--force`.
+
+Common reset stages:
+
+```text
+intake
+alignment
+requirement
+check
+implementation
+validation
+delivery
+```
+
+Ticket labels and comments are also steering inputs: remove `agent-ready` before
+pickup, add `agent-hold` to block pickup, add `no-agent` to exclude a ticket,
+reply normally to clarification questions, and use the configured revise trigger
+after a draft MR/PR exists.
+
+## 15. Review The Draft MR/PR
+
+When ADOR finishes validation and delivery, it opens a draft MR/PR and the run
+enters `in-review`.
+
+Human review is the delivery boundary:
+
+- if the MR/PR is good, a human reviewer marks it ready if needed and merges it;
+- if changes are needed, apply the configured revise trigger, usually
+  `agent-revise`, then run one poll so ADOR can revise the same branch;
+- if the MR/PR is left open and unmerged, the run remains `in-review`;
+- if the MR/PR is closed without merge, a later poll marks the run failed and
+  tears down active resources;
+- if the MR/PR is merged, a later poll marks the run done/merged and tears down
+  active resources.
+
+ADOR never merges code by itself.
+
+After a human action, reconcile with one poll:
+
+Windows:
+
+```powershell
+.\.venv\Scripts\ador.exe run --once
+.\.venv\Scripts\ador.exe cleanup
+```
+
+Linux:
+
+```bash
+./.venv/bin/ador run --once
+./.venv/bin/ador cleanup
+```
+
+`cleanup` is optional after a normal reconcile, but it is a useful verification
+step after a merge or close: it reports and removes stale locks, orphaned
+containers, and orphaned worktrees that no longer belong to active runs.
+
+## 16. Safe Startup Order
 
 Use this order for a new ADOR host:
 
@@ -374,4 +484,7 @@ Use this order for a new ADOR host:
 8. Run `ador --profile <profile-name> config validate`.
 9. Run `ador --profile <profile-name> run --dry-run`.
 10. Run `ador --profile <profile-name> run --once`.
-11. Install Task Scheduler or systemd only after supervised checks pass.
+11. Monitor with `ador status`, `ador runs`, and `ador logs <run-id>`.
+12. Use steering commands only when a run needs operator intervention.
+13. Review draft MR/PRs manually; run one poll after merge, close, or revise.
+14. Install Task Scheduler or systemd only after supervised checks pass.

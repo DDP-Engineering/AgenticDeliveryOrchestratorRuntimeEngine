@@ -216,6 +216,40 @@ the host. No separate bot account is required (identity is marker-based).
 | `channel` | How run state is reflected on the ticket: `comments`, `labels`, or `both`. Authoritative state always lives locally. In comment mode ADOR keeps one status comment and edits it in place. | `"comments"` |
 | `store_root` | Local authoritative state directory. | `".ador"` |
 
+### Comment Marker Format
+
+ADOR comment identity is marker-based, not author-account-based. Every ADOR
+comment has a visible tag plus a hidden HTML comment marker.
+
+Visible status line example:
+
+```text
+[ADOR] status: working - stage check - run <run-id> - updated <utc-timestamp>
+```
+
+Hidden marker format:
+
+```html
+<!-- <agent-slug>:run=<run-id> kind=<kind> state=<state> stage=<stage> -->
+```
+
+Default example:
+
+```html
+<!-- ador:run=gitlab-example-project-52 kind=status state=working stage=check -->
+```
+
+The marker lets ADOR distinguish its own comments from human comments even when
+the same human account runs the platform CLI. Comments without the matching
+marker are treated as human-authored. This matters for clarification resume:
+when ADOR parks a run, a normal human comment can answer the question because it
+does not carry the ADOR marker.
+
+Do not manually edit or remove marker lines from ADOR comments. The marker
+grammar is intentionally not configurable; it is created and parsed by the
+identity component. The configurable part is the agent identity (`name` and
+`slug`), which changes the visible tag and the marker prefix.
+
 ## `[polling]` - Polling
 
 | Key | Meaning | Default |
