@@ -128,10 +128,10 @@ ador pause && ador resume
 ador reset ador-gitlab-g-p-14 --to check --force   # then: ador retry <run-id>
 ador cleanup                                       # after a crash / husk dirs
 
-ador init cockpit-gcp                 # assisted setup -> a profile
+ador init sample-project              # assisted setup -> a profile
 ador profile list                     # profiles with dates + use counts
-ador profile use cockpit-gcp          # make it the active profile
-ador --profile cockpit-gcp run --dry-run   # any command against a profile
+ador profile use sample-project       # make it the active profile
+ador --profile sample-project run --dry-run   # any command against a profile
 ```
 
 ## 9. Validation And Tests

@@ -20,6 +20,20 @@ A deeper `AGENTS.md` overrides this file for its subtree.
 - Keep the runnable orchestrator implementation under `04_Software/`.
 - Keep folder boundaries clear across planning, documentation, tools, software,
   software documentation, delivery, and support material.
+- Keep folder ownership explicit:
+  - `00_Planning/` holds planning, strategy, design-history, and TODO
+    material. AI agents update it only when the user explicitly asks.
+  - `01_Documentation/` holds project/user documentation such as manuals,
+    setup guides, configuration references, presentations, and operational
+    guidance. AI agents update it when software interfaces, user-visible
+    behavior, or implementation-facing guidance changes.
+  - `02_Tools/` holds scripts for development environment setup, delivery,
+    packaging, and related repository automation.
+  - `05_SoftwareDocu/` holds component implementation documentation. AI agents
+    update it in the same change as component behavior, contracts,
+    responsibilities, dependencies, or workflow integration.
+  - `07_Delivery/` holds generated delivery packages and release handoff
+    artifacts.
 - Keep the orchestrator forge-agnostic (GitLab and GitHub behind one adapter)
   and executor-agnostic (opencode, pi.dev, codex behind one launcher).
 - Keep the delivery boundary strict: the orchestrator may open a draft MR/PR but

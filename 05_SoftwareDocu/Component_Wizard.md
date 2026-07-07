@@ -90,6 +90,9 @@ commands + `--profile` resolution (plan task 4).
   visibility, repo, repo_path, worktree_root, target_branch, has_push_rule,
   branch_rule, branch_template, runtime, image, executor_cli, model, auth_mode,
   reviewers, budgets_choice, max_*, polling_mode, state_location, confirm`.
+- Interactive fixed choices are displayed as numbered options and accept either
+  the number or the literal choice text; `--answers` files should use the
+  literal choice text for readability.
 - The emitted config always satisfies `validate_config` (enforced by the
   write-then-validate guard).
 
@@ -104,13 +107,13 @@ selects the asker (Console, or Scripted from the answers file), and calls
 
 ```bash
 ador init                       # interactive; asks for a profile name
-ador init cockpit-gcp           # interactive; name given
-ador init cockpit-gcp --answers answers.toml   # non-interactive (CI / servers)
-ador init cockpit-gcp --force   # overwrite an existing profile
+ador init sample-project           # interactive; name given
+ador init sample-project --answers answers.toml   # non-interactive (CI / servers)
+ador init sample-project --force   # overwrite an existing profile
 ```
 
 `answers.toml` uses the field keys as TOML keys, e.g.
-`kind = "gitlab"`, `reviewers = "dan.pasare, jane.doe"`,
+`kind = "gitlab"`, `reviewers = "reviewer.one, reviewer.two"`,
 `runtime = "wsl -d Ubuntu-24.04 -- podman"`.
 
 ## 9. Validation And Tests
@@ -120,8 +123,9 @@ ador init cockpit-gcp --force   # overwrite an existing profile
   profile-owned state root); podman -> keep-id; re-prompt on an invalid clone
   path; re-prompt on a bad push-rule regex and on a branch template the rule
   rejects; refusal to overwrite without `--force`; abort-on-"no" writes nothing;
-  non-interactive determinism (identical bytes) + fail-fast on a bad answer; and
-  the `_validate_or_raise` never-save-invalid guard.
+  non-interactive determinism (identical bytes) + fail-fast on a bad answer;
+  numbered interactive choices; and the `_validate_or_raise` never-save-invalid
+  guard.
 - Live-verified via `ador init --answers` on Windows: environment check,
   minimal config emitted, `config validate` OK.
 - Minimum validation after a change:

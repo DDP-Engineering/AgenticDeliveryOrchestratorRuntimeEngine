@@ -10,6 +10,20 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 Project-level documentation for operating and configuring the Agentic Delivery
 Orchestrator belongs here.
 
+This folder is for project documentation intended to help people understand,
+install, configure, operate, or present ADOR. It includes manuals, setup guides,
+configuration references, user-facing behavior descriptions, operational
+runbooks, and presentations. AI agents should update this folder whenever a
+software interface, user-visible behavior, command, configuration contract, or
+implementation-facing guide changes.
+
+Current contents:
+
+- `Step_By_Step_Setup.md` - step-by-step operator setup guide for Windows and
+  Linux hosts.
+- `Code_Style.md` - code style, Python Doxygen conventions, and local
+  file/function revision marker rules.
+
 Planned contents:
 
 - `Operator_Guide.md` - how to run the orchestrator, what the ticket lifecycle

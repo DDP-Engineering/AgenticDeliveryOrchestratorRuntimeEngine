@@ -8,6 +8,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 # Tools
 
 This folder holds repository-level scripts used outside the runtime package.
+Use it for development-environment setup, release/delivery preparation,
+packaging, verification helpers, and other repository automation scripts.
 The current implemented tool is the runtime-bundle packager:
 
 - `package_runtime.ps1` - Windows PowerShell packager; writes a trimmed

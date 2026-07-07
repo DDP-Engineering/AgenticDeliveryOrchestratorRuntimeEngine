@@ -96,11 +96,11 @@ The foundation the assisted-config feature stands on: the wizard (task 3) calls
 from ador.profiles import ProfileStore, resolve_config_path
 
 store = ProfileStore()                      # ADOR_HOME / %APPDATA% / ~/.config
-store.create("cockpit-gcp", platform="gitlab", repo="grp/proj", runtime="docker")
-store.set_active("cockpit-gcp")
+store.create("sample-project", platform="gitlab", repo="grp/proj", runtime="docker")
+store.set_active("sample-project")
 
 path, used = resolve_config_path(None, None, store=store)   # -> the active profile
-store.touch("cockpit-gcp")                  # record a use (use_count, last_used_at)
+store.touch("sample-project")               # record a use (use_count, last_used_at)
 ```
 
 ## 9. Validation And Tests

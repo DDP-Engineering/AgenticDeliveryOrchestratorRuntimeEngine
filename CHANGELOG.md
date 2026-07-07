@@ -12,6 +12,19 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+### Changed
+
+- Clarified repository folder ownership and AI-agent documentation update
+  responsibilities across planning, documentation, tools, software
+  documentation, and delivery folders.
+
+## [0.3.1] - 2026-07-07
+
+### Changed
+
+- Improved `ador init` fixed-choice prompts to show numbered options while
+  still accepting literal choice text, and anonymized setup/example references.
+
 ## [0.3.0] - 2026-07-07
 
 ### Changed

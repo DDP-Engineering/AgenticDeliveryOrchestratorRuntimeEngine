@@ -34,8 +34,8 @@ name = "ADOR"
 slug = "ador"
 # Git commit author email used inside the executor container (with `name` as
 # the author name). Leave out to derive "<slug>-bot@local"; use a recognizable
-# address in production, e.g. "ador-bot@examplexdigital.fr".
-email = "ador-bot@examplexdigital.fr"
+# address in production, e.g. "ador-bot@example.com".
+email = "ador-bot@example.com"
 
 # ----- Git platform ----------------------------------------------------------
 [platform]
@@ -44,7 +44,7 @@ email = "ador-bot@examplexdigital.fr"
 kind = "gitlab"
 # Project path (GitLab: GROUP/.../PROJECT) or repository (GitHub: OWNER/REPO).
 # REQUIRED - there is no default.
-repo = "rd/internal/france/delivery-tools/delivery-cockpit/cockpit-gcp"
+repo = "group/subgroup/project"
 
 # ----- State signaling -------------------------------------------------------
 # How run state is reflected ON THE TICKET for humans. The authoritative state
@@ -218,8 +218,8 @@ runtime = "docker"
 # Executor image selected by this runtime-project profile. ADOR's generic
 # default is `ador-executor-base:0.2.0` (executor tooling only). Runtime
 # projects should derive their own image from that base and add project
-# dependencies. This example targets Cockpit-GCP, so it uses the Cockpit image.
-image = "ador-executor-cockpit-gcp:latest"
+# dependencies.
+image = "ador-executor-project:latest"
 # Keep the container (stopped) when a run parks, so resume is a fast start.
 keep_parked = true
 # How the parked-container grace period is measured: "polls" | "seconds".
@@ -246,7 +246,7 @@ runtime_env = { UV_LINK_MODE = "copy" }
 # "--memory=2g", "--cpus=2".
 run_args = []
 # Project-image fail-fast checks. Keep empty for executor-base-only validation;
-# Cockpit-GCP requires these tools before any executor gate can run.
+# add the tools your runtime project needs before any executor gate can run.
 required_tool_checks = [
   "make --version",
   "shellcheck --version",
@@ -259,7 +259,7 @@ required_tool_checks = [
 # Local clone of the target repository that per-run worktrees are created
 # from. REQUIRED for isolation: it is mounted (with the worktree) into the
 # executor container, so runs share its object store.
-repo_path = "../cockpit-gcp"
+repo_path = "../project"
 # Host directory holding the per-run git worktrees (<root>/<run-id>).
 root = "worktrees"
 # Run branch name; placeholders: {slug}, {run_id}, {iid}. Must contain
@@ -296,7 +296,7 @@ target_branch = "develop"
 # Always true: a draft cannot be merged until a human marks it ready.
 draft = true
 # Human reviewer(s) assigned to the MR/PR. REQUIRED - at least one.
-reviewers = ["dan.pasare"]
+reviewers = ["reviewer.one"]
 # Delete the run branch when the human merges (GitLab option).
 remove_source_branch = true
 

@@ -121,7 +121,7 @@ tickets = forge.list_ready("agent-ready")
 note_id = forge.post_comment(14, "[ADOR] status ...\n<!-- ador:... -->")
 forge.edit_comment(14, note_id, "updated body")
 url = forge.open_merge_request("ador/run-14", "develop", "Draft: ...", body,
-                               reviewers=["dan.pasare"])
+                               reviewers=["reviewer.one"])
 ```
 
 ## 9. Validation And Tests

@@ -12,7 +12,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 > Source: `04_Software/ador/isolation.py` - file version 0.4.0.
 > Design: Orchestrator_Design_And_Decisions.md sections 8b, 10, 10a.
 > Images: `04_Software/docker/Dockerfile.executor-base` plus
-> runtime-project images such as `Dockerfile.executor-cockpit-gcp`
+> runtime-project images such as `Dockerfile.executor-project`
 > (see `docker/README.md`).
 
 ## 1. Purpose
@@ -161,7 +161,7 @@ from ador.isolation import (
     ContainerManager, WorktreeManager, build_container_env,
 )
 
-worktrees = WorktreeManager("../cockpit-gcp", "worktrees")
+worktrees = WorktreeManager("../project", "worktrees")
 containers = ContainerManager("docker", "ador-executor-base:0.2.0",
                               "ador-uv-cache", "ador-npm-cache")
 
@@ -171,7 +171,7 @@ env = build_container_env(worktrees.admin_dir_name("gitlab-x-14"),
 env["UV_LINK_MODE"] = "copy"              # non-secret runtime behavior
 env["ANTHROPIC_API_KEY"] = "..."          # executor's secret subset only
 containers.ensure_volumes()
-containers.provision("ador-run-gitlab-x-14", "../cockpit-gcp", path, env)
+containers.provision("ador-run-gitlab-x-14", "../project", path, env)
 result = containers.exec("ador-run-gitlab-x-14", ["opencode", "--version"])
 ```
 
@@ -194,7 +194,7 @@ result = containers.exec("ador-run-gitlab-x-14", ["opencode", "--version"])
   shape, bare-key secrets, HOME inline, executor-base tool usability, optional
   runtime-project tool checks, in-container git with host-visible commits,
   park/resume, listing, reap, absence). Docker baseline green 2026-07-04
-  (17/17 on the previous verifier); current Cockpit-GCP Podman pass green
+  (17/17 on the previous verifier); current runtime-project Podman pass green
   2026-07-06 (18/18).
 - **Live verification done 2026-07-03** (Docker Engine in WSL2, scratch repo,
   19/19 steps; Prerequisites_Check_Report.md section 12): image build and
@@ -217,7 +217,7 @@ result = containers.exec("ador-run-gitlab-x-14", ["opencode", "--version"])
   passed to `docker run`; add as `[container]` keys when the budgets phase
   lands.
 - Podman VERIFIED 2026-07-04 (4.9.3 rootless, Ubuntu-24.04/WSL2), and
-  re-verified 2026-07-06 with `ador-executor-cockpit-gcp:latest` plus
+  re-verified 2026-07-06 with a runtime-project image plus
   required tool checks. Rootless mode requires
   `[container] run_args = ["--userns=keep-id"]` (without it, container uid
   1000 cannot write the bind-mounted worktree - caught live by the pass).

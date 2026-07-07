@@ -10,6 +10,11 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 Runtime packages, release artifacts, and operator handoff material for the
 Agentic Delivery Orchestrator belong here.
 
+This folder is the delivery area. It contains generated release packages,
+archives, checksums, and handoff artifacts produced from the repository tooling;
+it is not the place for source code, planning notes, or component
+documentation.
+
 The current implemented packaging flow is a trimmed runtime bundle created by
 the scripts in `02_Tools/`:
 

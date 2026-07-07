@@ -23,8 +23,8 @@
          asker + a fake runner. A non-interactive `--answers FILE` path reuses
          the same field keys (decision D7).
 @author Eng. Dan Dumitru Pasare
-@date 2026-07-05
-@version 0.2.0
+@date 2026-07-07
+@version 0.3.0
 """
 
 from __future__ import annotations
@@ -105,8 +105,8 @@ class ConsoleAsker:
     @details Renders each FieldSpec (description, example, choices, default) and
              reads one line; empty input means "accept the default".
     @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-05
-    @version 0.1.0
+    @date    2026-07-07
+    @version 0.2.0
     """
 
     interactive = True
@@ -125,8 +125,8 @@ class ConsoleAsker:
         @param[in]  spec The field to prompt.
         @return     The stripped input, or None when the user just pressed Enter.
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-05
-        @version    0.1.0
+        @date       2026-07-07
+        @version    0.2.0
         """
         self._out(f"\n{spec.prompt}")
         if spec.description:
@@ -134,7 +134,10 @@ class ConsoleAsker:
         if spec.example:
             self._out(f"  example: {spec.example}")
         if spec.choices:
-            self._out(f"  choices: {' / '.join(spec.choices)}")
+            self._out("  choices:")
+            for index, choice in enumerate(spec.choices, start=1):
+                marker = " [default]" if choice == spec.default else ""
+                self._out(f"    {index}. {choice}{marker}")
         if spec.default is not None:
             self._out(f"  [default: {spec.default}]")
         raw = self._input("> ").strip()
@@ -251,24 +254,47 @@ def _slugify(name: str) -> str:
     return slug if re.match(r"^[a-z][a-z0-9-]*$", slug) else "ador"
 
 
+def _resolve_choice(spec: FieldSpec, value: str) -> str:
+    """
+    @brief      Resolve numbered choice input to the configured choice value.
+    @param[in]  spec The field whose choices are being resolved.
+    @param[in]  value Raw answer after default handling.
+    @return     The matching configured choice, or the original answer.
+    @author     Eng. Dan Dumitru Pasare
+    @date       2026-07-07
+    @version    0.1.0
+    """
+    if not spec.choices:
+        return value
+    stripped = value.strip()
+    if not stripped.isdigit():
+        return value
+    index = int(stripped)
+    if 1 <= index <= len(spec.choices):
+        return spec.choices[index - 1]
+    return value
+
+
 def ask(spec: FieldSpec, asker: ConsoleAsker | ScriptedAsker, out: Callable[[str], None]) -> str:
     """
     @brief      Prompt one field: read, apply default, validate, re-prompt.
-    @details    An empty read falls back to the default. `choices` is enforced.
-                On a validation error the interactive asker re-prompts; a
-                non-interactive asker fails fast with WizardError (D7).
+    @details    An empty read falls back to the default. `choices` accepts the
+                exact choice text or a 1-based number. On a validation error the
+                interactive asker re-prompts; a non-interactive asker fails fast
+                with WizardError (D7).
     @param[in]  spec The field to collect.
     @param[in]  asker The prompt reader (Console/Scripted).
     @param[in]  out Output sink for error lines.
     @return     The validated string value.
     @exception  WizardError When a non-interactive answer is invalid/missing.
     @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.1.0
+    @date       2026-07-07
+    @version    0.2.0
     """
     while True:
         raw = asker.read(spec)
         value = raw if raw is not None else (spec.default or "")
+        value = _resolve_choice(spec, value)
         error: str | None = None
         if spec.choices and value not in spec.choices:
             error = f"choose one of: {', '.join(spec.choices)}"
@@ -391,7 +417,7 @@ def run_wizard(
         name = ask(FieldSpec(
             "profile_name", "Name this runtime-project profile:",
             "a short, filesystem-safe id you'll pass as --profile <name>",
-            "cockpit-gcp",
+            "sample-project",
             validate=lambda v: None if re.match(r"^[a-z0-9][a-z0-9._-]{0,63}$", v)
             else "use lowercase letters/digits/._- (start alphanumeric)",
         ), asker, out)
@@ -400,7 +426,7 @@ def run_wizard(
 
     description = ask(FieldSpec(
         "description", "One-line description (optional):",
-        "shown in `ador profile list`", "GCP analytics platform - TF + Python + TS",
+        "shown in `ador profile list`", "Example service - Python + Terraform",
         default="",
     ), asker, out)
     agent_name = ask(FieldSpec(
@@ -431,7 +457,7 @@ def run_wizard(
             "host_url", "Instance URL:",
             "the CLI must be authenticated against this host "
             "(glab auth login --hostname <host>)",
-            "https://gitlab.mycorp.fr",
+            "https://gitlab.example.com",
             validate=lambda v: None if v.startswith("http") else "must be a URL",
         ), asker, out)
     # Visibility is informational: it decides whether auth is mandatory (the
@@ -444,7 +470,7 @@ def run_wizard(
     repo = ask(FieldSpec(
         "repo", "Repository path (group/subgroup/project, NOT a URL):",
         "the project's path on the platform",
-        "rd/internal/france/delivery-tools/delivery-cockpit/cockpit-gcp",
+        "group/subgroup/project",
         validate=_require,
     ), asker, out)
 
@@ -452,7 +478,7 @@ def run_wizard(
     repo_path = ask(FieldSpec(
         "repo_path", "Absolute path to the local clone:",
         "ADOR creates per-run worktrees from it and mounts it into the container",
-        "D:/projects/cockpit-gcp  (Windows)  |  /home/you/cockpit-gcp  (Linux)",
+        "D:/projects/sample-project  (Windows)  |  /home/you/sample-project  (Linux)",
         validate=_existing_dir,
     ), asker, out)
     if not (Path(repo_path).expanduser() / ".git").exists():
@@ -518,7 +544,7 @@ def run_wizard(
     image = ask(FieldSpec(
         "image", "Executor image name:",
         "base image for executor-only validation, or a runtime-project image",
-        "ador-executor-base:0.2.0  |  ador-executor-cockpit-gcp:latest",
+        "ador-executor-base:0.2.0  |  ador-executor-project:latest",
         default="ador-executor-base:0.2.0", validate=_require,
     ), asker, out)
     executor_cli = ask(FieldSpec(
@@ -543,7 +569,7 @@ def run_wizard(
     reviewers_raw = ask(FieldSpec(
         "reviewers", "Reviewer username(s) for the draft MR (comma-separated):",
         "at least one; the MR is always a DRAFT and ADOR never merges",
-        "dan.pasare, jane.doe",
+        "reviewer.one, reviewer.two",
         validate=lambda v: None if [p for p in v.split(",") if p.strip()]
         else "at least one reviewer is required",
     ), asker, out)

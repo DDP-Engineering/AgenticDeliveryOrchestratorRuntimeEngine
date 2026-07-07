@@ -37,8 +37,8 @@ container image):
   (Ubuntu 22). ADOR runs the executor in a container.
 - **Python 3.11+** for ADOR (no third-party runtime dependencies).
 - **Git-platform CLI**, authenticated (section 2): `glab` and/or `gh`.
-- **Network access** to the Git platform host (for this project, the self-managed
-  GitLab at `gitlab.examplexdigital.fr`) and to the model provider API.
+- **Network access** to the Git platform host (for example, a self-managed
+  GitLab at `gitlab.example.com`) and to the model provider API.
 
 ## 2. Git Platform Credentials
 
@@ -46,10 +46,10 @@ ADOR needs to: read issues and their comments, post/edit issue comments (status 
 questions), read/apply labels, push a branch, create and update a (draft) merge
 or pull request, and read MR/PR review threads. It must **not** be able to merge.
 
-### 2.1 GitLab (this project's Git platform)
+### 2.1 GitLab
 
-**Recommended token:** a **Project Access Token** on the `cockpit-gcp` project, or
-a **Personal Access Token** on a dedicated service/bot account if one exists. In a
+**Recommended token:** a **Project Access Token** on the target project, or a
+**Personal Access Token** on a dedicated service/bot account if one exists. In a
 corporate instance where new users are hard to create, a PAT on an existing
 service account (or an approved human account) is acceptable - identity is
 marker-based, not account-based (see design doc 5c).
@@ -66,7 +66,7 @@ marker-based, not account-based (see design doc 5c).
 - Do **not** add `sudo` or `admin_mode`.
 
 **Alternative (more granular):** use a **fine-grained personal access token** to
-restrict the token to the single `cockpit-gcp` project. Classic PATs have no
+restrict the token to the single target project. Classic PATs have no
 per-endpoint scope for "merge requests only" - writing MRs/notes requires `api`.
 
 **Role / membership (this is what blocks merging):**
@@ -82,7 +82,7 @@ per-endpoint scope for "merge requests only" - writing MRs/notes requires `api`.
 
 ```bash
 # self-managed host
-glab auth login --hostname gitlab.examplexdigital.fr
+glab auth login --hostname gitlab.example.com
 # or non-interactive with a token:
 export GITLAB_TOKEN=<token>        # ADOR / glab read this
 ```
@@ -194,7 +194,7 @@ Not a secret, but required so commits are attributed consistently:
 
 - `git config user.name` / `user.email` inside the container derive from
   `agent.name` (default `ADOR`). Use a recognizable identity, e.g.
-  `ADOR <ador-bot@examplexdigital.fr>`.
+  `ADOR <ador-bot@example.com>`.
 - This is separate from the marker used to distinguish comments (design doc 5c);
   it only affects commit authorship.
 
@@ -216,8 +216,8 @@ This is what makes "the agent never merges" a hard rule rather than a convention
   ADOR/executor tooling baked in: Python 3.11 + `uv`, Node 24 + `npm`, `git`,
   executor CLIs, and `glab`/`gh`.
 - Build one **runtime-project image** per target project, extending the base
-  image with that project's build/test tools. Cockpit-GCP uses
-  `ador-executor-cockpit-gcp:latest` for `make`, `shellcheck`, Terraform, and
+  image with that project's build/test tools, for example
+  `ador-executor-project:latest` with `make`, `shellcheck`, Terraform, and
   `tflint`.
 - Create the persistent cache volumes referenced in `config.toml`
   (`ador-uv-cache`, `ador-npm-cache`) so `uv sync` / `npm ci` are fast.

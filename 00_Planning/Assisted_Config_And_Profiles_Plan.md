@@ -24,7 +24,7 @@ container runtime) with no in-tool guidance. This plan adds a **detection-first,
 fully-explicit interactive `ador init` wizard** that produces a named **runtime
 project profile**, and a **profile-management CLI** (`ador profile list|show|
 delete|rename|use|path`) with creation date and run statistics. It works across
-different target projects (not just cockpit-gcp) and on both Windows and Ubuntu.
+different target projects and on both Windows and Ubuntu.
 It stays CLI-first and standard-library-only — no GUI, no hosted server —
 consistent with design decision 12a, which explicitly permits `ador config`
 helpers while ruling out a settings GUI.
@@ -185,7 +185,7 @@ printed when a check fails; both Windows and Ubuntu instructions are given.
       `glpat-XXXXXXXXXXXXXXXXXXXX` *(the literal prefix* `glpat-` *followed by 20
       characters).*
     - **Authenticate the CLI**: `glab auth login` (choose the host; for a corporate
-      instance enter the hostname, e.g. `gitlab.mycorp.fr`; paste the token). For
+      instance enter the hostname, e.g. `gitlab.example.com`; paste the token). For
       GitHub: `gh auth login`.
     - Alternatively put the token in the project `.env` as `GITLAB_TOKEN=` /
       `GITHUB_TOKEN=` (the wizard records the key name, never the value).
@@ -196,7 +196,7 @@ printed when a check fails; both Windows and Ubuntu instructions are given.
 ### Phase B — Project identity
 
 - **B1 Profile name** — *a short, filesystem-safe name for THIS project profile;
-  you'll reference it as* `--profile <name>` — `cockpit-gcp` — validation:
+  you'll reference it as* `--profile <name>` — `sample-project` — validation:
   matches `^[a-z0-9][a-z0-9._-]{0,63}$`, not already taken (unless `--force`).
 - **B2 Project description** *(optional)* — *one line shown in* `ador profile list`
   — `GCP analytics platform — Terraform + Python + TS` — any text or empty.
@@ -211,14 +211,14 @@ printed when a check fails; both Windows and Ubuntu instructions are given.
   if run inside a clone. -> `[platform] kind`.
 - **C2 Public service or corporate/self-hosted?** — *gitlab.com/github.com, or a
   private company instance* — `corporate` — one of `public`\|`corporate`. If
-  `corporate`: **C2a Host URL** — `https://gitlab.examplexdigital.fr` — must be a
+  `corporate`: **C2a Host URL** — `https://gitlab.example.com` — must be a
   URL; the wizard notes the CLI must be authenticated against this host
   (`glab auth login --hostname <host>` or `GITLAB_HOST`).
 - **C3 Repository visibility** — *is the repo public or private/corporate?* —
   `private` — one of `public`\|`private`. If `private`: a token/CLI auth is
   required (loop back to A5 guidance if not satisfied).
 - **C4 Repository path** — *the project path in* `group/subgroup/project` *form
-  (NOT a URL)* — `rd/internal/france/delivery-tools/delivery-cockpit/cockpit-gcp`
+  (NOT a URL)* — `group/subgroup/project`
   — non-empty; if run inside a clone, detect from `git remote get-url origin` and
   offer it for confirmation. -> `[platform] repo`.
 
@@ -226,7 +226,7 @@ printed when a check fails; both Windows and Ubuntu instructions are given.
 
 - **D1 Local clone path** — *absolute path to the local clone ADOR creates
   worktrees from (it is mounted into the container)* —
-  Windows `D:/projects/cockpit-gcp` / Ubuntu `/home/you/projects/cockpit-gcp` —
+  Windows `D:/projects/sample-project` / Ubuntu `/home/you/projects/sample-project` —
   validation: path exists, is a git work-tree, `origin` remote matches C4 host.
   Default: current directory if it qualifies. -> `[worktree] repo_path`.
 - **D2 Worktree root** *(confirm default)* — *host directory that holds per-run
@@ -258,7 +258,7 @@ printed when a check fails; both Windows and Ubuntu instructions are given.
 - **F2 Executor image** *(confirm default)* — *the built image name; build it per*
   `docker/README.md` *before the first run* —
   `ador-executor-base:0.2.0` for executor-only validation, or a runtime-project
-  image such as `ador-executor-cockpit-gcp:latest` — non-empty; offer to check
+  image such as `ador-executor-project:latest` — non-empty; offer to check
   presence (`<runtime> image inspect`) and warn if absent.
   -> `[container] image`.
 - **F3 Executor CLI + model** — **F3a** *which executor* — `opencode` — one of the
@@ -275,7 +275,7 @@ printed when a check fails; both Windows and Ubuntu instructions are given.
 ### Phase G — Delivery & reviewers
 
 - **G1 Reviewers** — *platform usernames assigned to the draft MR (comma-
-  separated)* — `dan.pasare` — at least one for delivery. -> `[delivery] reviewers`.
+  separated)* — `reviewer.one` — at least one for delivery. -> `[delivery] reviewers`.
 - **G2 (auto, informational) Draft-only** — the MR is always opened as a draft and
   ADOR never merges; shown, not asked. `draft=false` is rejected by validation.
 
@@ -328,20 +328,20 @@ ador --profile NAME <any command> # global flag; resolves config for run/status/
 ### `profile.json` schema (metadata sidecar)
 ```json
 {
-  "name": "cockpit-gcp",
+  "name": "sample-project",
   "description": "GCP analytics platform — Terraform + Python + TS",
   "created_at": "2026-07-05T09:00:00Z",
   "updated_at": "2026-07-05T09:00:00Z",
   "last_used_at": "2026-07-05T10:12:00Z",
   "use_count": 4,
   "platform": "gitlab",
-  "host": "gitlab.examplexdigital.fr",
-  "repo": "rd/.../cockpit-gcp",
+  "host": "gitlab.example.com",
+  "repo": "group/subgroup/project",
   "runtime": "wsl -d Ubuntu-24.04 -- podman",
   "host_os": "Windows",
   "ador_version": "0.x.y",
-  "config_path": "<home>/profiles/cockpit-gcp/config.toml",
-  "store_root": "<home>/profiles/cockpit-gcp/state"
+  "config_path": "<home>/profiles/sample-project/config.toml",
+  "store_root": "<home>/profiles/sample-project/state"
 }
 ```
 - `use_count`/`last_used_at` are bumped whenever a command resolves this profile.
@@ -406,7 +406,7 @@ ador --profile NAME <any command> # global flag; resolves config for run/status/
   runner/OS-key; stdlib TOML emitter (literal strings for regex/paths, no
   tomli_w); write-then-validate guard (never saves invalid); non-interactive
   `--answers` fail-fast + reproducible. LIVE-VERIFIED on Windows: `ador init
-  cockpit-gcp --answers answers.toml` produced a minimal config that
+  sample-project --answers answers.toml` produced a minimal config that
   `config validate` accepts. The golden test asserts every emitted config
   passes validate_config.
 - **Model: Claude Opus 4.8 — Reasoning: High (use maximum thinking budget).**
@@ -430,7 +430,7 @@ ador --profile NAME <any command> # global flag; resolves config for run/status/
   `cli.py`, global `--profile`, `_load` refactored to `resolve_config_path`
   (touches the resolved profile) + `tests/test_profile_cli.py` (8 tests; suite
   202 passing) + Component_CLI.md updated. LIVE-VERIFIED: `profile list/use/
-  path` + `--profile cockpit-gcp config validate` resolve correctly and bump
+  path` + `--profile sample-project config validate` resolve correctly and bump
   use_count/last_used_at; explicit `-c` still wins (regression-tested).
 - **Model: Claude Sonnet 5 — Reasoning: Medium-High.**
 - **Why:** mostly mechanical CRUD handlers, but the `--profile`/`-c` resolution
@@ -448,7 +448,7 @@ ador --profile NAME <any command> # global flag; resolves config for run/status/
 - **STATUS: DONE (2026-07-05).** `metrics.profile_stats(db_path)` (zeros on a
   missing DB) + wired into `_profile_metrics`/`_profile_list`/`_profile_show`
   in cli.py; `tests/test_metrics.py` (+1) and `tests/test_profile_cli.py` (+1);
-  suite 204 passing. LIVE-VERIFIED: seeded the cockpit-gcp metrics DB -> `list`
+  suite 204 passing. LIVE-VERIFIED: seeded the sample-project metrics DB -> `list`
   shows RUNS/MERGED, `show` shows runs/merged/failed/success_rate/launches/
   tokens/avg_span/last_run. Honors a custom `[metrics] db_path`, else
   `<store_root>/metrics.db`.

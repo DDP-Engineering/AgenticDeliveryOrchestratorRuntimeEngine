@@ -65,7 +65,7 @@ cannot merge protected branches - intended, ADOR never merges). Copy it now (it
 is shown once). *A GitLab PAT looks like* `glpat-XXXXXXXXXXXXXXXXXXXX` *(the
 literal prefix* `glpat-` *followed by 20 characters).*
 Then: `glab auth login` (for a corporate/self-hosted instance choose the
-hostname, e.g. `gitlab.mycorp.fr`, and paste the token).
+hostname, e.g. `gitlab.example.com`, and paste the token).
 
 For **GitHub**: create a fine-grained PAT with Contents + Pull requests + Issues
 (read/write), then `gh auth login`.
@@ -85,22 +85,23 @@ crawl-pilot host-auth OAuth bridge is not for unattended use - see
 
 `docker/README.md` has the exact build commands (and the WSL2 variant). Build
 `ador-executor-base:0.2.0` for the generic executor environment, then build one
-runtime-project image with the target project's dependencies. For Cockpit-GCP,
-use `ador-executor-cockpit-gcp:latest`; new projects should create their own
-image from the same base.
+runtime-project image with the target project's dependencies, for example
+`ador-executor-project:latest`.
 
 ---
 
 ## 1. Run the wizard
 
 ```bash
-ador init cockpit-gcp                 # interactive
-ador init cockpit-gcp --answers a.toml   # non-interactive (CI/servers)
-ador init cockpit-gcp --force            # overwrite an existing profile
+ador init sample-project                 # interactive
+ador init sample-project --answers a.toml   # non-interactive (CI/servers)
+ador init sample-project --force            # overwrite an existing profile
 ```
 
 The wizard walks these phases; each prompt shows a description, an example, a
-default, and validates your answer (re-prompting on error):
+default, and validates your answer (re-prompting on error). Fixed-choice
+questions are shown as numbered options; type the number or the literal choice
+text.
 
 | Phase | You provide |
 |---|---|
@@ -121,7 +122,7 @@ kind = "gitlab"
 repo = "grp/sub/project"
 repo_path = "/home/you/clone"        # or "D:/projects/clone" on Windows
 runtime = "wsl -d Ubuntu-24.04 -- podman"
-reviewers = "dan.pasare, jane.doe"
+reviewers = "reviewer.one, reviewer.two"
 has_push_rule = "yes"
 branch_rule = "^(feature|bugfix|release|hotfix)/.*$"
 branch_template = "feature/{slug}-{iid}"
@@ -134,11 +135,11 @@ confirm = "yes"
 
 ```bash
 ador profile list                       # profiles + run stats, active marked *
-ador profile show cockpit-gcp           # full metadata + statistics
-ador profile use cockpit-gcp            # make it the active profile
-ador --profile cockpit-gcp config validate
-ador --profile cockpit-gcp run --dry-run
-ador --profile cockpit-gcp run --once   # once glab is authenticated + image built
+ador profile show sample-project           # full metadata + statistics
+ador profile use sample-project            # make it the active profile
+ador --profile sample-project config validate
+ador --profile sample-project run --dry-run
+ador --profile sample-project run --once   # once glab is authenticated + image built
 ```
 
 Config resolution order: explicit `-c FILE` > `--profile NAME` > the active

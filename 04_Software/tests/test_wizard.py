@@ -13,8 +13,8 @@
        and a fake command runner; the golden assertion is that every profile it
        writes passes validate_config.
 @author Eng. Dan Dumitru Pasare
-@date 2026-07-05
-@version 0.1.0
+@date 2026-07-07
+@version 0.2.0
 """
 
 from __future__ import annotations
@@ -101,7 +101,7 @@ def _answers(clone: Path, **overrides: object) -> dict[str, object]:
         "runtime": "docker",
         "model": "openai/gpt-5.5",
         "auth_mode": "api-key",
-        "reviewers": "dan.pasare, jane.doe",
+        "reviewers": "reviewer.one, reviewer.two",
         "budgets_choice": "recommended",
         "polling_mode": "once",
         "state_location": "profile",
@@ -125,20 +125,20 @@ def test_wizard_writes_a_valid_minimal_profile(tmp_path: Path) -> None:
     @brief   The golden test: a full scripted run writes a profile whose
              config.toml loads and passes validate_config, with the expected
              metadata and a profile-owned state root.
-    @version 0.1.0
+    @version 0.1.1
     """
     store = _store(tmp_path)
     asker = ScriptedAsker(_answers(_clone(tmp_path)))
     profile = run_wizard(store, asker=asker, out=lambda _line: None,
-                         runner=_runner(), os_key="linux", name="cockpit")
+                         runner=_runner(), os_key="linux", name="sample")
 
-    assert store.exists("cockpit")
-    config = load_config(store.config_path("cockpit"))
+    assert store.exists("sample")
+    config = load_config(store.config_path("sample"))
     assert validate_config(config) == []                     # <-- the golden assertion
     assert config.platform.repo == "grp/sub/proj"
     assert config.container.runtime == "docker"
     assert config.worktree.branch_rule.startswith("^(feature")
-    assert config.delivery.reviewers == ["dan.pasare", "jane.doe"]
+    assert config.delivery.reviewers == ["reviewer.one", "reviewer.two"]
     assert config.state.store_root.endswith("state")         # profile-owned (D2)
     assert profile.platform == "gitlab" and profile.repo == "grp/sub/proj"
 
@@ -146,7 +146,7 @@ def test_wizard_writes_a_valid_minimal_profile(tmp_path: Path) -> None:
 def test_wizard_podman_adds_userns_keepid(tmp_path: Path) -> None:
     """
     @brief   Choosing a podman runtime auto-adds run_args=["--userns=keep-id"].
-    @version 0.1.0
+    @version 0.1.1
     """
     store = _store(tmp_path)
     asker = ScriptedAsker(_answers(_clone(tmp_path), runtime="podman"))
@@ -262,10 +262,10 @@ def test_wizard_corporate_host_is_recorded(tmp_path: Path) -> None:
     """
     store = _store(tmp_path)
     asker = ScriptedAsker(_answers(_clone(tmp_path), hosting="corporate",
-                                   host_url="https://gitlab.mycorp.fr"))
+                                   host_url="https://gitlab.example.com"))
     profile = run_wizard(store, asker=asker, out=lambda _l: None, runner=_runner(),
                          os_key="linux", name="corp")
-    assert profile.host == "https://gitlab.mycorp.fr"
+    assert profile.host == "https://gitlab.example.com"
     assert asker.reads.count("host_url") == 1
 
 
@@ -351,6 +351,21 @@ def test_console_asker_reprompts_on_invalid_choice() -> None:
                 asker, seen.append)
     assert value == "docker"
     assert any("choose one of" in line for line in seen)
+
+
+def test_console_asker_accepts_numbered_choice() -> None:
+    """
+    @brief   Numbered choices are resolved to the configured string value.
+    @version 0.1.0
+    """
+    seen: list[str] = []
+    asker = ConsoleAsker(input_fn=lambda _p: "2", out=seen.append)
+    value = ask(FieldSpec("rt", "Runtime?", choices=("docker", "podman")),
+                asker, seen.append)
+
+    assert value == "podman"
+    assert "    1. docker" in seen
+    assert "    2. podman" in seen
 
 
 # PUBLIC API / TESTS - the never-save-invalid safety net

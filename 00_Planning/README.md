@@ -10,6 +10,12 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 Architecture notes, requirements, design decisions, and roadmap for the Agentic
 Delivery Orchestrator belong here.
 
+This folder is for planning and project memory: documents used to design and
+develop the current app, strategic choices, investigation records, and TODOs.
+AI agents must not update planning documents as routine implementation
+maintenance. Update this folder only when the user explicitly asks for a
+planning, strategy, decision-record, or TODO change.
+
 Planned contents:
 
 - `Orchestrator_Architecture.md` - the orchestrator design: the thick-conductor

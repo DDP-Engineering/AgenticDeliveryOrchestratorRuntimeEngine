@@ -13,6 +13,12 @@ the orchestrator package belong here. Component documents follow
 change as the component (see the Documentation Rules in the repository
 `AGENTS.md`).
 
+This folder is the home for component implementation documentation. AI agents
+must keep it current when they create or change component behavior, contracts,
+responsibilities, dependencies, or workflow integration. These documents are
+implementation companions to the code and tests; user manuals and operator
+guides belong in `01_Documentation/`.
+
 ## Component documentation (phase 1 - base services)
 
 - `Component_Util.md` - shared helpers: injectable command runner, duration

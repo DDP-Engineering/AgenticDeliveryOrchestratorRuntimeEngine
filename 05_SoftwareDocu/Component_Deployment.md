@@ -74,7 +74,7 @@ bundle is owned by `02_Tools/package_runtime.*`.
 
 - Internal: the `ador` console script in `.venv` (created by `uv sync`),
   `config.toml`, optional `.env`, `docker/Dockerfile.executor-base`, and any
-  runtime-project Dockerfile such as `docker/Dockerfile.executor-cockpit-gcp`.
+  runtime-project Dockerfile such as `docker/Dockerfile.executor-project`.
 - External: `uv`, `git`, `glab` or `gh`, a container runtime; `systemd`
   (Ubuntu) or Task Scheduler + the `ScheduledTasks` PowerShell module
   (Windows, in-box).

@@ -33,7 +33,7 @@ examples and validation), and writes a **minimal, validated** config as a named
 - **Use:** any command resolves its config in this order -
   explicit `-c FILE` > `--profile NAME` > the active profile > `./config.toml`.
   Single-config users (no profile) are unaffected. Example:
-  `ador --profile cockpit-gcp run --dry-run`.
+  `ador --profile sample-project run --dry-run`.
 - **Profile-owned state (default):** a profile's `[state] store_root` points
   under the profile (`<home>/profiles/<name>/state`), so each project's runs,
   metrics, and lock stay isolated; the wizard can instead co-locate a `.ador`
@@ -55,7 +55,7 @@ email = "ador-bot@example.com"  # commit author email in the container (derived 
 # ----- Git platform -----
 [platform]
 kind = "gitlab"              # "gitlab" | "github"
-repo = "rd/internal/france/delivery-tools/delivery-cockpit/cockpit-gcp"
+repo = "group/subgroup/project"
 # The Git-platform CLI (glab / gh) must be installed and authenticated on the host.
 
 # ----- State signaling -----
@@ -146,13 +146,13 @@ run_args           = []         # extra `run` options; rootless podman: ["--user
 required_tool_checks = []       # project-image checks, e.g. ["terraform --version"]
 
 [worktree]
-repo_path = "../cockpit-gcp" # local clone the run worktrees are created from (required)
+repo_path = "../project" # local clone the run worktrees are created from (required)
 root      = "worktrees"      # host dir holding per-run git worktrees
 branch_template = "{slug}/{run_id}"  # run branch name; {slug}/{run_id}/{iid} placeholders
                                      # e.g. "feature/{slug}-{iid}" for feature/-prefix push rules
 branch_rule = ""             # optional: the repo's branch push-rule regex; validation
                              # rejects a template the rule would reject, e.g.
-                             # '^(feature|bugfix|release|hotfix)\/.*$' (cockpit-gcp)
+                             # '^(feature|bugfix|release|hotfix)\/.*$'
 
 # ----- Run budgets -----
 [budgets]
@@ -165,7 +165,7 @@ max_files_touched      = 40
 [delivery]
 target_branch        = "develop"
 draft                = true      # open MR/PR as draft; never merge
-reviewers            = ["dan.pasare"]
+reviewers            = ["reviewer.one"]
 remove_source_branch = true
 
 # ----- Post-MR review loop -----
@@ -284,7 +284,7 @@ teams can rename without code changes; the orchestrator refers to labels by role
 | `npm_cache_volume` | Persistent npm cache volume for fast `npm ci`. | `"ador-npm-cache"` |
 | `runtime_env` | Non-secret environment injected at container creation and every `exec`. Use it for portable tool behavior such as `UV_LINK_MODE=copy` or a project-specific `UV_PROJECT_ENVIRONMENT`; ADOR rejects overrides of managed isolation keys (`HOME`, `GIT_*`, `CODEX_HOME`). | `{ UV_LINK_MODE = "copy" }` |
 | `run_args` | Extra option tokens for `<runtime> run` (one option per entry, no spaces; validated). ROOTLESS PODMAN REQUIRES `["--userns=keep-id"]` (verified 2026-07-04: without it container uid 1000 maps to a subuid that cannot write the bind-mounted worktree). Also the seam for future resource limits (`"--memory=2g"`). | `[]` |
-| `required_tool_checks` | Shell-free command strings run inside the provisioned container before any executor gate starts. Use this for runtime-project images, for example Cockpit-GCP: `["make --version", "shellcheck --version", "terraform --version", "tflint --version"]`. | `[]` |
+| `required_tool_checks` | Shell-free command strings run inside the provisioned container before any executor gate starts. Use this for runtime-project images, for example `["make --version", "shellcheck --version", "terraform --version", "tflint --version"]`. | `[]` |
 
 ## `[worktree]` - Worktree
 
@@ -293,7 +293,7 @@ teams can rename without code changes; the orchestrator refers to labels by role
 | `repo_path` | Local clone of the target repository that per-run worktrees are created from; mounted (with the worktree) into the executor container. | (required) |
 | `root` | Host directory holding per-run git worktrees (`<root>/<run-id>`). | `"worktrees"` |
 | `branch_template` | Run branch name; `{slug}`, `{run_id}`, `{iid}` placeholders (must keep `{run_id}` or `{iid}` for uniqueness). Set e.g. `"feature/{slug}-{iid}"` for repos whose push rules require a `feature/` prefix. | `"{slug}/{run_id}"` |
-| `branch_rule` | Optional regex mirroring the repo's branch-name push rule (cockpit-gcp: `^(feature\|bugfix\|release\|hotfix)\/.*$`); validation rejects a template the rule would reject. | `""` |
+| `branch_rule` | Optional regex mirroring the repo's branch-name push rule, for example `^(feature\|bugfix\|release\|hotfix)\/.*$`; validation rejects a template the rule would reject. | `""` |
 
 ## `[budgets]` - Run Budgets
 

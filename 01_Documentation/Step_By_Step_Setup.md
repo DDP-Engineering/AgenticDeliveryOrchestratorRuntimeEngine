@@ -141,7 +141,7 @@ The wizard validates each answer before writing the profile.
 | Branch regex | Example: `^(feature|bugfix|release|hotfix)/.*$`. |
 | Branch template | Keep the suggested value if it passes validation. |
 | Container runtime | Windows WSL2 example: `wsl -d Ubuntu-24.04 -- docker`; Linux example: `docker`. |
-| Executor image | Use `ador-executor-base:0.2.0` for executor-only validation, or a runtime-project image such as `ador-executor-cockpit-gcp:latest`. |
+| Executor image | Use `ador-executor-base:0.2.0` for executor-only validation, or a runtime-project image such as `ador-executor-project:latest`. |
 | Executor CLI | Usually `opencode` unless the deployment uses another supported executor. |
 | Model id | Provider/model string used by the executor. |
 | Executor auth mode | Choose `api-key` to load provider keys from `.env`; choose `host-auth` to reuse an already-authorized local executor session. |
@@ -201,8 +201,8 @@ Linux with Docker:
 
 ```bash
 docker build -f docker/Dockerfile.executor-base -t ador-executor-base:0.2.0 docker
-docker build -f docker/Dockerfile.executor-cockpit-gcp -t ador-executor-cockpit-gcp:latest docker
-docker image inspect ador-executor-cockpit-gcp:latest
+docker build -f docker/Dockerfile.executor-project -t ador-executor-project:latest docker
+docker image inspect ador-executor-project:latest
 ```
 
 Windows using Docker inside WSL2:
@@ -213,13 +213,15 @@ wsl -d Ubuntu-24.04 -- docker build `
   -t ador-executor-base:0.2.0 `
   /mnt/c/path/to/ador-runtime-0.2.0/docker
 wsl -d Ubuntu-24.04 -- docker build `
-  -f /mnt/c/path/to/ador-runtime-0.2.0/docker/Dockerfile.executor-cockpit-gcp `
-  -t ador-executor-cockpit-gcp:latest `
+  -f /mnt/c/path/to/ador-runtime-0.2.0/docker/Dockerfile.executor-project `
+  -t ador-executor-project:latest `
   /mnt/c/path/to/ador-runtime-0.2.0/docker
-wsl -d Ubuntu-24.04 -- docker image inspect ador-executor-cockpit-gcp:latest
+wsl -d Ubuntu-24.04 -- docker image inspect ador-executor-project:latest
 ```
 
-Adjust the WSL distro name and `/mnt/...` path to match the installation host.
+Replace `Dockerfile.executor-project` and `ador-executor-project:latest` with
+the runtime project's Dockerfile and image tag. Adjust the WSL distro name and
+`/mnt/...` path to match the installation host.
 
 ## 8. Validate The Profile
 
