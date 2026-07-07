@@ -5,7 +5,7 @@
 
 [project]
 name = "ador"
-version = "0.2.0"
+version = "0.3.0"
 description = "Agentic Delivery Orchestrator - ticket-to-draft-MR orchestration over an agentic workflow."
 readme = "README.md"
 requires-python = ">=3.11"

@@ -12,6 +12,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-07
+
 ### Changed
 
 - Split executor images into a generic `ador-executor-base:0.2.0` and a
