@@ -18,13 +18,14 @@
          reap, answer timeout, and reconciliation of deleted/closed tickets.
 @author Eng. Dan Dumitru Pasare
 @date 2026-07-03
-@version 0.3.0
+@version 0.4.0
 """
 
 from __future__ import annotations
 
 # IMPORTS
 from datetime import UTC, datetime, timedelta
+import json
 from pathlib import Path
 
 from ador import gates
@@ -421,6 +422,65 @@ def gate_ok(session: str = "ses_1") -> GateRun:
     return GateRun(exit_code=0, session_id=session)
 
 
+def write_agentic_failure_evidence(
+    engine: Orchestrator,
+    run_id: str,
+    *,
+    agentic_run: str = "feature-20260708T010203Z-abcd1234",
+    summary: str = "Focused pytest failed before the fix.",
+    command: str = "pytest tests/test_widget.py::test_widget_renders",
+    stderr_tail: str = "AssertionError: widget title missing",
+    report: str = "## Invariants\n- `INV-4` FAIL (blocking): failing gate evidence",
+) -> None:
+    """
+    @brief      Seed workflow-template failure artifacts in a fake worktree.
+    @param[in]  engine Test engine whose fake worktree root is used.
+    @param[in]  run_id ADOR run id.
+    @param[in]  agentic_run Active workflow run id.
+    @param[in]  summary Evidence summary.
+    @param[in]  command Failed command.
+    @param[in]  stderr_tail Failed command stderr tail.
+    @param[in]  report Existing report.md text.
+    @author     Eng. Dan Dumitru Pasare
+    @date       2026-07-08
+    @version    0.1.0
+    """
+    worktree = engine.worktrees.path_for(run_id)  # type: ignore[attr-defined]
+    run_dir = worktree / ".agentic" / "runs" / agentic_run
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (worktree / ".agentic" / "current_run").write_text(agentic_run, encoding="utf-8")
+    graph = {
+        "evidence": [
+            {
+                "id": "E-0007",
+                "kind": "test-run",
+                "result": "fail",
+                "status": "active",
+                "summary": summary,
+                "command": command,
+                "stage": "validation",
+            }
+        ]
+    }
+    (run_dir / "graph.json").write_text(
+        json.dumps(graph, indent=2) + "\n", encoding="utf-8"
+    )
+    journal = {
+        "event": "gate.output",
+        "data": {
+            "gate": "test",
+            "command": command,
+            "returncode": 1,
+            "stdout_tail": "collected 1 item",
+            "stderr_tail": stderr_tail,
+        },
+    }
+    (run_dir / "journal.jsonl").write_text(
+        json.dumps(journal) + "\n", encoding="utf-8"
+    )
+    (run_dir / "report.md").write_text(report, encoding="utf-8")
+
+
 def park_run(engine: Orchestrator, forge: FakeForge, iid: int = 14) -> str:
     """
     @brief      Drive a ticket into the parked state via a questions gate.
@@ -666,6 +726,153 @@ def test_gate_failure_retries_with_context_until_budget(tmp_path: Path) -> None:
     assert len(executor.prompts) == 3
     assert "previous attempt of this gate failed" in executor.prompts[1]
     assert "boom-1" in executor.prompts[1]
+
+
+def test_gate_failure_retry_prompt_includes_agentic_evidence(tmp_path: Path) -> None:
+    """
+    @brief   When a gate fails, the retry prompt includes existing `.agentic`
+             failure evidence, not only the executor stderr tail.
+    @version 0.1.0
+    """
+    config = make_config(tmp_path)
+    config.budgets.max_iterations = 2
+    executor = FakeExecutor([
+        GateRun(exit_code=1, stderr="executor stderr was vague"),
+        GateRun(exit_code=1, stderr="still failing"),
+    ])
+    engine, forge, _, _ = make_engine(tmp_path, executor, config)
+    forge.add_ticket(14)
+    run_id = engine._run_id(14)
+    write_agentic_failure_evidence(engine, run_id)
+
+    engine.poll_once()
+
+    retry_prompt = executor.prompts[1]
+    assert "previous attempt of this gate failed" in retry_prompt
+    assert "executor stderr was vague" in retry_prompt
+    assert "Agentic failure evidence" in retry_prompt
+    assert "E-0007 test-run stage=validation" in retry_prompt
+    assert "pytest tests/test_widget.py::test_widget_renders" in retry_prompt
+    assert "AssertionError: widget title missing" in retry_prompt
+
+
+def test_missing_agentic_current_run_is_skipped(tmp_path: Path) -> None:
+    """
+    @brief   Missing `.agentic/current_run` is a normal no-evidence case; the
+             retry prompt still carries the original stderr context.
+    @version 0.1.0
+    """
+    config = make_config(tmp_path)
+    config.budgets.max_iterations = 2
+    executor = FakeExecutor([
+        GateRun(exit_code=1, stderr="stderr only"),
+        GateRun(exit_code=1, stderr="still failing"),
+    ])
+    engine, forge, _, _ = make_engine(tmp_path, executor, config)
+    forge.add_ticket(14)
+
+    engine.poll_once()
+
+    retry_prompt = executor.prompts[1]
+    assert "stderr only" in retry_prompt
+    assert "Agentic failure evidence" not in retry_prompt
+
+
+def test_invalid_agentic_run_id_reports_unavailable(tmp_path: Path) -> None:
+    """
+    @brief   `.agentic/current_run` must be one path segment; traversal-like
+             values are reported instead of read.
+    @version 0.1.0
+    """
+    config = make_config(tmp_path)
+    config.budgets.max_iterations = 2
+    executor = FakeExecutor([
+        GateRun(exit_code=1, stderr="bad run id"),
+        GateRun(exit_code=1, stderr="still failing"),
+    ])
+    engine, forge, _, _ = make_engine(tmp_path, executor, config)
+    forge.add_ticket(14)
+    worktree = engine.worktrees.path_for(engine._run_id(14))  # type: ignore[attr-defined]
+    (worktree / ".agentic").mkdir(parents=True, exist_ok=True)
+    (worktree / ".agentic" / "current_run").write_text("../escape", encoding="utf-8")
+
+    engine.poll_once()
+
+    assert "invalid .agentic/current_run value" in executor.prompts[1]
+
+
+def test_malformed_graph_and_torn_journal_do_not_break_evidence_prompt(
+    tmp_path: Path,
+) -> None:
+    """
+    @brief   Malformed graph evidence is reported, while a torn journal line is
+             skipped and intact gate-output evidence is still used.
+    @version 0.1.0
+    """
+    config = make_config(tmp_path)
+    config.budgets.max_iterations = 2
+    executor = FakeExecutor([
+        GateRun(exit_code=1, stderr="malformed graph"),
+        GateRun(exit_code=1, stderr="still failing"),
+    ])
+    engine, forge, _, _ = make_engine(tmp_path, executor, config)
+    forge.add_ticket(14)
+    worktree = engine.worktrees.path_for(engine._run_id(14))  # type: ignore[attr-defined]
+    run_dir = worktree / ".agentic" / "runs" / "run-1"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (worktree / ".agentic" / "current_run").write_text("run-1", encoding="utf-8")
+    (run_dir / "graph.json").write_text("{", encoding="utf-8")
+    journal = {
+        "event": "gate.output",
+        "data": {
+            "gate": "lint",
+            "command": "ruff check .",
+            "returncode": 1,
+            "stderr_tail": "E501 line too long",
+        },
+    }
+    (run_dir / "journal.jsonl").write_text(
+        json.dumps(journal) + "\n" + '{"event": "gate.output"', encoding="utf-8"
+    )
+
+    engine.poll_once()
+
+    retry_prompt = executor.prompts[1]
+    assert "could not parse failure evidence" in retry_prompt
+    assert "lint exit 1: ruff check ." in retry_prompt
+    assert "E501 line too long" in retry_prompt
+
+
+def test_failure_context_redacts_configured_executor_secrets(tmp_path: Path) -> None:
+    """
+    @brief   Exact configured secret values are redacted from stderr, graph,
+             journal, and report evidence before they enter retry prompts.
+    @version 0.1.0
+    """
+    secret = "sk-secret-1234"
+    config = make_config(tmp_path)
+    config.budgets.max_iterations = 2
+    executor = FakeExecutor([
+        GateRun(exit_code=1, stderr=f"executor leaked {secret}"),
+        GateRun(exit_code=1, stderr="still failing"),
+    ])
+    engine, forge, _, _ = make_engine(tmp_path, executor, config)
+    engine.secrets = {"OPENAI_API_KEY": secret}
+    forge.add_ticket(14)
+    write_agentic_failure_evidence(
+        engine,
+        engine._run_id(14),
+        summary=f"Secret showed up in output: {secret}",
+        command=f"pytest --token {secret}",
+        stderr_tail=f"traceback included {secret}",
+        report=f"## Invariants\n- FAIL: leaked {secret}",
+    )
+
+    engine.poll_once()
+
+    retry_prompt = executor.prompts[1]
+    assert secret not in retry_prompt
+    assert "[REDACTED]" in retry_prompt
 
 
 def test_invariants_failure_relaunches_same_gate(tmp_path: Path) -> None:
@@ -1299,6 +1506,45 @@ def test_merge_conflict_relaunches_executor_to_resolve(tmp_path: Path) -> None:
     conflict_prompts = [p for p in engine.executor.prompts if "merge conflicts" in p]
     assert len(conflict_prompts) == 1
     assert "CONFLICT (content)" in conflict_prompts[0]
+
+
+def test_delivery_fix_prompt_includes_agentic_evidence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    @brief   A failed delivery gates-run check relaunches the executor with
+             existing workflow evidence from `.agentic` artifacts.
+    @version 0.1.0
+    """
+    executor = FakeExecutor([gate_ok()] * 7)
+    engine, forge, _, _ = make_engine(tmp_path, executor)
+    forge.add_ticket(14)
+    run_id = engine._run_id(14)
+    write_agentic_failure_evidence(
+        engine,
+        run_id,
+        summary="Post-merge validation failed in the runtime-project gate.",
+        command="make test",
+        stderr_tail="tests failed after target merge",
+    )
+    calls = {"count": 0}
+
+    def gates_run_once_then_pass(execute, timeout=1800):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            return GateResult(ok=False, exit_code=2, output="gates run stdout was vague")
+        return GateResult(ok=True, exit_code=0, output="gates ok")
+
+    monkeypatch.setattr(gates, "gates_run", gates_run_once_then_pass)
+
+    engine.poll_once()
+
+    delivery_prompts = [p for p in executor.prompts if "gates-run check failed" in p]
+    assert len(delivery_prompts) == 1
+    assert "gates run stdout was vague" in delivery_prompts[0]
+    assert "Agentic failure evidence" in delivery_prompts[0]
+    assert "Post-merge validation failed" in delivery_prompts[0]
+    assert "tests failed after target merge" in delivery_prompts[0]
 
 
 def test_push_failure_escalates(tmp_path: Path) -> None:

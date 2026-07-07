@@ -12,6 +12,13 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-07-08
+
+### Changed
+
+- Fed existing `.agentic` failure evidence into gate retry and delivery-fix
+  prompts, with bounded excerpts and configured executor-secret redaction.
+
 ## [0.5.0] - 2026-07-08
 
 ### Added

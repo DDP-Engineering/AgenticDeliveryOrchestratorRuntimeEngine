@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Orchestrator (`ador/orchestrator.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/ador/orchestrator.py` - file version 0.5.0.
+> Source: `04_Software/ador/orchestrator.py` - file version 0.6.0.
 > Design: Orchestrator_Design_And_Decisions.md sections 5a, 7a, 8, 9, 10.
 
 ## 1. Purpose
@@ -136,7 +136,15 @@ interface) and metrics.
   session id (journal: `session-reset`) - a fresh container can never be
   asked to continue a dead session (live finding 2026-07-04).
 - Gate failures and invariant failures relaunch the same gate with the
-  failure tail as added prompt context; the iterations budget ends the loop.
+  failure tail plus read-only `.agentic` failure evidence as added prompt
+  context; the iterations budget ends the loop. Evidence enrichment reads
+  only the active workflow run's existing `graph.json`, `journal.jsonl`, and
+  `report.md`; it never invokes extra workflow commands or changes pass/fail
+  decisions.
+- Delivery `gates-run` and `delivery-preflight` fix prompts use the same
+  evidence enrichment, while merge-conflict prompts remain based on git merge
+  output. Configured executor secret values are redacted from all appended
+  failure context.
 - After every executor `GateRun`, `_journal_artifacts` appends immutable
   archive paths to the run journal when the launcher returned any. This makes
   `ador logs <run-id>` the index into raw gate evidence without changing the
@@ -197,7 +205,8 @@ ador logs <run-id>
   negatives, idempotent re-poll skip, park order (question before status),
   resume filtering (system/marker ignored, human resumes with thread),
   answered-label override, round-cap escalation, gate retry with context +
-  iterations budget, invariants-failure relaunch, TTL reap vs run survival,
+  `.agentic` evidence, secret redaction, invariants-failure relaunch,
+  malformed/missing workflow evidence handling, TTL reap vs run survival,
   answer timeout release, pause/capacity, deleted/closed reconciliation,
   cancel/retry round trip, labels-channel transitions, and delivery artifact
   commit-before-push ordering, archive-stem passing, and executor-artifact

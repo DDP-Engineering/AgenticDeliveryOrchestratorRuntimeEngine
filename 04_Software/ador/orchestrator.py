@@ -20,7 +20,7 @@
          machine is unit-testable offline.
 @author Eng. Dan Dumitru Pasare
 @date 2026-07-06
-@version 0.5.0
+@version 0.6.0
 """
 
 from __future__ import annotations
@@ -29,6 +29,7 @@ from __future__ import annotations
 from collections.abc import Callable
 import contextlib
 from functools import partial
+import json
 import os
 from pathlib import Path
 import random
@@ -61,6 +62,10 @@ from ador.util import (
 
 GATES = ("intake", "alignment", "requirement", "check", "implementation",
          "validation")
+
+_AGENTIC_CURRENT_RUN = ".agentic/current_run"
+_AGENTIC_FAILURE_CONTEXT_LIMIT = 5000
+_AGENTIC_FAILURE_ITEMS_LIMIT = 5
 
 # Worktree removal right after container removal can transiently fail on WSL2:
 # `docker/podman rm` returns before the kernel releases the container's
@@ -593,8 +598,8 @@ class Orchestrator:
         @param[in]  ticket Current ticket (for prompts).
         @param[in]  thread Rendered clarification thread ("" outside resume).
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
+        @date       2026-07-08
+        @version    0.2.0
         """
         try:
             self._provision(run)
@@ -639,19 +644,22 @@ class Orchestrator:
                 self._park(run, result.questions)
                 return
             if not result.ok:
-                failure_context = (
+                failure_context = self._failure_context(
+                    run,
                     f"The previous attempt of this gate failed "
                     f"(exit {result.exit_code}). stderr tail:\n"
-                    + result.stderr[-1500:]
+                    + self._tail_lines(result.stderr, 1500),
                 )
                 self.store.journal(run.run_id, "gate-failed", gate=gate,
                                    exit_code=result.exit_code)
                 continue  # retry same gate, bounded by budgets
             verify = gates.invariants(execute)
             if not verify.ok:
-                failure_context = (
+                failure_context = self._failure_context(
+                    run,
                     "The gate finished but the workflow invariants check "
-                    f"failed (exit {verify.exit_code}):\n" + verify.output[-1500:]
+                    f"failed (exit {verify.exit_code}):\n"
+                    + self._tail_lines(verify.output, 1500),
                 )
                 self.store.journal(run.run_id, "invariants-failed", gate=gate,
                                    exit_code=verify.exit_code)
@@ -717,8 +725,8 @@ class Orchestrator:
         @param[in]  revise True inside the revise cycle: skip MR adoption and
                     update the existing MR instead of creating one.
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-06
-        @version    0.1.3
+        @date       2026-07-08
+        @version    0.2.0
         """
         run.stage = "delivery"
         run.lifecycle = "working"
@@ -769,10 +777,13 @@ class Orchestrator:
                     self.store.journal(run.run_id, f"{name}-passed")
                     break
                 context = (
-                    f"The {name} check failed (exit {result.exit_code}) after "
-                    f"merging {run.base_ref}. Fix the issues, commit your "
-                    "changes, and leave a clean tree. Output tail:\n"
-                    + result.output[-1500:]
+                    self._failure_context(
+                        run,
+                        f"The {name} check failed (exit {result.exit_code}) after "
+                        f"merging {run.base_ref}. Fix the issues, commit your "
+                        "changes, and leave a clean tree. Output tail:\n"
+                        + self._tail_lines(result.output, 1500),
+                    )
                 )
                 if not self._delivery_fix(run, ticket, execute, context, thread):
                     return
@@ -840,8 +851,8 @@ class Orchestrator:
         @return     True to re-check; False when the run ended (escalated or
                     parked).
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
+        @date       2026-07-08
+        @version    0.2.0
         """
         reason = self._budget_exceeded(run)
         if reason:
@@ -1050,6 +1061,239 @@ class Orchestrator:
                          + self._tail_lines(preflight_output, 1500) + "\n```")
         parts.append(self.identity.make_marker(run.run_id, "delivery"))
         return "\n\n".join(parts)
+
+    def _failure_context(self, run: RunState, base: str) -> str:
+        """
+        @brief      Add read-only `.agentic` failure evidence to a fix prompt.
+        @details    The workflow CLI often writes the useful failure payload
+                    to graph/journal/report files instead of stdout. This
+                    helper keeps ADOR deterministic: it only reads existing
+                    files from the active `.agentic` run, never invokes
+                    workflow commands, and redacts configured executor secret
+                    values from the final prompt context.
+        @param[in]  run ADOR run whose worktree holds the workflow artifacts.
+        @param[in]  base The original exit-code/stdout/stderr failure summary.
+        @return     Bounded prompt context for the executor retry.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-08
+        @version    0.1.0
+        """
+        evidence = self._agentic_failure_evidence(run)
+        parts = [base.strip()]
+        if evidence:
+            parts.append(evidence)
+        return self._redact_failure_context("\n\n".join(part for part in parts if part))
+
+    def _agentic_failure_evidence(self, run: RunState) -> str:
+        """
+        @brief      Read prompt-safe failure evidence from the active workflow run.
+        @details    Uses the workflow-template file contract:
+                    `.agentic/current_run`,
+                    `.agentic/runs/<run-id>/graph.json`,
+                    `.agentic/runs/<run-id>/journal.jsonl`, and
+                    `.agentic/runs/<run-id>/report.md`. Missing files are
+                    skipped; malformed files are reported in the prompt so the
+                    executor understands that evidence was present but damaged.
+        @param[in]  run ADOR run whose worktree is inspected.
+        @return     Markdown-ish evidence block, or "" when no evidence exists.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-08
+        @version    0.1.0
+        """
+        worktree = self.worktrees.path_for(run.run_id)
+        agentic_root = worktree / ".agentic"
+        current_run = self._read_text(agentic_root / "current_run").strip()
+        if not current_run:
+            return ""
+        if not self._safe_agentic_run_id(current_run):
+            return (f"Agentic failure evidence unavailable: invalid "
+                    f"{_AGENTIC_CURRENT_RUN} value.")
+
+        run_dir = agentic_root / "runs" / current_run
+        sections = [f"Agentic failure evidence from `.agentic/runs/{current_run}`:"]
+        sections.extend(self._graph_failure_evidence(run_dir / "graph.json"))
+        sections.extend(self._journal_failure_evidence(run_dir / "journal.jsonl"))
+        sections.extend(self._report_failure_evidence(run_dir / "report.md"))
+        if len(sections) == 1:
+            return ""
+        rendered = "\n".join(sections)
+        return self._tail_lines(rendered, _AGENTIC_FAILURE_CONTEXT_LIMIT)
+
+    @staticmethod
+    def _safe_agentic_run_id(value: str) -> bool:
+        """
+        @brief      Whether `.agentic/current_run` names one path segment.
+        @param[in]  value Candidate workflow run id.
+        @return     True when it cannot escape `.agentic/runs`.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-08
+        @version    0.1.0
+        """
+        return (
+            bool(value)
+            and value not in {".", ".."}
+            and Path(value).name == value
+            and "/" not in value
+            and "\\" not in value
+        )
+
+    def _graph_failure_evidence(self, path: Path) -> list[str]:
+        """
+        @brief      Extract active failing evidence rows from graph.json.
+        @param[in]  path Path to the workflow graph.
+        @return     Lines to append to the retry prompt.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-08
+        @version    0.1.0
+        """
+        if not path.is_file():
+            return []
+        try:
+            graph = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            return [f"- graph.json: could not parse failure evidence ({exc})."]
+        if not isinstance(graph, dict) or not isinstance(graph.get("evidence"), list):
+            return ["- graph.json: malformed evidence payload."]
+        failing = [
+            item for item in graph["evidence"]
+            if isinstance(item, dict)
+            and item.get("result") == "fail"
+            and item.get("status", "active") != "superseded"
+        ][-_AGENTIC_FAILURE_ITEMS_LIMIT:]
+        if not failing:
+            return []
+        lines = ["- Active failing evidence:"]
+        for item in failing:
+            label = " ".join(
+                part for part in (
+                    str(item.get("id") or "evidence"),
+                    str(item.get("kind") or ""),
+                    f"stage={item.get('stage')}" if item.get("stage") else "",
+                )
+                if part
+            )
+            summary = str(item.get("summary") or "").strip()
+            lines.append(f"  - {label}: {self._tail_lines(summary, 500)}")
+            if item.get("command"):
+                lines.append(f"    command: {self._tail_lines(str(item['command']), 500)}")
+            if item.get("failure_kind"):
+                lines.append(f"    failure kind: {item['failure_kind']}")
+        return lines
+
+    def _journal_failure_evidence(self, path: Path) -> list[str]:
+        """
+        @brief      Extract recent failed gate.output records from journal.jsonl.
+        @param[in]  path Path to the workflow journal.
+        @return     Lines to append to the retry prompt.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-08
+        @version    0.1.0
+        """
+        if not path.is_file():
+            return []
+        try:
+            raw_lines = path.read_text(encoding="utf-8").splitlines()
+        except OSError as exc:
+            return [f"- journal.jsonl: could not read gate output evidence ({exc})."]
+        failed: list[dict] = []
+        for raw in raw_lines:
+            try:
+                entry = json.loads(raw)
+            except json.JSONDecodeError:
+                continue  # torn journal tail: authority is still graph/state
+            if not isinstance(entry, dict) or entry.get("event") != "gate.output":
+                continue
+            data = entry.get("data")
+            if not isinstance(data, dict):
+                continue
+            try:
+                returncode = int(data.get("returncode", 0) or 0)
+            except (TypeError, ValueError):
+                continue
+            if returncode == 0:
+                continue
+            failed.append(data)
+        if not failed:
+            return []
+        lines = ["- Recent failed gate output:"]
+        for item in failed[-_AGENTIC_FAILURE_ITEMS_LIMIT:]:
+            lines.append(
+                f"  - {item.get('gate') or 'gate'} exit {item.get('returncode')}: "
+                f"{self._tail_lines(str(item.get('command') or ''), 500)}"
+            )
+            if item.get("stdout_tail"):
+                lines.append(f"    stdout tail: {self._tail_lines(str(item['stdout_tail']), 700)}")
+            if item.get("stderr_tail"):
+                lines.append(f"    stderr tail: {self._tail_lines(str(item['stderr_tail']), 700)}")
+        return lines
+
+    def _report_failure_evidence(self, path: Path) -> list[str]:
+        """
+        @brief      Extract short report.md excerpts around failure markers.
+        @param[in]  path Path to the workflow report.
+        @return     Lines to append to the retry prompt.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-08
+        @version    0.1.0
+        """
+        if not path.is_file():
+            return []
+        try:
+            lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError as exc:
+            return [f"- report.md: could not read report excerpts ({exc})."]
+        markers = ("fail", "failed", "failure", "blocking", "error", "issue")
+        excerpts: list[str] = []
+        last_end = -1
+        for index, line in enumerate(lines):
+            if len(excerpts) >= 2:
+                break
+            if not any(marker in line.lower() for marker in markers):
+                continue
+            start = max(0, index - 2)
+            end = min(len(lines), index + 3)
+            if start <= last_end:
+                continue
+            excerpts.append("\n".join(lines[start:end]))
+            last_end = end
+        if not excerpts:
+            return []
+        rendered = "\n\n---\n".join(self._tail_lines(excerpt, 900) for excerpt in excerpts)
+        return ["- Report excerpts around failure markers:\n" + rendered]
+
+    @staticmethod
+    def _read_text(path: Path) -> str:
+        """
+        @brief      Read a text file, returning "" when it is absent/unreadable.
+        @param[in]  path Path to read.
+        @return     File content or "".
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-08
+        @version    0.1.0
+        """
+        try:
+            return path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            return ""
+
+    def _redact_failure_context(self, text: str) -> str:
+        """
+        @brief      Redact configured executor secret values from prompt context.
+        @param[in]  text Candidate prompt context.
+        @return     Redacted text.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-08
+        @version    0.1.0
+        """
+        redacted = text
+        values = sorted(
+            {value for value in self.secrets.values() if len(value) >= 4},
+            key=len,
+            reverse=True,
+        )
+        for value in values:
+            redacted = redacted.replace(value, "[REDACTED]")
+        return redacted
 
     @staticmethod
     def _tail_lines(text: str, limit: int) -> str:

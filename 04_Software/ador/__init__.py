@@ -13,11 +13,11 @@
 @details Exposes the package version. ADOR is standard-library only at runtime.
 @author Eng. Dan Dumitru Pasare
 @date 2026-07-08
-@version 0.1.4
+@version 0.1.5
 """
 
 # CONSTANTS
 
-__version__ = "0.5.0"
+__version__ = "0.5.1"
 
 # END OF FILE
