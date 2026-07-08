@@ -19,18 +19,21 @@ implementation-facing guide changes.
 
 Current contents:
 
+- `Operator_Cheat_Sheets/` - short visual operator cheat sheets for setup,
+  tickets and labels, profiles and images, monitoring, steering, and recovery.
 - `Step_By_Step_Setup.md` - step-by-step operator setup guide for Windows and
   Linux hosts.
+- `Setup_And_Credentials.md` - host, forge, executor, and credential guidance.
+- `Onboarding_New_Project.md` - runtime-project onboarding guide.
+- `Configuration_Reference.md` - the `config.toml` keys, profiles,
+  readiness, labels, isolation, delivery, review, reconcile, and metrics.
 - `Code_Style.md` - code style, Python Doxygen conventions, and local
   file/function revision marker rules.
 
 Planned contents:
 
 - `Operator_Guide.md` - how to run the orchestrator, what the ticket lifecycle
-  labels mean (`agent-ready`, `agent-working`, `agent-waiting`, `agent-mr`,
+  labels mean (`agent-ready`, `agent-working`, `agent-clarify`, `agent-mr`,
   `agent-failed`), and how to answer clarification questions.
-- `Configuration_Reference.md` - the `config.toml` keys: forge selection,
-  executor command templates, priority/readiness rules, run budgets, and
-  isolation settings.
 - `Prompt_Reference.md` - the per-gate prompts the conductor sends to the
   executor.

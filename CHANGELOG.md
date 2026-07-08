@@ -12,6 +12,18 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+### Added
+
+- Added visual operator cheat sheets for ADOR 0.5.1 covering setup, ticket
+  readiness and labels, profiles and container images, monitoring and
+  steering, and failure recovery.
+
+### Changed
+
+- Refreshed operator documentation against the ADOR 0.5.1 implementation,
+  including current package names, executor support, credential guidance, and
+  runtime-project image examples.
+
 ## [0.5.1] - 2026-07-08
 
 ### Changed

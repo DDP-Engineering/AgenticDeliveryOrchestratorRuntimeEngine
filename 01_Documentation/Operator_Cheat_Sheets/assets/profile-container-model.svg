@@ -1,0 +1,75 @@
+<!--
+Copyright (c) 2026 DDP Engineering
+This software is licensed under the PolyForm Noncommercial License 1.0.0.
+Commercial use requires a separate commercial license.
+See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="430" viewBox="0 0 1120 430" role="img" aria-labelledby="title desc">
+  <title id="title">ADOR profile and container image model</title>
+  <desc id="desc">One ADOR install can manage multiple profiles, each selecting a runtime project, state store, metrics database, and project image derived from the ADOR executor base.</desc>
+  <defs>
+    <style>
+      .bg { fill: #f7fafc; }
+      .host { fill: #ecfeff; stroke: #155e75; stroke-width: 2; rx: 8; }
+      .profile { fill: #ffffff; stroke: #2f3b52; stroke-width: 2; rx: 8; }
+      .image { fill: #f0fdf4; stroke: #15803d; stroke-width: 2; rx: 8; }
+      .run { fill: #fff7ed; stroke: #b45309; stroke-width: 2; rx: 8; }
+      .text { fill: #172033; font: 600 20px Arial, sans-serif; }
+      .small { fill: #334155; font: 15px Arial, sans-serif; }
+      .line { stroke: #475569; stroke-width: 3; fill: none; marker-end: url(#arrow); }
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L9,3 L0,6 Z" fill="#475569" />
+    </marker>
+  </defs>
+  <rect class="bg" x="0" y="0" width="1120" height="430" />
+  <rect class="host" x="40" y="50" width="220" height="320" />
+  <text class="text" x="65" y="90">One ADOR install</text>
+  <text class="small" x="65" y="122">ador CLI</text>
+  <text class="small" x="65" y="146">forge adapters</text>
+  <text class="small" x="65" y="170">executor launcher</text>
+  <text class="small" x="65" y="194">profiles home</text>
+  <g transform="translate(330 40)">
+    <rect class="profile" width="245" height="115" />
+    <text class="text" x="18" y="34">Profile: backend</text>
+    <text class="small" x="18" y="62">config.toml + state</text>
+    <text class="small" x="18" y="86">container image A</text>
+  </g>
+  <g transform="translate(330 175)">
+    <rect class="profile" width="245" height="115" />
+    <text class="text" x="18" y="34">Profile: frontend</text>
+    <text class="small" x="18" y="62">config.toml + state</text>
+    <text class="small" x="18" y="86">container image B</text>
+  </g>
+  <g transform="translate(330 310)">
+    <rect class="profile" width="245" height="80" />
+    <text class="text" x="18" y="34">Active profile</text>
+    <text class="small" x="18" y="58">default when --profile omitted</text>
+  </g>
+  <path class="line" d="M265 120 H318" />
+  <path class="line" d="M265 210 H318" />
+  <path class="line" d="M265 330 H318" />
+  <g transform="translate(660 78)">
+    <rect class="image" width="210" height="92" />
+    <text class="text" x="18" y="34">Base image</text>
+    <text class="small" x="18" y="58">ADOR executor tools</text>
+    <text class="small" x="18" y="78">ador-executor-base</text>
+  </g>
+  <g transform="translate(660 220)">
+    <rect class="image" width="210" height="92" />
+    <text class="text" x="18" y="34">Project image</text>
+    <text class="small" x="18" y="58">repo-specific tools</text>
+    <text class="small" x="18" y="78">required_tool_checks</text>
+  </g>
+  <path class="line" d="M453 156 V210 H648" />
+  <path class="line" d="M766 175 V208" />
+  <g transform="translate(935 155)">
+    <rect class="run" width="145" height="105" />
+    <text class="text" x="18" y="34">Run</text>
+    <text class="small" x="18" y="60">one ticket</text>
+    <text class="small" x="18" y="82">one worktree</text>
+  </g>
+  <path class="line" d="M875 266 H923" />
+  <text class="small" x="660" y="360">Secrets stay outside images; ADOR injects only configured env_keys at run time.</text>
+</svg>
+

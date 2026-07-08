@@ -1,0 +1,110 @@
+<!--
+Copyright (c) 2026 DDP Engineering
+This software is licensed under the PolyForm Noncommercial License 1.0.0.
+Commercial use requires a separate commercial license.
+See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+-->
+
+# Tickets, Readiness, And Labels
+
+Applies to ADOR 0.5.1.
+
+Use this when you want ADOR to pick up a ticket, skip a ticket, resume a parked
+ticket, or route a ticket to a specific executor.
+
+![ADOR ticket lifecycle](assets/ticket-lifecycle.svg)
+
+## Ticket Pickup Checklist
+
+A good ADOR ticket has:
+
+- One clear goal.
+- Acceptance criteria.
+- A small enough scope for the configured `[readiness] max_scope_hint`.
+- A known component or folder path when the project requires it.
+- One priority label.
+- The configured ready label.
+
+Minimal ticket body:
+
+```text
+## Goal
+Describe the change ADOR should make.
+
+## Acceptance Criteria
+- The public behavior changes in this exact way.
+- Existing behavior remains unchanged for this case.
+- Tests or validation prove the result.
+
+## Scope
+Small. Touch only <component/path>.
+
+## Notes
+Any constraints, examples, or links the executor must respect.
+```
+
+## Human-Managed Labels
+
+Defaults can be renamed in `config.toml`, but the roles stay the same.
+
+| Role | Default label | Who applies it | Effect |
+| --- | --- | --- | --- |
+| Ready | `agent-ready` | Human | Ticket is eligible for pickup. |
+| Answered | `agent-answered` | Human | Parked run may resume after a clarification answer. |
+| Hold | `agent-hold` | Human | ADOR does not pick or continues according to reconcile config. |
+| Exclude | `no-agent` | Human | Ticket is human-only. |
+| Priority high | `P1` | Human | Picked before medium and low. |
+| Priority medium | `P2` | Human | Normal priority. |
+| Priority low | `P3` | Human | Lower priority. |
+| Feature | `feature` | Human | Type hint. |
+| Bug | `bug` | Human | Type hint. |
+| Executor pin | `agent-exec:<name>` | Human | Forces a configured executor for this ticket. |
+| Revise | `agent-revise` | Reviewer | Requests a post-MR revision cycle. |
+
+## ADOR-Managed Lifecycle Labels
+
+These labels are only applied when `[state] channel` is `labels` or `both`.
+
+| Default label | Meaning |
+| --- | --- |
+| `agent-working` | ADOR claimed the ticket and is running a gate. |
+| `agent-clarify` | ADOR parked the run and is waiting for a human answer. |
+| `agent-mr` | ADOR opened a draft MR/PR and is waiting for review. |
+| `agent-failed` | ADOR stopped after a failure, budget, or timeout. |
+| `agent-done` | Optional final label after a human merge. |
+
+In comment mode, the authoritative state still lives locally and ADOR mirrors
+status through ticket comments instead of lifecycle labels.
+
+## Readiness Rules
+
+The default readiness gate rejects tickets that are missing:
+
+- acceptance criteria;
+- a priority label;
+- a known component;
+- a scope no larger than the configured maximum.
+
+Check the active configuration:
+
+```powershell
+.\.venv\Scripts\ador.exe --profile <profile-name> config show
+```
+
+```bash
+./.venv/bin/ador --profile <profile-name> config show
+```
+
+## Common Moves
+
+| What you want | Do this |
+| --- | --- |
+| Let ADOR pick up a ticket. | Add `agent-ready` plus `P1`, `P2`, or `P3`. |
+| Stop pickup temporarily. | Add `agent-hold`. |
+| Make the ticket human-only. | Add `no-agent`. |
+| Answer a clarification. | Reply in a normal human comment, then add `agent-answered` if labels are used. |
+| Request a revision after draft MR/PR review. | Add `agent-revise` to the MR/PR, then run another poll. |
+| Force opencode for one ticket. | Add `agent-exec:opencode`. |
+
+Do not remove or edit the hidden ADOR marker lines in status comments.
+

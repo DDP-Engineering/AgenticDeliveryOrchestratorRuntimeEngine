@@ -1,0 +1,80 @@
+<!--
+Copyright (c) 2026 DDP Engineering
+This software is licensed under the PolyForm Noncommercial License 1.0.0.
+Commercial use requires a separate commercial license.
+See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="360" viewBox="0 0 1120 360" role="img" aria-labelledby="title desc">
+  <title id="title">ADOR operator setup flow</title>
+  <desc id="desc">A left to right flow from prerequisites through profile, validation, dry run, supervised run, and draft review.</desc>
+  <defs>
+    <style>
+      .bg { fill: #f7fafc; }
+      .card { fill: #ffffff; stroke: #2f3b52; stroke-width: 2; rx: 8; }
+      .accent { fill: #0f766e; }
+      .warn { fill: #b45309; }
+      .text { fill: #172033; font: 600 20px Arial, sans-serif; }
+      .small { fill: #334155; font: 15px Arial, sans-serif; }
+      .line { stroke: #475569; stroke-width: 3; fill: none; marker-end: url(#arrow); }
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L9,3 L0,6 Z" fill="#475569" />
+    </marker>
+  </defs>
+  <rect class="bg" x="0" y="0" width="1120" height="360" />
+  <text class="text" x="40" y="48">ADOR 0.5.1 first-run path</text>
+  <g transform="translate(40 85)">
+    <rect class="card" x="0" y="0" width="150" height="135" />
+    <rect class="accent" x="0" y="0" width="150" height="12" />
+    <text class="text" x="18" y="42">1. Host</text>
+    <text class="small" x="18" y="72">git, Python</text>
+    <text class="small" x="18" y="95">forge CLI</text>
+    <text class="small" x="18" y="118">container runtime</text>
+  </g>
+  <path class="line" d="M205 153 H285" />
+  <g transform="translate(300 85)">
+    <rect class="card" x="0" y="0" width="150" height="135" />
+    <rect class="accent" x="0" y="0" width="150" height="12" />
+    <text class="text" x="18" y="42">2. Profile</text>
+    <text class="small" x="18" y="72">ador init</text>
+    <text class="small" x="18" y="95">project config</text>
+    <text class="small" x="18" y="118">secrets by env</text>
+  </g>
+  <path class="line" d="M465 153 H545" />
+  <g transform="translate(560 85)">
+    <rect class="card" x="0" y="0" width="150" height="135" />
+    <rect class="accent" x="0" y="0" width="150" height="12" />
+    <text class="text" x="18" y="42">3. Validate</text>
+    <text class="small" x="18" y="72">config OK</text>
+    <text class="small" x="18" y="95">image tools</text>
+    <text class="small" x="18" y="118">profile state</text>
+  </g>
+  <path class="line" d="M725 153 H805" />
+  <g transform="translate(820 85)">
+    <rect class="card" x="0" y="0" width="150" height="135" />
+    <rect class="warn" x="0" y="0" width="150" height="12" />
+    <text class="text" x="18" y="42">4. Dry run</text>
+    <text class="small" x="18" y="72">no mutation</text>
+    <text class="small" x="18" y="95">ticket filter</text>
+    <text class="small" x="18" y="118">labels visible</text>
+  </g>
+  <path class="line" d="M895 228 V285 H125" />
+  <g transform="translate(40 245)">
+    <rect class="card" x="0" y="0" width="210" height="75" />
+    <text class="text" x="18" y="32">5. run --once</text>
+    <text class="small" x="18" y="56">supervised first poll</text>
+  </g>
+  <path class="line" d="M255 283 H360" />
+  <g transform="translate(375 245)">
+    <rect class="card" x="0" y="0" width="210" height="75" />
+    <text class="text" x="18" y="32">6. Monitor</text>
+    <text class="small" x="18" y="56">status, runs, logs</text>
+  </g>
+  <path class="line" d="M590 283 H695" />
+  <g transform="translate(710 245)">
+    <rect class="card" x="0" y="0" width="230" height="75" />
+    <text class="text" x="18" y="32">7. Draft MR/PR</text>
+    <text class="small" x="18" y="56">human review and merge</text>
+  </g>
+</svg>
+

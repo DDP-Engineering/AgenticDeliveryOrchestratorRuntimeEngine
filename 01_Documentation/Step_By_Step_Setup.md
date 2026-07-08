@@ -51,18 +51,18 @@ Windows example:
 ```powershell
 New-Item -ItemType Directory -Force D:\Tools\ADOR | Out-Null
 Expand-Archive `
-  -Path C:\Downloads\ador-runtime-0.2.0.zip `
+  -Path C:\Downloads\ador-runtime-0.5.1.zip `
   -DestinationPath D:\Tools\ADOR `
   -Force
-cd D:\Tools\ADOR\ador-runtime-0.2.0
+cd D:\Tools\ADOR\ador-runtime-0.5.1
 ```
 
 Linux example:
 
 ```bash
 mkdir -p ~/tools/ador
-tar -xzf ~/Downloads/ador-runtime-0.2.0.tar.gz -C ~/tools/ador
-cd ~/tools/ador/ador-runtime-0.2.0
+tar -xzf ~/Downloads/ador-runtime-0.5.1.tar.gz -C ~/tools/ador
+cd ~/tools/ador/ador-runtime-0.5.1
 ```
 
 Expected package contents:
@@ -91,7 +91,7 @@ uv sync --frozen
 ./.venv/bin/ador --version
 ```
 
-The version should match the package version, for example `ador 0.2.0`.
+The version should match the package version, for example `ador 0.5.1`.
 
 ## 4. Create A Runtime-Project Profile
 
@@ -141,7 +141,7 @@ The wizard validates each answer before writing the profile.
 | Branch regex | Example: `^(feature|bugfix|release|hotfix)/.*$`. |
 | Branch template | Keep the suggested value if it passes validation. |
 | Container runtime | Windows WSL2 example: `wsl -d Ubuntu-24.04 -- docker`; Linux example: `docker`. |
-| Executor image | Use `ador-executor-base:0.2.0` for executor-only validation, or a runtime-project image such as `ador-executor-project:latest`. |
+| Executor image | Use `ador-executor-base:0.2.0` for executor-only validation, or a runtime-project image such as the bundled `ador-executor-cockpit-gcp:latest` example. |
 | Executor CLI | Usually `opencode` unless the deployment uses another supported executor. |
 | Model id | Provider/model string used by the executor. |
 | Executor auth mode | Choose `api-key` to load provider keys from `.env`; choose `host-auth` to reuse an already-authorized local executor session. |
@@ -202,31 +202,32 @@ Linux with Docker:
 ```bash
 docker build -f docker/Dockerfile.executor-base -t ador-executor-base:0.2.0 docker
 docker build -f docker/Dockerfile.egress-proxy -t ador-egress-proxy:0.1.0 docker
-docker build -f docker/Dockerfile.executor-project -t ador-executor-project:latest docker
-docker image inspect ador-executor-project:latest
+docker build -f docker/Dockerfile.executor-cockpit-gcp -t ador-executor-cockpit-gcp:latest docker
+docker image inspect ador-executor-cockpit-gcp:latest
 ```
 
 Windows using Docker inside WSL2:
 
 ```powershell
 wsl -d Ubuntu-24.04 -- docker build `
-  -f /mnt/c/path/to/ador-runtime-0.2.0/docker/Dockerfile.executor-base `
+  -f /mnt/c/path/to/ador-runtime-0.5.1/docker/Dockerfile.executor-base `
   -t ador-executor-base:0.2.0 `
-  /mnt/c/path/to/ador-runtime-0.2.0/docker
+  /mnt/c/path/to/ador-runtime-0.5.1/docker
 wsl -d Ubuntu-24.04 -- docker build `
-  -f /mnt/c/path/to/ador-runtime-0.2.0/docker/Dockerfile.egress-proxy `
+  -f /mnt/c/path/to/ador-runtime-0.5.1/docker/Dockerfile.egress-proxy `
   -t ador-egress-proxy:0.1.0 `
-  /mnt/c/path/to/ador-runtime-0.2.0/docker
+  /mnt/c/path/to/ador-runtime-0.5.1/docker
 wsl -d Ubuntu-24.04 -- docker build `
-  -f /mnt/c/path/to/ador-runtime-0.2.0/docker/Dockerfile.executor-project `
-  -t ador-executor-project:latest `
-  /mnt/c/path/to/ador-runtime-0.2.0/docker
-wsl -d Ubuntu-24.04 -- docker image inspect ador-executor-project:latest
+  -f /mnt/c/path/to/ador-runtime-0.5.1/docker/Dockerfile.executor-cockpit-gcp `
+  -t ador-executor-cockpit-gcp:latest `
+  /mnt/c/path/to/ador-runtime-0.5.1/docker
+wsl -d Ubuntu-24.04 -- docker image inspect ador-executor-cockpit-gcp:latest
 ```
 
-Replace `Dockerfile.executor-project` and `ador-executor-project:latest` with
-the runtime project's Dockerfile and image tag. Adjust the WSL distro name and
-`/mnt/...` path to match the installation host.
+The bundled project-image example is `Dockerfile.executor-cockpit-gcp`. For a
+different runtime project, replace that Dockerfile and
+`ador-executor-cockpit-gcp:latest` with the project's Dockerfile and image tag.
+Adjust the WSL distro name and `/mnt/...` path to match the installation host.
 
 Choose the executor network posture before unattended operation:
 

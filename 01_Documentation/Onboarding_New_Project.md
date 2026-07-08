@@ -76,17 +76,18 @@ the env-key *name*.
 
 ### The executor model provider
 
-The executor (opencode) needs a model key. In production, set
-`OPENAI_API_KEY` / `ANTHROPIC_API_KEY` in a `.env` beside the clone. (The
-crawl-pilot host-auth OAuth bridge is not for unattended use - see
-`Setup_And_Credentials.md` §3.1.)
+The configured executor needs a model credential. In production, set
+`OPENAI_API_KEY` / `ANTHROPIC_API_KEY` in a `.env` beside the clone, or use the
+provider key required by the selected executor/model. The crawl-pilot host-auth
+OAuth bridge is not for unattended use; see `Setup_And_Credentials.md`
+section 3.1.
 
 ### Build the executor images (once)
 
 `docker/README.md` has the exact build commands (and the WSL2 variant). Build
 `ador-executor-base:0.2.0` for the generic executor environment, then build one
-runtime-project image with the target project's dependencies, for example
-`ador-executor-project:latest`.
+runtime-project image with the target project's dependencies, for example the
+bundled `ador-executor-cockpit-gcp:latest` image or a project-specific tag.
 
 ---
 
@@ -151,4 +152,4 @@ profile > `./config.toml`.
 
 The assisted-config flow is live-verified on Windows 11 (native, `%APPDATA%`
 home) and Ubuntu 24.04/WSL2 (POSIX, `~/.config/ador`) - see
-`Prerequisites_Check_Report.md` §17.
+`Prerequisites_Check_Report.md` section 17.

@@ -7,9 +7,9 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Configuration Reference
 
-> **Status**: Planning. Consolidated list of every `config.toml` setting agreed
-> so far, its meaning, default value, and examples. Keys are grouped by section.
-> Defaults are proposals and may change during implementation.
+> **Status**: Implementation reference for ADOR 0.5.1. Consolidated list of
+> every `config.toml` setting, its meaning, default value, and examples. Keys
+> are grouped by section.
 
 ## Profiles & assisted setup (recommended)
 
@@ -25,7 +25,7 @@ examples and validation), and writes a **minimal, validated** config as a named
   pointer names the default.
 - **Create:** `ador init [name] [--force] [--answers FILE]`
   (`--answers` = non-interactive, for CI/servers; keys are the wizard field
-  names). See the onboarding guide (`00_Planning/Onboarding_New_Project.md`) for
+  names). See the onboarding guide (`01_Documentation/Onboarding_New_Project.md`) for
   the full prompt list and the non-ADOR prerequisite steps.
 - **Manage:** `ador profile list|show|use|rename|delete|path`
   (`list`/`show` include run statistics from the profile's metrics DB;
@@ -105,11 +105,11 @@ prefix = "agent-exec:"       # e.g. "agent-exec:opencode"
 
 # ----- Executor -----
 [executor]
-default        = "opencode"  # "opencode" | "pi"  (config selection point)
+default        = "opencode"  # "opencode" | "pi" | "codex" | "qwen"
 mode           = "thick"     # "thick" (gate-by-gate) | "headless" (single-shot)
 questions_file = "ADOR_QUESTIONS.md"
 env_keys       = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]  # only these reach the container
-stage_host_auth = false      # pilot-only OAuth bridge (see Setup_And_Credentials.md 3.1)
+stage_host_auth = false      # pilot-only OAuth bridge for opencode/codex
 
 [executor.opencode]
 command = "opencode run --dir {worktree} -m {model} --format json {prompt}"
@@ -120,8 +120,17 @@ model   = "<provider/model>"
 # command = "pi -p --mode json --model {model} {prompt}"
 # model   = "<provider/model>"
 # Pi reads AGENTS.md natively and gets its push/merge guardrails from the repo's
-# .pi agentic-guard extension (see Setup_And_Credentials.md 3). codex/qwen are
-# not implemented yet (a small subclass each behind the same factory).
+# .pi agentic-guard extension (see Setup_And_Credentials.md 3).
+
+# To use Codex instead, set `default = "codex"` and add:
+# [executor.codex]
+# command = "codex exec {resume}--json --model {model} --ignore-user-config --disable plugins --dangerously-bypass-approvals-and-sandbox {prompt}"
+# model   = "<model>"
+
+# To use Qwen Code instead, set `default = "qwen"` and add:
+# [executor.qwen]
+# command = "qwen -p --model {model} --output-format json {prompt}"
+# model   = "<model>"
 
 # ----- Clarification -----
 [clarification]
@@ -294,12 +303,12 @@ teams can rename without code changes; the orchestrator refers to labels by role
 
 | Key | Meaning | Default |
 |---|---|---|
-| `default` | Which executor to launch: `opencode` (default, live-proven) or `pi` (Pi, `@earendil-works/pi-coding-agent`; wired, pending a live spike). The `[executor.<name>]` table must match. codex/qwen are not implemented yet. | `"opencode"` |
+| `default` | Which executor to launch: `opencode`, `pi`, `codex`, or `qwen`. The `[executor.<name>]` table must match. `opencode` is the default and live-proven; the other launchers are wired behind the same factory and require their project guard/auth prerequisites. | `"opencode"` |
 | `mode` | `thick` = orchestrator drives gate-by-gate; `headless` = single-shot. | `"thick"` |
 | `questions_file` | File the executor writes clarification questions to. | `"ADOR_QUESTIONS.md"` |
 | `env_keys` | The only environment variables (from host env / `.env`) injected into the executor container. | `["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]` |
-| `stage_host_auth` | Pilot-only: copy the host's opencode `auth.json` (OAuth session) into the run container at provision (see Setup_And_Credentials.md 3.1). | `false` |
-| `[executor.<name>].command` | Command template for that executor; `{prompt}` (shell-quoted), `{model}`, and `{worktree}` (container path `/ador/work`) substituted; a continuing session appends `--session <id>`. opencode forbids `--auto` (it would auto-approve the executor's own push/merge); Pi's guardrails come from the repo's `.pi` agentic-guard extension. Examples: opencode `opencode run --dir {worktree} -m {model} --format json {prompt}`; pi `pi -p --mode json --model {model} {prompt}`. | per executor |
+| `stage_host_auth` | Pilot-only: copy host auth into the run container at provision. Implemented for opencode (`~/.local/share/opencode/auth.json`) and Codex (`~/.codex/auth.json` staged into an ADOR-owned `CODEX_HOME`). | `false` |
+| `[executor.<name>].command` | Command template for that executor; `{prompt}` (shell-quoted), `{model}`, and `{worktree}` (container path `/ador/work`) are substituted. opencode/pi continue with `--session <id>`; Codex uses the `{resume}` placeholder for `codex exec resume --last`; Qwen is stateless per gate. Safety validation rejects opencode `--auto`, Codex commands missing non-interactive/user-config guards, and Qwen yolo mode. | per executor |
 | `[executor.<name>].model` | Model/provider string for that executor. | (required) |
 
 ## `[clarification]` - Clarification

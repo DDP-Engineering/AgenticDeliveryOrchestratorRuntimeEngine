@@ -1,0 +1,72 @@
+<!--
+Copyright (c) 2026 DDP Engineering
+This software is licensed under the PolyForm Noncommercial License 1.0.0.
+Commercial use requires a separate commercial license.
+See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="430" viewBox="0 0 1120 430" role="img" aria-labelledby="title desc">
+  <title id="title">ADOR monitoring and recovery decision map</title>
+  <desc id="desc">Operators inspect status, runs, and logs, then choose pause, resume, retry, reset, cancel, cleanup, or delete based on the run state.</desc>
+  <defs>
+    <style>
+      .bg { fill: #f8fafc; }
+      .inspect { fill: #ffffff; stroke: #1d4ed8; stroke-width: 2; rx: 8; }
+      .action { fill: #f0fdf4; stroke: #15803d; stroke-width: 2; rx: 8; }
+      .danger { fill: #fff7ed; stroke: #b45309; stroke-width: 2; rx: 8; }
+      .text { fill: #172033; font: 600 19px Arial, sans-serif; }
+      .small { fill: #334155; font: 15px Arial, sans-serif; }
+      .line { stroke: #475569; stroke-width: 3; fill: none; marker-end: url(#arrow); }
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L9,3 L0,6 Z" fill="#475569" />
+    </marker>
+  </defs>
+  <rect class="bg" x="0" y="0" width="1120" height="430" />
+  <text class="text" x="44" y="45">ADOR 0.5.1 monitor first, then act</text>
+  <g transform="translate(60 80)">
+    <rect class="inspect" width="210" height="250" />
+    <text class="text" x="20" y="38">Inspect</text>
+    <text class="small" x="20" y="72">status</text>
+    <text class="small" x="20" y="102">runs</text>
+    <text class="small" x="20" y="132">logs &lt;run-id&gt;</text>
+    <text class="small" x="20" y="162">report &lt;run-id&gt;</text>
+    <text class="small" x="20" y="192">stats / export</text>
+  </g>
+  <path class="line" d="M275 205 H350" />
+  <g transform="translate(365 55)">
+    <rect class="action" width="205" height="90" />
+    <text class="text" x="18" y="34">Normal control</text>
+    <text class="small" x="18" y="60">pause / resume</text>
+  </g>
+  <g transform="translate(365 170)">
+    <rect class="action" width="205" height="90" />
+    <text class="text" x="18" y="34">Recover run</text>
+    <text class="small" x="18" y="60">retry or answer</text>
+  </g>
+  <g transform="translate(365 285)">
+    <rect class="danger" width="205" height="90" />
+    <text class="text" x="18" y="34">Force stage</text>
+    <text class="small" x="18" y="60">reset --force</text>
+  </g>
+  <path class="line" d="M575 100 H655" />
+  <path class="line" d="M575 215 H655" />
+  <path class="line" d="M575 330 H655" />
+  <g transform="translate(670 105)">
+    <rect class="action" width="185" height="90" />
+    <text class="text" x="18" y="34">Continue</text>
+    <text class="small" x="18" y="60">run --once</text>
+  </g>
+  <g transform="translate(670 245)">
+    <rect class="danger" width="185" height="90" />
+    <text class="text" x="18" y="34">Stop or remove</text>
+    <text class="small" x="18" y="60">cancel / delete</text>
+  </g>
+  <path class="line" d="M860 150 H920" />
+  <path class="line" d="M860 290 H920" />
+  <g transform="translate(935 175)">
+    <rect class="action" width="145" height="90" />
+    <text class="text" x="18" y="34">Sweep</text>
+    <text class="small" x="18" y="60">cleanup</text>
+  </g>
+  <text class="small" x="60" y="385">Corrupt run state is reported and skipped; cleanup does not auto-delete it.</text>
+</svg>

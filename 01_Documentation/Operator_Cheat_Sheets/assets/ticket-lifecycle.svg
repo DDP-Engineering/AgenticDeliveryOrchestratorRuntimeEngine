@@ -1,0 +1,70 @@
+<!--
+Copyright (c) 2026 DDP Engineering
+This software is licensed under the PolyForm Noncommercial License 1.0.0.
+Commercial use requires a separate commercial license.
+See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="420" viewBox="0 0 1120 420" role="img" aria-labelledby="title desc">
+  <title id="title">ADOR ticket label lifecycle</title>
+  <desc id="desc">Ticket labels and comments move a ticket from human preparation to ADOR work, clarification, draft review, revision, and human merge.</desc>
+  <defs>
+    <style>
+      .bg { fill: #f8fafc; }
+      .lane { fill: #e2e8f0; }
+      .human { fill: #ffffff; stroke: #1d4ed8; stroke-width: 2; rx: 8; }
+      .ador { fill: #ffffff; stroke: #0f766e; stroke-width: 2; rx: 8; }
+      .stop { fill: #fff7ed; stroke: #b45309; stroke-width: 2; rx: 8; }
+      .text { fill: #172033; font: 600 19px Arial, sans-serif; }
+      .small { fill: #334155; font: 15px Arial, sans-serif; }
+      .label { fill: #ffffff; stroke: #64748b; stroke-width: 1.5; rx: 6; }
+      .line { stroke: #475569; stroke-width: 3; fill: none; marker-end: url(#arrow); }
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L9,3 L0,6 Z" fill="#475569" />
+    </marker>
+  </defs>
+  <rect class="bg" x="0" y="0" width="1120" height="420" />
+  <rect class="lane" x="40" y="70" width="1040" height="120" rx="8" />
+  <rect class="lane" x="40" y="230" width="1040" height="120" rx="8" />
+  <text class="text" x="55" y="52">Human preparation and review</text>
+  <text class="text" x="55" y="217">ADOR run lifecycle</text>
+  <g transform="translate(70 92)">
+    <rect class="human" width="180" height="78" />
+    <text class="text" x="18" y="32">Prepare ticket</text>
+    <text class="small" x="18" y="56">acceptance criteria</text>
+  </g>
+  <g transform="translate(300 92)">
+    <rect class="label" width="180" height="78" />
+    <text class="text" x="18" y="32">Add labels</text>
+    <text class="small" x="18" y="56">agent-ready + P1/P2/P3</text>
+  </g>
+  <path class="line" d="M255 131 H290" />
+  <path class="line" d="M390 177 V238" />
+  <g transform="translate(300 252)">
+    <rect class="ador" width="180" height="78" />
+    <text class="text" x="18" y="32">Picked</text>
+    <text class="small" x="18" y="56">agent-working or status</text>
+  </g>
+  <path class="line" d="M485 291 H560" />
+  <g transform="translate(575 252)">
+    <rect class="ador" width="180" height="78" />
+    <text class="text" x="18" y="32">Gates run</text>
+    <text class="small" x="18" y="56">bounded by budgets</text>
+  </g>
+  <path class="line" d="M665 247 V177" />
+  <g transform="translate(575 92)">
+    <rect class="stop" width="180" height="78" />
+    <text class="text" x="18" y="32">Question</text>
+    <text class="small" x="18" y="56">human reply + answered</text>
+  </g>
+  <path class="line" d="M760 131 H825" />
+  <g transform="translate(840 92)">
+    <rect class="human" width="180" height="78" />
+    <text class="text" x="18" y="32">Draft review</text>
+    <text class="small" x="18" y="56">merge or agent-revise</text>
+  </g>
+  <path class="line" d="M760 291 H850" />
+  <path class="line" d="M930 250 V178" />
+  <text class="small" x="72" y="382">Control labels always win before pickup: agent-hold pauses eligibility; no-agent excludes the ticket.</text>
+</svg>
+
