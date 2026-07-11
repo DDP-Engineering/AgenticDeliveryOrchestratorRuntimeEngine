@@ -101,6 +101,48 @@ Possible implementation:
 - document how the generated project image should be rebuilt when the target
   repository's toolchain changes.
 
+## Executor Container UID Alignment (deployment)
+
+The executor base image hardcodes the in-container `ador` user as UID/GID 1000
+(`Dockerfile.executor-base`: `useradd --create-home --uid 1000 ador`). Docker
+bind mounts do not remap user IDs, so when the ADOR host service runs as a user
+whose UID is not 1000, the container (UID 1000) and the host service cannot both
+write the shared per-run worktree/io directories, and runs fail.
+
+Observed live on the silk04 Ubuntu 24.04 deploy (2026-07-10): host service user
+`aitool` is UID 1001 (UID 1000 was already taken by another account), so:
+
+- opencode `auth.json` staged at `~/.local/share/opencode/auth.json` was mode
+  0600 and unreadable by the container user
+  (`auth staging failed: cp: cannot open '/ador/io/host-auth.json'`);
+- bind-mounted run dirs created by the host service were not writable by UID
+  1000 (`cannot create /ador/io/output.jsonl: Permission denied`).
+
+Both were worked around host-side without changing ADOR, using default ACLs
+(`setfacl -R -m u:1000:rwX` + `-d -m u:1000:rwX` on the store, worktrees, and the
+repo clone) plus `chmod 644` on the opencode `auth.json`. That works and persists
+but is a manual, per-host remediation.
+
+Decide on a durable fix so future deploys do not need the ACL/chmod steps:
+
+- **Cleanest:** run the ADOR service under a host account whose UID is 1000
+  (e.g. the host's first user, or `useradd -u 1000` when that UID is free), so it
+  matches the image out of the box.
+- **Most future-proof:** parametrize the image UID/GID as build args
+  (`ARG ADOR_UID=1000` / `ARG ADOR_GID=1000`) and build per-host with
+  `--build-arg ADOR_UID=$(id -u) --build-arg ADOR_GID=$(id -g)`, so the container
+  user matches whatever host user runs ADOR. Aligns with the rootless-podman
+  `--userns=keep-id` note and the "dedicated service account" prerequisite item.
+
+Either option removes the need for the ACL/`chmod` remediation entirely. Document
+the chosen approach in the deployment guide and the prerequisites report.
+
+**Bottom line for the next deploy:**
+
+- Cleanest: make the ADOR service account UID 1000 (option 1), or
+- Most future-proof: parametrize the image UID (option 2) and build per-host.
+- Either eliminates the need for the ACL/chmod steps entirely.
+
 ## Native App / Executable Packaging
 
 The current supported distribution is the trimmed runtime bundle created by
@@ -133,6 +175,12 @@ Create a short presentation for new operators and sponsors that explains:
 - where to find the detailed operator cheat sheets.
 
 Use a format that can be updated from repo-controlled sources where possible.
+
+For the branding slide, use the AEGIS/ADORE mythology hook recorded in
+`00_Planning/Onboarding_Wizards_Analysis_And_Proposal.md` §2.0: AEGIS is
+Athena's shield ("under the aegis of" = under the protection and authority
+of), ADORE bears the shield and delivers but never merges, and the
+WAEGIS/WADORE wizards play Hephaestus, the smith who forged the aegis.
 
 ## Production Security Sign-Off
 
