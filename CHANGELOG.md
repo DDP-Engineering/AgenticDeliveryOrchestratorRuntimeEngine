@@ -12,6 +12,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-07-15
+
 ### Added
 
 - Added visual operator cheat sheets for ADOR 0.5.1 covering setup, ticket
@@ -23,6 +25,10 @@ This project follows Keep a Changelog and Semantic Versioning.
 - Refreshed operator documentation against the ADOR 0.5.1 implementation,
   including current package names, executor support, credential guidance, and
   runtime-project image examples.
+- Docker executor base image now accepts `--build-arg USER_UID=$(id -u)` so
+  the container user matches the host user, preventing bind-mount ownership
+  mismatches. Podman deployments continue to use `run_args = ["--userns=keep-id"]`.
+  Updated Dockerfile, deploy scripts, config example, and documentation.
 
 ## [0.5.1] - 2026-07-08
 

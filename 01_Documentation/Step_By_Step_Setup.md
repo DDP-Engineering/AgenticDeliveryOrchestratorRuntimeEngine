@@ -200,7 +200,7 @@ the project needs build/test tools.
 Linux with Docker:
 
 ```bash
-docker build -f docker/Dockerfile.executor-base -t ador-executor-base:0.2.0 docker
+docker build --build-arg USER_UID=$(id -u) -f docker/Dockerfile.executor-base -t ador-executor-base:0.2.0 docker
 docker build -f docker/Dockerfile.egress-proxy -t ador-egress-proxy:0.1.0 docker
 docker build -f docker/Dockerfile.executor-cockpit-gcp -t ador-executor-cockpit-gcp:latest docker
 docker image inspect ador-executor-cockpit-gcp:latest
@@ -209,7 +209,7 @@ docker image inspect ador-executor-cockpit-gcp:latest
 Windows using Docker inside WSL2:
 
 ```powershell
-wsl -d Ubuntu-24.04 -- docker build `
+wsl -d Ubuntu-24.04 -- docker build --build-arg USER_UID=$(id -u) `
   -f /mnt/c/path/to/ador-runtime-0.5.1/docker/Dockerfile.executor-base `
   -t ador-executor-base:0.2.0 `
   /mnt/c/path/to/ador-runtime-0.5.1/docker

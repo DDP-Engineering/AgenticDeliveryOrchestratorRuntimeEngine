@@ -28,9 +28,15 @@ real delivery runs.
 
 ## Build
 
+The executor base image must be built with `--build-arg USER_UID=$(id -u)` so
+the container's `ador` user matches the host user that runs ADOR. Without this,
+files written by the container to bind-mounted volumes (worktree, IO, caches)
+are owned by the wrong UID. Podman deployments can skip this and use
+`run_args = ["--userns=keep-id"]` instead (see Podman notes below).
+
 ```bash
 cd 04_Software/docker
-docker build -f Dockerfile.executor-base -t ador-executor-base:0.2.0 .
+docker build --build-arg USER_UID=$(id -u) -f Dockerfile.executor-base -t ador-executor-base:0.2.0 .
 docker build -f Dockerfile.egress-proxy -t ador-egress-proxy:0.1.0 .
 ```
 
@@ -43,7 +49,7 @@ docker build -f Dockerfile.executor-cockpit-gcp -t ador-executor-cockpit-gcp:lat
 With Docker Engine inside WSL2 (no Docker Desktop), build from PowerShell as:
 
 ```powershell
-wsl -d Ubuntu-24.04 -- docker build `
+wsl -d Ubuntu-24.04 -- docker build --build-arg USER_UID=$(id -u) `
   -f /mnt/d/TEMP/2026_AgenticDeliveryOrchestrator/04_Software/docker/Dockerfile.executor-base `
   -t ador-executor-base:0.2.0 `
   /mnt/d/TEMP/2026_AgenticDeliveryOrchestrator/04_Software/docker

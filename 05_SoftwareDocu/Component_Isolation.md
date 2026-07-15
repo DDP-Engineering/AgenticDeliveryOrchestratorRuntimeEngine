@@ -231,13 +231,19 @@ result = containers.exec("ador-run-gitlab-x-14", ["opencode", "--version"])
 - CPU/RAM/network limits (`--memory`, `--cpus`, `--network`) are not yet
   passed to `docker run`; add as `[container]` keys when the budgets phase
   lands.
+- Docker UID mapping: the executor base image is built with
+  `--build-arg USER_UID=$(id -u)` so the container's `ador` user matches the
+  host user. Without this, files written to bind-mounted volumes (worktree,
+  IO, caches) are owned by the wrong UID on the host. The Dockerfile defaults
+  to `USER_UID=1000`; pass the host user's UID at build time.
 - Podman VERIFIED 2026-07-04 (4.9.3 rootless, Ubuntu-24.04/WSL2), and
   re-verified 2026-07-06 with a runtime-project image plus
   required tool checks. Rootless mode requires
   `[container] run_args = ["--userns=keep-id"]` (without it, container uid
   1000 cannot write the bind-mounted worktree - caught live by the pass).
-  Remaining: a disposable-ticket pilot with `runtime = "podman"`; SELinux
-  hosts (Fedora/RHEL) may additionally need `:z`/`:Z` mount labels.
+  Podman maps the container UID to the host UID at runtime; no image rebuild
+  needed. Remaining: a disposable-ticket pilot with `runtime = "podman"`;
+  SELinux hosts (Fedora/RHEL) may additionally need `:z`/`:Z` mount labels.
 - With a WSL-wrapped runtime, `wsl.exe` re-joins arguments before the WSL
   shell re-parses them, so argv elements containing spaces can be split. The
   executor launcher must pass prompts through a file, never through argv

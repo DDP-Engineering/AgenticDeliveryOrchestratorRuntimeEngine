@@ -240,10 +240,13 @@ npm_cache_volume = "ador-npm-cache"
 # safer on Windows/WSL bind mounts.
 runtime_env = { UV_LINK_MODE = "copy" }
 # Extra option tokens for `<runtime> run` - one option per entry, no spaces.
-# ROOTLESS PODMAN REQUIRES ["--userns=keep-id"] (verified live 2026-07-04:
+# DOCKER: the executor base image must be built with --build-arg USER_UID=$(id -u)
+# so the container user matches the host user. No run_args needed for UID mapping.
+# ROOTLESS PODMAN: requires ["--userns=keep-id"] instead (verified live 2026-07-04:
 # without it, container uid 1000 maps to a subuid that cannot write the
-# bind-mounted worktree). Also the place for future resource limits, e.g.
-# "--memory=2g", "--cpus=2".
+# bind-mounted worktree). Podman maps the container UID to the host UID at
+# runtime; no image rebuild needed.
+# Also the place for future resource limits, e.g. "--memory=2g", "--cpus=2".
 run_args = []
 # Project-image fail-fast checks. Keep empty for executor-base-only validation;
 # add the tools your runtime project needs before any executor gate can run.

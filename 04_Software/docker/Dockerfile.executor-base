@@ -80,7 +80,13 @@ RUN npm install -g "${QWEN_PACKAGE}"
 # --- Non-root user; mount points; git trust for bind-mounted repos ------------
 # Bind mounts on Docker Desktop (Windows) show foreign ownership; without
 # safe.directory git refuses to operate on the mounted repo/worktree.
-RUN useradd --create-home --uid 1000 ador \
+# USER_UID must match the host user that runs ADOR so that files written by the
+# container to bind-mounted volumes (worktree, IO, caches) are owned by that
+# host user.  Docker has no runtime UID remapping like Podman's --userns=keep-id,
+# so the UID is baked at image-build time via --build-arg USER_UID=$(id -u).
+# Podman deployments can ignore this and use --userns=keep-id instead.
+ARG USER_UID=1000
+RUN useradd --create-home --uid ${USER_UID} ador \
     && mkdir -p /ador/repo /ador/work /ador/io \
     && chown -R ador:ador /ador \
     && git config --system --add safe.directory '*'

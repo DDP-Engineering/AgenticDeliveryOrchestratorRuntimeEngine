@@ -133,8 +133,9 @@ if [ "${SKIP_IMAGE}" -eq 0 ]; then
     if docker image inspect "${IMAGE_TAG}" >/dev/null 2>&1; then
         note "executor image ${IMAGE_TAG} already present"
     else
-        note "building executor image ${IMAGE_TAG}"
-        docker build -f "${SOFTWARE_DIR}/docker/${IMAGE_DOCKERFILE}" \
+        note "building executor image ${IMAGE_TAG} (USER_UID=$(id -u))"
+        docker build --build-arg USER_UID="$(id -u)" \
+            -f "${SOFTWARE_DIR}/docker/${IMAGE_DOCKERFILE}" \
             -t "${IMAGE_TAG}" "${SOFTWARE_DIR}/docker"
     fi
 else
