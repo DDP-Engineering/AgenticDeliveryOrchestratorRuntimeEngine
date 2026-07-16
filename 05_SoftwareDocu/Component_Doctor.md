@@ -10,7 +10,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 > Component documentation per `component_documentation_template.md`.
 > Source: `04_Software/adore/doctor.py` - file version 0.1.1.
-> Plan: `00_Planning/Assisted_Config_And_Profiles_Plan.md` (task 2 of 8).
+> Historical design source: `00_Planning/Assisted_Config_And_Profiles_Plan.md`.
 > Scope note: the **detection + guidance data/text layer**. The `adore init`
 > wizard (task 3) consumes it to decide what to ask and what to print; a future
 > `adore doctor` command can render the same aggregate. No prompting lives here.
@@ -77,7 +77,7 @@ Explicitly not owned: prompting/wizard flow (task 3), CLI wiring, writing config
 
 ## 7. Workflow Integration
 
-`adore init` (task 3): for each phase-A prerequisite, call the matching
+`adore init`: for each prerequisite, call the matching
 `detect_*`; if absent/unauthenticated, print `guidance_for(component, os_key)`
 and let the user fix it before continuing. `detect_all` + guidance also back a
 future read-only `adore doctor` command.
@@ -111,5 +111,5 @@ if not report.auth.authenticated:
   `required_tools`-style version check (backlog) would extend `_probe`.
 - WSL-internal runtime probing (docker/podman INSIDE a distro) is left to the
   wizard/E2E task; `detect_runtimes` reports host runtimes + distro names.
-- Install commands are curated text; task 7 (cross-platform E2E) verifies they
-  are current on Windows and Ubuntu.
+- Install commands are curated text and should be re-verified when their
+  referenced tools or supported operating systems change.

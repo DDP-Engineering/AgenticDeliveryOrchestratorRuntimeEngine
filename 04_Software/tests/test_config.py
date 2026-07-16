@@ -30,7 +30,7 @@ kind = "gitlab"
 repo = "group/project"
 
 [worktree]
-repo_path = "../cockpit-gcp"
+repo_path = "../runtime-project"
 
 [executor.opencode]
 command = "opencode run --dir {worktree} -m {model} {prompt}"
@@ -257,7 +257,7 @@ kind = "gitlab"
 repo = "group/project"
 
 [worktree]
-repo_path = "../cockpit-gcp"
+repo_path = "../runtime-project"
 
 [executor]
 default = "codex"
@@ -342,7 +342,7 @@ kind = "gitlab"
 repo = "group/project"
 
 [worktree]
-repo_path = "../cockpit-gcp"
+repo_path = "../runtime-project"
 
 [executor]
 default = "qwen"
@@ -379,7 +379,7 @@ kind = "gitlab"
 repo = "group/project"
 
 [worktree]
-repo_path = "../cockpit-gcp"
+repo_path = "../runtime-project"
 
 [executor.opencode]
 command = "opencode run --dir {worktree} -m {model} --format json {prompt}"

@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Monitoring And Steering
 
-Applies to ADORE 0.5.1.
+Applies to ADORE 1.0.0.
 
 Use this when ADORE is running, you need to understand its current state, or you
 need to pause and resume ticket pickup safely.
@@ -102,4 +102,3 @@ If metrics were added after older terminal runs, rebuild summaries once:
 
 For a new project, keep using `--once` until ticket labels, images, credentials,
 and MR/PR delivery have all been proven.
-

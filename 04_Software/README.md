@@ -42,8 +42,8 @@ Runnable implementation of the orchestrator described in
   - `doctor.py` - environment detection + OS-specific prerequisite guidance.
   - `wizard.py` - the `adore init` assisted-config wizard.
 - `docker/` - `Dockerfile.executor-base` for the generic
-  `adore-executor-base:1.0.0` executor environment, plus runtime-project images
-  such as `Dockerfile.executor-cockpit-gcp`.
+  `adore-executor-base:1.0.0` executor environment, plus the pattern for
+  project-owned runtime images. See `docker/README.md`.
 - `deploy/` - deployment scripts (design 12a): `install-ubuntu.sh` +
   `adore.service` (systemd), `install-windows.ps1` (Task Scheduler), and the
   deployment procedure in `deploy/README.md`.
@@ -83,9 +83,9 @@ Runnable implementation of the orchestrator described in
    guided wizard, `adore profile list|show|use|rename|delete|path`, global
    `--profile`, per-project profiles under a cross-platform config home, run
    statistics. One install serves many projects. See
-   `00_Planning/Onboarding_New_Project.md`. Still pending: the security
-   decisions in 00_Planning/TODO.md (container egress allowlist before
-   unattended runs).
+  `../01_Documentation/Integrating_A_Runtime_Project.md`. Still pending: the
+  security decisions in `00_Planning/TODO.md` (container egress allowlist
+  before unattended runs).
 
 ## Development
 

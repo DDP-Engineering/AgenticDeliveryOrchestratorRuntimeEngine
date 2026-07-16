@@ -725,13 +725,13 @@ def test_wsl_provision_translates_mounts_and_sets_wslenv(tmp_path: Path) -> None
     io_dir = tmp_path / "io"
     manager.provision(
         "adore-run-x",
-        r"D:\repos\cockpit",
+        r"D:\repos\runtime-project",
         r"D:\adore\worktrees\x",
         io_dir,
         {"GIT_DIR": "/adore/repo/.git/worktrees/x", "ANTHROPIC_API_KEY": "sk-secret"},
     )
     run_argv = runner.calls[1]
-    assert f"/mnt/d/repos/cockpit:{CONTAINER_REPO_MOUNT}" in run_argv
+    assert f"/mnt/d/repos/runtime-project:{CONTAINER_REPO_MOUNT}" in run_argv
     assert f"/mnt/d/adore/worktrees/x:{CONTAINER_WORKTREE_MOUNT}" in run_argv
     assert f"{wsl_mount_path(io_dir)}:{CONTAINER_IO_MOUNT}" in run_argv
     env_values = [run_argv[i + 1] for i, part in enumerate(run_argv[:-1])

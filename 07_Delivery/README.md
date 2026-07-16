@@ -26,11 +26,12 @@ the scripts in `02_Tools/`:
 bash 02_Tools/package_runtime.sh
 ```
 
-The generated bundle is named from the project release version, for example
-`adore-runtime-0.1.0.zip` on Windows or `adore-runtime-0.1.0.tar.gz` on POSIX. It
-contains the runnable `04_Software` package contents and the existing deployment
-scripts under `deploy/`, but excludes development files, test suites, virtual
-environments, worktrees, local `.adore` state, and secrets.
+The generated 1.0.0 bundle is named `adore-runtime-1.0.0.zip` on Windows or
+`adore-runtime-1.0.0.tar.gz` on POSIX. It contains the runnable `04_Software`
+package contents, deployment scripts under `deploy/`, and the canonical
+operator documentation under `Documentation/`. It excludes development files,
+test suites, virtual environments, worktrees, local `.adore` state, and
+secrets.
 
 Delivery model: ADORE is delivered as a Python package directory plus an executor
 container image. Python 3.11+ and `uv` prepare the host-side `.venv` executable;

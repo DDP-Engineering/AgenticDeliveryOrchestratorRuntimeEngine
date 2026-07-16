@@ -12,6 +12,26 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+### Changed
+
+- Reorganized the operator documentation into a complete, project-agnostic
+  path covering installation, credentials, runtime-project integration,
+  operations, recovery, configuration, and the CLI.
+- Made the root README the primary repository entry point and refreshed the
+  internal component documentation to match current implementation contracts.
+- Extended runtime bundles with the canonical operator documentation and made
+  their embedded documentation links valid after unpacking.
+- Strengthened release consistency validation to inspect archive layout,
+  exclusions, embedded package metadata, documentation entry points, and
+  credential guidance.
+- Replaced the tracked pilot configuration, deployment guidance, and test
+  fixtures with generic runtime-project terminology.
+
+### Removed
+
+- Removed project-specific executor image material and project-specific
+  references from source, documentation, generated bundles, and release notes.
+
 ## [1.0.0] - 2026-07-16
 
 ### Changed
@@ -97,8 +117,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 ### Changed
 
 - Split executor images into a generic base and a runtime-project-specific
-  Cockpit-GCP runtime-project image with Terraform/gate tooling; live-verified
-  the Cockpit image on rootless Podman through `docker/verify-runtime.sh`.
+  image with the required project tooling; live-verified a project image on
+  rootless Podman through `docker/verify-runtime.sh`.
 
 ### Added
 

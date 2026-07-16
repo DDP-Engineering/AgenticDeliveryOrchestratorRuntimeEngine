@@ -12,7 +12,8 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 > Sources: `04_Software/adore/executor/base.py` (0.2.0),
 > `04_Software/adore/executor/launcher.py` (0.5.0).
 > Design: Orchestrator_Design_And_Decisions.md sections 6 and 7a;
-> Prerequisites_Check_Report.md sections 5-6 and 12-13.
+> Runtime-image and credential contracts: `04_Software/docker/README.md` and
+> `01_Documentation/Security_And_Credentials.md`.
 
 ## 1. Purpose
 

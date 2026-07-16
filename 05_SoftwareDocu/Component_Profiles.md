@@ -9,14 +9,15 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Runtime-Project Profiles (`adore/profiles.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/adore/profiles.py` - file version 0.1.0.
+> Source: `04_Software/adore/profiles.py` - file version 0.2.0.
 > Plan: `00_Planning/Assisted_Config_And_Profiles_Plan.md` (task 1 of 8; all
 > tasks complete).
 > Scope note: this component is the **persistence foundation**. The pieces built
 > on it are documented separately: the `adore init` wizard in Component_Wizard.md;
 > environment detection/guidance in Component_Doctor.md; the `adore profile`
 > commands + `--profile` resolution + per-profile statistics in Component_CLI.md;
-> the operator/onboarding guide in `00_Planning/Onboarding_New_Project.md`.
+> the operator integration guide in
+> `01_Documentation/Integrating_A_Runtime_Project.md`.
 
 ## 1. Purpose
 
@@ -42,8 +43,9 @@ resolution order that lets every command target a chosen profile.
   explicit `-c FILE` > `--profile NAME` > active pointer > `./config.toml`.
 - `ProfileError` - fail-closed error for a missing or corrupt profile.
 
-Explicitly not owned (later tasks): prompting/wizard, CLI wiring, statistics
-aggregation, and writing the `config.toml` body.
+Explicitly not owned: prompting/config generation (the wizard), command parsing
+(the CLI), and metric aggregation (the metrics component). Those implemented
+components use this store; they do not duplicate its persistence rules.
 
 ## 3. Implementation Overview
 
@@ -96,11 +98,11 @@ The foundation the assisted-config feature stands on: the wizard (task 3) calls
 from adore.profiles import ProfileStore, resolve_config_path
 
 store = ProfileStore()                      # ADORE_HOME / %APPDATA% / ~/.config
-store.create("sample-project", platform="gitlab", repo="grp/proj", runtime="docker")
-store.set_active("sample-project")
+store.create("<profile-name>", platform="gitlab", repo="<group>/<repository>", runtime="docker")
+store.set_active("<profile-name>")
 
 path, used = resolve_config_path(None, None, store=store)   # -> the active profile
-store.touch("sample-project")               # record a use (use_count, last_used_at)
+store.touch("<profile-name>")               # record a use (use_count, last_used_at)
 ```
 
 ## 9. Validation And Tests
@@ -116,8 +118,8 @@ store.touch("sample-project")               # record a use (use_count, last_used
 
 ## 10. Limitations And Future Work
 
-- Persistence only in this task; the wizard, `adore profile` CLI, `--profile`
-  global flag, and statistics land in plan tasks 3-5.
+- The wizard, `adore profile` CLI, `--profile` global flag, and per-profile
+  statistics are implemented in their respective components.
 - No cross-process locking on the profile store itself (profiles are edited by a
   single operator, unlike the per-run state lock); revisit if concurrent setup
   ever matters.

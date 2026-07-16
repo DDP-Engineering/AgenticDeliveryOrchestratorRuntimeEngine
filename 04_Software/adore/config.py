@@ -95,7 +95,7 @@ class AgentConfig:
     """
     @brief   [agent] - bot identity; the slug derives every local name.
     @details email is the git commit author email used inside the executor
-             container (Setup_And_Credentials.md section 4); derived from the
+             container (Security_And_Credentials.md); derived from the
              slug when empty.
     @author  Eng. Dan Dumitru Pasare
     @date    2026-07-02
@@ -273,7 +273,7 @@ class ExecutorConfig:
              executor (design 12b: scope minimally). stage_host_auth copies
              the HOST's opencode auth.json into the run container at
              provision - a pilot-only bridge for OAuth (ChatGPT-account)
-             sessions that have no API key (Setup_And_Credentials.md 3.1);
+             sessions that have no API key (Security_And_Credentials.md);
              production should use a real provider key instead.
     @author  Eng. Dan Dumitru Pasare
     @date    2026-07-02

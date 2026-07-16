@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Tickets, Readiness, And Labels
 
-Applies to ADORE 0.5.1.
+Applies to ADORE 1.0.0.
 
 Use this when you want ADORE to pick up a ticket, skip a ticket, resume a parked
 ticket, or route a ticket to a specific executor.
@@ -107,4 +107,3 @@ Check the active configuration:
 | Force opencode for one ticket. | Add `agent-exec:opencode`. |
 
 Do not remove or edit the hidden ADORE marker lines in status comments.
-

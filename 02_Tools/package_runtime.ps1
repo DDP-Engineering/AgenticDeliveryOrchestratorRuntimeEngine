@@ -15,7 +15,7 @@
 #              [-Format zip|directory] [-IncludeConfig] [-PackageName NAME]
 # @author  Eng. Dan Dumitru Pasare
 # @date    2026-07-06
-# @version 0.2.0
+# @version 0.3.0
 # -----------------------------------------------------------------------------
 [CmdletBinding()]
 param(
@@ -32,6 +32,7 @@ $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = Split-Path -Parent $ScriptDir
 $SoftwareDir = Join-Path $RepoRoot "04_Software"
+$DocumentationDir = Join-Path $RepoRoot "01_Documentation"
 if (-not $OutputDir) {
     $OutputDir = Join-Path $RepoRoot "07_Delivery"
 }
@@ -73,6 +74,20 @@ function Copy-Required([string]$RelativePath, [string]$DestinationRoot) {
     Copy-Item -LiteralPath $source -Destination $destination -Recurse -Force
 }
 
+function Copy-Documentation([string]$DestinationRoot) {
+    if (-not (Test-Path -LiteralPath $DocumentationDir)) {
+        Fail "required documentation directory missing: 01_Documentation"
+    }
+    Copy-Item -LiteralPath $DocumentationDir -Destination (Join-Path $DestinationRoot "Documentation") -Recurse -Force
+}
+
+function Update-BundleReadmeLinks([string]$DestinationRoot) {
+    $readmePath = Join-Path $DestinationRoot "README.md"
+    $readme = Get-Content -LiteralPath $readmePath -Raw
+    $readme = $readme.Replace("../01_Documentation/", "Documentation/")
+    Set-Content -LiteralPath $readmePath -Value $readme -Encoding UTF8
+}
+
 function Read-PackageVersion {
     $pyproject = Join-Path $SoftwareDir "pyproject.toml"
     $match = Select-String -LiteralPath $pyproject -Pattern '^version\s*=\s*"([^"]+)"' | Select-Object -First 1
@@ -90,6 +105,9 @@ Version: __VERSION__
 
 This bundle contains only the files needed to run ADORE as a Python package.
 It intentionally excludes tests, worktrees, .adore state, caches, and .venv.
+
+Read [Documentation](Documentation/README.md) before deployment. It contains
+the prerequisite, credential, configuration, operation, and recovery guides.
 
 Prepare:
 
@@ -113,7 +131,8 @@ bash deploy/install-ubuntu.sh
 bash deploy/install-ubuntu.sh --service
 ```
 
-Secrets belong in `.env` beside this file or in host CLI authentication.
+Authenticate `glab` or `gh` on the host for forge access. Put only executor
+provider keys named by `[executor].env_keys` in `.env` beside this file.
 The package never includes `.env`.
 '@
     $readme = $readme -replace "__VERSION__", $Version
@@ -125,6 +144,9 @@ The package never includes `.env`.
 # Stage 1: verify the expected repository layout exists.
 if (-not (Test-Path -LiteralPath $SoftwareDir)) {
     Fail "04_Software not found next to 02_Tools"
+}
+if (-not (Test-Path -LiteralPath $DocumentationDir)) {
+    Fail "01_Documentation not found next to 02_Tools"
 }
 
 # Stage 2: read the project release version and derive a safe package name.
@@ -161,29 +183,33 @@ foreach ($path in $runtimePaths) {
     Copy-Required $path $bundleDir
 }
 
-# Stage 5: remove generated Python caches from copied runtime directories.
+# Stage 5: copy the canonical operator documentation and repair bundled links.
+Copy-Documentation $bundleDir
+Update-BundleReadmeLinks $bundleDir
+
+# Stage 6: remove generated Python caches from copied runtime directories.
 Get-ChildItem -LiteralPath $bundleDir -Directory -Recurse -Filter "__pycache__" |
     Remove-Item -Recurse -Force
 Get-ChildItem -LiteralPath $bundleDir -File -Recurse |
     Where-Object { $_.Extension -eq ".pyc" -or $_.Extension -eq ".pyo" } |
     Remove-Item -Force
 
-# Stage 6: include root release notes when present.
+# Stage 7: include root release notes when present.
 $rootChangelog = Join-Path $RepoRoot "CHANGELOG.md"
 if (Test-Path -LiteralPath $rootChangelog) {
     Copy-Item -LiteralPath $rootChangelog -Destination (Join-Path $bundleDir "CHANGELOG.md") -Force
 }
 
-# Stage 7: optionally include the target config, but never include secrets.
+# Stage 8: optionally include the target config, but never include secrets.
 if ($IncludeConfig) {
     Copy-Required "config.toml" $bundleDir
     Note "included config.toml by explicit request; .env is still excluded"
 }
 
-# Stage 8: write short unpack-and-deploy instructions into the bundle.
+# Stage 9: write short unpack-and-deploy instructions into the bundle.
 Write-BundleReadme $bundleDir $version
 
-# Stage 9: either keep the staged directory as the artifact or create a zip.
+# Stage 10: either keep the staged directory as the artifact or create a zip.
 if ($Format -eq "directory") {
     $finalDir = Join-Path $outputFull $PackageName
     Remove-TreeInside $finalDir $outputFull
@@ -193,7 +219,7 @@ if ($Format -eq "directory") {
     exit 0
 }
 
-# Stage 10: create the zip artifact and clean temporary staging files.
+# Stage 11: create the zip artifact and clean temporary staging files.
 $archive = Join-Path $outputFull "$PackageName.zip"
 if (Test-Path -LiteralPath $archive) {
     Remove-Item -LiteralPath $archive -Force

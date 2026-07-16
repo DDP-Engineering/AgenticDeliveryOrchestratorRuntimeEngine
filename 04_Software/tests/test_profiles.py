@@ -123,20 +123,20 @@ def test_profile_crud_round_trip(tmp_path: Path) -> None:
     @version 0.1.0
     """
     store = _store(tmp_path)
-    created = store.create("cockpit-gcp", repo="g/p", platform="gitlab",
+    created = store.create("runtime-project", repo="g/p", platform="gitlab",
                            runtime="docker")
     assert created.created_at == FIXED_NOW and created.use_count == 0
-    assert store.exists("cockpit-gcp")
-    assert store.config_path("cockpit-gcp").name == "config.toml"
-    assert store.default_store_root("cockpit-gcp").name == "state"
+    assert store.exists("runtime-project")
+    assert store.config_path("runtime-project").name == "config.toml"
+    assert store.default_store_root("runtime-project").name == "state"
 
-    loaded = store.load("cockpit-gcp")
+    loaded = store.load("runtime-project")
     assert loaded == created
 
     store.create("beta", platform="github")
-    assert [p.name for p in store.list_profiles()] == ["beta", "cockpit-gcp"]
+    assert [p.name for p in store.list_profiles()] == ["beta", "runtime-project"]
 
-    touched = store.touch("cockpit-gcp")
+    touched = store.touch("runtime-project")
     assert touched.use_count == 1 and touched.last_used_at == FIXED_NOW
 
 

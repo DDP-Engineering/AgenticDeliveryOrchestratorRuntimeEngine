@@ -9,8 +9,8 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Assisted-Config Wizard (`adore/wizard.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/adore/wizard.py` - file version 0.2.0.
-> Plan: `00_Planning/Assisted_Config_And_Profiles_Plan.md` (task 3 of 8).
+> Source: `04_Software/adore/wizard.py` - file version 0.3.0.
+> Historical design source: `00_Planning/Assisted_Config_And_Profiles_Plan.md`.
 > CLI: `adore init` (wired in `adore/cli.py`).
 
 ## 1. Purpose
@@ -41,7 +41,7 @@ get in-line, OS-specific guidance from `doctor`.
 
 Explicitly not owned: the profile store internals (`adore/profiles.py`),
 detection/guidance text (`adore/doctor.py`), and the `adore profile` management
-commands + `--profile` resolution (plan task 4).
+commands + `--profile` resolution.
 
 ## 3. Implementation Overview
 
@@ -102,16 +102,16 @@ commands + `--profile` resolution (plan task 4).
 
 `adore init [name] [--force] [--answers FILE]` (cli.py) builds a `ProfileStore`,
 selects the asker (Console, or Scripted from the answers file), and calls
-`run_wizard`. The resulting profile is consumed by the `--profile` resolution
-(task 4): `adore --profile <name> run|status|...`.
+`run_wizard`. The resulting profile is consumed by `--profile` resolution:
+`adore --profile <name> run|status|...`.
 
 ## 8. Usage
 
 ```bash
 adore init                       # interactive; asks for a profile name
-adore init sample-project           # interactive; name given
-adore init sample-project --answers answers.toml   # non-interactive (CI / servers)
-adore init sample-project --force   # overwrite an existing profile
+adore init <profile-name>           # interactive; name given
+adore init <profile-name> --answers answers.toml   # non-interactive (CI / servers)
+adore init <profile-name> --force   # overwrite an existing profile
 ```
 
 `answers.toml` uses the field keys as TOML keys, e.g.

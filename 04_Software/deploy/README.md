@@ -25,13 +25,14 @@ Re-running after a `git pull` updates the environment in place.
 
 1. Clone the repository and `cd 04_Software`.
 2. `cp config.example.toml config.toml` and adjust it (repo, `repo_path`,
-   `runtime`, budgets - see `00_Planning/Configuration_Reference.md`).
-3. Authenticate `glab` (or `gh`) on the host, or provide tokens via `.env`
-   (`cp .env.example .env`; the file is gitignored). Secrets never go in
-   `config.toml` and never appear on command lines (design 12b).
+   `runtime`, budgets - see `../../01_Documentation/Configuration_Reference.md`).
+3. Authenticate `glab` (or `gh`) on the host. Put only executor provider API
+   keys required by `env_keys` in the gitignored `.env` file
+   (`cp .env.example .env`); see
+   `../../01_Documentation/Security_And_Credentials.md`.
+   Secrets never go in `config.toml` or on command lines (design 12b).
 4. Build the generic executor base image and any runtime-project image required
-   by the profile; for Cockpit-GCP, build `adore-executor-cockpit-gcp:latest`
-   from `docker/README.md`.
+   by the profile; use the generic project-image pattern in `docker/README.md`.
 5. Have a container runtime: native Docker Engine on Ubuntu; on Windows
    either native or Docker Engine inside WSL2
    (`runtime = "wsl -d Ubuntu-24.04 -- docker"`, see `docker/README.md`).
@@ -84,9 +85,9 @@ Re-running after a `git pull` updates the environment in place.
   rotating `<store_root>\adore.log`, which is the first place to inspect
   Task Scheduler runs after `adore status` / `adore runs`.
 - The image is only **verified** on Windows (building through a WSL-wrapped
-  runtime needs path translation); use `-ImageTag adore-executor-cockpit-gcp:latest`
-  when the profile points at the Cockpit-GCP image. Exact build commands are in
-  `docker/README.md`.
+  runtime needs path translation); pass the profile's image tag, for example
+  `-ImageTag adore-executor-<project>:<tag>`. Exact generic build commands are
+  in `docker/README.md`.
 - Task registration refuses `[container.egress] mode = "open"` unless
   `-AllowOpenEgress` is passed. In `allowlist-proxy` mode the proxy image is
   verified through the configured runtime; if absent, the script prints the

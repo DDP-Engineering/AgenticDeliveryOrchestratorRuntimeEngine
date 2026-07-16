@@ -9,8 +9,9 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Config (`adore/config.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/adore/config.py` - file version 0.2.0.
-> Setting-by-setting reference: `00_Planning/Configuration_Reference.md`.
+> Source: `04_Software/adore/config.py` - file version 0.3.0.
+> Setting-by-setting reference:
+> `01_Documentation/Configuration_Reference.md`.
 
 ## 1. Purpose
 
@@ -88,12 +89,13 @@ future work), and any behavior driven by the values.
 
 ## 6. Data Contracts
 
-- Section names and key names match `Configuration_Reference.md` one-to-one.
+- Section names and key names match the current Configuration Reference
+  one-to-one.
 - Durations are stored as raw strings ("24h"); consumers parse them through
   helpers (`ClarificationConfig.answer_timeout_seconds()`), so an invalid
   duration is a *validation issue*, not a load crash.
 - `labels.selection.priority_order()` returns priority labels highest-first;
-  the future queue ranking depends on that order.
+  the orchestrator uses that order when ranking eligible tickets.
 
 ## 7. Workflow Integration
 
@@ -129,4 +131,5 @@ CLI: `adore config show`, `adore config validate`.
 - `adore config set` is not implemented (edit the file directly).
 - Unknown *keys inside known sections* are silently ignored (only unknown
   sections are reported); tightening this is a possible follow-up.
-- `quiet_hours` is validated but not yet enforced (poll loop, later phase).
+- `quiet_hours` is validated here and enforced by the orchestrator before a
+  normal poll pass begins.

@@ -134,10 +134,10 @@ adore pause && adore resume
 adore reset adore-gitlab-g-p-14 --to check --force   # then: adore retry <run-id>
 adore cleanup                                       # after a crash / husk dirs
 
-adore init sample-project              # assisted setup -> a profile
+adore init <profile-name>              # assisted setup -> a profile
 adore profile list                     # profiles with dates + use counts
-adore profile use sample-project       # make it the active profile
-adore --profile sample-project run --dry-run   # any command against a profile
+adore profile use <profile-name>       # make it the active profile
+adore --profile <profile-name> run --dry-run   # any command against a profile
 ```
 
 ## 9. Validation And Tests

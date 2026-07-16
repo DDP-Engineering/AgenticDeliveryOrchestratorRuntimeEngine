@@ -5,80 +5,56 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 #
 # =============================================================================
-# CRAWL-PHASE PILOT configuration - supervised, tight budgets.
-# 2026-07-03: docker pilot, ticket #45 (merged).
-# 2026-07-05: PODMAN pilot (rootless, keep-id) on a new disposable ticket.
-# Run with:  uv run adore run --dry-run   then   uv run adore run --once
+# Generic tracked development configuration.
+#
+# This file intentionally names no real repository, account, image, or host.
+# Copy and adapt it for a local runtime project, then validate before use:
+#   adore -c config.toml config validate
 # =============================================================================
 
 [agent]
-name  = "ADORE"
-slug  = "adore"
+name = "ADORE"
+slug = "adore"
 email = "adore-bot@local"
 
 [platform]
 kind = "gitlab"
-repo = "rd/internal/france/delivery-tools/delivery-cockpit/cockpit-gcp"
+repo = "example-group/example-repository"
 
 [worktree]
-# Local clone of the target repo (verified: origin/develop present, fresh).
-repo_path = "D:/2026_Agentic_Delivery_Platform/04_Software"
-root      = "worktrees"
-# Repo convention: pushed branches must carry the feature/ prefix.
-branch_template = "feature/{slug}-{iid}"
-# The repo's actual GitLab push rule; config validate checks the template
-# renders a compliant branch name before any run starts.
-branch_rule = '^(feature|bugfix|release|hotfix)\/.*$'
+repo_path = "../runtime-project"
+root = "worktrees"
+branch_template = "adore/{run_id}"
 
 [container]
-# PODMAN PILOT: rootless podman inside WSL2 (verified 17/17 on
-# docker/verify-runtime.sh 2026-07-04). Rootless REQUIRES keep-id so the
-# container's adore (uid 1000) can write the bind-mounted worktree.
-runtime  = "wsl -d Ubuntu-24.04 -- podman"
-run_args = ["--userns=keep-id"]
-image    = "adore-executor-cockpit-gcp:latest"
+runtime = "docker"
+image = "adore-executor-base:1.0.0"
 runtime_env = { UV_LINK_MODE = "copy" }
-required_tool_checks = [
-    "make --version",
-    "shellcheck --version",
-    "terraform --version",
-    "tflint --version",
-]
 
 [executor]
-default = "codex"
-env_keys = []
-stage_host_auth = true
+default = "opencode"
+env_keys = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]
+stage_host_auth = false
 
 [executor.opencode]
 command = "opencode run --dir {worktree} -m {model} --format json {prompt}"
-model   = "openai/gpt-5.5"
+model = "provider/model"
 
-[executor.pi]
-command = "mkdir -p \"$HOME/.pi/agent\" && printf '%s' \"$PI_MODELS_JSON\" > \"$HOME/.pi/agent/models.json\" && PI_SKIP_VERSION_CHECK=1 pi -p --mode json --approve --provider lmstudio --model {model} {prompt}"
-model   = "qwen/qwen3.6-27b"
-
-[executor.codex]
-command = "codex exec {resume}--json --model {model} --ignore-user-config --disable plugins --dangerously-bypass-approvals-and-sandbox {prompt}"
-model   = "gpt-5.5"
-
-# Supervised pilot budgets (walk step): 6 gates + fix headroom, per the
-# sizing ladder in Configuration_Reference (6 crawl / 12-15 supervised).
 [budgets]
-max_iterations         = 12
+max_iterations = 12
 max_wall_clock_seconds = 5400
-max_cost_usd           = 5.0
-max_files_touched      = 10
+max_cost_usd = 5.0
+max_files_touched = 10
 
 [clarification]
-max_rounds     = 2
+max_rounds = 2
 reminder_after = "30m"
 answer_timeout = "2h"
 
 [delivery]
-target_branch = "develop"
-reviewers     = ["dan.pasare"]
+target_branch = "main"
+reviewers = ["reviewer"]
 
 [polling]
-mode                = "once"
+mode = "once"
 max_concurrent_runs = 1

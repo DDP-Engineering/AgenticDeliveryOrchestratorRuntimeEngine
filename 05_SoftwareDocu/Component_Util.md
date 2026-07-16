@@ -51,7 +51,7 @@ JSON/URLs) and retry/backoff policy (the orchestrator's concern).
   - otherwise the command's own exit code.
 - Output is always **captured**, never streamed: the prerequisites check
   showed opencode buffers stdout, so naive streaming looks "hung"
-  (Prerequisites_Check_Report.md section 9). Output is decoded as UTF-8 with
+  Output is decoded as UTF-8 with
   replacement to survive Windows console encodings.
 - Default command timeout: 600 s (`DEFAULT_COMMAND_TIMEOUT`).
 

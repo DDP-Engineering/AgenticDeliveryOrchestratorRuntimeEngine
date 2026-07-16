@@ -1658,7 +1658,7 @@ class Orchestrator:
         """
         @brief      Copy the host's executor auth.json into the container.
         @details    Pilot-only bridge for OAuth (ChatGPT-account) sessions
-                    that have no API key (Setup_And_Credentials.md 3.1). Source
+                    that have no API key (Security_And_Credentials.md). Source
                     and container destination are per-executor
                     (_HOST_AUTH_PATHS): opencode's
                     `~/.local/share/opencode/auth.json` or codex's host

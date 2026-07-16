@@ -117,12 +117,13 @@ interface) and metrics.
   `containers`, `executor`, `sleep`, `log`); `from_config` wires production
   implementations and pulls the executor secret subset
   (`[executor] env_keys`) from the environment / `.env`.
-- `[executor] stage_host_auth` (pilot-only): at provision, the selected
-  executor's host `auth.json` is copied into the container through the io
-  mount and scrubbed from io immediately - the OAuth bridge from
-  Setup_And_Credentials.md 3.1. Codex uses host `~/.codex/auth.json` as the
-  source but stages it into `/home/adore/.adore-codex`, which is also injected
-  as `CODEX_HOME`, so machine-local Codex plugin/config state is not reused.
+- `[executor] stage_host_auth` (pilot-only) supports OpenCode and Codex only.
+  At provision, the corresponding host `auth.json` is copied through the io
+  mount and scrubbed from io immediately. OpenCode uses
+  `~/.local/share/opencode/auth.json`; Codex uses `~/.codex/auth.json` and is
+  staged into `/home/adore/.adore-codex`, which is injected as `CODEX_HOME` so
+  machine-local Codex plugin/config state is not reused. See
+  `01_Documentation/Security_And_Credentials.md`.
 - `_container_env` composes the environment used for both container creation
   and every `exec`: ADORE-managed Git/Home variables, non-secret
   `[container] runtime_env` values such as `UV_LINK_MODE=copy`, executor

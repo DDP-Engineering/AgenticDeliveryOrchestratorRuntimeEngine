@@ -37,7 +37,7 @@ kind = "gitlab"
 repo = "group/project"
 
 [worktree]
-repo_path = "../cockpit-gcp"
+repo_path = "../runtime-project"
 root      = "__WORKTREE_ROOT__"
 
 [executor.opencode]

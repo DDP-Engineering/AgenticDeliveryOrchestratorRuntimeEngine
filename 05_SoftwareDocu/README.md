@@ -10,8 +10,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 Implementation notes, internal contracts, and deeper technical documentation for
 the orchestrator package belong here. Component documents follow
 `component_documentation_template.md` and are created or updated in the same
-change as the component (see the Documentation Rules in the repository
-`AGENTS.md`).
+change as the component.
 
 This folder is the home for component implementation documentation. AI agents
 must keep it current when they create or change component behavior, contracts,
@@ -68,10 +67,9 @@ guides belong in `01_Documentation/`.
 - `Component_Packaging.md` - runtime-bundle packaging scripts
   (`02_Tools/package_runtime.*`).
 
-## Planned contents (later phases)
+## Cross-cutting contracts
 
-- `State_Machine.md` - the run states and transitions (pick, isolate, gate loop,
-  park/resume on clarification, deliver, retry, escalate) and the run budgets
-  that bound them.
-- `Idempotency_And_Recovery.md` - how the orchestrator recovers after a restart
-  without double-posting comments or re-opening MRs.
+The implemented run-state, recovery, and idempotency contracts are currently
+documented in `Component_State_Store.md`, `Component_Orchestrator.md`, and
+`Component_Isolation.md`. Operator-facing recovery procedures belong in
+`01_Documentation/Recovery_And_Maintenance.md`.

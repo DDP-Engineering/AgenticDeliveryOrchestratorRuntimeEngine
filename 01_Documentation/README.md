@@ -5,35 +5,43 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
-# Documentation
+# ADORE Documentation
 
-Project-level documentation for operating and configuring the Agentic Delivery
-Orchestrator belongs here.
+This is the operator and administrator documentation for **Agentic Delivery
+Orchestrator & Runtime Engine (ADORE)**. It describes the product generically:
+replace placeholders such as `<profile-name>` and `<runtime-project>` with your
+own names. No guide assumes a particular target repository.
 
-This folder is for project documentation intended to help people understand,
-install, configure, operate, or present ADORE. It includes manuals, setup guides,
-configuration references, user-facing behavior descriptions, operational
-runbooks, and presentations. AI agents should update this folder whenever a
-software interface, user-visible behavior, command, configuration contract, or
-implementation-facing guide changes.
+## Start Here
 
-Current contents:
+Follow these guides in order when introducing ADORE to a host or a project:
 
-- `Operator_Cheat_Sheets/` - short visual operator cheat sheets for setup,
-  tickets and labels, profiles and images, monitoring, steering, and recovery.
-- `Step_By_Step_Setup.md` - step-by-step operator setup guide for Windows and
-  Linux hosts.
-- `Setup_And_Credentials.md` - host, forge, executor, and credential guidance.
-- `Onboarding_New_Project.md` - runtime-project onboarding guide.
-- `Configuration_Reference.md` - the `config.toml` keys, profiles,
-  readiness, labels, isolation, delivery, review, reconcile, and metrics.
-- `Code_Style.md` - code style, Python Doxygen conventions, and local
-  file/function revision marker rules.
+1. [Getting_Started.md](Getting_Started.md) - understand the operating model,
+   prepare a host, install the runtime, create a profile, and complete a safe
+   first poll.
+2. [Security_And_Credentials.md](Security_And_Credentials.md) - set up forge
+   access, executor credentials, secret handling, and the human merge boundary.
+3. [Integrating_A_Runtime_Project.md](Integrating_A_Runtime_Project.md) - add a
+   runtime project, its image, state, readiness rules, and ticket-label contract.
+4. [Operations_Guide.md](Operations_Guide.md) - run, monitor, steer, review,
+   and schedule normal ADORE work.
+5. [Recovery_And_Maintenance.md](Recovery_And_Maintenance.md) - diagnose,
+   retry, reset, cancel, delete, and clean up runs safely.
 
-Planned contents:
+## Reference Guides
 
-- `Operator_Guide.md` - how to run the orchestrator, what the ticket lifecycle
-  labels mean (`agent-ready`, `agent-working`, `agent-clarify`, `agent-mr`,
-  `agent-failed`), and how to answer clarification questions.
-- `Prompt_Reference.md` - the per-gate prompts the conductor sends to the
-  executor.
+- [Configuration_Reference.md](Configuration_Reference.md) - every
+  `config.toml` setting, profile resolution, defaults, and validation rules.
+- [CLI_Reference.md](CLI_Reference.md) - the complete command-line interface,
+  command syntax, safety flags, and exit codes.
+
+## Quick References
+
+[Operator_Cheat_Sheets/](Operator_Cheat_Sheets/README.md) contains concise,
+task-oriented reminders. The full guides above are authoritative when a cheat
+sheet and a reference need different levels of detail.
+
+## Maintainer Reference
+
+[Code_Style.md](Code_Style.md) is internal engineering guidance for people who
+implement ADORE. It is not part of the operator documentation path.

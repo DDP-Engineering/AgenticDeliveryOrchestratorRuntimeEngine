@@ -15,7 +15,7 @@
          and exact forbidden pre-1.0 identity tokens.
 @author Eng. Dan Dumitru Pasare
 @date 2026-07-16
-@version 0.1.0
+@version 0.2.0
 """
 
 from __future__ import annotations
@@ -25,6 +25,7 @@ import argparse
 from pathlib import Path
 import re
 import sys
+import tarfile
 import tomllib
 import zipfile
 
@@ -39,6 +40,26 @@ EXPECTED_ARTIFACTS = {
     f"{EXPECTED_RUNTIME_PREFIX}-{EXPECTED_VERSION}.zip",
     f"{EXPECTED_RUNTIME_PREFIX}-{EXPECTED_VERSION}.tar.gz",
 }
+EXPECTED_BUNDLE_DIR = f"{EXPECTED_RUNTIME_PREFIX}-{EXPECTED_VERSION}"
+REQUIRED_BUNDLE_FILES = frozenset({
+    ".env.example",
+    "README.md",
+    "README_PACKAGED.md",
+    "config.example.toml",
+    "pyproject.toml",
+    "uv.lock",
+    "adore/__init__.py",
+    "adore/branding.py",
+    "deploy/adore.service",
+    "docker/Dockerfile.executor-base",
+    "Documentation/README.md",
+    "Documentation/CLI_Reference.md",
+    "Documentation/Getting_Started.md",
+    "Documentation/Security_And_Credentials.md",
+})
+FORBIDDEN_BUNDLE_PARTS = frozenset({
+    ".adore", ".venv", "__pycache__", "tests", "worktrees",
+})
 ALLOWED_HISTORY_PATH = Path("00_Planning/Onboarding_Wizards_Analysis_And_Proposal.md")
 ALLOWED_HISTORY_LINE = (
     "> Historical note: this repository was renamed from Agentic Delivery "
@@ -259,6 +280,11 @@ def _check_release_surfaces(root: Path, issues: list[str]) -> None:
         "02_Tools/package_runtime.sh": (f'"{EXPECTED_RUNTIME_PREFIX}-${{VERSION}}"',),
         "README.md": ("Current release: **ADORE 1.0.0**.",),
         "CHANGELOG.md": ("## [1.0.0] - 2026-07-16",),
+        "07_Delivery/README.md": (
+            "adore-runtime-1.0.0.zip",
+            "adore-runtime-1.0.0.tar.gz",
+            "Documentation/",
+        ),
     }
     for relative, tokens in required.items():
         text = _require_text(root, relative, issues)
@@ -280,7 +306,7 @@ def _check_artifacts(root: Path, require_artifacts: bool, issues: list[str]) -> 
     @param[in]  root Repository root.
     @param[in]  require_artifacts Require both Windows and Linux archives.
     @param[out] issues Accumulated validation issues.
-    @version    0.1.0
+    @version    0.2.0
     """
     delivery = root / "07_Delivery"
     present = {
@@ -292,6 +318,196 @@ def _check_artifacts(root: Path, require_artifacts: bool, issues: list[str]) -> 
     if require_artifacts:
         for name in sorted(EXPECTED_ARTIFACTS - present):
             issues.append(f"required runtime artifact missing: {name}")
+    for name in sorted(present & EXPECTED_ARTIFACTS):
+        _check_runtime_artifact(delivery / name, issues)
+
+
+def _normalise_bundle_member(
+    artifact: Path,
+    name: str,
+    issues: list[str],
+) -> str | None:
+    """
+    @brief      Validate an archive member and strip its bundle root directory.
+    @param[in]  artifact Runtime archive being inspected.
+    @param[in]  name Raw archive member name.
+    @param[out] issues Accumulated validation issues.
+    @return     Bundle-relative member path, or None for its root directory.
+    @version    0.2.0
+    """
+    if "\\" in name or name.startswith("/"):
+        issues.append(f"{artifact.name}: unsafe archive member path {name!r}")
+        return None
+    normalized = name.rstrip("/")
+    if normalized == EXPECTED_BUNDLE_DIR:
+        return None
+    prefix = f"{EXPECTED_BUNDLE_DIR}/"
+    if not normalized.startswith(prefix):
+        issues.append(
+            f"{artifact.name}: member is outside {EXPECTED_BUNDLE_DIR}/: {name}"
+        )
+        return None
+    relative = normalized.removeprefix(prefix)
+    if not relative or any(part in {"", ".", ".."} for part in relative.split("/")):
+        issues.append(f"{artifact.name}: unsafe archive member path {name!r}")
+        return None
+    return relative
+
+
+def _read_archive_members(artifact: Path, issues: list[str]) -> dict[str, bytes]:
+    """
+    @brief      Read regular archive members under the canonical bundle root.
+    @param[in]  artifact ZIP or tar.gz runtime artifact.
+    @param[out] issues Accumulated validation issues.
+    @return     Mapping of bundle-relative regular-file paths to their bytes.
+    @version    0.2.0
+    """
+    files: dict[str, bytes] = {}
+
+    def add_member(name: str, data: bytes) -> None:
+        relative = _normalise_bundle_member(artifact, name, issues)
+        if relative is None:
+            return
+        if relative in files:
+            issues.append(f"{artifact.name}: duplicate archive member {relative}")
+            return
+        files[relative] = data
+
+    try:
+        if artifact.suffix == ".zip":
+            with zipfile.ZipFile(artifact) as archive:
+                for member in archive.infolist():
+                    if member.is_dir():
+                        _normalise_bundle_member(artifact, member.filename, issues)
+                        continue
+                    add_member(member.filename, archive.read(member))
+        else:
+            with tarfile.open(artifact, "r:gz") as archive:
+                for member in archive.getmembers():
+                    if member.issym() or member.islnk():
+                        issues.append(
+                            f"{artifact.name}: links are forbidden in runtime bundles: "
+                            f"{member.name}"
+                        )
+                        continue
+                    if member.isdir():
+                        _normalise_bundle_member(artifact, member.name, issues)
+                        continue
+                    if not member.isfile():
+                        issues.append(
+                            f"{artifact.name}: unsupported archive member {member.name}"
+                        )
+                        continue
+                    source = archive.extractfile(member)
+                    if source is None:
+                        issues.append(f"{artifact.name}: cannot read member {member.name}")
+                        continue
+                    add_member(member.name, source.read())
+    except (OSError, tarfile.TarError, zipfile.BadZipFile) as exc:
+        issues.append(f"cannot inspect runtime artifact {artifact.name}: {exc}")
+    return files
+
+
+def _check_bundle_metadata(
+    artifact: Path,
+    files: dict[str, bytes],
+    issues: list[str],
+) -> None:
+    """
+    @brief      Confirm embedded package, lock, and operator-doc metadata.
+    @param[in]  artifact Runtime archive being inspected.
+    @param[in]  files Bundle-relative regular-file bytes.
+    @param[out] issues Accumulated validation issues.
+    @version    0.2.0
+    """
+    try:
+        pyproject = tomllib.loads(files["pyproject.toml"].decode("utf-8-sig"))
+        project = pyproject["project"]
+        if project.get("name") != EXPECTED_NAME or project.get("version") != EXPECTED_VERSION:
+            issues.append(f"{artifact.name}: embedded pyproject metadata is not adore 1.0.0")
+        if project.get("scripts") != {EXPECTED_NAME: "adore.cli:main"}:
+            issues.append(f"{artifact.name}: embedded pyproject console command is wrong")
+    except (KeyError, TypeError, UnicodeError, tomllib.TOMLDecodeError) as exc:
+        issues.append(f"{artifact.name}: invalid embedded pyproject.toml: {exc}")
+
+    try:
+        lock = tomllib.loads(files["uv.lock"].decode("utf-8-sig"))
+        editable = [
+            package for package in lock.get("package", [])
+            if package.get("source", {}).get("editable") == "."
+        ]
+        if len(editable) != 1 or (
+            editable[0].get("name") != EXPECTED_NAME
+            or editable[0].get("version") != EXPECTED_VERSION
+        ):
+            issues.append(f"{artifact.name}: embedded uv.lock root package is not adore 1.0.0")
+    except (TypeError, UnicodeError, tomllib.TOMLDecodeError) as exc:
+        issues.append(f"{artifact.name}: invalid embedded uv.lock: {exc}")
+
+    try:
+        init_text = files["adore/__init__.py"].decode("utf-8-sig")
+        if f'__version__ = "{EXPECTED_VERSION}"' not in init_text:
+            issues.append(f"{artifact.name}: embedded adore.__version__ is wrong")
+        runtime_readme = files["README.md"].decode("utf-8-sig")
+        _expect_tokens(
+            f"{artifact.name}:README.md",
+            runtime_readme,
+            ("Documentation/Integrating_A_Runtime_Project.md",),
+            issues,
+        )
+        if "../01_Documentation/" in runtime_readme:
+            issues.append(f"{artifact.name}: README.md has an unpackable documentation link")
+        packaged_readme = files["README_PACKAGED.md"].decode("utf-8-sig")
+        _expect_tokens(
+            f"{artifact.name}:README_PACKAGED.md",
+            packaged_readme,
+            (
+                f"Version: {EXPECTED_VERSION}",
+                "[Documentation](Documentation/README.md)",
+                "Authenticate `glab` or `gh` on the host",
+                "`[executor].env_keys`",
+            ),
+            issues,
+        )
+        documentation_index = files["Documentation/README.md"].decode("utf-8-sig")
+        _expect_tokens(
+            f"{artifact.name}:Documentation/README.md",
+            documentation_index,
+            ("# ADORE Documentation", "Security_And_Credentials.md"),
+            issues,
+        )
+    except (KeyError, UnicodeError) as exc:
+        issues.append(f"{artifact.name}: invalid embedded runtime metadata: {exc}")
+
+
+def _check_runtime_artifact(artifact: Path, issues: list[str]) -> None:
+    """
+    @brief      Validate layout, exclusions, identity, and metadata in an archive.
+    @param[in]  artifact Canonically named runtime ZIP or tar.gz archive.
+    @param[out] issues Accumulated validation issues.
+    @version    0.2.0
+    """
+    files = _read_archive_members(artifact, issues)
+    missing = REQUIRED_BUNDLE_FILES - files.keys()
+    for relative in sorted(missing):
+        issues.append(f"{artifact.name}: missing required bundle file {relative}")
+    for relative in sorted(files):
+        parts = relative.split("/")
+        name = parts[-1]
+        if name in {".env", "config.toml"} or any(
+            part in FORBIDDEN_BUNDLE_PARTS for part in parts
+        ) or name.endswith((".pyc", ".pyo")):
+            issues.append(f"{artifact.name}: forbidden bundle member {relative}")
+        if _is_text_candidate(Path(relative)):
+            try:
+                text = files[relative].decode("utf-8-sig")
+            except UnicodeError as exc:
+                issues.append(f"{artifact.name}: cannot decode {relative}: {exc}")
+                continue
+            if any(pattern.search(line) for pattern in _legacy_patterns() for line in text.splitlines()):
+                issues.append(f"{artifact.name}: legacy identity in bundle file {relative}")
+    if not missing:
+        _check_bundle_metadata(artifact, files, issues)
 
 
 # EXPORTED FUNCTIONS / PUBLIC API
@@ -302,7 +518,7 @@ def check_repository(root: Path, *, require_artifacts: bool = False) -> list[str
     @param[in]  root Repository root.
     @param[in]  require_artifacts Require both canonical delivery archives.
     @return     Sorted deterministic issue descriptions; empty means success.
-    @version    0.1.0
+    @version    0.2.0
     """
     resolved = root.resolve()
     issues: list[str] = []

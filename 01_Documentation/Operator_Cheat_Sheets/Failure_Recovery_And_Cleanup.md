@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Failure Recovery And Cleanup
 
-Applies to ADORE 0.5.1.
+Applies to ADORE 1.0.0.
 
 Use this when a run is parked, failed, no longer wanted, or has left resources
 behind after a crash, close, merge, or interrupted host session.
@@ -111,4 +111,3 @@ ADORE may open a draft MR/PR, but it must not merge. After human review:
   `agent-revise`.
 - If the MR/PR is accepted, the human merges it.
 - After merge or close, run `adore cleanup` to verify no resources remain.
-

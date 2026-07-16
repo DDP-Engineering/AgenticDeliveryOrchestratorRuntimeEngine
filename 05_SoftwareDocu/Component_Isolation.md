@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Isolation (`adore/isolation.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/adore/isolation.py` - file version 0.4.0.
+> Source: `04_Software/adore/isolation.py` - file version 0.5.0.
 > Design: Orchestrator_Design_And_Decisions.md sections 8b, 10, 10a.
 > Images: `04_Software/docker/Dockerfile.executor-base`,
 > `04_Software/docker/Dockerfile.egress-proxy`, plus runtime-project images
@@ -108,7 +108,8 @@ side keeps working normally with its absolute paths. The admin dir name is
   can start after dropping privileges to the `proxy` user.
 - Windows host paths are normalized (`Path.as_posix()`) for mount syntax.
 - Commit authorship comes from `agent.name` / `agent.email` via
-  `GIT_AUTHOR_*` / `GIT_COMMITTER_*` (setup doc section 4).
+  `GIT_AUTHOR_*` / `GIT_COMMITTER_*`; credential and host-auth boundaries are
+  documented in `01_Documentation/Security_And_Credentials.md`.
 
 ## 4. Dependencies
 
@@ -214,7 +215,7 @@ result = containers.exec("adore-run-gitlab-x-14", ["opencode", "--version"])
   1.0.0 images passed Docker open mode (17/17), Docker allowlist-proxy mode
   (21/21), and rootless Podman open mode (17/17) on 2026-07-16.
 - **Live verification done 2026-07-03** (Docker Engine in WSL2, scratch repo,
-  19/19 steps; Prerequisites_Check_Report.md section 12): image build and
+  19/19 steps): image build and
   tooling checks, WSLENV secret propagation, git status/commit **inside** the
   container via the GIT_DIR/GIT_WORK_TREE model with the commit visible on
   the host under bot authorship, park -> resume with state intact, full
@@ -230,9 +231,10 @@ result = containers.exec("adore-run-gitlab-x-14", ["opencode", "--version"])
 - With `GIT_DIR` set container-wide, git inside the container always targets
   the run's repo regardless of cwd - harmless for the single-worktree
   executor, but surprising if a run ever needed a second repo.
-- CPU/RAM/network limits (`--memory`, `--cpus`, `--network`) are not yet
-  passed to `docker run`; add as `[container]` keys when the budgets phase
-  lands.
+- Container-runtime limits can be supplied through `[container] run_args`, for
+  example `--memory=2g` or `--cpus=2`. Egress networking is separately owned
+  by `[container.egress]`; dedicated first-class CPU/RAM configuration keys are
+  not implemented.
 - Docker UID mapping: the executor base image is built with
   `--build-arg USER_UID=$(id -u)` so the container's `adore` user matches the
   host user. Without this, files written to bind-mounted volumes (worktree,

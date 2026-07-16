@@ -97,9 +97,10 @@ are separate backlog items). The lightweight runtime bundle is owned by
 
 ## 7. Workflow Integration
 
-Deployment is the last step of the setup chain: prerequisites
-(`Setup_And_Credentials.md`, `Prerequisites_Check_Report.md`) -> config ->
-image -> **this** -> the poller runs `adore run --loop`/`--once` unattended.
+Deployment is the last step of the setup chain: prerequisites and credentials
+(`01_Documentation/Getting_Started.md`,
+`01_Documentation/Security_And_Credentials.md`) -> config -> image -> **this**
+-> the poller runs `adore run --loop`/`--once` unattended.
 Operations afterwards go through the CLI (`status`, `pause`, `cleanup`,
 `stats --html`) - there is no other control plane by design (12a).
 

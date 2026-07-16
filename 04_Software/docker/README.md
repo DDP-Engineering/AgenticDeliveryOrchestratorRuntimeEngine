@@ -8,69 +8,62 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # ADORE Executor Images
 
-ADORE uses a two-layer image contract:
+ADORE uses a two-layer executor-image contract:
 
-- `Dockerfile.executor-base` builds `adore-executor-base:1.0.0`, the generic
-  ADORE executor environment. It contains only the tools needed to run ADORE
-  executors: Python 3.11 via uv, Node/npm, git, glab, gh, opencode, pi, codex,
-  qwen, the non-root `adore` user, mount points, caches, HOME pinning, and git
-  safe-directory setup.
-- Runtime-project images extend the base and add that project’s build/test
-  dependencies. The current Cockpit-GCP image is
-  `Dockerfile.executor-cockpit-gcp` -> `adore-executor-cockpit-gcp:latest`.
+- `Dockerfile.executor-base` builds `adore-executor-base:1.0.0`. It contains
+  the generic executor tools: Python 3.11 via uv, Node/npm, git, `glab`, `gh`,
+  OpenCode, Pi, Codex, Qwen, the non-root `adore` user, fixed mount points,
+  caches, HOME pinning, and Git safe-directory setup.
+- Each runtime project supplies a Dockerfile that extends the base with that
+  project's build and test tools. Tag the resulting image as
+  `adore-executor-<project>:<tag>` and select it in the profile's
+  `[container].image` setting.
 - `Dockerfile.egress-proxy` builds `adore-egress-proxy:1.0.0`, a generic Squid
-  proxy image. ADORE mounts a generated per-run allowlist config into it; no
-  runtime-project hosts are baked into the image.
+  proxy. ADORE mounts a generated per-run allowlist into it; project hosts are
+  not baked into the image.
 
-`[container].image` selects the runtime-project image per ADORE profile. Use
-`adore-executor-base:1.0.0` for executor-only validation, and a project image for
-real delivery runs.
+Use the base image for executor-only validation. Use a project image for any
+delivery run that needs project-specific tools.
 
-## Build
+## Build the base and proxy images
 
-The executor base image must be built with `--build-arg USER_UID=$(id -u)` so
-the container's `adore` user matches the host user that runs ADORE. Without this,
-files written by the container to bind-mounted volumes (worktree, IO, caches)
-are owned by the wrong UID. Podman deployments can skip this and use
-`run_args = ["--userns=keep-id"]` instead (see Podman notes below).
+On Linux, build from the `04_Software/docker` directory:
 
 ```bash
-cd 04_Software/docker
-docker build --build-arg USER_UID=$(id -u) -f Dockerfile.executor-base -t adore-executor-base:1.0.0 .
+docker build --build-arg USER_UID=$(id -u) \
+  -f Dockerfile.executor-base -t adore-executor-base:1.0.0 .
 docker build -f Dockerfile.egress-proxy -t adore-egress-proxy:1.0.0 .
 ```
 
-For the current Cockpit-GCP runtime project:
+`USER_UID` makes the container's `adore` user match the account that runs
+ADORE. Without it, files written through bind mounts can be owned by the wrong
+UID. With rootless Podman, omit the build argument and configure
+`run_args = ["--userns=keep-id"]` instead.
 
-```bash
-docker build -f Dockerfile.executor-cockpit-gcp -t adore-executor-cockpit-gcp:latest .
-```
-
-With Docker Engine inside WSL2 (no Docker Desktop), build from PowerShell as:
+When Docker runs inside WSL, substitute the Linux-visible path to this
+directory and the installed distribution name:
 
 ```powershell
-wsl -d Ubuntu-24.04 -- docker build --build-arg USER_UID=$(id -u) `
-  -f /mnt/d/TEMP/2026_AgenticDeliveryOrchestratorRuntimeEngine/04_Software/docker/Dockerfile.executor-base `
+wsl -d <distribution> -- docker build --build-arg USER_UID=$(id -u) `
+  -f <linux-path-to-docker-dir>/Dockerfile.executor-base `
   -t adore-executor-base:1.0.0 `
-  /mnt/d/TEMP/2026_AgenticDeliveryOrchestratorRuntimeEngine/04_Software/docker
+  <linux-path-to-docker-dir>
 
-wsl -d Ubuntu-24.04 -- docker build `
-  -f /mnt/d/TEMP/2026_AgenticDeliveryOrchestratorRuntimeEngine/04_Software/docker/Dockerfile.egress-proxy `
+wsl -d <distribution> -- docker build `
+  -f <linux-path-to-docker-dir>/Dockerfile.egress-proxy `
   -t adore-egress-proxy:1.0.0 `
-  /mnt/d/TEMP/2026_AgenticDeliveryOrchestratorRuntimeEngine/04_Software/docker
-
-wsl -d Ubuntu-24.04 -- docker build `
-  -f /mnt/d/TEMP/2026_AgenticDeliveryOrchestratorRuntimeEngine/04_Software/docker/Dockerfile.executor-cockpit-gcp `
-  -t adore-executor-cockpit-gcp:latest `
-  /mnt/d/TEMP/2026_AgenticDeliveryOrchestratorRuntimeEngine/04_Software/docker
+  <linux-path-to-docker-dir>
 ```
 
-Set `runtime = "wsl -d Ubuntu-24.04 -- docker"` in `config.toml`; ADORE handles
-mount-path translation (`D:\x` -> `/mnt/d/x`) and WSLENV env propagation.
+Set the profile's `runtime` to the command that invokes that runtime, for
+example `wsl -d <distribution> -- docker`. ADORE translates Windows mount paths
+and passes the required environment through WSL.
 
-## Runtime Project Pattern
+## Create a project image
 
-Create one Dockerfile per runtime project:
+Create a Dockerfile for the runtime project. It must start from the ADORE base,
+install only the tools required by that project, and finish as the non-root
+`adore` user.
 
 ```dockerfile
 ARG BASE_IMAGE=adore-executor-base:1.0.0
@@ -78,41 +71,42 @@ FROM ${BASE_IMAGE}
 
 USER root
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    <project tools> \
+    <project-tools> \
     && rm -rf /var/lib/apt/lists/*
 USER adore
 ```
 
-Then set the project profile:
+Build it from its chosen build context:
+
+```bash
+docker build -f <project-dockerfile> -t adore-executor-<project>:<tag> .
+```
+
+Configure the profile to select the image and to check the project tools before
+any executor gate runs:
 
 ```toml
 [container]
-image = "adore-executor-cockpit-gcp:latest"
+image = "adore-executor-<project>:<tag>"
 required_tool_checks = [
-  "make --version",
-  "shellcheck --version",
-  "terraform --version",
-  "tflint --version",
+  "<project-tool> --version",
 ]
 ```
 
-The required checks run after container provision and fail closed before any
-executor gate starts.
-
-## Egress Proxy Image
+## Egress proxy image
 
 When `[container.egress] mode = "allowlist-proxy"`, ADORE creates one internal
-network and one proxy container per run. The executor container joins only that
-internal network. The proxy container keeps normal outbound access and is also
-connected to the internal network with alias `adore-egress-proxy`.
+network and one proxy container for each run. The executor joins only the
+internal network; the proxy has outbound access and is reachable inside the
+network as `adore-egress-proxy`.
 
-Build the generic proxy image once per runtime:
+Build the proxy image once per container runtime:
 
 ```bash
 docker build -f Dockerfile.egress-proxy -t adore-egress-proxy:1.0.0 .
 ```
 
-Then set only hostnames in project config:
+Allow only the hosts that the project and executor require:
 
 ```toml
 [container.egress]
@@ -120,33 +114,31 @@ mode = "allowlist-proxy"
 allowlist = ["gitlab.example.com", "api.openai.com", "*.pythonhosted.org"]
 ```
 
-The allowlist accepts exact hostnames and leading wildcards only. SSH and other
-non-proxy-aware protocols are out of scope for this mode.
+The allowlist accepts exact hostnames and leading wildcards. SSH and other
+protocols that cannot use an HTTP(S) proxy are outside this mode's scope.
 
-## Runtime Verification
+## Verify a container runtime
 
-`verify-runtime.sh` proves a container runtime compatible with ADORE before a
-profile points at it. It mirrors the runtime CLI calls `ContainerManager` makes:
-image inspect/build, volume create, run with mounts/env, egress modes, exec,
-git via GIT_DIR/GIT_WORK_TREE, park/resume, listing, reap, and absence
-detection.
+`verify-runtime.sh` checks the operations ADORE performs: image inspect/build,
+volume create, mounted execution, egress modes, Git worktrees, parking and
+resuming, listing, cleanup, and absence detection.
 
 ```bash
-# Generic executor-base validation.
+# Generic base-image validation.
 RUNTIME=docker ./verify-runtime.sh
 
-# Rootless podman.
+# Rootless Podman.
 RUNTIME=podman RUN_ARGS="--userns=keep-id" ./verify-runtime.sh
 
-# Cockpit-GCP project image validation.
-IMAGE=adore-executor-cockpit-gcp:latest \
-REQUIRED_TOOL_CHECKS="make --version;shellcheck --version;terraform --version;tflint --version" \
+# Project image validation.
+IMAGE=adore-executor-<project>:<tag> \
+REQUIRED_TOOL_CHECKS="<project-tool> --version" \
 ./verify-runtime.sh
 
 # No-network executor validation.
 EGRESS_MODE=none ./verify-runtime.sh
 
-# Allowlist proxy validation.
+# Allowlist-proxy validation.
 EGRESS_MODE=allowlist-proxy \
 ALLOWLIST="example.com" \
 ALLOWED_URL="https://example.com" \
@@ -154,20 +146,13 @@ DENIED_URL="https://github.com" \
 ./verify-runtime.sh
 ```
 
-Podman notes:
+For rootless Podman, install `podman`, `uidmap`, and `slirp4netns`; build images
+separately for Docker and Podman because their image stores differ. On SELinux
+hosts, bind mounts can also require `:z` or `:Z` labels. On Windows-mounted
+worktrees, project tools must not force `TMPDIR` into the worktree because Unix
+sockets cannot be created there.
 
-- Rootless podman requires `[container] run_args = ["--userns=keep-id"]`.
-  Without it, container uid 1000 (`adore`) maps to a subuid that cannot write
-  the bind-mounted worktree.
-- Install with `sudo apt-get install -y podman uidmap slirp4netns`; images are
-  built separately per runtime because podman and docker use different storage.
-- On SELinux hosts, bind mounts may additionally need `:z`/`:Z` labels.
-- Bind-mounted worktrees on Windows hosts cannot host Unix sockets. Target repos
-  must not force `TMPDIR` into the worktree for tools such as tflint.
-
-## First-Build Checks
-
-Base image:
+## First-build checks
 
 ```bash
 docker run --rm adore-executor-base:1.0.0 python --version
@@ -178,16 +163,11 @@ docker run --rm adore-executor-base:1.0.0 opencode --version
 docker run --rm adore-executor-base:1.0.0 glab --version
 docker run --rm adore-executor-base:1.0.0 gh --version
 docker run --rm adore-executor-base:1.0.0 whoami
+
+docker run --rm adore-executor-<project>:<tag> <project-tool> --version
 ```
 
-Cockpit-GCP image:
-
-```bash
-docker run --rm adore-executor-cockpit-gcp:latest make --version
-docker run --rm adore-executor-cockpit-gcp:latest shellcheck --version
-docker run --rm adore-executor-cockpit-gcp:latest terraform --version
-docker run --rm adore-executor-cockpit-gcp:latest tflint --version
-```
-
-Secrets are never baked into either image. ADORE injects configured executor env
-keys at `docker run` / `docker exec` time.
+Do not bake secrets into either image. ADORE injects only the configured
+executor environment keys at `run` or `exec` time. See
+`../../01_Documentation/Security_And_Credentials.md` for the credential
+boundary.

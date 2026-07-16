@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Configuration Reference
 
-> **Status**: Implementation reference for ADORE 0.5.1. Consolidated list of
+> **Status**: Implementation reference for ADORE 1.0.0. Consolidated list of
 > every `config.toml` setting, its meaning, default value, and examples. Keys
 > are grouped by section.
 
@@ -25,23 +25,32 @@ examples and validation), and writes a **minimal, validated** config as a named
   pointer names the default.
 - **Create:** `adore init [name] [--force] [--answers FILE]`
   (`--answers` = non-interactive, for CI/servers; keys are the wizard field
-  names). See the onboarding guide (`01_Documentation/Onboarding_New_Project.md`) for
-  the full prompt list and the non-ADORE prerequisite steps.
+  names). See [Integrating_A_Runtime_Project.md](Integrating_A_Runtime_Project.md)
+  for the target-project integration flow and prerequisites.
 - **Manage:** `adore profile list|show|use|rename|delete|path`
   (`list`/`show` include run statistics from the profile's metrics DB;
   `delete` needs `--force`).
 - **Use:** any command resolves its config in this order -
   explicit `-c FILE` > `--profile NAME` > the active profile > `./config.toml`.
   Single-config users (no profile) are unaffected. Example:
-  `adore --profile sample-project run --dry-run`.
+  `adore --profile <profile-name> run --dry-run`.
 - **Profile-owned state (default):** a profile's `[state] store_root` points
   under the profile (`<home>/profiles/<name>/state`), so each project's runs,
   metrics, and lock stay isolated; the wizard can instead co-locate a `.adore`
   beside the clone.
 
-Secrets are never written to a profile - only env-key NAMES; tokens/keys stay
-in a `.env` beside the clone (or CLI host-auth). The rest of this document
-describes every key the wizard (or you) can set.
+Secrets are never written to a profile - only env-key NAMES. Executor keys can
+come from the ADORE process environment or its `.env` file in the process
+working directory. Forge CLI authentication is separate; see
+[Security_And_Credentials.md](Security_And_Credentials.md). The rest of this
+document describes every key the wizard (or you) can set.
+
+### Configuration CLI
+
+`adore config show` prints the resolved configuration as JSON and
+`adore config validate` checks the resolved configuration. Both use the normal
+resolution order above. `adore config set` is intentionally not implemented in
+ADORE 1.0.0; edit `config.toml` directly, then validate it.
 
 ## Full Example `config.toml`
 
@@ -120,7 +129,7 @@ model   = "<provider/model>"
 # command = "pi -p --mode json --model {model} {prompt}"
 # model   = "<provider/model>"
 # Pi reads AGENTS.md natively and gets its push/merge guardrails from the repo's
-# .pi agentic-guard extension (see Setup_And_Credentials.md 3).
+# .pi agentic-guard extension (see Security_And_Credentials.md).
 
 # To use Codex instead, set `default = "codex"` and add:
 # [executor.codex]
@@ -212,7 +221,7 @@ html_out         = ".adore/metrics/stats.html"
 
 | Key | Meaning | Default |
 |---|---|---|
-| `name` | Display/brand string; appears in comment tags, MR/PR titles, commit author. `ADORE` = Agentic Delivery Orchestrator & Runtime Engine by examplex. | `"ADORE"` |
+| `name` | Display/brand string; appears in comment tags, MR/PR titles, and commit author. | `"ADORE"` |
 | `slug` | Lowercase token that derives the state dir (`.<slug>/`), branch prefix, container name, questions file, and comment marker. Derived from `name` if empty. | `"adore"` |
 | `email` | Git commit author email inside the executor container (`name` is the author name). Derived as `<slug>-bot@local` if empty. | (derived) |
 
@@ -418,7 +427,7 @@ optional static HTML; there is no Prometheus endpoint or hosted service.
 
 ## Notes
 
-- Every value above is a proposed default and may be tuned per environment.
+- Every value above is an implemented default and may be tuned per environment.
 - Related but non-`config.toml` inputs (kept as environment variables / secrets,
   not in this file): the Git-platform token used by `glab` / `gh`, and the executor's
   model-provider credentials.

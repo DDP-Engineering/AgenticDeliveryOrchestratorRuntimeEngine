@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Profiles And Container Images
 
-Applies to ADORE 0.5.1.
+Applies to ADORE 1.0.0.
 
 Use this when you operate more than one runtime project, switch active projects,
 or need to decide which executor image a profile should use.
@@ -50,7 +50,7 @@ for daily interactive work after you trust the selection.
 | Layer | What belongs there | Example |
 | --- | --- | --- |
 | ADORE executor base | Shared executor tooling such as Python, Node, git, uv, and executor CLIs. | `adore-executor-base:1.0.0` |
-| Runtime-project image | Project-specific gate tools and caches. | `adore-executor-cockpit-gcp:latest` or a project tag |
+| Runtime-project image | Project-specific gate tools and caches. | `adore-executor-<runtime-project>:<tag>` |
 | Per-run container | One isolated claim of one ticket. | Created and removed by ADORE. |
 
 Do not put secrets into images. Model provider keys and forge tokens belong in
@@ -64,7 +64,7 @@ The profile's `[container] image` chooses the runtime image:
 ```toml
 [container]
 runtime = "docker"
-image = "adore-executor-cockpit-gcp:latest"
+image = "adore-executor-<runtime-project>:<tag>"
 required_tool_checks = [
   "make --version",
   "shellcheck --version",

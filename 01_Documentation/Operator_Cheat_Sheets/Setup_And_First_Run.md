@@ -7,10 +7,11 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Setup And First Run
 
-Applies to ADORE 0.5.1.
+Applies to ADORE 1.0.0.
 
 Use this when you are preparing a host, creating a runtime-project profile, or
-validating the first safe ADORE poll against a project.
+validating the first safe ADORE poll. The full, authoritative sequence is in
+[Getting_Started.md](../Getting_Started.md).
 
 ![ADORE setup flow](assets/operator-flow.svg)
 
@@ -29,7 +30,8 @@ Confirm these are available to the same user account that will run ADORE:
 - A container runtime: Docker or Podman.
 - A forge CLI: `glab` for GitLab or `gh` for GitHub.
 - A local clone of the runtime project.
-- Executor credentials supplied through environment variables or `.env`.
+- Executor credentials supplied through the ADORE runtime environment or its
+  `.env` file.
 - A project image with the runtime project's tools.
 
 Quick checks:
@@ -65,7 +67,7 @@ uv sync --frozen
 Expected version:
 
 ```text
-adore 0.5.1
+adore 1.0.0
 ```
 
 ## Create The Profile

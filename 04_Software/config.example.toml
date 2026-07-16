@@ -18,7 +18,7 @@
 #     are [platform] repo, [executor.<name>] command/model, and
 #     [delivery] reviewers.
 #   - Full reference with all defaults and rationale:
-#     00_Planning/Configuration_Reference.md
+#     ../01_Documentation/Configuration_Reference.md
 # =============================================================================
 
 # ----- Bot identity ----------------------------------------------------------
@@ -144,7 +144,8 @@ questions_file = "ADORE_QUESTIONS.md"
 env_keys = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]
 # PILOT-ONLY: copy the host's opencode auth.json (OAuth/ChatGPT-account
 # session) into the run container at provision. Use when no provider API key
-# exists yet (Setup_And_Credentials.md 3.1). Fragile for long-running use
+# exists yet (01_Documentation/Security_And_Credentials.md). Fragile for
+# long-running use
 # (refresh tokens rotate); production needs a real key in .env instead.
 stage_host_auth = false
 

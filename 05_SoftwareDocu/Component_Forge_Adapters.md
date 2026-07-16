@@ -12,7 +12,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 > Sources: `04_Software/adore/forge/{__init__,base,gitlab,github}.py` -
 > file versions 0.1.0.
 > Design: Orchestrator_Design_And_Decisions.md section 4;
-> Prerequisites_Check_Report.md sections 3-4.
+> Host forge authentication: `01_Documentation/Security_And_Credentials.md`.
 
 ## 1. Purpose
 
@@ -134,7 +134,7 @@ url = forge.open_merge_request("adore/run-14", "develop", "Draft: ...", body,
   ids, error context in `ForgeError`).
 - Minimum validation after a change: `uv run --group dev pytest tests/test_forge.py`.
 - **Live read-only verification done 2026-07-03** against glab 1.105.0 on the
-  real instance (Prerequisites_Check_Report.md section 11): issue list/view
+  real instance: issue list/view
   JSON shapes, label filter, notes API, 404 handling, and all mutating-command
   flags confirmed. One finding fixed: comment-body edits now use
   `--raw-field` (string) instead of `--field` (type-inferred). Still not

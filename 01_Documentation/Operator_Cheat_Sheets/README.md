@@ -7,13 +7,18 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # ADORE Operator Cheat Sheets
 
-Applies to ADORE 0.5.1.
+Applies to ADORE 1.0.0.
 
 Use these short operator sheets when you need the fastest safe path through an
-ADORE task. They complement the longer manuals in `01_Documentation/`; they do
-not replace [Step_By_Step_Setup.md](../Step_By_Step_Setup.md),
-[Configuration_Reference.md](../Configuration_Reference.md), or
-[Setup_And_Credentials.md](../Setup_And_Credentials.md).
+ADORE task. They are derived quick references; the full guides in
+`01_Documentation/` are authoritative.
+
+For installation and first-run sequencing, use
+[Getting_Started.md](../Getting_Started.md). For normal operation and recovery,
+use [Operations_Guide.md](../Operations_Guide.md) and
+[Recovery_And_Maintenance.md](../Recovery_And_Maintenance.md). For exact
+settings and commands, use [Configuration_Reference.md](../Configuration_Reference.md)
+and [CLI_Reference.md](../CLI_Reference.md).
 
 ![ADORE operator flow](assets/operator-flow.svg)
 

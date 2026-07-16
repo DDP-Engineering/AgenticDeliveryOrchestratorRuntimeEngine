@@ -20,7 +20,8 @@ package directory, not a PyInstaller executable or OS-native package.
 
 ## 2. Responsibilities
 
-- Stage only the runtime files needed from `04_Software/`.
+- Stage the runtime files needed from `04_Software/` and the canonical
+  operator documentation from `01_Documentation/`.
 - Include `deploy/` so the unpacked bundle can install Windows Task Scheduler
   or Ubuntu systemd setup with the existing deployment scripts.
 - Exclude local development and runtime state: `.venv/`, `.adore/`, worktrees,
@@ -28,7 +29,8 @@ package directory, not a PyInstaller executable or OS-native package.
 - Name packages from the release version in `04_Software/pyproject.toml`.
 - Copy `config.toml` only when explicitly requested; never copy `.env`.
 - Fail closed when release metadata, runtime branding, deployment resources,
-  delivery artifacts, or forbidden pre-1.0 identity tokens drift.
+  embedded archive metadata/documentation, delivery artifacts, or forbidden
+  pre-1.0 identity tokens drift.
 
 Native Windows single-file executables, Ubuntu `.deb` packages, and image
 publishing are not owned by this component.
@@ -42,6 +44,7 @@ adore-runtime-<version>/
   adore/
   deploy/
   docker/
+  Documentation/
   pyproject.toml
   uv.lock
   README.md
@@ -78,17 +81,21 @@ Outputs:
 
 ## 6. Data Contracts
 
-The runtime bundle root is the same directory shape that `04_Software/deploy`
-expects as its working directory. After unpacking, operators run `uv sync
---frozen`, create or provide `config.toml`, and then run the deployment script
-for their host.
+The runtime bundle root is the directory shape that `04_Software/deploy`
+expects as its working directory. It also contains `Documentation/README.md`
+as the entry point for prerequisites, credentials, configuration, operation,
+and recovery. The packagers rewrite the copied runtime README's documentation
+links to remain valid within that bundle. After unpacking, operators run `uv
+sync --frozen`, create or provide `config.toml`, and then run the deployment
+script for their host.
 
 ## 7. Workflow Integration
 
 Packaging happens after implementation validation and before host deployment.
 Deployment itself remains the responsibility of the included `deploy/` scripts.
-The consistency check runs before packaging and again with
-`--require-artifacts` after both delivery archives exist.
+The release workflow runs `check_release_consistency.py` before packaging and
+runs it again with `--require-artifacts` after both delivery archives exist;
+the packagers do not invoke the checker themselves.
 
 ## 8. Usage
 
@@ -113,10 +120,11 @@ Minimum validation after changes:
 - PowerShell packager creates a bundle in a temporary output directory.
 - cmd wrapper `-h` path delegates successfully.
 - Bash syntax check (`bash -n`) and one temporary bundle creation.
-- Inspect the bundle to confirm excluded paths are absent and `deploy/` is
-  present.
-- Run `check_release_consistency.py --require-artifacts` and confirm it accepts
-  only `adore-runtime-1.0.0.zip` and `adore-runtime-1.0.0.tar.gz`.
+- Inspect the bundle to confirm excluded paths are absent and `deploy/` plus
+  `Documentation/` are present.
+- Run `check_release_consistency.py --require-artifacts`; it validates both
+  artifact names and their layout, exclusions, embedded package/lock metadata,
+  documentation entry points, credential guidance, and legacy identity scan.
 
 ## 10. Limitations And Future Work
 

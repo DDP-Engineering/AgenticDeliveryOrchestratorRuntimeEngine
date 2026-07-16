@@ -149,7 +149,7 @@ def build_container_env(git_dir_name: str, git_name: str, git_email: str) -> dic
                 while keeping linked-worktree git discovery stable for CLIs
                 that inspect the repository deeply. The identity variables
                 give commits the configured bot authorship
-                (Setup_And_Credentials.md section 4).
+                (Security_And_Credentials.md).
     @param[in]  git_dir_name The worktree admin dir name under
                              `.git/worktrees/` (WorktreeManager.admin_dir_name).
     @param[in]  git_name Commit author/committer name (agent.name).

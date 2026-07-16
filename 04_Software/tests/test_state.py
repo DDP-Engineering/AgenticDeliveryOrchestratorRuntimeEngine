@@ -46,9 +46,9 @@ def test_derive_run_id_is_stable_and_safe() -> None:
     @brief   Run-id is deterministic and filesystem-safe (design doc 8a).
     @version 0.1.0
     """
-    a = derive_run_id("gitlab", "group/sub/cockpit-gcp", 14)
-    b = derive_run_id("gitlab", "group/sub/cockpit-gcp", 14)
-    assert a == b == "gitlab-group-sub-cockpit-gcp-14"
+    a = derive_run_id("gitlab", "group/sub/runtime-project", 14)
+    b = derive_run_id("gitlab", "group/sub/runtime-project", 14)
+    assert a == b == "gitlab-group-sub-runtime-project-14"
     assert "/" not in a
 
 

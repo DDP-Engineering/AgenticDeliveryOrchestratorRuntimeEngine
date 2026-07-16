@@ -13,8 +13,9 @@ packaging, verification helpers, and other repository automation scripts.
 The current implemented tool is the runtime-bundle packager:
 
 - `check_release_consistency.py` - fails closed when the ADORE package,
-  lockfile, images, deployment names, documentation, delivery artifacts, or
-  forbidden pre-1.0 identifiers drift from the 1.0.0 release contract.
+  lockfile, images, deployment names, documentation, delivery-artifact
+  contents, or forbidden pre-1.0 identifiers drift from the 1.0.0 release
+  contract.
 - `package_runtime.ps1` - Windows PowerShell packager; writes a trimmed
   `adore-runtime-<version>.zip` or directory under `07_Delivery/`.
 - `package_runtime.cmd` - cmd.exe wrapper around the PowerShell packager.
@@ -23,8 +24,9 @@ The current implemented tool is the runtime-bundle packager:
 
 The runtime bundle contains the runnable contents of `04_Software/` needed on a
 deployment host: `adore/`, `deploy/`, `docker/`, package metadata, lockfile,
-examples, and changelog. It excludes development/test/runtime state such as
-`tests/`, `.venv/`, `.adore/`, `worktrees/`, caches, and `.env`.
+examples, changelog, and the canonical operator documentation under
+`Documentation/`. It excludes development/test/runtime state such as `tests/`,
+`.venv/`, `.adore/`, `worktrees/`, caches, and `.env`.
 
 The package includes the existing setup scripts in `deploy/`; it does not
 replace them. After unpacking, use `deploy/install-windows.ps1` for Windows Task
