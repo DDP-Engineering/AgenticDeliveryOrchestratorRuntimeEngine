@@ -5,14 +5,14 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 #
 # =============================================================================
-# ADOR executor base image (ador-executor-base:0.2.0)
+# ADORE executor base image (adore-executor-base:1.0.0)
 #
-# ADOR-owned tooling only: Python 3.11 + uv, Node/npm, git, glab/gh, and the
+# ADORE-owned tooling only: Python 3.11 + uv, Node/npm, git, glab/gh, and the
 # supported executor CLIs. Runtime-project images must extend this image and add
 # project-specific build/test dependencies.
 #
-# Build:   docker build -f Dockerfile.executor-base -t ador-executor-base:0.2.0 .
-# Secrets: never baked in; ADOR injects the executor's env subset at run time.
+# Build:   docker build -f Dockerfile.executor-base -t adore-executor-base:1.0.0 .
+# Secrets: never baked in; ADORE injects the executor's env subset at run time.
 # =============================================================================
 
 FROM ubuntu:22.04
@@ -80,29 +80,29 @@ RUN npm install -g "${QWEN_PACKAGE}"
 # --- Non-root user; mount points; git trust for bind-mounted repos ------------
 # Bind mounts on Docker Desktop (Windows) show foreign ownership; without
 # safe.directory git refuses to operate on the mounted repo/worktree.
-# USER_UID must match the host user that runs ADOR so that files written by the
+# USER_UID must match the host user that runs ADORE so that files written by the
 # container to bind-mounted volumes (worktree, IO, caches) are owned by that
 # host user.  Docker has no runtime UID remapping like Podman's --userns=keep-id,
 # so the UID is baked at image-build time via --build-arg USER_UID=$(id -u).
 # Podman deployments can ignore this and use --userns=keep-id instead.
 ARG USER_UID=1000
-RUN useradd --create-home --uid ${USER_UID} ador \
-    && mkdir -p /ador/repo /ador/work /ador/io \
-    && chown -R ador:ador /ador \
+RUN useradd --create-home --uid ${USER_UID} adore \
+    && mkdir -p /adore/repo /adore/work /adore/io \
+    && chown -R adore:adore /adore \
     && git config --system --add safe.directory '*'
 
-USER ador
-WORKDIR /ador/work
+USER adore
+WORKDIR /adore/work
 
-# Pin HOME to the ador user's home: some daemons (Docker Engine in WSL2)
+# Pin HOME to the adore user's home: some daemons (Docker Engine in WSL2)
 # otherwise inject the host user's HOME into the container, breaking every
 # HOME-based cache - uv, npm, opencode auth, and project tools.
-ENV HOME=/home/ador
+ENV HOME=/home/adore
 
 # Cache volume mount points (created so ownership is right before mounting):
-# uv cache at /home/ador/.cache/uv, npm cache at /home/ador/.npm.
-RUN mkdir -p /home/ador/.cache/uv /home/ador/.npm
-ENV UV_CACHE_DIR=/home/ador/.cache/uv
+# uv cache at /home/adore/.cache/uv, npm cache at /home/adore/.npm.
+RUN mkdir -p /home/adore/.cache/uv /home/adore/.npm
+ENV UV_CACHE_DIR=/home/adore/.cache/uv
 
 # Proper CPython 3.11: Ubuntu 22.04's python3.11 apt package is stuck at
 # 3.11.0rc1, so bake a uv-managed release build (into ~/.local/share/uv,
@@ -114,11 +114,11 @@ ENV UV_PYTHON=3.11
 # tools like the target repo's .agentic CLI resolve `python3` and require
 # 3.11+ (system /usr/bin/python3 stays 3.10 for apt).
 USER root
-RUN target="$(ls -d /home/ador/.local/share/uv/python/cpython-3.11*/bin/python3.11 2>/dev/null | head -n1)" \
+RUN target="$(ls -d /home/adore/.local/share/uv/python/cpython-3.11*/bin/python3.11 2>/dev/null | head -n1)" \
     && test -x "$target" \
     && ln -sf "$target" /usr/local/bin/python3 \
     && ln -sf "$target" /usr/local/bin/python
-USER ador
+USER adore
 
-# The container idles; ADOR execs the executor into it gate by gate.
+# The container idles; ADORE execs the executor into it gate by gate.
 CMD ["sleep", "infinity"]

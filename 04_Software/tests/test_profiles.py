@@ -10,10 +10,10 @@
 """
 @file test_profiles.py
 @brief Tests for the runtime-project profile store (config home, CRUD, active
-       pointer, config-path resolution) - all offline in a tmp ADOR home.
+       pointer, config-path resolution) - all offline in a tmp ADORE home.
 @author Eng. Dan Dumitru Pasare
 @date 2026-07-05
-@version 0.1.0
+@version 0.2.0
 """
 
 from __future__ import annotations
@@ -22,11 +22,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from ador.profiles import (
+from adore.profiles import (
     ProfileError,
     ProfileStore,
     _home_for,
-    ador_home,
+    adore_home,
     resolve_config_path,
 )
 import pytest
@@ -40,12 +40,12 @@ FIXED_NOW = "2026-07-05T00:00:00Z"
 
 def _store(tmp_path: Path) -> ProfileStore:
     """
-    @brief      A store rooted in a tmp ADOR home with a fixed clock.
+    @brief      A store rooted in a tmp ADORE home with a fixed clock.
     @param[in]  tmp_path pytest tmp dir.
     @return     The ProfileStore.
     @author     Eng. Dan Dumitru Pasare
     @date       2026-07-05
-    @version    0.1.0
+    @version    0.1.1
     """
     return ProfileStore(tmp_path / "home", now=lambda: FIXED_NOW)
 
@@ -55,49 +55,62 @@ def _store(tmp_path: Path) -> ProfileStore:
 
 def test_home_override_wins_on_any_os(tmp_path: Path) -> None:
     """
-    @brief   ADOR_HOME overrides the OS-native location on both platforms.
-    @version 0.1.0
+    @brief   ADORE_HOME overrides the OS-native location on both platforms.
+    @version 0.1.1
     """
-    env = {"ADOR_HOME": str(tmp_path / "custom"), "APPDATA": "ignored"}
+    env = {"ADORE_HOME": str(tmp_path / "custom"), "APPDATA": "ignored"}
     assert _home_for("nt", env) == tmp_path / "custom"
     assert _home_for("posix", env) == tmp_path / "custom"
 
 
 def test_home_windows_uses_appdata_then_localappdata(tmp_path: Path) -> None:
     """
-    @brief   On Windows the home is %APPDATA%\\ador, falling back to
-             %LOCALAPPDATA%\\ador.
-    @version 0.1.0
+    @brief   On Windows the home is %APPDATA%\\adore, falling back to
+             %LOCALAPPDATA%\\adore.
+    @version 0.1.1
     """
     assert _home_for("nt", {"APPDATA": str(tmp_path / "roaming")}) == (
-        tmp_path / "roaming" / "ador"
+        tmp_path / "roaming" / "adore"
     )
     assert _home_for("nt", {"LOCALAPPDATA": str(tmp_path / "local")}) == (
-        tmp_path / "local" / "ador"
+        tmp_path / "local" / "adore"
     )
 
 
 def test_home_posix_uses_xdg_then_default(tmp_path: Path) -> None:
     """
-    @brief   On POSIX the home is $XDG_CONFIG_HOME/ador, or ~/.config/ador.
-    @version 0.1.0
+    @brief   On POSIX the home is $XDG_CONFIG_HOME/adore, or ~/.config/adore.
+    @version 0.1.1
     """
     assert _home_for("posix", {"XDG_CONFIG_HOME": str(tmp_path / "xdg")}) == (
-        tmp_path / "xdg" / "ador"
+        tmp_path / "xdg" / "adore"
     )
-    assert _home_for("posix", {}) == Path.home() / ".config" / "ador"
+    assert _home_for("posix", {}) == Path.home() / ".config" / "adore"
 
 
-def test_ador_home_reads_env_at_call_time(
+def test_adore_home_reads_env_at_call_time(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """
-    @brief   The public entry point honours a live ADOR_HOME override (safe:
+    @brief   The public entry point honours a live ADORE_HOME override (safe:
              no os.name patching, which would break pathlib process-wide).
     @version 0.1.0
     """
-    monkeypatch.setenv("ADOR_HOME", str(tmp_path / "live"))
-    assert ador_home() == tmp_path / "live"
+    monkeypatch.setenv("ADORE_HOME", str(tmp_path / "live"))
+    assert adore_home() == tmp_path / "live"
+
+
+def test_previous_home_environment_variable_is_not_consulted(tmp_path: Path) -> None:
+    """
+    @brief   The pre-1.0 home override has no effect after the hard cut.
+    @version 0.1.0
+    """
+    previous_home_env = "AD" + "OR_HOME"
+    env = {
+        previous_home_env: str(tmp_path / "previous"),
+        "APPDATA": str(tmp_path / "roaming"),
+    }
+    assert _home_for("nt", env) == tmp_path / "roaming" / "adore"
 
 
 # PUBLIC API / TESTS - CRUD round-trip
@@ -200,9 +213,9 @@ def test_active_pointer_lifecycle(tmp_path: Path) -> None:
 def test_resolve_config_path_precedence(tmp_path: Path) -> None:
     """
     @brief   Explicit -c wins over --profile wins over the active pointer wins
-             over the legacy ./config.toml; an unknown --profile fails closed;
+             over the local ./config.toml; an unknown --profile fails closed;
              a stale active pointer falls through to the default.
-    @version 0.1.0
+    @version 0.1.1
     """
     store = _store(tmp_path)
     store.create("proj")
@@ -224,7 +237,7 @@ def test_resolve_config_path_precedence(tmp_path: Path) -> None:
     path, used = resolve_config_path(None, None, store=store)
     assert path == store.config_path("proj") and used == "proj"
 
-    # legacy default when nothing is set
+    # local default when nothing is set
     store.clear_active()
     path, used = resolve_config_path(None, None, store=store)
     assert path == Path("config.toml") and used is None

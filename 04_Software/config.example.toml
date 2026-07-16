@@ -5,10 +5,10 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 #
 # =============================================================================
-# ADOR example configuration.
+# ADORE example configuration.
 #
-# Copy this file to `config.toml` next to where you run `ador`, adjust the
-# values, then check it with:  ador config validate
+# Copy this file to `config.toml` next to where you run `adore`, adjust the
+# values, then check it with:  adore config validate
 #
 # Rules:
 #   - Secrets (tokens, API keys) do NOT belong here; they live in the
@@ -24,18 +24,18 @@
 # ----- Bot identity ----------------------------------------------------------
 # Renaming the bot is a single change here: every derived identifier follows.
 [agent]
-# Display/brand string: visible comment tag ("[ADOR]"), MR/PR titles, and the
+# Display/brand string: visible comment tag ("[ADORE]"), MR/PR titles, and the
 # git commit author name.
-name = "ADOR"
-# Lowercase token deriving all local names: state dir (".ador/"), branch
-# prefix ("ador/<run-id>"), container name ("ador-run-<run-id>"), questions
-# file ("ADOR_QUESTIONS.md"), and the hidden comment marker ("<!-- ador:... -->").
+name = "ADORE"
+# Lowercase token deriving all local names: state dir (".adore/"), branch
+# prefix ("adore/<run-id>"), container name ("adore-run-<run-id>"), questions
+# file ("ADORE_QUESTIONS.md"), and the hidden comment marker ("<!-- adore:... -->").
 # Leave out (or empty) to derive it from `name`.
-slug = "ador"
+slug = "adore"
 # Git commit author email used inside the executor container (with `name` as
 # the author name). Leave out to derive "<slug>-bot@local"; use a recognizable
-# address in production, e.g. "ador-bot@example.com".
-email = "ador-bot@example.com"
+# address in production, e.g. "adore-bot@example.com".
+email = "adore-bot@example.com"
 
 # ----- Git platform ----------------------------------------------------------
 [platform]
@@ -54,11 +54,11 @@ repo = "group/subgroup/project"
 # "labels"   = lifecycle labels only,
 # "both"     = comment and labels.
 channel = "comments"
-# In comment mode ADOR keeps ONE status comment and edits it in place on each
+# In comment mode ADORE keeps ONE status comment and edits it in place on each
 # state change; clarification and delivery notices are separate comments.
 # Local authoritative state directory (runs, lock, pause flag, metrics).
 # Leave out to derive ".<slug>".
-store_root = ".ador"
+store_root = ".adore"
 
 # ----- Polling ---------------------------------------------------------------
 # v1 trigger is polling; no webhook or inbound service.
@@ -138,7 +138,7 @@ mode = "thick"
 # File the executor writes blocking questions to before stopping; its presence
 # after a gate is the deterministic "needs clarification" signal.
 # Leave out to derive "<SLUG>_QUESTIONS.md".
-questions_file = "ADOR_QUESTIONS.md"
+questions_file = "ADORE_QUESTIONS.md"
 # The ONLY environment variables passed into the executor container (values
 # come from the host environment or .env; design: scope secrets minimally).
 env_keys = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]
@@ -148,7 +148,7 @@ env_keys = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]
 # (refresh tokens rotate); production needs a real key in .env instead.
 stage_host_auth = false
 
-# One table per executor. `command` is a template; ADOR substitutes {prompt},
+# One table per executor. `command` is a template; ADORE substitutes {prompt},
 # {model}, and {worktree}. SAFETY: never add --auto (it would auto-approve the
 # push/merge permissions that must stay blocked; the executor never touches
 # the remote - the orchestrator owns push and MR creation).
@@ -170,11 +170,11 @@ model = "openai/gpt-5.4-fast"
 # `default = "codex"` above and uncomment this table. Codex reads AGENTS.md
 # natively. {resume} becomes `resume --last ` on continuation (Codex resumes
 # the previous gate's session - keep it). SAFETY: full-auto Codex mode is
-# acceptable only because ADOR runs executors inside an external container/
+# acceptable only because ADORE runs executors inside an external container/
 # worktree sandbox and keeps push/MR ownership outside the executor.
 # `--ignore-user-config` plus `--disable plugins` prevents workstation-local
 # and bundled Codex plugin/marketplace state from bleeding into the container;
-# ADOR stages only auth.json into an isolated CODEX_HOME when
+# ADORE stages only auth.json into an isolated CODEX_HOME when
 # `stage_host_auth = true`.
 # [executor.codex]
 # command = "codex exec {resume}--json --model {model} --ignore-user-config --disable plugins --dangerously-bypass-approvals-and-sandbox {prompt}"
@@ -212,14 +212,14 @@ timeout_state = "failed"
 # "docker" | "podman", optionally wrapped when the daemon lives elsewhere -
 # e.g. Docker Engine inside WSL2 (no Docker Desktop):
 #   runtime = "wsl -d Ubuntu-24.04 -- docker"
-# In WSL mode ADOR translates mount paths (D:\x -> /mnt/d/x) and propagates
+# In WSL mode ADORE translates mount paths (D:\x -> /mnt/d/x) and propagates
 # container env values across the WSL boundary via WSLENV automatically.
 runtime = "docker"
-# Executor image selected by this runtime-project profile. ADOR's generic
-# default is `ador-executor-base:0.2.0` (executor tooling only). Runtime
+# Executor image selected by this runtime-project profile. ADORE's generic
+# default is `adore-executor-base:1.0.0` (executor tooling only). Runtime
 # projects should derive their own image from that base and add project
 # dependencies.
-image = "ador-executor-project:latest"
+image = "adore-executor-project:latest"
 # Keep the container (stopped) when a run parks, so resume is a fast start.
 keep_parked = true
 # How the parked-container grace period is measured: "polls" | "seconds".
@@ -232,10 +232,10 @@ parked_ttl_polls = 30
 # On park: "stopped" (keeps FS + deps, fast resume) or "removed" (free disk now).
 parked_state = "stopped"
 # Persistent cache volumes so per-run `uv sync` / `npm ci` stay fast.
-uv_cache_volume  = "ador-uv-cache"
-npm_cache_volume = "ador-npm-cache"
+uv_cache_volume  = "adore-uv-cache"
+npm_cache_volume = "adore-npm-cache"
 # Non-secret runtime environment injected at container creation and every
-# `exec`. ADOR reserves HOME/GIT_*/CODEX_HOME for isolation; use this for
+# `exec`. ADORE reserves HOME/GIT_*/CODEX_HOME for isolation; use this for
 # portable tool behavior. Default keeps uv package links copy-based, which is
 # safer on Windows/WSL bind mounts.
 runtime_env = { UV_LINK_MODE = "copy" }
@@ -258,11 +258,11 @@ required_tool_checks = [
 ]
 
 [container.egress]
-# "open" = legacy/supervised pilot behavior, no runtime network restriction.
+# "open" = unrestricted egress, intended for supervised operation.
 # "none" = start executor containers with --network none for fully offline,
 #          pre-provisioned runs.
 # "allowlist-proxy" = executor has no direct internet; HTTP/HTTPS egress goes
-#                     through an ADOR-managed per-run proxy container.
+#                     through an ADORE-managed per-run proxy container.
 mode = "open"
 # Exact or wildcard hostnames only. Runtime projects fill this with the
 # minimum hosts their executor and package manager require, e.g.
@@ -272,9 +272,9 @@ allowlist = []
 # also needs an internal hostname.
 no_proxy = ["localhost", "127.0.0.1", "::1"]
 # Build from docker/Dockerfile.egress-proxy.
-proxy_image = "ador-egress-proxy:0.1.0"
+proxy_image = "adore-egress-proxy:1.0.0"
 proxy_port = 3128
-network_prefix = "ador-egress"
+network_prefix = "adore-egress"
 
 # ----- Worktree ------------------------------------------------------------------
 [worktree]
@@ -289,14 +289,14 @@ root = "worktrees"
 # e.g. a mandatory feature/ prefix:  "feature/{slug}-{iid}"
 branch_template = "{slug}/{run_id}"
 # Optional: the repo's branch-name push rule (regex). When set,
-# `ador config validate` verifies the rendered template would be ACCEPTED
+# `adore config validate` verifies the rendered template would be ACCEPTED
 # by the rule, so a push-rule rejection can never surprise a run.
 # Example (GitLab):  branch_rule = '^(feature|bugfix|release|hotfix)\/.*$'
 branch_rule = ""
 
 # ----- Run budgets ---------------------------------------------------------------
 # Hard bounds per run; exceeding any of them escalates to `failed` instead of
-# thrashing forever. Tripping a budget never loses work: `ador retry` re-arms
+# thrashing forever. Tripping a budget never loses work: `adore retry` re-arms
 # the counters and continues from the stored stage (it never redoes passed
 # gates).
 [budgets]
@@ -310,8 +310,8 @@ max_cost_usd           = 5.0    # model spend per run
 max_files_touched      = 40     # files a run may change
 
 # ----- Delivery ------------------------------------------------------------------
-# The hard boundary: ADOR opens a DRAFT MR/PR and stops. It never merges, and
-# `draft = false` is rejected by `ador config validate`.
+# The hard boundary: ADORE opens a DRAFT MR/PR and stops. It never merges, and
+# `draft = false` is rejected by `adore config validate`.
 [delivery]
 # Branch the MR/PR targets.
 target_branch = "develop"
@@ -323,7 +323,7 @@ reviewers = ["reviewer.one"]
 remove_source_branch = true
 
 # ----- Post-MR review loop ----------------------------------------------------
-# How ADOR reacts to review feedback on its draft MR. It never auto-reacts to
+# How ADORE reacts to review feedback on its draft MR. It never auto-reacts to
 # every comment: by default a reviewer explicitly requests a revision.
 [review]
 # "label" (recommended) = reviewer applies revise_label to request changes;
@@ -350,17 +350,17 @@ on_trigger_removed = "pause"
 
 # ----- Metrics / statistics ------------------------------------------------------
 # Standard-library-only statistics (sqlite3 + json). Access is CLI-first
-# (`ador stats`, `ador report`, `ador export`) plus an optional static HTML
+# (`adore stats`, `adore report`, `adore export`) plus an optional static HTML
 # file; there is no Prometheus endpoint or hosted service.
 [metrics]
 enabled = true
 # SQLite database of run summaries. Leave out to derive "<store_root>/metrics.db".
-db_path = ".ador/metrics.db"
+db_path = ".adore/metrics.db"
 # Mirrored append-only JSONL export of the same summaries.
-export_jsonl = ".ador/metrics/runs.jsonl"
+export_jsonl = ".adore/metrics/runs.jsonl"
 # Record executor token usage per run/gate (from the executor CLI stats).
 capture_tokens = true
 # Probe container/disk resource stats (docker stats / disk usage).
 capture_resource = true
-# Output path for the self-contained `ador stats --html` dashboard.
-html_out = ".ador/metrics/stats.html"
+# Output path for the self-contained `adore stats --html` dashboard.
+html_out = ".adore/metrics/stats.html"

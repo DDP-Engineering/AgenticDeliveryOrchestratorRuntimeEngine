@@ -21,8 +21,8 @@ from __future__ import annotations
 # IMPORTS
 from collections.abc import Sequence
 
-from ador import doctor
-from ador.util import CommandResult
+from adore import doctor
+from adore.util import CommandResult
 import pytest
 
 # HELPER FUNCTIONS
@@ -69,8 +69,8 @@ def _fail(stderr: str = "", exit_code: int = 1) -> CommandResult:
 
 def test_os_key_mapping() -> None:
     """
-    @brief   platform.system() values normalize to ADOR OS keys.
-    @version 0.1.0
+    @brief   platform.system() values normalize to ADORE OS keys.
+    @version 0.1.1
     """
     assert doctor._os_key("Windows") == "windows"
     assert doctor._os_key("Linux") == "linux"

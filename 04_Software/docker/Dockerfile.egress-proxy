@@ -6,19 +6,20 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # -----------------------------------------------------------------------------
 # @file    Dockerfile.egress-proxy
-# @brief   ADOR-managed HTTP/HTTPS CONNECT proxy for executor egress control.
+# @brief   ADORE-managed HTTP/HTTPS CONNECT proxy for executor egress control.
 # @details The runtime mounts a generated Squid config at
 #          /etc/squid/squid.conf for each run. The image stays generic; runtime
 #          projects provide only hostname allowlists through config.toml.
 # @author  Eng. Dan Dumitru Pasare
 # @date    2026-07-07
-# @version 0.1.0
+# @version 0.2.0
 # -----------------------------------------------------------------------------
 
 FROM ubuntu:24.04
 
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends squid ca-certificates \
+    && install -d -o proxy -g proxy /var/log/squid /var/spool/squid \
     && rm -rf /var/lib/apt/lists/*
 
 EXPOSE 3128

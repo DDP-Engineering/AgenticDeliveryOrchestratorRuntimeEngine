@@ -6,10 +6,10 @@ See the LICENSE.txt file for full license details.
 SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
-# Component: Gates (`ador/gates.py`)
+# Component: Gates (`adore/gates.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/ador/gates.py` - file version 0.1.1.
+> Source: `04_Software/adore/gates.py` - file version 0.1.1.
 > Design: Orchestrator_Design_And_Decisions.md section 7/7a.
 
 ## 1. Purpose
@@ -37,12 +37,12 @@ gates themselves (executor).
 ## 3. Implementation Overview
 
 One function, three named wrappers; no state. Commands run through the
-injected exec seam in the container working dir (`/ador/work`), where the
+injected exec seam in the container working dir (`/adore/work`), where the
 target repo's Python/uv toolchain exists.
 
 ## 4. Dependencies
 
-- Internal: `ador.executor.base.ExecTarget`, `ador.util.CommandResult`.
+- Internal: `adore.executor.base.ExecTarget`, `adore.util.CommandResult`.
 - External: the `.agentic` CLI shipped inside the target repo worktree.
 
 ## 5. Inputs And Outputs

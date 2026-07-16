@@ -8,22 +8,22 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # Onboarding a New Runtime Project
 
-How to point ADOR at a new target project on **Windows 11** or **Ubuntu 22+**.
-The guided `ador init` wizard does most of this for you - it detects what is
+How to point ADORE at a new target project on **Windows 11** or **Ubuntu 22+**.
+The guided `adore init` wizard does most of this for you - it detects what is
 present and prints these same instructions in-line for anything missing. This
-guide is the reference for the non-ADOR prerequisites (the steps ADOR cannot do
+guide is the reference for the non-ADORE prerequisites (the steps ADORE cannot do
 for you: installing a CLI, creating a token, choosing a runtime) plus the full
 prompt list.
 
-> One ADOR install serves many projects. Each project you onboard becomes a
-> named **profile**; use it with `ador --profile <name> ...` or make it active
-> with `ador profile use <name>`.
+> One ADORE install serves many projects. Each project you onboard becomes a
+> named **profile**; use it with `adore --profile <name> ...` or make it active
+> with `adore profile use <name>`.
 
 ---
 
-## 0. Prerequisites (the non-ADOR steps)
+## 0. Prerequisites (the non-ADORE steps)
 
-ADOR's own CLI is stdlib-only Python, but it drives external tools. Install and
+ADORE's own CLI is stdlib-only Python, but it drives external tools. Install and
 authenticate these once per host. The wizard reports which are missing and
 prints the matching command.
 
@@ -34,7 +34,7 @@ prints the matching command.
 
 ### A container runtime (docker or podman)
 
-ADOR runs each ticket in an isolated container.
+ADORE runs each ticket in an isolated container.
 
 - **Ubuntu (native, recommended there):** Docker Engine
   (https://docs.docker.com/engine/install/ubuntu/) **or** podman
@@ -43,7 +43,7 @@ ADOR runs each ticket in an isolated container.
 - **Windows:** enable WSL2 (`wsl --install`), install a distro (e.g.
   Ubuntu-24.04), then install Docker Engine or podman **inside the distro** (no
   Docker Desktop required) and use the runtime string
-  `wsl -d Ubuntu-24.04 -- docker` (or `... -- podman`). ADOR handles the mount
+  `wsl -d Ubuntu-24.04 -- docker` (or `... -- podman`). ADORE handles the mount
   translation and env propagation across the WSL boundary.
 
 ### The Git-platform CLI (glab for GitLab, gh for GitHub)
@@ -61,7 +61,7 @@ ADOR runs each ticket in an isolated container.
 
 A **GitLab Personal Access Token**: GitLab → your avatar → *Preferences* →
 *Access Tokens* → *Add new token*; scope **`api`**; role **Developer** (Developer
-cannot merge protected branches - intended, ADOR never merges). Copy it now (it
+cannot merge protected branches - intended, ADORE never merges). Copy it now (it
 is shown once). *A GitLab PAT looks like* `glpat-XXXXXXXXXXXXXXXXXXXX` *(the
 literal prefix* `glpat-` *followed by 20 characters).*
 Then: `glab auth login` (for a corporate/self-hosted instance choose the
@@ -71,7 +71,7 @@ For **GitHub**: create a fine-grained PAT with Contents + Pull requests + Issues
 (read/write), then `gh auth login`.
 
 Alternatively, put the token in the project `.env` as `GITLAB_TOKEN=` /
-`GITHUB_TOKEN=`. **ADOR never stores the token itself** - a profile records only
+`GITHUB_TOKEN=`. **ADORE never stores the token itself** - a profile records only
 the env-key *name*.
 
 ### The executor model provider
@@ -85,18 +85,18 @@ section 3.1.
 ### Build the executor images (once)
 
 `docker/README.md` has the exact build commands (and the WSL2 variant). Build
-`ador-executor-base:0.2.0` for the generic executor environment, then build one
+`adore-executor-base:1.0.0` for the generic executor environment, then build one
 runtime-project image with the target project's dependencies, for example the
-bundled `ador-executor-cockpit-gcp:latest` image or a project-specific tag.
+bundled `adore-executor-cockpit-gcp:latest` image or a project-specific tag.
 
 ---
 
 ## 1. Run the wizard
 
 ```bash
-ador init sample-project                 # interactive
-ador init sample-project --answers a.toml   # non-interactive (CI/servers)
-ador init sample-project --force            # overwrite an existing profile
+adore init sample-project                 # interactive
+adore init sample-project --answers a.toml   # non-interactive (CI/servers)
+adore init sample-project --force            # overwrite an existing profile
 ```
 
 The wizard walks these phases; each prompt shows a description, an example, a
@@ -107,7 +107,7 @@ text.
 | Phase | You provide |
 |---|---|
 | A. Environment | (auto) a report + guidance for anything missing |
-| B. Identity | profile name, one-line description, bot name (default ADOR) |
+| B. Identity | profile name, one-line description, bot name (default ADORE) |
 | C. Platform & repo | GitLab/GitHub; public or corporate (+ host URL); repo visibility; `group/sub/project` path |
 | D. Local clone | absolute path to the clone; worktree root; target/base branch |
 | E. Branch rules | whether a push rule exists; its regex; the branch template (checked against the rule) |
@@ -135,12 +135,12 @@ confirm = "yes"
 ## 2. Use the profile
 
 ```bash
-ador profile list                       # profiles + run stats, active marked *
-ador profile show sample-project           # full metadata + statistics
-ador profile use sample-project            # make it the active profile
-ador --profile sample-project config validate
-ador --profile sample-project run --dry-run
-ador --profile sample-project run --once   # once glab is authenticated + image built
+adore profile list                       # profiles + run stats, active marked *
+adore profile show sample-project           # full metadata + statistics
+adore profile use sample-project            # make it the active profile
+adore --profile sample-project config validate
+adore --profile sample-project run --dry-run
+adore --profile sample-project run --once   # once glab is authenticated + image built
 ```
 
 Config resolution order: explicit `-c FILE` > `--profile NAME` > the active
@@ -151,5 +151,5 @@ profile > `./config.toml`.
 ## 3. Verified
 
 The assisted-config flow is live-verified on Windows 11 (native, `%APPDATA%`
-home) and Ubuntu 24.04/WSL2 (POSIX, `~/.config/ador`) - see
+home) and Ubuntu 24.04/WSL2 (POSIX, `~/.config/adore`) - see
 `Prerequisites_Check_Report.md` section 17.

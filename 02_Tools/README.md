@@ -12,22 +12,30 @@ Use it for development-environment setup, release/delivery preparation,
 packaging, verification helpers, and other repository automation scripts.
 The current implemented tool is the runtime-bundle packager:
 
+- `check_release_consistency.py` - fails closed when the ADORE package,
+  lockfile, images, deployment names, documentation, delivery artifacts, or
+  forbidden pre-1.0 identifiers drift from the 1.0.0 release contract.
 - `package_runtime.ps1` - Windows PowerShell packager; writes a trimmed
-  `ador-runtime-<version>.zip` or directory under `07_Delivery/`.
+  `adore-runtime-<version>.zip` or directory under `07_Delivery/`.
 - `package_runtime.cmd` - cmd.exe wrapper around the PowerShell packager.
 - `package_runtime.sh` - POSIX/Bash packager; writes a trimmed
-  `ador-runtime-<version>.tar.gz`, `.zip`, or directory under `07_Delivery/`.
+  `adore-runtime-<version>.tar.gz`, `.zip`, or directory under `07_Delivery/`.
 
 The runtime bundle contains the runnable contents of `04_Software/` needed on a
-deployment host: `ador/`, `deploy/`, `docker/`, package metadata, lockfile,
+deployment host: `adore/`, `deploy/`, `docker/`, package metadata, lockfile,
 examples, and changelog. It excludes development/test/runtime state such as
-`tests/`, `.venv/`, `.ador/`, `worktrees/`, caches, and `.env`.
+`tests/`, `.venv/`, `.adore/`, `worktrees/`, caches, and `.env`.
 
 The package includes the existing setup scripts in `deploy/`; it does not
 replace them. After unpacking, use `deploy/install-windows.ps1` for Windows Task
 Scheduler setup or `deploy/install-ubuntu.sh` for Ubuntu systemd setup.
 
 Examples:
+
+```powershell
+python .\02_Tools\check_release_consistency.py
+python .\02_Tools\check_release_consistency.py --require-artifacts
+```
 
 ```powershell
 .\02_Tools\package_runtime.ps1

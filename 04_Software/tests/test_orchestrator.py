@@ -28,15 +28,15 @@ from datetime import UTC, datetime, timedelta
 import json
 from pathlib import Path
 
-from ador import gates
-from ador.config import Config, ExecutorCommand
-from ador.executor.base import Executor, GateRun
-from ador.forge import Comment, Forge, MergeRequest, Ticket
-from ador.gates import GateResult
-from ador.isolation import IsolationError
-from ador.orchestrator import GATES, Orchestrator
-from ador.state import RunState, StateStore
-from ador.util import CommandResult
+from adore import gates
+from adore.config import Config, ExecutorCommand
+from adore.executor.base import Executor, GateRun
+from adore.forge import Comment, Forge, MergeRequest, Ticket
+from adore.gates import GateResult
+from adore.isolation import IsolationError
+from adore.orchestrator import GATES, Orchestrator
+from adore.state import RunState, StateStore
+from adore.util import CommandResult
 import pytest
 
 # CONSTANTS
@@ -160,7 +160,7 @@ class FakeForge(Forge):
     def open_merge_request(self, source, target, title, body, *, draft=True,
                            reviewers=None, remove_source_branch=True,
                            cwd=None) -> str:
-        assert draft is True, "ADOR must only ever open DRAFT MRs"
+        assert draft is True, "ADORE must only ever open DRAFT MRs"
         assert cwd, "MR creation needs a git checkout cwd (remote resolution)"
         self._next_mr_iid += 1
         url = f"https://gitlab.example/g/p/-/merge_requests/{self._next_mr_iid}"
@@ -361,20 +361,20 @@ def make_config(tmp_path: Path, **overrides) -> Config:
     @return     The Config.
     @author     Eng. Dan Dumitru Pasare
     @date       2026-07-03
-    @version    0.1.0
+    @version    0.1.1
     """
     config = Config()
-    config.agent.slug = "ador"
-    config.agent.email = "ador-bot@local"
+    config.agent.slug = "adore"
+    config.agent.email = "adore-bot@local"
     config.platform.repo = "g/p"
-    config.state.store_root = str(tmp_path / ".ador")
+    config.state.store_root = str(tmp_path / ".adore")
     config.worktree.repo_path = str(tmp_path / "repo")
     config.worktree.root = str(tmp_path / "worktrees")
     config.delivery.reviewers = ["r"]
-    config.executor.questions_file = "ADOR_QUESTIONS.md"
+    config.executor.questions_file = "ADORE_QUESTIONS.md"
     config.executor.commands["opencode"] = ExecutorCommand("x {prompt}", "m")
-    config.metrics.db_path = str(tmp_path / ".ador" / "metrics.db")
-    config.metrics.export_jsonl = str(tmp_path / ".ador" / "runs.jsonl")
+    config.metrics.db_path = str(tmp_path / ".adore" / "metrics.db")
+    config.metrics.export_jsonl = str(tmp_path / ".adore" / "runs.jsonl")
     for path, value in overrides.items():
         section, key = path.split(".")
         setattr(getattr(config, section), key, value)
@@ -435,7 +435,7 @@ def write_agentic_failure_evidence(
     """
     @brief      Seed workflow-template failure artifacts in a fake worktree.
     @param[in]  engine Test engine whose fake worktree root is used.
-    @param[in]  run_id ADOR run id.
+    @param[in]  run_id ADORE run id.
     @param[in]  agentic_run Active workflow run id.
     @param[in]  summary Evidence summary.
     @param[in]  command Failed command.
@@ -443,7 +443,7 @@ def write_agentic_failure_evidence(
     @param[in]  report Existing report.md text.
     @author     Eng. Dan Dumitru Pasare
     @date       2026-07-08
-    @version    0.1.0
+    @version    0.1.1
     """
     worktree = engine.worktrees.path_for(run_id)  # type: ignore[attr-defined]
     run_dir = worktree / ".agentic" / "runs" / agentic_run
@@ -559,11 +559,11 @@ def test_pick_and_conduct_all_gates_to_validated(tmp_path: Path) -> None:
 def test_executor_artifacts_are_journaled(tmp_path: Path) -> None:
     """
     @brief   GateRun artifact archive paths are surfaced through the run
-             journal so `ador logs <run-id>` points at raw evidence.
-    @version 0.1.0
+             journal so `adore logs <run-id>` points at raw evidence.
+    @version 0.1.1
     """
     executor = FakeExecutor([
-        GateRun(exit_code=1, stderr="boom", artifact_dirs=[".ador/runs/r/io/archive/a"])
+        GateRun(exit_code=1, stderr="boom", artifact_dirs=[".adore/runs/r/io/archive/a"])
     ])
     config = make_config(tmp_path)
     config.budgets.max_iterations = 1
@@ -579,7 +579,7 @@ def test_executor_artifacts_are_journaled(tmp_path: Path) -> None:
     ]
     assert len(artifact_events) == 1
     assert artifact_events[0]["context"] == "intake"
-    assert artifact_events[0]["artifacts"] == [".ador/runs/r/io/archive/a"]
+    assert artifact_events[0]["artifacts"] == [".adore/runs/r/io/archive/a"]
 
 
 def test_selection_priority_and_filters(tmp_path: Path) -> None:
@@ -645,13 +645,13 @@ def test_resume_ignores_system_and_own_comments(tmp_path: Path) -> None:
     @brief   Resume detection: system notes and marker-stamped comments never
              resume; a plain human reply does, and the executor gets the
              thread.
-    @version 0.1.0
+    @version 0.1.1
     """
     engine, forge, _, _ = make_engine(tmp_path, FakeExecutor())
     run_id = park_run(engine, forge)
     forge.comments[14].append(Comment(id=990, body="label change", system=True))
     forge.comments[14].append(Comment(
-        id=991, body="ours\n<!-- ador:run=x kind=status -->"))
+        id=991, body="ours\n<!-- adore:run=x kind=status -->"))
     # ids above are BELOW the question id, plus one system note above it:
     forge.comments[14].append(Comment(id=99999, body="sys", system=True))
     summary = engine.poll_once()
@@ -1017,7 +1017,7 @@ def test_stage_host_auth_copies_and_scrubs(tmp_path: Path) -> None:
     @brief   With stage_host_auth on, the host auth.json goes through the io
              mount into the container and is scrubbed from io immediately; a
              missing host file only logs.
-    @version 0.1.0
+    @version 0.1.1
     """
     config = make_config(tmp_path)
     config.executor.stage_host_auth = True
@@ -1030,8 +1030,8 @@ def test_stage_host_auth_copies_and_scrubs(tmp_path: Path) -> None:
     engine.poll_once()
     run_id = engine._run_id(14)
     cp_calls = [c for c in containers.exec_calls if c and c[0] == "cp"]
-    assert ["cp", "/ador/io/host-auth.json",
-            "/home/ador/.local/share/opencode/auth.json"] in cp_calls
+    assert ["cp", "/adore/io/host-auth.json",
+            "/home/adore/.local/share/opencode/auth.json"] in cp_calls
     assert not (engine._io_dir(run_id) / "host-auth.json").exists()  # scrubbed
     events = [e["event"] for e in engine.store.read_journal(run_id)]
     assert "host-auth-staged" in events
@@ -1064,9 +1064,9 @@ def test_stage_host_auth_off_by_default_and_missing_file(tmp_path: Path) -> None
 def test_host_auth_path_is_per_executor(tmp_path: Path) -> None:
     """
     @brief   The OAuth-bridge source + container dir follow the configured
-             executor; Codex host auth is copied into ADOR's isolated
+             executor; Codex host auth is copied into ADORE's isolated
              container CODEX_HOME.
-    @version 0.1.0
+    @version 0.1.1
     """
     opencode_engine, _, _, _ = make_engine(tmp_path)
     assert opencode_engine.host_auth_container_dir.endswith("opencode")
@@ -1074,15 +1074,15 @@ def test_host_auth_path_is_per_executor(tmp_path: Path) -> None:
 
     codex_config = make_config(tmp_path / "cx", **{"executor.default": "codex"})
     codex_engine, _, _, _ = make_engine(tmp_path / "cx", config=codex_config)
-    assert codex_engine.host_auth_container_dir == "/home/ador/.ador-codex"
+    assert codex_engine.host_auth_container_dir == "/home/adore/.adore-codex"
     assert str(codex_engine.host_auth_path).replace("\\", "/").endswith(".codex/auth.json")
 
 
 def test_codex_provision_uses_isolated_codex_home(tmp_path: Path) -> None:
     """
-    @brief   Selecting the Codex executor injects an ADOR-owned CODEX_HOME;
+    @brief   Selecting the Codex executor injects an ADORE-owned CODEX_HOME;
              opencode does not receive Codex-specific environment.
-    @version 0.1.0
+    @version 0.1.1
     """
     codex_config = make_config(tmp_path / "cx", **{"executor.default": "codex"})
     engine, forge, containers, _ = make_engine(tmp_path / "cx",
@@ -1090,7 +1090,7 @@ def test_codex_provision_uses_isolated_codex_home(tmp_path: Path) -> None:
                                                codex_config)
     forge.add_ticket(14)
     engine.poll_once()
-    assert containers.provision_envs[-1]["CODEX_HOME"] == "/home/ador/.ador-codex"
+    assert containers.provision_envs[-1]["CODEX_HOME"] == "/home/adore/.adore-codex"
 
     opencode_engine, opencode_forge, opencode_containers, _ = make_engine(
         tmp_path / "op", FakeExecutor([gate_ok()] * 5)
@@ -1216,7 +1216,7 @@ def test_branch_template_supports_repo_conventions(tmp_path: Path) -> None:
     @brief   A "feature/" branch convention is one config line; the default
              stays slug/run-id (pilot finding 2026-07-03: GitLab push rules
              may require a feature/ prefix).
-    @version 0.1.0
+    @version 0.1.1
     """
     config = make_config(tmp_path)
     config.worktree.branch_template = "feature/{slug}-{iid}"
@@ -1224,19 +1224,19 @@ def test_branch_template_supports_repo_conventions(tmp_path: Path) -> None:
     forge.add_ticket(14)
     engine.poll_once()
     run = engine.store.load(engine._run_id(14))
-    assert run.branch == "feature/ador-14"
+    assert run.branch == "feature/adore-14"
 
 
 def test_branch_template_must_stay_unique(tmp_path: Path) -> None:
     """
     @brief   A template without {run_id}/{iid} would collide across tickets;
              validation rejects it.
-    @version 0.1.0
+    @version 0.1.1
     """
-    from ador.config import validate_config
+    from adore.config import validate_config
 
     config = make_config(tmp_path)
-    config.worktree.branch_template = "feature/ador"
+    config.worktree.branch_template = "feature/adore"
     issues = validate_config(config)
     assert any("branch_template" in issue for issue in issues)
 
@@ -1247,9 +1247,9 @@ def test_branch_rule_checks_the_rendered_template(tmp_path: Path) -> None:
              compliant template, rejects one the rule would reject, and
              flags an invalid regex - so a push-rule surprise cannot reach a
              run.
-    @version 0.1.0
+    @version 0.1.1
     """
-    from ador.config import validate_config
+    from adore.config import validate_config
 
     rule = r"^(feature|bugfix|release|hotfix)\/.*$"
     config = make_config(tmp_path)
@@ -1307,21 +1307,21 @@ def test_retry_of_delivery_stage_never_restarts_the_gates(tmp_path: Path) -> Non
     @brief   Retrying a run that failed during delivery resumes the delivery
              sequence; it must not re-run intake..validation (live finding
              2026-07-03).
-    @version 0.1.0
+    @version 0.1.1
     """
     engine, forge, _, _ = make_engine(tmp_path, FakeExecutor())
     forge.add_ticket(14)
     run_id = engine._run_id(14)
     engine.store.save(RunState(
         run_id=run_id, ticket_iid=14, stage="delivery", lifecycle="failed",
-        branch="feature/ador-14", base_ref="origin/develop",
+        branch="feature/adore-14", base_ref="origin/develop",
         container=f"c-{run_id}", outcome="push failed: x",
     ))
     assert engine.retry(run_id) is True
     run = engine.store.load(run_id)
     assert run.lifecycle == "in-review"
     assert engine.executor.prompts == []  # no gate relaunched; pure delivery
-    assert forge.mr_creations[0]["source"] == "feature/ador-14"
+    assert forge.mr_creations[0]["source"] == "feature/adore-14"
 
 
 def test_conduct_with_unknown_stage_fails_closed(tmp_path: Path) -> None:
@@ -1345,15 +1345,15 @@ def test_resume_of_delivery_stage_park_continues_delivery(tmp_path: Path) -> Non
     """
     @brief   A run parked DURING delivery resumes into the delivery sequence
              with the thread - never back to intake (live finding 2026-07-04).
-    @version 0.1.0
+    @version 0.1.1
     """
     engine, forge, _, worktrees = make_engine(tmp_path, FakeExecutor())
     forge.add_ticket(14)
     run_id = engine._run_id(14)
-    worktrees.create(run_id, "feature/ador-14", "x")
+    worktrees.create(run_id, "feature/adore-14", "x")
     engine.store.save(RunState(
         run_id=run_id, ticket_iid=14, stage="delivery", lifecycle="parked",
-        branch="feature/ador-14", base_ref="origin/develop",
+        branch="feature/adore-14", base_ref="origin/develop",
         container=f"c-{run_id}", question_comment_id=500,
         parked_at=ago(60), clarification_rounds=1,
     ))
@@ -1466,9 +1466,9 @@ def test_delivery_commits_conductor_generated_artifacts_before_push(
 ) -> None:
     """
     @brief   Delivery gates/report may write final workflow metadata after the
-             executor's last commit; ADOR commits those artifacts before it
+             executor's last commit; ADORE commits those artifacts before it
              pushes and opens the draft MR.
-    @version 0.1.0
+    @version 0.1.1
     """
     engine, forge, _, worktrees = make_engine(tmp_path, FakeExecutor([gate_ok()] * 6))
 
@@ -1738,7 +1738,7 @@ def test_legacy_validated_run_gets_delivered(tmp_path: Path) -> None:
     """
     @brief   A pre-phase-4 run stopped at validated-delivery-pending is
              picked up by reconciliation and delivered.
-    @version 0.1.0
+    @version 0.1.1
     """
     engine, forge, _, worktrees = make_engine(tmp_path, FakeExecutor())
     forge.add_ticket(14)
@@ -1746,13 +1746,13 @@ def test_legacy_validated_run_gets_delivered(tmp_path: Path) -> None:
     worktrees.create(run_id, "b", "x")
     engine.store.save(RunState(
         run_id=run_id, ticket_iid=14, stage="delivery", lifecycle="validated",
-        branch="feature/ador-14", base_ref="origin/develop",
-        container=f"ador-run-{run_id}",
+        branch="feature/adore-14", base_ref="origin/develop",
+        container=f"adore-run-{run_id}",
     ))
     engine.poll_once()
     run = engine.store.load(run_id)
     assert run.lifecycle == "in-review"
-    assert forge.mr_creations and forge.mr_creations[0]["source"] == "feature/ador-14"
+    assert forge.mr_creations and forge.mr_creations[0]["source"] == "feature/adore-14"
 
 
 # PUBLIC API / TESTS - operator commands: reset / cleanup (design 8c)
@@ -1784,14 +1784,14 @@ def test_cleanup_sweeps_orphans_but_never_active_runs(tmp_path: Path) -> None:
     @brief   cleanup clears a stale lock, removes containers/worktrees whose
              runs are terminal or unknown, keeps everything active, and only
              REPORTS corrupt state.
-    @version 0.1.0
+    @version 0.1.1
     """
     engine, forge, containers, worktrees = make_engine(tmp_path, FakeExecutor())
     run_id = park_run(engine, forge)          # active (parked) run
     active_container = engine.store.load(run_id).container
     containers.states[active_container] = "exited"
     # orphans: a container and a worktree husk for an unknown run
-    containers.states["ador-run-ghost-1"] = "exited"
+    containers.states["adore-run-ghost-1"] = "exited"
     (worktrees.root / "ghost-2").mkdir(parents=True)
     # a corrupt run: reported, not touched
     engine.store.save(RunState(run_id="broken", ticket_iid=9))
@@ -1801,7 +1801,7 @@ def test_cleanup_sweeps_orphans_but_never_active_runs(tmp_path: Path) -> None:
 
     report = engine.cleanup()
     assert report["lock_cleared"] is True
-    assert report["containers_removed"] == ["ador-run-ghost-1"]
+    assert report["containers_removed"] == ["adore-run-ghost-1"]
     assert active_container in containers.states       # active kept
     assert "ghost-2" in report["worktrees_removed"]
     assert not (worktrees.root / "ghost-2").exists()
@@ -1818,12 +1818,12 @@ def test_teardown_retries_past_the_wsl_bind_mount_race(tmp_path: Path) -> None:
     @brief   Worktree removal that transiently fails with the WSL mount-race
              signature (ENOSYS) is retried with backoff until it succeeds -
              no husk left, no manual cleanup needed.
-    @version 0.1.0
+    @version 0.1.1
     """
     engine, _, _, worktrees = make_engine(tmp_path, FakeExecutor())
     sleeps: list[float] = []
     engine.sleep = lambda d: sleeps.append(d)
-    run = RunState(run_id="r-14", ticket_iid=14, container="ador-run-r-14",
+    run = RunState(run_id="r-14", ticket_iid=14, container="adore-run-r-14",
                    branch="feature/x")
     enosys = IsolationError("git worktree failed",
                             stderr="failed to delete '...': Function not implemented")
@@ -1838,13 +1838,13 @@ def test_teardown_retries_past_the_wsl_bind_mount_race(tmp_path: Path) -> None:
 def test_teardown_does_not_retry_a_real_worktree_error(tmp_path: Path) -> None:
     """
     @brief   A non-transient removal error is NOT retried (retries must not
-             mask real failures); the husk is left for `ador cleanup`.
-    @version 0.1.0
+             mask real failures); the husk is left for `adore cleanup`.
+    @version 0.1.1
     """
     engine, _, _, worktrees = make_engine(tmp_path, FakeExecutor())
     sleeps: list[float] = []
     engine.sleep = lambda d: sleeps.append(d)
-    run = RunState(run_id="r-15", ticket_iid=15, container="ador-run-r-15",
+    run = RunState(run_id="r-15", ticket_iid=15, container="adore-run-r-15",
                    branch="feature/y")
     real = IsolationError("git failed", stderr="fatal: not a valid object name")
     worktrees.remove_errors = [real, real]
@@ -1864,9 +1864,9 @@ def test_terminal_states_record_metrics(tmp_path: Path) -> None:
     @brief   A merged run lands one summary row (usage summed from journal
              events); a later escalation of another run adds its own row -
              never a duplicate for re-records.
-    @version 0.1.0
+    @version 0.1.1
     """
-    from ador.metrics import load_summaries
+    from adore.metrics import load_summaries
 
     engine, forge, _, _ = make_engine(
         tmp_path,
@@ -1891,9 +1891,9 @@ def test_terminal_states_record_metrics(tmp_path: Path) -> None:
 def test_metrics_disabled_records_nothing(tmp_path: Path) -> None:
     """
     @brief   [metrics] enabled=false switches recording off entirely.
-    @version 0.1.0
+    @version 0.1.1
     """
-    from ador.metrics import load_summaries
+    from adore.metrics import load_summaries
 
     config = make_config(tmp_path)
     config.metrics.enabled = False

@@ -20,7 +20,7 @@ from __future__ import annotations
 # IMPORTS
 from pathlib import Path
 
-from ador.state import RunState, StateError, StateStore, content_hash, derive_run_id
+from adore.state import RunState, StateError, StateStore, content_hash, derive_run_id
 import pytest
 
 # HELPER FUNCTIONS
@@ -33,9 +33,9 @@ def _store(tmp_path: Path) -> StateStore:
     @return     The StateStore.
     @author     Eng. Dan Dumitru Pasare
     @date       2026-07-02
-    @version    0.1.0
+    @version    0.1.1
     """
-    return StateStore(tmp_path / ".ador", slug="ador")
+    return StateStore(tmp_path / ".adore", slug="adore")
 
 
 # PUBLIC API / TESTS

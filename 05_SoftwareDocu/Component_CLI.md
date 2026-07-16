@@ -6,53 +6,53 @@ See the LICENSE.txt file for full license details.
 SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
-# Component: CLI (`ador/cli.py`)
+# Component: CLI (`adore/cli.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/ador/cli.py` - file version 0.5.0.
+> Source: `04_Software/adore/cli.py` - file version 0.5.0.
 > Design: Orchestrator_Design_And_Decisions.md section 12a;
 > Assisted_Config_And_Profiles_Plan.md (init / profile / --profile).
 
 ## 1. Purpose
 
-The single user-facing entry point: the `ador` command. CLI-first over a
+The single user-facing entry point: the `adore` command. CLI-first over a
 library core - the command surface is thin argparse wiring that delegates to
-the `ador` package; no REST API or web UI exists in v1 by design.
+the `adore` package; no REST API or web UI exists in v1 by design.
 
 ## 2. Responsibilities
 
 - Define the full command surface (lifecycle, operations, statistics, config)
   with stdlib `argparse` only.
 - Wire the phase-1 commands:
-  - `ador config show` - resolved configuration as JSON;
-  - `ador config validate` - all validation issues, exit 1 when any;
-  - `ador status` - config health, store root, pause flag, lock holder, run
+  - `adore config show` - resolved configuration as JSON;
+  - `adore config validate` - all validation issues, exit 1 when any;
+  - `adore status` - config health, store root, pause flag, lock holder, run
     counts by lifecycle, corrupt-run warning;
-  - `ador runs` - table of persisted runs (corrupt ones shown as `CORRUPT`);
-  - `ador pause` / `ador resume` - toggle the global pickup flag.
+  - `adore runs` - table of persisted runs (corrupt ones shown as `CORRUPT`);
+  - `adore pause` / `adore resume` - toggle the global pickup flag.
 - Wire the phase-3 engine commands (all refuse to start on an invalid
-  config): `ador run --loop|--once|--dry-run` (default mode from
+  config): `adore run --loop|--once|--dry-run` (default mode from
   `[polling] mode`; `--once` prints the poll summary as JSON; all `run`
-  modes also mirror their output to `<store_root>/ador.log`),
-  `ador cancel <run-id>`, `ador retry <run-id>`, `ador logs <run-id>`
+  modes also mirror their output to `<store_root>/adore.log`),
+  `adore cancel <run-id>`, `adore retry <run-id>`, `adore logs <run-id>`
   (journal, including executor archive paths when present), and
-  `ador delete <run-id> --force` (destructive; refuses without `--force`,
+  `adore delete <run-id> --force` (destructive; refuses without `--force`,
   design 8c guardrail).
-- Wire the metrics commands (phase 5): `ador stats [--since 30d] [--by
-  priority|outcome] [--html] [--rebuild]`, `ador report <run-id>` (live
-  journal summary as JSON), `ador export --csv` (all summaries to stdout).
+- Wire the metrics commands (phase 5): `adore stats [--since 30d] [--by
+  priority|outcome] [--html] [--rebuild]`, `adore report <run-id>` (live
+  journal summary as JSON), `adore export --csv` (all summaries to stdout).
 - Wire the operator commands (design 8c):
-  - `ador reset <run-id> --to <stage> --force` - state surgery; refuses
+  - `adore reset <run-id> --to <stage> --force` - state surgery; refuses
     without `--force` (resetting re-runs completed gates: executor cost,
-    ticket churn), then tells the operator to `ador retry`;
-  - `ador cleanup` - sweeps the stale instance lock, orphaned containers,
+    ticket churn), then tells the operator to `adore retry`;
+  - `adore cleanup` - sweeps the stale instance lock, orphaned containers,
     and orphaned/husk worktree directories; prints a JSON report. Corrupt
-    run state is reported but never auto-deleted (that is `ador delete
+    run state is reported but never auto-deleted (that is `adore delete
     <run-id> --force`'s explicit job).
 - Wire assisted-config + profiles (Assisted_Config_And_Profiles_Plan):
-  - `ador init [name] [--force] [--answers FILE]` - the setup wizard
-    (delegates to `ador.wizard`); writes a validated runtime-project profile.
-  - `ador profile list|show|use|rename|delete|path` - manage profiles
+  - `adore init [name] [--force] [--answers FILE]` - the setup wizard
+    (delegates to `adore.wizard`); writes a validated runtime-project profile.
+  - `adore profile list|show|use|rename|delete|path` - manage profiles
     (`delete` needs `--force`; `list` shows platform/repo/runtime plus run
     stats RUNS/MERGED and last-used/uses, active marked `*`; `show` adds the
     full stats block - runs/merged/failed/success-rate/launches/tokens/
@@ -74,35 +74,35 @@ Explicitly not owned: any engine behavior; the handlers are thin views over
 - `_load` converts a missing config file or invalid TOML into a readable
   one-line error with a hint (copy `config.example.toml`), never a traceback.
 - A held/stale instance lock on `run --once` prints the lock path and a
-  removal hint instead of a traceback; `ador cleanup` clears it (invoking
+  removal hint instead of a traceback; `adore cleanup` clears it (invoking
   cleanup asserts no poller is running).
 - `_cmd_run` wraps the engine logger with `ProcessLogger`, so engine log
   lines and the final `--once` / `--dry-run` JSON summary are both printed to
-  stdout and appended to `<store_root>/ador.log`. Other commands remain
+  stdout and appended to `<store_root>/adore.log`. Other commands remain
   stdout-only.
 - `_store` builds the `StateStore` from `[state] store_root` + `[agent] slug`.
 - Corrupt runs (from `StateStore.invalid_runs()`) are surfaced in both
   `status` and `runs` so damaged state is visible, not hidden.
-- Entry points: the `ador` console script (`pyproject.toml`) and
-  `python -m ador` (`__main__.py`), both calling `cli.main`.
+- Entry points: the `adore` console script (`pyproject.toml`) and
+  `python -m adore` (`__main__.py`), both calling `cli.main`.
 
 ## 4. Dependencies
 
-- Internal: `ador.config` (load/validate), `ador.state` (`StateStore`),
-  `ador.orchestrator` (engine commands), `ador.process_log` (run command
-  tee + rotation), `ador.metrics` (stats/report/export), `ador.profiles`
-  (`ProfileStore`, `resolve_config_path`), `ador.wizard` (`run_wizard`,
-  askers), `ador.util` (`parse_duration`), `ador.__version__`.
+- Internal: `adore.config` (load/validate), `adore.state` (`StateStore`),
+  `adore.orchestrator` (engine commands), `adore.process_log` (run command
+  tee + rotation), `adore.metrics` (stats/report/export), `adore.profiles`
+  (`ProfileStore`, `resolve_config_path`), `adore.wizard` (`run_wizard`,
+  askers), `adore.util` (`parse_duration`), `adore.__version__`.
 - External: Python standard library only (`argparse`, `json`, `tomllib`,
   `dataclasses`, `contextlib`).
 
 ## 5. Inputs And Outputs
 
 - Inputs: argv; `-c/--config` (default resolves to `./config.toml`);
-  `--profile NAME`; the active-profile pointer under the ADOR config home.
+  `--profile NAME`; the active-profile pointer under the ADORE config home.
 - Outputs: stdout text (human-oriented; `config show` prints JSON), the
   process exit code, `run` command process-log lines under `<store_root>`,
-  pause-flag changes, and profile creation/edits under the ADOR config home.
+  pause-flag changes, and profile creation/edits under the ADORE config home.
 
 ## 6. Data Contracts
 
@@ -125,19 +125,19 @@ bind-mount teardown race; `stats`/`report`/`export` read the metrics store.
 ## 8. Usage
 
 ```bash
-ador --version
-ador -c config.toml config validate   # run before starting the loop
-ador config show
-ador status
-ador runs
-ador pause && ador resume
-ador reset ador-gitlab-g-p-14 --to check --force   # then: ador retry <run-id>
-ador cleanup                                       # after a crash / husk dirs
+adore --version
+adore -c config.toml config validate   # run before starting the loop
+adore config show
+adore status
+adore runs
+adore pause && adore resume
+adore reset adore-gitlab-g-p-14 --to check --force   # then: adore retry <run-id>
+adore cleanup                                       # after a crash / husk dirs
 
-ador init sample-project              # assisted setup -> a profile
-ador profile list                     # profiles with dates + use counts
-ador profile use sample-project       # make it the active profile
-ador --profile sample-project run --dry-run   # any command against a profile
+adore init sample-project              # assisted setup -> a profile
+adore profile list                     # profiles with dates + use counts
+adore profile use sample-project       # make it the active profile
+adore --profile sample-project run --dry-run   # any command against a profile
 ```
 
 ## 9. Validation And Tests
@@ -147,18 +147,18 @@ ador --profile sample-project run --dry-run   # any command against a profile
   status/pause/resume/runs together, corrupt runs surfaced, stats/export on
   an empty store, reset refusing without `--force` and failing cleanly on an
   unknown run, cleanup printing its JSON report, `run --once` writing
-  `<store_root>/ador.log`, process-log rotation, and the one remaining stub
+  `<store_root>/adore.log`, process-log rotation, and the one remaining stub
   (`config set`) exiting 2.
 - `tests/test_orchestrator.py` covers the engine side of `reset` (stage set +
   journaled, invalid stage/run refused, retry continues from the reset
   stage) and `cleanup` (stale lock cleared, orphans swept, active runs and
   corrupt state untouched).
 - Minimum validation after a change: `uv run --group dev pytest tests/test_smoke.py`
-  and `uv run ador -c config.example.toml config validate`.
+  and `uv run adore -c config.example.toml config validate`.
 
 ## 10. Limitations And Future Work
 
-- `ador config set` is not implemented (edit `config.toml` directly) - the
+- `adore config set` is not implemented (edit `config.toml` directly) - the
   only remaining stub.
 - No `--json` output mode for `status`/`runs` yet; add when scripting needs
   it.

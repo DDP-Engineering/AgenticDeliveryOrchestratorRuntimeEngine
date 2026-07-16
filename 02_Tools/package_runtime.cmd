@@ -6,14 +6,14 @@
 :: SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 :: -----------------------------------------------------------------------------
 :: @file    package_runtime.cmd
-:: @brief   CMD wrapper for the ADOR runtime packaging script.
+:: @brief   CMD wrapper for the ADORE runtime packaging script.
 :: @details Delegates to package_runtime.ps1 so Windows users can invoke the
 ::          same packager from cmd.exe, scripts, or CI jobs.
 :: @usage   02_Tools\package_runtime.cmd [-OutputDir 07_Delivery]
 ::              [-Format zip|directory] [-IncludeConfig] [-PackageName NAME]
 :: @author  Eng. Dan Dumitru Pasare
 :: @date    2026-07-06
-:: @version 0.1.0
+:: @version 0.2.0
 :: -----------------------------------------------------------------------------
 @echo off
 setlocal

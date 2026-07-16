@@ -11,7 +11,7 @@ Project-level documentation for operating and configuring the Agentic Delivery
 Orchestrator belongs here.
 
 This folder is for project documentation intended to help people understand,
-install, configure, operate, or present ADOR. It includes manuals, setup guides,
+install, configure, operate, or present ADORE. It includes manuals, setup guides,
 configuration references, user-facing behavior descriptions, operational
 runbooks, and presentations. AI agents should update this folder whenever a
 software interface, user-visible behavior, command, configuration contract, or

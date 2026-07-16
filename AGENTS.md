@@ -5,12 +5,12 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
-# AGENTS.md - Agentic Delivery Orchestrator
+# AGENTS.md - Agentic Delivery Orchestrator & Runtime Engine
 
 ## Scope
 
 These instructions apply to the repository rooted at:
-`2026_AgenticDeliveryOrchestrator/`
+`2026_AgenticDeliveryOrchestratorRuntimeEngine/`
 
 A deeper `AGENTS.md` overrides this file for its subtree.
 
@@ -133,11 +133,11 @@ Two independent revision markers, both bumped in the same change that causes the
 
 ### Release versioning and changelog rules
 
-- The repository-root `CHANGELOG.md` is the canonical record of notable ADOR
+- The repository-root `CHANGELOG.md` is the canonical record of notable ADORE
   project updates. Accrue changes under `## [Unreleased]` using Keep a
   Changelog sections (`Added`, `Changed`, `Fixed`, `Removed`).
 - The project release version is declared in both
-  `04_Software/pyproject.toml` and `04_Software/ador/__init__.py`; keep these
+  `04_Software/pyproject.toml` and `04_Software/adore/__init__.py`; keep these
   values aligned.
 - When the user asks to assign or cut a release version, in the same change:
   1. roll `## [Unreleased]` into a dated `## [x.y.z] - YYYY-MM-DD` section in
@@ -174,14 +174,14 @@ thick-conductor engine (polling, selection, per-gate loop with verification
 and budgets, clarification park/resume, TTL/timeouts) wired to the CLI.
 Phases 3 and 4 were live-piloted END TO END on a real ticket: #45 went from
 the `agent-ready` label to draft MR !29 on the real repository, fully
-conducted by ADOR (prereq report sections 15-16, including all ten hardening
+conducted by ADORE (prereq report sections 15-16, including all ten hardening
 findings fixed with regression tests along the way). The post-MR revise cycle was live-verified (MR !29 revised on request) and
 the human merge closed the full lifecycle. Metrics (design 13) are
 implemented: per-launch usage journaling, SQLite run summaries at terminal
-states, `ador stats|report|export` + static HTML dashboard (pilot run
+states, `adore stats|report|export` + static HTML dashboard (pilot run
 backfilled via `stats --rebuild`). The operator commands are wired:
-`ador reset <run-id> --to <stage> --force` (state surgery, then `ador
-retry`) and `ador cleanup` (stale lock, orphaned containers, orphaned/husk
+`adore reset <run-id> --to <stage> --force` (state surgery, then `adore
+retry`) and `adore cleanup` (stale lock, orphaned containers, orphaned/husk
 worktrees; corrupt state reported, never auto-deleted). The full design-12a
 CLI surface is implemented except `config set`. Deployment scripts are in
 `04_Software/deploy/` (design 12a): systemd unit + installer for Ubuntu 22+,
@@ -192,12 +192,13 @@ END - podman conducted ticket #47 agent-ready -> draft MR !30 on 2026-07-05
 (needs `run_args = ["--userns=keep-id"]`); two podman/docker parity bugs were
 found and fixed with regression tests (idempotent `ensure_volumes`,
 reparse-point-safe `force_rmtree`). Assisted config + multi-project profiles are
-implemented (Assisted_Config_And_Profiles_Plan.md, all 8 tasks): `ador init`
-wizard (`ador/wizard.py`), environment detection/guidance (`ador/doctor.py`),
-profile store + resolution (`ador/profiles.py`), `ador profile ...` +
+implemented (Assisted_Config_And_Profiles_Plan.md, all 8 tasks): `adore init`
+wizard (`adore/wizard.py`), environment detection/guidance (`adore/doctor.py`),
+profile store + resolution (`adore/profiles.py`), `adore profile ...` +
 `--profile` with per-profile statistics, under a cross-platform config home
-(`%APPDATA%`/`~/.config/ador`/`ADOR_HOME`); one install serves many projects.
+(`%APPDATA%`/`~/.config/adore`/`ADORE_HOME`); one install serves many projects.
 Cross-platform E2E green on Windows 11 and Ubuntu 24.04/WSL2 (prereq report
-§17); onboarding in 00_Planning/Onboarding_New_Project.md. Still pending: the
-security decisions in 00_Planning/TODO.md (container egress allowlist before
-unattended running, executor credentials).
+section 17); onboarding in 01_Documentation/Onboarding_New_Project.md. ADORE
+1.0.0 is the complete hard-cut product identity, with no compatibility or
+migration layer. Container egress allowlisting is implemented and live-verified.
+Executor credentials remain an operator-managed security decision.

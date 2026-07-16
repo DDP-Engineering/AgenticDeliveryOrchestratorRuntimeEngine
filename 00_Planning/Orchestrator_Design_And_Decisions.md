@@ -1,11 +1,11 @@
-﻿<!--
+<!--
 Copyright (c) 2026 DDP Engineering
 This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
-# Agentic Delivery Orchestrator - Design and Decisions
+# Agentic Delivery Orchestrator & Runtime Engine - Design and Decisions
 
 > **Status**: Planning notes. Captures the ideas and decisions agreed so far.
 > **Scope**: The orchestrator that pulls a Git platform ticket, guides an executor
@@ -162,10 +162,10 @@ human reviewer -> approves and merges
 
 - **A configurable bot name drives all derived identifiers**, so renaming the bot
   is a single change:
-  - `agent.name` - display/brand (default `"ADOR"`, for **A**gentic **D**elivery
+  - `agent.name` - display/brand (default `"ADORE"`, for **A**gentic **D**elivery
     **O**rchestrator by **R**andstad), shown in comment tags, MR/PR titles, and the
     git commit author name.
-  - `agent.slug` - lowercase token (default `"ador"`; derived from `name` if
+  - `agent.slug` - lowercase token (default `"adore"`; derived from `name` if
     empty) used to build the local state dir (`.<slug>/runs/...`), the branch
     prefix (`<slug>/<run-id>`; overridable via `[worktree] branch_template`
     for repos whose push rules mandate e.g. a `feature/` prefix - added
@@ -174,16 +174,16 @@ human reviewer -> approves and merges
 
   ```toml
   [agent]
-  name = "ADOR"     # display/brand: comment tags, MR titles, commit author
-  slug = "ador"     # derived names: .ador/ state dir, branch, container, marker
+  name = "ADORE"     # display/brand: comment tags, MR titles, commit author
+  slug = "adore"     # derived names: .adore/ state dir, branch, container, marker
   ```
 
 - **No dedicated Git platform account required (marker-based identity).** The corporate
   repo may not allow creating a separate bot user, so the orchestrator does
   **not** rely on comment authorship. It stamps every comment it posts with a
   marker and treats any comment **without** the marker as human:
-  - a visible tag (e.g. `[ADOR]`) plus a hidden Markdown marker line
-    `<!-- ador:run=<run-id> kind=<kind> -->` (invisible when rendered on GitLab and
+  - a visible tag (e.g. `[ADORE]`) plus a hidden Markdown marker line
+    `<!-- adore:run=<run-id> kind=<kind> -->` (invisible when rendered on GitLab and
     GitHub);
   - it also records the IDs of the comments it posts in `state.json`.
   A resume trigger (section 9) is then a comment whose ID it did not post and
@@ -219,13 +219,13 @@ human reviewer -> approves and merges
 - **Marking format:** a human-readable line plus a hidden machine marker.
 
   ```text
-  [ADOR] status: working - stage intake - run gitlab-cockpitgcp-14 - updated 2026-07-02 14:02
-  <!-- ador:run=gitlab-cockpitgcp-14 kind=status state=working stage=intake -->
+  [ADORE] status: working - stage intake - run gitlab-cockpitgcp-14 - updated 2026-07-02 14:02
+  <!-- adore:run=gitlab-cockpitgcp-14 kind=status state=working stage=intake -->
   ```
 
-  The visible tag (`[ADOR]`) and the marker prefix (`ador:`) derive from
+  The visible tag (`[ADORE]`) and the marker prefix (`adore:`) derive from
   `agent.name` / `agent.slug`. Every comment kind (status, question, delivery,
-  reminder, timeout) leads with this same `[ADOR]` tag for a uniform prefix. The hidden marker is invisible when rendered but
+  reminder, timeout) leads with this same `[ADORE]` tag for a uniform prefix. The hidden marker is invisible when rendered but
   lets the orchestrator find and update its own comment, and lets resume
   detection tell agent comments from human replies (section 9).
 - **Comment kinds, all carrying the marker with a `kind` field:**
@@ -251,19 +251,19 @@ human reviewer -> approves and merges
   them headless. The executor commits locally only; the orchestrator owns push
   and MR creation.
 - **Clarification signal convention:** when blocked, the executor writes its
-  questions to a known file (e.g. `ADOR_QUESTIONS.md`) in the worktree and stops.
+  questions to a known file (e.g. `ADORE_QUESTIONS.md`) in the worktree and stops.
   The orchestrator's check is deterministic â€” does the file exist after intake
   returns â€” regardless of how it was written.
   - **How the file gets written â€” start soft, allow deterministic.** The writing
     itself is done by the executor using its normal file-write tool; it is not a
     built-in feature.
     - **Soft (v1):** the prompt / headless skill mandates it ("if you have
-      blocking questions, write `ADOR_QUESTIONS.md` and stop"). Simplest, but
+      blocking questions, write `ADORE_QUESTIONS.md` and stop"). Simplest, but
       LLM-dependent â€” the agent may occasionally not comply.
     - **Firmer:** as a fallback, parse the executor's returned output for a
       questions marker if the file is missing.
     - **Deterministic (upgrade):** give the executor a dedicated command/tool
-      (e.g. an `.opencode/command` or plugin `ador-ask "<question>"`) that writes
+      (e.g. an `.opencode/command` or plugin `adore-ask "<question>"`) that writes
       the file in a guaranteed format, so "asking" is a defined tool call rather
       than free-form editing, and can be enforced with a hook.
   - Promote from soft to deterministic only if compliance proves flaky; the
@@ -297,7 +297,7 @@ thick conductor rather than a single-shot launcher:
    skill). The executor runs the `.agentic` CLI itself and stops at the end of
    the gate.
 3. **Inspect the result:** check the exit status, and check the worktree for
-   `ADOR_QUESTIONS.md`.
+   `ADORE_QUESTIONS.md`.
 4. **Verify (the conductor check):** run `invariants` / read exit codes to confirm
    the gate is coherent before advancing.
 5. **Branch:**
@@ -349,7 +349,7 @@ After validation passes, the run proceeds to the **delivery** gate (section 11):
   re-fetching:
 
   ```text
-  .ador/runs/<run-id>/
+  .adore/runs/<run-id>/
     ticket.json      # title, body, labels, comments, timestamps + content hash
     state.json       # stage, lifecycle label, last_seen_comment_id, rounds
     journal.jsonl    # orchestrator events
@@ -360,9 +360,9 @@ After validation passes, the run proceeds to the **delivery** gate (section 11):
   short hash of it). It must be stable across restart and resume so the same
   resources are reused rather than duplicated. It names:
   - worktree dir: `worktrees/<run-id>`
-  - branch: `ador/<run-id>`
-  - container/session: `ador-run-<run-id>`
-  - run state dir: `.ador/runs/<run-id>`
+  - branch: `adore/<run-id>`
+  - container/session: `adore-run-<run-id>`
+  - run state dir: `.adore/runs/<run-id>`
 
   A random per-poll id would break resume (every poll would look new), so the
   identity is always derived from the ticket.
@@ -379,7 +379,7 @@ After validation passes, the run proceeds to the **delivery** gate (section 11):
 
 - **Container is ephemeral; worktree + state are durable.** The container is
   spawned per active work session and is disposable. The worktree and
-  `.ador/runs/<run-id>` persist across parks and restarts, keyed by the stable
+  `.adore/runs/<run-id>` persist across parks and restarts, keyed by the stable
   run-id, so nothing is lost when a container goes away.
 - **Keep-warm on park.** When a run parks for clarification, the container is
   **stopped** (not removed) by default: it uses no CPU/RAM but keeps its
@@ -419,7 +419,7 @@ closed ticket never leaves a zombie run or an orphaned container:
 
 - **Ticket deleted** (Git platform returns not-found) -> **abort**: stop + remove the
   container, remove the worktree, mark outcome `orphaned` (no comment possible),
-  keep or purge `.ador/runs/<run-id>` state per policy.
+  keep or purge `.adore/runs/<run-id>` state per policy.
 - **Ticket closed by a human** while a run is active -> **cancel**: stop the run,
   post a comment if still accessible, clean up, mark `ticket-closed`.
 - **Trigger removed / `agent-hold` added mid-run** -> **pause or abort** (default:
@@ -429,15 +429,15 @@ closed ticket never leaves a zombie run or an orphaned container:
 
 **Manual operator commands** (deliberate intervention; part of the CLI, 12a):
 
-- `ador cancel <run-id>` - graceful stop: tear down container + worktree, mark
+- `adore cancel <run-id>` - graceful stop: tear down container + worktree, mark
   `cancelled`, post a closing comment if the ticket exists, keep state.
-- `ador delete <run-id> [--force]` - hard removal including `.ador` state
+- `adore delete <run-id> [--force]` - hard removal including `.adore` state
   (destructive; confirm or `--force`).
-- `ador reset <run-id> --to <gate>` - force a run back to a stage.
-- `ador retry <run-id>` - re-run from where it stopped.
-- `ador pause` / `ador resume` - global stop/allow picking new tickets.
-- `ador cleanup` - garbage-collect orphaned worktrees / containers / state and
-  clear a stale `.ador/ador.lock`.
+- `adore reset <run-id> --to <gate>` - force a run back to a stage.
+- `adore retry <run-id>` - re-run from where it stopped.
+- `adore pause` / `adore resume` - global stop/allow picking new tickets.
+- `adore cleanup` - garbage-collect orphaned worktrees / containers / state and
+  clear a stale `.adore/adore.lock`.
 - **Guardrail:** destructive commands (`delete`, `reset`) confirm or need
   `--force`; `cancel` always attempts a clean container stop first.
 
@@ -451,7 +451,7 @@ on_trigger_removed = "pause"          # "pause" | "abort" | "ignore"
 ## 9. Domain: Clarification / Parked Runs
 
 - **Park-on-ambiguity:** during intake (or any gate) the executor writes its
-  questions to `ADOR_QUESTIONS.md` in the worktree and stops. The orchestrator
+  questions to `ADORE_QUESTIONS.md` in the worktree and stops. The orchestrator
   reads that file (the executor never touches the Git platform) and parks the run.
 - **Park sequence (exact order):**
   1. **Post the questions comment first** (`kind=question`, with the marker) and
@@ -467,7 +467,7 @@ on_trigger_removed = "pause"          # "pause" | "abort" | "ignore"
   4. **Record `parked_at`** (timestamp and/or poll count) to start the TTL clock
      (section 8b).
   5. **Stop the container** (kept per `parked_state = "stopped"`); the worktree,
-     the executor's `.agentic` run, and `.ador/runs/<run-id>` state persist.
+     the executor's `.agentic` run, and `.adore/runs/<run-id>` state persist.
   6. **Return to polling** and pick the next ticket.
 - **Resume detection (primary): a new human comment.** The orchestrator polls
   parked tickets and reads their comments/notes. If it finds a comment **newer
@@ -494,7 +494,7 @@ on_trigger_removed = "pause"          # "pause" | "abort" | "ignore"
   2. **Timeout (hard), after `answer_timeout`:** if still no reply, post a closing
      comment, move the run to a terminal state (`timeout_state`, e.g. `failed` or
      a dedicated `stale`), **clear the parked/working marking so the ticket
-     returns to human hands**, remove the worktree (keep `.ador/runs/<run-id>`
+     returns to human hands**, remove the worktree (keep `.adore/runs/<run-id>`
      state for audit), and **leave the ticket open** so a human can re-tag
      `agent-ready` to restart later.
   - **Container reap != run timeout.** The container may already be reaped (8b)
@@ -520,7 +520,7 @@ on_trigger_removed = "pause"          # "pause" | "abort" | "ignore"
   4. **Relaunch the executor at the intake gate** with the **full comment thread**
      (its question + the human's answer) as context.
   5. **Executor re-decides:** it either completes intake and the run advances, or
-     writes `ADOR_QUESTIONS.md` again and re-parks (round counter increments,
+     writes `ADORE_QUESTIONS.md` again and re-parks (round counter increments,
      bounded by `max_rounds`).
 - **Marker-based identity (no dedicated account).** The orchestrator's own
   comments carry a hidden marker and their ids are recorded, so it distinguishes
@@ -597,7 +597,7 @@ the MR is opened, so the MR is never stale or silently broken.
 1. **Mark status** `working - delivery`.
 2. **Sync with the target branch (deterministic first, reasoning on demand).**
    The **orchestrator** runs the merge plumbing: `git fetch origin`, then
-   `git merge origin/develop` into the run branch (`ador/<run-id>`). Remote/git
+   `git merge origin/develop` into the run branch (`adore/<run-id>`). Remote/git
    operations stay with the orchestrator; the executor only touches local files.
    - **Clean merge (no conflicts)** -> the orchestrator proceeds directly; the
      executor is not involved.
@@ -612,7 +612,7 @@ the MR is opened, so the MR is never stale or silently broken.
 4. **Run `delivery-preflight` (authoritative)** and produce `report.md`
    (`registry sync`, `report`).
    - Not green -> fix or escalate; green -> proceed.
-5. **Push the run branch** (`git push -u origin ador/<run-id>`); the executor is
+5. **Push the run branch** (`git push -u origin adore/<run-id>`); the executor is
    blocked from pushing, so the orchestrator does it.
 6. **Open the draft MR/PR** targeting `develop`, description from `report.md`,
    reviewer assigned, no merge flags, never `merge`.
@@ -621,11 +621,11 @@ the MR is opened, so the MR is never stale or silently broken.
 8. **Hand off (keep the environment alive).** Do **not** delete the container or
    worktree at MR creation. The container is **retained** (kept, e.g. stopped to
    save resources) so review feedback / revise cycles can resume instantly
-   without re-provisioning. `.ador/runs/<run-id>` state is kept. CI runs on the MR
+   without re-provisioning. `.adore/runs/<run-id>` state is kept. CI runs on the MR
    as the remote hard gate.
 9. **Human reviews and merges.** A later poll detects the merge, marks the run
    `done`, and **only then tears down the container and worktree** (keeping
-   `.ador/runs/<run-id>` state for audit). If the MR is closed without merging,
+   `.adore/runs/<run-id>` state for audit). If the MR is closed without merging,
    the run is terminated the same way, with cleanup.
 
 ### 11b. Post-MR Review Loop
@@ -638,11 +638,11 @@ so the run can react to review without re-provisioning. Three outcomes:
   action; the agent never merges.
 - **Comments / changes requested -> revise cycle** (below).
 - **Closed without merge -> terminated.** The orchestrator marks the run
-  `failed`, cleans up, and keeps `.ador/runs/<run-id>` state for audit.
+  `failed`, cleans up, and keeps `.adore/runs/<run-id>` state for audit.
 
 **Do not auto-react to every comment.** Not every MR comment is a change request.
 The revise trigger defaults to an explicit signal (`review.trigger = "label"`),
-so a reviewer leaves normal comments and applies `agent-revise` (or `@ador`) only
+so a reviewer leaves normal comments and applies `agent-revise` (or `@adore`) only
 when the agent should act. `auto` is available but not the default.
 
 **Revise cycle — steps and owners:**
@@ -690,35 +690,35 @@ review_reminder_after = "48h"          # optional nudge if the MR sits undecided
 
 ### 12a. Interface and Startup
 
-- **CLI-first over a library core.** A single `ador` command (stdlib `argparse`,
-  no dependencies) calls a reusable `ador.core` library. Command surface:
-  - **Lifecycle:** `ador run --loop` (the main poller), `ador run --once`
-    (single pass for cron / Task Scheduler), `ador run --dry-run`.
-  - **Operations:** `ador status`, `ador runs`, `ador pause` / `ador resume`,
-    `ador retry <run-id>`, `ador cancel <run-id>`, `ador delete <run-id>`,
-    `ador reset <run-id> --to <gate>`, `ador cleanup`, `ador logs <run-id>`.
+- **CLI-first over a library core.** A single `adore` command (stdlib `argparse`,
+  no dependencies) calls a reusable `adore.core` library. Command surface:
+  - **Lifecycle:** `adore run --loop` (the main poller), `adore run --once`
+    (single pass for cron / Task Scheduler), `adore run --dry-run`.
+  - **Operations:** `adore status`, `adore runs`, `adore pause` / `adore resume`,
+    `adore retry <run-id>`, `adore cancel <run-id>`, `adore delete <run-id>`,
+    `adore reset <run-id> --to <gate>`, `adore cleanup`, `adore logs <run-id>`.
     See section 8c for manual-override semantics.
-  - **Statistics:** `ador stats`, `ador report <run-id>`, `ador export --csv`,
-    `ador stats --html`.
-  - **Config:** `ador config show | validate | set`.
-  - **Assisted setup & profiles:** `ador init` (guided, per-project) and
-    `ador profile list|show|use|rename|delete|path` + a global `--profile`
+  - **Statistics:** `adore stats`, `adore report <run-id>`, `adore export --csv`,
+    `adore stats --html`.
+  - **Config:** `adore config show | validate | set`.
+  - **Assisted setup & profiles:** `adore init` (guided, per-project) and
+    `adore profile list|show|use|rename|delete|path` + a global `--profile`
     (see Assisted_Config_And_Profiles_Plan.md).
 - **Settings via TOML, no GUI.** `config.toml` is the source of truth; edit it by
-  hand plus the `ador config` helpers. `ador config validate` at startup catches
+  hand plus the `adore config` helpers. `adore config validate` at startup catches
   typos before the loop runs. A settings GUI is intentionally out of scope. The
-  `ador init` wizard and `ador profile` commands are consistent with this: they
+  `adore init` wizard and `adore profile` commands are consistent with this: they
   are one-shot CLI "config helpers" (stdlib prompts, no dependency) that generate
   and manage `config.toml` profiles - not a hosted settings UI or server. One
-  ADOR install can thus serve many runtime projects, each a named profile under a
-  cross-platform config home (`%APPDATA%\ador` / `~/.config/ador`, `ADOR_HOME`).
+  ADORE install can thus serve many runtime projects, each a named profile under a
+  cross-platform config home (`%APPDATA%\adore` / `~/.config/adore`, `ADORE_HOME`).
 - **Startup / running as a service:**
-  - Foreground (dev / Windows first tests): `ador run --loop`.
-  - Ubuntu 22: a **systemd** unit running `ador run --loop` (auto-restart,
+  - Foreground (dev / Windows first tests): `adore run --loop`.
+  - Ubuntu 22: a **systemd** unit running `adore run --loop` (auto-restart,
     journald logs).
-  - Windows 11: **Task Scheduler** (or NSSM) running `ador run --loop` at boot,
-    or `ador run --once` on a schedule.
-  - **Single-instance lock** (`.ador/ador.lock`): since state is locally
+  - Windows 11: **Task Scheduler** (or NSSM) running `adore run --loop` at boot,
+    or `adore run --once` on a schedule.
+  - **Single-instance lock** (`.adore/adore.lock`): since state is locally
     authoritative, prevents two pollers on the same repo.
 - **No REST API / web UI in v1.** Avoids hosting a long-lived HTTP server (same
   objection as a Prometheus exporter). Reporting is the static HTML; control is
@@ -734,7 +734,7 @@ review_reminder_after = "48h"          # optional nudge if the MR sits undecided
   "what secrets are required" list).
 - **Two auth surfaces:**
   - **Git platform:** if `glab` / `gh` are already authenticated on the host, no token
-    is needed - ADOR rides the CLI's auth. Optionally `GITLAB_TOKEN` /
+    is needed - ADORE rides the CLI's auth. Optionally `GITLAB_TOKEN` /
     `GITHUB_TOKEN` for direct API calls or running the CLI inside the container.
   - **Executor model provider:** the required key(s) for the chosen executor
     (e.g. `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`), injected into the container.
@@ -749,8 +749,8 @@ review_reminder_after = "48h"          # optional nudge if the MR sits undecided
 
 **Design constraints (observations):**
 
-- **Part of ADOR.** Statistics are a built-in feature of the orchestrator, not a
-  separate service; they live under `.ador/` and use the same run-id.
+- **Part of ADORE.** Statistics are a built-in feature of the orchestrator, not a
+  separate service; they live under `.adore/` and use the same run-id.
 - **Runs on Windows and Ubuntu with minimal dependencies.** Storage and queries
   use only the Python standard library (`sqlite3` + `json`). No database server,
   no message broker.
@@ -781,15 +781,15 @@ adapter (merge/close time, CI result).
 
 - `journal.jsonl` per run stays the append-only raw source of truth.
 - At each run's terminal state, a **run summary record** is computed and appended
-  to a queryable **SQLite** DB (`.ador/metrics.db`), with a mirrored
+  to a queryable **SQLite** DB (`.adore/metrics.db`), with a mirrored
   `runs.jsonl` for export. SQLite ships with Python and is portable across
   Windows and Ubuntu.
 
 **Access:**
 
-- **CLI:** `ador stats`, `ador stats --since 30d --by priority`,
-  `ador report <run-id>`, `ador export --csv`.
-- **Optional static HTML:** `ador stats --html` writes a self-contained dashboard
+- **CLI:** `adore stats`, `adore stats --since 30d --by priority`,
+  `adore report <run-id>`, `adore export --csv`.
+- **Optional static HTML:** `adore stats --html` writes a self-contained dashboard
   file (no server, opened directly in a browser).
 
 **Purpose:** this data is the promotion signal for moving crawl -> walk -> run,
@@ -798,11 +798,11 @@ and the honest answer to "is this actually helping?"
 ```toml
 [metrics]
 enabled          = true
-db_path          = ".ador/metrics.db"
-export_jsonl     = ".ador/metrics/runs.jsonl"
+db_path          = ".adore/metrics.db"
+export_jsonl     = ".adore/metrics/runs.jsonl"
 capture_tokens   = true
 capture_resource = true            # docker stats / disk probes
-html_out         = ".ador/metrics/stats.html"
+html_out         = ".adore/metrics/stats.html"
 ```
 
 ## 14. Roadmap: Crawl -> Walk -> Run

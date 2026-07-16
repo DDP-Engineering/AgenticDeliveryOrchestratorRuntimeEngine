@@ -9,8 +9,8 @@
 # -----------------------------------------------------------------------------
 """
 @file test_profile_cli.py
-@brief Smoke tests for `ador profile ...` and `--profile` resolution, driven
-       through main() against a tmp ADOR_HOME.
+@brief Smoke tests for `adore profile ...` and `--profile` resolution, driven
+       through main() against a tmp ADORE_HOME.
 @author Eng. Dan Dumitru Pasare
 @date 2026-07-05
 @version 0.1.0
@@ -21,9 +21,9 @@ from __future__ import annotations
 # IMPORTS
 from pathlib import Path
 
-from ador.cli import EXIT_ERROR, EXIT_OK, main
-from ador.metrics import RunSummary, record_summary
-from ador.profiles import ProfileStore
+from adore.cli import EXIT_ERROR, EXIT_OK, main
+from adore.metrics import RunSummary, record_summary
+from adore.profiles import ProfileStore
 import pytest
 
 # CONSTANTS
@@ -52,28 +52,28 @@ store_root = "{state}"
 
 def _home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """
-    @brief      A tmp ADOR home wired into the environment for main().
+    @brief      A tmp ADORE home wired into the environment for main().
     @param[in]  tmp_path pytest tmp dir.
-    @param[in]  monkeypatch Fixture to set ADOR_HOME.
+    @param[in]  monkeypatch Fixture to set ADORE_HOME.
     @return     The home path.
     @author     Eng. Dan Dumitru Pasare
     @date       2026-07-05
-    @version    0.1.0
+    @version    0.1.1
     """
     home = tmp_path / "home"
-    monkeypatch.setenv("ADOR_HOME", str(home))
+    monkeypatch.setenv("ADORE_HOME", str(home))
     return home
 
 
 def _ready_profile(home: Path, name: str = "proj") -> ProfileStore:
     """
     @brief      Create a profile with a valid config.toml + metadata.
-    @param[in]  home The ADOR home.
+    @param[in]  home The ADORE home.
     @param[in]  name Profile name.
     @return     The store (rooted at home).
     @author     Eng. Dan Dumitru Pasare
     @date       2026-07-05
-    @version    0.1.0
+    @version    0.1.1
     """
     store = ProfileStore(home)
     cfg = store.config_path(name)
@@ -90,8 +90,8 @@ def _ready_profile(home: Path, name: str = "proj") -> ProfileStore:
 
 def test_profile_list_empty(tmp_path: Path, monkeypatch, capsys) -> None:
     """
-    @brief   `ador profile list` on an empty home is clean (exit 0).
-    @version 0.1.0
+    @brief   `adore profile list` on an empty home is clean (exit 0).
+    @version 0.1.1
     """
     _home(tmp_path, monkeypatch)
     assert main(["profile", "list"]) == EXIT_OK

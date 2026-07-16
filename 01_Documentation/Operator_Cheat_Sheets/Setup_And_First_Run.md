@@ -7,21 +7,21 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Setup And First Run
 
-Applies to ADOR 0.5.1.
+Applies to ADORE 0.5.1.
 
 Use this when you are preparing a host, creating a runtime-project profile, or
-validating the first safe ADOR poll against a project.
+validating the first safe ADORE poll against a project.
 
-![ADOR setup flow](assets/operator-flow.svg)
+![ADORE setup flow](assets/operator-flow.svg)
 
 ## Operator Goal
 
 End this flow with one validated profile, one dry run, and one supervised poll.
 Do not install a background runner until those three checks are clean.
 
-## Before ADOR
+## Before ADORE
 
-Confirm these are available to the same user account that will run ADOR:
+Confirm these are available to the same user account that will run ADORE:
 
 - Git.
 - Python 3.11 or newer.
@@ -50,36 +50,36 @@ docker version
 
 ## First Setup Pass
 
-Create or refresh the locked Python environment from the unpacked ADOR runtime:
+Create or refresh the locked Python environment from the unpacked ADORE runtime:
 
 ```powershell
 uv sync --frozen
-.\.venv\Scripts\ador.exe --version
+.\.venv\Scripts\adore.exe --version
 ```
 
 ```bash
 uv sync --frozen
-./.venv/bin/ador --version
+./.venv/bin/adore --version
 ```
 
 Expected version:
 
 ```text
-ador 0.5.1
+adore 0.5.1
 ```
 
 ## Create The Profile
 
-The wizard writes a runtime-project profile under the ADOR config home. It does
-not store secret values, only the names of environment variables that ADOR may
+The wizard writes a runtime-project profile under the ADORE config home. It does
+not store secret values, only the names of environment variables that ADORE may
 inject into executor containers.
 
 ```powershell
-.\.venv\Scripts\ador.exe init <profile-name>
+.\.venv\Scripts\adore.exe init <profile-name>
 ```
 
 ```bash
-./.venv/bin/ador init <profile-name>
+./.venv/bin/adore init <profile-name>
 ```
 
 Choose:
@@ -98,13 +98,13 @@ Choose:
 ## Validate Before Pickup
 
 ```powershell
-.\.venv\Scripts\ador.exe --profile <profile-name> config validate
-.\.venv\Scripts\ador.exe profile show <profile-name>
+.\.venv\Scripts\adore.exe --profile <profile-name> config validate
+.\.venv\Scripts\adore.exe profile show <profile-name>
 ```
 
 ```bash
-./.venv/bin/ador --profile <profile-name> config validate
-./.venv/bin/ador profile show <profile-name>
+./.venv/bin/adore --profile <profile-name> config validate
+./.venv/bin/adore profile show <profile-name>
 ```
 
 Do not continue until validation prints `OK`.
@@ -114,17 +114,17 @@ Do not continue until validation prints `OK`.
 Dry run checks ticket visibility and selection without starting delivery work.
 
 ```powershell
-.\.venv\Scripts\ador.exe --profile <profile-name> run --dry-run
+.\.venv\Scripts\adore.exe --profile <profile-name> run --dry-run
 ```
 
 ```bash
-./.venv/bin/ador --profile <profile-name> run --dry-run
+./.venv/bin/adore --profile <profile-name> run --dry-run
 ```
 
 Look for:
 
-- ADOR can load the profile.
-- ADOR can read tickets.
+- ADORE can load the profile.
+- ADORE can read tickets.
 - Control labels such as `agent-hold` and `no-agent` are respected.
 - Readiness filters explain why a ticket is or is not eligible.
 
@@ -133,30 +133,30 @@ Look for:
 Run exactly one real poll while watching the terminal and ticket:
 
 ```powershell
-.\.venv\Scripts\ador.exe --profile <profile-name> run --once
+.\.venv\Scripts\adore.exe --profile <profile-name> run --once
 ```
 
 ```bash
-./.venv/bin/ador --profile <profile-name> run --once
+./.venv/bin/adore --profile <profile-name> run --once
 ```
 
 Then monitor:
 
 ```powershell
-.\.venv\Scripts\ador.exe --profile <profile-name> status
-.\.venv\Scripts\ador.exe --profile <profile-name> runs
+.\.venv\Scripts\adore.exe --profile <profile-name> status
+.\.venv\Scripts\adore.exe --profile <profile-name> runs
 ```
 
 ```bash
-./.venv/bin/ador --profile <profile-name> status
-./.venv/bin/ador --profile <profile-name> runs
+./.venv/bin/adore --profile <profile-name> status
+./.venv/bin/adore --profile <profile-name> runs
 ```
 
 ## Safe Completion
 
-After ADOR opens a draft MR/PR:
+After ADORE opens a draft MR/PR:
 
 - Review the draft like any human-authored change.
 - Request revisions with the configured revise label, normally `agent-revise`.
 - Merge manually only when the human review decision is complete.
-- Run `ador cleanup` after closed or merged work if you want a resource sweep.
+- Run `adore cleanup` after closed or merged work if you want a resource sweep.

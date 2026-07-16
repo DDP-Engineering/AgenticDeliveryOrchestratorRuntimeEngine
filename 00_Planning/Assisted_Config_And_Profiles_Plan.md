@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Implementation Plan: Assisted Per-Project Configuration & Runtime Project Profiles
 
 > Status: PLAN (not yet implemented). Author: assisted by Claude. Date: 2026-07-05.
-> Target codebase: `04_Software/` (ador package). Runs on Windows 11 and Ubuntu 22+.
+> Target codebase: `04_Software/` (adore package). Runs on Windows 11 and Ubuntu 22+.
 > To be implemented with Claude Code, task by task. Each task names the AI model
 > and reasoning level to use, with rationale.
 
@@ -17,23 +17,23 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 ## 0. Goal (one paragraph)
 
-Onboarding a new runtime project to ADOR today means hand-writing a `config.toml`
+Onboarding a new runtime project to ADORE today means hand-writing a `config.toml`
 with ~8 project-specific fields (and knowing which of the 15 sections actually
-matter), plus setting up non-ADOR prerequisites (a platform CLI, an auth token, a
+matter), plus setting up non-ADORE prerequisites (a platform CLI, an auth token, a
 container runtime) with no in-tool guidance. This plan adds a **detection-first,
-fully-explicit interactive `ador init` wizard** that produces a named **runtime
-project profile**, and a **profile-management CLI** (`ador profile list|show|
+fully-explicit interactive `adore init` wizard** that produces a named **runtime
+project profile**, and a **profile-management CLI** (`adore profile list|show|
 delete|rename|use|path`) with creation date and run statistics. It works across
 different target projects and on both Windows and Ubuntu.
 It stays CLI-first and standard-library-only — no GUI, no hosted server —
-consistent with design decision 12a, which explicitly permits `ador config`
+consistent with design decision 12a, which explicitly permits `adore config`
 helpers while ruling out a settings GUI.
 
 ---
 
-## 1. Analysis of the current ADOR structure (what we build on)
+## 1. Analysis of the current ADORE structure (what we build on)
 
-### 1.1 Configuration system (`ador/config.py`)
+### 1.1 Configuration system (`adore/config.py`)
 - **15 typed dataclass sections** (`KNOWN_SECTIONS`): `agent, platform, state,
   polling, readiness, labels, executor, clarification, container, worktree,
   budgets, delivery, review, reconcile, metrics`. Nested: `labels.{lifecycle,
@@ -41,7 +41,7 @@ helpers while ruling out a settings GUI.
 - `load_config(path)` -> `Config` via `tomllib`; **lenient** (unknown keys
   dropped, missing keys default) so a minimal file is valid.
 - `validate_config(config) -> list[str]`: returns human-readable issues; run at
-  startup by the engine and by `ador config validate`.
+  startup by the engine and by `adore config validate`.
 - `_derive_names(config)`: fills slug/email/store_root/metrics paths from `agent`.
 - **Required, project-specific fields** (everything else has a working default):
   | Field | Section | Validation |
@@ -59,7 +59,7 @@ helpers while ruling out a settings GUI.
   the ~8 required fields* and offer to customize the rest — and it writes a
   **minimal** profile (only non-default keys), not a 200-line copy of the example.
 
-### 1.2 CLI (`ador/cli.py`)
+### 1.2 CLI (`adore/cli.py`)
 - stdlib `argparse`; `-c/--config` (default `config.toml`); subparsers with
   `dest="command"`. Handlers `_cmd_*`; `_load(args)` reads config;
   `_store(config)` builds the state store; `_engine(args)` loads+validates+builds.
@@ -73,7 +73,7 @@ helpers while ruling out a settings GUI.
 ### 1.3 State & identity
 - `StateStore(store_root, slug)`: per-deployment runs/lock/pause/journal under
   `store_root` (default `.<slug>` in CWD). Per-store lock already allows multiple
-  ADOR instances to coexist — the multi-project foundation is present.
+  ADORE instances to coexist — the multi-project foundation is present.
 - `metrics.py`: `load_summaries(db_path)` / `summarize_run` give per-project run
   statistics (merged/failed/span/launches/tokens) — the source for profile stats.
 - `identity.py`: `AgentIdentity` derives all names from `name`/`slug`.
@@ -84,7 +84,7 @@ helpers while ruling out a settings GUI.
 - Rootless podman needs `run_args=["--userns=keep-id"]` (verified).
 - `util.run_command` captures output cross-platform; `force_rmtree` handles
   Windows reparse points.
-- **Gap this plan fills**: there is no global, cross-platform ADOR config home,
+- **Gap this plan fills**: there is no global, cross-platform ADORE config home,
   no notion of a named profile, and no onboarding/prereq guidance in-tool.
 
 ---
@@ -93,11 +93,11 @@ helpers while ruling out a settings GUI.
 
 Three cooperating pieces, all stdlib-only:
 
-1. **Profile store** — a global, cross-platform ADOR config home holding named
+1. **Profile store** — a global, cross-platform ADORE config home holding named
    profiles; each profile = a `config.toml` + a `profile.json` metadata sidecar.
-2. **`ador init` wizard** — detection-first, every prompt explicit (label,
+2. **`adore init` wizard** — detection-first, every prompt explicit (label,
    description, example, validation, default/detected value), inline guidance for
-   non-ADOR prerequisites (install a platform CLI, create a token, pick a
+   non-ADORE prerequisites (install a platform CLI, create a token, pick a
    runtime), branching questions (GitLab vs GitHub; public vs corporate/
    self-hosted; private vs public repo). Ends by writing a profile and running
    `validate_config`.
@@ -108,15 +108,15 @@ Three cooperating pieces, all stdlib-only:
 
 ## 3. Key design decisions (ratify in Task 1)
 
-- **D1 — Profile home (cross-platform).** Resolve an ADOR config home:
-  - Windows: `%APPDATA%\ador` (fallback `%LOCALAPPDATA%\ador`).
-  - Linux/Ubuntu: `$XDG_CONFIG_HOME/ador` (default `~/.config/ador`).
-  - Override: `ADOR_HOME` env var (both OSes; used by tests).
+- **D1 — Profile home (cross-platform).** Resolve an ADORE config home:
+  - Windows: `%APPDATA%\adore` (fallback `%LOCALAPPDATA%\adore`).
+  - Linux/Ubuntu: `$XDG_CONFIG_HOME/adore` (default `~/.config/adore`).
+  - Override: `ADORE_HOME` env var (both OSes; used by tests).
   Profiles live at `<home>/profiles/<name>/` containing `config.toml` +
   `profile.json`. The active-profile pointer is `<home>/active_profile`.
 - **D2 — Profile owns its data.** Set the profile's `[state] store_root` to
   `<home>/profiles/<name>/state` so each project's runs/metrics/lock are isolated
-  and statistics are trivially findable. (Alternative — a project-local `.ador` —
+  and statistics are trivially findable. (Alternative — a project-local `.adore` —
   is offered as a wizard choice for users who prefer co-locating state with the
   clone.)
 - **D3 — Config-path resolution order** (in `_load`): explicit `-c FILE` >
@@ -128,11 +128,11 @@ Three cooperating pieces, all stdlib-only:
 - **D5 — Never store secrets in the profile.** Tokens/keys go to a project `.env`
   (or OS keyring / CLI host-auth); the wizard only writes `env_keys` names and
   prints setup guidance. `profile.json` never contains secret values.
-- **D6 — Design 12a reconciliation.** `ador init`/`ador profile` are CLI "config
+- **D6 — Design 12a reconciliation.** `adore init`/`adore profile` are CLI "config
   helpers" (explicitly allowed by 12a); they are one-shot generators, not a
   hosted GUI/server. Add a clarifying sentence to 12a rather than contradicting
   it. No new runtime dependencies (stdlib `input()` prompts; no curses/textual).
-- **D7 — Non-interactive escape hatch.** `ador init --non-interactive --answers
+- **D7 — Non-interactive escape hatch.** `adore init --non-interactive --answers
   answers.toml` applies a pre-filled answer file (for automation/tests and for
   Ubuntu servers without a TTY). The interactive path is the default.
 
@@ -142,7 +142,7 @@ Three cooperating pieces, all stdlib-only:
 
 Every prompt below is specified as: **Prompt text** — *description shown to the
 user* — `example` — validation — default/detected. Prompts marked (auto) are
-detected and only shown for confirmation. Guidance blocks (non-ADOR setup) are
+detected and only shown for confirmation. Guidance blocks (non-ADORE setup) are
 printed when a check fails; both Windows and Ubuntu instructions are given.
 
 ### Phase A — Environment & prerequisites (detect, then guide)
@@ -155,7 +155,7 @@ printed when a check fails; both Windows and Ubuntu instructions are given.
     - Ubuntu: `sudo apt-get update && sudo apt-get install -y git`.
 - **A3 Container runtime** — probe `docker`, `podman`, and (Windows) `wsl -l -q`
   for a distro with docker/podman. Prompt: **"Which container runtime should this
-  project use?"** — *ADOR runs each ticket in an isolated container; pick what is
+  project use?"** — *ADORE runs each ticket in an isolated container; pick what is
   installed* — options: `docker`, `podman`, `wsl -d <distro> -- docker`,
   `wsl -d <distro> -- podman`, `host (no container — advanced, not isolated)` —
   default = first detected.
@@ -180,7 +180,7 @@ printed when a check fails; both Windows and Ubuntu instructions are given.
   - Guidance if not authenticated:
     - **How to create a GitLab Personal Access Token**: GitLab → your avatar →
       *Preferences* → *Access Tokens* → *Add new token*; scope **`api`**; role
-      **Developer** (Developer cannot merge protected branches — intended, ADOR
+      **Developer** (Developer cannot merge protected branches — intended, ADORE
       never merges); copy the token now (shown once). *A GitLab PAT looks like*
       `glpat-XXXXXXXXXXXXXXXXXXXX` *(the literal prefix* `glpat-` *followed by 20
       characters).*
@@ -198,11 +198,11 @@ printed when a check fails; both Windows and Ubuntu instructions are given.
 - **B1 Profile name** — *a short, filesystem-safe name for THIS project profile;
   you'll reference it as* `--profile <name>` — `sample-project` — validation:
   matches `^[a-z0-9][a-z0-9._-]{0,63}$`, not already taken (unless `--force`).
-- **B2 Project description** *(optional)* — *one line shown in* `ador profile list`
+- **B2 Project description** *(optional)* — *one line shown in* `adore profile list`
   — `GCP analytics platform — Terraform + Python + TS` — any text or empty.
 - **B3 Agent name / slug** *(auto, confirm)* — *the bot's display name and the
-  lowercase slug that names branches/containers/state* — `ADOR` / `ador` —
-  slug must match `^[a-z0-9-]+$`; default keep `ADOR`/`ador`.
+  lowercase slug that names branches/containers/state* — `ADORE` / `adore` —
+  slug must match `^[a-z0-9-]+$`; default keep `ADORE`/`adore`.
 
 ### Phase C — Platform & repository
 
@@ -224,7 +224,7 @@ printed when a check fails; both Windows and Ubuntu instructions are given.
 
 ### Phase D — Local clone & worktree
 
-- **D1 Local clone path** — *absolute path to the local clone ADOR creates
+- **D1 Local clone path** — *absolute path to the local clone ADORE creates
   worktrees from (it is mounted into the container)* —
   Windows `D:/projects/sample-project` / Ubuntu `/home/you/projects/sample-project` —
   validation: path exists, is a git work-tree, `origin` remote matches C4 host.
@@ -257,8 +257,8 @@ printed when a check fails; both Windows and Ubuntu instructions are given.
   `wsl -d Ubuntu-24.04 -- podman`. -> `[container] runtime` (+ `run_args`).
 - **F2 Executor image** *(confirm default)* — *the built image name; build it per*
   `docker/README.md` *before the first run* —
-  `ador-executor-base:0.2.0` for executor-only validation, or a runtime-project
-  image such as `ador-executor-project:latest` — non-empty; offer to check
+  `adore-executor-base:1.0.0` for executor-only validation, or a runtime-project
+  image such as `adore-executor-project:latest` — non-empty; offer to check
   presence (`<runtime> image inspect`) and warn if absent.
   -> `[container] image`.
 - **F3 Executor CLI + model** — **F3a** *which executor* — `opencode` — one of the
@@ -277,7 +277,7 @@ printed when a check fails; both Windows and Ubuntu instructions are given.
 - **G1 Reviewers** — *platform usernames assigned to the draft MR (comma-
   separated)* — `reviewer.one` — at least one for delivery. -> `[delivery] reviewers`.
 - **G2 (auto, informational) Draft-only** — the MR is always opened as a draft and
-  ADOR never merges; shown, not asked. `draft=false` is rejected by validation.
+  ADORE never merges; shown, not asked. `draft=false` is rejected by validation.
 
 ### Phase H — Budgets & policy (offer recommended defaults)
 
@@ -289,8 +289,8 @@ printed when a check fails; both Windows and Ubuntu instructions are given.
 - **H2 Polling** — **"Run mode?"** — `once` (cron/Task Scheduler, single pass) or
   `loop` (long-running service) — default `once` for first setup. If `loop`, offer
   interval (default 60s) and optional quiet hours (`HH:MM-HH:MM`). -> `[polling]`.
-- **H3 State location** — **"Where should this project's ADOR state live?"** —
-  `profile` (`<home>/profiles/<name>/state`, recommended) or `project` (a `.ador`
+- **H3 State location** — **"Where should this project's ADORE state live?"** —
+  `profile` (`<home>/profiles/<name>/state`, recommended) or `project` (a `.adore`
   beside the clone). -> `[state] store_root` (D2).
 
 ### Phase I — Review, write, validate, next steps
@@ -302,8 +302,8 @@ printed when a check fails; both Windows and Ubuntu instructions are given.
   (metadata). Run `validate_config`; on issues, show them and loop back to the
   relevant prompt (never save an invalid profile).
 - **I4** Print **next steps**, OS-aware: create `.env` with the named keys; build
-  the image (`docker/README.md`); `ador --profile <name> config validate`;
-  `ador --profile <name> run --dry-run`; `ador profile use <name>` to make it
+  the image (`docker/README.md`); `adore --profile <name> config validate`;
+  `adore --profile <name> run --dry-run`; `adore profile use <name>` to make it
   active.
 
 ---
@@ -311,16 +311,16 @@ printed when a check fails; both Windows and Ubuntu instructions are given.
 ## 5. CLI surface additions
 
 ```
-ador init [--profile NAME] [--force] [--non-interactive --answers FILE]
-ador profile list                 # table: NAME, PLATFORM, REPO, RUNTIME, CREATED, LAST-USED, RUNS, MERGED
-ador profile show NAME            # full resolved config + metadata + stats
-ador profile use NAME             # set the active profile (writes <home>/active_profile)
-ador profile rename OLD NEW
-ador profile delete NAME --force  # remove profile dir (guardrail: needs --force)
-ador profile path [NAME]          # print the config.toml path (scripting)
-ador --profile NAME <any command> # global flag; resolves config for run/status/etc.
+adore init [--profile NAME] [--force] [--non-interactive --answers FILE]
+adore profile list                 # table: NAME, PLATFORM, REPO, RUNTIME, CREATED, LAST-USED, RUNS, MERGED
+adore profile show NAME            # full resolved config + metadata + stats
+adore profile use NAME             # set the active profile (writes <home>/active_profile)
+adore profile rename OLD NEW
+adore profile delete NAME --force  # remove profile dir (guardrail: needs --force)
+adore profile path [NAME]          # print the config.toml path (scripting)
+adore --profile NAME <any command> # global flag; resolves config for run/status/etc.
 ```
-- `ador profile delete` removes the profile directory (config + metadata + its
+- `adore profile delete` removes the profile directory (config + metadata + its
   state if profile-owned) — `--force` required (design 8c guardrail parity).
 - All existing commands gain `--profile` via a global argument; `-c FILE` still
   wins if both are given (D3).
@@ -339,7 +339,7 @@ ador --profile NAME <any command> # global flag; resolves config for run/status/
   "repo": "group/subgroup/project",
   "runtime": "wsl -d Ubuntu-24.04 -- podman",
   "host_os": "Windows",
-  "ador_version": "0.x.y",
+  "adore_version": "0.x.y",
   "config_path": "<home>/profiles/sample-project/config.toml",
   "store_root": "<home>/profiles/sample-project/state"
 }
@@ -361,27 +361,27 @@ ador --profile NAME <any command> # global flag; resolves config for run/status/
 > Doxygen/license/`@version` conventions in `AGENTS.md`.
 
 ### Task 1 — Foundation: config home + profile store
-- **STATUS: DONE (2026-07-05).** `ador/profiles.py` + `tests/test_profiles.py`
+- **STATUS: DONE (2026-07-05).** `adore/profiles.py` + `tests/test_profiles.py`
   (13 tests, all green; suite 175 passing) + `05_SoftwareDocu/Component_Profiles.md`.
   Note: the OS branch was extracted into a pure `_home_for(os_name, environ)` so
   tests exercise Windows/POSIX shapes without monkeypatching `os.name` (which
   breaks pathlib process-wide). All of D1/D2/D3 + fail-closed corrupt handling
   implemented.
 - **Model: Claude Opus 4.8 — Reasoning: High.**
-- **Why this model/level:** cross-platform path semantics (APPDATA/XDG/ADOR_HOME),
+- **Why this model/level:** cross-platform path semantics (APPDATA/XDG/ADORE_HOME),
   the profile schema, and the resolution order are load-bearing; every later task
   depends on getting them right, and mistakes here cascade. High-judgment, low
   code volume.
-- **Deliverables:** `ador/profiles.py` — `ador_home()` resolver (Windows/Linux +
-  `ADOR_HOME` override), `Profile` dataclass + `profile.json` read/write,
+- **Deliverables:** `adore/profiles.py` — `adore_home()` resolver (Windows/Linux +
+  `ADORE_HOME` override), `Profile` dataclass + `profile.json` read/write,
   `ProfileStore` (list/load/save/delete/rename, active-profile pointer), and
   `resolve_config_path(explicit, profile, cwd)` implementing D3. No CLI yet.
 - **Acceptance:** unit tests for home resolution on both OS env shapes (monkeypatch
-  `os.name`/env), CRUD round-trip in a tmp `ADOR_HOME`, resolution-order matrix,
+  `os.name`/env), CRUD round-trip in a tmp `ADORE_HOME`, resolution-order matrix,
   and fail-closed on a corrupt `profile.json`.
 
 ### Task 2 — Environment detection & prerequisite guidance
-- **STATUS: DONE (2026-07-05).** `ador/doctor.py` + `tests/test_doctor.py`
+- **STATUS: DONE (2026-07-05).** `adore/doctor.py` + `tests/test_doctor.py`
   (11 tests, all green; suite 186 passing) + `05_SoftwareDocu/Component_Doctor.md`.
   Pure detection through the injectable runner (`detect_os/git/runtimes/
   platform_cli/executor`, `auth_status`, `detect_all`) + OS-specific
@@ -390,22 +390,22 @@ ador --profile NAME <any command> # global flag; resolves config for run/status/
 - **Model: Claude Sonnet 5 — Reasoning: Medium.**
 - **Why:** well-bounded probing + curated OS-specific text; mechanical but must be
   read-only/non-destructive and correct per OS. Not high-ambiguity.
-- **Deliverables:** `ador/doctor.py` — pure detection via the injectable command
+- **Deliverables:** `adore/doctor.py` — pure detection via the injectable command
   runner: `detect_os()`, `detect_runtimes()` (docker/podman/wsl distros),
   `detect_platform_cli(kind)` + `auth_status`, `detect_executor()`. A
   `guidance_for(component, os)` returning the exact Windows/Ubuntu install/setup
   text from the Prompt Catalog (Phase A). No prompting here (that's T3); this is
-  the data/text layer the wizard and a future `ador doctor` command reuse.
+  the data/text layer the wizard and a future `adore doctor` command reuse.
 - **Acceptance:** tests with a fake runner for present/absent/unauthenticated
   permutations; guidance text asserted per OS; no real network/CLI calls.
 
-### Task 3 — The `ador init` wizard
-- **STATUS: DONE (2026-07-05).** `ador/wizard.py` + `ador init` in `cli.py` +
+### Task 3 — The `adore init` wizard
+- **STATUS: DONE (2026-07-05).** `adore/wizard.py` + `adore init` in `cli.py` +
   `tests/test_wizard.py` (8 tests, all green; suite 194 passing) +
   `05_SoftwareDocu/Component_Wizard.md`. Full Phase A-I flow; injectable asker/
   runner/OS-key; stdlib TOML emitter (literal strings for regex/paths, no
   tomli_w); write-then-validate guard (never saves invalid); non-interactive
-  `--answers` fail-fast + reproducible. LIVE-VERIFIED on Windows: `ador init
+  `--answers` fail-fast + reproducible. LIVE-VERIFIED on Windows: `adore init
   sample-project --answers answers.toml` produced a minimal config that
   `config validate` accepts. The golden test asserts every emitted config
   passes validate_config.
@@ -414,11 +414,11 @@ ador --profile NAME <any command> # global flag; resolves config for run/status/
   validation with friendly re-prompting, detection-vs-ask logic, and writing a
   minimal, valid profile. Highest judgment density in the plan; correctness and
   tone both matter. Worth the strongest model at the deepest reasoning.
-- **Deliverables:** `ador/wizard.py` — an injectable prompt primitive
+- **Deliverables:** `adore/wizard.py` — an injectable prompt primitive
   (`ask(field_spec, ask_fn=input)`) supporting description/example/default/
   validate/choices/re-prompt; the full Phase A–I flow assembling a `Config`;
   a summary renderer; write-through to `ProfileStore` + `validate_config` loop;
-  the `--non-interactive --answers FILE` path (D7). CLI: `ador init`.
+  the `--non-interactive --answers FILE` path (D7). CLI: `adore init`.
 - **Acceptance:** drive the whole flow with a scripted `ask_fn` (list of answers)
   + a fake detector; assert the emitted `config.toml` **passes `validate_config`**;
   negative tests (invalid repo path re-prompts; bad regex re-prompts; branch
@@ -440,7 +440,7 @@ ador --profile NAME <any command> # global flag; resolves config for run/status/
   handlers in `cli.py`; global `--profile`; wire `resolve_config_path` (T1) into
   `_load`; bump `use_count`/`last_used_at` on resolution. `delete` needs `--force`.
 - **Acceptance:** smoke tests through `main()` for each subcommand against a tmp
-  `ADOR_HOME`; existing-command regression (a bare `ador status -c file` behaves
+  `ADORE_HOME`; existing-command regression (a bare `adore status -c file` behaves
   exactly as before); `delete` without `--force` refuses; `list` on empty home is
   clean.
 
@@ -463,8 +463,8 @@ ador --profile NAME <any command> # global flag; resolves config for run/status/
   rendered rows; empty-store renders cleanly.
 
 ### Task 6 — Test suite (consolidation) & edge cases
-- **STATUS: DONE (2026-07-05).** Shared `tests/conftest.py` `ador_home`
-  fixture; `test_smoke.py` extended with `ador init` via main() (happy +
+- **STATUS: DONE (2026-07-05).** Shared `tests/conftest.py` `adore_home`
+  fixture; `test_smoke.py` extended with `adore init` via main() (happy +
   missing/invalid answers + wizard-error paths); `test_wizard.py` extended
   with the previously-uncovered branches (corporate host, custom budgets,
   custom agent-name/slug, non-interactive missing-required fail-fast) and the
@@ -477,24 +477,24 @@ ador --profile NAME <any command> # global flag; resolves config for run/status/
   clock) per the Testing Rules; needs breadth and negative-path rigor.
 - **Deliverables:** `tests/test_profiles.py`, `tests/test_wizard.py`,
   `tests/test_doctor.py`; extend `test_smoke.py` for the new CLI; a fixture for a
-  tmp `ADOR_HOME`. Cover corrupt profile, name collisions, resolution precedence,
+  tmp `ADORE_HOME`. Cover corrupt profile, name collisions, resolution precedence,
   re-prompt loops, non-interactive answers, cross-OS home resolution.
 - **Acceptance:** whole suite green on Windows and Ubuntu runners; coverage of both
   happy and negative paths for each new public surface.
 
 ### Task 7 — Cross-platform verification (manual E2E)
 - **STATUS: DONE (2026-07-05).** Both hosts green; recorded in
-  Prerequisites_Check_Report.md section 17. Windows 11 (native `ador`, %APPDATA%
-  home) live throughout T3-T5. Ubuntu 24.04/WSL2 (POSIX, `python3 -m ador` -
-  stdlib-only, no venv): `~/.config/ador` + XDG home resolution, native
-  docker/podman detection (WSL not probed), `ador init` -> validated POSIX
+  Prerequisites_Check_Report.md section 17. Windows 11 (native `adore`, %APPDATA%
+  home) live throughout T3-T5. Ubuntu 24.04/WSL2 (POSIX, `python3 -m adore` -
+  stdlib-only, no venv): `~/.config/adore` + XDG home resolution, native
+  docker/podman detection (WSL not probed), `adore init` -> validated POSIX
   profile, `--profile`/`profile`/`status` resolution all clean. Guidance text
   confirmed live on a host genuinely lacking glab (Linux .deb/apt + token
   guidance shown correctly); no drift requiring a code change.
 - **Model: Claude Sonnet 5 — Reasoning: Medium.**
 - **Why:** execution + observation across OSes; judgment on OS-specific behavior
   (paths, WSL runtime string, glab install differences), not deep design.
-- **Deliverables:** run `ador init` end-to-end on Windows 11 (WSL-wrapped runtime)
+- **Deliverables:** run `adore init` end-to-end on Windows 11 (WSL-wrapped runtime)
   and Ubuntu 22+ (native docker/podman); confirm the profile validates, resolves,
   and a `--dry-run` picks work; record findings in the prereq report. Verify the
   guidance text matches reality (install commands current).
@@ -522,7 +522,7 @@ ador --profile NAME <any command> # global flag; resolves config for run/status/
   the Phase-A prerequisite text (install glab/gh, create a token, pick a runtime)
   for Windows and Ubuntu; a one-sentence 12a note that CLI init/profile helpers are
   in-scope (not a GUI); README package-layout + phases update; `AGENTS.md` status.
-- **Acceptance:** docs match final behavior; `ador init`/`ador profile` examples
+- **Acceptance:** docs match final behavior; `adore init`/`adore profile` examples
   runnable as written; license headers + `@version` bumps present.
 
 ---
@@ -542,7 +542,7 @@ ador --profile NAME <any command> # global flag; resolves config for run/status/
 
 | Concern | Windows 11 | Ubuntu 22+ |
 |---|---|---|
-| Config home | `%APPDATA%\ador` | `~/.config/ador` (XDG) |
+| Config home | `%APPDATA%\adore` | `~/.config/adore` (XDG) |
 | Runtime string | `wsl -d <distro> -- docker\|podman` | `docker` / `podman` |
 | glab install text | winget/scoop | `.deb`/apt |
 | Path entry/validation | `D:/...` accepted, normalized | `/home/...` |
@@ -567,7 +567,7 @@ ador --profile NAME <any command> # global flag; resolves config for run/status/
 |---|---|---|---|
 | 1 Foundation (home + store) | Claude Opus 4.8 | High | Cross-platform + schema; everything depends on it |
 | 2 Detection & guidance | Claude Sonnet 5 | Medium | Bounded probing + curated OS text |
-| 3 `ador init` wizard | Claude Opus 4.8 | High (max) | Highest-judgment UX/branching/validation core |
+| 3 `adore init` wizard | Claude Opus 4.8 | High (max) | Highest-judgment UX/branching/validation core |
 | 4 Profile CLI + `--profile` | Claude Sonnet 5 | Medium-High | CRUD + careful non-breaking integration |
 | 5 Statistics | Claude Sonnet 5 | Medium | Bounded join to existing metrics |
 | 6 Tests (consolidation) | Claude Sonnet 5 | Medium-High | Breadth + negative-path rigor |
@@ -581,9 +581,9 @@ ador --profile NAME <any command> # global flag; resolves config for run/status/
 
 ## 11. Definition of done (whole feature)
 
-1. `ador init` produces a valid, minimal profile on Windows and Ubuntu, guiding the
-   user through every non-ADOR prerequisite with explicit examples.
-2. `ador profile list/show/use/rename/delete/path` work with dates + statistics.
+1. `adore init` produces a valid, minimal profile on Windows and Ubuntu, guiding the
+   user through every non-ADORE prerequisite with explicit examples.
+2. `adore profile list/show/use/rename/delete/path` work with dates + statistics.
 3. `--profile NAME` resolves config for all existing commands; `-c FILE` still wins;
    no regression for single-`config.toml` users.
 4. Suite green (happy + negative) offline on both OSes; ruff clean; Doxygen/license/

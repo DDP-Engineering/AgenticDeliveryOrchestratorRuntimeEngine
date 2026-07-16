@@ -6,25 +6,25 @@ See the LICENSE.txt file for full license details.
 SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
-# ADOR - Agentic Delivery Orchestrator
+# ADORE - Agentic Delivery Orchestrator & Runtime Engine
 
 Runnable implementation of the orchestrator described in
 `00_Planning/Orchestrator_Design_And_Decisions.md`.
 
 ## Package layout
 
-- `ador/` - the Python package (standard library only at runtime).
-  - `cli.py` - the `ador` command surface (argparse).
+- `adore/` - the Python package (standard library only at runtime).
+  - `cli.py` - the `adore` command surface (argparse).
   - `config.py` - typed `config.toml` loading and validation.
   - `identity.py` - marker-based comment identity + slug-derived names (5c/5d).
-  - `state.py` - authoritative local run state: `.ador/runs/<run-id>/`
+  - `state.py` - authoritative local run state: `.adore/runs/<run-id>/`
     (ticket.json, state.json, journal.jsonl), run-id, content hash,
     single-instance lock, pause flag (8a).
   - `util.py` - injectable command runner, duration parsing, timestamps.
   - `forge/` - Git-platform adapters: `gitlab.py` (glab) and `github.py` (gh)
     behind one `Forge` interface. Merging is absent from the interface.
   - `isolation.py` - per-run git worktree + executor container lifecycle
-    (mounting model: repo at `/ador/repo`, worktree at `/ador/work`,
+    (mounting model: repo at `/adore/repo`, worktree at `/adore/work`,
     git driven by GIT_DIR/GIT_WORK_TREE inside the container).
   - `executor/` - executor launcher: headless gate launches via the
     file-based gate protocol (gate.sh + captured event stream in the run's
@@ -35,17 +35,17 @@ Runnable implementation of the orchestrator described in
     verification between gates).
   - `metrics.py` - statistics: journal -> SQLite run summaries + JSONL
     mirror, aggregation, CSV export, static HTML dashboard, per-profile stats.
-  - `process_log.py` - fixed rotating process log for `ador run`
-    (`<store_root>/ador.log`) so scheduled runs keep ADOR-owned stdout history.
+  - `process_log.py` - fixed rotating process log for `adore run`
+    (`<store_root>/adore.log`) so scheduled runs keep ADORE-owned stdout history.
   - `profiles.py` - runtime-project profiles: cross-platform config home,
     CRUD, active pointer, config-path resolution (one install, many projects).
   - `doctor.py` - environment detection + OS-specific prerequisite guidance.
-  - `wizard.py` - the `ador init` assisted-config wizard.
+  - `wizard.py` - the `adore init` assisted-config wizard.
 - `docker/` - `Dockerfile.executor-base` for the generic
-  `ador-executor-base:0.2.0` executor environment, plus runtime-project images
+  `adore-executor-base:1.0.0` executor environment, plus runtime-project images
   such as `Dockerfile.executor-cockpit-gcp`.
 - `deploy/` - deployment scripts (design 12a): `install-ubuntu.sh` +
-  `ador.service` (systemd), `install-windows.ps1` (Task Scheduler), and the
+  `adore.service` (systemd), `install-windows.ps1` (Task Scheduler), and the
   deployment procedure in `deploy/README.md`.
 - `config.example.toml` - example configuration (copy to `config.toml`).
 - `.env.example` - the canonical list of required secrets.
@@ -60,7 +60,7 @@ Runnable implementation of the orchestrator described in
 3. **The thick-conductor engine (done, live-piloted on ticket #45):**
    polling, selection, per-gate loop with verification and budgets,
    clarification park/resume, TTL/timeouts, cancel/retry. Wired to
-   `ador run --loop|--once|--dry-run`, `cancel`, `retry`, `logs`, `delete`.
+   `adore run --loop|--once|--dry-run`, `cancel`, `retry`, `logs`, `delete`.
 4. **Delivery (done, live-piloted to draft MR !29):** the 11a sequence -
    merge target branch (executor resolves conflicts), re-run gates,
    delivery-preflight, push, DRAFT MR with reviewers, environment retained;
@@ -69,18 +69,18 @@ Runnable implementation of the orchestrator described in
    delivery tail -> same MR updated, bounded by max_review_rounds).
 5. **Metrics + execution logs (done):** per-launch token usage journaled,
    immutable executor-launch archives under each run's `io/archive/`, run
-   summaries in SQLite at terminal states, rotating `<store_root>/ador.log`,
-   `ador stats|report|export` + static HTML.
-6. **Operator commands (done):** `ador reset <run-id> --to <stage> --force`
-   (state surgery; follow with `ador retry`) and `ador cleanup` (stale lock,
+   summaries in SQLite at terminal states, rotating `<store_root>/adore.log`,
+   `adore stats|report|export` + static HTML.
+6. **Operator commands (done):** `adore reset <run-id> --to <stage> --force`
+   (state surgery; follow with `adore retry`) and `adore cleanup` (stale lock,
    orphaned containers, orphaned/husk worktrees; corrupt state reported,
    never auto-deleted).
 7. **Deployment (done):** `deploy/` scripts for both hosts - systemd unit on
    Ubuntu 22+, Task Scheduler (loop at logon or repeating `--once`) on
    Windows 11; fail-fast prerequisite checks, locked env sync, config
    validation, image build/verify.
-8. **Assisted config + profiles (done, cross-platform verified):** `ador init`
-   guided wizard, `ador profile list|show|use|rename|delete|path`, global
+8. **Assisted config + profiles (done, cross-platform verified):** `adore init`
+   guided wizard, `adore profile list|show|use|rename|delete|path`, global
    `--profile`, per-project profiles under a cross-platform config home, run
    statistics. One install serves many projects. See
    `00_Planning/Onboarding_New_Project.md`. Still pending: the security
@@ -92,7 +92,7 @@ Runnable implementation of the orchestrator described in
 ```bash
 uv run --group dev pytest        # tests
 uv run --group dev ruff check .  # lint
-uv run ador -c config.example.toml config validate
+uv run adore -c config.example.toml config validate
 ```
 
 Testing convention (see the Testing Rules in the repository `AGENTS.md`):

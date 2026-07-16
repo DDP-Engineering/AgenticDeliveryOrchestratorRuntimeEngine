@@ -6,7 +6,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # -----------------------------------------------------------------------------
 # @file    install-windows.ps1
-# @brief   Deploy ADOR on Windows 11 (design doc 12/12a).
+# @brief   Deploy ADORE on Windows 11 (design doc 12/12a).
 # @details Fail-fast, idempotent, re-runnable; Windows PowerShell 5.1
 #          compatible. Steps: check host prerequisites, sync the Python
 #          environment (uv), validate config.toml, verify the executor/base image
@@ -14,14 +14,14 @@
 #          Scheduler job - either the long-running poll loop at logon (-Mode
 #          loop, the default) or a repeating single pass (-Mode once
 #          -IntervalMinutes N). Secrets are never echoed and never appear in
-#          argv; ADOR reads .env from its working directory (design 12b).
+#          argv; ADORE reads .env from its working directory (design 12b).
 # @usage   .\deploy\install-windows.ps1 [-Mode loop|once] [-IntervalMinutes 10]
-#              [-Runtime "docker"] [-ImageTag "ador-executor-base:0.2.0"]
+#              [-Runtime "docker"] [-ImageTag "adore-executor-base:1.0.0"]
 #              [-SkipImageCheck] [-AllowOpenEgress] [-NoTask] [-Uninstall]
 #          With Docker Engine in WSL2: -Runtime "wsl -d Ubuntu-24.04 -- docker"
 # @author  Eng. Dan Dumitru Pasare
 # @date    2026-07-04
-# @version 0.3.0
+# @version 0.4.0
 # -----------------------------------------------------------------------------
 [CmdletBinding()]
 param(
@@ -30,7 +30,7 @@ param(
     [ValidateRange(1, 1440)]
     [int]$IntervalMinutes = 10,
     [string]$Runtime = "docker",
-    [string]$ImageTag = "ador-executor-base:0.2.0",
+    [string]$ImageTag = "adore-executor-base:1.0.0",
     [switch]$SkipImageCheck,
     [switch]$AllowOpenEgress,
     [switch]$NoTask,
@@ -40,9 +40,9 @@ param(
 $ErrorActionPreference = "Stop"
 
 # CONSTANTS
-$TaskName    = "ADOR Orchestrator"
+$TaskName    = "ADORE Orchestrator & Runtime Engine"
 $SoftwareDir = Split-Path -Parent $PSScriptRoot
-$AdorExe     = Join-Path $SoftwareDir ".venv\Scripts\ador.exe"
+$AdoreExe    = Join-Path $SoftwareDir ".venv\Scripts\adore.exe"
 
 # LOCAL HELPERS
 function Fail([string]$Message) {
@@ -63,7 +63,7 @@ if ($Uninstall) {
     $existing = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
     if ($null -ne $existing) {
         Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
-        Note "removed scheduled task '$TaskName' (worktrees, containers, and .ador state are kept)"
+        Note "removed scheduled task '$TaskName' (worktrees, containers, and .adore state are kept)"
     } else {
         Note "no scheduled task '$TaskName'; nothing to do"
     }
@@ -77,7 +77,7 @@ Need-Command git "Install: winget install Git.Git"
 $glab = Get-Command glab -ErrorAction SilentlyContinue
 $gh   = Get-Command gh   -ErrorAction SilentlyContinue
 if ($null -eq $glab -and $null -eq $gh) {
-    Fail "neither 'glab' nor 'gh' found; ADOR drives the platform through one of them (setup doc section 3)"
+    Fail "neither 'glab' nor 'gh' found; ADORE drives the platform through one of them (setup doc section 3)"
 }
 
 # 2. Python environment (locked, reproducible)
@@ -89,7 +89,7 @@ try {
 } finally {
     Pop-Location
 }
-if (-not (Test-Path $AdorExe)) { Fail ".venv\Scripts\ador.exe missing after uv sync" }
+if (-not (Test-Path $AdoreExe)) { Fail ".venv\Scripts\adore.exe missing after uv sync" }
 
 # 3. configuration (catch problems here where the operator is watching)
 if (-not (Test-Path (Join-Path $SoftwareDir "config.toml"))) {
@@ -98,9 +98,9 @@ if (-not (Test-Path (Join-Path $SoftwareDir "config.toml"))) {
 Note "validating config.toml"
 Push-Location $SoftwareDir
 try {
-    & $AdorExe -c config.toml config validate
+    & $AdoreExe -c config.toml config validate
     if ($LASTEXITCODE -ne 0) { Fail "config validation failed" }
-    $ConfigData = (& $AdorExe -c config.toml config show | Out-String | ConvertFrom-Json)
+    $ConfigData = (& $AdoreExe -c config.toml config show | Out-String | ConvertFrom-Json)
 } finally {
     Pop-Location
 }
@@ -127,8 +127,8 @@ if (-not $SkipImageCheck) {
     if ($LASTEXITCODE -ne 0) {
         Note "executor image '$ImageTag' not found via runtime '$Runtime'."
         Note "Build it first (exact commands, incl. the WSL2 variant, in docker\README.md), e.g.:"
-        Note "    cd $SoftwareDir\docker; docker build --build-arg USER_UID=`$(id -u) -f Dockerfile.executor-base -t ador-executor-base:0.2.0 ."
-        Note "For Cockpit-GCP also build: docker build -f Dockerfile.executor-cockpit-gcp -t ador-executor-cockpit-gcp:latest ."
+        Note "    cd $SoftwareDir\docker; docker build --build-arg USER_UID=`$(id -u) -f Dockerfile.executor-base -t adore-executor-base:1.0.0 ."
+        Note "For Cockpit-GCP also build: docker build -f Dockerfile.executor-cockpit-gcp -t adore-executor-cockpit-gcp:latest ."
         Fail "executor image missing"
     }
     Note "executor image $ImageTag present"
@@ -157,21 +157,21 @@ if ($EgressMode -eq "allowlist-proxy") {
 # 5. Task Scheduler job (optional; the design's Windows service mode, 12a)
 if ($NoTask) {
     Note "prepared (no task registered). Run the poller manually with:"
-    Note "    cd $SoftwareDir; .\.venv\Scripts\ador.exe run --loop"
+    Note "    cd $SoftwareDir; .\.venv\Scripts\adore.exe run --loop"
     exit 0
 }
 
 Note "registering scheduled task '$TaskName' (mode: $Mode)"
 if ($Mode -eq "loop") {
     # Long-running poller: start at logon, no execution time limit; the
-    # instance lock (.ador\ador.lock) prevents accidental double pollers.
-    $action  = New-ScheduledTaskAction -Execute $AdorExe `
+    # instance lock (.adore\adore.lock) prevents accidental double pollers.
+    $action  = New-ScheduledTaskAction -Execute $AdoreExe `
         -Argument "-c config.toml run --loop" -WorkingDirectory $SoftwareDir
     $trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
 } else {
     # Repeating single pass: one poll every N minutes, first run one minute
     # from now; each pass exits, so a wedged pass cannot block the schedule.
-    $action  = New-ScheduledTaskAction -Execute $AdorExe `
+    $action  = New-ScheduledTaskAction -Execute $AdoreExe `
         -Argument "-c config.toml run --once" -WorkingDirectory $SoftwareDir
     $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) `
         -RepetitionInterval (New-TimeSpan -Minutes $IntervalMinutes) `
@@ -190,7 +190,7 @@ if ($null -ne $existing) {
 }
 Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger `
     -Settings $settings `
-    -Description "ADOR - Agentic Delivery Orchestrator (design 12a)" | Out-Null
+    -Description "ADORE - Agentic Delivery Orchestrator & Runtime Engine (design 12a)" | Out-Null
 
 Note "task registered. Start it now with:  Start-ScheduledTask -TaskName '$TaskName'"
 Note "inspect runs in Task Scheduler or with:  Get-ScheduledTaskInfo -TaskName '$TaskName'"

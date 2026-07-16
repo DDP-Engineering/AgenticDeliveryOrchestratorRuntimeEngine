@@ -5,9 +5,11 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
-# Agentic Delivery Orchestrator
+# Agentic Delivery Orchestrator & Runtime Engine
 
-This repository is the standalone home for the **Agentic Delivery Orchestrator**:
+Current release: **ADORE 1.0.0**.
+
+This repository is the standalone home for the **Agentic Delivery Orchestrator & Runtime Engine**:
 a service that pulls a high-priority ticket from a forge (GitLab or GitHub),
 guides an executor agent (opencode, pi.dev, or codex) through the agentic
 development workflow gates, and — once every gate is green — opens a **draft**
@@ -63,7 +65,7 @@ human reviewer -> approves and merges
 
 ## Status
 
-ADOR has an implemented CLI under `04_Software/` with config/profile setup,
+ADORE has an implemented CLI under `04_Software/` with config/profile setup,
 state tracking, forge adapters, isolated executor runs, delivery to draft
 MR/PR, metrics, cleanup/reset operations, and deployment scripts for Windows
 Task Scheduler and Ubuntu systemd. `02_Tools/package_runtime.*` creates trimmed

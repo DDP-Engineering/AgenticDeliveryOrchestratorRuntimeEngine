@@ -6,20 +6,20 @@ See the LICENSE.txt file for full license details.
 SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
-# Component: Environment Doctor (`ador/doctor.py`)
+# Component: Environment Doctor (`adore/doctor.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/ador/doctor.py` - file version 0.1.1.
+> Source: `04_Software/adore/doctor.py` - file version 0.1.1.
 > Plan: `00_Planning/Assisted_Config_And_Profiles_Plan.md` (task 2 of 8).
-> Scope note: the **detection + guidance data/text layer**. The `ador init`
+> Scope note: the **detection + guidance data/text layer**. The `adore init`
 > wizard (task 3) consumes it to decide what to ask and what to print; a future
-> `ador doctor` command can render the same aggregate. No prompting lives here.
+> `adore doctor` command can render the same aggregate. No prompting lives here.
 
 ## 1. Purpose
 
 Answer two questions the assisted-setup flow needs, without doing any prompting
 itself: **"is prerequisite X installed / authenticated on this host?"** and
-**"what are the exact, OS-specific steps to fix it?"** It probes the tools ADOR
+**"what are the exact, OS-specific steps to fix it?"** It probes the tools ADORE
 depends on and supplies the install/setup instructions from the plan's Phase A.
 
 ## 2. Responsibilities
@@ -57,7 +57,7 @@ Explicitly not owned: prompting/wizard flow (task 3), CLI wiring, writing config
 
 ## 4. Dependencies
 
-- Internal: `ador.util` (`CommandRunner`, `run_command`, `CommandResult`).
+- Internal: `adore.util` (`CommandRunner`, `run_command`, `CommandResult`).
 - External: Python standard library only (`platform`, `dataclasses`).
 
 ## 5. Inputs And Outputs
@@ -77,15 +77,15 @@ Explicitly not owned: prompting/wizard flow (task 3), CLI wiring, writing config
 
 ## 7. Workflow Integration
 
-`ador init` (task 3): for each phase-A prerequisite, call the matching
+`adore init` (task 3): for each phase-A prerequisite, call the matching
 `detect_*`; if absent/unauthenticated, print `guidance_for(component, os_key)`
 and let the user fix it before continuing. `detect_all` + guidance also back a
-future read-only `ador doctor` command.
+future read-only `adore doctor` command.
 
 ## 8. Usage
 
 ```python
-from ador import doctor
+from adore import doctor
 
 report = doctor.detect_all("gitlab")
 if not report.auth.authenticated:

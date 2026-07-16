@@ -4,9 +4,9 @@
 # See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 [project]
-name = "ador"
-version = "0.6.0"
-description = "Agentic Delivery Orchestrator - ticket-to-draft-MR orchestration over an agentic workflow."
+name = "adore"
+version = "1.0.0"
+description = "Agentic Delivery Orchestrator & Runtime Engine - ticket-to-draft-MR orchestration over an agentic workflow."
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "Eng. Dan Dumitru Pasare" }]
@@ -14,9 +14,9 @@ authors = [{ name = "Eng. Dan Dumitru Pasare" }]
 dependencies = []
 
 [project.scripts]
-ador = "ador.cli:main"
+adore = "adore.cli:main"
 
-# Dev-time tooling only (not required to run ADOR).
+# Dev-time tooling only (not required to run ADORE).
 [dependency-groups]
 dev = [
     "ruff>=0.15",
@@ -28,10 +28,10 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["ador"]
+packages = ["adore"]
 
-# ADOR's own tests only: worktrees/ holds live run checkouts of the TARGET
+# ADORE's own tests only: worktrees/ holds live run checkouts of the TARGET
 # repository, whose test suites are not ours to collect.
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-norecursedirs = ["worktrees", ".ador", ".venv"]
+norecursedirs = ["worktrees", ".adore", ".venv"]

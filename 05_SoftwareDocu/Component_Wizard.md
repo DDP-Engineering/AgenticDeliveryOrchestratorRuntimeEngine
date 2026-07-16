@@ -6,12 +6,12 @@ See the LICENSE.txt file for full license details.
 SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
-# Component: Assisted-Config Wizard (`ador/wizard.py`)
+# Component: Assisted-Config Wizard (`adore/wizard.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/ador/wizard.py` - file version 0.2.0.
+> Source: `04_Software/adore/wizard.py` - file version 0.2.0.
 > Plan: `00_Planning/Assisted_Config_And_Profiles_Plan.md` (task 3 of 8).
-> CLI: `ador init` (wired in `ador/cli.py`).
+> CLI: `adore init` (wired in `adore/cli.py`).
 
 ## 1. Purpose
 
@@ -19,7 +19,7 @@ Turn onboarding a new runtime project from "hand-write a config.toml and know
 which of 15 sections matter" into a guided, explicit conversation that ends in a
 **minimal, validated runtime-project profile**. Every prompt states what it is,
 shows an example, offers a detected/sensible default, and validates the answer;
-missing non-ADOR prerequisites (a platform CLI, a token, a container runtime)
+missing non-ADORE prerequisites (a platform CLI, a token, a container runtime)
 get in-line, OS-specific guidance from `doctor`.
 
 ## 2. Responsibilities
@@ -39,8 +39,8 @@ get in-line, OS-specific guidance from `doctor`.
 - **Save:** writes `config.toml` into the profile dir and creates the
   `profile.json` metadata via `ProfileStore`.
 
-Explicitly not owned: the profile store internals (`ador/profiles.py`),
-detection/guidance text (`ador/doctor.py`), and the `ador profile` management
+Explicitly not owned: the profile store internals (`adore/profiles.py`),
+detection/guidance text (`adore/doctor.py`), and the `adore profile` management
 commands + `--profile` resolution (plan task 4).
 
 ## 3. Implementation Overview
@@ -61,7 +61,7 @@ commands + `--profile` resolution (plan task 4).
   (platform, repo, worktree, executor command/model, reviewers, runtime, image,
   profile-owned state_root); optional fields only when they differ from the
   dataclass default. The image prompt defaults to the generic executor base
-  (`ador-executor-base:0.2.0`) and points project profiles at derived
+  (`adore-executor-base:1.0.0`) and points project profiles at derived
   runtime-project images when needed. Rootless podman auto-adds
   `run_args=["--userns=keep-id"]`; Docker deployments rely on the image being
   built with `--build-arg USER_UID=$(id -u)` so the container user matches the
@@ -72,9 +72,9 @@ commands + `--profile` resolution (plan task 4).
 
 ## 4. Dependencies
 
-- Internal: `ador.doctor` (detection/guidance), `ador.profiles`
-  (`ProfileStore`, `Profile`), `ador.config` (`load_config`,
-  `validate_config`), `ador.util` (`CommandRunner`, `run_command`).
+- Internal: `adore.doctor` (detection/guidance), `adore.profiles`
+  (`ProfileStore`, `Profile`), `adore.config` (`load_config`,
+  `validate_config`), `adore.util` (`CommandRunner`, `run_command`).
 - External: Python standard library only (`re`, `tempfile`, `pathlib`,
   `dataclasses`).
 
@@ -100,18 +100,18 @@ commands + `--profile` resolution (plan task 4).
 
 ## 7. Workflow Integration
 
-`ador init [name] [--force] [--answers FILE]` (cli.py) builds a `ProfileStore`,
+`adore init [name] [--force] [--answers FILE]` (cli.py) builds a `ProfileStore`,
 selects the asker (Console, or Scripted from the answers file), and calls
 `run_wizard`. The resulting profile is consumed by the `--profile` resolution
-(task 4): `ador --profile <name> run|status|...`.
+(task 4): `adore --profile <name> run|status|...`.
 
 ## 8. Usage
 
 ```bash
-ador init                       # interactive; asks for a profile name
-ador init sample-project           # interactive; name given
-ador init sample-project --answers answers.toml   # non-interactive (CI / servers)
-ador init sample-project --force   # overwrite an existing profile
+adore init                       # interactive; asks for a profile name
+adore init sample-project           # interactive; name given
+adore init sample-project --answers answers.toml   # non-interactive (CI / servers)
+adore init sample-project --force   # overwrite an existing profile
 ```
 
 `answers.toml` uses the field keys as TOML keys, e.g.
@@ -128,7 +128,7 @@ ador init sample-project --force   # overwrite an existing profile
   non-interactive determinism (identical bytes) + fail-fast on a bad answer;
   numbered interactive choices; and the `_validate_or_raise` never-save-invalid
   guard.
-- Live-verified via `ador init --answers` on Windows: environment check,
+- Live-verified via `adore init --answers` on Windows: environment check,
   minimal config emitted, `config validate` OK.
 - Minimum validation after a change:
   `uv run --group dev pytest tests/test_wizard.py` + `ruff check .`.

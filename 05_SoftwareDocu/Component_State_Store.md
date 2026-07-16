@@ -6,22 +6,22 @@ See the LICENSE.txt file for full license details.
 SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
-# Component: State Store (`ador/state.py`)
+# Component: State Store (`adore/state.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/ador/state.py` - file version 0.1.1.
+> Source: `04_Software/adore/state.py` - file version 0.1.1.
 > Design: Orchestrator_Design_And_Decisions.md section 8a.
 
 ## 1. Purpose
 
 The local, **authoritative** run state. Labels and comments on the ticket are
-only a human-facing reflection; what ADOR trusts across restarts, parks, and
+only a human-facing reflection; what ADORE trusts across restarts, parks, and
 resumes lives under `.<slug>/`. This component owns that tree, the
 deterministic run identity, and the fail-closed handling of damaged state.
 
 ## 2. Responsibilities
 
-- Layout per run: `.ador/runs/<run-id>/` with
+- Layout per run: `.adore/runs/<run-id>/` with
   - `ticket.json` - the ticket snapshot taken at pickup,
   - `state.json` - the `RunState` (stage, lifecycle, comment ids, rounds,
     budget counters, park bookkeeping, resource names, timestamps),
@@ -33,14 +33,14 @@ deterministic run identity, and the fail-closed handling of damaged state.
 - `content_hash(title, description)` - drift detection: a changed hash on
   re-poll means the spec moved while the run was parked/in progress.
 - Single-instance lock (`<root>/<slug>.lock`, exclusive create) and the
-  global pause flag (`<root>/paused`) used by `ador pause` / `ador resume`.
+  global pause flag (`<root>/paused`) used by `adore pause` / `adore resume`.
 
 Explicitly not owned: reflecting state to the ticket (forge adapters) and
 deciding transitions (orchestrator).
 
 ## 3. Implementation Overview
 
-- `RunState` dataclass; `from_dict` ignores unknown keys so older ADOR
+- `RunState` dataclass; `from_dict` ignores unknown keys so older ADORE
   versions can read state written by newer ones (forward compatibility).
 - All JSON writes are **atomic** (tmp file + `replace`), so a crash never
   leaves half a file.
@@ -57,7 +57,7 @@ deciding transitions (orchestrator).
 
 ## 4. Dependencies
 
-- Internal: `ador.util.utc_now_iso`.
+- Internal: `adore.util.utc_now_iso`.
 - External: Python standard library only (`json`, `hashlib`, `pathlib`,
   `shutil`, `os`).
 
@@ -65,14 +65,14 @@ deciding transitions (orchestrator).
 
 - Inputs: store root + slug (from config), `RunState` objects, ticket
   mappings, journal events.
-- Outputs: the persisted `.ador/` tree; loaded `RunState` / ticket / journal
+- Outputs: the persisted `.adore/` tree; loaded `RunState` / ticket / journal
   records; lock and pause status. The same store root also holds
-  `ador.log`, owned by the process-log component.
+  `adore.log`, owned by the process-log component.
 
 ## 6. Data Contracts
 
 - `run_id` = `<platform>-<project-with-dashes>-<iid>`; it names the worktree
-  dir, the branch (`ador/<run-id>`), the container (`ador-run-<run-id>`), and
+  dir, the branch (`adore/<run-id>`), the container (`adore-run-<run-id>`), and
   the state dir - one identity for every per-run resource.
 - Journal record shape: `{"ts": <iso>, "event": <name>, ...fields}`.
   Executor archives are indexed with `event = "executor-artifacts"` and an
@@ -87,16 +87,16 @@ deciding transitions (orchestrator).
 Every poll pass reads and writes through this store: pickup snapshots the
 ticket, each gate transition updates `state.json` and appends journal events,
 park/resume rely on the recorded comment ids and `parked_at`, executor
-archive paths are journaled for `ador logs <run-id>`, and metrics summarize
+archive paths are journaled for `adore logs <run-id>`, and metrics summarize
 the journal at terminal states. The CLI (`status`, `runs`, `pause`,
 `resume`) is a thin view over it.
 
 ## 8. Usage
 
 ```python
-from ador.state import RunState, StateStore, derive_run_id
+from adore.state import RunState, StateStore, derive_run_id
 
-store = StateStore(".ador", slug="ador")
+store = StateStore(".adore", slug="adore")
 run_id = derive_run_id("gitlab", "grp/proj", 14)
 store.save(RunState(run_id=run_id, ticket_iid=14))
 store.journal(run_id, "picked", ticket=14)
@@ -113,7 +113,7 @@ store.journal(run_id, "picked", ticket=14)
 
 ## 10. Limitations And Future Work
 
-- The lock is not stolen automatically on staleness; `ador cleanup` (later
+- The lock is not stolen automatically on staleness; `adore cleanup` (later
   phase) will clear stale locks after checking the recorded pid.
 - Single-orchestrator assumption: the lock protects one store on one host;
   multiple instances would need a shared lock (out of scope for v1).

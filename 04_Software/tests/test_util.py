@@ -21,7 +21,7 @@ from __future__ import annotations
 import re
 import sys
 
-from ador.util import (
+from adore.util import (
     in_quiet_hours,
     iso_to_datetime,
     load_env_file,
@@ -61,20 +61,20 @@ def test_parse_duration_rejects_garbage() -> None:
 def test_run_command_captures_output() -> None:
     """
     @brief   The runner captures stdout and the exit code without a shell.
-    @version 0.1.0
+    @version 0.1.1
     """
-    result = run_command([sys.executable, "-c", "print('hello ador')"])
+    result = run_command([sys.executable, "-c", "print('hello adore')"])
     assert result.ok
     assert result.exit_code == 0
-    assert "hello ador" in result.stdout
+    assert "hello adore" in result.stdout
 
 
 def test_run_command_missing_binary_reports_127() -> None:
     """
     @brief   A missing executable becomes exit code 127, never an exception.
-    @version 0.1.0
+    @version 0.1.1
     """
-    result = run_command(["definitely-not-a-real-binary-ador"])
+    result = run_command(["definitely-not-a-real-binary-adore"])
     assert not result.ok
     assert result.exit_code == 127
 

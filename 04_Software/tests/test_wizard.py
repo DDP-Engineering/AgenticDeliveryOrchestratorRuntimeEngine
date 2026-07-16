@@ -9,7 +9,7 @@
 # -----------------------------------------------------------------------------
 """
 @file test_wizard.py
-@brief Tests for the `ador init` wizard - driven offline with a scripted asker
+@brief Tests for the `adore init` wizard - driven offline with a scripted asker
        and a fake command runner; the golden assertion is that every profile it
        writes passes validate_config.
 @author Eng. Dan Dumitru Pasare
@@ -23,10 +23,10 @@ from __future__ import annotations
 from collections.abc import Sequence
 from pathlib import Path
 
-from ador.config import load_config, validate_config
-from ador.profiles import ProfileStore
-from ador.util import CommandResult
-from ador.wizard import (
+from adore.config import load_config, validate_config
+from adore.profiles import ProfileStore
+from adore.util import CommandResult
+from adore.wizard import (
     ConsoleAsker,
     FieldSpec,
     ScriptedAsker,

@@ -7,22 +7,47 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Changelog
 
-All notable changes to the Agentic Delivery Orchestrator are recorded here.
+All notable changes to the Agentic Delivery Orchestrator & Runtime Engine are recorded here.
 This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
+
+## [1.0.0] - 2026-07-16
+
+### Changed
+
+- Renamed and rebranded the project as **ADORE 1.0.0** through a breaking,
+  compatibility-free hard cut.
+- Renamed the Python distribution, package, and command to `adore`; changed
+  the environment, global home, project state, logs, questions file, forge
+  marker, branch, container, image, cache, service, task, and runtime bundle
+  identities to their ADORE forms.
+- Centralized runtime branding constants and added a release-consistency check
+  for package metadata, lockfile, images, deployment names, documentation,
+  delivery artifacts, and forbidden pre-1.0 identity tokens.
+
+### Removed
+
+- Removed all compatibility, fallback, migration, import, and alias behavior
+  for the pre-1.0 project identity. Existing run behavior is otherwise
+  unchanged.
+
+### Fixed
+
+- Fixed the allowlist-proxy Squid configuration to use proxy-owned log paths;
+  the live Docker probe now permits configured hosts while denying others.
 
 ## [0.6.0] - 2026-07-15
 
 ### Added
 
-- Added visual operator cheat sheets for ADOR 0.5.1 covering setup, ticket
+- Added visual operator cheat sheets for the pre-1.0 implementation covering setup, ticket
   readiness and labels, profiles and container images, monitoring and
   steering, and failure recovery.
 
 ### Changed
 
-- Refreshed operator documentation against the ADOR 0.5.1 implementation,
+- Refreshed operator documentation against the pre-1.0 implementation,
   including current package names, executor support, credential guidance, and
   runtime-project image examples.
 - Docker executor base image now accepts `--build-arg USER_UID=$(id -u)` so
@@ -42,8 +67,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 ### Added
 
 - Persisted immutable executor-launch archives under each run's io directory
-  and added an ADOR-owned rotating `<store_root>/ador.log` for `ador run`
-  commands, improving auditability for Task Scheduler and `--once` runs.
+  and added a project-owned rotating process log for scheduled run commands,
+  improving auditability for Task Scheduler and `--once` runs.
 
 ## [0.4.0] - 2026-07-07
 
@@ -64,14 +89,14 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
-- Improved `ador init` fixed-choice prompts to show numbered options while
+- Improved assisted-init fixed-choice prompts to show numbered options while
   still accepting literal choice text, and anonymized setup/example references.
 
 ## [0.3.0] - 2026-07-07
 
 ### Changed
 
-- Split executor images into a generic `ador-executor-base:0.2.0` and a
+- Split executor images into a generic base and a runtime-project-specific
   Cockpit-GCP runtime-project image with Terraform/gate tooling; live-verified
   the Cockpit image on rootless Podman through `docker/verify-runtime.sh`.
 
@@ -88,7 +113,7 @@ This project follows Keep a Changelog and Semantic Versioning.
   Bash; bundles include the existing Task Scheduler/systemd deployment scripts.
 - Release versioning and changelog rules aligned with the workflow-template
   convention: root changelog plus synchronized `pyproject.toml` and
-  `ador.__version__` release metadata.
+  package release metadata.
 - Initial repository scaffold: top-level folder structure
   (`00_Planning`, `01_Documentation`, `02_Tools`, `04_Software`,
   `05_SoftwareDocu`, `07_Delivery`, `09_Others`) mirroring the Agentic

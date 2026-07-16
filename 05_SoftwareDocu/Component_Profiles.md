@@ -6,35 +6,35 @@ See the LICENSE.txt file for full license details.
 SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
-# Component: Runtime-Project Profiles (`ador/profiles.py`)
+# Component: Runtime-Project Profiles (`adore/profiles.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/ador/profiles.py` - file version 0.1.0.
+> Source: `04_Software/adore/profiles.py` - file version 0.1.0.
 > Plan: `00_Planning/Assisted_Config_And_Profiles_Plan.md` (task 1 of 8; all
 > tasks complete).
 > Scope note: this component is the **persistence foundation**. The pieces built
-> on it are documented separately: the `ador init` wizard in Component_Wizard.md;
-> environment detection/guidance in Component_Doctor.md; the `ador profile`
+> on it are documented separately: the `adore init` wizard in Component_Wizard.md;
+> environment detection/guidance in Component_Doctor.md; the `adore profile`
 > commands + `--profile` resolution + per-profile statistics in Component_CLI.md;
 > the operator/onboarding guide in `00_Planning/Onboarding_New_Project.md`.
 
 ## 1. Purpose
 
-Let one ADOR install serve many target projects. A **runtime-project profile**
+Let one ADORE install serve many target projects. A **runtime-project profile**
 is a named `config.toml` plus a `profile.json` metadata sidecar, stored under a
-global, cross-platform ADOR config home. This module owns the store: resolving
+global, cross-platform ADORE config home. This module owns the store: resolving
 the home, CRUD over profiles, the active-profile pointer, and the config-path
 resolution order that lets every command target a chosen profile.
 
 ## 2. Responsibilities
 
-- `ador_home()` - resolve the global config home (delegates to the pure
-  `_home_for(os_name, environ)`): `ADOR_HOME` override, else Windows
-  `%APPDATA%`/`%LOCALAPPDATA%`\\ador, else POSIX `$XDG_CONFIG_HOME`/`~/.config`
-  /ador.
+- `adore_home()` - resolve the global config home (delegates to the pure
+  `_home_for(os_name, environ)`): `ADORE_HOME` override, else Windows
+  `%APPDATA%`/`%LOCALAPPDATA%`\\adore, else POSIX `$XDG_CONFIG_HOME`/`~/.config`
+  /adore.
 - `Profile` - the `profile.json` metadata (name, description, created/updated/
   last-used timestamps, use_count, platform/host/repo/runtime/host_os,
-  ador_version, config_path, store_root). **No secret values ever** (design D5).
+  adore_version, config_path, store_root). **No secret values ever** (design D5).
 - `ProfileStore` - `create/save/load/list_profiles/invalid_profiles/touch/
   rename/delete`, the active pointer (`get_active/set_active/clear_active`), and
   path helpers (`profile_dir/config_path/default_store_root`).
@@ -65,13 +65,13 @@ aggregation, and writing the `config.toml` body.
 
 ## 4. Dependencies
 
-- Internal: `ador.util` (`utc_now_iso`, `force_rmtree`), `ador.__version__`.
+- Internal: `adore.util` (`utc_now_iso`, `force_rmtree`), `adore.__version__`.
 - External: Python standard library only (`json`, `os`, `pathlib`,
   `dataclasses`).
 
 ## 5. Inputs And Outputs
 
-- Inputs: a home path (defaults to `ador_home()`), profile names + metadata
+- Inputs: a home path (defaults to `adore_home()`), profile names + metadata
   fields, an injectable `now` clock.
 - Outputs: profile directories with `profile.json`, the `active_profile`
   pointer, resolved config paths.
@@ -93,9 +93,9 @@ The foundation the assisted-config feature stands on: the wizard (task 3) calls
 ## 8. Usage
 
 ```python
-from ador.profiles import ProfileStore, resolve_config_path
+from adore.profiles import ProfileStore, resolve_config_path
 
-store = ProfileStore()                      # ADOR_HOME / %APPDATA% / ~/.config
+store = ProfileStore()                      # ADORE_HOME / %APPDATA% / ~/.config
 store.create("sample-project", platform="gitlab", repo="grp/proj", runtime="docker")
 store.set_active("sample-project")
 
@@ -105,7 +105,7 @@ store.touch("sample-project")               # record a use (use_count, last_used
 
 ## 9. Validation And Tests
 
-- `tests/test_profiles.py` (offline, tmp `ADOR_HOME`, fixed clock): home
+- `tests/test_profiles.py` (offline, tmp `ADORE_HOME`, fixed clock): home
   resolution for override / Windows / POSIX shapes via the pure `_home_for`
   (never patches `os.name`, which would break pathlib); CRUD round-trip;
   duplicate-create refusal; rename + delete with active-pointer consistency;
@@ -116,7 +116,7 @@ store.touch("sample-project")               # record a use (use_count, last_used
 
 ## 10. Limitations And Future Work
 
-- Persistence only in this task; the wizard, `ador profile` CLI, `--profile`
+- Persistence only in this task; the wizard, `adore profile` CLI, `--profile`
   global flag, and statistics land in plan tasks 3-5.
 - No cross-process locking on the profile store itself (profiles are edited by a
   single operator, unlike the per-run state lock); revisit if concurrent setup

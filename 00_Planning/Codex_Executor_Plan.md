@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Implementation Plan: OpenAI Codex as a Config-Selectable Executor
 
 > Status: PLAN (not yet implemented). Date: 2026-07-05.
-> Target: `04_Software/` (ador package). Companion to the Pi
+> Target: `04_Software/` (adore package). Companion to the Pi
 > (`Assisted_...`/launcher work) and Qwen (`Qwen_Code_Executor_Plan.md`)
 > integrations. To be implemented with Claude Code, task by task; each task
 > names the AI model and reasoning level.
@@ -40,7 +40,7 @@ alternatives (real `--json` token usage; native AGENTS.md; dual auth).
 
 ## 1. What we build on (current state)
 
-- `ador/executor/launcher.py`: `FileProtocolExecutor(Executor)` (shared WSL-safe
+- `adore/executor/launcher.py`: `FileProtocolExecutor(Executor)` (shared WSL-safe
   gate protocol, command build + `--session` append, dead-session self-heal),
   thin `OpencodeExecutor`/`PiExecutor`, and `build_executor(kind, ...)` (the
   config selection point). Config selection needs NO engine change.
@@ -71,7 +71,7 @@ alternatives (real `--json` token usage; native AGENTS.md; dual auth).
 - **Session resume:** `codex exec resume --last` (most recent session in this
   cwd) or `codex exec resume <session-id>`. Since each run has its OWN container
   and gates run in the same cwd, **`resume --last` naturally continues the
-  previous gate** without ADOR tracking an id.
+  previous gate** without ADORE tracking an id.
 - **Model:** `-m/--model`.
 - **Sandbox:** `--sandbox`/`-s` = `read-only` | `workspace-write` |
   `danger-full-access`. **Approval:** `--ask-for-approval`/`-a` (e.g. `never`),
@@ -93,7 +93,7 @@ alternatives (real `--json` token usage; native AGENTS.md; dual auth).
   - opencode/pi: append `--session <id>`.
   - qwen: no session (stateless).
   - **codex:** first gate `codex exec ... {prompt}`; continuation
-    `codex exec resume --last ... {prompt}` (structure change). ADOR passes a
+    `codex exec resume --last ... {prompt}` (structure change). ADORE passes a
     truthy `session` sentinel after gate 1; Codex maps "session set" ->
     `resume --last`. No id parsing needed (but `_extract_session_id` may still
     read the id from `--json` for the audit trail).
@@ -104,11 +104,11 @@ alternatives (real `--json` token usage; native AGENTS.md; dual auth).
   `--dangerously-bypass-approvals-and-sandbox` (and reject
   `--sandbox danger-full-access`). Validation should also REQUIRE a
   non-interactive approval token in the template (a positive check, new). Real
-  guardrail remains the repo `.codex` sandbox + deny-hooks + ADOR container
+  guardrail remains the repo `.codex` sandbox + deny-hooks + ADORE container
   isolation (no remote credentials in the container).
 - **D3 - Network vs offline sandbox.** The gates resolve dependencies at runtime
   (`uv sync` / `npm ci` / `tflint --init`) which need network, but `.codex`
-  config sets `network.enabled = false`. ADOR must run Codex with network
+  config sets `network.enabled = false`. ADORE must run Codex with network
   enabled inside the container (Codex sandbox `workspace-write` allows it when
   configured), and lean on the container + the pending **egress allowlist**
   (TODO.md) for network safety - the same posture the other executors already

@@ -5,8 +5,8 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 <svg xmlns="http://www.w3.org/2000/svg" width="1120" height="430" viewBox="0 0 1120 430" role="img" aria-labelledby="title desc">
-  <title id="title">ADOR profile and container image model</title>
-  <desc id="desc">One ADOR install can manage multiple profiles, each selecting a runtime project, state store, metrics database, and project image derived from the ADOR executor base.</desc>
+  <title id="title">ADORE profile and container image model</title>
+  <desc id="desc">One ADORE install can manage multiple profiles, each selecting a runtime project, state store, metrics database, and project image derived from the ADORE executor base.</desc>
   <defs>
     <style>
       .bg { fill: #f7fafc; }
@@ -24,8 +24,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
   </defs>
   <rect class="bg" x="0" y="0" width="1120" height="430" />
   <rect class="host" x="40" y="50" width="220" height="320" />
-  <text class="text" x="65" y="90">One ADOR install</text>
-  <text class="small" x="65" y="122">ador CLI</text>
+  <text class="text" x="65" y="90">One ADORE install</text>
+  <text class="small" x="65" y="122">adore CLI</text>
   <text class="small" x="65" y="146">forge adapters</text>
   <text class="small" x="65" y="170">executor launcher</text>
   <text class="small" x="65" y="194">profiles home</text>
@@ -52,8 +52,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
   <g transform="translate(660 78)">
     <rect class="image" width="210" height="92" />
     <text class="text" x="18" y="34">Base image</text>
-    <text class="small" x="18" y="58">ADOR executor tools</text>
-    <text class="small" x="18" y="78">ador-executor-base</text>
+    <text class="small" x="18" y="58">ADORE executor tools</text>
+    <text class="small" x="18" y="78">adore-executor-base</text>
   </g>
   <g transform="translate(660 220)">
     <rect class="image" width="210" height="92" />
@@ -70,6 +70,6 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
     <text class="small" x="18" y="82">one worktree</text>
   </g>
   <path class="line" d="M875 266 H923" />
-  <text class="small" x="660" y="360">Secrets stay outside images; ADOR injects only configured env_keys at run time.</text>
+  <text class="small" x="660" y="360">Secrets stay outside images; ADORE injects only configured env_keys at run time.</text>
 </svg>
 

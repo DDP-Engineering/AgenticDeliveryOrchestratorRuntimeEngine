@@ -10,7 +10,7 @@
 """
 @file test_smoke.py
 @brief Smoke tests: package version, executor factory, and the CLI end-to-end.
-@details Drives `ador` through main() against a real config file in a tmp dir,
+@details Drives `adore` through main() against a real config file in a tmp dir,
          so config loading, validation, state store, and command wiring are
          exercised together.
 @author Eng. Dan Dumitru Pasare
@@ -23,10 +23,10 @@ from __future__ import annotations
 # IMPORTS
 from pathlib import Path
 
-from ador import __version__
-from ador.cli import EXIT_ERROR, EXIT_NOT_IMPLEMENTED, EXIT_OK, main
-from ador.executor.launcher import OpencodeExecutor, build_executor
-from ador.process_log import ProcessLogger, process_log_path
+from adore import __version__
+from adore.cli import EXIT_ERROR, EXIT_NOT_IMPLEMENTED, EXIT_OK, main
+from adore.executor.launcher import OpencodeExecutor, build_executor
+from adore.process_log import ProcessLogger, process_log_path
 import pytest
 
 # CONSTANTS
@@ -55,15 +55,15 @@ def _config_file(tmp_path: Path, text: str = VALID_CONFIG) -> str:
     """
     @brief      Write a config.toml with a tmp-scoped state and worktree root.
     @details    The worktree root is tmp-scoped so operator commands that
-                sweep it (`ador cleanup`) never touch the real worktrees/.
+                sweep it (`adore cleanup`) never touch the real worktrees/.
     @param[in]  tmp_path pytest tmp dir.
     @param[in]  text TOML content.
     @return     The config path as a string for the CLI.
     @author     Eng. Dan Dumitru Pasare
     @date       2026-07-05
-    @version    0.1.1
+    @version    0.1.2
     """
-    store_root = (tmp_path / ".ador").as_posix()
+    store_root = (tmp_path / ".adore").as_posix()
     worktree_root = (tmp_path / "worktrees").as_posix()
     text = text.replace("__WORKTREE_ROOT__", worktree_root)
     path = tmp_path / "config.toml"
@@ -96,8 +96,8 @@ def test_build_executor_opencode() -> None:
 
 def test_cli_config_validate_ok(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """
-    @brief   `ador config validate` passes on a valid file.
-    @version 0.1.0
+    @brief   `adore config validate` passes on a valid file.
+    @version 0.1.1
     """
     assert main(["-c", _config_file(tmp_path), "config", "validate"]) == EXIT_OK
     assert "OK" in capsys.readouterr().out
@@ -107,8 +107,8 @@ def test_cli_config_validate_reports_issues(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """
-    @brief   `ador config validate` lists issues and exits 1.
-    @version 0.1.0
+    @brief   `adore config validate` lists issues and exits 1.
+    @version 0.1.1
     """
     bad = VALID_CONFIG.replace('kind = "gitlab"', 'kind = "bitbucket"')
     assert main(["-c", _config_file(tmp_path, bad), "config", "validate"]) == EXIT_ERROR
@@ -197,9 +197,9 @@ def test_cli_run_once_writes_process_log(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """
-    @brief   `ador run --once` preserves stdout and appends the same run-owned
-             lines to `<store_root>/ador.log`.
-    @version 0.1.0
+    @brief   `adore run --once` preserves stdout and appends the same run-owned
+             lines to `<store_root>/adore.log`.
+    @version 0.1.1
     """
     config = _config_file(tmp_path)
 
@@ -232,25 +232,25 @@ def test_cli_run_once_writes_process_log(
             self.log("engine line")
             return {"picked": None, "dry_run": dry_run}
 
-    monkeypatch.setattr("ador.cli.Orchestrator.from_config", lambda _config: FakeEngine())
+    monkeypatch.setattr("adore.cli.Orchestrator.from_config", lambda _config: FakeEngine())
 
     assert main(["-c", config, "run", "--once"]) == EXIT_OK
 
     out = capsys.readouterr().out
     assert "engine line" in out
     assert '"picked": null' in out
-    log_text = process_log_path(tmp_path / ".ador").read_text(encoding="utf-8")
+    log_text = process_log_path(tmp_path / ".adore").read_text(encoding="utf-8")
     assert "engine line" in log_text
     assert '"picked": null' in log_text
 
 
 def test_process_log_rotates(tmp_path: Path) -> None:
     """
-    @brief   The ADOR process log keeps a bounded current file and numbered
+    @brief   The ADORE process log keeps a bounded current file and numbered
              backups with the newest backup at `.1`.
-    @version 0.1.0
+    @version 0.1.1
     """
-    path = tmp_path / "ador.log"
+    path = tmp_path / "adore.log"
     logger = ProcessLogger(path, max_bytes=50, backups=2)
 
     logger.append("first payload")
@@ -258,9 +258,9 @@ def test_process_log_rotates(tmp_path: Path) -> None:
     logger.append("third payload")
 
     assert "third payload" in path.read_text(encoding="utf-8")
-    assert "second payload" in (tmp_path / "ador.log.1").read_text(encoding="utf-8")
-    assert "first payload" in (tmp_path / "ador.log.2").read_text(encoding="utf-8")
-    assert not (tmp_path / "ador.log.3").exists()
+    assert "second payload" in (tmp_path / "adore.log.1").read_text(encoding="utf-8")
+    assert "first payload" in (tmp_path / "adore.log.2").read_text(encoding="utf-8")
+    assert not (tmp_path / "adore.log.3").exists()
 
 
 def test_cli_run_ops_on_unknown_run_fail_cleanly(
@@ -298,10 +298,10 @@ def test_cli_surfaces_corrupt_runs(tmp_path: Path, capsys: pytest.CaptureFixture
     """
     @brief   A run with unreadable state stays visible in `runs` and `status`
              instead of disappearing or crashing the command.
-    @version 0.1.0
+    @version 0.1.1
     """
     config = _config_file(tmp_path)
-    run_dir = tmp_path / ".ador" / "runs" / "broken-run"
+    run_dir = tmp_path / ".adore" / "runs" / "broken-run"
     run_dir.mkdir(parents=True)
     (run_dir / "state.json").write_text("garbage", encoding="utf-8")
     assert main(["-c", config, "runs"]) == EXIT_OK
@@ -312,7 +312,7 @@ def test_cli_surfaces_corrupt_runs(tmp_path: Path, capsys: pytest.CaptureFixture
     assert "CORRUPT" in capsys.readouterr().out
 
 
-# PUBLIC API / TESTS - `ador init` through main()
+# PUBLIC API / TESTS - `adore init` through main()
 
 
 def _answers_file(tmp_path: Path) -> str:
@@ -340,12 +340,12 @@ def _answers_file(tmp_path: Path) -> str:
 
 
 def test_cli_init_via_main_writes_profile(
-    ador_home: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    adore_home: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """
-    @brief   `ador init <name> --answers FILE` creates a profile through the CLI
+    @brief   `adore init <name> --answers FILE` creates a profile through the CLI
              wiring; `profile list` then shows it.
-    @version 0.1.0
+    @version 0.1.1
     """
     assert main(["init", "smoketest", "--answers", _answers_file(tmp_path)]) == EXIT_OK
     capsys.readouterr()
@@ -354,11 +354,11 @@ def test_cli_init_via_main_writes_profile(
 
 
 def test_cli_init_answers_file_errors(
-    ador_home: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    adore_home: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """
     @brief   A missing or invalid --answers file is a clean error (exit 1).
-    @version 0.1.0
+    @version 0.1.1
     """
     assert main(["init", "p", "--answers", str(tmp_path / "nope.toml")]) == EXIT_ERROR
     assert "not found" in capsys.readouterr().out
@@ -369,12 +369,12 @@ def test_cli_init_answers_file_errors(
 
 
 def test_cli_init_wizard_error_exits_one(
-    ador_home: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    adore_home: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """
     @brief   A wizard failure (existing profile without --force) surfaces as a
              clean `init failed:` error, exit 1.
-    @version 0.1.0
+    @version 0.1.1
     """
     answers = _answers_file(tmp_path)
     assert main(["init", "dup", "--answers", answers]) == EXIT_OK

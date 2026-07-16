@@ -7,25 +7,25 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Monitoring And Steering
 
-Applies to ADOR 0.5.1.
+Applies to ADORE 0.5.1.
 
-Use this when ADOR is running, you need to understand its current state, or you
+Use this when ADORE is running, you need to understand its current state, or you
 need to pause and resume ticket pickup safely.
 
-![ADOR monitoring map](assets/monitoring-recovery-map.svg)
+![ADORE monitoring map](assets/monitoring-recovery-map.svg)
 
 ## First Three Commands
 
 ```powershell
-.\.venv\Scripts\ador.exe --profile <profile-name> status
-.\.venv\Scripts\ador.exe --profile <profile-name> runs
-.\.venv\Scripts\ador.exe --profile <profile-name> logs <run-id>
+.\.venv\Scripts\adore.exe --profile <profile-name> status
+.\.venv\Scripts\adore.exe --profile <profile-name> runs
+.\.venv\Scripts\adore.exe --profile <profile-name> logs <run-id>
 ```
 
 ```bash
-./.venv/bin/ador --profile <profile-name> status
-./.venv/bin/ador --profile <profile-name> runs
-./.venv/bin/ador --profile <profile-name> logs <run-id>
+./.venv/bin/adore --profile <profile-name> status
+./.venv/bin/adore --profile <profile-name> runs
+./.venv/bin/adore --profile <profile-name> logs <run-id>
 ```
 
 | Command | Use it for |
@@ -34,7 +34,7 @@ need to pause and resume ticket pickup safely.
 | `runs` | Run id, ticket id, stage, lifecycle, and last update time. |
 | `logs <run-id>` | Per-run journal events with structured details. |
 
-If `status` reports corrupt run state, ADOR skips it. Inspect it manually before
+If `status` reports corrupt run state, ADORE skips it. Inspect it manually before
 deleting anything.
 
 ## Pause And Resume
@@ -42,13 +42,13 @@ deleting anything.
 Pause stops new ticket pickup. It does not kill in-flight runs.
 
 ```powershell
-.\.venv\Scripts\ador.exe --profile <profile-name> pause
-.\.venv\Scripts\ador.exe --profile <profile-name> resume
+.\.venv\Scripts\adore.exe --profile <profile-name> pause
+.\.venv\Scripts\adore.exe --profile <profile-name> resume
 ```
 
 ```bash
-./.venv/bin/ador --profile <profile-name> pause
-./.venv/bin/ador --profile <profile-name> resume
+./.venv/bin/adore --profile <profile-name> pause
+./.venv/bin/adore --profile <profile-name> resume
 ```
 
 Use pause before maintenance windows, label cleanups, profile edits, or human
@@ -57,19 +57,19 @@ triage. Resume only after `config validate` is clean.
 ## Metrics Commands
 
 ```powershell
-.\.venv\Scripts\ador.exe --profile <profile-name> stats
-.\.venv\Scripts\ador.exe --profile <profile-name> stats --by priority
-.\.venv\Scripts\ador.exe --profile <profile-name> stats --html
-.\.venv\Scripts\ador.exe --profile <profile-name> report <run-id>
-.\.venv\Scripts\ador.exe --profile <profile-name> export --csv
+.\.venv\Scripts\adore.exe --profile <profile-name> stats
+.\.venv\Scripts\adore.exe --profile <profile-name> stats --by priority
+.\.venv\Scripts\adore.exe --profile <profile-name> stats --html
+.\.venv\Scripts\adore.exe --profile <profile-name> report <run-id>
+.\.venv\Scripts\adore.exe --profile <profile-name> export --csv
 ```
 
 ```bash
-./.venv/bin/ador --profile <profile-name> stats
-./.venv/bin/ador --profile <profile-name> stats --by outcome
-./.venv/bin/ador --profile <profile-name> stats --html
-./.venv/bin/ador --profile <profile-name> report <run-id>
-./.venv/bin/ador --profile <profile-name> export --csv
+./.venv/bin/adore --profile <profile-name> stats
+./.venv/bin/adore --profile <profile-name> stats --by outcome
+./.venv/bin/adore --profile <profile-name> stats --html
+./.venv/bin/adore --profile <profile-name> report <run-id>
+./.venv/bin/adore --profile <profile-name> export --csv
 ```
 
 | Command | Output |
@@ -85,20 +85,20 @@ triage. Resume only after `config validate` is clean.
 If metrics were added after older terminal runs, rebuild summaries once:
 
 ```powershell
-.\.venv\Scripts\ador.exe --profile <profile-name> stats --rebuild
+.\.venv\Scripts\adore.exe --profile <profile-name> stats --rebuild
 ```
 
 ```bash
-./.venv/bin/ador --profile <profile-name> stats --rebuild
+./.venv/bin/adore --profile <profile-name> stats --rebuild
 ```
 
 ## Safe Operating Modes
 
 | Mode | Command | When to use |
 | --- | --- | --- |
-| Dry run | `ador run --dry-run` | Before the first real pickup or after config edits. |
-| One poll | `ador run --once` | Supervised validation and scheduled polling. |
-| Loop | `ador run --loop` | Service-style operation after validation. |
+| Dry run | `adore run --dry-run` | Before the first real pickup or after config edits. |
+| One poll | `adore run --once` | Supervised validation and scheduled polling. |
+| Loop | `adore run --loop` | Service-style operation after validation. |
 
 For a new project, keep using `--once` until ticket labels, images, credentials,
 and MR/PR delivery have all been proven.

@@ -3,8 +3,8 @@ revision = 3
 requires-python = ">=3.11"
 
 [[package]]
-name = "ador"
-version = "0.5.1"
+name = "adore"
+version = "1.0.0"
 source = { editable = "." }
 
 [package.dev-dependencies]

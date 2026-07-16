@@ -6,7 +6,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # -----------------------------------------------------------------------------
 # @file    package_runtime.ps1
-# @brief   Build a trimmed ADOR runtime bundle on Windows.
+# @brief   Build a trimmed ADORE runtime bundle on Windows.
 # @details Creates a deployable bundle from 04_Software without development
 #          state, tests, worktrees, caches, or virtual environments. The bundle
 #          includes the existing deploy scripts for Windows Task Scheduler and
@@ -15,7 +15,7 @@
 #              [-Format zip|directory] [-IncludeConfig] [-PackageName NAME]
 # @author  Eng. Dan Dumitru Pasare
 # @date    2026-07-06
-# @version 0.1.0
+# @version 0.2.0
 # -----------------------------------------------------------------------------
 [CmdletBinding()]
 param(
@@ -84,12 +84,12 @@ function Read-PackageVersion {
 
 function Write-BundleReadme([string]$DestinationRoot, [string]$Version) {
     $readme = @'
-# ADOR Runtime Bundle
+# ADORE Runtime Bundle
 
 Version: __VERSION__
 
-This bundle contains only the files needed to run ADOR as a Python package.
-It intentionally excludes tests, worktrees, .ador state, caches, and .venv.
+This bundle contains only the files needed to run ADORE as a Python package.
+It intentionally excludes tests, worktrees, .adore state, caches, and .venv.
 
 Prepare:
 
@@ -130,7 +130,7 @@ if (-not (Test-Path -LiteralPath $SoftwareDir)) {
 # Stage 2: read the project release version and derive a safe package name.
 $version = Read-PackageVersion
 if (-not $PackageName) {
-    $PackageName = "ador-runtime-$version"
+    $PackageName = "adore-runtime-$version"
 }
 if ($PackageName -match '[\\/]' -or $PackageName -match '^\.+$') {
     Fail "package name must be a single directory name, not a path: $PackageName"
@@ -142,13 +142,13 @@ $outputFull = (Resolve-Path -LiteralPath $OutputDir).Path
 $stageRoot = Join-Path $outputFull ".packaging_tmp"
 $bundleDir = Join-Path $stageRoot $PackageName
 
-Note "staging ADOR runtime bundle $PackageName"
+Note "staging ADORE runtime bundle $PackageName"
 Remove-TreeInside $stageRoot $outputFull
 New-Item -ItemType Directory -Force -Path $bundleDir | Out-Null
 
 # Stage 4: copy only the runtime files needed by the deployment host.
 $runtimePaths = @(
-    "ador",
+    "adore",
     "deploy",
     "docker",
     "pyproject.toml",

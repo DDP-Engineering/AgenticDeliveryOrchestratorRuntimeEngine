@@ -6,24 +6,24 @@ See the LICENSE.txt file for full license details.
 SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
-# Component: Forge Adapters (`ador/forge/`)
+# Component: Forge Adapters (`adore/forge/`)
 
 > Component documentation per `component_documentation_template.md`.
-> Sources: `04_Software/ador/forge/{__init__,base,gitlab,github}.py` -
+> Sources: `04_Software/adore/forge/{__init__,base,gitlab,github}.py` -
 > file versions 0.1.0.
 > Design: Orchestrator_Design_And_Decisions.md section 4;
 > Prerequisites_Check_Report.md sections 3-4.
 
 ## 1. Purpose
 
-The single boundary between ADOR and the Git platform. The orchestrator never
+The single boundary between ADORE and the Git platform. The orchestrator never
 calls `glab` or `gh` directly; it talks to the `Forge` interface, and one of
-two adapters translates to the platform CLI. This keeps ADOR portable between
+two adapters translates to the platform CLI. This keeps ADORE portable between
 the GitLab instance it runs on today and GitHub.
 
 ## 2. Responsibilities
 
-- `Forge` (ABC in `base.py`) - the full remote surface ADOR needs:
+- `Forge` (ABC in `base.py`) - the full remote surface ADORE needs:
   - selection: `list_ready(label)`, `get_ticket(iid)`;
   - signaling: `list_comments(iid)`, `post_comment(iid, body)`,
     `edit_comment(iid, comment_id, body)`, `add_labels` / `remove_labels`;
@@ -45,14 +45,14 @@ the GitLab instance it runs on today and GitHub.
   dataclasses.
 
 Explicitly not owned - and deliberately absent from the interface:
-**merging**. There is no merge method; the boundary "ADOR opens a draft and
+**merging**. There is no merge method; the boundary "ADORE opens a draft and
 stops" is structural, not a convention (design 11). Plain git operations
 (fetch/push/worktree) are also not here; they belong to the isolation layer.
 
 ## 3. Implementation Overview
 
 - Every call goes through an injected `CommandRunner` (default
-  `ador.util.run_command`), so both adapters are unit-tested offline with a
+  `adore.util.run_command`), so both adapters are unit-tested offline with a
   fake runner replaying canned CLI output.
 - Failure model: non-zero exit -> `ForgeError` carrying the argv and stderr
   (journal-ready). `get_ticket` maps not-found/404 to `None` - a deleted
@@ -82,7 +82,7 @@ stops" is structural, not a convention (design 11). Plain git operations
 
 ## 4. Dependencies
 
-- Internal: `ador.util` (`CommandRunner`, `CommandResult`, `run_command`).
+- Internal: `adore.util` (`CommandRunner`, `CommandResult`, `run_command`).
 - External: the authenticated `glab` (>= 1.105 verified) or `gh` (>= 2.95)
   CLI on the host; Python standard library otherwise.
 
@@ -100,7 +100,7 @@ stops" is structural, not a convention (design 11). Plain git operations
 - `Comment`: id, body, author, created_at, `system` flag (GitLab system notes;
   always `False` on GitHub, where events are a separate API).
 - `open_merge_request` returns the web URL and is always called with
-  `draft=True` by ADOR (config validation rejects `draft = false`).
+  `draft=True` by ADORE (config validation rejects `draft = false`).
 
 ## 7. Workflow Integration
 
@@ -114,13 +114,13 @@ receives forge access - "who posts: the orchestrator, never the executor"
 ## 8. Usage
 
 ```python
-from ador.forge import build_forge
+from adore.forge import build_forge
 
 forge = build_forge("gitlab", "grp/proj")
 tickets = forge.list_ready("agent-ready")
-note_id = forge.post_comment(14, "[ADOR] status ...\n<!-- ador:... -->")
+note_id = forge.post_comment(14, "[ADORE] status ...\n<!-- adore:... -->")
 forge.edit_comment(14, note_id, "updated body")
-url = forge.open_merge_request("ador/run-14", "develop", "Draft: ...", body,
+url = forge.open_merge_request("adore/run-14", "develop", "Draft: ...", body,
                                reviewers=["reviewer.one"])
 ```
 

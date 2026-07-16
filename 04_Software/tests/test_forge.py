@@ -24,8 +24,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from ador.forge import ForgeError, GitHubForge, GitLabForge, build_forge
-from ador.util import CommandResult
+from adore.forge import ForgeError, GitHubForge, GitLabForge, build_forge
+from adore.util import CommandResult
 import pytest
 
 # DATA MODELS / TYPEDEFINITIONS
@@ -171,10 +171,10 @@ def test_gitlab_get_ticket_returns_none_on_404() -> None:
 def test_gitlab_post_comment_parses_note_id() -> None:
     """
     @brief   The note id comes from the "#note_<id>" URL glab prints.
-    @version 0.1.0
+    @version 0.1.1
     """
     runner = FakeRunner(_ok("https://gitlab.example/grp/proj/-/issues/14#note_9876\n"))
-    note_id = GitLabForge("grp/proj", runner).post_comment(14, "[ADOR] hello")
+    note_id = GitLabForge("grp/proj", runner).post_comment(14, "[ADORE] hello")
     assert note_id == 9876
     argv = runner.calls[0]
     assert argv[:3] == ["glab", "issue", "note"]
@@ -184,16 +184,16 @@ def test_gitlab_post_comment_parses_note_id() -> None:
 def test_gitlab_post_comment_falls_back_to_note_list() -> None:
     """
     @brief   When glab prints no URL, the id is recovered from the notes API.
-    @version 0.1.0
+    @version 0.1.1
     """
     notes = json.dumps(
         [
             {"id": 1, "body": "older", "author": {"username": "x"}, "system": False},
-            {"id": 42, "body": "[ADOR] hello", "author": {"username": "x"}, "system": False},
+            {"id": 42, "body": "[ADORE] hello", "author": {"username": "x"}, "system": False},
         ]
     )
     runner = FakeRunner(_ok("created."), _ok(notes))
-    assert GitLabForge("g/p", runner).post_comment(14, "[ADOR] hello") == 42
+    assert GitLabForge("g/p", runner).post_comment(14, "[ADORE] hello") == 42
 
 
 def test_gitlab_edit_comment_uses_api_put() -> None:
@@ -245,14 +245,14 @@ def test_gitlab_labels_and_mr() -> None:
     """
     @brief   Label updates use --label/--unlabel; MR creation is draft with
              reviewers and prints back the URL.
-    @version 0.1.0
+    @version 0.1.1
     """
     runner = FakeRunner(_ok(), _ok(), _ok("https://gitlab.example/g/p/-/merge_requests/7\n"))
     forge = GitLabForge("g/p", runner)
     forge.add_labels(14, ["agent-working"])
     forge.remove_labels(14, ["agent-ready"])
     url = forge.open_merge_request(
-        "ador/run-14", "develop", "Draft: fix", "body", reviewers=["dan.pasare"],
+        "adore/run-14", "develop", "Draft: fix", "body", reviewers=["dan.pasare"],
         cwd="/tmp/worktree",
     )
     assert url == "https://gitlab.example/g/p/-/merge_requests/7"
@@ -302,14 +302,14 @@ def test_github_post_and_edit_comment() -> None:
     """
     @brief   Comment id parses from the issuecomment URL; edits go through
              the REST API with PATCH and a --raw-field string body.
-    @version 0.1.1
+    @version 0.1.2
     """
     runner = FakeRunner(
         _ok("https://github.com/o/r/issues/3#issuecomment-555\n"),
         _ok("{}"),
     )
     forge = GitHubForge("o/r", runner)
-    assert forge.post_comment(3, "[ADOR] hi") == 555
+    assert forge.post_comment(3, "[ADORE] hi") == 555
     forge.edit_comment(3, 555, "new body")
     edit_argv = runner.calls[1]
     assert "--method" in edit_argv and "PATCH" in edit_argv
@@ -321,17 +321,17 @@ def test_github_post_and_edit_comment() -> None:
 def test_github_open_pr_draft() -> None:
     """
     @brief   PR creation is draft with head/base and returns the URL.
-    @version 0.1.0
+    @version 0.1.1
     """
     runner = FakeRunner(_ok("https://github.com/o/r/pull/12\n"))
     url = GitHubForge("o/r", runner).open_merge_request(
-        "ador/run-3", "develop", "Draft: fix", "body", reviewers=["octo"]
+        "adore/run-3", "develop", "Draft: fix", "body", reviewers=["octo"]
     )
     assert url == "https://github.com/o/r/pull/12"
     argv = runner.calls[0]
     assert argv[:3] == ["gh", "pr", "create"]
     assert "--draft" in argv
-    assert "--head" in argv and "ador/run-3" in argv
+    assert "--head" in argv and "adore/run-3" in argv
     assert "--base" in argv and "develop" in argv
 
 
@@ -403,11 +403,11 @@ def test_gitlab_post_comment_id_unrecoverable_raises() -> None:
     """
     @brief   When neither the URL nor the notes fallback yields the note id,
              posting fails closed (the id is required for idempotency).
-    @version 0.1.0
+    @version 0.1.1
     """
     runner = FakeRunner(_ok("no url in output"), _ok("[]"))
     with pytest.raises(ForgeError):
-        GitLabForge("g/p", runner).post_comment(14, "[ADOR] question")
+        GitLabForge("g/p", runner).post_comment(14, "[ADORE] question")
 
 
 def test_github_invalid_json_raises_forge_error() -> None:

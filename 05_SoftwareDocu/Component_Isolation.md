@@ -6,10 +6,10 @@ See the LICENSE.txt file for full license details.
 SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
-# Component: Isolation (`ador/isolation.py`)
+# Component: Isolation (`adore/isolation.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/ador/isolation.py` - file version 0.4.0.
+> Source: `04_Software/adore/isolation.py` - file version 0.4.0.
 > Design: Orchestrator_Design_And_Decisions.md sections 8b, 10, 10a.
 > Images: `04_Software/docker/Dockerfile.executor-base`,
 > `04_Software/docker/Dockerfile.egress-proxy`, plus runtime-project images
@@ -34,18 +34,18 @@ guardrails, not a sandbox (design 10).
   `changed_files` (committed + pending paths vs the base ref; feeds the
   max_files_touched budget), the delivery git plumbing - `merge` (conflict =
   data, left in progress for the executor), `merge_in_progress`, and `push`
-  (the ONLY remote-writing git call in ADOR) - `commit_all_if_dirty` for
+  (the ONLY remote-writing git call in ADORE) - `commit_all_if_dirty` for
   conductor-generated delivery artifacts, plus the committed-state checks
   `is_dirty` / `commits_ahead`, and `list_dirs` (every directory under the
   worktrees root, including husks deregistered but not deleted after the WSL
-  bind-mount teardown race - the input `ador cleanup` sweeps).
+  bind-mount teardown race - the input `adore cleanup` sweeps).
 - `ContainerManager(runtime, image, uv_cache_volume, npm_cache_volume,
   run_args=..., egress=...)` -
   container lifecycle: `ensure_volumes`, idempotent `provision`
   (running -> no-op, stopped -> start, absent -> create), `start` / `stop`
   (park) / `remove` (reap), `status`, `list_containers(prefix)` (all
   containers in any state whose name starts with `<slug>-run-`; feeds
-  `ador cleanup`'s orphan sweep), `list_egress_networks(prefix)`,
+  `adore cleanup`'s orphan sweep), `list_egress_networks(prefix)`,
   `remove_egress(name)`, `verify_required_tools` (project-image checks run
   inside the provisioned container), and `exec` (the seam the executor launcher
   runs commands through).
@@ -63,17 +63,17 @@ remote git operation (push stays with the orchestrator on the host).
 `.git` is a pointer *file* containing an absolute host path into the main
 repo's `.git/worktrees/<id>` - meaningless inside the container. Instead of
 rewriting pointer files or mirroring host layouts, the repo clone and the
-worktree are mounted at fixed container paths (`/ador/repo`, `/ador/work`)
+worktree are mounted at fixed container paths (`/adore/repo`, `/adore/work`)
 and git inside the container is directed by environment:
-`GIT_DIR=/ador/repo/.git/worktrees/<admin-name>` and
-`GIT_WORK_TREE=/ador/work`. Path discovery is bypassed entirely; the host
+`GIT_DIR=/adore/repo/.git/worktrees/<admin-name>` and
+`GIT_WORK_TREE=/adore/work`. Path discovery is bypassed entirely; the host
 side keeps working normally with its absolute paths. The admin dir name is
 *read* from the pointer file (git suffixes it on collision), never assumed.
 
 - One long-lived container per run (`<slug>-run-<run-id>`), idling on
   `sleep infinity`; gates are launched into it via `exec`. Park = `stop`
   (filesystem and resolved dependencies kept, fast resume); reap = `rm -f`
-  (worktree and `.ador` state always survive). `provision` returns what it
+  (worktree and `.adore` state always survive). `provision` returns what it
   did - "running" / "started" / "created" - so callers know when
   container-internal state (executor sessions) was lost (live finding
   2026-07-04).
@@ -81,7 +81,7 @@ side keeps working normally with its absolute paths. The admin dir name is
   `--env KEY` and the values travel via the runtime CLI's own process
   environment, so `docker run` command lines (process listings, journals)
   never contain a key.
-- **Safe runtime values go inline:** ADOR-managed Git/Home/Codex variables
+- **Safe runtime values go inline:** ADORE-managed Git/Home/Codex variables
   plus common uv runtime controls (`UV_LINK_MODE`, `UV_CACHE_DIR`,
   `UV_PROJECT_ENVIRONMENT`) are non-secret and are passed as
   `--env KEY=value`. This keeps wrapped Docker/Podman runtimes from dropping
@@ -98,28 +98,29 @@ side keeps working normally with its absolute paths. The admin dir name is
 - `exec` returns the `CommandResult` as **data** - a failing gate command is
   a conductor signal, not an isolation failure. Only runtime-level failures
   (daemon down, image missing) raise `IsolationError`.
-- **Executor egress:** `[container.egress] mode = "open"` preserves the legacy
-  runtime argv. `none` adds `--network none`. `allowlist-proxy` creates an
+- **Executor egress:** `[container.egress] mode = "open"` provides unrestricted
+  network access. `none` adds `--network none`. `allowlist-proxy` creates an
   internal per-run network, starts a per-run proxy container from
   `Dockerfile.egress-proxy`, connects it to that network as
-  `ador-egress-proxy`, starts the executor only on the internal network, and
+  `adore-egress-proxy`, starts the executor only on the internal network, and
   injects uppercase/lowercase proxy environment variables at provision and
-  exec time.
+  exec time. Squid writes inside its owned `/var/log/squid` directory so it
+  can start after dropping privileges to the `proxy` user.
 - Windows host paths are normalized (`Path.as_posix()`) for mount syntax.
 - Commit authorship comes from `agent.name` / `agent.email` via
   `GIT_AUTHOR_*` / `GIT_COMMITTER_*` (setup doc section 4).
 
 ## 4. Dependencies
 
-- Internal: `ador.util` (`CommandRunner`, `CommandResult`, `run_command`);
+- Internal: `adore.util` (`CommandRunner`, `CommandResult`, `run_command`);
   values from `[worktree]` (`repo_path`, `root`) and `[container]`
   (`runtime`, `image`, cache volumes, `egress`) config.
 - External: `git` on the host; Docker or Podman - native or wrapped (Docker
   Engine inside WSL2 via `wsl -d <distro> -- docker`); the
-  `ador-executor-base:0.2.0` image (built from
+  `adore-executor-base:1.0.0` image (built from
   `docker/Dockerfile.executor-base`: Ubuntu 22.04, Python 3.11 + uv, Node
   24, git with `safe.directory *`, opencode/pi/codex/qwen CLIs as configured,
-  glab/gh, non-root user `ador`) or a runtime-project image derived from it.
+  glab/gh, non-root user `adore`) or a runtime-project image derived from it.
 
 ## 5. Inputs And Outputs
 
@@ -132,14 +133,14 @@ side keeps working normally with its absolute paths. The admin dir name is
 ## 6. Data Contracts
 
 - Container mount contract (fixed constants, mirrored by the Dockerfile):
-  repo -> `/ador/repo`, worktree -> `/ador/work` (working dir), the run's io
-  exchange dir (`.ador/runs/<run-id>/io`) -> `/ador/io` (gate scripts in,
+  repo -> `/adore/repo`, worktree -> `/adore/work` (working dir), the run's io
+  exchange dir (`.adore/runs/<run-id>/io`) -> `/adore/io` (gate scripts in,
   event streams out; outside the worktree so the executor can never commit
-  them), uv cache volume -> `/home/ador/.cache/uv`, npm cache volume ->
-  `/home/ador/.npm`.
+  them), uv cache volume -> `/home/adore/.cache/uv`, npm cache volume ->
+  `/home/adore/.npm`.
 - Git env contract inside the container: `GIT_DIR` points at the mounted
-  linked-worktree admin dir, `GIT_COMMON_DIR` at `/ador/repo/.git`, and
-  `GIT_WORK_TREE` at `/ador/work`. This keeps Git usable even though the
+  linked-worktree admin dir, `GIT_COMMON_DIR` at `/adore/repo/.git`, and
+  `GIT_WORK_TREE` at `/adore/work`. This keeps Git usable even though the
   worktree's `.git` pointer file contains a host path.
 - `status()` returns the runtime's state string (`running`, `exited`,
   `created`, ...) or `"absent"`; "no such container/object" is absence, any
@@ -157,7 +158,7 @@ side keeps working normally with its absolute paths. The admin dir name is
   run IO directory, uses one proxy container named
   `<executor-container>-egress-proxy`, and one network named
   `<network_prefix>-<safe-executor-container-name>`. Cleanup removes executor,
-  proxy container, and network; `ador cleanup` also sweeps orphan proxies and
+  proxy container, and network; `adore cleanup` also sweeps orphan proxies and
   networks for inactive runs.
 
 ## 7. Workflow Integration
@@ -172,22 +173,22 @@ launcher (phase 2, next) runs the executor through `exec`.
 ## 8. Usage
 
 ```python
-from ador.isolation import (
+from adore.isolation import (
     ContainerManager, WorktreeManager, build_container_env,
 )
 
 worktrees = WorktreeManager("../project", "worktrees")
-containers = ContainerManager("docker", "ador-executor-base:0.2.0",
-                              "ador-uv-cache", "ador-npm-cache")
+containers = ContainerManager("docker", "adore-executor-base:1.0.0",
+                              "adore-uv-cache", "adore-npm-cache")
 
-path = worktrees.create("gitlab-x-14", "ador/gitlab-x-14", "origin/develop")
+path = worktrees.create("gitlab-x-14", "adore/gitlab-x-14", "origin/develop")
 env = build_container_env(worktrees.admin_dir_name("gitlab-x-14"),
-                          "ADOR", "ador-bot@local")
+                          "ADORE", "adore-bot@local")
 env["UV_LINK_MODE"] = "copy"              # non-secret runtime behavior
 env["ANTHROPIC_API_KEY"] = "..."          # executor's secret subset only
 containers.ensure_volumes()
-containers.provision("ador-run-gitlab-x-14", "../project", path, env)
-result = containers.exec("ador-run-gitlab-x-14", ["opencode", "--version"])
+containers.provision("adore-run-gitlab-x-14", "../project", path, env)
+result = containers.exec("adore-run-gitlab-x-14", ["opencode", "--version"])
 ```
 
 ## 9. Validation And Tests
@@ -202,15 +203,16 @@ result = containers.exec("ador-run-gitlab-x-14", ["opencode", "--version"])
   stop/remove, volume creation, and exec-returns-data.
 - `tests/test_orchestrator.py` covers the delivery integration case where
   conductor-owned gate/report commands generate final workflow artifacts and
-  ADOR commits them before push.
+  ADORE commits them before push.
 - Minimum validation after a change: `uv run --group dev pytest tests/test_isolation.py`.
-- `docker/verify-runtime.sh` is the LIVE compatibility pass for a runtime:
-  18 steps mirroring every runtime CLI call this component makes (mount/env
-  shape, bare-key secrets, HOME inline, executor-base tool usability, optional
-  runtime-project tool checks, in-container git with host-visible commits,
-  park/resume, listing, reap, absence). Docker baseline green 2026-07-04
-  (17/17 on the previous verifier); current runtime-project Podman pass green
-  2026-07-06 (18/18).
+- `docker/verify-runtime.sh` is the LIVE compatibility pass for a runtime. Its
+  open-egress path covers 17 steps and its allowlist-proxy path covers 21,
+  mirroring every runtime CLI call this component makes: mount/env shape,
+  bare-key secrets, HOME inline, executor-base tool usability, proxy allow and
+  deny behavior, optional runtime-project tool checks, in-container git with
+  host-visible commits, park/resume, listing, reap, and absence. The ADORE
+  1.0.0 images passed Docker open mode (17/17), Docker allowlist-proxy mode
+  (21/21), and rootless Podman open mode (17/17) on 2026-07-16.
 - **Live verification done 2026-07-03** (Docker Engine in WSL2, scratch repo,
   19/19 steps; Prerequisites_Check_Report.md section 12): image build and
   tooling checks, WSLENV secret propagation, git status/commit **inside** the
@@ -232,13 +234,14 @@ result = containers.exec("ador-run-gitlab-x-14", ["opencode", "--version"])
   passed to `docker run`; add as `[container]` keys when the budgets phase
   lands.
 - Docker UID mapping: the executor base image is built with
-  `--build-arg USER_UID=$(id -u)` so the container's `ador` user matches the
+  `--build-arg USER_UID=$(id -u)` so the container's `adore` user matches the
   host user. Without this, files written to bind-mounted volumes (worktree,
   IO, caches) are owned by the wrong UID on the host. The Dockerfile defaults
   to `USER_UID=1000`; pass the host user's UID at build time.
-- Podman VERIFIED 2026-07-04 (4.9.3 rootless, Ubuntu-24.04/WSL2), and
-  re-verified 2026-07-06 with a runtime-project image plus
-  required tool checks. Rootless mode requires
+- Podman VERIFIED 2026-07-04 (4.9.3 rootless, Ubuntu-24.04/WSL2), re-verified
+  2026-07-06 with a runtime-project image plus required tool checks, and
+  re-verified for the ADORE 1.0.0 executor image on 2026-07-16 (17/17).
+  Rootless mode requires
   `[container] run_args = ["--userns=keep-id"]` (without it, container uid
   1000 cannot write the bind-mounted worktree - caught live by the pass).
   Podman maps the container UID to the host UID at runtime; no image rebuild

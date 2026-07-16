@@ -20,7 +20,7 @@ from __future__ import annotations
 # IMPORTS
 from pathlib import Path
 
-from ador.config import Config, load_config, validate_config
+from adore.config import Config, load_config, validate_config
 
 # CONSTANTS
 
@@ -64,11 +64,11 @@ def _write_config(tmp_path: Path, text: str) -> Path:
 def test_minimal_config_is_valid_with_defaults(tmp_path: Path) -> None:
     """
     @brief   A minimal file loads, defaults apply, and validation passes.
-    @version 0.1.0
+    @version 0.1.1
     """
     config = load_config(_write_config(tmp_path, MINIMAL_VALID))
     assert validate_config(config) == []
-    assert config.agent.name == "ADOR"
+    assert config.agent.name == "ADORE"
     assert config.polling.poll_interval_seconds == 60
     assert config.labels.lifecycle.ready == "agent-ready"
     assert config.labels.selection.priority_order() == ["P1", "P2", "P3"]
@@ -180,10 +180,10 @@ def test_validation_flags_unknown_sections(tmp_path: Path) -> None:
 def test_defaults_without_file_sections() -> None:
     """
     @brief   A bare Config carries the documented defaults.
-    @version 0.1.0
+    @version 0.1.1
     """
     config = Config()
-    assert config.container.image == "ador-executor-base:0.2.0"
+    assert config.container.image == "adore-executor-base:1.0.0"
     assert config.container.egress.mode == "open"
     assert config.container.required_tool_checks == []
     assert config.container.parked_ttl_polls == 30
@@ -290,9 +290,9 @@ def test_codex_requires_non_interactive_sandboxed_json(tmp_path: Path) -> None:
 
 def test_codex_accepts_external_container_sandbox_bypass(tmp_path: Path) -> None:
     """
-    @brief   Codex full-auto mode is accepted because ADOR provides the
+    @brief   Codex full-auto mode is accepted because ADORE provides the
              external container sandbox boundary.
-    @version 0.1.1
+    @version 0.1.2
     """
     bypass = (
         "codex exec {resume}--json --model {model} "
@@ -305,8 +305,8 @@ def test_codex_accepts_external_container_sandbox_bypass(tmp_path: Path) -> None
 def test_codex_rejects_machine_local_user_config(tmp_path: Path) -> None:
     """
     @brief   Codex runs must ignore machine-local user config/plugin state and
-             use ADOR's staged CODEX_HOME instead.
-    @version 0.1.0
+             use ADORE's staged CODEX_HOME instead.
+    @version 0.1.1
     """
     command = (
         "codex exec {resume}--json --model {model} "
@@ -371,7 +371,7 @@ def test_container_runtime_env_defaults_and_validation(tmp_path: Path) -> None:
     @brief   [container] runtime_env is a non-secret customization surface:
              uv copy-link mode defaults on, while managed git env cannot be
              overridden by human config.
-    @version 0.1.0
+    @version 0.1.1
     """
     base = """
 [platform]
@@ -397,7 +397,7 @@ reviewers = ["dan.pasare"]
 GIT_DIR = "/tmp/nope"
 """
     issues = validate_config(load_config(_write_config(tmp_path, overridden)))
-    assert any("runtime_env.GIT_DIR is managed by ADOR" in issue for issue in issues)
+    assert any("runtime_env.GIT_DIR is managed by ADORE" in issue for issue in issues)
 
 
 def test_container_required_tool_checks_validation(tmp_path: Path) -> None:
@@ -431,9 +431,9 @@ required_tool_checks = ["", "--version", "make --version && rm -rf /", "untermin
 
 def test_container_egress_defaults_and_valid_modes(tmp_path: Path) -> None:
     """
-    @brief   Missing [container.egress] stays backward-compatible as open;
+    @brief   Missing [container.egress] defaults to unrestricted open egress;
              none and allowlist-proxy validate when explicitly configured.
-    @version 0.1.0
+    @version 0.1.1
     """
     defaulted = load_config(_write_config(tmp_path, MINIMAL_VALID))
     assert defaulted.container.egress.mode == "open"
@@ -451,9 +451,9 @@ mode = "none"
 mode = "allowlist-proxy"
 allowlist = ["gitlab.example.com", "*.pythonhosted.org"]
 no_proxy = ["localhost", "127.0.0.1", "::1", "*.internal.example"]
-proxy_image = "ador-egress-proxy:0.1.0"
+proxy_image = "adore-egress-proxy:1.0.0"
 proxy_port = 3128
-network_prefix = "ador-egress"
+network_prefix = "adore-egress"
 """))
     assert proxy.container.egress.allowlist == [
         "gitlab.example.com",
@@ -485,15 +485,15 @@ allowlist = ["https://api.openai.com", "gitlab.example.com/path", "bad host", "o
 
 def test_container_egress_proxy_env_is_managed(tmp_path: Path) -> None:
     """
-    @brief   Humans cannot override ADOR-managed proxy env through runtime_env.
-    @version 0.1.0
+    @brief   Humans cannot override ADORE-managed proxy env through runtime_env.
+    @version 0.1.1
     """
     text = MINIMAL_VALID + """
 [container.runtime_env]
 HTTPS_PROXY = "http://example.invalid:3128"
 """
     issues = validate_config(load_config(_write_config(tmp_path, text)))
-    assert any("runtime_env.HTTPS_PROXY is managed by ADOR" in issue for issue in issues)
+    assert any("runtime_env.HTTPS_PROXY is managed by ADORE" in issue for issue in issues)
 
 
 # END OF FILE

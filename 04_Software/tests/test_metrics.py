@@ -20,7 +20,7 @@ from __future__ import annotations
 # IMPORTS
 from pathlib import Path
 
-from ador.metrics import (
+from adore.metrics import (
     RunSummary,
     aggregate,
     export_csv,
@@ -31,7 +31,7 @@ from ador.metrics import (
     render_html,
     summarize_run,
 )
-from ador.state import RunState, StateStore
+from adore.state import RunState, StateStore
 
 # HELPER FUNCTIONS
 
@@ -43,9 +43,9 @@ def _seed_run(tmp_path: Path) -> StateStore:
     @return     The StateStore with run "r-45".
     @author     Eng. Dan Dumitru Pasare
     @date       2026-07-04
-    @version    0.1.0
+    @version    0.1.1
     """
-    store = StateStore(tmp_path / ".ador")
+    store = StateStore(tmp_path / ".adore")
     store.save(RunState(
         run_id="r-45", ticket_iid=45, lifecycle="done", outcome="merged",
         clarification_rounds=2, review_rounds=1, mr_url="https://x/mr/29",

@@ -6,11 +6,11 @@ See the LICENSE.txt file for full license details.
 SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
-# Component: Executor Launcher (`ador/executor/`)
+# Component: Executor Launcher (`adore/executor/`)
 
 > Component documentation per `component_documentation_template.md`.
-> Sources: `04_Software/ador/executor/base.py` (0.2.0),
-> `04_Software/ador/executor/launcher.py` (0.5.0).
+> Sources: `04_Software/adore/executor/base.py` (0.2.0),
+> `04_Software/adore/executor/launcher.py` (0.5.0).
 > Design: Orchestrator_Design_And_Decisions.md sections 6 and 7a;
 > Prerequisites_Check_Report.md sections 5-6 and 12-13.
 
@@ -61,13 +61,13 @@ buffers stdout so live streaming looks hung (prereq 9).
    gate must mean it was written by THIS gate.
 2. Render the command from the `[executor.<name>]` template: `{prompt}` ->
    shell-quoted prompt text, `{model}` -> quoted model, `{worktree}` ->
-   `/ador/work` (the container-side mount). A continuing session appends
+   `/adore/work` (the container-side mount). A continuing session appends
    `--session <id>`.
 3. Write `gate.sh` (LF endings; Windows CRLF would break `sh`) into the
-   run's io dir: `cd /ador/work`, then the command with stdout redirected to
-   `output.jsonl` and stderr to `stderr.log`, both in `/ador/io`. No `exec`
+   run's io dir: `cd /adore/work`, then the command with stdout redirected to
+   `output.jsonl` and stderr to `stderr.log`, both in `/adore/io`. No `exec`
    prefix - templates may be compound commands.
-4. Run `["sh", "/ador/io/gate.sh"]` through the exec seam - two space-free
+4. Run `["sh", "/adore/io/gate.sh"]` through the exec seam - two space-free
    tokens, immune to WSL argv splitting. The script's exit status is the
    executor's.
 5. Read back from the HOST filesystem: the event stream and stderr from the
@@ -87,14 +87,14 @@ continuation shape and stream parsing. All supported executors read the repo's
 the repo adapter plus container isolation - there are no remote credentials in
 the container, so the executor cannot push regardless.
 - The live exchange files (`gate.sh`, `output.jsonl`, `stderr.log`) remain in
-  `.ador/runs/<run-id>/io/` and are overwritten by the next launch. Immutable
+  `.adore/runs/<run-id>/io/` and are overwritten by the next launch. Immutable
   per-launch archives persist under `io/archive/`; being outside the worktree,
   the executor can never `git add` them.
 - **Safety:** `--auto` anywhere in the template raises `ValueError` at
   construction, and `validate_config` reports it before any run starts - it
   would auto-approve the push/pr/merge permissions that keep the executor
   off the remote (prereq report section 6). Codex full-auto is allowed only
-  because ADOR owns the external container/worktree sandbox and keeps remote
+  because ADORE owns the external container/worktree sandbox and keeps remote
   delivery outside the executor; `validate_config` still requires `--json`,
   a non-interactive sandbox mode, `--ignore-user-config`, and
   `--disable plugins` so workstation plugin/marketplace state cannot be
@@ -102,9 +102,9 @@ the container, so the executor cannot push regardless.
 
 ## 4. Dependencies
 
-- Internal: `ador.isolation` (mount constants; `ContainerManager.exec` is
-  the usual `ExecTarget`), `ador.util.CommandResult`; `[executor]` config.
-- External: the executor CLI inside the `ador-executor` image; target-repo
+- Internal: `adore.isolation` (mount constants; `ContainerManager.exec` is
+  the usual `ExecTarget`), `adore.util.CommandResult`; `[executor]` config.
+- External: the executor CLI inside the `adore-executor` image; target-repo
   executor policy files such as `opencode.json`, `.pi`, `.codex`, and `.qwen`
   arrive with the worktree.
 
@@ -133,7 +133,7 @@ the container, so the executor cannot push regardless.
   with "Session not found" (the session died with its container or was
   pruned) relaunches once with a fresh session instead of failing the gate.
 - The questions-file convention (design 6): executor writes
-  `ADOR_QUESTIONS.md` (configurable) in the worktree and stops; presence
+  `ADORE_QUESTIONS.md` (configurable) in the worktree and stops; presence
   after the gate = park.
 
 ## 7. Workflow Integration
@@ -147,12 +147,12 @@ its context, then branches on the result: questions -> park; failure/budget
 
 ```python
 from functools import partial
-from ador.executor.launcher import build_executor
+from adore.executor.launcher import build_executor
 
 executor = build_executor("opencode",
                           "opencode run --dir {worktree} -m {model} --format json {prompt}",
                           "openai/gpt-5.4-fast")
-execute = partial(containers.exec, "ador-run-<run-id>")
+execute = partial(containers.exec, "adore-run-<run-id>")
 run = executor.run_gate(execute, worktree_path, io_path, intake_prompt,
                         timeout=3600, archive_stem="001-intake")
 if run.has_questions:
@@ -192,7 +192,7 @@ elif run.ok:
   each CLI has its own trust/auth/session quirks.
 - Codex live finding 2026-07-06: avoid copying host desktop Codex config into
   the run. Use `--ignore-user-config`; the orchestrator stages only
-  `auth.json` into an ADOR-owned `CODEX_HOME`. Use `--disable plugins` as
+  `auth.json` into an ADORE-owned `CODEX_HOME`. Use `--disable plugins` as
   well; otherwise Codex may materialize bundled plugin marketplace files in
   the target worktree during headless runs.
 - Observed event schema (live, 2026-07-03): NDJSON with `step_start` /

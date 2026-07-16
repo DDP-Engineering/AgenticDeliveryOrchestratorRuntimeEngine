@@ -7,11 +7,11 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # -----------------------------------------------------------------------------
 # @file    install-ubuntu.sh
-# @brief   Deploy ADOR on Ubuntu 22+ (design doc 12/12a).
+# @brief   Deploy ADORE on Ubuntu 22+ (design doc 12/12a).
 # @details Fail-fast, idempotent, re-runnable. Steps: check host prerequisites,
 #          sync the Python environment (uv), validate config.toml, build the
 #          executor base image when absent, and optionally install + start the
-#          systemd unit (ador.service template in this directory).
+#          systemd unit (adore.service template in this directory).
 #          Secrets are never echoed and never appear in argv; they stay in
 #          .env / an EnvironmentFile (design 12b).
 # @usage   ./deploy/install-ubuntu.sh [--service] [--skip-image]
@@ -22,18 +22,18 @@
 #            --uninstall stop/disable/remove the systemd unit (sudo)
 # @author  Eng. Dan Dumitru Pasare
 # @date    2026-07-04
-# @version 0.3.0
+# @version 0.4.0
 # -----------------------------------------------------------------------------
 set -euo pipefail
 
 # CONSTANTS
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOFTWARE_DIR="$(dirname "${SCRIPT_DIR}")"
-UNIT_TEMPLATE="${SCRIPT_DIR}/ador.service"
-UNIT_PATH="/etc/systemd/system/ador.service"
-IMAGE_TAG="${IMAGE_TAG:-ador-executor-base:0.2.0}"
+UNIT_TEMPLATE="${SCRIPT_DIR}/adore.service"
+UNIT_PATH="/etc/systemd/system/adore.service"
+IMAGE_TAG="${IMAGE_TAG:-adore-executor-base:1.0.0}"
 IMAGE_DOCKERFILE="${IMAGE_DOCKERFILE:-Dockerfile.executor-base}"
-ADOR_USER="${ADOR_USER:-$(id -un)}"
+ADORE_USER="${ADORE_USER:-$(id -un)}"
 
 # LOCAL HELPERS
 fail() { echo "error: $*" >&2; exit 1; }
@@ -50,7 +50,7 @@ usage() {
 usage: ./deploy/install-ubuntu.sh [--service] [--skip-image] [--allow-open-egress] [--uninstall]
   (no flag)             prepare only: env sync + config validate + executor image
   --service             also install/enable/start the systemd unit (uses sudo;
-                        service user from ADOR_USER, default: the invoking user)
+                        service user from ADORE_USER, default: the invoking user)
   --skip-image          do not check/build the executor image
   --allow-open-egress   allow unattended service install while [container.egress]
                         mode is "open" (supervised pilots only)
@@ -76,9 +76,9 @@ done
 
 # UNINSTALL
 if [ "${MODE}" = "uninstall" ]; then
-    note "removing the ador systemd unit (worktrees, containers, and .ador state are kept)"
+    note "removing the adore systemd unit (worktrees, containers, and .adore state are kept)"
     if [ -f "${UNIT_PATH}" ]; then
-        as_root systemctl disable --now ador.service || true
+        as_root systemctl disable --now adore.service || true
         as_root rm -f "${UNIT_PATH}"
         as_root systemctl daemon-reload
         note "removed ${UNIT_PATH}"
@@ -93,21 +93,21 @@ note "checking host prerequisites"
 need_cmd uv   "Install: curl -LsSf https://astral.sh/uv/install.sh | sh"
 need_cmd git  "Install: sudo apt-get install -y git"
 if ! command -v glab >/dev/null 2>&1 && ! command -v gh >/dev/null 2>&1; then
-    fail "neither 'glab' nor 'gh' found; ADOR drives the platform through one of them (setup doc section 3)"
+    fail "neither 'glab' nor 'gh' found; ADORE drives the platform through one of them (setup doc section 3)"
 fi
 
 # 2. Python environment (locked, reproducible)
 note "syncing the Python environment (uv sync --frozen)"
 ( cd "${SOFTWARE_DIR}" && uv sync --frozen )
-[ -x "${SOFTWARE_DIR}/.venv/bin/ador" ] || fail ".venv/bin/ador missing after uv sync"
+[ -x "${SOFTWARE_DIR}/.venv/bin/adore" ] || fail ".venv/bin/adore missing after uv sync"
 
 # 3. configuration (the unit refuses to start on an invalid config anyway;
 #    catch it here where the operator is watching)
 [ -f "${SOFTWARE_DIR}/config.toml" ] \
     || fail "config.toml not found; copy config.example.toml and adjust it first"
 note "validating config.toml"
-( cd "${SOFTWARE_DIR}" && ./.venv/bin/ador -c config.toml config validate )
-CONFIG_JSON="$(cd "${SOFTWARE_DIR}" && ./.venv/bin/ador -c config.toml config show)"
+( cd "${SOFTWARE_DIR}" && ./.venv/bin/adore -c config.toml config validate )
+CONFIG_JSON="$(cd "${SOFTWARE_DIR}" && ./.venv/bin/adore -c config.toml config show)"
 json_field() {
     printf '%s' "${CONFIG_JSON}" | "${SOFTWARE_DIR}/.venv/bin/python" -c \
         'import json, sys; data=json.load(sys.stdin); cur=data
@@ -155,20 +155,20 @@ fi
 
 # 5. systemd unit (optional; the design's Ubuntu service mode, 12a)
 if [ "${WITH_SERVICE}" -eq 1 ]; then
-    note "installing systemd unit for user '${ADOR_USER}' (override with ADOR_USER=...)"
-    id -u "${ADOR_USER}" >/dev/null 2>&1 || fail "user '${ADOR_USER}' does not exist"
+    note "installing systemd unit for user '${ADORE_USER}' (override with ADORE_USER=...)"
+    id -u "${ADORE_USER}" >/dev/null 2>&1 || fail "user '${ADORE_USER}' does not exist"
     rendered="$(mktemp)"
-    sed -e "s|__ADOR_DIR__|${SOFTWARE_DIR}|g" \
-        -e "s|__ADOR_USER__|${ADOR_USER}|g" \
+    sed -e "s|__ADORE_DIR__|${SOFTWARE_DIR}|g" \
+        -e "s|__ADORE_USER__|${ADORE_USER}|g" \
         "${UNIT_TEMPLATE}" > "${rendered}"
     as_root cp "${rendered}" "${UNIT_PATH}"
     rm -f "${rendered}"
     as_root systemctl daemon-reload
-    as_root systemctl enable --now ador.service
-    note "unit installed and started; follow logs with: journalctl -u ador -f"
+    as_root systemctl enable --now adore.service
+    note "unit installed and started; follow logs with: journalctl -u adore -f"
 else
     note "prepared (no service installed). Run the poller manually with:"
-    note "    cd ${SOFTWARE_DIR} && ./.venv/bin/ador run --loop"
+    note "    cd ${SOFTWARE_DIR} && ./.venv/bin/adore run --loop"
     note "or re-run this script with --service to install the systemd unit."
 fi
 

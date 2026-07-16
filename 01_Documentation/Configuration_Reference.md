@@ -1,4 +1,4 @@
-﻿<!--
+<!--
 Copyright (c) 2026 DDP Engineering
 This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
@@ -7,36 +7,36 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Configuration Reference
 
-> **Status**: Implementation reference for ADOR 0.5.1. Consolidated list of
+> **Status**: Implementation reference for ADORE 0.5.1. Consolidated list of
 > every `config.toml` setting, its meaning, default value, and examples. Keys
 > are grouped by section.
 
 ## Profiles & assisted setup (recommended)
 
-You do not have to hand-write `config.toml`. `ador init` runs a guided,
+You do not have to hand-write `config.toml`. `adore init` runs a guided,
 per-project wizard that detects prerequisites, prompts explicitly (with
 examples and validation), and writes a **minimal, validated** config as a named
-**runtime-project profile** - so one ADOR install serves many projects.
+**runtime-project profile** - so one ADORE install serves many projects.
 
-- **Config home (cross-platform):** profiles live under `%APPDATA%\ador`
-  (Windows) / `~/.config/ador` (`$XDG_CONFIG_HOME` respected on Linux), override
-  with the `ADOR_HOME` environment variable. Each profile is
+- **Config home (cross-platform):** profiles live under `%APPDATA%\adore`
+  (Windows) / `~/.config/adore` (`$XDG_CONFIG_HOME` respected on Linux), override
+  with the `ADORE_HOME` environment variable. Each profile is
   `<home>/profiles/<name>/{config.toml, profile.json}`; an `active_profile`
   pointer names the default.
-- **Create:** `ador init [name] [--force] [--answers FILE]`
+- **Create:** `adore init [name] [--force] [--answers FILE]`
   (`--answers` = non-interactive, for CI/servers; keys are the wizard field
   names). See the onboarding guide (`01_Documentation/Onboarding_New_Project.md`) for
-  the full prompt list and the non-ADOR prerequisite steps.
-- **Manage:** `ador profile list|show|use|rename|delete|path`
+  the full prompt list and the non-ADORE prerequisite steps.
+- **Manage:** `adore profile list|show|use|rename|delete|path`
   (`list`/`show` include run statistics from the profile's metrics DB;
   `delete` needs `--force`).
 - **Use:** any command resolves its config in this order -
   explicit `-c FILE` > `--profile NAME` > the active profile > `./config.toml`.
   Single-config users (no profile) are unaffected. Example:
-  `ador --profile sample-project run --dry-run`.
+  `adore --profile sample-project run --dry-run`.
 - **Profile-owned state (default):** a profile's `[state] store_root` points
   under the profile (`<home>/profiles/<name>/state`), so each project's runs,
-  metrics, and lock stay isolated; the wizard can instead co-locate a `.ador`
+  metrics, and lock stay isolated; the wizard can instead co-locate a `.adore`
   beside the clone.
 
 Secrets are never written to a profile - only env-key NAMES; tokens/keys stay
@@ -48,9 +48,9 @@ describes every key the wizard (or you) can set.
 ```toml
 # ----- Bot identity -----
 [agent]
-name = "ADOR"                 # display/brand: comment tags, MR titles, commit author
-slug = "ador"                 # derived names: .ador/ state dir, branch, container, marker
-email = "ador-bot@example.com"  # commit author email in the container (derived if empty)
+name = "ADORE"                 # display/brand: comment tags, MR titles, commit author
+slug = "adore"                 # derived names: .adore/ state dir, branch, container, marker
+email = "adore-bot@example.com"  # commit author email in the container (derived if empty)
 
 # ----- Git platform -----
 [platform]
@@ -61,7 +61,7 @@ repo = "group/subgroup/project"
 # ----- State signaling -----
 [state]
 channel        = "comments"  # "comments" | "labels" | "both"
-store_root     = ".ador"      # local authoritative state dir (derived from slug)
+store_root     = ".adore"      # local authoritative state dir (derived from slug)
 
 # ----- Polling -----
 [polling]
@@ -107,7 +107,7 @@ prefix = "agent-exec:"       # e.g. "agent-exec:opencode"
 [executor]
 default        = "opencode"  # "opencode" | "pi" | "codex" | "qwen"
 mode           = "thick"     # "thick" (gate-by-gate) | "headless" (single-shot)
-questions_file = "ADOR_QUESTIONS.md"
+questions_file = "ADORE_QUESTIONS.md"
 env_keys       = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]  # only these reach the container
 stage_host_auth = false      # pilot-only OAuth bridge for opencode/codex
 
@@ -142,14 +142,14 @@ timeout_state  = "failed"    # terminal state on timeout ("failed" | "stale")
 # ----- Container / isolation -----
 [container]
 runtime            = "docker"   # "docker" | "podman"
-image              = "ador-executor-base:0.2.0"
+image              = "adore-executor-base:1.0.0"
 keep_parked        = true       # keep (stopped) container after parking
 parked_ttl_mode    = "polls"    # "seconds" | "polls"
 parked_ttl_seconds = 7200       # used when mode = "seconds"
 parked_ttl_polls   = 30         # used when mode = "polls"
 parked_state       = "stopped"  # "stopped" (fast resume) | "removed" (free disk)
-uv_cache_volume    = "ador-uv-cache"
-npm_cache_volume   = "ador-npm-cache"
+uv_cache_volume    = "adore-uv-cache"
+npm_cache_volume   = "adore-npm-cache"
 runtime_env        = { UV_LINK_MODE = "copy" }
 run_args           = []         # extra `run` options; docker: build with --build-arg USER_UID=$(id -u); rootless podman: ["--userns=keep-id"]
 required_tool_checks = []       # project-image checks, e.g. ["terraform --version"]
@@ -158,9 +158,9 @@ required_tool_checks = []       # project-image checks, e.g. ["terraform --versi
 mode           = "open"         # "open" | "allowlist-proxy" | "none"
 allowlist      = []             # exact/wildcard hosts, e.g. ["api.openai.com", "*.pythonhosted.org"]
 no_proxy       = ["localhost", "127.0.0.1", "::1"]
-proxy_image    = "ador-egress-proxy:0.1.0"
+proxy_image    = "adore-egress-proxy:1.0.0"
 proxy_port     = 3128
-network_prefix = "ador-egress"
+network_prefix = "adore-egress"
 
 [worktree]
 repo_path = "../project" # local clone the run worktrees are created from (required)
@@ -201,19 +201,19 @@ on_trigger_removed = "pause"           # "pause" | "abort" | "ignore"
 # ----- Metrics / statistics (stdlib only; CLI + optional static HTML) -----
 [metrics]
 enabled          = true
-db_path          = ".ador/metrics.db"
-export_jsonl     = ".ador/metrics/runs.jsonl"
+db_path          = ".adore/metrics.db"
+export_jsonl     = ".adore/metrics/runs.jsonl"
 capture_tokens   = true
 capture_resource = true                # docker stats / disk probes
-html_out         = ".ador/metrics/stats.html"
+html_out         = ".adore/metrics/stats.html"
 ```
 
 ## `[agent]` - Bot Identity
 
 | Key | Meaning | Default |
 |---|---|---|
-| `name` | Display/brand string; appears in comment tags, MR/PR titles, commit author. `ADOR` = Agentic Delivery Orchestrator by examplex. | `"ADOR"` |
-| `slug` | Lowercase token that derives the state dir (`.<slug>/`), branch prefix, container name, questions file, and comment marker. Derived from `name` if empty. | `"ador"` |
+| `name` | Display/brand string; appears in comment tags, MR/PR titles, commit author. `ADORE` = Agentic Delivery Orchestrator & Runtime Engine by examplex. | `"ADORE"` |
+| `slug` | Lowercase token that derives the state dir (`.<slug>/`), branch prefix, container name, questions file, and comment marker. Derived from `name` if empty. | `"adore"` |
 | `email` | Git commit author email inside the executor container (`name` is the author name). Derived as `<slug>-bot@local` if empty. | (derived) |
 
 ## `[platform]` - Git Platform Selection
@@ -230,18 +230,18 @@ the host. No separate bot account is required (identity is marker-based).
 
 | Key | Meaning | Default |
 |---|---|---|
-| `channel` | How run state is reflected on the ticket: `comments`, `labels`, or `both`. Authoritative state always lives locally. In comment mode ADOR keeps one status comment and edits it in place. | `"comments"` |
-| `store_root` | Local authoritative state directory. | `".ador"` |
+| `channel` | How run state is reflected on the ticket: `comments`, `labels`, or `both`. Authoritative state always lives locally. In comment mode ADORE keeps one status comment and edits it in place. | `"comments"` |
+| `store_root` | Local authoritative state directory. | `".adore"` |
 
 ### Comment Marker Format
 
-ADOR comment identity is marker-based, not author-account-based. Every ADOR
+ADORE comment identity is marker-based, not author-account-based. Every ADORE
 comment has a visible tag plus a hidden HTML comment marker.
 
 Visible status line example:
 
 ```text
-[ADOR] status: working - stage check - run <run-id> - updated <utc-timestamp>
+[ADORE] status: working - stage check - run <run-id> - updated <utc-timestamp>
 ```
 
 Hidden marker format:
@@ -253,16 +253,16 @@ Hidden marker format:
 Default example:
 
 ```html
-<!-- ador:run=gitlab-example-project-52 kind=status state=working stage=check -->
+<!-- adore:run=gitlab-example-project-52 kind=status state=working stage=check -->
 ```
 
-The marker lets ADOR distinguish its own comments from human comments even when
+The marker lets ADORE distinguish its own comments from human comments even when
 the same human account runs the platform CLI. Comments without the matching
 marker are treated as human-authored. This matters for clarification resume:
-when ADOR parks a run, a normal human comment can answer the question because it
-does not carry the ADOR marker.
+when ADORE parks a run, a normal human comment can answer the question because it
+does not carry the ADORE marker.
 
-Do not manually edit or remove marker lines from ADOR comments. The marker
+Do not manually edit or remove marker lines from ADORE comments. The marker
 grammar is intentionally not configurable; it is created and parsed by the
 identity component. The configurable part is the agent identity (`name` and
 `slug`), which changes the visible tag and the marker prefix.
@@ -305,10 +305,10 @@ teams can rename without code changes; the orchestrator refers to labels by role
 |---|---|---|
 | `default` | Which executor to launch: `opencode`, `pi`, `codex`, or `qwen`. The `[executor.<name>]` table must match. `opencode` is the default and live-proven; the other launchers are wired behind the same factory and require their project guard/auth prerequisites. | `"opencode"` |
 | `mode` | `thick` = orchestrator drives gate-by-gate; `headless` = single-shot. | `"thick"` |
-| `questions_file` | File the executor writes clarification questions to. | `"ADOR_QUESTIONS.md"` |
+| `questions_file` | File the executor writes clarification questions to. | `"ADORE_QUESTIONS.md"` |
 | `env_keys` | The only environment variables (from host env / `.env`) injected into the executor container. | `["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]` |
-| `stage_host_auth` | Pilot-only: copy host auth into the run container at provision. Implemented for opencode (`~/.local/share/opencode/auth.json`) and Codex (`~/.codex/auth.json` staged into an ADOR-owned `CODEX_HOME`). | `false` |
-| `[executor.<name>].command` | Command template for that executor; `{prompt}` (shell-quoted), `{model}`, and `{worktree}` (container path `/ador/work`) are substituted. opencode/pi continue with `--session <id>`; Codex uses the `{resume}` placeholder for `codex exec resume --last`; Qwen is stateless per gate. Safety validation rejects opencode `--auto`, Codex commands missing non-interactive/user-config guards, and Qwen yolo mode. | per executor |
+| `stage_host_auth` | Pilot-only: copy host auth into the run container at provision. Implemented for opencode (`~/.local/share/opencode/auth.json`) and Codex (`~/.codex/auth.json` staged into an ADORE-owned `CODEX_HOME`). | `false` |
+| `[executor.<name>].command` | Command template for that executor; `{prompt}` (shell-quoted), `{model}`, and `{worktree}` (container path `/adore/work`) are substituted. opencode/pi continue with `--session <id>`; Codex uses the `{resume}` placeholder for `codex exec resume --last`; Qwen is stateless per gate. Safety validation rejects opencode `--auto`, Codex commands missing non-interactive/user-config guards, and Qwen yolo mode. | per executor |
 | `[executor.<name>].model` | Model/provider string for that executor. | (required) |
 
 ## `[clarification]` - Clarification
@@ -324,16 +324,16 @@ teams can rename without code changes; the orchestrator refers to labels by role
 
 | Key | Meaning | Default |
 |---|---|---|
-| `runtime` | Container runtime command: `docker` / `podman`, optionally wrapped, e.g. `"wsl -d Ubuntu-24.04 -- docker"` for Docker Engine inside WSL2 (ADOR then translates mount paths and propagates env via WSLENV). | `"docker"` |
-| `image` | Container image selected by the runtime-project profile. The generic ADOR default is executor-only; project images extend it with project dependencies. | `"ador-executor-base:0.2.0"` |
+| `runtime` | Container runtime command: `docker` / `podman`, optionally wrapped, e.g. `"wsl -d Ubuntu-24.04 -- docker"` for Docker Engine inside WSL2 (ADORE then translates mount paths and propagates env via WSLENV). | `"docker"` |
+| `image` | Container image selected by the runtime-project profile. The generic ADORE default is executor-only; project images extend it with project dependencies. | `"adore-executor-base:1.0.0"` |
 | `keep_parked` | Keep (stopped) the container after parking instead of removing. | `true` |
 | `parked_ttl_mode` | Grace period unit: `seconds` or `polls`. | `"polls"` |
 | `parked_ttl_seconds` | Reap idle parked container after N seconds (mode=seconds). | `7200` |
 | `parked_ttl_polls` | Reap idle parked container after N poll cycles (mode=polls). | `30` |
 | `parked_state` | On park: `stopped` (fast resume) or `removed` (free disk now). | `"stopped"` |
-| `uv_cache_volume` | Persistent uv cache volume for fast `uv sync`. | `"ador-uv-cache"` |
-| `npm_cache_volume` | Persistent npm cache volume for fast `npm ci`. | `"ador-npm-cache"` |
-| `runtime_env` | Non-secret environment injected at container creation and every `exec`. Use it for portable tool behavior such as `UV_LINK_MODE=copy` or a project-specific `UV_PROJECT_ENVIRONMENT`; ADOR rejects overrides of managed isolation/proxy keys (`HOME`, `GIT_*`, `CODEX_HOME`, `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, `NO_PROXY`, and lowercase variants). | `{ UV_LINK_MODE = "copy" }` |
+| `uv_cache_volume` | Persistent uv cache volume for fast `uv sync`. | `"adore-uv-cache"` |
+| `npm_cache_volume` | Persistent npm cache volume for fast `npm ci`. | `"adore-npm-cache"` |
+| `runtime_env` | Non-secret environment injected at container creation and every `exec`. Use it for portable tool behavior such as `UV_LINK_MODE=copy` or a project-specific `UV_PROJECT_ENVIRONMENT`; ADORE rejects overrides of managed isolation/proxy keys (`HOME`, `GIT_*`, `CODEX_HOME`, `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, `NO_PROXY`, and lowercase variants). | `{ UV_LINK_MODE = "copy" }` |
 | `run_args` | Extra option tokens for `<runtime> run` (one option per entry, no spaces; validated). DOCKER: build the base image with `--build-arg USER_UID=$(id -u)` so the container user matches the host user; no `run_args` needed for UID mapping. ROOTLESS PODMAN: requires `["--userns=keep-id"]` instead (verified 2026-07-04: without it container uid 1000 maps to a subuid that cannot write the bind-mounted worktree). Also the seam for future resource limits (`"--memory=2g"`). | `[]` |
 | `required_tool_checks` | Shell-free command strings run inside the provisioned container before any executor gate starts. Use this for runtime-project images, for example `["make --version", "shellcheck --version", "terraform --version", "tflint --version"]`. | `[]` |
 
@@ -341,16 +341,16 @@ teams can rename without code changes; the orchestrator refers to labels by role
 
 | Key | Meaning | Default |
 |---|---|---|
-| `mode` | `open` preserves supervised-pilot behavior; `none` starts the executor with `--network none`; `allowlist-proxy` gives the executor no direct internet path and injects HTTP/HTTPS proxy variables pointing at an ADOR-managed per-run proxy. | `"open"` |
+| `mode` | `open` preserves supervised-pilot behavior; `none` starts the executor with `--network none`; `allowlist-proxy` gives the executor no direct internet path and injects HTTP/HTTPS proxy variables pointing at an ADORE-managed per-run proxy. | `"open"` |
 | `allowlist` | Exact or wildcard hostnames allowed through the proxy, for example `["gitlab.example.com", "api.openai.com", "*.pythonhosted.org"]`. Schemes, paths, whitespace, shell characters, empty entries, and invalid hostnames are rejected. Required and non-empty for `allowlist-proxy`. | `[]` |
 | `no_proxy` | Hostnames bypassed by proxy-aware tools. Loopback defaults should usually remain. | `["localhost", "127.0.0.1", "::1"]` |
-| `proxy_image` | Generic Squid proxy image built from `docker/Dockerfile.egress-proxy`; no project hosts are baked into the image. | `"ador-egress-proxy:0.1.0"` |
+| `proxy_image` | Generic Squid proxy image built from `docker/Dockerfile.egress-proxy`; no project hosts are baked into the image. | `"adore-egress-proxy:1.0.0"` |
 | `proxy_port` | Port exposed by the per-run proxy container and used in injected proxy variables. | `3128` |
-| `network_prefix` | Prefix for per-run internal networks, followed by the safe executor container name. | `"ador-egress"` |
+| `network_prefix` | Prefix for per-run internal networks, followed by the safe executor container name. | `"adore-egress"` |
 
 Unattended deployment guardrail: systemd and Task Scheduler installers refuse
 `mode = "open"` unless `--allow-open-egress` / `-AllowOpenEgress` is passed.
-Manual supervised `ador run --once` remains allowed with open egress.
+Manual supervised `adore run --once` remains allowed with open egress.
 
 ## `[worktree]` - Worktree
 
@@ -365,8 +365,8 @@ Manual supervised `ador run --once` remains allowed with open egress.
 
 | Key | Meaning | Default |
 |---|---|---|
-| `max_iterations` | Max **executor launches** per run before failing closed. What counts: one launch per gate (6 for a clean pass) plus one per fix launch (merge-conflict resolution or a failing-gate fix during delivery) and per revise round. Clean delivery (no conflicts, gates green) launches the executor **zero** extra times - merge/preflight/push/MR are deterministic orchestrator actions. Sizing: `6` = clean pass only, zero fix headroom (crawl pilots); `12`-`15` = supervised operation with fix headroom; `20` (default) = unattended headroom. Tripping the budget never loses work: the run fails with the reason journaled and posted, and `ador retry` re-arms the counters and continues from the stored stage. | `20` |
-| `max_wall_clock_seconds` | Max wall-clock of **active work** per run; the clock restarts on `ador retry` and on resume-from-park (parked waiting time is bounded by `[clarification] answer_timeout` instead). | `3600` |
+| `max_iterations` | Max **executor launches** per run before failing closed. What counts: one launch per gate (6 for a clean pass) plus one per fix launch (merge-conflict resolution or a failing-gate fix during delivery) and per revise round. Clean delivery (no conflicts, gates green) launches the executor **zero** extra times - merge/preflight/push/MR are deterministic orchestrator actions. Sizing: `6` = clean pass only, zero fix headroom (crawl pilots); `12`-`15` = supervised operation with fix headroom; `20` (default) = unattended headroom. Tripping the budget never loses work: the run fails with the reason journaled and posted, and `adore retry` re-arms the counters and continues from the stored stage. | `20` |
+| `max_wall_clock_seconds` | Max wall-clock of **active work** per run; the clock restarts on `adore retry` and on resume-from-park (parked waiting time is bounded by `[clarification] answer_timeout` instead). | `3600` |
 | `max_cost_usd` | Max model spend per run. | `5.0` |
 | `max_files_touched` | Max files a run may change. | `40` |
 
@@ -399,7 +399,7 @@ the branch (the MR stays a draft).
 | `on_ticket_closed` | Action when a run's ticket is closed by a human. | `"cancel"` |
 | `on_trigger_removed` | Action when the trigger label is removed / `agent-hold` added mid-run (`pause`/`abort`/`ignore`). | `"pause"` |
 
-Manual overrides (`ador cancel/delete/reset/retry/cleanup`, `ador pause/resume`)
+Manual overrides (`adore cancel/delete/reset/retry/cleanup`, `adore pause/resume`)
 are CLI commands, not config; see design doc section 8c.
 
 ## `[metrics]` - Statistics
@@ -407,13 +407,13 @@ are CLI commands, not config; see design doc section 8c.
 | Key | Meaning | Default |
 |---|---|---|
 | `enabled` | Turn statistics capture on/off. | `true` |
-| `db_path` | SQLite database of run summaries (stdlib `sqlite3`). | `".ador/metrics.db"` |
-| `export_jsonl` | Mirrored append-only export of run summaries. | `".ador/metrics/runs.jsonl"` |
+| `db_path` | SQLite database of run summaries (stdlib `sqlite3`). | `".adore/metrics.db"` |
+| `export_jsonl` | Mirrored append-only export of run summaries. | `".adore/metrics/runs.jsonl"` |
 | `capture_tokens` | Record executor token usage per run/gate. | `true` |
 | `capture_resource` | Probe container/disk resource stats. | `true` |
-| `html_out` | Output path for `ador stats --html` static dashboard. | `".ador/metrics/stats.html"` |
+| `html_out` | Output path for `adore stats --html` static dashboard. | `".adore/metrics/stats.html"` |
 
-Access is CLI-first (`ador stats`, `ador report`, `ador export`) plus the
+Access is CLI-first (`adore stats`, `adore report`, `adore export`) plus the
 optional static HTML; there is no Prometheus endpoint or hosted service.
 
 ## Notes

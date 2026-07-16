@@ -6,14 +6,14 @@ See the LICENSE.txt file for full license details.
 SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
-# Component: Util (`ador/util.py`)
+# Component: Util (`adore/util.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/ador/util.py` - file version 0.2.0.
+> Source: `04_Software/adore/util.py` - file version 0.2.0.
 
 ## 1. Purpose
 
-Shared low-level helpers every other ADOR component builds on: running
+Shared low-level helpers every other ADORE component builds on: running
 external commands safely, parsing human-readable durations, and producing
 consistent UTC timestamps. It exists so that shelling out (glab, gh, git,
 docker, the executor CLI) happens in exactly one place with one error model.
@@ -34,7 +34,7 @@ docker, the executor CLI) happens in exactly one place with one error model.
 - Remove directory trees that contain read-only entries
   (`force_rmtree` - Windows git objects are read-only and plain
   `shutil.rmtree` fails on them; missing paths are fine, so teardown and
-  `ador cleanup` stay idempotent).
+  `adore cleanup` stay idempotent).
 
 Explicitly not owned: interpreting command output (each caller parses its own
 JSON/URLs) and retry/backoff policy (the orchestrator's concern).
@@ -83,7 +83,7 @@ isolation) run everything through a `CommandRunner`.
 ## 8. Usage
 
 ```python
-from ador.util import run_command, parse_duration
+from adore.util import run_command, parse_duration
 
 result = run_command(["glab", "issue", "list", "--output", "json"])
 if result.ok:

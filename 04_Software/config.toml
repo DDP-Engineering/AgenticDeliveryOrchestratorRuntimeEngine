@@ -8,13 +8,13 @@
 # CRAWL-PHASE PILOT configuration - supervised, tight budgets.
 # 2026-07-03: docker pilot, ticket #45 (merged).
 # 2026-07-05: PODMAN pilot (rootless, keep-id) on a new disposable ticket.
-# Run with:  uv run ador run --dry-run   then   uv run ador run --once
+# Run with:  uv run adore run --dry-run   then   uv run adore run --once
 # =============================================================================
 
 [agent]
-name  = "ADOR"
-slug  = "ador"
-email = "ador-bot@examplexdigital.fr"
+name  = "ADORE"
+slug  = "adore"
+email = "adore-bot@local"
 
 [platform]
 kind = "gitlab"
@@ -33,10 +33,10 @@ branch_rule = '^(feature|bugfix|release|hotfix)\/.*$'
 [container]
 # PODMAN PILOT: rootless podman inside WSL2 (verified 17/17 on
 # docker/verify-runtime.sh 2026-07-04). Rootless REQUIRES keep-id so the
-# container's ador (uid 1000) can write the bind-mounted worktree.
+# container's adore (uid 1000) can write the bind-mounted worktree.
 runtime  = "wsl -d Ubuntu-24.04 -- podman"
 run_args = ["--userns=keep-id"]
-image    = "ador-executor-cockpit-gcp:latest"
+image    = "adore-executor-cockpit-gcp:latest"
 runtime_env = { UV_LINK_MODE = "copy" }
 required_tool_checks = [
     "make --version",

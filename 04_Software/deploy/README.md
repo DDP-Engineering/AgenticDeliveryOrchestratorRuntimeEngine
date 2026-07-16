@@ -6,7 +6,7 @@ See the LICENSE.txt file for full license details.
 SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
-# ADOR Deployment
+# ADORE Deployment
 
 Deployment scripts for the two supported hosts (design doc 12/12a):
 **Ubuntu 22+** (production: systemd service) and **Windows 11** (first
@@ -30,7 +30,7 @@ Re-running after a `git pull` updates the environment in place.
    (`cp .env.example .env`; the file is gitignored). Secrets never go in
    `config.toml` and never appear on command lines (design 12b).
 4. Build the generic executor base image and any runtime-project image required
-   by the profile; for Cockpit-GCP, build `ador-executor-cockpit-gcp:latest`
+   by the profile; for Cockpit-GCP, build `adore-executor-cockpit-gcp:latest`
    from `docker/README.md`.
 5. Have a container runtime: native Docker Engine on Ubuntu; on Windows
    either native or Docker Engine inside WSL2
@@ -40,21 +40,21 @@ Re-running after a `git pull` updates the environment in place.
 
 ```bash
 ./deploy/install-ubuntu.sh              # prepare only (env, config, base image)
-./deploy/install-ubuntu.sh --service    # + install/enable/start ador.service
+./deploy/install-ubuntu.sh --service    # + install/enable/start adore.service
 ./deploy/install-ubuntu.sh --allow-open-egress --service  # supervised pilot override
 ./deploy/install-ubuntu.sh --uninstall  # stop/remove the unit (state kept)
 ```
 
-- The unit template is `deploy/ador.service`; the installer substitutes the
-  checkout path and the service user (`ADOR_USER=<name>` to override,
+- The unit template is `deploy/adore.service`; the installer substitutes the
+  checkout path and the service user (`ADORE_USER=<name>` to override,
   default: the invoking user) and installs to
-  `/etc/systemd/system/ador.service` (sudo only for this step).
-- `ExecStart` runs `.venv/bin/ador -c config.toml run --loop` with
+  `/etc/systemd/system/adore.service` (sudo only for this step).
+- `ExecStart` runs `.venv/bin/adore -c config.toml run --loop` with
   `WorkingDirectory` at the checkout, `Restart=on-failure` + 30 s backoff,
   and an optional `EnvironmentFile=<checkout>/.env` (the design-preferred
   OS-level secret path on a server).
-- Logs: `journalctl -u ador -f`. ADOR also mirrors `run` output to
-  `<store_root>/ador.log`. Control: `systemctl {status,stop,restart} ador`.
+- Logs: `journalctl -u adore -f`. ADORE also mirrors `run` output to
+  `<store_root>/adore.log`. Control: `systemctl {status,stop,restart} adore`.
 - `--skip-image` skips the image check/build (e.g. remote daemon).
 - Service install refuses `[container.egress] mode = "open"` unless
   `--allow-open-egress` is passed. Use `allowlist-proxy` or `none` for
@@ -72,19 +72,19 @@ Re-running after a `git pull` updates the environment in place.
 .\deploy\install-windows.ps1 -Uninstall                   # remove the task (state kept)
 ```
 
-- Registers the task **"ADOR Orchestrator"** running
-  `.venv\Scripts\ador.exe` with the working directory at the checkout (so
+- Registers the task **"ADORE Orchestrator & Runtime Engine"** running
+  `.venv\Scripts\adore.exe` with the working directory at the checkout (so
   `config.toml` and `.env` resolve), no execution time limit, and
-  `MultipleInstances IgnoreNew` (plus ADOR's own `.ador/ador.lock` - two
+  `MultipleInstances IgnoreNew` (plus ADORE's own `.adore/adore.lock` - two
   pollers on one store are impossible).
 - `-Mode loop` (default): starts `run --loop` at logon.
   `-Mode once`: runs `run --once` every `-IntervalMinutes` (design 12a's
   cron-style alternative; each pass exits, auditable per run).
-- ADOR mirrors `run --loop`, `run --once`, and `run --dry-run` output to the
-  rotating `<store_root>\ador.log`, which is the first place to inspect
-  Task Scheduler runs after `ador status` / `ador runs`.
+- ADORE mirrors `run --loop`, `run --once`, and `run --dry-run` output to the
+  rotating `<store_root>\adore.log`, which is the first place to inspect
+  Task Scheduler runs after `adore status` / `adore runs`.
 - The image is only **verified** on Windows (building through a WSL-wrapped
-  runtime needs path translation); use `-ImageTag ador-executor-cockpit-gcp:latest`
+  runtime needs path translation); use `-ImageTag adore-executor-cockpit-gcp:latest`
   when the profile points at the Cockpit-GCP image. Exact build commands are in
   `docker/README.md`.
 - Task registration refuses `[container.egress] mode = "open"` unless
@@ -101,15 +101,15 @@ Re-running after a `git pull` updates the environment in place.
 - **No silent open egress for unattended installs** - service/task installers
   fail when `[container.egress] mode = "open"` unless the operator passes the
   explicit supervised-pilot override.
-- **Uninstall keeps all state** - `.ador/`, worktrees, and containers
-  survive; use `ador cleanup` / `ador delete <run-id> --force` for those.
+- **Uninstall keeps all state** - `.adore/`, worktrees, and containers
+  survive; use `adore cleanup` / `adore delete <run-id> --force` for those.
 
 ## Operational quick reference
 
 ```bash
-ador status            # health, lock, run counts
-ador runs              # per-run table
-ador pause / resume    # gate ticket pickup (in-flight runs continue)
-ador cleanup           # after a crash: stale lock, orphans, husk dirs
-ador stats --html      # static dashboard (.ador/metrics/report.html)
+adore status            # health, lock, run counts
+adore runs              # per-run table
+adore pause / resume    # gate ticket pickup (in-flight runs continue)
+adore cleanup           # after a crash: stale lock, orphans, husk dirs
+adore stats --html      # static dashboard (.adore/metrics/report.html)
 ```

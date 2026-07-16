@@ -6,10 +6,10 @@ See the LICENSE.txt file for full license details.
 SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
-# Component: Metrics (`ador/metrics.py`)
+# Component: Metrics (`adore/metrics.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/ador/metrics.py` - file version 0.3.0.
+> Source: `04_Software/adore/metrics.py` - file version 0.3.0.
 > Design: Orchestrator_Design_And_Decisions.md section 13.
 
 ## 1. Purpose
@@ -35,7 +35,7 @@ optional self-contained static HTML file.
   (script-free, HTML-escaped, opens directly in a browser).
 - `profile_stats(db_path)` - one project's headline figures (runs, merged,
   failed, success_rate, avg_span_s, launches, tokens, cost, last_run) for the
-  `ador profile list`/`show` commands; a missing DB yields zeros.
+  `adore profile list`/`show` commands; a missing DB yields zeros.
 - `is_terminal(lifecycle)` - which states are recordable.
 
 Explicitly not owned: when to record (orchestrator, at terminal
@@ -60,8 +60,8 @@ transitions), token extraction (executor launcher), resource probing
 
 ## 4. Dependencies
 
-- Internal: `ador.state.StateStore` (journal/state/ticket),
-  `ador.util.iso_to_datetime`.
+- Internal: `adore.state.StateStore` (journal/state/ticket),
+  `adore.util.iso_to_datetime`.
 - External: stdlib only (`sqlite3`, `csv`, `json`, `html`).
 
 ## 5. Inputs And Outputs
@@ -79,9 +79,9 @@ transitions), token extraction (executor launcher), resource probing
 
 ## 7. Workflow Integration
 
-`ador stats [--since 30d] [--by priority|outcome] [--html] [--rebuild]`,
-`ador report <run-id>` (live compute from the journal - works for any run,
-recorded or not), `ador export --csv`. `--rebuild` re-summarizes all
+`adore stats [--since 30d] [--by priority|outcome] [--html] [--rebuild]`,
+`adore report <run-id>` (live compute from the journal - works for any run,
+recorded or not), `adore export --csv`. `--rebuild` re-summarizes all
 terminal runs in the store (used once to backfill the pilot run).
 
 ## 9. Validation And Tests
@@ -93,7 +93,7 @@ terminal runs in the store (used once to backfill the pilot run).
 - `tests/test_executor.py`: usage extraction (summed, malformed-tolerant).
 - `tests/test_orchestrator.py`: merged run records one row with summed usage;
   `enabled=false` records nothing.
-- Live: `ador stats --rebuild` backfilled pilot run #45 from its journal
+- Live: `adore stats --rebuild` backfilled pilot run #45 from its journal
   (merged, 6 gates, 2 clarification rounds, 1 review round, 31 launches).
 - Minimum validation after a change: `uv run --group dev pytest tests/test_metrics.py`.
 

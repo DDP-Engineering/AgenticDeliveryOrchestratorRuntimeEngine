@@ -6,27 +6,27 @@ See the LICENSE.txt file for full license details.
 SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
-# Component: Identity (`ador/identity.py`)
+# Component: Identity (`adore/identity.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/ador/identity.py` - file version 0.1.0.
+> Source: `04_Software/adore/identity.py` - file version 0.1.0.
 > Design: Orchestrator_Design_And_Decisions.md sections 5c and 5d.
 
 ## 1. Purpose
 
 Marker-based agent identity. The corporate GitLab has no dedicated bot
-account, so ADOR cannot rely on comment authorship. Instead, every comment it
-posts carries a visible tag (`[ADOR]`) and a hidden HTML-comment marker; any
+account, so ADORE cannot rely on comment authorship. Instead, every comment it
+posts carries a visible tag (`[ADORE]`) and a hidden HTML-comment marker; any
 comment **without** the marker is treated as human. This component builds and
 parses those markers and derives every slug-based name.
 
 ## 2. Responsibilities
 
 - `AgentIdentity` (frozen dataclass around `name`/`slug`):
-  - derived names: `tag` (`[ADOR]`), `store_root` (`.ador`),
-    `questions_file` (`ADOR_QUESTIONS.md`), `branch(run_id)`
-    (`ador/<run-id>`), `container_name(run_id)` (`ador-run-<run-id>`);
-  - `make_marker(run_id, kind, **extra)` -> `<!-- ador:run=... kind=... -->`;
+  - derived names: `tag` (`[ADORE]`), `store_root` (`.adore`),
+    `questions_file` (`ADORE_QUESTIONS.md`), `branch(run_id)`
+    (`adore/<run-id>`), `container_name(run_id)` (`adore-run-<run-id>`);
+  - `make_marker(run_id, kind, **extra)` -> `<!-- adore:run=... kind=... -->`;
   - `parse_marker(body)` -> field mapping or `None`;
   - `is_own_comment(body)` -> marker present or not;
   - `status_comment(run_id, state, stage, updated)` -> the full single
@@ -41,7 +41,7 @@ Explicitly not owned: posting/editing comments (forge adapters) and deciding
   GitHub: `<!-- <slug>:run=<run-id> kind=<kind> k=v ... -->`.
 - `kind` values: `status` (the single edited status comment), `question`
   (clarification post), `delivery` (draft-MR notification).
-- Parsing is slug-scoped (`<!-- ador:` only matches this agent) and
+- Parsing is slug-scoped (`<!-- adore:` only matches this agent) and
   DOTALL (a marker re-wrapped across lines still parses). When a body carries
   two markers, the first wins, deterministically.
 - A malformed marker parses as "no marker" - the comment counts as human.
@@ -66,7 +66,7 @@ Explicitly not owned: posting/editing comments (forge adapters) and deciding
   (keys `[A-Za-z0-9_-]+`, values non-whitespace) + `-->`. `run` and `kind`
   are always present.
 - Renaming the bot is a single `[agent]` config change; every derived
-  identifier follows (design 5c). Nothing else hard-codes "ador".
+  identifier follows (design 5c). Nothing else hard-codes "adore".
 
 ## 7. Workflow Integration
 
@@ -79,9 +79,9 @@ second, independent identity signal.
 ## 8. Usage
 
 ```python
-from ador.identity import AgentIdentity
+from adore.identity import AgentIdentity
 
-ident = AgentIdentity(name="ADOR", slug="ador")
+ident = AgentIdentity(name="ADORE", slug="adore")
 body = ident.status_comment("gitlab-x-14", "working", "intake", "2026-07-02 14:02")
 ident.is_own_comment(body)        # True
 ident.parse_marker(body)["kind"]  # "status"

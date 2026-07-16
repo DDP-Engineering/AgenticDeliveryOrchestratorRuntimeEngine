@@ -10,7 +10,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 > Component documentation per `component_documentation_template.md`.
 > Sources: `deploy/install-ubuntu.sh` (0.2.0), `deploy/install-windows.ps1`
-> (0.2.0), `deploy/ador.service` (template).
+> (0.2.0), `deploy/adore.service` (template).
 > Design: Orchestrator_Design_And_Decisions.md sections 12, 12a, 12b.
 
 ## 1. Purpose
@@ -24,19 +24,19 @@ this one directory as scripts, not code.
 ## 2. Responsibilities
 
 - `install-ubuntu.sh` - prerequisite checks (uv, git, glab/gh; docker unless
-  `--skip-image`), `uv sync --frozen`, `ador config validate`, executor-base
+  `--skip-image`), `uv sync --frozen`, `adore config validate`, executor-base
   image build when absent, and with `--service` the systemd unit install/enable/
   start (template rendering via `sed`, sudo only for the unit step);
   `--uninstall` removes the unit and keeps all state.
 - `install-windows.ps1` (Windows PowerShell 5.1 compatible) - the same
   prepare steps, executor-image **verification** for the configured
   `-Runtime` (including WSL-wrapped, e.g. `"wsl -d Ubuntu-24.04 -- docker"`),
-  and registration of the **"ADOR Orchestrator"** scheduled task: `-Mode
+  and registration of the **"ADORE Orchestrator & Runtime Engine"** scheduled task: `-Mode
   loop` (default, `run --loop` at logon, no execution time limit) or `-Mode
   once -IntervalMinutes N` (repeating single pass); `-Uninstall` removes the
   task and keeps all state.
-- `ador.service` - the systemd unit template: `__ADOR_DIR__` /
-  `__ADOR_USER__` placeholders, `WorkingDirectory` at the checkout (so
+- `adore.service` - the systemd unit template: `__ADORE_DIR__` /
+  `__ADORE_USER__` placeholders, `WorkingDirectory` at the checkout (so
   `config.toml` and `.env` resolve), optional `EnvironmentFile=-<dir>/.env`,
   `Restart=on-failure` + 30 s backoff, `NoNewPrivileges` / `PrivateTmp`.
 - `deploy/README.md` - the operator-facing deployment procedure.
@@ -60,8 +60,8 @@ are separate backlog items). The lightweight runtime bundle is owned by
   at `.env` (gitignored, documented by `.env.example`) or the unit's
   `EnvironmentFile`.
 - Double-poller protection is layered: the OS layer
-  (`MultipleInstances IgnoreNew` / single systemd unit) plus ADOR's own
-  `.ador/ador.lock`.
+  (`MultipleInstances IgnoreNew` / single systemd unit) plus ADORE's own
+  `.adore/adore.lock`.
 - The image is **built** on Ubuntu (native docker, absent-only) but only
   **verified** on Windows: building through a WSL-wrapped runtime needs
   mount-path translation, and the canonical commands live in
@@ -71,12 +71,12 @@ are separate backlog items). The lightweight runtime bundle is owned by
   `--allow-open-egress` / `-AllowOpenEgress`. `allowlist-proxy` verifies the
   proxy image; Ubuntu may build it, Windows prints the exact build command if
   it is absent.
-- Uninstall on both platforms removes only the service/task; `.ador/` state,
-  worktrees, and containers are `ador cleanup` / `ador delete` territory.
+- Uninstall on both platforms removes only the service/task; `.adore/` state,
+  worktrees, and containers are `adore cleanup` / `adore delete` territory.
 
 ## 4. Dependencies
 
-- Internal: the `ador` console script in `.venv` (created by `uv sync`),
+- Internal: the `adore` console script in `.venv` (created by `uv sync`),
   `config.toml`, optional `.env`, `docker/Dockerfile.executor-base`, and any
   runtime-project Dockerfile such as `docker/Dockerfile.executor-project`.
 - External: `uv`, `git`, `glab` or `gh`, a container runtime; `systemd`
@@ -88,18 +88,18 @@ are separate backlog items). The lightweight runtime bundle is owned by
 - Inputs: flags (`--service`, `--skip-image`, `--allow-open-egress`,
   `--uninstall` /
   `-Mode`, `-IntervalMinutes`, `-Runtime`, `-SkipImageCheck`, `-NoTask`,
-  `-AllowOpenEgress`, `-Uninstall`), the `ADOR_USER` override (Ubuntu), the
+  `-AllowOpenEgress`, `-Uninstall`), the `ADORE_USER` override (Ubuntu), the
   checkout location (derived from the script's own path - run from anywhere).
-- Outputs: a synced `.venv`, the `ador-executor-base:0.2.0` image (Ubuntu),
-  `/etc/systemd/system/ador.service` or the "ADOR Orchestrator" scheduled
-  task, human-readable progress notes, and ADOR-owned run logs under
-  `<store_root>/ador.log` once the installed service/task starts polling.
+- Outputs: a synced `.venv`, the `adore-executor-base:1.0.0` image (Ubuntu),
+  `/etc/systemd/system/adore.service` or the "ADORE Orchestrator & Runtime Engine" scheduled
+  task, human-readable progress notes, and ADORE-owned run logs under
+  `<store_root>/adore.log` once the installed service/task starts polling.
 
 ## 7. Workflow Integration
 
 Deployment is the last step of the setup chain: prerequisites
 (`Setup_And_Credentials.md`, `Prerequisites_Check_Report.md`) -> config ->
-image -> **this** -> the poller runs `ador run --loop`/`--once` unattended.
+image -> **this** -> the poller runs `adore run --loop`/`--once` unattended.
 Operations afterwards go through the CLI (`status`, `pause`, `cleanup`,
 `stats --html`) - there is no other control plane by design (12a).
 
@@ -109,8 +109,8 @@ Operations afterwards go through the CLI (`status`, `pause`, `cleanup`,
 # Ubuntu
 ./deploy/install-ubuntu.sh --service          # full: env, config, image, unit
 ./deploy/install-ubuntu.sh --allow-open-egress --service
-journalctl -u ador -f                          # host service logs
-tail -f .ador/ador.log                         # ADOR-owned run log
+journalctl -u adore -f                          # host service logs
+tail -f .adore/adore.log                         # ADORE-owned run log
 ./deploy/install-ubuntu.sh --uninstall         # remove the unit, keep state
 ```
 
@@ -118,7 +118,7 @@ tail -f .ador/ador.log                         # ADOR-owned run log
 # Windows
 .\deploy\install-windows.ps1 -Runtime "wsl -d Ubuntu-24.04 -- docker"
 .\deploy\install-windows.ps1 -AllowOpenEgress
-Start-ScheduledTask -TaskName "ADOR Orchestrator"
+Start-ScheduledTask -TaskName "ADORE Orchestrator & Runtime Engine"
 .\deploy\install-windows.ps1 -Uninstall
 ```
 

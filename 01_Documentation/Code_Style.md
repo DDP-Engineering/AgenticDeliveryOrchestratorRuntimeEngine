@@ -1,4 +1,4 @@
-﻿<!--
+<!--
 Copyright (c) 2026 DDP Engineering
 This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
@@ -10,7 +10,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 ## Purpose
 
 This document defines the code style, documentation style, and related
-implementation readability rules for the Agentic Delivery Orchestrator (ADOR).
+implementation readability rules for the Agentic Delivery Orchestrator & Runtime Engine (ADORE).
 
 ## General Code Style
 

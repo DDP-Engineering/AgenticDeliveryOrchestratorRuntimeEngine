@@ -1,4 +1,4 @@
-﻿<!--
+<!--
 Copyright (c) 2026 DDP Engineering
 This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
@@ -7,9 +7,9 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Setup and Credentials
 
-> **Status**: Implementation reference for ADOR 0.5.1. Everything that must be
+> **Status**: Implementation reference for ADORE 0.5.1. Everything that must be
 > installed, configured, or credentialed to run the Agentic Delivery
-> Orchestrator (ADOR), on Windows 11 and Ubuntu 22+. Token scopes verified
+> Orchestrator (ADORE), on Windows 11 and Ubuntu 22+. Token scopes verified
 > against the official GitLab and GitHub docs (July 2026); see References.
 
 ## 0. Setup Checklist (summary)
@@ -18,31 +18,31 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 |---|---|---|---|
 | 1 | `git` | host | Any recent version. |
 | 2 | Container runtime | host | Docker Desktop (Win) / Docker Engine or Podman (Ubuntu). |
-| 3 | Python 3.11+ and `uv` | host | For ADOR itself and the locked package environment. |
+| 3 | Python 3.11+ and `uv` | host | For ADORE itself and the locked package environment. |
 | 4 | Git-platform CLI | host | `glab` (GitLab) and/or `gh` (GitHub), authenticated. |
 | 5 | Executor CLI | container image | opencode / pi / codex / qwen. |
 | 6 | Git-platform token | `.env` / CLI auth | GitLab `api` scope, or GitHub fine-grained (see below). |
 | 7 | Model provider key | `.env` -> container | e.g. `ANTHROPIC_API_KEY`. |
 | 8 | Git identity for the bot | config | `agent.name` -> commit author. |
 | 9 | Branch protection | Git platform repo | Protect target branch; require approval so the bot cannot merge. |
-| 10 | `config.toml` | ADOR repo | Non-secret settings (see Configuration_Reference.md). |
+| 10 | `config.toml` | ADORE repo | Non-secret settings (see Configuration_Reference.md). |
 
 ## 1. Host Prerequisites
 
-Same on both OSes (ADOR is portable Python; the heavy tooling lives in the
+Same on both OSes (ADORE is portable Python; the heavy tooling lives in the
 container image):
 
 - **git** on `PATH`.
 - **Container runtime:** Docker Desktop (Windows 11) or Docker Engine / Podman
-  (Ubuntu 22). ADOR runs the executor in a container.
-- **Python 3.11+** plus **uv** for ADOR's locked runtime environment.
+  (Ubuntu 22). ADORE runs the executor in a container.
+- **Python 3.11+** plus **uv** for ADORE's locked runtime environment.
 - **Git-platform CLI**, authenticated (section 2): `glab` and/or `gh`.
 - **Network access** to the Git platform host (for example, a self-managed
   GitLab at `gitlab.example.com`) and to the model provider API.
 
 ## 2. Git Platform Credentials
 
-ADOR needs to: read issues and their comments, post/edit issue comments (status +
+ADORE needs to: read issues and their comments, post/edit issue comments (status +
 questions), read/apply labels, push a branch, create and update a (draft) merge
 or pull request, and read MR/PR review threads. It must **not** be able to merge.
 
@@ -57,7 +57,7 @@ marker-based, not account-based (see design doc 5c).
 **Scope:** `api`.
 
 - The `api` scope grants **complete read and write API access** for the token's
-  scope, which covers everything ADOR does through the API: create/update merge
+  scope, which covers everything ADORE does through the API: create/update merge
   requests, create and edit issue/MR **notes** (comments), read issues and
   discussions, and read/manage **labels**.
 - For a **personal access token**, `api` **also** grants read/write to the
@@ -84,10 +84,10 @@ per-endpoint scope for "merge requests only" - writing MRs/notes requires `api`.
 # self-managed host
 glab auth login --hostname gitlab.example.com
 # or non-interactive with a token:
-export GITLAB_TOKEN=<token>        # ADOR / glab read this
+export GITLAB_TOKEN=<token>        # ADORE / glab read this
 ```
 
-If `glab` is already authenticated on the host (as in the current setup), ADOR
+If `glab` is already authenticated on the host (as in the current setup), ADORE
 can ride that auth and no token is needed in `.env`. Provide `GITLAB_TOKEN` only
 for direct API calls or to run `glab` inside the container.
 
@@ -128,7 +128,7 @@ almost certainly must supply. Select the executor with `[executor] default` in
 `config.toml`.
 
 - **Which key** depends on the executor's configured provider, e.g.
-  `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, or a gateway key. Put it in `.env`; ADOR
+  `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, or a gateway key. Put it in `.env`; ADORE
   injects only this subset into the container at `docker run` time.
 - **opencode:** configured by `opencode.json` in the target repo (model, skills,
   permissions) plus the provider key in the environment. The repo's
@@ -147,11 +147,11 @@ almost certainly must supply. Select the executor with `[executor] default` in
 - **codex** (`@openai/codex`, config-selectable): runs through `codex exec`
   with `--json`, `--ignore-user-config`, `--disable plugins`, and a
   non-interactive sandbox/approval mode enforced by config validation. Codex
-  reads `AGENTS.md` natively. When `stage_host_auth = true`, ADOR stages host
+  reads `AGENTS.md` natively. When `stage_host_auth = true`, ADORE stages host
   `~/.codex/auth.json` into an isolated container `CODEX_HOME`.
 - **qwen** (`@qwen-code/qwen-code`, config-selectable): runs through `qwen -p`
   with JSON output. Qwen reads `AGENTS.md` natively and relies on the target
-  repo's `.qwen` hooks/deny list plus ADOR's container isolation. Qwen runs
+  repo's `.qwen` hooks/deny list plus ADORE's container isolation. Qwen runs
   stateless per gate; config validation rejects yolo approval mode.
 - **Never bake keys into the container image.** Pass them at launch only.
 
@@ -166,7 +166,7 @@ API key. The options:
 1. **API key (required for production).** Create a key on
    platform.openai.com (API billing is separate from the ChatGPT
    subscription; for corporate use, a company OpenAI API account or internal
-   gateway key). `OPENAI_API_KEY=sk-...` in `.env`; ADOR injects it into the
+   gateway key). `OPENAI_API_KEY=sk-...` in `.env`; ADORE injects it into the
    container; opencode reads it from the environment. Per-token billing is
    what the `max_cost_usd` run budget bounds. Put this on the security
    sign-off list.
@@ -196,15 +196,15 @@ API key. The options:
    use.
 
 **Decision pending:** which option the pilot and production use. Until then,
-runs launched by ADOR need one of the above arranged manually.
+runs launched by ADORE need one of the above arranged manually.
 
 ## 4. Git Identity for the Bot
 
 Not a secret, but required so commits are attributed consistently:
 
 - `git config user.name` / `user.email` inside the container derive from
-  `agent.name` (default `ADOR`). Use a recognizable identity, e.g.
-  `ADOR <ador-bot@example.com>`.
+  `agent.name` (default `ADORE`). Use a recognizable identity, e.g.
+  `ADORE <adore-bot@example.com>`.
 - This is separate from the marker used to distinguish comments (design doc 5c);
   it only affects commit authorship.
 
@@ -216,21 +216,21 @@ This is what makes "the agent never merges" a hard rule rather than a convention
 - **Require at least one approval** on the MR/PR before merge.
 - Allow **Developer/Write** to push feature branches and open MRs, but restrict
   **merge** of the protected branch to Maintainer/approved reviewers.
-- ADOR opens the MR/PR as a **draft**, which additionally cannot be merged until a
+- ADORE opens the MR/PR as a **draft**, which additionally cannot be merged until a
   human marks it ready.
 
 ## 6. Container Runtime and Image
 
 - Install Docker/Podman (section 1).
-- Build the **executor base image** once (`ador-executor-base:0.2.0`) with
-  ADOR/executor tooling baked in: Python 3.11 + `uv`, Node 24 + `npm`, `git`,
+- Build the **executor base image** once (`adore-executor-base:1.0.0`) with
+  ADORE/executor tooling baked in: Python 3.11 + `uv`, Node 24 + `npm`, `git`,
   executor CLIs, and `glab`/`gh`.
 - Build one **runtime-project image** per target project, extending the base
   image with that project's build/test tools. This repo includes the
-  `ador-executor-cockpit-gcp:latest` example; other projects should use their
+  `adore-executor-cockpit-gcp:latest` example; other projects should use their
   own Dockerfile and tag.
 - Create the persistent cache volumes referenced in `config.toml`
-  (`ador-uv-cache`, `ador-npm-cache`) so `uv sync` / `npm ci` are fast.
+  (`adore-uv-cache`, `adore-npm-cache`) so `uv sync` / `npm ci` are fast.
 
 ## 7. Where Each Value Goes
 

@@ -18,8 +18,8 @@
 from __future__ import annotations
 
 # IMPORTS
-from ador.gates import delivery_preflight, invariants, run_workflow_cli, workflow_status
-from ador.util import CommandResult
+from adore.gates import delivery_preflight, invariants, run_workflow_cli, workflow_status
+from adore.util import CommandResult
 
 # DATA MODELS / TYPEDEFINITIONS
 

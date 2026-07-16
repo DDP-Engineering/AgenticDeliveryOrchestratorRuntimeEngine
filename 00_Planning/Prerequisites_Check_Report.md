@@ -74,7 +74,7 @@ glab 1.105.0 (45c9976)
 ## 4. GitLab Issue JSON and Notes API (evidence)
 
 `glab issue list --repo <path> --output json` returns structured records with all
-fields ADOR needs for selection, readiness filtering, and comment handling:
+fields ADORE needs for selection, readiness filtering, and comment handling:
 
 - `iid`, `state`, `title`, `description`, `labels[]`, `author.username`,
   `assignees[]`, `web_url`, `references`, `user_notes_count`, and
@@ -113,7 +113,7 @@ non-interactive execution. Relevant flags:
 - **Risk:** running with `--auto` would auto-approve those, letting the executor
   push/merge - breaking the "orchestrator owns the remote" boundary.
 - **Action:** for the unattended path, **do not use `--auto`**, and set
-  push/pr/merge/publish to **`deny`** (not `ask`) in the opencode config ADOR
+  push/pr/merge/publish to **`deny`** (not `ask`) in the opencode config ADORE
   uses, so the executor is provably unable to touch the remote.
 
 ## 7. Design Implications / Actions Arising
@@ -181,7 +181,7 @@ push.
 ## 10. Mutating Spike Attempt - 2026-07-02 (inconclusive locally)
 
 Attempted to have opencode drive the `.agentic` CLI (`status`, `start`,
-`add-spec`) inside a throwaway git worktree on branch `spike/ador-test`, using
+`add-spec`) inside a throwaway git worktree on branch `spike/adore-test`, using
 `openai/gpt-5.4-fast`, no `--auto`, no push.
 
 **Setup findings (positive):**
@@ -212,7 +212,7 @@ definitive mutating test should be run **in the Linux executor container** with
 Python present), which removes all the Windows-specific friction. Track as the
 first implementation-phase verification, not a design open question.
 
-**Cleanup:** worktree and `spike/ador-test` branch removed; temp scripts/logs
+**Cleanup:** worktree and `spike/adore-test` branch removed; temp scripts/logs
 deleted; main repo working tree unchanged (only the pre-existing
 `.qwen/settings.json`).
 
@@ -238,22 +238,22 @@ verified against the live instance (glab 1.105.0, authenticated as
 `#note_<id>` URL the adapter parses. The adapter has a fallback (match the
 newest note with the same body), so the first mutating test will confirm it.
 
-**Also noted:** `glab mr create --auto-merge` exists; ADOR never passes it
+**Also noted:** `glab mr create --auto-merge` exists; ADORE never passes it
 (the delivery boundary stays draft-only).
 
 ## 12. Executor Image Build + Isolation E2E - 2026-07-03 (Docker in WSL2)
 
 Host change since section 2: Docker Desktop was replaced by **Docker Engine
 29.6.1 inside WSL2 (Ubuntu-24.04)**; the daemon is reached as
-`wsl -d Ubuntu-24.04 -- docker ...`. ADOR supports this via
+`wsl -d Ubuntu-24.04 -- docker ...`. ADORE supports this via
 `[container] runtime = "wsl -d Ubuntu-24.04 -- docker"` (wrapped runtime,
 auto-detected WSL mode: mount paths translated to `/mnt/<drive>/`, container
 env values propagated across the WSL boundary via `WSLENV`). Plain
 `runtime = "docker"` (Docker Desktop / native Linux) remains the other
 supported path; both are unit-tested.
 
-**Image build (`ador-executor:latest`, 1.62 GB): PASS.** The glab .deb release
-URL pattern worked as written. Contents verified: user `ador`, Node v20.20.2,
+**Image build (`adore-executor:latest`, 1.62 GB): PASS.** The glab .deb release
+URL pattern worked as written. Contents verified: user `adore`, Node v20.20.2,
 uv 0.11.26, git 2.34.1, glab 1.55.0, opencode 1.17.13.
 
 - **Finding (fixed):** Ubuntu 22.04's `python3.11` apt package is stuck at
@@ -265,7 +265,7 @@ uv 0.11.26, git 2.34.1, glab 1.55.0, opencode 1.17.13.
 Worktree create -> container provision -> tooling checks -> secret across
 WSLENV -> `git status`/`git commit` **inside** the container via the
 GIT_DIR/GIT_WORK_TREE model -> commit visible on the **host** with bot
-authorship (`ADOR <ador-bot@local>`) -> park (stop) -> resume (start, state
+authorship (`ADORE <adore-bot@local>`) -> park (stop) -> resume (start, state
 intact) -> teardown (container, worktree, branch).
 
 - **Caution for the executor-launcher phase:** `wsl.exe` re-joins arguments
@@ -281,7 +281,7 @@ container (Docker in WSL2) using trivial shell commands as the "executor",
 so no model credentials were involved: **PASS, 8/8.**
 
 - The gate command (prompt shell-quoted inside) is written to
-  `.ador/runs/<run-id>/io/gate.sh` and executed as `sh /ador/io/gate.sh` -
+  `.adore/runs/<run-id>/io/gate.sh` and executed as `sh /adore/io/gate.sh` -
   two space-free argv tokens, immune to the wsl.exe splitting above.
 - A hostile prompt (double quotes, `$`, backticks, `%`, embedded newline)
   **round-tripped byte-exact** host -> script -> WSL -> container -> output
@@ -302,8 +302,8 @@ push. The launcher protocol underneath it is now proven.
 
 The behavioral spike left open since section 8 ran to completion inside the
 executor container: a real `openai/gpt-5.5` opencode session on a scratch
-worktree/branch (`ador/spike-exec-1`) of the real target repo, launched
-through ADOR's own isolation + launcher stack. Host opencode auth was staged
+worktree/branch (`adore/spike-exec-1`) of the real target repo, launched
+through ADORE's own isolation + launcher stack. Host opencode auth was staged
 into the container for the run (never baked into the image). **PASS.**
 
 | Assertion | Result |
@@ -311,7 +311,7 @@ into the container for the run (never baked into the image). **PASS.**
 | (a) opencode executes the `.agentic` CLI non-interactively | **PASS** - `run.sh status` executed via its bash tool; the run-state JSON landed in the committed evidence file. It also loaded the `agentic-development` skill unprompted (workflow awareness confirmed). |
 | (b) stops cleanly | **PASS** - exit 0, bounded prompt followed step by step, replied DONE. |
 | (c) fails closed on a denied push | **PASS** - `git push --dry-run origin HEAD` was auto-rejected headless by the repo's `opencode.json` (`git push*` = ask): `permission requested: bash (git push ...); auto-rejecting`. No `--auto` involved; `git ls-remote` confirmed the scratch branch never reached the remote. |
-| Commit authorship via container env | **PASS** - the evidence commit shows `ADOR` (GIT_AUTHOR/COMMITTER from `build_container_env`). |
+| Commit authorship via container env | **PASS** - the evidence commit shows `ADORE` (GIT_AUTHOR/COMMITTER from `build_container_env`). |
 | Session id / event schema | **PASS** - NDJSON events (`step_start` / `tool_use` / `step_finish`), top-level `sessionID` (launcher extraction worked), full tool inputs/outputs/exit codes, and `step_finish` carries `tokens` (input/output/reasoning/cache) + `cost` - the metrics phase can read usage straight from the stream. |
 
 **Findings fixed during the spike (image + spike-order):**
@@ -331,11 +331,11 @@ branch-protection confirmation, security sign-off.
 ## 15. Crawl-Phase Pilot - 2026-07-03 (PASS, end to end)
 
 First full supervised run: real ticket #45 ("PILOT: add a Last updated line
-to README.md") on the real repo, conducted by `ador run --once` through the
+to README.md") on the real repo, conducted by `adore run --once` through the
 complete stack (selection -> claim -> worktree -> container -> OAuth staging
 -> gpt-5.5 gates -> invariants verification per gate). Wall clock ~25 min
 including two fix cycles. Result: run `validated-delivery-pending` with one
-clean commit by `ADOR` (README line + traceable test + red-before-green
+clean commit by `ADORE` (README line + traceable test + red-before-green
 evidence: 4 fail -> 20 pass), clean tree, ticket status comment updated in
 place per gate. Zero clarification parks; every gate passed invariants
 first try.
@@ -353,11 +353,11 @@ first try.
    relaunching validation with commit instructions, budget-bounded) plus a
    hardened gate-prompt rule.
 3. **Gate sequence:** the workflow CLI's canonical STAGES include
-   `alignment` between intake and requirement; ADOR's GATES now matches.
+   `alignment` between intake and requirement; ADORE's GATES now matches.
 4. Housekeeping: pytest collection scoped away from `worktrees/` (live run
    checkouts of the target repo).
 
-**Crawl-phase boundary respected:** ADOR never pushed and never opened an
+**Crawl-phase boundary respected:** ADORE never pushed and never opened an
 MR; branch review, push, and MR creation stay with the human until phase 4.
 
 ## 16. Delivery Live Pilot - 2026-07-03/04 (phase 4 on the real repo)
@@ -369,17 +369,17 @@ park, escalate - never a hang) and each fix landed with a regression test.
 
 | # | Finding | Fix |
 |---|---|---|
-| 1 | The target repo's gates (`make lint` / `make test`) hard-require system tools the image lacked: `make`, `shellcheck`, `terraform`, and `tflint` (found one gate-failure at a time). | Implemented as a generic `ador-executor-base:0.2.0` plus the Cockpit-GCP runtime-project image and fail-fast `[container] required_tool_checks`. |
+| 1 | The target repo's gates (`make lint` / `make test`) hard-require system tools the image lacked: `make`, `shellcheck`, `terraform`, and `tflint` (found one gate-failure at a time). | Implemented as a generic `adore-executor-base:1.0.0` plus the Cockpit-GCP runtime-project image and fail-fast `[container] required_tool_checks`. |
 | 2 | With a weak fix prompt and a missing binary, the model started **hacking around the gap** (modified `workflow.toml`, wrote a make-fallback script) before being stopped; with the tool provided and firmer prompts it instead **asked** (parked) - the wanted behavior. | Worktree litter reverted; prompts already hardened (commit rule); observation recorded for prompt design. |
 | 3 | opencode **sessions live inside the container**: recreating the container (image rebuild, TTL reap) killed the stored session and every relaunch failed instantly with "Session not found" until the budget stopped it. | `provision` now reports created/started/running and the orchestrator resets the stored session on "created"; the launcher additionally self-heals a dead session by relaunching once fresh. |
 | 4 | The **files-touched budget** counted upstream files staged by an in-progress target merge (13 of them) as the run's own scope and escalated before conflict resolution could start. | The files check is skipped while a merge is in progress. |
 | 5 | The **wall-clock budget** kept ticking through an 8-hour park and escalated instantly on resume. | Resume (like retry) restarts the active-work clock and iteration counter; parked time is bounded by answer_timeout, not the work budget. |
 | 6 | `retry`/`resume` of a delivery-stage run **restarted the gates from intake**; the aborted attempt also regressed the stored stage. | Both route to the delivery sequence now, and `_conduct` fails closed on any stage outside the gate list instead of silently starting over. |
-| 7 | A killed poller left a **stale instance lock**; the next `--once` refused (correct) but with a traceback (ugly). | Graceful CLI error with a removal hint; automatic stale-lock handling belongs to the pending `ador cleanup`. |
+| 7 | A killed poller left a **stale instance lock**; the next `--once` refused (correct) but with a traceback (ugly). | Graceful CLI error with a removal hint; automatic stale-lock handling belongs to the pending `adore cleanup`. |
 | 8 | The executor **trusted the workflow's recorded blocker note over re-checking the environment** (repeated a stale "tflint missing" question after tflint was installed). | Handled via the clarification answer (instruct to verify and supersede); systematic answer: deterministic checks run before any model consultation in the delivery loop, which is already the design. |
 
-| 9 | **HOME inside the container was wrong** for exec'd processes (this WSL2 docker setup), breaking tflint's HOME-keyed plugin handshake and threatening every HOME-based cache (uv, npm, opencode auth). A first fix passing HOME as a bare `--env` key made it WORSE: the WSL login shell resets HOME, so docker read the host user's home and overrode the image's correct ENV. | `ENV HOME=/home/ador` baked in the image AND passed inline (`--env HOME=/home/ador`) at provision; bare env keys stay reserved for secrets. Lesson: verify with `printenv`, never `echo $HOME`, through wsl.exe (shell expansion lies). |
-| 10 | `glab mr create` requires a local git checkout to resolve remotes even with `--repo` ("No git remotes found") - the push succeeded but MR creation failed from ADOR's own directory. | MR creation runs with cwd = the run's worktree (forge `open_merge_request` takes cwd). |
+| 9 | **HOME inside the container was wrong** for exec'd processes (this WSL2 docker setup), breaking tflint's HOME-keyed plugin handshake and threatening every HOME-based cache (uv, npm, opencode auth). A first fix passing HOME as a bare `--env` key made it WORSE: the WSL login shell resets HOME, so docker read the host user's home and overrode the image's correct ENV. | `ENV HOME=/home/adore` baked in the image AND passed inline (`--env HOME=/home/adore`) at provision; bare env keys stay reserved for secrets. Lesson: verify with `printenv`, never `echo $HOME`, through wsl.exe (shell expansion lies). |
+| 10 | `glab mr create` requires a local git checkout to resolve remotes even with `--repo` ("No git remotes found") - the push succeeded but MR creation failed from ADORE's own directory. | MR creation runs with cwd = the run's worktree (forge `open_merge_request` takes cwd). |
 
 Real conflict resolution was also exercised: `develop` moved mid-pilot and
 the executor resolved a genuine `.agentic/current_run` merge conflict and
@@ -392,7 +392,7 @@ retained container warm-started, executor made exactly the requested change
 (README line AND the traceability test updated to match), delivery tail
 re-ran green (merge, gates, preflight), same branch pushed, MR !29 updated
 in place and still a draft, update comment posted. ~10 minutes label to
-updated MR. Commit: "docs: add weekday to README last updated line" (ADOR).
+updated MR. Commit: "docs: add weekday to README last updated line" (ADORE).
 
 **Merge/done leg live-verified 2026-07-04 15:12 UTC: PASS.** Human merged
 MR !29; the next poll detected it, marked the run `done`, and tore down the
@@ -404,10 +404,10 @@ done + teardown - has now run live on the real repository.**
 
 **OUTCOME (2026-07-04 04:53 UTC): PASS end to end.** Ticket #45 went from
 the `agent-ready` label to **draft MR !29** on the real repository, fully
-conducted by ADOR: all six development gates, clarification park/answer/
+conducted by ADORE: all six development gates, clarification park/answer/
 resume with a human reply, target-branch integration with executor-resolved
 conflicts, `gates run` + `delivery-preflight` green, push of
-`feature/ador-45` (push rule respected), draft MR with reviewer assigned and
+`feature/adore-45` (push rule respected), draft MR with reviewer assigned and
 evidence-bearing description, environment retained for review. The remaining
 11b leg (human merges -> run `done` + teardown) triggers on the poll after
 the human merge.
@@ -426,23 +426,23 @@ real API key (or another provider's key).
 Verification of the assisted-config feature (Assisted_Config_And_Profiles_Plan
 tasks 1-6) on BOTH supported hosts. Both green.
 
-**Windows 11 (native, `ador` console script):** live throughout tasks 3-5.
-`ador init cockpit-gcp --answers answers.toml` printed the environment check
+**Windows 11 (native, `adore` console script):** live throughout tasks 3-5.
+`adore init cockpit-gcp --answers answers.toml` printed the environment check
 against the real git/glab (authenticated), emitted a minimal license-headered
-`config.toml` under `%APPDATA%`-style ADOR home, self-validated it, and printed
-next steps. `ador profile list/use/path` and `ador --profile cockpit-gcp config
+`config.toml` under `%APPDATA%`-style ADORE home, self-validated it, and printed
+next steps. `adore profile list/use/path` and `adore --profile cockpit-gcp config
 validate` all resolved correctly; `use_count`/`last_used_at` bumped on
 resolution; seeded metrics rendered RUNS/MERGED in `list` and the full stats
 block in `show`. Windows paths and the regex `branch_rule` round-tripped via
 literal single-quoted TOML (no escaping).
 
-**Ubuntu 24.04 / WSL2 (POSIX, `python3 -m ador` - runtime is stdlib-only, no
+**Ubuntu 24.04 / WSL2 (POSIX, `python3 -m adore` - runtime is stdlib-only, no
 venv needed):** full E2E green.
-- **Config home:** default resolved to `/home/<user>/.config/ador`; with
-  `XDG_CONFIG_HOME` set, to `$XDG_CONFIG_HOME/ador` (both live).
+- **Config home:** default resolved to `/home/<user>/.config/adore`; with
+  `XDG_CONFIG_HOME` set, to `$XDG_CONFIG_HOME/adore` (both live).
 - **Runtime detection:** `docker=True podman=True wsl_distros=[]` - WSL is
   correctly NOT probed on Linux; native runtimes found.
-- **`ador init`:** the environment check ran on a host that genuinely LACKS
+- **`adore init`:** the environment check ran on a host that genuinely LACKS
   `glab`, printing the exact Linux install guidance (`.deb` / `apt-get`) and the
   token-creation guidance (`glpat-` format, `glab auth login`), then proceeded
   (informational, non-blocking) and wrote a POSIX profile with a profile-owned
@@ -456,3 +456,27 @@ alternative) are best-effort pointers to standard package managers; no drift
 requiring a code change was found. Executor/glab AUTH remains an operator step
 (section 16 credential finding still applies) - the wizard only surfaces the
 guidance, it never handles secrets.
+
+## 18. ADORE 1.0.0 Hard-Cut Verification - 2026-07-16
+
+The complete product, Python namespace, CLI, configuration, state, container,
+deployment, packaging, documentation, and visual-asset rename was verified as a
+hard cut with no compatibility, migration, import, fallback, or alias behavior.
+
+- Offline suite: **268 passed**; Ruff passed for runtime, tests, and the release
+  consistency checker.
+- CLI/package: `adore --version` and `python -m adore --version` both report
+  `1.0.0`; an isolated wheel install exposes only the `adore` console script and
+  Python namespace.
+- Containers: `adore-executor-base:1.0.0` passed Docker open mode (17/17) and
+  rootless Podman open mode (17/17 with `--userns=keep-id`). Docker's
+  `adore-egress-proxy:1.0.0` allowlist mode passed all 21 checks, including an
+  allowed request and a denied request.
+- Deployment: the Windows installer passed in no-task mode and the Ubuntu 24.04
+  installer passed from the packaged runtime in no-service mode.
+- Delivery: `adore-runtime-1.0.0.zip` and
+  `adore-runtime-1.0.0.tar.gz` have the correct top-level directory, required
+  runtime content, metadata, and exclusions.
+- Release guard: exact-token scanning, presentation XML scanning, version
+  consistency, package metadata, image/service/task identifiers, and artifact
+  validation all passed.

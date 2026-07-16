@@ -5,9 +5,9 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
-# ADOR TODO
+# ADORE TODO
 
-This file tracks remaining ADOR planning items only. Historical findings that
+This file tracks remaining ADORE planning items only. Historical findings that
 have already been implemented, documented, and regression-tested should stay in
 the component docs, changelog, or prerequisite reports instead of accumulating
 here.
@@ -20,7 +20,7 @@ specific hardening that cannot be proven by offline unit tests.
 
 ### Pi
 
-Run a live Pi spike inside the ADOR executor image:
+Run a live Pi spike inside the ADORE executor image:
 
 - build the executor image with `@earendil-works/pi-coding-agent`;
 - confirm `pi -p --mode json --model <model> <prompt>` can run the target
@@ -35,7 +35,7 @@ Run a live Pi spike inside the ADOR executor image:
 
 Run a live Codex spike through the existing `[executor.codex]` command template:
 
-- confirm `codex exec --json` works with ADOR's staged `CODEX_HOME`;
+- confirm `codex exec --json` works with ADORE's staged `CODEX_HOME`;
 - verify `codex exec resume --last` continues gate context as expected;
 - pin the JSON event fields used for session/thread id and token/cost capture;
 - verify the `--ignore-user-config --disable plugins` posture prevents host
@@ -46,17 +46,17 @@ Run a live Codex spike through the existing `[executor.codex]` command template:
 Run a live Qwen spike through the existing `[executor.qwen]` command template:
 
 - confirm `qwen -p --output-format json` works inside the project image;
-- verify stateless per-gate execution is sufficient for the ADOR gate contract;
+- verify stateless per-gate execution is sufficient for the ADORE gate contract;
 - pin Qwen's JSON stats shape for usage/cost capture if available;
 - verify the target repo's `.qwen` hooks and deny list are loaded in headless
   mode and block push/MR/merge attempts.
 
 ## Prompt And Comment Text Externalization
 
-Move ADOR-owned prompt text out of Python once the current prompt behavior is
+Move ADORE-owned prompt text out of Python once the current prompt behavior is
 stable enough to treat as a maintained interface.
 
-Keep the hidden machine marker grammar in `ador/identity.py`, where creation and
+Keep the hidden machine marker grammar in `adore/identity.py`, where creation and
 parsing stay together. Externalize only human-visible wording and executor
 instructions, for example:
 
@@ -71,7 +71,7 @@ before executor-visible text is emitted.
 
 ## Config Editing Command
 
-`ador config set` is still a deliberate CLI stub. Decide whether to implement
+`adore config set` is still a deliberate CLI stub. Decide whether to implement
 it or remove the advertised subcommand.
 
 If implemented, it should:
@@ -86,26 +86,26 @@ If implemented, it should:
 
 ## Runtime-Project Image Scaffolding
 
-ADOR now supports per-profile runtime-project images and documents the base
+ADORE now supports per-profile runtime-project images and documents the base
 image pattern. The remaining improvement is an operator-friendly way to create a
 project image during setup.
 
 Possible implementation:
 
 - add a documented `docker/Dockerfile.executor-project.template` or generate one
-  from `ador init`;
+  from `adore init`;
 - let the operator specify required tools during setup and translate them into
   a starting Dockerfile plus `[container] required_tool_checks`;
 - keep the output project-specific and editable, rather than baking arbitrary
-  project dependencies into the ADOR base image;
+  project dependencies into the ADORE base image;
 - document how the generated project image should be rebuilt when the target
   repository's toolchain changes.
 
 ## Executor Container UID Alignment (deployment)
 
-The executor base image hardcodes the in-container `ador` user as UID/GID 1000
-(`Dockerfile.executor-base`: `useradd --create-home --uid 1000 ador`). Docker
-bind mounts do not remap user IDs, so when the ADOR host service runs as a user
+The executor base image hardcodes the in-container `adore` user as UID/GID 1000
+(`Dockerfile.executor-base`: `useradd --create-home --uid 1000 adore`). Docker
+bind mounts do not remap user IDs, so when the ADORE host service runs as a user
 whose UID is not 1000, the container (UID 1000) and the host service cannot both
 write the shared per-run worktree/io directories, and runs fail.
 
@@ -114,24 +114,24 @@ Observed live on the silk04 Ubuntu 24.04 deploy (2026-07-10): host service user
 
 - opencode `auth.json` staged at `~/.local/share/opencode/auth.json` was mode
   0600 and unreadable by the container user
-  (`auth staging failed: cp: cannot open '/ador/io/host-auth.json'`);
+  (`auth staging failed: cp: cannot open '/adore/io/host-auth.json'`);
 - bind-mounted run dirs created by the host service were not writable by UID
-  1000 (`cannot create /ador/io/output.jsonl: Permission denied`).
+  1000 (`cannot create /adore/io/output.jsonl: Permission denied`).
 
-Both were worked around host-side without changing ADOR, using default ACLs
+Both were worked around host-side without changing ADORE, using default ACLs
 (`setfacl -R -m u:1000:rwX` + `-d -m u:1000:rwX` on the store, worktrees, and the
 repo clone) plus `chmod 644` on the opencode `auth.json`. That works and persists
 but is a manual, per-host remediation.
 
 Decide on a durable fix so future deploys do not need the ACL/chmod steps:
 
-- **Cleanest:** run the ADOR service under a host account whose UID is 1000
+- **Cleanest:** run the ADORE service under a host account whose UID is 1000
   (e.g. the host's first user, or `useradd -u 1000` when that UID is free), so it
   matches the image out of the box.
 - **Most future-proof:** parametrize the image UID/GID as build args
-  (`ARG ADOR_UID=1000` / `ARG ADOR_GID=1000`) and build per-host with
-  `--build-arg ADOR_UID=$(id -u) --build-arg ADOR_GID=$(id -g)`, so the container
-  user matches whatever host user runs ADOR. Aligns with the rootless-podman
+  (`ARG ADORE_UID=1000` / `ARG ADORE_GID=1000`) and build per-host with
+  `--build-arg ADORE_UID=$(id -u) --build-arg ADORE_GID=$(id -g)`, so the container
+  user matches whatever host user runs ADORE. Aligns with the rootless-podman
   `--userns=keep-id` note and the "dedicated service account" prerequisite item.
 
 Either option removes the need for the ACL/`chmod` remediation entirely. Document
@@ -139,14 +139,14 @@ the chosen approach in the deployment guide and the prerequisites report.
 
 **Bottom line for the next deploy:**
 
-- Cleanest: make the ADOR service account UID 1000 (option 1), or
+- Cleanest: make the ADORE service account UID 1000 (option 1), or
 - Most future-proof: parametrize the image UID (option 2) and build per-host.
 - Either eliminates the need for the ACL/chmod steps entirely.
 
 ## Native App / Executable Packaging
 
 The current supported distribution is the trimmed runtime bundle created by
-`02_Tools/package_runtime.*`. Investigate whether ADOR should also ship as:
+`02_Tools/package_runtime.*`. Investigate whether ADORE should also ship as:
 
 - a Windows executable or installer;
 - a Linux package;
@@ -167,7 +167,7 @@ still useful.
 
 Create a short presentation for new operators and sponsors that explains:
 
-- what ADOR does and does not do;
+- what ADORE does and does not do;
 - the human merge boundary;
 - the ticket/label lifecycle;
 - profiles and runtime-project images;

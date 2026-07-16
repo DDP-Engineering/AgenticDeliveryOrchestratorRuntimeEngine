@@ -5,18 +5,18 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 #
 # =============================================================================
-# Cockpit-GCP runtime-project executor image (ador-executor-cockpit-gcp:latest)
+# Cockpit-GCP runtime-project executor image (adore-executor-cockpit-gcp:latest)
 #
-# Project-specific layer for Cockpit-GCP gates. It extends the generic ADOR
+# Project-specific layer for Cockpit-GCP gates. It extends the generic ADORE
 # executor base and adds only the build/test tools required by this runtime
 # project.
 #
 # Build:
-#   docker build -f Dockerfile.executor-base -t ador-executor-base:0.2.0 .
-#   docker build -f Dockerfile.executor-cockpit-gcp -t ador-executor-cockpit-gcp:latest .
+#   docker build -f Dockerfile.executor-base -t adore-executor-base:1.0.0 .
+#   docker build -f Dockerfile.executor-cockpit-gcp -t adore-executor-cockpit-gcp:latest .
 # =============================================================================
 
-ARG BASE_IMAGE=ador-executor-base:0.2.0
+ARG BASE_IMAGE=adore-executor-base:1.0.0
 FROM ${BASE_IMAGE}
 
 ARG TFLINT_VERSION=0.63.1
@@ -38,4 +38,4 @@ RUN curl -fsSL https://apt.releases.hashicorp.com/gpg \
     && rm -rf /tmp/tflint /tmp/tflint.zip \
     && tflint --version
 
-USER ador
+USER adore

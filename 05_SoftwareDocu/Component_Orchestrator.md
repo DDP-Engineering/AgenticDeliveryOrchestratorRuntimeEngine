@@ -6,10 +6,10 @@ See the LICENSE.txt file for full license details.
 SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
-# Component: Orchestrator (`ador/orchestrator.py`)
+# Component: Orchestrator (`adore/orchestrator.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/ador/orchestrator.py` - file version 0.6.0.
+> Source: `04_Software/adore/orchestrator.py` - file version 0.6.0.
 > Design: Orchestrator_Design_And_Decisions.md sections 5a, 7a, 8, 9, 10.
 
 ## 1. Purpose
@@ -66,7 +66,7 @@ the executor.
 - **Operator commands** (design 8c), used by the CLI: `cancel` (teardown,
   keep state), `retry` (re-arm from the stored stage), `reset` (state
   surgery - force the stage pointer to any gate or `delivery`, leave the run
-  failed/retry-able; `ador retry` then conducts from exactly that stage),
+  failed/retry-able; `adore retry` then conducts from exactly that stage),
   and `cleanup` (garbage collection - clear a stale instance lock, remove
   containers and worktree directories whose runs are terminal or unknown,
   including husk directories left by the WSL bind-mount teardown race).
@@ -90,7 +90,7 @@ the executor.
   branch. On WSL2 the container's 9P bind mount releases asynchronously, so
   worktree removal is retried with backoff (~7s) but ONLY on the transient
   mount-race signatures (ENOSYS/EBUSY/ENOTEMPTY); a real error is not
-  retried, and a still-stuck mount leaves a husk that `ador cleanup` sweeps.
+  retried, and a still-stuck mount leaves a husk that `adore cleanup` sweeps.
   Native docker/Linux succeeds on the first try. Run state always survives.
 - **The revise cycle** (design 11b): the `agent-revise` label on the open MR
   is the trigger - a plain comment never auto-reacts. Exact order: rounds
@@ -121,10 +121,10 @@ interface) and metrics.
   executor's host `auth.json` is copied into the container through the io
   mount and scrubbed from io immediately - the OAuth bridge from
   Setup_And_Credentials.md 3.1. Codex uses host `~/.codex/auth.json` as the
-  source but stages it into `/home/ador/.ador-codex`, which is also injected
+  source but stages it into `/home/adore/.adore-codex`, which is also injected
   as `CODEX_HOME`, so machine-local Codex plugin/config state is not reused.
 - `_container_env` composes the environment used for both container creation
-  and every `exec`: ADOR-managed Git/Home variables, non-secret
+  and every `exec`: ADORE-managed Git/Home variables, non-secret
   `[container] runtime_env` values such as `UV_LINK_MODE=copy`, executor
   secrets from `[executor] env_keys`, and selected-executor runtime values
   such as Codex `CODEX_HOME`.
@@ -147,7 +147,7 @@ interface) and metrics.
   failure context.
 - After every executor `GateRun`, `_journal_artifacts` appends immutable
   archive paths to the run journal when the launcher returned any. This makes
-  `ador logs <run-id>` the index into raw gate evidence without changing the
+  `adore logs <run-id>` the index into raw gate evidence without changing the
   current live io exchange files.
 - The status comment is posted once (id in state.json) and edited in place
   afterwards; comment identity is marker-based throughout.
@@ -183,18 +183,18 @@ interface) and metrics.
 
 ## 7. Workflow Integration
 
-`ador run --loop` (service) or `--once` (cron/Task Scheduler) enters here.
+`adore run --loop` (service) or `--once` (cron/Task Scheduler) enters here.
 Delivery and review reuse the same executor-launch archive mechanism for
 conflict/preflight fixes and reviewer-requested revise work.
 
 ## 8. Usage
 
 ```bash
-ador run --dry-run   # what would be picked, no side effects
-ador run --once      # one poll pass (cron / Task Scheduler)
-ador run --loop      # the long-running poller
-ador cancel <run-id> && ador retry <run-id>
-ador logs <run-id>
+adore run --dry-run   # what would be picked, no side effects
+adore run --once      # one poll pass (cron / Task Scheduler)
+adore run --loop      # the long-running poller
+adore cancel <run-id> && adore retry <run-id>
+adore logs <run-id>
 ```
 
 ## 9. Validation And Tests
@@ -224,5 +224,5 @@ ador logs <run-id>
 - Reconciliation of hold/trigger-removed mid-run and content-hash drift
   reactions (design 8a/8c) are not yet wired.
 - Crashed `working` runs are skipped on restart (design 8) and need a manual
-  `ador retry`; automatic crash-resume is a later refinement.
+  `adore retry`; automatic crash-resume is a later refinement.
 - The executor cost budget needs token accounting (metrics phase).

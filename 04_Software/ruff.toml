@@ -5,7 +5,7 @@
 
 target-version = "py311"
 line-length = 100
-src = ["ador", "tests"]
+src = ["adore", "tests"]
 
 [lint]
 select = ["E", "F", "I", "W", "UP", "B", "SIM"]

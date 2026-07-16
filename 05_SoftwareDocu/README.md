@@ -21,45 +21,48 @@ guides belong in `01_Documentation/`.
 
 ## Component documentation (phase 1 - base services)
 
+- `Component_Branding.md` - canonical ADORE product, package, filesystem,
+  container, deployment, and delivery identity constants
+  (`adore/branding.py`).
 - `Component_Util.md` - shared helpers: injectable command runner, duration
-  parsing, UTC timestamps (`ador/util.py`).
+  parsing, UTC timestamps (`adore/util.py`).
 - `Component_Config.md` - typed `config.toml` loading, slug-derived defaults,
-  and validation (`ador/config.py`).
+  and validation (`adore/config.py`).
 - `Component_Identity.md` - marker-based comment identity and slug-derived
-  naming (`ador/identity.py`).
+  naming (`adore/identity.py`).
 - `Component_State_Store.md` - the authoritative local run state, run-id,
   content hash, lock, pause flag, fail-closed corrupt-state handling
-  (`ador/state.py`).
+  (`adore/state.py`).
 - `Component_Forge_Adapters.md` - the Git-platform boundary: `Forge`
   interface plus the GitLab (`glab`) and GitHub (`gh`) adapters
-  (`ador/forge/`).
-- `Component_CLI.md` - the `ador` command surface and exit-code contract
-  (`ador/cli.py`).
+  (`adore/forge/`).
+- `Component_CLI.md` - the `adore` command surface and exit-code contract
+  (`adore/cli.py`).
 
 ## Component documentation (phase 2 - isolation and executor)
 
 - `Component_Isolation.md` - per-run git worktree + executor container
   lifecycle, the GIT_DIR/GIT_WORK_TREE mounting model, and executor
-  base/runtime-project images (`ador/isolation.py`, `docker/`).
+  base/runtime-project images (`adore/isolation.py`, `docker/`).
 - `Component_Executor_Launcher.md` - headless gate launches through the
   file-based gate protocol (WSL-safe, output captured to files), session
-  continuation, questions detection (`ador/executor/`).
+  continuation, questions detection (`adore/executor/`).
 
 ## Component documentation (phase 3 - the conductor engine)
 
 - `Component_Orchestrator.md` - the thick-conductor state machine: polling,
   selection, the per-gate loop, clarification park/resume, budgets,
-  signaling, cancel/retry (`ador/orchestrator.py`).
+  signaling, cancel/retry (`adore/orchestrator.py`).
 - `Component_Gates.md` - the .agentic workflow CLI wrappers (the conductor's
-  objective verification between gates) (`ador/gates.py`).
+  objective verification between gates) (`adore/gates.py`).
 
 ## Component documentation (phase 4 - delivery and observability)
 
 - `Component_Metrics.md` - statistics capture and query: journal -> SQLite
   run summaries, stats/report/export CLI, static HTML dashboard
-  (`ador/metrics.py`).
-- `Component_Process_Log.md` - ADOR-owned rotating `run` command log at
-  `<store_root>/ador.log` (`ador/process_log.py`).
+  (`adore/metrics.py`).
+- `Component_Process_Log.md` - ADORE-owned rotating `run` command log at
+  `<store_root>/adore.log` (`adore/process_log.py`).
 - `Component_Deployment.md` - Task Scheduler/systemd deployment scripts and
   service setup (`04_Software/deploy/`).
 - `Component_Packaging.md` - runtime-bundle packaging scripts

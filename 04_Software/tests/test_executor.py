@@ -26,7 +26,7 @@ from collections.abc import Callable, Sequence
 import json
 from pathlib import Path
 
-from ador.executor.launcher import (
+from adore.executor.launcher import (
     ARCHIVE_DIR,
     GATE_SCRIPT,
     OUTPUT_FILE,
@@ -37,7 +37,7 @@ from ador.executor.launcher import (
     QwenExecutor,
     build_executor,
 )
-from ador.util import CommandResult
+from adore.util import CommandResult
 import pytest
 
 # CONSTANTS
@@ -138,7 +138,7 @@ def test_gate_script_protocol_is_wsl_safe(tmp_path: Path) -> None:
     """
     @brief   The prompt lives shell-quoted inside gate.sh; the exec argv is
              two space-free tokens, so nothing can be split by wsl.exe.
-    @version 0.1.0
+    @version 0.1.1
     """
     worktree, io_dir = _dirs(tmp_path)
     prompt = 'Run the intake gate for ticket #14: "Global Refresh" (scope: small)'
@@ -152,15 +152,15 @@ def test_gate_script_protocol_is_wsl_safe(tmp_path: Path) -> None:
     exec_target = FakeExec(CommandResult(exit_code=0), write_output)
     run = executor.run_gate(exec_target, worktree, io_dir, prompt, timeout=1200)
 
-    assert exec_target.calls == [["sh", f"/ador/io/{GATE_SCRIPT}"]]
+    assert exec_target.calls == [["sh", f"/adore/io/{GATE_SCRIPT}"]]
     assert exec_target.timeouts == [1200]
     script = (io_dir / GATE_SCRIPT).read_text(encoding="utf-8")
     assert "\r" not in script  # LF only; CRLF breaks sh
-    assert "cd /ador/work" in script
-    assert "--dir /ador/work" in script
+    assert "cd /adore/work" in script
+    assert "--dir /adore/work" in script
     assert "-m openai/gpt-5.4-fast" in script
     assert "'" in script and "Global Refresh" in script  # prompt quoted inside
-    assert f"> /ador/io/{OUTPUT_FILE}" in script
+    assert f"> /adore/io/{OUTPUT_FILE}" in script
     assert run.ok
     assert run.session_id == "ses_abc123"
     assert not run.has_questions
@@ -187,13 +187,13 @@ def test_questions_file_parks_the_gate(tmp_path: Path) -> None:
     """
     @brief   A questions file written during the gate is detected and read;
              a clean exit does not mask it.
-    @version 0.1.0
+    @version 0.1.1
     """
     worktree, io_dir = _dirs(tmp_path)
     executor = _executor()
 
     def ask() -> None:
-        (worktree / "ADOR_QUESTIONS.md").write_text(
+        (worktree / "ADORE_QUESTIONS.md").write_text(
             "1. Which variant applies?\n", encoding="utf-8"
         )
 
@@ -208,10 +208,10 @@ def test_stale_questions_file_is_cleared_before_launch(tmp_path: Path) -> None:
     @brief   A leftover questions file from an earlier round never
              false-parks the next gate: presence after the gate must mean it
              was written by THIS gate.
-    @version 0.1.0
+    @version 0.1.1
     """
     worktree, io_dir = _dirs(tmp_path)
-    stale = worktree / "ADOR_QUESTIONS.md"
+    stale = worktree / "ADORE_QUESTIONS.md"
     stale.write_text("old round\n", encoding="utf-8")
     run = _executor().run_gate(FakeExec(CommandResult(exit_code=0)), worktree, io_dir, "p")
     assert not run.has_questions
@@ -500,12 +500,12 @@ def test_qwen_questions_and_failure_inherited(tmp_path: Path) -> None:
     """
     @brief   Clarification parking and fail-closed pass-through come from the
              shared base unchanged.
-    @version 0.1.0
+    @version 0.1.1
     """
     worktree, io_dir = _dirs(tmp_path)
 
     def ask() -> None:
-        (worktree / "ADOR_QUESTIONS.md").write_text("1. Which target?\n", encoding="utf-8")
+        (worktree / "ADORE_QUESTIONS.md").write_text("1. Which target?\n", encoding="utf-8")
 
     parked = QwenExecutor(QWEN_TEMPLATE, "m").run_gate(
         FakeExec(CommandResult(exit_code=0), ask), worktree, io_dir, "p")
@@ -522,8 +522,8 @@ def test_qwen_questions_and_failure_inherited(tmp_path: Path) -> None:
 def test_factory_selects_codex_and_allows_container_full_auto() -> None:
     """
     @brief   `default = "codex"` selects CodexExecutor; full-auto is allowed
-             because ADOR relies on the executor container as the sandbox.
-    @version 0.1.1
+             because ADORE relies on the executor container as the sandbox.
+    @version 0.1.2
     """
     executor = build_executor("codex", CODEX_TEMPLATE, "gpt-5.5-codex")
     assert isinstance(executor, CodexExecutor)
@@ -580,12 +580,12 @@ def test_codex_questions_and_failure_inherited(tmp_path: Path) -> None:
     """
     @brief   Clarification parking and fail-closed pass-through come from the
              shared base unchanged.
-    @version 0.1.0
+    @version 0.1.1
     """
     worktree, io_dir = _dirs(tmp_path)
 
     def ask() -> None:
-        (worktree / "ADOR_QUESTIONS.md").write_text("1. Which env?\n", encoding="utf-8")
+        (worktree / "ADORE_QUESTIONS.md").write_text("1. Which env?\n", encoding="utf-8")
 
     parked = CodexExecutor(CODEX_TEMPLATE, "m").run_gate(
         FakeExec(CommandResult(exit_code=0), ask), worktree, io_dir, "p")
@@ -603,19 +603,19 @@ def test_factory_selects_pi() -> None:
     """
     @brief   `[executor] default = "pi"` selects the PiExecutor; a Pi template
              needs no --auto guard (Pi has no such flag) and is accepted.
-    @version 0.1.0
+    @version 0.1.1
     """
     executor = build_executor("pi", PI_TEMPLATE, "openai/gpt-5.5")
     assert isinstance(executor, PiExecutor)
     # the shared file protocol is inherited: same gate.sh, same argv shape
-    assert executor.questions_file == "ADOR_QUESTIONS.md"
+    assert executor.questions_file == "ADORE_QUESTIONS.md"
 
 
 def test_pi_gate_uses_shared_protocol_and_session(tmp_path: Path) -> None:
     """
     @brief   Pi runs through the same WSL-safe gate.sh protocol and appends
              `--session` for continuation, exactly like opencode.
-    @version 0.1.0
+    @version 0.1.1
     """
     worktree, io_dir = _dirs(tmp_path)
     executor = PiExecutor(PI_TEMPLATE, "openai/gpt-5.5")
@@ -624,7 +624,7 @@ def test_pi_gate_uses_shared_protocol_and_session(tmp_path: Path) -> None:
     calls_script = (io_dir / GATE_SCRIPT).read_text(encoding="utf-8")
     assert "pi -p --mode json --model openai/gpt-5.5" in calls_script
     assert "--session ses_prev" in calls_script
-    assert "\r" not in calls_script and "cd /ador/work" in calls_script
+    assert "\r" not in calls_script and "cd /adore/work" in calls_script
     assert run.session_id == "ses_prev"     # no output -> keep the known id
 
 
@@ -632,13 +632,13 @@ def test_pi_session_id_parsed_from_session_header(tmp_path: Path) -> None:
     """
     @brief   Pi's JSON stream opens with a {"type":"session","id":...} header;
              the id is read from that event (not opencode's sessionID key).
-    @version 0.1.0
+    @version 0.1.1
     """
     worktree, io_dir = _dirs(tmp_path)
 
     def write_stream() -> None:
         (io_dir / OUTPUT_FILE).write_text(
-            '{"type":"session","version":3,"id":"pi-uuid-123","cwd":"/ador/work"}\n'
+            '{"type":"session","version":3,"id":"pi-uuid-123","cwd":"/adore/work"}\n'
             '{"type":"message_update","assistantMessageEvent":{"type":"text_delta",'
             '"delta":"working"}}\n',
             encoding="utf-8",
@@ -655,12 +655,12 @@ def test_pi_questions_and_failure_behave_like_the_shared_base(tmp_path: Path) ->
     """
     @brief   Clarification parking and fail-closed pass-through are inherited
              unchanged from the shared protocol.
-    @version 0.1.0
+    @version 0.1.1
     """
     worktree, io_dir = _dirs(tmp_path)
 
     def ask() -> None:
-        (worktree / "ADOR_QUESTIONS.md").write_text("1. Which region?\n", encoding="utf-8")
+        (worktree / "ADORE_QUESTIONS.md").write_text("1. Which region?\n", encoding="utf-8")
 
     parked = PiExecutor(PI_TEMPLATE, "m").run_gate(
         FakeExec(CommandResult(exit_code=0), ask), worktree, io_dir, "p")

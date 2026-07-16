@@ -8,12 +8,13 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # Component: Packaging (`02_Tools/package_runtime.*`)
 
-> Sources: `02_Tools/package_runtime.ps1`, `02_Tools/package_runtime.cmd`,
+> Sources: `02_Tools/check_release_consistency.py`,
+> `02_Tools/package_runtime.ps1`, `02_Tools/package_runtime.cmd`, and
 > `02_Tools/package_runtime.sh`.
 
 ## 1. Purpose
 
-Create a small operator-facing ADOR runtime bundle without copying the whole
+Create a small operator-facing ADORE runtime bundle without copying the whole
 development repository. The bundle is intentionally a transparent Python
 package directory, not a PyInstaller executable or OS-native package.
 
@@ -22,10 +23,12 @@ package directory, not a PyInstaller executable or OS-native package.
 - Stage only the runtime files needed from `04_Software/`.
 - Include `deploy/` so the unpacked bundle can install Windows Task Scheduler
   or Ubuntu systemd setup with the existing deployment scripts.
-- Exclude local development and runtime state: `.venv/`, `.ador/`, worktrees,
+- Exclude local development and runtime state: `.venv/`, `.adore/`, worktrees,
   tests, caches, and `.env`.
 - Name packages from the release version in `04_Software/pyproject.toml`.
 - Copy `config.toml` only when explicitly requested; never copy `.env`.
+- Fail closed when release metadata, runtime branding, deployment resources,
+  delivery artifacts, or forbidden pre-1.0 identity tokens drift.
 
 Native Windows single-file executables, Ubuntu `.deb` packages, and image
 publishing are not owned by this component.
@@ -35,8 +38,8 @@ publishing are not owned by this component.
 The PowerShell and Bash scripts independently implement the same bundle shape:
 
 ```text
-ador-runtime-<version>/
-  ador/
+adore-runtime-<version>/
+  adore/
   deploy/
   docker/
   pyproject.toml
@@ -69,8 +72,8 @@ Inputs:
 
 Outputs:
 
-- `07_Delivery/ador-runtime-<version>.zip` from PowerShell by default.
-- `07_Delivery/ador-runtime-<version>.tar.gz` from Bash by default.
+- `07_Delivery/adore-runtime-<version>.zip` from PowerShell by default.
+- `07_Delivery/adore-runtime-<version>.tar.gz` from Bash by default.
 - A directory bundle when requested.
 
 ## 6. Data Contracts
@@ -84,16 +87,20 @@ for their host.
 
 Packaging happens after implementation validation and before host deployment.
 Deployment itself remains the responsibility of the included `deploy/` scripts.
+The consistency check runs before packaging and again with
+`--require-artifacts` after both delivery archives exist.
 
 ## 8. Usage
 
 ```powershell
+python .\02_Tools\check_release_consistency.py
 .\02_Tools\package_runtime.ps1
 .\02_Tools\package_runtime.ps1 -Format directory
 .\02_Tools\package_runtime.cmd -OutputDir D:\packages
 ```
 
 ```bash
+python3 02_Tools/check_release_consistency.py
 bash 02_Tools/package_runtime.sh
 bash 02_Tools/package_runtime.sh --format zip
 bash 02_Tools/package_runtime.sh --include-config
@@ -108,6 +115,8 @@ Minimum validation after changes:
 - Bash syntax check (`bash -n`) and one temporary bundle creation.
 - Inspect the bundle to confirm excluded paths are absent and `deploy/` is
   present.
+- Run `check_release_consistency.py --require-artifacts` and confirm it accepts
+  only `adore-runtime-1.0.0.zip` and `adore-runtime-1.0.0.tar.gz`.
 
 ## 10. Limitations And Future Work
 

@@ -9,10 +9,10 @@
 # -----------------------------------------------------------------------------
 """
 @file conftest.py
-@brief Shared pytest fixtures for the ADOR test suite.
+@brief Shared pytest fixtures for the ADORE test suite.
 @author Eng. Dan Dumitru Pasare
 @date 2026-07-05
-@version 0.1.0
+@version 0.2.0
 """
 
 from __future__ import annotations
@@ -26,21 +26,21 @@ import pytest
 
 
 @pytest.fixture
-def ador_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+def adore_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """
-    @brief      An isolated ADOR config home wired into the environment.
-    @details    Sets ADOR_HOME so any `ProfileStore()` built inside `main()` /
+    @brief      An isolated ADORE config home wired into the environment.
+    @details    Sets ADORE_HOME so any `ProfileStore()` built inside `main()` /
                 the CLI resolves to a throwaway per-test directory, never the
                 developer's real home.
     @param[in]  tmp_path pytest tmp dir.
-    @param[in]  monkeypatch Fixture used to set ADOR_HOME.
+    @param[in]  monkeypatch Fixture used to set ADORE_HOME.
     @return     The home directory path.
     @author     Eng. Dan Dumitru Pasare
     @date       2026-07-05
     @version    0.1.0
     """
-    home = tmp_path / "ador-home"
-    monkeypatch.setenv("ADOR_HOME", str(home))
+    home = tmp_path / "adore-home"
+    monkeypatch.setenv("ADORE_HOME", str(home))
     return home
 
 

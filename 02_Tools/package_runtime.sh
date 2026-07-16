@@ -7,7 +7,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # -----------------------------------------------------------------------------
 # @file    package_runtime.sh
-# @brief   Build a trimmed ADOR runtime bundle on POSIX hosts.
+# @brief   Build a trimmed ADORE runtime bundle on POSIX hosts.
 # @details Creates a deployable bundle from 04_Software without development
 #          state, tests, worktrees, caches, or virtual environments. The bundle
 #          includes the existing deploy scripts for Ubuntu systemd and Windows
@@ -16,7 +16,7 @@
 #             [--format tar.gz|zip|directory] [--include-config] [--name NAME]
 # @author  Eng. Dan Dumitru Pasare
 # @date    2026-07-06
-# @version 0.1.0
+# @version 0.2.0
 # -----------------------------------------------------------------------------
 set -euo pipefail
 
@@ -105,12 +105,12 @@ write_bundle_readme() {
     local destination_root="$1"
     local version="$2"
     cat > "${destination_root}/README_PACKAGED.md" <<EOF
-# ADOR Runtime Bundle
+# ADORE Runtime Bundle
 
 Version: ${version}
 
-This bundle contains only the files needed to run ADOR as a Python package.
-It intentionally excludes tests, worktrees, .ador state, caches, and .venv.
+This bundle contains only the files needed to run ADORE as a Python package.
+It intentionally excludes tests, worktrees, .adore state, caches, and .venv.
 
 Prepare:
 
@@ -204,7 +204,7 @@ detect_python
 # Stage 4: read the project release version and derive a safe package name.
 VERSION="$(read_package_version)"
 if [ -z "${PACKAGE_NAME}" ]; then
-    PACKAGE_NAME="ador-runtime-${VERSION}"
+    PACKAGE_NAME="adore-runtime-${VERSION}"
 fi
 case "${PACKAGE_NAME}" in
     */*|*\\*|.|..) fail "package name must be a single directory name, not a path: ${PACKAGE_NAME}" ;;
@@ -216,13 +216,13 @@ OUTPUT_FULL="$(full_path "${OUTPUT_DIR}")"
 STAGE_ROOT="${OUTPUT_FULL}/.packaging_tmp"
 BUNDLE_DIR="${STAGE_ROOT}/${PACKAGE_NAME}"
 
-note "staging ADOR runtime bundle ${PACKAGE_NAME}"
+note "staging ADORE runtime bundle ${PACKAGE_NAME}"
 remove_tree_inside "${STAGE_ROOT}" "${OUTPUT_FULL}"
 mkdir -p "${BUNDLE_DIR}"
 
 # Stage 6: copy only the runtime files needed by the deployment host.
 for path in \
-    "ador" \
+    "adore" \
     "deploy" \
     "docker" \
     "pyproject.toml" \

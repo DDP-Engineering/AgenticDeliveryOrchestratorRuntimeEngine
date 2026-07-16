@@ -8,8 +8,8 @@
 # -----------------------------------------------------------------------------
 # @file    verify-runtime.sh
 # @brief   Live verification pass for a container runtime (docker or podman).
-# @details Mirrors, flag for flag, every runtime CLI call ADOR's
-#          ContainerManager makes (ador/isolation.py) against a scratch git
+# @details Mirrors, flag for flag, every runtime CLI call ADORE's
+#          ContainerManager makes (adore/isolation.py) against a scratch git
 #          repo + worktree: image inspect, volume create, run --detach with
 #          the exact mount/env shape (bare `--env KEY` for secrets - values
 #          only in the process environment, HOME inline), exec (identity,
@@ -23,15 +23,15 @@
 #          runtime-independent and already live-proven with docker.
 #          Rootless podman note: on SELinux hosts (Fedora/RHEL) bind mounts
 #          may additionally need :z/:Z labels - not needed on Ubuntu; a
-#          finding here would be an ADOR config addition, record it.
+#          finding here would be an ADORE config addition, record it.
 # @usage   RUNTIME=podman ./verify-runtime.sh     (default: RUNTIME=docker)
-#          RUN_ARGS="..." extra `run` option tokens, mirroring ADOR's
+#          RUN_ARGS="..." extra `run` option tokens, mirroring ADORE's
 #          [container] run_args (rootless podman needs
 #          RUN_ARGS="--userns=keep-id" - live finding 2026-07-04: without it
 #          container uid 1000 maps to a subuid that cannot write the
 #          bind-mounted worktree).
 #          IMAGE=<tag> overrides the image (default
-#          ador-executor-base:0.2.0); the default base image is built from
+#          adore-executor-base:1.0.0); the default base image is built from
 #          Dockerfile.executor-base in this directory if absent.
 #          REQUIRED_TOOL_CHECKS="make --version;terraform --version" adds
 #          runtime-project image checks. EGRESS_MODE=open|none|allowlist-proxy
@@ -40,25 +40,25 @@
 #          proxy permits only the configured hosts.
 # @author  Eng. Dan Dumitru Pasare
 # @date    2026-07-04
-# @version 0.4.0
+# @version 0.5.1
 # -----------------------------------------------------------------------------
 # shellcheck disable=SC2015  # `check && ok || bad` is safe: ok is a bare echo
 set -euo pipefail
 
-# CONSTANTS (mount targets mirror ador/isolation.py CONTAINER_* constants)
+# CONSTANTS (mount targets mirror adore/isolation.py CONTAINER_* constants)
 RUNTIME="${RUNTIME:-docker}"
-IMAGE="${IMAGE:-ador-executor-base:0.2.0}"
+IMAGE="${IMAGE:-adore-executor-base:1.0.0}"
 EGRESS_MODE="${EGRESS_MODE:-open}"
 ALLOWLIST="${ALLOWLIST:-example.com}"
 ALLOWED_URL="${ALLOWED_URL:-https://example.com}"
 DENIED_URL="${DENIED_URL:-https://github.com}"
-PROXY_IMAGE="${PROXY_IMAGE:-ador-egress-proxy:0.1.0}"
+PROXY_IMAGE="${PROXY_IMAGE:-adore-egress-proxy:1.0.0}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-NAME="ador-verify-$$"
+NAME="adore-verify-$$"
 PROXY_NAME="${NAME}-egress-proxy"
-EGRESS_NETWORK="ador-verify-egress-$$"
-VOL_UV="ador-verify-uv-$$"
-VOL_NPM="ador-verify-npm-$$"
+EGRESS_NETWORK="adore-verify-egress-$$"
+VOL_UV="adore-verify-uv-$$"
+VOL_NPM="adore-verify-npm-$$"
 SCRATCH="$(mktemp -d)"
 read -r -a RT <<< "${RUNTIME}"
 read -r -a EXTRA_RUN_ARGS <<< "${RUN_ARGS:-}"
@@ -86,7 +86,7 @@ trap cleanup EXIT
 command -v git >/dev/null 2>&1 || { echo "error: git is required on this host"; exit 1; }
 command -v "${RT[0]}" >/dev/null 2>&1 || { echo "error: '${RT[0]}' not found"; exit 1; }
 
-echo "ADOR runtime verification: RUNTIME='${RUNTIME}', IMAGE='${IMAGE}'," \
+echo "ADORE runtime verification: RUNTIME='${RUNTIME}', IMAGE='${IMAGE}'," \
      "RUN_ARGS='${RUN_ARGS:-}', EGRESS_MODE='${EGRESS_MODE}'"
 echo
 
@@ -151,19 +151,19 @@ http_port 3128
 acl allowed_domains dstdomain${DOMAINS}
 http_access allow allowed_domains
 http_access deny all
-access_log stdio:/dev/stdout
-cache_log /dev/stderr
+access_log stdio:/var/log/squid/access.log
+cache_log /var/log/squid/cache.log
 coredump_dir /var/spool/squid
 EOF
     "${RT[@]}" network create --internal "${EGRESS_NETWORK}" >/dev/null \
         && "${RT[@]}" run --detach --name "${PROXY_NAME}" \
             --volume "${PROXY_CONF}:/etc/squid/squid.conf:ro" \
             "${PROXY_IMAGE}" >/dev/null \
-        && "${RT[@]}" network connect --alias ador-egress-proxy \
+        && "${RT[@]}" network connect --alias adore-egress-proxy \
             "${EGRESS_NETWORK}" "${PROXY_NAME}" \
         && ok || bad "proxy setup"
     NETWORK_ARGS=(--network "${EGRESS_NETWORK}")
-    export HTTP_PROXY="http://ador-egress-proxy:3128"
+    export HTTP_PROXY="http://adore-egress-proxy:3128"
     export HTTPS_PROXY="${HTTP_PROXY}"
     export ALL_PROXY="${HTTP_PROXY}"
     export NO_PROXY="localhost,127.0.0.1,::1"
@@ -185,43 +185,43 @@ fi
 #    HOME inline (not a secret; must beat any daemon-injected value), all
 #    other env as bare --env KEY with values ONLY in the process environment.
 step "run --detach (mounts, workdir, bare --env secrets, HOME inline)"
-export ADOR_VERIFY_SECRET="s3cret-$$"
-export GIT_DIR="/ador/repo/.git/worktrees/${ADMIN_DIR}"
-export GIT_WORK_TREE="/ador/work"
-export GIT_AUTHOR_NAME="ADOR" GIT_AUTHOR_EMAIL="ador-bot@local"
-export GIT_COMMITTER_NAME="ADOR" GIT_COMMITTER_EMAIL="ador-bot@local"
+export ADORE_VERIFY_SECRET="s3cret-$$"
+export GIT_DIR="/adore/repo/.git/worktrees/${ADMIN_DIR}"
+export GIT_WORK_TREE="/adore/work"
+export GIT_AUTHOR_NAME="ADORE" GIT_AUTHOR_EMAIL="adore-bot@local"
+export GIT_COMMITTER_NAME="ADORE" GIT_COMMITTER_EMAIL="adore-bot@local"
 "${RT[@]}" run --detach ${EXTRA_RUN_ARGS[@]+"${EXTRA_RUN_ARGS[@]}"} \
     --name "${NAME}" \
-    --volume "${SCRATCH}/repo:/ador/repo" \
-    --volume "${SCRATCH}/work:/ador/work" \
-    --volume "${SCRATCH}/io:/ador/io" \
-    --volume "${VOL_UV}:/home/ador/.cache/uv" \
-    --volume "${VOL_NPM}:/home/ador/.npm" \
-    --workdir /ador/work \
+    --volume "${SCRATCH}/repo:/adore/repo" \
+    --volume "${SCRATCH}/work:/adore/work" \
+    --volume "${SCRATCH}/io:/adore/io" \
+    --volume "${VOL_UV}:/home/adore/.cache/uv" \
+    --volume "${VOL_NPM}:/home/adore/.npm" \
+    --workdir /adore/work \
     ${NETWORK_ARGS[@]+"${NETWORK_ARGS[@]}"} \
-    --env "HOME=/home/ador" \
+    --env "HOME=/home/adore" \
     ${PROXY_ENV_ARGS[@]+"${PROXY_ENV_ARGS[@]}"} \
-    --env ADOR_VERIFY_SECRET \
+    --env ADORE_VERIFY_SECRET \
     --env GIT_DIR --env GIT_WORK_TREE \
     --env GIT_AUTHOR_NAME --env GIT_AUTHOR_EMAIL \
     --env GIT_COMMITTER_NAME --env GIT_COMMITTER_EMAIL \
     "${IMAGE}" sleep infinity >/dev/null && ok || bad "run failed"
 # The container snapshotted the env values at creation; unset them NOW so the
-# host-side git checks below do not inherit GIT_DIR=/ador/... themselves.
+# host-side git checks below do not inherit GIT_DIR=/adore/... themselves.
 unset GIT_DIR GIT_WORK_TREE GIT_AUTHOR_NAME GIT_AUTHOR_EMAIL \
       GIT_COMMITTER_NAME GIT_COMMITTER_EMAIL
 
 # 6-8. identity + env contract (verify with printenv, never $VAR expansion -
 #      the HOME/tflint live lesson)
 step "secret crossed via process env, not argv (printenv inside)"
-[ "$("${RT[@]}" exec "${NAME}" printenv ADOR_VERIFY_SECRET)" = "${ADOR_VERIFY_SECRET}" ] \
+[ "$("${RT[@]}" exec "${NAME}" printenv ADORE_VERIFY_SECRET)" = "${ADORE_VERIFY_SECRET}" ] \
     && ok || bad "secret not visible inside"
 
-step "container user is 'ador'"
-[ "$("${RT[@]}" exec "${NAME}" whoami)" = "ador" ] && ok || bad "wrong user"
+step "container user is 'adore'"
+[ "$("${RT[@]}" exec "${NAME}" whoami)" = "adore" ] && ok || bad "wrong user"
 
-step "HOME is /home/ador inside"
-[ "$("${RT[@]}" exec "${NAME}" printenv HOME)" = "/home/ador" ] && ok || bad "wrong HOME"
+step "HOME is /home/adore inside"
+[ "$("${RT[@]}" exec "${NAME}" printenv HOME)" = "/home/adore" ] && ok || bad "wrong HOME"
 
 if [ "${EGRESS_MODE}" = "allowlist-proxy" ]; then
     step "allowlist-proxy permits ALLOWED_URL"
@@ -286,7 +286,7 @@ step "git status works inside (GIT_DIR/GIT_WORK_TREE model)"
 step "commit inside is visible on the host under bot authorship"
 "${RT[@]}" exec "${NAME}" sh -c 'echo hello > verify.txt && git add verify.txt && git commit -q -m "verify commit"' \
     || bad "commit inside failed"
-if git -C "${SCRATCH}/work" log -1 --format='%an %s' | grep -q "ADOR verify commit"; then
+if git -C "${SCRATCH}/work" log -1 --format='%an %s' | grep -q "ADORE verify commit"; then
     ok
 else
     bad "commit not visible host-side"
@@ -307,9 +307,9 @@ step "start -> running (resume)"
 [ "$("${RT[@]}" inspect --format '{{.State.Status}}' "${NAME}")" = "running" ] \
     && ok || bad "not running after start"
 
-# 15. listing (ador cleanup's orphan sweep)
+# 15. listing (adore cleanup's orphan sweep)
 step "ps --all --filter name= --format .Names lists the container"
-"${RT[@]}" ps --all --filter "name=ador-verify-" --format '{{.Names}}' \
+"${RT[@]}" ps --all --filter "name=adore-verify-" --format '{{.Names}}' \
     | grep -qx "${NAME}" && ok || bad "not listed"
 
 # 16-17. teardown + absent detection
@@ -324,7 +324,7 @@ echo "${ERR}" | tr '[:upper:]' '[:lower:]' \
 
 echo
 if [ "${FAILURES}" -eq 0 ]; then
-    echo "RESULT: all ${STEP} steps passed - '${RUNTIME}' is compatible with ADOR."
+    echo "RESULT: all ${STEP} steps passed - '${RUNTIME}' is compatible with ADORE."
     echo "Next: set [container] runtime in config.toml and run a disposable-ticket pilot."
 else
     echo "RESULT: ${FAILURES} of ${STEP} steps FAILED - record findings before using '${RUNTIME}'."

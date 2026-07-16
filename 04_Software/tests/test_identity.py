@@ -18,11 +18,11 @@
 from __future__ import annotations
 
 # IMPORTS
-from ador.identity import AgentIdentity
+from adore.identity import AgentIdentity
 
 # CONSTANTS
 
-IDENTITY = AgentIdentity(name="ADOR", slug="ador")
+IDENTITY = AgentIdentity(name="ADORE", slug="adore")
 
 # PUBLIC API / TESTS
 
@@ -30,13 +30,13 @@ IDENTITY = AgentIdentity(name="ADOR", slug="ador")
 def test_derived_names() -> None:
     """
     @brief   All slug-derived identifiers follow design doc 5c.
-    @version 0.1.0
+    @version 0.1.1
     """
-    assert IDENTITY.tag == "[ADOR]"
-    assert IDENTITY.store_root == ".ador"
-    assert IDENTITY.questions_file == "ADOR_QUESTIONS.md"
-    assert IDENTITY.branch("gitlab-x-14") == "ador/gitlab-x-14"
-    assert IDENTITY.container_name("gitlab-x-14") == "ador-run-gitlab-x-14"
+    assert IDENTITY.tag == "[ADORE]"
+    assert IDENTITY.store_root == ".adore"
+    assert IDENTITY.questions_file == "ADORE_QUESTIONS.md"
+    assert IDENTITY.branch("gitlab-x-14") == "adore/gitlab-x-14"
+    assert IDENTITY.container_name("gitlab-x-14") == "adore-run-gitlab-x-14"
 
 
 def test_marker_round_trip() -> None:
@@ -57,11 +57,11 @@ def test_marker_round_trip() -> None:
 def test_human_comments_have_no_marker() -> None:
     """
     @brief   Comments without the marker are treated as human (resume signal).
-    @version 0.1.0
+    @version 0.1.1
     """
     assert not IDENTITY.is_own_comment("Looks good, please use variant B.")
     assert not IDENTITY.is_own_comment("")
-    assert IDENTITY.is_own_comment("x\n<!-- ador:run=r kind=question -->")
+    assert IDENTITY.is_own_comment("x\n<!-- adore:run=r kind=question -->")
 
 
 def test_marker_is_slug_scoped() -> None:
@@ -79,14 +79,14 @@ def test_status_comment_format() -> None:
     """
     @brief   The status comment carries the visible line plus hidden marker
              (design doc 5d).
-    @version 0.1.0
+    @version 0.1.1
     """
     body = IDENTITY.status_comment("gitlab-x-14", "working", "intake", "2026-07-02 14:02")
     lines = body.splitlines()
-    # Leads with the same [ADOR] tag as every other comment kind (uniform prefix).
+    # Leads with the same [ADORE] tag as every other comment kind (uniform prefix).
     assert lines[0].startswith(IDENTITY.tag + " ")
     assert lines[0] == (
-        "[ADOR] status: working - stage intake - run gitlab-x-14 - updated 2026-07-02 14:02"
+        "[ADORE] status: working - stage intake - run gitlab-x-14 - updated 2026-07-02 14:02"
     )
     fields = IDENTITY.parse_marker(body)
     assert fields is not None
@@ -114,9 +114,9 @@ def test_marker_split_across_lines_still_parses() -> None:
     """
     @brief   A marker re-wrapped onto several lines (platform editing, manual
              quoting) is still recognized as ours.
-    @version 0.1.0
+    @version 0.1.1
     """
-    body = "status\n<!-- ador:run=run-x\nkind=status\nstate=parked -->"
+    body = "status\n<!-- adore:run=run-x\nkind=status\nstate=parked -->"
     fields = IDENTITY.parse_marker(body)
     assert fields == {"run": "run-x", "kind": "status", "state": "parked"}
 
@@ -125,9 +125,9 @@ def test_malformed_marker_fails_closed_as_human() -> None:
     """
     @brief   A broken marker (no closing arrow) yields no fields; ambiguous
              comments count as human, which at worst re-asks a question.
-    @version 0.1.0
+    @version 0.1.1
     """
-    assert IDENTITY.parse_marker("<!-- ador:run=r kind=status") is None
+    assert IDENTITY.parse_marker("<!-- adore:run=r kind=status") is None
 
 
 # END OF FILE

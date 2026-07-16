@@ -7,16 +7,16 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Profiles And Container Images
 
-Applies to ADOR 0.5.1.
+Applies to ADORE 0.5.1.
 
 Use this when you operate more than one runtime project, switch active projects,
 or need to decide which executor image a profile should use.
 
-![ADOR profile and image model](assets/profile-container-model.svg)
+![ADORE profile and image model](assets/profile-container-model.svg)
 
 ## Mental Model
 
-One ADOR install can serve many runtime projects. Each runtime project should
+One ADORE install can serve many runtime projects. Each runtime project should
 have its own profile with its own `config.toml`, metadata, state, metrics, and
 container image selection.
 
@@ -29,17 +29,17 @@ Config resolution order:
 ## Profile Commands
 
 ```powershell
-.\.venv\Scripts\ador.exe profile list
-.\.venv\Scripts\ador.exe profile show <profile-name>
-.\.venv\Scripts\ador.exe profile use <profile-name>
-.\.venv\Scripts\ador.exe profile path <profile-name>
+.\.venv\Scripts\adore.exe profile list
+.\.venv\Scripts\adore.exe profile show <profile-name>
+.\.venv\Scripts\adore.exe profile use <profile-name>
+.\.venv\Scripts\adore.exe profile path <profile-name>
 ```
 
 ```bash
-./.venv/bin/ador profile list
-./.venv/bin/ador profile show <profile-name>
-./.venv/bin/ador profile use <profile-name>
-./.venv/bin/ador profile path <profile-name>
+./.venv/bin/adore profile list
+./.venv/bin/adore profile show <profile-name>
+./.venv/bin/adore profile use <profile-name>
+./.venv/bin/adore profile path <profile-name>
 ```
 
 Use explicit `--profile` for scripts and first validation. Use an active profile
@@ -49,9 +49,9 @@ for daily interactive work after you trust the selection.
 
 | Layer | What belongs there | Example |
 | --- | --- | --- |
-| ADOR executor base | Shared executor tooling such as Python, Node, git, uv, and executor CLIs. | `ador-executor-base:0.2.0` |
-| Runtime-project image | Project-specific gate tools and caches. | `ador-executor-cockpit-gcp:latest` or a project tag |
-| Per-run container | One isolated claim of one ticket. | Created and removed by ADOR. |
+| ADORE executor base | Shared executor tooling such as Python, Node, git, uv, and executor CLIs. | `adore-executor-base:1.0.0` |
+| Runtime-project image | Project-specific gate tools and caches. | `adore-executor-cockpit-gcp:latest` or a project tag |
+| Per-run container | One isolated claim of one ticket. | Created and removed by ADORE. |
 
 Do not put secrets into images. Model provider keys and forge tokens belong in
 the host environment or `.env`, and only configured `env_keys` reach the
@@ -64,7 +64,7 @@ The profile's `[container] image` chooses the runtime image:
 ```toml
 [container]
 runtime = "docker"
-image = "ador-executor-cockpit-gcp:latest"
+image = "adore-executor-cockpit-gcp:latest"
 required_tool_checks = [
   "make --version",
   "shellcheck --version",
@@ -106,13 +106,13 @@ spends a gate attempt.
 Before a real run, confirm the selected profile and store:
 
 ```powershell
-.\.venv\Scripts\ador.exe profile list
-.\.venv\Scripts\ador.exe --profile <profile-name> status
+.\.venv\Scripts\adore.exe profile list
+.\.venv\Scripts\adore.exe --profile <profile-name> status
 ```
 
 ```bash
-./.venv/bin/ador profile list
-./.venv/bin/ador --profile <profile-name> status
+./.venv/bin/adore profile list
+./.venv/bin/adore --profile <profile-name> status
 ```
 
 The `profile list` output marks the active profile with `*` and shows basic run

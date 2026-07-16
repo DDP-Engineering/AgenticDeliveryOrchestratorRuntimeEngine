@@ -9,7 +9,7 @@
 # -----------------------------------------------------------------------------
 """
 @file __init__.py
-@brief Test package marker for ADOR.
+@brief Test package marker for ADORE.
 @author Eng. Dan Dumitru Pasare
 @date 2026-07-02
 @version 0.1.0
