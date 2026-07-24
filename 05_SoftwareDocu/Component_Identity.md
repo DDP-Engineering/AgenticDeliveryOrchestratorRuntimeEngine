@@ -44,6 +44,11 @@ Explicitly not owned: posting/editing comments (forge adapters) and deciding
 - Parsing is slug-scoped (`<!-- adore:` only matches this agent) and
   DOTALL (a marker re-wrapped across lines still parses). When a body carries
   two markers, the first wins, deterministically.
+- **Quoted lines are ignored** before matching: when a human replies by
+  quoting ADORE's comment, the carried-over marker sits on blockquote (`>`)
+  lines, so it does not count as ours - otherwise resume detection would miss
+  the human's answer. A genuine ADORE comment always writes its marker on an
+  unquoted line, so this never hides one.
 - A malformed marker parses as "no marker" - the comment counts as human.
   That is the safe direction: at worst the executor re-evaluates and re-asks;
   it never mistakes its own comment for a human answer.

@@ -34,7 +34,7 @@ from adore.executor.base import Executor, GateRun
 from adore.forge import Comment, Forge, MergeRequest, Ticket
 from adore.gates import GateResult
 from adore.isolation import IsolationError
-from adore.orchestrator import GATES, Orchestrator
+from adore.orchestrator import _MR_MISSING_GRACE_POLLS, GATES, Orchestrator
 from adore.state import RunState, StateStore
 from adore.util import CommandResult
 import pytest
@@ -448,7 +448,9 @@ def write_agentic_failure_evidence(
     worktree = engine.worktrees.path_for(run_id)  # type: ignore[attr-defined]
     run_dir = worktree / ".agentic" / "runs" / agentic_run
     run_dir.mkdir(parents=True, exist_ok=True)
-    (worktree / ".agentic" / "current_run").write_text(agentic_run, encoding="utf-8")
+    state_dir = worktree / ".agentic" / ".workspace" / "state"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    (state_dir / "current_run").write_text(agentic_run, encoding="utf-8")
     graph = {
         "evidence": [
             {
@@ -758,8 +760,9 @@ def test_gate_failure_retry_prompt_includes_agentic_evidence(tmp_path: Path) -> 
 
 def test_missing_agentic_current_run_is_skipped(tmp_path: Path) -> None:
     """
-    @brief   Missing `.agentic/current_run` is a normal no-evidence case; the
-             retry prompt still carries the original stderr context.
+    @brief   Missing `.agentic/.workspace/state/current_run` is a normal
+             no-evidence case; the retry prompt still carries the original
+             stderr context.
     @version 0.1.0
     """
     config = make_config(tmp_path)
@@ -780,8 +783,8 @@ def test_missing_agentic_current_run_is_skipped(tmp_path: Path) -> None:
 
 def test_invalid_agentic_run_id_reports_unavailable(tmp_path: Path) -> None:
     """
-    @brief   `.agentic/current_run` must be one path segment; traversal-like
-             values are reported instead of read.
+    @brief   `.agentic/.workspace/state/current_run` must be one path segment;
+             traversal-like values are reported instead of read.
     @version 0.1.0
     """
     config = make_config(tmp_path)
@@ -793,12 +796,13 @@ def test_invalid_agentic_run_id_reports_unavailable(tmp_path: Path) -> None:
     engine, forge, _, _ = make_engine(tmp_path, executor, config)
     forge.add_ticket(14)
     worktree = engine.worktrees.path_for(engine._run_id(14))  # type: ignore[attr-defined]
-    (worktree / ".agentic").mkdir(parents=True, exist_ok=True)
-    (worktree / ".agentic" / "current_run").write_text("../escape", encoding="utf-8")
+    state_dir = worktree / ".agentic" / ".workspace" / "state"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    (state_dir / "current_run").write_text("../escape", encoding="utf-8")
 
     engine.poll_once()
 
-    assert "invalid .agentic/current_run value" in executor.prompts[1]
+    assert "invalid .agentic/.workspace/state/current_run value" in executor.prompts[1]
 
 
 def test_malformed_graph_and_torn_journal_do_not_break_evidence_prompt(
@@ -820,7 +824,9 @@ def test_malformed_graph_and_torn_journal_do_not_break_evidence_prompt(
     worktree = engine.worktrees.path_for(engine._run_id(14))  # type: ignore[attr-defined]
     run_dir = worktree / ".agentic" / "runs" / "run-1"
     run_dir.mkdir(parents=True, exist_ok=True)
-    (worktree / ".agentic" / "current_run").write_text("run-1", encoding="utf-8")
+    state_dir = worktree / ".agentic" / ".workspace" / "state"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    (state_dir / "current_run").write_text("run-1", encoding="utf-8")
     (run_dir / "graph.json").write_text("{", encoding="utf-8")
     journal = {
         "event": "gate.output",
@@ -1443,7 +1449,9 @@ def test_delivery_sequence_and_draft_mr(tmp_path: Path) -> None:
     forge.add_ticket(14, title="Refresh")
     engine.poll_once()
     run = engine.store.load(engine._run_id(14))
-    assert worktrees.fetched == 1
+    # two fetches: once when the worktree is first created (branch from a fresh
+    # base) and once at the start of delivery (integrate the target branch)
+    assert worktrees.fetched == 2
     assert worktrees.pushed == [run.branch]
     creation = forge.mr_creations[0]
     assert creation["source"] == run.branch
@@ -1626,6 +1634,54 @@ def test_closed_mr_ends_the_run(tmp_path: Path) -> None:
     run = engine.store.load(run_id)
     assert run.lifecycle == "failed" and run.outcome == "mr-closed"
     assert (run_id, run.branch) in worktrees.removed
+
+
+def test_in_review_run_ends_when_its_mr_vanishes(tmp_path: Path) -> None:
+    """
+    @brief   An in-review run whose MR is deleted on the platform rides out a
+             few blips, then ends (design 4): it must not stay in-review and
+             re-log "not found" on every poll forever. A transient 404 that
+             resolves before the grace is exhausted is forgiven.
+    @version 0.1.0
+    """
+    engine, forge, _, worktrees = make_engine(tmp_path, FakeExecutor([gate_ok()] * 6))
+    forge.add_ticket(14)
+    engine.poll_once()
+    run_id = engine._run_id(14)
+    mr_iid = engine.store.load(run_id).mr_iid
+    del forge.mrs[mr_iid]  # the MR/PR is deleted on the platform
+    for poll in range(1, _MR_MISSING_GRACE_POLLS):
+        engine.poll_once()
+        pending = engine.store.load(run_id)
+        assert pending.lifecycle == "in-review"      # still tolerated
+        assert pending.mr_missing_polls == poll
+    engine.poll_once()  # the grace-th missing read ends the run
+    ended = engine.store.load(run_id)
+    assert ended.lifecycle == "failed"
+    assert "no longer exists" in ended.outcome
+    assert engine.store.exists(run_id)  # state kept for audit
+
+
+def test_in_review_mr_missing_counter_resets_on_recovery(tmp_path: Path) -> None:
+    """
+    @brief   A transient not-found does not accumulate: once the MR reads back,
+             the blip counter clears so a later real deletion still gets the
+             full grace window.
+    @version 0.1.0
+    """
+    engine, forge, _, _ = make_engine(tmp_path, FakeExecutor([gate_ok()] * 6))
+    forge.add_ticket(14)
+    engine.poll_once()
+    run_id = engine._run_id(14)
+    mr = engine.store.load(run_id).mr_iid
+    saved = forge.mrs[mr]
+    del forge.mrs[mr]
+    engine.poll_once()
+    assert engine.store.load(run_id).mr_missing_polls == 1
+    forge.mrs[mr] = saved  # MR reappears (the 404 was transient)
+    engine.poll_once()
+    assert engine.store.load(run_id).mr_missing_polls == 0
+    assert engine.store.load(run_id).lifecycle == "in-review"
 
 
 def _delivered_run(tmp_path: Path, executor_results: int = 6):

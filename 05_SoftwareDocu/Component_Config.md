@@ -93,7 +93,12 @@ future work), and any behavior driven by the values.
   one-to-one.
 - Durations are stored as raw strings ("24h"); consumers parse them through
   helpers (`ClarificationConfig.answer_timeout_seconds()`), so an invalid
-  duration is a *validation issue*, not a load crash.
+  duration is a *validation issue*, not a load crash. Validation also rejects
+  `[clarification] reminder_after >= answer_timeout` (a reminder that could
+  never fire before release).
+- `[budgets]` carries two independent time bounds: `max_wall_clock_seconds`
+  (whole-run ceiling) and `per_gate_timeout_seconds` (one executor launch);
+  both must be `>= 1`.
 - `labels.selection.priority_order()` returns priority labels highest-first;
   the orchestrator uses that order when ranking eligible tickets.
 

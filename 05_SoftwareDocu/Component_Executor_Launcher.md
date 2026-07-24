@@ -65,9 +65,11 @@ buffers stdout so live streaming looks hung (prereq 9).
    `/adore/work` (the container-side mount). A continuing session appends
    `--session <id>`.
 3. Write `gate.sh` (LF endings; Windows CRLF would break `sh`) into the
-   run's io dir: `cd /adore/work`, then the command with stdout redirected to
-   `output.jsonl` and stderr to `stderr.log`, both in `/adore/io`. No `exec`
-   prefix - templates may be compound commands.
+   run's io dir: `cd /adore/work`, then the command wrapped in a `{ ...; }`
+   group with stdout redirected to `output.jsonl` and stderr to `stderr.log`,
+   both in `/adore/io`. No `exec` prefix - templates may be compound commands,
+   and the group makes the redirection cover the WHOLE compound (e.g. `a && b`),
+   not just its last stage.
 4. Run `["sh", "/adore/io/gate.sh"]` through the exec seam - two space-free
    tokens, immune to WSL argv splitting. The script's exit status is the
    executor's.
@@ -91,10 +93,13 @@ the container, so the executor cannot push regardless.
   `.adore/runs/<run-id>/io/` and are overwritten by the next launch. Immutable
   per-launch archives persist under `io/archive/`; being outside the worktree,
   the executor can never `git add` them.
-- **Safety:** `--auto` anywhere in the template raises `ValueError` at
-  construction, and `validate_config` reports it before any run starts - it
-  would auto-approve the push/pr/merge permissions that keep the executor
-  off the remote (prereq report section 6). Codex full-auto is allowed only
+- **Safety:** a forbidden flag (`--auto` for opencode, `--yolo` for qwen)
+  anywhere in the template raises `ValueError` at construction, and
+  `validate_config` reports it before any run starts - it would auto-approve
+  the push/pr/merge permissions that keep the executor off the remote (prereq
+  report section 6). The check tokenizes with `shlex` and catches both the bare
+  flag and its `--flag=value` form; it stays a safety belt, not the boundary
+  (container isolation is). Codex full-auto is allowed only
   because ADORE owns the external container/worktree sandbox and keeps remote
   delivery outside the executor; `validate_config` still requires `--json`,
   a non-interactive sandbox mode, `--ignore-user-config`, and

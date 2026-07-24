@@ -12,8 +12,44 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-07-24
+
+### Added
+
+- `[budgets] per_gate_timeout_seconds` (default 1800): an independent bound on a
+  single executor launch, separated from `max_wall_clock_seconds` (the total
+  run ceiling). The two were previously one knob, so a generous per-gate limit
+  forced an equally generous total and vice versa. Existing configs keep
+  working; the new key is optional.
+
 ### Changed
 
+- The single-instance lock now reclaims a lock left by a **crashed** poller on
+  the same host (its recorded pid is provably dead), instead of wedging every
+  future start until a manual `adore cleanup`. This closes a boot-loop under
+  `systemd Restart=on-failure` / Task Scheduler after a hard crash. A live
+  owner, an unreadable lock record, or a lock written on a different host are
+  still never stolen (fail closed). The lock record now also carries the
+  owner's `host`.
+- An in-review run whose merge request/PR is **deleted** on the platform now
+  ends the run after a short grace (a few polls, to ride out a transient 404)
+  instead of staying in-review and re-logging "not found" on every poll
+  forever. State is kept for audit.
+- Resume detection no longer mistakes a **quoted** reply for the agent's own
+  comment: when a human replies by quoting ADORE's clarification comment, the
+  carried-over hidden marker sits on blockquote lines and is ignored, so the
+  answer is seen and the run resumes.
+- Executor gate scripts wrap the command in a `{ ...; }` group so the
+  output/stderr redirection covers a whole compound command template, not just
+  its last stage.
+- A new run fetches the remote before creating its worktree, so it branches
+  from an up-to-date base instead of a possibly stale local ref (best-effort;
+  an offline fetch never blocks provisioning).
+- Selection no longer truncates the ready-ticket pool at 100: the GitLab
+  adapter paginates (its API caps per-page at 100) and the GitHub adapter reads
+  up to 500, so a high-priority ticket beyond the first page is not missed.
+- Hardened the executor forbidden-flag guard (shlex tokenizing, `--flag=value`
+  form) and made `force_rmtree` use `onexc` on Python 3.12+.
 - Reorganized the operator documentation into a complete, project-agnostic
   path covering installation, credentials, runtime-project integration,
   operations, recovery, configuration, and the CLI.
@@ -26,6 +62,32 @@ This project follows Keep a Changelog and Semantic Versioning.
   credential guidance.
 - Replaced the tracked pilot configuration, deployment guidance, and test
   fixtures with generic runtime-project terminology.
+
+### Fixed
+
+- **GitHub revise cycle could never trigger.** `get_merge_request` requested
+  `--json number,state,url,isDraft` but read `data["labels"]`; because `gh`
+  returns only the requested fields, the label list was always empty, so the
+  revise-label trigger in the post-MR poll never fired on GitHub (GitLab was
+  unaffected). `labels` is now in the requested field set, with a regression
+  test that pins the selection so it cannot silently regress.
+- Configuration validation now rejects `reminder_after >= answer_timeout`
+  (a reminder that could never fire before the run is released) and a
+  non-positive `per_gate_timeout_seconds`.
+- The files-touched budget now counts a rename as one file (its destination)
+  and strips git's quoting, instead of counting the `"old -> new"` string as an
+  odd path.
+- Removed dead code (`_TERMINAL_EVENTS` in the metrics module).
+- Realigned the workflow active-run pointer ADORE reads for retry-prompt
+  failure evidence. AEGIS moved the pointer from `.agentic/current_run` to the
+  worktree-local `.agentic/.workspace/state/current_run` and retired the old
+  path (AEGIS payload 1.1.0/1.2.0). ADORE still read the retired path, so after
+  a failed gate the pointer resolved to nothing and `graph.json`/`journal.jsonl`/
+  `report.md` failure evidence was silently dropped from retry prompts, leaving
+  only the raw exit-code/stderr tail. The orchestrator now reads the current
+  pointer location; the `.agentic` CLI verbs, run artifacts, and journal schema
+  ADORE consumes are otherwise unchanged, so no other contract adjustment was
+  required.
 
 ### Removed
 

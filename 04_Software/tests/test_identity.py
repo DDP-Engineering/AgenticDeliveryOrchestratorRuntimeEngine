@@ -64,6 +64,20 @@ def test_human_comments_have_no_marker() -> None:
     assert IDENTITY.is_own_comment("x\n<!-- adore:run=r kind=question -->")
 
 
+def test_quoted_marker_is_treated_as_human() -> None:
+    """
+    @brief   When a human replies by QUOTING ADORE's comment, the carried-over
+             marker sits on blockquote (">") lines and must not count as ours -
+             otherwise resume detection would miss the human's answer.
+    @version 0.1.0
+    """
+    marker = IDENTITY.make_marker("gitlab-x-14", "question")
+    quoted_reply = f"Use variant B.\n\n> {IDENTITY.tag} Clarification needed\n> {marker}"
+    assert not IDENTITY.is_own_comment(quoted_reply)
+    # a genuine ADORE comment keeps its marker on an unquoted line
+    assert IDENTITY.is_own_comment(f"{IDENTITY.tag} status\n{marker}")
+
+
 def test_marker_is_slug_scoped() -> None:
     """
     @brief   Another agent's marker is not mistaken for ours.

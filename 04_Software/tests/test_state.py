@@ -18,7 +18,10 @@
 from __future__ import annotations
 
 # IMPORTS
+import json
+import os
 from pathlib import Path
+import socket
 
 from adore.state import RunState, StateError, StateStore, content_hash, derive_run_id
 import pytest
@@ -226,6 +229,75 @@ def test_corrupt_lock_file_still_counts_as_held(tmp_path: Path) -> None:
     store.root.mkdir(parents=True, exist_ok=True)
     store.lock_path.write_text("###", encoding="utf-8")
     assert store.lock_info() == {}
+    assert store.acquire_lock() is False
+
+
+def _write_lock(root: Path, *, pid: int, host: str) -> None:
+    """
+    @brief      Plant a lock file with a chosen pid + host (crash simulation).
+    @param[in]  root Store root.
+    @param[in]  pid Recorded owner pid.
+    @param[in]  host Recorded owner host.
+    @author     Eng. Dan Dumitru Pasare
+    @date       2026-07-24
+    @version    0.1.0
+    """
+    root.mkdir(parents=True, exist_ok=True)
+    (root / "adore.lock").write_text(
+        json.dumps({"pid": pid, "acquired_at": "t", "host": host}),
+        encoding="utf-8",
+    )
+
+
+def test_stale_lock_from_this_host_is_reclaimed(tmp_path: Path) -> None:
+    """
+    @brief   A lock whose owner is provably gone on THIS host is reclaimed, so a
+             crashed poller does not wedge every future start (systemd restart /
+             Task Scheduler) until a manual `adore cleanup`.
+    @version 0.1.0
+    """
+    root = tmp_path / ".adore"
+    _write_lock(root, pid=424242, host=socket.gethostname())
+    store = StateStore(root, slug="adore", process_alive=lambda _pid: False)
+    assert store.acquire_lock() is True
+    info = store.lock_info()
+    assert info is not None and info["pid"] == os.getpid()
+    store.release_lock()
+
+
+def test_live_lock_is_never_reclaimed(tmp_path: Path) -> None:
+    """
+    @brief   A lock whose owner is still alive is never stolen (no double poller).
+    @version 0.1.0
+    """
+    root = tmp_path / ".adore"
+    _write_lock(root, pid=4242, host=socket.gethostname())
+    store = StateStore(root, slug="adore", process_alive=lambda _pid: True)
+    assert store.acquire_lock() is False
+
+
+def test_lock_from_another_host_is_not_reclaimed(tmp_path: Path) -> None:
+    """
+    @brief   A lock written on a different host is never reclaimed, even if its
+             pid looks dead here - a pid is meaningless across hosts.
+    @version 0.1.0
+    """
+    root = tmp_path / ".adore"
+    _write_lock(root, pid=1, host="some-other-host")
+    store = StateStore(root, slug="adore", process_alive=lambda _pid: False)
+    assert store.acquire_lock() is False
+
+
+def test_unreadable_lock_is_not_reclaimed(tmp_path: Path) -> None:
+    """
+    @brief   An unreadable lock record fails closed - never reclaimed on a guess,
+             even with a dead-owner probe.
+    @version 0.1.0
+    """
+    root = tmp_path / ".adore"
+    root.mkdir(parents=True, exist_ok=True)
+    (root / "adore.lock").write_text("###", encoding="utf-8")
+    store = StateStore(root, slug="adore", process_alive=lambda _pid: False)
     assert store.acquire_lock() is False
 
 

@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Isolation (`adore/isolation.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/adore/isolation.py` - file version 0.5.0.
+> Source: `04_Software/adore/isolation.py` - file version 0.6.0.
 > Design: Orchestrator_Design_And_Decisions.md sections 8b, 10, 10a.
 > Images: `04_Software/docker/Dockerfile.executor-base`,
 > `04_Software/docker/Dockerfile.egress-proxy`, plus runtime-project images
@@ -32,7 +32,8 @@ guardrails, not a sandbox (design 10).
   base_ref), idempotent `remove` (+ prune, optional branch delete), `fetch`,
   `admin_dir_name` (reads the worktree's `.git` pointer file),
   `changed_files` (committed + pending paths vs the base ref; feeds the
-  max_files_touched budget), the delivery git plumbing - `merge` (conflict =
+  max_files_touched budget; a rename counts as ONE file - its destination - and
+  git's path quoting is stripped), the delivery git plumbing - `merge` (conflict =
   data, left in progress for the executor), `merge_in_progress`, and `push`
   (the ONLY remote-writing git call in ADORE) - `commit_all_if_dirty` for
   conductor-generated delivery artifacts, plus the committed-state checks

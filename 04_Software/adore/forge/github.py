@@ -64,12 +64,16 @@ class GitHubForge(Forge):
     def list_ready(self, ready_label: str) -> list[Ticket]:
         """
         @brief      List open issues carrying the label via `gh issue list`.
+        @details    `--limit 500` (gh paginates internally up to the limit) so a
+                    busy repository does not silently truncate the selection
+                    pool at 100 and drop a high-priority ticket the caller would
+                    have ranked first.
         @param[in]  ready_label Eligibility label.
         @return     Eligible tickets, unordered (caller ranks by priority).
         @exception  ForgeError When gh fails.
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.0
+        @date       2026-07-24
+        @version    0.1.1
         """
         result = self._run(
             [
@@ -78,7 +82,7 @@ class GitHubForge(Forge):
                 "--label", ready_label,
                 "--state", "open",
                 "--json", _ISSUE_JSON_FIELDS,
-                "--limit", "100",
+                "--limit", "500",
             ]
         )
         return [self._to_ticket(item) for item in self._parse_json(result, list)]
@@ -227,16 +231,21 @@ class GitHubForge(Forge):
     def get_merge_request(self, ref: int | str) -> MergeRequest | None:
         """
         @brief      Fetch one PR by number or head branch via `gh pr view`.
+        @details    `labels` MUST stay in the requested `--json` field set: gh
+                    returns only the fields named here, so omitting it makes
+                    `data["labels"]` absent and every MR read back with an empty
+                    label list - which silently disables the revise-label
+                    trigger in the orchestrator's post-MR poll.
         @param[in]  ref PR number, or the head branch name (open PRs only).
         @return     The MergeRequest (state normalized), or None.
         @exception  ForgeError When gh fails for another reason.
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
+        @date       2026-07-24
+        @version    0.1.1
         """
         result = self.runner(
             ["gh", "pr", "view", str(ref), "--repo", self.repo,
-             "--json", "number,state,url,isDraft"]
+             "--json", "number,state,url,isDraft,labels"]
         )
         if not result.ok:
             if self._is_not_found(result):

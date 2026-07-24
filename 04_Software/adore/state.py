@@ -13,28 +13,31 @@
 @details Owns the `.adore/runs/<run-id>/` layout (ticket.json, state.json,
          journal.jsonl), the deterministic run-id derived from the ticket
          reference, the content hash used for drift detection, the
-         single-instance lock, and the global pause flag. The local state is
-         the source of truth; Git-platform labels/comments only reflect it.
-         Corrupt persisted state fails closed: loading raises StateError so
-         the caller can skip or escalate deterministically, never guess.
+         single-instance lock (with crash-safe stale reclaim), and the global
+         pause flag. The local state is the source of truth; Git-platform
+         labels/comments only reflect it. Corrupt persisted state fails closed:
+         loading raises StateError so the caller can skip or escalate
+         deterministically, never guess.
 @author Eng. Dan Dumitru Pasare
-@date 2026-07-02
-@version 0.1.1
+@date 2026-07-24
+@version 0.2.0
 """
 
 from __future__ import annotations
 
 # IMPORTS
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, fields
 import hashlib
 import json
 import os
 from pathlib import Path
 import shutil
+import socket
 from typing import Any
 
 from adore.branding import DEFAULT_STATE_ROOT, PRODUCT_SLUG
-from adore.util import utc_now_iso
+from adore.util import process_alive, utc_now_iso
 
 # CONSTANTS
 
@@ -67,8 +70,8 @@ class RunState:
              comment ids, round/budget counters, park bookkeeping, and
              resource names.
     @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-02
-    @version 0.1.1
+    @date    2026-07-24
+    @version 0.1.2
     """
 
     run_id: str
@@ -92,6 +95,7 @@ class RunState:
     iterations: int = 0
     mr_iid: int | None = None
     mr_url: str = ""
+    mr_missing_polls: int = 0
     outcome: str = ""
     created_at: str = ""
     updated_at: str = ""
@@ -175,17 +179,22 @@ class StateStore:
         self,
         root: str | Path = DEFAULT_STATE_ROOT,
         slug: str = PRODUCT_SLUG,
+        *,
+        process_alive: Callable[[int], bool] = process_alive,
     ) -> None:
         """
         @brief      Initialize the store rooted at the given directory.
         @param[in]  root Local state root (default ".adore").
         @param[in]  slug Agent slug; names the lock file ("<slug>.lock").
+        @param[in]  process_alive Liveness probe used to reclaim a lock whose
+                                  owner crashed (injectable for tests).
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.1
+        @date       2026-07-24
+        @version    0.1.2
         """
         self.root = Path(root)
         self.slug = slug
+        self._process_alive = process_alive
 
     # -- paths ----------------------------------------------------------------
 
@@ -411,20 +420,71 @@ class StateStore:
         """
         @brief   Take the single-instance lock (exclusive create).
         @details State is locally authoritative, so two pollers on the same
-                 repo must never run at once (design doc 12a). A stale lock is
-                 cleared by `adore cleanup`, not silently stolen.
+                 repo must never run at once (design doc 12a). A lock left by a
+                 CRASHED poller on THIS host - its recorded pid is provably gone
+                 - is reclaimed automatically, so a hard crash under
+                 systemd/Task Scheduler does not wedge every future start until
+                 a manual `adore cleanup`. Every other case fails closed: a live
+                 owner, an unreadable record, or a lock from a different host is
+                 never stolen. The reclaim + re-create both go through the same
+                 atomic `open("x")`, so two racing pollers cannot both win.
         @return  True when acquired; False when another instance holds it.
         @author  Eng. Dan Dumitru Pasare
-        @date    2026-07-02
-        @version 0.1.1
+        @date    2026-07-24
+        @version 0.2.0
         """
         self.root.mkdir(parents=True, exist_ok=True)
+        if self._try_create_lock():
+            return True
+        if self._lock_is_stale():
+            self.lock_path.unlink(missing_ok=True)
+            return self._try_create_lock()
+        return False
+
+    def _try_create_lock(self) -> bool:
+        """
+        @brief   Atomically create the lock file, recording pid + host.
+        @return  True when this call created it; False when it already existed.
+        @author  Eng. Dan Dumitru Pasare
+        @date    2026-07-24
+        @version 0.1.0
+        """
         try:
             with self.lock_path.open("x", encoding="utf-8") as handle:
-                json.dump({"pid": os.getpid(), "acquired_at": utc_now_iso()}, handle)
+                json.dump(
+                    {
+                        "pid": os.getpid(),
+                        "acquired_at": utc_now_iso(),
+                        "host": socket.gethostname(),
+                    },
+                    handle,
+                )
         except FileExistsError:
             return False
         return True
+
+    def _lock_is_stale(self) -> bool:
+        """
+        @brief   Whether the current lock's owner is provably gone.
+        @details Reclaim ONLY when the record is readable, names this host, and
+                 carries a pid the liveness probe reports dead. An unreadable
+                 record ({}), a missing/invalid pid, or a lock written on a
+                 different host all return False (fail closed - keep the lock).
+        @return  True when the lock may be safely reclaimed.
+        @author  Eng. Dan Dumitru Pasare
+        @date    2026-07-24
+        @version 0.1.0
+        """
+        info = self.lock_info()
+        if not info:
+            return False
+        host = info.get("host")
+        if host is not None and host != socket.gethostname():
+            return False
+        pid = info.get("pid")
+        if not isinstance(pid, int):
+            return False
+        return not self._process_alive(pid)
 
     def release_lock(self) -> None:
         """

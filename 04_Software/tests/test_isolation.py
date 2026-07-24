@@ -201,6 +201,21 @@ def test_worktree_create_fails_closed_on_git_error(tmp_path: Path) -> None:
     assert "base ref not found" in str(excinfo.value)
 
 
+def test_changed_files_counts_renames_and_quoted_paths_once(tmp_path: Path) -> None:
+    """
+    @brief   The files-touched budget counts a rename as ONE file (its
+             destination), strips git's quotes, and de-dups paths appearing in
+             both the committed diff and the pending status.
+    @version 0.1.0
+    """
+    committed = _ok("src/a.py\nsrc/b.py\n")
+    pending = _ok('R  old.py -> src/new.py\n M src/a.py\n?? "weird name.py"\n')
+    runner = FakeRunner(committed, pending)
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
+    # src/a.py (both sides), src/b.py, src/new.py (rename dest), weird name.py
+    assert manager.changed_files("run-1", "origin/develop") == 4
+
+
 def test_worktree_remove_missing_is_not_an_error(tmp_path: Path) -> None:
     """
     @brief   Removing an already-gone worktree only prunes (idempotent).

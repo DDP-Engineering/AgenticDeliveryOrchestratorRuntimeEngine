@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 # IMPORTS
+import os
 import re
 import sys
 
@@ -26,12 +27,24 @@ from adore.util import (
     iso_to_datetime,
     load_env_file,
     parse_duration,
+    process_alive,
     run_command,
     utc_now_iso,
 )
 import pytest
 
 # PUBLIC API / TESTS
+
+
+def test_process_alive_current_and_invalid_pids() -> None:
+    """
+    @brief   The liveness probe reports the running test process alive and
+             rejects non-positive pids, on both POSIX and Windows.
+    @version 0.1.0
+    """
+    assert process_alive(os.getpid()) is True
+    assert process_alive(0) is False
+    assert process_alive(-1) is False
 
 
 def test_parse_duration_units() -> None:

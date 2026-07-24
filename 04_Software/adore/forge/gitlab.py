@@ -36,6 +36,10 @@ from adore.util import CommandResult, CommandRunner, run_command
 _NOTE_ID_RE = re.compile(r"#note_(\d+)")
 _MR_URL_RE = re.compile(r"https?://\S+/-/merge_requests/\d+")
 _NOT_FOUND_MARKERS = ("404", "not found")
+# GitLab caps `--per-page` at 100, so paginate to see every ready ticket rather
+# than silently truncating the selection pool; bounded so a runaway never loops.
+_PAGE_SIZE = 100
+_MAX_LIST_PAGES = 50
 
 # PUBLIC API
 
@@ -65,23 +69,36 @@ class GitLabForge(Forge):
     def list_ready(self, ready_label: str) -> list[Ticket]:
         """
         @brief      List open issues carrying the label, via JSON output.
+        @details    Paginated: GitLab caps `--per-page` at 100, so a repository
+                    with more than 100 ready tickets would otherwise drop the
+                    overflow from the selection pool - including a high-priority
+                    ticket the caller would have ranked first. Pages are walked
+                    until a short (last) page, bounded by `_MAX_LIST_PAGES`.
         @param[in]  ready_label Eligibility label.
         @return     Eligible tickets, unordered (caller ranks by priority).
         @exception  ForgeError When glab fails.
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.0
+        @date       2026-07-24
+        @version    0.1.1
         """
-        result = self._run(
-            [
-                "glab", "issue", "list",
-                "--repo", self.repo,
-                "--label", ready_label,
-                "--output", "json",
-                "--per-page", "100",
-            ]
-        )
-        return [self._to_ticket(item) for item in self._parse_json(result, list)]
+        tickets: list[Ticket] = []
+        page = 1
+        while True:
+            result = self._run(
+                [
+                    "glab", "issue", "list",
+                    "--repo", self.repo,
+                    "--label", ready_label,
+                    "--output", "json",
+                    "--per-page", str(_PAGE_SIZE),
+                    "--page", str(page),
+                ]
+            )
+            batch = self._parse_json(result, list)
+            tickets.extend(self._to_ticket(item) for item in batch)
+            if len(batch) < _PAGE_SIZE or page >= _MAX_LIST_PAGES:
+                return tickets
+            page += 1
 
     def get_ticket(self, iid: int) -> Ticket | None:
         """
