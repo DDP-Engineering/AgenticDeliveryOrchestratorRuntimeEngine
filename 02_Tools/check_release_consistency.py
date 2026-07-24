@@ -9,13 +9,16 @@
 # -----------------------------------------------------------------------------
 """
 @file check_release_consistency.py
-@brief Fail-closed repository check for the ADORE 1.0.0 release identity.
+@brief Fail-closed repository check for the ADORE release identity.
 @details Verifies package and lock metadata, canonical runtime/deployment
          resource names, documentation release markers, delivery artifacts,
-         and exact forbidden pre-1.0 identity tokens.
+         and exact forbidden pre-1.0 identity tokens. The project release
+         version is a single constant (EXPECTED_VERSION); the executor/proxy
+         image tags are versioned independently and are checked as their own
+         literal tokens.
 @author Eng. Dan Dumitru Pasare
-@date 2026-07-16
-@version 0.2.0
+@date 2026-07-24
+@version 0.2.1
 """
 
 from __future__ import annotations
@@ -32,7 +35,11 @@ import zipfile
 # CONSTANTS
 
 EXPECTED_NAME = "adore"
-EXPECTED_VERSION = "1.0.0"
+EXPECTED_VERSION = "1.1.0"
+# The executor base and egress-proxy images are versioned by their own content,
+# independently of the project release; they stay at their built tag.
+EXPECTED_IMAGE_VERSION = "1.0.0"
+EXPECTED_CHANGELOG_HEADING = "## [1.1.0] - 2026-07-24"
 EXPECTED_PRODUCT = "Agentic Delivery Orchestrator & Runtime Engine"
 EXPECTED_TASK = "ADORE Orchestrator & Runtime Engine"
 EXPECTED_RUNTIME_PREFIX = "adore-runtime"
@@ -230,7 +237,7 @@ def _check_metadata(root: Path, issues: list[str]) -> None:
 
     init_text = _require_text(root, "04_Software/adore/__init__.py", issues)
     if f'__version__ = "{EXPECTED_VERSION}"' not in init_text:
-        issues.append("adore.__version__ does not match 1.0.0")
+        issues.append(f"adore.__version__ does not match {EXPECTED_VERSION}")
 
     try:
         lock = tomllib.loads(_read_text(lock_path))
@@ -244,7 +251,7 @@ def _check_metadata(root: Path, issues: list[str]) -> None:
             editable[0].get("name") != EXPECTED_NAME
             or editable[0].get("version") != EXPECTED_VERSION
         ):
-            issues.append("uv.lock editable package must be adore 1.0.0")
+            issues.append(f"uv.lock editable package must be adore {EXPECTED_VERSION}")
     except (OSError, UnicodeError, tomllib.TOMLDecodeError, TypeError) as exc:
         issues.append(f"invalid 04_Software/uv.lock: {exc}")
 
@@ -278,11 +285,11 @@ def _check_release_surfaces(root: Path, issues: list[str]) -> None:
         ),
         "02_Tools/package_runtime.ps1": (f'"{EXPECTED_RUNTIME_PREFIX}-$version"',),
         "02_Tools/package_runtime.sh": (f'"{EXPECTED_RUNTIME_PREFIX}-${{VERSION}}"',),
-        "README.md": ("Current release: **ADORE 1.0.0**.",),
-        "CHANGELOG.md": ("## [1.0.0] - 2026-07-16",),
+        "README.md": (f"Current release: **ADORE {EXPECTED_VERSION}**.",),
+        "CHANGELOG.md": (EXPECTED_CHANGELOG_HEADING,),
         "07_Delivery/README.md": (
-            "adore-runtime-1.0.0.zip",
-            "adore-runtime-1.0.0.tar.gz",
+            f"{EXPECTED_RUNTIME_PREFIX}-{EXPECTED_VERSION}.zip",
+            f"{EXPECTED_RUNTIME_PREFIX}-{EXPECTED_VERSION}.tar.gz",
             "Documentation/",
         ),
     }
@@ -424,7 +431,9 @@ def _check_bundle_metadata(
         pyproject = tomllib.loads(files["pyproject.toml"].decode("utf-8-sig"))
         project = pyproject["project"]
         if project.get("name") != EXPECTED_NAME or project.get("version") != EXPECTED_VERSION:
-            issues.append(f"{artifact.name}: embedded pyproject metadata is not adore 1.0.0")
+            issues.append(
+                f"{artifact.name}: embedded pyproject metadata is not adore {EXPECTED_VERSION}"
+            )
         if project.get("scripts") != {EXPECTED_NAME: "adore.cli:main"}:
             issues.append(f"{artifact.name}: embedded pyproject console command is wrong")
     except (KeyError, TypeError, UnicodeError, tomllib.TOMLDecodeError) as exc:
@@ -440,7 +449,9 @@ def _check_bundle_metadata(
             editable[0].get("name") != EXPECTED_NAME
             or editable[0].get("version") != EXPECTED_VERSION
         ):
-            issues.append(f"{artifact.name}: embedded uv.lock root package is not adore 1.0.0")
+            issues.append(
+                f"{artifact.name}: embedded uv.lock root package is not adore {EXPECTED_VERSION}"
+            )
     except (TypeError, UnicodeError, tomllib.TOMLDecodeError) as exc:
         issues.append(f"{artifact.name}: invalid embedded uv.lock: {exc}")
 
@@ -537,7 +548,7 @@ def main(argv: list[str] | None = None) -> int:
     @version    0.1.0
     """
     parser = argparse.ArgumentParser(
-        description="verify the ADORE 1.0.0 release identity",
+        description=f"verify the ADORE {EXPECTED_VERSION} release identity",
     )
     parser.add_argument(
         "--repo-root",
@@ -548,7 +559,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--require-artifacts",
         action="store_true",
-        help="also require both canonical 1.0.0 delivery archives",
+        help=f"also require both canonical {EXPECTED_VERSION} delivery archives",
     )
     args = parser.parse_args(argv)
     issues = check_repository(args.repo_root, require_artifacts=args.require_artifacts)
@@ -556,7 +567,7 @@ def main(argv: list[str] | None = None) -> int:
         for issue in issues:
             print(f"error: {issue}", file=sys.stderr)
         return 1
-    print("ADORE 1.0.0 release identity is consistent")
+    print(f"ADORE {EXPECTED_VERSION} release identity is consistent")
     return 0
 
 

@@ -168,6 +168,31 @@ answer_timeout = "three days"
     assert any("draft" in issue for issue in issues)
 
 
+def test_per_gate_timeout_defaults_and_is_validated(tmp_path: Path) -> None:
+    """
+    @brief   per_gate_timeout_seconds defaults to 1800 and is an independent
+             positive knob from max_wall_clock_seconds (the whole-run ceiling).
+    @version 0.1.0
+    """
+    config = load_config(_write_config(tmp_path, MINIMAL_VALID))
+    assert config.budgets.per_gate_timeout_seconds == 1800
+    assert config.budgets.max_wall_clock_seconds == 3600
+    bad = MINIMAL_VALID + "\n[budgets]\nper_gate_timeout_seconds = 0\n"
+    issues = validate_config(load_config(_write_config(tmp_path, bad)))
+    assert any("per_gate_timeout_seconds" in issue for issue in issues)
+
+
+def test_validation_rejects_reminder_after_the_timeout(tmp_path: Path) -> None:
+    """
+    @brief   A reminder scheduled at or after the hard answer timeout can never
+             fire before release; the ordering is rejected, not just the format.
+    @version 0.1.0
+    """
+    text = MINIMAL_VALID + '\n[clarification]\nreminder_after = "72h"\nanswer_timeout = "24h"\n'
+    issues = validate_config(load_config(_write_config(tmp_path, text)))
+    assert any("reminder_after must be shorter" in issue for issue in issues)
+
+
 def test_validation_flags_unknown_sections(tmp_path: Path) -> None:
     """
     @brief   A typo'd section name is reported instead of silently ignored.

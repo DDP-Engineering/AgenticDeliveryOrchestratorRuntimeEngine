@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: State Store (`adore/state.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/adore/state.py` - file version 0.1.1.
+> Source: `04_Software/adore/state.py` - file version 0.2.0.
 > Design: Orchestrator_Design_And_Decisions.md section 8a.
 
 ## 1. Purpose
@@ -52,14 +52,19 @@ deciding transitions (orchestrator).
     `invalid_runs()` keeps them visible; nothing is silently deleted;
   - a corrupt **lock file** still counts as held - never start a second
     poller on damaged evidence;
+  - a lock left by a **crashed** poller on this host (its recorded pid is
+    provably dead, via the injectable `process_alive` probe) is reclaimed
+    automatically, so a hard crash under systemd/Task Scheduler does not wedge
+    every future start; a live owner, an unreadable record, or a lock from a
+    different host are never reclaimed;
   - `read_journal()` skips torn lines (journal appends are not atomic; a
     crash can tear the tail; the authority is `state.json`, not the journal).
 
 ## 4. Dependencies
 
-- Internal: `adore.util.utc_now_iso`.
+- Internal: `adore.util.utc_now_iso`, `adore.util.process_alive`.
 - External: Python standard library only (`json`, `hashlib`, `pathlib`,
-  `shutil`, `os`).
+  `shutil`, `os`, `socket`).
 
 ## 5. Inputs And Outputs
 
@@ -77,8 +82,9 @@ deciding transitions (orchestrator).
 - Journal record shape: `{"ts": <iso>, "event": <name>, ...fields}`.
   Executor archives are indexed with `event = "executor-artifacts"` and an
   `artifacts` list of archive directories.
-- Lock record shape: `{"pid": <int>, "acquired_at": <iso>}`; `lock_info()`
-  returns `{}` when held-but-unreadable and `None` when free.
+- Lock record shape: `{"pid": <int>, "acquired_at": <iso>, "host": <str>}`;
+  `lock_info()` returns `{}` when held-but-unreadable and `None` when free. The
+  `host` scopes automatic stale reclaim to the machine that wrote the lock.
 - The orchestrator run state is fully independent from the target repo's
   `.agentic` workflow run (design 8a); neither records the other's id.
 
@@ -113,8 +119,10 @@ store.journal(run_id, "picked", ticket=14)
 
 ## 10. Limitations And Future Work
 
-- The lock is not stolen automatically on staleness; `adore cleanup` (later
-  phase) will clear stale locks after checking the recorded pid.
+- Automatic reclaim covers a **dead same-host** owner only; a lock from another
+  host, or one whose pid was recycled by an unrelated live process, still needs
+  `adore cleanup`. `adore cleanup` also remains the explicit way to clear a lock
+  when no poller is running.
 - Single-orchestrator assumption: the lock protects one store on one host;
   multiple instances would need a shared lock (out of scope for v1).
 - Retention policy for terminal-state run dirs (keep/purge) arrives with the

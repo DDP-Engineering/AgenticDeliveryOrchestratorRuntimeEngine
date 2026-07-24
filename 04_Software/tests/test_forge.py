@@ -344,6 +344,44 @@ def test_github_get_ticket_not_found() -> None:
     assert forge.get_ticket(404) is None
 
 
+def test_github_get_pr_requests_and_maps_labels() -> None:
+    """
+    @brief   `get_merge_request` requests the labels field AND maps GitHub's
+             label objects to plain names - so the revise-label trigger sees
+             them. gh returns only the fields named in --json, so a missing
+             `labels` field would silently yield an empty label list.
+    @version 0.1.0
+    """
+    payload = json.dumps(
+        {
+            "number": 7,
+            "state": "OPEN",
+            "url": "https://github.com/o/r/pull/7",
+            "isDraft": True,
+            "labels": [{"name": "agent-revise"}, {"name": "P1"}],
+        }
+    )
+    runner = FakeRunner(_ok(payload))
+    mr = GitHubForge("o/r", runner).get_merge_request(7)
+    assert mr is not None
+    assert mr.iid == 7
+    assert mr.state == "opened"
+    assert mr.draft is True
+    assert mr.labels == ["agent-revise", "P1"]
+    # the field set MUST carry labels or the revise trigger goes blind
+    json_arg = runner.calls[0][runner.calls[0].index("--json") + 1]
+    assert "labels" in json_arg.split(",")
+
+
+def test_github_get_pr_not_found() -> None:
+    """
+    @brief   A missing PR (404) maps to None rather than raising.
+    @version 0.1.0
+    """
+    forge = GitHubForge("o/r", FakeRunner(_fail("could not resolve to a PullRequest")))
+    assert forge.get_merge_request(404) is None
+
+
 def test_forge_error_carries_context() -> None:
     """
     @brief   ForgeError includes the command and stderr for the journal.

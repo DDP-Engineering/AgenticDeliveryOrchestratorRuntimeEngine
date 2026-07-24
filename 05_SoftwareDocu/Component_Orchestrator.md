@@ -54,12 +54,15 @@ the executor.
   the ticket back to humans keeping state for audit.
 - **Reconciliation** (design 8c, partial): deleted ticket -> orphan +
   teardown; closed ticket -> cancel. (hold/trigger-removed mid-run: later.)
-- **Run budgets** (design 10): executor iterations, wall clock, files
-  touched vs base ref. (Cost joins with the metrics phase.) Live-pilot
-  refinements 2026-07-04: the files check is skipped while a target merge is
-  in progress (staged upstream files are integration noise, not scope), and
-  resume - like retry - restarts the active-work clock and iteration count
-  (parked time is bounded by answer_timeout, not the work budget).
+- **Run budgets** (design 10): executor iterations, total wall clock
+  (`max_wall_clock_seconds`), files touched vs base ref. (Cost joins with the
+  metrics phase.) A single executor launch is bounded separately by
+  `per_gate_timeout_seconds` (independent from the whole-run ceiling, so
+  per-gate and total budgets tune apart). Live-pilot refinements 2026-07-04:
+  the files check is skipped while a target merge is in progress (staged
+  upstream files are integration noise, not scope), and resume - like retry -
+  restarts the active-work clock and iteration count (parked time is bounded by
+  answer_timeout, not the work budget).
 - **Ticket signaling** (design 5d): one status comment edited in place
   and/or lifecycle-label transitions, per `[state] channel`; signaling
   failures never break a run - local state is authoritative.
@@ -84,8 +87,12 @@ the executor.
   adopted, never duplicated.
 - **Post-MR outcomes** (design 11b): each poll checks in-review runs by MR
   iid - merged -> `done` + full teardown (state kept for audit); closed
-  without merge -> `failed` + teardown. Legacy `validated` runs from before
-  phase 4 are delivered by reconciliation.
+  without merge -> `failed` + teardown. An MR that reads back as **deleted**
+  (a real 404, distinct from a transient forge error, which is retried) is
+  tolerated for a few polls, then ends the run - so an in-review run whose MR
+  vanished cannot re-poll and re-log forever; a blip that resolves within the
+  grace clears the counter. Legacy `validated` runs from before phase 4 are
+  delivered by reconciliation.
 - **Teardown** (`_teardown`): removes the container, then the worktree +
   branch. On WSL2 the container's 9P bind mount releases asynchronously, so
   worktree removal is retried with backoff (~7s) but ONLY on the transient
@@ -131,7 +138,10 @@ interface) and metrics.
   such as Codex `CODEX_HOME`.
 - `_provision` also asks the isolation layer to run
   `[container] required_tool_checks`, so a profile with the wrong
-  runtime-project image fails before the executor starts a gate.
+  runtime-project image fails before the executor starts a gate. On the FIRST
+  creation of a run's worktree it fetches the remote first (best-effort - an
+  offline fetch never blocks), so the run branches from an up-to-date base
+  rather than a possibly stale local ref.
 - **Executor sessions live inside the container**: provision reports
   created/started/running, and a "created" container resets the stored
   session id (journal: `session-reset`) - a fresh container can never be

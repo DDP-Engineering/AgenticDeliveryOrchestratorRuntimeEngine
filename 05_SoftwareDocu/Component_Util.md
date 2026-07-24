@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Util (`adore/util.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/adore/util.py` - file version 0.2.0.
+> Source: `04_Software/adore/util.py` - file version 0.3.0.
 
 ## 1. Purpose
 
@@ -34,7 +34,12 @@ docker, the executor CLI) happens in exactly one place with one error model.
 - Remove directory trees that contain read-only entries
   (`force_rmtree` - Windows git objects are read-only and plain
   `shutil.rmtree` fails on them; missing paths are fine, so teardown and
-  `adore cleanup` stay idempotent).
+  `adore cleanup` stay idempotent; uses `onexc` on Python 3.12+ and `onerror`
+  below).
+- Probe whether a process id is running (`process_alive`), cross-platform and
+  fail-closed (any uncertainty reports alive), so the state store can reclaim
+  only a provably-dead crashed lock owner. On Windows it uses an OpenProcess
+  probe rather than `os.kill`, which there can terminate the target.
 
 Explicitly not owned: interpreting command output (each caller parses its own
 JSON/URLs) and retry/backoff policy (the orchestrator's concern).
@@ -58,7 +63,8 @@ JSON/URLs) and retry/backoff policy (the orchestrator's concern).
 ## 4. Dependencies
 
 - Internal: none (lowest layer).
-- External: Python standard library only (`subprocess`, `re`, `datetime`).
+- External: Python standard library only (`subprocess`, `re`, `datetime`,
+  `shutil`, `os`, `sys`, and `ctypes` on Windows for `process_alive`).
 
 ## 5. Inputs And Outputs
 
@@ -94,7 +100,8 @@ seconds = parse_duration("24h")  # 86400
 ## 9. Validation And Tests
 
 - `tests/test_util.py`: duration units and garbage rejection, output capture,
-  missing binary -> 127, hung command -> 124, timestamp shape.
+  missing binary -> 127, hung command -> 124, timestamp shape, and
+  `process_alive` (current pid alive, non-positive pids rejected).
 - Minimum validation after a change: `uv run --group dev pytest tests/test_util.py`.
 
 ## 10. Limitations And Future Work

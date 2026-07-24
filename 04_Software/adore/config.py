@@ -403,13 +403,20 @@ class WorktreeConfig:
 class BudgetsConfig:
     """
     @brief   [budgets] - hard bounds so a run can never thrash forever.
+    @details `per_gate_timeout_seconds` bounds ONE executor launch (the
+             wall-clock a single gate/fix relaunch may take);
+             `max_wall_clock_seconds` bounds the WHOLE run since pickup. They
+             are independent knobs - a generous per-gate limit no longer forces
+             an equally generous total, and a tight total no longer throttles
+             every individual gate.
     @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-02
-    @version 0.1.0
+    @date    2026-07-24
+    @version 0.2.0
     """
 
     max_iterations: int = 20
     max_wall_clock_seconds: int = 3600
+    per_gate_timeout_seconds: int = 1800
     max_cost_usd: float = 5.0
     max_files_touched: int = 40
 
@@ -728,8 +735,8 @@ def validate_config(config: Config) -> list[str]:
     @param[in]  config The configuration to validate.
     @return     Empty list when valid; otherwise one message per issue.
     @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-07
-    @version    0.1.8
+    @date       2026-07-24
+    @version    0.1.9
     """
     issues: list[str] = []
 
@@ -827,14 +834,24 @@ def validate_config(config: Config) -> list[str]:
             )
 
     check(config.clarification.max_rounds >= 1, "[clarification] max_rounds must be >= 1")
+    durations_ok = True
     for key in ("reminder_after", "answer_timeout"):
         try:
             parse_duration(getattr(config.clarification, key))
         except ValueError:
+            durations_ok = False
             issues.append(
                 f"[clarification] {key} is not a valid duration: "
                 f"{getattr(config.clarification, key)!r}"
             )
+    if durations_ok:
+        # a reminder that fires at or after the hard timeout can never nudge
+        # before the run is released - reject the ordering, not just the format
+        check(
+            config.clarification.reminder_after_seconds()
+            < config.clarification.answer_timeout_seconds(),
+            "[clarification] reminder_after must be shorter than answer_timeout",
+        )
     check(
         config.clarification.timeout_state in ("failed", "stale"),
         f"[clarification] timeout_state must be failed/stale: "
@@ -1026,6 +1043,10 @@ def validate_config(config: Config) -> list[str]:
     check(
         config.budgets.max_wall_clock_seconds >= 1,
         "[budgets] max_wall_clock_seconds must be >= 1",
+    )
+    check(
+        config.budgets.per_gate_timeout_seconds >= 1,
+        "[budgets] per_gate_timeout_seconds must be >= 1",
     )
     check(config.budgets.max_cost_usd > 0, "[budgets] max_cost_usd must be > 0")
     check(config.budgets.max_files_touched >= 1, "[budgets] max_files_touched must be >= 1")

@@ -41,8 +41,6 @@ from adore.util import iso_to_datetime
 # CONSTANTS
 
 _TABLE = "run_summaries"
-_TERMINAL_EVENTS = ("merged", "escalated", "cancelled", "answer-timeout",
-                    "mr-closed", "orphaned")
 
 # DATA MODELS / TYPEDEFINITIONS
 

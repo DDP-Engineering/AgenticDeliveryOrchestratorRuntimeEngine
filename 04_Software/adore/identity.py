@@ -124,15 +124,29 @@ class AgentIdentity:
     def parse_marker(self, body: str) -> dict[str, str] | None:
         """
         @brief      Extract this agent's marker fields from a comment body.
+        @details    A marker found ONLY inside a quoted line (a Markdown
+                    blockquote, leading ">") is ignored: when a human uses
+                    "Reply"/"Quote" they carry ADORE's hidden marker into their
+                    own comment, and counting that as ours would make resume
+                    detection miss their answer. The agent always writes its
+                    own marker on an unquoted line, so this never hides a
+                    genuine ADORE comment.
         @param[in]  body Full comment text.
         @return     Mapping of marker fields (run, kind, ...), or None when the
-                    comment carries no marker (that is, it is human).
+                    comment carries no unquoted marker (that is, it is human).
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.0
+        @date       2026-07-24
+        @version    0.2.0
         """
         pattern = re.compile(rf"<!--\s*{re.escape(self.slug)}:(.*?)-->", re.DOTALL)
-        match = pattern.search(body or "")
+        # Drop blockquote lines before matching, then search the remainder with
+        # DOTALL so a legitimately multi-line marker still parses. A marker that
+        # survives only inside quoted lines is gone, so a quoted reply is human.
+        unquoted = "\n".join(
+            line for line in (body or "").splitlines()
+            if not line.lstrip().startswith(">")
+        )
+        match = pattern.search(unquoted)
         if not match:
             return None
         return dict(_TOKEN_RE.findall(match.group(1)))

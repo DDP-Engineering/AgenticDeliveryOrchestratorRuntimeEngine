@@ -102,11 +102,19 @@ class FileProtocolExecutor(Executor):
                                    blocking questions to.
         @exception  ValueError When the template carries a forbidden flag.
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-05
-        @version    0.1.1
+        @date       2026-07-24
+        @version    0.1.2
         """
+        # Tokenize with shlex so quoting is respected, and reject both the bare
+        # flag and its `--flag=value` form. This stays a safety belt, not the
+        # boundary: container isolation (no remote credentials) is what actually
+        # keeps a misconfigured executor off the remote.
+        try:
+            tokens = shlex.split(command_template)
+        except ValueError:
+            tokens = command_template.split()
         for flag in self.forbidden_flags:
-            if flag in command_template.split():
+            if any(token == flag or token.startswith(f"{flag}=") for token in tokens):
                 raise ValueError(
                     f"executor command must not use {flag}: it auto-approves the "
                     "push/pr/merge permissions that keep the executor off the remote"
@@ -193,8 +201,8 @@ class FileProtocolExecutor(Executor):
         @param[in]  artifact_dirs Archive dirs already produced.
         @return     A GateRun describing the final outcome.
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-07
-        @version    0.1.0
+        @date       2026-07-24
+        @version    0.1.1
         """
         worktree = Path(worktree)
         io_dir = Path(io_dir)
@@ -210,11 +218,15 @@ class FileProtocolExecutor(Executor):
             session=session,
         )
         # No `exec` prefix: the template may be a compound command, and the
-        # script's exit status is the command's status either way.
+        # script's exit status is the command's status either way. The command
+        # is wrapped in a `{ ...; }` group so the output/stderr redirection
+        # applies to the WHOLE compound (e.g. `a && b`), not just its last
+        # stage - otherwise a compound template would lose the earlier stage's
+        # stream. Group exit status is that of the last command run, unchanged.
         script = (
             "#!/bin/sh\n"
             f"cd {CONTAINER_WORKTREE_MOUNT}\n"
-            f"{command} "
+            f"{{ {command}; }} "
             f"> {CONTAINER_IO_MOUNT}/{OUTPUT_FILE} "
             f"2> {CONTAINER_IO_MOUNT}/{STDERR_FILE}\n"
         )

@@ -182,10 +182,11 @@ branch_rule = ""             # optional: the repo's branch push-rule regex; vali
 
 # ----- Run budgets -----
 [budgets]
-max_iterations         = 20
-max_wall_clock_seconds = 3600
-max_cost_usd           = 5.0
-max_files_touched      = 40
+max_iterations           = 20
+max_wall_clock_seconds   = 3600
+per_gate_timeout_seconds = 1800
+max_cost_usd             = 5.0
+max_files_touched        = 40
 
 # ----- Delivery -----
 [delivery]
@@ -376,6 +377,7 @@ Manual supervised `adore run --once` remains allowed with open egress.
 |---|---|---|
 | `max_iterations` | Max **executor launches** per run before failing closed. What counts: one launch per gate (6 for a clean pass) plus one per fix launch (merge-conflict resolution or a failing-gate fix during delivery) and per revise round. Clean delivery (no conflicts, gates green) launches the executor **zero** extra times - merge/preflight/push/MR are deterministic orchestrator actions. Sizing: `6` = clean pass only, zero fix headroom (crawl pilots); `12`-`15` = supervised operation with fix headroom; `20` (default) = unattended headroom. Tripping the budget never loses work: the run fails with the reason journaled and posted, and `adore retry` re-arms the counters and continues from the stored stage. | `20` |
 | `max_wall_clock_seconds` | Max wall-clock of **active work** per run; the clock restarts on `adore retry` and on resume-from-park (parked waiting time is bounded by `[clarification] answer_timeout` instead). | `3600` |
+| `per_gate_timeout_seconds` | Wall-clock bound on a **single** executor launch (one gate, one delivery fix, or one revise). Independent from `max_wall_clock_seconds` (the whole-run ceiling), so per-gate and total budgets can be tuned separately. | `1800` |
 | `max_cost_usd` | Max model spend per run. | `5.0` |
 | `max_files_touched` | Max files a run may change. | `40` |
 

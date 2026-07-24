@@ -8,7 +8,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # ADORE — Agentic Delivery Orchestrator & Runtime Engine
 
-Current release: **ADORE 1.0.0**.
+Current release: **ADORE 1.1.0**.
 
 This is the standalone repository for **Agentic Delivery Orchestrator & Runtime Engine**:
 a service that selects eligible tickets from GitLab or GitHub, guides an

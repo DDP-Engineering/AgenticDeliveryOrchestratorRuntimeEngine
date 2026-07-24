@@ -10,7 +10,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 > Component documentation per `component_documentation_template.md`.
 > Sources: `04_Software/adore/forge/{__init__,base,gitlab,github}.py` -
-> file versions 0.1.0.
+> file versions 0.1.0 (`gitlab`/`github` adapters at method version 0.1.1).
 > Design: Orchestrator_Design_And_Decisions.md section 4;
 > Host forge authentication: `01_Documentation/Security_And_Credentials.md`.
 
@@ -74,11 +74,19 @@ stops" is structural, not a convention (design 11). Plain git operations
 - GitHub specifics:
   - `gh issue list/view --json <fields>`; label objects and `OPEN`/`CLOSED`
     states normalized to the GitLab shape;
+  - `gh` returns only the fields named in `--json`, so `get_merge_request`
+    **must** include `labels` in its field set - it does, and a regression test
+    pins the selection. Omitting it made every MR read back with no labels,
+    which silently disabled the revise-label trigger on GitHub;
   - comments via the REST API (`gh api repos/.../issues/N/comments`), edits
     via `PATCH repos/.../issues/comments/<id>` (comment ids are repo-global);
   - created comment id parsed from the `#issuecomment-<id>` URL;
   - `gh pr create --draft --head --base`; `remove_source_branch` is ignored
     (a repository setting on GitHub).
+- Selection reads the full ready pool, not the first page: `GitLabForge`
+  paginates `glab issue list` (GitLab caps `--per-page` at 100, bounded by
+  `_MAX_LIST_PAGES`) and `GitHubForge` reads up to `--limit 500`, so a
+  high-priority ticket beyond the first 100 is still ranked.
 
 ## 4. Dependencies
 
@@ -143,7 +151,9 @@ url = forge.open_merge_request("adore/run-14", "develop", "Draft: ...", body,
 
 ## 10. Limitations And Future Work
 
-- Pagination is capped at 100 items per call; enough for the pilot queue.
+- GitLab selection paginates in 100-item pages up to `_MAX_LIST_PAGES` (50);
+  GitHub reads up to 500 in one call. Beyond those bounds the pool is still
+  capped - large enough for realistic ready queues.
 - MR review-thread reading (post-MR revise loop, design 11b) and CI-status
   reading are not yet part of the interface; they arrive with that phase.
 - GitLab flags are verified live (read-only, 2026-07-03); GitHub flags are

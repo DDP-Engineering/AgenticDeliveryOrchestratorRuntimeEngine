@@ -83,7 +83,7 @@ def test_repository_release_identity_is_consistent() -> None:
     """
     result = _run(REPO_ROOT)
     assert result.returncode == 0, result.stderr
-    assert "ADORE 1.0.0 release identity is consistent" in result.stdout
+    assert "ADORE 1.1.0 release identity is consistent" in result.stdout
 
 
 def test_release_check_fails_closed_on_bad_metadata_and_old_identity(
@@ -97,7 +97,7 @@ def test_release_check_fails_closed_on_bad_metadata_and_old_identity(
     _copy_inputs(tmp_path)
     init_path = tmp_path / "04_Software/adore/__init__.py"
     init_path.write_text(
-        init_path.read_text(encoding="utf-8").replace("1.0.0", "9.9.9"),
+        init_path.read_text(encoding="utf-8").replace('"1.1.0"', '"9.9.9"'),
         encoding="utf-8",
     )
     old_name = "AD" + "OR"
@@ -106,7 +106,7 @@ def test_release_check_fails_closed_on_bad_metadata_and_old_identity(
     result = _run(tmp_path)
 
     assert result.returncode == 1
-    assert "adore.__version__ does not match 1.0.0" in result.stderr
+    assert "adore.__version__ does not match 1.1.0" in result.stderr
     assert "legacy identity in notes.txt:1" in result.stderr
 
 

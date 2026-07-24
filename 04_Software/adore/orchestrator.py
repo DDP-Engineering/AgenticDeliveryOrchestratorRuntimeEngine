@@ -69,9 +69,15 @@ from adore.util import (
 GATES = ("intake", "alignment", "requirement", "check", "implementation",
          "validation")
 
-_AGENTIC_CURRENT_RUN = ".agentic/current_run"
+_AGENTIC_CURRENT_RUN = ".agentic/.workspace/state/current_run"
 _AGENTIC_FAILURE_CONTEXT_LIMIT = 5000
 _AGENTIC_FAILURE_ITEMS_LIMIT = 5
+
+# An in-review MR that reads back as not-found is usually a real deletion, but
+# a single 404 can also be a transient platform blip. Tolerate a few before
+# ending the run, so an in-review run whose MR truly vanished cannot re-poll
+# (and re-log) forever, while a momentary blip is ridden out.
+_MR_MISSING_GRACE_POLLS = 3
 
 # Worktree removal right after container removal can transiently fail on WSL2:
 # `docker/podman rm` returns before the kernel releases the container's
@@ -604,8 +610,8 @@ class Orchestrator:
         @param[in]  ticket Current ticket (for prompts).
         @param[in]  thread Rendered clarification thread ("" outside resume).
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-08
-        @version    0.2.0
+        @date       2026-07-24
+        @version    0.2.1
         """
         try:
             self._provision(run)
@@ -639,7 +645,7 @@ class Orchestrator:
                 self._io_dir(run.run_id),
                 prompt,
                 session=run.executor_session,
-                timeout=self.config.budgets.max_wall_clock_seconds,
+                timeout=self.config.budgets.per_gate_timeout_seconds,
                 archive_stem=f"{run.iterations:03d}-{gate}",
             )
             run.executor_session = result.session_id or run.executor_session
@@ -857,8 +863,8 @@ class Orchestrator:
         @return     True to re-check; False when the run ended (escalated or
                     parked).
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-08
-        @version    0.2.0
+        @date       2026-07-24
+        @version    0.2.1
         """
         reason = self._budget_exceeded(run)
         if reason:
@@ -873,7 +879,7 @@ class Orchestrator:
             self._io_dir(run.run_id),
             self._gate_prompt("validation", ticket, context, thread),
             session=run.executor_session,
-            timeout=self.config.budgets.max_wall_clock_seconds,
+            timeout=self.config.budgets.per_gate_timeout_seconds,
             archive_stem=f"{run.iterations:03d}-delivery-fix",
         )
         run.executor_session = result.session_id or run.executor_session
@@ -926,8 +932,8 @@ class Orchestrator:
         @param[in]  run The in-review run.
         @param[in,out] summary Poll summary counters.
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-06
-        @version    0.1.2
+        @date       2026-07-24
+        @version    0.1.3
         """
         try:
             mr = self.forge.get_merge_request(run.mr_iid or run.branch)
@@ -935,8 +941,23 @@ class Orchestrator:
             self.log(f"{run.run_id}: MR check failed: {exc}")
             return
         if mr is None:
-            self.log(f"{run.run_id}: MR {run.mr_iid or run.branch} not found")
+            # a real deletion, not a transient forge error (those raise above
+            # and are retried). Ride out a few blips, then end the run so it
+            # cannot stay in-review and re-log "not found" on every poll.
+            run.mr_missing_polls += 1
+            self.store.save(run)
+            self.store.journal(run.run_id, "mr-missing",
+                               polls=run.mr_missing_polls)
+            self.log(f"{run.run_id}: MR {run.mr_iid or run.branch} not found "
+                     f"({run.mr_missing_polls}/{_MR_MISSING_GRACE_POLLS})")
+            if run.mr_missing_polls >= _MR_MISSING_GRACE_POLLS:
+                self._escalate(
+                    run, f"MR {run.mr_iid or run.branch} no longer exists"
+                )
             return
+        if run.mr_missing_polls:
+            run.mr_missing_polls = 0  # MR is back; clear the blip counter
+            self.store.save(run)
         if mr.state == "opened":
             # design 11b: never auto-react to mere comments; the explicit
             # revise label is the trigger (trigger modes other than "label"
@@ -979,8 +1000,8 @@ class Orchestrator:
         @param[in]  mr The open MR carrying the revise label.
         @param[in,out] summary Poll summary counters.
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-04
-        @version    0.1.0
+        @date       2026-07-24
+        @version    0.1.1
         """
         run.review_rounds += 1
         if run.review_rounds > self.config.review.max_review_rounds:
@@ -1020,7 +1041,7 @@ class Orchestrator:
             self._io_dir(run.run_id),
             self._gate_prompt("revise", ticket, "", thread),
             session=run.executor_session,
-            timeout=self.config.budgets.max_wall_clock_seconds,
+            timeout=self.config.budgets.per_gate_timeout_seconds,
             archive_stem=f"{run.iterations:03d}-revise",
         )
         run.executor_session = result.session_id or run.executor_session
@@ -1094,21 +1115,26 @@ class Orchestrator:
         """
         @brief      Read prompt-safe failure evidence from the active workflow run.
         @details    Uses the workflow-template file contract:
-                    `.agentic/current_run`,
+                    `.agentic/.workspace/state/current_run`,
                     `.agentic/runs/<run-id>/graph.json`,
                     `.agentic/runs/<run-id>/journal.jsonl`, and
                     `.agentic/runs/<run-id>/report.md`. Missing files are
                     skipped; malformed files are reported in the prompt so the
                     executor understands that evidence was present but damaged.
+                    The active-run pointer moved to the worktree-local
+                    `.workspace/state/` location in the AEGIS 1.1.0 payload; the
+                    former `.agentic/current_run` path is retired.
         @param[in]  run ADORE run whose worktree is inspected.
         @return     Markdown-ish evidence block, or "" when no evidence exists.
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-08
-        @version    0.1.1
+        @date       2026-07-24
+        @version    0.1.2
         """
         worktree = self.worktrees.path_for(run.run_id)
         agentic_root = worktree / ".agentic"
-        current_run = self._read_text(agentic_root / "current_run").strip()
+        current_run = self._read_text(
+            agentic_root / ".workspace" / "state" / "current_run"
+        ).strip()
         if not current_run:
             return ""
         if not self._safe_agentic_run_id(current_run):
@@ -1128,12 +1154,15 @@ class Orchestrator:
     @staticmethod
     def _safe_agentic_run_id(value: str) -> bool:
         """
-        @brief      Whether `.agentic/current_run` names one path segment.
+        @brief      Whether the active-run pointer names one path segment.
+        @details    The pointer is read from
+                    `.agentic/.workspace/state/current_run`; its value must be a
+                    single run-id segment so it cannot escape `.agentic/runs`.
         @param[in]  value Candidate workflow run id.
         @return     True when it cannot escape `.agentic/runs`.
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-08
-        @version    0.1.0
+        @date       2026-07-24
+        @version    0.1.1
         """
         return (
             bool(value)
@@ -1602,9 +1631,16 @@ class Orchestrator:
         @param[in]  run The run.
         @exception  IsolationError When git or the container runtime fails.
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.2
+        @date       2026-07-24
+        @version    0.1.3
         """
+        if not self.worktrees.exists(run.run_id):
+            # first creation: refresh the base ref so the run branches from an
+            # up-to-date target rather than a stale local ref. Best-effort - an
+            # offline/transient fetch failure must not block provisioning, and
+            # delivery fetches + integrates the target again regardless.
+            with contextlib.suppress(IsolationError):
+                self.worktrees.fetch()
         worktree = self.worktrees.create(run.run_id, run.branch,
                                          run.base_ref or "HEAD")
         run.worktree = str(worktree)

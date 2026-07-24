@@ -22,8 +22,8 @@
          WSL mode mount sources are translated to /mnt/<drive>/ paths and
          env-value propagation crosses the WSL boundary via WSLENV.
 @author Eng. Dan Dumitru Pasare
-@date 2026-07-06
-@version 0.5.0
+@date 2026-07-24
+@version 0.6.0
 """
 
 from __future__ import annotations
@@ -430,17 +430,40 @@ class WorktreeManager:
         @return     Count of distinct changed file paths.
         @exception  IsolationError When git fails.
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
+        @date       2026-07-24
+        @version    0.1.1
         """
         wt = str(self.path_for(run_id))
         committed = self._run_wt(wt, "diff", "--name-only", f"{base_ref}...HEAD")
         pending = self._run_wt(wt, "status", "--porcelain")
         names = {line.strip() for line in committed.stdout.splitlines() if line.strip()}
         for line in pending.stdout.splitlines():
-            if line.strip():
-                names.add(line[3:].strip())
+            entry = self._porcelain_path(line)
+            if entry:
+                names.add(entry)
         return len(names)
+
+    @staticmethod
+    def _porcelain_path(line: str) -> str:
+        """
+        @brief      The changed path from one `git status --porcelain` line.
+        @details    Strips the two status columns and their trailing space, and
+                    resolves a rename/copy entry ("R  old -> new") to the NEW
+                    path so a single rename counts as one file, not as the odd
+                    string "old -> new". Surrounding quotes git adds for paths
+                    with special characters are removed.
+        @param[in]  line One porcelain status line.
+        @return     The repository-relative path, or "" for a blank line.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-24
+        @version    0.1.0
+        """
+        entry = line[3:].strip() if len(line) > 3 else line.strip()
+        if not entry:
+            return ""
+        if " -> " in entry:  # rename/copy: count the destination path
+            entry = entry.split(" -> ", 1)[1].strip()
+        return entry.strip('"')
 
     def commit_all_if_dirty(self, run_id: str, message: str) -> bool:
         """

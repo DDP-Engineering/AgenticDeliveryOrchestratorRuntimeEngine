@@ -160,6 +160,9 @@ def test_gate_script_protocol_is_wsl_safe(tmp_path: Path) -> None:
     assert "--dir /adore/work" in script
     assert "-m openai/gpt-5.4-fast" in script
     assert "'" in script and "Global Refresh" in script  # prompt quoted inside
+    # the command is a `{ ...; }` group so redirection covers a whole compound
+    # template, not just its last stage
+    assert "{ " in script and "; } > " in script
     assert f"> /adore/io/{OUTPUT_FILE}" in script
     assert run.ok
     assert run.session_id == "ses_abc123"
@@ -443,6 +446,9 @@ def test_auto_flag_is_rejected_at_construction() -> None:
         OpencodeExecutor(TEMPLATE + " --auto", "m")
     with pytest.raises(ValueError, match="--auto"):
         build_executor("opencode", "opencode run --auto {prompt}", "m")
+    # the `--flag=value` form is caught too, not just the bare flag
+    with pytest.raises(ValueError, match="--auto"):
+        OpencodeExecutor(TEMPLATE + " --auto=true", "m")
 
 
 def test_factory_wires_questions_file() -> None:

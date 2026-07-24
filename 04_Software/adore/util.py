@@ -16,8 +16,8 @@
          Also: timestamps, quiet-hours windows, dotenv loading, and the
          read-only-tolerant force_rmtree used by teardown and cleanup.
 @author Eng. Dan Dumitru Pasare
-@date 2026-07-04
-@version 0.2.0
+@date 2026-07-24
+@version 0.3.0
 """
 
 from __future__ import annotations
@@ -33,6 +33,7 @@ import re
 import shutil
 import stat
 import subprocess
+import sys
 from typing import Protocol
 
 # CONSTANTS
@@ -271,9 +272,12 @@ def force_rmtree(path: str | Path) -> None:
                 missing path is fine (idempotent cleanup).
     @param[in]  path Directory to remove.
     @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.2.0
+    @date       2026-07-24
+    @version    0.2.1
     """
+    # One callback shape serves both APIs: shutil.rmtree passes it to `onerror`
+    # (<=3.11) and to `onexc` (3.12+); the ignored third positional differs
+    # (exc_info tuple vs exception), so the same handler works for both.
     def _on_error(func, target, _exc) -> None:
         with contextlib.suppress(OSError):
             os.chmod(target, stat.S_IWRITE)
@@ -290,7 +294,72 @@ def force_rmtree(path: str | Path) -> None:
 
     target = Path(path)
     if target.exists() or target.is_symlink():
-        shutil.rmtree(target, onerror=_on_error)
+        if sys.version_info >= (3, 12):
+            shutil.rmtree(target, onexc=_on_error)
+        else:
+            shutil.rmtree(target, onerror=_on_error)
+
+
+def process_alive(pid: int) -> bool:
+    """
+    @brief      Whether a process id is currently running (cross-platform).
+    @details    Used to tell a genuinely stale single-instance lock (its owner
+                crashed) from a live one. FAILS CLOSED: any uncertainty - an
+                access-denied probe, an unexpected OS error - reports the
+                process as alive, so a held lock is never stolen on a guess;
+                only a provably absent pid reports dead. On POSIX this is
+                `os.kill(pid, 0)`; on Windows it is an OpenProcess probe that
+                deliberately avoids `os.kill`, which there can terminate the
+                target instead of merely testing it.
+    @param[in]  pid Candidate process id.
+    @return     True when the pid is (or may be) running; False only when it is
+                certainly gone.
+    @author     Eng. Dan Dumitru Pasare
+    @date       2026-07-24
+    @version    0.1.0
+    """
+    if pid <= 0:
+        return False
+    if sys.platform == "win32":
+        return _windows_process_alive(pid)
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True  # exists but owned by another user - treat as alive
+    except OSError:
+        return True  # unknown failure - fail closed (assume alive)
+    return True
+
+
+def _windows_process_alive(pid: int) -> bool:
+    """
+    @brief      Windows liveness probe via OpenProcess (no os.kill).
+    @param[in]  pid Candidate process id.
+    @return     True when the process exists (or cannot be ruled out).
+    @author     Eng. Dan Dumitru Pasare
+    @date       2026-07-24
+    @version    0.1.0
+    """
+    import ctypes
+    from ctypes import wintypes
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    process_query_limited_information = 0x1000
+    still_active = 259
+    error_access_denied = 5
+    handle = kernel32.OpenProcess(process_query_limited_information, False, pid)
+    if not handle:
+        # denied => the process exists (alive); anything else => not found
+        return ctypes.get_last_error() == error_access_denied
+    try:
+        exit_code = wintypes.DWORD()
+        if not kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code)):
+            return True  # cannot determine - fail closed
+        return exit_code.value == still_active
+    finally:
+        kernel32.CloseHandle(handle)
 
 
 def load_env_file(path: str | Path = ".env") -> dict[str, str]:
