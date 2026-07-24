@@ -127,7 +127,7 @@ if (-not $SkipImageCheck) {
     if ($LASTEXITCODE -ne 0) {
         Note "executor image '$ImageTag' not found via runtime '$Runtime'."
         Note "Build it first (exact commands, incl. the WSL2 variant, in docker\README.md), e.g.:"
-        Note "    cd $SoftwareDir\docker; docker build --build-arg USER_UID=`$(id -u) -f Dockerfile.executor-base -t adore-executor-base:1.0.0 ."
+        Note "    cd $SoftwareDir\docker; docker build --build-arg USER_UID=`$(id -u) --build-arg USER_GID=`$(id -g) -f Dockerfile.executor-base -t adore-executor-base:1.0.0 ."
         Note "For a project image, build the project's Dockerfile with the image tag configured in [container].image."
         Fail "executor image missing"
     }

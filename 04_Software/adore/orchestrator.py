@@ -1705,8 +1705,8 @@ class Orchestrator:
                     the executor will fail visibly with an auth error.
         @param[in]  run The provisioned run.
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-06
-        @version    0.2.2
+        @date       2026-07-25
+        @version    0.2.3
         """
         if not self.host_auth_path.is_file():
             self.log(f"{run.run_id}: stage_host_auth on, but {self.host_auth_path} "
@@ -1716,6 +1716,14 @@ class Orchestrator:
         io_dir.mkdir(parents=True, exist_ok=True)
         staged = io_dir / "host-auth.json"
         shutil.copy2(self.host_auth_path, staged)
+        # The source auth.json is typically mode 0600; copy2 preserves that, so
+        # the container user cannot read it through the io mount when its UID
+        # does not match the host (a hand-built image without --build-arg
+        # USER_UID). Widen the transient staged copy to 0644 so staging works
+        # regardless of UID alignment; it lives only in this run's io dir and is
+        # deleted immediately below.
+        with contextlib.suppress(OSError):
+            staged.chmod(0o644)
         try:
             execute = partial(self.containers.exec, run.container, env=self._container_env(run))
             execute(["mkdir", "-p", self.host_auth_container_dir])

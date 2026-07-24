@@ -24,7 +24,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from adore import __version__
-from adore.cli import EXIT_ERROR, EXIT_NOT_IMPLEMENTED, EXIT_OK, main
+from adore.cli import EXIT_ERROR, EXIT_OK, main
 from adore.executor.launcher import OpencodeExecutor, build_executor
 from adore.process_log import ProcessLogger, process_log_path
 import pytest
@@ -164,17 +164,81 @@ def test_cli_reset_guardrail_and_cleanup_report(
     assert '"lock_cleared": false' in capsys.readouterr().out
 
 
-def test_cli_config_set_still_exits_two(
+def test_cli_config_set_updates_existing_key_and_preserves_comments(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """
-    @brief   The one remaining stub (`config set`) exits 2 with a message,
-             never a traceback.
+    @brief   `config set` replaces an existing scalar in place, keeps comments
+             and other keys, and infers the value type (here: int).
+    @version 0.1.0
+    """
+    text = VALID_CONFIG + "\n[budgets]\nmax_iterations = 20  # a comment\n"
+    config = _config_file(tmp_path, text)
+    assert main(["-c", config, "config", "set", "budgets.max_iterations", "12"]) == EXIT_OK
+    body = Path(config).read_text(encoding="utf-8")
+    assert "max_iterations = 12" in body
+    assert "# a comment" in body          # the comment line is preserved
+    assert 'repo = "group/project"' in body  # untouched keys survive
+    assert main(["-c", config, "config", "validate"]) == EXIT_OK
+
+
+def test_cli_config_set_adds_missing_section(
+    tmp_path: Path,
+) -> None:
+    """
+    @brief   Setting a key in an absent section appends the table; the result
+             still validates.
+    @version 0.1.0
+    """
+    config = _config_file(tmp_path)  # VALID_CONFIG has no [budgets]
+    assert main(["-c", config, "config", "set", "budgets.max_files_touched", "25"]) == EXIT_OK
+    body = Path(config).read_text(encoding="utf-8")
+    assert "[budgets]" in body and "max_files_touched = 25" in body
+    assert main(["-c", config, "config", "validate"]) == EXIT_OK
+
+
+def test_cli_config_set_refuses_when_result_is_invalid(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """
+    @brief   An edit that would make the config invalid is refused and the file
+             is left byte-for-byte unchanged (validate before write).
     @version 0.1.0
     """
     config = _config_file(tmp_path)
-    assert main(["-c", config, "config", "set", "a", "b"]) == EXIT_NOT_IMPLEMENTED
-    assert "not implemented" in capsys.readouterr().out
+    before = Path(config).read_text(encoding="utf-8")
+    assert main(["-c", config, "config", "set", "budgets.max_iterations", "0"]) == EXIT_ERROR
+    out = capsys.readouterr().out
+    assert "refusing to write" in out and "max_iterations" in out
+    assert Path(config).read_text(encoding="utf-8") == before  # untouched
+
+
+def test_cli_config_set_rejects_secret_key(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """
+    @brief   A secret-looking key is refused and the operator is pointed at
+             .env; config.toml only holds secret NAMES, never values.
+    @version 0.1.0
+    """
+    config = _config_file(tmp_path)
+    assert main(["-c", config, "config", "set", "platform.api_token", "s3cr3t"]) == EXIT_ERROR
+    assert ".env" in capsys.readouterr().out
+
+
+def test_cli_config_set_rejects_bad_key_and_missing_value(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """
+    @brief   A key without a section, and a missing value, both fail closed with
+             a usage/format message rather than a traceback.
+    @version 0.1.0
+    """
+    config = _config_file(tmp_path)
+    assert main(["-c", config, "config", "set", "toplevel", "x"]) == EXIT_ERROR
+    assert "section" in capsys.readouterr().out
+    assert main(["-c", config, "config", "set", "budgets.max_iterations"]) == EXIT_ERROR
+    assert "usage" in capsys.readouterr().out
 
 
 def test_cli_stats_and_export_work_empty(

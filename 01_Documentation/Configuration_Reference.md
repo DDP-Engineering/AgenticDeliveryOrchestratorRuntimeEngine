@@ -48,9 +48,11 @@ document describes every key the wizard (or you) can set.
 ### Configuration CLI
 
 `adore config show` prints the resolved configuration as JSON and
-`adore config validate` checks the resolved configuration. Both use the normal
-resolution order above. `adore config set` is intentionally not implemented in
-ADORE 1.0.0; edit `config.toml` directly, then validate it.
+`adore config validate` checks the resolved configuration. `adore config set
+<section.key> <value>` edits one scalar in the resolved config file (comments
+preserved, value type inferred), writing only when the whole result still
+validates; secret-looking keys are rejected — put secrets in `.env`. All three
+use the normal resolution order above.
 
 ## Full Example `config.toml`
 
@@ -160,7 +162,7 @@ parked_state       = "stopped"  # "stopped" (fast resume) | "removed" (free disk
 uv_cache_volume    = "adore-uv-cache"
 npm_cache_volume   = "adore-npm-cache"
 runtime_env        = { UV_LINK_MODE = "copy" }
-run_args           = []         # extra `run` options; docker: build with --build-arg USER_UID=$(id -u); rootless podman: ["--userns=keep-id"]
+run_args           = []         # extra `run` options; docker: build with --build-arg USER_UID=$(id -u) --build-arg USER_GID=$(id -g); rootless podman: ["--userns=keep-id"]
 required_tool_checks = []       # project-image checks, e.g. ["terraform --version"]
 
 [container.egress]
@@ -344,7 +346,7 @@ teams can rename without code changes; the orchestrator refers to labels by role
 | `uv_cache_volume` | Persistent uv cache volume for fast `uv sync`. | `"adore-uv-cache"` |
 | `npm_cache_volume` | Persistent npm cache volume for fast `npm ci`. | `"adore-npm-cache"` |
 | `runtime_env` | Non-secret environment injected at container creation and every `exec`. Use it for portable tool behavior such as `UV_LINK_MODE=copy` or a project-specific `UV_PROJECT_ENVIRONMENT`; ADORE rejects overrides of managed isolation/proxy keys (`HOME`, `GIT_*`, `CODEX_HOME`, `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, `NO_PROXY`, and lowercase variants). | `{ UV_LINK_MODE = "copy" }` |
-| `run_args` | Extra option tokens for `<runtime> run` (one option per entry, no spaces; validated). DOCKER: build the base image with `--build-arg USER_UID=$(id -u)` so the container user matches the host user; no `run_args` needed for UID mapping. ROOTLESS PODMAN: requires `["--userns=keep-id"]` instead (verified 2026-07-04: without it container uid 1000 maps to a subuid that cannot write the bind-mounted worktree). Also the seam for future resource limits (`"--memory=2g"`). | `[]` |
+| `run_args` | Extra option tokens for `<runtime> run` (one option per entry, no spaces; validated). DOCKER: build the base image with `--build-arg USER_UID=$(id -u) --build-arg USER_GID=$(id -g)` so the container user/group match the host user; no `run_args` needed for UID mapping. ROOTLESS PODMAN: requires `["--userns=keep-id"]` instead (verified 2026-07-04: without it container uid 1000 maps to a subuid that cannot write the bind-mounted worktree). Also the seam for future resource limits (`"--memory=2g"`). | `[]` |
 | `required_tool_checks` | Shell-free command strings run inside the provisioned container before any executor gate starts. Use this for runtime-project images, for example `["make --version", "shellcheck --version", "terraform --version", "tflint --version"]`. | `[]` |
 
 ## `[container.egress]` - Executor Network Egress

@@ -44,8 +44,9 @@ environment / `.env`).
   `allowlist-proxy`, or `none`) plus proxy image, port, network prefix, and
   exact/wildcard host allowlist validation.
 
-Explicitly not owned: reading secrets, writing config (`adore config set` is
-future work), and any behavior driven by the values.
+Explicitly not owned: reading secrets and any behavior driven by the values.
+Writing a single scalar back to the config file lives in the CLI
+(`adore config set`), which validates via this component before saving.
 
 ## 3. Implementation Overview
 
@@ -133,7 +134,8 @@ CLI: `adore config show`, `adore config validate`.
 
 ## 10. Limitations And Future Work
 
-- `adore config set` is not implemented (edit the file directly).
+- `adore config set` edits one scalar at a time (the CLI owns the write; this
+  component validates the result before it is saved).
 - Unknown *keys inside known sections* are silently ignored (only unknown
   sections are reported); tightening this is a possible follow-up.
 - `quiet_hours` is validated here and enforced by the orchestrator before a

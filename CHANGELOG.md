@@ -12,6 +12,31 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-07-25
+
+### Added
+
+- `adore config set <section.key> <value>` is now implemented (it was a stub).
+  It edits one scalar in the resolved config file (same precedence as every
+  other command), infers the value type, preserves comments and other keys,
+  refuses secret-looking keys (they belong in `.env`), and writes only when the
+  whole resulting config still loads and validates (atomic tmp + replace).
+
+### Changed
+
+- Parametrized the executor image group id: `Dockerfile.executor-base` now takes
+  `ARG USER_GID` (alongside `USER_UID`) and the Ubuntu installer builds with
+  `--build-arg USER_UID=$(id -u) --build-arg USER_GID=$(id -g)`, so the
+  container user/group match the host account that runs ADORE without manual
+  ACL/`chmod` remediation on hosts where the UID/GID is not 1000.
+
+### Fixed
+
+- Widen the staged executor `auth.json` (host-auth pilot) to mode 0644 in the
+  run's io dir so the container user can read it even when its UID does not
+  match the host on a hand-built image; the copy is transient and deleted
+  immediately after staging.
+
 ## [1.1.0] - 2026-07-24
 
 ### Added

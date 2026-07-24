@@ -69,21 +69,6 @@ The external format should preserve testability: prompt/comment rendering must
 still be covered by offline tests, and secret redaction must remain enforced
 before executor-visible text is emitted.
 
-## Config Editing Command
-
-`adore config set` is still a deliberate CLI stub. Decide whether to implement
-it or remove the advertised subcommand.
-
-If implemented, it should:
-
-- update TOML without losing comments where practical, or clearly document that
-  formatting is rewritten;
-- validate the full resulting config before saving;
-- reject secret values and direct operators to `.env`;
-- support profile-resolved configs with the same precedence as other commands;
-- include negative tests for invalid keys, invalid values, corrupt TOML, and
-  write failures.
-
 ## Runtime-Project Image Scaffolding
 
 ADORE now supports per-profile runtime-project images and documents the base
@@ -100,48 +85,6 @@ Possible implementation:
   project dependencies into the ADORE base image;
 - document how the generated project image should be rebuilt when the target
   repository's toolchain changes.
-
-## Executor Container UID Alignment (deployment)
-
-The executor base image hardcodes the in-container `adore` user as UID/GID 1000
-(`Dockerfile.executor-base`: `useradd --create-home --uid 1000 adore`). Docker
-bind mounts do not remap user IDs, so when the ADORE host service runs as a user
-whose UID is not 1000, the container (UID 1000) and the host service cannot both
-write the shared per-run worktree/io directories, and runs fail.
-
-Observed live on the silk04 Ubuntu 24.04 deploy (2026-07-10): host service user
-`aitool` is UID 1001 (UID 1000 was already taken by another account), so:
-
-- opencode `auth.json` staged at `~/.local/share/opencode/auth.json` was mode
-  0600 and unreadable by the container user
-  (`auth staging failed: cp: cannot open '/adore/io/host-auth.json'`);
-- bind-mounted run dirs created by the host service were not writable by UID
-  1000 (`cannot create /adore/io/output.jsonl: Permission denied`).
-
-Both were worked around host-side without changing ADORE, using default ACLs
-(`setfacl -R -m u:1000:rwX` + `-d -m u:1000:rwX` on the store, worktrees, and the
-repo clone) plus `chmod 644` on the opencode `auth.json`. That works and persists
-but is a manual, per-host remediation.
-
-Decide on a durable fix so future deploys do not need the ACL/chmod steps:
-
-- **Cleanest:** run the ADORE service under a host account whose UID is 1000
-  (e.g. the host's first user, or `useradd -u 1000` when that UID is free), so it
-  matches the image out of the box.
-- **Most future-proof:** parametrize the image UID/GID as build args
-  (`ARG ADORE_UID=1000` / `ARG ADORE_GID=1000`) and build per-host with
-  `--build-arg ADORE_UID=$(id -u) --build-arg ADORE_GID=$(id -g)`, so the container
-  user matches whatever host user runs ADORE. Aligns with the rootless-podman
-  `--userns=keep-id` note and the "dedicated service account" prerequisite item.
-
-Either option removes the need for the ACL/`chmod` remediation entirely. Document
-the chosen approach in the deployment guide and the prerequisites report.
-
-**Bottom line for the next deploy:**
-
-- Cleanest: make the ADORE service account UID 1000 (option 1), or
-- Most future-proof: parametrize the image UID (option 2) and build per-host.
-- Either eliminates the need for the ACL/chmod steps entirely.
 
 ## Native App / Executable Packaging
 

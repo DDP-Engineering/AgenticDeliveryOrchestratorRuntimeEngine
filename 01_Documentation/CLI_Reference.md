@@ -50,7 +50,7 @@ unless `ADORE_HOME` overrides the location.
 | --- | --- |
 | `adore [selector] config show` | Print the resolved configuration as JSON. |
 | `adore [selector] config validate` | Validate the resolved configuration and report any issues. |
-| `adore [selector] config set <key> <value>` | Reserved command; not implemented in ADORE 1.0.0. Edit `config.toml` directly, then run `config validate`. |
+| `adore [selector] config set <section.key> <value>` | Set one scalar key in the resolved config file (e.g. `budgets.max_iterations 12`). Comments are preserved and the value type is inferred; the write is refused unless the whole resulting config still validates. Secret-looking keys are rejected — put secrets in `.env`. |
 
 In this table, `[selector]` means `-c <config.toml>` or `--profile
 <profile-name>` where appropriate.
@@ -99,5 +99,4 @@ destructive command.
 | Code | Meaning |
 | --- | --- |
 | `0` | Command completed successfully. |
-| `1` | Configuration, operational, or validation error. |
-| `2` | Command is recognized but not implemented; currently used by `config set`. |
+| `1` | Configuration, operational, or validation error (including a refused `config set`). |

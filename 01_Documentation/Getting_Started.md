@@ -98,6 +98,7 @@ Build the base image from the unpacked runtime directory:
 ```bash
 docker build \
   --build-arg USER_UID=$(id -u) \
+  --build-arg USER_GID=$(id -g) \
   -f docker/Dockerfile.executor-base \
   -t adore-executor-base:1.0.0 \
   docker

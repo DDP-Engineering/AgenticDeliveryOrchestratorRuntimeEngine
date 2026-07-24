@@ -30,21 +30,22 @@ delivery run that needs project-specific tools.
 On Linux, build from the `04_Software/docker` directory:
 
 ```bash
-docker build --build-arg USER_UID=$(id -u) \
+docker build --build-arg USER_UID=$(id -u) --build-arg USER_GID=$(id -g) \
   -f Dockerfile.executor-base -t adore-executor-base:1.0.0 .
 docker build -f Dockerfile.egress-proxy -t adore-egress-proxy:1.0.0 .
 ```
 
-`USER_UID` makes the container's `adore` user match the account that runs
-ADORE. Without it, files written through bind mounts can be owned by the wrong
-UID. With rootless Podman, omit the build argument and configure
-`run_args = ["--userns=keep-id"]` instead.
+`USER_UID`/`USER_GID` make the container's `adore` user and group match the
+account that runs ADORE. Without them, files written through bind mounts can be
+owned by the wrong UID/GID and the host service cannot read or write the shared
+per-run directories. With rootless Podman, omit the build arguments and
+configure `run_args = ["--userns=keep-id"]` instead.
 
 When Docker runs inside WSL, substitute the Linux-visible path to this
 directory and the installed distribution name:
 
 ```powershell
-wsl -d <distribution> -- docker build --build-arg USER_UID=$(id -u) `
+wsl -d <distribution> -- docker build --build-arg USER_UID=$(id -u) --build-arg USER_GID=$(id -g) `
   -f <linux-path-to-docker-dir>/Dockerfile.executor-base `
   -t adore-executor-base:1.0.0 `
   <linux-path-to-docker-dir>

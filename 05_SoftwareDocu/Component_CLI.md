@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: CLI (`adore/cli.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/adore/cli.py` - file version 0.5.0.
+> Source: `04_Software/adore/cli.py` - file version 0.6.0.
 > Design: Orchestrator_Design_And_Decisions.md section 12a;
 > Assisted_Config_And_Profiles_Plan.md (init / profile / --profile).
 
@@ -26,6 +26,9 @@ the `adore` package; no REST API or web UI exists in v1 by design.
 - Wire the phase-1 commands:
   - `adore config show` - resolved configuration as JSON;
   - `adore config validate` - all validation issues, exit 1 when any;
+  - `adore config set <section.key> <value>` - edit one scalar in the resolved
+    config file (comments preserved, type inferred), refusing secret-looking
+    keys and writing only when the whole result still validates (atomic);
   - `adore status` - config health, store root, pause flag, lock holder, run
     counts by lifecycle, corrupt-run warning;
   - `adore runs` - table of persisted runs (corrupt ones shown as `CORRUPT`);
@@ -70,7 +73,7 @@ Explicitly not owned: any engine behavior; the handlers are thin views over
 ## 3. Implementation Overview
 
 - Exit-code contract: `0` success, `1` error (bad/missing config, validation
-  issues), `2` not implemented.
+  issues, refused edit).
 - `_load` converts a missing config file or invalid TOML into a readable
   one-line error with a hint (copy `config.example.toml`), never a traceback.
 - A held/stale instance lock on `run --once` prints the lock path and a
@@ -147,8 +150,9 @@ adore --profile <profile-name> run --dry-run   # any command against a profile
   status/pause/resume/runs together, corrupt runs surfaced, stats/export on
   an empty store, reset refusing without `--force` and failing cleanly on an
   unknown run, cleanup printing its JSON report, `run --once` writing
-  `<store_root>/adore.log`, process-log rotation, and the one remaining stub
-  (`config set`) exiting 2.
+  `<store_root>/adore.log`, process-log rotation, and `config set`
+  (existing-key edit with comment preservation, missing-section append,
+  invalid-result refusal, secret-key rejection, bad-key/missing-value).
 - `tests/test_orchestrator.py` covers the engine side of `reset` (stage set +
   journaled, invalid stage/run refused, retry continues from the reset
   stage) and `cleanup` (stale lock cleared, orphans swept, active runs and
@@ -158,7 +162,8 @@ adore --profile <profile-name> run --dry-run   # any command against a profile
 
 ## 10. Limitations And Future Work
 
-- `adore config set` is not implemented (edit `config.toml` directly) - the
-  only remaining stub.
+- `adore config set` edits one scalar at a time and infers the value type from
+  the text; it does not set arrays/tables or change a value's declared type on
+  purpose. Comments on the edited line are kept via a quote-aware heuristic.
 - No `--json` output mode for `status`/`runs` yet; add when scripting needs
   it.

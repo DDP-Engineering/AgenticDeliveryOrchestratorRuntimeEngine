@@ -11,14 +11,16 @@
 @file cli.py
 @brief Command-line interface for ADORE over the adore.core library.
 @details Defines the `adore` command surface (lifecycle, operations, statistics,
-         config) using only the standard library (argparse). All commands are
-         wired except `config set` (edit config.toml directly); destructive
-         commands (delete, reset) require --force per design 8c. `adore init`
-         runs the assisted-config wizard to create a runtime-project profile;
-         `adore profile ...` manages profiles (with run statistics).
+         config) using only the standard library (argparse). `config set`
+         edits one scalar key in the resolved config file, preserving comments,
+         and refuses to write unless the resulting config still validates.
+         Destructive commands (delete, reset) require --force per design 8c.
+         `adore init` runs the assisted-config wizard to create a
+         runtime-project profile; `adore profile ...` manages profiles (with
+         run statistics).
 @author Eng. Dan Dumitru Pasare
-@date 2026-07-05
-@version 0.5.0
+@date 2026-07-25
+@version 0.6.0
 """
 
 from __future__ import annotations
@@ -29,6 +31,7 @@ import contextlib
 from dataclasses import asdict
 import json
 from pathlib import Path
+import re
 import tomllib
 
 from adore import __version__, metrics
@@ -45,7 +48,15 @@ from adore.wizard import ConsoleAsker, ScriptedAsker, WizardError, run_wizard
 
 EXIT_OK = 0
 EXIT_ERROR = 1
-EXIT_NOT_IMPLEMENTED = 2
+
+# config-key path components that would carry a secret VALUE; config.toml only
+# ever holds the NAMES of secrets ([executor] env_keys), so `config set` on one
+# of these is refused and the operator is pointed at .env.
+_SECRET_KEY_RE = re.compile(
+    r"(?:^|[._-])(?:token|secret|password|passwd|api[_-]?key|apikey|credential"
+    r"|private[_-]?key)s?(?:$|[._-])",
+    re.IGNORECASE,
+)
 
 
 # HELPER FUNCTIONS
@@ -195,18 +206,200 @@ def _store(config: Config) -> StateStore:
 # COMMAND HANDLERS
 
 
+def _toml_scalar_literal(value: str) -> str:
+    """
+    @brief      Render a CLI value string as a TOML scalar literal.
+    @details    Inference order: `true`/`false` -> bool; an integer -> int; a
+                number with a decimal point or exponent -> float; anything else
+                -> a quoted basic string (so version-like `1.2.3` stays a
+                string). Callers document that the type is inferred from the
+                value text.
+    @param[in]  value Raw value from the command line.
+    @return     A TOML literal safe to splice into the config text.
+    @author     Eng. Dan Dumitru Pasare
+    @date       2026-07-25
+    @version    0.1.0
+    """
+    text = value.strip()
+    if text in ("true", "false"):
+        return text
+    if re.fullmatch(r"[+-]?\d+", text):
+        return str(int(text))
+    if re.fullmatch(r"[+-]?(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?", text) and (
+        "." in text or "e" in text.lower()
+    ):
+        return repr(float(text))
+    escaped = (
+        value.replace("\\", "\\\\").replace('"', '\\"')
+        .replace("\n", "\\n").replace("\t", "\\t").replace("\r", "\\r")
+    )
+    return f'"{escaped}"'
+
+
+def _inline_comment(line: str) -> str:
+    """
+    @brief      Return a line's trailing `# ...` comment, or "" if none.
+    @details    Quote-aware so a `#` inside a string value is not mistaken for a
+                comment. Basic heuristic (enough for scalar config lines); it
+                never splits inside single- or double-quoted text.
+    @param[in]  line A config line.
+    @return     The comment substring starting at `#`, or "".
+    @author     Eng. Dan Dumitru Pasare
+    @date       2026-07-25
+    @version    0.1.0
+    """
+    quote = ""
+    for index, char in enumerate(line):
+        if quote:
+            if char == quote:
+                quote = ""
+        elif char in ('"', "'"):
+            quote = char
+        elif char == "#":
+            return line[index:]
+    return ""
+
+
+def _set_toml_scalar(text: str, dotted_key: str, value: str) -> str:
+    """
+    @brief      Set one scalar key in TOML text, preserving comments/other lines.
+    @details    `dotted_key` is `<table...>.<name>` (for example
+                `budgets.max_iterations` or `labels.lifecycle.ready`). An
+                existing key's value is replaced in place (its indentation
+                kept); a key absent from an existing table is inserted just
+                after the table header; an absent table is appended at the end.
+                Everything else - comments, blank lines, other keys - is left
+                untouched. Only scalars are supported.
+    @param[in]  text Current config file text.
+    @param[in]  dotted_key Dotted table+key path.
+    @param[in]  value Raw value (type inferred by _toml_scalar_literal).
+    @return     The updated config text.
+    @exception  ValueError When the key is not a `<table>.<name>` path.
+    @author     Eng. Dan Dumitru Pasare
+    @date       2026-07-25
+    @version    0.1.0
+    """
+    parts = [part for part in dotted_key.split(".") if part]
+    if len(parts) < 2:
+        raise ValueError(
+            f"key must be <section...>.<name> (e.g. budgets.max_iterations): "
+            f"{dotted_key!r}"
+        )
+    *table_parts, key = parts
+    header = "[" + ".".join(table_parts) + "]"
+    new_line = f"{key} = {_toml_scalar_literal(value)}"
+    trailing = "\n" if text.endswith("\n") else ""
+    lines = text.splitlines()
+
+    header_idx = next(
+        (i for i, line in enumerate(lines) if line.strip() == header), None
+    )
+    if header_idx is None:
+        prefix = "" if text == "" or text.endswith("\n") else "\n"
+        return f"{text}{prefix}\n{header}\n{new_line}\n"
+
+    block_end = len(lines)
+    for j in range(header_idx + 1, len(lines)):
+        stripped = lines[j].strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            block_end = j
+            break
+    key_re = re.compile(rf"^(\s*){re.escape(key)}\s*=")
+    for k in range(header_idx + 1, block_end):
+        match = key_re.match(lines[k])
+        if match:
+            comment = _inline_comment(lines[k])
+            suffix = f"  {comment}" if comment else ""
+            lines[k] = f"{match.group(1)}{new_line}{suffix}"
+            return "\n".join(lines) + trailing
+    lines.insert(header_idx + 1, new_line)
+    return "\n".join(lines) + trailing
+
+
+def _config_set(args: argparse.Namespace) -> int:
+    """
+    @brief      Handle `adore config set <section.key> <value>`.
+    @details    Resolves the config file with the same precedence as every other
+                command (explicit -c > --profile > active profile > ./config.toml),
+                refuses secret-looking keys (they belong in .env), edits one
+                scalar preserving comments, then writes ONLY when the whole
+                resulting config still loads and validates. The write is atomic.
+    @param[in]  args Parsed arguments (key, value, config, profile).
+    @return     Process exit code.
+    @author     Eng. Dan Dumitru Pasare
+    @date       2026-07-25
+    @version    0.1.0
+    """
+    if not args.key or args.value is None:
+        print("usage: adore config set <section.key> <value>")
+        return EXIT_ERROR
+    if _SECRET_KEY_RE.search(args.key):
+        print("error: secrets never go in config.toml; put the value in .env and "
+              "reference its NAME via [executor] env_keys")
+        return EXIT_ERROR
+    try:
+        path, _profile = resolve_config_path(
+            getattr(args, "config", None), getattr(args, "profile", None),
+            store=ProfileStore(),
+        )
+    except ProfileError as exc:
+        print(f"error: {exc}")
+        return EXIT_ERROR
+    args.config = str(path)
+    try:
+        original = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        print(f"error: config file not found: {path}")
+        return EXIT_ERROR
+    except OSError as exc:
+        print(f"error: cannot read {path}: {exc}")
+        return EXIT_ERROR
+    try:
+        updated = _set_toml_scalar(original, args.key, args.value)
+    except ValueError as exc:
+        print(f"error: {exc}")
+        return EXIT_ERROR
+    # Validate by loading the candidate from a temp file first; only replace the
+    # real config when it still parses AND validates. tmp + replace is atomic.
+    tmp = path.with_name(path.name + ".tmp")
+    try:
+        tmp.write_text(updated, encoding="utf-8")
+    except OSError as exc:
+        print(f"error: cannot write {tmp}: {exc}")
+        return EXIT_ERROR
+    try:
+        try:
+            candidate = load_config(tmp)
+            issues = validate_config(candidate)
+        except tomllib.TOMLDecodeError as exc:
+            print(f"error: the edit produced invalid TOML: {exc}")
+            return EXIT_ERROR
+        except Exception as exc:  # noqa: BLE001 - any load failure => reject
+            print(f"error: the edit produced an unusable config: {exc}")
+            return EXIT_ERROR
+        if issues:
+            print(f"refusing to write {args.key}: {len(issues)} config issue(s):")
+            for issue in issues:
+                print(f"  - {issue}")
+            return EXIT_ERROR
+        tmp.replace(path)
+    finally:
+        tmp.unlink(missing_ok=True)
+    print(f"{path}: set {args.key} = {args.value.strip()}")
+    return EXIT_OK
+
+
 def _cmd_config(args: argparse.Namespace) -> int:
     """
     @brief      Handle `adore config show|validate|set`.
     @param[in]  args Parsed arguments.
     @return     Process exit code.
     @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-02
-    @version    0.1.1
+    @date       2026-07-25
+    @version    0.2.0
     """
     if args.action == "set":
-        print("adore config set: not implemented yet (edit config.toml directly)")
-        return EXIT_NOT_IMPLEMENTED
+        return _config_set(args)
     config = _load(args)
     if config is None:
         return EXIT_ERROR
@@ -727,10 +920,10 @@ def main(argv: list[str] | None = None) -> int:
     """
     @brief      Program entry point for the `adore` command.
     @param[in]  argv Optional argument vector (defaults to sys.argv).
-    @return     Process exit code (0 = success, 1 = error, 2 = not implemented).
+    @return     Process exit code (0 = success, 1 = error).
     @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-02
-    @version    0.1.2
+    @date       2026-07-25
+    @version    0.1.3
     """
     parser = _build_parser()
     args = parser.parse_args(argv)

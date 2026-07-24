@@ -64,8 +64,8 @@ commands + `--profile` resolution.
   (`adore-executor-base:1.0.0`) and points project profiles at derived
   runtime-project images when needed. Rootless podman auto-adds
   `run_args=["--userns=keep-id"]`; Docker deployments rely on the image being
-  built with `--build-arg USER_UID=$(id -u)` so the container user matches the
-  host (no `run_args` needed for UID mapping). The executor `env_keys` are
+  built with `--build-arg USER_UID=$(id -u) --build-arg USER_GID=$(id -g)` so
+  the container user/group match the host (no `run_args` needed for UID mapping). The executor `env_keys` are
   derived from the model's provider (names only, never secret values - D5).
 - **TOML emission** prefers literal single-quoted strings, so regexes and
   Windows paths (backslashes) need no escaping.

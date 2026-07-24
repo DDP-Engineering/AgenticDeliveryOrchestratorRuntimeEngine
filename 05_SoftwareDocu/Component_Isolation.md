@@ -236,11 +236,13 @@ result = containers.exec("adore-run-gitlab-x-14", ["opencode", "--version"])
   example `--memory=2g` or `--cpus=2`. Egress networking is separately owned
   by `[container.egress]`; dedicated first-class CPU/RAM configuration keys are
   not implemented.
-- Docker UID mapping: the executor base image is built with
-  `--build-arg USER_UID=$(id -u)` so the container's `adore` user matches the
-  host user. Without this, files written to bind-mounted volumes (worktree,
-  IO, caches) are owned by the wrong UID on the host. The Dockerfile defaults
-  to `USER_UID=1000`; pass the host user's UID at build time.
+- Docker UID/GID mapping: the executor base image is built with
+  `--build-arg USER_UID=$(id -u) --build-arg USER_GID=$(id -g)` so the
+  container's `adore` user and group match the host account. Without this, files
+  written to bind-mounted volumes (worktree, IO, caches) are owned by the wrong
+  UID/GID on the host and the host service cannot read/write the shared per-run
+  directories. The Dockerfile defaults to `USER_UID=1000`/`USER_GID=1000`; pass
+  the host user's UID and GID at build time.
 - Podman VERIFIED 2026-07-04 (4.9.3 rootless, Ubuntu-24.04/WSL2), re-verified
   2026-07-06 with a runtime-project image plus required tool checks, and
   re-verified for the ADORE 1.0.0 executor image on 2026-07-16 (17/17).
