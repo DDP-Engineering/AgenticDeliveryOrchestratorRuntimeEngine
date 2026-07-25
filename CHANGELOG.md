@@ -12,8 +12,15 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-07-25
+
 ### Added
 
+- `adore config set <section.key> <value>` is now implemented (it was a stub).
+  It edits one scalar in the resolved config file (same precedence as every
+  other command), infers the value type, preserves comments and other keys,
+  refuses secret-looking keys (they belong in `.env`), and writes only when the
+  whole resulting config still loads and validates (atomic tmp + replace).
 - The orchestrator now prepends the target workflow's read-only `resume`
   bootstrap brief to an executor relaunch prompt (`gates.workflow_resume` +
   `Orchestrator._workflow_orientation`), so a fresh executor session - a gate
@@ -25,16 +32,6 @@ This project follows Keep a Changelog and Semantic Versioning.
   the brief is simply omitted, and a fresh run starting at intake gets none on
   its first launch. Secret values are redacted like the failure context.
 
-## [1.2.0] - 2026-07-25
-
-### Added
-
-- `adore config set <section.key> <value>` is now implemented (it was a stub).
-  It edits one scalar in the resolved config file (same precedence as every
-  other command), infers the value type, preserves comments and other keys,
-  refuses secret-looking keys (they belong in `.env`), and writes only when the
-  whole resulting config still loads and validates (atomic tmp + replace).
-
 ### Changed
 
 - Parametrized the executor image group id: `Dockerfile.executor-base` now takes
@@ -42,6 +39,13 @@ This project follows Keep a Changelog and Semantic Versioning.
   `--build-arg USER_UID=$(id -u) --build-arg USER_GID=$(id -g)`, so the
   container user/group match the host account that runs ADORE without manual
   ACL/`chmod` remediation on hosts where the UID/GID is not 1000.
+- Operator documentation refresh: `Integrating_A_Runtime_Project.md` now states
+  the agentic workflow (`.agentic/tools/run.sh`) as an explicit target-project
+  prerequisite - ADORE verifies every gate through it, so a repository without
+  it cannot be conducted - including the project-image runtime implications;
+  `Operations_Guide.md` documents `adore config set` for safe single-key edits;
+  and the product-version references across `01_Documentation` were rolled from
+  1.0.0 to 1.2.0 (container image tags are versioned separately and unchanged).
 
 ### Fixed
 

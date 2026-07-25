@@ -81,6 +81,25 @@ adore --profile <profile-name> resume
 Pause before profile edits, image changes, label migrations, credential
 maintenance, or planned host work. Validate the profile before resuming.
 
+## Adjust Configuration Safely
+
+Change one scalar setting without opening an editor:
+
+```bash
+adore --profile <profile-name> config set budgets.max_iterations 12
+adore --profile <profile-name> config show
+```
+
+`config set` edits the resolved configuration file in place, preserving
+comments and every other key, and infers the value type. It refuses the write
+unless the whole resulting configuration still validates, so a typo cannot
+leave a profile unloadable. Secret-looking keys are rejected: credentials
+belong in `.env`, never in `config.toml`.
+
+Edit the file directly for anything `config set` does not cover - tables, lists,
+or several related keys at once - and run `config validate` afterwards. Use
+`adore profile path <profile-name>` to locate it.
+
 ## Review Metrics and Reports
 
 ```bash

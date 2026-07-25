@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Setup And First Run
 
-Applies to ADORE 1.0.0.
+Applies to ADORE 1.2.0.
 
 Use this when you are preparing a host, creating a runtime-project profile, or
 validating the first safe ADORE poll. The full, authoritative sequence is in
@@ -67,7 +67,7 @@ uv sync --frozen
 Expected version:
 
 ```text
-adore 1.0.0
+adore 1.2.0
 ```
 
 ## Create The Profile

@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Configuration Reference
 
-> **Status**: Implementation reference for ADORE 1.0.0. Consolidated list of
+> **Status**: Implementation reference for ADORE 1.2.0. Consolidated list of
 > every `config.toml` setting, its meaning, default value, and examples. Keys
 > are grouped by section.
 

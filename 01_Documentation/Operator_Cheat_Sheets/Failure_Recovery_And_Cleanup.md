@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Failure Recovery And Cleanup
 
-Applies to ADORE 1.0.0.
+Applies to ADORE 1.2.0.
 
 Use this when a run is parked, failed, no longer wanted, or has left resources
 behind after a crash, close, merge, or interrupted host session.

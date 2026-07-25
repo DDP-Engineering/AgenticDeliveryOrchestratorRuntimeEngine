@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # ADORE Operator Cheat Sheets
 
-Applies to ADORE 1.0.0.
+Applies to ADORE 1.2.0.
 
 Use these short operator sheets when you need the fastest safe path through an
 ADORE task. They are derived quick references; the full guides in

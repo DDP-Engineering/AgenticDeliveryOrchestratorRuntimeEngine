@@ -21,12 +21,41 @@ Before creating a profile, establish the following for `<runtime-project>`:
 
 - a local, clean clone available to the ADORE run-as account;
 - a forge repository identifier accepted by `glab` or `gh`;
+- **the agentic workflow installed in the repository**, providing
+  `.agentic/tools/run.sh` (see below);
 - a default target branch and the human reviewers responsible for merge
   decisions;
 - a project image containing the build, test, lint, and verification tools the
   target needs; and
 - a ticket-label convention that distinguishes ready, hold, excluded, priority,
   and revision work.
+
+### The Agentic Workflow Is Required
+
+ADORE does not judge whether work is correct; it verifies with the target
+repository's own workflow CLI. Between and after gates it runs
+`bash .agentic/tools/run.sh <command>` inside the run container - `invariants`,
+`status`, `gates run`, and the authoritative `delivery-preflight` - and treats
+the exit code as the objective signal.
+
+A repository without that workflow installed cannot be conducted: every gate
+verification fails and runs escalate instead of progressing. Install the
+workflow in the target repository before creating a profile, then smoke-test it
+from the clone:
+
+```bash
+bash .agentic/tools/run.sh status
+```
+
+Because ADORE invokes it inside the run container, the project image must also
+satisfy the workflow's own runtime prerequisites - normally a supported Python
+interpreter, `git`, and Node for the guard hooks. Cover them with
+`[container] required_tool_checks` so a mismatched image fails before a gate
+starts rather than midway through a run.
+
+The workflow is versioned independently of ADORE. ADORE uses only its stable
+command surface and its run artifacts, so a workflow upgrade normally requires
+no ADORE change.
 
 The run-as account must be able to read the repository, create a worktree, push
 an ADORE branch, and open a draft MR/PR. It must not be granted authority to

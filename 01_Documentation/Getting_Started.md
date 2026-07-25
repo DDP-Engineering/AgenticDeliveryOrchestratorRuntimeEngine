@@ -84,7 +84,7 @@ uv sync --frozen
 ./.venv/bin/adore --version
 ```
 
-The command should report the installed release, for example `adore 1.0.0`.
+The command should report the installed release, for example `adore 1.2.0`.
 Keep the runtime directory available: deployed services and scheduled tasks use
 it as their working directory.
 

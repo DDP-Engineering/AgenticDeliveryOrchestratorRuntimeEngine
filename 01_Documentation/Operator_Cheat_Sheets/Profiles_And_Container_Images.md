@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Profiles And Container Images
 
-Applies to ADORE 1.0.0.
+Applies to ADORE 1.2.0.
 
 Use this when you operate more than one runtime project, switch active projects,
 or need to decide which executor image a profile should use.
