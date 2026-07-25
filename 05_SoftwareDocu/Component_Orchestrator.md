@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Orchestrator (`adore/orchestrator.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/adore/orchestrator.py` - file version 0.6.0.
+> Source: `04_Software/adore/orchestrator.py` - file version 0.6.1.
 > Design: Orchestrator_Design_And_Decisions.md sections 5a, 7a, 8, 9, 10.
 
 ## 1. Purpose
@@ -156,6 +156,15 @@ interface) and metrics.
   evidence enrichment, while merge-conflict prompts remain based on git merge
   output. Configured executor secret values are redacted from all appended
   failure context.
+- A freshly launched executor session that lacks the prior chat context - a
+  gate retry, a delivery fix, a revise round, or a run resumed mid-workflow
+  after a restart - is oriented by the workflow's read-only `resume` brief
+  (`_workflow_orientation`): current and computed next stage, intent,
+  alignment, specs, checks, recent evidence, and cited requirements, prepended
+  to the gate prompt. It is best-effort and payload-agnostic - a target-repo
+  workflow CLI that predates the `resume` verb exits non-zero and simply yields
+  no brief - and a fresh run starting at intake gets none on its first launch.
+  Secret values are redacted like the failure context.
 - After every executor `GateRun`, `_journal_artifacts` appends immutable
   archive paths to the run journal when the launcher returned any. This makes
   `adore logs <run-id>` the index into raw gate evidence without changing the
@@ -216,7 +225,9 @@ adore logs <run-id>
   negatives, idempotent re-poll skip, park order (question before status),
   resume filtering (system/marker ignored, human resumes with thread),
   answered-label override, round-cap escalation, gate retry with context +
-  `.agentic` evidence, secret redaction, invariants-failure relaunch,
+  `.agentic` evidence, the read-only `resume` orientation brief prepended on
+  relaunch (and best-effort skip when the verb is absent), secret redaction,
+  invariants-failure relaunch,
   malformed/missing workflow evidence handling, TTL reap vs run survival,
   answer timeout release, pause/capacity, deleted/closed reconciliation,
   cancel/retry round trip, labels-channel transitions, and delivery artifact

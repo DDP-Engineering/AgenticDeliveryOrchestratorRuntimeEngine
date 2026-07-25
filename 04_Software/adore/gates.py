@@ -18,7 +18,7 @@
          container's Python; run.sh is bash, spike finding 2026-07-03).
 @author Eng. Dan Dumitru Pasare
 @date 2026-07-03
-@version 0.1.1
+@version 0.1.2
 """
 
 from __future__ import annotations
@@ -103,6 +103,27 @@ def workflow_status(execute: ExecTarget, timeout: float | None = 300) -> GateRes
     @version    0.1.0
     """
     return run_workflow_cli(execute, "status", timeout=timeout)
+
+
+def workflow_resume(execute: ExecTarget, timeout: float | None = 300) -> GateResult:
+    """
+    @brief      Read the run's read-only bootstrap brief (`resume`).
+    @details    Orientation for a fresh executor session continuing an existing
+                run without prior chat context: current and computed next
+                stage, intent, alignment, spec items, checks, recent evidence,
+                and cited requirements. Writes nothing. Best-effort for the
+                caller and payload-agnostic: a workflow CLI that predates the
+                verb (or a container with no active run) fails as data - a
+                non-zero exit code - never as an exception, so the orchestrator
+                degrades cleanly to no brief.
+    @param[in]  execute Exec seam bound to the run's container.
+    @param[in]  timeout Wall-clock bound.
+    @return     GateResult with the brief JSON in output.
+    @author     Eng. Dan Dumitru Pasare
+    @date       2026-07-25
+    @version    0.1.0
+    """
+    return run_workflow_cli(execute, "resume", timeout=timeout)
 
 
 def gates_run(execute: ExecTarget, timeout: float | None = 1800) -> GateResult:

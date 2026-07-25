@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Gates (`adore/gates.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/adore/gates.py` - file version 0.1.1.
+> Source: `04_Software/adore/gates.py` - file version 0.1.2.
 > Design: Orchestrator_Design_And_Decisions.md section 7/7a.
 
 ## 1. Purpose
@@ -25,9 +25,14 @@ objective signal is the exit code, never the executor's word.
   container (`bash .agentic/tools/run.sh <args>`; bash because run.sh uses
   `pipefail`, spike finding 2026-07-03; single-token argv, WSL-safe).
 - Named wrappers for the design verbs: `invariants` (the between-gates
-  check), `workflow_status`, `gates_run` (post-merge retest, delivery step
-  3), `delivery_preflight` (the authoritative "done" signal, delivery step
-  4).
+  check), `workflow_status`, `workflow_resume` (the read-only bootstrap brief
+  used to orient a freshly launched executor session on a relaunch),
+  `gates_run` (post-merge retest, delivery step 3), `delivery_preflight` (the
+  authoritative "done" signal, delivery step 4).
+- `workflow_resume` is best-effort and payload-agnostic: a workflow CLI that
+  predates the `resume` verb exits non-zero, which the orchestrator treats as
+  "no brief" rather than an error - so the wrapper stays compatible with older
+  target-repo payloads.
 - `GateResult(ok, exit_code, output)` - failure is data; the conductor
   decides retry/escalate.
 
@@ -63,7 +68,7 @@ in phase 4, as the delivery-preflight loop condition (design 11a step 4).
 ## 9. Validation And Tests
 
 - `tests/test_gates.py`: bash + single-token argv shape, failure-as-data,
-  wrapper-to-verb mapping.
+  wrapper-to-verb mapping (`invariants`/`status`/`resume`/`delivery-preflight`).
 - **To confirm in the live pilot:** the exact CLI verbs (`invariants`,
   `delivery-preflight`) against the real workflow CLI; only `status` is
   live-verified so far (spike section 14).

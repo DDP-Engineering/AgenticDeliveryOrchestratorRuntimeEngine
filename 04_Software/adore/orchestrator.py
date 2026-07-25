@@ -20,7 +20,7 @@
          machine is unit-testable offline.
 @author Eng. Dan Dumitru Pasare
 @date 2026-07-06
-@version 0.6.0
+@version 0.6.1
 """
 
 from __future__ import annotations
@@ -72,6 +72,7 @@ GATES = ("intake", "alignment", "requirement", "check", "implementation",
 _AGENTIC_CURRENT_RUN = ".agentic/.workspace/state/current_run"
 _AGENTIC_FAILURE_CONTEXT_LIMIT = 5000
 _AGENTIC_FAILURE_ITEMS_LIMIT = 5
+_AGENTIC_ORIENTATION_LIMIT = 3000
 
 # An in-review MR that reads back as not-found is usually a real deletion, but
 # a single 404 can also be a transient platform blip. Tolerate a few before
@@ -611,7 +612,7 @@ class Orchestrator:
         @param[in]  thread Rendered clarification thread ("" outside resume).
         @author     Eng. Dan Dumitru Pasare
         @date       2026-07-24
-        @version    0.2.1
+        @version    0.2.2
         """
         try:
             self._provision(run)
@@ -626,6 +627,10 @@ class Orchestrator:
             self._escalate(run, f"internal: conduct called with stage {run.stage!r}")
             return
         gate_index = GATES.index(run.stage)
+        # A run picked up mid-workflow (after a restart) launches a fresh
+        # executor session with no prior context; orient its first launch.
+        # Retries orient too - they already carry a failure_context.
+        need_orientation = gate_index > 0
         while gate_index < len(GATES):
             gate = GATES[gate_index]
             run.stage = gate
@@ -638,7 +643,13 @@ class Orchestrator:
             self.store.save(run)
             self.store.journal(run.run_id, "gate-launch", gate=gate,
                                iteration=run.iterations)
-            prompt = self._gate_prompt(gate, ticket, failure_context, thread)
+            orientation = (
+                self._workflow_orientation(execute)
+                if (failure_context or need_orientation) else ""
+            )
+            need_orientation = False
+            prompt = self._gate_prompt(gate, ticket, failure_context, thread,
+                                       orientation)
             result = self.executor.run_gate(
                 execute,
                 self.worktrees.path_for(run.run_id),
@@ -864,7 +875,7 @@ class Orchestrator:
                     parked).
         @author     Eng. Dan Dumitru Pasare
         @date       2026-07-24
-        @version    0.2.1
+        @version    0.2.2
         """
         reason = self._budget_exceeded(run)
         if reason:
@@ -873,11 +884,12 @@ class Orchestrator:
         run.iterations += 1
         self.store.save(run)
         self.store.journal(run.run_id, "delivery-fix", iteration=run.iterations)
+        orientation = self._workflow_orientation(execute)
         result = self.executor.run_gate(
             execute,
             self.worktrees.path_for(run.run_id),
             self._io_dir(run.run_id),
-            self._gate_prompt("validation", ticket, context, thread),
+            self._gate_prompt("validation", ticket, context, thread, orientation),
             session=run.executor_session,
             timeout=self.config.budgets.per_gate_timeout_seconds,
             archive_stem=f"{run.iterations:03d}-delivery-fix",
@@ -1001,7 +1013,7 @@ class Orchestrator:
         @param[in,out] summary Poll summary counters.
         @author     Eng. Dan Dumitru Pasare
         @date       2026-07-24
-        @version    0.1.1
+        @version    0.1.2
         """
         run.review_rounds += 1
         if run.review_rounds > self.config.review.max_review_rounds:
@@ -1033,13 +1045,14 @@ class Orchestrator:
             return
         thread = self._render_thread(self.forge.list_mr_comments(mr.iid))
         execute = partial(self.containers.exec, run.container, env=self._container_env(run))
+        orientation = self._workflow_orientation(execute)
         run.iterations += 1
         self.store.save(run)
         result = self.executor.run_gate(
             execute,
             self.worktrees.path_for(run.run_id),
             self._io_dir(run.run_id),
-            self._gate_prompt("revise", ticket, "", thread),
+            self._gate_prompt("revise", ticket, "", thread, orientation),
             session=run.executor_session,
             timeout=self.config.budgets.per_gate_timeout_seconds,
             archive_stem=f"{run.iterations:03d}-revise",
@@ -1089,6 +1102,36 @@ class Orchestrator:
         parts.append(self.identity.make_marker(run.run_id, "delivery"))
         return "\n\n".join(parts)
 
+    def _workflow_orientation(self, execute) -> str:
+        """
+        @brief      Read the workflow's read-only `resume` brief for a relaunch.
+        @details    A freshly launched executor session - a retry, a delivery
+                    fix, a revise round, or a run resumed mid-workflow after a
+                    restart - starts without the prior chat context. The
+                    workflow's `resume` verb prints a compact, read-only brief
+                    (current and computed next stage, intent, alignment, spec
+                    items, checks, recent evidence, and cited requirements) that
+                    orients it from the authoritative run state instead of
+                    re-derivation. Best-effort and payload-agnostic: a workflow
+                    CLI that predates the verb, or a container with no active
+                    run, exits non-zero and yields no brief rather than an
+                    error. Secret values are redacted before the text enters a
+                    prompt.
+        @param[in]  execute Exec seam bound to the run's container.
+        @return     A bounded orientation block, or "" when none is available.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-07-25
+        @version    0.1.0
+        """
+        brief = gates.workflow_resume(execute)
+        if not brief.ok or not brief.output.strip():
+            return ""
+        block = (
+            "Current workflow run orientation (read-only `resume` brief):\n"
+            + self._tail_lines(brief.output, _AGENTIC_ORIENTATION_LIMIT)
+        )
+        return self._redact_failure_context(block)
+
     def _failure_context(self, run: RunState, base: str) -> str:
         """
         @brief      Add read-only `.agentic` failure evidence to a fix prompt.
@@ -1121,9 +1164,9 @@ class Orchestrator:
                     `.agentic/runs/<run-id>/report.md`. Missing files are
                     skipped; malformed files are reported in the prompt so the
                     executor understands that evidence was present but damaged.
-                    The active-run pointer moved to the worktree-local
-                    `.workspace/state/` location in the AEGIS 1.1.0 payload; the
-                    former `.agentic/current_run` path is retired.
+                    The active-run pointer is the worktree-local
+                    `.agentic/.workspace/state/current_run` file; the former
+                    repo-level `.agentic/current_run` path is retired.
         @param[in]  run ADORE run whose worktree is inspected.
         @return     Markdown-ish evidence block, or "" when no evidence exists.
         @author     Eng. Dan Dumitru Pasare
@@ -1744,6 +1787,7 @@ class Orchestrator:
         ticket: Ticket,
         failure_context: str,
         thread: str,
+        orientation: str = "",
     ) -> str:
         """
         @brief      Compose the bounded, gate-specific executor instruction.
@@ -1752,10 +1796,12 @@ class Orchestrator:
         @param[in]  failure_context Previous-attempt failure summary ("" on
                                     first attempt).
         @param[in]  thread Rendered clarification thread ("" outside resume).
+        @param[in]  orientation Read-only workflow `resume` brief ("" when a
+                                fresh session already carries the run context).
         @return     The prompt text (never enters argv; file protocol).
         @author     Eng. Dan Dumitru Pasare
         @date       2026-07-03
-        @version    0.1.1
+        @version    0.1.2
         """
         parts = [
             "You are the executor for one gate of the agentic development "
@@ -1766,6 +1812,8 @@ class Orchestrator:
         ]
         if thread:
             parts.append("Clarification thread so far (newest last):\n" + thread)
+        if orientation:
+            parts.append(orientation)
         if failure_context:
             parts.append(failure_context)
         parts.append(_GATE_GOALS[gate])

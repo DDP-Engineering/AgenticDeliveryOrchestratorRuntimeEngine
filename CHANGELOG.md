@@ -12,6 +12,19 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+### Added
+
+- The orchestrator now prepends the target workflow's read-only `resume`
+  bootstrap brief to an executor relaunch prompt (`gates.workflow_resume` +
+  `Orchestrator._workflow_orientation`), so a fresh executor session - a gate
+  retry, a delivery fix, a revise round, or a run resumed mid-workflow after a
+  restart - orients from the authoritative run state (current and next stage,
+  intent, alignment, specs, checks, recent evidence, cited requirements)
+  instead of re-deriving it. It is best-effort and payload-agnostic: a
+  target-repo workflow CLI that predates the `resume` verb exits non-zero and
+  the brief is simply omitted, and a fresh run starting at intake gets none on
+  its first launch. Secret values are redacted like the failure context.
+
 ## [1.2.0] - 2026-07-25
 
 ### Added

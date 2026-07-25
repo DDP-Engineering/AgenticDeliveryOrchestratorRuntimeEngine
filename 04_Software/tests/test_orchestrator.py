@@ -18,7 +18,7 @@
          reap, answer timeout, and reconciliation of deleted/closed tickets.
 @author Eng. Dan Dumitru Pasare
 @date 2026-07-03
-@version 0.4.0
+@version 0.4.1
 """
 
 from __future__ import annotations
@@ -260,10 +260,10 @@ class FakeWorktrees:
 
 class FakeContainers:
     """
-    @brief   Container manager double; invariants results are scriptable.
+    @brief   Container manager double; invariants/resume results are scriptable.
     @author  Eng. Dan Dumitru Pasare
     @date    2026-07-03
-    @version 0.2.0
+    @version 0.2.1
     """
 
     def __init__(self) -> None:
@@ -276,6 +276,8 @@ class FakeContainers:
         self.tool_checks: list[str] = []
         self.tool_check_failure: str = ""
         self.report_output = "report"
+        self.resume_output = ""
+        self.resume_exit = 0
 
     def status(self, name: str) -> str:
         return self.states.get(name, "absent")
@@ -321,6 +323,8 @@ class FakeContainers:
         if "invariants" in argv:
             code = self.invariants_results.pop(0) if self.invariants_results else 0
             return CommandResult(exit_code=code, stdout="invariants")
+        if "resume" in argv:
+            return CommandResult(exit_code=self.resume_exit, stdout=self.resume_output)
         if "report" in argv:
             return CommandResult(exit_code=0, stdout=self.report_output)
         return CommandResult(exit_code=0)
@@ -756,6 +760,62 @@ def test_gate_failure_retry_prompt_includes_agentic_evidence(tmp_path: Path) -> 
     assert "E-0007 test-run stage=validation" in retry_prompt
     assert "pytest tests/test_widget.py::test_widget_renders" in retry_prompt
     assert "AssertionError: widget title missing" in retry_prompt
+
+
+def test_relaunch_prompt_includes_workflow_resume_orientation(tmp_path: Path) -> None:
+    """
+    @brief   A gate relaunch prepends the workflow's read-only `resume`
+             orientation brief so the fresh executor session knows where the
+             run stands without re-deriving it. A fresh run starting at intake
+             carries no brief on its first launch.
+    @version 0.1.0
+    """
+    config = make_config(tmp_path)
+    config.budgets.max_iterations = 2
+    executor = FakeExecutor([
+        GateRun(exit_code=1, stderr="first attempt failed"),
+        GateRun(exit_code=1, stderr="still failing"),
+    ])
+    engine, forge, containers, _ = make_engine(tmp_path, executor, config)
+    containers.resume_output = (
+        '{"stage": "intake", "next_stage": "alignment", '
+        '"guidance": "continue the intake gate"}'
+    )
+    forge.add_ticket(14)
+
+    engine.poll_once()
+
+    assert "resume` brief" not in executor.prompts[0]  # first launch, no relaunch
+    retry_prompt = executor.prompts[1]
+    assert "read-only `resume` brief" in retry_prompt
+    assert "continue the intake gate" in retry_prompt
+
+
+def test_relaunch_without_resume_verb_skips_orientation(tmp_path: Path) -> None:
+    """
+    @brief   A workflow CLI that predates the `resume` verb (non-zero exit)
+             leaves the relaunch prompt without a brief and never crashes; the
+             orientation is best-effort and payload-agnostic, and the raw CLI
+             error is not leaked into the prompt.
+    @version 0.1.0
+    """
+    config = make_config(tmp_path)
+    config.budgets.max_iterations = 2
+    executor = FakeExecutor([
+        GateRun(exit_code=1, stderr="first attempt failed"),
+        GateRun(exit_code=1, stderr="still failing"),
+    ])
+    engine, forge, containers, _ = make_engine(tmp_path, executor, config)
+    containers.resume_exit = 2
+    containers.resume_output = "unknown command 'resume'"
+    forge.add_ticket(14)
+
+    engine.poll_once()
+
+    retry_prompt = executor.prompts[1]
+    assert "resume` brief" not in retry_prompt
+    assert "unknown command" not in retry_prompt
+    assert "first attempt failed" in retry_prompt
 
 
 def test_missing_agentic_current_run_is_skipped(tmp_path: Path) -> None:

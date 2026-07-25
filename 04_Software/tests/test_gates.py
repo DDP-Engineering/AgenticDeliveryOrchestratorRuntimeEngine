@@ -12,13 +12,19 @@
 @brief Tests for the .agentic workflow CLI wrappers.
 @author Eng. Dan Dumitru Pasare
 @date 2026-07-03
-@version 0.1.0
+@version 0.1.1
 """
 
 from __future__ import annotations
 
 # IMPORTS
-from adore.gates import delivery_preflight, invariants, run_workflow_cli, workflow_status
+from adore.gates import (
+    delivery_preflight,
+    invariants,
+    run_workflow_cli,
+    workflow_resume,
+    workflow_status,
+)
 from adore.util import CommandResult
 
 # DATA MODELS / TYPEDEFINITIONS
@@ -72,13 +78,14 @@ def test_failure_is_data_not_exception() -> None:
 
 def test_named_wrappers_use_design_verbs() -> None:
     """
-    @brief   invariants / status / delivery-preflight map to the design-doc
-             CLI verbs (to be confirmed against the live CLI in the pilot).
-    @version 0.1.0
+    @brief   invariants / status / resume / delivery-preflight map to the
+             design-doc CLI verbs (confirmed against the live CLI in the pilot).
+    @version 0.1.1
     """
     for wrapper, verb in (
         (invariants, "invariants"),
         (workflow_status, "status"),
+        (workflow_resume, "resume"),
         (delivery_preflight, "delivery-preflight"),
     ):
         execute = FakeExec(CommandResult(exit_code=0))
