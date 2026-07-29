@@ -89,9 +89,13 @@ commands + `--profile` resolution.
 
 - Answer keys (interactive prompts and `--answers`) are the `FieldSpec.key`
   values: `profile_name, description, agent_name, kind, hosting, host_url,
-  visibility, repo, repo_path, worktree_root, target_branch, has_push_rule,
-  branch_rule, branch_template, runtime, image, executor_cli, model, auth_mode,
-  reviewers, budgets_choice, max_*, polling_mode, state_location, confirm`.
+  login, visibility, repo, repo_path, worktree_root, target_branch,
+  has_push_rule, branch_rule, branch_template, runtime, image, executor_cli,
+  model, auth_mode, reviewers, budgets_choice, max_*, polling_mode,
+  state_location, confirm`. `kind` accepts gitlab/github/gitea; for gitea the
+  hosting/host questions are replaced by `login` (the tea login name, written
+  to `[platform] login` when non-empty - tea binds host + token to a login),
+  and the repo hint becomes `owner/repo` (Gitea has no subgroups).
 - Interactive fixed choices are displayed as numbered options and accept either
   the number or the literal choice text; `--answers` files should use the
   literal choice text for readability.

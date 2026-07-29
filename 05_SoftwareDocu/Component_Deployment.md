@@ -23,7 +23,7 @@ this one directory as scripts, not code.
 
 ## 2. Responsibilities
 
-- `install-ubuntu.sh` - prerequisite checks (uv, git, glab/gh; docker unless
+- `install-ubuntu.sh` - prerequisite checks (uv, git, glab/gh/tea; docker unless
   `--skip-image`), `uv sync --frozen`, `adore config validate`, executor-base
   image build when absent, and with `--service` the systemd unit install/enable/
   start (template rendering via `sed`, sudo only for the unit step);
@@ -79,7 +79,7 @@ are separate backlog items). The lightweight runtime bundle is owned by
 - Internal: the `adore` console script in `.venv` (created by `uv sync`),
   `config.toml`, optional `.env`, `docker/Dockerfile.executor-base`, and any
   runtime-project Dockerfile such as `docker/Dockerfile.executor-project`.
-- External: `uv`, `git`, `glab` or `gh`, a container runtime; `systemd`
+- External: `uv`, `git`, `glab`/`gh`/`tea`, a container runtime; `systemd`
   (Ubuntu) or Task Scheduler + the `ScheduledTasks` PowerShell module
   (Windows, in-box).
 

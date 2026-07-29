@@ -21,7 +21,7 @@ User=__ADORE_USER__
 WorkingDirectory=__ADORE_DIR__
 # Secrets: OS-level EnvironmentFile is preferred on a server (design 12b).
 # The leading "-" makes it optional - ADORE also reads .env from the working
-# directory itself, and glab/gh host auth may cover everything.
+# directory itself, and glab/gh/tea host auth may cover everything.
 EnvironmentFile=-__ADORE_DIR__/.env
 ExecStart=__ADORE_DIR__/.venv/bin/adore -c config.toml run --loop
 # The poll loop is designed to run forever; restart on crashes, with a pause

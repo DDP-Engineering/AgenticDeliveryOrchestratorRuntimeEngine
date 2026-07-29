@@ -9,13 +9,13 @@
 # -----------------------------------------------------------------------------
 """
 @file test_forge.py
-@brief Tests for the GitLab/GitHub adapters using a fake command runner.
-@details No real glab/gh is invoked; the fake runner records every argv and
+@brief Tests for the GitLab/GitHub/Gitea adapters using a fake command runner.
+@details No real glab/gh/tea is invoked; the fake runner records every argv and
          returns canned CLI output, so both the command construction and the
          output parsing are verified offline.
 @author Eng. Dan Dumitru Pasare
-@date 2026-07-02
-@version 0.1.1
+@date 2026-07-29
+@version 0.2.0
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from adore.forge import ForgeError, GitHubForge, GitLabForge, build_forge
+from adore.forge import ForgeError, GiteaForge, GitHubForge, GitLabForge, build_forge
 from adore.util import CommandResult
 import pytest
 
@@ -90,6 +90,22 @@ def _ok(stdout: str = "") -> CommandResult:
     return CommandResult(exit_code=0, stdout=stdout)
 
 
+def _api_ok(stdout: str = "", status: int = 200, headers: str = "") -> CommandResult:
+    """
+    @brief      A canned `tea api -i` result: body on stdout, status+headers
+                on stderr, ALWAYS exit 0 (tea does not fail on HTTP errors).
+    @param[in]  stdout Canned response body.
+    @param[in]  status HTTP status code for the stderr status line.
+    @param[in]  headers Extra header lines for stderr (e.g. X-Total-Count).
+    @return     CommandResult mimicking tea api -i.
+    @author     Eng. Dan Dumitru Pasare
+    @date       2026-07-29
+    @version    0.1.0
+    """
+    stderr = f"HTTP/1.1 {status} X\n{headers}"
+    return CommandResult(exit_code=0, stdout=stdout, stderr=stderr)
+
+
 def _fail(stderr: str, exit_code: int = 1) -> CommandResult:
     """
     @brief      A failing canned result.
@@ -108,13 +124,20 @@ def _fail(stderr: str, exit_code: int = 1) -> CommandResult:
 
 def test_build_forge_selects_adapter() -> None:
     """
-    @brief   The factory maps kind to the right adapter and rejects others.
-    @version 0.1.0
+    @brief   The factory maps kind to the right adapter, wires the gitea
+             login through, and rejects unknown kinds and a login on a
+             platform that has no login concept.
+    @version 0.2.0
     """
     assert isinstance(build_forge("gitlab", "g/p"), GitLabForge)
     assert isinstance(build_forge("github", "o/r"), GitHubForge)
+    gitea = build_forge("gitea", "o/r", login="home")
+    assert isinstance(gitea, GiteaForge)
+    assert gitea.login == "home"
     with pytest.raises(ValueError):
         build_forge("bitbucket", "x")
+    with pytest.raises(ValueError):
+        build_forge("gitlab", "g/p", login="home")
 
 
 # PUBLIC API / TESTS - GitLab
@@ -466,6 +489,348 @@ def test_github_pr_create_without_url_raises() -> None:
     forge = GitHubForge("o/r", FakeRunner(_ok("")))
     with pytest.raises(ForgeError):
         forge.open_merge_request("s", "develop", "Draft: t", "b")
+
+
+# PUBLIC API / TESTS - Gitea
+
+
+def test_gitea_repo_must_be_owner_repo() -> None:
+    """
+    @brief   Gitea has no subgroups: anything but OWNER/REPO fails closed at
+             construction, before it can build malformed API endpoints.
+    @version 0.1.0
+    """
+    with pytest.raises(ValueError):
+        GiteaForge("owner/group/repo", FakeRunner())
+    with pytest.raises(ValueError):
+        GiteaForge("just-owner", FakeRunner())
+
+
+def test_gitea_list_ready_maps_rest_json() -> None:
+    """
+    @brief   The issues REST payload is normalized: number to iid, label
+             objects to names, user.login (never the display name), state
+             open -> opened. The argv must filter type=issues (the endpoint
+             returns PRs too), carry --login, and never start the endpoint
+             with "/" (that breaks tea's /api/v1 prefixing).
+    @version 0.1.0
+    """
+    payload = json.dumps(
+        [
+            {
+                "number": 45,
+                "title": "Refresh button",
+                "body": "AC: ...",
+                "labels": [{"name": "agent-ready"}, {"name": "P2"}],
+                "user": {"login": "dpasare", "full_name": "Dan Dumitru Pasare"},
+                "state": "open",
+                "html_url": "http://gitea.local/o/r/issues/45",
+                "created_at": "t1",
+                "updated_at": "t2",
+            }
+        ]
+    )
+    runner = FakeRunner(_api_ok(payload))
+    tickets = GiteaForge("o/r", runner, login="home").list_ready("agent-ready")
+    assert len(tickets) == 1
+    ticket = tickets[0]
+    assert (ticket.iid, ticket.author, ticket.labels, ticket.state) == (
+        45,
+        "dpasare",
+        ["agent-ready", "P2"],
+        "opened",
+    )
+    argv = runner.calls[0]
+    assert argv[:2] == ["tea", "api"]
+    assert "-i" in argv  # the HTTP status line is the only error signal
+    assert "--login" in argv and "home" in argv
+    endpoint = argv[-1]
+    assert not endpoint.startswith("/")
+    assert endpoint.startswith("repos/o/r/issues?")
+    assert "type=issues" in endpoint
+    assert "labels=agent-ready" in endpoint
+    assert "state=open" in endpoint
+
+
+def test_gitea_list_ready_paginates_by_total_count() -> None:
+    """
+    @brief   Pagination follows X-Total-Count: a SHORT page must not stop the
+             walk when the server clamps pages below the requested size
+             (MAX_RESPONSE_ITEMS), and the pool is complete when the count is
+             reached.
+    @version 0.1.0
+    """
+    page = json.dumps(
+        [{"number": i, "labels": [{"name": "agent-ready"}]} for i in range(20)]
+    )
+    runner = FakeRunner(
+        _api_ok(page, headers="X-Total-Count: 40\n"),
+        _api_ok(page, headers="X-Total-Count: 40\n"),
+    )
+    tickets = GiteaForge("o/r", runner).list_ready("agent-ready")
+    assert len(tickets) == 40
+    assert len(runner.calls) == 2
+    assert "page=1" in runner.calls[0][-1]
+    assert "page=2" in runner.calls[1][-1]
+
+
+def test_gitea_list_ready_post_filters_unknown_label() -> None:
+    """
+    @brief   When the filter label does not exist in the repository, Gitea
+             silently DROPS the labels= filter and returns every open issue
+             (live finding, 1.25.4) - the adapter must post-filter so a typo'd
+             ready label cannot select the entire backlog.
+    @version 0.1.0
+    """
+    unfiltered = json.dumps(
+        [
+            {"number": 1, "title": "unrelated", "labels": []},
+            {"number": 2, "title": "ready", "labels": [{"name": "agent-ready"}]},
+        ]
+    )
+    tickets = GiteaForge("o/r", FakeRunner(_api_ok(unfiltered))).list_ready("agent-ready")
+    assert [t.iid for t in tickets] == [2]
+    assert GiteaForge("o/r", FakeRunner(_api_ok(unfiltered))).list_ready("typo-label") == []
+
+
+def test_gitea_list_ready_short_page_stops_without_total_count() -> None:
+    """
+    @brief   Without the X-Total-Count header a short page ends the walk; an
+             empty page ends it even when a (lying) header promises more.
+    @version 0.1.0
+    """
+    runner = FakeRunner(
+        _api_ok(json.dumps([{"number": 1, "labels": [{"name": "agent-ready"}]}]))
+    )
+    assert len(GiteaForge("o/r", runner).list_ready("agent-ready")) == 1
+    assert len(runner.calls) == 1
+    runner = FakeRunner(_api_ok("[]", headers="X-Total-Count: 10\n"))
+    assert GiteaForge("o/r", runner).list_ready("agent-ready") == []
+    assert len(runner.calls) == 1
+
+
+def test_gitea_http_error_despite_exit_zero() -> None:
+    """
+    @brief   tea api exits 0 even on HTTP errors (verified live on tea 0.15),
+             so the adapter must read the status line itself: 404 maps to None
+             where the contract allows, any other >= 400 raises, and a missing
+             status line fails closed.
+    @version 0.1.0
+    """
+    not_found = _api_ok('{"errors":null,"message":"not found"}', status=404)
+    assert GiteaForge("o/r", FakeRunner(not_found)).get_ticket(99) is None
+    assert GiteaForge("o/r", FakeRunner(not_found)).get_merge_request(99) is None
+    with pytest.raises(ForgeError):  # list_ready must NOT swallow a 404
+        GiteaForge("o/r", FakeRunner(not_found)).list_ready("agent-ready")
+    with pytest.raises(ForgeError):
+        GiteaForge("o/r", FakeRunner(_api_ok("{}", status=500))).get_ticket(1)
+    no_status = CommandResult(exit_code=0, stdout="[]", stderr="")
+    with pytest.raises(ForgeError):
+        GiteaForge("o/r", FakeRunner(no_status)).list_ready("agent-ready")
+
+
+def test_gitea_tea_failure_carries_context() -> None:
+    """
+    @brief   A tea-level failure (no login, network down) raises ForgeError
+             with the argv and stderr for the journal.
+    @version 0.1.0
+    """
+    forge = GiteaForge("o/r", FakeRunner(_fail("Error: no login found")))
+    with pytest.raises(ForgeError) as excinfo:
+        forge.list_ready("agent-ready")
+    assert "no login found" in str(excinfo.value)
+    assert "tea api" in str(excinfo.value)
+
+
+def test_gitea_invalid_json_and_wrong_shape_raise() -> None:
+    """
+    @brief   A 200 with a non-JSON body (proxy page) or the wrong JSON shape
+             is rejected instead of parsed into garbage.
+    @version 0.1.0
+    """
+    with pytest.raises(ForgeError):
+        GiteaForge("o/r", FakeRunner(_api_ok("<html>proxy</html>"))).list_ready("x")
+    with pytest.raises(ForgeError):
+        GiteaForge("o/r", FakeRunner(_api_ok('{"number": 1}'))).list_ready("x")
+
+
+def test_gitea_list_comments_maps_and_never_flags_system() -> None:
+    """
+    @brief   Comments map id/body/user.login/created_at; Gitea keeps system
+             events out of this endpoint, so system is always False.
+    @version 0.1.0
+    """
+    payload = json.dumps(
+        [
+            {"id": 7, "body": "[ADORE] status", "user": {"login": "dpasare"},
+             "created_at": "t1"},
+            {"id": 8, "body": "answer", "user": {"login": "reviewer"},
+             "created_at": "t2"},
+        ]
+    )
+    comments = GiteaForge("o/r", FakeRunner(_api_ok(payload))).list_comments(45)
+    assert [(c.id, c.author, c.system) for c in comments] == [
+        (7, "dpasare", False),
+        (8, "reviewer", False),
+    ]
+
+
+def test_gitea_post_comment_id_from_response_json() -> None:
+    """
+    @brief   The created comment id comes from the POST response JSON (no URL
+             scraping); a response without an id fails closed - the id is
+             required for idempotency.
+    @version 0.1.0
+    """
+    runner = FakeRunner(_api_ok('{"id": 321, "body": "[ADORE] hello"}'))
+    assert GiteaForge("o/r", runner).post_comment(45, "[ADORE] hello") == 321
+    argv = runner.calls[0]
+    assert "--method" in argv and "POST" in argv
+    assert "--field" in argv and "body=[ADORE] hello" in argv
+    assert argv[-1] == "repos/o/r/issues/45/comments"
+    with pytest.raises(ForgeError):
+        GiteaForge("o/r", FakeRunner(_api_ok("{}"))).post_comment(45, "x")
+
+
+def test_gitea_edit_comment_patches_repo_global_id() -> None:
+    """
+    @brief   Comment edits PATCH the repo-global comment id with a
+             guaranteed-string --field body.
+    @version 0.1.0
+    """
+    runner = FakeRunner(_api_ok("{}"))
+    GiteaForge("o/r", runner).edit_comment(45, 321, "updated body")
+    argv = runner.calls[0]
+    assert "--method" in argv and "PATCH" in argv
+    assert argv[-1] == "repos/o/r/issues/comments/321"
+    assert "--field" in argv and "body=updated body" in argv
+
+
+def test_gitea_labels_via_tea_edit_subcommands() -> None:
+    """
+    @brief   Label ops go through `tea issues edit` / `tea pulls edit` (they
+             resolve label NAMES to ids); empty lists make no call; the
+             configured login is carried; failures raise ForgeError.
+    @version 0.1.0
+    """
+    runner = FakeRunner(_ok(), _ok(), _ok())
+    forge = GiteaForge("o/r", runner, login="home")
+    forge.add_labels(45, ["agent-working", "P2"])
+    forge.remove_labels(45, ["agent-ready"])
+    forge.remove_mr_labels(30, ["agent-revise"])
+    add_argv, remove_argv, mr_argv = runner.calls
+    assert add_argv[:4] == ["tea", "issues", "edit", "45"]
+    assert "--add-labels" in add_argv and "agent-working,P2" in add_argv
+    assert "--remove-labels" in remove_argv and "agent-ready" in remove_argv
+    assert mr_argv[:4] == ["tea", "pulls", "edit", "30"]
+    assert "--remove-labels" in mr_argv and "agent-revise" in mr_argv
+    for argv in runner.calls:
+        assert "--login" in argv and "home" in argv
+    forge.add_labels(45, [])  # no queued result left: a call would pop-fail
+    with pytest.raises(ForgeError):
+        GiteaForge("o/r", FakeRunner(_fail("Error: not found"))).add_labels(1, ["x"])
+
+
+def test_gitea_get_pr_normalizes_merged_and_draft() -> None:
+    """
+    @brief   Gitea reports merged PRs as state closed + merged true - the
+             normalization must say "merged" (the post-MR poll's terminal
+             signal). Draft is the native field, with the WIP title prefix as
+             fallback; labels map to names.
+    @version 0.1.0
+    """
+    merged = json.dumps(
+        {"number": 29, "state": "closed", "merged": True, "draft": False,
+         "title": "feat x", "html_url": "http://g/o/r/pulls/29",
+         "labels": [{"name": "P1"}]}
+    )
+    mr = GiteaForge("o/r", FakeRunner(_api_ok(merged))).get_merge_request(29)
+    assert mr is not None
+    assert (mr.iid, mr.state, mr.draft, mr.labels) == (29, "merged", False, ["P1"])
+    wip_only = json.dumps(
+        {"number": 30, "state": "open", "merged": False,
+         "title": "WIP: feat y", "html_url": "http://g/o/r/pulls/30"}
+    )
+    mr = GiteaForge("o/r", FakeRunner(_api_ok(wip_only))).get_merge_request(30)
+    assert mr is not None
+    assert mr.state == "opened"
+    assert mr.draft is True  # WIP title fallback for payloads without `draft`
+
+
+def test_gitea_get_pr_by_branch_scans_open_pulls() -> None:
+    """
+    @brief   A branch ref scans the OPEN pulls for a matching head.ref
+             (branch lookup finds only open MRs, per the interface contract);
+             no match maps to None.
+    @version 0.1.0
+    """
+    pulls = json.dumps(
+        [
+            {"number": 7, "state": "open", "title": "other",
+             "head": {"ref": "adore/run-7"}, "html_url": "http://g/o/r/pulls/7"},
+            {"number": 8, "state": "open", "title": "WIP: mine",
+             "head": {"ref": "adore/run-45"}, "html_url": "http://g/o/r/pulls/8"},
+        ]
+    )
+    runner = FakeRunner(_api_ok(pulls))
+    mr = GiteaForge("o/r", runner).get_merge_request("adore/run-45")
+    assert mr is not None and mr.iid == 8
+    endpoint = runner.calls[0][-1]
+    assert endpoint.startswith("repos/o/r/pulls?")
+    assert "state=open" in endpoint
+    runner = FakeRunner(_api_ok("[]"))
+    assert GiteaForge("o/r", runner).get_merge_request("gone-branch") is None
+
+
+def test_gitea_open_pr_wip_prefix_and_reviewers_best_effort() -> None:
+    """
+    @brief   Draft PRs get the `WIP: ` title prefix (never duplicated), the
+             URL comes from the response JSON, and the reviewer request is a
+             SEPARATE best-effort call whose failure must not lose the
+             already-created PR.
+    @version 0.1.0
+    """
+    created = '{"number": 30, "html_url": "http://g/o/r/pulls/30"}'
+    runner = FakeRunner(_api_ok(created), _api_ok("{}"))
+    url = GiteaForge("o/r", runner, login="home").open_merge_request(
+        "adore/run-45", "master", "Resolve #45: fix", "body",
+        reviewers=["dpasare"], cwd="/tmp/worktree",
+    )
+    assert url == "http://g/o/r/pulls/30"
+    create_argv, reviewer_argv = runner.calls
+    assert create_argv[-1] == "repos/o/r/pulls"
+    assert "title=WIP: Resolve #45: fix" in create_argv
+    assert "head=adore/run-45" in create_argv and "base=master" in create_argv
+    assert "merge" not in create_argv  # the adapter can never merge
+    assert runner.cwds == [None, None]  # pure API: no local checkout needed
+    assert reviewer_argv[-1] == "repos/o/r/pulls/30/requested_reviewers"
+    assert "--data" in reviewer_argv
+    assert '{"reviewers": ["dpasare"]}' in reviewer_argv
+    # reviewer rejection (e.g. no repo access) keeps the PR: URL still returned
+    runner = FakeRunner(_api_ok(created), _api_ok('{"message": "no access"}', 422))
+    url = GiteaForge("o/r", runner).open_merge_request(
+        "s", "master", "Resolve #45: fix", "b", reviewers=["ghost"]
+    )
+    assert url == "http://g/o/r/pulls/30"
+
+
+def test_gitea_open_pr_title_prefix_edges_and_missing_url() -> None:
+    """
+    @brief   An already-WIP title is not double-prefixed, a non-draft PR gets
+             no prefix, and a created PR without html_url fails closed.
+    @version 0.1.0
+    """
+    created = '{"number": 31, "html_url": "http://g/o/r/pulls/31"}'
+    runner = FakeRunner(_api_ok(created))
+    GiteaForge("o/r", runner).open_merge_request("s", "m", "WIP: already", "b")
+    assert "title=WIP: already" in runner.calls[0]
+    runner = FakeRunner(_api_ok(created))
+    GiteaForge("o/r", runner).open_merge_request("s", "m", "plain", "b", draft=False)
+    assert "title=plain" in runner.calls[0]
+    with pytest.raises(ForgeError):
+        GiteaForge("o/r", FakeRunner(_api_ok('{"number": 32}'))).open_merge_request(
+            "s", "m", "t", "b"
+        )
 
 
 # END OF FILE

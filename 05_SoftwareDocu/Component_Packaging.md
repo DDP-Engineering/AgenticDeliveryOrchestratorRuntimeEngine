@@ -128,6 +128,6 @@ Minimum validation after changes:
 
 ## 10. Limitations And Future Work
 
-- The bundle still requires Python 3.11+, `uv`, `git`, `glab` or `gh`, and a
+- The bundle still requires Python 3.11+, `uv`, `git`, `glab`/`gh`/`tea`, and a
   container runtime on the deployment host.
 - Native Windows executable and Ubuntu package creation remain future work.

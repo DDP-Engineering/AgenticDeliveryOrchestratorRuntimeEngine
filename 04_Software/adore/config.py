@@ -111,13 +111,18 @@ class AgentConfig:
 class PlatformConfig:
     """
     @brief   [platform] - which Git-platform adapter and repository to use.
+    @details `login` names the tea login (`tea logins list`) for kind
+             "gitea", where one CLI can hold several instance/account logins;
+             empty uses tea's default login. Meaningless for glab/gh (their
+             auth binds to the host), so validation rejects it there.
     @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-02
-    @version 0.1.0
+    @date    2026-07-29
+    @version 0.1.1
     """
 
     kind: str = "gitlab"
     repo: str = ""
+    login: str = ""
 
 
 @dataclass
@@ -735,8 +740,8 @@ def validate_config(config: Config) -> list[str]:
     @param[in]  config The configuration to validate.
     @return     Empty list when valid; otherwise one message per issue.
     @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-24
-    @version    0.1.9
+    @date       2026-07-29
+    @version    0.1.10
     """
     issues: list[str] = []
 
@@ -754,10 +759,24 @@ def validate_config(config: Config) -> list[str]:
     )
 
     check(
-        config.platform.kind in ("gitlab", "github"),
-        f'[platform] kind must be "gitlab" or "github": {config.platform.kind!r}',
+        config.platform.kind in ("gitlab", "github", "gitea"),
+        f'[platform] kind must be "gitlab", "github" or "gitea": '
+        f"{config.platform.kind!r}",
     )
     check(bool(config.platform.repo.strip()), "[platform] repo is required")
+    if config.platform.kind == "gitea":
+        parts = config.platform.repo.split("/")
+        check(
+            len(parts) == 2 and all(part.strip() for part in parts),
+            f"[platform] gitea repo must be OWNER/REPO (no subgroups): "
+            f"{config.platform.repo!r}",
+        )
+    else:
+        check(
+            not config.platform.login,
+            f"[platform] login is only supported for gitea, not "
+            f"{config.platform.kind!r}",
+        )
 
     check(
         config.state.channel in ("comments", "labels", "both"),

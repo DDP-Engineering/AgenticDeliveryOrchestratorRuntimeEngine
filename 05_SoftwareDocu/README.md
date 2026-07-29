@@ -33,7 +33,7 @@ guides belong in `01_Documentation/`.
   content hash, lock, pause flag, fail-closed corrupt-state handling
   (`adore/state.py`).
 - `Component_Forge_Adapters.md` - the Git-platform boundary: `Forge`
-  interface plus the GitLab (`glab`) and GitHub (`gh`) adapters
+  interface plus the GitLab (`glab`), GitHub (`gh`) and Gitea (`tea`) adapters
   (`adore/forge/`).
 - `Component_CLI.md` - the `adore` command surface and exit-code contract
   (`adore/cli.py`).

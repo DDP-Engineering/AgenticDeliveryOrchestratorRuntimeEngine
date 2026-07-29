@@ -34,7 +34,7 @@ scheduled task or service. That account needs access to:
 - Git and a local clone of `<runtime-project>`;
 - Python 3.11 or newer and `uv`;
 - Docker or Podman;
-- `glab` for GitLab or `gh` for GitHub;
+- `glab` for GitLab, `gh` for GitHub, or `tea` (>= 0.15) for Gitea;
 - the chosen executor's credentials; and
 - the container runtime socket or rootless runtime environment.
 
@@ -60,8 +60,9 @@ gh auth status
 docker version
 ```
 
-Use the CLI appropriate to the selected forge; the commands above show both
-options, not a requirement to install both.
+For Gitea, the auth check is `tea whoami` (tea has no `auth status`
+subcommand). Use the CLI appropriate to the selected forge; the commands above
+show the options, not a requirement to install them all.
 
 ## 2. Install the Runtime Bundle
 
@@ -119,8 +120,8 @@ normally include `run_args = ["--userns=keep-id"]`; see
 
 ## 4. Establish Credentials Before Running Work
 
-Authenticate `glab` or `gh` under the run-as account, then configure the
-selected executor's model-provider credential. Do this before creating the
+Authenticate `glab`, `gh` or `tea` under the run-as account, then configure
+the selected executor's model-provider credential. Do this before creating the
 first real run.
 
 Read [Security_And_Credentials.md](Security_And_Credentials.md) before placing

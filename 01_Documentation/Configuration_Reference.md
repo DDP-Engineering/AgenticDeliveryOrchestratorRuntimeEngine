@@ -65,9 +65,11 @@ email = "adore-bot@example.com"  # commit author email in the container (derived
 
 # ----- Git platform -----
 [platform]
-kind = "gitlab"              # "gitlab" | "github"
-repo = "group/subgroup/project"
-# The Git-platform CLI (glab / gh) must be installed and authenticated on the host.
+kind = "gitlab"              # "gitlab" | "github" | "gitea"
+repo = "group/subgroup/project"   # gitea: exactly "owner/repo" (no subgroups)
+# login = "home"             # gitea only: the tea login name (tea logins list)
+# The Git-platform CLI (glab / gh / tea) must be installed and authenticated
+# on the host.
 
 # ----- State signaling -----
 [state]
@@ -232,11 +234,14 @@ html_out         = ".adore/metrics/stats.html"
 
 | Key | Meaning | Default |
 |---|---|---|
-| `kind` | Which Git-platform adapter to use. | `"gitlab"` |
-| `repo` | Repository path/slug passed to the Git-platform CLI. | (required) |
+| `kind` | Which Git-platform adapter to use: `"gitlab"`, `"github"` or `"gitea"`. | `"gitlab"` |
+| `repo` | Repository path/slug passed to the Git-platform CLI. For `gitea` it must be exactly `owner/repo` (Gitea has no subgroups). | (required) |
+| `login` | Gitea only: the tea login name (see `tea logins list`) passed as `--login` to every tea call. Empty uses tea's default login (`tea logins default <name>`). Rejected for other kinds. | `""` |
 
-Note: `glab` (GitLab) or `gh` (GitHub) must be installed and authenticated on
-the host. No separate bot account is required (identity is marker-based).
+Note: `glab` (GitLab), `gh` (GitHub) or `tea` (Gitea, version >= 0.15 - older
+tea lacks the `tea api` command the adapter is built on) must be installed and
+authenticated on the host. No separate bot account is required (identity is
+marker-based).
 
 ## `[state]` - State Signaling
 
@@ -433,7 +438,7 @@ optional static HTML; there is no Prometheus endpoint or hosted service.
 
 - Every value above is an implemented default and may be tuned per environment.
 - Related but non-`config.toml` inputs (kept as environment variables / secrets,
-  not in this file): the Git-platform token used by `glab` / `gh`, and the executor's
+  not in this file): the Git-platform token used by `glab` / `gh` / `tea`, and the executor's
   model-provider credentials.
 - Cross-references: polling (design doc section 5a), labels (5b), identity and
   signaling (5c), run identity and local state (8a), container TTL (8b),

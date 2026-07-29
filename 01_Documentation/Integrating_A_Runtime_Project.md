@@ -20,7 +20,8 @@ working.
 Before creating a profile, establish the following for `<runtime-project>`:
 
 - a local, clean clone available to the ADORE run-as account;
-- a forge repository identifier accepted by `glab` or `gh`;
+- a forge repository identifier accepted by `glab`, `gh` or `tea`
+  (Gitea: exactly `owner/repo`);
 - **the agentic workflow installed in the repository**, providing
   `.agentic/tools/run.sh` (see below);
 - a default target branch and the human reviewers responsible for merge

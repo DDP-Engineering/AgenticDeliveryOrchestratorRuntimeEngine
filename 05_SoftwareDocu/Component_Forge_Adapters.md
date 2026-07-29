@@ -9,17 +9,18 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Forge Adapters (`adore/forge/`)
 
 > Component documentation per `component_documentation_template.md`.
-> Sources: `04_Software/adore/forge/{__init__,base,gitlab,github}.py` -
-> file versions 0.1.0 (`gitlab`/`github` adapters at method version 0.1.1).
+> Sources: `04_Software/adore/forge/{__init__,base,gitlab,github,gitea}.py` -
+> file versions 0.1.0 (`gitlab`/`github` adapters at method version 0.1.1,
+> `gitea` at 0.1.0, factory `build_forge` at 0.2.0).
 > Design: Orchestrator_Design_And_Decisions.md section 4;
 > Host forge authentication: `01_Documentation/Security_And_Credentials.md`.
 
 ## 1. Purpose
 
 The single boundary between ADORE and the Git platform. The orchestrator never
-calls `glab` or `gh` directly; it talks to the `Forge` interface, and one of
-two adapters translates to the platform CLI. This keeps ADORE portable between
-the GitLab instance it runs on today and GitHub.
+calls `glab`, `gh` or `tea` directly; it talks to the `Forge` interface, and
+one of three adapters translates to the platform CLI. This keeps ADORE portable
+between the GitLab instance it runs on today, GitHub, and a self-hosted Gitea.
 
 ## 2. Responsibilities
 
@@ -38,9 +39,11 @@ the GitLab instance it runs on today and GitHub.
     are a refinement) and `remove_mr_labels(mr_iid, labels)` (clears the
     revise trigger; GitLab via API PUT remove_labels, GitHub via
     `gh pr edit --remove-label`).
-- `GitLabForge` (`gitlab.py`, over `glab`) and `GitHubForge` (`github.py`,
-  over `gh`) implement it; `build_forge(kind, repo, runner)` selects one from
-  `[platform]` config.
+- `GitLabForge` (`gitlab.py`, over `glab`), `GitHubForge` (`github.py`, over
+  `gh`) and `GiteaForge` (`gitea.py`, over `tea`) implement it;
+  `build_forge(kind, repo, runner, login=...)` selects one from `[platform]`
+  config (`login` is the tea login name, gitea-only; the factory rejects it
+  for other kinds).
 - Normalization of platform differences into shared `Ticket` / `Comment`
   dataclasses.
 
@@ -83,16 +86,67 @@ stops" is structural, not a convention (design 11). Plain git operations
   - created comment id parsed from the `#issuecomment-<id>` URL;
   - `gh pr create --draft --head --base`; `remove_source_branch` is ignored
     (a repository setting on GitHub).
+- Gitea specifics (live-verified against tea 0.15.0 / Gitea 1.25.4 on
+  2026-07-29):
+  - **Reads and comment/PR writes go through `tea api`** (the raw Gitea REST
+    API), NOT tea's native `--output json`: the native output is lossy - the
+    issue index comes back as a string, labels as one joined string, the
+    author as the display name, and an empty comment list prints
+    "No comments found" instead of `[]`. The REST payload has the real types
+    (`number`, `user.login`, label objects, `html_url`).
+  - **`tea api` exits 0 even on HTTP 4xx/5xx.** Every call therefore runs
+    `tea api -i` and the adapter parses the `HTTP/1.1 <code>` status line
+    (written to stderr) itself: missing status or >= 400 raises `ForgeError`;
+    404 maps to `None` only where the contract allows. The exit code only
+    reports tea-level failures (no login, network down).
+  - **Endpoints never start with `/`** - a leading slash breaks tea's
+    `/api/v1` prefixing and lands on the web router (a text 404 with HTTP
+    status 200-path confusion).
+  - Draft is the `WIP: ` title prefix (Gitea's convention; also what
+    `tea pulls create --draft` does); the adapter prepends it only when
+    missing. On read, `draft` is native on Gitea >= 1.22 with the WIP-title
+    fallback for older payloads; merged PRs report state "closed" plus a
+    `merged` boolean, normalized to "merged".
+  - The created comment id and PR `html_url`/`number` come straight from the
+    POST response JSON - no URL scraping, no fallback needed.
+  - Label add/remove uses `tea issues edit --add-labels/--remove-labels` and
+    `tea pulls edit --remove-labels` (tea resolves label NAMES to the ids the
+    raw API wants). tea subcommands DO exit non-zero on errors, so the plain
+    exit-code contract applies there.
+  - Reviewer requests are a separate Gitea endpoint and are best-effort: a
+    rejected reviewer must not lose the already-created draft PR.
+  - `list_ready` must pass `type=issues` - the Gitea issues endpoint returns
+    PRs too without it. Issues and PRs share one index space, so
+    `list_mr_comments` is the issues comments endpoint (system events live
+    elsewhere; `system` is always False, like GitHub).
+  - **`list_ready` post-filters on the label**: when the label NAME does not
+    exist in the repository, Gitea silently drops the `labels=` filter and
+    returns every open issue (live finding on the pilot repo) - without the
+    client-side filter a typo'd ready label would select the entire backlog
+    for conduction.
+  - `[platform] login` selects the tea login (`tea logins list`) and is
+    appended as `--login` to every call; without it tea uses its default
+    login (set one with `tea logins default <name>`).
+  - The repo slug must be exactly `OWNER/REPO` (Gitea has no subgroups);
+    the adapter fails closed at construction otherwise. `cwd` is ignored -
+    pure API calls need no local checkout, so the glab/gh "No git remotes
+    found" workaround does not apply.
 - Selection reads the full ready pool, not the first page: `GitLabForge`
   paginates `glab issue list` (GitLab caps `--per-page` at 100, bounded by
   `_MAX_LIST_PAGES`) and `GitHubForge` reads up to `--limit 500`, so a
-  high-priority ticket beyond the first 100 is still ranked.
+  high-priority ticket beyond the first 100 is still ranked. `GiteaForge`
+  paginates at 50 (the server's `MAX_RESPONSE_ITEMS` floor, confirmed via
+  `settings/api`) guided by the `X-Total-Count` response header, so the walk
+  stays correct even when a stricter server clamps pages below the requested
+  size; a short page is the fallback stop when the header is absent, bounded
+  by `_MAX_LIST_PAGES`.
 
 ## 4. Dependencies
 
 - Internal: `adore.util` (`CommandRunner`, `CommandResult`, `run_command`).
-- External: the authenticated `glab` (>= 1.105 verified) or `gh` (>= 2.95)
-  CLI on the host; Python standard library otherwise.
+- External: the authenticated `glab` (>= 1.105 verified), `gh` (>= 2.95) or
+  `tea` (>= 0.15 required - older tea lacks `tea api`; 0.15.0 verified
+  against Gitea 1.25.4) CLI on the host; Python standard library otherwise.
 
 ## 5. Inputs And Outputs
 
@@ -125,6 +179,7 @@ receives forge access - "who posts: the orchestrator, never the executor"
 from adore.forge import build_forge
 
 forge = build_forge("gitlab", "grp/proj")
+forge = build_forge("gitea", "owner/repo", login="home")  # tea login name
 tickets = forge.list_ready("agent-ready")
 note_id = forge.post_comment(14, "[ADORE] status ...\n<!-- adore:... -->")
 forge.edit_comment(14, note_id, "updated body")
@@ -134,12 +189,18 @@ url = forge.open_merge_request("adore/run-14", "develop", "Draft: ...", body,
 
 ## 9. Validation And Tests
 
-- `tests/test_forge.py` (fake runner, fully offline): factory selection,
-  JSON-to-Ticket mapping for both platforms, note/comment id parsing plus
-  fallback, the GitLab PUT edit endpoint, system-note flagging, label argv
-  construction, draft MR/PR creation and URL parsing, 404 -> `None`, and the
-  hostile-output suite (non-JSON, wrong shape, missing URLs, unrecoverable
-  ids, error context in `ForgeError`).
+- `tests/test_forge.py` (fake runner, fully offline): factory selection (incl.
+  gitea + the login-for-non-gitea rejection), JSON-to-Ticket mapping for all
+  three platforms, note/comment id parsing plus fallback, the GitLab PUT edit
+  endpoint, system-note flagging, label argv construction, draft MR/PR
+  creation and URL parsing, 404 -> `None`, and the hostile-output suite
+  (non-JSON, wrong shape, missing URLs, unrecoverable ids, error context in
+  `ForgeError`). The Gitea suite additionally pins the tea-specific hazards:
+  HTTP-status-line enforcement despite exit 0 (404/500/missing status), the
+  no-leading-slash endpoint rule, X-Total-Count pagination (incl. the
+  clamped-short-page case and the lying-header runaway guard), the WIP title
+  prefix edges, comment id from response JSON, best-effort reviewers, and the
+  OWNER/REPO constructor guard.
 - Minimum validation after a change: `uv run --group dev pytest tests/test_forge.py`.
 - **Live read-only verification done 2026-07-03** against glab 1.105.0 on the
   real instance: issue list/view
@@ -152,10 +213,21 @@ url = forge.open_merge_request("adore/run-14", "develop", "Draft: ...", body,
 ## 10. Limitations And Future Work
 
 - GitLab selection paginates in 100-item pages up to `_MAX_LIST_PAGES` (50);
-  GitHub reads up to 500 in one call. Beyond those bounds the pool is still
-  capped - large enough for realistic ready queues.
+  GitHub reads up to 500 in one call; Gitea paginates in 50-item pages up to
+  the same bound. Beyond those bounds the pool is still capped - large enough
+  for realistic ready queues.
 - MR review-thread reading (post-MR revise loop, design 11b) and CI-status
   reading are not yet part of the interface; they arrive with that phase.
+- Label names containing a comma cannot be addressed on GitHub/Gitea (both
+  adapters comma-join label lists for their CLIs).
+- Gitea permits several repo labels with the SAME name (live finding); a
+  ticket carrying such duplicates maps to a repeated name in `Ticket.labels`.
+  Harmless for ADORE (all label logic is membership-based), but keep repo
+  label names unique for sane output.
+- Gitea reviewer requests are best-effort (see section 3); a failed request
+  is currently silent beyond the missing reviewer on the PR itself.
 - GitLab flags are verified live (read-only, 2026-07-03); GitHub flags are
   verified offline only - `gh` is not authenticated on this host, so the gh
-  path gets its live check when a GitHub pilot repo exists.
+  path gets its live check when a GitHub pilot repo exists. The Gitea adapter
+  is live-verified read-only against Gitea 1.25.4 (2026-07-29); the mutating
+  path gets its live check on a scratch repository.

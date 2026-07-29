@@ -11,8 +11,8 @@
 @file test_config.py
 @brief Tests for typed config loading, derived names, and validation.
 @author Eng. Dan Dumitru Pasare
-@date 2026-07-02
-@version 0.3.0
+@date 2026-07-29
+@version 0.4.0
 """
 
 from __future__ import annotations
@@ -129,6 +129,37 @@ reviewers = ["r"]
     assert any("[platform] repo" in issue for issue in issues)
     assert any("[state] channel" in issue for issue in issues)
     assert any("[worktree] repo_path" in issue for issue in issues)
+
+
+def test_platform_gitea_repo_shape_and_login_rules(tmp_path: Path) -> None:
+    """
+    @brief   kind "gitea" is valid with an OWNER/REPO slug and an optional tea
+             login; a nested repo path fails closed (Gitea has no subgroups),
+             and a login on glab/gh platforms is rejected (their auth binds to
+             the host, so a silently ignored login would mislead).
+    @version 0.1.0
+    """
+    good = MINIMAL_VALID.replace(
+        'kind = "gitlab"\nrepo = "group/project"',
+        'kind = "gitea"\nrepo = "owner/repo"\nlogin = "home"',
+    )
+    config = load_config(_write_config(tmp_path, good))
+    assert validate_config(config) == []
+    assert config.platform.login == "home"
+
+    nested = MINIMAL_VALID.replace(
+        'kind = "gitlab"\nrepo = "group/project"',
+        'kind = "gitea"\nrepo = "owner/group/repo"',
+    )
+    issues = validate_config(load_config(_write_config(tmp_path, nested)))
+    assert any("OWNER/REPO" in issue for issue in issues)
+
+    login_on_gitlab = MINIMAL_VALID.replace(
+        'kind = "gitlab"\nrepo = "group/project"',
+        'kind = "gitlab"\nrepo = "group/project"\nlogin = "home"',
+    )
+    issues = validate_config(load_config(_write_config(tmp_path, login_on_gitlab)))
+    assert any("login is only supported for gitea" in issue for issue in issues)
 
 
 def test_validation_requires_matching_executor_table(tmp_path: Path) -> None:

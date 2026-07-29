@@ -10,10 +10,10 @@
 """
 @file test_doctor.py
 @brief Tests for environment detection + prerequisite guidance - offline, with
-       a fake command runner (no real git/glab/gh/docker/wsl calls).
+       a fake command runner (no real git/glab/gh/tea/docker/wsl calls).
 @author Eng. Dan Dumitru Pasare
-@date 2026-07-05
-@version 0.1.0
+@date 2026-07-29
+@version 0.2.0
 """
 
 from __future__ import annotations
@@ -94,15 +94,18 @@ def test_detect_git_present_and_absent() -> None:
 
 def test_detect_platform_cli_maps_kind_and_rejects_unknown() -> None:
     """
-    @brief   gitlab -> glab, github -> gh; an unknown kind fails closed.
-    @version 0.1.0
+    @brief   gitlab -> glab, github -> gh, gitea -> tea; an unknown kind
+             fails closed.
+    @version 0.1.1
     """
     runner = FakeRunner({
         "glab --version": _ok("glab 1.105.0"),
         "gh --version": _ok("gh version 2.96.0"),
+        "tea --version": _ok("Version: 0.15.0"),
     })
     assert doctor.detect_platform_cli("gitlab", runner).name == "glab"
     assert doctor.detect_platform_cli("github", runner).present
+    assert doctor.detect_platform_cli("gitea", runner).name == "tea"
     with pytest.raises(ValueError):
         doctor.detect_platform_cli("bitbucket", runner)
 
@@ -118,6 +121,28 @@ def test_auth_status_authenticated_unauth_and_missing() -> None:
     bad = doctor.auth_status("gitlab", FakeRunner({"glab auth status": _fail("not logged in")}))
     assert bad.present and not bad.authenticated
     missing = doctor.auth_status("github", FakeRunner({}))
+    assert not missing.present and not missing.authenticated
+
+
+def test_auth_status_gitea_probes_whoami_not_auth_status() -> None:
+    """
+    @brief   The gitea probe must be `tea whoami`: tea has no `auth status`
+             subcommand AND exits 0 for unknown subcommands ("No help topic"),
+             so the generic probe would fake an authenticated state.
+    @version 0.1.0
+    """
+    runner = FakeRunner({
+        "tea whoami": _ok("# dpasare"),
+        # what the WRONG probe would see: tea exits 0 with a help-topic error
+        "tea auth status": _ok("No help topic for 'auth'"),
+    })
+    good = doctor.auth_status("gitea", runner)
+    assert good.cli == "tea"
+    assert good.present and good.authenticated
+    assert runner.calls == [["tea", "whoami"]]
+    bad = doctor.auth_status("gitea", FakeRunner({"tea whoami": _fail("Error: no login")}))
+    assert bad.present and not bad.authenticated
+    missing = doctor.auth_status("gitea", FakeRunner({}))
     assert not missing.present and not missing.authenticated
 
 
@@ -208,12 +233,28 @@ def test_guidance_unknown_component_is_graceful() -> None:
 def test_auth_component_for_kind() -> None:
     """
     @brief   Maps a platform kind to its auth-guidance component; rejects others.
-    @version 0.1.0
+    @version 0.1.1
     """
     assert doctor.auth_component_for_kind("gitlab") == doctor.GLAB_AUTH
     assert doctor.auth_component_for_kind("github") == doctor.GH_AUTH
+    assert doctor.auth_component_for_kind("gitea") == doctor.TEA_AUTH
     with pytest.raises(ValueError):
         doctor.auth_component_for_kind("svn")
+
+
+def test_guidance_covers_tea_install_and_auth() -> None:
+    """
+    @brief   The tea install text exists per OS and the shared auth text names
+             `tea login add` plus the [platform] login alternative - the
+             wizard prints these verbatim when something is missing.
+    @version 0.1.0
+    """
+    win = doctor.guidance_for(doctor.TEA, "windows")
+    lin = doctor.guidance_for(doctor.TEA, "linux")
+    assert "dl.gitea.com/tea" in win and "dl.gitea.com/tea" in lin and win != lin
+    token = doctor.guidance_for(doctor.TEA_AUTH, "windows")
+    assert token == doctor.guidance_for(doctor.TEA_AUTH, "linux")
+    assert "tea login add" in token and "[platform] login" in token
 
 
 # END OF FILE

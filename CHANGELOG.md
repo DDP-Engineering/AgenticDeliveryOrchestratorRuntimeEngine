@@ -12,6 +12,41 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+### Added
+
+- Gitea forge support behind the same adapter interface (`[platform]
+  kind = "gitea"`), implemented over the `tea` CLI (>= 0.15 required for
+  `tea api`; verified against tea 0.15.0 / Gitea 1.25.4). Reads and
+  comment/PR writes go through `tea api` with the adapter enforcing the HTTP
+  status line itself (tea exits 0 even on HTTP errors), endpoints are built
+  without a leading slash (a tea prefixing quirk), selection paginates at the
+  Gitea 50-item page cap guided by `X-Total-Count`, drafts use the `WIP: `
+  title prefix, and label operations go through `tea issues/pulls edit`
+  (name-to-id resolution). New optional `[platform] login` pins the tea login
+  name; the `adore init` wizard, `doctor` probes (`tea whoami` - tea has no
+  `auth status` and exits 0 for unknown subcommands), guidance texts, and
+  config validation (gitea repos are strictly `OWNER/REPO`; `login` rejected
+  for other kinds) cover the new platform end to end, with offline
+  happy/negative tests for every tea quirk. Selection post-filters on the
+  ready label because Gitea silently ignores a `labels=` filter naming a
+  label the repository does not have (returning every open issue) - found
+  and pinned during the live pilot against Gitea 1.25.4, which verified the
+  full mutating round-trip (labels, comment post/edit, WIP draft PR by
+  number and branch, PR label clearing, shared issue/PR index space).
+
+### Changed
+
+- The deployment installers (`install-ubuntu.sh`, `install-windows.ps1`)
+  accept `tea` as the platform CLI in their prerequisite check, so a
+  Gitea-only host no longer fails the install with "neither glab nor gh
+  found".
+
+### Fixed
+
+- MR/PR number parsing from web URLs now recognizes Gitea's plural
+  `/pulls/<n>` shape (previously only GitLab `merge_requests` and GitHub
+  `pull`), so the post-MR poll can track terminal states on Gitea.
+
 ## [1.2.0] - 2026-07-25
 
 ### Added

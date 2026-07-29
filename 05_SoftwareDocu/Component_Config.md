@@ -60,7 +60,11 @@ Writing a single scalar back to the config file lives in the CLI
   parseable durations (via `parse_duration`), quiet-hours window format, slug
   shape, a matching `[executor.<default>]` table containing a `{prompt}`
   placeholder, unknown top-level sections, and non-empty
-  `platform.repo` / `worktree.repo_path` / `delivery.reviewers`.
+  `platform.repo` / `worktree.repo_path` / `delivery.reviewers`. Platform
+  rules: `kind` is gitlab/github/gitea; for gitea the repo must be exactly
+  `OWNER/REPO` (no subgroups) and the optional `login` names the tea login;
+  `login` on any other kind is rejected (glab/gh auth binds to the host, so a
+  silently ignored login would mislead).
 - Executor-specific command checks keep selectable engines headless and
   portable: Codex must use JSON output, a non-interactive sandbox mode, and
   `--ignore-user-config` plus `--disable plugins`; Qwen must not use yolo

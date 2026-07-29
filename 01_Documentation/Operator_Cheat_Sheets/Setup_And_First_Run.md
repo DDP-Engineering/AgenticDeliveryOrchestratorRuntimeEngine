@@ -28,7 +28,8 @@ Confirm these are available to the same user account that will run ADORE:
 - Python 3.11 or newer.
 - `uv`.
 - A container runtime: Docker or Podman.
-- A forge CLI: `glab` for GitLab or `gh` for GitHub.
+- A forge CLI: `glab` for GitLab, `gh` for GitHub, or `tea` (>= 0.15) for
+  Gitea.
 - A local clone of the runtime project.
 - Executor credentials supplied through the ADORE runtime environment or its
   `.env` file.
@@ -49,6 +50,8 @@ python3 --version
 gh auth status
 docker version
 ```
+
+For Gitea the auth check is `tea whoami` (tea has no `auth status`).
 
 ## First Setup Pass
 
@@ -89,7 +92,7 @@ Choose:
 | Wizard area | Recommended first-run answer |
 | --- | --- |
 | Profile identity | Short lowercase project name. |
-| Forge | Match the authenticated CLI, GitLab or GitHub. |
+| Forge | Match the authenticated CLI: GitLab, GitHub or Gitea. |
 | Runtime project | Local clone path plus repo name. |
 | State location | Profile-owned state. |
 | Container runtime | Docker or Podman command that works from this host. |

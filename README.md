@@ -11,7 +11,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 Current release: **ADORE 1.2.0**.
 
 This is the standalone repository for **Agentic Delivery Orchestrator & Runtime Engine**:
-a service that selects eligible tickets from GitLab or GitHub, guides an
+a service that selects eligible tickets from GitLab, GitHub or Gitea, guides an
 executor agent (OpenCode, Pi, Codex, or Qwen) through the workflow gates, and—after
 the required checks pass—opens a **draft** merge/pull request for human review.
 A human still reviews and merges.
@@ -56,8 +56,9 @@ human reviewer -> approves and merges
 
 ## Design At A Glance
 
-- **Forge-agnostic.** GitLab (`glab`) and GitHub (`gh`) sit behind one adapter
-  interface, so the orchestrator logic never calls a platform CLI directly.
+- **Forge-agnostic.** GitLab (`glab`), GitHub (`gh`) and Gitea (`tea`) sit
+  behind one adapter interface, so the orchestrator logic never calls a
+  platform CLI directly.
 - **Executor-agnostic.** OpenCode, Pi, Codex, and Qwen are selectable through
   a configurable launcher.
 - **Thick conductor.** The orchestrator drives one workflow gate at a time and

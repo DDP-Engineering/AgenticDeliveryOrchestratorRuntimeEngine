@@ -18,7 +18,7 @@
          reap, answer timeout, and reconciliation of deleted/closed tickets.
 @author Eng. Dan Dumitru Pasare
 @date 2026-07-03
-@version 0.4.1
+@version 0.5.0
 """
 
 from __future__ import annotations
@@ -2031,6 +2031,22 @@ def test_gate_order_matches_the_workflow_cli_stages() -> None:
     """
     assert GATES == ("intake", "alignment", "requirement", "check",
                      "implementation", "validation")
+
+
+def test_parse_mr_iid_covers_all_three_platform_url_shapes() -> None:
+    """
+    @brief   The MR/PR number parses from GitLab, GitHub AND Gitea web URLs -
+             Gitea uses plural "/pulls/N", which the original pattern missed;
+             without the stored iid the post-MR poll cannot see terminal
+             states. Garbage stays None.
+    @version 0.1.0
+    """
+    parse = Orchestrator._parse_mr_iid
+    assert parse("https://gitlab.example/g/p/-/merge_requests/29") == 29
+    assert parse("https://github.com/o/r/pull/12") == 12
+    assert parse("http://192.168.1.15:3001/o/r/pulls/30") == 30
+    assert parse("http://gitea.local/o/r/issues/7") is None
+    assert parse("not a url") is None
 
 
 # END OF FILE

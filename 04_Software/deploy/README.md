@@ -26,7 +26,7 @@ Re-running after a `git pull` updates the environment in place.
 1. Clone the repository and `cd 04_Software`.
 2. `cp config.example.toml config.toml` and adjust it (repo, `repo_path`,
    `runtime`, budgets - see `../../01_Documentation/Configuration_Reference.md`).
-3. Authenticate `glab` (or `gh`) on the host. Put only executor provider API
+3. Authenticate `glab`, `gh` or `tea` on the host. Put only executor provider API
    keys required by `env_keys` in the gitignored `.env` file
    (`cp .env.example .env`); see
    `../../01_Documentation/Security_And_Credentials.md`.

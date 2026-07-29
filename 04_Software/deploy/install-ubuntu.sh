@@ -92,8 +92,9 @@ fi
 note "checking host prerequisites"
 need_cmd uv   "Install: curl -LsSf https://astral.sh/uv/install.sh | sh"
 need_cmd git  "Install: sudo apt-get install -y git"
-if ! command -v glab >/dev/null 2>&1 && ! command -v gh >/dev/null 2>&1; then
-    fail "neither 'glab' nor 'gh' found; ADORE drives the platform through one of them (setup doc section 3)"
+if ! command -v glab >/dev/null 2>&1 && ! command -v gh >/dev/null 2>&1 \
+    && ! command -v tea >/dev/null 2>&1; then
+    fail "none of 'glab', 'gh' or 'tea' found; ADORE drives the platform through one of them (setup doc section 3)"
 fi
 
 # 2. Python environment (locked, reproducible)
@@ -123,7 +124,7 @@ if [ "${WITH_SERVICE}" -eq 1 ] && [ "${EGRESS_MODE}" = "open" ] \
 fi
 
 if [ ! -f "${SOFTWARE_DIR}/.env" ]; then
-    note "note: no .env file (fine when glab/gh host auth covers everything;"
+    note "note: no .env file (fine when glab/gh/tea host auth covers everything;"
     note "      see .env.example for the canonical secret list)"
 fi
 

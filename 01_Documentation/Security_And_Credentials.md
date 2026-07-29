@@ -16,7 +16,7 @@ with [Getting_Started.md](Getting_Started.md) and
 
 | Need | Preferred location | Boundary |
 | --- | --- | --- |
-| Forge access | Authenticated `glab` or `gh` session for the run-as account, or a real process environment variable | Host forge CLI |
+| Forge access | Authenticated `glab`, `gh` or `tea` session for the run-as account, or a real process environment variable | Host forge CLI |
 | Model-provider key | ADORE runtime environment or its `.env` file | Only configured executor-container `env_keys` |
 | Profile settings | A profile `config.toml` | Non-secret configuration only |
 | Project tools | A project-specific container image | No credentials |
@@ -27,8 +27,8 @@ body, commit, branch name, or MR/PR description.
 
 ## Forge Authentication
 
-The ADORE host uses `glab` for GitLab and `gh` for GitHub. Authenticate the
-correct CLI as the same account that runs ADORE:
+The ADORE host uses `glab` for GitLab, `gh` for GitHub, and `tea` (>= 0.15)
+for Gitea. Authenticate the correct CLI as the same account that runs ADORE:
 
 ```bash
 glab auth login
@@ -40,9 +40,28 @@ gh auth login
 gh auth status
 ```
 
+```bash
+tea login add --name <login-name> --url http://<host>:<port> --token <token>
+tea logins default <login-name>
+tea whoami
+```
+
+For Gitea, create the token under Gitea -> Settings -> Applications with
+read/write on repository and issue (no admin scopes; ADORE never merges). tea
+stores host + token as a named login; when several logins exist or the wanted
+one is not the default, set `[platform] login = "<login-name>"` in the profile
+so ADORE pins the login explicitly on every call. The auth check is
+`tea whoami` (tea has no `auth status` subcommand).
+
 The token must permit the host account to read the target repository, read and
 update tickets, create branches, push those branches, and create draft MR/PRs.
 Use the narrowest token scope and repository access that meet those needs.
+
+Note on git push: ADORE pushes run branches with plain `git` from the local
+clone, not through the forge CLI. The clone's `origin` remote must therefore
+be pushable non-interactively by the run-as account - an SSH remote with a
+loaded key, or an HTTP(S) remote with a credential helper (tea ships one:
+`git config credential.helper '!tea login helper'`).
 
 ADORE never merges. Keep branch-protection rules and required human review in
 the forge; they are the final delivery boundary.
@@ -57,7 +76,8 @@ Therefore a `GITLAB_TOKEN` or `GITHUB_TOKEN` stored only in that `.env` file is
 not used by `glab` or `gh` on the host. Use an authenticated CLI session or put
 the token in the actual process environment. A systemd `EnvironmentFile` is an
 example of the latter because systemd exports it before ADORE and the forge CLI
-start.
+start. `tea` reads its logins only from its own config file
+(`tea login add`); it does not consume token environment variables at all.
 
 ## Executor Credentials
 

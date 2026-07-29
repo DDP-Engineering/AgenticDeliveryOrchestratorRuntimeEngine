@@ -234,15 +234,16 @@ class Orchestrator:
         @param[in]  env_file Dotenv file holding the executor secrets.
         @return     A ready Orchestrator.
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-07
-        @version    0.1.1
+        @date       2026-07-29
+        @version    0.1.2
         """
         entry = config.executor.commands[config.executor.default]
         env = {**load_env_file(env_file), **os.environ}
         secrets = {key: env[key] for key in config.executor.env_keys if env.get(key)}
         return cls(
             config=config,
-            forge=build_forge(config.platform.kind, config.platform.repo),
+            forge=build_forge(config.platform.kind, config.platform.repo,
+                              login=config.platform.login),
             store=StateStore(config.state.store_root, config.agent.slug),
             worktrees=WorktreeManager(config.worktree.repo_path, config.worktree.root),
             containers=ContainerManager(
@@ -1401,13 +1402,15 @@ class Orchestrator:
     def _parse_mr_iid(url: str) -> int | None:
         """
         @brief      Extract the MR iid / PR number from its web URL.
+        @details    Covers all three URL shapes: GitLab `/-/merge_requests/N`,
+                    GitHub `/pull/N`, Gitea `/pulls/N`.
         @param[in]  url MR/PR web URL.
         @return     The number, or None when unparseable.
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
+        @date       2026-07-29
+        @version    0.1.1
         """
-        match = re.search(r"/(?:merge_requests|pull)/(\d+)", url)
+        match = re.search(r"/(?:merge_requests|pulls?)/(\d+)", url)
         return int(match.group(1)) if match else None
 
     # -- clarification: park / resume (design 9) -----------------------------------

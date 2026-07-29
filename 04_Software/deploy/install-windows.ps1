@@ -76,8 +76,9 @@ Need-Command uv  "Install: winget install astral-sh.uv"
 Need-Command git "Install: winget install Git.Git"
 $glab = Get-Command glab -ErrorAction SilentlyContinue
 $gh   = Get-Command gh   -ErrorAction SilentlyContinue
-if ($null -eq $glab -and $null -eq $gh) {
-    Fail "neither 'glab' nor 'gh' found; ADORE drives the platform through one of them (setup doc section 3)"
+$tea  = Get-Command tea  -ErrorAction SilentlyContinue
+if ($null -eq $glab -and $null -eq $gh -and $null -eq $tea) {
+    Fail "none of 'glab', 'gh' or 'tea' found; ADORE drives the platform through one of them (setup doc section 3)"
 }
 
 # 2. Python environment (locked, reproducible)
@@ -110,7 +111,7 @@ if (-not $NoTask -and $EgressMode -eq "open" -and -not $AllowOpenEgress) {
     Fail "refusing unattended Task Scheduler install with [container.egress] mode='open'; set allowlist-proxy/none or pass -AllowOpenEgress for a supervised pilot"
 }
 if (-not (Test-Path (Join-Path $SoftwareDir ".env"))) {
-    Note "note: no .env file (fine when glab/gh host auth covers everything;"
+    Note "note: no .env file (fine when glab/gh/tea host auth covers everything;"
     Note "      see .env.example for the canonical secret list)"
 }
 

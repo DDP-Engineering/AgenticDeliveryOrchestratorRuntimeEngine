@@ -13,8 +13,8 @@
        and a fake command runner; the golden assertion is that every profile it
        writes passes validate_config.
 @author Eng. Dan Dumitru Pasare
-@date 2026-07-07
-@version 0.2.0
+@date 2026-07-29
+@version 0.3.0
 """
 
 from __future__ import annotations
@@ -267,6 +267,27 @@ def test_wizard_corporate_host_is_recorded(tmp_path: Path) -> None:
                          os_key="linux", name="corp")
     assert profile.host == "https://gitlab.example.com"
     assert asker.reads.count("host_url") == 1
+
+
+def test_wizard_gitea_asks_login_instead_of_hosting(tmp_path: Path) -> None:
+    """
+    @brief   The gitea path replaces the hosting/URL questions with the tea
+             login name (tea binds host + token to a login) and writes it to
+             [platform] login; the saved config validates.
+    @version 0.1.0
+    """
+    store = _store(tmp_path)
+    asker = ScriptedAsker(_answers(_clone(tmp_path), kind="gitea",
+                                   login="home", repo="owner/repo"))
+    profile = run_wizard(store, asker=asker, out=lambda _l: None, runner=_runner(),
+                         os_key="linux", name="gitea-proj")
+    config = load_config(store.config_path("gitea-proj"))
+    assert validate_config(config) == []
+    assert config.platform.kind == "gitea"
+    assert config.platform.login == "home"
+    assert profile.platform == "gitea" and profile.host == ""
+    assert asker.reads.count("login") == 1
+    assert "hosting" not in asker.reads and "host_url" not in asker.reads
 
 
 def test_wizard_custom_budgets_are_written(tmp_path: Path) -> None:

@@ -179,7 +179,7 @@ interface) and metrics.
   executor launcher, gates wrappers, util (durations, timestamps, quiet
   hours, dotenv).
 - External: only what the collaborators need (git, container runtime,
-  glab/gh, and the selected executor base/runtime-project image).
+  glab/gh/tea, and the selected executor base/runtime-project image).
 
 ## 5. Inputs And Outputs
 

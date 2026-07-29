@@ -9,7 +9,8 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Environment Doctor (`adore/doctor.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/adore/doctor.py` - file version 0.1.1.
+> Source: `04_Software/adore/doctor.py` - file version 0.1.1
+> (`auth_status` 0.2.0: kind-dispatched probes incl. gitea/tea).
 > Historical design source: `00_Planning/Assisted_Config_And_Profiles_Plan.md`.
 > Scope note: the **detection + guidance data/text layer**. The `adore init`
 > wizard (task 3) consumes it to decide what to ask and what to print; a future
@@ -43,8 +44,13 @@ Explicitly not owned: prompting/wizard flow (task 3), CLI wiring, writing config
   reads `run_command`'s exit-code contract - `127` = binary missing (absent),
   `0` = present (first stdout line is the version), other non-zero = present but
   erroring. No raw subprocess calls here.
-- **Auth:** `auth_status` runs `glab auth status` / `gh auth status`; `127` =
-  CLI missing, `0` = authenticated, else present-but-not-authenticated.
+- **Auth:** `auth_status` runs the KIND-SPECIFIC probe (`glab auth status` /
+  `gh auth status` / `tea whoami`); `127` = CLI missing, `0` = authenticated,
+  else present-but-not-authenticated. The probe argv is per kind because tea
+  has no `auth status` subcommand - and tea exits `0` even for unknown
+  subcommands ("No help topic"), so a generic `<cli> auth status` would
+  falsely report Gitea as authenticated (`tea whoami` actually calls the API
+  with the stored token).
 - **WSL distros:** `wsl -l -q` emits UTF-16 on some hosts; the decoded output is
   scrubbed of null bytes / BOM and blank lines before returning names. WSL is
   probed only when `os_key == "windows"`.
@@ -62,15 +68,16 @@ Explicitly not owned: prompting/wizard flow (task 3), CLI wiring, writing config
 
 ## 5. Inputs And Outputs
 
-- Inputs: a platform `kind` (`gitlab`/`github`), an injectable runner, optional
-  `os_key`.
+- Inputs: a platform `kind` (`gitlab`/`github`/`gitea`), an injectable runner,
+  optional `os_key`.
 - Outputs: typed detection results and guidance strings. No files, no side
   effects, no network of its own (only the probe commands the runner executes).
 
 ## 6. Data Contracts
 
 - The guidance components (`GIT`, `DOCKER`, `PODMAN`, `WSL`, `GLAB`, `GH`,
-  `GLAB_AUTH`, `GH_AUTH`, `OPENCODE`) are stable keys the wizard references.
+  `TEA`, `GLAB_AUTH`, `GH_AUTH`, `TEA_AUTH`, `OPENCODE`) are stable keys the
+  wizard references.
 - Token guidance never asks for or echoes a secret value - it states the format
   (e.g. `glpat-` + 20 chars) and says the wizard records the key NAME only
   (design D5).
@@ -96,12 +103,15 @@ if not report.auth.authenticated:
 ## 9. Validation And Tests
 
 - `tests/test_doctor.py` (offline, fake runner keyed by argv prefix): OS-key
-  mapping; git/executor present-vs-absent; `detect_platform_cli` kind mapping +
-  unknown-kind `ValueError`; auth authenticated / present-not-authenticated /
-  missing; runtimes with WSL distro parsing (incl. null-byte scrub) on Windows
-  and WSL-skipped on Linux; `detect_all` aggregate; guidance OS-specificity, the
-  shared token text (asserts `glpat-` + "never the value"), and the graceful
-  unknown-component fallback.
+  mapping; git/executor present-vs-absent; `detect_platform_cli` kind mapping
+  (incl. gitea -> tea) + unknown-kind `ValueError`; auth authenticated /
+  present-not-authenticated / missing; a regression pin that the gitea probe
+  is `tea whoami` (never `tea auth status`, which tea would answer with exit 0
+  and a help-topic message); runtimes with WSL distro parsing (incl. null-byte
+  scrub) on Windows and WSL-skipped on Linux; `detect_all` aggregate; guidance
+  OS-specificity, the shared token texts (asserts `glpat-` + "never the
+  value", `tea login add` + the `[platform] login` alternative), and the
+  graceful unknown-component fallback.
 - Minimum validation after a change:
   `uv run --group dev pytest tests/test_doctor.py` + `ruff check .`.
 

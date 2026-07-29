@@ -34,8 +34,8 @@ A deeper `AGENTS.md` overrides this file for its subtree.
     responsibilities, dependencies, or workflow integration.
   - `07_Delivery/` holds generated delivery packages and release handoff
     artifacts.
-- Keep the orchestrator forge-agnostic (GitLab and GitHub behind one adapter)
-  and executor-agnostic (opencode, pi.dev, codex behind one launcher).
+- Keep the orchestrator forge-agnostic (GitLab, GitHub and Gitea behind one
+  adapter) and executor-agnostic (opencode, pi.dev, codex behind one launcher).
 - Keep the delivery boundary strict: the orchestrator may open a draft MR/PR but
   must never merge. Merge is a human decision.
 - Prefer portable Python; do not add OS-specific glue to the core loop.
@@ -55,9 +55,10 @@ A deeper `AGENTS.md` overrides this file for its subtree.
   at its trust boundaries.** A contract is proven twice: once that it works,
   once that it fails closed on bad input (corner cases).
 - **Trust boundaries that require negative tests** are everything crossing into
-  the orchestrator from outside: Git-platform CLI output (glab/gh JSON, URLs),
-  config files typed by humans, ticket comments written by humans, persisted
-  state read back after a crash, executor output, and container/git exit codes.
+  the orchestrator from outside: Git-platform CLI output (glab/gh/tea JSON,
+  URLs, HTTP status lines), config files typed by humans, ticket comments
+  written by humans, persisted state read back after a crash, executor output,
+  and container/git exit codes.
 - **Fail closed on corrupt input:** raise a typed error (for example
   `StateError`, `ForgeError`) so the caller can skip or escalate
   deterministically. Never silently reinitialize, guess, or continue with

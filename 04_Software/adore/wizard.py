@@ -413,8 +413,8 @@ def run_wizard(
     @exception  WizardError On abort, an existing profile without --force, or a
                 config that fails validation.
     @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.1.1
+    @date       2026-07-29
+    @version    0.2.0
     """
     key = os_key or doctor.detect_os()
 
@@ -444,28 +444,38 @@ def run_wizard(
 
     # -- Phase C (platform & repository) ------------------------------------------
     kind = ask(FieldSpec(
-        "kind", "Is the project on GitLab or GitHub?",
+        "kind", "Is the project on GitLab, GitHub or Gitea?",
         "selects the platform adapter", "gitlab",
-        default="gitlab", choices=("gitlab", "github"),
+        default="gitlab", choices=("gitlab", "github", "gitea"),
     ), asker, out)
 
     # Phase A guidance is informational and platform-aware; print it now.
     _report_environment(out, runner, key, kind)
 
-    hosting = ask(FieldSpec(
-        "hosting", "Public service or corporate/self-hosted instance?",
-        "gitlab.com/github.com, or a company instance", "corporate",
-        default="public", choices=("public", "corporate"),
-    ), asker, out)
     host = ""
-    if hosting == "corporate":
-        host = ask(FieldSpec(
-            "host_url", "Instance URL:",
-            "the CLI must be authenticated against this host "
-            "(glab auth login --hostname <host>)",
-            "https://gitlab.example.com",
-            validate=lambda v: None if v.startswith("http") else "must be a URL",
+    login = ""
+    if kind == "gitea":
+        # Gitea is always an instance; tea binds host + token to a named
+        # login, so the login name replaces the hosting/URL questions.
+        login = ask(FieldSpec(
+            "login", "tea login name (see `tea logins list`; blank = default):",
+            "selects which authenticated Gitea instance/account tea uses",
+            "home", default="",
+        ), asker, out).strip()
+    else:
+        hosting = ask(FieldSpec(
+            "hosting", "Public service or corporate/self-hosted instance?",
+            "gitlab.com/github.com, or a company instance", "corporate",
+            default="public", choices=("public", "corporate"),
         ), asker, out)
+        if hosting == "corporate":
+            host = ask(FieldSpec(
+                "host_url", "Instance URL:",
+                "the CLI must be authenticated against this host "
+                "(glab auth login --hostname <host>)",
+                "https://gitlab.example.com",
+                validate=lambda v: None if v.startswith("http") else "must be a URL",
+            ), asker, out)
     # Visibility is informational: it decides whether auth is mandatory (the
     # environment check above already surfaces the token/login guidance).
     ask(FieldSpec(
@@ -474,9 +484,10 @@ def run_wizard(
         "private", default="private", choices=("public", "private"),
     ), asker, out)
     repo = ask(FieldSpec(
-        "repo", "Repository path (group/subgroup/project, NOT a URL):",
+        "repo", "Repository path (group/subgroup/project, NOT a URL):"
+        if kind != "gitea" else "Repository path (owner/repo, NOT a URL):",
         "the project's path on the platform",
-        "group/subgroup/project",
+        "group/subgroup/project" if kind != "gitea" else "owner/repo",
         validate=_require,
     ), asker, out)
 
@@ -622,7 +633,7 @@ def run_wizard(
 
     # -- assemble the minimal config ----------------------------------------------
     sections = _assemble_sections(
-        agent_name=agent_name, kind=kind, repo=repo, store_root=store_root,
+        agent_name=agent_name, kind=kind, repo=repo, login=login, store_root=store_root,
         repo_path=repo_path, worktree_root=worktree_root, branch_template=branch_template,
         branch_rule=branch_rule, runtime=runtime, run_args=run_args, image=image,
         executor_cli=executor_cli, command=_command_for(executor_cli), model=model,
@@ -712,10 +723,10 @@ def _report_environment(
     @param[in]  out Output sink.
     @param[in]  runner Command runner for probes.
     @param[in]  os_key Host OS key.
-    @param[in]  kind Platform kind (selects glab/gh).
+    @param[in]  kind Platform kind (selects glab/gh/tea).
     @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.1.0
+    @date       2026-07-29
+    @version    0.1.1
     """
     out("\n--- Environment check (informational) ---")
     git = doctor.detect_git(runner)
@@ -740,13 +751,16 @@ def _assemble_sections(**a: object) -> list[tuple[str, dict[str, object]]]:
     @param[in]  a Collected answers (see run_wizard).
     @return     Ordered (table-header, key->value) pairs.
     @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.1.1
+    @date       2026-07-29
+    @version    0.1.2
     """
     sections: list[tuple[str, dict[str, object]]] = []
     if a["agent_name"] != PRODUCT_ACRONYM:
         sections.append(("agent", {"name": a["agent_name"]}))
-    sections.append(("platform", {"kind": a["kind"], "repo": a["repo"]}))
+    platform: dict[str, object] = {"kind": a["kind"], "repo": a["repo"]}
+    if a["login"]:
+        platform["login"] = a["login"]
+    sections.append(("platform", platform))
     sections.append(("state", {"store_root": a["store_root"]}))
 
     worktree: dict[str, object] = {"repo_path": a["repo_path"]}

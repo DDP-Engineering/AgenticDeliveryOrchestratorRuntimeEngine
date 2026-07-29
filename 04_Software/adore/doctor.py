@@ -14,7 +14,8 @@
 @details The data/text layer beneath the `adore init` wizard (task 3) and a
          future `adore doctor` command. It PROBES the host for the tools ADORE
          needs - git, a container runtime (docker/podman, optionally inside
-         WSL), the platform CLI (glab/gh) and its auth, the executor CLI - and
+         WSL), the platform CLI (glab/gh/tea) and its auth, the executor CLI -
+         and
          returns typed results; and it supplies the exact, OS-specific
          install/setup instructions to print when something is missing. Every
          probe goes through the injectable CommandRunner (never a raw
@@ -42,13 +43,24 @@ PODMAN = "podman"
 WSL = "wsl"
 GLAB = "glab"
 GH = "gh"
+TEA = "tea"
 GLAB_AUTH = "glab-auth"
 GH_AUTH = "gh-auth"
+TEA_AUTH = "tea-auth"
 OPENCODE = "opencode"
 
 # Platform-CLI + auth mapping by platform kind.
-_CLI_FOR_KIND = {"gitlab": GLAB, "github": GH}
-_AUTH_COMPONENT_FOR_KIND = {"gitlab": GLAB_AUTH, "github": GH_AUTH}
+_CLI_FOR_KIND = {"gitlab": GLAB, "github": GH, "gitea": TEA}
+_AUTH_COMPONENT_FOR_KIND = {"gitlab": GLAB_AUTH, "github": GH_AUTH, "gitea": TEA_AUTH}
+# Auth probe argv by kind. Kind-specific on purpose: tea has no `auth status`
+# subcommand - and tea exits 0 for UNKNOWN subcommands ("No help topic"), so a
+# generic `<cli> auth status` would falsely report Gitea as authenticated.
+# `tea whoami` calls the API with the stored token, which is the real check.
+_AUTH_PROBE_FOR_KIND = {
+    "gitlab": (GLAB, "auth", "status"),
+    "github": (GH, "auth", "status"),
+    "gitea": (TEA, "whoami"),
+}
 
 # OS-specific (and a "*" generic) install/setup text. Kept as data so the
 # wizard and `adore doctor` render identical instructions.
@@ -112,6 +124,24 @@ GUIDANCE: dict[str, dict[str, str]] = {
             "wizard records the key NAME, never the value."
         )
     },
+    TEA: {
+        "windows": "Install the Gitea CLI: download tea from "
+                   "https://dl.gitea.com/tea/ (rename to tea.exe) and put it "
+                   "on PATH.",
+        "linux": "Install the Gitea CLI: download tea from "
+                 "https://dl.gitea.com/tea/ and put it on PATH "
+                 "(or `go install code.gitea.io/tea@latest`).",
+    },
+    TEA_AUTH: {
+        "*": (
+            "Create a Gitea access token: Gitea -> Settings -> Applications -> "
+            "Generate New Token, with read/write on repository and issue "
+            "(ADORE never merges; no admin scopes). Then register the login: "
+            "`tea login add --name <name> --url http://<host>:<port> --token "
+            "<token>` and make it the default (`tea logins default <name>`) or "
+            "set `[platform] login = \"<name>\"` in the profile config."
+        )
+    },
     OPENCODE: {
         "*": (
             "opencode is baked into the executor base image, so you only need "
@@ -148,8 +178,8 @@ class AuthStatus:
     @version 0.1.0
     """
 
-    kind: str            # gitlab | github
-    cli: str             # glab | gh
+    kind: str            # gitlab | github | gitea
+    cli: str             # glab | gh | tea
     present: bool
     authenticated: bool
     detail: str = ""
@@ -299,13 +329,13 @@ def detect_runtimes(
 def detect_platform_cli(kind: str, runner: CommandRunner = run_command) -> ToolStatus:
     """
     @brief      Whether the platform CLI for this kind is present.
-    @param[in]  kind "gitlab" (glab) or "github" (gh).
+    @param[in]  kind "gitlab" (glab), "github" (gh) or "gitea" (tea).
     @param[in]  runner Injectable command runner.
-    @return     The ToolStatus for glab/gh.
-    @exception  ValueError When kind is not gitlab/github.
+    @return     The ToolStatus for glab/gh/tea.
+    @exception  ValueError When kind is not gitlab/github/gitea.
     @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.1.0
+    @date       2026-07-29
+    @version    0.1.1
     """
     cli = _CLI_FOR_KIND.get(kind)
     if cli is None:
@@ -316,20 +346,24 @@ def detect_platform_cli(kind: str, runner: CommandRunner = run_command) -> ToolS
 def auth_status(kind: str, runner: CommandRunner = run_command) -> AuthStatus:
     """
     @brief      Whether the platform CLI is authenticated.
-    @details    Runs `glab auth status` / `gh auth status`: exit 127 = CLI
-                missing; exit 0 = authenticated; otherwise present-but-not.
-    @param[in]  kind "gitlab" or "github".
+    @details    Runs the kind-specific probe (`glab auth status` /
+                `gh auth status` / `tea whoami`): exit 127 = CLI missing;
+                exit 0 = authenticated; otherwise present-but-not. The probe
+                argv is per kind because tea has no `auth status` - and tea
+                exits 0 even for unknown subcommands, which would fake success.
+    @param[in]  kind "gitlab", "github" or "gitea".
     @param[in]  runner Injectable command runner.
     @return     The AuthStatus.
-    @exception  ValueError When kind is not gitlab/github.
+    @exception  ValueError When kind is not gitlab/github/gitea.
     @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.1.0
+    @date       2026-07-29
+    @version    0.2.0
     """
-    cli = _CLI_FOR_KIND.get(kind)
-    if cli is None:
+    probe = _AUTH_PROBE_FOR_KIND.get(kind)
+    if probe is None:
         raise ValueError(f"unknown platform kind: {kind!r}")
-    result = runner([cli, "auth", "status"])
+    cli = probe[0]
+    result = runner(list(probe))
     if result.exit_code == 127:
         return AuthStatus(kind=kind, cli=cli, present=False, authenticated=False,
                           detail="CLI not installed")
@@ -354,12 +388,13 @@ def detect_executor(name: str = OPENCODE, runner: CommandRunner = run_command) -
 def detect_all(kind: str, runner: CommandRunner = run_command) -> EnvironmentReport:
     """
     @brief      Run every probe once, for the wizard / a future `adore doctor`.
-    @param[in]  kind Platform kind ("gitlab" | "github") for the CLI/auth probes.
+    @param[in]  kind Platform kind ("gitlab" | "github" | "gitea") for the
+                     CLI/auth probes.
     @param[in]  runner Injectable command runner.
     @return     The aggregate EnvironmentReport.
     @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.1.1
+    @date       2026-07-29
+    @version    0.1.2
     """
     key = detect_os()
     return EnvironmentReport(
@@ -375,12 +410,12 @@ def detect_all(kind: str, runner: CommandRunner = run_command) -> EnvironmentRep
 def auth_component_for_kind(kind: str) -> str:
     """
     @brief      The guidance component key for a platform kind's auth setup.
-    @param[in]  kind "gitlab" | "github".
-    @return     GLAB_AUTH / GH_AUTH.
-    @exception  ValueError When kind is not gitlab/github.
+    @param[in]  kind "gitlab" | "github" | "gitea".
+    @return     GLAB_AUTH / GH_AUTH / TEA_AUTH.
+    @exception  ValueError When kind is not gitlab/github/gitea.
     @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.1.0
+    @date       2026-07-29
+    @version    0.1.1
     """
     component = _AUTH_COMPONENT_FOR_KIND.get(kind)
     if component is None:
