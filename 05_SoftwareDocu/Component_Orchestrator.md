@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Orchestrator (`adore/orchestrator.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/adore/orchestrator.py` - file version 0.8.0.
+> Source: `04_Software/adore/orchestrator.py` - file version 0.9.0.
 > AEGIS contract: `00_Planning/AEGIS_2x_HardBreak_Adaptation/AEGIS_2.1_Contract_Notes.md`.
 > Design: Orchestrator_Design_And_Decisions.md sections 5a, 7a, 8, 9, 10.
 
@@ -148,10 +148,23 @@ interface) and metrics.
   `route_to` produces), escalates. `PUBLICATION_STAGE = "publication"` is
   ADORE's own post-AEGIS phase and can never be reported by AEGIS.
 - Per-stage goals are fixed prompt blocks (`_STAGE_GOALS`, eight stages plus
-  `revise`) plus the standing rules: worktree-only, forms not flags, never
-  `aegis stage close`, never `aegis waive add`, never push/MR, commit
-  everything, questions convention, stop at stage end. The prompt also
-  relays AEGIS's own `next` command and the current form's `artifact` path.
+  `revise`) plus the standing rules: worktree-only, the CLI invoked as
+  `bash .agentic/tools/run.sh <group> <action>` with content in the generated
+  forms and never in CLI flags, never `aegis stage close` (the delegated
+  approver closes), never `aegis waive add` (a human decides), never push/MR,
+  commit everything including the `.agentic` run records, questions into the
+  form's `control.unresolved_questions` or the questions file, stop at stage
+  end. The prompt relays AEGIS's own `next` command and the current form's
+  `artifact` path, and pins the run explicitly with `--run <aegis-run-id>` -
+  the same pin the orchestrator uses - so a repository holding several runs
+  cannot be worked on through the wrong one.
+- Quick runs swap in `_QUICK_STAGE_GOALS` for implementation and validation.
+  Those variants name the four bypassed stages so the executor does not hunt
+  for requirement rows, a `design.md`, or check IDs that were never produced;
+  implementation is walked through the manual-evidence path
+  (`evidence prepare add` -> `evidence apply` -> `linked_check_evidence`), and
+  validation is told that the `not-applicable - quick run` audits are the
+  expected state rather than something to fix.
 - Run kind and profile come from ticket labels through `[workflow]`
   (`kind_labels`, `default_kind`, `quick_label`); `--quick` is only produced
   for the kinds AEGIS permits (`fix`, `change`).
@@ -302,7 +315,10 @@ adore logs <run-id>
   graph escalating; every `classify_block` branch; a held lock retried once
   then escalating; the exact waive command in an escalation and an
   unavailable `waive list` never hiding the original error; recorded stage
-  questions parking the run; secret redaction; selection
+  questions parking the run; per-stage prompt snapshots (the AEGIS 2.x
+  vocabulary, the close/waive prohibition on all nine prompts, the run pin and
+  relayed next command, the quick variants and their bypassed-stage wording,
+  both question channels); secret redaction; selection
   ordering, control labels and readiness negatives; idempotent re-poll skip;
   park order (question before status); resume filtering; answered-label
   override; round-cap escalation; TTL reap vs run survival; answer timeout

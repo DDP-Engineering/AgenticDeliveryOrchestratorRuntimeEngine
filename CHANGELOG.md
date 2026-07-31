@@ -61,6 +61,21 @@ This project follows Keep a Changelog and Semantic Versioning.
   `aegis waive add <id> --reason "..."` command a human could run - never an
   automatic waiver. The waive hint is advisory and can never hide the original
   error.
+- **ADORE 2.0 hard break to AEGIS 2.x - WP5: executor prompts speak AEGIS
+  2.x.** `_GATE_GOALS` became `_STAGE_GOALS`, covering all eight stages plus
+  `revise` in the form-first vocabulary: `stage prepare` / `show`, fill the
+  generated form at the `artifact` path, `stage apply`, `check prepare` /
+  `record` / `run`, `evidence prepare` / `apply`, red-before-green. Every
+  prompt now forbids `aegis stage close` (ADORE is the delegated approver) and
+  `aegis waive add` (a human decides), relays AEGIS's own exact `next`
+  command and form path, and pins the run with `--run <aegis-run-id>` - the
+  same pin the orchestrator uses - so a repository holding several runs cannot
+  be worked on through the wrong one. Quick runs get implementation and
+  validation variants that name the four bypassed stages, walk the manual
+  evidence path, and explain that the `not-applicable - quick run` audits are
+  the expected state. Questions may be recorded in the form's
+  `control.unresolved_questions` or in the questions file; both are named and
+  either parks the run.
 - `adore reset --to` now accepts the eight AEGIS stages or `publication`. It
   moves ADORE's own pointer only - AEGIS still owns the governed run's stage,
   which conduction re-reads from `run status` - and it never touches AEGIS

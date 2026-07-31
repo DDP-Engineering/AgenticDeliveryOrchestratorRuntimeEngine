@@ -2787,4 +2787,148 @@ def test_an_unavailable_waive_list_never_hides_the_original_error(
     assert "aegis waive add" not in run.outcome
 
 
+# PUBLIC API / TESTS - executor prompts (plan WP5)
+
+
+def status_response(stage: str, quick: bool = False) -> AegisResponse:
+    """
+    @brief      A `run status` response for prompt composition tests.
+    @param[in]  stage The reported stage.
+    @param[in]  quick Whether the run uses the proportional profile.
+    @return     The AegisResponse.
+    @author     Eng. Dan Dumitru Pasare
+    @date       2026-08-01
+    @version    0.1.0
+    """
+    raw = {
+        "status": "ok",
+        "stage": stage,
+        "artifact": f".agentic/runs/{AEGIS_RUN}/stages/{stage}/stage.toml",
+        "next": "aegis stage apply",
+        "run_id": AEGIS_RUN,
+    }
+    if quick:
+        raw["run_profile"] = "quick"
+    return AegisResponse(
+        exit_code=0, status="ok", stage=stage, artifact=raw["artifact"],
+        next_command="aegis stage apply", raw=raw,
+    )
+
+
+def test_every_stage_prompt_speaks_the_aegis_2x_vocabulary(
+    tmp_path: Path,
+) -> None:
+    """
+    @brief   Each of the eight stage prompts names its own AEGIS stage and
+             tells the executor to work through the generated forms, not
+             through CLI flags.
+    @version 0.1.0
+    """
+    engine, forge, _, _ = make_engine(tmp_path, FakeExecutor())
+    ticket = forge.add_ticket(14, title="Refresh")
+    for stage in STANDARD_STAGES:
+        prompt = engine._gate_prompt(
+            stage, ticket, "", "", status=status_response(stage),
+            aegis_run_id=AEGIS_RUN,
+        )
+        assert f"AEGIS {stage.upper()} stage" in prompt
+        assert "bash .agentic/tools/run.sh <group> <action>" in prompt
+        assert "content goes into the generated forms, never into CLI flags" \
+            in prompt
+        assert "aegis stage apply" in prompt
+
+
+def test_every_stage_prompt_forbids_closing_and_waiving(tmp_path: Path) -> None:
+    """
+    @brief   The two actions ADORE and humans reserve are refused in every
+             stage prompt, including the revise prompt: `stage close` belongs
+             to the delegated approver, `waive add` to a human.
+    @version 0.1.0
+    """
+    engine, forge, _, _ = make_engine(tmp_path, FakeExecutor())
+    ticket = forge.add_ticket(14)
+    for stage in (*STANDARD_STAGES, "revise"):
+        prompt = engine._gate_prompt(stage, ticket, "", "",
+                                     aegis_run_id=AEGIS_RUN)
+        assert "NEVER run `aegis stage close`" in prompt
+        assert "NEVER run `aegis waive add`" in prompt
+        assert "NEVER push, open merge/pull requests, or merge" in prompt
+
+
+def test_stage_prompt_pins_the_run_and_relays_the_next_command(
+    tmp_path: Path,
+) -> None:
+    """
+    @brief   The executor is told to pin the same `--run` the orchestrator
+             pins, and is handed AEGIS's own exact next command plus the form
+             path so it never has to guess either.
+    @version 0.1.0
+    """
+    engine, forge, _, _ = make_engine(tmp_path, FakeExecutor())
+    ticket = forge.add_ticket(14)
+    prompt = engine._gate_prompt(
+        "design", ticket, "", "", status=status_response("design"),
+        aegis_run_id=AEGIS_RUN,
+    )
+    assert f"`--run {AEGIS_RUN}`" in prompt
+    assert "AEGIS says the exact next command is `aegis stage apply`." in prompt
+    assert f".agentic/runs/{AEGIS_RUN}/stages/design/stage.toml" in prompt
+
+    # before `run start` there is no run to pin, so no pin instruction
+    unpinned = engine._gate_prompt("intake", ticket, "", "")
+    assert "--run" not in unpinned
+
+
+def test_quick_run_prompts_name_the_bypassed_stages(tmp_path: Path) -> None:
+    """
+    @brief   Quick implementation and validation prompts tell the executor that
+             alignment, requirement, design, and check were bypassed, so it
+             does not hunt for requirement rows, a design, or check IDs - and
+             that the not-applicable audits are expected, not failures.
+    @version 0.1.0
+    """
+    engine, forge, _, _ = make_engine(tmp_path, FakeExecutor())
+    ticket = forge.add_ticket(14)
+
+    implementation = engine._gate_prompt(
+        "implementation", ticket, "", "",
+        status=status_response("implementation", quick=True),
+        aegis_run_id=AEGIS_RUN,
+    )
+    assert "QUICK run" in implementation
+    assert "were bypassed at intake" in implementation
+    assert "aegis evidence prepare add" in implementation
+    assert "linked_check_evidence" in implementation
+
+    validation = engine._gate_prompt(
+        "validation", ticket, "", "",
+        status=status_response("validation", quick=True),
+        aegis_run_id=AEGIS_RUN,
+    )
+    assert "not-applicable - quick run" in validation
+    assert "not something to fix" in validation
+
+    # a full run keeps the standard wording
+    full = engine._gate_prompt(
+        "implementation", ticket, "", "",
+        status=status_response("implementation"), aegis_run_id=AEGIS_RUN,
+    )
+    assert "QUICK run" not in full
+    assert "GREEN evidence" in full
+
+
+def test_stage_prompt_names_both_question_channels(tmp_path: Path) -> None:
+    """
+    @brief   Questions may go into the stage form's control table (the primary
+             AEGIS 2.x channel) or into the questions file (the secondary one);
+             the prompt names both, and the conductor honors either.
+    @version 0.1.0
+    """
+    engine, forge, _, _ = make_engine(tmp_path, FakeExecutor())
+    ticket = forge.add_ticket(14)
+    prompt = engine._gate_prompt("alignment", ticket, "", "")
+    assert "`control.unresolved_questions`" in prompt
+    assert engine.questions_file in prompt
+
+
 # END OF FILE

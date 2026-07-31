@@ -27,7 +27,7 @@
          the draft MR review.
 @author Eng. Dan Dumitru Pasare
 @date 2026-08-01
-@version 0.8.0
+@version 0.9.0
 """
 
 from __future__ import annotations
@@ -202,6 +202,35 @@ _STAGE_GOALS = {
         "review thread is above). Make exactly the requested changes - no "
         "more - update tests and evidence accordingly, re-run `aegis verify "
         "run`, and commit everything."
+    ),
+}
+
+# Quick runs bypass alignment, requirement, design, and check, so the stages
+# that DO run must be told not to look for artifacts those stages would have
+# produced (contract notes 4 and 6): there is no requirement or design
+# collection, red-before-green is not applicable, and implementation evidence
+# arrives through the manual evidence form instead.
+_QUICK_STAGE_GOALS = {
+    "implementation": (
+        "Work the AEGIS IMPLEMENTATION stage of a QUICK run. Alignment, "
+        "requirement, design, and check were bypassed at intake, so there are "
+        "no requirement rows, no design.md, and no check IDs to cite - do not "
+        "look for them. Make the fix, then record manual evidence: `aegis "
+        "evidence prepare add`, fill the form, `aegis evidence apply`, copy "
+        "the CLI-minted active evidence ID into the implementation form's "
+        "`linked_check_evidence`, list the changed paths, and `aegis stage "
+        "apply`. Invented, superseded, or non-implementation evidence is "
+        "rejected."
+    ),
+    "validation": (
+        "Work the AEGIS VALIDATION stage of a QUICK run: run `aegis verify "
+        "run` and fix everything it reports. Traceability, coverage, INV-1, "
+        "INV-2, INV-3, INV-8, and INV-10 report `not-applicable - quick run` "
+        "- that is the expected state, not something to fix. The enabled "
+        "gates, the secrets scan, the remaining invariants, and the "
+        "working-tree review still apply. Inspect the diff for scope creep, "
+        "weakened assertions, and secrets, fill the validation form, and "
+        "`aegis stage apply`."
     ),
 }
 
@@ -857,7 +886,8 @@ class Orchestrator:
                 worktree=self.worktrees.path_for(run.run_id),
                 io_dir=self._io_dir(run.run_id),
                 prompt=self._gate_prompt(stage, ticket, failure_context, thread,
-                                         orientation, status),
+                                         orientation, status,
+                                         client.run_id),
                 session=run.executor_session,
                 timeout=self.config.budgets.per_gate_timeout_seconds,
                 archive_stem=f"{run.iterations:03d}-{stage}",
@@ -1462,7 +1492,8 @@ class Orchestrator:
             client.execute,
             self.worktrees.path_for(run.run_id),
             self._io_dir(run.run_id),
-            self._gate_prompt("validation", ticket, context, thread, orientation),
+            self._gate_prompt("validation", ticket, context, thread,
+                              orientation, None, client.run_id),
             session=run.executor_session,
             timeout=self.config.budgets.per_gate_timeout_seconds,
             archive_stem=f"{run.iterations:03d}-delivery-fix",
@@ -1630,7 +1661,8 @@ class Orchestrator:
             execute,
             self.worktrees.path_for(run.run_id),
             self._io_dir(run.run_id),
-            self._gate_prompt("revise", ticket, "", thread, orientation),
+            self._gate_prompt("revise", ticket, "", thread, orientation,
+                              None, client.run_id),
             session=run.executor_session,
             timeout=self.config.budgets.per_gate_timeout_seconds,
             archive_stem=f"{run.iterations:03d}-revise",
@@ -2557,6 +2589,7 @@ class Orchestrator:
         thread: str,
         orientation: str = "",
         status: AegisResponse | None = None,
+        aegis_run_id: str = "",
     ) -> str:
         """
         @brief      Compose the bounded, stage-specific executor instruction.
@@ -2564,7 +2597,12 @@ class Orchestrator:
                     prompt tells it how to fill and apply the stage forms and
                     forbids the two actions ADORE and humans reserve -
                     `aegis stage close` (ADORE is the delegated approver) and
-                    `aegis waive add` (a human decision).
+                    `aegis waive add` (a human decision). Quick runs get the
+                    variant that names the bypassed stages, so the executor
+                    does not hunt for artifacts that were never produced. The
+                    AEGIS run id is pinned explicitly, exactly as ADORE pins
+                    it, so a repository holding several runs cannot be worked
+                    on through the wrong one.
         @param[in]  stage AEGIS stage name, or "revise".
         @param[in]  ticket Ticket for context.
         @param[in]  failure_context Previous-attempt failure summary ("" on
@@ -2573,12 +2611,18 @@ class Orchestrator:
         @param[in]  orientation Read-only AEGIS run brief ("" when a fresh
                                 session already carries the run context).
         @param[in]  status The `run status` response driving this stage, when
-                           the conductor has one (adds the exact next command).
+                           the conductor has one (selects the quick variant and
+                           adds the exact next command).
+        @param[in]  aegis_run_id The run id to pin ("" when none exists yet).
         @return     The prompt text (never enters argv; file protocol).
         @author     Eng. Dan Dumitru Pasare
         @date       2026-08-01
-        @version    0.2.0
+        @version    0.3.0
         """
+        quick = status is not None and status.detail("run_profile") == "quick"
+        goals = _STAGE_GOALS
+        if quick and stage in _QUICK_STAGE_GOALS:
+            goals = {**_STAGE_GOALS, **_QUICK_STAGE_GOALS}
         parts = [
             "You are the executor for one stage of the AEGIS governed "
             "workflow, launched headless by the ADORE orchestrator in an "
@@ -2592,17 +2636,23 @@ class Orchestrator:
             parts.append(orientation)
         if failure_context:
             parts.append(failure_context)
-        parts.append(_STAGE_GOALS[stage])
+        parts.append(goals[stage])
         if status is not None and status.next_command:
             parts.append(
                 f"AEGIS says the exact next command is `{status.next_command}`."
                 + (f" The current stage form is at `{status.artifact}`."
                    if status.artifact and status.artifact != "none" else "")
             )
+        pin = (
+            f"Pin every AEGIS command to this run with `--run {aegis_run_id}`; "
+            "the orchestrator does the same, so you and it always operate on "
+            "the same run. "
+            if aegis_run_id else ""
+        )
         parts.append(
             "Rules: work only inside this worktree. Run the AEGIS CLI as "
             "`bash .agentic/tools/run.sh <group> <action>`; content goes into "
-            "the generated forms, never into CLI flags. NEVER run "
+            f"the generated forms, never into CLI flags. {pin}NEVER run "
             "`aegis stage close` (the orchestrator is the delegated approver "
             "and closes stages itself after verifying) and NEVER run "
             "`aegis waive add` (waiving a blocker is a human decision - report "
