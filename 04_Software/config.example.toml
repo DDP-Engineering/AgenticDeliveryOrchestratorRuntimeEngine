@@ -295,19 +295,45 @@ branch_template = "{slug}/{run_id}"
 # Example (GitLab):  branch_rule = '^(feature|bugfix|release|hotfix)\/.*$'
 branch_rule = ""
 
+# ----- AEGIS workflow ------------------------------------------------------------
+# How a ticket becomes an AEGIS 2.x run. ADORE starts exactly one governed run
+# per ticket with `aegis run start <kind> [--quick]`; these keys decide which.
+# All of them are optional - the defaults below are what ADORE uses when the
+# section is absent.
+[workflow]
+# Run kind for a ticket that carries none of the labels below.
+# One of: feature, fix, change. ("adoption" runs are interactive and are not
+# conducted by ADORE, so they are rejected here.)
+default_kind = "feature"
+# Ticket label -> AEGIS run kind. The FIRST entry whose label the ticket
+# carries wins, so overlapping labels stay deterministic.
+kind_labels = { bug = "fix", fix = "fix", change = "change" }
+# Label opting a ticket into the proportional four-stage AEGIS profile
+# (intake -> implementation -> validation -> delivery). AEGIS allows --quick
+# for fix and change runs ONLY, so the label is ignored on a feature ticket.
+# Set to "" to disable the quick profile entirely. Config validation rejects a
+# quick label that no kind mapping could ever pair with fix or change.
+quick_label = "agent-quick"
+# Optional per-stage override of [budgets] per_gate_timeout_seconds, for the
+# stages that legitimately need more room than intake does. Keys must be AEGIS
+# stage names; values are whole seconds.
+# stage_timeout_overrides = { implementation = 5400, validation = 3600 }
+stage_timeout_overrides = {}
+
 # ----- Run budgets ---------------------------------------------------------------
 # Hard bounds per run; exceeding any of them escalates to `failed` instead of
 # thrashing forever. Tripping a budget never loses work: `adore retry` re-arms
-# the counters and continues from the stored stage (it never redoes passed
-# gates).
+# the counters and continues from where AEGIS says the run stands (it never
+# redoes closed stages).
 [budgets]
-# Executor LAUNCHES per run: one per gate (6 = one clean pass) + one per fix
-# launch (merge conflict / failing gate during delivery) + one per revise
-# round. Clean delivery adds zero. Sizing: 6 = crawl pilot (no headroom),
-# 12-15 = supervised with fix headroom, 20 = unattended headroom.
-max_iterations           = 20
+# Executor LAUNCHES per run: one per AEGIS stage (8 for a full run, 4 for a
+# quick one = one clean pass) + one per fix launch (merge conflict or a failing
+# `aegis verify run` during publication) + one per revise round. Clean
+# publication adds zero. Sizing: 8 = crawl pilot (no headroom), 14-18 =
+# supervised with fix headroom, 24 = unattended headroom.
+max_iterations           = 24
 max_wall_clock_seconds   = 3600   # total wall-clock per run (whole-run ceiling)
-per_gate_timeout_seconds = 1800   # wall-clock bound on ONE executor launch
+per_gate_timeout_seconds = 1800   # default wall-clock bound on ONE executor launch
 max_cost_usd             = 5.0    # model spend per run
 max_files_touched        = 40     # files a run may change
 

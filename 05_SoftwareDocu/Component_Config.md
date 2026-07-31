@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Config (`adore/config.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/adore/config.py` - file version 0.3.0.
+> Source: `04_Software/adore/config.py` - file version 0.4.0.
 > Setting-by-setting reference:
 > `01_Documentation/Configuration_Reference.md`.
 
@@ -39,7 +39,8 @@ environment / `.env`).
   (`HOME`, `GIT_*`, `CODEX_HOME`) and proxy variables are rejected if
   configured there.
 - `[container] required_tool_checks` names shell-free commands that validate a
-  runtime-project image contains its required build/test tools before gates run.
+  runtime-project image contains its required build/test tools before any
+  AEGIS stage runs.
 - `[container.egress]` names the executor network policy (`open`,
   `allowlist-proxy`, or `none`) plus proxy image, port, network prefix, and
   exact/wildcard host allowlist validation.

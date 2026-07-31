@@ -76,6 +76,25 @@ This project follows Keep a Changelog and Semantic Versioning.
   the expected state. Questions may be recorded in the form's
   `control.unresolved_questions` or in the questions file; both are named and
   either parks the run.
+- **ADORE 2.0 hard break to AEGIS 2.x - WP6: config, wizard, doctor, image.**
+  A new validated `[workflow]` section decides how a ticket becomes an AEGIS
+  run: `default_kind`, a `kind_labels` map (first configured match wins),
+  `quick_label`, and optional `stage_timeout_overrides` that raise or lower
+  `[budgets] per_gate_timeout_seconds` per stage. Validation refuses kinds
+  AEGIS does not conduct (including the interactive `adoption`), stage-timeout
+  keys that are not AEGIS stages or values that are not positive whole
+  seconds, and a quick label that neither `default_kind` nor any `kind_labels`
+  entry could ever pair with `fix`/`change` - a silently ignored quick label
+  would let an operator believe a run was proportional when it was not. The
+  `adore init` wizard now asks for the ready/fix/change/quick labels (writing
+  neither table when every default is accepted) and probes the target clone
+  with the new `doctor.detect_aegis`: the POSIX wrapper must exist,
+  `aegis config validate --json` must answer `status: ok`, and the policy must
+  report schema 3. Anything else - a missing wrapper, a blocked response,
+  unparseable output, a different schema - reads as not-ready with the AEGIS
+  detail preserved, and the guidance points at WAEGIS while stating that AEGIS
+  1.x is unsupported with no migration path. The executor base image and its
+  README now name the AEGIS 2.x CLI and its actual prerequisites.
 - `adore reset --to` now accepts the eight AEGIS stages or `publication`. It
   moves ADORE's own pointer only - AEGIS still owns the governed run's stage,
   which conduction re-reads from `run status` - and it never touches AEGIS

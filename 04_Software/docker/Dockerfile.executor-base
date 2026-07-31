@@ -114,8 +114,11 @@ RUN uv python install 3.11
 ENV UV_PYTHON=3.11
 
 # Make `python3`/`python` on PATH resolve to the uv-managed 3.11 release:
-# tools like the target repo's .agentic CLI resolve `python3` and require
-# 3.11+ (system /usr/bin/python3 stays 3.10 for apt).
+# the target repo's AEGIS 2.x CLI (`bash .agentic/tools/run.sh <group>
+# <action>`) resolves `python3` and requires 3.11+ (system /usr/bin/python3
+# stays 3.10 for apt). AEGIS itself is stdlib-only; bash, git and node are the
+# other prerequisites, and node matters because the AEGIS guard hooks fail
+# closed without it.
 USER root
 RUN target="$(ls -d /home/adore/.local/share/uv/python/cpython-3.11*/bin/python3.11 2>/dev/null | head -n1)" \
     && test -x "$target" \
@@ -123,5 +126,6 @@ RUN target="$(ls -d /home/adore/.local/share/uv/python/cpython-3.11*/bin/python3
     && ln -sf "$target" /usr/local/bin/python
 USER adore
 
-# The container idles; ADORE execs the executor into it gate by gate.
+# The container idles; ADORE execs the executor into it one AEGIS stage at a
+# time, and runs the AEGIS CLI itself through the same seam.
 CMD ["sleep", "infinity"]

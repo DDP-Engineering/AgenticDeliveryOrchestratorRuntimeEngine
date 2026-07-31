@@ -24,7 +24,7 @@
          the same field keys (decision D7).
 @author Eng. Dan Dumitru Pasare
 @date 2026-07-07
-@version 0.3.0
+@version 0.4.0
 """
 
 from __future__ import annotations
@@ -336,12 +336,15 @@ def _toml_string(value: str) -> str:
 
 def _toml_value(value: object) -> str:
     """
-    @brief      Encode a scalar / list-of-scalars as a TOML value.
-    @param[in]  value bool / int / float / str / list.
+    @brief      Encode a scalar / list / string map as a TOML value.
+    @details    Maps render as inline tables, which is what `[workflow]
+                kind_labels` needs and keeps the emitted file one table per
+                section.
+    @param[in]  value bool / int / float / str / list / dict.
     @return     The TOML token.
     @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.1.0
+    @date       2026-08-01
+    @version    0.2.0
     """
     if isinstance(value, bool):
         return "true" if value else "false"
@@ -351,6 +354,12 @@ def _toml_value(value: object) -> str:
         return repr(value)
     if isinstance(value, list):
         return "[" + ", ".join(_toml_string(str(item)) for item in value) + "]"
+    if isinstance(value, dict):
+        items = ", ".join(
+            f"{_toml_string(str(key))} = {_toml_value(item)}"
+            for key, item in value.items()
+        )
+        return "{" + items + "}"
     return _toml_string(str(value))
 
 
@@ -500,6 +509,7 @@ def run_wizard(
     ), asker, out)
     if not (Path(repo_path).expanduser() / ".git").exists():
         out("  note: that path has no .git - make sure it is the clone root.")
+    _report_aegis(out, runner, repo_path, key)
     worktree_root = ask(FieldSpec(
         "worktree_root", "Worktree root (host dir holding per-run worktrees):",
         "relative to the run, or an absolute path", "worktrees", default="worktrees",
@@ -582,6 +592,29 @@ def run_wizard(
         "api-key", default="api-key", choices=("api-key", "host-auth"),
     ), asker, out)
 
+    # -- Phase F2 (workflow labels) -----------------------------------------------
+    ready_label = ask(FieldSpec(
+        "ready_label", "Label that makes a ticket eligible for ADORE:",
+        "humans apply it; ADORE removes it when it starts working",
+        "agent-ready", default="agent-ready", validate=_require,
+    ), asker, out)
+    fix_label = ask(FieldSpec(
+        "fix_label", "Label marking a ticket as a FIX (bug) run:",
+        "maps to `aegis run start fix`; anything unlabelled starts a feature run",
+        "bug", default="bug", validate=_require,
+    ), asker, out)
+    change_label = ask(FieldSpec(
+        "change_label", "Label marking a ticket as a CHANGE run:",
+        "maps to `aegis run start change`",
+        "change", default="change", validate=_require,
+    ), asker, out)
+    quick_label = ask(FieldSpec(
+        "quick_label", "Label opting a ticket into the QUICK AEGIS profile:",
+        "four stages instead of eight; AEGIS allows it for fix/change runs "
+        "only, so it is ignored on a feature ticket. Empty disables it.",
+        "agent-quick", default="agent-quick",
+    ), asker, out)
+
     # -- Phase G (delivery) -------------------------------------------------------
     reviewers_raw = ask(FieldSpec(
         "reviewers", "Reviewer username(s) for the draft MR (comma-separated):",
@@ -639,6 +672,8 @@ def run_wizard(
         executor_cli=executor_cli, command=_command_for(executor_cli), model=model,
         auth_mode=auth_mode, target_branch=target_branch, reviewers=reviewers,
         budgets=budgets, budgets_choice=budgets_choice, polling_mode=polling_mode,
+        ready_label=ready_label, fix_label=fix_label, change_label=change_label,
+        quick_label=quick_label,
     )
 
     # -- Phase I (summary, validate, save) ----------------------------------------
@@ -713,6 +748,37 @@ def _suggest_runtime(os_key: str, runtimes: doctor.RuntimeDetection) -> str:
     return "docker"
 
 
+def _report_aegis(
+    out: Callable[[str], None],
+    runner: CommandRunner,
+    repo_path: str,
+    os_key: str,
+) -> None:
+    """
+    @brief      Report whether the target clone carries a usable AEGIS 2.x.
+    @details    Informational like the rest of the environment check: the
+                wizard never blocks, so an operator can install the payload in
+                another terminal and continue. What it must NOT do is imply a
+                repository is ready when it is not - a wrong schema or a
+                blocked `config validate` is printed with the AEGIS detail.
+    @param[in]  out Output sink.
+    @param[in]  runner Command runner for the probe.
+    @param[in]  repo_path Local clone to probe.
+    @param[in]  os_key Host OS key (selects guidance wording).
+    @author     Eng. Dan Dumitru Pasare
+    @date       2026-08-01
+    @version    0.1.0
+    """
+    status = doctor.detect_aegis(repo_path, runner)
+    out(f"  [{'OK' if status.ok else 'CHECK'}] AEGIS 2.x payload"
+        + (f" (schema {status.schema_version})" if status.ok else ""))
+    if status.ok:
+        return
+    if status.detail:
+        out(f"        {status.detail}")
+    out("        " + doctor.guidance_for(doctor.AEGIS, os_key))
+
+
 def _report_environment(
     out: Callable[[str], None], runner: CommandRunner, os_key: str, kind: str
 ) -> None:
@@ -751,8 +817,8 @@ def _assemble_sections(**a: object) -> list[tuple[str, dict[str, object]]]:
     @param[in]  a Collected answers (see run_wizard).
     @return     Ordered (table-header, key->value) pairs.
     @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-29
-    @version    0.1.2
+    @date       2026-08-01
+    @version    0.2.0
     """
     sections: list[tuple[str, dict[str, object]]] = []
     if a["agent_name"] != PRODUCT_ACRONYM:
@@ -798,6 +864,21 @@ def _assemble_sections(**a: object) -> list[tuple[str, dict[str, object]]]:
         sections.append(("budgets", dict(a["budgets"])))  # type: ignore[arg-type]
     else:
         sections.append(("budgets", dict(_RECOMMENDED_BUDGETS)))
+
+    if a["ready_label"] != "agent-ready":
+        sections.append(("labels.lifecycle", {"ready": a["ready_label"]}))
+
+    workflow: dict[str, object] = {}
+    kind_labels = {
+        str(a["fix_label"]): "fix",
+        str(a["change_label"]): "change",
+    }
+    if kind_labels != {"bug": "fix", "change": "change"}:
+        workflow["kind_labels"] = kind_labels
+    if a["quick_label"] != "agent-quick":
+        workflow["quick_label"] = a["quick_label"]
+    if workflow:
+        sections.append(("workflow", workflow))
 
     if a["polling_mode"] != "loop":
         sections.append(("polling", {"mode": a["polling_mode"]}))

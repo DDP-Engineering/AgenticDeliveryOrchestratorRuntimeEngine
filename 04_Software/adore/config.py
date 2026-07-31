@@ -16,8 +16,8 @@
          the agent slug (state dir, questions file) are resolved at load time.
          Secrets are read from the environment, never from here.
 @author Eng. Dan Dumitru Pasare
-@date 2026-07-07
-@version 0.3.0
+@date 2026-08-01
+@version 0.4.0
 """
 
 from __future__ import annotations
@@ -39,6 +39,7 @@ from adore.branding import (
     PRODUCT_SLUG,
     UV_CACHE_VOLUME,
 )
+from adore.aegis import QUICK_KINDS, RUN_KINDS
 from adore.util import parse_duration
 
 # CONSTANTS
@@ -65,6 +66,11 @@ _MANAGED_CONTAINER_ENV = frozenset({
     "no_proxy",
 })
 _SHELL_CONTROL_CHARS = frozenset("|&;<>")
+# The AEGIS 2.x stage names a per-stage timeout override may target. Declared
+# here rather than imported from the orchestrator so configuration validation
+# stays free of the engine.
+AEGIS_STAGES = ("intake", "alignment", "requirement", "design", "check",
+                "implementation", "validation", "delivery")
 _HOST_LABEL_RE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$")
 
 KNOWN_SECTIONS = frozenset(
@@ -769,8 +775,8 @@ def validate_config(config: Config) -> list[str]:
     @param[in]  config The configuration to validate.
     @return     Empty list when valid; otherwise one message per issue.
     @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-29
-    @version    0.1.10
+    @date       2026-08-01
+    @version    0.1.11
     """
     issues: list[str] = []
 
@@ -1086,6 +1092,79 @@ def validate_config(config: Config) -> list[str]:
                 f"[worktree] branch_template renders {sample!r}, which the "
                 f"repo push rule {config.worktree.branch_rule!r} would REJECT",
             )
+
+    workflow = config.workflow
+    check(
+        workflow.default_kind in RUN_KINDS,
+        f"[workflow] default_kind must be one of {', '.join(RUN_KINDS)}: "
+        f"{workflow.default_kind!r}",
+    )
+    check(
+        workflow.default_kind != "adoption",
+        "[workflow] default_kind cannot be \"adoption\": adoption runs are "
+        "interactive and are not conducted by ADORE",
+    )
+    check(
+        isinstance(workflow.kind_labels, dict),
+        "[workflow] kind_labels must be a table of label -> AEGIS run kind",
+    )
+    mapped_kinds: list[str] = []
+    if isinstance(workflow.kind_labels, dict):
+        for label, kind in workflow.kind_labels.items():
+            if not isinstance(label, str) or not label.strip():
+                issues.append("[workflow] kind_labels keys must be non-empty "
+                              "label names")
+                continue
+            if not isinstance(kind, str) or kind not in RUN_KINDS:
+                issues.append(
+                    f"[workflow] kind_labels.{label} must name an AEGIS run "
+                    f"kind ({', '.join(RUN_KINDS)}): {kind!r}"
+                )
+                continue
+            if kind == "adoption":
+                issues.append(
+                    f"[workflow] kind_labels.{label} cannot map to "
+                    "\"adoption\": adoption runs are not conducted by ADORE"
+                )
+                continue
+            mapped_kinds.append(kind)
+    check(
+        isinstance(workflow.quick_label, str),
+        "[workflow] quick_label must be a label name or an empty string",
+    )
+    if isinstance(workflow.quick_label, str) and workflow.quick_label.strip():
+        # AEGIS accepts --quick only for fix/change, so a quick label that no
+        # kind mapping can ever pair with one of those is dead configuration -
+        # and a silently ignored label is exactly the kind of drift that makes
+        # an operator think a run was proportional when it was not.
+        reachable = [
+            kind for kind in (workflow.default_kind, *mapped_kinds)
+            if kind in QUICK_KINDS
+        ]
+        check(
+            bool(reachable),
+            f"[workflow] quick_label {workflow.quick_label!r} can never apply: "
+            f"AEGIS allows --quick only for {' and '.join(QUICK_KINDS)} runs, "
+            "and neither default_kind nor any kind_labels entry maps to one",
+        )
+    check(
+        isinstance(workflow.stage_timeout_overrides, dict),
+        "[workflow] stage_timeout_overrides must be a table of stage -> seconds",
+    )
+    if isinstance(workflow.stage_timeout_overrides, dict):
+        for stage, seconds in workflow.stage_timeout_overrides.items():
+            if not isinstance(stage, str) or stage not in AEGIS_STAGES:
+                issues.append(
+                    f"[workflow] stage_timeout_overrides.{stage} is not an "
+                    f"AEGIS stage ({', '.join(AEGIS_STAGES)})"
+                )
+                continue
+            if not isinstance(seconds, int) or isinstance(seconds, bool) \
+                    or seconds < 1:
+                issues.append(
+                    f"[workflow] stage_timeout_overrides.{stage} must be a "
+                    f"positive whole number of seconds: {seconds!r}"
+                )
 
     check(config.budgets.max_iterations >= 1, "[budgets] max_iterations must be >= 1")
     check(

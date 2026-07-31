@@ -22,14 +22,16 @@
          subprocess here), so the whole module is unit-testable offline with a
          fake runner; no prompting and no network calls of its own live here.
 @author Eng. Dan Dumitru Pasare
-@date 2026-07-05
-@version 0.1.1
+@date 2026-08-01
+@version 0.2.0
 """
 
 from __future__ import annotations
 
 # IMPORTS
 from dataclasses import dataclass, field
+import json
+from pathlib import Path
 import platform
 
 from adore.util import CommandRunner, run_command
@@ -48,6 +50,11 @@ GLAB_AUTH = "glab-auth"
 GH_AUTH = "gh-auth"
 TEA_AUTH = "tea-auth"
 OPENCODE = "opencode"
+AEGIS = "aegis"
+
+# The AEGIS 2.x payload contract the target repository must satisfy.
+AEGIS_WRAPPER = ".agentic/tools/run.sh"
+AEGIS_SCHEMA_VERSION = 3
 
 # Platform-CLI + auth mapping by platform kind.
 _CLI_FOR_KIND = {"gitlab": GLAB, "github": GH, "gitea": TEA}
@@ -149,6 +156,16 @@ GUIDANCE: dict[str, dict[str, str]] = {
             "runtime-project image per docker/README.md."
         )
     },
+    AEGIS: {
+        "*": (
+            "The target repository must carry an installed AEGIS 2.x payload: "
+            "`.agentic/tools/run.sh` plus a schema-3 `.agentic/workflow.toml`. "
+            "Install or upgrade it with WAEGIS (`waegis adopt` / `waegis "
+            "upgrade`) in the target clone, then re-run `adore doctor`. ADORE "
+            "2.0 speaks only the AEGIS 2.x grouped CLI; AEGIS 1.x repositories "
+            "are not supported and there is no migration path."
+        )
+    },
 }
 
 # DATA MODELS / TYPEDEFINITIONS
@@ -197,6 +214,41 @@ class RuntimeDetection:
     docker: ToolStatus
     podman: ToolStatus
     wsl_distros: list[str] = field(default_factory=list)
+
+
+@dataclass
+class AegisStatus:
+    """
+    @brief   Whether a target repository carries a usable AEGIS 2.x payload.
+    @details Three independent facts, all required: the POSIX wrapper exists,
+             `aegis config validate` answers `status: ok`, and the policy it
+             validated is schema 3. `detail` carries the AEGIS error verbatim
+             when it does not.
+    @author  Eng. Dan Dumitru Pasare
+    @date    2026-08-01
+    @version 0.1.0
+    """
+
+    repo_path: str
+    wrapper_present: bool
+    config_valid: bool
+    schema_version: int | None = None
+    detail: str = ""
+
+    @property
+    def ok(self) -> bool:
+        """
+        @brief   True when the repository is governed by a usable AEGIS 2.x.
+        @return  Readiness flag.
+        @author  Eng. Dan Dumitru Pasare
+        @date    2026-08-01
+        @version 0.1.0
+        """
+        return (
+            self.wrapper_present
+            and self.config_valid
+            and self.schema_version == AEGIS_SCHEMA_VERSION
+        )
 
 
 @dataclass
@@ -370,6 +422,67 @@ def auth_status(kind: str, runner: CommandRunner = run_command) -> AuthStatus:
     detail = (result.stderr.strip() or result.stdout.strip())
     return AuthStatus(kind=kind, cli=cli, present=True, authenticated=result.ok,
                       detail=detail)
+
+
+def detect_aegis(
+    repo_path: str | Path,
+    runner: CommandRunner = run_command,
+) -> AegisStatus:
+    """
+    @brief      Probe a target repository for a usable AEGIS 2.x payload.
+    @details    Replaces every AEGIS 1.x verb probe. Three checks, in order:
+                `.agentic/tools/run.sh` exists, `bash .agentic/tools/run.sh
+                config validate --json` answers `status: ok`, and the
+                `schema_version` it reports is 3. The command runs with the
+                repository as its working directory, which is where AEGIS
+                discovers its root. Everything crosses a trust boundary, so a
+                non-zero exit, unparseable output, or a wrong schema is
+                reported as not-ready with the detail preserved - never
+                silently accepted.
+    @param[in]  repo_path Local clone the runs are created from.
+    @param[in]  runner Injectable command runner.
+    @return     The AegisStatus.
+    @author     Eng. Dan Dumitru Pasare
+    @date       2026-08-01
+    @version    0.1.0
+    """
+    root = Path(repo_path).expanduser()
+    if not (root / AEGIS_WRAPPER).is_file():
+        return AegisStatus(
+            repo_path=str(root), wrapper_present=False, config_valid=False,
+            detail=f"{AEGIS_WRAPPER} is missing",
+        )
+    result = runner(
+        ["bash", AEGIS_WRAPPER, "config", "validate", "--json"], cwd=str(root)
+    )
+    if result.exit_code == 127:
+        return AegisStatus(
+            repo_path=str(root), wrapper_present=True, config_valid=False,
+            detail="bash is not available to run the AEGIS wrapper",
+        )
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return AegisStatus(
+            repo_path=str(root), wrapper_present=True, config_valid=False,
+            detail=(result.stderr.strip() or result.stdout.strip()
+                    or "the AEGIS wrapper produced no JSON")[:400],
+        )
+    if not isinstance(payload, dict) or payload.get("status") != "ok":
+        detail = str(payload.get("error") or payload.get("status")) \
+            if isinstance(payload, dict) else "unexpected payload"
+        return AegisStatus(
+            repo_path=str(root), wrapper_present=True, config_valid=False,
+            detail=detail[:400],
+        )
+    schema = payload.get("schema_version")
+    return AegisStatus(
+        repo_path=str(root), wrapper_present=True, config_valid=True,
+        schema_version=schema if isinstance(schema, int) else None,
+        detail="" if schema == AEGIS_SCHEMA_VERSION
+        else f"policy reports schema {schema!r}, ADORE 2.0 requires "
+             f"schema {AEGIS_SCHEMA_VERSION}",
+    )
 
 
 def detect_executor(name: str = OPENCODE, runner: CommandRunner = run_command) -> ToolStatus:

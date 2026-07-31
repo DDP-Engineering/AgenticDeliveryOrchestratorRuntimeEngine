@@ -889,7 +889,7 @@ class Orchestrator:
                                          orientation, status,
                                          client.run_id),
                 session=run.executor_session,
-                timeout=self.config.budgets.per_gate_timeout_seconds,
+                timeout=self._stage_timeout(stage),
                 archive_stem=f"{run.iterations:03d}-{stage}",
             )
             run.executor_session = result.session_id or run.executor_session
@@ -1003,6 +1003,25 @@ class Orchestrator:
                 break
         quick = bool(workflow.quick_label) and workflow.quick_label in labels
         return kind, quick and kind in QUICK_KINDS
+
+    def _stage_timeout(self, stage: str) -> int:
+        """
+        @brief      The wall-clock bound for ONE executor launch at a stage.
+        @details    `[budgets] per_gate_timeout_seconds` is the default;
+                    `[workflow] stage_timeout_overrides` raises or lowers it for
+                    individual stages, because implementation and validation
+                    routinely need far more room than intake.
+        @param[in]  stage AEGIS stage name.
+        @return     Seconds.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-08-01
+        @version    0.1.0
+        """
+        override = self.config.workflow.stage_timeout_overrides.get(stage)
+        if isinstance(override, int) and not isinstance(override, bool) \
+                and override > 0:
+            return override
+        return self.config.budgets.per_gate_timeout_seconds
 
     @staticmethod
     def _expected_stages(status: AegisResponse) -> tuple[str, ...]:

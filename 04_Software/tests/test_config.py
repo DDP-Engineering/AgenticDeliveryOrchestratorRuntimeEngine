@@ -552,4 +552,102 @@ HTTPS_PROXY = "http://example.invalid:3128"
     assert any("runtime_env.HTTPS_PROXY is managed by ADORE" in issue for issue in issues)
 
 
+def test_workflow_defaults_are_valid_and_documented(tmp_path: Path) -> None:
+    """
+    @brief   An absent [workflow] section is valid and yields the documented
+             defaults: feature runs, the bug/fix/change label map, and the
+             quick label.
+    @version 0.1.0
+    """
+    config = load_config(_write_config(tmp_path, MINIMAL_VALID))
+    assert validate_config(config) == []
+    assert config.workflow.default_kind == "feature"
+    assert config.workflow.kind_labels == {"bug": "fix", "fix": "fix",
+                                           "change": "change"}
+    assert config.workflow.quick_label == "agent-quick"
+    assert config.workflow.stage_timeout_overrides == {}
+
+
+def test_workflow_rejects_kinds_aegis_does_not_conduct(tmp_path: Path) -> None:
+    """
+    @brief   Only feature/fix/change may be started by ADORE. An unknown kind
+             and the interactive "adoption" kind are both rejected, in
+             default_kind and in the label map.
+    @version 0.1.0
+    """
+    issues = validate_config(load_config(_write_config(tmp_path, MINIMAL_VALID + """
+[workflow]
+default_kind = "refactor"
+kind_labels = { bug = "fix", legacy = "adoption", odd = "nonsense" }
+""")))
+    assert any("default_kind must be one of" in issue for issue in issues)
+    assert any("kind_labels.legacy cannot map to" in issue for issue in issues)
+    assert any("kind_labels.odd must name an AEGIS run kind" in issue
+               for issue in issues)
+
+    adoption = validate_config(load_config(_write_config(tmp_path, MINIMAL_VALID + """
+[workflow]
+default_kind = "adoption"
+""")))
+    assert any('default_kind cannot be "adoption"' in issue for issue in adoption)
+
+
+def test_quick_label_must_be_reachable_from_a_fix_or_change_kind(
+    tmp_path: Path,
+) -> None:
+    """
+    @brief   AEGIS allows --quick for fix/change only, so a quick label that no
+             kind mapping can ever pair with one of those is dead config - and
+             a silently ignored label would let an operator believe a run was
+             proportional when it was not.
+    @version 0.1.0
+    """
+    dead = validate_config(load_config(_write_config(tmp_path, MINIMAL_VALID + """
+[workflow]
+default_kind = "feature"
+kind_labels = {}
+quick_label = "agent-quick"
+""")))
+    assert any("can never apply" in issue for issue in dead)
+
+    reachable = validate_config(load_config(_write_config(tmp_path, MINIMAL_VALID + """
+[workflow]
+default_kind = "feature"
+kind_labels = { bug = "fix" }
+quick_label = "agent-quick"
+""")))
+    assert reachable == []
+
+    disabled = validate_config(load_config(_write_config(tmp_path, MINIMAL_VALID + """
+[workflow]
+kind_labels = {}
+quick_label = ""
+""")))
+    assert disabled == []
+
+
+def test_stage_timeout_overrides_must_name_stages_and_positive_seconds(
+    tmp_path: Path,
+) -> None:
+    """
+    @brief   An override key that is not an AEGIS stage, or a non-positive
+             value, is rejected rather than silently ignored.
+    @version 0.1.0
+    """
+    issues = validate_config(load_config(_write_config(tmp_path, MINIMAL_VALID + """
+[workflow.stage_timeout_overrides]
+implementation = 5400
+publication = 900
+validation = 0
+design = "long"
+""")))
+    assert any("stage_timeout_overrides.publication is not an AEGIS stage" in i
+               for i in issues)
+    assert any("stage_timeout_overrides.validation must be a positive" in i
+               for i in issues)
+    assert any("stage_timeout_overrides.design must be a positive" in i
+               for i in issues)
+    assert not any("stage_timeout_overrides.implementation" in i for i in issues)
+
+
 # END OF FILE

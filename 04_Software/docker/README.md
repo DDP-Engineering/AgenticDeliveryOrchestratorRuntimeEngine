@@ -84,15 +84,24 @@ docker build -f <project-dockerfile> -t adore-executor-<project>:<tag> .
 ```
 
 Configure the profile to select the image and to check the project tools before
-any executor gate runs:
+any executor stage runs:
 
 ```toml
 [container]
 image = "adore-executor-<project>:<tag>"
 required_tool_checks = [
+  # the AEGIS 2.x prerequisites the payload needs inside the container
+  "python3 --version",
+  "node --version",
+  "bash --version",
+  # plus whatever the runtime project's own gates invoke
   "<project-tool> --version",
 ]
 ```
+
+The AEGIS CLI is stdlib-only, so nothing has to be installed for it beyond a
+Python 3.11+ resolvable as `python3`. `node` is listed because the AEGIS guard
+hooks fail closed without it, and their absence is otherwise silent.
 
 ## Egress proxy image
 

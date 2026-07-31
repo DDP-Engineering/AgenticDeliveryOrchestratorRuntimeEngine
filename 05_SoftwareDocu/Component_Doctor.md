@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Environment Doctor (`adore/doctor.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/adore/doctor.py` - file version 0.1.1
+> Source: `04_Software/adore/doctor.py` - file version 0.2.0
 > (`auth_status` 0.2.0: kind-dispatched probes incl. gitea/tea).
 > Historical design source: `00_Planning/Assisted_Config_And_Profiles_Plan.md`.
 > Scope note: the **detection + guidance data/text layer**. The `adore init`
@@ -28,6 +28,7 @@ depends on and supplies the install/setup instructions from the plan's Phase A.
 - **Detection** (all through the injectable `CommandRunner`, so tests run
   offline): `detect_os()`, `detect_git()`, `detect_runtimes()` (docker/podman
   + WSL distros on Windows), `detect_platform_cli(kind)`, `auth_status(kind)`,
+  `detect_aegis(repo_path)`,
   `detect_executor()`, and `detect_all(kind)` (one probe of each -> an
   `EnvironmentReport`).
 - **Guidance** (curated data): `guidance_for(component, os_key)` returns the
@@ -82,6 +83,17 @@ Explicitly not owned: prompting/wizard flow (task 3), CLI wiring, writing config
   (e.g. `glpat-` + 20 chars) and says the wizard records the key NAME only
   (design D5).
 
+- **AEGIS 2.x target-repository probe** (`detect_aegis`, ADORE 2.0 WP6):
+  three facts, all required before a repository can be conducted - the POSIX
+  wrapper `.agentic/tools/run.sh` exists, `bash .agentic/tools/run.sh config
+  validate --json` answers `status: ok`, and the policy it validated reports
+  `schema_version: 3`. The command runs with the repository as its working
+  directory, which is where AEGIS discovers its root. Everything crosses a
+  trust boundary, so a non-zero exit, unparseable output, a blocked response,
+  or a different schema is reported as not-ready with the AEGIS detail
+  preserved - never silently accepted. This replaces every AEGIS 1.x verb
+  probe; there is no 1.x detection and no migration path.
+
 ## 7. Workflow Integration
 
 `adore init`: for each prerequisite, call the matching
@@ -111,7 +123,12 @@ if not report.auth.authenticated:
   scrub) on Windows and WSL-skipped on Linux; `detect_all` aggregate; guidance
   OS-specificity, the shared token texts (asserts `glpat-` + "never the
   value", `tea login add` + the `[platform] login` alternative), and the
-  graceful unknown-component fallback.
+  graceful unknown-component fallback. AEGIS probe: a valid schema-3 payload
+  accepted (asserting the exact argv and that it runs in the repository), a
+  missing wrapper reported without running any command, a blocked
+  `config validate` and an unparseable answer both failing closed with the
+  detail preserved, a schema other than 3 rejected, and the guidance naming
+  WAEGIS while stating plainly that AEGIS 1.x is unsupported.
 - Minimum validation after a change:
   `uv run --group dev pytest tests/test_doctor.py` + `ruff check .`.
 

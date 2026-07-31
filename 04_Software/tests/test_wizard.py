@@ -403,4 +403,64 @@ def test_validate_or_raise_rejects_invalid_config(tmp_path: Path) -> None:
         _validate_or_raise(bad_doc, lambda _l: None)
 
 
+def test_wizard_defaults_omit_the_workflow_section(tmp_path: Path) -> None:
+    """
+    @brief   Accepting every workflow-label default writes no [workflow] table
+             at all: the emitted config stays minimal and the defaults live in
+             one place (decision D4).
+    @version 0.1.0
+    """
+    clone = _clone(tmp_path)
+    store = ProfileStore(tmp_path / "home")
+    run_wizard(store, asker=ScriptedAsker(_answers(clone)), out=lambda _: None,
+               runner=_runner(), os_key="linux", name="p")
+    text = store.config_path("p").read_text(encoding="utf-8")
+    assert "[workflow]" not in text
+    assert "[labels.lifecycle]" not in text
+
+
+def test_wizard_writes_custom_workflow_labels(tmp_path: Path) -> None:
+    """
+    @brief   Custom ready / fix / change / quick labels land in the config as
+             the label map ADORE resolves the AEGIS run kind and profile from,
+             and the result validates.
+    @version 0.1.0
+    """
+    clone = _clone(tmp_path)
+    store = ProfileStore(tmp_path / "home")
+    answers = _answers(clone, ready_label="ai-ready", fix_label="defect",
+                       change_label="tweak", quick_label="ai-quick")
+    run_wizard(store, asker=ScriptedAsker(answers), out=lambda _: None,
+               runner=_runner(), os_key="linux", name="p")
+    text = store.config_path("p").read_text(encoding="utf-8")
+    assert "ready = 'ai-ready'" in text
+    assert "'defect' = 'fix'" in text and "'tweak' = 'change'" in text
+    assert "quick_label = 'ai-quick'" in text
+
+    config = load_config(store.config_path("p"))
+    assert validate_config(config) == []
+    assert config.labels.lifecycle.ready == "ai-ready"
+    assert config.workflow.kind_labels == {"defect": "fix", "tweak": "change"}
+    assert config.workflow.quick_label == "ai-quick"
+
+
+def test_wizard_reports_a_missing_aegis_payload(tmp_path: Path) -> None:
+    """
+    @brief   The wizard probes the target clone for an AEGIS 2.x payload and
+             prints the WAEGIS guidance when it is absent - informational, so
+             the wizard still completes.
+    @version 0.1.0
+    """
+    clone = _clone(tmp_path)
+    store = ProfileStore(tmp_path / "home")
+    lines: list[str] = []
+    run_wizard(store, asker=ScriptedAsker(_answers(clone)), out=lines.append,
+               runner=_runner(), os_key="linux", name="p")
+    printed = "\n".join(lines)
+    assert "[CHECK] AEGIS 2.x payload" in printed
+    assert ".agentic/tools/run.sh is missing" in printed
+    assert "waegis" in printed.lower()
+    assert store.config_path("p").is_file()  # never blocks
+
+
 # END OF FILE

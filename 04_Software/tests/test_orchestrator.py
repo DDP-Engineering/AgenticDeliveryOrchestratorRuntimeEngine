@@ -2931,4 +2931,55 @@ def test_stage_prompt_names_both_question_channels(tmp_path: Path) -> None:
     assert engine.questions_file in prompt
 
 
+def test_stage_timeout_overrides_bound_individual_launches(
+    tmp_path: Path,
+) -> None:
+    """
+    @brief   `[workflow] stage_timeout_overrides` raises the per-launch bound
+             for the stages that need more room; every other stage keeps
+             `[budgets] per_gate_timeout_seconds`.
+    @version 0.1.0
+    """
+    config = make_config(tmp_path)
+    config.budgets.per_gate_timeout_seconds = 1800
+    config.workflow.stage_timeout_overrides = {"implementation": 5400}
+    engine, forge, _, _ = make_engine(tmp_path, FakeExecutor([gate_ok()] * 8),
+                                      config)
+    forge.add_ticket(14)
+
+    engine.poll_once()
+
+    assert engine._stage_timeout("implementation") == 5400
+    assert engine._stage_timeout("intake") == 1800
+    assert engine._stage_timeout("delivery") == 1800
+
+
+def test_kind_and_quick_labels_come_from_the_workflow_section(
+    tmp_path: Path,
+) -> None:
+    """
+    @brief   The AEGIS run kind and profile are resolved from ticket labels
+             through `[workflow]`; the FIRST configured mapping the ticket
+             matches wins, so overlapping labels stay deterministic.
+    @version 0.1.0
+    """
+    config = make_config(tmp_path)
+    config.workflow.kind_labels = {"defect": "fix", "tweak": "change"}
+    config.workflow.quick_label = "ai-quick"
+    engine, forge, _, _ = make_engine(tmp_path, FakeExecutor(), config)
+
+    plain = forge.add_ticket(1, labels=["agent-ready", "P1"])
+    assert engine._run_kind(plain) == ("feature", False)
+
+    fix = forge.add_ticket(2, labels=["agent-ready", "P1", "defect", "ai-quick"])
+    assert engine._run_kind(fix) == ("fix", True)
+
+    both = forge.add_ticket(3, labels=["agent-ready", "P1", "tweak", "defect"])
+    assert engine._run_kind(both) == ("fix", False)  # first mapping wins
+
+    # the quick label cannot apply to a feature run - AEGIS forbids it
+    feature_quick = forge.add_ticket(4, labels=["agent-ready", "P1", "ai-quick"])
+    assert engine._run_kind(feature_quick) == ("feature", False)
+
+
 # END OF FILE

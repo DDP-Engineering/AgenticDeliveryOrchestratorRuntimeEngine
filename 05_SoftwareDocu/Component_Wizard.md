@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Assisted-Config Wizard (`adore/wizard.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/adore/wizard.py` - file version 0.3.0.
+> Source: `04_Software/adore/wizard.py` - file version 0.4.0.
 > Historical design source: `00_Planning/Assisted_Config_And_Profiles_Plan.md`.
 > CLI: `adore init` (wired in `adore/cli.py`).
 
@@ -101,6 +101,15 @@ commands + `--profile` resolution.
   literal choice text for readability.
 - The emitted config always satisfies `validate_config` (enforced by the
   write-then-validate guard).
+
+- **Workflow labels** (ADORE 2.0 WP6): the wizard asks for the ready label
+  and for the labels that select the AEGIS run kind (fix, change) and the
+  quick profile, and writes them into `[labels.lifecycle]` and `[workflow]`.
+  Accepting every default writes neither table, keeping the emitted config
+  minimal. It also probes the named clone with `doctor.detect_aegis` and
+  prints the WAEGIS guidance when the target repository carries no usable
+  AEGIS 2.x payload - informational like the rest of the environment check, so
+  an operator can install the payload in another terminal and continue.
 
 ## 7. Workflow Integration
 

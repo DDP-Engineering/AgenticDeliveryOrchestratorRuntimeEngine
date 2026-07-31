@@ -184,9 +184,16 @@ branch_rule = ""             # optional: the repo's branch push-rule regex; vali
                              # rejects a template the rule would reject, e.g.
                              # '^(feature|bugfix|release|hotfix)\/.*$'
 
+# ----- AEGIS workflow -----
+[workflow]
+default_kind = "feature"     # kind for a ticket carrying no mapped label
+kind_labels  = { bug = "fix", fix = "fix", change = "change" }
+quick_label  = "agent-quick" # fix/change only; "" disables the quick profile
+stage_timeout_overrides = {} # e.g. { implementation = 5400 }
+
 # ----- Run budgets -----
 [budgets]
-max_iterations           = 20
+max_iterations           = 24
 max_wall_clock_seconds   = 3600
 per_gate_timeout_seconds = 1800
 max_cost_usd             = 5.0
@@ -378,13 +385,27 @@ Manual supervised `adore run --once` remains allowed with open egress.
 | `branch_template` | Run branch name; `{slug}`, `{run_id}`, `{iid}` placeholders (must keep `{run_id}` or `{iid}` for uniqueness). Set e.g. `"feature/{slug}-{iid}"` for repos whose push rules require a `feature/` prefix. | `"{slug}/{run_id}"` |
 | `branch_rule` | Optional regex mirroring the repo's branch-name push rule, for example `^(feature\|bugfix\|release\|hotfix)\/.*$`; validation rejects a template the rule would reject. | `""` |
 
+## `[workflow]` - AEGIS Run Kind And Profile
+
+How a ticket becomes an AEGIS 2.x run. ADORE starts exactly one governed run
+per ticket with `aegis run start <kind> [--quick]`; this section decides which.
+Every key is optional and defaults as documented, so an absent `[workflow]`
+section is valid.
+
+| Key | Meaning | Default |
+|---|---|---|
+| `default_kind` | AEGIS run kind for a ticket carrying none of the mapped labels. One of `feature`, `fix`, `change`. `adoption` is rejected: adoption runs are interactive and ADORE does not conduct them. | `"feature"` |
+| `kind_labels` | Ticket label -> AEGIS run kind. The **first** configured entry whose label the ticket carries wins, so overlapping labels stay deterministic. Values are restricted the same way as `default_kind`. | `{ bug = "fix", fix = "fix", change = "change" }` |
+| `quick_label` | Label opting a ticket into AEGIS's proportional four-stage profile (`intake -> implementation -> validation -> delivery`). AEGIS permits `--quick` for `fix` and `change` runs **only**, so the label is ignored on a feature ticket rather than producing a command AEGIS would block. Set to `""` to disable the quick profile. Validation rejects a quick label that neither `default_kind` nor any `kind_labels` entry could ever pair with `fix`/`change` - a silently ignored label would let you believe a run was proportional when it was not. | `"agent-quick"` |
+| `stage_timeout_overrides` | Per-stage override of `[budgets] per_gate_timeout_seconds`, for stages that legitimately need more room than intake. Keys must be AEGIS stage names (`intake`, `alignment`, `requirement`, `design`, `check`, `implementation`, `validation`, `delivery`); values are positive whole seconds. | `{}` |
+
 ## `[budgets]` - Run Budgets
 
 | Key | Meaning | Default |
 |---|---|---|
-| `max_iterations` | Max **executor launches** per run before failing closed. What counts: one launch per gate (6 for a clean pass) plus one per fix launch (merge-conflict resolution or a failing-gate fix during delivery) and per revise round. Clean delivery (no conflicts, gates green) launches the executor **zero** extra times - merge/preflight/push/MR are deterministic orchestrator actions. Sizing: `6` = clean pass only, zero fix headroom (crawl pilots); `12`-`15` = supervised operation with fix headroom; `20` (default) = unattended headroom. Tripping the budget never loses work: the run fails with the reason journaled and posted, and `adore retry` re-arms the counters and continues from the stored stage. | `20` |
+| `max_iterations` | Max **executor launches** per run before failing closed. What counts: one launch per AEGIS stage (8 for a clean full run, 4 for a clean quick run) plus one per fix launch (merge-conflict resolution or a failing post-merge `aegis verify run`) and per revise round. Clean publication launches the executor **zero** extra times - merge/verify/push/MR are deterministic orchestrator actions. Sizing: `8` = clean pass only, zero fix headroom (crawl pilots); `14`-`18` = supervised operation with fix headroom; `24` (default) = unattended headroom. Tripping the budget never loses work: the run fails with the reason journaled and posted, and `adore retry` re-arms the counters and continues from where AEGIS says the run stands. | `24` |
 | `max_wall_clock_seconds` | Max wall-clock of **active work** per run; the clock restarts on `adore retry` and on resume-from-park (parked waiting time is bounded by `[clarification] answer_timeout` instead). | `3600` |
-| `per_gate_timeout_seconds` | Wall-clock bound on a **single** executor launch (one gate, one delivery fix, or one revise). Independent from `max_wall_clock_seconds` (the whole-run ceiling), so per-gate and total budgets can be tuned separately. | `1800` |
+| `per_gate_timeout_seconds` | Default wall-clock bound on a **single** executor launch (one AEGIS stage, one publication fix, or one revise). Independent from `max_wall_clock_seconds` (the whole-run ceiling), so per-launch and total budgets can be tuned separately. `[workflow] stage_timeout_overrides` raises or lowers it per stage. | `1800` |
 | `max_cost_usd` | Max model spend per run. | `5.0` |
 | `max_files_touched` | Max files a run may change. | `40` |
 
