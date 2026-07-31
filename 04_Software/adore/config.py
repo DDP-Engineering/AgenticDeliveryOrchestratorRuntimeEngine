@@ -79,6 +79,7 @@ KNOWN_SECTIONS = frozenset(
         "clarification",
         "container",
         "worktree",
+        "workflow",
         "budgets",
         "delivery",
         "review",
@@ -405,6 +406,31 @@ class WorktreeConfig:
 
 
 @dataclass
+class WorkflowConfig:
+    """
+    @brief   [workflow] - how ticket labels map onto an AEGIS 2.x run.
+    @details `kind_labels` maps a ticket label to an AEGIS run kind; the first
+             configured entry whose label the ticket carries wins, so
+             overlapping labels stay deterministic. Unmapped tickets use
+             `default_kind`. `quick_label` opts a ticket into the proportional
+             four-stage profile, which AEGIS permits only for `fix` and
+             `change` runs. `stage_timeout_overrides` raises or lowers the
+             per-executor-launch bound for individual stages; anything absent
+             uses [budgets] per_gate_timeout_seconds.
+    @author  Eng. Dan Dumitru Pasare
+    @date    2026-08-01
+    @version 0.1.0
+    """
+
+    default_kind: str = "feature"
+    kind_labels: dict[str, str] = field(
+        default_factory=lambda: {"bug": "fix", "fix": "fix", "change": "change"}
+    )
+    quick_label: str = "agent-quick"
+    stage_timeout_overrides: dict[str, int] = field(default_factory=dict)
+
+
+@dataclass
 class BudgetsConfig:
     """
     @brief   [budgets] - hard bounds so a run can never thrash forever.
@@ -509,6 +535,7 @@ class Config:
     clarification: ClarificationConfig = field(default_factory=ClarificationConfig)
     container: ContainerConfig = field(default_factory=ContainerConfig)
     worktree: WorktreeConfig = field(default_factory=WorktreeConfig)
+    workflow: WorkflowConfig = field(default_factory=WorkflowConfig)
     budgets: BudgetsConfig = field(default_factory=BudgetsConfig)
     delivery: DeliveryConfig = field(default_factory=DeliveryConfig)
     review: ReviewConfig = field(default_factory=ReviewConfig)
@@ -537,6 +564,7 @@ class Config:
                 "clarification",
                 "container",
                 "worktree",
+                "workflow",
                 "budgets",
                 "delivery",
                 "review",
@@ -719,6 +747,7 @@ def load_config(path: str | Path) -> Config:
         clarification=_build_section(ClarificationConfig, raw.get("clarification")),
         container=_build_container(raw.get("container")),
         worktree=_build_section(WorktreeConfig, raw.get("worktree")),
+        workflow=_build_section(WorkflowConfig, raw.get("workflow")),
         budgets=_build_section(BudgetsConfig, raw.get("budgets")),
         delivery=_build_section(DeliveryConfig, raw.get("delivery")),
         review=_build_section(ReviewConfig, raw.get("review")),

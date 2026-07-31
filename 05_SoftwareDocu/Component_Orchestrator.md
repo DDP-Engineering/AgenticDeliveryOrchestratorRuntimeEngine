@@ -9,17 +9,24 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Orchestrator (`adore/orchestrator.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/adore/orchestrator.py` - file version 0.6.1.
+> Source: `04_Software/adore/orchestrator.py` - file version 0.7.0.
+> AEGIS contract: `00_Planning/AEGIS_2x_HardBreak_Adaptation/AEGIS_2.1_Contract_Notes.md`.
 > Design: Orchestrator_Design_And_Decisions.md sections 5a, 7a, 8, 9, 10.
 
 ## 1. Purpose
 
 The thick-conductor engine: poll for ready tickets, isolate work, drive the
-executor gate-by-gate with verification in between, park on clarification
-questions and resume on human answers, enforce run budgets, and escalate
-instead of thrashing. Deterministic Python only - every decision is an `if`
-on exit codes, file presence, labels, and timestamps; all judgment lives in
-the executor.
+executor through the AEGIS 2.x workflow stage by stage with objective
+verification in between, park on clarification questions and resume on human
+answers, enforce run budgets, and escalate instead of thrashing.
+Deterministic Python only - every decision is an `if` on exit codes, envelope
+fields, file presence, labels, and timestamps; all judgment lives in the
+executor.
+
+ADORE is AEGIS's **delegated approver**: the executor fills and applies the
+stage forms, ADORE verifies objectively and issues `aegis stage close`
+itself. The real human approval stays where it always was - the draft MR
+review.
 
 ## 2. Responsibilities
 
@@ -35,20 +42,29 @@ the executor.
   rendered from `[worktree] branch_template` ({slug}/{run_id}/{iid}) so repo
   push-rule conventions like a `feature/` prefix are config, and the stored
   `run.branch` stays authoritative for the run's lifetime.
-- **The per-gate loop** (design 7a): mark status -> launch the executor for
-  one gate -> inspect (questions / exit code) -> verify with the workflow
-  CLI's `invariants` -> advance, retry with failure context, park, or
-  escalate - bounded by run budgets. Each executor launch receives a stable
-  archive stem (`NNN-gate` / `NNN-delivery-fix` / `NNN-revise`), and any
-  returned archive directories are journaled as `executor-artifacts`.
+- **The AEGIS stage loop** (`_conduct_stages`, design 7a): start the AEGIS
+  run once (`run start <kind> [--quick]`, persisting its id), then per
+  iteration - budget check -> `aegis run status` -> stage allowlist and
+  regression guard -> launch the executor for that one stage -> inspect
+  (questions / exit code) -> verify (`aegis stage show` readiness, plus
+  `aegis verify run` at validation and delivery, plus the committed-work
+  check at validation) -> `aegis stage close` -> iterate. Failures retry the
+  same stage with failure context, questions park, blocks and contract
+  breaks escalate - all bounded by run budgets. When AEGIS reports
+  `complete: true`, publication takes over. Each executor launch receives a
+  stable archive stem (`NNN-stage` / `NNN-delivery-fix` / `NNN-revise`), and
+  any returned archive directories are journaled as `executor-artifacts`.
 - **Clarification** (design 9): the exact park order (questions comment
   FIRST, then status, rounds cap, parked_at, container stop) and the exact
   resume order (marker/system-aware answer detection or the answered-label
   override, container back, relaunch at the parked stage with the full
-  thread; the executor re-decides and may re-park). A run parked during
-  delivery resumes into the delivery sequence, never back into the gates;
-  `_conduct` fails closed on any stage outside the gate list (live findings
-  2026-07-04).
+  thread; the executor re-decides and may re-park). Questions reach ADORE
+  through two channels and either fires: the AEGIS stage form's
+  `control.unresolved_questions` (read from `graph.json`, the primary channel
+  in 2.x) and the executor's questions file (the secondary one). A run parked
+  during publication resumes into publication, never back into the stage
+  loop; `_conduct` fails closed when called on a publishing run (live
+  findings 2026-07-04).
 - **Parked lifecycle** (design 8b/9): container TTL reap (polls or seconds;
   never ends the run), one soft reminder, hard answer timeout that releases
   the ticket back to humans keeping state for audit.
@@ -68,18 +84,24 @@ the executor.
   failures never break a run - local state is authoritative.
 - **Operator commands** (design 8c), used by the CLI: `cancel` (teardown,
   keep state), `retry` (re-arm from the stored stage), `reset` (state
-  surgery - force the stage pointer to any gate or `delivery`, leave the run
-  failed/retry-able; `adore retry` then conducts from exactly that stage),
+  surgery - force ADORE's own stage pointer to any AEGIS stage or
+  `publication`, leave the run failed/retry-able; `adore retry` then
+  re-enters the loop, where AEGIS still owns the governed run's stage.
+  `reset` never touches AEGIS state),
   and `cleanup` (garbage collection - clear a stale instance lock, remove
   containers and worktree directories whose runs are terminal or unknown,
   including husk directories left by the WSL bind-mount teardown race).
   Cleanup never touches active runs (working/parked/in-review/validated)
   and only reports corrupt run state - deleting that is `delete`'s job.
 
-- **Delivery** (design 11a, exact order): fetch + merge the target branch
-  (conflicts -> executor resolves, budget-bounded), re-run `gates run`, the
-  authoritative `delivery-preflight` (fix loops on both), compose the MR
-  report, commit any conductor-generated workflow artifacts, push the run
+- **Publication** (design 11a, exact order; ADORE's own phase after the
+  AEGIS run completes, tracked as the `publication` stage): fetch + merge the
+  target branch (conflicts -> executor resolves, budget-bounded), one
+  authoritative post-merge `aegis verify run` (which in 2.x already includes
+  the gate run plus the invariant, traceability, coverage and working-tree
+  audits, so it replaces both 1.x steps; fix loop bounded by budgets),
+  compose the MR body from `aegis delivery report`, commit any
+  AEGIS-generated run records, push the run
   branch (the only remote-writing git call; the executor cannot push), open
   the DRAFT MR (reviewers assigned, "Related to #N", never a merge flag),
   post the kind=delivery comment, and retain the environment (container
@@ -103,10 +125,12 @@ the executor.
   is the trigger - a plain comment never auto-reacts. Exact order: rounds
   cap (`max_review_rounds` -> failed), clear the trigger label FIRST,
   restart the retained environment, launch the executor with the MR review
-  thread, then re-run the delivery tail (merge, gates, preflight, push to
-  the SAME branch - the MR updates in place and stays draft) and post the
+  thread, then re-run the publication tail (merge, `aegis verify run`, push
+  to the SAME branch - the MR updates in place and stays draft) and post the
   kind=delivery update comment. Revise questions park into the normal
-  clarification flow. Trigger modes `comment-marker`/`auto` are treated as
+  clarification flow. A revision does not reopen AEGIS stages: the governed
+  run is already complete, so the revision's evidence lives in git history
+  and the MR discussion. Trigger modes `comment-marker`/`auto` are treated as
   `label` until implemented.
 
 Explicitly not owned: merging (structurally absent from the forge
@@ -114,12 +138,23 @@ interface) and metrics.
 
 ## 3. Implementation Overview
 
-- `GATES = intake -> alignment -> requirement -> check -> implementation ->
-  validation` - matching the workflow CLI's canonical STAGES (alignment is
-  the pre-requirement intent check added by the Intent_Alignment_Stage_Plan;
-  delivery is phase 4). Per-gate goals are fixed prompt blocks
-  (`_GATE_GOALS`) plus the standing rules (worktree-only, never push/MR,
-  questions-file convention, stop at gate end).
+- Stage allowlists, not a hard-coded truth: `STANDARD_STAGES = intake ->
+  alignment -> requirement -> design -> check -> implementation ->
+  validation -> delivery` and `QUICK_STAGES = intake -> implementation ->
+  validation -> delivery`. AEGIS owns the stage pointer; ADORE reads it from
+  `run status` and checks it against the tuple for the run's profile
+  (`run_profile: "quick"`, absent for full runs). A stage outside the tuple,
+  or one at or before the last stage ADORE already closed (what an approved
+  `route_to` produces), escalates. `PUBLICATION_STAGE = "publication"` is
+  ADORE's own post-AEGIS phase and can never be reported by AEGIS.
+- Per-stage goals are fixed prompt blocks (`_STAGE_GOALS`, eight stages plus
+  `revise`) plus the standing rules: worktree-only, forms not flags, never
+  `aegis stage close`, never `aegis waive add`, never push/MR, commit
+  everything, questions convention, stop at stage end. The prompt also
+  relays AEGIS's own `next` command and the current form's `artifact` path.
+- Run kind and profile come from ticket labels through `[workflow]`
+  (`kind_labels`, `default_kind`, `quick_label`); `--quick` is only produced
+  for the kinds AEGIS permits (`fix`, `change`).
 - Every collaborator is injected (`forge`, `store`, `worktrees`,
   `containers`, `executor`, `sleep`, `log`); `from_config` wires production
   implementations and pulls the executor secret subset
@@ -146,25 +181,33 @@ interface) and metrics.
   created/started/running, and a "created" container resets the stored
   session id (journal: `session-reset`) - a fresh container can never be
   asked to continue a dead session (live finding 2026-07-04).
-- Gate failures and invariant failures relaunch the same gate with the
-  failure tail plus read-only `.agentic` failure evidence as added prompt
-  context; the iterations budget ends the loop. Evidence enrichment reads
-  only the active workflow run's existing `graph.json`, `journal.jsonl`, and
-  `report.md`; it never invokes extra workflow commands or changes pass/fail
-  decisions.
-- Delivery `gates-run` and `delivery-preflight` fix prompts use the same
-  evidence enrichment, while merge-conflict prompts remain based on git merge
-  output. Configured executor secret values are redacted from all appended
-  failure context.
+- Stage failures, not-ready stages, and failed verifications relaunch the
+  same stage with the reason plus read-only AEGIS failure evidence as added
+  prompt context; the iterations budget ends the loop. Evidence enrichment
+  reads only the run's existing `graph.json`, `journal.jsonl`, and
+  `report.md` under `.agentic/runs/<aegis-run-id>/` - addressed by the run id
+  ADORE persisted, never by the worktree's `current_run` pointer (design
+  decision 4) - and it never invokes extra AEGIS commands or changes
+  pass/fail decisions.
+- The post-merge `aegis verify run` fix prompts use the same evidence
+  enrichment, while merge-conflict prompts remain based on git merge output.
+  Configured executor secret values are redacted from all appended failure
+  context, from escalation reasons, and from the MR body.
+- Every AEGIS-facing failure fails loud. `AegisProtocolError` /
+  `AegisTimeoutError` escalate tagged as a contract failure; a `blocked` or
+  `failed` envelope from `run start`, `run status`, or `stage close`
+  escalates with the exact AEGIS `error` and remediation on the ticket. ADORE
+  never waives, never routes, and never repairs AEGIS state.
 - A freshly launched executor session that lacks the prior chat context - a
-  gate retry, a delivery fix, a revise round, or a run resumed mid-workflow
-  after a restart - is oriented by the workflow's read-only `resume` brief
-  (`_workflow_orientation`): current and computed next stage, intent,
-  alignment, specs, checks, recent evidence, and cited requirements, prepended
-  to the gate prompt. It is best-effort and payload-agnostic - a target-repo
-  workflow CLI that predates the `resume` verb exits non-zero and simply yields
-  no brief - and a fresh run starting at intake gets none on its first launch.
-  Secret values are redacted like the failure context.
+  stage retry, a publication fix, a revise round, or a run resumed
+  mid-workflow after a restart - is oriented by `_workflow_orientation`.
+  AEGIS 2.x answers `run resume` with authoritative run state rather than
+  prose (contract notes 11.1), so ADORE composes the brief itself: run id,
+  stage, the exact next command, profile and bypassed stages, stage readiness
+  and its blockers, and the most recent evidence. A run that has not started
+  yet gets no brief; once a run exists, a `run resume` that does not honor
+  the contract escalates rather than degrading to an empty brief. Secret
+  values are redacted like the failure context.
 - After every executor `GateRun`, `_journal_artifacts` appends immutable
   archive paths to the run journal when the launcher returned any. This makes
   `adore logs <run-id>` the index into raw gate evidence without changing the
@@ -176,8 +219,8 @@ interface) and metrics.
 ## 4. Dependencies
 
 - Internal: config, identity, state store, forge adapters, isolation,
-  executor launcher, gates wrappers, util (durations, timestamps, quiet
-  hours, dotenv).
+  executor launcher, the AEGIS client (`adore/aegis.py`), util (durations,
+  timestamps, quiet hours, dotenv).
 - External: only what the collaborators need (git, container runtime,
   glab/gh/tea, and the selected executor base/runtime-project image).
 
@@ -219,28 +262,42 @@ adore logs <run-id>
 
 ## 9. Validation And Tests
 
-- `tests/test_orchestrator.py` (all collaborators faked, real store/config):
-  full happy path to `validated` (session continuity, journal, single edited
-  status comment), selection ordering + control labels + readiness
-  negatives, idempotent re-poll skip, park order (question before status),
-  resume filtering (system/marker ignored, human resumes with thread),
-  answered-label override, round-cap escalation, gate retry with context +
-  `.agentic` evidence, the read-only `resume` orientation brief prepended on
-  relaunch (and best-effort skip when the verb is absent), secret redaction,
-  invariants-failure relaunch,
-  malformed/missing workflow evidence handling, TTL reap vs run survival,
-  answer timeout release, pause/capacity, deleted/closed reconciliation,
-  cancel/retry round trip, labels-channel transitions, and delivery artifact
-  commit-before-push ordering, archive-stem passing, and executor-artifact
+- `tests/test_orchestrator.py` (73 tests; all collaborators faked, real
+  store/config). A scripted `FakeAegis` answers the grouped CLI with
+  conforming envelopes and advances its own stage pointer on `stage close`,
+  so the loop is exercised as it would be against a live payload.
+  Coverage: the full eight-stage happy path to a draft MR (ADORE issuing
+  every close, session continuity, journal, single edited status comment);
+  the quick four-stage path; the quick label ignored for kinds AEGIS
+  rejects; the AEGIS run started once and resumed afterwards; a stage AEGIS
+  will not call ready relaunched with its blockers; a failed
+  `aegis verify run` relaunching validation; a blocked `stage close`
+  escalating with the AEGIS remediation; an unknown stage and a stage
+  regression escalating before any launch; the composed run-orientation
+  brief on relaunch and a non-conforming `run resume` escalating; evidence
+  addressed by the persisted run id while a decoy `current_run` pointer is
+  ignored; malformed/missing evidence handling; secret redaction; selection
+  ordering, control labels and readiness negatives; idempotent re-poll skip;
+  park order (question before status); resume filtering; answered-label
+  override; round-cap escalation; TTL reap vs run survival; answer timeout
+  release; pause/capacity; deleted/closed reconciliation; cancel/retry round
+  trip; `reset` touching no AEGIS state; labels-channel transitions;
+  publication ordering including artifact commit-before-push; a report path
+  outside the worktree ignored; archive-stem passing and executor-artifact
   journal entries.
-- Minimum validation after a change: `uv run --group dev pytest tests/test_orchestrator.py`.
-- Live pilot pending: first supervised run against a real `agent-ready`
-  ticket (crawl phase) - will also confirm the `.agentic` CLI verbs used by
-  the gates wrappers.
+- Minimum validation after a change: `python -m pytest -q` from
+  `04_Software`.
+- Live pilot pending (plan WP8): one supervised ticket end to end against a
+  repository carrying the AEGIS 2.1 payload.
 
 ## 10. Limitations And Future Work
 
-- Delivery, review loop, and metrics are phase 4; a validated run waits.
+- Nothing stops a misbehaving executor from running `aegis stage close` or
+  `aegis waive add` itself; the prompts forbid both and AEGIS journals every
+  close, so MR review catches abuse (plan risk 7.1).
+- A stage regression (`route_to`) and a `repo-wide` access escalation both
+  escalate to a human rather than being conducted.
+- Adoption runs are not conducted.
 - Readiness checks `known_component` / `max_scope_hint` are config intent,
   not yet enforced.
 - Reconciliation of hold/trigger-removed mid-run and content-hash drift

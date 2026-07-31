@@ -12,6 +12,49 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+### Changed
+
+- **ADORE 2.0 hard break to AEGIS 2.x - WP3: the conduction loop is
+  `next`-driven.** `_conduct` no longer walks a hard-coded gate list. It
+  starts the AEGIS run once (`run start <kind> [--quick]`, kind and profile
+  resolved from ticket labels through the new `[workflow]` section), then
+  loops: `aegis run status` for the authoritative stage, an allowlist check
+  against the profile's declared sequence (`STANDARD_STAGES` eight,
+  `QUICK_STAGES` four), one executor launch for that stage, then ADORE's own
+  verification - `aegis stage show` readiness with no blockers, plus
+  `aegis verify run` at validation and delivery, plus the committed-work
+  check - and only then `aegis stage close`. ADORE is the delegated approver;
+  the executor never closes a stage. When AEGIS reports `complete: true`,
+  ADORE's publication phase (new stage name `publication`) integrates the
+  target branch, runs one authoritative post-merge `aegis verify run` in
+  place of the retired `gates run` + `delivery-preflight` pair, composes the
+  MR body from `aegis delivery report` plus the rendered `report.md`, pushes,
+  and opens the draft MR. Unresolved questions are now read from the stage
+  form through `graph.json`, with the executor's questions file kept as a
+  secondary channel. Everything AEGIS-facing fails loud: an unknown stage, a
+  stage regression (what an approved `route_to` produces), a blocked
+  `run start`/`run status`/`stage close`, and any contract or timeout error
+  escalate with the exact AEGIS error and remediation - ADORE never waives,
+  routes, or repairs AEGIS state. Journal event names follow the stage
+  vocabulary (`stage-launch`, `stage-closed`, `stage-failed`,
+  `stage-not-ready`, `verify-failed`, `aegis-run-started`,
+  `aegis-run-complete`, `aegis-blocked`, `aegis-contract-failure`); metrics
+  read the new names into the existing summary columns.
+- `adore reset --to` now accepts the eight AEGIS stages or `publication`. It
+  moves ADORE's own pointer only - AEGIS still owns the governed run's stage,
+  which conduction re-reads from `run status` - and it never touches AEGIS
+  state.
+
+### Removed
+
+- **`adore/gates.py` and its AEGIS 1.x verbs** (`invariants`, `status`,
+  `resume`, `gates run`, `delivery-preflight`, `report`), together with
+  `tests/test_gates.py` and `05_SoftwareDocu/Component_Gates.md`. They are
+  replaced by `adore/aegis.py`; there is no compatibility path.
+- The `.agentic/.workspace/state/current_run` pointer read. Run-local AEGIS
+  files are addressed by the run id ADORE persisted, so the seam that broke
+  once in 1.x is gone.
+
 ### Added
 
 - **ADORE 2.0 hard break to AEGIS 2.x - WP1: the AEGIS client

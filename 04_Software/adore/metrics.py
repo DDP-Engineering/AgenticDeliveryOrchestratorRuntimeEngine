@@ -126,18 +126,18 @@ def summarize_run(store: StateStore, run_id: str,
                   files_changed: int = 0) -> RunSummary:
     """
     @brief      Compute a run's summary from its journal, state, and ticket.
-    @details    The journal is the source of truth: gate outcomes, usage
-                events (tokens/cost per launch), park/resume gaps, and the
-                time to the MR all come from its timestamps. Never raises for
-                partial data - metrics are best-effort by design.
+    @details    The journal is the source of truth: AEGIS stage outcomes,
+                usage events (tokens/cost per launch), park/resume gaps, and
+                the time to the MR all come from its timestamps. Never raises
+                for partial data - metrics are best-effort by design.
     @param[in]  store The state store holding the run.
     @param[in]  run_id Stable run identifier.
     @param[in]  files_changed Files-touched count when the caller still has a
                               worktree to measure (0 otherwise).
     @return     The RunSummary.
     @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-04
-    @version    0.1.0
+    @date       2026-08-01
+    @version    0.1.1
     """
     state = store.load(run_id)
     events = store.read_journal(run_id)
@@ -171,13 +171,16 @@ def summarize_run(store: StateStore, run_id: str,
     for event in events:
         name = event.get("event", "")
         ts = event.get("ts", "")
-        if name in ("gate-launch", "delivery-fix", "revise-start"):
+        # Journal event names follow the AEGIS 2.x stage vocabulary; the
+        # summary column names are kept so existing metrics databases,
+        # exports, and dashboards stay readable across the 2.0 break.
+        if name in ("stage-launch", "delivery-fix", "revise-start"):
             summary.executor_launches += 1
-        elif name == "gate-passed":
+        elif name == "stage-closed":
             summary.gates_passed += 1
-        elif name == "gate-failed":
+        elif name == "stage-failed":
             summary.gate_failures += 1
-        elif name == "invariants-failed":
+        elif name in ("stage-not-ready", "verify-failed"):
             summary.invariant_failures += 1
         elif name == "usage":
             summary.tokens_in += int(event.get("tokens_in", 0) or 0)

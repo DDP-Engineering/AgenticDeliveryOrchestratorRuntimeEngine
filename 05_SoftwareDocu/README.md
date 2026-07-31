@@ -52,12 +52,10 @@ guides belong in `01_Documentation/`.
 - `Component_Orchestrator.md` - the thick-conductor state machine: polling,
   selection, the per-gate loop, clarification park/resume, budgets,
   signaling, cancel/retry (`adore/orchestrator.py`).
-- `Component_Gates.md` - the AEGIS 1.x workflow CLI wrappers
-  (`adore/gates.py`). Superseded by `Component_Aegis_Client.md`; retired once
-  the conduction loop stops importing it (ADORE 2.0 WP3).
 - `Component_Aegis_Client.md` - the AEGIS 2.x client: grouped CLI invocation,
   `--run` pinning, envelope parsing, and the typed fail-loud errors
-  (`adore/aegis.py`).
+  (`adore/aegis.py`). Replaces the retired `Component_Gates.md`
+  (`adore/gates.py`, AEGIS 1.x verbs).
 
 ## Component documentation (phase 4 - delivery and observability)
 

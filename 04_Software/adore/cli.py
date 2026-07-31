@@ -101,7 +101,8 @@ def _build_parser() -> argparse.ArgumentParser:
 
     reset = sub.add_parser("reset", help="Force a run back to a stage")
     reset.add_argument("run_id")
-    reset.add_argument("--to", required=True, help="Target gate")
+    reset.add_argument("--to", required=True,
+                       help="Target stage (an AEGIS stage or 'publication')")
     reset.add_argument("--force", action="store_true",
                        help="Required: resetting re-runs work (cost, churn)")
 
@@ -866,15 +867,17 @@ def _cmd_reset(args: argparse.Namespace) -> int:
     """
     @brief      Handle `adore reset <run-id> --to <stage> --force`.
     @details    Destructive (re-runs completed work), so it requires --force
-                per the design 8c guardrail. The run is left retry-able.
+                per the design 8c guardrail. The run is left retry-able. It
+                moves ADORE's own pointer only: AEGIS still owns the governed
+                run's stage, and conduction re-reads it from `run status`.
     @param[in]  args Parsed arguments.
     @return     Process exit code.
     @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-04
-    @version    0.1.1
+    @date       2026-08-01
+    @version    0.2.0
     """
     if not args.force:
-        print("reset discards progress and re-runs completed gates "
+        print("reset discards progress and re-runs completed work "
               "(executor cost, ticket churn); re-run with --force")
         return EXIT_ERROR
     built = _engine(args)

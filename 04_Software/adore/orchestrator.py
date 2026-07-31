@@ -11,16 +11,23 @@
 @file orchestrator.py
 @brief The ADORE thick-conductor engine (library core; design doc 5a/7a/8/9).
 @details Deterministic state machine: poll for ready tickets, isolate work
-         (worktree + container), drive the executor gate-by-gate with
-         verification in between, park on clarification questions and resume
-         on human answers, enforce run budgets, and escalate instead of
-         thrashing. Never merges; delivery (draft MR) is phase 4. No LLM runs
-         here - every decision is an `if` on exit codes, file presence,
-         labels, and timestamps. All collaborators are injected so the whole
-         machine is unit-testable offline.
+         (worktree + container), drive the executor stage-by-stage through the
+         AEGIS 2.x workflow with objective verification in between, park on
+         clarification questions and resume on human answers, enforce run
+         budgets, and escalate instead of thrashing. Never merges; publication
+         (draft MR) belongs to ADORE alone. No LLM runs here - every decision
+         is an `if` on exit codes, envelope fields, file presence, labels, and
+         timestamps. All collaborators are injected so the whole machine is
+         unit-testable offline.
+@details Conduction is `next`-driven: AEGIS owns the stage pointer and ADORE
+         asks `run status` for it on every iteration, guarded by a static
+         allowlist per run profile. ADORE is the delegated approver - the
+         executor fills forms and applies them, ADORE verifies objectively and
+         issues `stage close` itself - while the real human approval stays at
+         the draft MR review.
 @author Eng. Dan Dumitru Pasare
-@date 2026-07-06
-@version 0.6.1
+@date 2026-08-01
+@version 0.7.0
 """
 
 from __future__ import annotations
@@ -37,7 +44,14 @@ import re
 import shutil
 import time
 
-from adore import gates, metrics
+from adore import metrics
+from adore.aegis import (
+    QUICK_KINDS,
+    AegisClient,
+    AegisError,
+    AegisProtocolError,
+    AegisResponse,
+)
 from adore.branding import (
     CONTAINER_CODEX_HOME,
     CONTAINER_IO_MOUNT,
@@ -66,10 +80,24 @@ from adore.util import (
 
 # CONSTANTS
 
-GATES = ("intake", "alignment", "requirement", "check", "implementation",
-         "validation")
+# The AEGIS 2.x executable stage sequences (contract notes section 4). These
+# are an ALLOWLIST, not the conductor's idea of truth: AEGIS owns the stage
+# pointer and ADORE reads it from `run status`. Any stage outside the tuple
+# for the run's profile - or a backwards move, which only an approved
+# `route_to` can produce - is a contract break and escalates.
+STANDARD_STAGES = ("intake", "alignment", "requirement", "design", "check",
+                   "implementation", "validation", "delivery")
+QUICK_STAGES = ("intake", "implementation", "validation", "delivery")
 
-_AGENTIC_CURRENT_RUN = ".agentic/.workspace/state/current_run"
+# ADORE's own post-AEGIS phase. AEGIS `delivery` closes the governed run;
+# publication (integrate, verify, push, draft MR) is ADORE's alone and never
+# re-enters the stage loop, so it needs a stage name AEGIS cannot produce.
+PUBLICATION_STAGE = "publication"
+
+# Stages `adore reset <run-id> --to <stage>` accepts.
+RESETTABLE_STAGES = (*STANDARD_STAGES, PUBLICATION_STAGE)
+
+_AEGIS_RUN_DIR = ".agentic/runs"
 _AGENTIC_FAILURE_CONTEXT_LIMIT = 5000
 _AGENTIC_FAILURE_ITEMS_LIMIT = 5
 _AGENTIC_ORIENTATION_LIMIT = 3000
@@ -105,44 +133,61 @@ _EXECUTOR_CONTAINER_ENV = {
     "codex": {"CODEX_HOME": CONTAINER_CODEX_HOME},
 }
 
-_GATE_GOALS = {
+_STAGE_GOALS = {
     "intake": (
-        "Run the INTAKE gate: classify the request, start the agentic workflow "
-        "run for this ticket (agentic-development skill / .agentic CLI), analyze "
-        "impact, and confirm you understand the scope."
+        "Work the AEGIS INTAKE stage: run `aegis stage prepare`, fill the "
+        "generated intake form with the statement, scope hints, and access "
+        "mode, then `aegis stage apply`."
     ),
     "alignment": (
-        "Run the ALIGNMENT gate: record the intent alignment (.agentic CLI "
-        "alignment command) BEFORE any spec or code work - state what you "
-        "understood, what is in and out of scope, your assumptions, the "
-        "acceptance target, the implementation areas you expect to touch, and "
-        "the proceed/pause decision. If the honest decision is pause, write "
-        "your blocking questions to the questions file and stop."
+        "Work the AEGIS ALIGNMENT stage: fill the alignment form BEFORE any "
+        "spec or code work - what you understood, what is in and out of "
+        "scope, your assumptions, the acceptance target, the implementation "
+        "areas you expect to touch, and the proceed/pause decision - then "
+        "`aegis stage apply`. If the honest decision is pause, record your "
+        "blocking questions in the form's control table and stop."
     ),
     "requirement": (
-        "Run the REQUIREMENT gate: create durable requirement rows for this "
-        "ticket (add-spec; requirements enter as Planned) and run invariants."
+        "Work the AEGIS REQUIREMENT stage: create one form per durable "
+        "requirement with `aegis stage add`, fill them, and `aegis stage "
+        "apply`. AEGIS mints the requirement IDs; requirements enter as "
+        "Planned."
+    ),
+    "design": (
+        "Work the AEGIS DESIGN stage: write the authoritative design at "
+        "`.agentic/runs/<run-id>/design.md`, cite the requirements it "
+        "satisfies in the stage form, and `aegis stage apply`."
     ),
     "check": (
-        "Run the CHECK gate: add checks citing the spec ids, write the failing "
-        "tests, and record red evidence (record-evidence --result fail). "
-        "Red-before-green is mandatory."
+        "Work the AEGIS CHECK stage: add one form per check with `aegis stage "
+        "add` citing the requirement IDs, apply the stage, then produce RED "
+        "evidence for every check - `aegis check run` in managed mode, or "
+        "`aegis check prepare` / complete `evidence.toml` / `aegis check "
+        "record` in external mode. Red-before-green is mandatory."
     ),
     "implementation": (
-        "Run the IMPLEMENTATION gate: edit only source roots to make the checks "
-        "pass, record green evidence, record-change, activate requirements whose "
-        "linked checks are green, and update component documentation."
+        "Work the AEGIS IMPLEMENTATION stage: edit only source roots to make "
+        "the checks pass, produce GREEN evidence for every check the same way "
+        "you produced the red evidence, fill the implementation form with the "
+        "changed paths, and `aegis stage apply`."
     ),
     "validation": (
-        "Run the VALIDATION gate: run invariants, audit traceability, audit "
-        "coverage, impact, and gates run; inspect the diff for scope creep, "
-        "weakened assertions, and secrets."
+        "Work the AEGIS VALIDATION stage: run `aegis verify run` and fix "
+        "everything it reports, inspect the diff for scope creep, weakened "
+        "assertions, and secrets, fill the validation form, and `aegis stage "
+        "apply`."
+    ),
+    "delivery": (
+        "Work the AEGIS DELIVERY stage: fill the delivery form summarizing "
+        "what shipped and the residual risk, and `aegis stage apply`. Do NOT "
+        "push, open a merge/pull request, or merge - the orchestrator "
+        "publishes."
     ),
     "revise": (
         "A human reviewer requested changes on the draft merge request (the "
         "review thread is above). Make exactly the requested changes - no "
-        "more - update tests and workflow evidence accordingly, re-run the "
-        "gates, and commit everything."
+        "more - update tests and evidence accordingly, re-run `aegis verify "
+        "run`, and commit everything."
     ),
 }
 
@@ -399,8 +444,9 @@ class Orchestrator:
         run.created_at = ""  # restart the wall clock; save() re-stamps
         self.store.save(run)
         self.store.journal(run_id, "retry", stage=run.stage)
-        if run.stage == "delivery":
-            self._deliver(run, ticket)  # never restart the gates from intake
+        if run.stage == PUBLICATION_STAGE:
+            # never re-enter the AEGIS stage loop: the governed run is closed
+            self._deliver(run, ticket)
         else:
             self._conduct(run, ticket)
         return True
@@ -408,18 +454,23 @@ class Orchestrator:
     def reset(self, run_id: str, stage: str) -> bool:
         """
         @brief      State surgery (design 8c): force a run back to a stage.
-        @details    Sets the stage pointer and leaves the run retry-able
+        @details    Sets ADORE's stage pointer and leaves the run retry-able
                     (`adore retry` then re-arms budgets and conducts from
                     there). Destructive by nature - the CLI requires --force.
+                    It never touches AEGIS state: the governed run's own stage
+                    is AEGIS's to own, and `_conduct` re-reads it from
+                    `run status` anyway. Only `publication` changes where
+                    `retry` re-enters, by skipping the stage loop.
         @param[in]  run_id Stable run identifier.
-        @param[in]  stage Target stage (a gate name or "delivery").
+        @param[in]  stage Target stage (an AEGIS stage or "publication").
         @return     True when the run existed and the stage is valid.
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-04
-        @version    0.1.1
+        @date       2026-08-01
+        @version    0.2.0
         """
-        if stage not in (*GATES, "delivery"):
-            self.log(f"invalid stage {stage!r}; valid: {', '.join(GATES)}, delivery")
+        if stage not in RESETTABLE_STAGES:
+            self.log(f"invalid stage {stage!r}; valid: "
+                     f"{', '.join(RESETTABLE_STAGES)}")
             return False
         try:
             run = self.store.load(run_id)
@@ -603,105 +654,363 @@ class Orchestrator:
 
     def _conduct(self, run: RunState, ticket: Ticket, thread: str = "") -> None:
         """
-        @brief      The per-gate conductor loop (design 7a).
-        @details    For each remaining gate: mark status, launch the executor
-                    for only this gate, inspect (questions? exit code?),
-                    verify invariants, then advance / retry with failure
-                    context / park / escalate - all bounded by run budgets.
-        @param[in]  run The run (stage = where to start/resume).
+        @brief      Provision the run and drive the AEGIS stage loop.
+        @details    Wraps `_conduct_stages` so every typed AEGIS failure -
+                    unparseable envelope, unsupported exit code, unknown or
+                    regressing stage, timeout - ends in one deterministic
+                    escalation instead of leaking out of the poll pass.
+        @param[in]  run The run.
         @param[in]  ticket Current ticket (for prompts).
         @param[in]  thread Rendered clarification thread ("" outside resume).
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-24
-        @version    0.2.2
+        @date       2026-08-01
+        @version    0.3.0
         """
+        if run.stage == PUBLICATION_STAGE:
+            # fail closed: silently restarting the stage loop regressed a
+            # publishing run once (live finding 2026-07-04)
+            self._escalate(run, f"internal: conduct called with stage {run.stage!r}")
+            return
         try:
             self._provision(run)
         except IsolationError as exc:
             self._escalate(run, f"isolation failed: {exc}")
             return
         execute = partial(self.containers.exec, run.container, env=self._container_env(run))
-        failure_context = ""
-        if run.stage not in GATES:
-            # fail closed: silently restarting from intake regressed a
-            # delivery-stage run once (live finding 2026-07-04)
-            self._escalate(run, f"internal: conduct called with stage {run.stage!r}")
+        client = AegisClient(execute, run_id=run.aegis_run_id or "")
+        try:
+            self._conduct_stages(run, ticket, client, thread)
+        except AegisError as exc:
+            self._escalate_aegis(run, exc)
+
+    def _conduct_stages(
+        self,
+        run: RunState,
+        ticket: Ticket,
+        client: AegisClient,
+        thread: str = "",
+    ) -> None:
+        """
+        @brief      The `next`-driven AEGIS stage loop (plan WP3).
+        @details    AEGIS owns the stage pointer; ADORE reads it from
+                    `run status` every iteration and checks it against the
+                    static allowlist for the run's profile. Per stage: launch
+                    the executor to fill and apply the stage forms, then
+                    verify objectively (`stage show` readiness, plus
+                    `verify run` for validation and delivery) and issue
+                    `stage close` as the delegated approver. Questions park,
+                    failures retry the same stage within budgets, blocks
+                    escalate. When AEGIS reports the run complete, ADORE's own
+                    publication phase takes over.
+        @param[in]  run The run.
+        @param[in]  ticket Current ticket (for prompts and label mapping).
+        @param[in]  thread Rendered clarification thread ("" outside resume).
+        @exception  AegisError Propagated to `_conduct` for escalation.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-08-01
+        @version    0.1.0
+        """
+        if not self._ensure_aegis_run(run, ticket, client):
             return
-        gate_index = GATES.index(run.stage)
+        failure_context = ""
         # A run picked up mid-workflow (after a restart) launches a fresh
         # executor session with no prior context; orient its first launch.
         # Retries orient too - they already carry a failure_context.
-        need_orientation = gate_index > 0
-        while gate_index < len(GATES):
-            gate = GATES[gate_index]
-            run.stage = gate
+        need_orientation = run.stage != STANDARD_STAGES[0]
+        closed_index = -1
+        while True:
             budget_reason = self._budget_exceeded(run)
             if budget_reason:
                 self._escalate(run, budget_reason)
                 return
-            self._mark(run, "working", gate)
+            status = client.run_status()
+            if not status.ok:
+                self._handle_block(run, status, "run status")
+                return
+            if status.complete:
+                self.store.journal(run.run_id, "aegis-run-complete",
+                                   aegis_run=client.run_id)
+                break
+            stage = self._checked_stage(status, closed_index)
+            run.stage = stage
+            self._mark(run, "working", stage)
             run.iterations += 1
             self.store.save(run)
-            self.store.journal(run.run_id, "gate-launch", gate=gate,
-                               iteration=run.iterations)
+            self.store.journal(run.run_id, "stage-launch", stage=stage,
+                               iteration=run.iterations,
+                               next=status.next_command)
             orientation = (
-                self._workflow_orientation(execute)
+                self._workflow_orientation(client)
                 if (failure_context or need_orientation) else ""
             )
             need_orientation = False
-            prompt = self._gate_prompt(gate, ticket, failure_context, thread,
-                                       orientation)
             result = self.executor.run_gate(
-                execute,
-                self.worktrees.path_for(run.run_id),
-                self._io_dir(run.run_id),
-                prompt,
+                execute=client.execute,
+                worktree=self.worktrees.path_for(run.run_id),
+                io_dir=self._io_dir(run.run_id),
+                prompt=self._gate_prompt(stage, ticket, failure_context, thread,
+                                         orientation, status),
                 session=run.executor_session,
                 timeout=self.config.budgets.per_gate_timeout_seconds,
-                archive_stem=f"{run.iterations:03d}-{gate}",
+                archive_stem=f"{run.iterations:03d}-{stage}",
             )
             run.executor_session = result.session_id or run.executor_session
             self.store.save(run)
-            self._journal_artifacts(run, gate, result)
-            self._journal_usage(run, gate, result)
+            self._journal_artifacts(run, stage, result)
+            self._journal_usage(run, stage, result)
             if result.has_questions:
                 self._park(run, result.questions)
                 return
             if not result.ok:
                 failure_context = self._failure_context(
                     run,
-                    f"The previous attempt of this gate failed "
+                    f"The previous attempt of the {stage} stage failed "
                     f"(exit {result.exit_code}). stderr tail:\n"
                     + self._tail_lines(result.stderr, 1500),
                 )
-                self.store.journal(run.run_id, "gate-failed", gate=gate,
+                self.store.journal(run.run_id, "stage-failed", stage=stage,
                                    exit_code=result.exit_code)
-                continue  # retry same gate, bounded by budgets
-            verify = gates.invariants(execute)
-            if not verify.ok:
-                failure_context = self._failure_context(
-                    run,
-                    "The gate finished but the workflow invariants check "
-                    f"failed (exit {verify.exit_code}):\n"
-                    + self._tail_lines(verify.output, 1500),
-                )
-                self.store.journal(run.run_id, "invariants-failed", gate=gate,
-                                   exit_code=verify.exit_code)
-                continue  # relaunch same gate with the invariant failure
-            if gate == "validation":
-                committed = self._work_committed(run)
-                if committed:
-                    failure_context = committed
-                    self.store.journal(run.run_id, "work-uncommitted")
-                    continue  # relaunch validation until the work is committed
+                continue  # retry the same stage, bounded by budgets
+            questions = self._stage_questions(run, stage)
+            if questions:
+                self.store.journal(run.run_id, "stage-questions", stage=stage)
+                self._park(run, questions)
+                return
+            verdict = self._verify_stage(run, client, stage)
+            if verdict:
+                failure_context = self._failure_context(run, verdict)
+                continue  # relaunch the same stage with what is still missing
+            closed = client.stage_close()
+            if not closed.ok:
+                self._handle_block(run, closed, f"stage close ({stage})")
+                return
             failure_context = ""
-            self.store.journal(run.run_id, "gate-passed", gate=gate)
-            gate_index += 1
-            if gate_index < len(GATES):
-                run.stage = GATES[gate_index]
-                self.store.save(run)
-        self.store.journal(run.run_id, "validation-complete")
-        self._deliver(run, ticket)
+            closed_index = self._expected_stages(status).index(stage)
+            self.store.journal(run.run_id, "stage-closed", stage=stage,
+                               complete=closed.complete)
+        self._deliver(run, ticket, thread)
+
+    def _ensure_aegis_run(
+        self,
+        run: RunState,
+        ticket: Ticket,
+        client: AegisClient,
+    ) -> bool:
+        """
+        @brief      Start the AEGIS run once, persisting its id immediately.
+        @details    A run that already carries `aegis_run_id` is resumed, never
+                    restarted. The kind and profile come from the ticket labels
+                    via `[workflow]`; the minted id is saved before anything
+                    else happens so a crash right after `run start` cannot
+                    orphan a governed run.
+        @param[in]  run The run.
+        @param[in]  ticket Current ticket (label source).
+        @param[in,out] client Client that captures the run id.
+        @return     True when a run id is available; False when the start was
+                    blocked and the run has already been parked/escalated.
+        @exception  AegisError When the CLI contract is violated.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-08-01
+        @version    0.1.0
+        """
+        if client.run_id:
+            return True
+        kind, quick = self._run_kind(ticket)
+        response = client.run_start(kind, quick)
+        if not response.ok:
+            self._handle_block(run, response, f"run start {kind}")
+            return False
+        run.aegis_run_id = client.run_id
+        run.stage = response.stage or STANDARD_STAGES[0]
+        self.store.save(run)
+        self.store.journal(run.run_id, "aegis-run-started",
+                           aegis_run=client.run_id, kind=kind, quick=quick)
+        self.log(f"{run.run_id}: AEGIS run {client.run_id} started "
+                 f"({kind}{', quick' if quick else ''})")
+        return True
+
+    def _run_kind(self, ticket: Ticket) -> tuple[str, bool]:
+        """
+        @brief      Map ticket labels to an AEGIS run kind and profile.
+        @details    Design decision 6: the quick profile is label-driven.
+                    `[workflow] kind_labels` maps a label to a kind (first
+                    match in configuration order wins, so overlapping labels
+                    stay deterministic); anything unmapped is `feature`. The
+                    quick label only applies to the kinds AEGIS permits, which
+                    config validation also enforces up front.
+        @param[in]  ticket The ticket being conducted.
+        @return     (kind, quick) for `aegis run start`.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-08-01
+        @version    0.1.0
+        """
+        workflow = self.config.workflow
+        labels = set(ticket.labels)
+        kind = workflow.default_kind
+        for label, mapped in workflow.kind_labels.items():
+            if label in labels:
+                kind = mapped
+                break
+        quick = bool(workflow.quick_label) and workflow.quick_label in labels
+        return kind, quick and kind in QUICK_KINDS
+
+    @staticmethod
+    def _expected_stages(status: AegisResponse) -> tuple[str, ...]:
+        """
+        @brief      The stage allowlist for the run's AEGIS profile.
+        @details    AEGIS reports `run_profile` only for quick runs; its
+                    absence means the full eight-stage sequence.
+        @param[in]  status A `run status` response.
+        @return     STANDARD_STAGES or QUICK_STAGES.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-08-01
+        @version    0.1.0
+        """
+        return (
+            QUICK_STAGES
+            if status.detail("run_profile") == "quick"
+            else STANDARD_STAGES
+        )
+
+    def _checked_stage(self, status: AegisResponse, closed_index: int) -> str:
+        """
+        @brief      Validate the reported stage against the allowlist.
+        @details    Two guards, both fail-loud. A stage outside the profile's
+                    sequence means the contract moved under ADORE. A stage at
+                    or before the last one ADORE already closed means the run
+                    was routed backwards - what an approved `route_to`
+                    produces - which is explicitly out of scope for 2.0.0, so
+                    a human decides. Re-running a stage that is not yet closed
+                    is a normal retry and passes both guards.
+        @param[in]  status A `run status` response.
+        @param[in]  closed_index Index of the last stage ADORE closed (-1 when
+                                 it has closed none yet).
+        @return     The validated stage name.
+        @exception  AegisProtocolError When the stage is unknown or regressed.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-08-01
+        @version    0.2.0
+        """
+        expected = self._expected_stages(status)
+        stage = status.stage
+        if stage not in expected:
+            raise AegisProtocolError(
+                f"AEGIS reported stage {stage!r}, which is not in the expected "
+                f"sequence for this run ({', '.join(expected)})"
+            )
+        if expected.index(stage) <= closed_index:
+            raise AegisProtocolError(
+                f"AEGIS routed the run back from {expected[closed_index + 1]!r} "
+                f"to {stage!r}; a stage regression is a human decision in this "
+                "ADORE version"
+            )
+        return stage
+
+    def _verify_stage(
+        self,
+        run: RunState,
+        client: AegisClient,
+        stage: str,
+    ) -> str:
+        """
+        @brief      ADORE's objective check before it closes a stage.
+        @details    The conductor never takes the executor's word: `stage show`
+                    must report `ready` with no blockers, the validation and
+                    delivery stages must additionally survive a full
+                    `verify run`, and the validation stage must leave committed
+                    work behind (a clean tree with commits over the base).
+        @param[in]  run The run.
+        @param[in]  client The run's AEGIS client.
+        @param[in]  stage Stage just applied by the executor.
+        @return     "" when the stage may be closed, else the relaunch context.
+        @exception  AegisError When the CLI contract is violated.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-08-01
+        @version    0.1.0
+        """
+        shown = client.stage_show()
+        if not shown.ok:
+            return (
+                f"AEGIS refused to report the {stage} stage: "
+                f"{shown.error or shown.status}. Next command: "
+                f"{shown.next_command}."
+            )
+        blockers = [str(item) for item in shown.detail("blockers", []) or []]
+        if shown.detail("ready") is not True or blockers:
+            self.store.journal(run.run_id, "stage-not-ready", stage=stage,
+                               blockers=blockers[:_AGENTIC_FAILURE_ITEMS_LIMIT])
+            listed = "\n".join(f"- {item}" for item in blockers) or "- (none reported)"
+            return (
+                f"The {stage} stage is applied but AEGIS does not consider it "
+                f"ready to close. Resolve these blockers, then apply the stage "
+                f"again:\n{listed}\nAEGIS says the next command is "
+                f"`{shown.next_command}`."
+            )
+        if stage in ("validation", "delivery"):
+            verified = client.verify_run()
+            if not verified.ok:
+                self.store.journal(run.run_id, "verify-failed", stage=stage,
+                                   exit_code=verified.exit_code)
+                return (
+                    f"`aegis verify run` failed at the {stage} stage "
+                    f"(exit {verified.exit_code}). Fix every blocking finding "
+                    "and re-run it until it passes."
+                )
+            self.store.journal(run.run_id, "verify-passed", stage=stage)
+        if stage == "validation":
+            committed = self._work_committed(run)
+            if committed:
+                self.store.journal(run.run_id, "work-uncommitted")
+                return committed
+        return ""
+
+    def _handle_block(
+        self,
+        run: RunState,
+        response: AegisResponse,
+        context: str,
+    ) -> None:
+        """
+        @brief      Terminal handling for a blocked/failed AEGIS response.
+        @details    Fail loud: a governance block ADORE is not allowed to
+                    resolve itself (waiving is human-only, routing is human-
+                    only, state repair is human-only) ends the run with the
+                    exact AEGIS error and remediation on the ticket.
+        @param[in]  run The run.
+        @param[in]  response The blocked or failed response.
+        @param[in]  context Human-readable command description.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-08-01
+        @version    0.1.0
+        """
+        self.store.journal(run.run_id, "aegis-blocked", context=context,
+                           status=response.status, code=response.code)
+        detail = response.error or f"status {response.status}"
+        remediation = response.remediation
+        reason = f"AEGIS blocked `{context}`: {detail}"
+        if remediation:
+            reason += f" | remediation: {remediation}"
+        self._escalate(run, self._redact_failure_context(reason))
+
+    def _escalate_aegis(self, run: RunState, exc: AegisError) -> None:
+        """
+        @brief      Escalate a typed AEGIS contract failure.
+        @details    These never mean "the executor needs another try": the
+                    payload is unsupported, the command was malformed, or the
+                    CLI did not answer in time. Tagging the reason tells the
+                    operator to look at ADORE or the payload, not the ticket.
+        @param[in]  run The run.
+        @param[in]  exc The raised AegisError.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-08-01
+        @version    0.1.0
+        """
+        kind = type(exc).__name__
+        self.store.journal(run.run_id, "aegis-contract-failure", kind=kind)
+        self._escalate(
+            run,
+            self._redact_failure_context(f"AEGIS contract failure ({kind}): {exc}"),
+        )
 
     def _work_committed(self, run: RunState) -> str:
         """
@@ -736,26 +1045,28 @@ class Orchestrator:
     def _deliver(self, run: RunState, ticket: Ticket, thread: str = "",
                  revise: bool = False) -> None:
         """
-        @brief      The delivery sequence: integrate, retest, preflight, push,
-                    open the DRAFT MR (design 11a - exact order).
-        @details    The orchestrator owns all git plumbing and the remote; the
+        @brief      The publication sequence: integrate, verify, push, open the
+                    DRAFT MR (design 11a - exact order).
+        @details    Runs after AEGIS reported the governed run complete. The
+                    orchestrator owns all git plumbing and the remote; the
                     executor is relaunched only for code reasoning (conflict
-                    resolution, fixing failed checks), bounded by run budgets.
-                    An already-open MR for the branch is adopted, never
-                    duplicated (idempotent recovery). Never merges.
-        @param[in]  run The run with all development gates green.
+                    resolution, fixing what `aegis verify run` reports), bounded
+                    by run budgets. An already-open MR for the branch is
+                    adopted, never duplicated (idempotent recovery). Never
+                    merges.
+        @param[in]  run The run whose AEGIS run is complete.
         @param[in]  ticket Current ticket.
         @param[in]  thread Rendered clarification/review thread.
         @param[in]  revise True inside the revise cycle: skip MR adoption and
                     update the existing MR instead of creating one.
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-08
-        @version    0.2.0
+        @date       2026-08-01
+        @version    0.3.0
         """
-        run.stage = "delivery"
+        run.stage = PUBLICATION_STAGE
         run.lifecycle = "working"
         self.store.save(run)
-        self._mark(run, "working", "delivery")
+        self._mark(run, "working", PUBLICATION_STAGE)
         self.store.journal(run.run_id, "delivery-start")
         try:
             self._provision(run)
@@ -764,6 +1075,30 @@ class Orchestrator:
             self._escalate(run, f"delivery isolation failed: {exc}")
             return
         execute = partial(self.containers.exec, run.container, env=self._container_env(run))
+        client = AegisClient(execute, run_id=run.aegis_run_id or "")
+        try:
+            self._publish(run, ticket, client, thread, revise)
+        except AegisError as exc:
+            self._escalate_aegis(run, exc)
+
+    def _publish(self, run: RunState, ticket: Ticket, client: AegisClient,
+                 thread: str, revise: bool) -> None:
+        """
+        @brief      The publication steps proper (design 11a steps 2-8).
+        @details    Split out of `_deliver` so every typed AEGIS failure raised
+                    by the final verification or the delivery report ends in the
+                    same deterministic escalation.
+        @param[in]  run The run.
+        @param[in]  ticket Current ticket.
+        @param[in]  client The run's AEGIS client.
+        @param[in]  thread Rendered clarification/review thread.
+        @param[in]  revise True inside the revise cycle.
+        @exception  AegisError Propagated to `_deliver` for escalation.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-08-01
+        @version    0.1.0
+        """
+        execute = client.execute
         if not revise:
             # idempotent recovery: adopt an MR already open for this branch
             with contextlib.suppress(ForgeError):
@@ -785,37 +1120,31 @@ class Orchestrator:
                 "ALL conflicts, complete the merge commit, make sure the tests "
                 "still pass, and leave a clean tree.\n" + conflict_tail
             )
-            if not self._delivery_fix(run, ticket, execute, context, thread):
+            if not self._delivery_fix(run, ticket, client, context, thread):
                 return
         self.store.journal(run.run_id, "target-merged", base=run.base_ref)
-        # 3. re-run the gates, 4. authoritative preflight - fix loops on both
-        preflight_output = ""
-        for name, check in (
-            ("gates-run", lambda: gates.gates_run(execute)),
-            ("delivery-preflight", lambda: gates.delivery_preflight(execute)),
-        ):
-            while True:
-                result = check()
-                if result.ok:
-                    preflight_output = result.output
-                    self.store.journal(run.run_id, f"{name}-passed")
-                    break
-                context = (
-                    self._failure_context(
-                        run,
-                        f"The {name} check failed (exit {result.exit_code}) after "
-                        f"merging {run.base_ref}. Fix the issues, commit your "
-                        "changes, and leave a clean tree. Output tail:\n"
-                        + self._tail_lines(result.output, 1500),
-                    )
-                )
-                if not self._delivery_fix(run, ticket, execute, context, thread):
-                    return
-        # Compose the MR body before pushing: the report command can generate
+        # 3./4. one authoritative post-merge verification: integrating the
+        # target branch can break a change that passed in isolation. In AEGIS
+        # 2.x `verify run` IS the gate run plus the invariant, traceability,
+        # coverage and working-tree audits, so it replaces both 1.x steps.
+        while True:
+            verified = client.verify_run()
+            if verified.ok:
+                self.store.journal(run.run_id, "verify-run-passed")
+                break
+            context = self._failure_context(
+                run,
+                f"`aegis verify run` failed (exit {verified.exit_code}) after "
+                f"merging {run.base_ref}. Fix every blocking finding, commit "
+                "your changes, and leave a clean tree.",
+            )
+            if not self._delivery_fix(run, ticket, client, context, thread):
+                return
+        # Compose the MR body before pushing: the report command generates
         # `.agentic` artifacts that must be committed with the delivered branch.
         title = f"Resolve #{ticket.iid}: {ticket.title}"
         body = "" if revise and run.mr_iid else self._mr_description(
-            run, ticket, execute, preflight_output
+            run, ticket, client
         )
         try:
             if self.worktrees.commit_all_if_dirty(
@@ -862,21 +1191,23 @@ class Orchestrator:
         self,
         run: RunState,
         ticket: Ticket,
-        execute,
+        client: AegisClient,
         context: str,
         thread: str = "",
     ) -> bool:
         """
-        @brief      One budget-bounded executor relaunch during delivery.
+        @brief      One budget-bounded executor relaunch during publication.
         @param[in]  run The run.
         @param[in]  ticket Current ticket.
-        @param[in]  execute Exec seam bound to the run's container.
+        @param[in]  client The run's AEGIS client (exec seam + orientation).
         @param[in]  context What failed and what to do.
+        @param[in]  thread Rendered clarification/review thread.
         @return     True to re-check; False when the run ended (escalated or
                     parked).
+        @exception  AegisError When the CLI contract is violated.
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-24
-        @version    0.2.2
+        @date       2026-08-01
+        @version    0.3.0
         """
         reason = self._budget_exceeded(run)
         if reason:
@@ -885,9 +1216,9 @@ class Orchestrator:
         run.iterations += 1
         self.store.save(run)
         self.store.journal(run.run_id, "delivery-fix", iteration=run.iterations)
-        orientation = self._workflow_orientation(execute)
+        orientation = self._workflow_orientation(client)
         result = self.executor.run_gate(
-            execute,
+            client.execute,
             self.worktrees.path_for(run.run_id),
             self._io_dir(run.run_id),
             self._gate_prompt("validation", ticket, context, thread, orientation),
@@ -1046,7 +1377,12 @@ class Orchestrator:
             return
         thread = self._render_thread(self.forge.list_mr_comments(mr.iid))
         execute = partial(self.containers.exec, run.container, env=self._container_env(run))
-        orientation = self._workflow_orientation(execute)
+        client = AegisClient(execute, run_id=run.aegis_run_id or "")
+        try:
+            orientation = self._workflow_orientation(client)
+        except AegisError as exc:
+            self._escalate_aegis(run, exc)
+            return
         run.iterations += 1
         self.store.save(run)
         result = self.executor.run_gate(
@@ -1070,67 +1406,123 @@ class Orchestrator:
         # recreated (run.mr_iid is set), and stays a draft
         self._deliver(run, ticket, thread, revise=True)
 
-    def _mr_description(self, run: RunState, ticket: Ticket, execute,
-                        preflight_output: str) -> str:
+    def _mr_description(self, run: RunState, ticket: Ticket,
+                        client: AegisClient) -> str:
         """
         @brief      Compose the draft MR description (design 11).
         @details    "Related to #N", never an auto-close keyword - closure is
-                    the human's call. Includes the workflow report when the
-                    CLI provides one, plus the preflight tail and the hidden
-                    marker.
+                    the human's call. `aegis delivery report` renders the
+                    run's report; its content is embedded bounded, together
+                    with the AEGIS run id and the hidden ADORE marker.
         @param[in]  run The run.
         @param[in]  ticket Current ticket.
-        @param[in]  execute Exec seam (for the report command).
-        @param[in]  preflight_output Captured delivery-preflight output.
+        @param[in]  client The run's AEGIS client.
         @return     The MR body.
+        @exception  AegisError When the CLI contract is violated.
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
+        @date       2026-08-01
+        @version    0.2.0
         """
-        report = gates.run_workflow_cli(execute, "report", timeout=600)
+        report = client.delivery_report()
         parts = [
             f"Related to #{ticket.iid}: {ticket.title}",
-            f"Produced by {self.identity.name} (run `{run.run_id}`); all "
-            "development gates, invariants, and delivery-preflight passed. "
-            "Opened as a DRAFT - review and merge are human decisions.",
+            f"Produced by {self.identity.name} (run `{run.run_id}`, AEGIS run "
+            f"`{client.run_id}`); every AEGIS stage passed its approval and "
+            "`aegis verify run` passed after integrating "
+            f"`{run.base_ref}`. Opened as a DRAFT - review and merge are human "
+            "decisions.",
         ]
-        if report.ok and report.output.strip():
-            parts.append("### Workflow report\n```\n"
-                         + self._tail_lines(report.output, 2500) + "\n```")
-        if preflight_output.strip():
-            parts.append("### delivery-preflight\n```\n"
-                         + self._tail_lines(preflight_output, 1500) + "\n```")
+        body = self._read_aegis_artifact(run, report.detail("report"))
+        if body.strip():
+            parts.append("### AEGIS delivery report\n```\n"
+                         + self._tail_lines(body, 2500) + "\n```")
         parts.append(self.identity.make_marker(run.run_id, "delivery"))
-        return "\n\n".join(parts)
+        return self._redact_failure_context("\n\n".join(parts))
 
-    def _workflow_orientation(self, execute) -> str:
+    def _read_aegis_artifact(self, run: RunState, relative: object) -> str:
         """
-        @brief      Read the workflow's read-only `resume` brief for a relaunch.
-        @details    A freshly launched executor session - a retry, a delivery
-                    fix, a revise round, or a run resumed mid-workflow after a
-                    restart - starts without the prior chat context. The
-                    workflow's `resume` verb prints a compact, read-only brief
-                    (current and computed next stage, intent, alignment, spec
-                    items, checks, recent evidence, and cited requirements) that
-                    orients it from the authoritative run state instead of
-                    re-derivation. Best-effort and payload-agnostic: a workflow
-                    CLI that predates the verb, or a container with no active
-                    run, exits non-zero and yields no brief rather than an
-                    error. Secret values are redacted before the text enters a
-                    prompt.
-        @param[in]  execute Exec seam bound to the run's container.
-        @return     A bounded orientation block, or "" when none is available.
+        @brief      Read a repository-relative artifact AEGIS just wrote.
+        @details    AEGIS returns repository-relative POSIX paths. Only paths
+                    that stay inside the run's worktree are read, so a
+                    surprising value can never pull an unrelated host file into
+                    a merge request body or a prompt.
+        @param[in]  run The run whose worktree holds the artifact.
+        @param[in]  relative The `artifact`/`report` value from an envelope.
+        @return     The file content, or "" when the value is unusable.
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-25
+        @date       2026-08-01
         @version    0.1.0
         """
-        brief = gates.workflow_resume(execute)
-        if not brief.ok or not brief.output.strip():
+        if not isinstance(relative, str) or not relative or relative == "none":
             return ""
-        block = (
-            "Current workflow run orientation (read-only `resume` brief):\n"
-            + self._tail_lines(brief.output, _AGENTIC_ORIENTATION_LIMIT)
-        )
+        worktree = self.worktrees.path_for(run.run_id).resolve()
+        candidate = (worktree / relative).resolve()
+        if not candidate.is_relative_to(worktree) or not candidate.is_file():
+            return ""
+        return self._read_text(candidate)
+
+    def _workflow_orientation(self, client: AegisClient) -> str:
+        """
+        @brief      Compose the run-orientation brief for a fresh session.
+        @details    A freshly launched executor session - a retry, a delivery
+                    fix, a revise round, or a run resumed mid-workflow after a
+                    restart - starts without the prior chat context. AEGIS 2.x
+                    answers `run resume` with the authoritative run state
+                    rather than prose (contract notes 11.1), so ADORE renders
+                    the brief itself: run id, stage, the exact next command,
+                    readiness and its blockers, and the most recent evidence.
+                    A run that has not started yet yields no brief; once a run
+                    exists, a blocked resume is a real failure and escalates
+                    through the caller's AegisError handling. Secret values are
+                    redacted before the text enters a prompt.
+        @param[in]  client The run's AEGIS client.
+        @return     A bounded orientation block, or "" when no run exists yet.
+        @exception  AegisError When the CLI contract is violated.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-08-01
+        @version    0.2.0
+        """
+        if not client.run_id:
+            return ""
+        brief = client.run_resume()
+        if not brief.ok:
+            raise AegisProtocolError(
+                f"AEGIS `run resume` for {client.run_id} reported "
+                f"{brief.status}: {brief.error or 'no detail'}"
+            )
+        lines = [
+            "Current AEGIS run orientation (read-only, from `aegis run resume`):",
+            f"- run: {brief.detail('run_id', client.run_id)}",
+            f"- stage: {brief.stage}",
+            f"- exact next command: {brief.next_command}",
+        ]
+        profile = brief.detail("run_profile")
+        if profile:
+            bypassed = brief.detail("bypassed_stages") or []
+            lines.append(
+                f"- profile: {profile}"
+                + (f" (bypassed: {', '.join(str(x) for x in bypassed)})"
+                   if bypassed else "")
+            )
+        readiness = brief.detail("readiness") or {}
+        if isinstance(readiness, dict) and readiness:
+            lines.append(f"- stage state: {readiness.get('state', 'unknown')}"
+                         f", ready: {readiness.get('ready')}")
+            for blocker in list(readiness.get("blockers") or [])[
+                :_AGENTIC_FAILURE_ITEMS_LIMIT
+            ]:
+                lines.append(f"  - blocker: {blocker}")
+        evidence = brief.detail("evidence") or []
+        if isinstance(evidence, list) and evidence:
+            lines.append("- recent evidence:")
+            for item in evidence[-_AGENTIC_FAILURE_ITEMS_LIMIT:]:
+                if not isinstance(item, dict):
+                    continue
+                lines.append(
+                    f"  - {item.get('id')} {item.get('kind')} "
+                    f"{item.get('result')} ({item.get('status')})"
+                )
+        block = self._tail_lines("\n".join(lines), _AGENTIC_ORIENTATION_LIMIT)
         return self._redact_failure_context(block)
 
     def _failure_context(self, run: RunState, base: str) -> str:
@@ -1155,38 +1547,104 @@ class Orchestrator:
             parts.append(evidence)
         return self._redact_failure_context("\n\n".join(part for part in parts if part))
 
+    def _aegis_run_dir(self, run: RunState) -> Path | None:
+        """
+        @brief      The run-local `.agentic/runs/<id>/` directory, if any.
+        @details    Addressed by the run id ADORE persisted at `run start`, not
+                    by the worktree's `current_run` pointer - the fragile seam
+                    that already broke once (design decision 4). The id was
+                    validated against the AEGIS run-id pattern when it was
+                    captured, so it is safe as a single path segment.
+        @param[in]  run The ADORE run.
+        @return     The directory path, or None when no AEGIS run exists yet.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-08-01
+        @version    0.1.0
+        """
+        if not run.aegis_run_id:
+            return None
+        worktree = self.worktrees.path_for(run.run_id)
+        return worktree / ".agentic" / "runs" / run.aegis_run_id
+
+    def _stage_questions(self, run: RunState, stage: str) -> str:
+        """
+        @brief      Read the stage's unresolved questions from the run graph.
+        @details    AEGIS folds unresolved questions into `stage show`'s
+                    human-readable `blockers[]`; the structured list lives in
+                    `graph.json` under `stage_records[<stage>]`
+                    (contract notes 11.2). This is the primary clarification
+                    channel in 2.x - the executor's questions file remains a
+                    secondary one, and the conductor honors whichever fires.
+        @param[in]  run The ADORE run.
+        @param[in]  stage The stage just applied.
+        @return     A rendered question block, or "" when there are none.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-08-01
+        @version    0.1.0
+        """
+        run_dir = self._aegis_run_dir(run)
+        if run_dir is None:
+            return ""
+        graph = self._load_aegis_graph(run_dir / "graph.json")
+        if not isinstance(graph, dict):
+            return ""
+        records = graph.get("stage_records")
+        record = records.get(stage) if isinstance(records, dict) else None
+        if not isinstance(record, dict):
+            return ""
+        questions = [
+            str(item).strip()
+            for item in (record.get("unresolved_questions") or [])
+            if str(item).strip()
+        ]
+        if not questions:
+            return ""
+        listed = "\n".join(f"{index}. {text}"
+                           for index, text in enumerate(questions, start=1))
+        return (
+            f"The executor recorded unresolved questions in the AEGIS {stage} "
+            f"stage form:\n\n{listed}"
+        )
+
+    def _load_aegis_graph(self, path: Path) -> dict | None:
+        """
+        @brief      Load the AEGIS run graph, or None when it is unusable.
+        @param[in]  path Path to `graph.json`.
+        @return     The decoded graph mapping, or None.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-08-01
+        @version    0.1.0
+        """
+        if not path.is_file():
+            return None
+        try:
+            graph = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+        return graph if isinstance(graph, dict) else None
+
     def _agentic_failure_evidence(self, run: RunState) -> str:
         """
-        @brief      Read prompt-safe failure evidence from the active workflow run.
-        @details    Uses the workflow-template file contract:
-                    `.agentic/.workspace/state/current_run`,
-                    `.agentic/runs/<run-id>/graph.json`,
-                    `.agentic/runs/<run-id>/journal.jsonl`, and
-                    `.agentic/runs/<run-id>/report.md`. Missing files are
-                    skipped; malformed files are reported in the prompt so the
-                    executor understands that evidence was present but damaged.
-                    The active-run pointer is the worktree-local
-                    `.agentic/.workspace/state/current_run` file; the former
-                    repo-level `.agentic/current_run` path is retired.
+        @brief      Read prompt-safe failure evidence from the AEGIS run.
+        @details    Uses the AEGIS file contract under
+                    `.agentic/runs/<aegis-run-id>/`: `graph.json`,
+                    `journal.jsonl`, and `report.md`, addressed by the run id
+                    ADORE persisted rather than by the worktree pointer.
+                    Missing files are skipped; malformed files are reported in
+                    the prompt so the executor understands that evidence was
+                    present but damaged.
         @param[in]  run ADORE run whose worktree is inspected.
         @return     Markdown-ish evidence block, or "" when no evidence exists.
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-24
-        @version    0.1.2
+        @date       2026-08-01
+        @version    0.2.0
         """
-        worktree = self.worktrees.path_for(run.run_id)
-        agentic_root = worktree / ".agentic"
-        current_run = self._read_text(
-            agentic_root / ".workspace" / "state" / "current_run"
-        ).strip()
-        if not current_run:
+        run_dir = self._aegis_run_dir(run)
+        if run_dir is None:
             return ""
-        if not self._safe_agentic_run_id(current_run):
-            return (f"Agentic failure evidence unavailable: invalid "
-                    f"{_AGENTIC_CURRENT_RUN} value.")
-
-        run_dir = agentic_root / "runs" / current_run
-        sections = [f"Agentic failure evidence from `.agentic/runs/{current_run}`:"]
+        sections = [
+            f"AEGIS failure evidence from `{_AEGIS_RUN_DIR}/{run.aegis_run_id}`:"
+        ]
         sections.extend(self._graph_failure_evidence(run_dir / "graph.json"))
         sections.extend(self._journal_failure_evidence(run_dir / "journal.jsonl"))
         sections.extend(self._report_failure_evidence(run_dir / "report.md"))
@@ -1194,27 +1652,6 @@ class Orchestrator:
             return ""
         rendered = "\n".join(sections)
         return self._tail_lines(rendered, _AGENTIC_FAILURE_CONTEXT_LIMIT)
-
-    @staticmethod
-    def _safe_agentic_run_id(value: str) -> bool:
-        """
-        @brief      Whether the active-run pointer names one path segment.
-        @details    The pointer is read from
-                    `.agentic/.workspace/state/current_run`; its value must be a
-                    single run-id segment so it cannot escape `.agentic/runs`.
-        @param[in]  value Candidate workflow run id.
-        @return     True when it cannot escape `.agentic/runs`.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-24
-        @version    0.1.1
-        """
-        return (
-            bool(value)
-            and value not in {".", ".."}
-            and Path(value).name == value
-            and "/" not in value
-            and "\\" not in value
-        )
 
     def _graph_failure_evidence(self, path: Path) -> list[str]:
         """
@@ -1563,8 +2000,8 @@ class Orchestrator:
                              remove=[self.config.labels.lifecycle.answered])
         self.log(f"{run.run_id}: human answered; resuming at stage {run.stage}")
         thread = self._render_thread(comments)
-        if run.stage == "delivery":
-            self._deliver(run, ticket, thread)  # never restart the gates
+        if run.stage == PUBLICATION_STAGE:
+            self._deliver(run, ticket, thread)  # never re-enter the stage loop
         else:
             self._conduct(run, ticket, thread=thread)
 
@@ -1786,28 +2223,36 @@ class Orchestrator:
 
     def _gate_prompt(
         self,
-        gate: str,
+        stage: str,
         ticket: Ticket,
         failure_context: str,
         thread: str,
         orientation: str = "",
+        status: AegisResponse | None = None,
     ) -> str:
         """
-        @brief      Compose the bounded, gate-specific executor instruction.
-        @param[in]  gate Gate name.
+        @brief      Compose the bounded, stage-specific executor instruction.
+        @details    The executor owns content, the conductor owns control: the
+                    prompt tells it how to fill and apply the stage forms and
+                    forbids the two actions ADORE and humans reserve -
+                    `aegis stage close` (ADORE is the delegated approver) and
+                    `aegis waive add` (a human decision).
+        @param[in]  stage AEGIS stage name, or "revise".
         @param[in]  ticket Ticket for context.
         @param[in]  failure_context Previous-attempt failure summary ("" on
                                     first attempt).
         @param[in]  thread Rendered clarification thread ("" outside resume).
-        @param[in]  orientation Read-only workflow `resume` brief ("" when a
-                                fresh session already carries the run context).
+        @param[in]  orientation Read-only AEGIS run brief ("" when a fresh
+                                session already carries the run context).
+        @param[in]  status The `run status` response driving this stage, when
+                           the conductor has one (adds the exact next command).
         @return     The prompt text (never enters argv; file protocol).
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.2
+        @date       2026-08-01
+        @version    0.2.0
         """
         parts = [
-            "You are the executor for one gate of the agentic development "
+            "You are the executor for one stage of the AEGIS governed "
             "workflow, launched headless by the ADORE orchestrator in an "
             "isolated git worktree.",
             f"Ticket #{ticket.iid}: {ticket.title}",
@@ -1819,15 +2264,28 @@ class Orchestrator:
             parts.append(orientation)
         if failure_context:
             parts.append(failure_context)
-        parts.append(_GATE_GOALS[gate])
+        parts.append(_STAGE_GOALS[stage])
+        if status is not None and status.next_command:
+            parts.append(
+                f"AEGIS says the exact next command is `{status.next_command}`."
+                + (f" The current stage form is at `{status.artifact}`."
+                   if status.artifact and status.artifact != "none" else "")
+            )
         parts.append(
-            "Rules: work only inside this worktree. COMMIT all your changes "
-            "locally before finishing the gate (including .agentic records "
-            "and new files) - a gate is not complete with a dirty working "
-            "tree. NEVER push, open merge/pull requests, or merge - the "
-            "orchestrator owns the remote. If you hit blocking questions, "
-            f"write them to {self.questions_file} in the worktree root and "
-            "stop. Stop at the end of this gate and summarize what you did."
+            "Rules: work only inside this worktree. Run the AEGIS CLI as "
+            "`bash .agentic/tools/run.sh <group> <action>`; content goes into "
+            "the generated forms, never into CLI flags. NEVER run "
+            "`aegis stage close` (the orchestrator is the delegated approver "
+            "and closes stages itself after verifying) and NEVER run "
+            "`aegis waive add` (waiving a blocker is a human decision - report "
+            "it instead). COMMIT all your changes locally before finishing "
+            "(including the `.agentic` run records and new files) - a stage is "
+            "not complete with a dirty working tree. NEVER push, open "
+            "merge/pull requests, or merge - the orchestrator owns the remote. "
+            "If you hit blocking questions, record them in the stage form's "
+            f"`control.unresolved_questions`, or write them to "
+            f"{self.questions_file} in the worktree root, and stop. Stop at "
+            "the end of this stage and summarize what you did."
         )
         return "\n\n".join(parts)
 
