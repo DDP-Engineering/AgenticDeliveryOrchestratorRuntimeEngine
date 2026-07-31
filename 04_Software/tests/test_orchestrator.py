@@ -26,18 +26,24 @@ from __future__ import annotations
 # IMPORTS
 from datetime import UTC, datetime, timedelta
 import json
+import pathlib
 from pathlib import Path
 
 from adore.config import Config, ExecutorCommand
 from adore.executor.base import Executor, GateRun
 from adore.forge import Comment, Forge, MergeRequest, Ticket
 from adore.isolation import IsolationError
+from adore.aegis import AegisResponse
 from adore.orchestrator import (
     _MR_MISSING_GRACE_POLLS,
+    BLOCK_ESCALATE,
+    BLOCK_PARK,
+    BLOCK_RETRY,
     PUBLICATION_STAGE,
     QUICK_STAGES,
     STANDARD_STAGES,
     Orchestrator,
+    classify_block,
 )
 from adore.state import RunState, StateStore
 from adore.util import CommandResult
@@ -307,6 +313,12 @@ class FakeAegis:
         self.report_path = ".agentic/runs/RUN/report.md"
         self.on_delivery_report = None  # callback for tests
         self.evidence: list[dict] = []
+        # worktree the bound container mounts; set from FakeContainers.provision
+        self.worktree: pathlib.Path | None = None
+        # stage -> control values written into graph.json stage_records
+        self.stage_control: dict[str, dict] = {}
+        # when set, the fake stops rewriting graph.json (damaged-graph tests)
+        self.freeze_graph = False
 
     # -- helpers ---------------------------------------------------------------
 
@@ -376,6 +388,39 @@ class FakeAegis:
             "artifact": f".agentic/runs/{self.run_id}/stages/{self.stage}/stage.toml",
         }
 
+    def write_graph(self) -> None:
+        """
+        @brief   Persist the run graph AEGIS keeps in the worktree.
+        @details A started AEGIS run always has a graph.json, so the fake
+                 writes one - ADORE reads evidence and stage control from it,
+                 and treats its absence as a broken run record.
+        @author  Eng. Dan Dumitru Pasare
+        @date    2026-08-01
+        @version 0.1.0
+        """
+        if self.worktree is None or not self.run_id or self.freeze_graph:
+            return
+        run_dir = self.worktree / ".agentic" / "runs" / self.run_id
+        run_dir.mkdir(parents=True, exist_ok=True)
+        graph = {
+            "run_id": self.run_id,
+            "schema_version": 3,
+            "stage": self.stage,
+            "complete": self.complete,
+            "evidence": self.evidence,
+            "stage_records": {
+                name: {"status": "applied", "unresolved_questions": [],
+                       "requested_access_mode": "", "route_to": "",
+                       **self.stage_control.get(name, {})}
+                for name in self.stages
+            },
+        }
+        if self.profile == "quick":
+            graph["profile"] = "quick"
+        (run_dir / "graph.json").write_text(
+            json.dumps(graph, indent=2), encoding="utf-8"
+        )
+
     def _quick_details(self) -> dict:
         """
         @brief   Quick-profile status fields, empty for full runs.
@@ -427,6 +472,7 @@ class FakeAegis:
             self.stages = QUICK_STAGES if self.profile == "quick" else STANDARD_STAGES
             self.run_id = f"{self.kind}-2026-08-01T101112Z-0a1b2c3d"
             self.report_path = f".agentic/runs/{self.run_id}/report.md"
+            self.write_graph()
             return CommandResult(
                 exit_code=0,
                 stdout=self._envelope(run_id=self.run_id, kind=self.kind,
@@ -464,6 +510,7 @@ class FakeAegis:
                 self.complete = True
             else:
                 self.index += 1
+            self.write_graph()
             return CommandResult(exit_code=0, stdout=self._envelope(
                 complete=self.complete, **self._quick_details()))
         if verbs[:2] == ["verify", "run"]:
@@ -518,6 +565,7 @@ class FakeContainers:
         self.events.append(("volumes", ""))
 
     def provision(self, name, repo_path, worktree_path, io_path, env) -> str:
+        self.aegis.worktree = Path(worktree_path)
         action = "created" if name not in self.states else (
             "running" if self.states[name] == "running" else "started"
         )
@@ -657,59 +705,63 @@ def gate_ok(session: str = "ses_1") -> GateRun:
 def write_agentic_failure_evidence(
     engine: Orchestrator,
     run_id: str,
+    aegis: FakeAegis,
     *,
-    agentic_run: str = AEGIS_RUN,
     summary: str = "Focused pytest failed before the fix.",
     command: str = "pytest tests/test_widget.py::test_widget_renders",
-    stderr_tail: str = "AssertionError: widget title missing",
+    gate: str = "test",
     report: str = "## Invariants\n- `INV-4` FAIL (blocking): failing gate evidence",
 ) -> None:
     """
-    @brief      Seed AEGIS run artifacts in a fake worktree.
-    @details    Addressed by the run id ADORE persists, never by the retired
-                `current_run` pointer.
+    @brief      Seed AEGIS run artifacts for one run.
+    @details    The failing evidence row goes through the fake CLI, which owns
+                `graph.json` exactly as a real payload does; the validation
+                summary and the report are written straight into the run
+                directory, addressed by the run id ADORE persists - never by
+                the retired `current_run` pointer.
     @param[in]  engine Test engine whose fake worktree root is used.
     @param[in]  run_id ADORE run id.
-    @param[in]  agentic_run AEGIS run id (must match what the fake CLI mints).
+    @param[in]  aegis The fake AEGIS CLI that will mint the run.
     @param[in]  summary Evidence summary.
     @param[in]  command Failed command.
-    @param[in]  stderr_tail Failed command stderr tail.
+    @param[in]  gate Failing gate group name.
     @param[in]  report Existing report.md text.
     @author     Eng. Dan Dumitru Pasare
     @date       2026-08-01
-    @version    0.2.0
+    @version    0.3.0
     """
-    worktree = engine.worktrees.path_for(run_id)  # type: ignore[attr-defined]
-    run_dir = worktree / ".agentic" / "runs" / agentic_run
-    run_dir.mkdir(parents=True, exist_ok=True)
-    graph = {
-        "evidence": [
-            {
-                "id": "E-0007",
-                "kind": "test-run",
-                "result": "fail",
-                "status": "active",
-                "summary": summary,
-                "command": command,
-                "stage": "validation",
-            }
-        ]
-    }
-    (run_dir / "graph.json").write_text(
-        json.dumps(graph, indent=2) + "\n", encoding="utf-8"
-    )
-    journal = {
-        "event": "gate.output",
-        "data": {
-            "gate": "test",
+    aegis.evidence = [
+        {
+            "id": "E-0007",
+            "kind": "test-run",
+            "result": "fail",
+            "status": "active",
+            "summary": summary,
             "command": command,
-            "returncode": 1,
-            "stdout_tail": "collected 1 item",
-            "stderr_tail": stderr_tail,
-        },
-    }
-    (run_dir / "journal.jsonl").write_text(
-        json.dumps(journal) + "\n", encoding="utf-8"
+            "stage": "validation",
+            "failure_kind": "assertion",
+        }
+    ]
+    worktree = engine.worktrees.path_for(run_id)  # type: ignore[attr-defined]
+    run_dir = worktree / ".agentic" / "runs" / AEGIS_RUN
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "validation-summary.json").write_text(
+        json.dumps({
+            "schema_version": 3,
+            "run_id": AEGIS_RUN,
+            "gates": {gate: {"status": "failed", "commands": [command]},
+                      "lint": {"status": "passed", "commands": []},
+                      "security": {"status": "disabled", "commands": []}},
+            "invariants": [
+                {"id": "INV-4", "name": "evidence", "holds": False,
+                 "policy": "blocking", "message": "failing gate evidence"},
+                {"id": "INV-1", "name": "traceability", "holds": True,
+                 "policy": "blocking", "message": "ok"},
+            ],
+            "working_tree": {"entries": [], "untracked": [],
+                             "blocking_findings": []},
+        }, indent=2),
+        encoding="utf-8",
     )
     (run_dir / "report.md").write_text(report, encoding="utf-8")
 
@@ -1044,10 +1096,10 @@ def test_stage_failure_retry_prompt_includes_aegis_evidence(tmp_path: Path) -> N
         GateRun(exit_code=1, stderr="executor stderr was vague"),
         GateRun(exit_code=1, stderr="still failing"),
     ])
-    engine, forge, _, _ = make_engine(tmp_path, executor, config)
+    engine, forge, containers, _ = make_engine(tmp_path, executor, config)
     forge.add_ticket(14)
     run_id = engine._run_id(14)
-    write_agentic_failure_evidence(engine, run_id)
+    write_agentic_failure_evidence(engine, run_id, containers.aegis)
 
     engine.poll_once()
 
@@ -1055,9 +1107,15 @@ def test_stage_failure_retry_prompt_includes_aegis_evidence(tmp_path: Path) -> N
     assert "previous attempt of the intake stage failed" in retry_prompt
     assert "executor stderr was vague" in retry_prompt
     assert "AEGIS failure evidence" in retry_prompt
+    # validation-summary.json first: the authoritative verification account
+    assert "Failing gate groups: test (failed)" in retry_prompt
+    assert "security (disabled)" not in retry_prompt  # never rendered as failing
+    assert "INV-4 (blocking): failing gate evidence" in retry_prompt
+    assert "INV-1" not in retry_prompt  # holds, so not a finding
+    # then the schema-3 graph evidence rows
     assert "E-0007 test-run stage=validation" in retry_prompt
     assert "pytest tests/test_widget.py::test_widget_renders" in retry_prompt
-    assert "AssertionError: widget title missing" in retry_prompt
+    assert "failure kind: assertion" in retry_prompt
 
 
 def test_relaunch_prompt_includes_the_composed_run_orientation(
@@ -1161,10 +1219,11 @@ def test_evidence_is_addressed_by_the_persisted_run_id_not_the_pointer(
         GateRun(exit_code=1, stderr="first failure"),
         GateRun(exit_code=1, stderr="still failing"),
     ])
-    engine, forge, _, _ = make_engine(tmp_path, executor, config)
+    engine, forge, containers, _ = make_engine(tmp_path, executor, config)
     forge.add_ticket(14)
     run_id = engine._run_id(14)
-    write_agentic_failure_evidence(engine, run_id, summary="the pinned run")
+    write_agentic_failure_evidence(engine, run_id, containers.aegis,
+                                   summary="the pinned run")
     worktree = engine.worktrees.path_for(run_id)  # type: ignore[attr-defined]
     decoy = worktree / ".agentic" / "runs" / "feature-2026-01-01T000000Z-deadbeef"
     decoy.mkdir(parents=True, exist_ok=True)
@@ -1186,13 +1245,14 @@ def test_evidence_is_addressed_by_the_persisted_run_id_not_the_pointer(
     assert "E-DECOY" not in retry_prompt
 
 
-def test_malformed_graph_and_torn_journal_do_not_break_evidence_prompt(
+def test_damaged_aegis_artifacts_are_reported_not_hidden(
     tmp_path: Path,
 ) -> None:
     """
-    @brief   Malformed graph evidence is reported, while a torn journal line is
-             skipped and intact gate-output evidence is still used.
-    @version 0.1.0
+    @brief   A graph or validation summary that exists but cannot be parsed is
+             reported in the prompt, so the executor knows evidence was present
+             but damaged rather than absent.
+    @version 0.2.0
     """
     config = make_config(tmp_path)
     config.budgets.max_iterations = 2
@@ -1200,31 +1260,43 @@ def test_malformed_graph_and_torn_journal_do_not_break_evidence_prompt(
         GateRun(exit_code=1, stderr="malformed graph"),
         GateRun(exit_code=1, stderr="still failing"),
     ])
-    engine, forge, _, _ = make_engine(tmp_path, executor, config)
+    engine, forge, containers, _ = make_engine(tmp_path, executor, config)
     forge.add_ticket(14)
     worktree = engine.worktrees.path_for(engine._run_id(14))  # type: ignore[attr-defined]
     run_dir = worktree / ".agentic" / "runs" / AEGIS_RUN
     run_dir.mkdir(parents=True, exist_ok=True)
     (run_dir / "graph.json").write_text("{", encoding="utf-8")
-    journal = {
-        "event": "gate.output",
-        "data": {
-            "gate": "lint",
-            "command": "ruff check .",
-            "returncode": 1,
-            "stderr_tail": "E501 line too long",
-        },
-    }
-    (run_dir / "journal.jsonl").write_text(
-        json.dumps(journal) + "\n" + '{"event": "gate.output"', encoding="utf-8"
-    )
+    (run_dir / "validation-summary.json").write_text("{", encoding="utf-8")
+    containers.aegis.freeze_graph = True  # keep the damaged file on disk
 
     engine.poll_once()
 
     retry_prompt = executor.prompts[1]
-    assert "could not parse failure evidence" in retry_prompt
-    assert "lint exit 1: ruff check ." in retry_prompt
-    assert "E501 line too long" in retry_prompt
+    assert "validation-summary.json: could not parse" in retry_prompt
+    assert "graph.json: could not parse failure evidence" in retry_prompt
+    assert "malformed graph" in retry_prompt
+
+
+def test_a_started_run_without_a_graph_escalates(tmp_path: Path) -> None:
+    """
+    @brief   A started AEGIS run always has a graph.json. If it is gone, the
+             run record is broken - ADORE escalates instead of quietly
+             producing an empty evidence block.
+    @version 0.1.0
+    """
+    config = make_config(tmp_path)
+    config.budgets.max_iterations = 3
+    executor = FakeExecutor([GateRun(exit_code=1, stderr="stage failed")])
+    engine, forge, containers, _ = make_engine(tmp_path, executor, config)
+    forge.add_ticket(14)
+    containers.aegis.freeze_graph = True  # never write the run record
+
+    engine.poll_once()
+
+    run = engine.store.load(engine._run_id(14))
+    assert run.lifecycle == "failed"
+    assert "AEGIS contract failure" in run.outcome
+    assert "graph.json" in run.outcome
 
 
 def test_failure_context_redacts_configured_executor_secrets(tmp_path: Path) -> None:
@@ -1240,15 +1312,15 @@ def test_failure_context_redacts_configured_executor_secrets(tmp_path: Path) -> 
         GateRun(exit_code=1, stderr=f"executor leaked {secret}"),
         GateRun(exit_code=1, stderr="still failing"),
     ])
-    engine, forge, _, _ = make_engine(tmp_path, executor, config)
+    engine, forge, containers, _ = make_engine(tmp_path, executor, config)
     engine.secrets = {"OPENAI_API_KEY": secret}
     forge.add_ticket(14)
     write_agentic_failure_evidence(
         engine,
         engine._run_id(14),
+        containers.aegis,
         summary=f"Secret showed up in output: {secret}",
         command=f"pytest --token {secret}",
-        stderr_tail=f"traceback included {secret}",
         report=f"## Invariants\n- FAIL: leaked {secret}",
     )
 
@@ -2057,9 +2129,9 @@ def test_delivery_fix_prompt_includes_aegis_evidence(tmp_path: Path) -> None:
     write_agentic_failure_evidence(
         engine,
         run_id,
+        containers.aegis,
         summary="Post-merge validation failed in the runtime-project gate.",
         command="make test",
-        stderr_tail="tests failed after target merge",
     )
     # validation stage passes; the post-merge verification fails once
     containers.aegis.verify_results = [0, 0, 1]
@@ -2071,7 +2143,7 @@ def test_delivery_fix_prompt_includes_aegis_evidence(tmp_path: Path) -> None:
     assert "`aegis verify run` failed" in fixes[0]
     assert "AEGIS failure evidence" in fixes[0]
     assert "Post-merge validation failed" in fixes[0]
-    assert "tests failed after target merge" in fixes[0]
+    assert "Failing gate groups: test (failed)" in fixes[0]
 
 
 def test_push_failure_escalates(tmp_path: Path) -> None:
@@ -2519,6 +2591,200 @@ def test_parse_mr_iid_covers_all_three_platform_url_shapes() -> None:
     assert parse("http://192.168.1.15:3001/o/r/pulls/30") == 30
     assert parse("http://gitea.local/o/r/issues/7") is None
     assert parse("not a url") is None
+
+
+# PUBLIC API / TESTS - block classification (plan WP4)
+
+
+def blocked(error: str = "", **extras) -> AegisResponse:
+    """
+    @brief      A blocked AEGIS response for classification tests.
+    @param[in]  error The typed error text.
+    @param[in]  extras Extra envelope fields.
+    @return     The AegisResponse.
+    @author     Eng. Dan Dumitru Pasare
+    @date       2026-08-01
+    @version    0.1.0
+    """
+    raw = {"status": "blocked", "stage": "check", "artifact": "none",
+           "next": "aegis stage apply", "error": error, **extras}
+    return AegisResponse(
+        exit_code=1, status="blocked", stage="check", artifact="none",
+        next_command="aegis stage apply", raw=raw,
+    )
+
+
+def test_classify_block_retries_only_a_live_persistence_lock() -> None:
+    """
+    @brief   A held OS lock is the one transient AEGIS failure: retry it. The
+             rest of the integrity floor and every run-resolution error need a
+             human, because ADORE never repairs AEGIS state.
+    @version 0.1.0
+    """
+    lock = classify_block(blocked(
+        "PERSISTENCE-LOCK-TIMEOUT: timed out after 15.0s waiting for x."
+    ))
+    assert lock.action == BLOCK_RETRY
+
+    for code in ("GRAPH-STALE-UPDATE", "REQUIREMENT-STALE-UPDATE",
+                 "RUN-POINTER-STALE", "RUN-ID-NOT-FOUND"):
+        decision = classify_block(blocked(f"{code}: reload and retry."))
+        assert decision.action == BLOCK_ESCALATE
+        assert code in decision.reason
+
+
+def test_classify_block_parks_on_human_attention_state() -> None:
+    """
+    @brief   Unresolved questions, an alignment pause, a repo-wide access
+             request, and a routing request all need a human answer - they
+             park, they do not end the run.
+    @version 0.1.0
+    """
+    questions = classify_block(
+        blocked("stage is not ready"),
+        {"unresolved_questions": ["Which variant?"]},
+    )
+    assert questions.action == BLOCK_PARK
+
+    pause = classify_block(blocked("stage is not ready"), {"decision": "pause"})
+    assert pause.action == BLOCK_PARK and "pause" in pause.reason
+
+    access = classify_block(
+        blocked("stage is not ready"),
+        {"requested_access_mode": "repo-wide"},
+    )
+    assert access.action == BLOCK_PARK and "repo-wide" in access.reason
+
+    route = classify_block(blocked("stage is not ready"), {"route_to": "design"})
+    assert route.action == BLOCK_PARK and "design" in route.reason
+
+
+def test_classify_block_escalates_everything_else_with_remediation() -> None:
+    """
+    @brief   A waivable blocker is NOT auto-waived: it escalates, carrying the
+             AEGIS error and its remediation for the human.
+    @version 0.1.0
+    """
+    decision = classify_block(
+        blocked("gate:test failed", remediation="Fix the failing test."),
+        {"unresolved_questions": []},
+    )
+    assert decision.action == BLOCK_ESCALATE
+    assert decision.reason == "gate:test failed"
+    assert decision.hint == "Fix the failing test."
+
+
+def test_recorded_questions_park_the_run(tmp_path: Path) -> None:
+    """
+    @brief   Questions the executor recorded in the AEGIS stage form park the
+             run through the normal clarification flow, without the executor's
+             questions file being involved at all.
+    @version 0.1.0
+    """
+    executor = FakeExecutor([gate_ok()] * 9)
+    engine, forge, containers, _ = make_engine(tmp_path, executor)
+    containers.aegis.stage_control["intake"] = {
+        "unresolved_questions": ["Which variant should ship?"]
+    }
+    forge.add_ticket(14)
+
+    engine.poll_once()
+
+    run = engine.store.load(engine._run_id(14))
+    assert run.lifecycle == "parked"
+    assert containers.aegis.closes == []  # never closed a stage with questions
+    posts = [c for c in forge.calls if c[0] == "post"]
+    assert any("Which variant should ship?" in c[2] for c in posts)
+    events = [e["event"] for e in engine.store.read_journal(run.run_id)]
+    assert "stage-questions" in events and "parked" in events
+
+
+def test_a_held_lock_is_retried_once_then_escalates(tmp_path: Path) -> None:
+    """
+    @brief   A `stage close` blocked by a live persistence lock is retried once
+             after a delay; a lock that is still held afterwards escalates
+             instead of spinning.
+    @version 0.1.0
+    """
+    slept: list[float] = []
+    executor = FakeExecutor([gate_ok()] * 9)
+    engine, forge, containers, _ = make_engine(tmp_path, executor)
+    engine.sleep = slept.append
+    forge.add_ticket(14)
+    containers.aegis.overrides[("stage", "close")] = CommandResult(
+        exit_code=1,
+        stdout=json.dumps({
+            "status": "blocked", "stage": "intake", "artifact": "none",
+            "next": "aegis stage close",
+            "error": ("PERSISTENCE-LOCK-TIMEOUT: timed out after 15.0s "
+                      "waiting for .agentic/.workspace/locks/run.lock."),
+        }),
+    )
+
+    engine.poll_once()
+
+    run = engine.store.load(engine._run_id(14))
+    assert run.lifecycle == "failed"
+    assert "persistence lock is still held" in run.outcome
+    assert len(slept) == 1  # exactly one bounded retry
+    blocked_events = [
+        event for event in engine.store.read_journal(run.run_id)
+        if event["event"] == "aegis-blocked"
+    ]
+    assert [event["action"] for event in blocked_events] == ["retry", "retry"]
+
+
+def test_escalation_carries_the_exact_waive_command(tmp_path: Path) -> None:
+    """
+    @brief   ADORE never waives, so an escalation names the eligible blockers
+             and the exact `aegis waive add` command a human would run.
+    @version 0.1.0
+    """
+    executor = FakeExecutor([gate_ok()] * 9)
+    engine, forge, containers, _ = make_engine(tmp_path, executor)
+    forge.add_ticket(14)
+    containers.aegis.close_blocked["intake"] = "INV-7 does not hold."
+    containers.aegis.overrides[("waive", "list")] = CommandResult(
+        exit_code=0,
+        stdout=json.dumps({
+            "status": "ok", "stage": "intake", "artifact": "none",
+            "next": "aegis stage close",
+            "eligible_blockers": [{"id": "INV-7"}, {"id": "gate:test"}],
+            "active_waivers": [], "waiver_history": [],
+        }),
+    )
+
+    engine.poll_once()
+
+    run = engine.store.load(engine._run_id(14))
+    assert run.lifecycle == "failed"
+    assert 'aegis waive add INV-7 --reason "<why>"' in run.outcome
+    assert 'aegis waive add gate:test --reason "<why>"' in run.outcome
+
+
+def test_an_unavailable_waive_list_never_hides_the_original_error(
+    tmp_path: Path,
+) -> None:
+    """
+    @brief   The waive hint is advisory. If `waive list` itself is unusable the
+             escalation still carries the AEGIS error that caused it - the part
+             that must never be lost.
+    @version 0.1.0
+    """
+    executor = FakeExecutor([gate_ok()] * 9)
+    engine, forge, containers, _ = make_engine(tmp_path, executor)
+    forge.add_ticket(14)
+    containers.aegis.close_blocked["intake"] = "INV-7 does not hold."
+    containers.aegis.overrides[("waive", "list")] = CommandResult(
+        exit_code=2, stderr="usage: aegis [-h] ..."
+    )
+
+    engine.poll_once()
+
+    run = engine.store.load(engine._run_id(14))
+    assert run.lifecycle == "failed"
+    assert "INV-7 does not hold." in run.outcome
+    assert "aegis waive add" not in run.outcome
 
 
 # END OF FILE

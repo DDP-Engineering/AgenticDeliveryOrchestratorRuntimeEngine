@@ -27,7 +27,7 @@
          the draft MR review.
 @author Eng. Dan Dumitru Pasare
 @date 2026-08-01
-@version 0.7.0
+@version 0.8.0
 """
 
 from __future__ import annotations
@@ -35,6 +35,7 @@ from __future__ import annotations
 # IMPORTS
 from collections.abc import Callable
 import contextlib
+from dataclasses import dataclass
 from functools import partial
 import json
 import os
@@ -46,7 +47,9 @@ import time
 
 from adore import metrics
 from adore.aegis import (
+    INTEGRITY_CODES,
     QUICK_KINDS,
+    RUN_RESOLUTION_CODES,
     AegisClient,
     AegisError,
     AegisProtocolError,
@@ -101,6 +104,17 @@ _AEGIS_RUN_DIR = ".agentic/runs"
 _AGENTIC_FAILURE_CONTEXT_LIMIT = 5000
 _AGENTIC_FAILURE_ITEMS_LIMIT = 5
 _AGENTIC_ORIENTATION_LIMIT = 3000
+
+# classify_block outcomes.
+BLOCK_PARK = "park"
+BLOCK_RETRY = "retry"
+BLOCK_ESCALATE = "escalate"
+
+# A live AEGIS persistence lock clears in seconds (its own wait is 15 s), so
+# exactly one bounded re-attempt is warranted before a human is involved.
+LOCK_TIMEOUT_CODE = "PERSISTENCE-LOCK-TIMEOUT"
+_LOCK_RETRY_DELAY = 20.0
+_MAX_LOCK_RETRIES = 1
 
 # An in-review MR that reads back as not-found is usually a real deletion, but
 # a single 404 can also be a transient platform blip. Tolerate a few before
@@ -191,7 +205,97 @@ _STAGE_GOALS = {
     ),
 }
 
+# DATA MODELS / TYPEDEFINITIONS
+
+
+@dataclass(frozen=True)
+class BlockDecision:
+    """
+    @brief   What ADORE does about one blocked AEGIS response.
+    @details Three actions only, all deterministic: `park` hands the run to a
+             human through the existing clarification machinery, `retry` is the
+             single bounded re-attempt a live persistence lock deserves, and
+             `escalate` ends the run with the AEGIS error and, where one
+             exists, the exact command a human would run.
+    @author  Eng. Dan Dumitru Pasare
+    @date    2026-08-01
+    @version 0.1.0
+    """
+
+    action: str
+    reason: str
+    hint: str = ""
+
+
 # HELPER FUNCTIONS
+
+
+def classify_block(
+    response: AegisResponse,
+    stage_record: dict | None = None,
+) -> BlockDecision:
+    """
+    @brief      Decide park / retry / escalate for a blocked AEGIS response.
+    @details    In order of precedence:
+                - a live persistence lock (`PERSISTENCE-LOCK-TIMEOUT`) is the
+                  only transient failure AEGIS has: another process holds the
+                  lock, so ONE bounded retry after a short delay is correct;
+                - the rest of the non-waivable integrity floor
+                  (`GRAPH-STALE-UPDATE`, `REQUIREMENT-STALE-UPDATE`, schema
+                  corruption) and every run-resolution error escalate - they
+                  need state repair, which ADORE never performs;
+                - human-attention state recorded in the stage: unresolved
+                  questions, an alignment `pause`, a `repo-wide` access
+                  request, or a `route_to` request all park;
+                - anything else escalates. A waivable blocker escalates too:
+                  waiving is a human decision (design decision 3), so the
+                  ticket carries the hint, never an automatic waiver.
+    @param[in]  response The blocked or failed AEGIS response.
+    @param[in]  stage_record The graph's `stage_records[<stage>]` mapping when
+                             ADORE could read it, else None.
+    @return     The BlockDecision.
+    @author     Eng. Dan Dumitru Pasare
+    @date       2026-08-01
+    @version    0.1.0
+    """
+    code = response.code
+    if code == LOCK_TIMEOUT_CODE:
+        return BlockDecision(
+            BLOCK_RETRY,
+            "AEGIS persistence lock is held by another process",
+        )
+    if code in INTEGRITY_CODES or code in RUN_RESOLUTION_CODES:
+        return BlockDecision(
+            BLOCK_ESCALATE,
+            f"AEGIS integrity failure ({code}); state repair is a human task",
+            hint=response.remediation,
+        )
+    record = stage_record if isinstance(stage_record, dict) else {}
+    questions = [
+        str(item).strip()
+        for item in (record.get("unresolved_questions") or [])
+        if str(item).strip()
+    ]
+    if questions:
+        return BlockDecision(BLOCK_PARK, "the stage records unresolved questions")
+    if str(record.get("decision", "")).strip() == "pause":
+        return BlockDecision(BLOCK_PARK, "alignment decided to pause")
+    if str(record.get("requested_access_mode", "")).strip():
+        return BlockDecision(
+            BLOCK_PARK,
+            "the stage requests the access mode "
+            f"{record['requested_access_mode']!r}",
+        )
+    if str(record.get("route_to", "")).strip():
+        return BlockDecision(
+            BLOCK_PARK,
+            f"the stage requests routing back to {record['route_to']!r}",
+        )
+    return BlockDecision(
+        BLOCK_ESCALATE,
+        response.error or f"AEGIS reported status {response.status}",
+        hint=response.remediation,
+    )
 
 
 def _is_teardown_race(exc: IsolationError) -> bool:
@@ -718,6 +822,7 @@ class Orchestrator:
         # Retries orient too - they already carry a failure_context.
         need_orientation = run.stage != STANDARD_STAGES[0]
         closed_index = -1
+        lock_retries = 0
         while True:
             budget_reason = self._budget_exceeded(run)
             if budget_reason:
@@ -725,8 +830,11 @@ class Orchestrator:
                 return
             status = client.run_status()
             if not status.ok:
-                self._handle_block(run, status, "run status")
-                return
+                if not self._retryable(run, status, "run status", client,
+                                       lock_retries):
+                    return
+                lock_retries += 1
+                continue
             if status.complete:
                 self.store.journal(run.run_id, "aegis-run-complete",
                                    aegis_run=client.run_id)
@@ -776,15 +884,21 @@ class Orchestrator:
                 self.store.journal(run.run_id, "stage-questions", stage=stage)
                 self._park(run, questions)
                 return
-            verdict = self._verify_stage(run, client, stage)
+            verdict, evidence = self._verify_stage(run, client, stage)
             if verdict:
-                failure_context = self._failure_context(run, verdict)
+                failure_context = self._failure_context(run, verdict, evidence)
                 continue  # relaunch the same stage with what is still missing
             closed = client.stage_close()
-            if not closed.ok:
-                self._handle_block(run, closed, f"stage close ({stage})")
-                return
+            while not closed.ok:
+                # retry the close itself, not the whole iteration: the stage is
+                # already applied, so relaunching the executor would be waste
+                if not self._retryable(run, closed, f"stage close ({stage})",
+                                       client, lock_retries):
+                    return
+                lock_retries += 1
+                closed = client.stage_close()
             failure_context = ""
+            lock_retries = 0  # a closed stage is real progress
             closed_index = self._expected_stages(status).index(stage)
             self.store.journal(run.run_id, "stage-closed", stage=stage,
                                complete=closed.complete)
@@ -817,8 +931,14 @@ class Orchestrator:
             return True
         kind, quick = self._run_kind(ticket)
         response = client.run_start(kind, quick)
+        if not response.ok and self._retryable(
+            run, response, f"run start {kind}", None, 0
+        ):
+            response = client.run_start(kind, quick)
+            if not response.ok:
+                self._handle_block(run, response, f"run start {kind}", None)
+                return False
         if not response.ok:
-            self._handle_block(run, response, f"run start {kind}")
             return False
         run.aegis_run_id = client.run_id
         run.stage = response.stage or STANDARD_STAGES[0]
@@ -911,7 +1031,7 @@ class Orchestrator:
         run: RunState,
         client: AegisClient,
         stage: str,
-    ) -> str:
+    ) -> tuple[str, AegisResponse | None]:
         """
         @brief      ADORE's objective check before it closes a stage.
         @details    The conductor never takes the executor's word: `stage show`
@@ -922,18 +1042,20 @@ class Orchestrator:
         @param[in]  run The run.
         @param[in]  client The run's AEGIS client.
         @param[in]  stage Stage just applied by the executor.
-        @return     "" when the stage may be closed, else the relaunch context.
+        @return     ("", None) when the stage may be closed, else the relaunch
+                    reason and the response that produced it (so the caller can
+                    attach the response's own evidence).
         @exception  AegisError When the CLI contract is violated.
         @author     Eng. Dan Dumitru Pasare
         @date       2026-08-01
-        @version    0.1.0
+        @version    0.2.0
         """
         shown = client.stage_show()
         if not shown.ok:
             return (
-                f"AEGIS refused to report the {stage} stage: "
-                f"{shown.error or shown.status}. Next command: "
-                f"{shown.next_command}."
+                f"AEGIS refused to report the {stage} stage "
+                f"(status {shown.status}).",
+                shown,
             )
         blockers = [str(item) for item in shown.detail("blockers", []) or []]
         if shown.detail("ready") is not True or blockers:
@@ -943,8 +1065,8 @@ class Orchestrator:
             return (
                 f"The {stage} stage is applied but AEGIS does not consider it "
                 f"ready to close. Resolve these blockers, then apply the stage "
-                f"again:\n{listed}\nAEGIS says the next command is "
-                f"`{shown.next_command}`."
+                f"again:\n{listed}",
+                shown,
             )
         if stage in ("validation", "delivery"):
             verified = client.verify_run()
@@ -954,43 +1076,161 @@ class Orchestrator:
                 return (
                     f"`aegis verify run` failed at the {stage} stage "
                     f"(exit {verified.exit_code}). Fix every blocking finding "
-                    "and re-run it until it passes."
+                    "and re-run it until it passes.",
+                    verified,
                 )
             self.store.journal(run.run_id, "verify-passed", stage=stage)
         if stage == "validation":
             committed = self._work_committed(run)
             if committed:
                 self.store.journal(run.run_id, "work-uncommitted")
-                return committed
-        return ""
+                return committed, None
+        return "", None
 
     def _handle_block(
         self,
         run: RunState,
         response: AegisResponse,
         context: str,
-    ) -> None:
+        client: AegisClient | None = None,
+    ) -> str:
         """
-        @brief      Terminal handling for a blocked/failed AEGIS response.
-        @details    Fail loud: a governance block ADORE is not allowed to
-                    resolve itself (waiving is human-only, routing is human-
-                    only, state repair is human-only) ends the run with the
-                    exact AEGIS error and remediation on the ticket.
+        @brief      Act on a blocked/failed AEGIS response.
+        @details    `classify_block` decides; this method carries the decision
+                    out. Park routes into the existing clarification machinery
+                    with the recorded questions or request. Escalate ends the
+                    run with the exact AEGIS error, its remediation, and - when
+                    a waivable blocker is eligible - the exact
+                    `aegis waive add` command a human would run. ADORE never
+                    waives, routes, or repairs AEGIS state itself.
         @param[in]  run The run.
         @param[in]  response The blocked or failed response.
         @param[in]  context Human-readable command description.
+        @param[in]  client The run's client, used only to look up the waive
+                           hint; omitted when no run exists yet.
+        @return     The action taken: BLOCK_PARK, BLOCK_RETRY, or
+                    BLOCK_ESCALATE.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-08-01
+        @version    0.2.0
+        """
+        decision = classify_block(response, self._stage_record(run, response.stage))
+        self.store.journal(run.run_id, "aegis-blocked", context=context,
+                           status=response.status, code=response.code,
+                           action=decision.action)
+        if decision.action == BLOCK_RETRY:
+            self.log(f"{run.run_id}: {decision.reason}; retrying `{context}`")
+            return BLOCK_RETRY
+        if decision.action == BLOCK_PARK:
+            questions = self._stage_questions(run, response.stage) or (
+                f"AEGIS paused the {response.stage} stage: {decision.reason}.\n"
+                f"{response.error or ''}".strip()
+            )
+            self._park(run, self._redact_failure_context(questions))
+            return BLOCK_PARK
+        reason = f"AEGIS blocked `{context}`: {decision.reason}"
+        if decision.hint:
+            reason += f" | remediation: {decision.hint}"
+        waive_hint = self._waive_hint(client)
+        if waive_hint:
+            reason += f" | {waive_hint}"
+        self._escalate(run, self._redact_failure_context(reason))
+        return BLOCK_ESCALATE
+
+    def _retryable(
+        self,
+        run: RunState,
+        response: AegisResponse,
+        context: str,
+        client: AegisClient | None,
+        attempts: int,
+    ) -> bool:
+        """
+        @brief      Handle a block and report whether the caller may retry.
+        @details    Only a live persistence lock is retryable, and only
+                    `_MAX_LOCK_RETRIES` times in a row: after that the lock is
+                    not transient and a human has to look. Any other action
+                    (park or escalate) has already ended the run.
+        @param[in]  run The run.
+        @param[in]  response The blocked or failed response.
+        @param[in]  context Human-readable command description.
+        @param[in]  client The run's client (for the waive hint).
+        @param[in]  attempts Consecutive retries already spent.
+        @return     True when the caller should sleep and re-issue the command.
         @author     Eng. Dan Dumitru Pasare
         @date       2026-08-01
         @version    0.1.0
         """
-        self.store.journal(run.run_id, "aegis-blocked", context=context,
-                           status=response.status, code=response.code)
-        detail = response.error or f"status {response.status}"
-        remediation = response.remediation
-        reason = f"AEGIS blocked `{context}`: {detail}"
-        if remediation:
-            reason += f" | remediation: {remediation}"
-        self._escalate(run, self._redact_failure_context(reason))
+        action = self._handle_block(run, response, context, client)
+        if action != BLOCK_RETRY:
+            return False
+        if attempts >= _MAX_LOCK_RETRIES:
+            self._escalate(
+                run,
+                self._redact_failure_context(
+                    f"AEGIS blocked `{context}`: the persistence lock is still "
+                    f"held after {attempts + 1} attempts; another AEGIS process "
+                    "is running against this repository"
+                ),
+            )
+            return False
+        self.sleep(_LOCK_RETRY_DELAY)
+        return True
+
+    def _waive_hint(self, client: AegisClient | None) -> str:
+        """
+        @brief      The exact `aegis waive add` command a human could run.
+        @details    Design decision 3: ADORE never waives, but an escalation
+                    that names the eligible blocker IDs saves the human a round
+                    trip. The hint is advisory only - if `waive list` itself is
+                    unavailable the escalation still carries the original AEGIS
+                    error, which is the part that must never be lost.
+        @param[in]  client The run's client, or None when no run exists.
+        @return     The hint text, or "" when there is nothing waivable.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-08-01
+        @version    0.1.0
+        """
+        if client is None or not client.run_id:
+            return ""
+        try:
+            listed = client.waive_list()
+        except AegisError:
+            return ""
+        if not listed.ok:
+            return ""
+        ids = [
+            str(item.get("id"))
+            for item in (listed.detail("eligible_blockers") or [])
+            if isinstance(item, dict) and item.get("id")
+        ][:_AGENTIC_FAILURE_ITEMS_LIMIT]
+        if not ids:
+            return ""
+        commands = "; ".join(
+            f'aegis waive add {blocker} --reason "<why>"' for blocker in ids
+        )
+        return (
+            "a human may waive one of these after deciding it is acceptable: "
+            + commands
+        )
+
+    def _stage_record(self, run: RunState, stage: str) -> dict | None:
+        """
+        @brief      The graph's stage record for one stage, when readable.
+        @param[in]  run The ADORE run.
+        @param[in]  stage Stage name.
+        @return     The `stage_records[<stage>]` mapping, or None.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-08-01
+        @version    0.1.0
+        """
+        run_dir = self._aegis_run_dir(run)
+        if run_dir is None or not stage or stage == "none":
+            return None
+        graph = self._load_aegis_graph(run_dir / "graph.json")
+        records = graph.get("stage_records") if isinstance(graph, dict) else None
+        record = records.get(stage) if isinstance(records, dict) else None
+        return record if isinstance(record, dict) else None
 
     def _escalate_aegis(self, run: RunState, exc: AegisError) -> None:
         """
@@ -1137,6 +1377,7 @@ class Orchestrator:
                 f"`aegis verify run` failed (exit {verified.exit_code}) after "
                 f"merging {run.base_ref}. Fix every blocking finding, commit "
                 "your changes, and leave a clean tree.",
+                verified,
             )
             if not self._delivery_fix(run, ticket, client, context, thread):
                 return
@@ -1525,27 +1766,74 @@ class Orchestrator:
         block = self._tail_lines("\n".join(lines), _AGENTIC_ORIENTATION_LIMIT)
         return self._redact_failure_context(block)
 
-    def _failure_context(self, run: RunState, base: str) -> str:
+    def _failure_context(
+        self,
+        run: RunState,
+        base: str,
+        response: AegisResponse | None = None,
+    ) -> str:
         """
-        @brief      Add read-only `.agentic` failure evidence to a fix prompt.
-        @details    The workflow CLI often writes the useful failure payload
-                    to graph/journal/report files instead of stdout. This
-                    helper keeps ADORE deterministic: it only reads existing
-                    files from the active `.agentic` run, never invokes
-                    workflow commands, and redacts configured executor secret
-                    values from the final prompt context.
-        @param[in]  run ADORE run whose worktree holds the workflow artifacts.
-        @param[in]  base The original exit-code/stdout/stderr failure summary.
+        @brief      Add read-only AEGIS failure evidence to a fix prompt.
+        @details    Sources in order, each bounded: the blocked/failed AEGIS
+                    response itself (error, remediation, stage blockers), then
+                    `validation-summary.json` (failing gates and invariants),
+                    then the schema-3 `graph.json` `evidence[]` rows, then the
+                    tail of `report.md` when it exists. This keeps ADORE
+                    deterministic: it only reads files the run already wrote,
+                    never invokes extra AEGIS commands, and redacts configured
+                    executor secret values from the final prompt context.
+        @param[in]  run ADORE run whose worktree holds the AEGIS artifacts.
+        @param[in]  base The original exit-code/stderr failure summary.
+        @param[in]  response The blocked/failed response, when one caused this.
         @return     Bounded prompt context for the executor retry.
+        @exception  AegisProtocolError When the run exists but its graph does
+                    not - a started run always has one, so its absence is a
+                    broken record, not an empty one.
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-08
-        @version    0.1.1
+        @date       2026-08-01
+        @version    0.2.0
         """
-        evidence = self._agentic_failure_evidence(run)
         parts = [base.strip()]
+        if response is not None:
+            parts.extend(self._response_evidence(run, response))
+        evidence = self._aegis_failure_evidence(run)
         if evidence:
             parts.append(evidence)
-        return self._redact_failure_context("\n\n".join(part for part in parts if part))
+        return self._redact_failure_context(
+            "\n\n".join(part for part in parts if part)
+        )
+
+    def _response_evidence(
+        self,
+        run: RunState,
+        response: AegisResponse,
+    ) -> list[str]:
+        """
+        @brief      Render the blocked/failed response as prompt context.
+        @param[in]  run The ADORE run (for the stage record).
+        @param[in]  response The blocked or failed response.
+        @return     Zero or more prompt blocks.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-08-01
+        @version    0.1.0
+        """
+        lines: list[str] = []
+        if response.error:
+            lines.append(f"AEGIS reported: {self._tail_lines(response.error, 900)}")
+        if response.remediation:
+            lines.append(f"AEGIS remediation: "
+                         f"{self._tail_lines(response.remediation, 500)}")
+        blockers = [
+            str(item)
+            for item in (response.detail("blockers") or [])
+        ][:_AGENTIC_FAILURE_ITEMS_LIMIT]
+        if blockers:
+            lines.append("Stage blockers:\n"
+                         + "\n".join(f"- {item}" for item in blockers))
+        if response.next_command and response.next_command != "none":
+            lines.append(f"AEGIS says the exact next command is "
+                         f"`{response.next_command}`.")
+        return lines
 
     def _aegis_run_dir(self, run: RunState) -> Path | None:
         """
@@ -1623,44 +1911,131 @@ class Orchestrator:
             return None
         return graph if isinstance(graph, dict) else None
 
-    def _agentic_failure_evidence(self, run: RunState) -> str:
+    def _aegis_failure_evidence(self, run: RunState) -> str:
         """
         @brief      Read prompt-safe failure evidence from the AEGIS run.
         @details    Uses the AEGIS file contract under
-                    `.agentic/runs/<aegis-run-id>/`: `graph.json`,
-                    `journal.jsonl`, and `report.md`, addressed by the run id
-                    ADORE persisted rather than by the worktree pointer.
-                    Missing files are skipped; malformed files are reported in
-                    the prompt so the executor understands that evidence was
-                    present but damaged.
+                    `.agentic/runs/<aegis-run-id>/`, addressed by the run id
+                    ADORE persisted rather than by the retired worktree
+                    pointer: `validation-summary.json` first (the authoritative
+                    verification result), then the schema-3 `graph.json`
+                    evidence rows, then `report.md` when it exists. Malformed
+                    files are reported in the prompt so the executor
+                    understands that evidence was present but damaged. A
+                    STARTED run always has a `graph.json`, so its absence is a
+                    broken record and fails loud.
         @param[in]  run ADORE run whose worktree is inspected.
         @return     Markdown-ish evidence block, or "" when no evidence exists.
+        @exception  AegisProtocolError When the run's graph.json is missing.
         @author     Eng. Dan Dumitru Pasare
         @date       2026-08-01
-        @version    0.2.0
+        @version    0.3.0
         """
         run_dir = self._aegis_run_dir(run)
         if run_dir is None:
             return ""
+        graph_path = run_dir / "graph.json"
+        if not graph_path.is_file():
+            raise AegisProtocolError(
+                f"AEGIS run {run.aegis_run_id} has no "
+                f"{_AEGIS_RUN_DIR}/{run.aegis_run_id}/graph.json; the run "
+                "record is missing or was removed from the worktree"
+            )
         sections = [
             f"AEGIS failure evidence from `{_AEGIS_RUN_DIR}/{run.aegis_run_id}`:"
         ]
-        sections.extend(self._graph_failure_evidence(run_dir / "graph.json"))
-        sections.extend(self._journal_failure_evidence(run_dir / "journal.jsonl"))
+        sections.extend(
+            self._summary_failure_evidence(run_dir / "validation-summary.json")
+        )
+        sections.extend(self._graph_failure_evidence(graph_path))
         sections.extend(self._report_failure_evidence(run_dir / "report.md"))
         if len(sections) == 1:
             return ""
         rendered = "\n".join(sections)
         return self._tail_lines(rendered, _AGENTIC_FAILURE_CONTEXT_LIMIT)
 
+    def _summary_failure_evidence(self, path: Path) -> list[str]:
+        """
+        @brief      Extract failing gates and invariants from the summary.
+        @details    `validation-summary.json` is what `aegis verify run`
+                    writes, so it is the authoritative account of WHY
+                    verification failed. Disabled and waived gates are reported
+                    verbatim - AEGIS never renders either as passed, and
+                    neither does this prompt.
+        @param[in]  path Path to `validation-summary.json`.
+        @return     Lines to append to the retry prompt.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-08-01
+        @version    0.1.0
+        """
+        if not path.is_file():
+            return []
+        try:
+            summary = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            return [f"- validation-summary.json: could not parse ({exc})."]
+        if not isinstance(summary, dict):
+            return ["- validation-summary.json: malformed payload."]
+        lines: list[str] = []
+        gates = summary.get("gates")
+        if isinstance(gates, dict):
+            failing = [
+                f"{name} ({value.get('status')})"
+                for name, value in sorted(gates.items())
+                if isinstance(value, dict)
+                and value.get("status") not in ("passed", "disabled")
+            ][:_AGENTIC_FAILURE_ITEMS_LIMIT]
+            if failing:
+                lines.append("- Failing gate groups: " + ", ".join(failing))
+        invariants = summary.get("invariants")
+        if isinstance(invariants, list):
+            broken = [
+                item for item in invariants
+                if isinstance(item, dict) and item.get("holds") is False
+            ][:_AGENTIC_FAILURE_ITEMS_LIMIT]
+            if broken:
+                lines.append("- Invariants that do not hold:")
+                for item in broken:
+                    lines.append(
+                        f"  - {item.get('id')} ({item.get('policy')}): "
+                        f"{self._tail_lines(str(item.get('message') or ''), 300)}"
+                    )
+        for key, label in (("traceability", "Traceability findings"),
+                           ("coverage", "Coverage findings")):
+            issues = summary.get(key)
+            if not isinstance(issues, list):
+                continue
+            texts = [
+                str(item.get("message"))
+                for item in issues
+                if isinstance(item, dict)
+                and item.get("message")
+                and item.get("status") != "not-applicable"
+            ][:_AGENTIC_FAILURE_ITEMS_LIMIT]
+            if texts:
+                lines.append(f"- {label}: " + "; ".join(texts))
+        working_tree = summary.get("working_tree")
+        if isinstance(working_tree, dict):
+            findings = [
+                f"{item.get('code')} {item.get('path')}: {item.get('message')}"
+                for item in (working_tree.get("blocking_findings") or [])
+                if isinstance(item, dict)
+            ][:_AGENTIC_FAILURE_ITEMS_LIMIT]
+            if findings:
+                lines.append("- Working-tree findings: " + "; ".join(findings))
+        return lines
+
     def _graph_failure_evidence(self, path: Path) -> list[str]:
         """
         @brief      Extract active failing evidence rows from graph.json.
-        @param[in]  path Path to the workflow graph.
+        @details    Schema-3 `evidence[]` rows with `result: "fail"` that were
+                    not superseded, rendered with the fields the executor needs
+                    to act: id, kind, stage, summary, command, failure kind.
+        @param[in]  path Path to the AEGIS run graph.
         @return     Lines to append to the retry prompt.
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-08
-        @version    0.1.0
+        @date       2026-08-01
+        @version    0.2.0
         """
         if not path.is_file():
             return []
@@ -1694,53 +2069,6 @@ class Orchestrator:
                 lines.append(f"    command: {self._tail_lines(str(item['command']), 500)}")
             if item.get("failure_kind"):
                 lines.append(f"    failure kind: {item['failure_kind']}")
-        return lines
-
-    def _journal_failure_evidence(self, path: Path) -> list[str]:
-        """
-        @brief      Extract recent failed gate.output records from journal.jsonl.
-        @param[in]  path Path to the workflow journal.
-        @return     Lines to append to the retry prompt.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-08
-        @version    0.1.0
-        """
-        if not path.is_file():
-            return []
-        try:
-            raw_lines = path.read_text(encoding="utf-8").splitlines()
-        except OSError as exc:
-            return [f"- journal.jsonl: could not read gate output evidence ({exc})."]
-        failed: list[dict] = []
-        for raw in raw_lines:
-            try:
-                entry = json.loads(raw)
-            except json.JSONDecodeError:
-                continue  # torn journal tail: authority is still graph/state
-            if not isinstance(entry, dict) or entry.get("event") != "gate.output":
-                continue
-            data = entry.get("data")
-            if not isinstance(data, dict):
-                continue
-            try:
-                returncode = int(data.get("returncode", 0) or 0)
-            except (TypeError, ValueError):
-                continue
-            if returncode == 0:
-                continue
-            failed.append(data)
-        if not failed:
-            return []
-        lines = ["- Recent failed gate output:"]
-        for item in failed[-_AGENTIC_FAILURE_ITEMS_LIMIT:]:
-            lines.append(
-                f"  - {item.get('gate') or 'gate'} exit {item.get('returncode')}: "
-                f"{self._tail_lines(str(item.get('command') or ''), 500)}"
-            )
-            if item.get("stdout_tail"):
-                lines.append(f"    stdout tail: {self._tail_lines(str(item['stdout_tail']), 700)}")
-            if item.get("stderr_tail"):
-                lines.append(f"    stderr tail: {self._tail_lines(str(item['stderr_tail']), 700)}")
         return lines
 
     def _report_failure_evidence(self, path: Path) -> list[str]:

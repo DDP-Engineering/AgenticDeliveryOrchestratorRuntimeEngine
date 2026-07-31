@@ -40,6 +40,27 @@ This project follows Keep a Changelog and Semantic Versioning.
   `stage-not-ready`, `verify-failed`, `aegis-run-started`,
   `aegis-run-complete`, `aegis-blocked`, `aegis-contract-failure`); metrics
   read the new names into the existing summary columns.
+- **ADORE 2.0 hard break to AEGIS 2.x - WP4: failure evidence and block
+  classification.** Retry prompts are now built from the AEGIS 2.x sources, in
+  order and bounded: the blocked/failed response itself (`error`,
+  `remediation`, stage `blockers[]`, the exact `next` command), then
+  `validation-summary.json` (failing gate groups, invariants that do not hold,
+  traceability/coverage/working-tree findings - disabled and waived gates are
+  reported as such, never as passed), then the schema-3 `graph.json`
+  `evidence[]` rows, then the `report.md` excerpts. Journal scraping is gone
+  with the AEGIS 1.x `gate.output` event it depended on. A started run whose
+  `graph.json` is missing escalates instead of yielding an empty evidence
+  block. One helper, `classify_block`, decides what a blocked response means:
+  a live `PERSISTENCE-LOCK-TIMEOUT` earns exactly one bounded retry (a
+  `stage close` retries the close itself rather than relaunching the executor)
+  and then escalates; the rest of the integrity floor and every run-resolution
+  error escalate as state repair a human owns; unresolved questions, an
+  alignment pause, a `repo-wide` access request, and a `route_to` request all
+  park through the normal clarification flow; everything else escalates with
+  the AEGIS error, its remediation, and the exact
+  `aegis waive add <id> --reason "..."` command a human could run - never an
+  automatic waiver. The waive hint is advisory and can never hide the original
+  error.
 - `adore reset --to` now accepts the eight AEGIS stages or `publication`. It
   moves ADORE's own pointer only - AEGIS still owns the governed run's stage,
   which conduction re-reads from `run status` - and it never touches AEGIS

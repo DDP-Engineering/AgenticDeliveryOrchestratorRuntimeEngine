@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Orchestrator (`adore/orchestrator.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/adore/orchestrator.py` - file version 0.7.0.
+> Source: `04_Software/adore/orchestrator.py` - file version 0.8.0.
 > AEGIS contract: `00_Planning/AEGIS_2x_HardBreak_Adaptation/AEGIS_2.1_Contract_Notes.md`.
 > Design: Orchestrator_Design_And_Decisions.md sections 5a, 7a, 8, 9, 10.
 
@@ -183,21 +183,42 @@ interface) and metrics.
   asked to continue a dead session (live finding 2026-07-04).
 - Stage failures, not-ready stages, and failed verifications relaunch the
   same stage with the reason plus read-only AEGIS failure evidence as added
-  prompt context; the iterations budget ends the loop. Evidence enrichment
-  reads only the run's existing `graph.json`, `journal.jsonl`, and
-  `report.md` under `.agentic/runs/<aegis-run-id>/` - addressed by the run id
-  ADORE persisted, never by the worktree's `current_run` pointer (design
-  decision 4) - and it never invokes extra AEGIS commands or changes
-  pass/fail decisions.
+  prompt context; the iterations budget ends the loop. Evidence sources, in
+  order and each bounded (5000 characters, 5 items): the blocked/failed
+  response itself (`error`, `remediation`, stage `blockers[]`, the exact
+  `next` command), `validation-summary.json` (failing gate groups, invariants
+  that do not hold, traceability/coverage/working-tree findings - disabled and
+  waived gates are reported as such, never as passed), the schema-3
+  `graph.json` `evidence[]` rows (`id`, `kind`, `stage`, `summary`, `command`,
+  `failure_kind`), and the `report.md` excerpts. All of it lives under
+  `.agentic/runs/<aegis-run-id>/`, addressed by the run id ADORE persisted and
+  never by the worktree's `current_run` pointer (design decision 4). Reading
+  invokes no extra AEGIS command and changes no pass/fail decision. Journal
+  scraping is gone: the AEGIS 1.x `gate.output` event no longer exists, and the
+  envelope plus the validation summary cover the need. A started run whose
+  `graph.json` is missing is a broken record and escalates rather than
+  yielding an empty evidence block.
 - The post-merge `aegis verify run` fix prompts use the same evidence
   enrichment, while merge-conflict prompts remain based on git merge output.
   Configured executor secret values are redacted from all appended failure
   context, from escalation reasons, and from the MR body.
-- Every AEGIS-facing failure fails loud. `AegisProtocolError` /
-  `AegisTimeoutError` escalate tagged as a contract failure; a `blocked` or
-  `failed` envelope from `run start`, `run status`, or `stage close`
-  escalates with the exact AEGIS `error` and remediation on the ticket. ADORE
-  never waives, never routes, and never repairs AEGIS state.
+- Every AEGIS-facing failure fails loud, and `classify_block` is the single
+  place that decides what "loud" means for a blocked response. Precedence:
+  a live persistence lock (`PERSISTENCE-LOCK-TIMEOUT`) is the one transient
+  AEGIS failure and earns exactly one bounded retry after a short delay - a
+  `stage close` retries the close itself rather than relaunching the executor
+  - after which it escalates; the rest of the non-waivable integrity floor
+  (`GRAPH-STALE-UPDATE`, `REQUIREMENT-STALE-UPDATE`, schema corruption) and
+  every run-resolution error escalate, because state repair is a human task;
+  human-attention state recorded in the stage (unresolved questions, an
+  alignment `pause`, a `repo-wide` access request, a `route_to` request) parks
+  through the normal clarification flow; everything else escalates with the
+  AEGIS error, its remediation, and - looked up from `waive list` - the exact
+  `aegis waive add <id> --reason "..."` command a human could run. The waive
+  hint is advisory: if `waive list` is unusable the escalation still carries
+  the original error. `AegisProtocolError` / `AegisTimeoutError` escalate
+  tagged as a contract failure. ADORE never waives, never routes, and never
+  repairs AEGIS state.
 - A freshly launched executor session that lacks the prior chat context - a
   stage retry, a publication fix, a revise round, or a run resumed
   mid-workflow after a restart - is oriented by `_workflow_orientation`.
@@ -276,7 +297,12 @@ adore logs <run-id>
   regression escalating before any launch; the composed run-orientation
   brief on relaunch and a non-conforming `run resume` escalating; evidence
   addressed by the persisted run id while a decoy `current_run` pointer is
-  ignored; malformed/missing evidence handling; secret redaction; selection
+  ignored; the validation summary and graph rows appearing in a retry prompt;
+  damaged artifacts reported rather than hidden; a started run without a
+  graph escalating; every `classify_block` branch; a held lock retried once
+  then escalating; the exact waive command in an escalation and an
+  unavailable `waive list` never hiding the original error; recorded stage
+  questions parking the run; secret redaction; selection
   ordering, control labels and readiness negatives; idempotent re-poll skip;
   park order (question before status); resume filtering; answered-label
   override; round-cap escalation; TTL reap vs run survival; answer timeout
