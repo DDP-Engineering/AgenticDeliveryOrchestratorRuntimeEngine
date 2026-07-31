@@ -14,6 +14,24 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Added
 
+- **ADORE 2.0 hard break to AEGIS 2.x - WP1: the AEGIS client
+  (`adore/aegis.py`).** One component owns the whole AEGIS-facing contract:
+  it invokes the grouped CLI as `bash .agentic/tools/run.sh <group> <action>
+  [--run <id>] --json` inside the run's container, pins the AEGIS run id
+  captured at `run start` on every later call (the worktree `current_run`
+  pointer is never read again), and parses the stable four-key envelope into
+  a frozen `AegisResponse` with `ok`/`blocked`/`failed`/`complete`/`error`/
+  `code`/`remediation` helpers. Exit 0 and exit 1 are workflow signals
+  returned as data; everything else fails loud - exit 2 (usage error, or the
+  wrapper finding no Python runtime), a timeout, unparseable or non-object
+  output, a missing or mistyped envelope key, a status contradicting the exit
+  code, and a `run start` without a well-formed run id all raise
+  `AegisProtocolError`/`AegisTimeoutError` so the conductor escalates instead
+  of degrading. `--quick` is rejected client-side for any kind but `fix` and
+  `change`, and `waive add` is deliberately not wrapped: waiving stays a
+  human decision. Wrappers: `run_start`, `run_status`, `run_resume`,
+  `stage_show`, `stage_close`, `verify_run`, `delivery_report`, `waive_list`,
+  `config_validate`. Covered by 16 offline tests over a fake exec seam.
 - Gitea forge support behind the same adapter interface (`[platform]
   kind = "gitea"`), implemented over the `tea` CLI (>= 0.15 required for
   `tea api`; verified against tea 0.15.0 / Gitea 1.25.4). Reads and
