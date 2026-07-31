@@ -19,8 +19,8 @@
          loading raises StateError so the caller can skip or escalate
          deterministically, never guess.
 @author Eng. Dan Dumitru Pasare
-@date 2026-07-24
-@version 0.2.0
+@date 2026-08-01
+@version 0.2.1
 """
 
 from __future__ import annotations
@@ -66,18 +66,24 @@ class RunState:
     """
     @brief   In-memory view of a single run's persisted state.
     @details Everything the orchestrator needs to resume a run after a restart
-             without re-fetching the ticket: identity, stage, signaling
-             comment ids, round/budget counters, park bookkeeping, and
-             resource names.
+             without re-fetching the ticket: identity, stage, the AEGIS run
+             this ADORE run drives, signaling comment ids, round/budget
+             counters, park bookkeeping, and resource names.
     @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-24
-    @version 0.1.2
+    @date    2026-08-01
+    @version 0.1.3
     """
 
     run_id: str
     ticket_iid: int
     stage: str = "intake"
     lifecycle: str = "working"
+    # The AEGIS run id minted by `aegis run start`, pinned with `--run` on
+    # every later AEGIS call and used to address the run-local `.agentic`
+    # files. None means "no AEGIS run started yet"; it is never cleared once
+    # set, so a restart resumes the same governed run instead of starting a
+    # second one.
+    aegis_run_id: str | None = None
     content_hash: str = ""
     status_comment_id: int | None = None
     question_comment_id: int | None = None
@@ -115,12 +121,16 @@ class RunState:
         """
         @brief      Rebuild a RunState from a persisted mapping.
         @details    Unknown keys are ignored so older ADORE versions can read
-                    state written by newer ones.
+                    state written by newer ones. A state file written before
+                    `aegis_run_id` existed simply defaults it to None, which
+                    the conductor reads as "no AEGIS run started yet" - the
+                    field default is the whole story; there is no migration
+                    code anywhere.
         @param[in]  data Mapping loaded from state.json.
         @return     The reconstructed RunState.
         @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.1
+        @date       2026-08-01
+        @version    0.1.2
         """
         known = {f.name for f in fields(cls)}
         return cls(**{key: value for key, value in data.items() if key in known})

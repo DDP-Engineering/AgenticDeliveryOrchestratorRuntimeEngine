@@ -32,6 +32,14 @@ This project follows Keep a Changelog and Semantic Versioning.
   human decision. Wrappers: `run_start`, `run_status`, `run_resume`,
   `stage_show`, `stage_close`, `verify_run`, `delivery_report`, `waive_list`,
   `config_validate`. Covered by 16 offline tests over a fake exec seam.
+- **ADORE 2.0 hard break to AEGIS 2.x - WP2: the AEGIS run id is persisted.**
+  `RunState` gains `aegis_run_id`, written into `state.json` at
+  `aegis run start` and never cleared, so a restart or a resume pins the same
+  governed run with `--run` instead of starting a second one or consulting the
+  worktree-local `current_run` pointer. A state file written before the field
+  existed loads as `None` - "no AEGIS run started yet" - purely through the
+  dataclass default; no migration code exists. Covered by round-trip tests
+  with and without the field.
 - Gitea forge support behind the same adapter interface (`[platform]
   kind = "gitea"`), implemented over the `tea` CLI (>= 0.15 required for
   `tea api`; verified against tea 0.15.0 / Gitea 1.25.4). Reads and

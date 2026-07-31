@@ -90,6 +90,42 @@ def test_from_dict_ignores_unknown_keys() -> None:
     assert state.run_id == "r"
 
 
+def test_aegis_run_id_round_trips(tmp_path: Path) -> None:
+    """
+    @brief   The AEGIS run id survives save/load, so a restart resumes the
+             same governed run instead of starting a second one.
+    @version 0.1.0
+    """
+    store = _store(tmp_path)
+    aegis_run = "fix-2026-08-01T101112Z-0a1b2c3d"
+    state = RunState(run_id="gitlab-g-p-14", ticket_iid=14, aegis_run_id=aegis_run)
+    store.save(state)
+    assert store.load("gitlab-g-p-14").aegis_run_id == aegis_run
+    payload = json.loads(
+        (store.run_dir("gitlab-g-p-14") / "state.json").read_text(encoding="utf-8")
+    )
+    assert payload["aegis_run_id"] == aegis_run
+
+
+def test_state_without_the_aegis_run_id_field_loads_as_not_started(
+    tmp_path: Path,
+) -> None:
+    """
+    @brief   A state file written before the field existed yields None - the
+             conductor's "no AEGIS run started yet" signal. The dataclass
+             default is the whole mechanism; no migration code exists.
+    @version 0.1.0
+    """
+    store = _store(tmp_path)
+    run_dir = store.run_dir("gitlab-g-p-15")
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "state.json").write_text(
+        json.dumps({"run_id": "gitlab-g-p-15", "ticket_iid": 15, "stage": "intake"}),
+        encoding="utf-8",
+    )
+    assert store.load("gitlab-g-p-15").aegis_run_id is None
+
+
 def test_ticket_snapshot_and_journal(tmp_path: Path) -> None:
     """
     @brief   Ticket snapshot round-trips; journal appends in order.

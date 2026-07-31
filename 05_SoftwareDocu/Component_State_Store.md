@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: State Store (`adore/state.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/adore/state.py` - file version 0.2.0.
+> Source: `04_Software/adore/state.py` - file version 0.2.1.
 > Design: Orchestrator_Design_And_Decisions.md section 8a.
 
 ## 1. Purpose
@@ -23,8 +23,9 @@ deterministic run identity, and the fail-closed handling of damaged state.
 
 - Layout per run: `.adore/runs/<run-id>/` with
   - `ticket.json` - the ticket snapshot taken at pickup,
-  - `state.json` - the `RunState` (stage, lifecycle, comment ids, rounds,
-    budget counters, park bookkeeping, resource names, timestamps),
+  - `state.json` - the `RunState` (stage, lifecycle, the AEGIS run id,
+    comment ids, rounds, budget counters, park bookkeeping, resource
+    names, timestamps),
   - `journal.jsonl` - append-only orchestrator events,
   - `io/` - live executor exchange files plus `io/archive/` immutable
     per-launch copies (written by the executor launcher).
@@ -85,8 +86,16 @@ deciding transitions (orchestrator).
 - Lock record shape: `{"pid": <int>, "acquired_at": <iso>, "host": <str>}`;
   `lock_info()` returns `{}` when held-but-unreadable and `None` when free. The
   `host` scopes automatic stale reclaim to the machine that wrote the lock.
-- The orchestrator run state is fully independent from the target repo's
-  `.agentic` workflow run (design 8a); neither records the other's id.
+- `aegis_run_id` is the AEGIS run this ADORE run drives: the id minted by
+  `aegis run start`, pinned with `--run` on every later AEGIS call and used
+  to address the run-local `.agentic/runs/<id>/` files. `None` means "no
+  AEGIS run started yet"; once set it is never cleared, so a restart
+  resumes the same governed run instead of starting a second one. A state
+  file written before the field existed loads as `None` purely through the
+  dataclass default - there is no migration code (ADORE 2.0 WP2).
+- The two identities stay separate: ADORE's `run_id` names ADORE's own
+  resources, `aegis_run_id` names AEGIS's run. AEGIS records nothing about
+  ADORE.
 
 ## 7. Workflow Integration
 
