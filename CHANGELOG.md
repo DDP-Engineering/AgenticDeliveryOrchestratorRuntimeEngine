@@ -165,6 +165,18 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Added
 
+- **`[budgets] max_cost_usd` is now enforced** (review finding
+  ADORE-ARCH-003). It was validated, wizard-prompted, and documented as a
+  live limit while `_budget_exceeded` never read it, so an unattended run
+  with a misbehaving executor could spend unboundedly in dollars while
+  staying inside the iteration and wall-clock budgets - against
+  `AGENTS.md`'s mandate to bound every run by cost. The check now sums
+  `cost_usd` across the run's journaled `usage` events and fails the run with
+  `budget exceeded: cost $X.XX`. It is deliberately only as good as what the
+  executor reports: zero-cost reporting (or
+  `[metrics] capture_tokens = false`) leaves the cap inert, which
+  `Configuration_Reference.md` now states outright instead of implying a
+  guarantee.
 - **Stale-`working`-run detection** (review finding ADORE-ARCH-001). A run
   whose conductor died mid-conduct stayed `lifecycle = "working"` forever;
   because `working` runs count against `[polling] max_concurrent_runs`, one

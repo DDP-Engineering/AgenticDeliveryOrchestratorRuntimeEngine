@@ -2833,17 +2833,53 @@ class Orchestrator:
         kept = [c for c in comments if not c.system][-limit:]
         return "\n\n".join(f"{c.author}: {c.body.strip()}" for c in kept)
 
+    def _cost_spent(self, run: RunState) -> float:
+        """
+        @brief      Total USD the executor reported for this run so far.
+        @details    Sums `cost_usd` across the run's journaled `usage` events.
+                    The journal is the append-only truth (the io event stream
+                    is overwritten every launch), so this survives restarts
+                    and covers stage launches, delivery fixes, and revise
+                    rounds alike. Non-numeric or missing values are ignored
+                    rather than raising: a torn journal line must not be able
+                    to stop a run, and the enclosing budget check fails open
+                    to "keep going" for exactly one more iteration, where the
+                    other budgets still apply.
+        @param[in]  run The run.
+        @return     Reported spend in USD (0.0 when nothing was reported).
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-08-01
+        @version    0.1.0
+        """
+        total = 0.0
+        for event in self.store.read_journal(run.run_id):
+            if event.get("event") != "usage":
+                continue
+            cost = event.get("cost_usd")
+            if isinstance(cost, (int, float)) and not isinstance(cost, bool):
+                total += float(cost)
+        return total
+
     def _budget_exceeded(self, run: RunState) -> str:
         """
         @brief      Check the run budgets (design 10); empty string = fine.
         @details    Iterations (executor launches), wall clock since pickup,
-                    and files touched vs the base ref. Cost joins with the
-                    metrics phase (token usage is in the event stream).
+                    cost, and files touched vs the base ref - cheapest check
+                    first, so a run that blew its iteration count never pays
+                    for a journal read or a git call.
+
+                    Cost is summed from the run's journaled `usage` events,
+                    the append-only record `_journal_usage` writes after every
+                    launch. That makes the cap only as good as what the
+                    executor reports: an executor that reports no usage
+                    (or `[metrics] capture_tokens = false`) journals no
+                    events, sums to zero, and never trips - documented in
+                    Configuration_Reference.md rather than guessed at here.
         @param[in]  run The run.
         @return     Human-readable reason, or "".
         @author     Eng. Dan Dumitru Pasare
         @date       2026-07-03
-        @version    0.1.0
+        @version    0.2.0
         """
         budgets = self.config.budgets
         if run.iterations >= budgets.max_iterations:
@@ -2854,6 +2890,9 @@ class Orchestrator:
             elapsed = (now - started).total_seconds()
             if elapsed > budgets.max_wall_clock_seconds:
                 return f"budget exceeded: wall clock {int(elapsed)}s"
+        spent = self._cost_spent(run)
+        if spent > budgets.max_cost_usd:
+            return f"budget exceeded: cost ${spent:.2f}"
         if run.base_ref and self.worktrees.exists(run.run_id):
             try:
                 # an in-progress target merge stages upstream files; that is

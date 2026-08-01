@@ -87,8 +87,17 @@ review.
   manager, which nests and unwinds on exceptions; a run with an unparseable
   `updated_at` is never reaped (fail closed toward a human).
 - **Run budgets** (design 10): executor iterations, total wall clock
-  (`max_wall_clock_seconds`), files touched vs base ref. (Cost joins with the
-  metrics phase.) A single executor launch is bounded separately by
+  (`max_wall_clock_seconds`), reported cost (`max_cost_usd`), files touched
+  vs base ref - cheapest check first, so a run that blew its iteration count
+  never pays for a journal read or a git call. Cost is summed from the run's
+  journaled `usage` events (the append-only record `_journal_usage` writes
+  after every launch, so it survives restarts and covers stage launches,
+  delivery fixes, and revise rounds alike) and trips with
+  `budget exceeded: cost $X.XX`. It is therefore only as good as what the
+  executor reports: an executor that reports no cost - or
+  `[metrics] capture_tokens = false` - leaves the cap inert, which
+  `Configuration_Reference.md` states outright rather than implying a
+  guarantee. A single executor launch is bounded separately by
   `per_gate_timeout_seconds` (independent from the whole-run ceiling, so
   per-gate and total budgets tune apart). Live-pilot refinements 2026-07-04:
   the files check is skipped while a target merge is in progress (staged
@@ -374,4 +383,6 @@ adore logs <run-id>
 - Crashed `working` runs are escalated (not resumed) once they go stale, so
   they no longer wedge pickup; continuing one is still a deliberate
   `adore retry`. Automatic crash-resume is a later refinement.
-- The executor cost budget needs token accounting (metrics phase).
+- The executor cost budget is enforced from what the executor reports, so it
+  is inert for executors that report no usage; ADORE has no independent way
+  to price a launch.

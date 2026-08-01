@@ -18,7 +18,7 @@
          reap, answer timeout, and reconciliation of deleted/closed tickets.
 @author Eng. Dan Dumitru Pasare
 @date 2026-07-03
-@version 0.9.0
+@version 0.10.0
 """
 
 from __future__ import annotations
@@ -710,6 +710,20 @@ def gate_ok(session: str = "ses_1") -> GateRun:
     @version    0.1.0
     """
     return GateRun(exit_code=0, session_id=session)
+
+
+def gate_cost(cost_usd: float, session: str = "ses_1") -> GateRun:
+    """
+    @brief      A clean gate result that reports what the launch cost.
+    @param[in]  cost_usd USD the executor reported for this launch.
+    @param[in]  session Session id carried forward.
+    @return     The GateRun.
+    @author     Eng. Dan Dumitru Pasare
+    @date       2026-08-01
+    @version    0.1.0
+    """
+    return GateRun(exit_code=0, session_id=session, tokens_in=1000,
+                   tokens_out=500, cost_usd=cost_usd)
 
 
 def write_agentic_failure_evidence(
@@ -2762,6 +2776,55 @@ def test_recorded_questions_park_the_run(tmp_path: Path) -> None:
     assert any("Which variant should ship?" in c[2] for c in posts)
     events = [e["event"] for e in engine.store.read_journal(run.run_id)]
     assert "stage-questions" in events and "parked" in events
+
+
+def test_reported_cost_over_the_cap_escalates_the_run(tmp_path: Path) -> None:
+    """
+    @brief   `[budgets] max_cost_usd` is a real bound, not a metrics label.
+    @details Cost is summed from the journaled `usage` events and checked at
+             the top of every stage iteration, so a misbehaving executor
+             cannot spend unboundedly in dollars while staying inside the
+             iteration and wall-clock budgets.
+    @version 0.1.0
+    """
+    executor = FakeExecutor([gate_cost(2.0)] * 9)
+    engine, forge, containers, _ = make_engine(tmp_path, executor)
+    forge.add_ticket(14)
+
+    engine.poll_once()
+
+    run = engine.store.load(engine._run_id(14))
+    assert run.lifecycle == "failed"
+    # $2 per launch against the $5.00 default: the check after the third
+    # launch is the first to see a total over the cap
+    assert run.outcome == "budget exceeded: cost $6.00"
+    assert containers.aegis.closes == ["intake", "alignment", "requirement"]
+
+
+def test_an_executor_reporting_no_cost_never_trips_the_budget(
+    tmp_path: Path,
+) -> None:
+    """
+    @brief   The cost cap is inert, not hair-trigger, when the executor
+             reports tokens but no dollars.
+    @details Executors that report zero cost still journal `usage` events, so
+             the sum runs over real records and must stay at zero rather than
+             tripping on their presence. The run walks the whole sequence.
+    @version 0.1.0
+    """
+    executor = FakeExecutor([gate_cost(0.0) for _ in range(9)])
+    engine, forge, containers, _ = make_engine(tmp_path, executor)
+    forge.add_ticket(14)
+
+    engine.poll_once()
+
+    run = engine.store.load(engine._run_id(14))
+    assert run.lifecycle == "in-review"  # walked the whole sequence
+    assert "cost" not in run.outcome
+    assert list(containers.aegis.closes) == list(STANDARD_STAGES)
+    usage = [e for e in engine.store.read_journal(run.run_id)
+             if e["event"] == "usage"]
+    assert usage and all(event["cost_usd"] == 0.0 for event in usage)
 
 
 def test_an_escalation_posts_its_reason_on_the_ticket(tmp_path: Path) -> None:
