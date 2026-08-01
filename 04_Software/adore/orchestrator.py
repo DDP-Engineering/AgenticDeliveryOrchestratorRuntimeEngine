@@ -116,6 +116,11 @@ LOCK_TIMEOUT_CODE = "PERSISTENCE-LOCK-TIMEOUT"
 _LOCK_RETRY_DELAY = 20.0
 _MAX_LOCK_RETRIES = 1
 
+# When the forge refuses the clarification comment, the journal becomes the
+# only copy of the questions. Keep enough to act on without turning one
+# journal line into a log-flooding dump of executor output.
+_PARK_JOURNAL_LIMIT = 2000
+
 # An in-review MR that reads back as not-found is usually a real deletion, but
 # a single 404 can also be a transient platform blip. Tolerate a few before
 # ending the run, so an in-review run whose MR truly vanished cannot re-poll
@@ -2252,11 +2257,18 @@ class Orchestrator:
                     (exceeded -> failed instead of parking); 4. record
                     parked_at; 5. stop (or remove) the container; 6. return
                     to polling.
+
+                    Posting first is a crash-ordering choice, but a forge
+                    failure is not a crash: the run would stay `working` with
+                    nobody asked and nothing waiting. So a `ForgeError` on the
+                    post journals the questions (they are the only copy) and
+                    escalates - a run cannot wait for an answer to a question
+                    that was never delivered.
         @param[in]  run The run to park.
         @param[in]  questions Questions text from the worktree file.
         @author     Eng. Dan Dumitru Pasare
         @date       2026-07-03
-        @version    0.1.0
+        @version    0.2.0
         """
         run.clarification_rounds += 1
         if run.clarification_rounds > self.config.clarification.max_rounds:
@@ -2270,7 +2282,19 @@ class Orchestrator:
             f"{questions.strip()}\n"
             f"{self.identity.make_marker(run.run_id, 'question')}"
         )
-        question_id = self.forge.post_comment(run.ticket_iid, body)
+        try:
+            question_id = self.forge.post_comment(run.ticket_iid, body)
+        except ForgeError as exc:
+            self.store.journal(run.run_id, "park-post-failed",
+                               questions=questions[:_PARK_JOURNAL_LIMIT])
+            self._escalate(
+                run,
+                self._redact_failure_context(
+                    f"failed to post the clarification comment: {exc}; "
+                    "questions preserved in the journal"
+                ),
+            )
+            return
         run.question_comment_id = question_id
         run.last_seen_comment_id = question_id
         run.lifecycle = "parked"

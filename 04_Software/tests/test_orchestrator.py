@@ -31,7 +31,7 @@ from pathlib import Path
 
 from adore.config import Config, ExecutorCommand
 from adore.executor.base import Executor, GateRun
-from adore.forge import Comment, Forge, MergeRequest, Ticket
+from adore.forge import Comment, Forge, ForgeError, MergeRequest, Ticket
 from adore.isolation import IsolationError
 from adore.aegis import AegisResponse
 from adore.orchestrator import (
@@ -83,6 +83,9 @@ class FakeForge(Forge):
         self.calls: list[tuple] = []
         self._next_comment_id = 100
         self._next_mr_iid = 0
+        # when set, post_comment raises ForgeError for bodies containing it,
+        # so one specific post can fail without disturbing the others
+        self.post_fails_on = ""
 
     def add_ticket(self, iid: int, title: str = "T", body: str = AC_BODY,
                    labels: list[str] | None = None) -> Ticket:
@@ -130,6 +133,9 @@ class FakeForge(Forge):
         return list(self.comments.get(iid, []))
 
     def post_comment(self, iid: int, body: str) -> int:
+        if self.post_fails_on and self.post_fails_on in body:
+            self.calls.append(("post-refused", iid, body))
+            raise ForgeError("the platform refused the comment (HTTP 500)")
         self._next_comment_id += 1
         self.comments.setdefault(iid, []).append(
             Comment(id=self._next_comment_id, body=body, author="bot")
@@ -2725,6 +2731,37 @@ def test_recorded_questions_park_the_run(tmp_path: Path) -> None:
     assert any("Which variant should ship?" in c[2] for c in posts)
     events = [e["event"] for e in engine.store.read_journal(run.run_id)]
     assert "stage-questions" in events and "parked" in events
+
+
+def test_a_forge_failure_while_parking_escalates_with_the_questions(
+    tmp_path: Path,
+) -> None:
+    """
+    @brief   A ForgeError on the clarification post is fail-closed: the run
+             cannot wait for an answer to a question nobody was asked, so the
+             questions are journaled (the only copy left) and the run
+             escalates instead of being stranded in `working`.
+    @version 0.1.0
+    """
+    executor = FakeExecutor([gate_ok()] * 9)
+    engine, forge, containers, _ = make_engine(tmp_path, executor)
+    containers.aegis.stage_control["intake"] = {
+        "unresolved_questions": ["Which variant should ship?"]
+    }
+    forge.post_fails_on = "Clarification needed"
+    forge.add_ticket(14)
+
+    engine.poll_once()  # must return normally, not raise
+
+    run = engine.store.load(engine._run_id(14))
+    assert run.lifecycle == "failed"
+    assert "failed to post the clarification comment" in run.outcome
+    assert "questions preserved in the journal" in run.outcome
+    journal = engine.store.read_journal(run.run_id)
+    failed = [e for e in journal if e["event"] == "park-post-failed"]
+    assert len(failed) == 1
+    assert "Which variant should ship?" in failed[0]["questions"]
+    assert "parked" not in [e["event"] for e in journal]
 
 
 def test_a_held_lock_is_retried_once_then_escalates(tmp_path: Path) -> None:

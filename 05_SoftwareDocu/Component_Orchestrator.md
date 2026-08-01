@@ -64,7 +64,11 @@ review.
   in 2.x) and the executor's questions file (the secondary one). A run parked
   during publication resumes into publication, never back into the stage
   loop; `_conduct` fails closed when called on a publishing run (live
-  findings 2026-07-04).
+  findings 2026-07-04). Posting the questions first is a crash-ordering
+  choice, but a forge failure is not a crash: a `ForgeError` on that post
+  journals the questions as `park-post-failed` (the only copy left, truncated
+  to 2000 chars) and **escalates** the run. Parking would strand it waiting
+  for an answer to a question nobody was asked.
 - **Parked lifecycle** (design 8b/9): container TTL reap (polls or seconds;
   never ends the run), one soft reminder, hard answer timeout that releases
   the ticket back to humans keeping state for audit.

@@ -143,6 +143,15 @@ This project follows Keep a Changelog and Semantic Versioning.
   layer of protection. `exec` now defaults to `util.DEFAULT_COMMAND_TIMEOUT`
   and resolves an explicit `None` to it: at that seam `None` means "use the
   default bound", never "no bound".
+- **A forge failure while parking no longer strands the run** (review finding
+  ADORE-ARCH-008). `_park` posted the clarification comment unguarded, so a
+  transient platform error there raised past `_conduct_stages` (which catches
+  only `AegisError`) into `run_loop`'s backoff, leaving the run `working`
+  with its questions lost. The post is now wrapped: a `ForgeError` journals
+  the questions as `park-post-failed` (truncated to 2000 chars - the only
+  copy left) and escalates. Escalation is the fail-closed disposition here;
+  a parked run would be waiting for an answer to a question nobody was
+  asked.
 
 ### Removed
 
