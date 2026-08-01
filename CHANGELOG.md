@@ -219,6 +219,12 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Removed
 
+- **`[container] parked_state`** (review finding ADORE-ARCH-007). Validated
+  but never consulted at runtime - `keep_parked` is the field parking
+  actually reads - so it was a redundant, misleading dead twin: setting
+  `parked_state = "removed"` changed nothing. An existing `config.toml`
+  carrying the key is unaffected (`load_config` silently ignores unknown
+  keys, same as any typo); it simply has no effect from here on.
 - **`adore/gates.py` and its AEGIS 1.x verbs** (`invariants`, `status`,
   `resume`, `gates run`, `delivery-preflight`, `report`), together with
   `tests/test_gates.py` and `05_SoftwareDocu/Component_Gates.md`. They are

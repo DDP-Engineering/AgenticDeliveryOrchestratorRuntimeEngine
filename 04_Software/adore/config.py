@@ -370,9 +370,13 @@ class ContainerConfig:
              project-image checks run after provision so a profile fails fast
              when the selected runtime-project image lacks required tooling.
              egress controls the run container's outbound network boundary.
+    @details `parked_state` was removed (review finding ADORE-ARCH-007): it
+             was validated but never consulted at runtime - `keep_parked` is
+             the field parking actually reads - so a redundant, misleading
+             twin was deleted rather than kept as permanent dead config.
     @author  Eng. Dan Dumitru Pasare
     @date    2026-07-07
-    @version 0.5.1
+    @version 0.6.0
     """
 
     runtime: str = "docker"
@@ -381,7 +385,6 @@ class ContainerConfig:
     parked_ttl_mode: str = "polls"
     parked_ttl_seconds: int = 7200
     parked_ttl_polls: int = 30
-    parked_state: str = "stopped"
     uv_cache_volume: str = UV_CACHE_VOLUME
     npm_cache_volume: str = NPM_CACHE_VOLUME
     run_args: list[str] = field(default_factory=list)
@@ -776,7 +779,7 @@ def validate_config(config: Config) -> list[str]:
     @return     Empty list when valid; otherwise one message per issue.
     @author     Eng. Dan Dumitru Pasare
     @date       2026-08-01
-    @version    0.1.11
+    @version    0.1.12
     """
     issues: list[str] = []
 
@@ -983,10 +986,6 @@ def validate_config(config: Config) -> list[str]:
         config.container.parked_ttl_mode in ("seconds", "polls"),
         f"[container] parked_ttl_mode must be seconds/polls: "
         f"{config.container.parked_ttl_mode!r}",
-    )
-    check(
-        config.container.parked_state in ("stopped", "removed"),
-        f"[container] parked_state must be stopped/removed: {config.container.parked_state!r}",
     )
     check(bool(config.container.image.strip()), "[container] image is required")
     egress = config.container.egress

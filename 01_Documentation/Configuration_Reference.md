@@ -160,7 +160,6 @@ keep_parked        = true       # keep (stopped) container after parking
 parked_ttl_mode    = "polls"    # "seconds" | "polls"
 parked_ttl_seconds = 7200       # used when mode = "seconds"
 parked_ttl_polls   = 30         # used when mode = "polls"
-parked_state       = "stopped"  # "stopped" (fast resume) | "removed" (free disk)
 uv_cache_volume    = "adore-uv-cache"
 npm_cache_volume   = "adore-npm-cache"
 runtime_env        = { UV_LINK_MODE = "copy" }
@@ -359,8 +358,6 @@ teams can rename without code changes; the orchestrator refers to labels by role
 | `keep_parked` | Keep (stopped) the container after parking instead of removing. | `true` |
 | `parked_ttl_mode` | Grace period unit: `seconds` or `polls`. | `"polls"` |
 | `parked_ttl_seconds` | Reap idle parked container after N seconds (mode=seconds). | `7200` |
-| `parked_ttl_polls` | Reap idle parked container after N poll cycles (mode=polls). | `30` |
-| `parked_state` | On park: `stopped` (fast resume) or `removed` (free disk now). **Reserved; not yet consulted by the runtime** (review finding ADORE-ARCH-007) - a redundant twin of `keep_parked`, which is what parking actually reads; changing this value changes nothing. Planned removal is a breaking change, tracked as a follow-up rather than done in this pass. | `"stopped"` |
 | `uv_cache_volume` | Persistent uv cache volume for fast `uv sync`. | `"adore-uv-cache"` |
 | `npm_cache_volume` | Persistent npm cache volume for fast `npm ci`. | `"adore-npm-cache"` |
 | `runtime_env` | Non-secret environment injected at container creation and every `exec`. Use it for portable tool behavior such as `UV_LINK_MODE=copy` or a project-specific `UV_PROJECT_ENVIRONMENT`; ADORE rejects overrides of managed isolation/proxy keys (`HOME`, `GIT_*`, `CODEX_HOME`, `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, `NO_PROXY`, and lowercase variants). | `{ UV_LINK_MODE = "copy" }` |

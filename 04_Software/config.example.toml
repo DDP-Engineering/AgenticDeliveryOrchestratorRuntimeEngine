@@ -240,11 +240,6 @@ parked_ttl_seconds = 7200
 # ...or after this many poll cycles without an answer (mode=polls).
 # Reaping the container never ends the run; worktree and state persist.
 parked_ttl_polls = 30
-# On park: "stopped" (keeps FS + deps, fast resume) or "removed" (free disk now).
-# RESERVED; NOT YET CONSULTED BY THE RUNTIME: a redundant twin of
-# keep_parked above, which is what parking actually reads; changing this
-# value changes nothing (review finding ADORE-ARCH-007).
-parked_state = "stopped"
 # Persistent cache volumes so per-run `uv sync` / `npm ci` stay fast.
 uv_cache_volume  = "adore-uv-cache"
 npm_cache_volume = "adore-npm-cache"
