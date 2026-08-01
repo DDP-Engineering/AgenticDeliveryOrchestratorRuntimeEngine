@@ -154,6 +154,10 @@ This project follows Keep a Changelog and Semantic Versioning.
   moves ADORE's own pointer only - AEGIS still owns the governed run's stage,
   which conduction re-reads from `run status` - and it never touches AEGIS
   state.
+- The deployment installers (`install-ubuntu.sh`, `install-windows.ps1`)
+  accept `tea` as the platform CLI in their prerequisite check, so a
+  Gitea-only host no longer fails the install with "neither glab nor gh
+  found".
 
 ### Fixed
 
@@ -209,6 +213,9 @@ This project follows Keep a Changelog and Semantic Versioning.
   copy left) and escalates. Escalation is the fail-closed disposition here;
   a parked run would be waiting for an answer to a question nobody was
   asked.
+- MR/PR number parsing from web URLs now recognizes Gitea's plural
+  `/pulls/<n>` shape (previously only GitLab `merge_requests` and GitHub
+  `pull`), so the post-MR poll can track terminal states on Gitea.
 
 ### Removed
 
@@ -305,19 +312,6 @@ This project follows Keep a Changelog and Semantic Versioning.
   and pinned during the live pilot against Gitea 1.25.4, which verified the
   full mutating round-trip (labels, comment post/edit, WIP draft PR by
   number and branch, PR label clearing, shared issue/PR index space).
-
-### Changed
-
-- The deployment installers (`install-ubuntu.sh`, `install-windows.ps1`)
-  accept `tea` as the platform CLI in their prerequisite check, so a
-  Gitea-only host no longer fails the install with "neither glab nor gh
-  found".
-
-### Fixed
-
-- MR/PR number parsing from web URLs now recognizes Gitea's plural
-  `/pulls/<n>` shape (previously only GitLab `merge_requests` and GitHub
-  `pull`), so the post-MR poll can track terminal states on Gitea.
 
 ## [1.2.0] - 2026-07-25
 
