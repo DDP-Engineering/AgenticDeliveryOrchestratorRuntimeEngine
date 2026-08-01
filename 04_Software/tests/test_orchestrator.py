@@ -18,7 +18,7 @@
          reap, answer timeout, and reconciliation of deleted/closed tickets.
 @author Eng. Dan Dumitru Pasare
 @date 2026-07-03
-@version 0.5.0
+@version 0.6.0
 """
 
 from __future__ import annotations
@@ -2727,6 +2727,41 @@ def test_a_held_lock_is_retried_once_then_escalates(tmp_path: Path) -> None:
     assert run.lifecycle == "failed"
     assert "persistence lock is still held" in run.outcome
     assert len(slept) == 1  # exactly one bounded retry
+    blocked_events = [
+        event for event in engine.store.read_journal(run.run_id)
+        if event["event"] == "aegis-blocked"
+    ]
+    assert [event["action"] for event in blocked_events] == ["retry", "retry"]
+
+
+def test_a_held_lock_at_run_start_escalates_instead_of_stranding(
+    tmp_path: Path,
+) -> None:
+    """
+    @brief   `run start` gets the same bounded lock retry as the stage loop: a
+             lock still held on the second attempt escalates the run to failed
+             rather than leaving it stranded in `working` with no conductor.
+    @version 0.1.0
+    """
+    slept: list[float] = []
+    executor = FakeExecutor([gate_ok()] * 9)
+    engine, forge, containers, _ = make_engine(tmp_path, executor)
+    engine.sleep = slept.append
+    forge.add_ticket(14)
+    containers.aegis.start_blocked = (
+        "PERSISTENCE-LOCK-TIMEOUT: timed out after 15.0s waiting for "
+        ".agentic/.workspace/locks/run.lock."
+    )
+
+    engine.poll_once()
+
+    run = engine.store.load(engine._run_id(14))
+    assert run.lifecycle == "failed"
+    assert "persistence lock is still held" in run.outcome
+    starts = [call for call in containers.aegis.calls
+              if call[2:4] == ["run", "start"]]
+    assert len(starts) == 2  # the first attempt plus exactly one bounded retry
+    assert len(slept) == 1
     blocked_events = [
         event for event in engine.store.read_journal(run.run_id)
         if event["event"] == "aegis-blocked"

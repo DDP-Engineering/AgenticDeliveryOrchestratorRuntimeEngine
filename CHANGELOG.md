@@ -111,6 +111,19 @@ This project follows Keep a Changelog and Semantic Versioning.
   which conduction re-reads from `run status` - and it never touches AEGIS
   state.
 
+### Fixed
+
+- **A persistence lock still held at `run start` now escalates instead of
+  stranding the run** (review finding ADORE-PY-001 / ADORE-ARCH-004).
+  `_ensure_aegis_run` hand-rolled a single retry and then routed the second
+  failure through `_handle_block`, which only *logs* a `BLOCK_RETRY`
+  classification; a second consecutive `PERSISTENCE-LOCK-TIMEOUT` therefore
+  left the run in `working` forever - never parked, never escalated, and
+  invisible to the poll loop. It now uses the same iterative `_retryable`
+  loop as the stage loop, so the second lock block takes the existing
+  exhausted-lock path and the run ends `failed` with the documented "the
+  persistence lock is still held" reason.
+
 ### Removed
 
 - **`adore/gates.py` and its AEGIS 1.x verbs** (`invariants`, `status`,

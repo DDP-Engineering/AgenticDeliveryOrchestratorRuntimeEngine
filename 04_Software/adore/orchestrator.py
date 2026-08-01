@@ -946,7 +946,11 @@ class Orchestrator:
                     restarted. The kind and profile come from the ticket labels
                     via `[workflow]`; the minted id is saved before anything
                     else happens so a crash right after `run start` cannot
-                    orphan a governed run.
+                    orphan a governed run. A blocked start goes through the
+                    same iterative `_retryable` loop the stage loop uses, so a
+                    persistence lock that is still held on the second attempt
+                    escalates through the exhausted-lock path instead of
+                    leaving the run stranded in `working`.
         @param[in]  run The run.
         @param[in]  ticket Current ticket (label source).
         @param[in,out] client Client that captures the run id.
@@ -955,21 +959,19 @@ class Orchestrator:
         @exception  AegisError When the CLI contract is violated.
         @author     Eng. Dan Dumitru Pasare
         @date       2026-08-01
-        @version    0.1.0
+        @version    0.2.0
         """
         if client.run_id:
             return True
         kind, quick = self._run_kind(ticket)
+        context = f"run start {kind}"
+        lock_retries = 0
         response = client.run_start(kind, quick)
-        if not response.ok and self._retryable(
-            run, response, f"run start {kind}", None, 0
-        ):
-            response = client.run_start(kind, quick)
-            if not response.ok:
-                self._handle_block(run, response, f"run start {kind}", None)
+        while not response.ok:
+            if not self._retryable(run, response, context, None, lock_retries):
                 return False
-        if not response.ok:
-            return False
+            lock_retries += 1
+            response = client.run_start(kind, quick)
         run.aegis_run_id = client.run_id
         run.stage = response.stage or STANDARD_STAGES[0]
         self.store.save(run)
