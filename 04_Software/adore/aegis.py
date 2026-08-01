@@ -22,9 +22,17 @@
          the payload is broken. There is no version negotiation, no
          capability probing, and no AEGIS 1.x fallback: an unsupported
          payload fails loud and escalates.
+@details `invoke` keys `AegisTimeoutError` on `CommandResult.timed_out`
+         rather than on a raw exit code of 124 (ADORE-ARCH-010): a wrapped
+         command like `docker exec` propagates the INNER process's exit
+         code, so a payload legitimately exiting 124 for its own reasons is
+         no longer misclassified as ADORE's own wrapper timeout - it falls
+         into the ordinary exit-code-outside-0/1 `AegisProtocolError`
+         instead, naming the exit code. The now-unused `TIMEOUT_EXIT_CODE`
+         constant was removed.
 @author Eng. Dan Dumitru Pasare
 @date 2026-08-01
-@version 0.1.0
+@version 0.2.0
 """
 
 from __future__ import annotations
@@ -64,9 +72,6 @@ QUICK_KINDS = ("fix", "change")
 RUN_ID_RE = re.compile(
     r"^(?:feature|fix|change|adoption)-\d{4}-\d{2}-\d{2}T\d{6}Z-[0-9a-f]{8}$"
 )
-
-# Exit code run_command/the exec seam reports for a wall-clock timeout.
-TIMEOUT_EXIT_CODE = 124
 
 # Typed AEGIS failures whose stable code is embedded in the `error` text rather
 # than exposed as its own JSON field (contract notes 7 and 11.3).
@@ -392,10 +397,20 @@ class AegisClient:
         @return     The parsed AegisResponse.
         @exception  AegisProtocolError When the command is unusable, the exit
                     code is neither 0 nor 1, or the envelope does not conform.
-        @exception  AegisTimeoutError When the command exceeded `timeout`.
+                    This includes a genuine INNER exit 124 from the payload
+                    itself (not ADORE's own wrapper timeout) - see
+                    `timed_out` below.
+        @exception  AegisTimeoutError When ADORE's OWN wrapper bound expired
+                    (`result.timed_out`), never merely because the exit code
+                    happens to be 124: a wrapped command like `docker exec`
+                    propagates whatever exit code the payload used, and a
+                    payload legitimately exiting 124 for its own reasons must
+                    not be misreported as ADORE's timeout and must not blame
+                    the wrong component in the resulting escalation
+                    (ADORE-ARCH-010).
         @author     Eng. Dan Dumitru Pasare
         @date       2026-08-01
-        @version    0.1.0
+        @version    0.2.0
         """
         command: list[str] = ["bash", WORKFLOW_CLI, *argv]
         if run_scoped:
@@ -408,7 +423,7 @@ class AegisClient:
         command.append("--json")
         result = self.execute(command, timeout=timeout)
         rendered = " ".join(command)
-        if result.exit_code == TIMEOUT_EXIT_CODE:
+        if result.timed_out:
             raise AegisTimeoutError(
                 f"AEGIS command `{rendered}` timed out after {timeout}s"
             )

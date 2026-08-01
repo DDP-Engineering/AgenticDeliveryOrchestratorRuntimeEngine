@@ -50,15 +50,26 @@ DEFAULT_COMMAND_TIMEOUT = 600.0
 class CommandResult:
     """
     @brief   Captured outcome of one external command invocation.
+    @details `timed_out` is set ONLY when `run_command` itself killed the
+             process for exceeding its wall-clock bound (a wrapper timeout,
+             `subprocess.TimeoutExpired`). It is deliberately NOT inferred
+             from `exit_code == 124`: a wrapped command (for example
+             `docker exec`) propagates whatever exit code the INNER process
+             used, and a payload legitimately exiting 124 for its own
+             reasons must not be misreported as ADORE's own timeout
+             (ADORE-ARCH-010) - see `aegis.py`'s `AegisClient.invoke`, the
+             consumer that keys `AegisTimeoutError` on this flag rather than
+             on the raw exit code.
     @author  Eng. Dan Dumitru Pasare
     @date    2026-07-02
-    @version 0.1.0
+    @version 0.2.0
     """
 
     argv: list[str] = field(default_factory=list)
     exit_code: int = 0
     stdout: str = ""
     stderr: str = ""
+    timed_out: bool = False
 
     @property
     def ok(self) -> bool:
@@ -137,6 +148,13 @@ def run_command(
                 the exit code (127 = binary missing, 124 = timeout) so callers
                 decide deterministically. Output is decoded as UTF-8 with
                 replacement to survive Windows console encodings.
+
+                `timed_out=True` is set ONLY on the wrapper-timeout path
+                below (`subprocess.TimeoutExpired`); the normal-completion
+                path leaves it `False` even when a wrapped command (like
+                `docker exec`) propagates an inner exit code of 124, so
+                callers can tell "we killed it" from "it exited 124 on its
+                own" (ADORE-ARCH-010).
     @param[in]  argv Command and arguments (no shell).
     @param[in]  cwd Optional working directory.
     @param[in]  timeout Optional wall-clock limit in seconds.
@@ -144,7 +162,7 @@ def run_command(
     @return     The captured CommandResult.
     @author     Eng. Dan Dumitru Pasare
     @date       2026-07-02
-    @version    0.1.0
+    @version    0.2.0
     """
     argv_list = [str(part) for part in argv]
     try:
@@ -169,6 +187,7 @@ def run_command(
             exit_code=124,
             stdout=stdout,
             stderr=stderr or f"timeout after {timeout}s",
+            timed_out=True,
         )
     return CommandResult(
         argv=argv_list,

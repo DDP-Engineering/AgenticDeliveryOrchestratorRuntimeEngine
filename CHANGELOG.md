@@ -157,6 +157,19 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- **A genuine inner exit 124 is no longer misreported as ADORE's own
+  timeout** (review finding ADORE-ARCH-010). `docker exec` propagates
+  whatever exit code the INNER command used, so a payload legitimately
+  exiting 124 for its own reasons (its own `timeout(1)` wrapper, for
+  example) was indistinguishable from ADORE's wrapper bound expiring -
+  `AegisClient.invoke` keyed `AegisTimeoutError` on the raw exit code alone.
+  `CommandResult` now carries a `timed_out` flag, set ONLY by `run_command`
+  when its own `subprocess.TimeoutExpired` fires - never inferred from
+  `exit_code == 124` - and `invoke` keys `AegisTimeoutError` on that flag
+  instead. A genuine inner exit 124 now falls into the ordinary
+  exit-code-outside-0/1 `AegisProtocolError`, naming the exit code, so
+  escalation messages blame the right component. The now-dead
+  `TIMEOUT_EXIT_CODE` constant was removed.
 - **A persistence lock still held at `run start` now escalates instead of
   stranding the run** (review finding ADORE-PY-001 / ADORE-ARCH-004).
   `_ensure_aegis_run` hand-rolled a single retry and then routed the second

@@ -12,7 +12,7 @@
 @brief Tests for the shared low-level helpers (runner, durations, timestamps).
 @author Eng. Dan Dumitru Pasare
 @date 2026-07-02
-@version 0.1.1
+@version 0.2.0
 """
 
 from __future__ import annotations
@@ -102,12 +102,29 @@ def test_utc_now_iso_shape() -> None:
 
 def test_run_command_timeout_reports_124() -> None:
     """
-    @brief   A hung command becomes exit code 124, never a raised exception.
-    @version 0.1.0
+    @brief   A hung command becomes exit code 124, never a raised exception,
+             and is flagged `timed_out=True` - ADORE's OWN wrapper killed it
+             (ADORE-ARCH-010).
+    @version 0.2.0
     """
     result = run_command([sys.executable, "-c", "import time; time.sleep(30)"], timeout=1)
     assert not result.ok
     assert result.exit_code == 124
+    assert result.timed_out is True
+
+
+def test_run_command_inner_exit_124_is_not_flagged_as_a_timeout() -> None:
+    """
+    @brief   A command that exits 124 ON ITS OWN, well within its bound, is
+             NOT a wrapper timeout: `timed_out` stays False so a genuine
+             inner exit 124 (for example the payload's own `timeout(1)`
+             inside a container) is never misreported as ADORE's timeout
+             (ADORE-ARCH-010).
+    @version 0.1.0
+    """
+    result = run_command([sys.executable, "-c", "import sys; sys.exit(124)"], timeout=30)
+    assert result.exit_code == 124
+    assert result.timed_out is False
 
 
 def test_iso_to_datetime_round_trip_and_garbage() -> None:

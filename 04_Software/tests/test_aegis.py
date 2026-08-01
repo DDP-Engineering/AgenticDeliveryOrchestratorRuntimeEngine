@@ -18,7 +18,7 @@
          fake, so nothing here touches bash, docker, or a real payload.
 @author Eng. Dan Dumitru Pasare
 @date 2026-08-01
-@version 0.1.0
+@version 0.2.0
 """
 
 from __future__ import annotations
@@ -315,11 +315,29 @@ def test_exit_two_raises_instead_of_becoming_a_workflow_state() -> None:
 def test_timeout_exit_code_raises_a_distinct_timeout_error() -> None:
     """
     @brief   A wall-clock timeout is not a contract violation; it gets its own
-             typed error so escalation can name the command.
+             typed error so escalation can name the command. Keyed on the
+             seam's `timed_out` flag, not the raw exit code (ADORE-ARCH-010).
+    @version 0.2.0
+    """
+    aegis, _ = client(CommandResult(exit_code=124, stderr="timeout after 1800s",
+                                    timed_out=True))
+    with pytest.raises(AegisTimeoutError, match="timed out"):
+        aegis.verify_run()
+
+
+def test_inner_exit_124_is_a_protocol_error_not_a_timeout() -> None:
+    """
+    @brief   A genuine INNER exit 124 from the payload (not ADORE's own
+             wrapper timeout - `timed_out` is False because `docker exec`
+             completed normally within its bound and merely propagated the
+             payload's own exit code) must not be misreported as ADORE's
+             timeout: it is an ordinary exit-code-outside-0/1 protocol
+             error naming the exit code (ADORE-ARCH-010).
     @version 0.1.0
     """
-    aegis, _ = client(CommandResult(exit_code=124, stderr="timeout after 1800s"))
-    with pytest.raises(AegisTimeoutError, match="timed out"):
+    aegis, _ = client(CommandResult(exit_code=124, stdout='{"status": "ok"}',
+                                    stderr="payload used exit code 124"))
+    with pytest.raises(AegisProtocolError, match="exited 124"):
         aegis.verify_run()
 
 
