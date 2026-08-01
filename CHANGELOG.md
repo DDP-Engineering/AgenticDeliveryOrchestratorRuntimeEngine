@@ -123,6 +123,15 @@ This project follows Keep a Changelog and Semantic Versioning.
   loop as the stage loop, so the second lock block takes the existing
   exhausted-lock path and the run ends `failed` with the documented "the
   persistence lock is still held" reason.
+- **The stage-regression guard no longer crashes at the end of the sequence**
+  (review finding ADORE-PY-003). Once ADORE closed the last stage
+  (`delivery`), `_checked_stage` indexed `expected[closed_index + 1]` while
+  composing the regression message - out of range - so AEGIS re-reporting
+  `delivery` without setting `complete` raised an `IndexError`. `IndexError`
+  is not an `AegisError`, so it escaped `_conduct`'s escalation handler and
+  crashed the poll loop with a raw traceback instead of failing the run. The
+  boundary case now states the regression generically and raises the intended
+  `AegisProtocolError`, which escalates the run deterministically.
 
 ### Removed
 

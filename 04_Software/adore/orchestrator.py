@@ -1052,7 +1052,12 @@ class Orchestrator:
                     was routed backwards - what an approved `route_to`
                     produces - which is explicitly out of scope for 2.0.0, so
                     a human decides. Re-running a stage that is not yet closed
-                    is a normal retry and passes both guards.
+                    is a normal retry and passes both guards. At the sequence
+                    boundary - the last stage re-reported after ADORE already
+                    closed it, without `complete` being set - there is no
+                    "next" stage to name, so the regression is stated
+                    generically; it still fails loud as the same typed error
+                    rather than an `IndexError` nothing catches.
         @param[in]  status A `run status` response.
         @param[in]  closed_index Index of the last stage ADORE closed (-1 when
                                  it has closed none yet).
@@ -1060,7 +1065,7 @@ class Orchestrator:
         @exception  AegisProtocolError When the stage is unknown or regressed.
         @author     Eng. Dan Dumitru Pasare
         @date       2026-08-01
-        @version    0.2.0
+        @version    0.3.0
         """
         expected = self._expected_stages(status)
         stage = status.stage
@@ -1070,9 +1075,14 @@ class Orchestrator:
                 f"sequence for this run ({', '.join(expected)})"
             )
         if expected.index(stage) <= closed_index:
+            if closed_index + 1 < len(expected):
+                moved = (f"AEGIS routed the run back from "
+                         f"{expected[closed_index + 1]!r} to {stage!r}")
+            else:
+                moved = (f"AEGIS re-reported the already closed final stage "
+                         f"{stage!r} without completing the run")
             raise AegisProtocolError(
-                f"AEGIS routed the run back from {expected[closed_index + 1]!r} "
-                f"to {stage!r}; a stage regression is a human decision in this "
+                f"{moved}; a stage regression is a human decision in this "
                 "ADORE version"
             )
         return stage

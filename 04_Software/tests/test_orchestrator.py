@@ -18,7 +18,7 @@
          reap, answer timeout, and reconciliation of deleted/closed tickets.
 @author Eng. Dan Dumitru Pasare
 @date 2026-07-03
-@version 0.6.0
+@version 0.7.0
 """
 
 from __future__ import annotations
@@ -290,7 +290,7 @@ class FakeAegis:
         @brief   A fresh payload with no run started.
         @author  Eng. Dan Dumitru Pasare
         @date    2026-08-01
-        @version 0.1.0
+        @version 0.2.0
         """
         self.run_id = ""
         self.kind = ""
@@ -319,6 +319,10 @@ class FakeAegis:
         self.stage_control: dict[str, dict] = {}
         # when set, the fake stops rewriting graph.json (damaged-graph tests)
         self.freeze_graph = False
+        # when set, closing the last stage records the close but leaves the
+        # pointer and `complete` alone, so `run status` keeps reporting the
+        # already-closed final stage (the sequence-boundary regression case)
+        self.stall_at_final_close = False
 
     # -- helpers ---------------------------------------------------------------
 
@@ -444,7 +448,7 @@ class FakeAegis:
         @return     The CommandResult a real payload would produce.
         @author     Eng. Dan Dumitru Pasare
         @date       2026-08-01
-        @version    0.1.0
+        @version    0.2.0
         """
         self.calls.append(list(argv))
         verbs = [token for token in argv[2:] if not token.startswith("--")]
@@ -507,7 +511,7 @@ class FakeAegis:
                 )
             self.closes.append(stage)
             if self.index + 1 >= len(self.stages):
-                self.complete = True
+                self.complete = not self.stall_at_final_close
             else:
                 self.index += 1
             self.write_graph()
@@ -1452,6 +1456,30 @@ def test_stage_regression_escalates(tmp_path: Path) -> None:
     assert run.lifecycle == "failed"
     assert "routed the run back from 'alignment' to 'intake'" in run.outcome
     assert containers.aegis.closes == ["intake"]  # only the first close happened
+
+
+def test_a_re_reported_final_stage_escalates_at_the_boundary(
+    tmp_path: Path,
+) -> None:
+    """
+    @brief   The regression guard holds at the end of the sequence too: AEGIS
+             re-reporting the already-closed last stage without setting
+             `complete` escalates as a typed protocol error, not as an
+             unhandled IndexError that would crash the poll loop.
+    @version 0.1.0
+    """
+    executor = FakeExecutor([gate_ok()] * 9)
+    engine, forge, containers, _ = make_engine(tmp_path, executor)
+    containers.aegis.stall_at_final_close = True
+    forge.add_ticket(14)
+
+    engine.poll_once()  # must return normally, not raise
+
+    run = engine.store.load(engine._run_id(14))
+    assert run.lifecycle == "failed"
+    assert "AegisProtocolError" in run.outcome
+    assert "already closed final stage 'delivery'" in run.outcome
+    assert containers.aegis.closes == list(STANDARD_STAGES)
 
 
 def test_parked_ttl_reaps_container_but_keeps_run(tmp_path: Path) -> None:
