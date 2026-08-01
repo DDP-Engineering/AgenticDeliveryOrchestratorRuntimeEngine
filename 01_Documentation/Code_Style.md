@@ -39,16 +39,8 @@ Required file prologue:
    - `@file`
    - `@brief`
    - `@details`
-   - `@author`
-   - `@date`
-   - `@version`
    Optional only when relevant:
    - `@example`
-
-Use this author value in Python documentation tags unless explicitly requested
-otherwise:
-
-- `Eng. Dan Dumitru Pasare`
 
 Required section markers where meaningful:
 
@@ -78,16 +70,6 @@ Use when applicable:
 - `@todo`
 - `@retval`
 - `@example`
-
-Version-tag rule for callable docstrings:
-
-- the `@version` tag inside function, method, and nested-helper Doxygen
-  docstrings is a local revision marker for that callable
-- update that callable-level `@version` tag only when the callable itself is
-  changed
-- do not bulk-sync callable-level `@version` tags to the application version in
-  `pyproject.toml`
-- callable-level `@version` tags do not need to match the release version
 
 Guidance:
 

@@ -103,34 +103,14 @@ documentation conventions. Use the referenced
 
 - **File prologue:** `#!/usr/bin/env python3`, `# -*- coding: utf-8 -*-`, the
   copyright/license banner, then a module docstring with aligned Doxygen tags:
-  `@file`, `@brief`, `@details`, `@author`, `@date`, `@version` (add `@example`
-  when relevant).
-- **Author tag value:** `Eng. Dan Dumitru Pasare` unless explicitly requested
-  otherwise.
+  `@file`, `@brief`, `@details` (add `@example` when relevant).
 - **Section markers** where meaningful: `IMPORTS`, `CONSTANTS`,
   `DATA MODELS / TYPEDEFINITIONS`, `HELPER FUNCTIONS` / `LOCAL HELPERS`,
   `PUBLIC API` / `EXPORTED FUNCTIONS / PUBLIC API`, `END OF FILE`.
 - **Callable docstrings** (functions, methods, classes, documented nested
   helpers) use Doxygen-like tags when non-trivial or part of the public API:
   `@brief`, `@param[in]`, `@param[out]`, `@param[in,out]`, `@return`, plus
-  `@exception`, `@note`, `@todo`, `@retval`, `@example`, `@author`, `@date`,
-  `@version` as applicable.
-
-### Versioning system (required)
-
-Two independent revision markers, both bumped in the same change that causes them:
-
-- **Function-level `@version`.** Every documented callable carries a local
-  `@version` tag in its docstring. **When the implementation of a function,
-  method, or documented nested helper is touched/changed, bump that callable's
-  own `@version`** in the same change.
-- **File-level `@version`.** The module header docstring carries a `@version`
-  tag. **When a function, method, class, or documented nested helper is added to
-  or removed from a file, bump that file-level `@version`** in the module header
-  in the same change.
-- These are local revision markers only. Do **not** sync callable-level or
-  file-level `@version` tags to `pyproject.toml` / the release version; they need
-  not match the release number.
+  `@exception`, `@note`, `@todo`, `@retval`, `@example` as applicable.
 
 ### Release versioning and changelog rules
 
@@ -159,8 +139,8 @@ Two independent revision markers, both bumped in the same change that causes the
   responsibilities, dependencies, or workflow integration changes.
 - Keep only the template sections relevant to the component; remove empty
   sections rather than filling them with placeholder text.
-- Component documentation **complements** the in-code Doxygen docstrings and the
-  file/function `@version` markers (Style Rules); it does not replace them.
+- Component documentation **complements** the in-code Doxygen docstrings
+  (Style Rules); it does not replace them.
 
 ## Status
 

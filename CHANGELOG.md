@@ -232,6 +232,11 @@ This project follows Keep a Changelog and Semantic Versioning.
 - The `.agentic/.workspace/state/current_run` pointer read. Run-local AEGIS
   files are addressed by the run id ADORE persisted, so the seam that broke
   once in 1.x is gone.
+- **The `@author`, `@date`, and `@version` Doxygen tags** from every Python
+  docstring under `04_Software/` and `02_Tools/`, and the corresponding
+  style-guide rules in `01_Documentation/Code_Style.md` and `AGENTS.md`
+  (including the callable-level and file-level `@version` bump-on-change
+  obligation). Zero behavior change; all other Doxygen tags are unaffected.
 
 ### Added
 
