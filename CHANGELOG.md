@@ -95,6 +95,17 @@ This project follows Keep a Changelog and Semantic Versioning.
   detail preserved, and the guidance points at WAEGIS while stating that AEGIS
   1.x is unsupported with no migration path. The executor base image and its
   README now name the AEGIS 2.x CLI and its actual prerequisites.
+- **ADORE 2.0 hard break to AEGIS 2.x - WP7: documentation.**
+  `01_Documentation/Integrating_A_Runtime_Project.md` is now the AEGIS 2.x
+  contract page: the grouped invocation, the four-key envelope and exit-code
+  discrimination, run-id pinning, the per-profile stage cycle with ADORE as
+  the delegated approver, and a table of the escalation semantics.
+  `Operations_Guide.md` gains a "Read an AEGIS escalation" table mapping each
+  outcome - park, blocked with remediation, waivable blocker with the exact
+  `aegis waive add` command, a held persistence lock, the integrity floor, and
+  a contract failure - to what an operator should do.
+  `Configuration_Reference.md`, `CLI_Reference.md`, both READMEs, and the
+  `AGENTS.md` status paragraph follow the same vocabulary.
 - `adore reset --to` now accepts the eight AEGIS stages or `publication`. It
   moves ADORE's own pointer only - AEGIS still owns the governed run's stage,
   which conduction re-reads from `run status` - and it never touches AEGIS

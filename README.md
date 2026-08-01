@@ -46,10 +46,14 @@ For a deployment-ready runtime bundle, use the scripts in
 forge ticket (eligible labels and readiness rules)
         -> orchestrator selects by configured priority and readiness
         -> isolates work (git worktree + container)
-        -> guides executor gate-by-gate (thick conductor)
-             intake -> alignment -> requirement -> check -> implementation -> validation
+        -> starts one AEGIS 2.x run (`aegis run start <kind> [--quick]`)
+        -> guides the executor stage by stage (thick conductor)
+             intake -> alignment -> requirement -> design -> check ->
+             implementation -> validation -> delivery      (quick: 4 stages)
+             executor fills and applies each stage form;
+             ADORE verifies objectively and closes the stage
         -> parks and asks on ambiguity (posts a comment, resumes on reply)
-        -> runs delivery-preflight (objective "done" signal)
+        -> AEGIS run complete -> integrate target, `aegis verify run`, push
         -> opens a DRAFT MR/PR, assigns a human reviewer
 human reviewer -> approves and merges
 ```
@@ -61,8 +65,15 @@ human reviewer -> approves and merges
   platform CLI directly.
 - **Executor-agnostic.** OpenCode, Pi, Codex, and Qwen are selectable through
   a configurable launcher.
-- **Thick conductor.** The orchestrator drives one workflow gate at a time and
-  checks invariants and exit codes between stages before advancing.
+- **AEGIS-governed.** ADORE 2.0 speaks exactly one governance contract, the
+  AEGIS 2.x grouped CLI. AEGIS owns the stage pointer and the verification;
+  ADORE reads it from `run status`, checks it against the declared sequence,
+  and never guesses. No AEGIS 1.x support and no migration layer.
+- **Thick conductor, delegated approver.** The orchestrator drives one AEGIS
+  stage at a time. The executor fills and applies the stage forms; ADORE
+  verifies objectively - stage readiness, `aegis verify run`, committed work -
+  and issues `aegis stage close` itself. It never waives a blocker and never
+  repairs AEGIS state: both escalate to a human with the exact command.
 - **Human-gated delivery.** The orchestrator opens a draft MR/PR only; it never
   merges. Merge stays a human decision.
 - **Portable.** Targets Ubuntu 22+ and Windows 11; the orchestrator is written

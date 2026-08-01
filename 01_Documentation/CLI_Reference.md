@@ -77,7 +77,7 @@ resolved configuration.
 | --- | --- |
 | `adore [selector] retry <run-id>` | Re-arm a retryable run. |
 | `adore [selector] cancel <run-id>` | Cancel a run gracefully. |
-| `adore [selector] reset <run-id> --to <stage> --force` | Deliberately move a run back to a gate. `--force` is required. Run `retry` afterwards. |
+| `adore [selector] reset <run-id> --to <stage> --force` | Deliberately move ADORE's own stage pointer (an AEGIS stage name, or `publication`). It never touches AEGIS state - conduction re-reads the governed stage from `aegis run status`. `--force` is required. Run `retry` afterwards. |
 | `adore [selector] delete <run-id> --force` | Irreversibly remove run state. |
 | `adore [selector] cleanup` | Remove stale locks, containers, and worktrees that no active valid run owns. |
 

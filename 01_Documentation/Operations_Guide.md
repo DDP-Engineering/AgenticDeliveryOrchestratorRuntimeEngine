@@ -52,6 +52,25 @@ and run counts. `runs` lists active, parked, and review runs. `logs` shows the
 structured journal for one run. Live executor files are held under the run's
 `io/` directory; immutable per-launch copies are in `io/archive/`.
 
+## Read an AEGIS Escalation
+
+Every run is governed by the target repository's AEGIS 2.x payload, and every
+AEGIS-facing failure ends in one of three deterministic outcomes. The reason
+is journaled and posted on the ticket, so `adore runs` plus the ticket
+comment tell you which one happened and what it is waiting for.
+
+| What you see | What happened | What to do |
+| --- | --- | --- |
+| The run is **parked** and the ticket carries a clarification comment | The executor recorded unresolved questions in the AEGIS stage form, alignment decided to pause, or the stage asked for `repo-wide` access or for routing back to an earlier stage. | Answer in a normal ticket comment. The run resumes on the next poll. Routing and access widening are human decisions in this version. |
+| `failed` with `AEGIS blocked ...` and a `remediation:` clause | AEGIS refused an action for a governance reason ADORE is not allowed to resolve. | Do what the remediation says in the target clone, then `adore retry <run-id>`. |
+| `failed` with `... a human may waive one of these ...` | A blocker AEGIS considers waivable stopped the run. **ADORE never waives.** | Decide whether the exception is acceptable; if it is, run the exact `aegis waive add <blocker-id> --reason "..."` command from the message in the run's worktree, then `adore retry <run-id>`. |
+| `failed` with `the persistence lock is still held` | Another AEGIS process is running against the same repository. ADORE already retried once. | Let the other process finish (or find out what is holding the lock). **Never delete a lock file to bypass a live owner.** Then `adore retry <run-id>`. |
+| `failed` naming `GRAPH-STALE-UPDATE`, `REQUIREMENT-STALE-UPDATE`, a corrupt schema, or a run-resolution error | AEGIS's integrity floor. ADORE never repairs AEGIS state. | Repair the run state in the target clone by hand, then `adore retry <run-id>`. |
+| `failed` with `AEGIS contract failure (...)` | The payload answered outside the supported contract - a usage error, a missing Python runtime, unparseable output, an unknown stage, or a timeout. | Look at ADORE or the payload, not the ticket. Check the payload with `bash .agentic/tools/run.sh config validate --json` in the clone. |
+
+The run's worktree is always kept for a failed run, so the AEGIS run records
+under `.agentic/runs/<aegis-run-id>/` are available for inspection.
+
 ## Steer Ticket Pickup
 
 The default labels divide control between people and ADORE:

@@ -203,3 +203,30 @@ section 17); onboarding in 01_Documentation/Onboarding_New_Project.md. ADORE
 1.0.0 is the complete hard-cut product identity, with no compatibility or
 migration layer. Container egress allowlisting is implemented and live-verified.
 Executor credentials remain an operator-managed security decision.
+
+**In progress (unreleased): the ADORE 2.0 hard break to AEGIS 2.x**
+(`00_Planning/AEGIS_2x_HardBreak_Adaptation/`). ADORE now speaks exactly one
+governance contract - the AEGIS 2.x grouped CLI (`bash .agentic/tools/run.sh
+<group> <action> --run <id> --json`) - with no AEGIS 1.x support, detection, or
+migration of any kind. `adore/gates.py` and its 1.x verbs are deleted and
+replaced by `adore/aegis.py`, the single component that owns the invocation
+shape, the four-key envelope, exit-code discrimination, and the typed
+fail-loud errors. The AEGIS run id minted at `run start` is persisted on
+`RunState` and pinned with `--run` everywhere; the `current_run` pointer is
+never read. Conduction is `next`-driven: AEGIS owns the stage pointer, ADORE
+reads it from `run status`, guards it with a per-profile allowlist (eight
+stages, or four with `--quick`), launches the executor for one stage, verifies
+objectively (`stage show` readiness, `aegis verify run` at validation and
+delivery, committed work), and issues `stage close` itself as the delegated
+approver - the executor is instructed never to close a stage or add a waiver.
+Publication (integrate, `verify run`, push, draft MR) is ADORE's own phase
+under the stage name `publication`. Failure evidence comes from
+`validation-summary.json`, the schema-3 `graph.json`, and `report.md`;
+`classify_block` decides park / one bounded lock retry / escalate, and every
+escalation carries the exact AEGIS error, its remediation, and where relevant
+the exact `aegis waive add` command a human would run. Run kind and profile
+come from ticket labels through a validated `[workflow]` config section, and
+`doctor.detect_aegis` probes a target repository for a schema-3 payload. The
+offline suite is green at 358 tests; the live pilot (plan WP8) is still
+pending, so nothing in this paragraph is live-verified yet. The 2.0.0 release
+version has not been cut.

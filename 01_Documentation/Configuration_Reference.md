@@ -119,7 +119,7 @@ prefix = "agent-exec:"       # e.g. "agent-exec:opencode"
 # ----- Executor -----
 [executor]
 default        = "opencode"  # "opencode" | "pi" | "codex" | "qwen"
-mode           = "thick"     # "thick" (gate-by-gate) | "headless" (single-shot)
+mode           = "thick"     # "thick" (stage-by-stage) | "headless" (single-shot)
 questions_file = "ADORE_QUESTIONS.md"
 env_keys       = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]  # only these reach the container
 stage_host_auth = false      # pilot-only OAuth bridge for opencode/codex
@@ -328,7 +328,7 @@ teams can rename without code changes; the orchestrator refers to labels by role
 | Key | Meaning | Default |
 |---|---|---|
 | `default` | Which executor to launch: `opencode`, `pi`, `codex`, or `qwen`. The `[executor.<name>]` table must match. `opencode` is the default and live-proven; the other launchers are wired behind the same factory and require their project guard/auth prerequisites. | `"opencode"` |
-| `mode` | `thick` = orchestrator drives gate-by-gate; `headless` = single-shot. | `"thick"` |
+| `mode` | `thick` = orchestrator drives one AEGIS stage per launch; `headless` = single-shot. | `"thick"` |
 | `questions_file` | File the executor writes clarification questions to. | `"ADORE_QUESTIONS.md"` |
 | `env_keys` | The only environment variables (from host env / `.env`) injected into the executor container. | `["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]` |
 | `stage_host_auth` | Pilot-only: copy host auth into the run container at provision. Implemented for opencode (`~/.local/share/opencode/auth.json`) and Codex (`~/.codex/auth.json` staged into an ADORE-owned `CODEX_HOME`). | `false` |

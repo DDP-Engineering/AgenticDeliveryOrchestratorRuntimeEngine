@@ -50,7 +50,7 @@ guides belong in `01_Documentation/`.
 ## Component documentation (phase 3 - the conductor engine)
 
 - `Component_Orchestrator.md` - the thick-conductor state machine: polling,
-  selection, the per-gate loop, clarification park/resume, budgets,
+  selection, the AEGIS stage loop, clarification park/resume, budgets,
   signaling, cancel/retry (`adore/orchestrator.py`).
 - `Component_Aegis_Client.md` - the AEGIS 2.x client: grouped CLI invocation,
   `--run` pinning, envelope parsing, and the typed fail-loud errors
