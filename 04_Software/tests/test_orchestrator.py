@@ -18,7 +18,7 @@
          reap, answer timeout, and reconciliation of deleted/closed tickets.
 @author Eng. Dan Dumitru Pasare
 @date 2026-07-03
-@version 0.7.0
+@version 0.8.0
 """
 
 from __future__ import annotations
@@ -794,6 +794,37 @@ def park_run(engine: Orchestrator, forge: FakeForge, iid: int = 14) -> str:
     ]
     engine.poll_once()
     return engine._run_id(iid)
+
+
+def crash_a_working_run(engine: Orchestrator, iid: int, age_seconds: int) -> str:
+    """
+    @brief      Leave a `working` run on disk exactly as a dead conductor does.
+    @details    `store.save` always re-stamps `updated_at`, so the age is
+                written straight into the persisted state.json afterwards -
+                which is also the only thing a killed process leaves behind.
+    @param[in]  engine The orchestrator owning the store.
+    @param[in]  iid Ticket the abandoned run belongs to.
+    @param[in]  age_seconds How long ago the conductor last wrote state.
+    @return     The run id.
+    @author     Eng. Dan Dumitru Pasare
+    @date       2026-08-01
+    @version    0.1.0
+    """
+    run_id = engine._run_id(iid)
+    engine.store.save(RunState(
+        run_id=run_id,
+        ticket_iid=iid,
+        stage="implementation",
+        lifecycle="working",
+        branch=f"adore/{run_id}",
+        base_ref="origin/main",
+        container=engine.identity.container_name(run_id),
+    ))
+    path = engine.store.run_dir(run_id) / "state.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["updated_at"] = ago(age_seconds)
+    path.write_text(json.dumps(data), encoding="utf-8")
+    return run_id
 
 
 def ago(seconds: int) -> str:
@@ -2731,6 +2762,62 @@ def test_recorded_questions_park_the_run(tmp_path: Path) -> None:
     assert any("Which variant should ship?" in c[2] for c in posts)
     events = [e["event"] for e in engine.store.read_journal(run.run_id)]
     assert "stage-questions" in events and "parked" in events
+
+
+def test_a_stale_working_run_is_escalated_and_frees_the_slot(
+    tmp_path: Path,
+) -> None:
+    """
+    @brief   A `working` run left behind by a dead conductor is escalated, not
+             left to wedge pickup forever.
+    @details With the default `max_concurrent_runs = 1` such a run silently
+             stops the orchestrator: it counts against capacity and no
+             reconciliation path used to revisit it. Reconciliation runs
+             before the capacity check, so the freed slot is usable in the
+             SAME poll pass.
+    @version 0.1.0
+    """
+    executor = FakeExecutor([gate_ok()] * 9)
+    engine, forge, containers, _ = make_engine(tmp_path, executor)
+    forge.add_ticket(14)
+    forge.add_ticket(15)
+    stale_id = crash_a_working_run(engine, 14, age_seconds=10_000)
+
+    summary = engine.poll_once()
+
+    stale = engine.store.load(stale_id)
+    assert stale.lifecycle == "failed"
+    assert "no live conductor" in stale.outcome
+    assert f"adore retry {stale_id}" in stale.outcome
+    events = [e["event"] for e in engine.store.read_journal(stale_id)]
+    assert "stale-working-detected" in events and "escalated" in events
+    # the ticket learns about it, not just the local journal
+    assert any(call[0] in ("post", "edit") and call[1] == 14
+               for call in forge.calls)
+    # and the freed slot is used right away
+    assert summary["picked"] == 15
+
+
+def test_a_recently_updated_working_run_is_left_alone(tmp_path: Path) -> None:
+    """
+    @brief   Staleness is measured against the operator's own budgets, so a
+             run that merely sits inside a long gate launch is never reaped
+             out from under its live conductor.
+    @version 0.1.0
+    """
+    engine, forge, containers, _ = make_engine(tmp_path, FakeExecutor())
+    forge.add_ticket(14)
+    forge.add_ticket(15)
+    # older than one gate timeout, younger than wall clock + gate timeout
+    fresh_id = crash_a_working_run(engine, 14, age_seconds=2_000)
+
+    summary = engine.poll_once()
+
+    assert engine.store.load(fresh_id).lifecycle == "working"
+    events = [e["event"] for e in engine.store.read_journal(fresh_id)]
+    assert "stale-working-detected" not in events
+    assert summary.get("at_capacity") is True  # still holding the only slot
+    assert summary["picked"] is None
 
 
 def test_a_forge_failure_while_parking_escalates_with_the_questions(

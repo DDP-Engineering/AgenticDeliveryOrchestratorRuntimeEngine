@@ -165,6 +165,20 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Added
 
+- **Stale-`working`-run detection** (review finding ADORE-ARCH-001). A run
+  whose conductor died mid-conduct stayed `lifecycle = "working"` forever;
+  because `working` runs count against `[polling] max_concurrent_runs`, one
+  crash silently stopped all future pickup at the default of 1, with no
+  ticket comment and no signal beyond `"at_capacity": true` in the poll
+  summary. Reconciliation now escalates any `working` run this process is not
+  conducting whose last state write is older than
+  `[budgets] max_wall_clock_seconds + per_gate_timeout_seconds`, journaling
+  `stale-working-detected` and counting it in the new poll-summary `stale`
+  key. Reconciliation runs before the capacity check, so the freed slot is
+  used in the same poll pass. The threshold derives from the operator's own
+  budgets, in-flight runs are tracked on the instance by a nesting
+  `_conducting` context manager, and a run with an unparseable `updated_at`
+  is never reaped.
 - **ADORE 2.0 hard break to AEGIS 2.x - WP1: the AEGIS client
   (`adore/aegis.py`).** One component owns the whole AEGIS-facing contract:
   it invokes the grouped CLI as `bash .agentic/tools/run.sh <group> <action>

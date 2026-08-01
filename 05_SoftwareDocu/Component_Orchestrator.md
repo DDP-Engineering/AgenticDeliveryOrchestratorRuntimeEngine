@@ -74,6 +74,18 @@ review.
   the ticket back to humans keeping state for audit.
 - **Reconciliation** (design 8c, partial): deleted ticket -> orphan +
   teardown; closed ticket -> cancel. (hold/trigger-removed mid-run: later.)
+- **Stale-`working` reaping** (`_stale_working` / `_escalate_stale`): a
+  `working` run counts against `max_concurrent_runs`, so a conductor that
+  died mid-run used to wedge pickup silently and forever. Reconciliation -
+  which runs BEFORE the capacity check, so the slot is reusable in the same
+  pass - now escalates any `working` run that (a) this process is not
+  currently conducting and (b) last wrote state longer ago than
+  `max_wall_clock_seconds + per_gate_timeout_seconds`. The event is journaled
+  as `stale-working-detected`, the escalation is the ordinary one (failed +
+  reason + ticket comment + metrics), and `adore retry` re-arms the run.
+  In-flight runs are tracked on the instance by the `_conducting` context
+  manager, which nests and unwinds on exceptions; a run with an unparseable
+  `updated_at` is never reaped (fail closed toward a human).
 - **Run budgets** (design 10): executor iterations, total wall clock
   (`max_wall_clock_seconds`), files touched vs base ref. (Cost joins with the
   metrics phase.) A single executor launch is bounded separately by
@@ -274,7 +286,8 @@ interface) and metrics.
 
 - Poll summary mapping: `resumed` / `reaped` / `timed_out` counters,
   `picked` iid or None, `paused` / `at_capacity` flags (CLI prints it as
-  JSON).
+  JSON). `stale` appears only in passes that reaped an abandoned `working`
+  run, and counts them.
 - Lifecycles: `working`, `parked`, `validated`, `failed`, plus terminal
   outcomes (`cancelled`, `ticket-closed`, `orphaned`, `answer-timeout`,
   `deleted`).
@@ -348,6 +361,7 @@ adore logs <run-id>
   not yet enforced.
 - Reconciliation of hold/trigger-removed mid-run and content-hash drift
   reactions (design 8a/8c) are not yet wired.
-- Crashed `working` runs are skipped on restart (design 8) and need a manual
-  `adore retry`; automatic crash-resume is a later refinement.
+- Crashed `working` runs are escalated (not resumed) once they go stale, so
+  they no longer wedge pickup; continuing one is still a deliberate
+  `adore retry`. Automatic crash-resume is a later refinement.
 - The executor cost budget needs token accounting (metrics phase).

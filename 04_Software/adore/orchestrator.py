@@ -27,13 +27,13 @@
          the draft MR review.
 @author Eng. Dan Dumitru Pasare
 @date 2026-08-01
-@version 0.9.0
+@version 0.10.0
 """
 
 from __future__ import annotations
 
 # IMPORTS
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 import contextlib
 from dataclasses import dataclass
 from functools import partial
@@ -387,7 +387,7 @@ class Orchestrator:
         @param[in]  log Line logger (stdout by default; journald in service).
         @author     Eng. Dan Dumitru Pasare
         @date       2026-07-05
-        @version    0.1.2
+        @version    0.1.3
         """
         self.config = config
         self.forge = forge
@@ -408,6 +408,10 @@ class Orchestrator:
         )
         self.host_auth_path = Path.home() / host_src
         self.host_auth_container_dir = container_dir
+        # The run this process is driving right now, if any. Stale-`working`
+        # detection uses it to tell "a live conductor is on this" from "the
+        # conductor died and left the run behind" (see _stale_working).
+        self._in_flight_run_id = ""
 
     @classmethod
     def from_config(cls, config: Config, env_file: str = ".env") -> Orchestrator:
@@ -802,24 +806,50 @@ class Orchestrator:
         @param[in]  thread Rendered clarification thread ("" outside resume).
         @author     Eng. Dan Dumitru Pasare
         @date       2026-08-01
-        @version    0.3.0
+        @version    0.4.0
         """
         if run.stage == PUBLICATION_STAGE:
             # fail closed: silently restarting the stage loop regressed a
             # publishing run once (live finding 2026-07-04)
             self._escalate(run, f"internal: conduct called with stage {run.stage!r}")
             return
+        with self._conducting(run.run_id):
+            try:
+                self._provision(run)
+            except IsolationError as exc:
+                self._escalate(run, f"isolation failed: {exc}")
+                return
+            execute = partial(self.containers.exec, run.container,
+                              env=self._container_env(run))
+            client = AegisClient(execute, run_id=run.aegis_run_id or "")
+            try:
+                self._conduct_stages(run, ticket, client, thread)
+            except AegisError as exc:
+                self._escalate_aegis(run, exc)
+
+    @contextlib.contextmanager
+    def _conducting(self, run_id: str) -> Iterator[None]:
+        """
+        @brief      Mark a run as driven by THIS process for its duration.
+        @details    Stale-`working` detection cannot tell a crashed conductor
+                    from a live one by state alone - both leave
+                    `lifecycle = "working"` on disk. This marker is the
+                    difference. It nests (publication runs inside conduction)
+                    by saving and restoring the previous value rather than
+                    clearing it, and unwinds on any exception, so a failure
+                    mid-conduct never leaves a run permanently exempt from the
+                    staleness sweep.
+        @param[in]  run_id The run being conducted.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-08-01
+        @version    0.1.0
+        """
+        previous = self._in_flight_run_id
+        self._in_flight_run_id = run_id
         try:
-            self._provision(run)
-        except IsolationError as exc:
-            self._escalate(run, f"isolation failed: {exc}")
-            return
-        execute = partial(self.containers.exec, run.container, env=self._container_env(run))
-        client = AegisClient(execute, run_id=run.aegis_run_id or "")
-        try:
-            self._conduct_stages(run, ticket, client, thread)
-        except AegisError as exc:
-            self._escalate_aegis(run, exc)
+            yield
+        finally:
+            self._in_flight_run_id = previous
 
     def _conduct_stages(
         self,
@@ -1367,25 +1397,27 @@ class Orchestrator:
                     update the existing MR instead of creating one.
         @author     Eng. Dan Dumitru Pasare
         @date       2026-08-01
-        @version    0.3.0
+        @version    0.4.0
         """
-        run.stage = PUBLICATION_STAGE
-        run.lifecycle = "working"
-        self.store.save(run)
-        self._mark(run, "working", PUBLICATION_STAGE)
-        self.store.journal(run.run_id, "delivery-start")
-        try:
-            self._provision(run)
-            self.worktrees.fetch()
-        except IsolationError as exc:
-            self._escalate(run, f"delivery isolation failed: {exc}")
-            return
-        execute = partial(self.containers.exec, run.container, env=self._container_env(run))
-        client = AegisClient(execute, run_id=run.aegis_run_id or "")
-        try:
-            self._publish(run, ticket, client, thread, revise)
-        except AegisError as exc:
-            self._escalate_aegis(run, exc)
+        with self._conducting(run.run_id):
+            run.stage = PUBLICATION_STAGE
+            run.lifecycle = "working"
+            self.store.save(run)
+            self._mark(run, "working", PUBLICATION_STAGE)
+            self.store.journal(run.run_id, "delivery-start")
+            try:
+                self._provision(run)
+                self.worktrees.fetch()
+            except IsolationError as exc:
+                self._escalate(run, f"delivery isolation failed: {exc}")
+                return
+            execute = partial(self.containers.exec, run.container,
+                              env=self._container_env(run))
+            client = AegisClient(execute, run_id=run.aegis_run_id or "")
+            try:
+                self._publish(run, ticket, client, thread, revise)
+            except AegisError as exc:
+                self._escalate_aegis(run, exc)
 
     def _publish(self, run: RunState, ticket: Ticket, client: AegisClient,
                  thread: str, revise: bool) -> None:
@@ -2315,15 +2347,76 @@ class Orchestrator:
         self.log(f"{run.run_id}: parked for clarification "
                  f"(round {run.clarification_rounds})")
 
+    def _stale_working(self, run: RunState) -> bool:
+        """
+        @brief      Is this `working` run abandoned rather than in flight?
+        @details    A `working` run counts against `max_concurrent_runs`, so a
+                    conductor that died mid-run (power loss, SIGKILL, systemd
+                    restart) silently stops all future pickup - with the
+                    default `max_concurrent_runs = 1`, one crash stops the
+                    orchestrator entirely, and the only trace is
+                    `"at_capacity": true` in the poll summary.
+
+                    Two conditions separate that from normal work. The run
+                    must not be the one THIS process is driving
+                    (`_conducting`), and its last state write must be older
+                    than any legitimate gap between writes: the run's whole
+                    wall-clock budget plus one more full gate timeout. Both
+                    come from the operator's own budgets, so a deployment that
+                    allows long runs automatically gets a long threshold.
+                    A run with no parseable `updated_at` is never reaped -
+                    fail closed toward leaving it for a human.
+        @param[in]  run A run whose lifecycle is `working`.
+        @return     True when the run should be escalated as abandoned.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-08-01
+        @version    0.1.0
+        """
+        if run.run_id == self._in_flight_run_id:
+            return False
+        updated = iso_to_datetime(run.updated_at)
+        now = iso_to_datetime(utc_now_iso())
+        if not updated or not now:
+            return False
+        budgets = self.config.budgets
+        threshold = budgets.max_wall_clock_seconds + budgets.per_gate_timeout_seconds
+        return (now - updated).total_seconds() > threshold
+
+    def _escalate_stale(self, run: RunState, summary: dict) -> None:
+        """
+        @brief      End an abandoned `working` run and free its slot.
+        @details    Escalation (not silent cleanup) is the point: the operator
+                    gets the same failed state, ticket comment, and metrics
+                    row as any other terminal outcome, and `adore retry`
+                    re-arms the run from the stage where it stopped.
+        @param[in]  run The stale run.
+        @param[in,out] summary Poll summary counters to update.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-08-01
+        @version    0.1.0
+        """
+        self.store.journal(run.run_id, "stale-working-detected",
+                           stage=run.stage, updated_at=run.updated_at)
+        summary["stale"] = summary.get("stale", 0) + 1
+        self._escalate(
+            run,
+            f"run found in state 'working' with no live conductor (last "
+            f"update {run.updated_at}); the orchestrator likely crashed "
+            f"mid-run - inspect and `adore retry {run.run_id}`",
+        )
+
     def _reconcile_parked(self, summary: dict) -> None:
         """
-        @brief      Per poll: parked runs (answers, TTL, timeouts), in-review
-                    runs (merge/close detection), and legacy validated runs
-                    (deliver them) - design 8b/8c/9/11b.
+        @brief      Per poll: stale `working` runs, parked runs (answers, TTL,
+                    timeouts), in-review runs (merge/close detection), and
+                    legacy validated runs (deliver them) - design 8b/8c/9/11b.
+        @details    Runs first in the poll pass, before the capacity check, so
+                    a stale run escalated here frees its slot for a new ticket
+                    in the same pass.
         @param[in,out] summary Poll summary counters to update.
         @author     Eng. Dan Dumitru Pasare
         @date       2026-07-06
-        @version    0.1.3
+        @version    0.2.0
         """
         for run in self.store.list_runs():
             if run.lifecycle == "in-review":
@@ -2334,6 +2427,10 @@ class Orchestrator:
                 ticket = self.forge.get_ticket(run.ticket_iid)
                 if ticket is not None:
                     self._deliver(run, ticket)
+                continue
+            if run.lifecycle == "working":
+                if self._stale_working(run):
+                    self._escalate_stale(run, summary)
                 continue
             if run.lifecycle != "parked":
                 continue

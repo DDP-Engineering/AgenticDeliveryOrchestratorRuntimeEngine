@@ -53,6 +53,28 @@ run to the configured terminal state, normally `failed`.
 change ticket history. `delete` is for deliberate disposal, not routine
 cleanup.
 
+### Runs abandoned by a crashed conductor
+
+A run whose orchestrator process died mid-conduct (power loss, `SIGKILL`, a
+systemd restart) stays `working` in the store. Because `working` runs count
+against `[polling] max_concurrent_runs`, that used to stop all future pickup
+silently - with the default of 1, one crash stopped the orchestrator with no
+signal beyond `"at_capacity": true` in the poll summary.
+
+The poller now reaps these itself. At the start of every poll pass, any
+`working` run that this process is not currently conducting and whose last
+state write is older than `[budgets] max_wall_clock_seconds +
+per_gate_timeout_seconds` is **escalated to `failed`**, journaled as
+`stale-working-detected`, and its ticket status comment updated. The slot is
+free again in the same pass, so the next ticket is picked without operator
+action.
+
+You still decide what happens to the reaped run: read `adore logs <run-id>`,
+then `adore retry <run-id>` to continue it from the stage where it stopped.
+The threshold is derived from your own budgets, so a deployment that allows
+long runs automatically waits longer before reaping. Nothing is deleted - the
+worktree, state, and journal are all kept.
+
 ## 4. Clean Up Safely
 
 Run cleanup after a host interruption, a closed or merged MR/PR, or an
