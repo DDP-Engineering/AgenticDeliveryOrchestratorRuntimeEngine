@@ -39,12 +39,15 @@ email = "adore-bot@example.com"
 
 # ----- Git platform ----------------------------------------------------------
 [platform]
-# Which adapter to use: "gitlab" (glab CLI) or "github" (gh CLI).
-# The matching CLI must be installed and authenticated on the host.
+# Which adapter to use: "gitlab" (glab CLI), "github" (gh CLI) or "gitea"
+# (tea CLI >= 0.15). The matching CLI must be installed and authenticated on
+# the host.
 kind = "gitlab"
-# Project path (GitLab: GROUP/.../PROJECT) or repository (GitHub: OWNER/REPO).
+# Project path (GitLab: GROUP/.../PROJECT), repository (GitHub: OWNER/REPO),
+# or repository (Gitea: exactly "owner/repo" - no subgroups).
 # REQUIRED - there is no default.
 repo = "group/subgroup/project"
+# login = "home"  # gitea only: tea login name (tea logins list)
 
 # ----- State signaling -------------------------------------------------------
 # How run state is reflected ON THE TICKET for humans. The authoritative state
@@ -87,8 +90,13 @@ require_acceptance_criteria = true
 # Require one of the priority labels (see [labels.selection]).
 require_priority_label = true
 # Require the ticket to map to a known component of the target repo.
+# NOT YET ENFORCED: accepted and validated, but pickup is not filtered by
+# component (review finding ADORE-ARCH-006). Today only
+# require_acceptance_criteria / require_priority_label filter pickup.
 require_known_component = true
 # Skip tickets estimated larger than this scope hint.
+# NOT YET ENFORCED: accepted and validated, but large tickets are NOT skipped
+# (review finding ADORE-ARCH-006).
 max_scope_hint = "small"
 
 # ----- Labels ------------------------------------------------------------------
@@ -134,6 +142,8 @@ default = "opencode"
 # "thick"    = the orchestrator drives gate-by-gate and verifies in between
 #              (recommended; matches the workflow's stop-after-each-gate design).
 # "headless" = single-shot: launch once and read the final result only.
+# RESERVED; NOT YET CONSULTED BY THE RUNTIME: the conductor is unconditionally
+# thick regardless of this value (review finding ADORE-ARCH-007).
 mode = "thick"
 # File the executor writes blocking questions to before stopping; its presence
 # after a gate is the deterministic "needs clarification" signal.
@@ -231,6 +241,9 @@ parked_ttl_seconds = 7200
 # Reaping the container never ends the run; worktree and state persist.
 parked_ttl_polls = 30
 # On park: "stopped" (keeps FS + deps, fast resume) or "removed" (free disk now).
+# RESERVED; NOT YET CONSULTED BY THE RUNTIME: a redundant twin of
+# keep_parked above, which is what parking actually reads; changing this
+# value changes nothing (review finding ADORE-ARCH-007).
 parked_state = "stopped"
 # Persistent cache volumes so per-run `uv sync` / `npm ci` stay fast.
 uv_cache_volume  = "adore-uv-cache"
@@ -363,17 +376,28 @@ revise_label = "agent-revise"
 # Revise cycles before the run escalates to `failed`.
 max_review_rounds = 3
 # Optional nudge if the MR sits undecided this long.
+# RESERVED; NOT YET CONSULTED BY THE RUNTIME: no MR-reminder nudge is
+# implemented (review finding ADORE-ARCH-007).
 review_reminder_after = "48h"
 
 # ----- Reconciliation ------------------------------------------------------------
 # Reactions when the outside world changes under an active/parked run, so a
 # deleted or closed ticket never leaves a zombie run or orphaned container.
+#
+# STATUS (review finding ADORE-ARCH-005): on_ticket_deleted / on_ticket_closed
+# are validated but their configured VALUES are not consulted - reconciliation
+# applies hardcoded behavior matching the defaults below, and only to PARKED
+# runs. on_trigger_removed is NOT IMPLEMENTED AT ALL: adding the hold label
+# mid-run does NOT stop an active `working` run. Use `adore cancel <run-id>`.
 [reconcile]
 # Ticket deleted: "abort-cleanup" (stop + remove container/worktree) | "ignore".
+# NOT ENFORCED - parked runs are always orphaned regardless of this value.
 on_ticket_deleted = "abort-cleanup"
 # Ticket closed by a human mid-run: "cancel" (graceful stop + comment) | "ignore".
+# NOT ENFORCED - parked runs are always cancelled regardless of this value.
 on_ticket_closed = "cancel"
 # Trigger label removed / hold added mid-run: "pause" | "abort" | "ignore".
+# NOT IMPLEMENTED - this key has no effect; use `adore cancel <run-id>`.
 on_trigger_removed = "pause"
 
 # ----- Metrics / statistics ------------------------------------------------------
@@ -389,6 +413,8 @@ export_jsonl = ".adore/metrics/runs.jsonl"
 # Record executor token usage per run/gate (from the executor CLI stats).
 capture_tokens = true
 # Probe container/disk resource stats (docker stats / disk usage).
+# RESERVED; NOT YET CONSULTED BY THE RUNTIME: no resource probing is
+# implemented (review finding ADORE-ARCH-007).
 capture_resource = true
 # Output path for the self-contained `adore stats --html` dashboard.
 html_out = ".adore/metrics/stats.html"

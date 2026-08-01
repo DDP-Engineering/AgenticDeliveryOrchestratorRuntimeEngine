@@ -14,6 +14,29 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- **Config/doc surface corrected to match runtime enforcement** (review
+  findings ADORE-ARCH-005, 006, 007, 011). Nine settings were documented or
+  exampled as live behavior the runtime does not have: the entire
+  `[reconcile]` section (`on_ticket_deleted`/`on_ticket_closed` values are
+  never consulted - reconciliation hardcodes their default behavior and only
+  for parked runs; `on_trigger_removed` has no implementation at all -
+  adding the hold label mid-run does not stop an active run, use
+  `adore cancel <run-id>`); `[readiness] require_known_component` and
+  `max_scope_hint` (only `require_acceptance_criteria` and
+  `require_priority_label` actually filter pickup); and four more dead
+  settings (`container.parked_state`, a redundant twin of `keep_parked`;
+  `review.review_reminder_after`, no MR-reminder nudge exists;
+  `metrics.capture_resource`, no resource probing exists; `executor.mode`,
+  the conductor is unconditionally thick). `Configuration_Reference.md` and
+  `config.example.toml` now carry an explicit STATUS/"not yet
+  consulted"/"not implemented" caveat on every one of these rows instead of
+  presenting them as working knobs. Also fixed `config.example.toml`'s
+  `[platform] kind` comment, which named only `"gitlab"`/`"github"` despite
+  the Gitea adapter (`forge/gitea.py`) being fully supported - it now lists
+  all three adapters and the commented gitea-only `login` key. No behavior
+  changed; `[budgets] max_cost_usd` and the escalation-reason-on-ticket claim
+  were already accurate after the ADORE-ARCH-003/002 fixes and needed no
+  further edits.
 - **Forge adapters share their CLI-invocation plumbing** (review finding
   ADORE-PY-004). `_parse_json`, `_run`, and the marker-based `_is_not_found`
   were byte-for-byte duplicated across `forge/gitlab.py`, `forge/github.py`,

@@ -304,12 +304,18 @@ identity component. The configurable part is the agent identity (`name` and
 
 ## `[readiness]` - Readiness Filter
 
+**STATUS (review finding ADORE-ARCH-006):** only `require_acceptance_criteria`
+and `require_priority_label` actually filter ticket pickup today.
+`require_known_component` and `max_scope_hint` are accepted and validated for
+forward compatibility, but nothing checks them - a ticket with no known
+component, or one hinted far larger than `"small"`, is still picked up.
+
 | Key | Meaning | Default |
 |---|---|---|
 | `require_acceptance_criteria` | Skip tickets with no acceptance criteria. | `true` |
 | `require_priority_label` | Require a P-label to be eligible. | `true` |
-| `require_known_component` | Require the ticket to map to a known component. | `true` |
-| `max_scope_hint` | Skip tickets estimated larger than this. | `"small"` |
+| `require_known_component` | Require the ticket to map to a known component. **Not yet enforced** - accepted and validated, but pickup is not filtered by component. | `true` |
+| `max_scope_hint` | Skip tickets estimated larger than this. **Not yet enforced** - accepted and validated, but large tickets are NOT skipped. | `"small"` |
 
 ## `[labels.*]` - Labels
 
@@ -328,7 +334,7 @@ teams can rename without code changes; the orchestrator refers to labels by role
 | Key | Meaning | Default |
 |---|---|---|
 | `default` | Which executor to launch: `opencode`, `pi`, `codex`, or `qwen`. The `[executor.<name>]` table must match. `opencode` is the default and live-proven; the other launchers are wired behind the same factory and require their project guard/auth prerequisites. | `"opencode"` |
-| `mode` | `thick` = orchestrator drives one AEGIS stage per launch; `headless` = single-shot. | `"thick"` |
+| `mode` | `thick` = orchestrator drives one AEGIS stage per launch; `headless` = single-shot. **Reserved; not yet consulted by the runtime** (review finding ADORE-ARCH-007) - the conductor is unconditionally thick regardless of this value. | `"thick"` |
 | `questions_file` | File the executor writes clarification questions to. | `"ADORE_QUESTIONS.md"` |
 | `env_keys` | The only environment variables (from host env / `.env`) injected into the executor container. | `["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]` |
 | `stage_host_auth` | Pilot-only: copy host auth into the run container at provision. Implemented for opencode (`~/.local/share/opencode/auth.json`) and Codex (`~/.codex/auth.json` staged into an ADORE-owned `CODEX_HOME`). | `false` |
@@ -354,7 +360,7 @@ teams can rename without code changes; the orchestrator refers to labels by role
 | `parked_ttl_mode` | Grace period unit: `seconds` or `polls`. | `"polls"` |
 | `parked_ttl_seconds` | Reap idle parked container after N seconds (mode=seconds). | `7200` |
 | `parked_ttl_polls` | Reap idle parked container after N poll cycles (mode=polls). | `30` |
-| `parked_state` | On park: `stopped` (fast resume) or `removed` (free disk now). | `"stopped"` |
+| `parked_state` | On park: `stopped` (fast resume) or `removed` (free disk now). **Reserved; not yet consulted by the runtime** (review finding ADORE-ARCH-007) - a redundant twin of `keep_parked`, which is what parking actually reads; changing this value changes nothing. Planned removal is a breaking change, tracked as a follow-up rather than done in this pass. | `"stopped"` |
 | `uv_cache_volume` | Persistent uv cache volume for fast `uv sync`. | `"adore-uv-cache"` |
 | `npm_cache_volume` | Persistent npm cache volume for fast `npm ci`. | `"adore-npm-cache"` |
 | `runtime_env` | Non-secret environment injected at container creation and every `exec`. Use it for portable tool behavior such as `UV_LINK_MODE=copy` or a project-specific `UV_PROJECT_ENVIRONMENT`; ADORE rejects overrides of managed isolation/proxy keys (`HOME`, `GIT_*`, `CODEX_HOME`, `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, `NO_PROXY`, and lowercase variants). | `{ UV_LINK_MODE = "copy" }` |
@@ -425,18 +431,28 @@ section is valid.
 | `trigger` | How a revise cycle starts: `label` (explicit; implemented), `comment-marker`, or `auto` (both currently treated as `label`). | `"label"` |
 | `revise_label` | Label a reviewer applies to request an agent revision. | `"agent-revise"` |
 | `max_review_rounds` | Revise cycles before escalating the run to `failed`. | `3` |
-| `review_reminder_after` | Optional nudge if the MR sits undecided. | `"48h"` |
+| `review_reminder_after` | Optional nudge if the MR sits undecided. **Reserved; not yet consulted by the runtime** (review finding ADORE-ARCH-007) - no MR-reminder nudge is implemented. | `"48h"` |
 
 Note: approval and merge are always human actions; the revise cycle only updates
 the branch (the MR stays a draft).
 
 ## `[reconcile]` - Reconciliation
 
+**STATUS (review finding ADORE-ARCH-005):** `on_ticket_deleted` and
+`on_ticket_closed` are validated but their configured *values* are not
+consulted at runtime - reconciliation applies hardcoded behavior matching
+the defaults below, and only to **parked** runs (a deleted ticket orphans
+the run; a closed ticket cancels it). `on_trigger_removed` is **not
+implemented at all**: adding the hold label (`agent-hold` by default) to a
+ticket mid-run does NOT pause, abort, or otherwise stop an active `working`
+run - the executor keeps going until it hits a budget or a natural stopping
+point. To actually stop an active run, use `adore cancel <run-id>`.
+
 | Key | Meaning | Default |
 |---|---|---|
-| `on_ticket_deleted` | Action when a run's ticket is deleted. | `"abort-cleanup"` |
-| `on_ticket_closed` | Action when a run's ticket is closed by a human. | `"cancel"` |
-| `on_trigger_removed` | Action when the trigger label is removed / `agent-hold` added mid-run (`pause`/`abort`/`ignore`). | `"pause"` |
+| `on_ticket_deleted` | Action when a run's ticket is deleted. **Not enforced** - parked runs are always orphaned regardless of this value; in-progress (`working`) runs are unaffected until they next poll a now-missing ticket. | `"abort-cleanup"` |
+| `on_ticket_closed` | Action when a run's ticket is closed by a human. **Not enforced** - parked runs are always cancelled regardless of this value; `working` runs are unaffected. | `"cancel"` |
+| `on_trigger_removed` | Action when the trigger label is removed / `agent-hold` added mid-run (`pause`/`abort`/`ignore`). **Not implemented** - this key has no effect; use `adore cancel <run-id>` to stop an active run. | `"pause"` |
 
 Manual overrides (`adore cancel/delete/reset/retry/cleanup`, `adore pause/resume`)
 are CLI commands, not config; see design doc section 8c.
@@ -449,7 +465,7 @@ are CLI commands, not config; see design doc section 8c.
 | `db_path` | SQLite database of run summaries (stdlib `sqlite3`). | `".adore/metrics.db"` |
 | `export_jsonl` | Mirrored append-only export of run summaries. | `".adore/metrics/runs.jsonl"` |
 | `capture_tokens` | Record executor token usage per run/gate. | `true` |
-| `capture_resource` | Probe container/disk resource stats. | `true` |
+| `capture_resource` | Probe container/disk resource stats. **Reserved; not yet consulted by the runtime** (review finding ADORE-ARCH-007) - no resource probing is implemented. | `true` |
 | `html_out` | Output path for `adore stats --html` static dashboard. | `".adore/metrics/stats.html"` |
 
 Access is CLI-first (`adore stats`, `adore report`, `adore export`) plus the
