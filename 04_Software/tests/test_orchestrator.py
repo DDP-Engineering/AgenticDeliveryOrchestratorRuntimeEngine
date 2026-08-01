@@ -18,7 +18,7 @@
          reap, answer timeout, and reconciliation of deleted/closed tickets.
 @author Eng. Dan Dumitru Pasare
 @date 2026-07-03
-@version 0.8.0
+@version 0.9.0
 """
 
 from __future__ import annotations
@@ -2762,6 +2762,60 @@ def test_recorded_questions_park_the_run(tmp_path: Path) -> None:
     assert any("Which variant should ship?" in c[2] for c in posts)
     events = [e["event"] for e in engine.store.read_journal(run.run_id)]
     assert "stage-questions" in events and "parked" in events
+
+
+def test_an_escalation_posts_its_reason_on_the_ticket(tmp_path: Path) -> None:
+    """
+    @brief   An escalation reaches the operator watching the forge, not just
+             the local journal.
+    @details The edited status line only ever says "failed"; the AEGIS error,
+             its remediation, and the composed `aegis waive add` hint used to
+             exist only on the host. The dedicated comment carries all of it
+             plus the `kind=escalation` marker.
+    @version 0.1.0
+    """
+    executor = FakeExecutor([gate_ok()] * 9)
+    engine, forge, containers, _ = make_engine(tmp_path, executor)
+    forge.add_ticket(14)
+    containers.aegis.close_blocked["intake"] = "INV-7 does not hold."
+
+    engine.poll_once()
+
+    run = engine.store.load(engine._run_id(14))
+    assert run.lifecycle == "failed"
+    posts = [call[2] for call in forge.calls if call[0] == "post" and call[1] == 14]
+    escalations = [body for body in posts if "kind=escalation" in body]
+    assert len(escalations) == 1
+    body = escalations[0]
+    assert run.outcome in body                      # the full reason, verbatim
+    assert "INV-7 does not hold." in body           # including the AEGIS error
+    assert f"adore logs {run.run_id}" in body
+    assert f"adore retry {run.run_id}" in body
+
+
+def test_a_forge_failure_during_the_escalation_post_still_fails_the_run(
+    tmp_path: Path,
+) -> None:
+    """
+    @brief   The escalation comment is best-effort: local state is
+             authoritative, so a forge outage must not stop a run from
+             reaching its terminal state.
+    @version 0.1.0
+    """
+    executor = FakeExecutor([gate_ok()] * 9)
+    engine, forge, containers, _ = make_engine(tmp_path, executor)
+    forge.add_ticket(14)
+    containers.aegis.close_blocked["intake"] = "INV-7 does not hold."
+    forge.post_fails_on = "Run escalated to failed"
+
+    engine.poll_once()  # must return normally, not raise
+
+    run = engine.store.load(engine._run_id(14))
+    assert run.lifecycle == "failed"
+    assert "INV-7 does not hold." in run.outcome
+    assert any(call[0] == "post-refused" for call in forge.calls)
+    events = [e["event"] for e in engine.store.read_journal(run.run_id)]
+    assert "escalated" in events
 
 
 def test_a_stale_working_run_is_escalated_and_frees_the_slot(

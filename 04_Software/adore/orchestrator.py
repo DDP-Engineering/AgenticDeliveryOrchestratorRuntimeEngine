@@ -2872,17 +2872,36 @@ class Orchestrator:
         @brief      Terminal failure: mark failed, keep everything auditable.
         @details    Worktree and state are kept for a human; the container is
                     stopped. `adore retry` can re-arm the run.
+
+                    The reason also goes ON THE TICKET, in its own comment.
+                    The edited status line only ever says "failed", so an
+                    operator watching the forge - the normal remote-team
+                    posture - otherwise saw a run stop with no actionable
+                    information, and the composed `aegis waive add` hint was
+                    invisible to anyone without host access. The post is
+                    best-effort: the local state is authoritative, so a forge
+                    outage must not stop a run from reaching its terminal
+                    state. Callers redact the reason before passing it.
         @param[in]  run The run.
-        @param[in]  reason Human-readable escalation reason.
+        @param[in]  reason Human-readable escalation reason (already redacted).
         @author     Eng. Dan Dumitru Pasare
         @date       2026-07-03
-        @version    0.1.1
+        @version    0.2.0
         """
         run.lifecycle = "failed"
         run.outcome = reason
         self.store.save(run)
         self.store.journal(run.run_id, "escalated", reason=reason)
         self._mark(run, "failed", run.stage)
+        with contextlib.suppress(ForgeError):
+            self.forge.post_comment(run.ticket_iid, (
+                f"{self.identity.tag} Run escalated to failed at stage "
+                f"{run.stage}.\n\n"
+                f"Reason: {reason}\n\n"
+                f"Inspect with `adore logs {run.run_id}`; continue with "
+                f"`adore retry {run.run_id}` after resolving.\n"
+                f"{self.identity.make_marker(run.run_id, 'escalation')}"
+            ))
         with contextlib.suppress(IsolationError):
             self.containers.stop(run.container)
         self._record_metrics(run)

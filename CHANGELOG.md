@@ -179,6 +179,18 @@ This project follows Keep a Changelog and Semantic Versioning.
   budgets, in-flight runs are tracked on the instance by a nesting
   `_conducting` context manager, and a run with an unparseable `updated_at`
   is never reaped.
+- **Escalations now post their reason on the ticket** (review finding
+  ADORE-ARCH-002). `_escalate` wrote the reason to `run.outcome`, the
+  journal, and the log, while the ticket received only the generic edited
+  status line (`[ADORE] status: failed - stage X - run Y`). The AEGIS error,
+  its remediation, and the carefully composed `aegis waive add` hint were
+  invisible to anyone without host access - and `Operations_Guide.md` claimed
+  otherwise. `_escalate` now posts one dedicated comment carrying the full
+  reason plus the `adore logs` / `adore retry` commands for that run, under a
+  `kind=escalation` marker. The post is best-effort
+  (`contextlib.suppress(ForgeError)`): local state stays authoritative, so a
+  forge outage still leaves the run `failed` with its reason. Secret
+  redaction is unchanged - callers redact before passing the reason in.
 - **ADORE 2.0 hard break to AEGIS 2.x - WP1: the AEGIS client
   (`adore/aegis.py`).** One component owns the whole AEGIS-facing contract:
   it invokes the grouped CLI as `bash .agentic/tools/run.sh <group> <action>

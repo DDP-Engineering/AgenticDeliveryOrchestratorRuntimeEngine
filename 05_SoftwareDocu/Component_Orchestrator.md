@@ -248,6 +248,16 @@ interface) and metrics.
   the original error. `AegisProtocolError` / `AegisTimeoutError` escalate
   tagged as a contract failure. ADORE never waives, never routes, and never
   repairs AEGIS state.
+- **Every escalation reaches the ticket** (`_escalate`): besides the edited
+  status line (which only ever says "failed"), one dedicated comment carries
+  the full reason - AEGIS error, remediation, waive hint - plus the
+  `adore logs` / `adore retry` commands, under a `kind=escalation` marker.
+  Without it an operator watching the forge saw a run stop with no
+  actionable information and the composed waive hint was invisible to anyone
+  without host access. The post is best-effort (`suppress(ForgeError)`):
+  local state is authoritative, so a forge outage must not stop a run from
+  reaching its terminal state. The reason is redacted by the callers that
+  build it, and stays that way.
 - A freshly launched executor session that lacks the prior chat context - a
   stage retry, a publication fix, a revise round, or a run resumed
   mid-workflow after a restart - is oriented by `_workflow_orientation`.

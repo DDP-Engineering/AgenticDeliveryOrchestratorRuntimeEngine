@@ -59,6 +59,13 @@ AEGIS-facing failure ends in one of three deterministic outcomes. The reason
 is journaled and posted on the ticket, so `adore runs` plus the ticket
 comment tell you which one happened and what it is waiting for.
 
+An escalation posts its own comment, separate from the edited status line:
+the full reason - the AEGIS error, its `remediation:` clause, and where
+relevant the exact `aegis waive add` command - plus the `adore logs` /
+`adore retry` commands for that run. You do not need host access to read it.
+The post is best-effort: local state is authoritative, so a forge outage
+still leaves the run `failed` with the reason in `adore logs <run-id>`.
+
 | What you see | What happened | What to do |
 | --- | --- | --- |
 | The run is **parked** and the ticket carries a clarification comment | The executor recorded unresolved questions in the AEGIS stage form, alignment decided to pause, or the stage asked for `repo-wide` access or for routing back to an earlier stage. | Answer in a normal ticket comment. The run resumes on the next poll. Routing and access widening are human decisions in this version. |

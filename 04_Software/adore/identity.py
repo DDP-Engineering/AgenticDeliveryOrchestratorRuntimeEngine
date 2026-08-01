@@ -110,7 +110,8 @@ class AgentIdentity:
         @details    Rendered invisibly on GitLab and GitHub, for example:
                     `<!-- adore:run=gitlab-x-14 kind=status state=working -->`.
         @param[in]  run_id Stable run identifier.
-        @param[in]  kind Comment kind (status | question | delivery).
+        @param[in]  kind Comment kind (status | question | delivery |
+                        escalation).
         @param[in]  extra Additional key=value fields (state, stage, ...).
         @return     The marker line.
         @author     Eng. Dan Dumitru Pasare
