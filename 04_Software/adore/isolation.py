@@ -45,7 +45,12 @@ from adore.branding import (
     EGRESS_PROXY_ALIAS,
 )
 from adore.config import ContainerEgressConfig
-from adore.util import CommandResult, CommandRunner, run_command
+from adore.util import (
+    DEFAULT_COMMAND_TIMEOUT,
+    CommandResult,
+    CommandRunner,
+    run_command,
+)
 
 # CONSTANTS
 
@@ -917,7 +922,7 @@ class ContainerManager:
         name: str,
         argv: Sequence[str],
         *,
-        timeout: float | None = None,
+        timeout: float | None = DEFAULT_COMMAND_TIMEOUT,
         env: dict[str, str] | None = None,
     ) -> CommandResult:
         """
@@ -926,16 +931,29 @@ class ContainerManager:
                     executed command's exit code is a conductor signal
                     (gate pass/fail), not an isolation failure. Runs in the
                     container's working dir (/adore/work).
+
+                    This seam is ALWAYS bounded. `run_command`'s own default
+                    applies only when a caller omits the keyword, so forwarding
+                    a `None` would reach `subprocess.run(timeout=None)` and
+                    hang the single-threaded poll loop for good on a wedged
+                    container runtime or an interactive required-tool check.
+                    An explicit `None` therefore resolves to
+                    `DEFAULT_COMMAND_TIMEOUT` here rather than meaning
+                    "unbounded"; callers that need longer (an executor gate
+                    launch) pass their own budget.
         @param[in]  name Container name.
         @param[in]  argv Command and arguments to run inside.
-        @param[in]  timeout Optional wall-clock bound (run budgets).
+        @param[in]  timeout Wall-clock bound in seconds; `None` means "use the
+                            default bound", never "no bound".
         @param[in]  env Optional exec-time env; safe values go inline, secrets
                         are passed by bare key/process environment.
         @return     The captured CommandResult.
         @author     Eng. Dan Dumitru Pasare
         @date       2026-07-07
-        @version    0.2.1
+        @version    0.3.0
         """
+        if timeout is None:
+            timeout = DEFAULT_COMMAND_TIMEOUT
         full = [*self.runtime_argv, "exec"]
         exec_env = dict(env or {})
         if self.egress.mode == "allowlist-proxy":

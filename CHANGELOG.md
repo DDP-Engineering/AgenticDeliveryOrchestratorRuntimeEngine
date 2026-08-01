@@ -132,6 +132,17 @@ This project follows Keep a Changelog and Semantic Versioning.
   crashed the poll loop with a raw traceback instead of failing the run. The
   boundary case now states the regression generically and raises the intended
   `AegisProtocolError`, which escalates the run deterministically.
+- **The container exec seam can no longer run unbounded** (review finding
+  ADORE-PY-002). `ContainerManager.exec` defaulted `timeout` to `None` and
+  forwarded it explicitly, so `run_command`'s own 600 s default never applied
+  and `subprocess.run(timeout=None)` was reached by every caller that did not
+  name a budget - `verify_required_tools` (operator-configured
+  `required_tool_checks`, run at every provision) and `_stage_host_auth`'s
+  mkdir/cp among them. A hung check or a wedged container runtime blocked
+  `_provision` and with it the whole single-threaded poll pass, with no other
+  layer of protection. `exec` now defaults to `util.DEFAULT_COMMAND_TIMEOUT`
+  and resolves an explicit `None` to it: at that seam `None` means "use the
+  default bound", never "no bound".
 
 ### Removed
 

@@ -99,6 +99,16 @@ side keeps working normally with its absolute paths. The admin dir name is
 - `exec` returns the `CommandResult` as **data** - a failing gate command is
   a conductor signal, not an isolation failure. Only runtime-level failures
   (daemon down, image missing) raise `IsolationError`.
+- **`exec` is always bounded.** Its `timeout` defaults to
+  `util.DEFAULT_COMMAND_TIMEOUT` (600 s) and an explicitly passed `None`
+  resolves to that same default - at this seam `None` means "use the default
+  bound", never "no bound". `run_command`'s own default applies only when a
+  caller omits the keyword, so forwarding a `None` would reach
+  `subprocess.run(timeout=None)`: a wedged container runtime or an
+  interactive `required_tool_checks` command would then block `_provision`,
+  and with it the single-threaded poll loop, forever. Callers needing more
+  room pass their own budget (an executor gate launch passes
+  `[budgets] per_gate_timeout_seconds` or its `[workflow]` stage override).
 - **Executor egress:** `[container.egress] mode = "open"` provides unrestricted
   network access. `none` adds `--network none`. `allowlist-proxy` creates an
   internal per-run network, starts a per-run proxy container from

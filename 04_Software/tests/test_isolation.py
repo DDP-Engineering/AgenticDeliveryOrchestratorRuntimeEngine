@@ -16,7 +16,7 @@
          offline. Worktree-on-disk states are simulated with tmp_path files.
 @author Eng. Dan Dumitru Pasare
 @date 2026-07-03
-@version 0.4.0
+@version 0.5.0
 """
 
 from __future__ import annotations
@@ -36,7 +36,7 @@ from adore.isolation import (
     build_container_env,
     wsl_mount_path,
 )
-from adore.util import CommandResult
+from adore.util import DEFAULT_COMMAND_TIMEOUT, CommandResult
 import pytest
 
 # DATA MODELS / TYPEDEFINITIONS
@@ -45,9 +45,14 @@ import pytest
 class FakeRunner:
     """
     @brief   Command runner double: records argv + kwargs, replays results.
+    @details The `timeout` default mirrors the real `run_command`, not the
+             looser `CommandRunner` protocol, so a recorded `None` means a
+             caller explicitly asked for an UNBOUNDED subprocess rather than
+             simply omitting the keyword. That distinction is what the
+             no-unbounded-exec regression test asserts on.
     @author  Eng. Dan Dumitru Pasare
     @date    2026-07-03
-    @version 0.1.0
+    @version 0.2.0
     """
 
     def __init__(self, *results: CommandResult) -> None:
@@ -56,33 +61,36 @@ class FakeRunner:
         @param[in]  results CommandResults returned call by call.
         @author     Eng. Dan Dumitru Pasare
         @date       2026-07-03
-        @version    0.1.0
+        @version    0.2.0
         """
         self.results = list(results)
         self.calls: list[list[str]] = []
         self.envs: list[dict[str, str] | None] = []
+        self.timeouts: list[float | None] = []
 
     def __call__(
         self,
         argv: list[str],
         *,
         cwd: str | Path | None = None,
-        timeout: float | None = None,
+        timeout: float | None = DEFAULT_COMMAND_TIMEOUT,
         env: dict[str, str] | None = None,
     ) -> CommandResult:
         """
         @brief      Record the call and pop the next canned result.
         @param[in]  argv Command vector.
         @param[in]  cwd Ignored.
-        @param[in]  timeout Recorded implicitly via kwargs when needed.
+        @param[in]  timeout Recorded; `None` means the caller forwarded an
+                            explicit "no bound".
         @param[in]  env Recorded for secret-handling assertions.
         @return     The next queued CommandResult.
         @author     Eng. Dan Dumitru Pasare
         @date       2026-07-03
-        @version    0.1.0
+        @version    0.2.0
         """
         self.calls.append([str(part) for part in argv])
         self.envs.append(env)
+        self.timeouts.append(timeout)
         return self.results.pop(0)
 
 
@@ -627,6 +635,37 @@ def test_container_verify_required_tools_execs_checks() -> None:
     ]
     assert runner.calls[1] == [
         "docker", "exec", "--env", "UV_LINK_MODE=copy", "c", "terraform", "--version",
+    ]
+
+
+def test_container_exec_is_never_unbounded() -> None:
+    """
+    @brief   The container exec seam always bounds the subprocess.
+    @details `run_command`'s own default applies only when the caller omits
+             the keyword, so forwarding `timeout=None` would reach
+             `subprocess.run(timeout=None)` and hang the single-threaded poll
+             loop forever. Every container command the orchestrator issues -
+             `_provision`'s tool checks, `verify_required_tools`, and
+             `_stage_host_auth`'s mkdir/cp - goes through this one seam, so
+             bounding it here bounds all of them. An explicit `None` means
+             "use the default bound", never "no bound"; an explicit budget
+             still wins.
+    @version 0.1.0
+    """
+    runner = FakeRunner(_ok(), _ok(), _ok(), _ok())
+    manager = _manager(runner)
+
+    manager.exec("c", ["mkdir", "-p", "/adore/auth"])       # omitted
+    manager.exec("c", ["cp", "a", "b"], timeout=None)       # explicit None
+    manager.exec("c", ["sh", "gate.sh"], timeout=1800.0)    # explicit budget
+    manager.verify_required_tools("c", ["terraform --version"])
+
+    assert None not in runner.timeouts
+    assert runner.timeouts == [
+        DEFAULT_COMMAND_TIMEOUT,
+        DEFAULT_COMMAND_TIMEOUT,
+        1800.0,
+        DEFAULT_COMMAND_TIMEOUT,
     ]
 
 
