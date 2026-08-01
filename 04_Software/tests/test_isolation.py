@@ -16,7 +16,7 @@
          offline. Worktree-on-disk states are simulated with tmp_path files.
 @author Eng. Dan Dumitru Pasare
 @date 2026-07-03
-@version 0.5.0
+@version 0.6.0
 """
 
 from __future__ import annotations
@@ -249,6 +249,48 @@ def test_worktree_remove_with_branch_delete(tmp_path: Path) -> None:
     assert runner.calls[0][3:6] == ["worktree", "remove", "--force"]
     assert "prune" in runner.calls[1]
     assert "-D" in runner.calls[3] and "adore/run-1" in runner.calls[3]
+
+
+def test_worktree_remove_retries_past_the_wsl_bind_mount_race(tmp_path: Path) -> None:
+    """
+    @brief   Removal that transiently fails with the WSL mount-race signature
+             (ENOSYS) is retried with backoff until it succeeds - no husk
+             left, no manual cleanup needed (ADORE-ARCH-009: this retry now
+             lives here, not in the orchestrator's core loop).
+    @version 0.1.0
+    """
+    manager = _fake_worktree(tmp_path, "run-1", "/repo/.git/worktrees/run-1")
+    enosys = _fail("failed to delete '...': Function not implemented")
+    runner = FakeRunner(enosys, enosys, _ok(), _ok())  # clears on the 3rd attempt
+    manager.runner = runner
+    sleeps: list[float] = []
+    manager.sleep = sleeps.append
+
+    manager.remove("run-1")
+
+    assert len(runner.calls) == 4                 # 2 failed + (remove, prune)
+    assert runner.calls[2][3:6] == ["worktree", "remove", "--force"]
+    assert "prune" in runner.calls[3]
+    assert sleeps == [1.0, 2.0]                   # two backoff waits
+
+
+def test_worktree_remove_does_not_retry_a_real_error(tmp_path: Path) -> None:
+    """
+    @brief   A non-transient removal error is NOT retried (retries must not
+             mask real failures) and is raised on the first attempt.
+    @version 0.1.0
+    """
+    manager = _fake_worktree(tmp_path, "run-1", "/repo/.git/worktrees/run-1")
+    runner = FakeRunner(_fail("fatal: not a valid object name"))
+    manager.runner = runner
+    sleeps: list[float] = []
+    manager.sleep = sleeps.append
+
+    with pytest.raises(IsolationError, match="not a valid object name"):
+        manager.remove("run-1")
+
+    assert len(runner.calls) == 1   # only one attempt consumed
+    assert sleeps == []             # no retry on a real error
 
 
 def test_worktree_admin_dir_name_reads_pointer(tmp_path: Path) -> None:

@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Isolation (`adore/isolation.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/adore/isolation.py` - file version 0.6.0.
+> Source: `04_Software/adore/isolation.py` - file version 0.7.0.
 > Design: Orchestrator_Design_And_Decisions.md sections 8b, 10, 10a.
 > Images: `04_Software/docker/Dockerfile.executor-base`,
 > `04_Software/docker/Dockerfile.egress-proxy`, plus runtime-project images
@@ -27,9 +27,10 @@ guardrails, not a sandbox (design 10).
 
 ## 2. Responsibilities
 
-- `WorktreeManager(repo_path, root)` - worktree lifecycle on the host:
-  idempotent `create` (reuse -> re-attach branch -> create fresh from
-  base_ref), idempotent `remove` (+ prune, optional branch delete), `fetch`,
+- `WorktreeManager(repo_path, root, runner=..., sleep=...)` - worktree
+  lifecycle on the host: idempotent `create` (reuse -> re-attach branch ->
+  create fresh from base_ref), idempotent `remove` (+ prune, optional branch
+  delete; retries past the WSL2 teardown race, see section 3), `fetch`,
   `admin_dir_name` (reads the worktree's `.git` pointer file),
   `changed_files` (committed + pending paths vs the base ref; feeds the
   max_files_touched budget; a rename counts as ONE file - its destination - and
@@ -71,6 +72,19 @@ and git inside the container is directed by environment:
 side keeps working normally with its absolute paths. The admin dir name is
 *read* from the pointer file (git suffixes it on collision), never assumed.
 
+- **`WorktreeManager.remove` retries past the WSL2 bind-mount teardown
+  race** (ADORE-ARCH-009): `docker/podman rm` returns before the kernel
+  releases the container's 9P/drvfs bind mount on the worktree, so an
+  immediate `git worktree remove` can fail with ENOSYS/EBUSY/ENOTEMPTY until
+  the mount clears (a few seconds). `remove` retries the whole operation with
+  backoff (`1s, 2s, 4s`, ~7s ceiling) ONLY on those transient signatures - a
+  real git error is raised on the first attempt, never masked. If the race
+  still hasn't cleared after every retry, `remove` re-raises and the caller
+  (the orchestrator's `_teardown`) logs a husk message for `adore cleanup` to
+  sweep later. Native docker/Linux succeeds on the first try (no sleeps).
+  This handling moved here from the orchestrator's core loop, which is not
+  the place for platform-specific glue (`AGENTS.md` section "Repository
+  Rules").
 - One long-lived container per run (`<slug>-run-<run-id>`), idling on
   `sleep infinity`; gates are launched into it via `exec`. Park = `stop`
   (filesystem and resolved dependencies kept, fast resume); reap = `rm -f`
@@ -209,6 +223,9 @@ result = containers.exec("adore-run-gitlab-x-14", ["opencode", "--version"])
   for new branch / branch re-attach / idempotent reuse, git failure ->
   `IsolationError`, idempotent remove + branch delete, admin-name read from
   the pointer (including collision suffix) and its fail-closed negatives;
+  the WSL teardown-race retry (transient ENOSYS signature retried with
+  backoff to success) and its negative (a real error raised on the first
+  attempt, never retried);
   container env contract, provision when absent (mounts, workdir, bare
   `--env KEY`, secret value absent from argv but present in process env),
   provision idempotency, absent-vs-error status, idempotent-but-fail-closed

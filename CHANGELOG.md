@@ -14,6 +14,18 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- **WSL2 bind-mount teardown-race retry moved from the core loop to the
+  isolation layer** (review finding ADORE-ARCH-009). `_TEARDOWN_RACE_MARKERS`,
+  `_is_teardown_race`, and the retry-with-backoff lived in `orchestrator.py`,
+  against `AGENTS.md`'s "no OS-specific glue in the core loop" rule.
+  `WorktreeManager.remove` (`isolation.py`) now retries the whole removal
+  past the transient mount-release signatures itself, with an injectable
+  `sleep`; the orchestrator's `_teardown` shrinks to one call plus a husk-log
+  line on failure. `orchestrator.py` now contains no WSL error-signature
+  strings. Behavior is unchanged (same markers, same backoff, same husk
+  fallback); the two orchestrator-level teardown-race tests moved to
+  `test_isolation.py` against the real `WorktreeManager`, and a single
+  orchestrator-level test now covers the simplified pass-through.
 - **Config/doc surface corrected to match runtime enforcement** (review
   findings ADORE-ARCH-005, 006, 007, 011). Nine settings were documented or
   exampled as live behavior the runtime does not have: the entire

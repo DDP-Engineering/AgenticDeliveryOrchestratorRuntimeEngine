@@ -18,7 +18,7 @@
          reap, answer timeout, and reconciliation of deleted/closed tickets.
 @author Eng. Dan Dumitru Pasare
 @date 2026-07-03
-@version 0.10.0
+@version 0.11.0
 """
 
 from __future__ import annotations
@@ -2543,40 +2543,25 @@ def test_cleanup_sweeps_orphans_but_never_active_runs(tmp_path: Path) -> None:
     assert engine.store.exists("broken")               # reported, not deleted
 
 
-# PUBLIC API / TESTS - teardown WSL bind-mount race (design 8b)
+# PUBLIC API / TESTS - teardown (design 8b)
+#
+# The WSL bind-mount teardown-RACE retry itself now lives in
+# WorktreeManager.remove (isolation.py, ADORE-ARCH-009) and is covered there
+# (test_isolation.py). At this layer, _teardown is a thin pass-through: it
+# calls worktrees.remove exactly once and, on any IsolationError, logs a husk
+# message rather than retrying or crashing.
 
 
-def test_teardown_retries_past_the_wsl_bind_mount_race(tmp_path: Path) -> None:
+def test_teardown_logs_husk_on_worktree_removal_failure(tmp_path: Path) -> None:
     """
-    @brief   Worktree removal that transiently fails with the WSL mount-race
-             signature (ENOSYS) is retried with backoff until it succeeds -
-             no husk left, no manual cleanup needed.
-    @version 0.1.1
-    """
-    engine, _, _, worktrees = make_engine(tmp_path, FakeExecutor())
-    sleeps: list[float] = []
-    engine.sleep = lambda d: sleeps.append(d)
-    run = RunState(run_id="r-14", ticket_iid=14, container="adore-run-r-14",
-                   branch="feature/x")
-    enosys = IsolationError("git worktree failed",
-                            stderr="failed to delete '...': Function not implemented")
-    worktrees.remove_errors = [enosys, enosys]  # clears on the 3rd attempt
-
-    engine._teardown(run, remove_worktree=True)
-
-    assert worktrees.removed == [("r-14", "feature/x")]  # eventually removed
-    assert len(sleeps) == 2                              # two backoff waits
-
-
-def test_teardown_does_not_retry_a_real_worktree_error(tmp_path: Path) -> None:
-    """
-    @brief   A non-transient removal error is NOT retried (retries must not
-             mask real failures); the husk is left for `adore cleanup`.
-    @version 0.1.1
+    @brief   _teardown makes exactly one worktree-removal attempt and logs a
+             husk message on failure - it no longer retries itself; that is
+             WorktreeManager.remove's job (ADORE-ARCH-009).
+    @version 0.1.0
     """
     engine, _, _, worktrees = make_engine(tmp_path, FakeExecutor())
-    sleeps: list[float] = []
-    engine.sleep = lambda d: sleeps.append(d)
+    logs: list[str] = []
+    engine.log = logs.append
     run = RunState(run_id="r-15", ticket_iid=15, container="adore-run-r-15",
                    branch="feature/y")
     real = IsolationError("git failed", stderr="fatal: not a valid object name")
@@ -2585,8 +2570,8 @@ def test_teardown_does_not_retry_a_real_worktree_error(tmp_path: Path) -> None:
     engine._teardown(run, remove_worktree=True)
 
     assert worktrees.removed == []              # never succeeded
-    assert sleeps == []                         # no retry on a real error
     assert len(worktrees.remove_errors) == 1    # only one attempt consumed
+    assert any("husk left for `adore cleanup`" in line for line in logs)
 
 
 # PUBLIC API / TESTS - metrics recording (design 13)

@@ -21,19 +21,23 @@
          "wsl -d Ubuntu-24.04 -- docker" for Docker Engine inside WSL2); in
          WSL mode mount sources are translated to /mnt/<drive>/ paths and
          env-value propagation crosses the WSL boundary via WSLENV.
+         `WorktreeManager.remove` retries past the WSL2 bind-mount teardown
+         race (moved here from orchestrator.py per ADORE-ARCH-009 - this is
+         isolation-layer platform knowledge, not core-loop logic).
 @author Eng. Dan Dumitru Pasare
 @date 2026-07-24
-@version 0.6.0
+@version 0.7.0
 """
 
 from __future__ import annotations
 
 # IMPORTS
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 import os
 from pathlib import Path
 import re
 import shlex
+import time
 
 from adore.branding import (
     CONTAINER_HOME,
@@ -86,6 +90,21 @@ _INLINE_ENV_KEYS = frozenset({
     "no_proxy",
 })
 
+# Worktree removal right after container removal can transiently fail on WSL2:
+# `docker/podman rm` returns before the kernel releases the container's
+# 9P/drvfs bind mount on the worktree, so git's delete hits these errors until
+# the mount clears (a few seconds). Retrying past them avoids leaving a husk
+# for `adore cleanup` (live finding 2026-07-04/05; moved here from
+# orchestrator.py per ADORE-ARCH-009 - this is isolation-layer, not
+# core-loop, knowledge).
+_TEARDOWN_RACE_MARKERS = (
+    "function not implemented",   # ENOSYS - the observed WSL signature
+    "device or resource busy",    # EBUSY  - mount still attached
+    "resource busy",
+    "directory not empty",        # ENOTEMPTY - files not yet released
+)
+_TEARDOWN_RETRY_DELAYS = (1.0, 2.0, 4.0)  # ~7s ceiling; the race clears in seconds
+
 # DATA MODELS / TYPEDEFINITIONS
 
 
@@ -118,6 +137,20 @@ class IsolationError(RuntimeError):
         super().__init__(detail)
         self.argv = argv or []
         self.stderr = stderr
+
+
+def _is_teardown_race(exc: IsolationError) -> bool:
+    """
+    @brief      Whether a worktree-removal failure is the transient WSL
+                bind-mount teardown race (worth retrying) vs a real error.
+    @param[in]  exc The IsolationError raised by worktree removal.
+    @return     True when the stderr matches a known mount-release signature.
+    @author     Eng. Dan Dumitru Pasare
+    @date       2026-07-05
+    @version    0.1.0
+    """
+    text = (getattr(exc, "stderr", "") or str(exc)).lower()
+    return any(marker in text for marker in _TEARDOWN_RACE_MARKERS)
 
 
 # PUBLIC API
@@ -186,9 +219,12 @@ class WorktreeManager:
     @details One worktree + one branch per run-id, created from the local
              clone at repo_path. Creation is idempotent so restart/resume
              reuses the same worktree instead of duplicating it (design 8a).
+             `remove` retries past the WSL bind-mount teardown race
+             (ADORE-ARCH-009: this platform-specific handling used to live in
+             the orchestrator's core loop; it belongs here instead).
     @author  Eng. Dan Dumitru Pasare
     @date    2026-07-03
-    @version 0.1.0
+    @version 0.2.0
     """
 
     def __init__(
@@ -196,6 +232,7 @@ class WorktreeManager:
         repo_path: str | Path,
         root: str | Path,
         runner: CommandRunner = run_command,
+        sleep: Callable[[float], None] = time.sleep,
     ) -> None:
         """
         @brief      Bind the manager to a local clone and a worktrees root.
@@ -206,13 +243,16 @@ class WorktreeManager:
         @param[in]  repo_path Local clone of the target repository.
         @param[in]  root Directory holding per-run worktrees (<root>/<run-id>).
         @param[in]  runner Command runner (injectable for tests).
+        @param[in]  sleep Sleep function used by `remove`'s teardown-race
+                          backoff (test override).
         @author     Eng. Dan Dumitru Pasare
         @date       2026-07-03
-        @version    0.1.1
+        @version    0.1.2
         """
         self.repo_path = Path(repo_path).resolve()
         self.root = Path(root).resolve()
         self.runner = runner
+        self.sleep = sleep
 
     def path_for(self, run_id: str) -> Path:
         """
@@ -270,19 +310,43 @@ class WorktreeManager:
                     worktree registrations are pruned either way. The branch
                     is deleted only when explicitly named (terminal cleanup;
                     an in-review run keeps its branch).
+
+                    Retries the whole operation past the WSL2 bind-mount
+                    teardown race: `docker/podman rm` returns before the
+                    kernel releases the container's 9P/drvfs mount on the
+                    worktree, so an immediate removal can fail with
+                    ENOSYS/EBUSY/ENOTEMPTY until it clears (live finding
+                    2026-07-04/05). Retried ONLY on those transient
+                    signatures, with backoff, up to `_TEARDOWN_RETRY_DELAYS`;
+                    a real error is raised on the first attempt. Native
+                    docker/Linux succeeds on the first try (no sleeps). The
+                    caller decides what to do with an exhausted retry (ADORE
+                    logs and leaves the husk for `adore cleanup`).
         @param[in]  run_id Stable run identifier.
         @param[in]  delete_branch Branch to force-delete, or None to keep it.
-        @exception  IsolationError When git fails for another reason.
+        @exception  IsolationError When git fails for another reason, or the
+                    teardown race persists past every retry.
         @author     Eng. Dan Dumitru Pasare
         @date       2026-07-03
-        @version    0.1.0
+        @version    0.2.0
         """
         path = self.path_for(run_id)
-        if (path / ".git").exists():
-            self._git("worktree", "remove", "--force", str(path))
-        self._git("worktree", "prune")
-        if delete_branch and self._branch_exists(delete_branch):
-            self._git("branch", "-D", delete_branch)
+        last: IsolationError | None = None
+        for delay in (0.0, *_TEARDOWN_RETRY_DELAYS):
+            if delay:
+                self.sleep(delay)
+            try:
+                if (path / ".git").exists():
+                    self._git("worktree", "remove", "--force", str(path))
+                self._git("worktree", "prune")
+                if delete_branch and self._branch_exists(delete_branch):
+                    self._git("branch", "-D", delete_branch)
+                return
+            except IsolationError as exc:
+                last = exc
+                if not _is_teardown_race(exc):
+                    raise  # a real failure - do not burn retries masking it
+        raise last  # every retry exhausted; still the teardown race
 
     def admin_dir_name(self, run_id: str) -> str:
         """

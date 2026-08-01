@@ -25,9 +25,14 @@
          executor fills forms and applies them, ADORE verifies objectively and
          issues `stage close` itself - while the real human approval stays at
          the draft MR review.
+@details The WSL2 bind-mount teardown-race retry (`_TEARDOWN_RACE_MARKERS`,
+         `_is_teardown_race`) moved to `WorktreeManager.remove` in
+         isolation.py (ADORE-ARCH-009): platform-specific glue belongs to the
+         isolation layer, not the core loop. `_teardown` now makes one call
+         and logs a husk message if it still fails.
 @author Eng. Dan Dumitru Pasare
 @date 2026-08-01
-@version 0.10.0
+@version 0.11.0
 """
 
 from __future__ import annotations
@@ -126,19 +131,6 @@ _PARK_JOURNAL_LIMIT = 2000
 # ending the run, so an in-review run whose MR truly vanished cannot re-poll
 # (and re-log) forever, while a momentary blip is ridden out.
 _MR_MISSING_GRACE_POLLS = 3
-
-# Worktree removal right after container removal can transiently fail on WSL2:
-# `docker/podman rm` returns before the kernel releases the container's
-# 9P/drvfs bind mount on the worktree, so git's delete hits these errors until
-# the mount clears (a few seconds). Retrying past them avoids leaving a husk
-# for `adore cleanup` (live finding 2026-07-04/05).
-_TEARDOWN_RACE_MARKERS = (
-    "function not implemented",   # ENOSYS - the observed WSL signature
-    "device or resource busy",    # EBUSY  - mount still attached
-    "resource busy",
-    "directory not empty",        # ENOTEMPTY - files not yet released
-)
-_TEARDOWN_RETRY_DELAYS = (1.0, 2.0, 4.0)  # ~7s ceiling; the race clears in seconds
 
 # stage_host_auth OAuth-bridge paths per executor: (host path under ~, container
 # dir). Codex is staged into an ADORE-owned CODEX_HOME so host plugin/config
@@ -330,20 +322,6 @@ def classify_block(
         response.error or f"AEGIS reported status {response.status}",
         hint=response.remediation,
     )
-
-
-def _is_teardown_race(exc: IsolationError) -> bool:
-    """
-    @brief      Whether a worktree-removal failure is the transient WSL
-                bind-mount teardown race (worth retrying) vs a real error.
-    @param[in]  exc The IsolationError raised by worktree removal.
-    @return     True when the stderr matches a known mount-release signature.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.1.0
-    """
-    text = (getattr(exc, "stderr", "") or str(exc)).lower()
-    return any(marker in text for marker in _TEARDOWN_RACE_MARKERS)
 
 
 # PUBLIC API
@@ -2950,52 +2928,26 @@ class Orchestrator:
         """
         @brief      Remove the run's container (and optionally worktree).
         @details    `<store>/runs/<run-id>` state always survives for audit.
-                    Worktree removal is retried past the WSL bind-mount
-                    teardown race (see _remove_worktree).
+                    Worktree removal retries past the WSL bind-mount teardown
+                    race inside `WorktreeManager.remove` itself (isolation
+                    layer, ADORE-ARCH-009); this only leaves a husk for
+                    `adore cleanup` if that retry is exhausted.
         @param[in]  run The run.
         @param[in]  remove_worktree Also remove worktree + branch.
         @author     Eng. Dan Dumitru Pasare
         @date       2026-07-05
-        @version    0.2.0
+        @version    0.3.0
         """
         try:
             self.containers.remove(run.container)
         except IsolationError as exc:
             self.log(f"{run.run_id}: container removal failed: {exc}")
         if remove_worktree:
-            self._remove_worktree(run)
-
-    def _remove_worktree(self, run: RunState) -> None:
-        """
-        @brief      Remove the run's worktree, retrying the WSL teardown race.
-        @details    On WSL2 the container's 9P/drvfs bind mount is released
-                    asynchronously after `rm`, so an immediate git worktree
-                    remove can fail with ENOSYS/EBUSY until it clears. Retry
-                    with backoff ONLY on those transient signatures; a real
-                    error is not retried. If it still fails, log and leave the
-                    husk - `adore cleanup` sweeps it (no regression). Native
-                    docker/Linux succeeds on the first try (no sleeps).
-        @param[in]  run The run whose worktree + branch to remove.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-05
-        @version    0.1.1
-        """
-        last: IsolationError | None = None
-        for attempt, delay in enumerate((0.0, *_TEARDOWN_RETRY_DELAYS)):
-            if delay:
-                self.sleep(delay)
             try:
                 self.worktrees.remove(run.run_id, delete_branch=run.branch)
-                if attempt:
-                    self.log(f"{run.run_id}: worktree removed after "
-                             f"{attempt} retr{'y' if attempt == 1 else 'ies'}")
-                return
             except IsolationError as exc:
-                last = exc
-                if not _is_teardown_race(exc):
-                    break  # a real failure - do not burn retries masking it
-        self.log(f"{run.run_id}: worktree removal failed: {last} "
-                 "(husk left for `adore cleanup`)")
+                self.log(f"{run.run_id}: worktree removal failed: {exc} "
+                         "(husk left for `adore cleanup`)")
 
     def _journal_usage(self, run: RunState, context: str, result) -> None:
         """

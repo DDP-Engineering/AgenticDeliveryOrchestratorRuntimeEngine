@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Orchestrator (`adore/orchestrator.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/adore/orchestrator.py` - file version 0.9.0.
+> Source: `04_Software/adore/orchestrator.py` - file version 0.11.0.
 > AEGIS contract: `00_Planning/AEGIS_2x_HardBreak_Adaptation/AEGIS_2.1_Contract_Notes.md`.
 > Design: Orchestrator_Design_And_Decisions.md sections 5a, 7a, 8, 9, 10.
 
@@ -140,12 +140,14 @@ review.
   vanished cannot re-poll and re-log forever; a blip that resolves within the
   grace clears the counter. Legacy `validated` runs from before phase 4 are
   delivered by reconciliation.
-- **Teardown** (`_teardown`): removes the container, then the worktree +
-  branch. On WSL2 the container's 9P bind mount releases asynchronously, so
-  worktree removal is retried with backoff (~7s) but ONLY on the transient
-  mount-race signatures (ENOSYS/EBUSY/ENOTEMPTY); a real error is not
-  retried, and a still-stuck mount leaves a husk that `adore cleanup` sweeps.
-  Native docker/Linux succeeds on the first try. Run state always survives.
+- **Teardown** (`_teardown`): removes the container, then makes one call to
+  `WorktreeManager.remove` for the worktree + branch. The WSL2 bind-mount
+  teardown-race retry itself (transient mount-release signatures, ~7s
+  backoff) lives entirely in the isolation layer now (ADORE-ARCH-009 -
+  platform-specific glue does not belong in the core loop); `_teardown` only
+  logs a husk message if that retry is exhausted, so `adore cleanup` can
+  sweep it later. See `Component_Isolation.md` for the retry itself. Run
+  state always survives.
 - **The revise cycle** (design 11b): the `agent-revise` label on the open MR
   is the trigger - a plain comment never auto-reacts. Exact order: rounds
   cap (`max_review_rounds` -> failed), clear the trigger label FIRST,
