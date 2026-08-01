@@ -10,14 +10,24 @@
 """
 @file base.py
 @brief The Git-platform adapter interface.
-@details Every adapter (GitLab, GitHub) implements this contract so the
+@details Every adapter (GitLab, GitHub, Gitea) implements this contract so the
          orchestrator never calls a platform CLI directly. Adapters cover the
          full remote surface ADORE needs: selection (list/get), signaling
          (comments, labels), and delivery (draft MR/PR). Merging is
          deliberately absent from the interface.
+
+         `Forge` also carries the CLI-invocation plumbing shared by all three
+         adapters verbatim (`_run`, `_parse_json`, `_is_not_found`): each
+         wraps the injected `runner`, so a subclass only needs to set
+         `self.runner` and, for the marker-based not-found heuristic,
+         optionally override `_NOT_FOUND_MARKERS`. Gitea does not use
+         `_is_not_found` - its `_api` seam already enforces the HTTP status
+         line tea itself prints, which is a stronger signal than scanning
+         stderr text for a marker, so that adapter's not-found handling is
+         deliberately left as its own thing rather than forced through here.
 @author Eng. Dan Dumitru Pasare
 @date 2026-07-02
-@version 0.1.0
+@version 0.2.0
 """
 
 from __future__ import annotations
@@ -25,6 +35,10 @@ from __future__ import annotations
 # IMPORTS
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+import json
+from typing import Any
+
+from adore.util import CommandResult, CommandRunner
 
 # DATA MODELS / TYPEDEFINITIONS
 
@@ -120,14 +134,23 @@ class ForgeError(RuntimeError):
 
 class Forge(ABC):
     """
-    @brief   Abstract Git-platform adapter (GitLab/GitHub).
-    @details Concrete adapters wrap `glab` / `gh`. Identity is marker-based:
-             comments carry a hidden marker; author is not relied upon. All
-             methods raise ForgeError on unexpected CLI failure.
+    @brief   Abstract Git-platform adapter (GitLab/GitHub/Gitea).
+    @details Concrete adapters wrap `glab` / `gh` / `tea`. Identity is
+             marker-based: comments carry a hidden marker; author is not
+             relied upon. All methods raise ForgeError on unexpected CLI
+             failure.
     @author  Eng. Dan Dumitru Pasare
     @date    2026-07-02
-    @version 0.1.0
+    @version 0.2.0
     """
+
+    #: injected by every concrete adapter's __init__.
+    runner: CommandRunner
+
+    #: stderr/stdout substrings (lowercased) that mean "resource is gone" for
+    #: adapters whose CLI signals not-found through free text rather than a
+    #: structured HTTP status. Subclasses override to widen the set.
+    _NOT_FOUND_MARKERS: tuple[str, ...] = ("404", "not found")
 
     @abstractmethod
     def list_ready(self, ready_label: str) -> list[Ticket]:
@@ -278,6 +301,67 @@ class Forge(ABC):
         @date       2026-07-02
         @version    0.1.2
         """
+
+    # -- shared CLI plumbing (ADORE-PY-004) ----------------------------------------
+
+    def _run(self, argv: list[str], cwd: str | None = None) -> CommandResult:
+        """
+        @brief      Run a platform CLI command, raising ForgeError on failure.
+        @details    Identical across glab/gh/tea: the CLI name and subcommand
+                    are already in argv, so the error message needs no
+                    per-adapter parametrization.
+        @param[in]  argv Full command vector.
+        @param[in]  cwd Optional working directory (a git checkout when the
+                        subcommand needs remote resolution).
+        @return     The successful CommandResult.
+        @exception  ForgeError When the command exits non-zero.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-08-01
+        @version    0.1.0
+        """
+        result = self.runner(argv, cwd=cwd) if cwd else self.runner(argv)
+        if not result.ok:
+            raise ForgeError(f"{argv[0]} {argv[1]} failed", result.argv, result.stderr)
+        return result
+
+    def _is_not_found(self, result: CommandResult) -> bool:
+        """
+        @brief      Whether a failed result means the resource is gone.
+        @details    Marker-based heuristic for adapters whose CLI reports
+                    not-found as free text (glab, gh). Not used by the Gitea
+                    adapter, whose `_api` seam enforces tea's own HTTP status
+                    line instead - a stronger signal than text-scanning, and
+                    intentionally not unified with this heuristic.
+        @param[in]  result The failed CommandResult.
+        @return     True when stderr/stdout indicates a 404/not-found.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-08-01
+        @version    0.1.0
+        """
+        text = (result.stderr + result.stdout).lower()
+        return any(marker in text for marker in self._NOT_FOUND_MARKERS)
+
+    @staticmethod
+    def _parse_json(result: CommandResult, expected: type) -> Any:
+        """
+        @brief      Parse a CLI JSON payload, checking the top-level type.
+        @param[in]  result The successful CommandResult.
+        @param[in]  expected Expected top-level type (list or dict).
+        @return     The parsed payload.
+        @exception  ForgeError When the output is not the expected JSON.
+        @author     Eng. Dan Dumitru Pasare
+        @date       2026-08-01
+        @version    0.1.0
+        """
+        try:
+            payload = json.loads(result.stdout or "null")
+        except json.JSONDecodeError as exc:
+            raise ForgeError(f"invalid JSON from CLI: {exc}", result.argv) from exc
+        if not isinstance(payload, expected):
+            raise ForgeError(
+                f"unexpected JSON shape (wanted {expected.__name__})", result.argv
+            )
+        return payload
 
 
 # END OF FILE

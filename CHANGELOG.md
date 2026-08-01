@@ -14,6 +14,15 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- **Forge adapters share their CLI-invocation plumbing** (review finding
+  ADORE-PY-004). `_parse_json`, `_run`, and the marker-based `_is_not_found`
+  were byte-for-byte duplicated across `forge/gitlab.py`, `forge/github.py`,
+  and `forge/gitea.py` (already drifting once: Gitea's not-found handling
+  lives in its `_api` HTTP-status logic instead). All three now come from the
+  shared `Forge` base in `forge/base.py`; `GitHubForge` keeps its own
+  `_NOT_FOUND_MARKERS` override for the "could not resolve" text `gh`
+  reports that `glab`/`tea` do not. Every error message format is unchanged;
+  the existing forge adapter tests pass without modification.
 - **ADORE 2.0 hard break to AEGIS 2.x - WP3: the conduction loop is
   `next`-driven.** `_conduct` no longer walks a hard-coded gate list. It
   starts the AEGIS run once (`run start <kind> [--quick]`, kind and profile

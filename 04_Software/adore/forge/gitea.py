@@ -25,10 +25,12 @@
          Label add/remove goes through `tea issues edit` / `tea pulls edit`,
          which resolve label NAMES to ids (the raw API wants label ids). The
          command runner is injected so the adapter is unit-testable without
-         tea.
+         tea. `_run` and `_parse_json` moved to the shared `Forge` base
+         (ADORE-PY-004); `_api`'s HTTP-status-based not-found handling stays
+         local, not force-fit into the marker-based heuristic glab/gh share.
 @author Eng. Dan Dumitru Pasare
 @date 2026-07-29
-@version 0.1.0
+@version 0.2.0
 """
 
 from __future__ import annotations
@@ -466,44 +468,10 @@ class GiteaForge(Forge):
                 return items
             page += 1
 
-    def _run(self, argv: list[str]) -> CommandResult:
-        """
-        @brief      Run a tea SUBCOMMAND, raising ForgeError on failure.
-        @details    Unlike `tea api`, tea subcommands do exit non-zero on API
-                    errors, so the exit code is trustworthy here.
-        @param[in]  argv Full command vector.
-        @return     The successful CommandResult.
-        @exception  ForgeError When the command exits non-zero.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-29
-        @version    0.1.0
-        """
-        result = self.runner(argv)
-        if not result.ok:
-            raise ForgeError(f"{argv[0]} {argv[1]} failed", result.argv, result.stderr)
-        return result
-
-    @staticmethod
-    def _parse_json(result: CommandResult, expected: type) -> Any:
-        """
-        @brief      Parse a CLI JSON payload, checking the top-level type.
-        @param[in]  result The successful CommandResult.
-        @param[in]  expected Expected top-level type (list or dict).
-        @return     The parsed payload.
-        @exception  ForgeError When the output is not the expected JSON.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-29
-        @version    0.1.0
-        """
-        try:
-            payload = json.loads(result.stdout or "null")
-        except json.JSONDecodeError as exc:
-            raise ForgeError(f"invalid JSON from CLI: {exc}", result.argv) from exc
-        if not isinstance(payload, expected):
-            raise ForgeError(
-                f"unexpected JSON shape (wanted {expected.__name__})", result.argv
-            )
-        return payload
+    # `_run` (tea subcommands, non-API) and `_parse_json` moved to the shared
+    # `Forge` base (ADORE-PY-004); `_api`'s HTTP-status not-found handling is
+    # deliberately left as-is, not unified with the marker-based heuristic
+    # `_is_not_found` uses for glab/gh - see forge/base.py's docstring.
 
     @staticmethod
     def _username(user: Any) -> str:

@@ -14,28 +14,29 @@
          to create comments, and `glab api` for everything glab has no
          subcommand for: reading notes and editing a note in place (PUT), per
          the Prerequisites_Check_Report findings. The command runner is
-         injected so the adapter is unit-testable without glab.
+         injected so the adapter is unit-testable without glab. `_run`,
+         `_is_not_found`, and `_parse_json` moved to the shared `Forge` base
+         (ADORE-PY-004); this adapter's `_NOT_FOUND_MARKERS` already matched
+         the base default, so no override was needed.
 @author Eng. Dan Dumitru Pasare
 @date 2026-07-02
-@version 0.1.0
+@version 0.2.0
 """
 
 from __future__ import annotations
 
 # IMPORTS
-import json
 import re
 from typing import Any
 import urllib.parse
 
 from adore.forge.base import Comment, Forge, ForgeError, MergeRequest, Ticket
-from adore.util import CommandResult, CommandRunner, run_command
+from adore.util import CommandRunner, run_command
 
 # CONSTANTS
 
 _NOTE_ID_RE = re.compile(r"#note_(\d+)")
 _MR_URL_RE = re.compile(r"https?://\S+/-/merge_requests/\d+")
-_NOT_FOUND_MARKERS = ("404", "not found")
 # GitLab caps `--per-page` at 100, so paginate to see every ready ticket rather
 # than silently truncating the selection pool; bounded so a runaway never loops.
 _PAGE_SIZE = 100
@@ -357,58 +358,6 @@ class GitLabForge(Forge):
         @version 0.1.0
         """
         return urllib.parse.quote(self.repo, safe="")
-
-    def _run(self, argv: list[str], cwd: str | None = None) -> CommandResult:
-        """
-        @brief      Run a glab command, raising ForgeError on failure.
-        @param[in]  argv Full command vector.
-        @param[in]  cwd Optional working directory (a git checkout when the
-                        subcommand needs remote resolution).
-        @return     The successful CommandResult.
-        @exception  ForgeError When the command exits non-zero.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.0
-        """
-        result = self.runner(argv, cwd=cwd) if cwd else self.runner(argv)
-        if not result.ok:
-            raise ForgeError(f"{argv[0]} {argv[1]} failed", result.argv, result.stderr)
-        return result
-
-    @staticmethod
-    def _is_not_found(result: CommandResult) -> bool:
-        """
-        @brief      Whether a failed result means the resource is gone.
-        @param[in]  result The failed CommandResult.
-        @return     True when stderr indicates a 404/not-found.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.0
-        """
-        text = (result.stderr + result.stdout).lower()
-        return any(marker in text for marker in _NOT_FOUND_MARKERS)
-
-    @staticmethod
-    def _parse_json(result: CommandResult, expected: type) -> Any:
-        """
-        @brief      Parse a CLI JSON payload, checking the top-level type.
-        @param[in]  result The successful CommandResult.
-        @param[in]  expected Expected top-level type (list or dict).
-        @return     The parsed payload.
-        @exception  ForgeError When the output is not the expected JSON.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.0
-        """
-        try:
-            payload = json.loads(result.stdout or "null")
-        except json.JSONDecodeError as exc:
-            raise ForgeError(f"invalid JSON from CLI: {exc}", result.argv) from exc
-        if not isinstance(payload, expected):
-            raise ForgeError(
-                f"unexpected JSON shape (wanted {expected.__name__})", result.argv
-            )
-        return payload
 
     @staticmethod
     def _to_ticket(item: dict[str, Any]) -> Ticket:

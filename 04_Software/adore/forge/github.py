@@ -13,28 +13,29 @@
 @details Mirrors the GitLab adapter using `gh issue list --json`,
          `gh issue comment`, `gh api` for comment reads/edits, and
          `gh pr create --draft`. The command runner is injected so the
-         adapter is unit-testable without gh.
+         adapter is unit-testable without gh. `_run` and `_parse_json` moved
+         to the shared `Forge` base (ADORE-PY-004); `_NOT_FOUND_MARKERS`
+         stays a class-attribute override here since gh's "could not
+         resolve" text is not shared by glab/tea.
 @author Eng. Dan Dumitru Pasare
 @date 2026-07-02
-@version 0.1.0
+@version 0.2.0
 """
 
 from __future__ import annotations
 
 # IMPORTS
-import json
 import re
 from typing import Any
 
 from adore.forge.base import Comment, Forge, ForgeError, MergeRequest, Ticket
-from adore.util import CommandResult, CommandRunner, run_command
+from adore.util import CommandRunner, run_command
 
 # CONSTANTS
 
 _ISSUE_JSON_FIELDS = "number,title,body,labels,author,state,url,createdAt,updatedAt"
 _COMMENT_ID_RE = re.compile(r"#issuecomment-(\d+)")
 _PR_URL_RE = re.compile(r"https?://\S+/pull/\d+")
-_NOT_FOUND_MARKERS = ("404", "not found", "could not resolve")
 
 # PUBLIC API
 
@@ -44,8 +45,13 @@ class GitHubForge(Forge):
     @brief   GitHub implementation of the Forge interface (via `gh`).
     @author  Eng. Dan Dumitru Pasare
     @date    2026-07-02
-    @version 0.1.0
+    @version 0.2.0
     """
+
+    #: gh additionally reports an unresolvable --repo as "could not resolve
+    #: to a Repository", which glab/tea never print - kept as an override
+    #: rather than widening the shared default (ADORE-PY-004).
+    _NOT_FOUND_MARKERS = ("404", "not found", "could not resolve")
 
     def __init__(self, repo: str, runner: CommandRunner = run_command) -> None:
         """
@@ -340,58 +346,6 @@ class GitHubForge(Forge):
         return match.group(0)
 
     # -- internals ------------------------------------------------------------------
-
-    def _run(self, argv: list[str], cwd: str | None = None) -> CommandResult:
-        """
-        @brief      Run a gh command, raising ForgeError on failure.
-        @param[in]  argv Full command vector.
-        @param[in]  cwd Optional working directory (a git checkout when the
-                        subcommand needs remote resolution).
-        @return     The successful CommandResult.
-        @exception  ForgeError When the command exits non-zero.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.0
-        """
-        result = self.runner(argv, cwd=cwd) if cwd else self.runner(argv)
-        if not result.ok:
-            raise ForgeError(f"{argv[0]} {argv[1]} failed", result.argv, result.stderr)
-        return result
-
-    @staticmethod
-    def _is_not_found(result: CommandResult) -> bool:
-        """
-        @brief      Whether a failed result means the resource is gone.
-        @param[in]  result The failed CommandResult.
-        @return     True when stderr indicates a 404/not-found.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.0
-        """
-        text = (result.stderr + result.stdout).lower()
-        return any(marker in text for marker in _NOT_FOUND_MARKERS)
-
-    @staticmethod
-    def _parse_json(result: CommandResult, expected: type) -> Any:
-        """
-        @brief      Parse a CLI JSON payload, checking the top-level type.
-        @param[in]  result The successful CommandResult.
-        @param[in]  expected Expected top-level type (list or dict).
-        @return     The parsed payload.
-        @exception  ForgeError When the output is not the expected JSON.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.0
-        """
-        try:
-            payload = json.loads(result.stdout or "null")
-        except json.JSONDecodeError as exc:
-            raise ForgeError(f"invalid JSON from CLI: {exc}", result.argv) from exc
-        if not isinstance(payload, expected):
-            raise ForgeError(
-                f"unexpected JSON shape (wanted {expected.__name__})", result.argv
-            )
-        return payload
 
     @staticmethod
     def _to_ticket(item: dict[str, Any]) -> Ticket:
