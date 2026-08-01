@@ -12,9 +12,6 @@
 @brief Tests for the `adore init` wizard - driven offline with a scripted asker
        and a fake command runner; the golden assertion is that every profile it
        writes passes validate_config.
-@author Eng. Dan Dumitru Pasare
-@date 2026-07-29
-@version 0.3.0
 """
 
 from __future__ import annotations
@@ -47,9 +44,6 @@ FIXED_NOW = "2026-07-05T00:00:00Z"
 class FakeRunner:
     """
     @brief   Command runner double: present tools authenticate cleanly.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-05
-    @version 0.1.0
     """
 
     def __init__(self, present: dict[str, CommandResult]) -> None:
@@ -84,9 +78,6 @@ def _answers(clone: Path, **overrides: object) -> dict[str, object]:
     @param[in]  clone An existing directory to use as the local clone path.
     @param[in]  overrides Field overrides (e.g. a queue for a re-prompt test).
     @return     The answers mapping.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.1.0
     """
     answers: dict[str, object] = {
         "description": "test project",
@@ -125,7 +116,6 @@ def test_wizard_writes_a_valid_minimal_profile(tmp_path: Path) -> None:
     @brief   The golden test: a full scripted run writes a profile whose
              config.toml loads and passes validate_config, with the expected
              metadata and a profile-owned state root.
-    @version 0.1.1
     """
     store = _store(tmp_path)
     asker = ScriptedAsker(_answers(_clone(tmp_path)))
@@ -146,7 +136,6 @@ def test_wizard_writes_a_valid_minimal_profile(tmp_path: Path) -> None:
 def test_wizard_podman_adds_userns_keepid(tmp_path: Path) -> None:
     """
     @brief   Choosing a podman runtime auto-adds run_args=["--userns=keep-id"].
-    @version 0.1.1
     """
     store = _store(tmp_path)
     asker = ScriptedAsker(_answers(_clone(tmp_path), runtime="podman"))
@@ -164,7 +153,6 @@ def test_wizard_reprompts_on_invalid_repo_path(tmp_path: Path) -> None:
     """
     @brief   A non-existent clone path is rejected and re-prompted (the queue's
              second answer, a real dir, is accepted).
-    @version 0.1.0
     """
     store = _store(tmp_path)
     clone = _clone(tmp_path)
@@ -179,7 +167,6 @@ def test_wizard_reprompts_on_bad_regex_then_template_mismatch(tmp_path: Path) ->
     """
     @brief   An uncompilable push-rule regex re-prompts; then a branch template
              that the rule would reject re-prompts until it matches.
-    @version 0.1.0
     """
     store = _store(tmp_path)
     clone = _clone(tmp_path)
@@ -203,7 +190,6 @@ def test_wizard_reprompts_on_bad_regex_then_template_mismatch(tmp_path: Path) ->
 def test_wizard_refuses_existing_profile_without_force(tmp_path: Path) -> None:
     """
     @brief   An existing profile is not overwritten unless --force is given.
-    @version 0.1.0
     """
     store = _store(tmp_path)
     store.create("taken")
@@ -216,7 +202,6 @@ def test_wizard_refuses_existing_profile_without_force(tmp_path: Path) -> None:
 def test_wizard_abort_writes_nothing(tmp_path: Path) -> None:
     """
     @brief   Answering "no" to the final confirm aborts and saves no profile.
-    @version 0.1.0
     """
     store = _store(tmp_path)
     asker = ScriptedAsker(_answers(_clone(tmp_path), confirm="no"))
@@ -231,7 +216,6 @@ def test_wizard_non_interactive_is_reproducible_and_fails_fast(tmp_path: Path) -
     @brief   The non-interactive path is deterministic (same answers + fixed
              clock -> identical config.toml) and fails fast on a bad answer
              instead of looping.
-    @version 0.1.0
     """
     store = _store(tmp_path)
     clone = _clone(tmp_path)
@@ -258,7 +242,6 @@ def test_wizard_corporate_host_is_recorded(tmp_path: Path) -> None:
     """
     @brief   Choosing a corporate/self-hosted instance asks for and records the
              host URL in the profile metadata.
-    @version 0.1.0
     """
     store = _store(tmp_path)
     asker = ScriptedAsker(_answers(_clone(tmp_path), hosting="corporate",
@@ -274,7 +257,6 @@ def test_wizard_gitea_asks_login_instead_of_hosting(tmp_path: Path) -> None:
     @brief   The gitea path replaces the hosting/URL questions with the tea
              login name (tea binds host + token to a login) and writes it to
              [platform] login; the saved config validates.
-    @version 0.1.0
     """
     store = _store(tmp_path)
     asker = ScriptedAsker(_answers(_clone(tmp_path), kind="gitea",
@@ -293,7 +275,6 @@ def test_wizard_gitea_asks_login_instead_of_hosting(tmp_path: Path) -> None:
 def test_wizard_custom_budgets_are_written(tmp_path: Path) -> None:
     """
     @brief   The custom-budgets branch asks the four values and writes them.
-    @version 0.1.0
     """
     store = _store(tmp_path)
     asker = ScriptedAsker(_answers(
@@ -314,7 +295,6 @@ def test_wizard_custom_agent_name_sets_slug(tmp_path: Path) -> None:
     """
     @brief   A non-default bot name is written and its slug is derived, so the
              branch template still validates against the push rule.
-    @version 0.1.0
     """
     store = _store(tmp_path)
     asker = ScriptedAsker(_answers(_clone(tmp_path), agent_name="MyBot",
@@ -330,7 +310,6 @@ def test_wizard_non_interactive_missing_required_fails(tmp_path: Path) -> None:
     """
     @brief   A required field absent from the answers (no default) fails fast in
              non-interactive mode instead of looping, and saves nothing.
-    @version 0.1.0
     """
     store = _store(tmp_path)
     answers = _answers(_clone(tmp_path))
@@ -349,7 +328,6 @@ def test_console_asker_reads_value_and_empty_is_default() -> None:
     """
     @brief   ConsoleAsker returns the typed value; an empty line means the
              default is used by ask().
-    @version 0.1.0
     """
     typed = ConsoleAsker(input_fn=lambda _p: " docker ", out=lambda _l: None)
     assert ask(FieldSpec("rt", "Runtime?", default="podman"),
@@ -363,7 +341,6 @@ def test_console_asker_reprompts_on_invalid_choice() -> None:
     """
     @brief   ask() re-prompts an interactive asker until the choice is valid,
              printing the error each time.
-    @version 0.1.0
     """
     replies = iter(["apache", "docker"])
     seen: list[str] = []
@@ -377,7 +354,6 @@ def test_console_asker_reprompts_on_invalid_choice() -> None:
 def test_console_asker_accepts_numbered_choice() -> None:
     """
     @brief   Numbered choices are resolved to the configured string value.
-    @version 0.1.0
     """
     seen: list[str] = []
     asker = ConsoleAsker(input_fn=lambda _p: "2", out=seen.append)
@@ -396,7 +372,6 @@ def test_validate_or_raise_rejects_invalid_config(tmp_path: Path) -> None:
     """
     @brief   The write-then-validate guard raises on a config that would fail
              validation, so an invalid profile is never committed.
-    @version 0.1.0
     """
     bad_doc = "[platform]\nkind = 'bitbucket'\n"              # invalid kind, no repo
     with pytest.raises(WizardError):
@@ -408,7 +383,6 @@ def test_wizard_defaults_omit_the_workflow_section(tmp_path: Path) -> None:
     @brief   Accepting every workflow-label default writes no [workflow] table
              at all: the emitted config stays minimal and the defaults live in
              one place (decision D4).
-    @version 0.1.0
     """
     clone = _clone(tmp_path)
     store = ProfileStore(tmp_path / "home")
@@ -424,7 +398,6 @@ def test_wizard_writes_custom_workflow_labels(tmp_path: Path) -> None:
     @brief   Custom ready / fix / change / quick labels land in the config as
              the label map ADORE resolves the AEGIS run kind and profile from,
              and the result validates.
-    @version 0.1.0
     """
     clone = _clone(tmp_path)
     store = ProfileStore(tmp_path / "home")
@@ -449,7 +422,6 @@ def test_wizard_reports_a_missing_aegis_payload(tmp_path: Path) -> None:
     @brief   The wizard probes the target clone for an AEGIS 2.x payload and
              prints the WAEGIS guidance when it is absent - informational, so
              the wizard still completes.
-    @version 0.1.0
     """
     clone = _clone(tmp_path)
     store = ProfileStore(tmp_path / "home")

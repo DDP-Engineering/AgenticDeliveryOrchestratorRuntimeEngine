@@ -12,9 +12,6 @@
 @brief Git-platform adapter subpackage (GitLab/GitHub/Gitea behind one interface).
 @details Exposes the adapter contract, the data types, and the factory that
          selects the concrete adapter from [platform] config.
-@author Eng. Dan Dumitru Pasare
-@date 2026-07-02
-@version 0.1.0
 """
 
 from __future__ import annotations
@@ -53,9 +50,6 @@ def build_forge(
     @return     A concrete Forge.
     @exception  ValueError When the kind is unknown, or login is set for a
                 kind that has no login concept.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-29
-    @version    0.2.0
     """
     if login and kind != "gitea":
         raise ValueError(f"platform login is only supported for gitea, not {kind!r}")

@@ -17,9 +17,6 @@
          to the shared `Forge` base (ADORE-PY-004); `_NOT_FOUND_MARKERS`
          stays a class-attribute override here since gh's "could not
          resolve" text is not shared by glab/tea.
-@author Eng. Dan Dumitru Pasare
-@date 2026-07-02
-@version 0.2.0
 """
 
 from __future__ import annotations
@@ -43,9 +40,6 @@ _PR_URL_RE = re.compile(r"https?://\S+/pull/\d+")
 class GitHubForge(Forge):
     """
     @brief   GitHub implementation of the Forge interface (via `gh`).
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-02
-    @version 0.2.0
     """
 
     #: gh additionally reports an unresolvable --repo as "could not resolve
@@ -58,9 +52,6 @@ class GitHubForge(Forge):
         @brief      Bind the adapter to a GitHub repository.
         @param[in]  repo GitHub repository (OWNER/REPO).
         @param[in]  runner Command runner (injectable for tests).
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.0
         """
         self.repo = repo
         self.runner = runner
@@ -77,9 +68,6 @@ class GitHubForge(Forge):
         @param[in]  ready_label Eligibility label.
         @return     Eligible tickets, unordered (caller ranks by priority).
         @exception  ForgeError When gh fails.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-24
-        @version    0.1.1
         """
         result = self._run(
             [
@@ -99,9 +87,6 @@ class GitHubForge(Forge):
         @param[in]  iid Issue number.
         @return     The ticket or None on 404.
         @exception  ForgeError When gh fails for another reason.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.0
         """
         result = self.runner(
             [
@@ -125,9 +110,6 @@ class GitHubForge(Forge):
         @return     All comments (GitHub keeps system events separate, so
                     system is always False here).
         @exception  ForgeError When gh fails.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.0
         """
         result = self._run(
             ["gh", "api", f"repos/{self.repo}/issues/{iid}/comments?per_page=100"]
@@ -152,9 +134,6 @@ class GitHubForge(Forge):
         @param[in]  body Comment body.
         @return     Created comment id.
         @exception  ForgeError When gh fails or the id cannot be found.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.0
         """
         result = self._run(
             ["gh", "issue", "comment", str(iid), "--repo", self.repo, "--body", body]
@@ -177,9 +156,6 @@ class GitHubForge(Forge):
         @param[in]  comment_id Comment id.
         @param[in]  body Replacement body.
         @exception  ForgeError When gh fails.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.1
         """
         del iid  # comment ids are repo-global on GitHub
         self._run(
@@ -198,9 +174,6 @@ class GitHubForge(Forge):
         @param[in]  iid Issue number.
         @param[in]  labels Labels to add.
         @exception  ForgeError When gh fails.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.0
         """
         if not labels:
             return
@@ -218,9 +191,6 @@ class GitHubForge(Forge):
         @param[in]  iid Issue number.
         @param[in]  labels Labels to remove.
         @exception  ForgeError When gh fails.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.0
         """
         if not labels:
             return
@@ -245,9 +215,6 @@ class GitHubForge(Forge):
         @param[in]  ref PR number, or the head branch name (open PRs only).
         @return     The MergeRequest (state normalized), or None.
         @exception  ForgeError When gh fails for another reason.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-24
-        @version    0.1.1
         """
         result = self.runner(
             ["gh", "pr", "view", str(ref), "--repo", self.repo,
@@ -276,9 +243,6 @@ class GitHubForge(Forge):
         @param[in]  mr_iid PR number.
         @return     All conversation comments.
         @exception  ForgeError When gh fails.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-04
-        @version    0.1.0
         """
         return self.list_comments(mr_iid)
 
@@ -288,9 +252,6 @@ class GitHubForge(Forge):
         @param[in]  mr_iid PR number.
         @param[in]  labels Labels to remove.
         @exception  ForgeError When gh fails.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-04
-        @version    0.1.0
         """
         if not labels:
             return
@@ -322,9 +283,6 @@ class GitHubForge(Forge):
         @param[in]  remove_source_branch Ignored (a repo setting on GitHub).
         @return     PR web URL.
         @exception  ForgeError When gh fails or no URL is printed.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.1
         """
         del remove_source_branch  # branch deletion is a repo setting on GitHub
         argv = [
@@ -355,9 +313,6 @@ class GitHubForge(Forge):
                     as OPEN/CLOSED; both are normalized to the GitLab shape.
         @param[in]  item Raw issue mapping.
         @return     The normalized Ticket.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.0
         """
         state = str(item.get("state", "OPEN")).lower()
         return Ticket(

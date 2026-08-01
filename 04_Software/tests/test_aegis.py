@@ -16,9 +16,6 @@
          timeout, unparseable JSON, non-object payload, missing or mistyped
          envelope keys, status/exit-code contradictions). The exec seam is a
          fake, so nothing here touches bash, docker, or a real payload.
-@author Eng. Dan Dumitru Pasare
-@date 2026-08-01
-@version 0.2.0
 """
 
 from __future__ import annotations
@@ -45,18 +42,12 @@ RUN_ID = "feature-2026-08-01T101112Z-0a1b2c3d"
 class FakeExec:
     """
     @brief   Exec-seam double replaying scripted results and recording argv.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-08-01
-    @version 0.1.0
     """
 
     def __init__(self, *results: CommandResult) -> None:
         """
         @brief      Script one or more results (the last one repeats).
         @param[in]  results Results returned in order.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.1.0
         """
         self.results = list(results) or [CommandResult(exit_code=0, stdout="{}")]
         self.calls: list[list[str]] = []
@@ -68,9 +59,6 @@ class FakeExec:
         @param[in]  argv Command tokens.
         @param[in]  timeout Wall-clock bound requested by the client.
         @return     The next CommandResult.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.1.0
         """
         self.calls.append([str(part) for part in argv])
         self.timeouts.append(timeout)
@@ -85,9 +73,6 @@ def envelope(**extras) -> str:
     @brief      Render a conforming AEGIS `--json` envelope.
     @param[in]  extras Envelope overrides and command-specific extras.
     @return     The JSON text an AEGIS command would print.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-08-01
-    @version    0.1.0
     """
     payload = {
         "status": "ok",
@@ -105,9 +90,6 @@ def client(*results: CommandResult, run_id: str = RUN_ID) -> tuple[AegisClient, 
     @param[in]  results Scripted results.
     @param[in]  run_id Pinned AEGIS run id ("" for an unstarted run).
     @return     (client, fake exec seam).
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-08-01
-    @version    0.1.0
     """
     execute = FakeExec(*results)
     return AegisClient(execute, run_id=run_id), execute
@@ -120,7 +102,6 @@ def test_envelope_happy_path_is_parsed_and_run_pinned() -> None:
     """
     @brief   A successful command yields the four envelope fields plus extras,
              and the argv pins `--run` and `--json` as single tokens.
-    @version 0.1.0
     """
     aegis, execute = client(
         CommandResult(exit_code=0, stdout=envelope(stage="design", complete=False))
@@ -142,7 +123,6 @@ def test_blocked_envelope_exposes_error_code_and_remediation() -> None:
     @brief   A typed governance block is data, not an exception; the stable
              code is recovered from inside the `error` text and the
              remediation from its tail (contract notes 11.3).
-    @version 0.1.0
     """
     aegis, _ = client(
         CommandResult(
@@ -167,7 +147,6 @@ def test_declared_configuration_code_wins_over_text_scan() -> None:
     """
     @brief   Configuration errors carry structured `code`/`remediation`
              fields; those are preferred over scanning the message.
-    @version 0.1.0
     """
     aegis, _ = client(
         CommandResult(
@@ -191,7 +170,6 @@ def test_failed_verification_is_data_with_the_summary_extra() -> None:
     """
     @brief   `verify run` exiting 1 with `status: failed` is a normal outcome
              carrying the validation summary, and gets the long timeout.
-    @version 0.1.0
     """
     summary = {"gates": {"test": {"status": "failed"}}}
     aegis, execute = client(
@@ -216,7 +194,6 @@ def test_run_start_captures_and_pins_the_run_id() -> None:
     """
     @brief   `run start` carries no `--run`; the minted id is captured and
              every later call pins it.
-    @version 0.1.0
     """
     started = envelope(next="aegis stage apply", run_id=RUN_ID, kind="feature")
     aegis, execute = client(
@@ -234,7 +211,6 @@ def test_run_start_captures_and_pins_the_run_id() -> None:
 def test_quick_run_start_passes_the_profile_flag() -> None:
     """
     @brief   A quick fix run adds `--quick` before the global options.
-    @version 0.1.0
     """
     aegis, execute = client(
         CommandResult(
@@ -255,7 +231,6 @@ def test_quick_is_rejected_for_kinds_aegis_does_not_allow() -> None:
     """
     @brief   Building `--quick feature` is an ADORE defect and fails before it
              ever reaches the payload.
-    @version 0.1.0
     """
     aegis, execute = client(run_id="")
     with pytest.raises(AegisProtocolError, match="only valid for fix and change"):
@@ -269,7 +244,6 @@ def test_run_start_without_a_usable_run_id_fails_loud() -> None:
     """
     @brief   A successful start whose `run_id` is missing or malformed is a
              broken payload, never a run ADORE proceeds with blindly.
-    @version 0.1.0
     """
     aegis, _ = client(
         CommandResult(exit_code=0, stdout=envelope(run_id="../escape")), run_id=""
@@ -287,7 +261,6 @@ def test_run_scoped_command_without_a_run_id_fails_loud() -> None:
     """
     @brief   No AEGIS run means no run-scoped command; ADORE refuses to fall
              back on the worktree pointer.
-    @version 0.1.0
     """
     aegis, execute = client(run_id="")
     with pytest.raises(AegisProtocolError, match="without an AEGIS run id"):
@@ -300,7 +273,6 @@ def test_exit_two_raises_instead_of_becoming_a_workflow_state() -> None:
     @brief   Exit 2 is a usage error or a wrapper that found no Python - an
              ADORE/payload defect, and the plain-text output must not be
              mistaken for an envelope.
-    @version 0.1.0
     """
     aegis, _ = client(
         CommandResult(
@@ -317,7 +289,6 @@ def test_timeout_exit_code_raises_a_distinct_timeout_error() -> None:
     @brief   A wall-clock timeout is not a contract violation; it gets its own
              typed error so escalation can name the command. Keyed on the
              seam's `timed_out` flag, not the raw exit code (ADORE-ARCH-010).
-    @version 0.2.0
     """
     aegis, _ = client(CommandResult(exit_code=124, stderr="timeout after 1800s",
                                     timed_out=True))
@@ -333,7 +304,6 @@ def test_inner_exit_124_is_a_protocol_error_not_a_timeout() -> None:
              payload's own exit code) must not be misreported as ADORE's
              timeout: it is an ordinary exit-code-outside-0/1 protocol
              error naming the exit code (ADORE-ARCH-010).
-    @version 0.1.0
     """
     aegis, _ = client(CommandResult(exit_code=124, stdout='{"status": "ok"}',
                                     stderr="payload used exit code 124"))
@@ -345,7 +315,6 @@ def test_malformed_json_raises() -> None:
     """
     @brief   Unparseable output fails closed rather than degrading to an empty
              brief or a skipped check.
-    @version 0.1.0
     """
     aegis, _ = client(CommandResult(exit_code=0, stdout="status: ok\nstage: intake\n"))
     with pytest.raises(AegisProtocolError, match="unparseable JSON"):
@@ -355,7 +324,6 @@ def test_malformed_json_raises() -> None:
 def test_non_object_payload_raises() -> None:
     """
     @brief   A JSON array is valid JSON but not the documented envelope.
-    @version 0.1.0
     """
     aegis, _ = client(CommandResult(exit_code=0, stdout='["ok"]'))
     with pytest.raises(AegisProtocolError, match="non-object payload"):
@@ -365,7 +333,6 @@ def test_non_object_payload_raises() -> None:
 def test_missing_and_mistyped_envelope_keys_raise() -> None:
     """
     @brief   Every one of the four envelope keys must be present and a string.
-    @version 0.1.0
     """
     aegis, _ = client(
         CommandResult(
@@ -385,7 +352,6 @@ def test_unknown_status_and_exit_code_contradictions_raise() -> None:
     """
     @brief   An unknown status, an exit-0 non-ok response, or an exit-1 'ok'
              response all mean the contract moved; fail loud.
-    @version 0.1.0
     """
     aegis, _ = client(CommandResult(exit_code=0, stdout=envelope(status="degraded")))
     with pytest.raises(AegisProtocolError, match="unknown status"):
@@ -404,7 +370,6 @@ def test_command_wrappers_use_the_grouped_verbs() -> None:
     """
     @brief   Each wrapper maps to its exact AEGIS 2.x group/action pair, and
              only `run start` / `config validate` omit `--run`.
-    @version 0.1.0
     """
     expected = {
         "run_status": (["run", "status"], True),

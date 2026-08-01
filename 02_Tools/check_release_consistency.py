@@ -16,9 +16,6 @@
          version is a single constant (EXPECTED_VERSION); the executor/proxy
          image tags are versioned independently and are checked as their own
          literal tokens.
-@author Eng. Dan Dumitru Pasare
-@date 2026-07-24
-@version 0.2.1
 """
 
 from __future__ import annotations
@@ -88,7 +85,6 @@ def _read_text(path: Path) -> str:
     @return     Decoded text.
     @exception OSError File cannot be read.
     @exception UnicodeError File is not valid UTF-8.
-    @version    0.1.0
     """
     return path.read_text(encoding="utf-8-sig")
 
@@ -100,7 +96,6 @@ def _require_text(root: Path, relative: str, issues: list[str]) -> str:
     @param[in]  relative Repository-relative path.
     @param[out] issues Accumulated validation issues.
     @return     File text, or an empty string after a recorded failure.
-    @version    0.1.0
     """
     path = root / relative
     try:
@@ -122,7 +117,6 @@ def _expect_tokens(
     @param[in]  text File content.
     @param[in]  expected Required exact tokens.
     @param[out] issues Accumulated validation issues.
-    @version    0.1.0
     """
     for token in expected:
         if token not in text:
@@ -134,7 +128,6 @@ def _legacy_patterns() -> tuple[re.Pattern[str], ...]:
     @brief  Build exact legacy-token patterns without embedding banned tokens
             in the checker source itself.
     @return Compiled case-sensitive patterns.
-    @version 0.1.0
     """
     old_upper = "AD" + "OR"
     old_lower = old_upper.lower()
@@ -157,7 +150,6 @@ def _is_text_candidate(path: Path) -> bool:
     @brief      Identify repository text surfaces covered by the exact scan.
     @param[in]  path Candidate file path.
     @return     True for supported text/configuration source files.
-    @version    0.1.0
     """
     return path.suffix.lower() in TEXT_SUFFIXES or path.name in {
         ".env.example", ".gitignore",
@@ -169,7 +161,6 @@ def _check_legacy_identifiers(root: Path, issues: list[str]) -> None:
     @brief      Reject legacy identity tokens in names and UTF-8 text files.
     @param[in]  root Repository root.
     @param[out] issues Accumulated validation issues.
-    @version    0.1.0
     """
     patterns = _legacy_patterns()
     for path in sorted(root.rglob("*")):
@@ -215,7 +206,6 @@ def _check_metadata(root: Path, issues: list[str]) -> None:
     @brief      Validate distribution, package, entry-point, and lock versions.
     @param[in]  root Repository root.
     @param[out] issues Accumulated validation issues.
-    @version    0.1.0
     """
     pyproject_path = root / "04_Software/pyproject.toml"
     lock_path = root / "04_Software/uv.lock"
@@ -261,7 +251,6 @@ def _check_release_surfaces(root: Path, issues: list[str]) -> None:
     @brief      Validate canonical image, deployment, package, and doc tokens.
     @param[in]  root Repository root.
     @param[out] issues Accumulated validation issues.
-    @version    0.1.0
     """
     required = {
         "04_Software/adore/branding.py": (
@@ -313,7 +302,6 @@ def _check_artifacts(root: Path, require_artifacts: bool, issues: list[str]) -> 
     @param[in]  root Repository root.
     @param[in]  require_artifacts Require both Windows and Linux archives.
     @param[out] issues Accumulated validation issues.
-    @version    0.2.0
     """
     delivery = root / "07_Delivery"
     present = {
@@ -340,7 +328,6 @@ def _normalise_bundle_member(
     @param[in]  name Raw archive member name.
     @param[out] issues Accumulated validation issues.
     @return     Bundle-relative member path, or None for its root directory.
-    @version    0.2.0
     """
     if "\\" in name or name.startswith("/"):
         issues.append(f"{artifact.name}: unsafe archive member path {name!r}")
@@ -367,7 +354,6 @@ def _read_archive_members(artifact: Path, issues: list[str]) -> dict[str, bytes]
     @param[in]  artifact ZIP or tar.gz runtime artifact.
     @param[out] issues Accumulated validation issues.
     @return     Mapping of bundle-relative regular-file paths to their bytes.
-    @version    0.2.0
     """
     files: dict[str, bytes] = {}
 
@@ -425,7 +411,6 @@ def _check_bundle_metadata(
     @param[in]  artifact Runtime archive being inspected.
     @param[in]  files Bundle-relative regular-file bytes.
     @param[out] issues Accumulated validation issues.
-    @version    0.2.0
     """
     try:
         pyproject = tomllib.loads(files["pyproject.toml"].decode("utf-8-sig"))
@@ -496,7 +481,6 @@ def _check_runtime_artifact(artifact: Path, issues: list[str]) -> None:
     @brief      Validate layout, exclusions, identity, and metadata in an archive.
     @param[in]  artifact Canonically named runtime ZIP or tar.gz archive.
     @param[out] issues Accumulated validation issues.
-    @version    0.2.0
     """
     files = _read_archive_members(artifact, issues)
     missing = REQUIRED_BUNDLE_FILES - files.keys()
@@ -529,7 +513,6 @@ def check_repository(root: Path, *, require_artifacts: bool = False) -> list[str
     @param[in]  root Repository root.
     @param[in]  require_artifacts Require both canonical delivery archives.
     @return     Sorted deterministic issue descriptions; empty means success.
-    @version    0.2.0
     """
     resolved = root.resolve()
     issues: list[str] = []
@@ -545,7 +528,6 @@ def main(argv: list[str] | None = None) -> int:
     @brief      Run the release check from the command line.
     @param[in]  argv Optional argument vector for tests.
     @return     Zero when consistent; one when any issue is found.
-    @version    0.1.0
     """
     parser = argparse.ArgumentParser(
         description=f"verify the ADORE {EXPECTED_VERSION} release identity",

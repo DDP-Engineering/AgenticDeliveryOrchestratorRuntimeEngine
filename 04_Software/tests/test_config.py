@@ -10,9 +10,6 @@
 """
 @file test_config.py
 @brief Tests for typed config loading, derived names, and validation.
-@author Eng. Dan Dumitru Pasare
-@date 2026-07-29
-@version 0.4.0
 """
 
 from __future__ import annotations
@@ -49,9 +46,6 @@ def _write_config(tmp_path: Path, text: str) -> Path:
     @param[in]  tmp_path pytest tmp dir.
     @param[in]  text TOML content.
     @return     The config file path.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-02
-    @version    0.1.0
     """
     path = tmp_path / "config.toml"
     path.write_text(text, encoding="utf-8")
@@ -64,7 +58,6 @@ def _write_config(tmp_path: Path, text: str) -> Path:
 def test_minimal_config_is_valid_with_defaults(tmp_path: Path) -> None:
     """
     @brief   A minimal file loads, defaults apply, and validation passes.
-    @version 0.1.1
     """
     config = load_config(_write_config(tmp_path, MINIMAL_VALID))
     assert validate_config(config) == []
@@ -80,7 +73,6 @@ def test_derived_names_follow_the_slug(tmp_path: Path) -> None:
     """
     @brief   slug, store_root, questions file, and metrics paths derive from
              the agent name when unset.
-    @version 0.1.0
     """
     config = load_config(_write_config(tmp_path, '[agent]\nname = "Robo"\n' + MINIMAL_VALID))
     assert config.agent.slug == "robo"
@@ -93,7 +85,6 @@ def test_derived_names_follow_the_slug(tmp_path: Path) -> None:
 def test_explicit_values_are_never_overridden(tmp_path: Path) -> None:
     """
     @brief   Explicit store_root/questions_file win over derivation.
-    @version 0.1.0
     """
     text = (
         MINIMAL_VALID
@@ -108,7 +99,6 @@ def test_explicit_values_are_never_overridden(tmp_path: Path) -> None:
 def test_validation_reports_bad_enums_and_missing_repo(tmp_path: Path) -> None:
     """
     @brief   Bad enum values and a missing repo each yield one issue.
-    @version 0.1.0
     """
     text = """
 [platform]
@@ -137,7 +127,6 @@ def test_platform_gitea_repo_shape_and_login_rules(tmp_path: Path) -> None:
              login; a nested repo path fails closed (Gitea has no subgroups),
              and a login on glab/gh platforms is rejected (their auth binds to
              the host, so a silently ignored login would mislead).
-    @version 0.1.0
     """
     good = MINIMAL_VALID.replace(
         'kind = "gitlab"\nrepo = "group/project"',
@@ -165,7 +154,6 @@ def test_platform_gitea_repo_shape_and_login_rules(tmp_path: Path) -> None:
 def test_validation_requires_matching_executor_table(tmp_path: Path) -> None:
     """
     @brief   The default executor must have a command table with {prompt}.
-    @version 0.1.0
     """
     text = """
 [platform]
@@ -184,7 +172,6 @@ reviewers = ["r"]
 def test_validation_catches_bad_durations_and_draft_false(tmp_path: Path) -> None:
     """
     @brief   Unparseable durations and draft=false are rejected.
-    @version 0.1.0
     """
     text = MINIMAL_VALID + """
 [clarification]
@@ -203,7 +190,6 @@ def test_per_gate_timeout_defaults_and_is_validated(tmp_path: Path) -> None:
     """
     @brief   per_gate_timeout_seconds defaults to 1800 and is an independent
              positive knob from max_wall_clock_seconds (the whole-run ceiling).
-    @version 0.1.0
     """
     config = load_config(_write_config(tmp_path, MINIMAL_VALID))
     assert config.budgets.per_gate_timeout_seconds == 1800
@@ -217,7 +203,6 @@ def test_validation_rejects_reminder_after_the_timeout(tmp_path: Path) -> None:
     """
     @brief   A reminder scheduled at or after the hard answer timeout can never
              fire before release; the ordering is rejected, not just the format.
-    @version 0.1.0
     """
     text = MINIMAL_VALID + '\n[clarification]\nreminder_after = "72h"\nanswer_timeout = "24h"\n'
     issues = validate_config(load_config(_write_config(tmp_path, text)))
@@ -227,7 +212,6 @@ def test_validation_rejects_reminder_after_the_timeout(tmp_path: Path) -> None:
 def test_validation_flags_unknown_sections(tmp_path: Path) -> None:
     """
     @brief   A typo'd section name is reported instead of silently ignored.
-    @version 0.1.0
     """
     issues = validate_config(load_config(_write_config(tmp_path, MINIMAL_VALID + "\n[polling2]\n")))
     assert any("unknown section: [polling2]" in issue for issue in issues)
@@ -236,7 +220,6 @@ def test_validation_flags_unknown_sections(tmp_path: Path) -> None:
 def test_defaults_without_file_sections() -> None:
     """
     @brief   A bare Config carries the documented defaults.
-    @version 0.1.1
     """
     config = Config()
     assert config.container.image == "adore-executor-base:1.0.0"
@@ -251,7 +234,6 @@ def test_validation_rejects_bad_polling_and_slug(tmp_path: Path) -> None:
     """
     @brief   Invalid slug, non-positive interval, and malformed quiet_hours
              windows are each reported.
-    @version 0.1.0
     """
     text = MINIMAL_VALID + """
 [agent]
@@ -271,7 +253,6 @@ def test_validation_rejects_auto_flag_in_executor_command(tmp_path: Path) -> Non
     """
     @brief   --auto in the executor command is a validation error (it would
              auto-approve the push/merge permissions; prereq report sec. 6).
-    @version 0.1.0
     """
     text = MINIMAL_VALID.replace(
         'command = "opencode run --dir {worktree} -m {model} {prompt}"',
@@ -286,7 +267,6 @@ def test_validation_checks_container_run_args(tmp_path: Path) -> None:
     @brief   run_args entries must be single option tokens; a bare word or a
              token with spaces (would corrupt the run argv) is reported,
              while a valid option like --userns=keep-id passes.
-    @version 0.1.0
     """
     text = MINIMAL_VALID + """
 [container]
@@ -303,9 +283,6 @@ def _codex_config(command: str) -> str:
     @brief      A minimal config with codex as the default executor.
     @param[in]  command The [executor.codex] command template to test.
     @return     The TOML text.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.1.0
     """
     return f"""
 [platform]
@@ -331,7 +308,6 @@ def test_codex_requires_non_interactive_sandboxed_json(tmp_path: Path) -> None:
     """
     @brief   A codex command without JSON + workspace sandboxing is reported;
              adding the current non-interactive CLI shape fixes it.
-    @version 0.1.1
     """
     blocking = "codex exec {resume}--json --model {model} {prompt}"
     issues = validate_config(load_config(_write_config(tmp_path, _codex_config(blocking))))
@@ -348,7 +324,6 @@ def test_codex_accepts_external_container_sandbox_bypass(tmp_path: Path) -> None
     """
     @brief   Codex full-auto mode is accepted because ADORE provides the
              external container sandbox boundary.
-    @version 0.1.2
     """
     bypass = (
         "codex exec {resume}--json --model {model} "
@@ -362,7 +337,6 @@ def test_codex_rejects_machine_local_user_config(tmp_path: Path) -> None:
     """
     @brief   Codex runs must ignore machine-local user config/plugin state and
              use ADORE's staged CODEX_HOME instead.
-    @version 0.1.1
     """
     command = (
         "codex exec {resume}--json --model {model} "
@@ -376,7 +350,6 @@ def test_codex_rejects_plugin_materialization(tmp_path: Path) -> None:
     """
     @brief   Codex runs must disable bundled plugins so marketplace files are
              not materialized into the target worktree.
-    @version 0.1.0
     """
     command = (
         "codex exec {resume}--json --model {model} --ignore-user-config "
@@ -390,7 +363,6 @@ def test_qwen_bans_yolo(tmp_path: Path) -> None:
     """
     @brief   A qwen command with --yolo (or --approval-mode yolo) is reported;
              a plain qwen command is accepted.
-    @version 0.1.0
     """
     base = """
 [platform]
@@ -427,7 +399,6 @@ def test_container_runtime_env_defaults_and_validation(tmp_path: Path) -> None:
     @brief   [container] runtime_env is a non-secret customization surface:
              uv copy-link mode defaults on, while managed git env cannot be
              overridden by human config.
-    @version 0.1.1
     """
     base = """
 [platform]
@@ -460,7 +431,6 @@ def test_container_required_tool_checks_validation(tmp_path: Path) -> None:
     """
     @brief   required_tool_checks accepts shell-free command strings and
              rejects malformed or shell-controlled entries.
-    @version 0.1.0
     """
     valid = MINIMAL_VALID + """
 [container]
@@ -489,7 +459,6 @@ def test_container_egress_defaults_and_valid_modes(tmp_path: Path) -> None:
     """
     @brief   Missing [container.egress] defaults to unrestricted open egress;
              none and allowlist-proxy validate when explicitly configured.
-    @version 0.1.1
     """
     defaulted = load_config(_write_config(tmp_path, MINIMAL_VALID))
     assert defaulted.container.egress.mode == "open"
@@ -521,7 +490,6 @@ network_prefix = "adore-egress"
 def test_container_egress_rejects_bad_allowlist_entries(tmp_path: Path) -> None:
     """
     @brief   allowlist-proxy fails closed on empty or unsafe host patterns.
-    @version 0.1.0
     """
     empty = load_config(_write_config(tmp_path, MINIMAL_VALID + """
 [container.egress]
@@ -542,7 +510,6 @@ allowlist = ["https://api.openai.com", "gitlab.example.com/path", "bad host", "o
 def test_container_egress_proxy_env_is_managed(tmp_path: Path) -> None:
     """
     @brief   Humans cannot override ADORE-managed proxy env through runtime_env.
-    @version 0.1.1
     """
     text = MINIMAL_VALID + """
 [container.runtime_env]
@@ -557,7 +524,6 @@ def test_workflow_defaults_are_valid_and_documented(tmp_path: Path) -> None:
     @brief   An absent [workflow] section is valid and yields the documented
              defaults: feature runs, the bug/fix/change label map, and the
              quick label.
-    @version 0.1.0
     """
     config = load_config(_write_config(tmp_path, MINIMAL_VALID))
     assert validate_config(config) == []
@@ -573,7 +539,6 @@ def test_workflow_rejects_kinds_aegis_does_not_conduct(tmp_path: Path) -> None:
     @brief   Only feature/fix/change may be started by ADORE. An unknown kind
              and the interactive "adoption" kind are both rejected, in
              default_kind and in the label map.
-    @version 0.1.0
     """
     issues = validate_config(load_config(_write_config(tmp_path, MINIMAL_VALID + """
 [workflow]
@@ -600,7 +565,6 @@ def test_quick_label_must_be_reachable_from_a_fix_or_change_kind(
              kind mapping can ever pair with one of those is dead config - and
              a silently ignored label would let an operator believe a run was
              proportional when it was not.
-    @version 0.1.0
     """
     dead = validate_config(load_config(_write_config(tmp_path, MINIMAL_VALID + """
 [workflow]
@@ -632,7 +596,6 @@ def test_stage_timeout_overrides_must_name_stages_and_positive_seconds(
     """
     @brief   An override key that is not an AEGIS stage, or a non-positive
              value, is rejected rather than silently ignored.
-    @version 0.1.0
     """
     issues = validate_config(load_config(_write_config(tmp_path, MINIMAL_VALID + """
 [workflow.stage_timeout_overrides]

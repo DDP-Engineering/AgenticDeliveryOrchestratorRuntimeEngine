@@ -21,9 +21,6 @@
          probe goes through the injectable CommandRunner (never a raw
          subprocess here), so the whole module is unit-testable offline with a
          fake runner; no prompting and no network calls of its own live here.
-@author Eng. Dan Dumitru Pasare
-@date 2026-08-01
-@version 0.2.0
 """
 
 from __future__ import annotations
@@ -175,9 +172,6 @@ GUIDANCE: dict[str, dict[str, str]] = {
 class ToolStatus:
     """
     @brief   Whether one CLI tool is present, and its reported version.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-05
-    @version 0.1.0
     """
 
     name: str
@@ -190,9 +184,6 @@ class ToolStatus:
 class AuthStatus:
     """
     @brief   Whether the platform CLI is present AND authenticated.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-05
-    @version 0.1.0
     """
 
     kind: str            # gitlab | github | gitea
@@ -206,9 +197,6 @@ class AuthStatus:
 class RuntimeDetection:
     """
     @brief   Host container-runtime availability (+ WSL distros on Windows).
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-05
-    @version 0.1.0
     """
 
     docker: ToolStatus
@@ -224,9 +212,6 @@ class AegisStatus:
              `aegis config validate` answers `status: ok`, and the policy it
              validated is schema 3. `detail` carries the AEGIS error verbatim
              when it does not.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-08-01
-    @version 0.1.0
     """
 
     repo_path: str
@@ -240,9 +225,6 @@ class AegisStatus:
         """
         @brief   True when the repository is governed by a usable AEGIS 2.x.
         @return  Readiness flag.
-        @author  Eng. Dan Dumitru Pasare
-        @date    2026-08-01
-        @version 0.1.0
         """
         return (
             self.wrapper_present
@@ -255,9 +237,6 @@ class AegisStatus:
 class EnvironmentReport:
     """
     @brief   Aggregate of every probe, for the wizard and `adore doctor`.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-05
-    @version 0.1.1
     """
 
     os_key: str
@@ -276,9 +255,6 @@ def _os_key(system_name: str) -> str:
     @brief      Normalize a platform.system() value to an ADORE OS key.
     @param[in]  system_name Raw platform name (e.g. "Windows", "Linux").
     @return     "windows" | "linux" | "macos" | "other".
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.1.1
     """
     name = system_name.strip().lower()
     if name.startswith("win"):
@@ -300,9 +276,6 @@ def _probe(runner: CommandRunner, name: str, argv: list[str]) -> ToolStatus:
     @param[in]  name Component name (also the ToolStatus name).
     @param[in]  argv Command to run.
     @return     The ToolStatus.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.1.0
     """
     result = runner(argv)
     if result.exit_code == 127:
@@ -320,9 +293,6 @@ def detect_os() -> str:
     """
     @brief   The current host's ADORE OS key.
     @return  "windows" | "linux" | "macos" | "other".
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-05
-    @version 0.1.1
     """
     return _os_key(platform.system())
 
@@ -332,9 +302,6 @@ def detect_git(runner: CommandRunner = run_command) -> ToolStatus:
     @brief      Whether git is available on the host.
     @param[in]  runner Injectable command runner.
     @return     The ToolStatus for git.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.1.0
     """
     return _probe(runner, GIT, ["git", "--version"])
 
@@ -347,9 +314,6 @@ def detect_wsl_distros(runner: CommandRunner = run_command) -> list[str]:
                 returning the names (robust to that quirk).
     @param[in]  runner Injectable command runner.
     @return     Distro names, or [] when WSL is absent.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.1.0
     """
     result = runner(["wsl", "-l", "-q"])
     if result.exit_code == 127 or not result.ok:
@@ -367,9 +331,6 @@ def detect_runtimes(
     @param[in]  os_key Host OS key (defaults to detect_os()); WSL distros are
                        only probed on Windows.
     @return     The RuntimeDetection.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.1.0
     """
     key = os_key or detect_os()
     docker = _probe(runner, DOCKER, ["docker", "--version"])
@@ -385,9 +346,6 @@ def detect_platform_cli(kind: str, runner: CommandRunner = run_command) -> ToolS
     @param[in]  runner Injectable command runner.
     @return     The ToolStatus for glab/gh/tea.
     @exception  ValueError When kind is not gitlab/github/gitea.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-29
-    @version    0.1.1
     """
     cli = _CLI_FOR_KIND.get(kind)
     if cli is None:
@@ -407,9 +365,6 @@ def auth_status(kind: str, runner: CommandRunner = run_command) -> AuthStatus:
     @param[in]  runner Injectable command runner.
     @return     The AuthStatus.
     @exception  ValueError When kind is not gitlab/github/gitea.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-29
-    @version    0.2.0
     """
     probe = _AUTH_PROBE_FOR_KIND.get(kind)
     if probe is None:
@@ -442,9 +397,6 @@ def detect_aegis(
     @param[in]  repo_path Local clone the runs are created from.
     @param[in]  runner Injectable command runner.
     @return     The AegisStatus.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-08-01
-    @version    0.1.0
     """
     root = Path(repo_path).expanduser()
     if not (root / AEGIS_WRAPPER).is_file():
@@ -491,9 +443,6 @@ def detect_executor(name: str = OPENCODE, runner: CommandRunner = run_command) -
     @param[in]  name Executor CLI name (default opencode).
     @param[in]  runner Injectable command runner.
     @return     The ToolStatus.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.1.0
     """
     return _probe(runner, name, [name, "--version"])
 
@@ -505,9 +454,6 @@ def detect_all(kind: str, runner: CommandRunner = run_command) -> EnvironmentRep
                      CLI/auth probes.
     @param[in]  runner Injectable command runner.
     @return     The aggregate EnvironmentReport.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-29
-    @version    0.1.2
     """
     key = detect_os()
     return EnvironmentReport(
@@ -526,9 +472,6 @@ def auth_component_for_kind(kind: str) -> str:
     @param[in]  kind "gitlab" | "github" | "gitea".
     @return     GLAB_AUTH / GH_AUTH / TEA_AUTH.
     @exception  ValueError When kind is not gitlab/github/gitea.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-29
-    @version    0.1.1
     """
     component = _AUTH_COMPONENT_FOR_KIND.get(kind)
     if component is None:
@@ -546,9 +489,6 @@ def guidance_for(component: str, os_key: str) -> str:
     @param[in]  component A component key (GIT, DOCKER, GLAB_AUTH, ...).
     @param[in]  os_key OS key from detect_os() / _os_key().
     @return     The guidance text (a helpful fallback for unknown components).
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.1.0
     """
     entry = GUIDANCE.get(component)
     if not entry:

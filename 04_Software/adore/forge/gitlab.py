@@ -18,9 +18,6 @@
          `_is_not_found`, and `_parse_json` moved to the shared `Forge` base
          (ADORE-PY-004); this adapter's `_NOT_FOUND_MARKERS` already matched
          the base default, so no override was needed.
-@author Eng. Dan Dumitru Pasare
-@date 2026-07-02
-@version 0.2.0
 """
 
 from __future__ import annotations
@@ -48,9 +45,6 @@ _MAX_LIST_PAGES = 50
 class GitLabForge(Forge):
     """
     @brief   GitLab implementation of the Forge interface (via `glab`).
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-02
-    @version 0.1.0
     """
 
     def __init__(self, repo: str, runner: CommandRunner = run_command) -> None:
@@ -58,9 +52,6 @@ class GitLabForge(Forge):
         @brief      Bind the adapter to a GitLab project path.
         @param[in]  repo GitLab project path (GROUP/.../PROJECT).
         @param[in]  runner Command runner (injectable for tests).
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.0
         """
         self.repo = repo
         self.runner = runner
@@ -78,9 +69,6 @@ class GitLabForge(Forge):
         @param[in]  ready_label Eligibility label.
         @return     Eligible tickets, unordered (caller ranks by priority).
         @exception  ForgeError When glab fails.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-24
-        @version    0.1.1
         """
         tickets: list[Ticket] = []
         page = 1
@@ -107,9 +95,6 @@ class GitLabForge(Forge):
         @param[in]  iid Issue iid.
         @return     The ticket or None on 404.
         @exception  ForgeError When glab fails for another reason.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.0
         """
         result = self.runner(
             ["glab", "issue", "view", str(iid), "--repo", self.repo, "--output", "json"]
@@ -128,9 +113,6 @@ class GitLabForge(Forge):
         @param[in]  iid Issue iid.
         @return     All notes, system notes flagged.
         @exception  ForgeError When glab fails.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.0
         """
         endpoint = (
             f"projects/{self._project_enc}/issues/{iid}/notes"
@@ -158,9 +140,6 @@ class GitLabForge(Forge):
         @param[in]  body Note body.
         @return     Created note id.
         @exception  ForgeError When glab fails or the id cannot be found.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.0
         """
         result = self._run(
             ["glab", "issue", "note", str(iid), "--repo", self.repo, "--message", body]
@@ -185,9 +164,6 @@ class GitLabForge(Forge):
         @param[in]  comment_id Note id.
         @param[in]  body Replacement body.
         @exception  ForgeError When glab fails.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.1
         """
         endpoint = f"projects/{self._project_enc}/issues/{iid}/notes/{comment_id}"
         self._run(["glab", "api", "--method", "PUT", endpoint, "--raw-field", f"body={body}"])
@@ -200,9 +176,6 @@ class GitLabForge(Forge):
         @param[in]  iid Issue iid.
         @param[in]  labels Labels to add.
         @exception  ForgeError When glab fails.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.0
         """
         if not labels:
             return
@@ -217,9 +190,6 @@ class GitLabForge(Forge):
         @param[in]  iid Issue iid.
         @param[in]  labels Labels to remove.
         @exception  ForgeError When glab fails.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.0
         """
         if not labels:
             return
@@ -236,9 +206,6 @@ class GitLabForge(Forge):
         @param[in]  ref MR iid, or the source branch name (open MRs only).
         @return     The MergeRequest, or None when not found.
         @exception  ForgeError When glab fails for another reason.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
         """
         result = self.runner(
             ["glab", "mr", "view", str(ref), "--repo", self.repo, "--output", "json"]
@@ -262,9 +229,6 @@ class GitLabForge(Forge):
         @param[in]  mr_iid MR iid.
         @return     All notes, system notes flagged.
         @exception  ForgeError When glab fails.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-04
-        @version    0.1.0
         """
         endpoint = (
             f"projects/{self._project_enc}/merge_requests/{mr_iid}/notes"
@@ -288,9 +252,6 @@ class GitLabForge(Forge):
         @param[in]  mr_iid MR iid.
         @param[in]  labels Labels to remove.
         @exception  ForgeError When glab fails.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-04
-        @version    0.1.0
         """
         if not labels:
             return
@@ -321,9 +282,6 @@ class GitLabForge(Forge):
         @param[in]  remove_source_branch Delete the branch on merge.
         @return     MR web URL.
         @exception  ForgeError When glab fails or no URL is printed.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.1
         """
         argv = [
             "glab", "mr", "create",
@@ -353,9 +311,6 @@ class GitLabForge(Forge):
         """
         @brief   URL-encoded project path for API endpoints.
         @return  The percent-encoded repo path.
-        @author  Eng. Dan Dumitru Pasare
-        @date    2026-07-02
-        @version 0.1.0
         """
         return urllib.parse.quote(self.repo, safe="")
 
@@ -365,9 +320,6 @@ class GitLabForge(Forge):
         @brief      Map one glab issue JSON record to a Ticket.
         @param[in]  item Raw issue mapping.
         @return     The normalized Ticket.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.0
         """
         return Ticket(
             iid=int(item["iid"]),

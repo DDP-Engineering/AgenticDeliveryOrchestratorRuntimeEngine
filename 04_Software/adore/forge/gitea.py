@@ -28,9 +28,6 @@
          tea. `_run` and `_parse_json` moved to the shared `Forge` base
          (ADORE-PY-004); `_api`'s HTTP-status-based not-found handling stays
          local, not force-fit into the marker-based heuristic glab/gh share.
-@author Eng. Dan Dumitru Pasare
-@date 2026-07-29
-@version 0.2.0
 """
 
 from __future__ import annotations
@@ -66,9 +63,6 @@ _MAX_LIST_PAGES = 50
 class GiteaForge(Forge):
     """
     @brief   Gitea implementation of the Forge interface (via `tea`).
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-29
-    @version 0.1.0
     """
 
     def __init__(self, repo: str, runner: CommandRunner = run_command, *,
@@ -85,9 +79,6 @@ class GiteaForge(Forge):
                           login. Set it whenever more than one login exists or
                           the wanted login is not the default.
         @exception  ValueError When repo is not OWNER/REPO.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-29
-        @version    0.1.0
         """
         parts = repo.split("/")
         if len(parts) != 2 or not all(part.strip() for part in parts):
@@ -113,9 +104,6 @@ class GiteaForge(Forge):
         @param[in]  ready_label Eligibility label.
         @return     Eligible tickets, unordered (caller ranks by priority).
         @exception  ForgeError When tea fails or the response is malformed.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-29
-        @version    0.1.1
         """
         items = self._get_paged(
             f"repos/{self.repo}/issues",
@@ -130,9 +118,6 @@ class GiteaForge(Forge):
         @param[in]  iid Issue index.
         @return     The ticket or None on HTTP 404.
         @exception  ForgeError When tea fails for another reason.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-29
-        @version    0.1.0
         """
         result = self._api("GET", f"repos/{self.repo}/issues/{iid}", allow_404=True)
         if result is None:
@@ -150,9 +135,6 @@ class GiteaForge(Forge):
         @param[in]  iid Issue index.
         @return     All comments, oldest first.
         @exception  ForgeError When tea fails or the response is malformed.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-29
-        @version    0.1.0
         """
         items = self._get_paged(f"repos/{self.repo}/issues/{iid}/comments", {})
         return [
@@ -177,9 +159,6 @@ class GiteaForge(Forge):
         @param[in]  body Comment body.
         @return     Created comment id.
         @exception  ForgeError When tea fails or the response carries no id.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-29
-        @version    0.1.0
         """
         result = self._api(
             "POST", f"repos/{self.repo}/issues/{iid}/comments", fields=[("body", body)]
@@ -198,9 +177,6 @@ class GiteaForge(Forge):
         @param[in]  comment_id Comment id.
         @param[in]  body Replacement body.
         @exception  ForgeError When tea fails.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-29
-        @version    0.1.0
         """
         del iid  # comment ids are repo-global on Gitea
         self._api(
@@ -220,9 +196,6 @@ class GiteaForge(Forge):
         @param[in]  iid Issue index.
         @param[in]  labels Labels to add.
         @exception  ForgeError When tea fails.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-29
-        @version    0.1.0
         """
         if not labels:
             return
@@ -237,9 +210,6 @@ class GiteaForge(Forge):
         @param[in]  iid Issue index.
         @param[in]  labels Labels to remove.
         @exception  ForgeError When tea fails.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-29
-        @version    0.1.0
         """
         if not labels:
             return
@@ -260,9 +230,6 @@ class GiteaForge(Forge):
         @param[in]  ref PR number, or the head branch name (open PRs only).
         @return     The MergeRequest (state normalized), or None.
         @exception  ForgeError When tea fails for another reason.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-29
-        @version    0.1.0
         """
         if isinstance(ref, int) or str(ref).isdigit():
             result = self._api("GET", f"repos/{self.repo}/pulls/{ref}", allow_404=True)
@@ -285,9 +252,6 @@ class GiteaForge(Forge):
         @param[in]  mr_iid PR number.
         @return     All conversation comments.
         @exception  ForgeError When tea fails.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-29
-        @version    0.1.0
         """
         return self.list_comments(mr_iid)
 
@@ -297,9 +261,6 @@ class GiteaForge(Forge):
         @param[in]  mr_iid PR number.
         @param[in]  labels Labels to remove.
         @exception  ForgeError When tea fails.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-29
-        @version    0.1.0
         """
         if not labels:
             return
@@ -343,9 +304,6 @@ class GiteaForge(Forge):
         @param[in]  cwd Ignored (tea resolves everything from --repo/--login).
         @return     PR web URL.
         @exception  ForgeError When tea fails or the response has no html_url.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-29
-        @version    0.1.0
         """
         del remove_source_branch  # branch deletion is a repo setting on Gitea
         del cwd  # pure API call; no local checkout involved
@@ -376,9 +334,6 @@ class GiteaForge(Forge):
         """
         @brief   The `--login` argv fragment when a login is configured.
         @return  ["--login", name] or [].
-        @author  Eng. Dan Dumitru Pasare
-        @date    2026-07-29
-        @version 0.1.0
         """
         return ["--login", self.login] if self.login else []
 
@@ -410,9 +365,6 @@ class GiteaForge(Forge):
         @return     The successful CommandResult, or None on an allowed 404.
         @exception  ForgeError When tea fails, the status line is missing, or
                     the HTTP status is >= 400 (except an allowed 404).
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-29
-        @version    0.1.0
         """
         argv = ["tea", "api", "-i", "--method", method, *self._login_argv()]
         for key, value in fields or []:
@@ -447,9 +399,6 @@ class GiteaForge(Forge):
         @param[in]  query Extra query parameters (page/limit are added here).
         @return     The concatenated item list.
         @exception  ForgeError When tea fails or a page is malformed.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-29
-        @version    0.1.0
         """
         items: list[dict[str, Any]] = []
         page = 1
@@ -482,9 +431,6 @@ class GiteaForge(Forge):
                     the account handle, as on GitLab/GitHub.
         @param[in]  user Raw user mapping (or None).
         @return     The login, or "" when absent.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-29
-        @version    0.1.0
         """
         if not isinstance(user, dict):
             return ""
@@ -500,9 +446,6 @@ class GiteaForge(Forge):
         @param[in]  item Raw issue mapping.
         @return     The normalized Ticket.
         @exception  ForgeError When the record misses the issue number.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-29
-        @version    0.1.0
         """
         state = str(item.get("state", "open")).lower()
         return Ticket(
@@ -528,9 +471,6 @@ class GiteaForge(Forge):
         @param[in]  data Raw pull mapping.
         @return     The normalized MergeRequest.
         @exception  ForgeError When the record misses the pull number.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-29
-        @version    0.1.0
         """
         state = str(data.get("state", "open")).lower()
         if data.get("merged"):

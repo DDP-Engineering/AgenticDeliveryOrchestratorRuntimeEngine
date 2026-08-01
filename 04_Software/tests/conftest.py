@@ -10,9 +10,6 @@
 """
 @file conftest.py
 @brief Shared pytest fixtures for the ADORE test suite.
-@author Eng. Dan Dumitru Pasare
-@date 2026-07-05
-@version 0.2.0
 """
 
 from __future__ import annotations
@@ -35,9 +32,6 @@ def adore_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     @param[in]  tmp_path pytest tmp dir.
     @param[in]  monkeypatch Fixture used to set ADORE_HOME.
     @return     The home directory path.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.1.0
     """
     home = tmp_path / "adore-home"
     monkeypatch.setenv("ADORE_HOME", str(home))

@@ -25,9 +25,6 @@
          line tea itself prints, which is a stronger signal than scanning
          stderr text for a marker, so that adapter's not-found handling is
          deliberately left as its own thing rather than forced through here.
-@author Eng. Dan Dumitru Pasare
-@date 2026-07-02
-@version 0.2.0
 """
 
 from __future__ import annotations
@@ -47,9 +44,6 @@ from adore.util import CommandResult, CommandRunner
 class Ticket:
     """
     @brief   Normalized ticket/issue view across platforms.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-02
-    @version 0.1.0
     """
 
     iid: int
@@ -69,9 +63,6 @@ class Comment:
     @brief   Normalized ticket comment/note across platforms.
     @details `system` marks platform-generated notes (label changes etc.),
              which resume detection must ignore (design doc 9).
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-02
-    @version 0.1.0
     """
 
     id: int
@@ -87,9 +78,6 @@ class MergeRequest:
     @brief   Normalized merge/pull request view across platforms.
     @details `state` is normalized to opened/merged/closed - the post-MR
              poll's terminal signals (design 11b).
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-03
-    @version 0.1.0
     """
 
     iid: int
@@ -104,9 +92,6 @@ class ForgeError(RuntimeError):
     @brief   Raised when a platform CLI call fails unexpectedly.
     @details Carries the command and stderr so failures are diagnosable from
              the journal without re-running anything.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-02
-    @version 0.1.0
     """
 
     def __init__(self, message: str, argv: list[str] | None = None, stderr: str = "") -> None:
@@ -115,9 +100,6 @@ class ForgeError(RuntimeError):
         @param[in]  message Human-readable summary.
         @param[in]  argv The command that failed.
         @param[in]  stderr Captured stderr from the CLI.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.0
         """
         detail = message
         if argv:
@@ -139,9 +121,6 @@ class Forge(ABC):
              marker-based: comments carry a hidden marker; author is not
              relied upon. All methods raise ForgeError on unexpected CLI
              failure.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-02
-    @version 0.2.0
     """
 
     #: injected by every concrete adapter's __init__.
@@ -158,9 +137,6 @@ class Forge(ABC):
         @brief      List open tickets carrying the eligibility label.
         @param[in]  ready_label The opt-in label (for example "agent-ready").
         @return     Eligible tickets.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.0
         """
 
     @abstractmethod
@@ -169,9 +145,6 @@ class Forge(ABC):
         @brief      Fetch one ticket by id, for reconciliation and resume.
         @param[in]  iid Ticket id.
         @return     The ticket, or None when it no longer exists (deleted).
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.0
         """
 
     @abstractmethod
@@ -180,9 +153,6 @@ class Forge(ABC):
         @brief      List a ticket's comments oldest-first (resume detection).
         @param[in]  iid Ticket id.
         @return     All comments including system notes (flagged).
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.0
         """
 
     @abstractmethod
@@ -192,9 +162,6 @@ class Forge(ABC):
         @param[in]  iid Ticket id.
         @param[in]  body Comment body (marker appended by the caller).
         @return     The created comment id (recorded in state.json).
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.0
         """
 
     @abstractmethod
@@ -204,9 +171,6 @@ class Forge(ABC):
         @param[in]  iid Ticket id.
         @param[in]  comment_id Comment id previously returned by post_comment.
         @param[in]  body Replacement body.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.0
         """
 
     @abstractmethod
@@ -215,9 +179,6 @@ class Forge(ABC):
         @brief      Add labels to a ticket.
         @param[in]  iid Ticket id.
         @param[in]  labels Label names to add.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.0
         """
 
     @abstractmethod
@@ -226,9 +187,6 @@ class Forge(ABC):
         @brief      Remove labels from a ticket.
         @param[in]  iid Ticket id.
         @param[in]  labels Label names to remove.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.0
         """
 
     @abstractmethod
@@ -240,9 +198,6 @@ class Forge(ABC):
                     MRs, so terminal-state polling must use the stored iid.
         @param[in]  ref MR iid/number, or the source branch name.
         @return     The MergeRequest, or None when none exists.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
         """
 
     @abstractmethod
@@ -254,9 +209,6 @@ class Forge(ABC):
         @param[in]  mr_iid MR iid / PR number.
         @return     All comments, system notes flagged where the platform
                     reports them.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-04
-        @version    0.1.0
         """
 
     @abstractmethod
@@ -265,9 +217,6 @@ class Forge(ABC):
         @brief      Remove labels from an MR/PR (clear the revise trigger).
         @param[in]  mr_iid MR iid / PR number.
         @param[in]  labels Label names to remove.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-04
-        @version    0.1.0
         """
 
     @abstractmethod
@@ -297,9 +246,6 @@ class Forge(ABC):
                         finding 2026-07-04: "No git remotes found"); pass the
                         run's worktree.
         @return     The MR/PR web URL.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.2
         """
 
     # -- shared CLI plumbing (ADORE-PY-004) ----------------------------------------
@@ -315,9 +261,6 @@ class Forge(ABC):
                         subcommand needs remote resolution).
         @return     The successful CommandResult.
         @exception  ForgeError When the command exits non-zero.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.1.0
         """
         result = self.runner(argv, cwd=cwd) if cwd else self.runner(argv)
         if not result.ok:
@@ -334,9 +277,6 @@ class Forge(ABC):
                     intentionally not unified with this heuristic.
         @param[in]  result The failed CommandResult.
         @return     True when stderr/stdout indicates a 404/not-found.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.1.0
         """
         text = (result.stderr + result.stdout).lower()
         return any(marker in text for marker in self._NOT_FOUND_MARKERS)
@@ -349,9 +289,6 @@ class Forge(ABC):
         @param[in]  expected Expected top-level type (list or dict).
         @return     The parsed payload.
         @exception  ForgeError When the output is not the expected JSON.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.1.0
         """
         try:
             payload = json.loads(result.stdout or "null")

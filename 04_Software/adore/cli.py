@@ -18,9 +18,6 @@
          `adore init` runs the assisted-config wizard to create a
          runtime-project profile; `adore profile ...` manages profiles (with
          run statistics).
-@author Eng. Dan Dumitru Pasare
-@date 2026-07-25
-@version 0.6.0
 """
 
 from __future__ import annotations
@@ -66,9 +63,6 @@ def _build_parser() -> argparse.ArgumentParser:
     """
     @brief   Build the top-level argument parser and subcommands.
     @return  Configured argparse.ArgumentParser.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-02
-    @version 0.1.1
     """
     parser = argparse.ArgumentParser(prog=PACKAGE_NAME, description=PRODUCT_NAME)
     parser.add_argument(
@@ -158,9 +152,6 @@ def _load(args: argparse.Namespace) -> Config | None:
                 last_used_at). Resolution and load errors print a readable hint.
     @param[in]  args Parsed arguments (args.config, args.profile).
     @return     The Config, or None after printing a readable error.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.2.1
     """
     store = ProfileStore()
     try:
@@ -197,9 +188,6 @@ def _store(config: Config) -> StateStore:
     @brief      Build the state store from config.
     @param[in]  config Loaded configuration.
     @return     The StateStore for this deployment.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-02
-    @version    0.1.0
     """
     return StateStore(config.state.store_root, config.agent.slug)
 
@@ -217,9 +205,6 @@ def _toml_scalar_literal(value: str) -> str:
                 value text.
     @param[in]  value Raw value from the command line.
     @return     A TOML literal safe to splice into the config text.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-25
-    @version    0.1.0
     """
     text = value.strip()
     if text in ("true", "false"):
@@ -245,9 +230,6 @@ def _inline_comment(line: str) -> str:
                 never splits inside single- or double-quoted text.
     @param[in]  line A config line.
     @return     The comment substring starting at `#`, or "".
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-25
-    @version    0.1.0
     """
     quote = ""
     for index, char in enumerate(line):
@@ -276,9 +258,6 @@ def _set_toml_scalar(text: str, dotted_key: str, value: str) -> str:
     @param[in]  value Raw value (type inferred by _toml_scalar_literal).
     @return     The updated config text.
     @exception  ValueError When the key is not a `<table>.<name>` path.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-25
-    @version    0.1.0
     """
     parts = [part for part in dotted_key.split(".") if part]
     if len(parts) < 2:
@@ -327,9 +306,6 @@ def _config_set(args: argparse.Namespace) -> int:
                 resulting config still loads and validates. The write is atomic.
     @param[in]  args Parsed arguments (key, value, config, profile).
     @return     Process exit code.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-25
-    @version    0.1.0
     """
     if not args.key or args.value is None:
         print("usage: adore config set <section.key> <value>")
@@ -395,9 +371,6 @@ def _cmd_config(args: argparse.Namespace) -> int:
     @brief      Handle `adore config show|validate|set`.
     @param[in]  args Parsed arguments.
     @return     Process exit code.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-25
-    @version    0.2.0
     """
     if args.action == "set":
         return _config_set(args)
@@ -422,9 +395,6 @@ def _cmd_status(args: argparse.Namespace) -> int:
     @brief      Handle `adore status`: config health, lock, pause, run counts.
     @param[in]  args Parsed arguments.
     @return     Process exit code.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-02
-    @version    0.1.2
     """
     config = _load(args)
     if config is None:
@@ -456,9 +426,6 @@ def _cmd_runs(args: argparse.Namespace) -> int:
     @brief      Handle `adore runs`: list persisted runs as a table.
     @param[in]  args Parsed arguments.
     @return     Process exit code.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-02
-    @version    0.1.2
     """
     config = _load(args)
     if config is None:
@@ -488,9 +455,6 @@ def _cmd_pause(args: argparse.Namespace, *, paused: bool) -> int:
     @param[in]  args Parsed arguments.
     @param[in]  paused True to pause, False to resume.
     @return     Process exit code.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-02
-    @version    0.1.1
     """
     config = _load(args)
     if config is None:
@@ -512,9 +476,6 @@ def _engine(args: argparse.Namespace) -> tuple[Config, Orchestrator] | None:
                 `validate at startup` is the design contract (12a).
     @param[in]  args Parsed arguments.
     @return     (config, orchestrator), or None after a printed error.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-03
-    @version    0.1.1
     """
     config = _load(args)
     if config is None:
@@ -533,9 +494,6 @@ def _cmd_run(args: argparse.Namespace) -> int:
     @details    Default mode comes from [polling] mode; flags override.
     @param[in]  args Parsed arguments.
     @return     Process exit code.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-03
-    @version    0.2.1
     """
     built = _engine(args)
     if built is None:
@@ -567,9 +525,6 @@ def _cmd_run_op(args: argparse.Namespace) -> int:
     @brief      Handle per-run operations: cancel, retry, logs, delete.
     @param[in]  args Parsed arguments (args.run_id set).
     @return     Process exit code.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-03
-    @version    0.1.0
     """
     built = _engine(args)
     if built is None:
@@ -612,9 +567,6 @@ def _cmd_stats(args: argparse.Namespace) -> int:
     @brief      Handle `adore stats [--since] [--by] [--html] [--rebuild]`.
     @param[in]  args Parsed arguments.
     @return     Process exit code.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-04
-    @version    0.1.1
     """
     config = _load(args)
     if config is None:
@@ -662,9 +614,6 @@ def _cmd_report(args: argparse.Namespace) -> int:
     @brief      Handle `adore report <run-id>`: live summary from the journal.
     @param[in]  args Parsed arguments.
     @return     Process exit code.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-04
-    @version    0.1.1
     """
     config = _load(args)
     if config is None:
@@ -683,9 +632,6 @@ def _cmd_export(args: argparse.Namespace) -> int:
     @brief      Handle `adore export --csv`: CSV of all summaries to stdout.
     @param[in]  args Parsed arguments.
     @return     Process exit code.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-04
-    @version    0.1.1
     """
     config = _load(args)
     if config is None:
@@ -703,9 +649,6 @@ def _cmd_init(args: argparse.Namespace) -> int:
                 runtime-project profile under the ADORE config home.
     @param[in]  args Parsed arguments.
     @return     Process exit code.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.1.1
     """
     store = ProfileStore()
     if args.answers:
@@ -734,9 +677,6 @@ def _cmd_profile(args: argparse.Namespace) -> int:
     @brief      Handle `adore profile list|show|use|rename|delete|path`.
     @param[in]  args Parsed arguments (args.profile_action + operands).
     @return     Process exit code.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.1.1
     """
     store = ProfileStore()
     action = args.profile_action
@@ -791,9 +731,6 @@ def _profile_metrics(profile) -> dict:
                 yields zero-stats (never an error) so `list`/`show` stay robust.
     @param[in]  profile The Profile.
     @return     The stats mapping from `metrics.profile_stats`.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.1.0
     """
     db_path = ""
     try:
@@ -810,9 +747,6 @@ def _profile_list(store: ProfileStore) -> int:
     @brief      Handle `adore profile list`: a table of profiles + run stats.
     @param[in]  store The profile store.
     @return     Process exit code.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.2.1
     """
     profiles = store.list_profiles()
     invalid = store.invalid_profiles()
@@ -840,9 +774,6 @@ def _profile_show(store: ProfileStore, name: str) -> int:
     @param[in]  store The profile store.
     @param[in]  name Profile name.
     @return     Process exit code.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.1.1
     """
     try:
         profile = store.load(name)
@@ -872,9 +803,6 @@ def _cmd_reset(args: argparse.Namespace) -> int:
                 run's stage, and conduction re-reads it from `run status`.
     @param[in]  args Parsed arguments.
     @return     Process exit code.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-08-01
-    @version    0.2.0
     """
     if not args.force:
         print("reset discards progress and re-runs completed work "
@@ -900,9 +828,6 @@ def _cmd_cleanup(args: argparse.Namespace) -> int:
                 unknown; corrupt run state is reported, never deleted.
     @param[in]  args Parsed arguments.
     @return     Process exit code.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-04
-    @version    0.1.1
     """
     built = _engine(args)
     if built is None:
@@ -924,9 +849,6 @@ def main(argv: list[str] | None = None) -> int:
     @brief      Program entry point for the `adore` command.
     @param[in]  argv Optional argument vector (defaults to sys.argv).
     @return     Process exit code (0 = success, 1 = error).
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-25
-    @version    0.1.3
     """
     parser = _build_parser()
     args = parser.parse_args(argv)

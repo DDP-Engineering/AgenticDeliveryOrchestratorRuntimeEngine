@@ -13,9 +13,6 @@
 @details No real glab/gh/tea is invoked; the fake runner records every argv and
          returns canned CLI output, so both the command construction and the
          output parsing are verified offline.
-@author Eng. Dan Dumitru Pasare
-@date 2026-07-29
-@version 0.2.0
 """
 
 from __future__ import annotations
@@ -34,18 +31,12 @@ import pytest
 class FakeRunner:
     """
     @brief   Command runner double: records argv, replays canned results.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-02
-    @version 0.1.0
     """
 
     def __init__(self, *results: CommandResult) -> None:
         """
         @brief      Queue the results to replay in order.
         @param[in]  results CommandResults returned call by call.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.1
         """
         self.results = list(results)
         self.calls: list[list[str]] = []
@@ -66,9 +57,6 @@ class FakeRunner:
         @param[in]  timeout Ignored.
         @param[in]  env Ignored.
         @return     The next queued CommandResult.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.1
         """
         self.calls.append([str(part) for part in argv])
         self.cwds.append(str(cwd) if cwd is not None else None)
@@ -83,9 +71,6 @@ def _ok(stdout: str = "") -> CommandResult:
     @brief      A successful canned result.
     @param[in]  stdout Canned stdout.
     @return     CommandResult with exit code 0.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-02
-    @version    0.1.0
     """
     return CommandResult(exit_code=0, stdout=stdout)
 
@@ -98,9 +83,6 @@ def _api_ok(stdout: str = "", status: int = 200, headers: str = "") -> CommandRe
     @param[in]  status HTTP status code for the stderr status line.
     @param[in]  headers Extra header lines for stderr (e.g. X-Total-Count).
     @return     CommandResult mimicking tea api -i.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-29
-    @version    0.1.0
     """
     stderr = f"HTTP/1.1 {status} X\n{headers}"
     return CommandResult(exit_code=0, stdout=stdout, stderr=stderr)
@@ -112,9 +94,6 @@ def _fail(stderr: str, exit_code: int = 1) -> CommandResult:
     @param[in]  stderr Canned stderr.
     @param[in]  exit_code Non-zero exit code.
     @return     The failing CommandResult.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-02
-    @version    0.1.0
     """
     return CommandResult(exit_code=exit_code, stderr=stderr)
 
@@ -127,7 +106,6 @@ def test_build_forge_selects_adapter() -> None:
     @brief   The factory maps kind to the right adapter, wires the gitea
              login through, and rejects unknown kinds and a login on a
              platform that has no login concept.
-    @version 0.2.0
     """
     assert isinstance(build_forge("gitlab", "g/p"), GitLabForge)
     assert isinstance(build_forge("github", "o/r"), GitHubForge)
@@ -146,7 +124,6 @@ def test_build_forge_selects_adapter() -> None:
 def test_gitlab_list_ready_maps_json() -> None:
     """
     @brief   glab issue list JSON maps to normalized Tickets.
-    @version 0.1.0
     """
     payload = json.dumps(
         [
@@ -182,7 +159,6 @@ def test_gitlab_list_ready_maps_json() -> None:
 def test_gitlab_get_ticket_returns_none_on_404() -> None:
     """
     @brief   A deleted ticket yields None; other failures raise ForgeError.
-    @version 0.1.0
     """
     forge = GitLabForge("g/p", FakeRunner(_fail("404 Not Found")))
     assert forge.get_ticket(99) is None
@@ -194,7 +170,6 @@ def test_gitlab_get_ticket_returns_none_on_404() -> None:
 def test_gitlab_post_comment_parses_note_id() -> None:
     """
     @brief   The note id comes from the "#note_<id>" URL glab prints.
-    @version 0.1.1
     """
     runner = FakeRunner(_ok("https://gitlab.example/grp/proj/-/issues/14#note_9876\n"))
     note_id = GitLabForge("grp/proj", runner).post_comment(14, "[ADORE] hello")
@@ -207,7 +182,6 @@ def test_gitlab_post_comment_parses_note_id() -> None:
 def test_gitlab_post_comment_falls_back_to_note_list() -> None:
     """
     @brief   When glab prints no URL, the id is recovered from the notes API.
-    @version 0.1.1
     """
     notes = json.dumps(
         [
@@ -225,7 +199,6 @@ def test_gitlab_edit_comment_uses_api_put() -> None:
              path (glab has no note-edit subcommand; prereq report section 4)
              and the body as --raw-field (guaranteed string, no type
              inference).
-    @version 0.1.1
     """
     runner = FakeRunner(_ok("{}"))
     GitLabForge("grp/sub/proj", runner).edit_comment(14, 9876, "updated body")
@@ -240,7 +213,6 @@ def test_gitlab_edit_comment_uses_api_put() -> None:
 def test_gitlab_list_comments_flags_system_notes() -> None:
     """
     @brief   System notes are flagged so resume detection can skip them.
-    @version 0.1.0
     """
     notes = json.dumps(
         [
@@ -268,7 +240,6 @@ def test_gitlab_labels_and_mr() -> None:
     """
     @brief   Label updates use --label/--unlabel; MR creation is draft with
              reviewers and prints back the URL.
-    @version 0.1.1
     """
     runner = FakeRunner(_ok(), _ok(), _ok("https://gitlab.example/g/p/-/merge_requests/7\n"))
     forge = GitLabForge("g/p", runner)
@@ -296,7 +267,6 @@ def test_gitlab_labels_and_mr() -> None:
 def test_github_list_ready_maps_json() -> None:
     """
     @brief   gh issue list JSON (label objects, OPEN state) is normalized.
-    @version 0.1.0
     """
     payload = json.dumps(
         [
@@ -325,7 +295,6 @@ def test_github_post_and_edit_comment() -> None:
     """
     @brief   Comment id parses from the issuecomment URL; edits go through
              the REST API with PATCH and a --raw-field string body.
-    @version 0.1.2
     """
     runner = FakeRunner(
         _ok("https://github.com/o/r/issues/3#issuecomment-555\n"),
@@ -344,7 +313,6 @@ def test_github_post_and_edit_comment() -> None:
 def test_github_open_pr_draft() -> None:
     """
     @brief   PR creation is draft with head/base and returns the URL.
-    @version 0.1.1
     """
     runner = FakeRunner(_ok("https://github.com/o/r/pull/12\n"))
     url = GitHubForge("o/r", runner).open_merge_request(
@@ -361,7 +329,6 @@ def test_github_open_pr_draft() -> None:
 def test_github_get_ticket_not_found() -> None:
     """
     @brief   gh "could not resolve" failures map to None.
-    @version 0.1.0
     """
     forge = GitHubForge("o/r", FakeRunner(_fail("could not resolve to an Issue")))
     assert forge.get_ticket(404) is None
@@ -373,7 +340,6 @@ def test_github_get_pr_requests_and_maps_labels() -> None:
              label objects to plain names - so the revise-label trigger sees
              them. gh returns only the fields named in --json, so a missing
              `labels` field would silently yield an empty label list.
-    @version 0.1.0
     """
     payload = json.dumps(
         {
@@ -399,7 +365,6 @@ def test_github_get_pr_requests_and_maps_labels() -> None:
 def test_github_get_pr_not_found() -> None:
     """
     @brief   A missing PR (404) maps to None rather than raising.
-    @version 0.1.0
     """
     forge = GitHubForge("o/r", FakeRunner(_fail("could not resolve to a PullRequest")))
     assert forge.get_merge_request(404) is None
@@ -408,7 +373,6 @@ def test_github_get_pr_not_found() -> None:
 def test_forge_error_carries_context() -> None:
     """
     @brief   ForgeError includes the command and stderr for the journal.
-    @version 0.1.0
     """
     forge = GitLabForge("g/p", FakeRunner(_fail("rate limited", exit_code=4)))
     with pytest.raises(ForgeError) as excinfo:
@@ -424,7 +388,6 @@ def test_gitlab_invalid_json_raises_forge_error() -> None:
     """
     @brief   Non-JSON CLI output (HTML error page, warning text) raises
              ForgeError instead of crashing or returning garbage.
-    @version 0.1.0
     """
     forge = GitLabForge("g/p", FakeRunner(_ok("WARNING: something\nnot json")))
     with pytest.raises(ForgeError):
@@ -434,7 +397,6 @@ def test_gitlab_invalid_json_raises_forge_error() -> None:
 def test_gitlab_unexpected_json_shape_raises() -> None:
     """
     @brief   Valid JSON of the wrong top-level shape is rejected.
-    @version 0.1.0
     """
     forge = GitLabForge("g/p", FakeRunner(_ok('{"iid": 1}')))
     with pytest.raises(ForgeError):
@@ -444,7 +406,6 @@ def test_gitlab_unexpected_json_shape_raises() -> None:
 def test_gitlab_empty_ready_list_is_not_an_error() -> None:
     """
     @brief   No eligible tickets is a normal outcome, not a failure.
-    @version 0.1.0
     """
     assert GitLabForge("g/p", FakeRunner(_ok("[]"))).list_ready("agent-ready") == []
 
@@ -453,7 +414,6 @@ def test_gitlab_mr_create_without_url_raises() -> None:
     """
     @brief   `glab mr create` succeeding without printing an MR URL fails
              closed (the orchestrator must never guess the MR address).
-    @version 0.1.0
     """
     forge = GitLabForge("g/p", FakeRunner(_ok("something changed, no url printed")))
     with pytest.raises(ForgeError):
@@ -464,7 +424,6 @@ def test_gitlab_post_comment_id_unrecoverable_raises() -> None:
     """
     @brief   When neither the URL nor the notes fallback yields the note id,
              posting fails closed (the id is required for idempotency).
-    @version 0.1.1
     """
     runner = FakeRunner(_ok("no url in output"), _ok("[]"))
     with pytest.raises(ForgeError):
@@ -474,7 +433,6 @@ def test_gitlab_post_comment_id_unrecoverable_raises() -> None:
 def test_github_invalid_json_raises_forge_error() -> None:
     """
     @brief   Non-JSON gh output raises ForgeError.
-    @version 0.1.0
     """
     forge = GitHubForge("o/r", FakeRunner(_ok("<html>rate limited</html>")))
     with pytest.raises(ForgeError):
@@ -484,7 +442,6 @@ def test_github_invalid_json_raises_forge_error() -> None:
 def test_github_pr_create_without_url_raises() -> None:
     """
     @brief   `gh pr create` succeeding with empty output fails closed.
-    @version 0.1.0
     """
     forge = GitHubForge("o/r", FakeRunner(_ok("")))
     with pytest.raises(ForgeError):
@@ -498,7 +455,6 @@ def test_gitea_repo_must_be_owner_repo() -> None:
     """
     @brief   Gitea has no subgroups: anything but OWNER/REPO fails closed at
              construction, before it can build malformed API endpoints.
-    @version 0.1.0
     """
     with pytest.raises(ValueError):
         GiteaForge("owner/group/repo", FakeRunner())
@@ -513,7 +469,6 @@ def test_gitea_list_ready_maps_rest_json() -> None:
              open -> opened. The argv must filter type=issues (the endpoint
              returns PRs too), carry --login, and never start the endpoint
              with "/" (that breaks tea's /api/v1 prefixing).
-    @version 0.1.0
     """
     payload = json.dumps(
         [
@@ -558,7 +513,6 @@ def test_gitea_list_ready_paginates_by_total_count() -> None:
              walk when the server clamps pages below the requested size
              (MAX_RESPONSE_ITEMS), and the pool is complete when the count is
              reached.
-    @version 0.1.0
     """
     page = json.dumps(
         [{"number": i, "labels": [{"name": "agent-ready"}]} for i in range(20)]
@@ -580,7 +534,6 @@ def test_gitea_list_ready_post_filters_unknown_label() -> None:
              silently DROPS the labels= filter and returns every open issue
              (live finding, 1.25.4) - the adapter must post-filter so a typo'd
              ready label cannot select the entire backlog.
-    @version 0.1.0
     """
     unfiltered = json.dumps(
         [
@@ -597,7 +550,6 @@ def test_gitea_list_ready_short_page_stops_without_total_count() -> None:
     """
     @brief   Without the X-Total-Count header a short page ends the walk; an
              empty page ends it even when a (lying) header promises more.
-    @version 0.1.0
     """
     runner = FakeRunner(
         _api_ok(json.dumps([{"number": 1, "labels": [{"name": "agent-ready"}]}]))
@@ -615,7 +567,6 @@ def test_gitea_http_error_despite_exit_zero() -> None:
              so the adapter must read the status line itself: 404 maps to None
              where the contract allows, any other >= 400 raises, and a missing
              status line fails closed.
-    @version 0.1.0
     """
     not_found = _api_ok('{"errors":null,"message":"not found"}', status=404)
     assert GiteaForge("o/r", FakeRunner(not_found)).get_ticket(99) is None
@@ -633,7 +584,6 @@ def test_gitea_tea_failure_carries_context() -> None:
     """
     @brief   A tea-level failure (no login, network down) raises ForgeError
              with the argv and stderr for the journal.
-    @version 0.1.0
     """
     forge = GiteaForge("o/r", FakeRunner(_fail("Error: no login found")))
     with pytest.raises(ForgeError) as excinfo:
@@ -646,7 +596,6 @@ def test_gitea_invalid_json_and_wrong_shape_raise() -> None:
     """
     @brief   A 200 with a non-JSON body (proxy page) or the wrong JSON shape
              is rejected instead of parsed into garbage.
-    @version 0.1.0
     """
     with pytest.raises(ForgeError):
         GiteaForge("o/r", FakeRunner(_api_ok("<html>proxy</html>"))).list_ready("x")
@@ -658,7 +607,6 @@ def test_gitea_list_comments_maps_and_never_flags_system() -> None:
     """
     @brief   Comments map id/body/user.login/created_at; Gitea keeps system
              events out of this endpoint, so system is always False.
-    @version 0.1.0
     """
     payload = json.dumps(
         [
@@ -680,7 +628,6 @@ def test_gitea_post_comment_id_from_response_json() -> None:
     @brief   The created comment id comes from the POST response JSON (no URL
              scraping); a response without an id fails closed - the id is
              required for idempotency.
-    @version 0.1.0
     """
     runner = FakeRunner(_api_ok('{"id": 321, "body": "[ADORE] hello"}'))
     assert GiteaForge("o/r", runner).post_comment(45, "[ADORE] hello") == 321
@@ -696,7 +643,6 @@ def test_gitea_edit_comment_patches_repo_global_id() -> None:
     """
     @brief   Comment edits PATCH the repo-global comment id with a
              guaranteed-string --field body.
-    @version 0.1.0
     """
     runner = FakeRunner(_api_ok("{}"))
     GiteaForge("o/r", runner).edit_comment(45, 321, "updated body")
@@ -711,7 +657,6 @@ def test_gitea_labels_via_tea_edit_subcommands() -> None:
     @brief   Label ops go through `tea issues edit` / `tea pulls edit` (they
              resolve label NAMES to ids); empty lists make no call; the
              configured login is carried; failures raise ForgeError.
-    @version 0.1.0
     """
     runner = FakeRunner(_ok(), _ok(), _ok())
     forge = GiteaForge("o/r", runner, login="home")
@@ -737,7 +682,6 @@ def test_gitea_get_pr_normalizes_merged_and_draft() -> None:
              normalization must say "merged" (the post-MR poll's terminal
              signal). Draft is the native field, with the WIP title prefix as
              fallback; labels map to names.
-    @version 0.1.0
     """
     merged = json.dumps(
         {"number": 29, "state": "closed", "merged": True, "draft": False,
@@ -762,7 +706,6 @@ def test_gitea_get_pr_by_branch_scans_open_pulls() -> None:
     @brief   A branch ref scans the OPEN pulls for a matching head.ref
              (branch lookup finds only open MRs, per the interface contract);
              no match maps to None.
-    @version 0.1.0
     """
     pulls = json.dumps(
         [
@@ -788,7 +731,6 @@ def test_gitea_open_pr_wip_prefix_and_reviewers_best_effort() -> None:
              URL comes from the response JSON, and the reviewer request is a
              SEPARATE best-effort call whose failure must not lose the
              already-created PR.
-    @version 0.1.0
     """
     created = '{"number": 30, "html_url": "http://g/o/r/pulls/30"}'
     runner = FakeRunner(_api_ok(created), _api_ok("{}"))
@@ -818,7 +760,6 @@ def test_gitea_open_pr_title_prefix_edges_and_missing_url() -> None:
     """
     @brief   An already-WIP title is not double-prefixed, a non-draft PR gets
              no prefix, and a created PR without html_url fails closed.
-    @version 0.1.0
     """
     created = '{"number": 31, "html_url": "http://g/o/r/pulls/31"}'
     runner = FakeRunner(_api_ok(created))

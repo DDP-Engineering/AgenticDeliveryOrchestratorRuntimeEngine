@@ -11,9 +11,6 @@
 @file test_doctor.py
 @brief Tests for environment detection + prerequisite guidance - offline, with
        a fake command runner (no real git/glab/gh/tea/docker/wsl calls).
-@author Eng. Dan Dumitru Pasare
-@date 2026-07-29
-@version 0.2.0
 """
 
 from __future__ import annotations
@@ -35,9 +32,6 @@ class FakeRunner:
     @details Maps `" ".join(argv)` by longest-prefix to a canned result, so a
              probe for an unlisted tool looks "not found" (exit 127), exactly
              like run_command on a missing binary.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-05
-    @version 0.1.0
     """
 
     def __init__(self, responses: dict[str, CommandResult]) -> None:
@@ -71,7 +65,6 @@ def _fail(stderr: str = "", exit_code: int = 1) -> CommandResult:
 def test_os_key_mapping() -> None:
     """
     @brief   platform.system() values normalize to ADORE OS keys.
-    @version 0.1.1
     """
     assert doctor._os_key("Windows") == "windows"
     assert doctor._os_key("Linux") == "linux"
@@ -85,7 +78,6 @@ def test_os_key_mapping() -> None:
 def test_detect_git_present_and_absent() -> None:
     """
     @brief   A clean `git --version` -> present with version; exit 127 -> absent.
-    @version 0.1.0
     """
     present = doctor.detect_git(FakeRunner({"git --version": _ok("git version 2.43.0")}))
     assert present.present and present.version == "git version 2.43.0"
@@ -97,7 +89,6 @@ def test_detect_platform_cli_maps_kind_and_rejects_unknown() -> None:
     """
     @brief   gitlab -> glab, github -> gh, gitea -> tea; an unknown kind
              fails closed.
-    @version 0.1.1
     """
     runner = FakeRunner({
         "glab --version": _ok("glab 1.105.0"),
@@ -115,7 +106,6 @@ def test_auth_status_authenticated_unauth_and_missing() -> None:
     """
     @brief   auth status distinguishes authenticated (exit 0), present-but-not
              (non-zero), and CLI-missing (exit 127).
-    @version 0.1.0
     """
     good = doctor.auth_status("gitlab", FakeRunner({"glab auth status": _ok("Logged in")}))
     assert good.present and good.authenticated
@@ -130,7 +120,6 @@ def test_auth_status_gitea_probes_whoami_not_auth_status() -> None:
     @brief   The gitea probe must be `tea whoami`: tea has no `auth status`
              subcommand AND exits 0 for unknown subcommands ("No help topic"),
              so the generic probe would fake an authenticated state.
-    @version 0.1.0
     """
     runner = FakeRunner({
         "tea whoami": _ok("# dpasare"),
@@ -151,7 +140,6 @@ def test_detect_runtimes_windows_lists_wsl_distros() -> None:
     """
     @brief   On Windows docker/podman are probed and WSL distros parsed (null
              bytes / blank lines from the UTF-16 quirk are stripped).
-    @version 0.1.0
     """
     runner = FakeRunner({
         "docker --version": _ok("Docker version 27.0.0"),
@@ -166,7 +154,6 @@ def test_detect_runtimes_windows_lists_wsl_distros() -> None:
 def test_detect_runtimes_linux_skips_wsl() -> None:
     """
     @brief   On Linux WSL is never probed (distros always empty).
-    @version 0.1.0
     """
     runner = FakeRunner({
         "podman --version": _ok("podman version 4.9.3"),
@@ -180,7 +167,6 @@ def test_detect_runtimes_linux_skips_wsl() -> None:
 def test_detect_executor_default_opencode() -> None:
     """
     @brief   The executor probe defaults to opencode.
-    @version 0.1.0
     """
     status = doctor.detect_executor(runner=FakeRunner({"opencode --version": _ok("opencode 1.0")}))
     assert status.name == "opencode" and status.present
@@ -189,7 +175,6 @@ def test_detect_executor_default_opencode() -> None:
 def test_detect_all_aggregate() -> None:
     """
     @brief   detect_all runs one probe of each and returns a full report.
-    @version 0.1.0
     """
     runner = FakeRunner({
         "git --version": _ok("git version 2.43.0"),
@@ -210,7 +195,6 @@ def test_guidance_is_os_specific_where_it_matters() -> None:
     """
     @brief   OS-specific components differ by OS; a "*" component (token setup)
              is shared and carries the explicit PAT format.
-    @version 0.1.0
     """
     win = doctor.guidance_for(doctor.GIT, "windows")
     lin = doctor.guidance_for(doctor.GIT, "linux")
@@ -226,7 +210,6 @@ def test_guidance_is_os_specific_where_it_matters() -> None:
 def test_guidance_unknown_component_is_graceful() -> None:
     """
     @brief   An unknown component returns a helpful fallback, not a KeyError.
-    @version 0.1.0
     """
     assert "no setup guidance" in doctor.guidance_for("nonsense", "linux")
 
@@ -234,7 +217,6 @@ def test_guidance_unknown_component_is_graceful() -> None:
 def test_auth_component_for_kind() -> None:
     """
     @brief   Maps a platform kind to its auth-guidance component; rejects others.
-    @version 0.1.1
     """
     assert doctor.auth_component_for_kind("gitlab") == doctor.GLAB_AUTH
     assert doctor.auth_component_for_kind("github") == doctor.GH_AUTH
@@ -248,7 +230,6 @@ def test_guidance_covers_tea_install_and_auth() -> None:
     @brief   The tea install text exists per OS and the shared auth text names
              `tea login add` plus the [platform] login alternative - the
              wizard prints these verbatim when something is missing.
-    @version 0.1.0
     """
     win = doctor.guidance_for(doctor.TEA, "windows")
     lin = doctor.guidance_for(doctor.TEA, "linux")
@@ -263,9 +244,6 @@ def _aegis_repo(tmp_path: Path) -> Path:
     @brief      A directory carrying the AEGIS POSIX wrapper.
     @param[in]  tmp_path pytest tmp dir.
     @return     The repository root.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-08-01
-    @version    0.1.0
     """
     root = tmp_path / "target-repo"
     wrapper = root / ".agentic" / "tools" / "run.sh"
@@ -279,7 +257,6 @@ def test_aegis_probe_accepts_a_valid_schema_3_payload(tmp_path: Path) -> None:
     @brief   The probe is the AEGIS 2.x readiness check: the wrapper exists,
              `config validate` answers ok, and the policy is schema 3. It runs
              the command with the repository as its working directory.
-    @version 0.1.0
     """
     root = _aegis_repo(tmp_path)
     runner = FakeRunner({
@@ -306,7 +283,6 @@ def test_aegis_probe_reports_a_missing_payload(tmp_path: Path) -> None:
     """
     @brief   No wrapper means no AEGIS 2.x payload; the probe never runs a
              command it knows will fail.
-    @version 0.1.0
     """
     runner = FakeRunner({})
     status = doctor.detect_aegis(tmp_path / "bare", runner)
@@ -322,7 +298,6 @@ def test_aegis_probe_fails_closed_on_a_blocked_or_unparseable_answer(
     @brief   A blocked `config validate` and non-JSON output both read as
              not-ready with the detail preserved; neither is mistaken for a
              healthy repository.
-    @version 0.1.0
     """
     root = _aegis_repo(tmp_path)
     blocked = doctor.detect_aegis(root, FakeRunner({
@@ -353,7 +328,6 @@ def test_aegis_probe_rejects_a_schema_other_than_three(tmp_path: Path) -> None:
     """
     @brief   ADORE 2.0 speaks schema 3 only; an older policy is reported, never
              accepted, and there is no migration path.
-    @version 0.1.0
     """
     root = _aegis_repo(tmp_path)
     status = doctor.detect_aegis(root, FakeRunner({
@@ -375,7 +349,6 @@ def test_aegis_guidance_points_at_waegis_and_refuses_1x(tmp_path: Path) -> None:
     """
     @brief   The guidance names the WAEGIS install path and states plainly that
              AEGIS 1.x is unsupported with no migration.
-    @version 0.1.0
     """
     text = doctor.guidance_for(doctor.AEGIS, "linux")
     assert text == doctor.guidance_for(doctor.AEGIS, "windows")

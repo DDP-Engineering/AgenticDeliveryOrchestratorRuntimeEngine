@@ -15,9 +15,6 @@
          Missing keys fall back to the documented defaults; names derived from
          the agent slug (state dir, questions file) are resolved at load time.
          Secrets are read from the environment, never from here.
-@author Eng. Dan Dumitru Pasare
-@date 2026-08-01
-@version 0.4.0
 """
 
 from __future__ import annotations
@@ -104,9 +101,6 @@ class AgentConfig:
     @details email is the git commit author email used inside the executor
              container (Security_And_Credentials.md); derived from the
              slug when empty.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-02
-    @version 0.1.2
     """
 
     name: str = PRODUCT_ACRONYM
@@ -122,9 +116,6 @@ class PlatformConfig:
              "gitea", where one CLI can hold several instance/account logins;
              empty uses tea's default login. Meaningless for glab/gh (their
              auth binds to the host), so validation rejects it there.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-29
-    @version 0.1.1
     """
 
     kind: str = "gitlab"
@@ -138,9 +129,6 @@ class StateConfig:
     @brief   [state] - how run state is signaled on the ticket.
     @details The status comment is always one comment edited in place; there
              is no per-change mode.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-05
-    @version 0.2.0
     """
 
     channel: str = "comments"
@@ -151,9 +139,6 @@ class StateConfig:
 class PollingConfig:
     """
     @brief   [polling] - poll loop cadence and concurrency.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-02
-    @version 0.1.0
     """
 
     mode: str = "loop"
@@ -168,9 +153,6 @@ class PollingConfig:
 class ReadinessConfig:
     """
     @brief   [readiness] - selection filter applied after eligibility.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-02
-    @version 0.1.0
     """
 
     require_acceptance_criteria: bool = True
@@ -183,9 +165,6 @@ class ReadinessConfig:
 class LifecycleLabels:
     """
     @brief   [labels.lifecycle] - orchestrator-managed run-state labels.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-02
-    @version 0.1.0
     """
 
     ready: str = "agent-ready"
@@ -201,9 +180,6 @@ class LifecycleLabels:
 class SelectionLabels:
     """
     @brief   [labels.selection] - human-managed priority/type labels.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-02
-    @version 0.1.0
     """
 
     priority_high: str = "P1"
@@ -216,9 +192,6 @@ class SelectionLabels:
         """
         @brief   Priority labels from highest to lowest.
         @return  Ordered label list used for queue ranking.
-        @author  Eng. Dan Dumitru Pasare
-        @date    2026-07-02
-        @version 0.1.0
         """
         return [self.priority_high, self.priority_medium, self.priority_low]
 
@@ -227,9 +200,6 @@ class SelectionLabels:
 class ControlLabels:
     """
     @brief   [labels.control] - human overrides checked before eligibility.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-02
-    @version 0.1.0
     """
 
     hold: str = "agent-hold"
@@ -240,9 +210,6 @@ class ControlLabels:
 class ExecutorLabels:
     """
     @brief   [labels.executor] - optional per-ticket executor pin.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-02
-    @version 0.1.0
     """
 
     prefix: str = "agent-exec:"
@@ -252,9 +219,6 @@ class ExecutorLabels:
 class LabelsConfig:
     """
     @brief   [labels.*] - all label categories; roles, never hard-coded strings.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-02
-    @version 0.1.0
     """
 
     lifecycle: LifecycleLabels = field(default_factory=LifecycleLabels)
@@ -267,9 +231,6 @@ class LabelsConfig:
 class ExecutorCommand:
     """
     @brief   One [executor.<name>] entry: command template plus model.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-02
-    @version 0.1.0
     """
 
     command: str = ""
@@ -287,9 +248,6 @@ class ExecutorConfig:
              provision - a pilot-only bridge for OAuth (ChatGPT-account)
              sessions that have no API key (Security_And_Credentials.md);
              production should use a real provider key instead.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-02
-    @version 0.1.2
     """
 
     default: str = "opencode"
@@ -309,9 +267,6 @@ class ContainerEgressConfig:
     @details open provides unrestricted egress; none disables container
              networking; allowlist-proxy routes HTTP/HTTPS through a per-run
              ADORE proxy with exact/wildcard hostname allowlists.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-07
-    @version 0.1.1
     """
 
     mode: str = "open"
@@ -326,9 +281,6 @@ class ContainerEgressConfig:
 class ClarificationConfig:
     """
     @brief   [clarification] - park/resume bounds and timeouts.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-02
-    @version 0.1.0
     """
 
     max_rounds: int = 3
@@ -340,9 +292,6 @@ class ClarificationConfig:
         """
         @brief   The reminder delay parsed to seconds.
         @return  Seconds after parked_at before the single nudge.
-        @author  Eng. Dan Dumitru Pasare
-        @date    2026-07-02
-        @version 0.1.0
         """
         return parse_duration(self.reminder_after)
 
@@ -350,9 +299,6 @@ class ClarificationConfig:
         """
         @brief   The hard answer timeout parsed to seconds.
         @return  Seconds after parked_at before the run is released.
-        @author  Eng. Dan Dumitru Pasare
-        @date    2026-07-02
-        @version 0.1.0
         """
         return parse_duration(self.answer_timeout)
 
@@ -374,9 +320,6 @@ class ContainerConfig:
              was validated but never consulted at runtime - `keep_parked` is
              the field parking actually reads - so a redundant, misleading
              twin was deleted rather than kept as permanent dead config.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-07
-    @version 0.6.0
     """
 
     runtime: str = "docker"
@@ -403,9 +346,6 @@ class WorktreeConfig:
              names the run branch ({slug}, {run_id}, {iid} placeholders) so
              repo conventions like a mandatory "feature/" prefix are a config
              change, not code.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-02
-    @version 0.1.2
     """
 
     repo_path: str = ""
@@ -426,9 +366,6 @@ class WorkflowConfig:
              `change` runs. `stage_timeout_overrides` raises or lowers the
              per-executor-launch bound for individual stages; anything absent
              uses [budgets] per_gate_timeout_seconds.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-08-01
-    @version 0.1.0
     """
 
     default_kind: str = "feature"
@@ -449,9 +386,6 @@ class BudgetsConfig:
              are independent knobs - a generous per-gate limit no longer forces
              an equally generous total, and a tight total no longer throttles
              every individual gate.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-24
-    @version 0.2.0
     """
 
     max_iterations: int = 20
@@ -465,9 +399,6 @@ class BudgetsConfig:
 class DeliveryConfig:
     """
     @brief   [delivery] - draft MR/PR boundary; never merges.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-02
-    @version 0.1.0
     """
 
     target_branch: str = "develop"
@@ -480,9 +411,6 @@ class DeliveryConfig:
 class ReviewConfig:
     """
     @brief   [review] - post-MR revise loop trigger and bounds.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-02
-    @version 0.1.0
     """
 
     trigger: str = "label"
@@ -495,9 +423,6 @@ class ReviewConfig:
 class ReconcileConfig:
     """
     @brief   [reconcile] - reactions to external ticket changes.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-02
-    @version 0.1.0
     """
 
     on_ticket_deleted: str = "abort-cleanup"
@@ -509,9 +434,6 @@ class ReconcileConfig:
 class MetricsConfig:
     """
     @brief   [metrics] - stdlib-only statistics capture.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-02
-    @version 0.1.0
     """
 
     enabled: bool = True
@@ -529,9 +451,6 @@ class Config:
     @details Derived defaults (store_root, questions_file, metrics paths) are
              resolved from the agent slug at load time. The raw mapping is kept
              for validation of unknown sections and for `adore config show`.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-02
-    @version 0.1.1
     """
 
     agent: AgentConfig = field(default_factory=AgentConfig)
@@ -556,9 +475,6 @@ class Config:
         """
         @brief   Resolved configuration as a plain nested mapping.
         @return  Mapping suitable for JSON output (`adore config show`).
-        @author  Eng. Dan Dumitru Pasare
-        @date    2026-07-02
-        @version 0.1.1
         """
         result = {
             name: asdict(getattr(self, name))
@@ -595,9 +511,6 @@ def _build_section(cls: type, data: Any) -> Any:
     @param[in]  cls The section dataclass type.
     @param[in]  data Raw mapping from tomllib (or anything else -> defaults).
     @return     A populated section instance.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-02
-    @version    0.1.0
     """
     if not isinstance(data, dict):
         return cls()
@@ -611,9 +524,6 @@ def _build_labels(data: Any) -> LabelsConfig:
     @brief      Build the nested [labels.*] categories.
     @param[in]  data Raw [labels] mapping.
     @return     A populated LabelsConfig.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-02
-    @version    0.1.0
     """
     if not isinstance(data, dict):
         return LabelsConfig()
@@ -632,9 +542,6 @@ def _build_executor(data: Any) -> ExecutorConfig:
                 [executor.<name>] command/model entry.
     @param[in]  data Raw [executor] mapping.
     @return     A populated ExecutorConfig.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-02
-    @version    0.1.0
     """
     if not isinstance(data, dict):
         return ExecutorConfig()
@@ -653,9 +560,6 @@ def _build_container(data: Any) -> ContainerConfig:
     @brief      Build [container] including the nested [container.egress].
     @param[in]  data Raw [container] mapping.
     @return     A populated ContainerConfig.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-07
-    @version    0.1.0
     """
     if not isinstance(data, dict):
         return ContainerConfig()
@@ -670,9 +574,6 @@ def _valid_hostname_pattern(value: str) -> bool:
     @brief      Check an egress allowlist hostname or leading wildcard.
     @param[in]  value Hostname pattern, optionally starting with "*.".
     @return     True when the pattern is syntactically safe.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-07
-    @version    0.1.0
     """
     host = value[2:] if value.startswith("*.") else value
     if not host or len(host) > 253 or host.endswith(".") or "." not in host:
@@ -685,9 +586,6 @@ def _valid_no_proxy_entry(value: str) -> bool:
     @brief      Check a NO_PROXY entry accepted by ADORE config validation.
     @param[in]  value Hostname, leading wildcard, localhost, or loopback IP.
     @return     True when the value is syntactically safe.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-07
-    @version    0.1.1
     """
     if value in ("localhost", "127.0.0.1", "::1"):
         return True
@@ -702,9 +600,6 @@ def _derive_names(config: Config) -> None:
                 "<SLUG>_QUESTIONS.md"; metrics paths under the store root.
                 Explicit values are never overridden.
     @param[in,out] config The configuration to complete in place.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-02
-    @version    0.1.2
     """
     if not config.agent.slug:
         config.agent.slug = (
@@ -739,9 +634,6 @@ def load_config(path: str | Path) -> Config:
     @return     A populated Config instance.
     @exception  FileNotFoundError When the file does not exist.
     @exception  tomllib.TOMLDecodeError When the file is not valid TOML.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-07
-    @version    0.1.2
     """
     with Path(path).open("rb") as handle:
         raw = tomllib.load(handle)
@@ -777,9 +669,6 @@ def validate_config(config: Config) -> list[str]:
                 are caught before the poll loop starts.
     @param[in]  config The configuration to validate.
     @return     Empty list when valid; otherwise one message per issue.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-08-01
-    @version    0.1.12
     """
     issues: list[str] = []
 

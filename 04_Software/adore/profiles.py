@@ -21,9 +21,6 @@
          the persistence foundation used by the `adore init` wizard and the
          `adore profile` CLI. Corrupt metadata fails closed (ProfileError), never a
          silent reinitialize - same contract as StateStore.
-@author Eng. Dan Dumitru Pasare
-@date 2026-07-05
-@version 0.2.0
 """
 
 from __future__ import annotations
@@ -61,9 +58,6 @@ class ProfileError(RuntimeError):
     @details Fail-closed signal (same shape as StateError / ForgeError /
              IsolationError): the caller reports it, never guesses or silently
              recreates a profile.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-05
-    @version 0.1.0
     """
 
 
@@ -76,9 +70,6 @@ class Profile:
              D5): only env-key names belong in the config, tokens stay in .env.
              Rich run statistics (merged/failed/success-rate) are computed on
              demand from the project's metrics DB, not duplicated here.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-05
-    @version 0.1.1
     """
 
     name: str
@@ -113,9 +104,6 @@ def _profile_from_dict(data: dict, name: str) -> Profile:
     @param[in]  data Parsed profile.json mapping.
     @param[in]  name The profile's directory name (source of truth).
     @return     The reconstructed Profile.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.1.0
     """
     known = {key: value for key, value in data.items() if key in _PROFILE_FIELDS}
     known["name"] = name
@@ -133,9 +121,6 @@ def _home_for(os_name: str, environ: Mapping[str, str]) -> Path:
     @param[in]  os_name Value of os.name ("nt" | "posix").
     @param[in]  environ Environment mapping to read overrides from.
     @return     The ADORE home directory (not created here).
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.1.1
     """
     override = environ.get(_ENV_HOME)
     if override:
@@ -157,9 +142,6 @@ def adore_home() -> Path:
     @details    Read at call time so tests can point ADORE_HOME at a tmp dir;
                 the branching logic lives in _home_for.
     @return     The ADORE home directory (not created here).
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.1.0
     """
     return _home_for(os.name, os.environ)
 
@@ -185,9 +167,6 @@ def resolve_config_path(
     @param[in]  cwd_default Fallback config filename in the working directory.
     @return     (config_path, resolved_profile_name_or_None).
     @exception  ProfileError When `profile` is named but does not exist.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.1.1
     """
     if explicit:
         return Path(explicit), None
@@ -214,9 +193,6 @@ class ProfileStore:
              not corrupt: load() raises ProfileError only when metadata exists
              but is unreadable; list_profiles() skips corrupt entries and
              invalid_profiles() reports them (mirrors StateStore).
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-05
-    @version 0.1.1
     """
 
     def __init__(
@@ -229,9 +205,6 @@ class ProfileStore:
         @brief      Build the store rooted at an ADORE home.
         @param[in]  home Config home (defaults to adore_home()).
         @param[in]  now Timestamp function (injectable for deterministic tests).
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-05
-        @version    0.1.1
         """
         self.home = Path(home) if home is not None else adore_home()
         self.profiles_dir = self.home / PROFILES_DIR
@@ -245,9 +218,6 @@ class ProfileStore:
         @brief      The directory holding a profile's files.
         @param[in]  name Profile name.
         @return     `<home>/profiles/<name>`.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-05
-        @version    0.1.0
         """
         return self.profiles_dir / name
 
@@ -256,9 +226,6 @@ class ProfileStore:
         @brief      A profile's config.toml path (written by the wizard later).
         @param[in]  name Profile name.
         @return     `<home>/profiles/<name>/config.toml`.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-05
-        @version    0.1.0
         """
         return self.profile_dir(name) / CONFIG_FILE
 
@@ -269,9 +236,6 @@ class ProfileStore:
                     profile so statistics are trivially findable.
         @param[in]  name Profile name.
         @return     `<home>/profiles/<name>/state`.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-05
-        @version    0.1.0
         """
         return self.profile_dir(name) / "state"
 
@@ -280,9 +244,6 @@ class ProfileStore:
         @brief      A profile's profile.json path.
         @param[in]  name Profile name.
         @return     `<home>/profiles/<name>/profile.json`.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-05
-        @version    0.1.0
         """
         return self.profile_dir(name) / METADATA_FILE
 
@@ -293,9 +254,6 @@ class ProfileStore:
         @brief      Whether a profile's metadata is present.
         @param[in]  name Profile name.
         @return     True when profile.json exists.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-05
-        @version    0.1.0
         """
         return self._metadata_path(name).is_file()
 
@@ -307,9 +265,6 @@ class ProfileStore:
         @param[in]  fields_ Optional Profile fields (repo, platform, runtime...).
         @return     The saved Profile (created_at/updated_at stamped).
         @exception  ProfileError When the profile exists and overwrite is False.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-05
-        @version    0.1.1
         """
         if self.exists(name) and not overwrite:
             raise ProfileError(f"profile already exists: {name!r}")
@@ -323,9 +278,6 @@ class ProfileStore:
         """
         @brief      Persist a profile's metadata atomically, stamping updated_at.
         @param[in]  profile The Profile to write.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-05
-        @version    0.1.0
         """
         if not profile.created_at:
             profile.created_at = self._now()
@@ -339,9 +291,6 @@ class ProfileStore:
         @return     The reconstructed Profile.
         @exception  ProfileError When the profile is missing or corrupt (fail
                     closed: reported, never reinitialized).
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-05
-        @version    0.1.0
         """
         path = self._metadata_path(name)
         if not path.is_file():
@@ -360,9 +309,6 @@ class ProfileStore:
         @brief      All readable profiles, sorted by name.
         @details    Corrupt entries are skipped here (see invalid_profiles).
         @return     Loaded Profiles.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-05
-        @version    0.1.0
         """
         profiles: list[Profile] = []
         for name in self._profile_names():
@@ -378,9 +324,6 @@ class ProfileStore:
         @details    The fail-closed counterpart of list_profiles(): these need
                     a human, not a silent recreate.
         @return     Sorted corrupt profile names.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-05
-        @version    0.1.0
         """
         broken: list[str] = []
         for name in self._profile_names():
@@ -396,9 +339,6 @@ class ProfileStore:
         @param[in]  name Profile name.
         @return     The updated Profile.
         @exception  ProfileError When the profile is missing or corrupt.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-05
-        @version    0.1.0
         """
         profile = self.load(name)
         profile.use_count += 1
@@ -413,9 +353,6 @@ class ProfileStore:
         @param[in]  old Existing profile name.
         @param[in]  new New profile name.
         @exception  ProfileError When old is missing or new already exists.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-05
-        @version    0.1.0
         """
         if not self.exists(old):
             raise ProfileError(f"no such profile: {old!r}")
@@ -433,9 +370,6 @@ class ProfileStore:
         @details    Idempotent; clears the active pointer when it named the
                     profile. Uses the read-only/reparse-point-tolerant rmtree.
         @param[in]  name Profile name.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-05
-        @version    0.1.0
         """
         force_rmtree(self.profile_dir(name))
         if self.get_active() == name:
@@ -447,9 +381,6 @@ class ProfileStore:
         """
         @brief      The active profile name, if one is set and still exists.
         @return     The active name, or None.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-05
-        @version    0.1.0
         """
         if not self.active_pointer.is_file():
             return None
@@ -461,9 +392,6 @@ class ProfileStore:
         @brief      Set the active profile.
         @param[in]  name Profile name (must exist).
         @exception  ProfileError When the profile does not exist.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-05
-        @version    0.1.0
         """
         if not self.exists(name):
             raise ProfileError(f"no such profile: {name!r}")
@@ -473,9 +401,6 @@ class ProfileStore:
     def clear_active(self) -> None:
         """
         @brief      Unset the active profile (idempotent).
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-05
-        @version    0.1.0
         """
         self.active_pointer.unlink(missing_ok=True)
 
@@ -485,9 +410,6 @@ class ProfileStore:
         """
         @brief      Directory names under `profiles/` that hold metadata.
         @return     Candidate profile names (unsorted).
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-05
-        @version    0.1.0
         """
         if not self.profiles_dir.is_dir():
             return []
@@ -502,9 +424,6 @@ class ProfileStore:
         @brief      Write JSON atomically (tmp file + replace).
         @param[in]  path Destination file.
         @param[in]  data JSON-serializable mapping.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-05
-        @version    0.1.0
         """
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix(path.suffix + ".tmp")

@@ -14,9 +14,6 @@
          deployment, and delivery names used by the Python runtime. Shell and
          packaging surfaces mirror these constants and are checked by the
          release-consistency tool.
-@author Eng. Dan Dumitru Pasare
-@date 2026-07-16
-@version 0.1.0
 """
 
 from __future__ import annotations

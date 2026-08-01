@@ -24,9 +24,6 @@
          contract natively and get their push/merge guardrails from the repo's
          adapter plus container isolation (no remote credentials in the
          container).
-@author Eng. Dan Dumitru Pasare
-@date 2026-07-06
-@version 0.5.0
 """
 
 from __future__ import annotations
@@ -73,9 +70,6 @@ class FileProtocolExecutor(Executor):
              `_extract_session_id` (required) and `_extract_usage` (optional,
              defaults to no usage). `forbidden_flags` and
              `session_reset_markers` are per-executor class attributes.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-05
-    @version 0.2.0
     """
 
     #: Command-template tokens rejected at construction (a bypass of the
@@ -101,9 +95,6 @@ class FileProtocolExecutor(Executor):
         @param[in]  questions_file Worktree filename the executor writes
                                    blocking questions to.
         @exception  ValueError When the template carries a forbidden flag.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-24
-        @version    0.1.2
         """
         # Tokenize with shlex so quoting is respected, and reject both the bare
         # flag and its `--flag=value` form. This stays a safety belt, not the
@@ -156,9 +147,6 @@ class FileProtocolExecutor(Executor):
         @param[in]  timeout Wall-clock bound (run budgets).
         @param[in]  archive_stem Optional immutable archive name stem.
         @return     A GateRun describing the outcome.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-05
-        @version    0.2.0
         """
         return self._run_gate_attempt(
             execute,
@@ -200,9 +188,6 @@ class FileProtocolExecutor(Executor):
         @param[in]  attempt Attempt number for this stem.
         @param[in]  artifact_dirs Archive dirs already produced.
         @return     A GateRun describing the final outcome.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-24
-        @version    0.1.1
         """
         worktree = Path(worktree)
         io_dir = Path(io_dir)
@@ -308,9 +293,6 @@ class FileProtocolExecutor(Executor):
         @param[in]  worktree Container worktree mount (/adore/work).
         @param[in]  session Session id to continue ("" = new).
         @return     The full command string embedded into gate.sh.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-05
-        @version    0.1.1
         """
         command = self.command_template.format(
             prompt=prompt, model=model, worktree=worktree
@@ -324,9 +306,6 @@ class FileProtocolExecutor(Executor):
         @brief      Pull the executor's session id from its event stream.
         @param[in]  output Raw event-stream text.
         @return     The session id, or "".
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-05
-        @version    0.1.0
         """
         raise NotImplementedError  # pragma: no cover - abstract hook
 
@@ -338,9 +317,6 @@ class FileProtocolExecutor(Executor):
                     zeros (design 13; the OAuth pilot ran that way).
         @param[in]  output Raw event-stream text.
         @return     (tokens_in, tokens_out, cost_usd).
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-05
-        @version    0.1.0
         """
         return 0, 0, 0.0
 
@@ -377,9 +353,6 @@ class FileProtocolExecutor(Executor):
         @param[in]  stderr_present Whether live stderr.log existed.
         @return     Archive directory path.
         @exception  OSError When any archive write fails.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-07
-        @version    0.1.0
         """
         archive_root = io_dir / ARCHIVE_DIR
         archive_root.mkdir(parents=True, exist_ok=True)
@@ -416,9 +389,6 @@ class FileProtocolExecutor(Executor):
         @brief      Make an archive stem safe as one directory name segment.
         @param[in]  value Raw stem.
         @return     Filesystem-safe non-empty stem.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-07
-        @version    0.1.0
         """
         safe = _ARCHIVE_STEM_RE.sub("-", value.strip()).strip(".-")
         return safe or "launch"
@@ -428,9 +398,6 @@ class FileProtocolExecutor(Executor):
         @brief      Whether stderr signals a dead/pruned session (self-heal).
         @param[in]  stderr Captured stderr.
         @return     True when any reset marker is present.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-05
-        @version    0.1.0
         """
         lowered = stderr.lower()
         return any(marker in lowered for marker in self.session_reset_markers)
@@ -441,9 +408,6 @@ class FileProtocolExecutor(Executor):
         @brief      Read a result file, tolerating its absence.
         @param[in]  path File written by the gate script (or the executor).
         @return     The content, or "" when missing/unreadable.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
         """
         try:
             return path.read_text(encoding="utf-8", errors="replace")
@@ -459,9 +423,6 @@ class OpencodeExecutor(FileProtocolExecutor):
              resume reuse the same opencode session. Rejects `--auto` (it would
              auto-approve the push/pr/merge permissions). Usage comes from
              opencode's step_finish events.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-05
-    @version 0.2.0
     """
 
     forbidden_flags = ("--auto",)
@@ -471,9 +432,6 @@ class OpencodeExecutor(FileProtocolExecutor):
         @brief      The opencode session id ("sessionID"/"session_id" anywhere).
         @param[in]  output Raw --format json event stream.
         @return     The first session id found, or "".
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.1
         """
         match = _OPENCODE_SESSION_RE.search(output)
         return match.group(1) if match else ""
@@ -486,9 +444,6 @@ class OpencodeExecutor(FileProtocolExecutor):
                     malformed lines - usage capture must never break a gate.
         @param[in]  output Raw --format json event stream.
         @return     (tokens_in, tokens_out, cost_usd) totals.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-04
-        @version    0.1.1
         """
         tokens_in = tokens_out = 0
         cost = 0.0
@@ -521,9 +476,6 @@ class PiExecutor(FileProtocolExecutor):
              {"type":"session","id":...} header; token usage is not reported in
              the stream today, so usage falls back to zeros (metrics tolerate
              it) until a spike pins a usage field.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-05
-    @version 0.1.0
     """
 
     # Pi loads its project-local guard/skills only after the project is
@@ -541,9 +493,6 @@ class PiExecutor(FileProtocolExecutor):
                     back to a generic scan.
         @param[in]  output Raw json-lines event stream.
         @return     The session id, or "".
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-05
-        @version    0.1.0
         """
         for raw in output.splitlines():
             line = raw.strip()
@@ -590,9 +539,6 @@ class CodexExecutor(FileProtocolExecutor):
              Usage is parsed best-effort from `codex exec --json`; the exact
              field schema is pinned by the live spike (until then, absent usage
              reads as zeros, which metrics tolerate).
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-06
-    @version 0.1.2
     """
 
     forbidden_flags: tuple[str, ...] = ()
@@ -609,9 +555,6 @@ class CodexExecutor(FileProtocolExecutor):
         @param[in]  worktree Container worktree mount.
         @param[in]  session Non-empty -> resume the previous gate's session.
         @return     The full command string.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-05
-        @version    0.1.0
         """
         resume = "resume --last " if session else ""
         return self.command_template.format(
@@ -624,9 +567,6 @@ class CodexExecutor(FileProtocolExecutor):
                     only; Codex continues via `resume --last`, not an id).
         @param[in]  output Raw json-lines event stream.
         @return     The id, or "".
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-05
-        @version    0.1.0
         """
         for raw in output.splitlines():
             line = raw.strip()
@@ -651,9 +591,6 @@ class CodexExecutor(FileProtocolExecutor):
                     lines are ignored so usage capture never breaks a gate.
         @param[in]  output Raw json-lines event stream.
         @return     (tokens_in, tokens_out, cost_usd).
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-05
-        @version    0.1.0
         """
         tokens_in = tokens_out = 0
         cost = 0.0
@@ -697,9 +634,6 @@ class QwenExecutor(FileProtocolExecutor):
              Usage is not parsed yet (Qwen's `--output-format json` `stats`
              block is nested/model-keyed; pinned by the live spike), so it reads
              as zeros (metrics tolerate it), like Pi.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-05
-    @version 0.1.1
     """
 
     forbidden_flags = ("--yolo",)
@@ -712,9 +646,6 @@ class QwenExecutor(FileProtocolExecutor):
         @param[in]  worktree Container worktree mount.
         @param[in]  session Ignored (Qwen does not continue sessions).
         @return     The formatted command.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-05
-        @version    0.1.0
         """
         return self.command_template.format(prompt=prompt, model=model, worktree=worktree)
 
@@ -723,9 +654,6 @@ class QwenExecutor(FileProtocolExecutor):
         @brief      No session id (Qwen runs stateless).
         @param[in]  output Ignored.
         @return     "".
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-05
-        @version    0.1.0
         """
         return ""
 
@@ -745,9 +673,6 @@ def build_executor(
     @return     An Executor instance.
     @exception  ValueError When the kind is unknown or the template carries a
                 forbidden flag.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.4.1
     """
     if kind == "opencode":
         return OpencodeExecutor(command_template, model, questions_file)

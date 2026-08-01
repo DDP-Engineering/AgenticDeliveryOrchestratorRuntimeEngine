@@ -22,9 +22,6 @@
          parameters, so the whole flow is unit-tested offline with a scripted
          asker + a fake runner. A non-interactive `--answers FILE` path reuses
          the same field keys (decision D7).
-@author Eng. Dan Dumitru Pasare
-@date 2026-07-07
-@version 0.4.0
 """
 
 from __future__ import annotations
@@ -80,9 +77,6 @@ class WizardError(RuntimeError):
     """
     @brief   Raised when the wizard cannot complete (aborted, or a required
              non-interactive answer is missing/invalid).
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-05
-    @version 0.1.0
     """
 
 
@@ -91,9 +85,6 @@ class FieldSpec:
     """
     @brief   One explicit prompt: label, description, example, default,
              optional fixed choices, and a validator returning an error or None.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-05
-    @version 0.1.0
     """
 
     key: str
@@ -110,9 +101,6 @@ class ConsoleAsker:
     @brief   Interactive prompt reader over stdin/stdout (the real user).
     @details Renders each FieldSpec (description, example, choices, default) and
              reads one line; empty input means "accept the default".
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-07
-    @version 0.2.0
     """
 
     interactive = True
@@ -130,9 +118,6 @@ class ConsoleAsker:
         @brief      Render a field and read one raw line.
         @param[in]  spec The field to prompt.
         @return     The stripped input, or None when the user just pressed Enter.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-07
-        @version    0.2.0
         """
         self._out(f"\n{spec.prompt}")
         if spec.description:
@@ -157,9 +142,6 @@ class ScriptedAsker:
              string or a queue (list) consumed across re-prompts. `interactive`
              controls whether a validation failure re-prompts (tests) or fails
              fast (an answers file, decision D7).
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-05
-    @version 0.1.0
     """
 
     def __init__(
@@ -182,9 +164,6 @@ class ScriptedAsker:
         @brief      Return the next scripted answer for a field, or None.
         @param[in]  spec The field being asked.
         @return     The answer string, or None to fall back to the default.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-05
-        @version    0.1.0
         """
         self.reads.append(spec.key)
         queue = self.answers.get(spec.key)
@@ -197,12 +176,12 @@ class ScriptedAsker:
 
 
 def _require(value: str) -> str | None:
-    """@brief Non-empty check. @version 0.1.0"""
+    """@brief Non-empty check."""
     return None if value.strip() else "a value is required"
 
 
 def _valid_regex(value: str) -> str | None:
-    """@brief The value must compile as a regular expression. @version 0.1.0"""
+    """@brief The value must compile as a regular expression."""
     try:
         re.compile(value)
     except re.error as exc:
@@ -211,7 +190,7 @@ def _valid_regex(value: str) -> str | None:
 
 
 def _existing_dir(value: str) -> str | None:
-    """@brief The path must be an existing directory. @version 0.1.0"""
+    """@brief The path must be an existing directory."""
     if not value.strip():
         return "a path is required"
     if not Path(value).expanduser().is_dir():
@@ -220,7 +199,7 @@ def _existing_dir(value: str) -> str | None:
 
 
 def _runtime_ok(value: str) -> str | None:
-    """@brief Last token must be docker/podman (matches config validation). @version 0.1.0"""
+    """@brief Last token must be docker/podman (matches config validation)."""
     tokens = value.split()
     if not tokens or tokens[-1] not in ("docker", "podman"):
         return 'must end in "docker" or "podman" (optionally wrapped, e.g. "wsl -d D -- docker")'
@@ -228,7 +207,7 @@ def _runtime_ok(value: str) -> str | None:
 
 
 def _positive_int(value: str) -> str | None:
-    """@brief A positive integer. @version 0.1.0"""
+    """@brief A positive integer."""
     try:
         if int(value) <= 0:
             return "must be a positive whole number"
@@ -238,7 +217,7 @@ def _positive_int(value: str) -> str | None:
 
 
 def _positive_number(value: str) -> str | None:
-    """@brief A positive number (float ok). @version 0.1.0"""
+    """@brief A positive number (float ok)."""
     try:
         if float(value) <= 0:
             return "must be a positive number"
@@ -252,9 +231,6 @@ def _slugify(name: str) -> str:
     @brief      Derive a config slug from a display name (matches config rules).
     @param[in]  name Display name.
     @return     A lowercase [a-z][a-z0-9-]* slug (fallback "adore").
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.1.2
     """
     slug = re.sub(r"[^a-z0-9-]", "", name.lower())
     return slug if re.match(r"^[a-z][a-z0-9-]*$", slug) else PRODUCT_SLUG
@@ -266,9 +242,6 @@ def _resolve_choice(spec: FieldSpec, value: str) -> str:
     @param[in]  spec The field whose choices are being resolved.
     @param[in]  value Raw answer after default handling.
     @return     The matching configured choice, or the original answer.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-07
-    @version    0.1.0
     """
     if not spec.choices:
         return value
@@ -293,9 +266,6 @@ def ask(spec: FieldSpec, asker: ConsoleAsker | ScriptedAsker, out: Callable[[str
     @param[in]  out Output sink for error lines.
     @return     The validated string value.
     @exception  WizardError When a non-interactive answer is invalid/missing.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-07
-    @version    0.2.0
     """
     while True:
         raw = asker.read(spec)
@@ -324,9 +294,6 @@ def _toml_string(value: str) -> str:
                 contains a single quote or newline falls back to a basic string.
     @param[in]  value The string.
     @return     A TOML string token.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.1.0
     """
     if "'" not in value and "\n" not in value:
         return f"'{value}'"
@@ -342,9 +309,6 @@ def _toml_value(value: object) -> str:
                 section.
     @param[in]  value bool / int / float / str / list / dict.
     @return     The TOML token.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-08-01
-    @version    0.2.0
     """
     if isinstance(value, bool):
         return "true" if value else "false"
@@ -372,9 +336,6 @@ def _emit_config_toml(
     @param[in]  profile_name The profile this config belongs to.
     @param[in]  stamp Human timestamp for the generated-by comment.
     @return     The complete TOML document text.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.1.1
     """
     lines = list(_LICENSE_LINES)
     lines.append("#")
@@ -421,9 +382,6 @@ def run_wizard(
     @return     The saved Profile.
     @exception  WizardError On abort, an existing profile without --force, or a
                 config that fails validation.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-29
-    @version    0.2.0
     """
     key = os_key or doctor.detect_os()
 
@@ -712,9 +670,6 @@ def _command_for(executor_cli: str) -> str:
                 validation passes). Advanced users edit config.toml by hand.
     @param[in]  executor_cli Executor name.
     @return     The command template.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.1.0
     """
     if executor_cli == "opencode":
         return _OPENCODE_COMMAND
@@ -733,9 +688,6 @@ def _suggest_runtime(os_key: str, runtimes: doctor.RuntimeDetection) -> str:
     @param[in]  os_key Host OS key.
     @param[in]  runtimes Detected runtimes.
     @return     A runtime string (docker/podman, WSL-wrapped on Windows).
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.1.0
     """
     if os_key == "windows" and runtimes.wsl_distros:
         distro = runtimes.wsl_distros[0]
@@ -765,9 +717,6 @@ def _report_aegis(
     @param[in]  runner Command runner for the probe.
     @param[in]  repo_path Local clone to probe.
     @param[in]  os_key Host OS key (selects guidance wording).
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-08-01
-    @version    0.1.0
     """
     status = doctor.detect_aegis(repo_path, runner)
     out(f"  [{'OK' if status.ok else 'CHECK'}] AEGIS 2.x payload"
@@ -790,9 +739,6 @@ def _report_environment(
     @param[in]  runner Command runner for probes.
     @param[in]  os_key Host OS key.
     @param[in]  kind Platform kind (selects glab/gh/tea).
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-29
-    @version    0.1.1
     """
     out("\n--- Environment check (informational) ---")
     git = doctor.detect_git(runner)
@@ -816,9 +762,6 @@ def _assemble_sections(**a: object) -> list[tuple[str, dict[str, object]]]:
                 stays small (decision D4).
     @param[in]  a Collected answers (see run_wizard).
     @return     Ordered (table-header, key->value) pairs.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-08-01
-    @version    0.2.0
     """
     sections: list[tuple[str, dict[str, object]]] = []
     if a["agent_name"] != PRODUCT_ACRONYM:
@@ -890,9 +833,6 @@ def _env_keys_for_model(model: str) -> list[str]:
     @brief      The provider secret key name(s) implied by a model id.
     @param[in]  model e.g. "openai/gpt-5.5" or "anthropic/claude-...".
     @return     The env-key NAMES to inject (never values).
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.1.0
     """
     lowered = model.lower()
     if lowered.startswith("anthropic"):
@@ -911,9 +851,6 @@ def _validate_or_raise(document: str, out: Callable[[str], None]) -> None:
     @param[in]  document The config.toml text.
     @param[in]  out Output sink for the issue list.
     @exception  WizardError When validation finds issues.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.1.0
     """
     with tempfile.NamedTemporaryFile("w", suffix=".toml", delete=False,
                                      encoding="utf-8") as handle:
@@ -933,7 +870,7 @@ def _validate_or_raise(document: str, out: Callable[[str], None]) -> None:
 def _print_summary(
     out: Callable[[str], None], name: str, sections: list[tuple[str, dict[str, object]]]
 ) -> None:
-    """@brief Print the resolved config for confirmation. @version 0.1.0"""
+    """@brief Print the resolved config for confirmation."""
     out(f"\n=== Profile '{name}' - review ===")
     for header, mapping in sections:
         out(f"[{header}]")
@@ -946,7 +883,7 @@ def _print_next_steps(
     out: Callable[[str], None], name: str, kind: str, auth_mode: str,
     model: str, runtime: str, image: str,
 ) -> None:
-    """@brief Print OS-agnostic next steps after a successful write. @version 0.1.1"""
+    """@brief Print OS-agnostic next steps after a successful write."""
     out(f"\nProfile '{name}' created and validated.")
     out("Next steps:")
     if auth_mode == "api-key":

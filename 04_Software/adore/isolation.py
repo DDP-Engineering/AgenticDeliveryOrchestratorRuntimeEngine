@@ -24,9 +24,6 @@
          `WorktreeManager.remove` retries past the WSL2 bind-mount teardown
          race (moved here from orchestrator.py per ADORE-ARCH-009 - this is
          isolation-layer platform knowledge, not core-loop logic).
-@author Eng. Dan Dumitru Pasare
-@date 2026-07-24
-@version 0.7.0
 """
 
 from __future__ import annotations
@@ -114,9 +111,6 @@ class IsolationError(RuntimeError):
     @details Carries the command and stderr so failures are diagnosable from
              the journal without re-running anything (same shape as
              ForgeError / StateError; fail closed, never guess).
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-03
-    @version 0.1.0
     """
 
     def __init__(self, message: str, argv: list[str] | None = None, stderr: str = "") -> None:
@@ -125,9 +119,6 @@ class IsolationError(RuntimeError):
         @param[in]  message Human-readable summary.
         @param[in]  argv The command that failed.
         @param[in]  stderr Captured stderr from the tool.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
         """
         detail = message
         if argv:
@@ -145,9 +136,6 @@ def _is_teardown_race(exc: IsolationError) -> bool:
                 bind-mount teardown race (worth retrying) vs a real error.
     @param[in]  exc The IsolationError raised by worktree removal.
     @return     True when the stderr matches a known mount-release signature.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.1.0
     """
     text = (getattr(exc, "stderr", "") or str(exc)).lower()
     return any(marker in text for marker in _TEARDOWN_RACE_MARKERS)
@@ -164,9 +152,6 @@ def wsl_mount_path(path: str | Path) -> str:
                 drive letter (already POSIX) pass through unchanged.
     @param[in]  path Host path.
     @return     The mount source usable by a WSL-side docker daemon.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-03
-    @version    0.1.0
     """
     posix = Path(path).as_posix()
     match = _DRIVE_RE.match(posix)
@@ -193,9 +178,6 @@ def build_container_env(git_dir_name: str, git_name: str, git_email: str) -> dic
     @param[in]  git_name Commit author/committer name (agent.name).
     @param[in]  git_email Commit author/committer email (agent.email).
     @return     Environment mapping for ContainerManager.provision.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-06
-    @version    0.1.1
     """
     return {
         # Force the container user's home explicitly: some daemons (Docker
@@ -222,9 +204,6 @@ class WorktreeManager:
              `remove` retries past the WSL bind-mount teardown race
              (ADORE-ARCH-009: this platform-specific handling used to live in
              the orchestrator's core loop; it belongs here instead).
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-03
-    @version 0.2.0
     """
 
     def __init__(
@@ -245,9 +224,6 @@ class WorktreeManager:
         @param[in]  runner Command runner (injectable for tests).
         @param[in]  sleep Sleep function used by `remove`'s teardown-race
                           backoff (test override).
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.2
         """
         self.repo_path = Path(repo_path).resolve()
         self.root = Path(root).resolve()
@@ -259,9 +235,6 @@ class WorktreeManager:
         @brief      The worktree directory for a run.
         @param[in]  run_id Stable run identifier.
         @return     `<root>/<run-id>`.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
         """
         return self.root / run_id
 
@@ -270,9 +243,6 @@ class WorktreeManager:
         @brief      Whether the run's worktree is present on disk.
         @param[in]  run_id Stable run identifier.
         @return     True when the worktree dir with its `.git` pointer exists.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
         """
         return (self.path_for(run_id) / ".git").exists()
 
@@ -289,9 +259,6 @@ class WorktreeManager:
                              "origin/develop").
         @return     The worktree path.
         @exception  IsolationError When git fails.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.1
         """
         path = self.path_for(run_id)
         if self.exists(run_id):
@@ -326,9 +293,6 @@ class WorktreeManager:
         @param[in]  delete_branch Branch to force-delete, or None to keep it.
         @exception  IsolationError When git fails for another reason, or the
                     teardown race persists past every retry.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.2.0
         """
         path = self.path_for(run_id)
         last: IsolationError | None = None
@@ -359,9 +323,6 @@ class WorktreeManager:
         @return     The admin dir name (usually the run-id).
         @exception  IsolationError When the pointer file is missing/unreadable
                     or carries no gitdir line (fail closed, never guess).
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
         """
         pointer = self.path_for(run_id) / ".git"
         try:
@@ -383,9 +344,6 @@ class WorktreeManager:
         @details Includes husks (deregistered but not deleted, e.g. after the
                  WSL bind-mount race) - exactly what `adore cleanup` sweeps.
         @return  Child directories, sorted.
-        @author  Eng. Dan Dumitru Pasare
-        @date    2026-07-04
-        @version 0.1.1
         """
         if not self.root.is_dir():
             return []
@@ -396,9 +354,6 @@ class WorktreeManager:
         @brief      Fetch the remote into the local clone.
         @param[in]  remote Remote name.
         @exception  IsolationError When git fails (offline, auth, ...).
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
         """
         self._git("fetch", remote)
 
@@ -412,9 +367,6 @@ class WorktreeManager:
         @param[in]  run_id Stable run identifier.
         @param[in]  ref Ref to merge (for example "origin/develop").
         @return     The captured CommandResult.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-06
-        @version    0.1.1
         """
         self.scrub_container_worktree_config()
         return self.runner(
@@ -426,9 +378,6 @@ class WorktreeManager:
         @brief      Whether an unconcluded merge sits in the worktree.
         @param[in]  run_id Stable run identifier.
         @return     True when MERGE_HEAD exists (conflicts not yet committed).
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-06
-        @version    0.1.1
         """
         self.scrub_container_worktree_config()
         result = self.runner(
@@ -446,9 +395,6 @@ class WorktreeManager:
         @param[in]  run_id Stable run identifier.
         @param[in]  branch Branch name to push.
         @return     The captured CommandResult.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-06
-        @version    0.1.2
         """
         self.scrub_container_worktree_config()
         return self.runner(
@@ -465,9 +411,6 @@ class WorktreeManager:
         @param[in]  run_id Stable run identifier.
         @return     True when `git status --porcelain` reports anything.
         @exception  IsolationError When git fails.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
         """
         result = self._run_wt(str(self.path_for(run_id)), "status", "--porcelain")
         return bool(result.stdout.strip())
@@ -479,9 +422,6 @@ class WorktreeManager:
         @param[in]  base_ref The ref the run branched from.
         @return     Commit count (0 = nothing to deliver).
         @exception  IsolationError When git fails.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
         """
         result = self._run_wt(
             str(self.path_for(run_id)), "rev-list", "--count", f"{base_ref}..HEAD"
@@ -498,9 +438,6 @@ class WorktreeManager:
         @param[in]  base_ref The ref the run branched from.
         @return     Count of distinct changed file paths.
         @exception  IsolationError When git fails.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-24
-        @version    0.1.1
         """
         wt = str(self.path_for(run_id))
         committed = self._run_wt(wt, "diff", "--name-only", f"{base_ref}...HEAD")
@@ -523,9 +460,6 @@ class WorktreeManager:
                     with special characters are removed.
         @param[in]  line One porcelain status line.
         @return     The repository-relative path, or "" for a blank line.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-24
-        @version    0.1.0
         """
         entry = line[3:].strip() if len(line) > 3 else line.strip()
         if not entry:
@@ -547,9 +481,6 @@ class WorktreeManager:
         @param[in]  message Commit message.
         @return     True when a commit was created.
         @exception  IsolationError When git fails.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-06
-        @version    0.1.0
         """
         wt = str(self.path_for(run_id))
         if not self._run_wt(wt, "status", "--porcelain").stdout.strip():
@@ -571,9 +502,6 @@ class WorktreeManager:
                  narrow: it removes only `[core] worktree` values pointing at
                  ADORE's `/adore/...` container mount, leaving legitimate host
                  paths and all other config intact.
-        @author  Eng. Dan Dumitru Pasare
-        @date    2026-07-06
-        @version 0.1.1
         """
         config_path = self.repo_path / ".git" / "config"
         try:
@@ -604,9 +532,6 @@ class WorktreeManager:
         @brief      Whether a local branch exists in the clone.
         @param[in]  branch Branch name.
         @return     True when `git rev-parse --verify` succeeds.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
         """
         self.scrub_container_worktree_config()
         result = self.runner(
@@ -623,9 +548,6 @@ class WorktreeManager:
         @param[in]  args git subcommand and arguments.
         @return     The successful CommandResult.
         @exception  IsolationError When git exits non-zero.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-06
-        @version    0.1.1
         """
         self.scrub_container_worktree_config()
         argv = ["git", "-C", str(self.repo_path), *args]
@@ -641,9 +563,6 @@ class WorktreeManager:
         @param[in]  args git subcommand and arguments.
         @return     The successful CommandResult.
         @exception  IsolationError When git exits non-zero.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-06
-        @version    0.1.1
         """
         self.scrub_container_worktree_config()
         argv = ["git", "-C", worktree, *args]
@@ -662,9 +581,6 @@ class ContainerManager:
              removed) when the parked TTL expires (design 8b). The worktree
              and repo are bind-mounted; project dependencies resolve into the
              mounted cache volumes, never into the worktree (design 10a).
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-07
-    @version 0.3.0
     """
 
     def __init__(
@@ -693,9 +609,6 @@ class ContainerManager:
                              ([container] run_args; e.g. "--userns=keep-id"
                              for rootless podman, live finding 2026-07-04).
         @param[in]  egress Optional egress policy for executor containers.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-07
-        @version    0.3.0
         """
         self.runtime = runtime
         self.runtime_argv = shlex.split(runtime)
@@ -713,9 +626,6 @@ class ContainerManager:
         @param[in]  name Container name ("<slug>-run-<run-id>").
         @return     "running", "exited", "created", ... or "absent".
         @exception  IsolationError When the runtime fails for another reason.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.1
         """
         result = self.runner(
             [*self.runtime_argv, "inspect", "--format", "{{.State.Status}}", name]
@@ -733,9 +643,6 @@ class ContainerManager:
         @param[in]  prefix Container-name prefix ("<slug>-run-").
         @return     Matching container names.
         @exception  IsolationError When the runtime fails.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-04
-        @version    0.1.0
         """
         result = self._run(
             [*self.runtime_argv, "ps", "--all",
@@ -749,9 +656,6 @@ class ContainerManager:
         @param[in]  prefix Optional network-name prefix override.
         @return     Matching network names.
         @exception  IsolationError When the runtime fails.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-07
-        @version    0.1.1
         """
         network_prefix = prefix or self.egress.network_prefix
         result = self._run(
@@ -768,9 +672,6 @@ class ContainerManager:
                  existing volume is the success case for both, so that error
                  is tolerated while any other failure still raises.
         @exception IsolationError When the runtime fails for another reason.
-        @author  Eng. Dan Dumitru Pasare
-        @date    2026-07-05
-        @version 0.2.0
         """
         for volume in (self.uv_cache_volume, self.npm_cache_volume):
             result = self.runner([*self.runtime_argv, "volume", "create", volume])
@@ -821,9 +722,6 @@ class ContainerManager:
                     lived only inside the old one, like executor sessions, is
                     gone; live finding 2026-07-03).
         @exception  IsolationError When the runtime fails.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-07
-        @version    0.2.1
         """
         state = self.status(name)
         if state == "running":
@@ -889,9 +787,6 @@ class ContainerManager:
         @param[in]  checks Command strings such as "terraform --version".
         @param[in]  env Optional exec-time environment.
         @exception  IsolationError When a check is malformed or exits non-zero.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-06
-        @version    0.1.0
         """
         for check in checks:
             try:
@@ -917,9 +812,6 @@ class ContainerManager:
         @brief      Start a stopped container (fast resume from park).
         @param[in]  name Container name.
         @exception  IsolationError When the runtime fails.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.1
         """
         self._run([*self.runtime_argv, "start", name])
 
@@ -929,9 +821,6 @@ class ContainerManager:
         @details    Idempotent: an absent container is not an error.
         @param[in]  name Container name.
         @exception  IsolationError When the runtime fails for another reason.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.1
         """
         result = self.runner([*self.runtime_argv, "stop", name])
         if not result.ok and self.status(name) != "absent":
@@ -944,9 +833,6 @@ class ContainerManager:
                     worktree and `.adore` state always survive a reap.
         @param[in]  name Container name.
         @exception  IsolationError When the runtime fails for another reason.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-07
-        @version    0.2.1
         """
         result = self.runner([*self.runtime_argv, "rm", "--force", name])
         if not result.ok and self.status(name) != "absent":
@@ -958,9 +844,6 @@ class ContainerManager:
         @brief      Remove the proxy container and network for one run.
         @param[in]  name Executor container name.
         @exception  IsolationError When the runtime fails unexpectedly.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-07
-        @version    0.1.0
         """
         if self.egress.mode != "allowlist-proxy":
             return
@@ -1012,9 +895,6 @@ class ContainerManager:
         @param[in]  env Optional exec-time env; safe values go inline, secrets
                         are passed by bare key/process environment.
         @return     The captured CommandResult.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-07
-        @version    0.3.0
         """
         if timeout is None:
             timeout = DEFAULT_COMMAND_TIMEOUT
@@ -1045,9 +925,6 @@ class ContainerManager:
         @param[in]  value Raw name.
         @param[in]  limit Maximum returned length.
         @return     Runtime-safe name segment.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-07
-        @version    0.1.0
         """
         safe = _SAFE_NAME_RE.sub("-", value).strip("-._")
         return (safe or "run")[:limit]
@@ -1057,9 +934,6 @@ class ContainerManager:
         @brief      Per-run internal egress network name.
         @param[in]  name Executor container name.
         @return     Network name.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-07
-        @version    0.1.0
         """
         return f"{self.egress.network_prefix}-{self._safe_name(name)}"
 
@@ -1068,9 +942,6 @@ class ContainerManager:
         @brief      Per-run proxy container name.
         @param[in]  name Executor container name.
         @return     Proxy container name.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-07
-        @version    0.1.0
         """
         return f"{self._safe_name(name, limit=50)}{_PROXY_SUFFIX}"
 
@@ -1078,9 +949,6 @@ class ContainerManager:
         """
         @brief      Proxy variables injected into executor containers/execs.
         @return     Uppercase and lowercase HTTP proxy environment mapping.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-07
-        @version    0.1.0
         """
         proxy_url = f"http://{PROXY_ALIAS}:{self.egress.proxy_port}"
         no_proxy = ",".join(self.egress.no_proxy)
@@ -1100,9 +968,6 @@ class ContainerManager:
         @brief      Convert an ADORE hostname pattern to Squid dstdomain form.
         @param[in]  pattern Exact or wildcard hostname.
         @return     Squid dstdomain token.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-07
-        @version    0.1.1
         """
         return f".{pattern[2:]}" if pattern.startswith("*.") else pattern
 
@@ -1111,9 +976,6 @@ class ContainerManager:
         @brief      Write the per-run Squid allowlist configuration.
         @param[in]  io_path Run IO directory.
         @return     Host path to the generated Squid config.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-07
-        @version    0.1.1
         """
         proxy_dir = Path(io_path) / "egress-proxy"
         proxy_dir.mkdir(parents=True, exist_ok=True)
@@ -1140,9 +1002,6 @@ class ContainerManager:
         @param[in]  name Executor container name.
         @param[in]  io_path Run IO directory for generated proxy config.
         @exception  IsolationError When any runtime operation fails.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-07
-        @version    0.1.0
         """
         network = self._egress_network_name(name)
         result = self.runner([*self.runtime_argv, "network", "create", "--internal", network])
@@ -1186,9 +1045,6 @@ class ContainerManager:
         @param[in]  path Host path.
         @return     WSL-translated (/mnt/<drive>/...) in WSL mode, POSIX-style
                     otherwise.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.1
         """
         absolute = Path(path).resolve()
         return wsl_mount_path(absolute) if self.wsl_mode else absolute.as_posix()
@@ -1199,9 +1055,6 @@ class ContainerManager:
         @param[in]  argv Full command vector (runtime prefix included).
         @return     The successful CommandResult.
         @exception  IsolationError When the command exits non-zero.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.1
         """
         result = self.runner(argv)
         if not result.ok:

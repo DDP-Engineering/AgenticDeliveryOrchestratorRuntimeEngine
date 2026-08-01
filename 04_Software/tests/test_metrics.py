@@ -10,9 +10,6 @@
 """
 @file test_metrics.py
 @brief Tests for statistics capture and query (journal -> summary -> SQLite).
-@author Eng. Dan Dumitru Pasare
-@date 2026-07-04
-@version 0.1.0
 """
 
 from __future__ import annotations
@@ -41,9 +38,6 @@ def _seed_run(tmp_path: Path) -> StateStore:
     @brief      A store with one finished run: journal, state, ticket.
     @param[in]  tmp_path pytest tmp dir.
     @return     The StateStore with run "r-45".
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-04
-    @version    0.1.1
     """
     store = StateStore(tmp_path / ".adore")
     store.save(RunState(
@@ -88,7 +82,6 @@ def test_summarize_run_computes_the_catalog(tmp_path: Path) -> None:
     """
     @brief   The summary derives every catalog field from the journal: gate
              outcomes, launches, usage totals, park wait, time-to-MR, span.
-    @version 0.1.0
     """
     store = _seed_run(tmp_path)
     summary = summarize_run(store, "r-45", files_changed=3)
@@ -112,7 +105,6 @@ def test_record_load_roundtrip_is_duplicate_free(tmp_path: Path) -> None:
     """
     @brief   INSERT OR REPLACE by run_id: re-recording updates, never
              duplicates; the JSONL mirror matches the database.
-    @version 0.1.0
     """
     db = tmp_path / "m.db"
     mirror = tmp_path / "runs.jsonl"
@@ -129,7 +121,6 @@ def test_since_window_filters_by_ended_at(tmp_path: Path) -> None:
     """
     @brief   --since keeps only runs ending inside the window; unparseable
              ended_at rows are excluded rather than guessed.
-    @version 0.1.0
     """
     from datetime import UTC, datetime, timedelta
 
@@ -146,7 +137,6 @@ def test_since_window_filters_by_ended_at(tmp_path: Path) -> None:
 def test_aggregate_groups_and_totals(tmp_path: Path) -> None:
     """
     @brief   Grouping by priority yields per-group counts and totals.
-    @version 0.1.0
     """
     rows = [
         RunSummary(run_id="1", priority="P1", outcome="merged",
@@ -170,7 +160,6 @@ def test_csv_and_html_outputs(tmp_path: Path) -> None:
     """
     @brief   CSV carries a header + one line per run; the HTML file is
              self-contained and escapes content.
-    @version 0.1.0
     """
     rows = [RunSummary(run_id="r<1>", title='He said "hi" & left',
                        outcome="merged")]
@@ -188,7 +177,6 @@ def test_profile_stats_empty_and_seeded(tmp_path: Path) -> None:
     """
     @brief   profile_stats yields zeros for a missing DB and headline figures
              (runs/merged/failed/success_rate/last_run) for a seeded one.
-    @version 0.1.0
     """
     db = tmp_path / "metrics.db"
     empty = profile_stats(db)
@@ -210,7 +198,6 @@ def test_profile_stats_empty_and_seeded(tmp_path: Path) -> None:
 def test_is_terminal_classification() -> None:
     """
     @brief   Only true end states are recordable.
-    @version 0.1.0
     """
     for lifecycle in ("done", "failed", "cancelled", "stale", "ticket-closed"):
         assert is_terminal(lifecycle)

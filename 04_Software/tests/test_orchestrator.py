@@ -16,9 +16,6 @@
          the per-gate loop with retries and budgets, the exact park sequence,
          resume detection (marker/system filtering, answered override), TTL
          reap, answer timeout, and reconciliation of deleted/closed tickets.
-@author Eng. Dan Dumitru Pasare
-@date 2026-07-03
-@version 0.11.0
 """
 
 from __future__ import annotations
@@ -62,17 +59,11 @@ AEGIS_RUN = "feature-2026-08-01T101112Z-0a1b2c3d"
 class FakeForge(Forge):
     """
     @brief   In-memory Git platform recording every call for order asserts.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-03
-    @version 0.1.0
     """
 
     def __init__(self) -> None:
         """
         @brief   Empty platform.
-        @author  Eng. Dan Dumitru Pasare
-        @date    2026-07-03
-        @version 0.1.1
         """
         self.tickets: dict[int, Ticket] = {}
         self.comments: dict[int, list[Comment]] = {}
@@ -96,9 +87,6 @@ class FakeForge(Forge):
         @param[in]  body Description.
         @param[in]  labels Labels (default ready + P1).
         @return     The ticket.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
         """
         ticket = Ticket(iid=iid, title=title, description=body,
                         labels=labels if labels is not None else ["agent-ready", "P1"])
@@ -112,9 +100,6 @@ class FakeForge(Forge):
         @param[in]  iid Ticket id.
         @param[in]  body Comment body (no marker).
         @return     The comment.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
         """
         self._next_comment_id += 1
         comment = Comment(id=self._next_comment_id, body=body, author="human")
@@ -198,9 +183,6 @@ class FakeForge(Forge):
 class FakeWorktrees:
     """
     @brief   Worktree manager double (interface subset the engine uses).
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-03
-    @version 0.1.0
     """
 
     def __init__(self, root: Path) -> None:
@@ -286,17 +268,11 @@ class FakeAegis:
              against a live payload. Every deviation - a stage that will not
              become ready, a failing verification, a blocked close, a
              non-conforming response - is a knob.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-08-01
-    @version 0.1.0
     """
 
     def __init__(self) -> None:
         """
         @brief   A fresh payload with no run started.
-        @author  Eng. Dan Dumitru Pasare
-        @date    2026-08-01
-        @version 0.2.0
         """
         self.run_id = ""
         self.kind = ""
@@ -337,9 +313,6 @@ class FakeAegis:
         """
         @brief   The stage the run currently sits on.
         @return  Stage name ("none" once the run completed).
-        @author  Eng. Dan Dumitru Pasare
-        @date    2026-08-01
-        @version 0.1.0
         """
         return "none" if self.complete else self.stages[self.index]
 
@@ -349,9 +322,6 @@ class FakeAegis:
         @param[in]  stage Stage name.
         @param[in]  consume Whether to drop the attempt after reading it.
         @return     Blocker strings (empty when the stage is ready).
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.1.0
         """
         attempts = self.blockers.get(stage)
         if not attempts:
@@ -364,9 +334,6 @@ class FakeAegis:
         @param[in]  status Envelope status.
         @param[in]  extras Command-specific extras.
         @return     JSON text.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.1.0
         """
         payload = {
             "status": status,
@@ -382,9 +349,6 @@ class FakeAegis:
         @brief      The `stage show` mapping for the current stage.
         @param[in]  consume Whether reading it consumes a scripted attempt.
         @return     The readiness mapping.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.1.0
         """
         blockers = self._pending_blockers(self.stage, consume)
         return {
@@ -404,9 +368,6 @@ class FakeAegis:
         @details A started AEGIS run always has a graph.json, so the fake
                  writes one - ADORE reads evidence and stage control from it,
                  and treats its absence as a broken run record.
-        @author  Eng. Dan Dumitru Pasare
-        @date    2026-08-01
-        @version 0.1.0
         """
         if self.worktree is None or not self.run_id or self.freeze_graph:
             return
@@ -435,9 +396,6 @@ class FakeAegis:
         """
         @brief   Quick-profile status fields, empty for full runs.
         @return  The extras mapping.
-        @author  Eng. Dan Dumitru Pasare
-        @date    2026-08-01
-        @version 0.1.0
         """
         if self.profile != "quick":
             return {}
@@ -452,9 +410,6 @@ class FakeAegis:
         @brief      Answer one `run.sh` invocation.
         @param[in]  argv Full command tokens.
         @return     The CommandResult a real payload would produce.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.2.0
         """
         self.calls.append(list(argv))
         verbs = [token for token in argv[2:] if not token.startswith("--")]
@@ -553,9 +508,6 @@ class FakeAegis:
 class FakeContainers:
     """
     @brief   Container manager double delegating AEGIS commands to FakeAegis.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-08-01
-    @version 0.3.0
     """
 
     def __init__(self) -> None:
@@ -619,9 +571,6 @@ class FakeContainers:
 class FakeExecutor(Executor):
     """
     @brief   Executor double replaying scripted GateRuns; records prompts.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-03
-    @version 0.1.0
     """
 
     def __init__(self, results: list[GateRun] | None = None) -> None:
@@ -649,9 +598,6 @@ def make_config(tmp_path: Path, **overrides) -> Config:
     @param[in]  tmp_path pytest tmp dir.
     @param[in]  overrides Attribute overrides applied via section.key paths.
     @return     The Config.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-03
-    @version    0.1.1
     """
     config = Config()
     config.agent.slug = "adore"
@@ -680,9 +626,6 @@ def make_engine(tmp_path: Path, executor: FakeExecutor | None = None,
     @param[in]  executor Optional scripted executor.
     @param[in]  config Optional prebuilt config.
     @return     (engine, forge, containers, worktrees).
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-03
-    @version    0.1.0
     """
     config = config or make_config(tmp_path)
     forge = FakeForge()
@@ -705,9 +648,6 @@ def gate_ok(session: str = "ses_1") -> GateRun:
     @brief      A clean gate result.
     @param[in]  session Session id carried forward.
     @return     The GateRun.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-03
-    @version    0.1.0
     """
     return GateRun(exit_code=0, session_id=session)
 
@@ -718,9 +658,6 @@ def gate_cost(cost_usd: float, session: str = "ses_1") -> GateRun:
     @param[in]  cost_usd USD the executor reported for this launch.
     @param[in]  session Session id carried forward.
     @return     The GateRun.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-08-01
-    @version    0.1.0
     """
     return GateRun(exit_code=0, session_id=session, tokens_in=1000,
                    tokens_out=500, cost_usd=cost_usd)
@@ -750,9 +687,6 @@ def write_agentic_failure_evidence(
     @param[in]  command Failed command.
     @param[in]  gate Failing gate group name.
     @param[in]  report Existing report.md text.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-08-01
-    @version    0.3.0
     """
     aegis.evidence = [
         {
@@ -797,9 +731,6 @@ def park_run(engine: Orchestrator, forge: FakeForge, iid: int = 14) -> str:
     @param[in]  forge The fake forge.
     @param[in]  iid Ticket id.
     @return     The run id.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-03
-    @version    0.1.0
     """
     forge.add_ticket(iid)
     engine.executor.results = [
@@ -820,9 +751,6 @@ def crash_a_working_run(engine: Orchestrator, iid: int, age_seconds: int) -> str
     @param[in]  iid Ticket the abandoned run belongs to.
     @param[in]  age_seconds How long ago the conductor last wrote state.
     @return     The run id.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-08-01
-    @version    0.1.0
     """
     run_id = engine._run_id(iid)
     engine.store.save(RunState(
@@ -846,9 +774,6 @@ def ago(seconds: int) -> str:
     @brief      An ISO timestamp N seconds in the past.
     @param[in]  seconds Age.
     @return     The timestamp string.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-03
-    @version    0.1.0
     """
     return (datetime.now(UTC) - timedelta(seconds=seconds)).strftime(
         "%Y-%m-%dT%H:%M:%SZ"
@@ -863,7 +788,6 @@ def test_full_profile_walks_all_eight_stages_to_a_draft_mr(tmp_path: Path) -> No
     @brief   Happy path: one eligible ticket walks the full AEGIS 2.x eight
              stage sequence, ADORE closes each stage after verifying it, and
              the completed run publishes a draft MR.
-    @version 0.1.0
     """
     executor = FakeExecutor([gate_ok(f"ses_{i}") for i in range(8)])
     engine, forge, containers, _ = make_engine(tmp_path, executor)
@@ -901,7 +825,6 @@ def test_quick_profile_walks_the_four_stage_sequence(tmp_path: Path) -> None:
     @brief   A ticket labelled for a fix plus the quick label starts
              `run start fix --quick` and conducts only the four declared
              stages; the four bypassed ones are never launched.
-    @version 0.1.0
     """
     executor = FakeExecutor([gate_ok(f"ses_{i}") for i in range(4)])
     engine, forge, containers, _ = make_engine(tmp_path, executor)
@@ -926,7 +849,6 @@ def test_quick_label_is_ignored_for_kinds_aegis_rejects(tmp_path: Path) -> None:
     @brief   The quick label on an unmapped (feature) ticket never produces
              `--quick`: AEGIS allows it only for fix/change, so the conductor
              does not build a command that would be blocked.
-    @version 0.1.0
     """
     engine, forge, containers, _ = make_engine(
         tmp_path, FakeExecutor([gate_ok() for _ in range(8)])
@@ -946,7 +868,6 @@ def test_the_aegis_run_is_started_once_and_resumed_afterwards(
     """
     @brief   A run that already carries an AEGIS run id never starts a second
              governed run; the persisted id is pinned instead.
-    @version 0.1.0
     """
     executor = FakeExecutor([
         GateRun(exit_code=0, has_questions=True, questions="1. Which variant?")
@@ -971,7 +892,6 @@ def test_executor_artifacts_are_journaled(tmp_path: Path) -> None:
     """
     @brief   GateRun artifact archive paths are surfaced through the run
              journal so `adore logs <run-id>` points at raw evidence.
-    @version 0.1.1
     """
     executor = FakeExecutor([
         GateRun(exit_code=1, stderr="boom", artifact_dirs=[".adore/runs/r/io/archive/a"])
@@ -997,7 +917,6 @@ def test_selection_priority_and_filters(tmp_path: Path) -> None:
     """
     @brief   Control labels always win, readiness rejects missing priority /
              acceptance criteria, and P1 beats P2.
-    @version 0.1.0
     """
     engine, forge, _, _ = make_engine(tmp_path)
     forge.add_ticket(1, labels=["agent-ready", "P2"])
@@ -1014,7 +933,6 @@ def test_existing_run_is_never_picked_again(tmp_path: Path) -> None:
     """
     @brief   Idempotent recovery (design 8): a ticket with persisted run
              state is skipped on every later poll.
-    @version 0.1.0
     """
     engine, forge, _, _ = make_engine(tmp_path)
     forge.add_ticket(14)
@@ -1029,7 +947,6 @@ def test_park_sequence_question_comment_first(tmp_path: Path) -> None:
     @brief   Park order (design 9): the questions comment is posted BEFORE
              the parked status marking, ids are recorded, and the container
              is stopped, not removed.
-    @version 0.1.0
     """
     engine, forge, containers, _ = make_engine(tmp_path, FakeExecutor())
     run_id = park_run(engine, forge)
@@ -1056,7 +973,6 @@ def test_resume_ignores_system_and_own_comments(tmp_path: Path) -> None:
     @brief   Resume detection: system notes and marker-stamped comments never
              resume; a plain human reply does, and the executor gets the
              thread.
-    @version 0.1.1
     """
     engine, forge, _, _ = make_engine(tmp_path, FakeExecutor())
     run_id = park_run(engine, forge)
@@ -1084,7 +1000,6 @@ def test_answered_label_forces_resume(tmp_path: Path) -> None:
     """
     @brief   The manual agent-answered label resumes without any comment and
              is cleared afterwards.
-    @version 0.1.0
     """
     engine, forge, _, _ = make_engine(tmp_path, FakeExecutor())
     park_run(engine, forge)
@@ -1099,7 +1014,6 @@ def test_round_cap_escalates_to_failed(tmp_path: Path) -> None:
     """
     @brief   Exceeding max clarification rounds escalates instead of parking
              forever.
-    @version 0.1.0
     """
     config = make_config(tmp_path)
     config.clarification.max_rounds = 1
@@ -1119,7 +1033,6 @@ def test_stage_failure_retries_with_context_until_budget(tmp_path: Path) -> None
     """
     @brief   A failing stage is relaunched with the failure context and the
              iterations budget ends the thrashing.
-    @version 0.1.0
     """
     config = make_config(tmp_path)
     config.budgets.max_iterations = 3
@@ -1143,7 +1056,6 @@ def test_stage_failure_retry_prompt_includes_aegis_evidence(tmp_path: Path) -> N
     """
     @brief   When a stage fails, the retry prompt includes existing AEGIS run
              failure evidence, not only the executor stderr tail.
-    @version 0.1.0
     """
     config = make_config(tmp_path)
     config.budgets.max_iterations = 2
@@ -1183,7 +1095,6 @@ def test_relaunch_prompt_includes_the_composed_run_orientation(
              state rather than prose, so the brief names the run, the stage,
              the exact next command, readiness, and recent evidence. A fresh
              run carries no brief on its very first launch.
-    @version 0.1.0
     """
     config = make_config(tmp_path)
     config.budgets.max_iterations = 2
@@ -1213,7 +1124,6 @@ def test_blocked_resume_escalates_instead_of_degrading(tmp_path: Path) -> None:
     @brief   Once an AEGIS run exists, a `run resume` that does not answer the
              supported contract is a hard failure: ADORE 2.0 escalates rather
              than silently continuing with an empty brief.
-    @version 0.1.0
     """
     config = make_config(tmp_path)
     config.budgets.max_iterations = 3
@@ -1241,7 +1151,6 @@ def test_absent_aegis_run_files_are_a_normal_no_evidence_case(
     @brief   An AEGIS run directory with no artifacts yet is a normal
              no-evidence case; the retry prompt still carries the original
              stderr context.
-    @version 0.1.0
     """
     config = make_config(tmp_path)
     config.budgets.max_iterations = 2
@@ -1266,7 +1175,6 @@ def test_evidence_is_addressed_by_the_persisted_run_id_not_the_pointer(
     @brief   Evidence comes from `.agentic/runs/<persisted-run-id>/`. A
              `current_run` pointer - even one naming a different run - is never
              read (design decision 4).
-    @version 0.1.0
     """
     config = make_config(tmp_path)
     config.budgets.max_iterations = 2
@@ -1307,7 +1215,6 @@ def test_damaged_aegis_artifacts_are_reported_not_hidden(
     @brief   A graph or validation summary that exists but cannot be parsed is
              reported in the prompt, so the executor knows evidence was present
              but damaged rather than absent.
-    @version 0.2.0
     """
     config = make_config(tmp_path)
     config.budgets.max_iterations = 2
@@ -1337,7 +1244,6 @@ def test_a_started_run_without_a_graph_escalates(tmp_path: Path) -> None:
     @brief   A started AEGIS run always has a graph.json. If it is gone, the
              run record is broken - ADORE escalates instead of quietly
              producing an empty evidence block.
-    @version 0.1.0
     """
     config = make_config(tmp_path)
     config.budgets.max_iterations = 3
@@ -1358,7 +1264,6 @@ def test_failure_context_redacts_configured_executor_secrets(tmp_path: Path) -> 
     """
     @brief   Exact configured secret values are redacted from stderr, graph,
              journal, and report evidence before they enter retry prompts.
-    @version 0.1.0
     """
     secret = "sk-secret-1234"
     config = make_config(tmp_path)
@@ -1393,7 +1298,6 @@ def test_stage_not_ready_relaunches_the_same_stage_with_its_blockers(
     @brief   The conductor's own verification gates the close: a stage AEGIS
              does not consider ready is relaunched with the exact blockers,
              and is never closed on the executor's word.
-    @version 0.1.0
     """
     executor = FakeExecutor([gate_ok()] * 9)
     engine, forge, containers, _ = make_engine(tmp_path, executor)
@@ -1421,7 +1325,6 @@ def test_failed_verification_relaunches_the_validation_stage(
     @brief   `aegis verify run` is ADORE's objective signal at validation and
              delivery: a failing run relaunches the stage instead of closing
              it.
-    @version 0.1.0
     """
     executor = FakeExecutor([gate_ok()] * 9)
     engine, forge, containers, _ = make_engine(tmp_path, executor)
@@ -1444,7 +1347,6 @@ def test_blocked_stage_close_escalates_with_the_aegis_remediation(
     """
     @brief   ADORE never resolves a governance block itself: a blocked close
              ends the run with the exact AEGIS error on the ticket.
-    @version 0.1.0
     """
     executor = FakeExecutor([gate_ok()] * 9)
     engine, forge, containers, _ = make_engine(tmp_path, executor)
@@ -1468,7 +1370,6 @@ def test_unknown_stage_escalates(tmp_path: Path) -> None:
     """
     @brief   A stage outside the profile's declared sequence means the contract
              moved under ADORE; the run escalates instead of guessing.
-    @version 0.1.0
     """
     executor = FakeExecutor([gate_ok()] * 9)
     engine, forge, containers, _ = make_engine(tmp_path, executor)
@@ -1494,7 +1395,6 @@ def test_stage_regression_escalates(tmp_path: Path) -> None:
     @brief   A backwards move - what an approved `route_to` produces - is a
              human decision in this ADORE version, so the conductor escalates
              instead of re-conducting the earlier stage.
-    @version 0.1.0
     """
     executor = FakeExecutor([gate_ok()] * 9)
     engine, forge, containers, _ = make_engine(tmp_path, executor)
@@ -1517,7 +1417,6 @@ def test_a_re_reported_final_stage_escalates_at_the_boundary(
              re-reporting the already-closed last stage without setting
              `complete` escalates as a typed protocol error, not as an
              unhandled IndexError that would crash the poll loop.
-    @version 0.1.0
     """
     executor = FakeExecutor([gate_ok()] * 9)
     engine, forge, containers, _ = make_engine(tmp_path, executor)
@@ -1537,7 +1436,6 @@ def test_parked_ttl_reaps_container_but_keeps_run(tmp_path: Path) -> None:
     """
     @brief   TTL reap frees the container; the run stays parked and
              answerable (design 8b: reap != timeout).
-    @version 0.1.0
     """
     config = make_config(tmp_path)
     config.container.parked_ttl_polls = 1
@@ -1555,7 +1453,6 @@ def test_answer_timeout_releases_the_ticket(tmp_path: Path) -> None:
     @brief   Past answer_timeout the run ends terminal, the worktree goes,
              state stays, and a closing comment is posted; the reminder
              posted once before it.
-    @version 0.1.0
     """
     engine, forge, _, worktrees = make_engine(tmp_path, FakeExecutor())
     run_id = park_run(engine, forge)
@@ -1577,7 +1474,6 @@ def test_paused_and_capacity_block_pickup(tmp_path: Path) -> None:
     """
     @brief   Pause stops pickup entirely; max_concurrent_runs bounds
              parallelism (resume checks still run in both cases).
-    @version 0.1.0
     """
     engine, forge, _, _ = make_engine(tmp_path)
     forge.add_ticket(14)
@@ -1596,7 +1492,6 @@ def test_deleted_and_closed_tickets_reconcile(tmp_path: Path) -> None:
     """
     @brief   A deleted ticket orphans the run (full teardown); a closed one
              cancels it gracefully (design 8c).
-    @version 0.1.0
     """
     engine, forge, _, worktrees = make_engine(tmp_path, FakeExecutor())
     run_id = park_run(engine, forge)
@@ -1617,7 +1512,6 @@ def test_cancel_and_retry_roundtrip(tmp_path: Path) -> None:
     """
     @brief   cancel tears down but keeps state; retry re-arms and conducts
              from the stored stage to completion.
-    @version 0.1.0
     """
     engine, forge, containers, worktrees = make_engine(tmp_path, FakeExecutor())
     run_id = park_run(engine, forge)
@@ -1636,7 +1530,6 @@ def test_labels_channel_transitions(tmp_path: Path) -> None:
     """
     @brief   With channel=labels the lifecycle labels move with the run and
              no status comment is posted.
-    @version 0.1.0
     """
     config = make_config(tmp_path)
     config.state.channel = "labels"
@@ -1656,7 +1549,6 @@ def test_stage_host_auth_copies_and_scrubs(tmp_path: Path) -> None:
     @brief   With stage_host_auth on, the host auth.json goes through the io
              mount into the container and is scrubbed from io immediately; a
              missing host file only logs.
-    @version 0.1.1
     """
     config = make_config(tmp_path)
     config.executor.stage_host_auth = True
@@ -1680,7 +1572,6 @@ def test_stage_host_auth_off_by_default_and_missing_file(tmp_path: Path) -> None
     """
     @brief   Default off: no staging exec happens; on-but-missing logs and
              continues (the executor fails visibly later, not silently).
-    @version 0.1.0
     """
     engine, forge, containers, _ = make_engine(tmp_path, FakeExecutor([gate_ok()] * 5))
     forge.add_ticket(14)
@@ -1705,7 +1596,6 @@ def test_host_auth_path_is_per_executor(tmp_path: Path) -> None:
     @brief   The OAuth-bridge source + container dir follow the configured
              executor; Codex host auth is copied into ADORE's isolated
              container CODEX_HOME.
-    @version 0.1.1
     """
     opencode_engine, _, _, _ = make_engine(tmp_path)
     assert opencode_engine.host_auth_container_dir.endswith("opencode")
@@ -1721,7 +1611,6 @@ def test_codex_provision_uses_isolated_codex_home(tmp_path: Path) -> None:
     """
     @brief   Selecting the Codex executor injects an ADORE-owned CODEX_HOME;
              opencode does not receive Codex-specific environment.
-    @version 0.1.1
     """
     codex_config = make_config(tmp_path / "cx", **{"executor.default": "codex"})
     engine, forge, containers, _ = make_engine(tmp_path / "cx",
@@ -1744,7 +1633,6 @@ def test_runtime_env_reaches_provision_and_exec(tmp_path: Path) -> None:
     @brief   Non-secret [container] runtime_env values are injected on both
              container creation and exec calls, so wrapped runtimes do not
              drop them between gate launches.
-    @version 0.1.0
     """
     config = make_config(tmp_path, **{"container.runtime_env": {"UV_LINK_MODE": "copy"}})
     engine, forge, containers, _ = make_engine(tmp_path, FakeExecutor([gate_ok()] * 5),
@@ -1759,7 +1647,6 @@ def test_required_tool_checks_run_after_provision(tmp_path: Path) -> None:
     """
     @brief   Project-image required tool checks run immediately after the
              container is provisioned and use the same runtime env as gates.
-    @version 0.1.0
     """
     config = make_config(
         tmp_path,
@@ -1781,7 +1668,6 @@ def test_required_tool_check_failure_fails_run_closed(tmp_path: Path) -> None:
     """
     @brief   A missing project-image tool escalates the run before the
              executor spends any gate iterations.
-    @version 0.1.0
     """
     config = make_config(
         tmp_path,
@@ -1805,7 +1691,6 @@ def test_uncommitted_work_relaunches_validation(tmp_path: Path) -> None:
              tree (or zero commits) is NOT complete: validation relaunches
              with commit instructions until the work is committed (pilot
              finding 2026-07-03).
-    @version 0.2.0
     """
     executor = FakeExecutor([gate_ok()] * 10)
     engine, forge, _, worktrees = make_engine(tmp_path, executor)
@@ -1836,7 +1721,6 @@ def test_empty_branch_relaunches_validation_until_budget(tmp_path: Path) -> None
     @brief   Zero commits over base keeps relaunching validation and the
              iterations budget eventually escalates - never a hollow
              "validated".
-    @version 0.1.0
     """
     config = make_config(tmp_path)
     config.budgets.max_iterations = 8
@@ -1854,7 +1738,6 @@ def test_branch_template_supports_repo_conventions(tmp_path: Path) -> None:
     @brief   A "feature/" branch convention is one config line; the default
              stays slug/run-id (pilot finding 2026-07-03: GitLab push rules
              may require a feature/ prefix).
-    @version 0.1.1
     """
     config = make_config(tmp_path)
     config.worktree.branch_template = "feature/{slug}-{iid}"
@@ -1869,7 +1752,6 @@ def test_branch_template_must_stay_unique(tmp_path: Path) -> None:
     """
     @brief   A template without {run_id}/{iid} would collide across tickets;
              validation rejects it.
-    @version 0.1.1
     """
     from adore.config import validate_config
 
@@ -1885,7 +1767,6 @@ def test_branch_rule_checks_the_rendered_template(tmp_path: Path) -> None:
              compliant template, rejects one the rule would reject, and
              flags an invalid regex - so a push-rule surprise cannot reach a
              run.
-    @version 0.1.1
     """
     from adore.config import validate_config
 
@@ -1909,7 +1790,6 @@ def test_files_budget_ignores_in_progress_merge(tmp_path: Path) -> None:
     @brief   Staged upstream files during a target merge never trip the
              files-touched budget (live finding 2026-07-03); the executor
              gets to resolve the conflict instead.
-    @version 0.1.0
     """
     config = make_config(tmp_path)
     config.budgets.max_files_touched = 3
@@ -1947,7 +1827,6 @@ def test_retry_of_publication_never_re_enters_the_stage_loop(
     @brief   Retrying a run that failed during publication resumes publication;
              it must not re-enter the AEGIS stage loop, whose run is already
              complete (live finding 2026-07-03).
-    @version 0.2.0
     """
     engine, forge, containers, _ = make_engine(tmp_path, FakeExecutor())
     forge.add_ticket(14)
@@ -1973,7 +1852,6 @@ def test_conduct_of_a_publishing_run_fails_closed(tmp_path: Path) -> None:
     @brief   `_conduct` called on a run already in publication escalates
              instead of re-entering the stage loop (live finding 2026-07-04: a
              delivery run regressed to intake and burned gates).
-    @version 0.2.0
     """
     engine, forge, _, _ = make_engine(tmp_path, FakeExecutor())
     ticket = forge.add_ticket(14)
@@ -1992,7 +1870,6 @@ def test_resume_of_a_publication_park_continues_publication(
     @brief   A run parked DURING publication resumes into publication with the
              thread - never back into the stage loop (live finding
              2026-07-04).
-    @version 0.2.0
     """
     engine, forge, containers, worktrees = make_engine(tmp_path, FakeExecutor())
     forge.add_ticket(14)
@@ -2022,7 +1899,6 @@ def test_resume_resets_the_active_work_budgets(tmp_path: Path) -> None:
     @brief   Parked time is answer-wait, not work: an old created_at must not
              trip the wall clock on resume (live finding 2026-07-04: an 8h
              park escalated instantly).
-    @version 0.1.0
     """
     engine, forge, _, _ = make_engine(tmp_path, FakeExecutor())
     run_id = park_run(engine, forge)
@@ -2042,7 +1918,6 @@ def test_recreated_container_resets_the_executor_session(tmp_path: Path) -> None
     @brief   Executor sessions live inside the container: after a reap the
              resumed run must NOT pass the dead session id (live finding
              2026-07-03: "Session not found" thrash).
-    @version 0.1.0
     """
     engine, forge, containers, _ = make_engine(tmp_path, FakeExecutor())
     run_id = park_run(engine, forge)  # stored session: ses_q
@@ -2061,7 +1936,6 @@ def test_mr_description_truncates_on_line_boundaries(tmp_path: Path) -> None:
     @brief   The AEGIS delivery report embedded in the MR description is
              tail-truncated at LINE boundaries with a marker - never mid-line
              fragments like `g",` (MR !29 review finding 2026-07-04).
-    @version 0.2.0
     """
     engine, forge, _, worktrees = make_engine(
         tmp_path, FakeExecutor([gate_ok()] * 8)
@@ -2094,7 +1968,6 @@ def test_mr_description_ignores_a_report_path_outside_the_worktree(
     @brief   A `report` path that escapes the run's worktree is never read into
              the merge-request body; the MR is still opened, without a report
              section.
-    @version 0.1.0
     """
     engine, forge, containers, _ = make_engine(
         tmp_path, FakeExecutor([gate_ok()] * 8)
@@ -2119,7 +1992,6 @@ def test_delivery_sequence_and_draft_mr(tmp_path: Path) -> None:
     @brief   The 11a order: fetch, merge target, push, DRAFT MR with
              reviewers, kind=delivery comment, in-review with the container
              retained (stopped) and the worktree kept.
-    @version 0.1.0
     """
     engine, forge, containers, worktrees = make_engine(
         tmp_path, FakeExecutor([gate_ok()] * 8)
@@ -2153,7 +2025,6 @@ def test_delivery_commits_conductor_generated_artifacts_before_push(
     @brief   `aegis verify run` and `aegis delivery report` write final run
              records after the executor's last commit; ADORE commits those
              artifacts before it pushes and opens the draft MR.
-    @version 0.2.0
     """
     engine, forge, containers, worktrees = make_engine(
         tmp_path, FakeExecutor([gate_ok()] * 8)
@@ -2179,7 +2050,6 @@ def test_merge_conflict_relaunches_executor_to_resolve(tmp_path: Path) -> None:
     """
     @brief   A conflicted target merge relaunches the executor with the
              conflict context; once concluded the delivery continues.
-    @version 0.1.0
     """
     engine, forge, _, worktrees = make_engine(tmp_path, FakeExecutor([gate_ok()] * 7))
     worktrees.merge_results = [
@@ -2199,7 +2069,6 @@ def test_delivery_fix_prompt_includes_aegis_evidence(tmp_path: Path) -> None:
     """
     @brief   A failed post-merge `aegis verify run` relaunches the executor
              with the existing AEGIS run evidence, not only the exit code.
-    @version 0.2.0
     """
     executor = FakeExecutor([gate_ok()] * 10)
     engine, forge, containers, _ = make_engine(tmp_path, executor)
@@ -2229,7 +2098,6 @@ def test_push_failure_escalates(tmp_path: Path) -> None:
     """
     @brief   A rejected push (auth, protected branch, push rules) escalates -
              no MR is ever opened on a branch that is not on the remote.
-    @version 0.1.0
     """
     engine, forge, _, worktrees = make_engine(tmp_path, FakeExecutor([gate_ok()] * 6))
     worktrees.push_result = CommandResult(
@@ -2247,7 +2115,6 @@ def test_existing_open_mr_is_adopted_never_duplicated(tmp_path: Path) -> None:
     """
     @brief   Idempotent recovery: a branch that already has an open MR (crash
              after creation, or a manual pilot push) is adopted as-is.
-    @version 0.1.0
     """
     engine, forge, _, _ = make_engine(tmp_path, FakeExecutor([gate_ok()] * 6))
     forge.add_ticket(14)
@@ -2268,7 +2135,6 @@ def test_merged_mr_completes_the_run_with_teardown(tmp_path: Path) -> None:
     @brief   A human merge (detected by iid, which also finds non-open MRs)
              marks the run done and tears down container + worktree, keeping
              state for audit.
-    @version 0.1.0
     """
     engine, forge, containers, worktrees = make_engine(
         tmp_path, FakeExecutor([gate_ok()] * 6)
@@ -2291,7 +2157,6 @@ def test_closed_mr_ends_the_run(tmp_path: Path) -> None:
     """
     @brief   An MR closed without merging terminates the run with cleanup
              (design 11b).
-    @version 0.1.0
     """
     engine, forge, _, worktrees = make_engine(tmp_path, FakeExecutor([gate_ok()] * 6))
     forge.add_ticket(14)
@@ -2312,7 +2177,6 @@ def test_in_review_run_ends_when_its_mr_vanishes(tmp_path: Path) -> None:
              few blips, then ends (design 4): it must not stay in-review and
              re-log "not found" on every poll forever. A transient 404 that
              resolves before the grace is exhausted is forgiven.
-    @version 0.1.0
     """
     engine, forge, _, worktrees = make_engine(tmp_path, FakeExecutor([gate_ok()] * 6))
     forge.add_ticket(14)
@@ -2337,7 +2201,6 @@ def test_in_review_mr_missing_counter_resets_on_recovery(tmp_path: Path) -> None
     @brief   A transient not-found does not accumulate: once the MR reads back,
              the blip counter clears so a later real deletion still gets the
              full grace window.
-    @version 0.1.0
     """
     engine, forge, _, _ = make_engine(tmp_path, FakeExecutor([gate_ok()] * 6))
     forge.add_ticket(14)
@@ -2360,9 +2223,6 @@ def _delivered_run(tmp_path: Path, executor_results: int = 6):
     @param[in]  tmp_path pytest tmp dir.
     @param[in]  executor_results Clean gate results to queue.
     @return     (engine, forge, run_id).
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-04
-    @version    0.1.0
     """
     engine, forge, _, _ = make_engine(tmp_path,
                                       FakeExecutor([gate_ok()] * executor_results))
@@ -2377,7 +2237,6 @@ def test_revise_label_triggers_the_revise_cycle(tmp_path: Path) -> None:
              cycle: label cleared FIRST, executor launched with the review
              thread, delivery tail re-run, same branch pushed, MR updated
              (never recreated), update comment posted, back to in-review.
-    @version 0.1.0
     """
     engine, forge, run_id = _delivered_run(tmp_path)
     run = engine.store.load(run_id)
@@ -2411,7 +2270,6 @@ def test_plain_mr_comment_never_triggers_revise(tmp_path: Path) -> None:
     """
     @brief   Design 11b: no auto-react - a reviewer comment WITHOUT the
              revise label leaves the run untouched.
-    @version 0.1.0
     """
     engine, forge, run_id = _delivered_run(tmp_path)
     run = engine.store.load(run_id)
@@ -2429,7 +2287,6 @@ def test_review_rounds_cap_escalates(tmp_path: Path) -> None:
     """
     @brief   Exceeding max_review_rounds escalates instead of revising
              forever.
-    @version 0.1.0
     """
     engine, forge, run_id = _delivered_run(tmp_path)
     run = engine.store.load(run_id)
@@ -2446,7 +2303,6 @@ def test_revise_questions_park_the_run(tmp_path: Path) -> None:
     """
     @brief   A revise launch that asks questions parks normally (the
              clarification flow owns it from there).
-    @version 0.1.0
     """
     engine, forge, run_id = _delivered_run(tmp_path)
     run = engine.store.load(run_id)
@@ -2464,7 +2320,6 @@ def test_legacy_validated_run_gets_delivered(tmp_path: Path) -> None:
     """
     @brief   A run stopped at validated-delivery-pending is picked up by
              reconciliation and published.
-    @version 0.2.0
     """
     engine, forge, containers, worktrees = make_engine(tmp_path, FakeExecutor())
     forge.add_ticket(14)
@@ -2493,7 +2348,6 @@ def test_reset_sets_the_stage_and_retry_continues_there(tmp_path: Path) -> None:
              retry-able, and retry re-enters the stage loop, where AEGIS - not
              the reset value - decides which stage is current. AEGIS state is
              never touched. An invalid stage or unknown run fails cleanly.
-    @version 0.2.0
     """
     engine, forge, containers, _ = make_engine(tmp_path, FakeExecutor())
     run_id = park_run(engine, forge)
@@ -2517,7 +2371,6 @@ def test_cleanup_sweeps_orphans_but_never_active_runs(tmp_path: Path) -> None:
     @brief   cleanup clears a stale lock, removes containers/worktrees whose
              runs are terminal or unknown, keeps everything active, and only
              REPORTS corrupt state.
-    @version 0.1.1
     """
     engine, forge, containers, worktrees = make_engine(tmp_path, FakeExecutor())
     run_id = park_run(engine, forge)          # active (parked) run
@@ -2557,7 +2410,6 @@ def test_teardown_logs_husk_on_worktree_removal_failure(tmp_path: Path) -> None:
     @brief   _teardown makes exactly one worktree-removal attempt and logs a
              husk message on failure - it no longer retries itself; that is
              WorktreeManager.remove's job (ADORE-ARCH-009).
-    @version 0.1.0
     """
     engine, _, _, worktrees = make_engine(tmp_path, FakeExecutor())
     logs: list[str] = []
@@ -2582,7 +2434,6 @@ def test_terminal_states_record_metrics(tmp_path: Path) -> None:
     @brief   A merged run lands one summary row (usage summed from journal
              events); a later escalation of another run adds its own row -
              never a duplicate for re-records.
-    @version 0.1.1
     """
     from adore.metrics import load_summaries
 
@@ -2610,7 +2461,6 @@ def test_terminal_states_record_metrics(tmp_path: Path) -> None:
 def test_metrics_disabled_records_nothing(tmp_path: Path) -> None:
     """
     @brief   [metrics] enabled=false switches recording off entirely.
-    @version 0.1.1
     """
     from adore.metrics import load_summaries
 
@@ -2630,7 +2480,6 @@ def test_stage_allowlists_match_the_aegis_sequences() -> None:
     @brief   The conductor's allowlists are exactly the AEGIS 2.x executable
              sequences (contract notes section 4): eight stages for the full
              profile, four for quick, with delivery closing both.
-    @version 0.1.0
     """
     assert STANDARD_STAGES == ("intake", "alignment", "requirement", "design",
                                "check", "implementation", "validation",
@@ -2647,7 +2496,6 @@ def test_parse_mr_iid_covers_all_three_platform_url_shapes() -> None:
              Gitea uses plural "/pulls/N", which the original pattern missed;
              without the stored iid the post-MR poll cannot see terminal
              states. Garbage stays None.
-    @version 0.1.0
     """
     parse = Orchestrator._parse_mr_iid
     assert parse("https://gitlab.example/g/p/-/merge_requests/29") == 29
@@ -2666,9 +2514,6 @@ def blocked(error: str = "", **extras) -> AegisResponse:
     @param[in]  error The typed error text.
     @param[in]  extras Extra envelope fields.
     @return     The AegisResponse.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-08-01
-    @version    0.1.0
     """
     raw = {"status": "blocked", "stage": "check", "artifact": "none",
            "next": "aegis stage apply", "error": error, **extras}
@@ -2683,7 +2528,6 @@ def test_classify_block_retries_only_a_live_persistence_lock() -> None:
     @brief   A held OS lock is the one transient AEGIS failure: retry it. The
              rest of the integrity floor and every run-resolution error need a
              human, because ADORE never repairs AEGIS state.
-    @version 0.1.0
     """
     lock = classify_block(blocked(
         "PERSISTENCE-LOCK-TIMEOUT: timed out after 15.0s waiting for x."
@@ -2702,7 +2546,6 @@ def test_classify_block_parks_on_human_attention_state() -> None:
     @brief   Unresolved questions, an alignment pause, a repo-wide access
              request, and a routing request all need a human answer - they
              park, they do not end the run.
-    @version 0.1.0
     """
     questions = classify_block(
         blocked("stage is not ready"),
@@ -2727,7 +2570,6 @@ def test_classify_block_escalates_everything_else_with_remediation() -> None:
     """
     @brief   A waivable blocker is NOT auto-waived: it escalates, carrying the
              AEGIS error and its remediation for the human.
-    @version 0.1.0
     """
     decision = classify_block(
         blocked("gate:test failed", remediation="Fix the failing test."),
@@ -2743,7 +2585,6 @@ def test_recorded_questions_park_the_run(tmp_path: Path) -> None:
     @brief   Questions the executor recorded in the AEGIS stage form park the
              run through the normal clarification flow, without the executor's
              questions file being involved at all.
-    @version 0.1.0
     """
     executor = FakeExecutor([gate_ok()] * 9)
     engine, forge, containers, _ = make_engine(tmp_path, executor)
@@ -2770,7 +2611,6 @@ def test_reported_cost_over_the_cap_escalates_the_run(tmp_path: Path) -> None:
              the top of every stage iteration, so a misbehaving executor
              cannot spend unboundedly in dollars while staying inside the
              iteration and wall-clock budgets.
-    @version 0.1.0
     """
     executor = FakeExecutor([gate_cost(2.0)] * 9)
     engine, forge, containers, _ = make_engine(tmp_path, executor)
@@ -2795,7 +2635,6 @@ def test_an_executor_reporting_no_cost_never_trips_the_budget(
     @details Executors that report zero cost still journal `usage` events, so
              the sum runs over real records and must stay at zero rather than
              tripping on their presence. The run walks the whole sequence.
-    @version 0.1.0
     """
     executor = FakeExecutor([gate_cost(0.0) for _ in range(9)])
     engine, forge, containers, _ = make_engine(tmp_path, executor)
@@ -2820,7 +2659,6 @@ def test_an_escalation_posts_its_reason_on_the_ticket(tmp_path: Path) -> None:
              its remediation, and the composed `aegis waive add` hint used to
              exist only on the host. The dedicated comment carries all of it
              plus the `kind=escalation` marker.
-    @version 0.1.0
     """
     executor = FakeExecutor([gate_ok()] * 9)
     engine, forge, containers, _ = make_engine(tmp_path, executor)
@@ -2848,7 +2686,6 @@ def test_a_forge_failure_during_the_escalation_post_still_fails_the_run(
     @brief   The escalation comment is best-effort: local state is
              authoritative, so a forge outage must not stop a run from
              reaching its terminal state.
-    @version 0.1.0
     """
     executor = FakeExecutor([gate_ok()] * 9)
     engine, forge, containers, _ = make_engine(tmp_path, executor)
@@ -2877,7 +2714,6 @@ def test_a_stale_working_run_is_escalated_and_frees_the_slot(
              reconciliation path used to revisit it. Reconciliation runs
              before the capacity check, so the freed slot is usable in the
              SAME poll pass.
-    @version 0.1.0
     """
     executor = FakeExecutor([gate_ok()] * 9)
     engine, forge, containers, _ = make_engine(tmp_path, executor)
@@ -2905,7 +2741,6 @@ def test_a_recently_updated_working_run_is_left_alone(tmp_path: Path) -> None:
     @brief   Staleness is measured against the operator's own budgets, so a
              run that merely sits inside a long gate launch is never reaped
              out from under its live conductor.
-    @version 0.1.0
     """
     engine, forge, containers, _ = make_engine(tmp_path, FakeExecutor())
     forge.add_ticket(14)
@@ -2930,7 +2765,6 @@ def test_a_forge_failure_while_parking_escalates_with_the_questions(
              cannot wait for an answer to a question nobody was asked, so the
              questions are journaled (the only copy left) and the run
              escalates instead of being stranded in `working`.
-    @version 0.1.0
     """
     executor = FakeExecutor([gate_ok()] * 9)
     engine, forge, containers, _ = make_engine(tmp_path, executor)
@@ -2958,7 +2792,6 @@ def test_a_held_lock_is_retried_once_then_escalates(tmp_path: Path) -> None:
     @brief   A `stage close` blocked by a live persistence lock is retried once
              after a delay; a lock that is still held afterwards escalates
              instead of spinning.
-    @version 0.1.0
     """
     slept: list[float] = []
     executor = FakeExecutor([gate_ok()] * 9)
@@ -2995,7 +2828,6 @@ def test_a_held_lock_at_run_start_escalates_instead_of_stranding(
     @brief   `run start` gets the same bounded lock retry as the stage loop: a
              lock still held on the second attempt escalates the run to failed
              rather than leaving it stranded in `working` with no conductor.
-    @version 0.1.0
     """
     slept: list[float] = []
     executor = FakeExecutor([gate_ok()] * 9)
@@ -3027,7 +2859,6 @@ def test_escalation_carries_the_exact_waive_command(tmp_path: Path) -> None:
     """
     @brief   ADORE never waives, so an escalation names the eligible blockers
              and the exact `aegis waive add` command a human would run.
-    @version 0.1.0
     """
     executor = FakeExecutor([gate_ok()] * 9)
     engine, forge, containers, _ = make_engine(tmp_path, executor)
@@ -3058,7 +2889,6 @@ def test_an_unavailable_waive_list_never_hides_the_original_error(
     @brief   The waive hint is advisory. If `waive list` itself is unusable the
              escalation still carries the AEGIS error that caused it - the part
              that must never be lost.
-    @version 0.1.0
     """
     executor = FakeExecutor([gate_ok()] * 9)
     engine, forge, containers, _ = make_engine(tmp_path, executor)
@@ -3085,9 +2915,6 @@ def status_response(stage: str, quick: bool = False) -> AegisResponse:
     @param[in]  stage The reported stage.
     @param[in]  quick Whether the run uses the proportional profile.
     @return     The AegisResponse.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-08-01
-    @version    0.1.0
     """
     raw = {
         "status": "ok",
@@ -3111,7 +2938,6 @@ def test_every_stage_prompt_speaks_the_aegis_2x_vocabulary(
     @brief   Each of the eight stage prompts names its own AEGIS stage and
              tells the executor to work through the generated forms, not
              through CLI flags.
-    @version 0.1.0
     """
     engine, forge, _, _ = make_engine(tmp_path, FakeExecutor())
     ticket = forge.add_ticket(14, title="Refresh")
@@ -3132,7 +2958,6 @@ def test_every_stage_prompt_forbids_closing_and_waiving(tmp_path: Path) -> None:
     @brief   The two actions ADORE and humans reserve are refused in every
              stage prompt, including the revise prompt: `stage close` belongs
              to the delegated approver, `waive add` to a human.
-    @version 0.1.0
     """
     engine, forge, _, _ = make_engine(tmp_path, FakeExecutor())
     ticket = forge.add_ticket(14)
@@ -3151,7 +2976,6 @@ def test_stage_prompt_pins_the_run_and_relays_the_next_command(
     @brief   The executor is told to pin the same `--run` the orchestrator
              pins, and is handed AEGIS's own exact next command plus the form
              path so it never has to guess either.
-    @version 0.1.0
     """
     engine, forge, _, _ = make_engine(tmp_path, FakeExecutor())
     ticket = forge.add_ticket(14)
@@ -3174,7 +2998,6 @@ def test_quick_run_prompts_name_the_bypassed_stages(tmp_path: Path) -> None:
              alignment, requirement, design, and check were bypassed, so it
              does not hunt for requirement rows, a design, or check IDs - and
              that the not-applicable audits are expected, not failures.
-    @version 0.1.0
     """
     engine, forge, _, _ = make_engine(tmp_path, FakeExecutor())
     ticket = forge.add_ticket(14)
@@ -3211,7 +3034,6 @@ def test_stage_prompt_names_both_question_channels(tmp_path: Path) -> None:
     @brief   Questions may go into the stage form's control table (the primary
              AEGIS 2.x channel) or into the questions file (the secondary one);
              the prompt names both, and the conductor honors either.
-    @version 0.1.0
     """
     engine, forge, _, _ = make_engine(tmp_path, FakeExecutor())
     ticket = forge.add_ticket(14)
@@ -3227,7 +3049,6 @@ def test_stage_timeout_overrides_bound_individual_launches(
     @brief   `[workflow] stage_timeout_overrides` raises the per-launch bound
              for the stages that need more room; every other stage keeps
              `[budgets] per_gate_timeout_seconds`.
-    @version 0.1.0
     """
     config = make_config(tmp_path)
     config.budgets.per_gate_timeout_seconds = 1800
@@ -3250,7 +3071,6 @@ def test_kind_and_quick_labels_come_from_the_workflow_section(
     @brief   The AEGIS run kind and profile are resolved from ticket labels
              through `[workflow]`; the FIRST configured mapping the ticket
              matches wins, so overlapping labels stay deterministic.
-    @version 0.1.0
     """
     config = make_config(tmp_path)
     config.workflow.kind_labels = {"defect": "fix", "tweak": "change"}

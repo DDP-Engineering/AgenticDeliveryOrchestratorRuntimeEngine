@@ -15,9 +15,6 @@
          streamed (see Prerequisites_Check_Report.md finding on buffering).
          Also: timestamps, quiet-hours windows, dotenv loading, and the
          read-only-tolerant force_rmtree used by teardown and cleanup.
-@author Eng. Dan Dumitru Pasare
-@date 2026-07-24
-@version 0.3.0
 """
 
 from __future__ import annotations
@@ -60,9 +57,6 @@ class CommandResult:
              (ADORE-ARCH-010) - see `aegis.py`'s `AegisClient.invoke`, the
              consumer that keys `AegisTimeoutError` on this flag rather than
              on the raw exit code.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-02
-    @version 0.2.0
     """
 
     argv: list[str] = field(default_factory=list)
@@ -76,9 +70,6 @@ class CommandResult:
         """
         @brief   True when the command exited with code 0.
         @return  Success flag.
-        @author  Eng. Dan Dumitru Pasare
-        @date    2026-07-02
-        @version 0.1.0
         """
         return self.exit_code == 0
 
@@ -88,9 +79,6 @@ class CommandRunner(Protocol):
     @brief   Callable contract for running external commands.
     @details Concrete default is run_command; tests inject fakes so no real
              CLI (glab/gh/git/docker) is needed.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-02
-    @version 0.1.0
     """
 
     def __call__(
@@ -108,9 +96,6 @@ class CommandRunner(Protocol):
         @param[in]  timeout Optional wall-clock limit in seconds.
         @param[in]  env Optional replacement environment.
         @return     The captured CommandResult.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.0
         """
         ...  # pragma: no cover - protocol signature only
 
@@ -123,9 +108,6 @@ def _decode(stream: bytes | str | None) -> str:
     @brief      Normalize a captured stream (bytes/str/None) to text.
     @param[in]  stream Raw stream from a TimeoutExpired exception.
     @return     Decoded text (empty when the stream is None).
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-02
-    @version    0.1.0
     """
     if isinstance(stream, bytes):
         return stream.decode("utf-8", "replace")
@@ -160,9 +142,6 @@ def run_command(
     @param[in]  timeout Optional wall-clock limit in seconds.
     @param[in]  env Optional replacement environment.
     @return     The captured CommandResult.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-02
-    @version    0.2.0
     """
     argv_list = [str(part) for part in argv]
     try:
@@ -204,9 +183,6 @@ def parse_duration(text: str | int | float) -> int:
                      of seconds.
     @return     The duration in whole seconds.
     @exception  ValueError When the value cannot be parsed.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-02
-    @version    0.1.0
     """
     if isinstance(text, int | float):
         if text < 0:
@@ -223,9 +199,6 @@ def utc_now_iso() -> str:
     """
     @brief   Current UTC time as a compact ISO-8601 string (Z suffix).
     @return  Timestamp like "2026-07-02T14:02:33Z".
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-02
-    @version 0.1.0
     """
     return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -235,9 +208,6 @@ def iso_to_datetime(text: str) -> datetime | None:
     @brief      Parse an ISO-8601 timestamp (Z or offset form) to aware UTC.
     @param[in]  text Timestamp like "2026-07-02T14:02:33Z".
     @return     The aware datetime, or None when unparseable/empty.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-03
-    @version    0.1.0
     """
     if not text:
         return None
@@ -259,9 +229,6 @@ def in_quiet_hours(windows: Sequence[str], now: datetime | None = None) -> bool:
     @param[in]  windows Window strings from [polling] quiet_hours.
     @param[in]  now Override for tests (defaults to local now).
     @return     True when polling should pause.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-03
-    @version    0.1.0
     """
     moment = (now or datetime.now()).time()
     for window in windows:
@@ -290,9 +257,6 @@ def force_rmtree(path: str | Path) -> None:
                 link entry is removed directly instead of recursed into. A
                 missing path is fine (idempotent cleanup).
     @param[in]  path Directory to remove.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-24
-    @version    0.2.1
     """
     # One callback shape serves both APIs: shutil.rmtree passes it to `onerror`
     # (<=3.11) and to `onexc` (3.12+); the ignored third positional differs
@@ -333,9 +297,6 @@ def process_alive(pid: int) -> bool:
     @param[in]  pid Candidate process id.
     @return     True when the pid is (or may be) running; False only when it is
                 certainly gone.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-24
-    @version    0.1.0
     """
     if pid <= 0:
         return False
@@ -357,9 +318,6 @@ def _windows_process_alive(pid: int) -> bool:
     @brief      Windows liveness probe via OpenProcess (no os.kill).
     @param[in]  pid Candidate process id.
     @return     True when the process exists (or cannot be ruled out).
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-24
-    @version    0.1.0
     """
     import ctypes
     from ctypes import wintypes
@@ -389,9 +347,6 @@ def load_env_file(path: str | Path = ".env") -> dict[str, str]:
                 optional when the platform CLI auth already covers them).
     @param[in]  path Path to the .env file.
     @return     Mapping of the declared variables.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-03
-    @version    0.1.0
     """
     env_path = Path(path)
     if not env_path.is_file():

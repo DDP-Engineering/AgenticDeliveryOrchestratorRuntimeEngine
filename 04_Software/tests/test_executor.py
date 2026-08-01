@@ -14,9 +14,6 @@
          the executor by writing the output/questions files a real gate run
          would produce. Verifies the WSL-safe script protocol, session
          continuation, questions detection, and the fail-closed negatives.
-@author Eng. Dan Dumitru Pasare
-@date 2026-07-03
-@version 0.2.0
 """
 
 from __future__ import annotations
@@ -57,9 +54,6 @@ QWEN_TEMPLATE = "qwen -p --model {model} --output-format json {prompt}"
 class FakeExec:
     """
     @brief   Exec-seam double: records argv, simulates gate side effects.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-03
-    @version 0.1.0
     """
 
     def __init__(
@@ -72,9 +66,6 @@ class FakeExec:
         @param[in]  result The CommandResult to return.
         @param[in]  side_effect Callable simulating what the executor wrote
                                 (output file, questions file) while running.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
         """
         self.result = result
         self.side_effect = side_effect
@@ -92,9 +83,6 @@ class FakeExec:
         @param[in]  argv Command vector.
         @param[in]  timeout Recorded for budget assertions.
         @return     The canned CommandResult.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
         """
         self.calls.append([str(part) for part in argv])
         self.timeouts.append(timeout)
@@ -111,9 +99,6 @@ def _dirs(tmp_path: Path) -> tuple[Path, Path]:
     @brief      A worktree dir and io dir for a fake run.
     @param[in]  tmp_path pytest tmp dir.
     @return     (worktree, io_dir), worktree created.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-03
-    @version    0.1.0
     """
     worktree = tmp_path / "worktree"
     worktree.mkdir()
@@ -124,9 +109,6 @@ def _executor() -> OpencodeExecutor:
     """
     @brief   A launcher with the standard test template.
     @return  The OpencodeExecutor.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-03
-    @version 0.1.0
     """
     return OpencodeExecutor(TEMPLATE, "openai/gpt-5.4-fast")
 
@@ -138,7 +120,6 @@ def test_gate_script_protocol_is_wsl_safe(tmp_path: Path) -> None:
     """
     @brief   The prompt lives shell-quoted inside gate.sh; the exec argv is
              two space-free tokens, so nothing can be split by wsl.exe.
-    @version 0.1.1
     """
     worktree, io_dir = _dirs(tmp_path)
     prompt = 'Run the intake gate for ticket #14: "Global Refresh" (scope: small)'
@@ -174,7 +155,6 @@ def test_session_continuation_appends_session_flag(tmp_path: Path) -> None:
     """
     @brief   A given session id is appended as --session and survives as the
              GateRun session when the output has none.
-    @version 0.1.0
     """
     worktree, io_dir = _dirs(tmp_path)
     exec_target = FakeExec(CommandResult(exit_code=0))
@@ -190,7 +170,6 @@ def test_questions_file_parks_the_gate(tmp_path: Path) -> None:
     """
     @brief   A questions file written during the gate is detected and read;
              a clean exit does not mask it.
-    @version 0.1.1
     """
     worktree, io_dir = _dirs(tmp_path)
     executor = _executor()
@@ -211,7 +190,6 @@ def test_stale_questions_file_is_cleared_before_launch(tmp_path: Path) -> None:
     @brief   A leftover questions file from an earlier round never
              false-parks the next gate: presence after the gate must mean it
              was written by THIS gate.
-    @version 0.1.1
     """
     worktree, io_dir = _dirs(tmp_path)
     stale = worktree / "ADORE_QUESTIONS.md"
@@ -226,7 +204,6 @@ def test_executor_failure_passes_through_as_data(tmp_path: Path) -> None:
     @brief   A failing or hung executor (non-zero / 124) is a conductor
              signal; missing output files read as empty, stderr falls back
              to the exec result.
-    @version 0.1.0
     """
     worktree, io_dir = _dirs(tmp_path)
     run = _executor().run_gate(
@@ -245,7 +222,6 @@ def test_gate_launch_archive_preserves_output_and_meta(tmp_path: Path) -> None:
     """
     @brief   A normal launch keeps the live exchange files and also creates an
              immutable per-launch archive with gate.sh/output/stderr/meta.
-    @version 0.1.0
     """
     worktree, io_dir = _dirs(tmp_path)
 
@@ -280,7 +256,6 @@ def test_archive_records_missing_output_as_empty_file(tmp_path: Path) -> None:
     """
     @brief   Missing output.jsonl remains a valid executor outcome and is
              archived as an empty file with presence pinned in meta.json.
-    @version 0.1.0
     """
     worktree, io_dir = _dirs(tmp_path)
     run = _executor().run_gate(
@@ -304,7 +279,6 @@ def test_archive_records_nonzero_exit(tmp_path: Path) -> None:
     """
     @brief   A failed executor launch still archives the partial output and
              stderr before the conductor decides whether to retry.
-    @version 0.1.0
     """
     worktree, io_dir = _dirs(tmp_path)
 
@@ -335,7 +309,6 @@ def test_archive_write_failure_fails_gate_as_data(
     """
     @brief   An archive write failure never silently advances the gate; it is
              returned as a failed GateRun for the conductor to handle.
-    @version 0.1.0
     """
     worktree, io_dir = _dirs(tmp_path)
     executor = _executor()
@@ -343,9 +316,6 @@ def test_archive_write_failure_fails_gate_as_data(
     def fail_archive(*_args, **_kwargs):
         """
         @brief   Simulate a disk failure while writing the archive.
-        @author  Eng. Dan Dumitru Pasare
-        @date    2026-07-07
-        @version 0.1.0
         """
         raise OSError("disk full")
 
@@ -370,7 +340,6 @@ def test_session_not_found_self_heals_with_fresh_session(tmp_path: Path) -> None
     @brief   A dead session (container recreated / pruned) relaunches once
              without --session instead of failing the gate (live finding
              2026-07-03).
-    @version 0.1.0
     """
     worktree, io_dir = _dirs(tmp_path)
     executor = _executor()
@@ -415,7 +384,6 @@ def test_usage_extraction_from_event_stream(tmp_path: Path) -> None:
     """
     @brief   step_finish token/cost totals are summed into the GateRun;
              malformed lines never break the gate (design 13).
-    @version 0.1.0
     """
     worktree, io_dir = _dirs(tmp_path)
 
@@ -440,7 +408,6 @@ def test_auto_flag_is_rejected_at_construction() -> None:
     """
     @brief   --auto in the command template fails closed immediately: it
              would auto-approve the executor's own push/merge.
-    @version 0.1.0
     """
     with pytest.raises(ValueError, match="--auto"):
         OpencodeExecutor(TEMPLATE + " --auto", "m")
@@ -455,7 +422,6 @@ def test_factory_wires_questions_file() -> None:
     """
     @brief   The factory passes the configured questions filename through and
              still rejects unknown kinds.
-    @version 0.1.0
     """
     executor = build_executor("opencode", TEMPLATE, "m", questions_file="ROBO_QUESTIONS.md")
     assert isinstance(executor, OpencodeExecutor)
@@ -471,7 +437,6 @@ def test_factory_selects_qwen_and_bans_yolo() -> None:
     """
     @brief   `default = "qwen"` selects QwenExecutor; --yolo (auto-approve all
              tools) is rejected at construction.
-    @version 0.1.0
     """
     executor = build_executor("qwen", QWEN_TEMPLATE, "qwen3-coder-plus")
     assert isinstance(executor, QwenExecutor)
@@ -485,7 +450,6 @@ def test_qwen_is_stateless_no_session_or_resume(tmp_path: Path) -> None:
              the conductor never propagates one), and even when a session id is
              passed the gate.sh carries neither --session nor a resume - the
              workflow's file-based state carries context.
-    @version 0.1.0
     """
     worktree, io_dir = _dirs(tmp_path)
     executor = QwenExecutor(QWEN_TEMPLATE, "qwen3-coder-plus")
@@ -506,7 +470,6 @@ def test_qwen_questions_and_failure_inherited(tmp_path: Path) -> None:
     """
     @brief   Clarification parking and fail-closed pass-through come from the
              shared base unchanged.
-    @version 0.1.1
     """
     worktree, io_dir = _dirs(tmp_path)
 
@@ -529,7 +492,6 @@ def test_factory_selects_codex_and_allows_container_full_auto() -> None:
     """
     @brief   `default = "codex"` selects CodexExecutor; full-auto is allowed
              because ADORE relies on the executor container as the sandbox.
-    @version 0.1.2
     """
     executor = build_executor("codex", CODEX_TEMPLATE, "gpt-5.5-codex")
     assert isinstance(executor, CodexExecutor)
@@ -540,7 +502,6 @@ def test_codex_first_gate_vs_resume_command_structure(tmp_path: Path) -> None:
     @brief   The first gate runs `codex exec ...`; a continuing gate rewrites
              the structure to `codex exec resume --last ...` (not an appended
              --session flag).
-    @version 0.1.0
     """
     worktree, io_dir = _dirs(tmp_path)
     executor = CodexExecutor(CODEX_TEMPLATE, "gpt-5.5-codex")
@@ -562,7 +523,6 @@ def test_codex_parses_usage_from_json(tmp_path: Path) -> None:
     @brief   Codex --json usage (input/output tokens, cost) is summed into the
              GateRun; a session/thread id is read best-effort. Schema is
              provisional (pinned by the spike); malformed lines are ignored.
-    @version 0.1.0
     """
     worktree, io_dir = _dirs(tmp_path)
 
@@ -586,7 +546,6 @@ def test_codex_questions_and_failure_inherited(tmp_path: Path) -> None:
     """
     @brief   Clarification parking and fail-closed pass-through come from the
              shared base unchanged.
-    @version 0.1.1
     """
     worktree, io_dir = _dirs(tmp_path)
 
@@ -609,7 +568,6 @@ def test_factory_selects_pi() -> None:
     """
     @brief   `[executor] default = "pi"` selects the PiExecutor; a Pi template
              needs no --auto guard (Pi has no such flag) and is accepted.
-    @version 0.1.1
     """
     executor = build_executor("pi", PI_TEMPLATE, "openai/gpt-5.5")
     assert isinstance(executor, PiExecutor)
@@ -621,7 +579,6 @@ def test_pi_gate_uses_shared_protocol_and_session(tmp_path: Path) -> None:
     """
     @brief   Pi runs through the same WSL-safe gate.sh protocol and appends
              `--session` for continuation, exactly like opencode.
-    @version 0.1.1
     """
     worktree, io_dir = _dirs(tmp_path)
     executor = PiExecutor(PI_TEMPLATE, "openai/gpt-5.5")
@@ -638,7 +595,6 @@ def test_pi_session_id_parsed_from_session_header(tmp_path: Path) -> None:
     """
     @brief   Pi's JSON stream opens with a {"type":"session","id":...} header;
              the id is read from that event (not opencode's sessionID key).
-    @version 0.1.1
     """
     worktree, io_dir = _dirs(tmp_path)
 
@@ -661,7 +617,6 @@ def test_pi_questions_and_failure_behave_like_the_shared_base(tmp_path: Path) ->
     """
     @brief   Clarification parking and fail-closed pass-through are inherited
              unchanged from the shared protocol.
-    @version 0.1.1
     """
     worktree, io_dir = _dirs(tmp_path)
 

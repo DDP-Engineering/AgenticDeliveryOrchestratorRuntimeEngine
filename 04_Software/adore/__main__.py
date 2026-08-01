@@ -11,9 +11,6 @@
 @file __main__.py
 @brief Module entry point so `python -m adore` runs the CLI.
 @details Delegates to adore.cli.main.
-@author Eng. Dan Dumitru Pasare
-@date 2026-07-02
-@version 0.1.0
 """
 
 # IMPORTS

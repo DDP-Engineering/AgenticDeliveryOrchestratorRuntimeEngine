@@ -11,9 +11,6 @@
 @file test_profiles.py
 @brief Tests for the runtime-project profile store (config home, CRUD, active
        pointer, config-path resolution) - all offline in a tmp ADORE home.
-@author Eng. Dan Dumitru Pasare
-@date 2026-07-05
-@version 0.2.0
 """
 
 from __future__ import annotations
@@ -43,9 +40,6 @@ def _store(tmp_path: Path) -> ProfileStore:
     @brief      A store rooted in a tmp ADORE home with a fixed clock.
     @param[in]  tmp_path pytest tmp dir.
     @return     The ProfileStore.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.1.1
     """
     return ProfileStore(tmp_path / "home", now=lambda: FIXED_NOW)
 
@@ -56,7 +50,6 @@ def _store(tmp_path: Path) -> ProfileStore:
 def test_home_override_wins_on_any_os(tmp_path: Path) -> None:
     """
     @brief   ADORE_HOME overrides the OS-native location on both platforms.
-    @version 0.1.1
     """
     env = {"ADORE_HOME": str(tmp_path / "custom"), "APPDATA": "ignored"}
     assert _home_for("nt", env) == tmp_path / "custom"
@@ -67,7 +60,6 @@ def test_home_windows_uses_appdata_then_localappdata(tmp_path: Path) -> None:
     """
     @brief   On Windows the home is %APPDATA%\\adore, falling back to
              %LOCALAPPDATA%\\adore.
-    @version 0.1.1
     """
     assert _home_for("nt", {"APPDATA": str(tmp_path / "roaming")}) == (
         tmp_path / "roaming" / "adore"
@@ -80,7 +72,6 @@ def test_home_windows_uses_appdata_then_localappdata(tmp_path: Path) -> None:
 def test_home_posix_uses_xdg_then_default(tmp_path: Path) -> None:
     """
     @brief   On POSIX the home is $XDG_CONFIG_HOME/adore, or ~/.config/adore.
-    @version 0.1.1
     """
     assert _home_for("posix", {"XDG_CONFIG_HOME": str(tmp_path / "xdg")}) == (
         tmp_path / "xdg" / "adore"
@@ -94,7 +85,6 @@ def test_adore_home_reads_env_at_call_time(
     """
     @brief   The public entry point honours a live ADORE_HOME override (safe:
              no os.name patching, which would break pathlib process-wide).
-    @version 0.1.0
     """
     monkeypatch.setenv("ADORE_HOME", str(tmp_path / "live"))
     assert adore_home() == tmp_path / "live"
@@ -103,7 +93,6 @@ def test_adore_home_reads_env_at_call_time(
 def test_previous_home_environment_variable_is_not_consulted(tmp_path: Path) -> None:
     """
     @brief   The pre-1.0 home override has no effect after the hard cut.
-    @version 0.1.0
     """
     previous_home_env = "AD" + "OR_HOME"
     env = {
@@ -120,7 +109,6 @@ def test_profile_crud_round_trip(tmp_path: Path) -> None:
     """
     @brief   create -> load returns equal metadata; list is sorted; touch bumps
              the usage counters; the profile owns its state root.
-    @version 0.1.0
     """
     store = _store(tmp_path)
     created = store.create("runtime-project", repo="g/p", platform="gitlab",
@@ -143,7 +131,6 @@ def test_profile_crud_round_trip(tmp_path: Path) -> None:
 def test_profile_create_rejects_duplicate_without_overwrite(tmp_path: Path) -> None:
     """
     @brief   Re-creating an existing profile fails closed unless overwrite=True.
-    @version 0.1.0
     """
     store = _store(tmp_path)
     store.create("dup")
@@ -157,7 +144,6 @@ def test_profile_rename_and_delete(tmp_path: Path) -> None:
     """
     @brief   rename moves the directory and keeps identity; delete removes it
              (idempotent) and both keep the active pointer consistent.
-    @version 0.1.0
     """
     store = _store(tmp_path)
     store.create("old", repo="g/p")
@@ -177,7 +163,6 @@ def test_profile_rename_and_delete(tmp_path: Path) -> None:
 def test_profile_rename_rejects_missing_or_colliding(tmp_path: Path) -> None:
     """
     @brief   rename fails closed for an unknown source or an existing target.
-    @version 0.1.0
     """
     store = _store(tmp_path)
     store.create("a")
@@ -194,7 +179,6 @@ def test_profile_rename_rejects_missing_or_colliding(tmp_path: Path) -> None:
 def test_active_pointer_lifecycle(tmp_path: Path) -> None:
     """
     @brief   set/get/clear the active profile; setting an unknown one fails.
-    @version 0.1.0
     """
     store = _store(tmp_path)
     assert store.get_active() is None
@@ -215,7 +199,6 @@ def test_resolve_config_path_precedence(tmp_path: Path) -> None:
     @brief   Explicit -c wins over --profile wins over the active pointer wins
              over the local ./config.toml; an unknown --profile fails closed;
              a stale active pointer falls through to the default.
-    @version 0.1.1
     """
     store = _store(tmp_path)
     store.create("proj")
@@ -251,7 +234,6 @@ def test_corrupt_profile_json_fails_closed(tmp_path: Path) -> None:
     @brief   A corrupt profile.json raises ProfileError on load and is reported
              by invalid_profiles() while list_profiles() skips it (never a
              silent reinitialize).
-    @version 0.1.0
     """
     store = _store(tmp_path)
     store.create("good", repo="g/p")
@@ -268,7 +250,6 @@ def test_corrupt_profile_json_fails_closed(tmp_path: Path) -> None:
 def test_load_missing_profile_raises(tmp_path: Path) -> None:
     """
     @brief   Loading a non-existent profile fails closed (distinct message).
-    @version 0.1.0
     """
     store = _store(tmp_path)
     with pytest.raises(ProfileError):
@@ -279,7 +260,6 @@ def test_profile_json_ignores_unknown_keys(tmp_path: Path) -> None:
     """
     @brief   Forward compatibility: an unknown key in profile.json is dropped,
              the directory name overrides any stored name.
-    @version 0.1.0
     """
     store = _store(tmp_path)
     store.create("proj", repo="g/p")

@@ -15,9 +15,6 @@
          comment without the marker is treated as human. This module builds and
          parses those markers, formats the status comment, and derives every
          slug-based name (branch, container, state dir, questions file).
-@author Eng. Dan Dumitru Pasare
-@date 2026-07-05
-@version 0.1.1
 """
 
 from __future__ import annotations
@@ -41,9 +38,6 @@ class AgentIdentity:
     @brief   The configured bot identity plus every name derived from it.
     @details Renaming the bot is a single config change; all derived
              identifiers (5c) flow from name/slug through this class.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-02
-    @version 0.1.1
     """
 
     name: str = PRODUCT_ACRONYM
@@ -54,9 +48,6 @@ class AgentIdentity:
         """
         @brief   Visible comment tag, for example "[ADORE]".
         @return  The bracketed display tag.
-        @author  Eng. Dan Dumitru Pasare
-        @date    2026-07-02
-        @version 0.1.1
         """
         return f"[{self.name}]"
 
@@ -65,9 +56,6 @@ class AgentIdentity:
         """
         @brief   Default local state directory name (".adore").
         @return  The dot-prefixed store root.
-        @author  Eng. Dan Dumitru Pasare
-        @date    2026-07-02
-        @version 0.1.1
         """
         return f".{self.slug}"
 
@@ -76,9 +64,6 @@ class AgentIdentity:
         """
         @brief   Clarification questions filename ("ADORE_QUESTIONS.md").
         @return  The uppercase slug questions filename.
-        @author  Eng. Dan Dumitru Pasare
-        @date    2026-07-02
-        @version 0.1.1
         """
         return f"{self.slug.upper()}_QUESTIONS.md"
 
@@ -87,9 +72,6 @@ class AgentIdentity:
         @brief      Run branch name ("adore/<run-id>").
         @param[in]  run_id Stable run identifier.
         @return     The branch name.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.1
         """
         return f"{self.slug}/{run_id}"
 
@@ -98,9 +80,6 @@ class AgentIdentity:
         @brief      Executor container name ("adore-run-<run-id>").
         @param[in]  run_id Stable run identifier.
         @return     The container name.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.1
         """
         return f"{self.slug}-run-{run_id}"
 
@@ -114,9 +93,6 @@ class AgentIdentity:
                         escalation).
         @param[in]  extra Additional key=value fields (state, stage, ...).
         @return     The marker line.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.1
         """
         parts = [f"run={run_id}", f"kind={kind}"]
         parts.extend(f"{key}={value}" for key, value in extra.items())
@@ -135,9 +111,6 @@ class AgentIdentity:
         @param[in]  body Full comment text.
         @return     Mapping of marker fields (run, kind, ...), or None when the
                     comment carries no unquoted marker (that is, it is human).
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-24
-        @version    0.2.0
         """
         pattern = re.compile(rf"<!--\s*{re.escape(self.slug)}:(.*?)-->", re.DOTALL)
         # Drop blockquote lines before matching, then search the remainder with
@@ -159,9 +132,6 @@ class AgentIdentity:
                     detection, section 9).
         @param[in]  body Full comment text.
         @return     Ownership flag.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.0
         """
         return self.parse_marker(body) is not None
 
@@ -176,9 +146,6 @@ class AgentIdentity:
         @param[in]  stage Current gate (intake | requirement | ...).
         @param[in]  updated Human-readable UTC timestamp.
         @return     The full comment body (visible line + hidden marker).
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-05
-        @version    0.2.1
         """
         visible = (
             f"{self.tag} status: {state} - stage {stage} - run {run_id} - updated {updated}"
@@ -196,9 +163,6 @@ def identity_from_config(name: str, slug: str) -> AgentIdentity:
     @param[in]  name Display/brand name.
     @param[in]  slug Lowercase token (already derived by config loading).
     @return     A frozen AgentIdentity.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-02
-    @version    0.1.0
     """
     return AgentIdentity(name=name, slug=slug)
 

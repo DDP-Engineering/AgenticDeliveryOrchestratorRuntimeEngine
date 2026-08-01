@@ -10,9 +10,6 @@
 """
 @file __init__.py
 @brief Executor adapter subpackage (opencode/pi/codex behind one launcher).
-@author Eng. Dan Dumitru Pasare
-@date 2026-07-02
-@version 0.1.0
 """
 
 # END OF FILE

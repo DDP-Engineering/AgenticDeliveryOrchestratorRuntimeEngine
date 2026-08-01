@@ -30,9 +30,6 @@
          into the ordinary exit-code-outside-0/1 `AegisProtocolError`
          instead, naming the exit code. The now-unused `TIMEOUT_EXIT_CODE`
          constant was removed.
-@author Eng. Dan Dumitru Pasare
-@date 2026-08-01
-@version 0.2.0
 """
 
 from __future__ import annotations
@@ -96,9 +93,6 @@ class AegisError(RuntimeError):
     @brief   Base class for AEGIS-facing failures ADORE cannot treat as data.
     @details Every subclass ends in escalation. Workflow outcomes (`blocked`,
              `failed`) are NOT errors - they come back as an AegisResponse.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-08-01
-    @version 0.1.0
     """
 
 
@@ -112,9 +106,6 @@ class AegisProtocolError(AegisError):
              ADORE defect or a broken/unsupported payload, never a workflow
              state, so the conductor escalates instead of re-prompting the
              executor.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-08-01
-    @version 0.1.0
     """
 
 
@@ -124,9 +115,6 @@ class AegisTimeoutError(AegisError):
     @details Kept distinct from AegisProtocolError: the payload is fine, the
              command simply did not finish, so the escalation reason names the
              command and the bound instead of blaming the contract.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-08-01
-    @version 0.1.0
     """
 
 
@@ -138,9 +126,6 @@ class AegisResponse:
              (`run_id`, `readiness`, `verification`, `report`, ...) stay
              available without a second parse; the four envelope fields are
              promoted because every command emits them.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-08-01
-    @version 0.1.0
     """
 
     exit_code: int
@@ -156,9 +141,6 @@ class AegisResponse:
         """
         @brief   True when AEGIS reported `status: ok` (exit 0).
         @return  Success flag.
-        @author  Eng. Dan Dumitru Pasare
-        @date    2026-08-01
-        @version 0.1.0
         """
         return self.status == "ok"
 
@@ -167,9 +149,6 @@ class AegisResponse:
         """
         @brief   True for a typed governance block (exit 1, `status: blocked`).
         @return  Blocked flag.
-        @author  Eng. Dan Dumitru Pasare
-        @date    2026-08-01
-        @version 0.1.0
         """
         return self.status == "blocked"
 
@@ -178,9 +157,6 @@ class AegisResponse:
         """
         @brief   True when a verify/scope action found blocking findings.
         @return  Failed flag (exit 1, `status: failed`).
-        @author  Eng. Dan Dumitru Pasare
-        @date    2026-08-01
-        @version 0.1.0
         """
         return self.status == "failed"
 
@@ -191,9 +167,6 @@ class AegisResponse:
         @details Only `run status`/`stage close`-family payloads carry
                  `complete`; a missing key reads as False.
         @return  Completion flag.
-        @author  Eng. Dan Dumitru Pasare
-        @date    2026-08-01
-        @version 0.1.0
         """
         return self.raw.get("complete") is True
 
@@ -202,9 +175,6 @@ class AegisResponse:
         """
         @brief   The typed error text of a blocked response ("" otherwise).
         @return  The `error` field as text.
-        @author  Eng. Dan Dumitru Pasare
-        @date    2026-08-01
-        @version 0.1.0
         """
         value = self.raw.get("error")
         return str(value).strip() if value else ""
@@ -220,9 +190,6 @@ class AegisResponse:
                     therefore the only classification that works for all of
                     them.
         @return     The code, or "" when none is recognizable.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.1.0
         """
         declared = self.raw.get("code")
         if isinstance(declared, str) and declared.strip():
@@ -241,9 +208,6 @@ class AegisResponse:
                     typed errors render as `"<CODE>: <message>\\n<remediation>"`,
                     so the tail after the first newline is the remediation.
         @return     Remediation text, or "" when none is available.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.1.0
         """
         declared = self.raw.get("remediation")
         if isinstance(declared, str) and declared.strip():
@@ -257,9 +221,6 @@ class AegisResponse:
         @param[in]  key Extra key (for example "run_id" or "verification").
         @param[in]  default Value returned when the key is absent.
         @return     The decoded value or the default.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.1.0
         """
         return self.raw.get(key, default)
 
@@ -273,9 +234,6 @@ def _tail(text: str, limit: int = 800) -> str:
     @param[in]  text Raw output.
     @param[in]  limit Character budget.
     @return     The stripped tail, prefixed when truncated.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-08-01
-    @version    0.1.0
     """
     stripped = text.strip()
     if len(stripped) <= limit:
@@ -302,9 +260,6 @@ def _decode_envelope(
     @return     The decoded payload.
     @exception  AegisProtocolError When the output is not a conforming
                 envelope, or the status contradicts the exit code.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-08-01
-    @version    0.1.0
     """
     rendered = " ".join(argv)
     try:
@@ -359,9 +314,6 @@ class AegisClient:
              persisted state), every subsequent command pins it with `--run`,
              so the worktree-local `current_run` pointer is irrelevant to
              ADORE - the seam that already broke once in 1.x.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-08-01
-    @version 0.1.0
     """
 
     def __init__(self, execute: ExecTarget, run_id: str = "") -> None:
@@ -369,9 +321,6 @@ class AegisClient:
         @brief      Bind the client to a container exec seam and optional run.
         @param[in]  execute Exec seam bound to the run's container.
         @param[in]  run_id Known AEGIS run id ("" until `run start` ran).
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.1.0
         """
         self.execute = execute
         self.run_id = run_id or ""
@@ -408,9 +357,6 @@ class AegisClient:
                     not be misreported as ADORE's timeout and must not blame
                     the wrong component in the resulting escalation
                     (ADORE-ARCH-010).
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.2.0
         """
         command: list[str] = ["bash", WORKFLOW_CLI, *argv]
         if run_scoped:
@@ -465,9 +411,6 @@ class AegisClient:
                     permitted, or the successful response carries no usable
                     `run_id`.
         @exception  AegisTimeoutError When the command exceeded its bound.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.1.0
         """
         if kind not in RUN_KINDS:
             raise AegisProtocolError(
@@ -493,9 +436,6 @@ class AegisClient:
         @return     The parsed AegisResponse.
         @exception  AegisProtocolError When the contract is violated.
         @exception  AegisTimeoutError When the command exceeded its bound.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.1.0
         """
         return self.invoke("run", "status", timeout=STATUS_TIMEOUT)
 
@@ -508,9 +448,6 @@ class AegisClient:
         @return     The parsed AegisResponse.
         @exception  AegisProtocolError When the contract is violated.
         @exception  AegisTimeoutError When the command exceeded its bound.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.1.0
         """
         return self.invoke("run", "resume", timeout=STATUS_TIMEOUT)
 
@@ -522,9 +459,6 @@ class AegisClient:
         @return     The parsed AegisResponse.
         @exception  AegisProtocolError When the contract is violated.
         @exception  AegisTimeoutError When the command exceeded its bound.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.1.0
         """
         return self.invoke("stage", "show", timeout=STATUS_TIMEOUT)
 
@@ -537,9 +471,6 @@ class AegisClient:
         @return     The parsed AegisResponse.
         @exception  AegisProtocolError When the contract is violated.
         @exception  AegisTimeoutError When the command exceeded its bound.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.1.0
         """
         return self.invoke("stage", "close", timeout=DEFAULT_TIMEOUT)
 
@@ -554,9 +485,6 @@ class AegisClient:
         @return     The parsed AegisResponse.
         @exception  AegisProtocolError When the contract is violated.
         @exception  AegisTimeoutError When verification exceeded its bound.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.1.0
         """
         return self.invoke("verify", "run", timeout=VERIFY_TIMEOUT)
 
@@ -566,9 +494,6 @@ class AegisClient:
         @return     The parsed AegisResponse (`report` names `report.md`).
         @exception  AegisProtocolError When the contract is violated.
         @exception  AegisTimeoutError When the command exceeded its bound.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.1.0
         """
         return self.invoke("delivery", "report", timeout=DEFAULT_TIMEOUT)
 
@@ -581,9 +506,6 @@ class AegisClient:
         @return     The parsed AegisResponse.
         @exception  AegisProtocolError When the contract is violated.
         @exception  AegisTimeoutError When the command exceeded its bound.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.1.0
         """
         return self.invoke("waive", "list", timeout=STATUS_TIMEOUT)
 
@@ -595,9 +517,6 @@ class AegisClient:
         @return     The parsed AegisResponse (`schema_version` on success).
         @exception  AegisProtocolError When the contract is violated.
         @exception  AegisTimeoutError When the command exceeded its bound.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.1.0
         """
         return self.invoke(
             "config", "validate", run_scoped=False, timeout=STATUS_TIMEOUT
@@ -613,9 +532,6 @@ class AegisClient:
         @return     The validated run id.
         @exception  AegisProtocolError When `run_id` is absent, not a string,
                     or does not match the documented run-id pattern.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.1.0
         """
         value = response.detail("run_id")
         if not isinstance(value, str) or not RUN_ID_RE.match(value):

@@ -11,9 +11,6 @@
 @file test_branding.py
 @brief Contract tests for canonical ADORE product and runtime names.
 @details Proves the clear-path identity values used across the hard-cut rename.
-@author Eng. Dan Dumitru Pasare
-@date 2026-07-16
-@version 0.1.0
 """
 
 from __future__ import annotations
@@ -27,9 +24,6 @@ from adore import branding
 def test_canonical_adore_branding_contract() -> None:
     """
     @brief   Every fixed product-controlled name uses the ADORE namespace.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-16
-    @version 0.1.0
     """
     assert branding.PRODUCT_NAME == "Agentic Delivery Orchestrator & Runtime Engine"
     assert branding.PRODUCT_ACRONYM == "ADORE"

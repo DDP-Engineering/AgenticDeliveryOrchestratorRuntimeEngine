@@ -13,9 +13,6 @@
 @details Drives `adore` through main() against a real config file in a tmp dir,
          so config loading, validation, state store, and command wiring are
          exercised together.
-@author Eng. Dan Dumitru Pasare
-@date 2026-07-02
-@version 0.2.0
 """
 
 from __future__ import annotations
@@ -59,9 +56,6 @@ def _config_file(tmp_path: Path, text: str = VALID_CONFIG) -> str:
     @param[in]  tmp_path pytest tmp dir.
     @param[in]  text TOML content.
     @return     The config path as a string for the CLI.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.1.2
     """
     store_root = (tmp_path / ".adore").as_posix()
     worktree_root = (tmp_path / "worktrees").as_posix()
@@ -77,7 +71,6 @@ def _config_file(tmp_path: Path, text: str = VALID_CONFIG) -> str:
 def test_version_present() -> None:
     """
     @brief   The package exposes a non-empty version string.
-    @version 0.1.0
     """
     assert isinstance(__version__, str)
     assert __version__
@@ -86,7 +79,6 @@ def test_version_present() -> None:
 def test_build_executor_opencode() -> None:
     """
     @brief   The factory returns an opencode executor and rejects unknown kinds.
-    @version 0.1.0
     """
     executor = build_executor("opencode", "opencode run {prompt}", "openai/gpt-5.4-fast")
     assert isinstance(executor, OpencodeExecutor)
@@ -97,7 +89,6 @@ def test_build_executor_opencode() -> None:
 def test_cli_config_validate_ok(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """
     @brief   `adore config validate` passes on a valid file.
-    @version 0.1.1
     """
     assert main(["-c", _config_file(tmp_path), "config", "validate"]) == EXIT_OK
     assert "OK" in capsys.readouterr().out
@@ -108,7 +99,6 @@ def test_cli_config_validate_reports_issues(
 ) -> None:
     """
     @brief   `adore config validate` lists issues and exits 1.
-    @version 0.1.1
     """
     bad = VALID_CONFIG.replace('kind = "gitlab"', 'kind = "bitbucket"')
     assert main(["-c", _config_file(tmp_path, bad), "config", "validate"]) == EXIT_ERROR
@@ -120,7 +110,6 @@ def test_cli_missing_config_is_a_clean_error(
 ) -> None:
     """
     @brief   A missing config file prints a hint instead of a traceback.
-    @version 0.1.0
     """
     assert main(["-c", str(tmp_path / "nope.toml"), "status"]) == EXIT_ERROR
     assert "not found" in capsys.readouterr().out
@@ -131,7 +120,6 @@ def test_cli_status_pause_resume_runs(
 ) -> None:
     """
     @brief   status/pause/resume/runs work together against the state store.
-    @version 0.1.0
     """
     config = _config_file(tmp_path)
     assert main(["-c", config, "status"]) == EXIT_OK
@@ -152,7 +140,6 @@ def test_cli_reset_guardrail_and_cleanup_report(
     """
     @brief   reset refuses without --force (design 8c), fails cleanly on an
              unknown run with --force, and cleanup prints a JSON report.
-    @version 0.2.0
     """
     config = _config_file(tmp_path)
     assert main(["-c", config, "reset", "x", "--to", "intake"]) == EXIT_ERROR
@@ -170,7 +157,6 @@ def test_cli_config_set_updates_existing_key_and_preserves_comments(
     """
     @brief   `config set` replaces an existing scalar in place, keeps comments
              and other keys, and infers the value type (here: int).
-    @version 0.1.0
     """
     text = VALID_CONFIG + "\n[budgets]\nmax_iterations = 20  # a comment\n"
     config = _config_file(tmp_path, text)
@@ -188,7 +174,6 @@ def test_cli_config_set_adds_missing_section(
     """
     @brief   Setting a key in an absent section appends the table; the result
              still validates.
-    @version 0.1.0
     """
     config = _config_file(tmp_path)  # VALID_CONFIG has no [budgets]
     assert main(["-c", config, "config", "set", "budgets.max_files_touched", "25"]) == EXIT_OK
@@ -203,7 +188,6 @@ def test_cli_config_set_refuses_when_result_is_invalid(
     """
     @brief   An edit that would make the config invalid is refused and the file
              is left byte-for-byte unchanged (validate before write).
-    @version 0.1.0
     """
     config = _config_file(tmp_path)
     before = Path(config).read_text(encoding="utf-8")
@@ -219,7 +203,6 @@ def test_cli_config_set_rejects_secret_key(
     """
     @brief   A secret-looking key is refused and the operator is pointed at
              .env; config.toml only holds secret NAMES, never values.
-    @version 0.1.0
     """
     config = _config_file(tmp_path)
     assert main(["-c", config, "config", "set", "platform.api_token", "s3cr3t"]) == EXIT_ERROR
@@ -232,7 +215,6 @@ def test_cli_config_set_rejects_bad_key_and_missing_value(
     """
     @brief   A key without a section, and a missing value, both fail closed with
              a usage/format message rather than a traceback.
-    @version 0.1.0
     """
     config = _config_file(tmp_path)
     assert main(["-c", config, "config", "set", "toplevel", "x"]) == EXIT_ERROR
@@ -247,7 +229,6 @@ def test_cli_stats_and_export_work_empty(
     """
     @brief   stats/export on an empty store answer cleanly (exit 0), and
              report on an unknown run errors cleanly.
-    @version 0.1.0
     """
     config = _config_file(tmp_path)
     assert main(["-c", config, "stats"]) == EXIT_OK
@@ -263,24 +244,17 @@ def test_cli_run_once_writes_process_log(
     """
     @brief   `adore run --once` preserves stdout and appends the same run-owned
              lines to `<store_root>/adore.log`.
-    @version 0.1.1
     """
     config = _config_file(tmp_path)
 
     class FakeEngine:
         """
         @brief   Minimal engine for run-command CLI smoke coverage.
-        @author  Eng. Dan Dumitru Pasare
-        @date    2026-07-07
-        @version 0.1.0
         """
 
         def __init__(self) -> None:
             """
             @brief   Initialize with the same log slot Orchestrator exposes.
-            @author  Eng. Dan Dumitru Pasare
-            @date    2026-07-07
-            @version 0.1.0
             """
             self.log = print
 
@@ -289,9 +263,6 @@ def test_cli_run_once_writes_process_log(
             @brief      Emit one engine line and return a summary.
             @param[in]  dry_run Whether the CLI requested dry-run.
             @return     Poll summary.
-            @author     Eng. Dan Dumitru Pasare
-            @date       2026-07-07
-            @version    0.1.0
             """
             self.log("engine line")
             return {"picked": None, "dry_run": dry_run}
@@ -312,7 +283,6 @@ def test_process_log_rotates(tmp_path: Path) -> None:
     """
     @brief   The ADORE process log keeps a bounded current file and numbered
              backups with the newest backup at `.1`.
-    @version 0.1.1
     """
     path = tmp_path / "adore.log"
     logger = ProcessLogger(path, max_bytes=50, backups=2)
@@ -334,7 +304,6 @@ def test_cli_run_ops_on_unknown_run_fail_cleanly(
     @brief   retry/cancel/logs/delete on an unknown run print a clean error
              (no traceback, no network) and exit 1; delete additionally
              requires --force.
-    @version 0.1.0
     """
     config = _config_file(tmp_path)
     assert main(["-c", config, "cancel", "nope"]) == EXIT_ERROR
@@ -350,7 +319,6 @@ def test_cli_invalid_toml_is_a_clean_error(
 ) -> None:
     """
     @brief   A syntactically broken config prints a readable error, exit 1.
-    @version 0.1.0
     """
     path = tmp_path / "config.toml"
     path.write_text("[platform\nbroken =", encoding="utf-8")
@@ -362,7 +330,6 @@ def test_cli_surfaces_corrupt_runs(tmp_path: Path, capsys: pytest.CaptureFixture
     """
     @brief   A run with unreadable state stays visible in `runs` and `status`
              instead of disappearing or crashing the command.
-    @version 0.1.1
     """
     config = _config_file(tmp_path)
     run_dir = tmp_path / ".adore" / "runs" / "broken-run"
@@ -384,9 +351,6 @@ def _answers_file(tmp_path: Path) -> str:
     @brief      Write a valid non-interactive answers file + a clone dir.
     @param[in]  tmp_path pytest tmp dir.
     @return     The answers file path.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.1.0
     """
     clone = tmp_path / "clone"
     (clone / ".git").mkdir(parents=True)
@@ -409,7 +373,6 @@ def test_cli_init_via_main_writes_profile(
     """
     @brief   `adore init <name> --answers FILE` creates a profile through the CLI
              wiring; `profile list` then shows it.
-    @version 0.1.1
     """
     assert main(["init", "smoketest", "--answers", _answers_file(tmp_path)]) == EXIT_OK
     capsys.readouterr()
@@ -422,7 +385,6 @@ def test_cli_init_answers_file_errors(
 ) -> None:
     """
     @brief   A missing or invalid --answers file is a clean error (exit 1).
-    @version 0.1.1
     """
     assert main(["init", "p", "--answers", str(tmp_path / "nope.toml")]) == EXIT_ERROR
     assert "not found" in capsys.readouterr().out
@@ -438,7 +400,6 @@ def test_cli_init_wizard_error_exits_one(
     """
     @brief   A wizard failure (existing profile without --force) surfaces as a
              clean `init failed:` error, exit 1.
-    @version 0.1.1
     """
     answers = _answers_file(tmp_path)
     assert main(["init", "dup", "--answers", answers]) == EXIT_OK

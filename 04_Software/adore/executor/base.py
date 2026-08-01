@@ -16,9 +16,6 @@
          container exec seam, and reads the results back from files (the
          event stream from the io dir, clarification questions from the
          worktree) - never from live stdout.
-@author Eng. Dan Dumitru Pasare
-@date 2026-07-03
-@version 0.2.0
 """
 
 from __future__ import annotations
@@ -41,9 +38,6 @@ class ExecTarget(Protocol):
     @details The orchestrator binds ContainerManager.exec to the run's
              container name and passes it in; tests pass fakes. Matches the
              exec seam: exit codes come back as data.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-03
-    @version 0.1.0
     """
 
     def __call__(
@@ -58,9 +52,6 @@ class ExecTarget(Protocol):
                          element may rely on embedded spaces surviving).
         @param[in]  timeout Optional wall-clock bound.
         @return     The captured CommandResult.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
         """
         ...  # pragma: no cover - protocol signature only
 
@@ -75,9 +66,6 @@ class GateRun:
              next gate. `output` is the raw event stream (also persisted in
              the run's io dir for audit). `artifact_dirs` names immutable
              per-launch archive directories created by the file protocol.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-03
-    @version 0.2.0
     """
 
     exit_code: int
@@ -98,9 +86,6 @@ class GateRun:
         @details Clean exit is necessary but not sufficient to advance: the
                  conductor still checks questions and runs invariants.
         @return  Exit-status flag.
-        @author  Eng. Dan Dumitru Pasare
-        @date    2026-07-03
-        @version 0.1.0
         """
         return self.exit_code == 0
 
@@ -111,9 +96,6 @@ class GateRun:
 class Executor(ABC):
     """
     @brief   Abstract executor launcher (opencode/pi/codex).
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-03
-    @version 0.2.0
     """
 
     @abstractmethod
@@ -140,9 +122,6 @@ class Executor(ABC):
         @param[in]  timeout Wall-clock bound (run budgets).
         @param[in]  archive_stem Optional immutable archive name stem.
         @return     A GateRun describing the outcome.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.2.1
         """
 
 

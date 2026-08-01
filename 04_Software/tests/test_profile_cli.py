@@ -11,9 +11,6 @@
 @file test_profile_cli.py
 @brief Smoke tests for `adore profile ...` and `--profile` resolution, driven
        through main() against a tmp ADORE_HOME.
-@author Eng. Dan Dumitru Pasare
-@date 2026-07-05
-@version 0.1.0
 """
 
 from __future__ import annotations
@@ -56,9 +53,6 @@ def _home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     @param[in]  tmp_path pytest tmp dir.
     @param[in]  monkeypatch Fixture to set ADORE_HOME.
     @return     The home path.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.1.1
     """
     home = tmp_path / "home"
     monkeypatch.setenv("ADORE_HOME", str(home))
@@ -71,9 +65,6 @@ def _ready_profile(home: Path, name: str = "proj") -> ProfileStore:
     @param[in]  home The ADORE home.
     @param[in]  name Profile name.
     @return     The store (rooted at home).
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.1.1
     """
     store = ProfileStore(home)
     cfg = store.config_path(name)
@@ -91,7 +82,6 @@ def _ready_profile(home: Path, name: str = "proj") -> ProfileStore:
 def test_profile_list_empty(tmp_path: Path, monkeypatch, capsys) -> None:
     """
     @brief   `adore profile list` on an empty home is clean (exit 0).
-    @version 0.1.1
     """
     _home(tmp_path, monkeypatch)
     assert main(["profile", "list"]) == EXIT_OK
@@ -101,7 +91,6 @@ def test_profile_list_empty(tmp_path: Path, monkeypatch, capsys) -> None:
 def test_profile_list_and_show(tmp_path: Path, monkeypatch, capsys) -> None:
     """
     @brief   list shows the profile row; show prints metadata + config path.
-    @version 0.1.0
     """
     home = _home(tmp_path, monkeypatch)
     _ready_profile(home)
@@ -118,7 +107,6 @@ def test_profile_use_activates_and_resolves(tmp_path: Path, monkeypatch, capsys)
     """
     @brief   `use` sets the active profile; a later bare command resolves it
              and records a use (use_count bumped).
-    @version 0.1.0
     """
     home = _home(tmp_path, monkeypatch)
     store = _ready_profile(home)
@@ -134,7 +122,6 @@ def test_profile_flag_resolves_and_touches(tmp_path: Path, monkeypatch, capsys) 
     """
     @brief   `--profile NAME` resolves that profile's config for any command
              and bumps its use counter; an unknown profile fails cleanly.
-    @version 0.1.0
     """
     home = _home(tmp_path, monkeypatch)
     store = _ready_profile(home)
@@ -150,7 +137,6 @@ def test_profile_path(tmp_path: Path, monkeypatch, capsys) -> None:
     """
     @brief   `path` prints the config path for a named / active profile, and
              errors when neither is available.
-    @version 0.1.0
     """
     home = _home(tmp_path, monkeypatch)
     store = _ready_profile(home)
@@ -166,7 +152,6 @@ def test_profile_path(tmp_path: Path, monkeypatch, capsys) -> None:
 def test_profile_rename(tmp_path: Path, monkeypatch, capsys) -> None:
     """
     @brief   rename moves the profile; the new name resolves, the old does not.
-    @version 0.1.0
     """
     home = _home(tmp_path, monkeypatch)
     _ready_profile(home)
@@ -181,7 +166,6 @@ def test_profile_delete_needs_force(tmp_path: Path, monkeypatch, capsys) -> None
     """
     @brief   delete refuses without --force, removes with it, and reports an
              unknown profile.
-    @version 0.1.0
     """
     home = _home(tmp_path, monkeypatch)
     store = _ready_profile(home)
@@ -198,7 +182,6 @@ def test_profile_stats_render_in_list_and_show(tmp_path: Path, monkeypatch, caps
     @brief   Seeding the profile's metrics DB surfaces RUNS/MERGED in `list`
              and the full stats block (success_rate) in `show`; a profile with
              no DB renders zeros, not an error.
-    @version 0.1.0
     """
     home = _home(tmp_path, monkeypatch)
     store = _ready_profile(home)
@@ -222,7 +205,6 @@ def test_explicit_config_still_wins(tmp_path: Path, monkeypatch, capsys) -> None
     """
     @brief   Regression: an explicit -c file behaves exactly as before and
              overrides any active profile (single-config users unaffected).
-    @version 0.1.0
     """
     home = _home(tmp_path, monkeypatch)
     _ready_profile(home)

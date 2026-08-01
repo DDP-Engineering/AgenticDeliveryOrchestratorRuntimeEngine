@@ -16,9 +16,6 @@
          JSONL export. Access is CLI-first (stats/report/export) plus an
          optional self-contained static HTML file - no server, no exporter.
          This data is the crawl -> walk -> run promotion signal.
-@author Eng. Dan Dumitru Pasare
-@date 2026-07-05
-@version 0.3.0
 """
 
 from __future__ import annotations
@@ -49,9 +46,6 @@ _TABLE = "run_summaries"
 class RunSummary:
     """
     @brief   One run's flat metrics record (a SQLite row / JSONL line).
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-04
-    @version 0.2.0
     """
 
     run_id: str
@@ -87,9 +81,6 @@ def _seconds_between(start: str, end: str) -> int:
     @param[in]  start Earlier timestamp.
     @param[in]  end Later timestamp.
     @return     Non-negative seconds.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-04
-    @version    0.1.0
     """
     a = iso_to_datetime(start)
     b = iso_to_datetime(end)
@@ -103,9 +94,6 @@ def _connect(db_path: str | Path) -> sqlite3.Connection:
     @brief      Open (creating on demand) the metrics database.
     @param[in]  db_path SQLite file path.
     @return     Connection with the schema ensured.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-04
-    @version    0.1.0
     """
     path = Path(db_path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -135,9 +123,6 @@ def summarize_run(store: StateStore, run_id: str,
     @param[in]  files_changed Files-touched count when the caller still has a
                               worktree to measure (0 otherwise).
     @return     The RunSummary.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-08-01
-    @version    0.1.1
     """
     state = store.load(run_id)
     events = store.read_journal(run_id)
@@ -207,9 +192,6 @@ def record_summary(db_path: str | Path, summary: RunSummary,
     @param[in]  db_path SQLite database path.
     @param[in]  summary The summary to persist.
     @param[in]  export_jsonl Mirror path ("" = no mirror).
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-04
-    @version    0.1.0
     """
     names = [f.name for f in fields(RunSummary)]
     with _connect(db_path) as connection:
@@ -235,9 +217,6 @@ def load_summaries(db_path: str | Path,
     @param[in]  since_seconds Keep runs whose ended_at is within this many
                               seconds of now (None = all).
     @return     Summaries ordered by ended_at.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-04
-    @version    0.1.0
     """
     if not Path(db_path).is_file():
         return []
@@ -264,9 +243,6 @@ def aggregate(summaries: list[RunSummary],
     @param[in]  by Group field ("priority" / "outcome" / "" = one group).
     @return     Group -> {runs, merged, failed, avg_span_s, tokens_in,
                 tokens_out, cost_usd, launches}.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-04
-    @version    0.1.0
     """
     groups: dict[str, list[RunSummary]] = {}
     for summary in summaries:
@@ -297,9 +273,6 @@ def profile_stats(db_path: str | Path) -> dict[str, Any]:
     @param[in]  db_path SQLite database path (may not exist yet).
     @return     {runs, merged, failed, success_rate, avg_span_s, launches,
                 tokens_in, tokens_out, cost_usd, last_run}.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-05
-    @version    0.1.0
     """
     summaries = load_summaries(db_path) if db_path else []
     row = aggregate(summaries).get("all", {})
@@ -324,9 +297,6 @@ def export_csv(summaries: list[RunSummary]) -> str:
     @brief      Render summaries as CSV text (`adore export --csv`).
     @param[in]  summaries Loaded summaries.
     @return     CSV text including the header row.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-04
-    @version    0.1.1
     """
     names = [f.name for f in fields(RunSummary)]
     buffer = io.StringIO()
@@ -345,9 +315,6 @@ def render_html(summaries: list[RunSummary], out_path: str | Path) -> Path:
     @param[in]  summaries Loaded summaries.
     @param[in]  out_path Output HTML path.
     @return     The written path.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-04
-    @version    0.1.1
     """
     totals = aggregate(summaries).get("all", {})
     head_cells = "".join(
@@ -386,9 +353,6 @@ def is_terminal(lifecycle: str) -> bool:
     @brief      Whether a run lifecycle is a terminal (recordable) state.
     @param[in]  lifecycle Run lifecycle value.
     @return     True for done/failed and the terminal outcomes.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-04
-    @version    0.1.0
     """
     return lifecycle in ("done", "failed", "cancelled", "stale",
                          "ticket-closed", "deleted")

@@ -10,9 +10,6 @@
 """
 @file test_release_consistency.py
 @brief Public-command tests for the ADORE release consistency check.
-@author Eng. Dan Dumitru Pasare
-@date 2026-07-16
-@version 0.1.0
 """
 
 from __future__ import annotations
@@ -50,7 +47,6 @@ def _run(root: Path) -> subprocess.CompletedProcess[str]:
     @brief      Execute the public release-check command for a repository root.
     @param[in]  root Repository root to validate.
     @return     Captured subprocess result.
-    @version    0.1.0
     """
     return subprocess.run(
         [sys.executable, str(CHECKER), "--repo-root", str(root)],
@@ -64,7 +60,6 @@ def _copy_inputs(destination: Path) -> None:
     """
     @brief      Build an isolated minimal release-check fixture.
     @param[in]  destination Fixture repository root.
-    @version    0.1.0
     """
     for relative in REQUIRED_INPUTS:
         source = REPO_ROOT / relative
@@ -79,7 +74,6 @@ def _copy_inputs(destination: Path) -> None:
 def test_repository_release_identity_is_consistent() -> None:
     """
     @brief   The current repository passes the public release check.
-    @version 0.1.0
     """
     result = _run(REPO_ROOT)
     assert result.returncode == 0, result.stderr
@@ -92,7 +86,6 @@ def test_release_check_fails_closed_on_bad_metadata_and_old_identity(
     """
     @brief   Mismatched package metadata and a forbidden pre-1.0 token are
              both reported; the command never guesses or silently repairs.
-    @version 0.1.0
     """
     _copy_inputs(tmp_path)
     init_path = tmp_path / "04_Software/adore/__init__.py"
@@ -113,7 +106,6 @@ def test_release_check_fails_closed_on_bad_metadata_and_old_identity(
 def test_release_check_scans_presentation_xml(tmp_path: Path) -> None:
     """
     @brief   A pre-1.0 identity hidden inside a presentation fails the check.
-    @version 0.1.0
     """
     _copy_inputs(tmp_path)
     presentation = tmp_path / "operator.pptx"

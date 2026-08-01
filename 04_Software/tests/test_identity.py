@@ -10,9 +10,6 @@
 """
 @file test_identity.py
 @brief Tests for marker-based identity and slug-derived naming.
-@author Eng. Dan Dumitru Pasare
-@date 2026-07-02
-@version 0.1.1
 """
 
 from __future__ import annotations
@@ -30,7 +27,6 @@ IDENTITY = AgentIdentity(name="ADORE", slug="adore")
 def test_derived_names() -> None:
     """
     @brief   All slug-derived identifiers follow design doc 5c.
-    @version 0.1.1
     """
     assert IDENTITY.tag == "[ADORE]"
     assert IDENTITY.store_root == ".adore"
@@ -42,7 +38,6 @@ def test_derived_names() -> None:
 def test_marker_round_trip() -> None:
     """
     @brief   A built marker parses back to its fields.
-    @version 0.1.0
     """
     marker = IDENTITY.make_marker("gitlab-x-14", "status", state="working", stage="intake")
     fields = IDENTITY.parse_marker(f"some visible text\n{marker}")
@@ -57,7 +52,6 @@ def test_marker_round_trip() -> None:
 def test_human_comments_have_no_marker() -> None:
     """
     @brief   Comments without the marker are treated as human (resume signal).
-    @version 0.1.1
     """
     assert not IDENTITY.is_own_comment("Looks good, please use variant B.")
     assert not IDENTITY.is_own_comment("")
@@ -69,7 +63,6 @@ def test_quoted_marker_is_treated_as_human() -> None:
     @brief   When a human replies by QUOTING ADORE's comment, the carried-over
              marker sits on blockquote (">") lines and must not count as ours -
              otherwise resume detection would miss the human's answer.
-    @version 0.1.0
     """
     marker = IDENTITY.make_marker("gitlab-x-14", "question")
     quoted_reply = f"Use variant B.\n\n> {IDENTITY.tag} Clarification needed\n> {marker}"
@@ -81,7 +74,6 @@ def test_quoted_marker_is_treated_as_human() -> None:
 def test_marker_is_slug_scoped() -> None:
     """
     @brief   Another agent's marker is not mistaken for ours.
-    @version 0.1.0
     """
     other = AgentIdentity(name="Robo", slug="robo")
     body = "hello\n" + other.make_marker("r-1", "status")
@@ -93,7 +85,6 @@ def test_status_comment_format() -> None:
     """
     @brief   The status comment carries the visible line plus hidden marker
              (design doc 5d).
-    @version 0.1.1
     """
     body = IDENTITY.status_comment("gitlab-x-14", "working", "intake", "2026-07-02 14:02")
     lines = body.splitlines()
@@ -112,7 +103,6 @@ def test_first_marker_wins_when_body_has_two() -> None:
     """
     @brief   An edited/quoted body carrying two markers parses the first one
              deterministically.
-    @version 0.1.0
     """
     body = (
         IDENTITY.make_marker("run-a", "status", state="working")
@@ -128,7 +118,6 @@ def test_marker_split_across_lines_still_parses() -> None:
     """
     @brief   A marker re-wrapped onto several lines (platform editing, manual
              quoting) is still recognized as ours.
-    @version 0.1.1
     """
     body = "status\n<!-- adore:run=run-x\nkind=status\nstate=parked -->"
     fields = IDENTITY.parse_marker(body)
@@ -139,7 +128,6 @@ def test_malformed_marker_fails_closed_as_human() -> None:
     """
     @brief   A broken marker (no closing arrow) yields no fields; ambiguous
              comments count as human, which at worst re-asks a question.
-    @version 0.1.1
     """
     assert IDENTITY.parse_marker("<!-- adore:run=r kind=status") is None
 

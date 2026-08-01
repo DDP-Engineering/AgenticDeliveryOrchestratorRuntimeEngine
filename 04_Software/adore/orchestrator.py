@@ -30,9 +30,6 @@
          isolation.py (ADORE-ARCH-009): platform-specific glue belongs to the
          isolation layer, not the core loop. `_teardown` now makes one call
          and logs a husk message if it still fails.
-@author Eng. Dan Dumitru Pasare
-@date 2026-08-01
-@version 0.11.0
 """
 
 from __future__ import annotations
@@ -243,9 +240,6 @@ class BlockDecision:
              single bounded re-attempt a live persistence lock deserves, and
              `escalate` ends the run with the AEGIS error and, where one
              exists, the exact command a human would run.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-08-01
-    @version 0.1.0
     """
 
     action: str
@@ -280,9 +274,6 @@ def classify_block(
     @param[in]  stage_record The graph's `stage_records[<stage>]` mapping when
                              ADORE could read it, else None.
     @return     The BlockDecision.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-08-01
-    @version    0.1.0
     """
     code = response.code
     if code == LOCK_TIMEOUT_CODE:
@@ -334,9 +325,6 @@ class Orchestrator:
              operation; the executor owns code reasoning. Authoritative state
              lives in the local StateStore; ticket comments/labels only
              reflect it (design 5c).
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-03
-    @version 0.1.0
     """
 
     def __init__(
@@ -363,9 +351,6 @@ class Orchestrator:
         @param[in]  secrets Executor secret subset (KEY -> value).
         @param[in]  sleep Sleep function (test override).
         @param[in]  log Line logger (stdout by default; journald in service).
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-05
-        @version    0.1.3
         """
         self.config = config
         self.forge = forge
@@ -398,9 +383,6 @@ class Orchestrator:
         @param[in]  config Validated configuration.
         @param[in]  env_file Dotenv file holding the executor secrets.
         @return     A ready Orchestrator.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-29
-        @version    0.1.2
         """
         entry = config.executor.commands[config.executor.default]
         env = {**load_env_file(env_file), **os.environ}
@@ -437,9 +419,6 @@ class Orchestrator:
                  pause flag, applies jitter and error backoff, and releases
                  the lock on exit (including Ctrl+C).
         @return  Process exit code.
-        @author  Eng. Dan Dumitru Pasare
-        @date    2026-07-03
-        @version 0.1.0
         """
         if not self.store.acquire_lock():
             self.log(
@@ -481,9 +460,6 @@ class Orchestrator:
         @param[in]  locked True when run_loop already holds the lock.
         @return     Summary mapping (picked/resumed/reaped/timed_out, flags).
         @exception  ForgeError When the platform is unreachable (loop backs off).
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.2.0
         """
         own_lock = False
         if not dry_run and not locked:
@@ -522,9 +498,6 @@ class Orchestrator:
         @param[in]  run_id Stable run identifier.
         @param[in]  outcome Terminal outcome recorded in state.
         @return     True when the run existed and was cancelled.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
         """
         try:
             run = self.store.load(run_id)
@@ -546,9 +519,6 @@ class Orchestrator:
                     the stage where it stopped (design 8c).
         @param[in]  run_id Stable run identifier.
         @return     True when the run existed and a ticket still backs it.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
         """
         try:
             run = self.store.load(run_id)
@@ -584,9 +554,6 @@ class Orchestrator:
         @param[in]  run_id Stable run identifier.
         @param[in]  stage Target stage (an AEGIS stage or "publication").
         @return     True when the run existed and the stage is valid.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.2.0
         """
         if stage not in RESETTABLE_STAGES:
             self.log(f"invalid stage {stage!r}; valid: "
@@ -616,9 +583,6 @@ class Orchestrator:
                     no poller is running, so a leftover lock is cleared.
         @return     Report: lock_cleared, containers_removed,
                     worktrees_removed, corrupt_runs.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-07
-        @version    0.2.1
         """
         report: dict = {"lock_cleared": False, "containers_removed": [],
                         "proxy_containers_removed": [], "egress_networks_removed": [],
@@ -681,9 +645,6 @@ class Orchestrator:
                  win) -> drop tickets with existing runs -> readiness filter
                  -> order by priority label then lowest iid.
         @return  The ticket to conduct, or None.
-        @author  Eng. Dan Dumitru Pasare
-        @date    2026-07-03
-        @version 0.1.0
         """
         labels = self.config.labels
         candidates = []
@@ -718,9 +679,6 @@ class Orchestrator:
                     scope_hint remain config intent, not yet enforced.
         @param[in]  ticket Candidate ticket.
         @return     True when the ticket may be conducted.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
         """
         readiness = self.config.readiness
         if readiness.require_priority_label:
@@ -741,9 +699,6 @@ class Orchestrator:
         @details    Design 8a: snapshot ticket.json + content hash, create the
                     RunState, then run the gate loop.
         @param[in]  ticket The selected ticket.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
         """
         run_id = self._run_id(ticket.iid)
         run = RunState(
@@ -782,9 +737,6 @@ class Orchestrator:
         @param[in]  run The run.
         @param[in]  ticket Current ticket (for prompts).
         @param[in]  thread Rendered clarification thread ("" outside resume).
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.4.0
         """
         if run.stage == PUBLICATION_STAGE:
             # fail closed: silently restarting the stage loop regressed a
@@ -818,9 +770,6 @@ class Orchestrator:
                     mid-conduct never leaves a run permanently exempt from the
                     staleness sweep.
         @param[in]  run_id The run being conducted.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.1.0
         """
         previous = self._in_flight_run_id
         self._in_flight_run_id = run_id
@@ -852,9 +801,6 @@ class Orchestrator:
         @param[in]  ticket Current ticket (for prompts and label mapping).
         @param[in]  thread Rendered clarification thread ("" outside resume).
         @exception  AegisError Propagated to `_conduct` for escalation.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.1.0
         """
         if not self._ensure_aegis_run(run, ticket, client):
             return
@@ -970,9 +916,6 @@ class Orchestrator:
         @return     True when a run id is available; False when the start was
                     blocked and the run has already been parked/escalated.
         @exception  AegisError When the CLI contract is violated.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.2.0
         """
         if client.run_id:
             return True
@@ -1005,9 +948,6 @@ class Orchestrator:
                     config validation also enforces up front.
         @param[in]  ticket The ticket being conducted.
         @return     (kind, quick) for `aegis run start`.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.1.0
         """
         workflow = self.config.workflow
         labels = set(ticket.labels)
@@ -1028,9 +968,6 @@ class Orchestrator:
                     routinely need far more room than intake.
         @param[in]  stage AEGIS stage name.
         @return     Seconds.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.1.0
         """
         override = self.config.workflow.stage_timeout_overrides.get(stage)
         if isinstance(override, int) and not isinstance(override, bool) \
@@ -1046,9 +983,6 @@ class Orchestrator:
                     absence means the full eight-stage sequence.
         @param[in]  status A `run status` response.
         @return     STANDARD_STAGES or QUICK_STAGES.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.1.0
         """
         return (
             QUICK_STAGES
@@ -1076,9 +1010,6 @@ class Orchestrator:
                                  it has closed none yet).
         @return     The validated stage name.
         @exception  AegisProtocolError When the stage is unknown or regressed.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.3.0
         """
         expected = self._expected_stages(status)
         stage = status.stage
@@ -1120,9 +1051,6 @@ class Orchestrator:
                     reason and the response that produced it (so the caller can
                     attach the response's own evidence).
         @exception  AegisError When the CLI contract is violated.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.2.0
         """
         shown = client.stage_show()
         if not shown.ok:
@@ -1184,9 +1112,6 @@ class Orchestrator:
                            hint; omitted when no run exists yet.
         @return     The action taken: BLOCK_PARK, BLOCK_RETRY, or
                     BLOCK_ESCALATE.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.2.0
         """
         decision = classify_block(response, self._stage_record(run, response.stage))
         self.store.journal(run.run_id, "aegis-blocked", context=context,
@@ -1231,9 +1156,6 @@ class Orchestrator:
         @param[in]  client The run's client (for the waive hint).
         @param[in]  attempts Consecutive retries already spent.
         @return     True when the caller should sleep and re-issue the command.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.1.0
         """
         action = self._handle_block(run, response, context, client)
         if action != BLOCK_RETRY:
@@ -1261,9 +1183,6 @@ class Orchestrator:
                     error, which is the part that must never be lost.
         @param[in]  client The run's client, or None when no run exists.
         @return     The hint text, or "" when there is nothing waivable.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.1.0
         """
         if client is None or not client.run_id:
             return ""
@@ -1294,9 +1213,6 @@ class Orchestrator:
         @param[in]  run The ADORE run.
         @param[in]  stage Stage name.
         @return     The `stage_records[<stage>]` mapping, or None.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.1.0
         """
         run_dir = self._aegis_run_dir(run)
         if run_dir is None or not stage or stage == "none":
@@ -1315,9 +1231,6 @@ class Orchestrator:
                     operator to look at ADORE or the payload, not the ticket.
         @param[in]  run The run.
         @param[in]  exc The raised AegisError.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.1.0
         """
         kind = type(exc).__name__
         self.store.journal(run.run_id, "aegis-contract-failure", kind=kind)
@@ -1335,9 +1248,6 @@ class Orchestrator:
                     validation gate with this as context (budget-bounded).
         @param[in]  run The run after a passing validation gate.
         @return     Failure context for the relaunch, or "" when committed.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.2.0
         """
         try:
             if self.worktrees.is_dirty(run.run_id):
@@ -1373,9 +1283,6 @@ class Orchestrator:
         @param[in]  thread Rendered clarification/review thread.
         @param[in]  revise True inside the revise cycle: skip MR adoption and
                     update the existing MR instead of creating one.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.4.0
         """
         with self._conducting(run.run_id):
             run.stage = PUBLICATION_STAGE
@@ -1410,9 +1317,6 @@ class Orchestrator:
         @param[in]  thread Rendered clarification/review thread.
         @param[in]  revise True inside the revise cycle.
         @exception  AegisError Propagated to `_deliver` for escalation.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.1.0
         """
         execute = client.execute
         if not revise:
@@ -1522,9 +1426,6 @@ class Orchestrator:
         @return     True to re-check; False when the run ended (escalated or
                     parked).
         @exception  AegisError When the CLI contract is violated.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.3.0
         """
         reason = self._budget_exceeded(run)
         if reason:
@@ -1562,9 +1463,6 @@ class Orchestrator:
                     carries the MR link.
         @param[in]  run The run.
         @param[in]  adopted An already-open MR when adopting, else None.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.2.0
         """
         if adopted is not None:
             run.mr_iid = adopted.iid
@@ -1593,9 +1491,6 @@ class Orchestrator:
                     label never triggers anything (11b: no auto-react).
         @param[in]  run The in-review run.
         @param[in,out] summary Poll summary counters.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-24
-        @version    0.1.3
         """
         try:
             mr = self.forge.get_merge_request(run.mr_iid or run.branch)
@@ -1661,9 +1556,6 @@ class Orchestrator:
         @param[in]  run The in-review run.
         @param[in]  mr The open MR carrying the revise label.
         @param[in,out] summary Poll summary counters.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-24
-        @version    0.1.2
         """
         run.review_rounds += 1
         if run.review_rounds > self.config.review.max_review_rounds:
@@ -1738,9 +1630,6 @@ class Orchestrator:
         @param[in]  client The run's AEGIS client.
         @return     The MR body.
         @exception  AegisError When the CLI contract is violated.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.2.0
         """
         report = client.delivery_report()
         parts = [
@@ -1768,9 +1657,6 @@ class Orchestrator:
         @param[in]  run The run whose worktree holds the artifact.
         @param[in]  relative The `artifact`/`report` value from an envelope.
         @return     The file content, or "" when the value is unusable.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.1.0
         """
         if not isinstance(relative, str) or not relative or relative == "none":
             return ""
@@ -1797,9 +1683,6 @@ class Orchestrator:
         @param[in]  client The run's AEGIS client.
         @return     A bounded orientation block, or "" when no run exists yet.
         @exception  AegisError When the CLI contract is violated.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.2.0
         """
         if not client.run_id:
             return ""
@@ -1867,9 +1750,6 @@ class Orchestrator:
         @exception  AegisProtocolError When the run exists but its graph does
                     not - a started run always has one, so its absence is a
                     broken record, not an empty one.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.2.0
         """
         parts = [base.strip()]
         if response is not None:
@@ -1891,9 +1771,6 @@ class Orchestrator:
         @param[in]  run The ADORE run (for the stage record).
         @param[in]  response The blocked or failed response.
         @return     Zero or more prompt blocks.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.1.0
         """
         lines: list[str] = []
         if response.error:
@@ -1923,9 +1800,6 @@ class Orchestrator:
                     captured, so it is safe as a single path segment.
         @param[in]  run The ADORE run.
         @return     The directory path, or None when no AEGIS run exists yet.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.1.0
         """
         if not run.aegis_run_id:
             return None
@@ -1944,9 +1818,6 @@ class Orchestrator:
         @param[in]  run The ADORE run.
         @param[in]  stage The stage just applied.
         @return     A rendered question block, or "" when there are none.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.1.0
         """
         run_dir = self._aegis_run_dir(run)
         if run_dir is None:
@@ -1977,9 +1848,6 @@ class Orchestrator:
         @brief      Load the AEGIS run graph, or None when it is unusable.
         @param[in]  path Path to `graph.json`.
         @return     The decoded graph mapping, or None.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.1.0
         """
         if not path.is_file():
             return None
@@ -2005,9 +1873,6 @@ class Orchestrator:
         @param[in]  run ADORE run whose worktree is inspected.
         @return     Markdown-ish evidence block, or "" when no evidence exists.
         @exception  AegisProtocolError When the run's graph.json is missing.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.3.0
         """
         run_dir = self._aegis_run_dir(run)
         if run_dir is None:
@@ -2042,9 +1907,6 @@ class Orchestrator:
                     neither does this prompt.
         @param[in]  path Path to `validation-summary.json`.
         @return     Lines to append to the retry prompt.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.1.0
         """
         if not path.is_file():
             return []
@@ -2111,9 +1973,6 @@ class Orchestrator:
                     to act: id, kind, stage, summary, command, failure kind.
         @param[in]  path Path to the AEGIS run graph.
         @return     Lines to append to the retry prompt.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.2.0
         """
         if not path.is_file():
             return []
@@ -2154,9 +2013,6 @@ class Orchestrator:
         @brief      Extract short report.md excerpts around failure markers.
         @param[in]  path Path to the workflow report.
         @return     Lines to append to the retry prompt.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-08
-        @version    0.1.0
         """
         if not path.is_file():
             return []
@@ -2189,9 +2045,6 @@ class Orchestrator:
         @brief      Read a text file, returning "" when it is absent/unreadable.
         @param[in]  path Path to read.
         @return     File content or "".
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-08
-        @version    0.1.0
         """
         try:
             return path.read_text(encoding="utf-8", errors="replace")
@@ -2203,9 +2056,6 @@ class Orchestrator:
         @brief      Redact configured executor secret values from prompt context.
         @param[in]  text Candidate prompt context.
         @return     Redacted text.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-08
-        @version    0.1.0
         """
         redacted = text
         values = sorted(
@@ -2229,9 +2079,6 @@ class Orchestrator:
         @param[in]  limit Approximate character budget for the tail.
         @return     The last <= limit characters, starting at a full line,
                     with a truncation marker when clipped.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-04
-        @version    0.1.0
         """
         text = text.strip()
         if len(text) <= limit:
@@ -2249,9 +2096,6 @@ class Orchestrator:
                     GitHub `/pull/N`, Gitea `/pulls/N`.
         @param[in]  url MR/PR web URL.
         @return     The number, or None when unparseable.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-29
-        @version    0.1.1
         """
         match = re.search(r"/(?:merge_requests|pulls?)/(\d+)", url)
         return int(match.group(1)) if match else None
@@ -2276,9 +2120,6 @@ class Orchestrator:
                     that was never delivered.
         @param[in]  run The run to park.
         @param[in]  questions Questions text from the worktree file.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.2.0
         """
         run.clarification_rounds += 1
         if run.clarification_rounds > self.config.clarification.max_rounds:
@@ -2346,9 +2187,6 @@ class Orchestrator:
                     fail closed toward leaving it for a human.
         @param[in]  run A run whose lifecycle is `working`.
         @return     True when the run should be escalated as abandoned.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.1.0
         """
         if run.run_id == self._in_flight_run_id:
             return False
@@ -2369,9 +2207,6 @@ class Orchestrator:
                     re-arms the run from the stage where it stopped.
         @param[in]  run The stale run.
         @param[in,out] summary Poll summary counters to update.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.1.0
         """
         self.store.journal(run.run_id, "stale-working-detected",
                            stage=run.stage, updated_at=run.updated_at)
@@ -2392,9 +2227,6 @@ class Orchestrator:
                     a stale run escalated here frees its slot for a new ticket
                     in the same pass.
         @param[in,out] summary Poll summary counters to update.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-06
-        @version    0.2.0
         """
         for run in self.store.list_runs():
             if run.lifecycle == "in-review":
@@ -2440,9 +2272,6 @@ class Orchestrator:
         @param[in]  run The parked run.
         @param[in]  ticket Fresh ticket (labels checked for the override).
         @return     True when the run should resume.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
         """
         if self.config.labels.lifecycle.answered in ticket.labels:
             return True
@@ -2467,9 +2296,6 @@ class Orchestrator:
                     the full thread; 5. the executor re-decides (may re-park).
         @param[in]  run The parked run.
         @param[in]  ticket Fresh ticket.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
         """
         comments = self.forge.list_comments(run.ticket_iid)
         run.last_seen_comment_id = max(
@@ -2505,9 +2331,6 @@ class Orchestrator:
         @param[in]  run The parked run.
         @param[in]  ticket Fresh ticket.
         @param[in,out] summary Poll summary counters.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
         """
         clar = self.config.clarification
         container_cfg = self.config.container
@@ -2559,9 +2382,6 @@ class Orchestrator:
         @brief      The deterministic run-id for a ticket (design 8a).
         @param[in]  iid Ticket id.
         @return     Stable run identifier.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
         """
         return derive_run_id(self.config.platform.kind, self.config.platform.repo, iid)
 
@@ -2575,9 +2395,6 @@ class Orchestrator:
         @param[in]  run_id Stable run identifier.
         @param[in]  iid Ticket id.
         @return     The branch name.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
         """
         return self.config.worktree.branch_template.format(
             slug=self.identity.slug, run_id=run_id, iid=iid
@@ -2588,9 +2405,6 @@ class Orchestrator:
         @brief      The run's io exchange dir under the state store.
         @param[in]  run_id Stable run identifier.
         @return     Path to `<store>/runs/<run-id>/io`.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
         """
         return self.store.run_dir(run_id) / "io"
 
@@ -2603,9 +2417,6 @@ class Orchestrator:
                     the optional host-auth staging for OAuth pilots.
         @param[in]  run The run.
         @exception  IsolationError When git or the container runtime fails.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-24
-        @version    0.1.3
         """
         if not self.worktrees.exists(run.run_id):
             # first creation: refresh the base ref so the run branches from an
@@ -2649,9 +2460,6 @@ class Orchestrator:
         @param[in]  run The run whose worktree admin dir is mounted.
         @return     Git env, configured executor secrets, and selected
                     executor/runtime env.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-06
-        @version    0.2.0
         """
         env = build_container_env(
             self.worktrees.admin_dir_name(run.run_id),
@@ -2677,9 +2485,6 @@ class Orchestrator:
                     disk outside the container. A missing host file only logs:
                     the executor will fail visibly with an auth error.
         @param[in]  run The provisioned run.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-25
-        @version    0.2.3
         """
         if not self.host_auth_path.is_file():
             self.log(f"{run.run_id}: stage_host_auth on, but {self.host_auth_path} "
@@ -2745,9 +2550,6 @@ class Orchestrator:
                            adds the exact next command).
         @param[in]  aegis_run_id The run id to pin ("" when none exists yet).
         @return     The prompt text (never enters argv; file protocol).
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.3.0
         """
         quick = status is not None and status.detail("run_profile") == "quick"
         goals = _STAGE_GOALS
@@ -2804,9 +2606,6 @@ class Orchestrator:
         @param[in]  comments All ticket comments (oldest first).
         @param[in]  limit Keep only the newest N non-system comments.
         @return     "author: body" blocks, oldest first.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
         """
         kept = [c for c in comments if not c.system][-limit:]
         return "\n\n".join(f"{c.author}: {c.body.strip()}" for c in kept)
@@ -2825,9 +2624,6 @@ class Orchestrator:
                     other budgets still apply.
         @param[in]  run The run.
         @return     Reported spend in USD (0.0 when nothing was reported).
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.1.0
         """
         total = 0.0
         for event in self.store.read_journal(run.run_id):
@@ -2855,9 +2651,6 @@ class Orchestrator:
                     Configuration_Reference.md rather than guessed at here.
         @param[in]  run The run.
         @return     Human-readable reason, or "".
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.2.0
         """
         budgets = self.config.budgets
         if run.iterations >= budgets.max_iterations:
@@ -2901,9 +2694,6 @@ class Orchestrator:
                     state. Callers redact the reason before passing it.
         @param[in]  run The run.
         @param[in]  reason Human-readable escalation reason (already redacted).
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.2.0
         """
         run.lifecycle = "failed"
         run.outcome = reason
@@ -2934,9 +2724,6 @@ class Orchestrator:
                     `adore cleanup` if that retry is exhausted.
         @param[in]  run The run.
         @param[in]  remove_worktree Also remove worktree + branch.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-05
-        @version    0.3.0
         """
         try:
             self.containers.remove(run.container)
@@ -2959,9 +2746,6 @@ class Orchestrator:
         @param[in]  run The run.
         @param[in]  context Gate name or fix phase.
         @param[in]  result The GateRun carrying the extracted totals.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-04
-        @version    0.1.0
         """
         if not self.config.metrics.capture_tokens:
             return
@@ -2982,9 +2766,6 @@ class Orchestrator:
         @param[in]  run The run.
         @param[in]  context Gate name or fix phase.
         @param[in]  result The GateRun carrying archive paths.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-07
-        @version    0.1.1
         """
         if result.artifact_dirs:
             self.store.journal(
@@ -3001,9 +2782,6 @@ class Orchestrator:
                     so files-changed is still measurable; INSERT OR REPLACE
                     keeps re-records (retry -> fail again) duplicate-free.
         @param[in]  run The run at a terminal state.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-04
-        @version    0.1.0
         """
         if not self.config.metrics.enabled:
             return
@@ -3026,9 +2804,6 @@ class Orchestrator:
         @param[in]  run The run.
         @param[in]  state Human-facing state (working/parked/failed/...).
         @param[in]  stage Current gate.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
         """
         self._try_mark(run, state, stage)
 
@@ -3042,9 +2817,6 @@ class Orchestrator:
         @param[in]  run The run.
         @param[in]  state Human-facing state.
         @param[in]  stage Current gate.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
         """
         channel = self.config.state.channel
         try:
@@ -3071,9 +2843,6 @@ class Orchestrator:
         @brief      Label-channel transitions for a state (design 5b).
         @param[in]  iid Ticket id.
         @param[in]  state Human-facing state.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
         """
         lifecycle = self.config.labels.lifecycle
         transitions: dict[str, tuple[list[str], list[str]]] = {
@@ -3106,9 +2875,6 @@ class Orchestrator:
         @param[in]  iid Ticket id.
         @param[in]  add Labels to add.
         @param[in]  remove Labels to remove.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-03
-        @version    0.1.0
         """
         try:
             if add:

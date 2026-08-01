@@ -18,9 +18,6 @@
          labels/comments only reflect it. Corrupt persisted state fails closed:
          loading raises StateError so the caller can skip or escalate
          deterministically, never guess.
-@author Eng. Dan Dumitru Pasare
-@date 2026-08-01
-@version 0.2.1
 """
 
 from __future__ import annotations
@@ -55,9 +52,6 @@ class StateError(RuntimeError):
     @details Fail-closed signal for corrupt/unreadable state.json or
              ticket.json (for example after a crash or manual edit). Callers
              skip or escalate the affected run; they never reinitialize it.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-02
-    @version 0.1.0
     """
 
 
@@ -69,9 +63,6 @@ class RunState:
              without re-fetching the ticket: identity, stage, the AEGIS run
              this ADORE run drives, signaling comment ids, round/budget
              counters, park bookkeeping, and resource names.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-08-01
-    @version 0.1.3
     """
 
     run_id: str
@@ -110,9 +101,6 @@ class RunState:
         """
         @brief   The state as a JSON-serializable mapping.
         @return  Plain mapping of all fields.
-        @author  Eng. Dan Dumitru Pasare
-        @date    2026-07-02
-        @version 0.1.0
         """
         return asdict(self)
 
@@ -128,9 +116,6 @@ class RunState:
                     code anywhere.
         @param[in]  data Mapping loaded from state.json.
         @return     The reconstructed RunState.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-08-01
-        @version    0.1.2
         """
         known = {f.name for f in fields(cls)}
         return cls(**{key: value for key, value in data.items() if key in known})
@@ -149,9 +134,6 @@ def derive_run_id(platform: str, project: str, ticket_iid: int) -> str:
     @param[in]  project  Project slug/path.
     @param[in]  ticket_iid Ticket internal id.
     @return     A stable run-id reused across restart and resume.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-02
-    @version    0.1.0
     """
     safe_project = project.replace("/", "-").replace(" ", "")
     return f"{platform}-{safe_project}-{ticket_iid}"
@@ -166,9 +148,6 @@ def content_hash(title: str, description: str) -> str:
     @param[in]  title Ticket title.
     @param[in]  description Ticket body (including acceptance criteria).
     @return     Hex SHA-256 digest of the normalized content.
-    @author     Eng. Dan Dumitru Pasare
-    @date       2026-07-02
-    @version    0.1.0
     """
     payload = f"{title.strip()}\x00{description.strip()}".encode()
     return hashlib.sha256(payload).hexdigest()
@@ -180,9 +159,6 @@ class StateStore:
     @details Persists RunState, the ticket snapshot, and the journal; also
              owns the single-instance lock and the global pause flag. Writes
              are atomic (tmp + replace) so a crash never leaves half a file.
-    @author  Eng. Dan Dumitru Pasare
-    @date    2026-07-02
-    @version 0.1.1
     """
 
     def __init__(
@@ -198,9 +174,6 @@ class StateStore:
         @param[in]  slug Agent slug; names the lock file ("<slug>.lock").
         @param[in]  process_alive Liveness probe used to reclaim a lock whose
                                   owner crashed (injectable for tests).
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-24
-        @version    0.1.2
         """
         self.root = Path(root)
         self.slug = slug
@@ -213,9 +186,6 @@ class StateStore:
         """
         @brief   The directory holding all per-run state dirs.
         @return  `<root>/runs`.
-        @author  Eng. Dan Dumitru Pasare
-        @date    2026-07-02
-        @version 0.1.0
         """
         return self.root / "runs"
 
@@ -224,9 +194,6 @@ class StateStore:
         """
         @brief   The single-instance lock file path.
         @return  `<root>/<slug>.lock`.
-        @author  Eng. Dan Dumitru Pasare
-        @date    2026-07-02
-        @version 0.1.0
         """
         return self.root / f"{self.slug}.lock"
 
@@ -235,9 +202,6 @@ class StateStore:
         @brief      One run's state directory.
         @param[in]  run_id Stable run identifier.
         @return     `<root>/runs/<run-id>`.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.0
         """
         return self.runs_root / run_id
 
@@ -246,9 +210,6 @@ class StateStore:
         @brief      Whether a run has persisted state.
         @param[in]  run_id Stable run identifier.
         @return     True when state.json exists for the run.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.0
         """
         return (self.run_dir(run_id) / STATE_FILE).is_file()
 
@@ -259,9 +220,6 @@ class StateStore:
         @brief      Persist a run's state atomically, stamping timestamps.
         @param[in]  state The RunState to write (updated_at is refreshed;
                           created_at is set on first save).
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.0
         """
         now = utc_now_iso()
         if not state.created_at:
@@ -277,9 +235,6 @@ class StateStore:
         @exception  FileNotFoundError When the run has no persisted state.
         @exception  StateError When state.json exists but is corrupt (fail
                     closed: the caller skips/escalates, never reinitializes).
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.1
         """
         path = self.run_dir(run_id) / STATE_FILE
         with path.open(encoding="utf-8") as handle:
@@ -301,9 +256,6 @@ class StateStore:
                  working; they stay visible through invalid_runs() and are
                  never silently deleted or reinitialized.
         @return  All loadable runs found under `<root>/runs`.
-        @author  Eng. Dan Dumitru Pasare
-        @date    2026-07-02
-        @version 0.1.1
         """
         runs: list[RunState] = []
         for entry in self._run_dirs():
@@ -319,9 +271,6 @@ class StateStore:
         @details The fail-closed counterpart of list_runs(): these runs need a
                  human (or `adore cleanup`); the poller must not touch them.
         @return  Sorted run-ids with corrupt state.json.
-        @author  Eng. Dan Dumitru Pasare
-        @date    2026-07-02
-        @version 0.1.1
         """
         invalid: list[str] = []
         for entry in self._run_dirs():
@@ -336,9 +285,6 @@ class StateStore:
         @brief      Hard-remove a run's entire state directory.
         @details    Destructive; used by `adore delete`. Cancel keeps state.
         @param[in]  run_id Stable run identifier.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.1
         """
         target = self.run_dir(run_id)
         if target.is_dir():
@@ -351,9 +297,6 @@ class StateStore:
         @brief      Persist the local ticket snapshot taken at pickup.
         @param[in]  run_id Stable run identifier.
         @param[in]  ticket Normalized ticket mapping (title, body, labels...).
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.0
         """
         self._write_json(self.run_dir(run_id) / TICKET_FILE, ticket)
 
@@ -364,9 +307,6 @@ class StateStore:
         @return     The ticket mapping saved at pickup.
         @exception  FileNotFoundError When no snapshot exists.
         @exception  StateError When ticket.json exists but is corrupt.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.1
         """
         path = self.run_dir(run_id) / TICKET_FILE
         with path.open(encoding="utf-8") as handle:
@@ -386,9 +326,6 @@ class StateStore:
         @param[in]  run_id Stable run identifier.
         @param[in]  event Short event name (for example "gate-advanced").
         @param[in]  details Arbitrary JSON-serializable event fields.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.0
         """
         record = {"ts": utc_now_iso(), "event": event, **details}
         path = self.run_dir(run_id) / JOURNAL_FILE
@@ -405,9 +342,6 @@ class StateStore:
                     authoritative state lives in state.json, not here.
         @param[in]  run_id Stable run identifier.
         @return     All parseable journal records (empty when none exist).
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.1
         """
         path = self.run_dir(run_id) / JOURNAL_FILE
         if not path.is_file():
@@ -439,9 +373,6 @@ class StateStore:
                  never stolen. The reclaim + re-create both go through the same
                  atomic `open("x")`, so two racing pollers cannot both win.
         @return  True when acquired; False when another instance holds it.
-        @author  Eng. Dan Dumitru Pasare
-        @date    2026-07-24
-        @version 0.2.0
         """
         self.root.mkdir(parents=True, exist_ok=True)
         if self._try_create_lock():
@@ -455,9 +386,6 @@ class StateStore:
         """
         @brief   Atomically create the lock file, recording pid + host.
         @return  True when this call created it; False when it already existed.
-        @author  Eng. Dan Dumitru Pasare
-        @date    2026-07-24
-        @version 0.1.0
         """
         try:
             with self.lock_path.open("x", encoding="utf-8") as handle:
@@ -481,9 +409,6 @@ class StateStore:
                  record ({}), a missing/invalid pid, or a lock written on a
                  different host all return False (fail closed - keep the lock).
         @return  True when the lock may be safely reclaimed.
-        @author  Eng. Dan Dumitru Pasare
-        @date    2026-07-24
-        @version 0.1.0
         """
         info = self.lock_info()
         if not info:
@@ -499,9 +424,6 @@ class StateStore:
     def release_lock(self) -> None:
         """
         @brief   Release the single-instance lock if held.
-        @author  Eng. Dan Dumitru Pasare
-        @date    2026-07-02
-        @version 0.1.0
         """
         self.lock_path.unlink(missing_ok=True)
 
@@ -513,9 +435,6 @@ class StateStore:
                  poller just because the lock content is damaged.
         @return  The lock record (pid, acquired_at), {} when held but
                  unreadable, or None when free.
-        @author  Eng. Dan Dumitru Pasare
-        @date    2026-07-02
-        @version 0.1.1
         """
         if not self.lock_path.is_file():
             return None
@@ -530,9 +449,6 @@ class StateStore:
     def pause(self) -> None:
         """
         @brief   Stop picking new tickets (`adore pause`); in-flight runs continue.
-        @author  Eng. Dan Dumitru Pasare
-        @date    2026-07-02
-        @version 0.1.1
         """
         self.root.mkdir(parents=True, exist_ok=True)
         (self.root / PAUSE_FILE).write_text(utc_now_iso() + "\n", encoding="utf-8")
@@ -540,9 +456,6 @@ class StateStore:
     def resume(self) -> None:
         """
         @brief   Allow picking new tickets again (`adore resume`).
-        @author  Eng. Dan Dumitru Pasare
-        @date    2026-07-02
-        @version 0.1.1
         """
         (self.root / PAUSE_FILE).unlink(missing_ok=True)
 
@@ -550,9 +463,6 @@ class StateStore:
         """
         @brief   Whether new-ticket pickup is globally paused.
         @return  True when the pause flag is set.
-        @author  Eng. Dan Dumitru Pasare
-        @date    2026-07-02
-        @version 0.1.0
         """
         return (self.root / PAUSE_FILE).is_file()
 
@@ -562,9 +472,6 @@ class StateStore:
         """
         @brief   Sorted run directories that carry a state.json.
         @return  Existing run dirs (empty when the store is fresh).
-        @author  Eng. Dan Dumitru Pasare
-        @date    2026-07-02
-        @version 0.1.0
         """
         if not self.runs_root.is_dir():
             return []
@@ -577,9 +484,6 @@ class StateStore:
         @brief      Write JSON atomically (tmp file + replace).
         @param[in]  path Destination file.
         @param[in]  data JSON-serializable mapping.
-        @author     Eng. Dan Dumitru Pasare
-        @date       2026-07-02
-        @version    0.1.0
         """
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix(path.suffix + ".tmp")
