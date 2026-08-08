@@ -129,6 +129,7 @@ def test_wizard_writes_a_valid_minimal_profile(tmp_path: Path) -> None:
     assert config.container.runtime == "docker"
     assert config.worktree.branch_rule.startswith("^(feature")
     assert config.delivery.reviewers == ["reviewer.one", "reviewer.two"]
+    assert config.budgets.max_files_touched == 120
     assert config.state.store_root.endswith("state")         # profile-owned (D2)
     assert profile.platform == "gitlab" and profile.repo == "grp/sub/proj"
 

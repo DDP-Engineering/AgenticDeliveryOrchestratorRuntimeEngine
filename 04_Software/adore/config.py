@@ -27,6 +27,7 @@ import shlex
 import tomllib
 from typing import Any
 
+from adore.aegis import QUICK_KINDS, RUN_KINDS
 from adore.branding import (
     EGRESS_NETWORK_PREFIX,
     EGRESS_PROXY_IMAGE,
@@ -36,7 +37,6 @@ from adore.branding import (
     PRODUCT_SLUG,
     UV_CACHE_VOLUME,
 )
-from adore.aegis import QUICK_KINDS, RUN_KINDS
 from adore.util import parse_duration
 
 # CONSTANTS
@@ -392,7 +392,12 @@ class BudgetsConfig:
     max_wall_clock_seconds: int = 3600
     per_gate_timeout_seconds: int = 1800
     max_cost_usd: float = 5.0
-    max_files_touched: int = 40
+    # AEGIS 3 full runs persist forms, snapshots, evidence, graph, journal,
+    # summaries, and reports alongside product changes. The CR6 pilot reached
+    # 45 governed paths before implementation, so the legacy 40-file default
+    # made a clean full run impossible. Keep the run bounded, but leave honest
+    # headroom for the governance payload as well as the product diff.
+    max_files_touched: int = 120
 
 
 @dataclass

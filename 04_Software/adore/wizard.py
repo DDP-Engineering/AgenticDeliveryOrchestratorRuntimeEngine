@@ -67,7 +67,7 @@ _RECOMMENDED_BUDGETS = {
     "max_iterations": 12,
     "max_wall_clock_seconds": 5400,
     "max_cost_usd": 5.0,
-    "max_files_touched": 40,
+    "max_files_touched": 120,
 }
 
 # DATA MODELS / TYPEDEFINITIONS
@@ -586,7 +586,7 @@ def run_wizard(
     # -- Phase H (budgets & policy) -----------------------------------------------
     budgets_choice = ask(FieldSpec(
         "budgets_choice", "Budgets: recommended supervised, or customize?",
-        "recommended = 12 iters / 90 min / $5 / 40 files (6 crawl / 12-15 "
+        "recommended = 12 iters / 90 min / $5 / 120 files (6 crawl / 12-15 "
         "supervised / 20 unattended)",
         "recommended", default="recommended", choices=("recommended", "custom"),
     ), asker, out)
@@ -604,8 +604,8 @@ def run_wizard(
             "max_cost_usd", "Max model spend per run (USD):", "", "5.0",
             default="5.0", validate=_positive_number), asker, out))
         budgets["max_files_touched"] = int(ask(FieldSpec(
-            "max_files_touched", "Max files a run may change:", "", "40",
-            default="40", validate=_positive_int), asker, out))
+            "max_files_touched", "Max files a run may change:", "", "120",
+            default="120", validate=_positive_int), asker, out))
     polling_mode = ask(FieldSpec(
         "polling_mode", "Run mode:",
         "once = single pass (cron/Task Scheduler); loop = long-running service",

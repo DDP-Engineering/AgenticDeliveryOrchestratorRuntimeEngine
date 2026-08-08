@@ -66,6 +66,7 @@ def test_minimal_config_is_valid_with_defaults(tmp_path: Path) -> None:
     assert config.labels.lifecycle.ready == "agent-ready"
     assert config.labels.selection.priority_order() == ["P1", "P2", "P3"]
     assert config.budgets.max_cost_usd == 5.0
+    assert config.budgets.max_files_touched == 120
     assert config.review.trigger == "label"
 
 
@@ -197,6 +198,16 @@ def test_per_gate_timeout_defaults_and_is_validated(tmp_path: Path) -> None:
     bad = MINIMAL_VALID + "\n[budgets]\nper_gate_timeout_seconds = 0\n"
     issues = validate_config(load_config(_write_config(tmp_path, bad)))
     assert any("per_gate_timeout_seconds" in issue for issue in issues)
+
+
+def test_file_budget_rejects_zero(tmp_path: Path) -> None:
+    """
+    @brief   Human-configured file budgets fail closed at zero; the positive
+             default is covered by the minimal-config happy path.
+    """
+    bad = MINIMAL_VALID + "\n[budgets]\nmax_files_touched = 0\n"
+    issues = validate_config(load_config(_write_config(tmp_path, bad)))
+    assert any("max_files_touched" in issue for issue in issues)
 
 
 def test_validation_rejects_reminder_after_the_timeout(tmp_path: Path) -> None:

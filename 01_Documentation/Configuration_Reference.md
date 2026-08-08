@@ -197,7 +197,7 @@ max_iterations           = 24
 max_wall_clock_seconds   = 3600
 per_gate_timeout_seconds = 1800
 max_cost_usd             = 5.0
-max_files_touched        = 40
+max_files_touched        = 120
 
 # ----- Delivery -----
 [delivery]
@@ -418,7 +418,7 @@ an executor exit code or manual assertion cannot replace that evidence.
 | `max_wall_clock_seconds` | Max wall-clock of **active work** per run; the clock restarts on `adore retry` and on resume-from-park (parked waiting time is bounded by `[clarification] answer_timeout` instead). | `3600` |
 | `per_gate_timeout_seconds` | Default wall-clock bound on a **single** executor launch (one AEGIS stage, one publication fix, or one revise). Independent from `max_wall_clock_seconds` (the whole-run ceiling), so per-launch and total budgets can be tuned separately. `[workflow] stage_timeout_overrides` raises or lowers it per stage. | `1800` |
 | `max_cost_usd` | Max model spend per run, in USD. Checked at the top of every stage iteration and every delivery fix: the run fails closed once the total exceeds the cap, with reason `budget exceeded: cost $X.XX`. The total is summed from what the **executor itself reports** for each launch (journaled as `usage` events), so the cap is only as good as that reporting - **an executor that reports no cost makes this limit inert**, and the run is then bounded by `max_iterations` and `max_wall_clock_seconds` alone. Setting `[metrics] capture_tokens = false` also disables it, for the same reason. Because the check runs between launches, a single launch can overshoot the cap; size it with one launch of headroom. | `5.0` |
-| `max_files_touched` | Max files a run may change. | `40` |
+| `max_files_touched` | Max files a run may change, including AEGIS's durable run forms, requirement/check snapshots, evidence, graph, journal, validation summary, and delivery report. The bounded default leaves room for those governed artifacts plus the product diff; lower it only after measuring the selected AEGIS profile. | `120` |
 
 ## `[delivery]` - Delivery Boundary
 

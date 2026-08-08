@@ -343,7 +343,7 @@ max_iterations           = 24
 max_wall_clock_seconds   = 3600   # total wall-clock per run (whole-run ceiling)
 per_gate_timeout_seconds = 1800   # default wall-clock bound on ONE executor launch
 max_cost_usd             = 5.0    # model spend per run
-max_files_touched        = 40     # files a run may change
+max_files_touched        = 120    # includes AEGIS forms/evidence + product files
 
 # ----- Delivery ------------------------------------------------------------------
 # The hard boundary: ADORE opens a DRAFT MR/PR and stops. It never merges, and

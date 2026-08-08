@@ -182,6 +182,14 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- **CR6 full-run file-budget sizing.** The AEGIS 3 pilot reached 45 changed
+  paths at the end of the check stage, before implementation, because durable
+  forms, requirement/check snapshots, evidence, graph, and journal correctly
+  count against the same scope bound as product files. The legacy 40-file
+  default therefore made a healthy full run impossible. Config, wizard,
+  example, and operator-reference defaults are now 120: still explicit and
+  bounded, with headroom for the governed artifacts plus the product diff.
+  Tests lock the new happy-path default and the fail-closed zero boundary.
 - **CR6 cross-platform acceptance findings.** WSL mount conversion now
   normalizes Windows separators explicitly instead of delegating to the host
   OS's `Path` flavour, so Windows drive paths produce the same `/mnt/<drive>`

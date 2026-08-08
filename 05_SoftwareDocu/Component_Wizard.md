@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Assisted-Config Wizard (`adore/wizard.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/adore/wizard.py` - file version 0.4.0.
+> Source: `04_Software/adore/wizard.py` - file version 0.5.0.
 > Historical design source: `00_Planning/Assisted_Config_And_Profiles_Plan.md`.
 > CLI: `adore init` (wired in `adore/cli.py`).
 
@@ -67,6 +67,10 @@ commands + `--profile` resolution.
   built with `--build-arg USER_UID=$(id -u) --build-arg USER_GID=$(id -g)` so
   the container user/group match the host (no `run_args` needed for UID mapping). The executor `env_keys` are
   derived from the model's provider (names only, never secret values - D5).
+- **Governance-aware file budget:** the recommended profile allows 120 touched
+  files. AEGIS 3 durable run artifacts count toward the same bound as product
+  files, and the CR6 full pilot occupied 45 paths before implementation; the
+  older 40-file recommendation failed an otherwise healthy governed run.
 - **TOML emission** prefers literal single-quoted strings, so regexes and
   Windows paths (backslashes) need no escaping.
 

@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Config (`adore/config.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/adore/config.py` - file version 0.4.0.
+> Source: `04_Software/adore/config.py` - file version 0.5.0.
 > Setting-by-setting reference:
 > `01_Documentation/Configuration_Reference.md`.
 
@@ -105,6 +105,11 @@ Writing a single scalar back to the config file lives in the CLI
 - `[budgets]` carries two independent time bounds: `max_wall_clock_seconds`
   (whole-run ceiling) and `per_gate_timeout_seconds` (one executor launch);
   both must be `>= 1`.
+- `[budgets] max_files_touched` defaults to 120 because the bound counts both
+  product changes and AEGIS's durable forms, snapshots, evidence, graph,
+  journal, validation summary, and report. A live full run already occupied
+  45 governed paths before implementation; the former 40-file default could
+  not complete the ordinary AEGIS 3 lifecycle.
 - `labels.selection.priority_order()` returns priority labels highest-first;
   the orchestrator uses that order when ranking eligible tickets.
 

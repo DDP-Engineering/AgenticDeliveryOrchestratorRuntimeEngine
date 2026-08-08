@@ -114,6 +114,9 @@ human action. The real human approval stays at the draft MR review.
   upstream files are integration noise, not scope), and resume - like retry -
   restarts the active-work clock and iteration count (parked time is bounded by
   answer_timeout, not the work budget).
+  The file count includes AEGIS's durable run artifacts as well as product
+  changes; the default is therefore 120 after the AEGIS 3 CR6 pilot proved
+  that a full run already owns 45 paths before implementation.
 - **Ticket signaling** (design 5d): one status comment edited in place
   and/or lifecycle-label transitions, per `[state] channel`; signaling
   failures never break a run - local state is authoritative.
