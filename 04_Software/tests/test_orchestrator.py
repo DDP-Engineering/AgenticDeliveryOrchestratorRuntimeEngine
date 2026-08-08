@@ -3311,26 +3311,35 @@ def status_response(stage: str, quick: bool = False) -> AegisResponse:
     )
 
 
-def test_every_stage_prompt_speaks_the_aegis_2x_vocabulary(
+def test_every_full_stage_prompt_is_policy_thin_and_context_led(
     tmp_path: Path,
 ) -> None:
     """
-    @brief   Each of the eight stage prompts names its own AEGIS stage and
-             tells the executor to work through the generated forms, not
-             through CLI flags.
+    @brief   Full-stage snapshots defer mechanics to context/forms and retain
+             only the conductor's stable policy boundary.
     """
     engine, forge, _, _ = make_engine(tmp_path, FakeExecutor())
     ticket = forge.add_ticket(14, title="Refresh")
     for stage in STANDARD_STAGES:
+        context_block = (
+            "Validated AEGIS fresh-session context:\n"
+            f'{{"stage": "{stage}", "required_reads": ["AGENTS.md"], '
+            f'"artifact": ".agentic/runs/{AEGIS_RUN}/{stage}.toml"}}'
+        )
         prompt = engine._gate_prompt(
-            stage, ticket, "", "", status=status_response(stage),
+            stage, ticket, "", "", orientation=context_block,
+            status=status_response(stage),
             aegis_run_id=AEGIS_RUN,
         )
         assert f"AEGIS {stage.upper()} stage" in prompt
-        assert "bash .agentic/tools/run.sh <group> <action>" in prompt
-        assert "content goes into the generated forms, never into CLI flags" \
-            in prompt
-        assert "aegis stage apply" in prompt
+        assert context_block in prompt
+        assert "read exactly its `required_reads`" in prompt
+        assert "generated form checklist and current-stage artifact" in prompt
+        assert "generated guidance - not this prompt" in prompt
+        assert "--json <group> <action>" in prompt
+        assert "aegis stage prepare" not in prompt
+        assert "aegis stage add" not in prompt
+        assert "aegis check prepare" not in prompt
 
 
 def test_every_stage_prompt_forbids_closing_and_waiving(tmp_path: Path) -> None:
@@ -3347,66 +3356,84 @@ def test_every_stage_prompt_forbids_closing_and_waiving(tmp_path: Path) -> None:
         assert "NEVER run `aegis stage close`" in prompt
         assert "NEVER run `aegis waive add`" in prompt
         assert "NEVER push, open merge/pull requests, or merge" in prompt
+        assert "remain within the current stage" in prompt
+        assert "iteration, time, cost, and file budgets" in prompt
+        assert "never start, select, abandon, or substitute another run" in prompt
 
 
-def test_stage_prompt_pins_the_run_and_relays_the_next_command(
+def test_stage_prompt_pins_the_run_while_context_owns_procedure_data(
     tmp_path: Path,
 ) -> None:
     """
-    @brief   The executor is told to pin the same `--run` the orchestrator
-             pins, and is handed AEGIS's own exact next command plus the form
-             path so it never has to guess either.
+    @brief   The executor cannot switch runs; next/artifact data comes only
+             from the validated context block.
     """
     engine, forge, _, _ = make_engine(tmp_path, FakeExecutor())
     ticket = forge.add_ticket(14)
+    context_block = (
+        "Validated AEGIS fresh-session context:\n"
+        f'{{"artifact": ".agentic/runs/{AEGIS_RUN}/design.toml", '
+        '"next_commands": ["aegis stage apply"]}'
+    )
     prompt = engine._gate_prompt(
-        "design", ticket, "", "", status=status_response("design"),
+        "design", ticket, "", "", orientation=context_block,
+        status=status_response("design"),
         aegis_run_id=AEGIS_RUN,
     )
     assert f"`--run {AEGIS_RUN}`" in prompt
-    assert "AEGIS says the exact next command is `aegis stage apply`." in prompt
-    assert f".agentic/runs/{AEGIS_RUN}/stages/design/stage.toml" in prompt
-
-    # before `run start` there is no run to pin, so no pin instruction
-    unpinned = engine._gate_prompt("intake", ticket, "", "")
-    assert "--run" not in unpinned
+    assert "never start, select, abandon, or substitute another run" in prompt
+    assert context_block in prompt
+    assert "AEGIS says the exact next command" not in prompt
 
 
-def test_quick_run_prompts_name_the_bypassed_stages(tmp_path: Path) -> None:
+def test_quick_run_prompts_require_real_red_green_and_inv3(tmp_path: Path) -> None:
     """
-    @brief   Quick implementation and validation prompts tell the executor that
-             alignment, requirement, design, and check were bypassed, so it
-             does not hunt for requirement rows, a design, or check IDs - and
-             that the not-applicable audits are expected, not failures.
+    @brief   Quick snapshots lock executable red/green truth and the exact
+             not-applicable boundary without a manual shortcut.
     """
     engine, forge, _, _ = make_engine(tmp_path, FakeExecutor())
     ticket = forge.add_ticket(14)
 
-    implementation = engine._gate_prompt(
-        "implementation", ticket, "", "",
-        status=status_response("implementation", quick=True),
-        aegis_run_id=AEGIS_RUN,
-    )
-    assert "QUICK run" in implementation
-    assert "were bypassed at intake" in implementation
-    assert "aegis evidence prepare add" in implementation
-    assert "linked_check_evidence" in implementation
+    quick_prompts = {
+        stage: engine._gate_prompt(
+            stage, ticket, "", "",
+            orientation=f'Validated context: {{"stage": "{stage}"}}',
+            status=status_response(stage, quick=True),
+            aegis_run_id=AEGIS_RUN,
+        )
+        for stage in QUICK_STAGES
+    }
+    assert all("QUICK" in prompt for prompt in quick_prompts.values())
 
-    validation = engine._gate_prompt(
-        "validation", ticket, "", "",
-        status=status_response("validation", quick=True),
-        aegis_run_id=AEGIS_RUN,
-    )
-    assert "not-applicable - quick run" in validation
-    assert "not something to fix" in validation
+    implementation = quick_prompts["implementation"]
+    assert "aegis check create" in implementation
+    assert "complete its generated definition" in implementation
+    assert "aegis check register" in implementation
+    assert implementation.index("RED result") < implementation.index("make the fix")
+    assert implementation.index("make the fix") < implementation.index("GREEN evidence")
+    assert "linked_check_evidence" in implementation
+    assert "Manual evidence is not a substitute" in implementation
+    assert "executed failing `aegis check run` still exits 0" in implementation
+    assert "`execution_status`" in implementation
+    assert "`evidence[].result`" in implementation
+    assert "`nothing-ran` is failed execution" in implementation
+    assert "aegis evidence prepare add" not in implementation
+
+    validation = quick_prompts["validation"]
+    assert "INV-3 applies" in validation
+    for item in ("INV-1", "INV-2", "INV-8", "INV-10", "traceability", "coverage"):
+        assert item in validation
+    assert "INV-3" not in validation.split("may be not applicable")[1]
+    assert "nothing-ran" in validation
+    assert "evidence[].result: fail" in validation
 
     # a full run keeps the standard wording
     full = engine._gate_prompt(
         "implementation", ticket, "", "",
         status=status_response("implementation"), aegis_run_id=AEGIS_RUN,
     )
-    assert "QUICK run" not in full
-    assert "GREEN evidence" in full
+    assert "QUICK" not in full
+    assert "aegis check create" not in full
 
 
 def test_stage_prompt_names_both_question_channels(tmp_path: Path) -> None:

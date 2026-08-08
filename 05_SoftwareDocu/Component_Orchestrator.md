@@ -199,24 +199,26 @@ interface) and metrics.
   between ready and blockers. On restart, `applied + ready` skips the executor,
   performs stage-specific verification, and closes. `applied + blocked`
   relaunches with evidence but never prepares/regenerates the form.
-- Per-stage goals are fixed prompt blocks (`_STAGE_GOALS`, eight stages plus
-  `revise`) plus the standing rules: worktree-only, the CLI invoked as
-  `bash .agentic/tools/run.sh <group> <action>` with content in the generated
-  forms and never in CLI flags, never `aegis stage close` (the delegated
-  approver closes), never `aegis waive add` (a human decides), never push/MR,
-  commit everything including the `.agentic` run records, questions into the
-  form's `control.unresolved_questions` or the questions file, stop at stage
-  end. The prompt relays AEGIS's own `next` command and the current form's
-  `artifact` path, and pins the run explicitly with `--run <aegis-run-id>` -
-  the same pin the orchestrator uses - so a repository holding several runs
-  cannot be worked on through the wrong one.
-- Quick runs swap in `_QUICK_STAGE_GOALS` for implementation and validation.
-  Those variants name the four bypassed stages so the executor does not hunt
-  for requirement rows, a `design.md`, or check IDs that were never produced;
-  implementation is walked through the manual-evidence path
-  (`evidence prepare add` -> `evidence apply` -> `linked_check_evidence`), and
-  validation is told that the `not-applicable - quick run` audits are the
-  expected state rather than something to fix.
+- Live-stage `_STAGE_GOALS` are policy-thin. The validated `run context`, its
+  exact `required_reads`, the generated form checklist, and the current-stage
+  artifact own completion mechanics; ADORE does not duplicate AEGIS procedure
+  or relay arbitrary `next_command` content. Standing policy keeps execution
+  in the current stage and worktree, invokes the CLI with canonical global
+  options (`bash .agentic/tools/run.sh --run <id> --json <group> <action>`),
+  pins and never switches the run, enforces conductor budgets, reserves
+  `stage close` for ADORE and `waive add` for a human, forbids remote actions,
+  and requires governed changes to be committed. `revise` remains a separate
+  post-publication instruction.
+- Quick runs add `_QUICK_STAGE_GOALS` policy for all four live stages. A new
+  quick implementation must create and register an executable AEGIS check,
+  capture genuine RED before changing the implementation, capture genuine
+  GREEN afterward, and link the active green evidence. Manual evidence cannot
+  substitute for the executed check. Because a failed `check run` can still
+  exit zero, the executor is told to inspect `execution_status` and every
+  `evidence[].result`; nothing-ran is failure. Validation keeps INV-3 mandatory.
+  Only INV-1, INV-2, INV-8, INV-10, and traceability/coverage tied solely to
+  absent quick stages may be not-applicable; failed or nothing-ran evidence
+  remains failure regardless of process exit or summary wording.
 - Run kind and profile come from ticket labels through `[workflow]`
   (`kind_labels`, `default_kind`, `quick_label`); `--quick` is only produced
   for the kinds AEGIS permits (`fix`, `change`).
@@ -378,10 +380,11 @@ adore logs <run-id>
   graph escalating; every `classify_block` branch; a held lock retried once
   then escalating; the exact waive command in an escalation and an
   unavailable `waive list` never hiding the original error; recorded stage
-  questions parking the run; per-stage prompt snapshots (the AEGIS 3.x
-  vocabulary, the close/waive prohibition on all nine prompts, the run pin and
-  relayed next command, the quick variants and their bypassed-stage wording,
-  both question channels); secret redaction; selection
+  questions parking the run; per-stage prompt contract tests (policy-thin live
+  goals, canonical CLI option order, stage confinement, budgets, close/waive
+  and remote prohibitions, run pin with switching forbidden, executable quick
+  RED-before-GREEN evidence, INV-3 and nothing-ran semantics, both question
+  channels); secret redaction; selection
   ordering, control labels and readiness negatives; idempotent re-poll skip;
   park order (question before status); resume filtering; answered-label
   override; round-cap escalation; TTL reap vs run survival; answer timeout

@@ -148,89 +148,55 @@ _EXECUTOR_CONTAINER_ENV = {
 }
 
 _STAGE_GOALS = {
-    "intake": (
-        "Work the AEGIS INTAKE stage: run `aegis stage prepare`, fill the "
-        "generated intake form with the statement, scope hints, and access "
-        "mode, then `aegis stage apply`."
-    ),
-    "alignment": (
-        "Work the AEGIS ALIGNMENT stage: fill the alignment form BEFORE any "
-        "spec or code work - what you understood, what is in and out of "
-        "scope, your assumptions, the acceptance target, the implementation "
-        "areas you expect to touch, and the proceed/pause decision - then "
-        "`aegis stage apply`. If the honest decision is pause, record your "
-        "blocking questions in the form's control table and stop."
-    ),
-    "requirement": (
-        "Work the AEGIS REQUIREMENT stage: create one form per durable "
-        "requirement with `aegis stage add`, fill them, and `aegis stage "
-        "apply`. AEGIS mints the requirement IDs; requirements enter as "
-        "Planned."
-    ),
-    "design": (
-        "Work the AEGIS DESIGN stage: write the authoritative design at "
-        "`.agentic/runs/<run-id>/design.md`, cite the requirements it "
-        "satisfies in the stage form, and `aegis stage apply`."
-    ),
-    "check": (
-        "Work the AEGIS CHECK stage: add one form per check with `aegis stage "
-        "add` citing the requirement IDs, apply the stage, then produce RED "
-        "evidence for every check - `aegis check run` in managed mode, or "
-        "`aegis check prepare` / complete `evidence.toml` / `aegis check "
-        "record` in external mode. Red-before-green is mandatory."
-    ),
-    "implementation": (
-        "Work the AEGIS IMPLEMENTATION stage: edit only source roots to make "
-        "the checks pass, produce GREEN evidence for every check the same way "
-        "you produced the red evidence, fill the implementation form with the "
-        "changed paths, and `aegis stage apply`."
-    ),
-    "validation": (
-        "Work the AEGIS VALIDATION stage: run `aegis verify run` and fix "
-        "everything it reports, inspect the diff for scope creep, weakened "
-        "assertions, and secrets, fill the validation form, and `aegis stage "
-        "apply`."
-    ),
-    "delivery": (
-        "Work the AEGIS DELIVERY stage: fill the delivery form summarizing "
-        "what shipped and the residual risk, and `aegis stage apply`. Do NOT "
-        "push, open a merge/pull request, or merge - the orchestrator "
-        "publishes."
-    ),
+    stage: (
+        f"Work only the current AEGIS {stage.upper()} stage. The validated "
+        "context above is authoritative: read exactly its `required_reads`, "
+        "follow the generated form checklist and current-stage artifact, and "
+        "stop before the declared human gate. AEGIS's generated guidance - "
+        "not this prompt - owns the stage completion mechanics."
+    )
+    for stage in STANDARD_STAGES
+}
+_STAGE_GOALS.update({
     "revise": (
         "A human reviewer requested changes on the draft merge request (the "
         "review thread is above). Make exactly the requested changes - no "
         "more - update tests and evidence accordingly, re-run `aegis verify "
         "run`, and commit everything."
     ),
-}
+})
 
-# Quick runs bypass alignment, requirement, design, and check, so the stages
-# that DO run must be told not to look for artifacts those stages would have
-# produced (contract notes 4 and 6): there is no requirement or design
-# collection, red-before-green is not applicable, and implementation evidence
-# arrives through the manual evidence form instead.
+# Quick runs remain evidence-driven. These additions state only the control
+# contract ADORE must prevent an executor from weakening; generated forms own
+# the stage mechanics.
 _QUICK_STAGE_GOALS = {
+    "intake": (
+        "This is a QUICK fix/change run. Do not begin implementation during "
+        "intake; capture the bounded intent through the generated checklist."
+    ),
     "implementation": (
-        "Work the AEGIS IMPLEMENTATION stage of a QUICK run. Alignment, "
-        "requirement, design, and check were bypassed at intake, so there are "
-        "no requirement rows, no design.md, and no check IDs to cite - do not "
-        "look for them. Make the fix, then record manual evidence: `aegis "
-        "evidence prepare add`, fill the form, `aegis evidence apply`, copy "
-        "the CLI-minted active evidence ID into the implementation form's "
-        "`linked_check_evidence`, list the changed paths, and `aegis stage "
-        "apply`. Invented, superseded, or non-implementation evidence is "
-        "rejected."
+        "This is the implementation stage of a new QUICK run. Before changing "
+        "the implementation, use `aegis check create`, complete its generated "
+        "definition, and `aegis check register`. Execute it to obtain a genuine "
+        "RED result, preserve that red witness, then make the fix and execute "
+        "again for genuine GREEN evidence. Link the active green evidence in "
+        "`linked_check_evidence`. Manual evidence is not a substitute for an "
+        "executed check. An executed failing `aegis check run` still exits 0: "
+        "read `execution_status` and every `evidence[].result` instead of the "
+        "process/envelope success. `nothing-ran` is failed execution and cannot "
+        "satisfy readiness."
     ),
     "validation": (
-        "Work the AEGIS VALIDATION stage of a QUICK run: run `aegis verify "
-        "run` and fix everything it reports. Traceability, coverage, INV-1, "
-        "INV-2, INV-3, INV-8, and INV-10 report `not-applicable - quick run` "
-        "- that is the expected state, not something to fix. The enabled "
-        "gates, the secrets scan, the remaining invariants, and the "
-        "working-tree review still apply. Inspect the diff for scope creep, "
-        "weakened assertions, and secrets, fill the validation form, and "
-        "`aegis stage apply`."
+        "This is QUICK validation. INV-3 applies and requires real active "
+        "red/green check evidence. Only INV-1, INV-2, INV-8, INV-10, "
+        "traceability, and coverage tied to intentionally absent stages may "
+        "be not applicable. `nothing-ran` and any executed "
+        "`evidence[].result: fail` remain failures; `status: ok` or exit 0 "
+        "cannot turn them green."
+    ),
+    "delivery": (
+        "This is QUICK delivery. Preserve the truthful quick evidence and "
+        "scope already recorded; do not reinterpret not-applicable results."
     ),
 }
 
@@ -2840,16 +2806,16 @@ class Orchestrator:
     ) -> str:
         """
         @brief      Compose the bounded, stage-specific executor instruction.
-        @details    The executor owns content, the conductor owns control: the
-                    prompt tells it how to fill and apply the stage forms and
-                    forbids the two actions ADORE and humans reserve -
+        @details    The executor owns content and AEGIS's generated context,
+                    reference, skill, and form checklist own procedure. The
+                    prompt keeps only conductor policy and forbids reserved
+                    actions:
                     `aegis stage close` (ADORE is the delegated approver) and
-                    `aegis waive add` (a human decision). Quick runs get the
-                    variant that names the bypassed stages, so the executor
-                    does not hunt for artifacts that were never produced. The
-                    AEGIS run id is pinned explicitly, exactly as ADORE pins
-                    it, so a repository holding several runs cannot be worked
-                    on through the wrong one.
+                    `aegis waive add` (a human decision). Quick policy locks
+                    executable red-before-green evidence, INV-3, and
+                    nothing-ran semantics without duplicating stage mechanics.
+                    The run id is pinned explicitly and changing runs is
+                    prohibited.
         @param[in]  stage AEGIS stage name, or "revise".
         @param[in]  ticket Ticket for context.
         @param[in]  failure_context Previous-attempt failure summary ("" on
@@ -2858,8 +2824,7 @@ class Orchestrator:
         @param[in]  orientation Read-only AEGIS run brief ("" when a fresh
                                 session already carries the run context).
         @param[in]  status The `run status` response driving this stage, when
-                           the conductor has one (selects the quick variant and
-                           adds the exact next command).
+                           the conductor has one (selects the quick variant).
         @param[in]  aegis_run_id The run id to pin ("" when none exists yet).
         @return     The prompt text (never enters argv; file protocol).
         """
@@ -2881,27 +2846,23 @@ class Orchestrator:
         if failure_context:
             parts.append(failure_context)
         parts.append(goals[stage])
-        if status is not None and status.next_command:
-            parts.append(
-                f"AEGIS says the exact next command is `{status.next_command}`."
-                + (f" The current stage form is at `{status.artifact}`."
-                   if status.artifact and status.artifact != "none" else "")
-            )
         pin = (
             f"Pin every AEGIS command to this run with `--run {aegis_run_id}`; "
-            "the orchestrator does the same, so you and it always operate on "
-            "the same run. "
+            "never start, select, abandon, or substitute another run. "
             if aegis_run_id else ""
         )
         parts.append(
-            "Rules: work only inside this worktree. Run the AEGIS CLI as "
-            "`bash .agentic/tools/run.sh <group> <action>`; content goes into "
-            f"the generated forms, never into CLI flags. {pin}NEVER run "
+            "Rules: remain within the current stage and work only inside this "
+            "worktree. Run the AEGIS CLI with canonical global options as "
+            "`bash .agentic/tools/run.sh --run <run-id> --json <group> "
+            "<action>`; content goes into generated forms, never CLI flags. "
+            f"{pin}Obey the orchestrator's iteration, time, cost, and file "
+            "budgets. NEVER run "
             "`aegis stage close` (the orchestrator is the delegated approver "
             "and closes stages itself after verifying) and NEVER run "
             "`aegis waive add` (waiving a blocker is a human decision - report "
-            "it instead). COMMIT all your changes locally before finishing "
-            "(including the `.agentic` run records and new files) - a stage is "
+            "it instead). COMMIT all governed changes locally before finishing "
+            "(including `.agentic` run records and new files) - a stage is "
             "not complete with a dirty working tree. NEVER push, open "
             "merge/pull requests, or merge - the orchestrator owns the remote. "
             "If you hit blocking questions, record them in the stage form's "
