@@ -329,6 +329,7 @@ class FakeAegis:
         self.start_warnings: list[str] = []
         self.close_advisories: dict[str, list[dict]] = {}
         self.abandoned = False
+        self.abandon_before_close = False
         self.break_quick_green = False
         self.skip_report_write = False
         self.omit_red_green_policy = False
@@ -708,6 +709,17 @@ class FakeAegis:
             return CommandResult(exit_code=0, stdout=self._envelope())
         if verbs[:2] == ["stage", "close"]:
             stage = self.stage
+            if self.abandon_before_close:
+                self.abandoned = True
+                self.complete = True
+                self.write_graph()
+                return CommandResult(
+                    exit_code=1,
+                    stdout=self._envelope(
+                        "blocked",
+                        error="run is complete; no stage can be closed",
+                    ),
+                )
             blocked = self.close_blocked.pop(stage, "")
             if blocked:
                 return CommandResult(
@@ -4056,6 +4068,54 @@ def test_externally_abandoned_run_never_publishes(tmp_path: Path) -> None:
         item["event"] == "aegis-run-abandoned"
         for item in engine.store.read_journal(run.run_id)
     )
+
+
+def test_run_abandoned_during_executor_work_never_publishes(tmp_path: Path) -> None:
+    """
+    @brief   A close blocked because the operator abandoned the run after its
+             preceding status read is reconciled to terminal non-publication.
+    """
+    engine, forge, containers, worktrees = make_engine(
+        tmp_path, FakeExecutor([gate_ok()])
+    )
+    containers.aegis.abandon_before_close = True
+    forge.add_ticket(14)
+
+    engine.poll_once()
+
+    run = engine.store.load(engine._run_id(14))
+    assert run.lifecycle == "failed"
+    assert run.outcome == "aegis-abandoned"
+    assert len(engine.executor.prompts) == 1
+    assert worktrees.pushed == []
+    assert forge.mr_creations == []
+    assert any(
+        item["event"] == "aegis-run-abandoned"
+        for item in engine.store.read_journal(run.run_id)
+    )
+
+
+def test_close_time_abandonment_with_incomplete_graph_fails_closed(
+    tmp_path: Path,
+) -> None:
+    """
+    @brief   A terminal abandoned status cannot override a graph that does not
+             independently record terminal completion.
+    """
+    engine, forge, containers, worktrees = make_engine(
+        tmp_path, FakeExecutor([gate_ok()])
+    )
+    containers.aegis.abandon_before_close = True
+    containers.aegis.graph_changes["complete"] = False
+    forge.add_ticket(14)
+
+    engine.poll_once()
+
+    run = engine.store.load(engine._run_id(14))
+    assert run.lifecycle == "failed"
+    assert "graph reports an outcome before completion" in run.outcome
+    assert worktrees.pushed == []
+    assert forge.mr_creations == []
 
 
 # END OF FILE

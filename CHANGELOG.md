@@ -14,6 +14,12 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- **Operator abandonment during executor work cannot be misclassified as a
+  failed close.** If an AEGIS run becomes abandoned after ADORE's stage-status
+  read but before its delegated close, the blocked close now triggers one fresh
+  pinned `run status` read. ADORE records `aegis-abandoned` and skips
+  publication only when the terminal status and strict `graph.json` agree;
+  contradictory or non-abandonment close failures continue to fail loud.
 - **Graph-backed clarification answers now reach the executor.** A resumed
   AEGIS stage whose applied form still held its original unresolved question
   used to park again before launching, so the executor could never reconcile

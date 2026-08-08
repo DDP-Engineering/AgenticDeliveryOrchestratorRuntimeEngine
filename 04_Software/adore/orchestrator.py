@@ -804,19 +804,7 @@ class Orchestrator:
                     return
                 lock_retries += 1
                 continue
-            terminal_outcome = status.terminal_outcome
-            if terminal_outcome is not None:
-                graph = self._load_aegis_graph(run)
-                assert graph is not None
-                graph_outcome = (
-                    "abandoned" if graph.get("outcome") == "abandoned" else "normal"
-                )
-                if graph["complete"] is not True or graph_outcome != terminal_outcome:
-                    raise AegisArtifactError(
-                        "AEGIS terminal status disagrees with graph.json "
-                        f"(status={terminal_outcome!r}, graph={graph_outcome!r}, "
-                        f"complete={graph['complete']!r})"
-                    )
+            terminal_outcome = self._terminal_outcome(run, status)
             if terminal_outcome == "normal":
                 self.store.journal(run.run_id, "aegis-run-complete",
                                    aegis_run=client.run_id)
@@ -1190,6 +1178,10 @@ class Orchestrator:
         closed = client.stage_close(DELEGATED_APPROVER, run_kind=run_kind)
         retries = lock_retries
         while not closed.ok:
+            latest = client.run_status()
+            if latest.ok and self._terminal_outcome(run, latest) == "abandoned":
+                self._end_abandoned(run)
+                return False
             if not self._retryable(
                 run, closed, f"stage close ({stage})", client, retries
             ):
@@ -1219,6 +1211,39 @@ class Orchestrator:
             profile=(status.detail("run_profile") or "full"),
         )
         return True
+
+    def _terminal_outcome(
+        self,
+        run: RunState,
+        status: AegisResponse,
+    ) -> str | None:
+        """
+        @brief      Cross-check a terminal status against the pinned run graph.
+        @details    The check is shared by the normal stage-loop boundary and
+                    the close-time abandonment race: an operator may abandon a
+                    run while the executor is active, after ADORE's preceding
+                    status read but before its delegated close. Only an exact
+                    status/graph agreement is accepted as terminal.
+        @param[in]  run The ADORE run owning the pinned AEGIS run id.
+        @param[in]  status A successful `aegis run status` response.
+        @return     `normal`, `abandoned`, or None for a non-terminal run.
+        @exception  AegisArtifactError When terminal status and graph disagree.
+        """
+        terminal_outcome = status.terminal_outcome
+        if terminal_outcome is None:
+            return None
+        graph = self._load_aegis_graph(run)
+        assert graph is not None
+        graph_outcome = (
+            "abandoned" if graph.get("outcome") == "abandoned" else "normal"
+        )
+        if graph["complete"] is not True or graph_outcome != terminal_outcome:
+            raise AegisArtifactError(
+                "AEGIS terminal status disagrees with graph.json "
+                f"(status={terminal_outcome!r}, graph={graph_outcome!r}, "
+                f"complete={graph['complete']!r})"
+            )
+        return terminal_outcome
 
     def _end_abandoned(self, run: RunState) -> None:
         """@brief Record an externally abandoned AEGIS run without publishing."""

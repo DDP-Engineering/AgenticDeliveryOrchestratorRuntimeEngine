@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Orchestrator (`adore/orchestrator.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/adore/orchestrator.py` - file version 0.13.0.
+> Source: `04_Software/adore/orchestrator.py` - file version 0.14.0.
 > AEGIS contract: `00_Planning/AEGIS_3x_HardBreak_Adaptation/AEGIS_3.0_Contract_Notes.md`.
 > Design: Orchestrator_Design_And_Decisions.md sections 5a, 7a, 8, 9, 10.
 
@@ -58,8 +58,12 @@ human action. The real human approval stays at the draft MR review.
   verified and closed without relaunch or form regeneration. Only a genuinely
   unprepared stage may follow context's exact `stage prepare` recovery; a
   missing prepared/applied form follows non-mutating `stage show`. Normal
-  completion enters publication; abandoned completion never does. Each
-  executor launch receives a
+  completion enters publication; abandoned completion never does. A close
+  blocked because an operator abandoned the pinned run while an
+  executor launch was active is reconciled through a fresh `run status` read;
+  ADORE accepts the abandonment only when terminal status and the strict
+  `graph.json` record agree, then skips publication. Every other blocked close
+  retains the normal fail-loud behavior. Each executor launch receives a
   stable archive stem (`NNN-stage` / `NNN-delivery-fix` / `NNN-revise`), and
   any returned archive directories are journaled as `executor-artifacts`.
   The validation cleanliness check deliberately runs before `verify run`:
@@ -395,7 +399,9 @@ adore logs <run-id>
   applied-ready, and applied-blocked restart behavior; no executor replay when
   objective readiness is established; context/status mismatch, unknown
   recovery, aggregate overflow, malformed questions, and malformed stage
-  snapshots failing closed; a stage AEGIS
+  snapshots failing closed; abandonment before a stage loop and during the
+  executor-to-close race both skipping publication, with a contradictory
+  close-time terminal graph failing closed; a stage AEGIS
   will not call ready relaunched with its blockers; a failed
   `aegis verify run` relaunching validation; a blocked `stage close`
   escalating with the AEGIS remediation; an unknown stage and a stage
