@@ -184,7 +184,7 @@ section 17); onboarding in 01_Documentation/Onboarding_New_Project.md. ADORE
 migration layer. Container egress allowlisting is implemented and live-verified.
 Executor credentials remain an operator-managed security decision.
 
-**In progress (unreleased): the ADORE 3.0 hard break to AEGIS 3.x**
+**Released: the ADORE 3.0 hard break to AEGIS 3.x**
 (`00_Planning/AEGIS_3x_HardBreak_Adaptation/`). ADORE now speaks exactly one
 governance contract - the AEGIS 3.x grouped CLI (`bash .agentic/tools/run.sh
 --run <id> --json <group> <action>`) - with no AEGIS 1.x support, detection, or
@@ -210,8 +210,10 @@ artifacts; an abandoned run can never publish.
 escalation carries the exact AEGIS error, its remediation, and where relevant
 the exact `aegis waive add` command a human would run. Run kind and profile
 come from ticket labels through a validated `[workflow]` config section, and
-`doctor.detect_aegis` probes a target repository for a schema-3 payload. CR1-CR4
-are implemented and the Windows offline suite is green at 418 tests; the live
-pilot (plan CR6/WP8) is still pending, so none of the ADORE 3.0 behavior in this
-paragraph is live-verified yet. The selected 3.0.0 release version has not been
-cut.
+`doctor.detect_aegis` probes a target repository for a schema-3 payload.
+CR1-CR6 and WP8 completed on 2026-08-08; the offline suite is green at 427
+tests on native Windows and Ubuntu 24.04/WSL2. Full and quick Gitea pilots,
+restart, waiver/not-enforced/advisory truth, abandoned no-publication, and a
+same-draft-PR revise cycle are live-verified in prerequisites report section
+19. ADORE 3.0.0 is cut with aligned package, lock, changelog, documentation,
+and version-derived runtime artifacts. No pilot PR was merged.

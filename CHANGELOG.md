@@ -12,6 +12,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-08-09
+
 ### Fixed
 
 - **Operator abandonment during executor work cannot be misclassified as a
@@ -41,9 +43,9 @@ This project follows Keep a Changelog and Semantic Versioning.
   adaptation plan now pins AEGIS 3.0.0 and WAEGIS 3.0.0 from the authoritative
   source checkout, documents the unchanged runtime contract and the WAEGIS 3
   pilot-provisioning boundary, and renames current-facing ADORE/AEGIS product
-  labels accordingly. The installed ADORE version remains 1.2.0 until CR1-CR6
-  and the live pilot are complete. The user-selected 3.0.0 version will be cut
-  only as the final action after that acceptance evidence is green.
+  labels accordingly. The installed ADORE version remained 1.2.0 until CR1-CR6
+  and the live pilot completed; this section records the user-selected 3.0.0
+  cut after that acceptance evidence became green.
 - **WSL2 bind-mount teardown-race retry moved from the core loop to the
   isolation layer** (review finding ADORE-ARCH-009). `_TEARDOWN_RACE_MARKERS`,
   `_is_teardown_race`, and the retry-with-backoff lived in `orchestrator.py`,

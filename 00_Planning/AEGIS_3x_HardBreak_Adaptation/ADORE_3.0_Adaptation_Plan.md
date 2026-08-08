@@ -49,8 +49,8 @@ current AEGIS source before WP8 can begin.
 | WP8 cross-platform and live end-to-end acceptance | Completed 2026-08-08; evidence in `Prerequisites_Check_Report.md` section 19 |
 
 The project version remained 1.2.0 during correction and acceptance. CR1-CR6
-are now green; the user-selected 3.0.0 release cut remains the distinct final
-action after the completion record below.
+became green on 2026-08-08, after which the distinct final action cut the
+user-selected ADORE 3.0.0 release and aligned all release declarations.
 
 ## 3. Contract gaps in the current branch
 

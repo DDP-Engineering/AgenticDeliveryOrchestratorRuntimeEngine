@@ -7,8 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Failure Recovery And Cleanup
 
-Applies to the unreleased ADORE 3.0 hard-break implementation; installed
-version declarations remain 1.2.0 until CR6 acceptance and the release cut.
+Applies to released ADORE 3.0.0 and its AEGIS 3.x hard-break contract.
 
 Use this when a run is parked, failed, no longer wanted, or has left resources
 behind after a crash, close, merge, or interrupted host session.

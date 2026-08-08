@@ -7,10 +7,9 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Configuration Reference
 
-> **Status**: Implementation reference for the unreleased ADORE 3.0 hard-break
-> implementation. The selected version is 3.0.0; installed declarations remain
-> 1.2.0 until CR6 acceptance and the release cut. This is the consolidated list
-> of every `config.toml` setting, its meaning, default value, and examples.
+> **Status**: Implementation reference for released ADORE 3.0.0, the hard break
+> to the AEGIS 3.x grouped CLI and schema-3 contract. This is the consolidated
+> list of every `config.toml` setting, its meaning, default value, and examples.
 
 ## Profiles & assisted setup (recommended)
 

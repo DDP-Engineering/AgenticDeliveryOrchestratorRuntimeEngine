@@ -85,7 +85,7 @@ uv sync --frozen
 ./.venv/bin/adore --version
 ```
 
-The command should report the installed release, for example `adore 1.2.0`.
+The command should report the installed release: `adore 3.0.0`.
 The selected ADORE 3.0.0 product line remains unreleased until CR6 acceptance;
 do not expect `adore 3.0.0` from a package until that release is formally cut.
 Keep the runtime directory available: deployed services and scheduled tasks use

@@ -8,11 +8,10 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # ADORE - Agentic Delivery Orchestrator & Runtime Engine
 
-Current release: **ADORE 1.2.0**.
+Current release: **ADORE 3.0.0**.
 
-The ADORE 3.0 hard-break implementation is **unreleased**. Its selected product
-version is 3.0.0, but the installed version declarations remain 1.2.0 until the
-CR1-CR6 acceptance evidence is green and the release is cut.
+ADORE 3.0 is the completed hard break to the AEGIS 3.x grouped CLI and schema-3
+governance contract. It has no AEGIS 1.x/2.x compatibility or migration layer.
 
 This is the standalone repository for **Agentic Delivery Orchestrator & Runtime Engine**:
 a service that selects eligible tickets from GitLab, GitHub or Gitea, guides an

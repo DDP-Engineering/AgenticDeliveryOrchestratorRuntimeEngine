@@ -129,6 +129,7 @@ Minimum validation after changes:
 - Run `check_release_consistency.py --require-artifacts`; it validates both
   artifact names and their layout, exclusions, embedded package/lock metadata,
   documentation entry points, credential guidance, and legacy identity scan.
+  The current release lock is ADORE 3.0.0 with changelog date 2026-08-09.
 - `tests/test_release_consistency.py` invokes the public portable-ZIP command
   on a nested bundle, verifies forward-slash names and Linux extraction, and
   verifies a missing source fails closed without creating an artifact.

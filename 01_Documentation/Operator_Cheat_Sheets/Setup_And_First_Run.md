@@ -7,8 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Setup And First Run
 
-Applies to the unreleased ADORE 3.0 hard-break implementation; installed
-version declarations remain 1.2.0 until CR6 acceptance and the release cut.
+Applies to released ADORE 3.0.0 and its AEGIS 3.x hard-break contract.
 
 Use this when you are preparing a host, creating a runtime-project profile, or
 validating the first safe ADORE poll. The full, authoritative sequence is in
@@ -73,7 +72,7 @@ uv sync --frozen
 Expected version:
 
 ```text
-adore 1.2.0
+adore 3.0.0
 ```
 
 The selected 3.0.0 product version is not reported until CR6 is green and the

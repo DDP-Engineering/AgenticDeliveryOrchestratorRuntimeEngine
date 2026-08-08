@@ -32,11 +32,11 @@ import zipfile
 # CONSTANTS
 
 EXPECTED_NAME = "adore"
-EXPECTED_VERSION = "1.2.0"
+EXPECTED_VERSION = "3.0.0"
 # The executor base and egress-proxy images are versioned by their own content,
 # independently of the project release; they stay at their built tag.
 EXPECTED_IMAGE_VERSION = "1.0.0"
-EXPECTED_CHANGELOG_HEADING = "## [1.2.0] - 2026-07-25"
+EXPECTED_CHANGELOG_HEADING = "## [3.0.0] - 2026-08-09"
 EXPECTED_PRODUCT = "Agentic Delivery Orchestrator & Runtime Engine"
 EXPECTED_TASK = "ADORE Orchestrator & Runtime Engine"
 EXPECTED_RUNTIME_PREFIX = "adore-runtime"
@@ -499,7 +499,11 @@ def _check_runtime_artifact(artifact: Path, issues: list[str]) -> None:
             except UnicodeError as exc:
                 issues.append(f"{artifact.name}: cannot decode {relative}: {exc}")
                 continue
-            if any(pattern.search(line) for pattern in _legacy_patterns() for line in text.splitlines()):
+            if any(
+                pattern.search(line)
+                for pattern in _legacy_patterns()
+                for line in text.splitlines()
+            ):
                 issues.append(f"{artifact.name}: legacy identity in bundle file {relative}")
     if not missing:
         _check_bundle_metadata(artifact, files, issues)

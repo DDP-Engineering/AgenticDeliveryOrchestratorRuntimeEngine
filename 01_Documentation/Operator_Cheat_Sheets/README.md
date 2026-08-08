@@ -7,8 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # ADORE Operator Cheat Sheets
 
-Applies to the unreleased ADORE 3.0 hard-break implementation; installed
-version declarations remain 1.2.0 until CR6 acceptance and the release cut.
+Applies to released ADORE 3.0.0 and its AEGIS 3.x hard-break contract.
 
 Use these short operator sheets when you need the fastest safe path through an
 ADORE task. They are derived quick references; the full guides in

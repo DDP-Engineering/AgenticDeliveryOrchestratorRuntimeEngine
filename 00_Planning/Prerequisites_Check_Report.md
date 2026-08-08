@@ -649,5 +649,25 @@ rerun on both platforms:
    close; accept only terminal status/graph agreement and never publish.
 
 These corrections raised the suite from the 371-test refreshed-plan baseline
-to 427. CR1-CR6 and WP8 are complete. The separate 3.0.0 version/changelog and
-package cut is the next and final plan action.
+to 427. CR1-CR6 and WP8 are complete.
+
+### 19.7 Final ADORE 3.0.0 release cut
+
+After every CR6 acceptance item above was green, the distinct final action
+rolled `[Unreleased]` into `## [3.0.0] - 2026-08-09`, aligned
+`04_Software/pyproject.toml`, `04_Software/adore/__init__.py`, and `uv.lock` to
+`3.0.0`, and updated current operator/release surfaces. Both
+`python -m adore --version` and the console script return `adore 3.0.0`.
+
+The version-derived package scripts created and the release guard fully
+inspected:
+
+- `07_Delivery/adore-runtime-3.0.0.zip` - 590,240 bytes, SHA-256
+  `6FFC058C438D36A023742E54CB851D675AFDE533362423345AF20E9F3286E746`.
+- `07_Delivery/adore-runtime-3.0.0.tar.gz` - 547,318 bytes, SHA-256
+  `0116129C524FBA3C813D17A763196FFB86D78E01633702134BEF4AB30BA0F554`.
+
+`python 02_Tools/check_release_consistency.py --require-artifacts` returned
+`ADORE 3.0.0 release identity is consistent`. The superseded generated 1.2.0
+archives were removed from the current delivery area; they remain recoverable
+from Git history. The final full cross-platform suite is recorded in 19.1.
