@@ -254,7 +254,7 @@ def _aegis_repo(tmp_path: Path) -> Path:
 
 def test_aegis_probe_accepts_a_valid_schema_3_payload(tmp_path: Path) -> None:
     """
-    @brief   The probe is the AEGIS 2.x readiness check: the wrapper exists,
+    @brief   The probe is the AEGIS 3.x readiness check: the wrapper exists,
              `config validate` answers ok, and the policy is schema 3. It runs
              the command with the repository as its working directory.
     """
@@ -281,7 +281,7 @@ def test_aegis_probe_accepts_a_valid_schema_3_payload(tmp_path: Path) -> None:
 
 def test_aegis_probe_reports_a_missing_payload(tmp_path: Path) -> None:
     """
-    @brief   No wrapper means no AEGIS 2.x payload; the probe never runs a
+    @brief   No wrapper means no AEGIS 3.x payload; the probe never runs a
              command it knows will fail.
     """
     runner = FakeRunner({})
@@ -326,7 +326,7 @@ def test_aegis_probe_fails_closed_on_a_blocked_or_unparseable_answer(
 
 def test_aegis_probe_rejects_a_schema_other_than_three(tmp_path: Path) -> None:
     """
-    @brief   ADORE 2.0 speaks schema 3 only; an older policy is reported, never
+    @brief   ADORE 3.0 speaks schema 3 only; an older policy is reported, never
              accepted, and there is no migration path.
     """
     root = _aegis_repo(tmp_path)

@@ -49,7 +49,7 @@ TEA_AUTH = "tea-auth"
 OPENCODE = "opencode"
 AEGIS = "aegis"
 
-# The AEGIS 2.x payload contract the target repository must satisfy.
+# The AEGIS 3.x payload contract the target repository must satisfy.
 AEGIS_WRAPPER = ".agentic/tools/run.sh"
 AEGIS_SCHEMA_VERSION = 3
 
@@ -155,11 +155,11 @@ GUIDANCE: dict[str, dict[str, str]] = {
     },
     AEGIS: {
         "*": (
-            "The target repository must carry an installed AEGIS 2.x payload: "
+            "The target repository must carry an installed AEGIS 3.x payload: "
             "`.agentic/tools/run.sh` plus a schema-3 `.agentic/workflow.toml`. "
             "Install or upgrade it with WAEGIS (`waegis adopt` / `waegis "
             "upgrade`) in the target clone, then re-run `adore doctor`. ADORE "
-            "2.0 speaks only the AEGIS 2.x grouped CLI; AEGIS 1.x repositories "
+            "3.0 speaks only the AEGIS 3.x grouped CLI; AEGIS 1.x repositories "
             "are not supported and there is no migration path."
         )
     },
@@ -207,7 +207,7 @@ class RuntimeDetection:
 @dataclass
 class AegisStatus:
     """
-    @brief   Whether a target repository carries a usable AEGIS 2.x payload.
+    @brief   Whether a target repository carries a usable AEGIS 3.x payload.
     @details Three independent facts, all required: the POSIX wrapper exists,
              `aegis config validate` answers `status: ok`, and the policy it
              validated is schema 3. `detail` carries the AEGIS error verbatim
@@ -223,7 +223,7 @@ class AegisStatus:
     @property
     def ok(self) -> bool:
         """
-        @brief   True when the repository is governed by a usable AEGIS 2.x.
+        @brief   True when the repository is governed by a usable AEGIS 3.x.
         @return  Readiness flag.
         """
         return (
@@ -384,7 +384,7 @@ def detect_aegis(
     runner: CommandRunner = run_command,
 ) -> AegisStatus:
     """
-    @brief      Probe a target repository for a usable AEGIS 2.x payload.
+    @brief      Probe a target repository for a usable AEGIS 3.x payload.
     @details    Replaces every AEGIS 1.x verb probe. Three checks, in order:
                 `.agentic/tools/run.sh` exists, `bash .agentic/tools/run.sh
                 config validate --json` answers `status: ok`, and the
@@ -432,7 +432,7 @@ def detect_aegis(
         repo_path=str(root), wrapper_present=True, config_valid=True,
         schema_version=schema if isinstance(schema, int) else None,
         detail="" if schema == AEGIS_SCHEMA_VERSION
-        else f"policy reports schema {schema!r}, ADORE 2.0 requires "
+        else f"policy reports schema {schema!r}, ADORE 3.0 requires "
              f"schema {AEGIS_SCHEMA_VERSION}",
     )
 

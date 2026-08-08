@@ -114,7 +114,7 @@ RUN uv python install 3.11
 ENV UV_PYTHON=3.11
 
 # Make `python3`/`python` on PATH resolve to the uv-managed 3.11 release:
-# the target repo's AEGIS 2.x CLI (`bash .agentic/tools/run.sh <group>
+# the target repo's AEGIS 3.x CLI (`bash .agentic/tools/run.sh <group>
 # <action>`) resolves `python3` and requires 3.11+ (system /usr/bin/python3
 # stays 3.10 for apt). AEGIS itself is stdlib-only; bash, git and node are the
 # other prerequisites, and node matters because the AEGIS guard hooks fail

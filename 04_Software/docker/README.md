@@ -90,7 +90,7 @@ any executor stage runs:
 [container]
 image = "adore-executor-<project>:<tag>"
 required_tool_checks = [
-  # the AEGIS 2.x prerequisites the payload needs inside the container
+  # the AEGIS 3.x prerequisites the payload needs inside the container
   "python3 --version",
   "node --version",
   "bash --version",

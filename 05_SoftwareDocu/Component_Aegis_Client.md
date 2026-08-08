@@ -10,13 +10,13 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 > Component documentation per `component_documentation_template.md`.
 > Source: `04_Software/adore/aegis.py` - file version 0.1.0.
-> Contract: `00_Planning/AEGIS_2x_HardBreak_Adaptation/AEGIS_2.1_Contract_Notes.md`.
-> Plan: `ADORE_2.0_Adaptation_Plan.md` WP1.
+> Contract: `00_Planning/AEGIS_3x_HardBreak_Adaptation/AEGIS_3.0_Contract_Notes.md`.
+> Plan: `ADORE_3.0_Adaptation_Plan.md` WP1.
 
 ## 1. Purpose
 
-The single place in ADORE that knows how to talk to AEGIS. ADORE 2.0 speaks
-exactly one governance contract - the grouped AEGIS 2.x CLI - and this
+The single place in ADORE that knows how to talk to AEGIS. ADORE 3.0 speaks
+exactly one governance contract - the grouped AEGIS 3.x CLI - and this
 component owns the invocation shape, the response envelope, the exit-code
 discrimination, and the typed errors that turn a broken contract into an
 escalation instead of a silent degradation.
@@ -74,7 +74,7 @@ notes 11.3). A declared `code`/`remediation` field always wins.
 ## 4. Dependencies
 
 - Internal: `adore.executor.base.ExecTarget` (the exec-seam protocol).
-- External: the AEGIS 2.x payload inside the target repo worktree
+- External: the AEGIS 3.x payload inside the target repo worktree
   (`.agentic/tools/run.sh`, needing Python >= 3.11 and bash in the container).
 
 ## 5. Inputs And Outputs

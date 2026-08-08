@@ -304,7 +304,7 @@ branch_template = "{slug}/{run_id}"
 branch_rule = ""
 
 # ----- AEGIS workflow ------------------------------------------------------------
-# How a ticket becomes an AEGIS 2.x run. ADORE starts exactly one governed run
+# How a ticket becomes an AEGIS 3.x run. ADORE starts exactly one governed run
 # per ticket with `aegis run start <kind> [--quick]`; these keys decide which.
 # All of them are optional - the defaults below are what ADORE uses when the
 # section is absent.

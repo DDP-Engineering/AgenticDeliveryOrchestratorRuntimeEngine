@@ -261,7 +261,7 @@ class FakeWorktrees:
 
 class FakeAegis:
     """
-    @brief   Scripted AEGIS 2.x CLI walking a real stage sequence.
+    @brief   Scripted AEGIS 3.x CLI walking a real stage sequence.
     @details Answers the grouped commands ADORE issues with conforming
              envelopes and advances the stage pointer on `stage close`, so the
              conductor's `next`-driven loop is exercised exactly as it would be
@@ -785,7 +785,7 @@ def ago(seconds: int) -> str:
 
 def test_full_profile_walks_all_eight_stages_to_a_draft_mr(tmp_path: Path) -> None:
     """
-    @brief   Happy path: one eligible ticket walks the full AEGIS 2.x eight
+    @brief   Happy path: one eligible ticket walks the full AEGIS 3.x eight
              stage sequence, ADORE closes each stage after verifying it, and
              the completed run publishes a draft MR.
     """
@@ -1091,7 +1091,7 @@ def test_relaunch_prompt_includes_the_composed_run_orientation(
     """
     @brief   A stage relaunch prepends the orientation ADORE composes from
              `aegis run resume`, so the fresh executor session knows where the
-             run stands without re-deriving it. AEGIS 2.x answers with run
+             run stands without re-deriving it. AEGIS 3.x answers with run
              state rather than prose, so the brief names the run, the stage,
              the exact next command, readiness, and recent evidence. A fresh
              run carries no brief on its very first launch.
@@ -1122,7 +1122,7 @@ def test_relaunch_prompt_includes_the_composed_run_orientation(
 def test_blocked_resume_escalates_instead_of_degrading(tmp_path: Path) -> None:
     """
     @brief   Once an AEGIS run exists, a `run resume` that does not answer the
-             supported contract is a hard failure: ADORE 2.0 escalates rather
+             supported contract is a hard failure: ADORE 3.0 escalates rather
              than silently continuing with an empty brief.
     """
     config = make_config(tmp_path)
@@ -2477,7 +2477,7 @@ def test_metrics_disabled_records_nothing(tmp_path: Path) -> None:
 
 def test_stage_allowlists_match_the_aegis_sequences() -> None:
     """
-    @brief   The conductor's allowlists are exactly the AEGIS 2.x executable
+    @brief   The conductor's allowlists are exactly the AEGIS 3.x executable
              sequences (contract notes section 4): eight stages for the full
              profile, four for quick, with delivery closing both.
     """
@@ -3032,7 +3032,7 @@ def test_quick_run_prompts_name_the_bypassed_stages(tmp_path: Path) -> None:
 def test_stage_prompt_names_both_question_channels(tmp_path: Path) -> None:
     """
     @brief   Questions may go into the stage form's control table (the primary
-             AEGIS 2.x channel) or into the questions file (the secondary one);
+             AEGIS 3.x channel) or into the questions file (the secondary one);
              the prompt names both, and the conductor honors either.
     """
     engine, forge, _, _ = make_engine(tmp_path, FakeExecutor())

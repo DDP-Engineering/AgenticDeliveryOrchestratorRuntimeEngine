@@ -63,7 +63,7 @@ _MANAGED_CONTAINER_ENV = frozenset({
     "no_proxy",
 })
 _SHELL_CONTROL_CHARS = frozenset("|&;<>")
-# The AEGIS 2.x stage names a per-stage timeout override may target. Declared
+# The AEGIS 3.x stage names a per-stage timeout override may target. Declared
 # here rather than imported from the orchestrator so configuration validation
 # stays free of the engine.
 AEGIS_STAGES = ("intake", "alignment", "requirement", "design", "check",
@@ -357,7 +357,7 @@ class WorktreeConfig:
 @dataclass
 class WorkflowConfig:
     """
-    @brief   [workflow] - how ticket labels map onto an AEGIS 2.x run.
+    @brief   [workflow] - how ticket labels map onto an AEGIS 3.x run.
     @details `kind_labels` maps a ticket label to an AEGIS run kind; the first
              configured entry whose label the ticket carries wins, so
              overlapping labels stay deterministic. Unmapped tickets use

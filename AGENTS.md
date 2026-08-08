@@ -184,9 +184,9 @@ section 17); onboarding in 01_Documentation/Onboarding_New_Project.md. ADORE
 migration layer. Container egress allowlisting is implemented and live-verified.
 Executor credentials remain an operator-managed security decision.
 
-**In progress (unreleased): the ADORE 2.0 hard break to AEGIS 2.x**
-(`00_Planning/AEGIS_2x_HardBreak_Adaptation/`). ADORE now speaks exactly one
-governance contract - the AEGIS 2.x grouped CLI (`bash .agentic/tools/run.sh
+**In progress (unreleased): the ADORE 3.0 hard break to AEGIS 3.x**
+(`00_Planning/AEGIS_3x_HardBreak_Adaptation/`). ADORE now speaks exactly one
+governance contract - the AEGIS 3.x grouped CLI (`bash .agentic/tools/run.sh
 <group> <action> --run <id> --json`) - with no AEGIS 1.x support, detection, or
 migration of any kind. `adore/gates.py` and its 1.x verbs are deleted and
 replaced by `adore/aegis.py`, the single component that owns the invocation
@@ -208,5 +208,5 @@ the exact `aegis waive add` command a human would run. Run kind and profile
 come from ticket labels through a validated `[workflow]` config section, and
 `doctor.detect_aegis` probes a target repository for a schema-3 payload. The
 offline suite is green at 358 tests; the live pilot (plan WP8) is still
-pending, so nothing in this paragraph is live-verified yet. The 2.0.0 release
+pending, so nothing in this paragraph is live-verified yet. The 3.0.0 release
 version has not been cut.

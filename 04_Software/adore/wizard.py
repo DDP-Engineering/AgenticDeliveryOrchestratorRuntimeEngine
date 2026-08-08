@@ -707,7 +707,7 @@ def _report_aegis(
     os_key: str,
 ) -> None:
     """
-    @brief      Report whether the target clone carries a usable AEGIS 2.x.
+    @brief      Report whether the target clone carries a usable AEGIS 3.x.
     @details    Informational like the rest of the environment check: the
                 wizard never blocks, so an operator can install the payload in
                 another terminal and continue. What it must NOT do is imply a
@@ -719,7 +719,7 @@ def _report_aegis(
     @param[in]  os_key Host OS key (selects guidance wording).
     """
     status = doctor.detect_aegis(repo_path, runner)
-    out(f"  [{'OK' if status.ok else 'CHECK'}] AEGIS 2.x payload"
+    out(f"  [{'OK' if status.ok else 'CHECK'}] AEGIS 3.x payload"
         + (f" (schema {status.schema_version})" if status.ok else ""))
     if status.ok:
         return

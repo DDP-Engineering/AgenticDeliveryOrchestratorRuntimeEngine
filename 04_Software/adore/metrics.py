@@ -156,9 +156,9 @@ def summarize_run(store: StateStore, run_id: str,
     for event in events:
         name = event.get("event", "")
         ts = event.get("ts", "")
-        # Journal event names follow the AEGIS 2.x stage vocabulary; the
+        # Journal event names follow the AEGIS 3.x stage vocabulary; the
         # summary column names are kept so existing metrics databases,
-        # exports, and dashboards stay readable across the 2.0 break.
+        # exports, and dashboards stay readable across the 3.0 break.
         if name in ("stage-launch", "delivery-fix", "revise-start"):
             summary.executor_launches += 1
         elif name == "stage-closed":

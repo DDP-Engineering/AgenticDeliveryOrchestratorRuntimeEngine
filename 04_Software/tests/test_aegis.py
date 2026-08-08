@@ -9,7 +9,7 @@
 # -----------------------------------------------------------------------------
 """
 @file test_aegis.py
-@brief Tests for the AEGIS 2.x client (envelope parsing and command shape).
+@brief Tests for the AEGIS 3.x client (envelope parsing and command shape).
 @details Trust-boundary coverage for everything crossing into ADORE from the
          AEGIS CLI: the happy envelope, blocked/failed governance signals,
          `--run` pinning, run-id capture, and every fail-loud path (exit 2,
@@ -368,7 +368,7 @@ def test_unknown_status_and_exit_code_contradictions_raise() -> None:
 
 def test_command_wrappers_use_the_grouped_verbs() -> None:
     """
-    @brief   Each wrapper maps to its exact AEGIS 2.x group/action pair, and
+    @brief   Each wrapper maps to its exact AEGIS 3.x group/action pair, and
              only `run start` / `config validate` omit `--run`.
     """
     expected = {

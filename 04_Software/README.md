@@ -31,7 +31,7 @@ Runnable implementation of the orchestrator described in
     io dir), session continuation, questions detection.
   - `orchestrator.py` - the thick-conductor engine: polling, selection, the
     AEGIS stage loop, clarification park/resume, budgets, ticket signaling.
-  - `aegis.py` - the AEGIS 2.x client: grouped CLI invocation, `--run`
+  - `aegis.py` - the AEGIS 3.x client: grouped CLI invocation, `--run`
     pinning, envelope parsing, and the typed fail-loud errors.
   - `metrics.py` - statistics: journal -> SQLite run summaries + JSONL
     mirror, aggregation, CSV export, static HTML dashboard, per-profile stats.
@@ -58,7 +58,7 @@ Runnable implementation of the orchestrator described in
 2. **Isolation + executor launcher (done, live-verified):** worktree +
    container lifecycle, the executor image, and the opencode gate launcher.
 3. **The thick-conductor engine (done, live-piloted on ticket #45; reworked
-   for AEGIS 2.x in ADORE 2.0):** polling, selection, the `next`-driven AEGIS
+   for AEGIS 3.x in ADORE 3.0):** polling, selection, the `next`-driven AEGIS
    stage loop with verification and budgets, clarification park/resume,
    TTL/timeouts, cancel/retry. Wired to
    `adore run --loop|--once|--dry-run`, `cancel`, `retry`, `logs`, `delete`.

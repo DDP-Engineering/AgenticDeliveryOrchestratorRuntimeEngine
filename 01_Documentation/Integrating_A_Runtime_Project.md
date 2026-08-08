@@ -22,7 +22,7 @@ Before creating a profile, establish the following for `<runtime-project>`:
 - a local, clean clone available to the ADORE run-as account;
 - a forge repository identifier accepted by `glab`, `gh` or `tea`
   (Gitea: exactly `owner/repo`);
-- **an AEGIS 2.x payload installed in the repository**, providing
+- **an AEGIS 3.x payload installed in the repository**, providing
   `.agentic/tools/run.sh` and a schema-3 `.agentic/workflow.toml` (see below);
 - a default target branch and the human reviewers responsible for merge
   decisions;
@@ -32,9 +32,9 @@ Before creating a profile, establish the following for `<runtime-project>`:
   and revision work, plus the labels that select the AEGIS run kind and the
   quick profile.
 
-### AEGIS 2.x Is Required, And Only AEGIS 2.x
+### AEGIS 3.x Is Required, And Only AEGIS 3.x
 
-ADORE 2.0 speaks exactly one governance contract: the AEGIS 2.x grouped CLI.
+ADORE 3.0 speaks exactly one governance contract: the AEGIS 3.x grouped CLI.
 There is no AEGIS 1.x support, no detection, and no migration path. A
 repository carrying an older payload cannot be conducted; install or upgrade
 it with WAEGIS first.
@@ -122,8 +122,8 @@ without it, silently. Cover them with `[container] required_tool_checks` so a
 mismatched image fails before a stage starts rather than midway through a run.
 
 AEGIS is versioned independently of ADORE. ADORE uses only its stable command
-surface and its run artifacts, so an AEGIS 2.x upgrade normally requires no
-ADORE change - but a move off the 2.x contract does.
+surface and its run artifacts, so an AEGIS 3.x upgrade normally requires no
+ADORE change - but a move off the 3.x contract does.
 
 The run-as account must be able to read the repository, create a worktree, push
 an ADORE branch, and open a draft MR/PR. It must not be granted authority to
@@ -147,7 +147,7 @@ Configure fast, non-mutating checks for project tools:
 [container]
 image = "adore-executor-<runtime-project>:<tag>"
 required_tool_checks = [
-  # the AEGIS 2.x prerequisites
+  # the AEGIS 3.x prerequisites
   "python3 --version",
   "node --version",
   # plus the runtime project's own tooling

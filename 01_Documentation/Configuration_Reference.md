@@ -390,7 +390,7 @@ Manual supervised `adore run --once` remains allowed with open egress.
 
 ## `[workflow]` - AEGIS Run Kind And Profile
 
-How a ticket becomes an AEGIS 2.x run. ADORE starts exactly one governed run
+How a ticket becomes an AEGIS 3.x run. ADORE starts exactly one governed run
 per ticket with `aegis run start <kind> [--quick]`; this section decides which.
 Every key is optional and defaults as documented, so an absent `[workflow]`
 section is valid.

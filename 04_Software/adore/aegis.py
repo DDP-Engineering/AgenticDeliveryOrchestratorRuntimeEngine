@@ -9,9 +9,9 @@
 # -----------------------------------------------------------------------------
 """
 @file aegis.py
-@brief The single place that knows how to talk to the AEGIS 2.x CLI.
-@details ADORE 2.0 speaks exactly one governance contract: the grouped AEGIS
-         2.x CLI (`bash .agentic/tools/run.sh <group> <action> --run <id>
+@brief The single place that knows how to talk to the AEGIS 3.x CLI.
+@details ADORE 3.0 speaks exactly one governance contract: the grouped AEGIS
+         3.x CLI (`bash .agentic/tools/run.sh <group> <action> --run <id>
          --json`), invoked INSIDE the run's container through the exec seam.
          Every call returns the stable four-key envelope
          (`status`/`stage`/`artifact`/`next`) parsed into a frozen
@@ -308,7 +308,7 @@ def _decode_envelope(
 
 class AegisClient:
     """
-    @brief   Typed, run-pinned client for the AEGIS 2.x grouped CLI.
+    @brief   Typed, run-pinned client for the AEGIS 3.x grouped CLI.
     @details Bound to one run's container exec seam. Once `run start` has
              produced a run id (or the caller restored one from ADORE's
              persisted state), every subsequent command pins it with `--run`,
@@ -442,7 +442,7 @@ class AegisClient:
     def run_resume(self) -> AegisResponse:
         """
         @brief      Read the run-orientation payload for a fresh session.
-        @details    AEGIS 2.x answers `run resume` with the same envelope as
+        @details    AEGIS 3.x answers `run resume` with the same envelope as
                     `run status` (contract notes 11.1); ADORE composes the
                     human-readable brief from it rather than quoting prose.
         @return     The parsed AegisResponse.
@@ -513,7 +513,7 @@ class AegisClient:
         """
         @brief      Validate the target repository's schema-3 AEGIS policy.
         @details    Carries no `--run`: it is the probe that proves a repo is
-                    AEGIS 2.x governed before any run exists.
+                    AEGIS 3.x governed before any run exists.
         @return     The parsed AegisResponse (`schema_version` on success).
         @exception  AegisProtocolError When the contract is violated.
         @exception  AegisTimeoutError When the command exceeded its bound.

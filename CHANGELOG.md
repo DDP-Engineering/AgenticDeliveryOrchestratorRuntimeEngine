@@ -14,6 +14,12 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- **Retarget the unreleased hard break to ADORE 3.0 / AEGIS 3.x.** The
+  adaptation plan now pins AEGIS 3.0.0 and WAEGIS 3.0.0 from the authoritative
+  source checkout, documents the unchanged runtime contract and the WAEGIS 3
+  pilot-provisioning boundary, and renames current-facing ADORE/AEGIS product
+  labels accordingly. The installed ADORE version remains 1.2.0 until CR1-CR6
+  and the live pilot are complete and a separate release cut is requested.
 - **WSL2 bind-mount teardown-race retry moved from the core loop to the
   isolation layer** (review finding ADORE-ARCH-009). `_TEARDOWN_RACE_MARKERS`,
   `_is_teardown_race`, and the retry-with-backoff lived in `orchestrator.py`,
@@ -58,7 +64,7 @@ This project follows Keep a Changelog and Semantic Versioning.
   `_NOT_FOUND_MARKERS` override for the "could not resolve" text `gh`
   reports that `glab`/`tea` do not. Every error message format is unchanged;
   the existing forge adapter tests pass without modification.
-- **ADORE 2.0 hard break to AEGIS 2.x - WP3: the conduction loop is
+- **ADORE 3.0 hard break to AEGIS 3.x - WP3: the conduction loop is
   `next`-driven.** `_conduct` no longer walks a hard-coded gate list. It
   starts the AEGIS run once (`run start <kind> [--quick]`, kind and profile
   resolved from ticket labels through the new `[workflow]` section), then
@@ -84,8 +90,8 @@ This project follows Keep a Changelog and Semantic Versioning.
   `stage-not-ready`, `verify-failed`, `aegis-run-started`,
   `aegis-run-complete`, `aegis-blocked`, `aegis-contract-failure`); metrics
   read the new names into the existing summary columns.
-- **ADORE 2.0 hard break to AEGIS 2.x - WP4: failure evidence and block
-  classification.** Retry prompts are now built from the AEGIS 2.x sources, in
+- **ADORE 3.0 hard break to AEGIS 3.x - WP4: failure evidence and block
+  classification.** Retry prompts are now built from the AEGIS 3.x sources, in
   order and bounded: the blocked/failed response itself (`error`,
   `remediation`, stage `blockers[]`, the exact `next` command), then
   `validation-summary.json` (failing gate groups, invariants that do not hold,
@@ -105,8 +111,8 @@ This project follows Keep a Changelog and Semantic Versioning.
   `aegis waive add <id> --reason "..."` command a human could run - never an
   automatic waiver. The waive hint is advisory and can never hide the original
   error.
-- **ADORE 2.0 hard break to AEGIS 2.x - WP5: executor prompts speak AEGIS
-  2.x.** `_GATE_GOALS` became `_STAGE_GOALS`, covering all eight stages plus
+- **ADORE 3.0 hard break to AEGIS 3.x - WP5: executor prompts speak AEGIS
+  3.x.** `_GATE_GOALS` became `_STAGE_GOALS`, covering all eight stages plus
   `revise` in the form-first vocabulary: `stage prepare` / `show`, fill the
   generated form at the `artifact` path, `stage apply`, `check prepare` /
   `record` / `run`, `evidence prepare` / `apply`, red-before-green. Every
@@ -120,7 +126,7 @@ This project follows Keep a Changelog and Semantic Versioning.
   the expected state. Questions may be recorded in the form's
   `control.unresolved_questions` or in the questions file; both are named and
   either parks the run.
-- **ADORE 2.0 hard break to AEGIS 2.x - WP6: config, wizard, doctor, image.**
+- **ADORE 3.0 hard break to AEGIS 3.x - WP6: config, wizard, doctor, image.**
   A new validated `[workflow]` section decides how a ticket becomes an AEGIS
   run: `default_kind`, a `kind_labels` map (first configured match wins),
   `quick_label`, and optional `stage_timeout_overrides` that raise or lower
@@ -138,9 +144,9 @@ This project follows Keep a Changelog and Semantic Versioning.
   unparseable output, a different schema - reads as not-ready with the AEGIS
   detail preserved, and the guidance points at WAEGIS while stating that AEGIS
   1.x is unsupported with no migration path. The executor base image and its
-  README now name the AEGIS 2.x CLI and its actual prerequisites.
-- **ADORE 2.0 hard break to AEGIS 2.x - WP7: documentation.**
-  `01_Documentation/Integrating_A_Runtime_Project.md` is now the AEGIS 2.x
+  README now name the AEGIS 3.x CLI and its actual prerequisites.
+- **ADORE 3.0 hard break to AEGIS 3.x - WP7: documentation.**
+  `01_Documentation/Integrating_A_Runtime_Project.md` is now the AEGIS 3.x
   contract page: the grouped invocation, the four-key envelope and exit-code
   discrimination, run-id pinning, the per-profile stage cycle with ADORE as
   the delegated approver, and a table of the escalation semantics.
@@ -278,7 +284,7 @@ This project follows Keep a Changelog and Semantic Versioning.
   (`contextlib.suppress(ForgeError)`): local state stays authoritative, so a
   forge outage still leaves the run `failed` with its reason. Secret
   redaction is unchanged - callers redact before passing the reason in.
-- **ADORE 2.0 hard break to AEGIS 2.x - WP1: the AEGIS client
+- **ADORE 3.0 hard break to AEGIS 3.x - WP1: the AEGIS client
   (`adore/aegis.py`).** One component owns the whole AEGIS-facing contract:
   it invokes the grouped CLI as `bash .agentic/tools/run.sh <group> <action>
   [--run <id>] --json` inside the run's container, pins the AEGIS run id
@@ -296,7 +302,7 @@ This project follows Keep a Changelog and Semantic Versioning.
   human decision. Wrappers: `run_start`, `run_status`, `run_resume`,
   `stage_show`, `stage_close`, `verify_run`, `delivery_report`, `waive_list`,
   `config_validate`. Covered by 16 offline tests over a fake exec seam.
-- **ADORE 2.0 hard break to AEGIS 2.x - WP2: the AEGIS run id is persisted.**
+- **ADORE 3.0 hard break to AEGIS 3.x - WP2: the AEGIS run id is persisted.**
   `RunState` gains `aegis_run_id`, written into `state.json` at
   `aegis run start` and never cleared, so a restart or a resume pins the same
   governed run with `--run` instead of starting a second one or consulting the

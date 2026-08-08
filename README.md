@@ -46,7 +46,7 @@ For a deployment-ready runtime bundle, use the scripts in
 forge ticket (eligible labels and readiness rules)
         -> orchestrator selects by configured priority and readiness
         -> isolates work (git worktree + container)
-        -> starts one AEGIS 2.x run (`aegis run start <kind> [--quick]`)
+        -> starts one AEGIS 3.x run (`aegis run start <kind> [--quick]`)
         -> guides the executor stage by stage (thick conductor)
              intake -> alignment -> requirement -> design -> check ->
              implementation -> validation -> delivery      (quick: 4 stages)
@@ -65,8 +65,8 @@ human reviewer -> approves and merges
   platform CLI directly.
 - **Executor-agnostic.** OpenCode, Pi, Codex, and Qwen are selectable through
   a configurable launcher.
-- **AEGIS-governed.** ADORE 2.0 speaks exactly one governance contract, the
-  AEGIS 2.x grouped CLI. AEGIS owns the stage pointer and the verification;
+- **AEGIS-governed.** ADORE 3.0 speaks exactly one governance contract, the
+  AEGIS 3.x grouped CLI. AEGIS owns the stage pointer and the verification;
   ADORE reads it from `run status`, checks it against the declared sequence,
   and never guesses. No AEGIS 1.x support and no migration layer.
 - **Thick conductor, delegated approver.** The orchestrator drives one AEGIS

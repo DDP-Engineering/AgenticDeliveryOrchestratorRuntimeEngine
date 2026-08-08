@@ -12,7 +12,7 @@
 @brief The ADORE thick-conductor engine (library core; design doc 5a/7a/8/9).
 @details Deterministic state machine: poll for ready tickets, isolate work
          (worktree + container), drive the executor stage-by-stage through the
-         AEGIS 2.x workflow with objective verification in between, park on
+         AEGIS 3.x workflow with objective verification in between, park on
          clarification questions and resume on human answers, enforce run
          budgets, and escalate instead of thrashing. Never merges; publication
          (draft MR) belongs to ADORE alone. No LLM runs here - every decision
@@ -85,7 +85,7 @@ from adore.util import (
 
 # CONSTANTS
 
-# The AEGIS 2.x executable stage sequences (contract notes section 4). These
+# The AEGIS 3.x executable stage sequences (contract notes section 4). These
 # are an ALLOWLIST, not the conductor's idea of truth: AEGIS owns the stage
 # pointer and ADORE reads it from `run status`. Any stage outside the tuple
 # for the run's profile - or a backwards move, which only an approved
@@ -997,7 +997,7 @@ class Orchestrator:
                     sequence means the contract moved under ADORE. A stage at
                     or before the last one ADORE already closed means the run
                     was routed backwards - what an approved `route_to`
-                    produces - which is explicitly out of scope for 2.0.0, so
+                    produces - which is explicitly out of scope for 3.0.0, so
                     a human decides. Re-running a stage that is not yet closed
                     is a normal retry and passes both guards. At the sequence
                     boundary - the last stage re-reported after ADORE already
@@ -1345,7 +1345,7 @@ class Orchestrator:
         self.store.journal(run.run_id, "target-merged", base=run.base_ref)
         # 3./4. one authoritative post-merge verification: integrating the
         # target branch can break a change that passed in isolation. In AEGIS
-        # 2.x `verify run` IS the gate run plus the invariant, traceability,
+        # 3.x `verify run` IS the gate run plus the invariant, traceability,
         # coverage and working-tree audits, so it replaces both 1.x steps.
         while True:
             verified = client.verify_run()
@@ -1671,7 +1671,7 @@ class Orchestrator:
         @brief      Compose the run-orientation brief for a fresh session.
         @details    A freshly launched executor session - a retry, a delivery
                     fix, a revise round, or a run resumed mid-workflow after a
-                    restart - starts without the prior chat context. AEGIS 2.x
+                    restart - starts without the prior chat context. AEGIS 3.x
                     answers `run resume` with the authoritative run state
                     rather than prose (contract notes 11.1), so ADORE renders
                     the brief itself: run id, stage, the exact next command,
@@ -1813,7 +1813,7 @@ class Orchestrator:
                     human-readable `blockers[]`; the structured list lives in
                     `graph.json` under `stage_records[<stage>]`
                     (contract notes 11.2). This is the primary clarification
-                    channel in 2.x - the executor's questions file remains a
+                    channel in 3.x - the executor's questions file remains a
                     secondary one, and the conductor honors whichever fires.
         @param[in]  run The ADORE run.
         @param[in]  stage The stage just applied.

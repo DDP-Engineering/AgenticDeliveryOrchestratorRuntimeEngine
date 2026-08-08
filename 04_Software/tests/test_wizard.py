@@ -419,7 +419,7 @@ def test_wizard_writes_custom_workflow_labels(tmp_path: Path) -> None:
 
 def test_wizard_reports_a_missing_aegis_payload(tmp_path: Path) -> None:
     """
-    @brief   The wizard probes the target clone for an AEGIS 2.x payload and
+    @brief   The wizard probes the target clone for an AEGIS 3.x payload and
              prints the WAEGIS guidance when it is absent - informational, so
              the wizard still completes.
     """
@@ -429,7 +429,7 @@ def test_wizard_reports_a_missing_aegis_payload(tmp_path: Path) -> None:
     run_wizard(store, asker=ScriptedAsker(_answers(clone)), out=lines.append,
                runner=_runner(), os_key="linux", name="p")
     printed = "\n".join(lines)
-    assert "[CHECK] AEGIS 2.x payload" in printed
+    assert "[CHECK] AEGIS 3.x payload" in printed
     assert ".agentic/tools/run.sh is missing" in printed
     assert "waegis" in printed.lower()
     assert store.config_path("p").is_file()  # never blocks

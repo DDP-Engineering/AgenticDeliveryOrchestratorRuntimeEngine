@@ -92,7 +92,7 @@ deciding transitions (orchestrator).
   AEGIS run started yet"; once set it is never cleared, so a restart
   resumes the same governed run instead of starting a second one. A state
   file written before the field existed loads as `None` purely through the
-  dataclass default - there is no migration code (ADORE 2.0 WP2).
+  dataclass default - there is no migration code (ADORE 3.0 WP2).
 - The two identities stay separate: ADORE's `run_id` names ADORE's own
   resources, `aegis_run_id` names AEGIS's run. AEGIS records nothing about
   ADORE.

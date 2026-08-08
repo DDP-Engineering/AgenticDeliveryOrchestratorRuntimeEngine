@@ -54,7 +54,7 @@ structured journal for one run. Live executor files are held under the run's
 
 ## Read an AEGIS Escalation
 
-Every run is governed by the target repository's AEGIS 2.x payload, and every
+Every run is governed by the target repository's AEGIS 3.x payload, and every
 AEGIS-facing failure ends in one of three deterministic outcomes. The reason
 is journaled and posted on the ticket, so `adore runs` plus the ticket
 comment tell you which one happened and what it is waiting for.

@@ -10,13 +10,13 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 > Component documentation per `component_documentation_template.md`.
 > Source: `04_Software/adore/orchestrator.py` - file version 0.11.0.
-> AEGIS contract: `00_Planning/AEGIS_2x_HardBreak_Adaptation/AEGIS_2.1_Contract_Notes.md`.
+> AEGIS contract: `00_Planning/AEGIS_3x_HardBreak_Adaptation/AEGIS_3.0_Contract_Notes.md`.
 > Design: Orchestrator_Design_And_Decisions.md sections 5a, 7a, 8, 9, 10.
 
 ## 1. Purpose
 
 The thick-conductor engine: poll for ready tickets, isolate work, drive the
-executor through the AEGIS 2.x workflow stage by stage with objective
+executor through the AEGIS 3.x workflow stage by stage with objective
 verification in between, park on clarification questions and resume on human
 answers, enforce run budgets, and escalate instead of thrashing.
 Deterministic Python only - every decision is an `if` on exit codes, envelope
@@ -61,7 +61,7 @@ review.
   thread; the executor re-decides and may re-park). Questions reach ADORE
   through two channels and either fires: the AEGIS stage form's
   `control.unresolved_questions` (read from `graph.json`, the primary channel
-  in 2.x) and the executor's questions file (the secondary one). A run parked
+  in 3.x) and the executor's questions file (the secondary one). A run parked
   during publication resumes into publication, never back into the stage
   loop; `_conduct` fails closed when called on a publishing run (live
   findings 2026-07-04). Posting the questions first is a crash-ordering
@@ -122,7 +122,7 @@ review.
 - **Publication** (design 11a, exact order; ADORE's own phase after the
   AEGIS run completes, tracked as the `publication` stage): fetch + merge the
   target branch (conflicts -> executor resolves, budget-bounded), one
-  authoritative post-merge `aegis verify run` (which in 2.x already includes
+  authoritative post-merge `aegis verify run` (which in 3.x already includes
   the gate run plus the invariant, traceability, coverage and working-tree
   audits, so it replaces both 1.x steps; fix loop bounded by budgets),
   compose the MR body from `aegis delivery report`, commit any
@@ -272,7 +272,7 @@ interface) and metrics.
 - A freshly launched executor session that lacks the prior chat context - a
   stage retry, a publication fix, a revise round, or a run resumed
   mid-workflow after a restart - is oriented by `_workflow_orientation`.
-  AEGIS 2.x answers `run resume` with authoritative run state rather than
+  AEGIS 3.x answers `run resume` with authoritative run state rather than
   prose (contract notes 11.1), so ADORE composes the brief itself: run id,
   stage, the exact next command, profile and bypassed stages, stage readiness
   and its blockers, and the most recent evidence. A run that has not started
@@ -353,7 +353,7 @@ adore logs <run-id>
   graph escalating; every `classify_block` branch; a held lock retried once
   then escalating; the exact waive command in an escalation and an
   unavailable `waive list` never hiding the original error; recorded stage
-  questions parking the run; per-stage prompt snapshots (the AEGIS 2.x
+  questions parking the run; per-stage prompt snapshots (the AEGIS 3.x
   vocabulary, the close/waive prohibition on all nine prompts, the run pin and
   relayed next command, the quick variants and their bypassed-stage wording,
   both question channels); secret redaction; selection
@@ -368,7 +368,7 @@ adore logs <run-id>
 - Minimum validation after a change: `python -m pytest -q` from
   `04_Software`.
 - Live pilot pending (plan WP8): one supervised ticket end to end against a
-  repository carrying the AEGIS 2.1 payload.
+  repository carrying the AEGIS 3.0 payload.
 
 ## 10. Limitations And Future Work
 

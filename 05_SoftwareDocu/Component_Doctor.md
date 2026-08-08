@@ -83,7 +83,7 @@ Explicitly not owned: prompting/wizard flow (task 3), CLI wiring, writing config
   (e.g. `glpat-` + 20 chars) and says the wizard records the key NAME only
   (design D5).
 
-- **AEGIS 2.x target-repository probe** (`detect_aegis`, ADORE 2.0 WP6):
+- **AEGIS 3.x target-repository probe** (`detect_aegis`, ADORE 3.0 WP6):
   three facts, all required before a repository can be conducted - the POSIX
   wrapper `.agentic/tools/run.sh` exists, `bash .agentic/tools/run.sh config
   validate --json` answers `status: ok`, and the policy it validated reports
