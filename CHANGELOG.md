@@ -182,6 +182,16 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- **CR6 applied-ready validation restart loop.** ADORE used to run
+  `aegis verify run` and only then check that validation work was committed.
+  AEGIS verification necessarily persists graph, evidence, and summary
+  artifacts, so a successful verification made its own worktree dirty and
+  caused another validation executor launch; the loop repeated until a
+  budget failed. The committed-work check now runs before verification.
+  Applied-ready restart state can skip the executor, verify, and close while
+  preserving AEGIS's fresh artifacts for the next governed commit. A
+  regression test makes verification dirty the fake worktree and proves no
+  relaunch occurs.
 - **CR6 full-run file-budget sizing.** The AEGIS 3 pilot reached 45 changed
   paths at the end of the check stage, before implementation, because durable
   forms, requirement/check snapshots, evidence, graph, and journal correctly

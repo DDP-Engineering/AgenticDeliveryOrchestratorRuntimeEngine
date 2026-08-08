@@ -1326,10 +1326,13 @@ class Orchestrator:
         """
         @brief      ADORE's objective check before it closes a stage.
         @details    The conductor never takes the executor's word: `stage show`
-                    must report `ready` with no blockers, the validation and
-                    delivery stages must additionally survive a full
-                    `verify run`, and the validation stage must leave committed
-                    work behind (a clean tree with commits over the base).
+                    must report `ready` with no blockers, validation must first
+                    have committed work (a clean tree with commits over the
+                    base), and the validation and delivery stages must then
+                    survive a full `verify run`. The cleanliness check precedes
+                    verification because AEGIS itself persists verification
+                    evidence; treating those fresh artifacts as executor dirt
+                    causes an endless validation relaunch loop.
         @param[in]  run The run.
         @param[in]  client The run's AEGIS client.
         @param[in]  stage Stage just applied by the executor.
@@ -1357,6 +1360,11 @@ class Orchestrator:
                 f"again:\n{listed}",
                 shown,
             )
+        if stage == "validation":
+            committed = self._work_committed(run)
+            if committed:
+                self.store.journal(run.run_id, "work-uncommitted")
+                return committed, None
         if stage in ("validation", "delivery"):
             verified = client.verify_run()
             if verified.blocked:
@@ -1390,11 +1398,6 @@ class Orchestrator:
             self.log(
                 f"{run.run_id}: AEGIS verification at {stage}: {verdict}"
             )
-        if stage == "validation":
-            committed = self._work_committed(run)
-            if committed:
-                self.store.journal(run.run_id, "work-uncommitted")
-                return committed, None
         return "", None
 
     @staticmethod

@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Orchestrator (`adore/orchestrator.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/adore/orchestrator.py` - file version 0.11.0.
+> Source: `04_Software/adore/orchestrator.py` - file version 0.12.0.
 > AEGIS contract: `00_Planning/AEGIS_3x_HardBreak_Adaptation/AEGIS_3.0_Contract_Notes.md`.
 > Design: Orchestrator_Design_And_Decisions.md sections 5a, 7a, 8, 9, 10.
 
@@ -50,8 +50,8 @@ human action. The real human approval stays at the draft MR review.
   bootstrap -> objective restart snapshot -> launch the executor only when
   work is still needed -> inspect (questions / exit code) -> verify (`aegis
   stage show` readiness, plus
-  `aegis verify run` at validation and delivery, plus the committed-work
-  check at validation) -> explicitly identified `aegis stage close` ->
+  the committed-work check before validation verification, plus `aegis verify
+  run` at validation and delivery) -> explicitly identified `aegis stage close` ->
   iterate. Failures retry the
   same stage with failure context, questions park, blocks and contract
   breaks escalate - all bounded by run budgets. Already-applied ready work is
@@ -62,6 +62,11 @@ human action. The real human approval stays at the draft MR review.
   executor launch receives a
   stable archive stem (`NNN-stage` / `NNN-delivery-fix` / `NNN-revise`), and
   any returned archive directories are journaled as `executor-artifacts`.
+  The validation cleanliness check deliberately runs before `verify run`:
+  AEGIS verification writes durable graph/evidence/summary artifacts itself,
+  and checking afterward would misclassify those conductor-generated records
+  as uncommitted executor work and relaunch validation forever. The next stage
+  commits those governed records before it finishes.
 - **Clarification** (design 9): the exact park order (questions comment
   FIRST, then status, rounds cap, parked_at, container stop) and the exact
   resume order (marker/system-aware answer detection or the answered-label

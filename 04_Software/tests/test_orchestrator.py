@@ -299,6 +299,7 @@ class FakeAegis:
         self.verify_verdicts: list[str] = []            # ok/waived/failed
         self.verify_gate_statuses: list[str] = []
         self.verification_changes: dict = {}
+        self.on_verify_run = None  # callback after durable verification writes
         self.close_blocked: dict[str, str] = {}         # stage -> error text
         self.start_blocked = ""
         self.status_override: list[CommandResult] = []
@@ -781,6 +782,8 @@ class FakeAegis:
             path = self.worktree / relative  # type: ignore[operator]
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
+            if self.on_verify_run is not None:
+                self.on_verify_run()
             return CommandResult(
                 exit_code=1 if verdict == "failed" else 0,
                 stdout=self._envelope(
@@ -2277,6 +2280,43 @@ def test_uncommitted_work_relaunches_validation(tmp_path: Path) -> None:
     assert "UNCOMMITTED" in executor.prompts[relaunch]
     events = [e["event"] for e in engine.store.read_journal(run.run_id)]
     assert "work-uncommitted" in events
+
+
+def test_verification_artifacts_do_not_relaunch_clean_validation(
+    tmp_path: Path,
+) -> None:
+    """
+    @brief   AEGIS writes graph/evidence/summary during `verify run`; those
+             post-check artifacts must not be mistaken for executor dirt and
+             relaunch an applied-ready validation stage forever.
+    """
+    executor = FakeExecutor([gate_ok()] * len(STANDARD_STAGES))
+    engine, forge, containers, worktrees = make_engine(tmp_path, executor)
+
+    def mark_validation_verification_dirty() -> None:
+        if containers.aegis.stage == "validation":
+            worktrees.dirty = True
+
+    original = executor.run_gate
+
+    def run_gate(*args, **kwargs):
+        if '"stage": "delivery"' in kwargs["prompt"]:
+            # The real delivery executor commits the preceding verification
+            # artifacts as part of its governed work.
+            worktrees.dirty = False
+        return original(*args, **kwargs)
+
+    containers.aegis.on_verify_run = mark_validation_verification_dirty
+    executor.run_gate = run_gate  # type: ignore[method-assign]
+    forge.add_ticket(14)
+
+    engine.poll_once()
+
+    run = engine.store.load(engine._run_id(14))
+    assert run.lifecycle == "in-review"
+    assert len(executor.prompts) == len(STANDARD_STAGES)
+    events = [item["event"] for item in engine.store.read_journal(run.run_id)]
+    assert "work-uncommitted" not in events
 
 
 def test_empty_branch_relaunches_validation_until_budget(tmp_path: Path) -> None:
