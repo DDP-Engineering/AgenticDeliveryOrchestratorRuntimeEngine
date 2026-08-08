@@ -9,10 +9,9 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 This is the contract snapshot for the ADORE 3.0 hard break. It was
 re-verified on 2026-08-08 from the clean checkout
-`D:\TEMP\2026_Agentic_Engineering_Governance_Integrity_System_WAEGIS_V3`.
+`D:\TEMP\2026_Agentic_Engineering_Governance_Integrity_System`.
 The authoritative source pin is
-`a4a53081269facb3e79ece57bee6d627ec6bf51d` on branch
-`ddp/waegis-v3-implementation`.
+`676b754f438fd82f0f48692c874bd9c8340a96b0` on branch `master`.
 
 - AEGIS release and payload version: **3.0.0**, released 2026-08-08
 - WAEGIS version: **3.0.0**
@@ -20,10 +19,10 @@ The authoritative source pin is
 - Workflow and run-graph schema: **3**
 - Fresh-session context schema: **1**
 
-Only this checkout and commit are authoritative for the plan. The separate
-`D:\TEMP\2026_Agentic_Engineering_Governance_Integrity_System` checkout is not
-the pin. At review time it was on `AEGIS_V2` at `8008a65` with unresolved merge
-state, despite carrying the same AEGIS 3.0 version declarations.
+Only this checkout and commit are authoritative for the plan. The historical
+`D:\TEMP\2026_Agentic_Engineering_Governance_Integrity_System_WAEGIS_V3`
+feature checkout and its `a4a5308` pin are stale analysis metadata. The
+authoritative checkout is clean on `master` and matches `origin/master`.
 
 AEGIS 3.0.0 contains the governance behavior that previously accrued under
 `[Unreleased]`. The development package discovers its Python package directly
@@ -385,17 +384,18 @@ ADORE-facing behavior identified in that refresh:
    stable AEGIS payloads in `>=3.0.0,<4.0.0`.
 10. The shipped stage-form retention default is now `latest`.
 
-The AEGIS runtime diff from `be77ead` to the authoritative current commit is
-only six changed string lines: `__version__` changes from 2.1.0 to 3.0.0 and
-two CLI docstrings change from AEGIS 2.1 to AEGIS 3.0. The `.agentic/tools`
-wrappers are byte-for-byte unchanged. The ADORE-facing runtime contract did
-not change; this re-pin changes the supported product identity and pilot
-provisioning, not CR1-CR5's technical design.
+The AEGIS CLI contract summarized here is unchanged between the historical
+`a4a5308` feature pin and authoritative `master`. Their payload diff is limited
+to RepoWise integration messaging/normalization and related prompt/hook
+documentation; `stage_context.py`, the grouped CLI response shapes, wrappers,
+and WAEGIS 3 implementation are unchanged. This re-pin therefore corrects the
+source-of-truth and pilot baseline without changing CR1-CR5's technical design.
 
-The review-supplied candidate `0a1bdbe` is an ancestor of the selected pin.
-Seven subsequent commits complete WAEGIS remediation and record its owner GO;
-none changes the ADORE-facing AEGIS runtime. Pinning the newer commit matters
-for CR6's provisioner behavior even though the governance CLI is unchanged.
+The review-supplied candidate `0a1bdbe` is an ancestor of the authoritative
+master pin. Subsequent commits complete WAEGIS remediation, record its owner
+GO, and promote the release tree to `master`. Pinning the promoted commit
+matters for CR6 even though the conductor-facing governance contract is
+unchanged.
 
 WAEGIS itself was replaced by WAEGIS 3. It has no editions, RepoWise
 management, cloning, branch creation, staging, or commits. Its mutating flows

@@ -14,14 +14,12 @@ ADORE implements exactly the current AEGIS 3.x contract and contains no AEGIS
 Pinned analysis basis:
 
 - Authoritative source pin, resolved from checkout:
-  `D:\TEMP\2026_Agentic_Engineering_Governance_Integrity_System_WAEGIS_V3`,
-  commit `a4a53081269facb3e79ece57bee6d627ec6bf51d` on
-  `ddp/waegis-v3-implementation`.
+  `D:\TEMP\2026_Agentic_Engineering_Governance_Integrity_System`, commit
+  `676b754f438fd82f0f48692c874bd9c8340a96b0` on `master`.
 - AEGIS release 3.0.0, WAEGIS 3.0.0 with payload compatibility
   `>=3.0.0,<4.0.0`, run-graph schema 3, context schema 1.
-- ADORE commit `bbd204bed5b5d31dea3625ccd09b1f665f6e1dd7` on the existing
-  `feature/adore-2.0-aegis-2x` branch. Its historical name is retained; this
-  work does not create, rename, or switch branches.
+- ADORE commit `80b0f06559e668c165060313d3d58f4e2230a351` on the existing local
+  `master` branch. This work does not create, rename, or switch branches.
 - Companion contract: `AEGIS_3.0_Contract_Notes.md`.
 
 ## 1. Goal
@@ -50,8 +48,8 @@ current AEGIS source before WP8 can begin.
 | WP7 component/user documentation under `[Unreleased]` | Implemented for the earlier snapshot; must be corrected with behavior |
 | WP8 cross-platform and live end-to-end acceptance | Not completed |
 
-The project version remains 1.2.0 until the user explicitly asks to cut the
-3.0.0 release.
+The project version remains 1.2.0 during correction and acceptance. The user
+has selected 3.0.0, but the release cut stays gated on green CR1-CR6 evidence.
 
 ## 3. Contract gaps in the current branch
 
@@ -259,9 +257,10 @@ operator-only abandonment boundary. Ensure every current-facing product label
 in implementation and operator documentation names AEGIS 3.x; no runtime
 compatibility branch accompanies that terminology update.
 
-Do not cut 3.0.0 as part of these corrections. On a later explicit release
-request, roll the changelog and align `04_Software/pyproject.toml` and
-`04_Software/adore/__init__.py` to 3.0.0; packaging remains version-derived.
+Do not cut 3.0.0 as part of these corrections. The requested release cut is a
+distinct final action after CR6 acceptance: roll the changelog and align
+`04_Software/pyproject.toml` and `04_Software/adore/__init__.py` to 3.0.0;
+packaging remains version-derived.
 
 ### CR6 - Acceptance verification and live pilot
 

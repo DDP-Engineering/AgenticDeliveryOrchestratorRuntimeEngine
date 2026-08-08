@@ -20,14 +20,13 @@ orchestrator to the released AEGIS 3.x grouped CLI and form-driven workflow.
 Basis re-verified 2026-08-08:
 
 - Authoritative source pin, resolved from checkout:
-  `D:\TEMP\2026_Agentic_Engineering_Governance_Integrity_System_WAEGIS_V3`,
-  commit `a4a53081269facb3e79ece57bee6d627ec6bf51d` on branch
-  `ddp/waegis-v3-implementation`.
+  `D:\TEMP\2026_Agentic_Engineering_Governance_Integrity_System`, commit
+  `676b754f438fd82f0f48692c874bd9c8340a96b0` on branch `master`.
 - AEGIS release 3.0.0, WAEGIS 3.0.0, WAEGIS compatibility range
   `>=3.0.0,<4.0.0`, run-graph schema 3, context schema 1.
-- ADORE repository commit `bbd204bed5b5d31dea3625ccd09b1f665f6e1dd7`
-  on branch `feature/adore-2.0-aegis-2x`. The historical branch name is
-  retained because this adaptation continues on the existing branch.
+- ADORE repository commit `80b0f06559e668c165060313d3d58f4e2230a351`
+  on branch `master`. The adaptation continues directly on local `master`;
+  it does not create, rename, or switch branches.
 - The original ADORE work packages WP1-WP7 are implemented. Their assumptions
   are now the baseline to correct; the live-pilot WP8 has not been completed.
 
