@@ -15,7 +15,8 @@ orchestrator to the released AEGIS 3.x grouped CLI and form-driven workflow.
   evidence, verification outcomes, advisories, and abandoned runs.
 - `ADORE_3.0_Adaptation_Plan.md` records the implementation baseline already
   present on the ADORE branch and the correction work packages still required
-  before the live pilot and 3.0.0 release.
+  before the live pilot and 3.0.0 release; all corrections and the live pilot
+  completed on 2026-08-08.
 
 Basis re-verified 2026-08-08:
 
@@ -28,7 +29,8 @@ Basis re-verified 2026-08-08:
   on branch `master`. The adaptation continues directly on local `master`;
   it does not create, rename, or switch branches.
 - The original ADORE work packages WP1-WP7 are implemented. Their assumptions
-  are now the baseline to correct; the live-pilot WP8 has not been completed.
+  were the baseline corrected by CR1-CR5. Live-pilot WP8 is complete; see
+  `../Prerequisites_Check_Report.md` section 19 for exact acceptance evidence.
 
 This plan targets exactly that AEGIS 3 contract. It deliberately contains no
 AEGIS 1.x/2.x compatibility, fallback, or migration path. ADORE's schema-3

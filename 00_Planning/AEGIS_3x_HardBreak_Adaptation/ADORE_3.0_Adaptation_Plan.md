@@ -46,10 +46,11 @@ current AEGIS source before WP8 can begin.
 | WP5 grouped-CLI executor prompts | Implemented, but quick and bootstrap instructions are now obsolete |
 | WP6 workflow config, wizard, doctor, runtime checks | Implemented, requiring current WAEGIS/context verification |
 | WP7 component/user documentation under `[Unreleased]` | Implemented for the earlier snapshot; must be corrected with behavior |
-| WP8 cross-platform and live end-to-end acceptance | Not completed |
+| WP8 cross-platform and live end-to-end acceptance | Completed 2026-08-08; evidence in `Prerequisites_Check_Report.md` section 19 |
 
-The project version remains 1.2.0 during correction and acceptance. The user
-has selected 3.0.0, but the release cut stays gated on green CR1-CR6 evidence.
+The project version remained 1.2.0 during correction and acceptance. CR1-CR6
+are now green; the user-selected 3.0.0 release cut remains the distinct final
+action after the completion record below.
 
 ## 3. Contract gaps in the current branch
 
@@ -291,6 +292,20 @@ WP8 starts only after CR1-CR5 are green.
 9. Record commands, versions, run IDs, artifacts, defects, and outcomes in the
    prerequisites/live-verification report.
 
+**Completion record - PASS, 2026-08-08.** CR1-CR5 landed incrementally before
+WP8. The final offline suite passed **427 tests** on native Windows and Ubuntu
+24.04/WSL2. The exact pinned AEGIS/WAEGIS 3.0.0 source provisioned and checked a
+disposable Gitea repository; ADORE's doctor probe accepted schema 3. Full issue
+#7 reached draft PR #8 with truthful human-waived and not-enforced outcomes,
+including an applied-ready restart that skipped the executor. Quick issue #9
+reached draft PR #10 with a real linked RED/GREEN pair, INV-3, four bypassed
+stages, and a non-blocking four-path `QUICK-SCOPE-ADVISORY`; a review request
+updated that same draft PR in revise round 1. Disposable issue #11 ended as
+`aegis-abandoned`; its branch was never pushed and no PR was created. No pilot
+PR was merged. Exact commands, pins, run ids, commits, artifacts, live defects,
+and remote identifiers are recorded in `00_Planning/Prerequisites_Check_Report.md`
+section 19.
+
 ## 6. Explicitly out of scope
 
 - AEGIS 1.x/2.x compatibility, fallback, or state migration.
@@ -316,10 +331,11 @@ WP8 starts only after CR1-CR5 are green.
   envelope even though broad CLI documentation describes machine output in
   envelope terms. The dedicated parser is pinned to context schema 1.
 - **Pinned WAEGIS source:** AEGIS 3.0.0 is released and the earlier
-  `[Unreleased]` contract risk is resolved. The WAEGIS 3 branch has additional
-  post-integration remediation commits while retaining version 3.0.0, so the
-  pilot must build/use the exact pinned commit and record its artifact and
-  payload digests.
+  `[Unreleased]` contract risk is resolved. Acceptance used a detached scratch
+  checkout of authoritative `master` at exact commit `676b754f...`, WAEGIS
+  3.0.0, and payload digest `c08b148c...`; the concurrently changing source
+  checkout was never modified. Those pins and the complete digest are recorded
+  in the live report.
 - **Completed-run revisions:** AEGIS has no reopen/amend workflow. ADORE's
   existing revise cycle re-verifies before updating the draft MR/PR but does
   not falsify the completed graph.

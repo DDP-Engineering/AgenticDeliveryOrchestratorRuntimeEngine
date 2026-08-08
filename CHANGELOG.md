@@ -30,6 +30,13 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- **ADORE 3.0 CR6/WP8 acceptance is complete.** The exact pinned AEGIS and
+  WAEGIS 3.0.0 source provisioned a disposable Gitea target; native Windows and
+  Ubuntu/WSL suites are green at 427 tests. Full and quick tickets reached
+  separate draft PRs with restart, RED/GREEN, waiver, not-enforced, advisory,
+  abandonment-no-publication, and same-PR revise evidence recorded in
+  `00_Planning/Prerequisites_Check_Report.md` section 19. No pilot PR was
+  merged and ADORE `master` was not pushed.
 - **Retarget the unreleased hard break to ADORE 3.0 / AEGIS 3.x.** The
   adaptation plan now pins AEGIS 3.0.0 and WAEGIS 3.0.0 from the authoritative
   source checkout, documents the unchanged runtime contract and the WAEGIS 3

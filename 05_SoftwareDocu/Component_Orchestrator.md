@@ -433,8 +433,11 @@ adore logs <run-id>
   archive-stem passing and executor-artifact journal entries.
 - Minimum validation after a change: `python -m pytest -q` from
   `04_Software`.
-- Live pilot pending (plan WP8): one supervised ticket end to end against a
-  repository carrying the AEGIS 3.0 payload.
+- Live acceptance passed 2026-08-08 (plan WP8): a full and quick supervised
+  Gitea ticket reached separate draft PRs against an exact AEGIS 3.0.0 payload;
+  restart, waiver/not-enforced/advisory truth, external abandonment without
+  publication, and a same-PR revise round were all exercised. See
+  `00_Planning/Prerequisites_Check_Report.md` section 19.
 
 ## 10. Limitations And Future Work
 

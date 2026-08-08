@@ -480,3 +480,174 @@ hard cut with no compatibility, migration, import, fallback, or alias behavior.
 - Release guard: exact-token scanning, presentation XML scanning, version
   consistency, package metadata, image/service/task identifiers, and artifact
   validation all passed.
+
+## 19. ADORE 3.0 / AEGIS 3.0 CR6 Live Acceptance - 2026-08-08
+
+**Result: PASS.** CR1-CR5 were green before this work package began. CR6 then
+proved the hard-break runtime against the exact AEGIS 3.0.0 contract on native
+Windows and Ubuntu 24.04/WSL2, a private disposable Gitea repository, Docker in
+WSL2, and a real OpenCode executor. ADORE opened draft PRs only; no pilot PR was
+merged and ADORE `master` was never pushed.
+
+### 19.1 Authoritative pins and host matrix
+
+- Authoritative source baseline: local AEGIS `master` commit
+  `676b754f438fd82f0f48692c874bd9c8340a96b0`. Acceptance used the detached
+  read-only scratch checkout `D:\TEMP\aegis-676b754-cr6-source` so concurrent
+  user work in the authoritative source checkout could not be altered.
+- WAEGIS version response: WAEGIS `3.0.0`, bundled payload `3.0.0`, compatibility
+  `>=3.0.0,<4.0.0`, source-checkout packaging, payload digest
+  `c08b148c5c53fdf60abf1301e546e5d3608b3c172779030099ebf0419fdd5ed3`.
+- Windows: Git `2.55.0.windows.2`, test virtualenv Python `3.11.15`, uv
+  `0.11.25`, Node `24.18.0`, tea `0.15.0` authenticated to the disposable
+  Gitea instance.
+- Ubuntu 24.04/WSL2: Python `3.12.3`, Git `2.43.0`, uv `0.11.32`, Docker
+  `29.6.1`, rootless Podman `4.9.3`, kernel
+  `6.18.33.2-microsoft-standard-WSL2`.
+- Runtime profile: `cr6-gitea` under disposable `ADORE_HOME`
+  `D:\TEMP\adore3-cr6-adore-home`; Docker image
+  `adore-executor-base:1.0.0`, WSL2 Docker runtime, host-auth staging enabled
+  for the supervised pilot. No credential value is recorded here.
+
+The exact final cross-platform suite commands and results were:
+
+```powershell
+cd D:\TEMP\2026_AgenticDeliveryOrchestratorRuntimeEngine\04_Software
+.\.venv\Scripts\python.exe -m pytest -q
+# 427 passed in 26.27s
+
+wsl -d Ubuntu-24.04 -- bash -lc \
+  'cd /mnt/d/TEMP/2026_AgenticDeliveryOrchestratorRuntimeEngine/04_Software && PYTHONPATH=. python3 -m pytest -q'
+# 427 passed in 7.50s
+```
+
+Focused tests and Ruff were also run after every live correction. All tests are
+offline; the live commands below were separate acceptance operations.
+
+### 19.2 Exact WAEGIS provisioning and AEGIS probe
+
+Disposable target: `D:\TEMP\adore3-cr6-pilot`, remote repository
+`dpasare/adore-gitea-pilot`. The clean initial repository was previewed with
+`waegis adopt --dry-run --json` and a complete V2 answers file, then adopted
+with explicit `--non-interactive --yes`; WAEGIS neither created a branch nor
+staged or committed. The operator reviewed and committed the payload as:
+
+- `ab49d01 chore: provision AEGIS 3.0.0 with WAEGIS 3.0.0`
+- `d82568c chore: configure CR6 governance pilot`
+- `b583bc0 chore: configure quick pilot governance` (WAEGIS `configure`, after
+  the intentional full-run security-waiver exercise)
+
+The final WAEGIS checks were:
+
+```powershell
+uv run --project D:\TEMP\aegis-676b754-cr6-source\05_Software\waegis \
+  python -m waegis version --json
+uv run --project D:\TEMP\aegis-676b754-cr6-source\05_Software\waegis \
+  python -m waegis check --repo D:\TEMP\adore3-cr6-pilot --json
+```
+
+`waegis check` returned `status: ok`, payload `3.0.0`, valid manifest, zero
+failures and zero warnings (142 managed, 12 seeded, 1 generated file). Direct
+`aegis config validate --json` returned `status: ok` and `schema_version: 3`.
+ADORE's real `doctor.detect_aegis` probe returned `ok=True`, wrapper present,
+config valid, schema 3, and empty detail. The target was clean before each run.
+
+### 19.3 Full-profile issue #7 and restart/waiver truth
+
+- Ticket: `#7 CR6 full pilot: temperature classification API`.
+- ADORE run: `gitea-dpasare-adore-gitea-pilot-7`.
+- Pinned AEGIS run: `feature-2026-08-08T194547Z-df712bf9`, full eight-stage
+  feature profile.
+- Branch: `adore3/gitea-dpasare-adore-gitea-pilot-7`; published head
+  `1c902df07ff0d0b802b7510f2cf802af528ce94b`.
+- Draft PR: `#8 WIP: Resolve #7: CR6 full pilot: temperature classification
+  API`, open and unmerged.
+
+The product commit `b952750` added `src/temperature.py` plus 13 offline
+`unittest` cases. The test gate was enforced. The security gate deliberately
+ran `python3 -c "import sys; sys.exit(7)"`; build, lint, and typecheck were
+disabled. A human explicitly created these waivers, all with recorded CR6
+reasons:
+
+- `WVR-ab07f1fa-efc9-4e04-9799-387eb22e3fdb` - `gate:security`.
+- `WVR-4e4aba8e-3fe0-46c7-a41e-32ca77d3c71c` - `INV-4`.
+- `WVR-9449c4ab-4337-4373-9f7a-7692df546507` - the validation-time `INV-8`
+  condition before requirement activation; it became inactive after closure.
+
+Restart evidence is explicit in the ADORE journal: `stage-restart-ready` at
+validation with `action=skip-executor`, followed directly by `verify-result`
+`status=waived` and `stage-closed validation`; there is no intervening
+validation executor launch. The final delivery and post-merge verification
+remained `waived`. PR #8 says "These are not passes", names the active security
+and INV-4 waivers, and lists build/lint/typecheck as not enforced. The persisted
+`validation-summary.json`, schema-3 `graph.json`, and `report.md` agree.
+
+### 19.4 Quick issue #9, advisory, and revise cycle
+
+- Ticket: `#9 CR6 quick pilot: normalized slug helper`.
+- ADORE run: `gitea-dpasare-adore-gitea-pilot-9`.
+- Pinned AEGIS run: `change-2026-08-08T203338Z-240f8343`, quick change profile.
+- Branch: `adore3/gitea-dpasare-adore-gitea-pilot-9`.
+- Draft PR: `#10 WIP: Resolve #9: CR6 quick pilot: normalized slug helper`,
+  open and unmerged.
+
+The quick implementation created and registered check
+`CHK-234226d5-2311-42ea-a9bd-77c55e64a54d`, command
+`python -m unittest tests.test_slug`. Graph evidence links `red_evidence` to
+`E-0001` (`result: fail`) and `green_evidence` to `E-0002` (`result: pass`);
+INV-3 passed. Validation, delivery, and post-merge verification were `ok`.
+The PR truthfully names alignment/requirement/design/check as bypassed,
+build/lint/security/typecheck as not enforced, and quick-only invariants and
+traceability as not applicable.
+
+The run touched four paths against `[quick.changed_paths] max_paths = 1`.
+ADORE surfaced the non-blocking `QUICK-SCOPE-ADVISORY`, including the exact
+full-run restart command `aegis run start change`, and still completed the
+proportional quick run.
+
+For revise round 1, a human requested concrete README examples and added the
+`agent-revise` label to PR #10. ADORE removed the trigger, reused the retained
+run/worktree, committed `5f4b26d docs: add slug helper examples`, reran the
+focused four-test command and full four-test suite, reverified `ok`, pushed the
+same branch, and updated the same PR from head `6673d8d...` to
+`fbd47bd94722a39d6d062a55a3b4e4beb05b7b86`. The PR remains WIP/draft,
+open, and unmerged.
+
+### 19.5 External abandonment without publication
+
+- Ticket: `#11 CR6 abandonment pilot: prove no publication`.
+- ADORE run: `gitea-dpasare-adore-gitea-pilot-11`.
+- Pinned AEGIS run: `change-2026-08-08T204535Z-ad818d17`.
+- Operator command: `aegis run abandon --run
+  change-2026-08-08T204535Z-ad818d17 --reason CR6 --json` while intake executor
+  work was active.
+
+AEGIS recorded `complete: true`, `outcome: abandoned`. After the live
+close-time race correction, ADORE recorded lifecycle `failed` with the distinct
+outcome `aegis-abandoned` and journal event `aegis-run-abandoned`. An exact
+`git ls-remote --heads origin
+adore3/gitea-dpasare-adore-gitea-pilot-11` returned no ref; the complete Gitea
+PR list has no PR with that head. No publication operation occurred.
+
+### 19.6 Live findings corrected during CR6
+
+Every finding was corrected on ADORE local `master`, documented, covered by a
+happy test and fail-closed negatives where it crossed a trust boundary, and
+rerun on both platforms:
+
+1. `5298e36` - translate Windows worktree paths for WSL mounts and create
+   portable runtime ZIPs without Windows-only separators.
+2. `8d1e709` - raise the AEGIS 3 default/wizard file budget from 40 to 120; a
+   full governed run already occupied 45 paths before product implementation.
+3. `3e404d0` - check committed executor work before `verify run`, whose own
+   durable artifact writes previously caused a false dirty-worktree relaunch.
+4. `385198e` - accept AEGIS's canonical delivery context router, including its
+   intentional reference/skill de-duplication.
+5. `a515f0d` - deliver a human answer past the pre-launch graph-question check;
+   still re-park when the executor does not clear the resolved question.
+6. `cf2cd70` - reconcile operator abandonment that races with delegated stage
+   close; accept only terminal status/graph agreement and never publish.
+
+These corrections raised the suite from the 371-test refreshed-plan baseline
+to 427. CR1-CR6 and WP8 are complete. The separate 3.0.0 version/changelog and
+package cut is the next and final plan action.
