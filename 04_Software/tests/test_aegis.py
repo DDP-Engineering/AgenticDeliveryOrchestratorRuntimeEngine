@@ -24,10 +24,12 @@ from __future__ import annotations
 import json
 
 from adore.aegis import (
+    CONTEXT_LIMIT_BYTES,
+    VERIFY_TIMEOUT,
     AegisClient,
+    AegisContext,
     AegisProtocolError,
     AegisTimeoutError,
-    VERIFY_TIMEOUT,
 )
 from adore.util import CommandResult
 import pytest
@@ -84,6 +86,38 @@ def envelope(**extras) -> str:
     return json.dumps(payload)
 
 
+def context(**overrides) -> str:
+    """@brief Render a conforming direct schema-1 context response."""
+    artifact = ".agentic/runs/x/stages/intake/intake.toml"
+    payload = {
+        "context_schema_version": 1,
+        "run_id": RUN_ID,
+        "kind": "feature",
+        "profile": "full",
+        "stage": "intake",
+        "reference": ".agentic/skills/agentic-development/reference/intake.md",
+        "skill": ".agentic/skills/agentic-development/SKILL.md",
+        "artifact": artifact,
+        "unavailable_current_artifact": None,
+        "previous_stage_artifacts": [],
+        "unavailable_previous_stage_artifacts": [],
+        "required_reads": [
+            "AGENTS.md",
+            ".agentic/skills/agentic-development/SKILL.md",
+            ".agentic/skills/agentic-development/reference/intake.md",
+            artifact,
+        ],
+        "next_commands": [
+            "aegis stage prepare",
+            "aegis stage apply",
+            "aegis stage close",
+        ],
+        "human_gate": "stage close",
+    }
+    payload.update(overrides)
+    return json.dumps(payload)
+
+
 def client(*results: CommandResult, run_id: str = RUN_ID) -> tuple[AegisClient, FakeExec]:
     """
     @brief      Build a client over a scripted fake exec seam.
@@ -104,7 +138,12 @@ def test_envelope_happy_path_is_parsed_and_run_pinned() -> None:
              and the argv pins `--run` and `--json` as single tokens.
     """
     aegis, execute = client(
-        CommandResult(exit_code=0, stdout=envelope(stage="design", complete=False))
+        CommandResult(
+            exit_code=0,
+            stdout=envelope(
+                stage="design", complete=False, run_id=RUN_ID,
+            ),
+        )
     )
     response = aegis.run_status()
     assert response.ok and not response.blocked and not response.failed
@@ -113,7 +152,7 @@ def test_envelope_happy_path_is_parsed_and_run_pinned() -> None:
     assert response.artifact.endswith("stage.toml")
     assert response.complete is False
     assert execute.calls == [[
-        "bash", ".agentic/tools/run.sh", "run", "status", "--run", RUN_ID, "--json",
+        "bash", ".agentic/tools/run.sh", "--run", RUN_ID, "--json", "run", "status",
     ]]
     assert all(" " not in token for token in execute.calls[0])
 
@@ -171,7 +210,7 @@ def test_failed_verification_is_data_with_the_summary_extra() -> None:
     @brief   `verify run` exiting 1 with `status: failed` is a normal outcome
              carrying the validation summary, and gets the long timeout.
     """
-    summary = {"gates": {"test": {"status": "failed"}}}
+    summary = {"status": "failed", "gates": {"test": {"status": "failed"}}}
     aegis, execute = client(
         CommandResult(
             exit_code=1,
@@ -190,6 +229,15 @@ def test_failed_verification_is_data_with_the_summary_extra() -> None:
     assert execute.timeouts == [VERIFY_TIMEOUT]
 
 
+def test_blocked_verification_remains_classifiable_without_a_summary() -> None:
+    """@brief A pre-verification governance block is still an envelope."""
+    aegis, _ = client(CommandResult(
+        exit_code=1,
+        stdout=envelope(status="blocked", error="PERSISTENCE-LOCK-TIMEOUT"),
+    ))
+    assert aegis.verify_run().blocked
+
+
 def test_run_start_captures_and_pins_the_run_id() -> None:
     """
     @brief   `run start` carries no `--run`; the minted id is captured and
@@ -205,7 +253,7 @@ def test_run_start_captures_and_pins_the_run_id() -> None:
     assert response.ok and aegis.run_id == RUN_ID
     assert "--run" not in execute.calls[0]
     aegis.stage_show()
-    assert execute.calls[1][-3:] == ["--run", RUN_ID, "--json"]
+    assert execute.calls[1][2:5] == ["--run", RUN_ID, "--json"]
 
 
 def test_quick_run_start_passes_the_profile_flag() -> None:
@@ -216,14 +264,16 @@ def test_quick_run_start_passes_the_profile_flag() -> None:
         CommandResult(
             exit_code=0,
             stdout=envelope(
-                run_id="fix-2026-08-01T101112Z-0a1b2c3d", run_profile="quick"
+                run_id="fix-2026-08-01T101112Z-0a1b2c3d",
+                kind="fix",
+                run_profile="quick",
             ),
         ),
         run_id="",
     )
     aegis.run_start("fix", quick=True)
     assert execute.calls[0] == [
-        "bash", ".agentic/tools/run.sh", "run", "start", "fix", "--quick", "--json",
+        "bash", ".agentic/tools/run.sh", "--json", "run", "start", "fix", "--quick",
     ]
 
 
@@ -264,7 +314,7 @@ def test_run_scoped_command_without_a_run_id_fails_loud() -> None:
     """
     aegis, execute = client(run_id="")
     with pytest.raises(AegisProtocolError, match="without an AEGIS run id"):
-        aegis.stage_close()
+        aegis.stage_close("ADORE delegated conductor", run_kind="fix")
     assert execute.calls == []
 
 
@@ -366,29 +416,218 @@ def test_unknown_status_and_exit_code_contradictions_raise() -> None:
         aegis.run_status()
 
 
+def test_context_success_is_parsed_as_its_own_response_family() -> None:
+    """@brief Exit-0 context is direct schema-1 data, never an envelope."""
+    aegis, execute = client(CommandResult(exit_code=0, stdout=context()))
+    response = aegis.run_context(
+        expected_profile="full", expected_stage="intake", expected_kind="feature"
+    )
+    assert isinstance(response, AegisContext)
+    assert response.run_id == RUN_ID
+    assert response.required_reads[-1].endswith("intake.toml")
+    assert response.human_gate == "stage close"
+    assert execute.calls == [[
+        "bash", ".agentic/tools/run.sh", "--run", RUN_ID, "--json",
+        "run", "context",
+    ]]
+
+
+def test_context_exit_one_remains_a_validated_blocked_envelope() -> None:
+    """@brief The response family is selected after exit-code discrimination."""
+    aegis, _ = client(CommandResult(
+        exit_code=1,
+        stdout=envelope(status="blocked", error="RUN-ID-NOT-FOUND: gone"),
+    ))
+    response = aegis.run_context(
+        expected_profile="full", expected_stage="intake"
+    )
+    assert not isinstance(response, AegisContext)
+    assert response.blocked
+
+
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    (
+        ({"context_schema_version": 2}, "context_schema_version"),
+        ({"profile": 3}, "invalid string field 'profile'"),
+        ({"run_id": "fix-2026-08-01T101112Z-0a1b2c3d"}, "disagrees with pinned"),
+        ({"profile": "quick"}, "disagrees with expected"),
+        ({"stage": "design"}, "disagrees with expected"),
+        ({"human_gate": "auto close"}, "invalid human_gate"),
+        ({"artifact": "../graph.json"}, "escapes or is not normalized"),
+        ({"required_reads": ["AGENTS.md", "../secret"]}, "escapes"),
+        ({"next_commands": ["rm -rf ."]}, "unknown recovery/procedure"),
+    ),
+)
+def test_context_rejects_schema_state_type_path_and_command_faults(
+    overrides: dict,
+    message: str,
+) -> None:
+    """@brief Every direct-context trust-boundary fault fails loud."""
+    aegis, _ = client(CommandResult(exit_code=0, stdout=context(**overrides)))
+    with pytest.raises(AegisProtocolError, match=message):
+        aegis.run_context(expected_profile="full", expected_stage="intake")
+
+
+def test_context_rejects_missing_extra_malformed_and_oversized_objects() -> None:
+    """@brief The context schema is closed and the UTF-8 wire budget is hard."""
+    payload = json.loads(context())
+    del payload["skill"]
+    aegis, _ = client(CommandResult(exit_code=0, stdout=json.dumps(payload)))
+    with pytest.raises(AegisProtocolError, match="wrong fixed shape"):
+        aegis.run_context(expected_profile="full", expected_stage="intake")
+
+    aegis, _ = client(CommandResult(exit_code=0, stdout="not-json"))
+    with pytest.raises(AegisProtocolError, match="unparseable context JSON"):
+        aegis.run_context(expected_profile="full", expected_stage="intake")
+
+    oversized = context(extra="x" * CONTEXT_LIMIT_BYTES)
+    aegis, _ = client(CommandResult(exit_code=0, stdout=oversized))
+    with pytest.raises(AegisProtocolError, match="exceeds 4096 bytes"):
+        aegis.run_context(expected_profile="full", expected_stage="intake")
+
+
+@pytest.mark.parametrize("exit_code", (2, 7, 124, 127))
+def test_current_context_wrapper_rejects_unsupported_exit_codes(exit_code: int) -> None:
+    """@brief Propagated tool exits are unsupported until a wrapper owns them."""
+    aegis, _ = client(CommandResult(exit_code=exit_code, stdout=context()))
+    with pytest.raises(AegisProtocolError, match=f"exited {exit_code}"):
+        aegis.run_context(expected_profile="full", expected_stage="intake")
+
+
+def test_run_start_warnings_are_bounded_and_preserved() -> None:
+    """@brief Optional displaced-run warnings remain visible as typed strings."""
+    warning = f"Run {RUN_ID} remains incomplete; use aegis run select {RUN_ID}."
+    aegis, _ = client(CommandResult(
+        exit_code=0,
+        stdout=envelope(run_id=RUN_ID, kind="feature", warnings=[warning]),
+    ), run_id="")
+    response = aegis.run_start("feature")
+    assert response.warnings == (warning,)
+
+    aegis, _ = client(CommandResult(
+        exit_code=0,
+        stdout=envelope(run_id=RUN_ID, kind="feature", warnings=[3]),
+    ), run_id="")
+    with pytest.raises(AegisProtocolError, match="bounded non-empty string"):
+        aegis.run_start("feature")
+
+
+def test_stage_close_requires_and_validates_the_delegated_approver() -> None:
+    """@brief ADORE identity is explicit in argv and confirmed by AEGIS."""
+    identity = "ADORE 3.0 delegated conductor"
+    aegis, execute = client(CommandResult(
+        exit_code=0,
+        stdout=envelope(approver=identity, complete=False),
+    ))
+    response = aegis.stage_close(identity, run_kind="feature")
+    assert response.advisories == ()
+    assert execute.calls[0] == [
+        "bash", ".agentic/tools/run.sh", "--run", RUN_ID, "--json",
+        "stage", "close", "--approver", identity,
+    ]
+
+    aegis, _ = client(CommandResult(
+        exit_code=0,
+        stdout=envelope(approver="human", complete=False),
+    ))
+    with pytest.raises(AegisProtocolError, match="did not record"):
+        aegis.stage_close(identity, run_kind="feature")
+
+    aegis, execute = client()
+    with pytest.raises(AegisProtocolError, match="bounded non-empty identity"):
+        aegis.stage_close(" ", run_kind="feature")
+    assert execute.calls == []
+
+
+def test_stage_close_advisory_is_typed_and_malformed_shapes_fail_closed() -> None:
+    """@brief The one current non-blocking advisory retains exact semantics."""
+    identity = "ADORE 3.0 delegated conductor"
+    advisory = {
+        "code": "QUICK-SCOPE-ADVISORY",
+        "status": "advisory",
+        "changed_path_count": 3,
+        "max_paths": 2,
+        "message": "Quick scope widened; restart as a full run.",
+        "restart_command": "aegis run start fix",
+    }
+    aegis, _ = client(CommandResult(
+        exit_code=0,
+        stdout=envelope(approver=identity, complete=False, advisories=[advisory]),
+    ))
+    response = aegis.stage_close(identity, run_kind="fix")
+    assert response.advisories[0].code == "QUICK-SCOPE-ADVISORY"
+
+    bad = dict(advisory, restart_command="aegis run start feature")
+    aegis, _ = client(CommandResult(
+        exit_code=0,
+        stdout=envelope(approver=identity, complete=False, advisories=[bad]),
+    ))
+    with pytest.raises(AegisProtocolError, match="message/restart"):
+        aegis.stage_close(identity, run_kind="fix")
+
+
+@pytest.mark.parametrize(
+    ("complete", "outcome", "expected"),
+    ((False, None, None), (True, None, "normal"), (True, "abandoned", "abandoned")),
+)
+def test_run_status_exposes_a_typed_terminal_outcome(
+    complete: bool,
+    outcome: str | None,
+    expected: str | None,
+) -> None:
+    """@brief Completion and abandonment are never conflated."""
+    extras = {"run_id": RUN_ID, "complete": complete}
+    if outcome is not None:
+        extras["outcome"] = outcome
+    aegis, _ = client(CommandResult(exit_code=0, stdout=envelope(**extras)))
+    assert aegis.run_status().terminal_outcome == expected
+
+
+def test_verification_status_preserves_ok_waived_failed_and_rejects_disagreement() -> None:
+    """@brief Exit 0 is not a synonym for passed verification."""
+    for status in ("ok", "waived"):
+        aegis, _ = client(CommandResult(
+            exit_code=0, stdout=envelope(verification={"status": status}),
+        ))
+        assert aegis.verify_run().verification_status == status
+    aegis, _ = client(CommandResult(
+        exit_code=0, stdout=envelope(verification={"status": "failed"}),
+    ))
+    with pytest.raises(AegisProtocolError, match="disagree"):
+        aegis.verify_run()
+
+
 def test_command_wrappers_use_the_grouped_verbs() -> None:
     """
     @brief   Each wrapper maps to its exact AEGIS 3.x group/action pair, and
              only `run start` / `config validate` omit `--run`.
     """
-    expected = {
-        "run_status": (["run", "status"], True),
-        "run_resume": (["run", "resume"], True),
-        "stage_show": (["stage", "show"], True),
-        "stage_close": (["stage", "close"], True),
-        "verify_run": (["verify", "run"], True),
-        "delivery_report": (["delivery", "report"], True),
-        "waive_list": (["waive", "list"], True),
-        "config_validate": (["config", "validate"], False),
-    }
-    for name, (verbs, run_scoped) in expected.items():
-        aegis, execute = client(CommandResult(exit_code=0, stdout=envelope()))
-        getattr(aegis, name)()
+    identity = "ADORE 3.0 delegated conductor"
+    expected = (
+        ("run_status", ["run", "status"], True,
+         {"run_id": RUN_ID, "complete": False}, (), {}),
+        ("run_resume", ["run", "resume"], True, {}, (), {}),
+        ("stage_show", ["stage", "show"], True, {}, (), {}),
+        ("stage_close", ["stage", "close", "--approver", identity], True,
+         {"approver": identity, "complete": False}, (identity,), {"run_kind": "feature"}),
+        ("verify_run", ["verify", "run"], True,
+         {"verification": {"status": "ok"}}, (), {}),
+        ("delivery_report", ["delivery", "report"], True, {}, (), {}),
+        ("waive_list", ["waive", "list"], True, {}, (), {}),
+        ("config_validate", ["config", "validate"], False, {}, (), {}),
+    )
+    for name, verbs, run_scoped, extras, args, kwargs in expected:
+        aegis, execute = client(
+            CommandResult(exit_code=0, stdout=envelope(**extras))
+        )
+        getattr(aegis, name)(*args, **kwargs)
         call = execute.calls[0]
         assert call[:2] == ["bash", ".agentic/tools/run.sh"]
-        assert call[2:2 + len(verbs)] == verbs
+        offset = 5 if run_scoped else 3
+        assert call[offset:offset + len(verbs)] == verbs
         assert ("--run" in call) is run_scoped
-        assert call[-1] == "--json"
+        assert call[4 if run_scoped else 2] == "--json"
 
 
 # END OF FILE

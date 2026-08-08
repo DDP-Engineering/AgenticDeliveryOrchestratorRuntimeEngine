@@ -94,6 +94,10 @@ STANDARD_STAGES = ("intake", "alignment", "requirement", "design", "check",
                    "implementation", "validation", "delivery")
 QUICK_STAGES = ("intake", "implementation", "validation", "delivery")
 
+# Stable truthful identity written into every AEGIS stage-close journal entry.
+# This is explicit delegated automation, never a Git user or implied human.
+DELEGATED_APPROVER = "ADORE 3.0 delegated conductor"
+
 # ADORE's own post-AEGIS phase. AEGIS `delivery` closes the governed run;
 # publication (integrate, verify, push, draft MR) is ADORE's alone and never
 # re-enters the stage loop, so it needs a stage name AEGIS cannot produce.
@@ -877,7 +881,8 @@ class Orchestrator:
             if verdict:
                 failure_context = self._failure_context(run, verdict, evidence)
                 continue  # relaunch the same stage with what is still missing
-            closed = client.stage_close()
+            run_kind, _quick = self._run_kind(ticket)
+            closed = client.stage_close(DELEGATED_APPROVER, run_kind=run_kind)
             while not closed.ok:
                 # retry the close itself, not the whole iteration: the stage is
                 # already applied, so relaunching the executor would be waste
@@ -885,7 +890,7 @@ class Orchestrator:
                                        client, lock_retries):
                     return
                 lock_retries += 1
-                closed = client.stage_close()
+                closed = client.stage_close(DELEGATED_APPROVER, run_kind=run_kind)
             failure_context = ""
             lock_retries = 0  # a closed stage is real progress
             closed_index = self._expected_stages(status).index(stage)
@@ -1318,7 +1323,6 @@ class Orchestrator:
         @param[in]  revise True inside the revise cycle.
         @exception  AegisError Propagated to `_deliver` for escalation.
         """
-        execute = client.execute
         if not revise:
             # idempotent recovery: adopt an MR already open for this branch
             with contextlib.suppress(ForgeError):

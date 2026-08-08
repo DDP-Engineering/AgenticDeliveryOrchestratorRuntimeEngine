@@ -24,9 +24,10 @@ fields, file presence, labels, and timestamps; all judgment lives in the
 executor.
 
 ADORE is AEGIS's **delegated approver**: the executor fills and applies the
-stage forms, ADORE verifies objectively and issues `aegis stage close`
-itself. The real human approval stays where it always was - the draft MR
-review.
+stage forms, ADORE verifies objectively and issues `aegis stage close
+--approver "ADORE 3.0 delegated conductor"` itself. The stable identity is
+validated on the response and can never fall back to a Git user or imply a
+human action. The real human approval stays at the draft MR review.
 
 ## 2. Responsibilities
 
@@ -48,7 +49,8 @@ review.
   regression guard -> launch the executor for that one stage -> inspect
   (questions / exit code) -> verify (`aegis stage show` readiness, plus
   `aegis verify run` at validation and delivery, plus the committed-work
-  check at validation) -> `aegis stage close` -> iterate. Failures retry the
+  check at validation) -> explicitly identified `aegis stage close` ->
+  iterate. Failures retry the
   same stage with failure context, questions park, blocks and contract
   breaks escalate - all bounded by run budgets. When AEGIS reports
   `complete: true`, publication takes over. Each executor launch receives a
@@ -174,6 +176,9 @@ interface) and metrics.
   or one at or before the last stage ADORE already closed (what an approved
   `route_to` produces), escalates. `PUBLICATION_STAGE = "publication"` is
   ADORE's own post-AEGIS phase and can never be reported by AEGIS.
+- `DELEGATED_APPROVER = "ADORE 3.0 delegated conductor"` is passed on every
+  close. The AEGIS client requires that the successful close response records
+  the same value, making autonomous approval auditable and truthful.
 - Per-stage goals are fixed prompt blocks (`_STAGE_GOALS`, eight stages plus
   `revise`) plus the standing rules: worktree-only, the CLI invoked as
   `bash .agentic/tools/run.sh <group> <action>` with content in the generated

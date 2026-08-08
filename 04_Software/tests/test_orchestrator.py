@@ -26,11 +26,11 @@ import json
 import pathlib
 from pathlib import Path
 
+from adore.aegis import AegisResponse
 from adore.config import Config, ExecutorCommand
 from adore.executor.base import Executor, GateRun
 from adore.forge import Comment, Forge, ForgeError, MergeRequest, Ticket
 from adore.isolation import IsolationError
-from adore.aegis import AegisResponse
 from adore.orchestrator import (
     _MR_MISSING_GRACE_POLLS,
     BLOCK_ESCALATE,
@@ -44,7 +44,6 @@ from adore.orchestrator import (
 )
 from adore.state import RunState, StateStore
 from adore.util import CommandResult
-import pytest
 
 # CONSTANTS
 
@@ -54,6 +53,16 @@ AC_BODY = "Do the thing.\n\n## Acceptance criteria\n- [ ] it works\n"
 AEGIS_RUN = "feature-2026-08-01T101112Z-0a1b2c3d"
 
 # DATA MODELS / TYPEDEFINITIONS
+
+
+def aegis_command(argv: list[str]) -> list[str]:
+    """@brief Return group/action argv after canonical global AEGIS options."""
+    tokens = list(argv[2:])
+    while tokens and tokens[0].startswith("--"):
+        option = tokens.pop(0)
+        if option == "--run":
+            tokens.pop(0)
+    return tokens
 
 
 class FakeForge(Forge):
@@ -412,15 +421,23 @@ class FakeAegis:
         @return     The CommandResult a real payload would produce.
         """
         self.calls.append(list(argv))
-        verbs = [token for token in argv[2:] if not token.startswith("--")]
+        global_tokens = list(argv[2:])
+        run_pin = ""
+        while global_tokens and global_tokens[0].startswith("--"):
+            option = global_tokens.pop(0)
+            if option == "--run":
+                run_pin = global_tokens.pop(0)
+            elif option != "--json":
+                raise AssertionError(f"unknown global AEGIS option: {option}")
+        verbs = global_tokens
         override = self.overrides.get(tuple(verbs[:2]))
         if override is not None:
             return override
-        # `--run` must follow the verbs on every command but start/validate
+        # Canonical global options precede the command group.
         if verbs[:2] not in (["run", "start"], ["config", "validate"]):
-            assert "--run" in argv, f"missing --run on {verbs}"
-            assert argv[argv.index("--run") + 1] == self.run_id
-        assert argv[-1] == "--json"
+            assert run_pin == self.run_id, f"missing/wrong --run on {verbs}"
+        assert "--json" in argv
+        assert argv.index("--json") < argv.index(verbs[0], 2)
 
         if verbs[:2] == ["run", "start"]:
             if self.start_blocked:
@@ -477,15 +494,21 @@ class FakeAegis:
                 self.index += 1
             self.write_graph()
             return CommandResult(exit_code=0, stdout=self._envelope(
-                complete=self.complete, **self._quick_details()))
+                complete=self.complete,
+                approver=argv[argv.index("--approver") + 1],
+                **self._quick_details(),
+            ))
         if verbs[:2] == ["verify", "run"]:
             code = self.verify_results.pop(0) if self.verify_results else 0
             return CommandResult(
                 exit_code=1 if code else 0,
                 stdout=self._envelope(
                     "failed" if code else "ok",
-                    verification={"gates": {"test": {"status": "failed" if code
-                                                     else "passed"}}},
+                    verification={
+                        "status": "failed" if code else "ok",
+                        "gates": {"test": {"status": "failed" if code
+                                             else "passed"}},
+                    },
                 ),
             )
         if verbs[:2] == ["delivery", "report"]:
@@ -832,8 +855,11 @@ def test_quick_profile_walks_the_four_stage_sequence(tmp_path: Path) -> None:
 
     engine.poll_once()
 
-    start = next(call for call in containers.aegis.calls if call[2:4] == ["run", "start"])
-    assert start[2:6] == ["run", "start", "fix", "--quick"]
+    start = next(
+        call for call in containers.aegis.calls
+        if aegis_command(call)[:2] == ["run", "start"]
+    )
+    assert aegis_command(start)[:4] == ["run", "start", "fix", "--quick"]
     assert containers.aegis.closes == list(QUICK_STAGES)
     assert executor.archive_stems == [
         f"{index:03d}-{stage}"
@@ -857,8 +883,11 @@ def test_quick_label_is_ignored_for_kinds_aegis_rejects(tmp_path: Path) -> None:
 
     engine.poll_once()
 
-    start = next(call for call in containers.aegis.calls if call[2:4] == ["run", "start"])
-    assert start[2:5] == ["run", "start", "feature"]
+    start = next(
+        call for call in containers.aegis.calls
+        if aegis_command(call)[:2] == ["run", "start"]
+    )
+    assert aegis_command(start)[:3] == ["run", "start", "feature"]
     assert "--quick" not in start
 
 
@@ -883,7 +912,10 @@ def test_the_aegis_run_is_started_once_and_resumed_afterwards(
     forge.human_comment(14, "Use the small variant.")
     engine.poll_once()
 
-    starts = [c for c in containers.aegis.calls if c[2:4] == ["run", "start"]]
+    starts = [
+        call for call in containers.aegis.calls
+        if aegis_command(call)[:2] == ["run", "start"]
+    ]
     assert len(starts) == 1
     assert engine.store.load(run_id).aegis_run_id == aegis_run
 
@@ -1379,6 +1411,7 @@ def test_unknown_stage_escalates(tmp_path: Path) -> None:
         stdout=json.dumps({
             "status": "ok", "stage": "repo-discovery", "artifact": "none",
             "next": "aegis stage prepare", "complete": False,
+            "run_id": AEGIS_RUN,
         }),
     )
 
@@ -2844,8 +2877,10 @@ def test_a_held_lock_at_run_start_escalates_instead_of_stranding(
     run = engine.store.load(engine._run_id(14))
     assert run.lifecycle == "failed"
     assert "persistence lock is still held" in run.outcome
-    starts = [call for call in containers.aegis.calls
-              if call[2:4] == ["run", "start"]]
+    starts = [
+        call for call in containers.aegis.calls
+        if aegis_command(call)[:2] == ["run", "start"]
+    ]
     assert len(starts) == 2  # the first attempt plus exactly one bounded retry
     assert len(slept) == 1
     blocked_events = [
