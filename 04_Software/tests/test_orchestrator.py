@@ -26,7 +26,7 @@ import json
 import pathlib
 from pathlib import Path
 
-from adore.aegis import AegisResponse
+from adore.aegis import STAGE_REFERENCES, STAGE_SKILLS, AegisResponse
 from adore.config import Config, ExecutorCommand
 from adore.executor.base import Executor, GateRun
 from adore.forge import Comment, Forge, ForgeError, MergeRequest, Ticket
@@ -289,6 +289,7 @@ class FakeAegis:
         self.stages: tuple[str, ...] = STANDARD_STAGES
         self.index = 0
         self.complete = False
+        self.stage_states: dict[str, str] = {}
         self.calls: list[list[str]] = []
         self.closes: list[str] = []
         # knobs
@@ -314,6 +315,11 @@ class FakeAegis:
         # pointer and `complete` alone, so `run status` keeps reporting the
         # already-closed final stage (the sequence-boundary regression case)
         self.stall_at_final_close = False
+        self.start_unprepared = False
+        self.start_applied = False
+        self.missing_current_form = False
+        self.bootstrap_padding = 0
+        self.context_changes: dict = {}
 
     # -- helpers ---------------------------------------------------------------
 
@@ -324,6 +330,91 @@ class FakeAegis:
         @return  Stage name ("none" once the run completed).
         """
         return "none" if self.complete else self.stages[self.index]
+
+    @property
+    def stage_state(self) -> str:
+        """@brief Return the current stage lifecycle state."""
+        return self.stage_states.get(self.stage, "not-prepared")
+
+    def _artifact(self, stage: str | None = None) -> str:
+        """@brief Return the current stage's canonical primary form path."""
+        selected = stage or self.stage
+        name = "stage.toml" if selected in {"requirement", "check"} else f"{selected}.toml"
+        return f".agentic/runs/{self.run_id}/stages/{selected}/{name}"
+
+    def write_bootstrap(self) -> None:
+        """@brief Materialize the bounded context files named by the fake."""
+        if self.worktree is None or not self.run_id or self.complete:
+            return
+        paths = ["AGENTS.md", STAGE_SKILLS[self.stage], STAGE_REFERENCES[self.stage]]
+        if self.stage_state != "not-prepared" and not self.missing_current_form:
+            paths.append(self._artifact())
+        for relative in paths:
+            path = self.worktree / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            if not path.exists():
+                padding = "x" * self.bootstrap_padding if relative == "AGENTS.md" else ""
+                path.write_text(
+                    f"bootstrap for {self.stage}\n{padding}", encoding="utf-8"
+                )
+        if self.missing_current_form:
+            (self.worktree / self._artifact()).unlink(missing_ok=True)
+
+    def _context(self) -> str:
+        """@brief Render the direct schema-1 fresh-session context object."""
+        previous = []
+        unavailable_previous = []
+        if self.index:
+            unavailable_previous = [{
+                "stage": self.stages[self.index - 1],
+                "reason": "the captured retention policy discarded the form",
+                "recovery_command": "aegis stage show",
+            }]
+        artifact = (
+            self._artifact()
+            if self.stage_state != "not-prepared" and not self.missing_current_form
+            else "none"
+        )
+        unavailable = None
+        if artifact == "none":
+            unavailable = {
+                "stage": self.stage,
+                "reason": (
+                    "the current stage has not been prepared"
+                    if self.stage_state == "not-prepared"
+                    else "the current stage form is unavailable"
+                ),
+                "recovery_command": (
+                    "aegis stage prepare"
+                    if self.stage_state == "not-prepared"
+                    else "aegis stage show"
+                ),
+            }
+        required_reads = [
+            "AGENTS.md", STAGE_SKILLS[self.stage], STAGE_REFERENCES[self.stage],
+            *([artifact] if artifact != "none" else []), *previous,
+        ]
+        payload = {
+            "context_schema_version": 1,
+            "run_id": self.run_id,
+            "kind": self.kind,
+            "profile": self.profile,
+            "stage": self.stage,
+            "reference": STAGE_REFERENCES[self.stage],
+            "skill": STAGE_SKILLS[self.stage],
+            "artifact": artifact,
+            "unavailable_current_artifact": unavailable,
+            "previous_stage_artifacts": previous,
+            "unavailable_previous_stage_artifacts": unavailable_previous,
+            "required_reads": required_reads,
+            "next_commands": (
+                [unavailable["recovery_command"]] if unavailable is not None else
+                ["aegis stage prepare", "aegis stage apply", "aegis stage close"]
+            ),
+            "human_gate": "stage close",
+        }
+        payload.update(self.context_changes)
+        return json.dumps(payload)
 
     def _pending_blockers(self, stage: str, consume: bool) -> list[str]:
         """
@@ -347,7 +438,7 @@ class FakeAegis:
         payload = {
             "status": status,
             "stage": self.stage,
-            "artifact": f".agentic/runs/{self.run_id}/stages/{self.stage}/stage.toml",
+            "artifact": "none" if self.complete else self._artifact(),
             "next": "none" if self.complete else "aegis stage apply",
         }
         payload.update(extras)
@@ -359,16 +450,22 @@ class FakeAegis:
         @param[in]  consume Whether reading it consumes a scripted attempt.
         @return     The readiness mapping.
         """
-        blockers = self._pending_blockers(self.stage, consume)
+        blockers = (
+            self._pending_blockers(self.stage, consume)
+            if self.stage_state == "applied"
+            else ["stage form has not been applied"]
+            if self.stage_state == "prepared"
+            else ["stage has not been prepared"]
+        )
         return {
             "run_id": self.run_id,
             "stage": self.stage,
-            "state": "applied",
+            "state": self.stage_state,
             "ready": not blockers,
             "blockers": blockers,
-            "files": [],
+            "files": [self._artifact()] if self.stage_state != "not-prepared" else [],
             "warnings": [],
-            "artifact": f".agentic/runs/{self.run_id}/stages/{self.stage}/stage.toml",
+            "artifact": self._artifact() if self.stage_state != "not-prepared" else "",
         }
 
     def write_graph(self) -> None:
@@ -389,14 +486,15 @@ class FakeAegis:
             "complete": self.complete,
             "evidence": self.evidence,
             "stage_records": {
-                name: {"status": "applied", "unresolved_questions": [],
+                name: {"status": state, "unresolved_questions": [],
                        "requested_access_mode": "", "route_to": "",
                        **self.stage_control.get(name, {})}
-                for name in self.stages
+                for name, state in self.stage_states.items()
             },
         }
         if self.profile == "quick":
             graph["profile"] = "quick"
+            graph["red_green_policy"] = "required"
         (run_dir / "graph.json").write_text(
             json.dumps(graph, indent=2), encoding="utf-8"
         )
@@ -453,13 +551,22 @@ class FakeAegis:
             self.profile = "quick" if "--quick" in argv else "full"
             self.stages = QUICK_STAGES if self.profile == "quick" else STANDARD_STAGES
             self.run_id = f"{self.kind}-2026-08-01T101112Z-0a1b2c3d"
+            self.stage_states = {
+                self.stage: (
+                    "not-prepared" if self.start_unprepared else
+                    "applied" if self.start_applied else "prepared"
+                )
+            }
             self.report_path = f".agentic/runs/{self.run_id}/report.md"
+            self.write_bootstrap()
             self.write_graph()
             return CommandResult(
                 exit_code=0,
                 stdout=self._envelope(run_id=self.run_id, kind=self.kind,
                                       **self._quick_details()),
             )
+        if verbs[:2] == ["run", "context"]:
+            return CommandResult(exit_code=0, stdout=self._context())
         if verbs[:2] in (["run", "status"], ["run", "resume"], ["delivery", "show"]):
             if self.status_override:
                 return self.status_override.pop(0)
@@ -480,6 +587,12 @@ class FakeAegis:
             return CommandResult(
                 exit_code=0, stdout=self._envelope(**self._readiness(consume=True))
             )
+        if verbs[:2] == ["stage", "prepare"]:
+            self.stage_states[self.stage] = "prepared"
+            self.missing_current_form = False
+            self.write_bootstrap()
+            self.write_graph()
+            return CommandResult(exit_code=0, stdout=self._envelope())
         if verbs[:2] == ["stage", "close"]:
             stage = self.stage
             blocked = self.close_blocked.pop(stage, "")
@@ -488,10 +601,14 @@ class FakeAegis:
                     exit_code=1, stdout=self._envelope("blocked", error=blocked)
                 )
             self.closes.append(stage)
+            self.stage_states[stage] = "closed"
             if self.index + 1 >= len(self.stages):
                 self.complete = not self.stall_at_final_close
             else:
                 self.index += 1
+                self.missing_current_form = False
+                self.stage_states[self.stage] = "prepared"
+                self.write_bootstrap()
             self.write_graph()
             return CommandResult(exit_code=0, stdout=self._envelope(
                 complete=self.complete,
@@ -586,6 +703,10 @@ class FakeContainers:
         tokens = [str(part) for part in argv]
         self.exec_calls.append(tokens)
         self.exec_envs.append(dict(env) if env is not None else None)
+        if tokens == ["__fake_aegis_stage_apply__"]:
+            self.aegis.stage_states[self.aegis.stage] = "applied"
+            self.aegis.write_graph()
+            return CommandResult(exit_code=0)
         if len(tokens) >= 2 and tokens[1] == ".agentic/tools/run.sh":
             return self.aegis(tokens)
         return CommandResult(exit_code=0)
@@ -607,9 +728,14 @@ class FakeExecutor(Executor):
         self.prompts.append(prompt)
         self.sessions.append(session)
         self.archive_stems.append(archive_stem)
-        if self.results:
-            return self.results.pop(0)
-        return GateRun(exit_code=0, session_id="ses_1")
+        result = self.results.pop(0) if self.results else GateRun(
+            exit_code=0, session_id="ses_1"
+        )
+        if result.ok and not result.has_questions and archive_stem.endswith(tuple(
+            f"-{stage}" for stage in (*STANDARD_STAGES, *QUICK_STAGES)
+        )):
+            execute(["__fake_aegis_stage_apply__"])
+        return result
 
 
 # HELPER FUNCTIONS
@@ -830,8 +956,13 @@ def test_full_profile_walks_all_eight_stages_to_a_draft_mr(tmp_path: Path) -> No
     ]
     # ADORE - never the executor - issued every close, in sequence
     assert containers.aegis.closes == list(STANDARD_STAGES)
-    events = [e["event"] for e in engine.store.read_journal(run.run_id)]
+    journal = engine.store.read_journal(run.run_id)
+    events = [e["event"] for e in journal]
     assert events.count("stage-closed") == 8
+    assert all(
+        item["approver"] == "ADORE 3.0 delegated conductor"
+        for item in journal if item["event"] == "stage-closed"
+    )
     assert "aegis-run-started" in events and "aegis-run-complete" in events
     # ticket snapshot saved; ONE status comment (edited in place) plus ONE
     # kind=delivery comment with the MR link
@@ -889,6 +1020,223 @@ def test_quick_label_is_ignored_for_kinds_aegis_rejects(tmp_path: Path) -> None:
     )
     assert aegis_command(start)[:3] == ["run", "start", "feature"]
     assert "--quick" not in start
+
+
+def test_missing_form_recovery_prepares_only_a_genuinely_unprepared_stage(
+    tmp_path: Path,
+) -> None:
+    """@brief Context-named prepare recovery runs before the executor."""
+    executor = FakeExecutor([gate_ok()] * 8)
+    engine, forge, containers, _ = make_engine(tmp_path, executor)
+    containers.aegis.start_unprepared = True
+    forge.add_ticket(14)
+
+    engine.poll_once()
+
+    commands = [aegis_command(call)[:2] for call in containers.aegis.calls]
+    assert ["stage", "prepare"] in commands
+    assert commands.index(["stage", "prepare"]) < commands.index(["stage", "close"])
+    assert len(executor.prompts) == 8
+    events = engine.store.read_journal(engine._run_id(14))
+    assert any(
+        item["event"] == "stage-recovered"
+        and item["recovery"] == "aegis stage prepare"
+        for item in events
+    )
+
+
+def test_applied_ready_restart_skips_executor_and_reprepare(tmp_path: Path) -> None:
+    """@brief Objective readiness closes resumed applied work without replay."""
+    executor = FakeExecutor([gate_ok()] * 7)
+    engine, forge, containers, _ = make_engine(tmp_path, executor)
+    containers.aegis.start_applied = True
+    forge.add_ticket(14)
+
+    engine.poll_once()
+
+    assert len(executor.prompts) == 7
+    assert '\"stage\": \"alignment\"' in executor.prompts[0]
+    commands = [aegis_command(call)[:2] for call in containers.aegis.calls]
+    assert ["stage", "prepare"] not in commands
+    events = engine.store.read_journal(engine._run_id(14))
+    ready = [item for item in events if item["event"] == "stage-restart-ready"]
+    assert ready[0]["stage"] == "intake"
+    assert ready[0]["action"] == "skip-executor"
+
+
+def test_applied_blocked_restart_launches_without_regenerating_form(
+    tmp_path: Path,
+) -> None:
+    """@brief Applied blocked work gets evidence-led repair, never prepare."""
+    executor = FakeExecutor([gate_ok()] * 8)
+    engine, forge, containers, _ = make_engine(tmp_path, executor)
+    containers.aegis.start_applied = True
+    containers.aegis.blockers["intake"] = [["persisted objective blocker"]]
+    forge.add_ticket(14)
+
+    engine.poll_once()
+
+    assert "persisted objective blocker" in executor.prompts[0]
+    assert "without preparing or regenerating" in executor.prompts[0]
+    commands = [aegis_command(call)[:2] for call in containers.aegis.calls]
+    assert ["stage", "prepare"] not in commands
+    assert engine.store.load(engine._run_id(14)).lifecycle == "in-review"
+
+
+def test_unavailable_applied_form_uses_show_and_skips_ready_work(
+    tmp_path: Path,
+) -> None:
+    """@brief Discarded applied forms use non-mutating show recovery."""
+    executor = FakeExecutor([gate_ok()] * 7)
+    engine, forge, containers, _ = make_engine(tmp_path, executor)
+    containers.aegis.start_applied = True
+    containers.aegis.missing_current_form = True
+    forge.add_ticket(14)
+
+    engine.poll_once()
+
+    assert len(executor.prompts) == 7
+    events = engine.store.read_journal(engine._run_id(14))
+    assert any(
+        item["event"] == "stage-recovered"
+        and item["recovery"] == "aegis stage show"
+        for item in events
+    )
+
+
+def test_unavailable_prepared_form_escalates_after_safe_show(tmp_path: Path) -> None:
+    """@brief Show recovery never regenerates an existing prepared stage."""
+    executor = FakeExecutor()
+    engine, forge, containers, _ = make_engine(tmp_path, executor)
+    containers.aegis.missing_current_form = True
+    forge.add_ticket(14)
+
+    engine.poll_once()
+
+    run = engine.store.load(engine._run_id(14))
+    assert run.lifecycle == "failed"
+    assert "prepared but its required form is unavailable" in run.outcome
+    assert executor.prompts == []
+    commands = [aegis_command(call)[:2] for call in containers.aegis.calls]
+    assert ["stage", "prepare"] not in commands
+
+
+def test_context_status_mismatch_escalates_before_executor(tmp_path: Path) -> None:
+    """@brief Status-selected full work rejects contradictory quick context."""
+    executor = FakeExecutor()
+    engine, forge, containers, _ = make_engine(tmp_path, executor)
+    containers.aegis.context_changes = {"profile": "quick"}
+    forge.add_ticket(14)
+
+    engine.poll_once()
+
+    run = engine.store.load(engine._run_id(14))
+    assert run.lifecycle == "failed"
+    assert "context profile 'quick' disagrees with expected 'full'" in run.outcome
+    assert executor.prompts == []
+
+
+def test_status_profile_mismatch_escalates_before_context(tmp_path: Path) -> None:
+    """@brief Ticket-selected quick work rejects status that claims full."""
+    executor = FakeExecutor()
+    engine, forge, containers, _ = make_engine(tmp_path, executor)
+    containers.aegis.status_override = [CommandResult(
+        exit_code=0,
+        stdout=json.dumps({
+            "status": "ok", "stage": "intake", "artifact": "none",
+            "next": "aegis stage apply", "run_id": (
+                "fix-2026-08-01T101112Z-0a1b2c3d"
+            ), "complete": False,
+        }),
+    )]
+    forge.add_ticket(14, labels=["agent-ready", "P1", "bug", "agent-quick"])
+
+    engine.poll_once()
+
+    run = engine.store.load(engine._run_id(14))
+    assert run.lifecycle == "failed"
+    assert "status profile 'full' disagrees with configured profile 'quick'" in run.outcome
+    assert executor.prompts == []
+
+
+def test_malformed_stage_show_snapshot_escalates_before_executor(tmp_path: Path) -> None:
+    """@brief External stage readiness fields are validated as a closed type."""
+    executor = FakeExecutor()
+    engine, forge, containers, _ = make_engine(tmp_path, executor)
+    containers.aegis.overrides[("stage", "show")] = CommandResult(
+        exit_code=0,
+        stdout=json.dumps({
+            "status": "ok", "stage": "intake", "artifact": "none",
+            "next": "aegis stage apply", "run_id": AEGIS_RUN,
+            "state": "mystery", "ready": "yes", "blockers": [],
+            "files": [], "warnings": [],
+        }),
+    )
+    forge.add_ticket(14)
+
+    engine.poll_once()
+
+    run = engine.store.load(engine._run_id(14))
+    assert run.lifecycle == "failed"
+    assert "stage-show snapshot has invalid state 'mystery'" in run.outcome
+    assert executor.prompts == []
+
+
+def test_unknown_context_recovery_escalates_before_executor(tmp_path: Path) -> None:
+    """@brief Context recovery is closed data, never arbitrary shell."""
+    executor = FakeExecutor()
+    engine, forge, containers, _ = make_engine(tmp_path, executor)
+    containers.aegis.start_unprepared = True
+    containers.aegis.context_changes = {
+        "unavailable_current_artifact": {
+            "stage": "intake",
+            "reason": "missing",
+            "recovery_command": "aegis stage delete",
+        },
+        "next_commands": ["aegis stage delete"],
+    }
+    forge.add_ticket(14)
+
+    engine.poll_once()
+
+    run = engine.store.load(engine._run_id(14))
+    assert run.lifecycle == "failed"
+    assert "unsafe recovery" in run.outcome
+    assert executor.prompts == []
+
+
+def test_context_bootstrap_aggregate_bound_fails_closed(tmp_path: Path) -> None:
+    """@brief Named required reads over 30 KiB never reach the executor."""
+    executor = FakeExecutor()
+    engine, forge, containers, _ = make_engine(tmp_path, executor)
+    containers.aegis.bootstrap_padding = 31 * 1024
+    forge.add_ticket(14)
+
+    engine.poll_once()
+
+    run = engine.store.load(engine._run_id(14))
+    assert run.lifecycle == "failed"
+    assert "30720-byte aggregate bound" in run.outcome
+    assert executor.prompts == []
+
+
+def test_malformed_question_list_escalates_instead_of_looking_empty(
+    tmp_path: Path,
+) -> None:
+    """@brief Corrupt human-authored question state fails closed."""
+    executor = FakeExecutor()
+    engine, forge, containers, _ = make_engine(tmp_path, executor)
+    containers.aegis.stage_control["intake"] = {
+        "unresolved_questions": "not-a-list"
+    }
+    forge.add_ticket(14)
+
+    engine.poll_once()
+
+    run = engine.store.load(engine._run_id(14))
+    assert run.lifecycle == "failed"
+    assert "unresolved_questions must be a string list" in run.outcome
+    assert executor.prompts == []
 
 
 def test_the_aegis_run_is_started_once_and_resumed_afterwards(
@@ -1117,16 +1465,12 @@ def test_stage_failure_retry_prompt_includes_aegis_evidence(tmp_path: Path) -> N
     assert "failure kind: assertion" in retry_prompt
 
 
-def test_relaunch_prompt_includes_the_composed_run_orientation(
+def test_every_live_stage_launch_includes_validated_fresh_context(
     tmp_path: Path,
 ) -> None:
     """
-    @brief   A stage relaunch prepends the orientation ADORE composes from
-             `aegis run resume`, so the fresh executor session knows where the
-             run stands without re-deriving it. AEGIS 3.x answers with run
-             state rather than prose, so the brief names the run, the stage,
-             the exact next command, readiness, and recent evidence. A fresh
-             run carries no brief on its very first launch.
+    @brief   First attempts and retries both receive direct validated context,
+             including the pinned state and exact required-read bootstrap.
     """
     config = make_config(tmp_path)
     config.budgets.max_iterations = 2
@@ -1142,20 +1486,22 @@ def test_relaunch_prompt_includes_the_composed_run_orientation(
 
     engine.poll_once()
 
-    assert "run orientation" not in executor.prompts[0]  # first launch
+    first_prompt = executor.prompts[0]
+    assert "Validated AEGIS fresh-session context" in first_prompt
+    assert f'"run_id": "{AEGIS_RUN}"' in first_prompt
+    assert '"stage": "intake"' in first_prompt
+    assert '"required_reads"' in first_prompt
     retry_prompt = executor.prompts[1]
-    assert "Current AEGIS run orientation" in retry_prompt
-    assert f"- run: {AEGIS_RUN}" in retry_prompt
-    assert "- stage: intake" in retry_prompt
-    assert "- exact next command: aegis stage apply" in retry_prompt
-    assert "E-0007 test-run fail (active)" in retry_prompt
+    assert "Validated AEGIS fresh-session context" in retry_prompt
+    assert f'"run_id": "{AEGIS_RUN}"' in retry_prompt
+    assert '"artifact"' in retry_prompt
+    assert "first attempt failed" in retry_prompt
 
 
-def test_blocked_resume_escalates_instead_of_degrading(tmp_path: Path) -> None:
+def test_broken_live_context_escalates_instead_of_degrading(tmp_path: Path) -> None:
     """
-    @brief   Once an AEGIS run exists, a `run resume` that does not answer the
-             supported contract is a hard failure: ADORE 3.0 escalates rather
-             than silently continuing with an empty brief.
+    @brief   A live `run context` protocol failure escalates instead of
+             continuing with an empty or status-derived bootstrap.
     """
     config = make_config(tmp_path)
     config.budgets.max_iterations = 3
@@ -1163,7 +1509,7 @@ def test_blocked_resume_escalates_instead_of_degrading(tmp_path: Path) -> None:
     engine, forge, containers, _ = make_engine(tmp_path, executor, config)
     forge.add_ticket(14)
 
-    containers.aegis.overrides[("run", "resume")] = CommandResult(
+    containers.aegis.overrides[("run", "context")] = CommandResult(
         exit_code=2, stderr="usage: aegis [-h] ..."
     )
 
@@ -1240,13 +1586,12 @@ def test_evidence_is_addressed_by_the_persisted_run_id_not_the_pointer(
     assert "E-DECOY" not in retry_prompt
 
 
-def test_damaged_aegis_artifacts_are_reported_not_hidden(
+def test_damaged_question_graph_escalates_before_executor_launch(
     tmp_path: Path,
 ) -> None:
     """
-    @brief   A graph or validation summary that exists but cannot be parsed is
-             reported in the prompt, so the executor knows evidence was present
-             but damaged rather than absent.
+    @brief   Malformed persisted question state is a typed trust-boundary
+             failure, never an empty question list or executor retry prompt.
     """
     config = make_config(tmp_path)
     config.budgets.max_iterations = 2
@@ -1265,10 +1610,10 @@ def test_damaged_aegis_artifacts_are_reported_not_hidden(
 
     engine.poll_once()
 
-    retry_prompt = executor.prompts[1]
-    assert "validation-summary.json: could not parse" in retry_prompt
-    assert "graph.json: could not parse failure evidence" in retry_prompt
-    assert "malformed graph" in retry_prompt
+    run = engine.store.load(engine._run_id(14))
+    assert run.lifecycle == "failed"
+    assert "graph.json is missing or malformed while reading questions" in run.outcome
+    assert executor.prompts == []
 
 
 def test_a_started_run_without_a_graph_escalates(tmp_path: Path) -> None:

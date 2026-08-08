@@ -19,12 +19,12 @@
          is an `if` on exit codes, envelope fields, file presence, labels, and
          timestamps. All collaborators are injected so the whole machine is
          unit-testable offline.
-@details Conduction is `next`-driven: AEGIS owns the stage pointer and ADORE
-         asks `run status` for it on every iteration, guarded by a static
-         allowlist per run profile. ADORE is the delegated approver - the
-         executor fills forms and applies them, ADORE verifies objectively and
-         issues `stage close` itself - while the real human approval stays at
-         the draft MR review.
+@details Conduction is status-driven and context-bootstrapped: AEGIS owns the
+         stage pointer, ADORE validates pinned `run status` on every boundary,
+         and every fresh live-stage launch receives bounded schema-1 `run
+         context`. Applied-ready restart state is verified/closed without
+         executor replay. ADORE is the explicitly identified delegated
+         approver; real human approval stays at draft MR review.
 @details The WSL2 bind-mount teardown-race retry (`_TEARDOWN_RACE_MARKERS`,
          `_is_teardown_race`) moved to `WorktreeManager.remove` in
          isolation.py (ADORE-ARCH-009): platform-specific glue belongs to the
@@ -37,7 +37,7 @@ from __future__ import annotations
 # IMPORTS
 from collections.abc import Callable, Iterator
 import contextlib
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from functools import partial
 import json
 import os
@@ -49,10 +49,12 @@ import time
 
 from adore import metrics
 from adore.aegis import (
+    CONTEXT_BOOTSTRAP_LIMIT_BYTES,
     INTEGRITY_CODES,
     QUICK_KINDS,
     RUN_RESOLUTION_CODES,
     AegisClient,
+    AegisContext,
     AegisError,
     AegisProtocolError,
     AegisResponse,
@@ -809,10 +811,8 @@ class Orchestrator:
         if not self._ensure_aegis_run(run, ticket, client):
             return
         failure_context = ""
-        # A run picked up mid-workflow (after a restart) launches a fresh
-        # executor session with no prior context; orient its first launch.
-        # Retries orient too - they already carry a failure_context.
-        need_orientation = run.stage != STANDARD_STAGES[0]
+        run_kind, quick = self._run_kind(ticket)
+        expected_profile = "quick" if quick else "full"
         closed_index = -1
         lock_retries = 0
         while True:
@@ -827,23 +827,137 @@ class Orchestrator:
                     return
                 lock_retries += 1
                 continue
-            if status.complete:
+            terminal_outcome = status.terminal_outcome
+            if terminal_outcome == "normal":
                 self.store.journal(run.run_id, "aegis-run-complete",
                                    aegis_run=client.run_id)
                 break
-            stage = self._checked_stage(status, closed_index)
+            if terminal_outcome == "abandoned":
+                self._end_abandoned(run)
+                return
+            stage = self._checked_stage(
+                status, closed_index, expected_profile=expected_profile
+            )
             run.stage = stage
             self._mark(run, "working", stage)
+
+            context = self._stage_context(
+                run,
+                client,
+                status,
+                expected_profile=expected_profile,
+                expected_kind=run_kind,
+                lock_retries=lock_retries,
+            )
+            if context is None:
+                return
+            if isinstance(context, AegisResponse):
+                lock_retries += 1
+                continue
+
+            shown = self._validated_stage_show(client, stage)
+            if not shown.ok:
+                if not self._retryable(
+                    run, shown, f"stage show ({stage})", client, lock_retries
+                ):
+                    return
+                lock_retries += 1
+                continue
+            state = shown.detail("state")
+            unavailable = context.unavailable_current_artifact
+            if unavailable is not None:
+                recovery = unavailable.recovery_command
+                if recovery == "aegis stage prepare":
+                    if state != "not-prepared":
+                        raise AegisProtocolError(
+                            "AEGIS context requested stage prepare for a stage "
+                            f"reported as {state!r}"
+                        )
+                    prepared = client.stage_prepare()
+                    if not prepared.ok:
+                        if not self._retryable(
+                            run,
+                            prepared,
+                            f"stage prepare ({stage})",
+                            client,
+                            lock_retries,
+                        ):
+                            return
+                        lock_retries += 1
+                        continue
+                    self.store.journal(run.run_id, "stage-recovered",
+                                       stage=stage, recovery=recovery)
+                    lock_retries = 0
+                    continue
+                if recovery != "aegis stage show":
+                    raise AegisProtocolError(
+                        f"unsupported AEGIS context recovery {recovery!r}"
+                    )
+                self.store.journal(run.run_id, "stage-recovered",
+                                   stage=stage, recovery=recovery)
+                if state == "prepared":
+                    raise AegisProtocolError(
+                        f"AEGIS {stage} stage is prepared but its required form "
+                        "is unavailable after the prescribed stage-show recovery"
+                    )
+
+            questions = self._stage_questions(run, stage)
+            if questions:
+                self.store.journal(run.run_id, "stage-questions", stage=stage)
+                self._park(run, questions)
+                return
+
+            if (
+                state == "applied"
+                and shown.detail("ready") is True
+                and not failure_context
+            ):
+                self.store.journal(
+                    run.run_id, "stage-restart-ready", stage=stage,
+                    action="skip-executor",
+                )
+                verdict, evidence = self._verify_stage(
+                    run, client, stage, shown=shown
+                )
+                if verdict:
+                    failure_context = self._failure_context(
+                        run, verdict, evidence
+                    )
+                else:
+                    if not self._close_stage(
+                        run, client, stage, run_kind, status, lock_retries
+                    ):
+                        return
+                    failure_context = ""
+                    lock_retries = 0
+                    closed_index = self._expected_stages(
+                        status, expected_profile=expected_profile
+                    ).index(stage)
+                continue
+
+            if state == "applied":
+                if not failure_context:
+                    blockers = list(shown.detail("blockers") or [])
+                    listed = "\n".join(f"- {item}" for item in blockers)
+                    failure_context = self._failure_context(
+                        run,
+                        f"The applied {stage} stage is not objectively ready after "
+                        "restart. Resolve its blockers without preparing or "
+                        f"regenerating the stage form:\n"
+                        f"{listed or '- (none reported)'}",
+                        shown,
+                    )
+            elif state != "prepared":
+                raise AegisProtocolError(
+                    f"AEGIS current stage {stage!r} has unexpected state {state!r}"
+                )
+
+            orientation = self._validated_bootstrap(run, context)
             run.iterations += 1
             self.store.save(run)
             self.store.journal(run.run_id, "stage-launch", stage=stage,
                                iteration=run.iterations,
                                next=status.next_command)
-            orientation = (
-                self._workflow_orientation(client)
-                if (failure_context or need_orientation) else ""
-            )
-            need_orientation = False
             result = self.executor.run_gate(
                 execute=client.execute,
                 worktree=self.worktrees.path_for(run.run_id),
@@ -881,21 +995,15 @@ class Orchestrator:
             if verdict:
                 failure_context = self._failure_context(run, verdict, evidence)
                 continue  # relaunch the same stage with what is still missing
-            run_kind, _quick = self._run_kind(ticket)
-            closed = client.stage_close(DELEGATED_APPROVER, run_kind=run_kind)
-            while not closed.ok:
-                # retry the close itself, not the whole iteration: the stage is
-                # already applied, so relaunching the executor would be waste
-                if not self._retryable(run, closed, f"stage close ({stage})",
-                                       client, lock_retries):
-                    return
-                lock_retries += 1
-                closed = client.stage_close(DELEGATED_APPROVER, run_kind=run_kind)
+            if not self._close_stage(
+                run, client, stage, run_kind, status, lock_retries
+            ):
+                return
             failure_context = ""
             lock_retries = 0  # a closed stage is real progress
-            closed_index = self._expected_stages(status).index(stage)
-            self.store.journal(run.run_id, "stage-closed", stage=stage,
-                               complete=closed.complete)
+            closed_index = self._expected_stages(
+                status, expected_profile=expected_profile
+            ).index(stage)
         self._deliver(run, ticket, thread)
 
     def _ensure_aegis_run(
@@ -938,6 +1046,9 @@ class Orchestrator:
         self.store.save(run)
         self.store.journal(run.run_id, "aegis-run-started",
                            aegis_run=client.run_id, kind=kind, quick=quick)
+        for warning in response.warnings:
+            self.store.journal(run.run_id, "aegis-run-warning", warning=warning)
+            self.log(f"{run.run_id}: AEGIS warning: {warning}")
         self.log(f"{run.run_id}: AEGIS run {client.run_id} started "
                  f"({kind}{', quick' if quick else ''})")
         return True
@@ -964,6 +1075,166 @@ class Orchestrator:
         quick = bool(workflow.quick_label) and workflow.quick_label in labels
         return kind, quick and kind in QUICK_KINDS
 
+    def _stage_context(
+        self,
+        run: RunState,
+        client: AegisClient,
+        status: AegisResponse,
+        *,
+        expected_profile: str,
+        expected_kind: str,
+        lock_retries: int,
+    ) -> AegisContext | AegisResponse | None:
+        """@brief Obtain the validated fresh-session context for one launch."""
+        context = client.run_context(
+            expected_profile=expected_profile,
+            expected_stage=status.stage,
+            expected_kind=expected_kind,
+        )
+        if isinstance(context, AegisContext):
+            return context
+        if not self._retryable(
+            run, context, f"run context ({status.stage})", client, lock_retries
+        ):
+            return None
+        return context
+
+    def _validated_bootstrap(self, run: RunState, context: AegisContext) -> str:
+        """
+        @brief      Validate and render the complete named executor bootstrap.
+        @details    Every required read must resolve to a regular file inside
+                    the worktree. Context wire bytes plus file bytes may not
+                    exceed the AEGIS 30 KiB fresh-session aggregate bound.
+        @return     Bounded context JSON and read-only instructions.
+        @exception  AegisProtocolError For invalid bootstrap input.
+        """
+        worktree = self.worktrees.path_for(run.run_id).resolve()
+        total = context.wire_size_bytes
+        for relative in context.required_reads:
+            candidate = (worktree / relative).resolve()
+            if not candidate.is_relative_to(worktree) or not candidate.is_file():
+                raise AegisProtocolError(
+                    f"AEGIS context required read {relative!r} is unavailable "
+                    "or outside the worktree"
+                )
+            try:
+                total += len(candidate.read_bytes())
+            except OSError as exc:
+                raise AegisProtocolError(
+                    f"cannot read AEGIS context bootstrap file {relative!r}: {exc}"
+                ) from exc
+            if total > CONTEXT_BOOTSTRAP_LIMIT_BYTES:
+                raise AegisProtocolError(
+                    "AEGIS context bootstrap exceeds the 30720-byte aggregate bound"
+                )
+        payload = asdict(context)
+        payload.pop("wire_size_bytes", None)
+        rendered = json.dumps(payload, ensure_ascii=False, indent=2)
+        return self._redact_failure_context(
+            "Validated AEGIS fresh-session context (schema data; do not execute "
+            "`next_commands` blindly):\n```json\n"
+            + rendered
+            + "\n```\nRead exactly the listed `required_reads` before working the "
+            "current stage. Follow only a recovery operation explicitly handled "
+            "by the orchestrator."
+        )
+
+    @staticmethod
+    def _validated_stage_show(
+        client: AegisClient,
+        expected_stage: str,
+    ) -> AegisResponse:
+        """@brief Read and validate the objective current-stage snapshot."""
+        shown = client.stage_show()
+        if not shown.ok:
+            return shown
+        if shown.detail("run_id") != client.run_id or shown.stage != expected_stage:
+            raise AegisProtocolError(
+                "AEGIS stage-show snapshot disagrees with the pinned run/stage"
+            )
+        state = shown.detail("state")
+        if state not in {"not-prepared", "prepared", "applied", "closed"}:
+            raise AegisProtocolError(
+                f"AEGIS stage-show snapshot has invalid state {state!r}"
+            )
+        ready = shown.detail("ready")
+        blockers = shown.detail("blockers")
+        files = shown.detail("files")
+        warnings = shown.detail("warnings")
+        if not isinstance(ready, bool):
+            raise AegisProtocolError("AEGIS stage-show ready must be boolean")
+        for key, value in (
+            ("blockers", blockers), ("files", files), ("warnings", warnings)
+        ):
+            if not isinstance(value, list) or not all(
+                isinstance(item, str) for item in value
+            ):
+                raise AegisProtocolError(
+                    f"AEGIS stage-show {key} must be a string list"
+                )
+        if ready == bool(blockers):
+            raise AegisProtocolError(
+                "AEGIS stage-show readiness contradicts its blocker list"
+            )
+        return shown
+
+    def _close_stage(
+        self,
+        run: RunState,
+        client: AegisClient,
+        stage: str,
+        run_kind: str,
+        status: AegisResponse,
+        lock_retries: int,
+    ) -> bool:
+        """@brief Close one verified stage with truthful delegated identity."""
+        closed = client.stage_close(DELEGATED_APPROVER, run_kind=run_kind)
+        retries = lock_retries
+        while not closed.ok:
+            if not self._retryable(
+                run, closed, f"stage close ({stage})", client, retries
+            ):
+                return False
+            retries += 1
+            closed = client.stage_close(DELEGATED_APPROVER, run_kind=run_kind)
+        for advisory in closed.advisories:
+            self.store.journal(
+                run.run_id,
+                "aegis-advisory",
+                stage=stage,
+                code=advisory.code,
+                status=advisory.status,
+                message=advisory.message,
+                restart_command=advisory.restart_command,
+            )
+            self.log(
+                f"{run.run_id}: {advisory.code}: {advisory.message} "
+                f"({advisory.restart_command})"
+            )
+        self.store.journal(
+            run.run_id,
+            "stage-closed",
+            stage=stage,
+            complete=closed.complete,
+            approver=DELEGATED_APPROVER,
+            profile=(status.detail("run_profile") or "full"),
+        )
+        return True
+
+    def _end_abandoned(self, run: RunState) -> None:
+        """@brief Record an externally abandoned AEGIS run without publishing."""
+        run.lifecycle = "failed"
+        run.outcome = "aegis-abandoned"
+        self.store.save(run)
+        self.store.journal(
+            run.run_id, "aegis-run-abandoned", aegis_run=run.aegis_run_id
+        )
+        self._mark(run, "failed", run.stage)
+        self._record_metrics(run)
+        with contextlib.suppress(IsolationError):
+            self.containers.stop(run.container)
+        self.log(f"{run.run_id}: AEGIS run was abandoned; publication skipped")
+
     def _stage_timeout(self, stage: str) -> int:
         """
         @brief      The wall-clock bound for ONE executor launch at a stage.
@@ -981,7 +1252,11 @@ class Orchestrator:
         return self.config.budgets.per_gate_timeout_seconds
 
     @staticmethod
-    def _expected_stages(status: AegisResponse) -> tuple[str, ...]:
+    def _expected_stages(
+        status: AegisResponse,
+        *,
+        expected_profile: str | None = None,
+    ) -> tuple[str, ...]:
         """
         @brief      The stage allowlist for the run's AEGIS profile.
         @details    AEGIS reports `run_profile` only for quick runs; its
@@ -989,13 +1264,26 @@ class Orchestrator:
         @param[in]  status A `run status` response.
         @return     STANDARD_STAGES or QUICK_STAGES.
         """
-        return (
-            QUICK_STAGES
-            if status.detail("run_profile") == "quick"
-            else STANDARD_STAGES
-        )
+        reported = status.detail("run_profile")
+        if reported not in {None, "quick"}:
+            raise AegisProtocolError(
+                f"AEGIS status reported unknown run profile {reported!r}"
+            )
+        actual = "quick" if reported == "quick" else "full"
+        if expected_profile is not None and actual != expected_profile:
+            raise AegisProtocolError(
+                f"AEGIS status profile {actual!r} disagrees with configured "
+                f"profile {expected_profile!r}"
+            )
+        return QUICK_STAGES if actual == "quick" else STANDARD_STAGES
 
-    def _checked_stage(self, status: AegisResponse, closed_index: int) -> str:
+    def _checked_stage(
+        self,
+        status: AegisResponse,
+        closed_index: int,
+        *,
+        expected_profile: str | None = None,
+    ) -> str:
         """
         @brief      Validate the reported stage against the allowlist.
         @details    Two guards, both fail-loud. A stage outside the profile's
@@ -1016,7 +1304,9 @@ class Orchestrator:
         @return     The validated stage name.
         @exception  AegisProtocolError When the stage is unknown or regressed.
         """
-        expected = self._expected_stages(status)
+        expected = self._expected_stages(
+            status, expected_profile=expected_profile
+        )
         stage = status.stage
         if stage not in expected:
             raise AegisProtocolError(
@@ -1041,6 +1331,8 @@ class Orchestrator:
         run: RunState,
         client: AegisClient,
         stage: str,
+        *,
+        shown: AegisResponse | None = None,
     ) -> tuple[str, AegisResponse | None]:
         """
         @brief      ADORE's objective check before it closes a stage.
@@ -1052,12 +1344,13 @@ class Orchestrator:
         @param[in]  run The run.
         @param[in]  client The run's AEGIS client.
         @param[in]  stage Stage just applied by the executor.
+        @param[in]  shown Optional already-validated restart snapshot.
         @return     ("", None) when the stage may be closed, else the relaunch
                     reason and the response that produced it (so the caller can
                     attach the response's own evidence).
         @exception  AegisError When the CLI contract is violated.
         """
-        shown = client.stage_show()
+        shown = shown or self._validated_stage_show(client, stage)
         if not shown.ok:
             return (
                 f"AEGIS refused to report the {stage} stage "
@@ -1825,19 +2118,34 @@ class Orchestrator:
         """
         run_dir = self._aegis_run_dir(run)
         if run_dir is None:
-            return ""
+            raise AegisProtocolError(
+                "cannot read AEGIS question state without a pinned run"
+            )
         graph = self._load_aegis_graph(run_dir / "graph.json")
         if not isinstance(graph, dict):
-            return ""
+            raise AegisProtocolError(
+                "AEGIS graph.json is missing or malformed while reading questions"
+            )
+        if graph.get("schema_version") != 3 or graph.get("run_id") != run.aegis_run_id:
+            raise AegisProtocolError(
+                "AEGIS question graph disagrees with schema 3 or the pinned run"
+            )
         records = graph.get("stage_records")
-        record = records.get(stage) if isinstance(records, dict) else None
+        if not isinstance(records, dict):
+            raise AegisProtocolError("AEGIS graph stage_records must be an object")
+        record = records.get(stage)
         if not isinstance(record, dict):
-            return ""
-        questions = [
-            str(item).strip()
-            for item in (record.get("unresolved_questions") or [])
-            if str(item).strip()
-        ]
+            raise AegisProtocolError(
+                f"AEGIS graph has no valid stage record for {stage!r}"
+            )
+        raw_questions = record.get("unresolved_questions")
+        if not isinstance(raw_questions, list) or not all(
+            isinstance(item, str) for item in raw_questions
+        ):
+            raise AegisProtocolError(
+                "AEGIS unresolved_questions must be a string list"
+            )
+        questions = [item.strip() for item in raw_questions if item.strip()]
         if not questions:
             return ""
         listed = "\n".join(f"{index}. {text}"

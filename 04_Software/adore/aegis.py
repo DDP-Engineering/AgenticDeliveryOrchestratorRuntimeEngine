@@ -207,6 +207,7 @@ class AegisContext:
     required_reads: tuple[str, ...]
     next_commands: tuple[str, ...]
     human_gate: str
+    wire_size_bytes: int = 0
 
 
 @dataclass(frozen=True)
@@ -726,6 +727,7 @@ def _decode_context(
         required_reads=reads,
         next_commands=commands,
         human_gate=human_gate,
+        wire_size_bytes=len(stdout.encode("utf-8")),
     )
 
 
@@ -1045,6 +1047,15 @@ class AegisClient:
         @exception  AegisTimeoutError When the command exceeded its bound.
         """
         return self.invoke("stage", "show", timeout=STATUS_TIMEOUT)
+
+    def stage_prepare(self) -> AegisResponse:
+        """
+        @brief      Prepare a genuinely unprepared stage during safe recovery.
+        @return     The parsed normal envelope.
+        @exception  AegisProtocolError When the contract is violated.
+        @exception  AegisTimeoutError When the command exceeded its bound.
+        """
+        return self.invoke("stage", "prepare", timeout=DEFAULT_TIMEOUT)
 
     def stage_close(self, approver: str, *, run_kind: str) -> AegisResponse:
         """

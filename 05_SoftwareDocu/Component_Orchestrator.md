@@ -45,15 +45,21 @@ human action. The real human approval stays at the draft MR review.
   `run.branch` stays authoritative for the run's lifetime.
 - **The AEGIS stage loop** (`_conduct_stages`, design 7a): start the AEGIS
   run once (`run start <kind> [--quick]`, persisting its id), then per
-  iteration - budget check -> `aegis run status` -> stage allowlist and
-  regression guard -> launch the executor for that one stage -> inspect
-  (questions / exit code) -> verify (`aegis stage show` readiness, plus
+  iteration - budget check -> pinned `aegis run status` -> configured-profile
+  allowlist/regression guard -> validated `aegis run context` -> bounded named
+  bootstrap -> objective restart snapshot -> launch the executor only when
+  work is still needed -> inspect (questions / exit code) -> verify (`aegis
+  stage show` readiness, plus
   `aegis verify run` at validation and delivery, plus the committed-work
   check at validation) -> explicitly identified `aegis stage close` ->
   iterate. Failures retry the
   same stage with failure context, questions park, blocks and contract
-  breaks escalate - all bounded by run budgets. When AEGIS reports
-  `complete: true`, publication takes over. Each executor launch receives a
+  breaks escalate - all bounded by run budgets. Already-applied ready work is
+  verified and closed without relaunch or form regeneration. Only a genuinely
+  unprepared stage may follow context's exact `stage prepare` recovery; a
+  missing prepared/applied form follows non-mutating `stage show`. Normal
+  completion enters publication; abandoned completion never does. Each
+  executor launch receives a
   stable archive stem (`NNN-stage` / `NNN-delivery-fix` / `NNN-revise`), and
   any returned archive directories are journaled as `executor-artifacts`.
 - **Clarification** (design 9): the exact park order (questions comment
@@ -63,7 +69,9 @@ human action. The real human approval stays at the draft MR review.
   thread; the executor re-decides and may re-park). Questions reach ADORE
   through two channels and either fires: the AEGIS stage form's
   `control.unresolved_questions` (read from `graph.json`, the primary channel
-  in 3.x) and the executor's questions file (the secondary one). A run parked
+  in 3.x) and the executor's questions file (the secondary one).
+  Missing/malformed schema-3 question state is a typed contract failure,
+  never an empty list. A run parked
   during publication resumes into publication, never back into the stage
   loop; `_conduct` fails closed when called on a publishing run (live
   findings 2026-07-04). Posting the questions first is a crash-ordering
@@ -179,6 +187,18 @@ interface) and metrics.
 - `DELEGATED_APPROVER = "ADORE 3.0 delegated conductor"` is passed on every
   close. The AEGIS client requires that the successful close response records
   the same value, making autonomous approval auditable and truthful.
+- Status owns deterministic conductor progression; context owns every fresh
+  live-stage executor session. `_stage_context` requires schema-1
+  run/kind/profile/stage to match pinned status and ticket policy.
+  `_validated_bootstrap` resolves every `required_reads` path inside the
+  worktree, reads only those files for the size check, and enforces context
+  wire bytes plus file bytes <= 30 KiB before launch. The prompt carries the
+  validated context as data and arbitrary `next_commands` are never executed.
+- `_validated_stage_show` validates pinned run/stage, lifecycle state,
+  boolean readiness, string-list blockers/files/warnings, and consistency
+  between ready and blockers. On restart, `applied + ready` skips the executor,
+  performs stage-specific verification, and closes. `applied + blocked`
+  relaunches with evidence but never prepares/regenerates the form.
 - Per-stage goals are fixed prompt blocks (`_STAGE_GOALS`, eight stages plus
   `revise`) plus the standing rules: worktree-only, the CLI invoked as
   `bash .agentic/tools/run.sh <group> <action>` with content in the generated
@@ -274,16 +294,11 @@ interface) and metrics.
   local state is authoritative, so a forge outage must not stop a run from
   reaching its terminal state. The reason is redacted by the callers that
   build it, and stays that way.
-- A freshly launched executor session that lacks the prior chat context - a
-  stage retry, a publication fix, a revise round, or a run resumed
-  mid-workflow after a restart - is oriented by `_workflow_orientation`.
-  AEGIS 3.x answers `run resume` with authoritative run state rather than
-  prose (contract notes 11.1), so ADORE composes the brief itself: run id,
-  stage, the exact next command, profile and bypassed stages, stage readiness
-  and its blockers, and the most recent evidence. A run that has not started
-  yet gets no brief; once a run exists, a `run resume` that does not honor
-  the contract escalates rather than degrading to an empty brief. Secret
-  values are redacted like the failure context.
+- Live-stage sessions never use a status-composed orientation: every first
+  attempt and retry gets validated `run context`. `_workflow_orientation`
+  remains deliberately separate for completed-run publication fixes and
+  revise rounds, where there is no live stage/context to bootstrap. It uses
+  bounded pinned status evidence and never reopens the completed graph.
 - After every executor `GateRun`, `_journal_artifacts` appends immutable
   archive paths to the run journal when the launcher returned any. This makes
   `adore logs <run-id>` the index into raw gate evidence without changing the
@@ -339,19 +354,24 @@ adore logs <run-id>
 
 ## 9. Validation And Tests
 
-- `tests/test_orchestrator.py` (73 tests; all collaborators faked, real
+- `tests/test_orchestrator.py` (107 tests; all collaborators faked, real
   store/config). A scripted `FakeAegis` answers the grouped CLI with
   conforming envelopes and advances its own stage pointer on `stage close`,
   so the loop is exercised as it would be against a live payload.
   Coverage: the full eight-stage happy path to a draft MR (ADORE issuing
   every close, session continuity, journal, single edited status comment);
   the quick four-stage path; the quick label ignored for kinds AEGIS
-  rejects; the AEGIS run started once and resumed afterwards; a stage AEGIS
+  rejects; the AEGIS run started once and resumed afterwards; direct context
+  on every fresh launch/retry; missing-form prepare/show recovery; prepared,
+  applied-ready, and applied-blocked restart behavior; no executor replay when
+  objective readiness is established; context/status mismatch, unknown
+  recovery, aggregate overflow, malformed questions, and malformed stage
+  snapshots failing closed; a stage AEGIS
   will not call ready relaunched with its blockers; a failed
   `aegis verify run` relaunching validation; a blocked `stage close`
   escalating with the AEGIS remediation; an unknown stage and a stage
-  regression escalating before any launch; the composed run-orientation
-  brief on relaunch and a non-conforming `run resume` escalating; evidence
+  regression escalating before any launch; fresh-context prompt inclusion and
+  a non-conforming `run context` escalating; evidence
   addressed by the persisted run id while a decoy `current_run` pointer is
   ignored; the validation summary and graph rows appearing in a retry prompt;
   damaged artifacts reported rather than hidden; a started run without a

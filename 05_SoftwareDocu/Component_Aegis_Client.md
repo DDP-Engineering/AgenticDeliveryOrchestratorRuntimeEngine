@@ -46,8 +46,9 @@ a broken contract into an escalation instead of a silent degradation.
   data; every other exit code, unparseable output, or malformed envelope
   raises.
 - Expose the conductor-facing wrappers: `run_start`, `run_status`,
-  `run_context`, the status-alias `run_resume`, `stage_show`, `stage_close`,
-  `verify_run`, `delivery_report`, `waive_list`, and `config_validate`.
+  `run_context`, the status-alias `run_resume`, `stage_show`, the narrowly
+  recovery-scoped `stage_prepare`, `stage_close`, `verify_run`,
+  `delivery_report`, `waive_list`, and `config_validate`.
 
 Explicitly not owned: what to do with a result (the orchestrator decides
 retry / park / close / escalate), and the stage work itself (the executor

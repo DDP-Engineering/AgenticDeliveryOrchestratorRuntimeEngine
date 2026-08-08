@@ -609,6 +609,7 @@ def test_command_wrappers_use_the_grouped_verbs() -> None:
          {"run_id": RUN_ID, "complete": False}, (), {}),
         ("run_resume", ["run", "resume"], True, {}, (), {}),
         ("stage_show", ["stage", "show"], True, {}, (), {}),
+        ("stage_prepare", ["stage", "prepare"], True, {}, (), {}),
         ("stage_close", ["stage", "close", "--approver", identity], True,
          {"approver": identity, "complete": False}, (identity,), {"run_kind": "feature"}),
         ("verify_run", ["verify", "run"], True,
