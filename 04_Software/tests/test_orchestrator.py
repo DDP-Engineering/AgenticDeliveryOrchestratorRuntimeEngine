@@ -3193,8 +3193,10 @@ def test_classify_block_escalates_everything_else_with_remediation() -> None:
 def test_recorded_questions_park_the_run(tmp_path: Path) -> None:
     """
     @brief   Questions the executor recorded in the AEGIS stage form park the
-             run through the normal clarification flow, without the executor's
-             questions file being involved at all.
+             run, and a later human answer reaches the executor so it can clear
+             the graph-backed question instead of immediately re-parking.
+    @details The executor's questions file is not involved at all. The graph
+             remains authoritative both before and after the resumed launch.
     """
     executor = FakeExecutor([gate_ok()] * 9)
     engine, forge, containers, _ = make_engine(tmp_path, executor)
@@ -3212,6 +3214,52 @@ def test_recorded_questions_park_the_run(tmp_path: Path) -> None:
     assert any("Which variant should ship?" in c[2] for c in posts)
     events = [e["event"] for e in engine.store.read_journal(run.run_id)]
     assert "stage-questions" in events and "parked" in events
+
+    original_run_gate = executor.run_gate
+
+    def answer_recorded_question(*args, **kwargs) -> GateRun:
+        """@brief Simulate the executor reconciling the human's answer."""
+        result = original_run_gate(*args, **kwargs)
+        containers.aegis.stage_control["intake"]["unresolved_questions"] = []
+        containers.aegis.write_graph()
+        return result
+
+    executor.run_gate = answer_recorded_question  # type: ignore[method-assign]
+    forge.human_comment(14, "Use the small variant.")
+
+    engine.poll_once()
+
+    resumed = engine.store.load(engine._run_id(14))
+    assert resumed.lifecycle == "in-review"
+    assert containers.aegis.closes[0] == "intake"
+    assert "Use the small variant." in executor.prompts[0]
+    assert "previously recorded stage questions" in executor.prompts[0]
+
+
+def test_answered_recorded_question_reparks_when_executor_leaves_it_open(
+    tmp_path: Path,
+) -> None:
+    """
+    @brief   A human answer permits one resumed launch but never lets ADORE
+             close a stage whose graph still records an unresolved question.
+    """
+    executor = FakeExecutor([gate_ok()])
+    engine, forge, containers, _ = make_engine(tmp_path, executor)
+    containers.aegis.stage_control["intake"] = {
+        "unresolved_questions": ["Which variant should ship?"]
+    }
+    forge.add_ticket(14)
+    engine.poll_once()
+    forge.human_comment(14, "Use the small variant.")
+
+    engine.poll_once()
+
+    run = engine.store.load(engine._run_id(14))
+    assert run.lifecycle == "parked"
+    assert run.clarification_rounds == 2
+    assert containers.aegis.closes == []
+    assert len(executor.prompts) == 1
+    assert "Use the small variant." in executor.prompts[0]
 
 
 def test_reported_cost_over_the_cap_escalates_the_run(tmp_path: Path) -> None:

@@ -12,6 +12,16 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Graph-backed clarification answers now reach the executor.** A resumed
+  AEGIS stage whose applied form still held its original unresolved question
+  used to park again before launching, so the executor could never reconcile
+  the human answer or clear the form. An answered clarification thread now
+  bypasses only that pre-launch park, is delivered with explicit reconciliation
+  instructions, and remains guarded by the existing post-launch graph check:
+  any question the executor does not clear parks the run again.
+
 ### Changed
 
 - **Retarget the unreleased hard break to ADORE 3.0 / AEGIS 3.x.** The

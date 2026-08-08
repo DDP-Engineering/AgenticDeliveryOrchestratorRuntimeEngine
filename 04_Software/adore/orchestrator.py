@@ -892,9 +892,19 @@ class Orchestrator:
 
             questions = self._stage_questions(run, stage)
             if questions:
-                self.store.journal(run.run_id, "stage-questions", stage=stage)
-                self._park(run, questions)
-                return
+                if not thread:
+                    self.store.journal(run.run_id, "stage-questions", stage=stage)
+                    self._park(run, questions)
+                    return
+                if not failure_context:
+                    failure_context = self._failure_context(
+                        run,
+                        "The human supplied a clarification thread for these "
+                        "previously recorded stage questions. Reconcile the "
+                        "answer into the current applied form, clear only the "
+                        "questions it resolves, and apply again:\n"
+                        f"{questions}",
+                    )
 
             if (
                 state == "applied"

@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Orchestrator (`adore/orchestrator.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/adore/orchestrator.py` - file version 0.12.0.
+> Source: `04_Software/adore/orchestrator.py` - file version 0.13.0.
 > AEGIS contract: `00_Planning/AEGIS_3x_HardBreak_Adaptation/AEGIS_3.0_Contract_Notes.md`.
 > Design: Orchestrator_Design_And_Decisions.md sections 5a, 7a, 8, 9, 10.
 
@@ -75,6 +75,11 @@ human action. The real human approval stays at the draft MR review.
   through two channels and either fires: the AEGIS stage form's
   `control.unresolved_questions` (read from `graph.json`, the primary channel
   in 3.x) and the executor's questions file (the secondary one).
+  A graph-backed question on a fresh pass parks before launch. On resume, an
+  answered clarification thread bypasses that pre-launch park and reaches the
+  executor with an explicit instruction to reconcile the answer into the
+  applied form and clear only resolved questions. ADORE reads the graph again
+  after the launch and parks again if the executor leaves any question open.
   Missing/malformed schema-3 question state is a typed contract failure,
   never an empty list. A run parked
   during publication resumes into publication, never back into the stage
@@ -402,7 +407,8 @@ adore logs <run-id>
   graph escalating; every `classify_block` branch; a held lock retried once
   then escalating; the exact waive command in an escalation and an
   unavailable `waive list` never hiding the original error; recorded stage
-  questions parking the run; per-stage prompt contract tests (policy-thin live
+  questions parking the run, an answered graph question reaching the executor
+  and being cleared before close; per-stage prompt contract tests (policy-thin live
   goals, canonical CLI option order, stage confinement, budgets, close/waive
   and remote prohibitions, run pin with switching forbidden, executable quick
   RED-before-GREEN evidence, INV-3 and nothing-ran semantics, both question
