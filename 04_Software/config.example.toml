@@ -338,8 +338,9 @@ stage_timeout_overrides = {}
 # quick one = one clean pass) + one per fix launch (merge conflict or a failing
 # `aegis verify run` during publication) + one per revise round. Clean
 # publication adds zero. Sizing: 8 = crawl pilot (no headroom), 14-18 =
-# supervised with fix headroom, 24 = unattended headroom.
-max_iterations           = 24
+# supervised with fix headroom; the runtime default of 20 provides unattended
+# headroom. The setup wizard recommends 12 for a tighter first profile.
+max_iterations           = 20
 max_wall_clock_seconds   = 3600   # total wall-clock per run (whole-run ceiling)
 per_gate_timeout_seconds = 1800   # default wall-clock bound on ONE executor launch
 max_cost_usd             = 5.0    # model spend per run

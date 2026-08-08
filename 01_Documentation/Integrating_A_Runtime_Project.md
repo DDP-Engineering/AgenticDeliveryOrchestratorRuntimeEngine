@@ -68,7 +68,7 @@ It must answer `"status": "ok"` with `"schema_version": 3`.
 
 #### The response contract ADORE relies on
 
-Every AEGIS command answers with the same four-key envelope, plus
+AEGIS commands normally answer with the same four-key envelope, plus
 command-specific extras:
 
 ```text
@@ -77,6 +77,12 @@ stage:    <stage-or-none>
 artifact: <path-or-none>
 next:     <exact-next-command-or-none>
 ```
+
+The successful `run context --json` response is the deliberate exception: it
+returns a direct schema-1 `AegisContext` object containing the pinned run
+identity, stage guidance, required reads, artifact availability, human gate,
+and bounded next commands. A blocked `run context` response (exit `1`) still
+uses the four-key envelope. ADORE validates both response families strictly.
 
 Exit codes are discriminated, not merely non-zero: `0` is success, `1` is a
 governance signal ADORE reads as data, and anything else - `2` for a usage

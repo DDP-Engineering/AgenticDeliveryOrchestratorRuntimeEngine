@@ -105,3 +105,4 @@ recognizes the terminal `abandoned` outcome and never publishes it.
 | --- | --- |
 | `0` | Command completed successfully. |
 | `1` | Configuration, operational, or validation error (including a refused `config set`). |
+| `2` | Command-line usage error reported by the argument parser, such as an unknown option or missing required argument. |

@@ -12,6 +12,14 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Operator documentation now matches the released ADORE 3.0 runtime.** The
+  CLI, configuration, getting-started, integration, and operator cheat-sheet
+  materials now describe the AEGIS 3 hard-break contract, Gitea support,
+  stage ownership, enforced versus reserved settings, current defaults, and
+  the released 3.0.0 product identity consistently.
+
 ## [3.0.0] - 2026-08-09
 
 ### Fixed

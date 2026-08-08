@@ -119,7 +119,7 @@ prefix = "agent-exec:"       # e.g. "agent-exec:opencode"
 # ----- Executor -----
 [executor]
 default        = "opencode"  # "opencode" | "pi" | "codex" | "qwen"
-mode           = "thick"     # "thick" (stage-by-stage) | "headless" (single-shot)
+mode           = "thick"     # reserved; the runtime is currently always stage-by-stage
 questions_file = "ADORE_QUESTIONS.md"
 env_keys       = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]  # only these reach the container
 stage_host_auth = false      # pilot-only OAuth bridge for opencode/codex
@@ -192,7 +192,7 @@ stage_timeout_overrides = {} # e.g. { implementation = 5400 }
 
 # ----- Run budgets -----
 [budgets]
-max_iterations           = 24
+max_iterations           = 20
 max_wall_clock_seconds   = 3600
 per_gate_timeout_seconds = 1800
 max_cost_usd             = 5.0
@@ -214,9 +214,9 @@ review_reminder_after = "48h"          # optional nudge if the MR sits undecided
 
 # ----- Reconciliation (external ticket changes) -----
 [reconcile]
-on_ticket_deleted  = "abort-cleanup"   # abort + remove worktree/container
-on_ticket_closed   = "cancel"          # graceful cancel
-on_trigger_removed = "pause"           # "pause" | "abort" | "ignore"
+on_ticket_deleted  = "abort-cleanup"   # reserved; currently validated but not enforced
+on_ticket_closed   = "cancel"          # reserved; currently validated but not enforced
+on_trigger_removed = "pause"           # reserved; currently validated but not enforced
 
 # ----- Metrics / statistics (stdlib only; CLI + optional static HTML) -----
 [metrics]
@@ -224,7 +224,7 @@ enabled          = true
 db_path          = ".adore/metrics.db"
 export_jsonl     = ".adore/metrics/runs.jsonl"
 capture_tokens   = true
-capture_resource = true                # docker stats / disk probes
+capture_resource = true                # reserved; no resource probes are currently collected
 html_out         = ".adore/metrics/stats.html"
 ```
 
@@ -358,6 +358,7 @@ teams can rename without code changes; the orchestrator refers to labels by role
 | `keep_parked` | Keep (stopped) the container after parking instead of removing. | `true` |
 | `parked_ttl_mode` | Grace period unit: `seconds` or `polls`. | `"polls"` |
 | `parked_ttl_seconds` | Reap idle parked container after N seconds (mode=seconds). | `7200` |
+| `parked_ttl_polls` | Reap an idle parked container after N polling passes (mode=polls). | `30` |
 | `uv_cache_volume` | Persistent uv cache volume for fast `uv sync`. | `"adore-uv-cache"` |
 | `npm_cache_volume` | Persistent npm cache volume for fast `npm ci`. | `"adore-npm-cache"` |
 | `runtime_env` | Non-secret environment injected at container creation and every `exec`. Use it for portable tool behavior such as `UV_LINK_MODE=copy` or a project-specific `UV_PROJECT_ENVIRONMENT`; ADORE rejects overrides of managed isolation/proxy keys (`HOME`, `GIT_*`, `CODEX_HOME`, `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, `NO_PROXY`, and lowercase variants). | `{ UV_LINK_MODE = "copy" }` |
@@ -413,7 +414,7 @@ an executor exit code or manual assertion cannot replace that evidence.
 
 | Key | Meaning | Default |
 |---|---|---|
-| `max_iterations` | Max **executor launches** per run before failing closed. What counts: one launch per AEGIS stage (8 for a clean full run, 4 for a clean quick run) plus one per fix launch (merge-conflict resolution or a failing post-merge `aegis verify run`) and per revise round. Clean publication launches the executor **zero** extra times - merge/verify/push/MR are deterministic orchestrator actions. Sizing: `8` = clean pass only, zero fix headroom (crawl pilots); `14`-`18` = supervised operation with fix headroom; `24` (default) = unattended headroom. Tripping the budget never loses work: the run fails with the reason journaled and posted, and `adore retry` re-arms the counters and continues from where AEGIS says the run stands. | `24` |
+| `max_iterations` | Max **executor launches** per run before failing closed. What counts: one launch per AEGIS stage (8 for a clean full run, 4 for a clean quick run) plus one per fix launch (merge-conflict resolution or a failing post-merge `aegis verify run`) and per revise round. Clean publication launches the executor **zero** extra times - merge/verify/push/MR are deterministic orchestrator actions. Sizing: `8` = clean pass only, zero fix headroom (crawl pilots); `14`-`18` = supervised operation with fix headroom; the runtime default of `20` provides unattended headroom. The setup wizard recommends `12` for a deliberately tighter first profile. Tripping the budget never loses work: the run fails with the reason journaled and posted, and `adore retry` re-arms the counters and continues from where AEGIS says the run stands. | `20` |
 | `max_wall_clock_seconds` | Max wall-clock of **active work** per run; the clock restarts on `adore retry` and on resume-from-park (parked waiting time is bounded by `[clarification] answer_timeout` instead). | `3600` |
 | `per_gate_timeout_seconds` | Default wall-clock bound on a **single** executor launch (one AEGIS stage, one publication fix, or one revise). Independent from `max_wall_clock_seconds` (the whole-run ceiling), so per-launch and total budgets can be tuned separately. `[workflow] stage_timeout_overrides` raises or lowers it per stage. | `1800` |
 | `max_cost_usd` | Max model spend per run, in USD. Checked at the top of every stage iteration and every delivery fix: the run fails closed once the total exceeds the cap, with reason `budget exceeded: cost $X.XX`. The total is summed from what the **executor itself reports** for each launch (journaled as `usage` events), so the cap is only as good as that reporting - **an executor that reports no cost makes this limit inert**, and the run is then bounded by `max_iterations` and `max_wall_clock_seconds` alone. Setting `[metrics] capture_tokens = false` also disables it, for the same reason. Because the check runs between launches, a single launch can overshoot the cap; size it with one launch of headroom. | `5.0` |
@@ -480,7 +481,9 @@ and abandonment must remain distinguishable in reports and exports.
 
 ## Notes
 
-- Every value above is an implemented default and may be tuned per environment.
+- Values above are accepted configuration defaults. Entries explicitly marked
+  **reserved** or **not enforced** are validated for forward compatibility but
+  do not currently change runtime behavior.
 - Related but non-`config.toml` inputs (kept as environment variables / secrets,
   not in this file): the Git-platform token used by `glab` / `gh` / `tea`, and the executor's
   model-provider credentials.

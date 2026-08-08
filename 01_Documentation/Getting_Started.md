@@ -86,8 +86,8 @@ uv sync --frozen
 ```
 
 The command should report the installed release: `adore 3.0.0`.
-The selected ADORE 3.0.0 product line remains unreleased until CR6 acceptance;
-do not expect `adore 3.0.0` from a package until that release is formally cut.
+ADORE 3.0.0 is the released hard-break product line for the AEGIS 3.x
+contract; earlier AEGIS contracts are not supported.
 Keep the runtime directory available: deployed services and scheduled tasks use
 it as their working directory.
 

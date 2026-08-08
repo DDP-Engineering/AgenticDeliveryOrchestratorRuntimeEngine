@@ -75,8 +75,7 @@ Expected version:
 adore 3.0.0
 ```
 
-The selected 3.0.0 product version is not reported until CR6 is green and the
-release is formally cut.
+ADORE 3.0.0 is the released hard-break product line for AEGIS 3.x.
 
 Before creating the profile, require the target clone to return `status: ok`
 and schema 3:
