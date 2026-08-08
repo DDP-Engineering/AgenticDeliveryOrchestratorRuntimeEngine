@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: AEGIS Client (`adore/aegis.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/adore/aegis.py` - file version 0.1.0.
+> Source: `04_Software/adore/aegis.py` - file version 0.2.0.
 > Contract: `00_Planning/AEGIS_3x_HardBreak_Adaptation/AEGIS_3.0_Contract_Notes.md`.
 > Plan: `ADORE_3.0_Adaptation_Plan.md` WP1.
 
@@ -113,6 +113,11 @@ notes 11.3). A declared `code`/`remediation` field always wins.
 - Envelope keys: `status` (`ok|blocked|failed`), `stage`, `artifact`, `next`.
 - Context schema 1: exact 14-key direct object, <= 4 KiB; its named bootstrap
   pack is checked by the orchestrator against a 30 KiB aggregate bound.
+- Standard/quick delivery is the contract exception to the development-stage
+  reference pattern: AEGIS reports `.agentic/skills/agentic-delivery/SKILL.md`
+  as both `reference` and `skill`, and `required_reads` contains that router
+  once. All earlier development stages use the development skill plus their
+  stage-specific reference document.
 - Exit codes: `0` = ok, `1` = governance signal (blocked/failed), `2` = usage
   or missing-runtime defect. A timeout is identified by the exec seam's
   `timed_out` flag, not by assuming every raw 124 is ADORE's timeout.
@@ -151,11 +156,12 @@ context = aegis.run_context(
 
 ## 9. Validation And Tests
 
-- `tests/test_aegis.py` (41 tests): unchanged envelope happy/negative paths;
+- `tests/test_aegis.py`: unchanged envelope happy/negative paths;
   canonical global argv placement; direct context success and blocked-context
   discrimination; fixed schema/types/size/state/human-gate/path/recovery
   failures; unsupported 2/7/124/127 exits; typed terminal and verification
-  outcomes; bounded warnings; required delegated approver; advisory
+  outcomes; the delivery-router happy path and stale-development-reference
+  negative; bounded warnings; required delegated approver; advisory
   success/malformed shapes; wrapper-to-verb mapping.
 - Minimum validation after a change: `python -m pytest -q` from `04_Software`.
 

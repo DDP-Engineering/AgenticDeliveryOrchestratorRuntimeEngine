@@ -358,7 +358,9 @@ class FakeAegis:
         """@brief Materialize the bounded context files named by the fake."""
         if self.worktree is None or not self.run_id or self.complete:
             return
-        paths = ["AGENTS.md", STAGE_SKILLS[self.stage], STAGE_REFERENCES[self.stage]]
+        paths = list(dict.fromkeys(
+            ["AGENTS.md", STAGE_SKILLS[self.stage], STAGE_REFERENCES[self.stage]]
+        ))
         if self.stage_state != "not-prepared" and not self.missing_current_form:
             paths.append(self._artifact())
         for relative in paths:
@@ -402,10 +404,10 @@ class FakeAegis:
                     else "aegis stage show"
                 ),
             }
-        required_reads = [
+        required_reads = list(dict.fromkeys([
             "AGENTS.md", STAGE_SKILLS[self.stage], STAGE_REFERENCES[self.stage],
             *([artifact] if artifact != "none" else []), *previous,
-        ]
+        ]))
         payload = {
             "context_schema_version": 1,
             "run_id": self.run_id,

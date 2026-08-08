@@ -142,6 +142,11 @@ Contract details:
   repository instructions, the relevant skill/reference, the current form,
   and an immediately preceding form when retained. It excludes the whole
   graph, journal, evidence store, workflow configuration, and delivery report.
+- Standard and quick `delivery` route through
+  `.agentic/skills/agentic-delivery/SKILL.md`. The context reports that same
+  path as both `reference` and `skill`, and `required_reads` includes the
+  shared router only once; it does not invent a development
+  `reference/delivery.md` path.
 - Successful JSON context is bounded to 4 KiB; the complete bootstrap pack is
   bounded to 30 KiB.
 - If the current stage has no record, the safe recovery command is

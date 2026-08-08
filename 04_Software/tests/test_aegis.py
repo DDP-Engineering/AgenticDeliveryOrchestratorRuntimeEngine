@@ -432,6 +432,55 @@ def test_context_success_is_parsed_as_its_own_response_family() -> None:
     ]]
 
 
+def test_delivery_context_uses_the_delivery_router_once() -> None:
+    """
+    @brief   Standard and quick delivery use agentic-delivery/SKILL.md as both
+             reference and skill, and the bounded read set names it only once.
+    """
+    router = ".agentic/skills/agentic-delivery/SKILL.md"
+    artifact = f".agentic/runs/{RUN_ID}/stages/delivery/delivery.toml"
+    previous = f".agentic/runs/{RUN_ID}/stages/validation/validation.toml"
+    payload = json.loads(context())
+    payload.update({
+        "stage": "delivery",
+        "reference": router,
+        "skill": router,
+        "artifact": artifact,
+        "previous_stage_artifacts": [previous],
+        "required_reads": ["AGENTS.md", router, artifact, previous],
+    })
+    aegis, _ = client(CommandResult(exit_code=0, stdout=json.dumps(payload)))
+
+    response = aegis.run_context(
+        expected_profile="full", expected_stage="delivery", expected_kind="feature"
+    )
+
+    assert isinstance(response, AegisContext)
+    assert response.reference == response.skill == router
+    assert response.required_reads.count(router) == 1
+
+
+def test_delivery_context_rejects_the_development_stage_reference() -> None:
+    """@brief A stale inferred delivery reference fails closed at the wire boundary."""
+    router = ".agentic/skills/agentic-delivery/SKILL.md"
+    stale = ".agentic/skills/agentic-development/reference/delivery.md"
+    artifact = f".agentic/runs/{RUN_ID}/stages/delivery/delivery.toml"
+    payload = json.loads(context())
+    payload.update({
+        "stage": "delivery",
+        "reference": stale,
+        "skill": router,
+        "artifact": artifact,
+        "required_reads": ["AGENTS.md", router, stale, artifact],
+    })
+    aegis, _ = client(CommandResult(exit_code=0, stdout=json.dumps(payload)))
+
+    with pytest.raises(AegisProtocolError, match="guidance paths"):
+        aegis.run_context(
+            expected_profile="full", expected_stage="delivery", expected_kind="feature"
+        )
+
+
 def test_context_exit_one_remains_a_validated_blocked_envelope() -> None:
     """@brief The response family is selected after exit-code discrimination."""
     aegis, _ = client(CommandResult(

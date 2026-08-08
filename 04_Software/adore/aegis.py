@@ -104,6 +104,7 @@ STAGE_REFERENCES = {
     stage: f".agentic/skills/agentic-development/reference/{stage}.md"
     for stage in FULL_STAGES
 }
+STAGE_REFERENCES["delivery"] = ".agentic/skills/agentic-delivery/SKILL.md"
 STAGE_REFERENCES.update({
     stage: f".agentic/skills/agentic-adoption/reference/{stage}.md"
     for stage in ADOPTION_STAGES

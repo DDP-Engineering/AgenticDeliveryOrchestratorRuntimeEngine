@@ -182,6 +182,13 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- **CR6 real delivery-context routing.** The schema-1 parser inferred every
+  full-stage reference as `agentic-development/reference/<stage>.md`, but the
+  authoritative AEGIS 3 payload routes standard/quick delivery through
+  `agentic-delivery/SKILL.md` and reports that one path as both `reference`
+  and `skill`. ADORE now locks that exact exceptional mapping and de-duplicates
+  it in the expected `required_reads` sequence. Happy and stale-reference
+  negative tests cover the direct-context trust boundary.
 - **CR6 applied-ready validation restart loop.** ADORE used to run
   `aegis verify run` and only then check that validation work was committed.
   AEGIS verification necessarily persists graph, evidence, and summary
