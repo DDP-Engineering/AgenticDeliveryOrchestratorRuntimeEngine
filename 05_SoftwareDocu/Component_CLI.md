@@ -46,8 +46,9 @@ the `adore` package; no REST API or web UI exists in v1 by design.
   journal summary as JSON), `adore export --csv` (all summaries to stdout).
 - Wire the operator commands (design 8c):
   - `adore reset <run-id> --to <stage> --force` - state surgery; refuses
-    without `--force` (resetting re-runs completed gates: executor cost,
-    ticket churn), then tells the operator to `adore retry`;
+    without `--force` (resetting may repeat orchestration work: executor cost,
+    ticket churn), then tells the operator to `adore retry`. It moves only
+    ADORE's pointer; AEGIS still owns the governed stage;
   - `adore cleanup` - sweeps the stale instance lock, orphaned containers,
     and orphaned/husk worktree directories; prints a JSON report. Corrupt
     run state is reported but never auto-deleted (that is `adore delete
@@ -110,7 +111,7 @@ Explicitly not owned: any engine behavior; the handlers are thin views over
 ## 6. Data Contracts
 
 - The command surface matches design doc 12a; the argument shapes fixed in
-  phase 1 (`retry <run-id>`, `reset <run-id> --to <gate>`, `stats --since
+  phase 1 (`retry <run-id>`, `reset <run-id> --to <stage>`, `stats --since
   --by --html`, ...) were kept unchanged when the commands were wired.
 - `cleanup` prints its report as JSON (`lock_cleared`, `containers_removed`,
   `worktrees_removed`, `corrupt_runs`) so wrappers can parse it.
@@ -124,6 +125,8 @@ The operator's control plane (design 8c), now complete: `run --loop` /
 Scheduler on Windows 11); `cancel`/`retry`/`reset`/`delete` are the manual
 overrides; `cleanup` is the recovery tool after crashes or the WSL
 bind-mount teardown race; `stats`/`report`/`export` read the metrics store.
+The intervention commands mutate ADORE-owned state only: they do not abandon
+or route an AEGIS run, add a waiver, or rewrite governed evidence.
 
 ## 8. Usage
 

@@ -54,10 +54,11 @@ structured journal for one run. Live executor files are held under the run's
 
 ## Read an AEGIS Escalation
 
-Every run is governed by the target repository's AEGIS 3.x payload, and every
-AEGIS-facing failure ends in one of three deterministic outcomes. The reason
-is journaled and posted on the ticket, so `adore runs` plus the ticket
-comment tell you which one happened and what it is waiting for.
+Every run is governed by the target repository's AEGIS 3.x payload. An
+AEGIS-facing signal deterministically parks, retries one lock once, escalates,
+or completes without publication when the governed outcome is `abandoned`.
+The reason is journaled and posted on the ticket, so `adore runs` plus the
+ticket comment tell you what happened and what it is waiting for.
 
 An escalation posts its own comment, separate from the edited status line:
 the full reason - the AEGIS error, its `remediation:` clause, and where
@@ -73,10 +74,41 @@ still leaves the run `failed` with the reason in `adore logs <run-id>`.
 | `failed` with `... a human may waive one of these ...` | A blocker AEGIS considers waivable stopped the run. **ADORE never waives.** | Decide whether the exception is acceptable; if it is, run the exact `aegis waive add <blocker-id> --reason "..."` command from the message in the run's worktree, then `adore retry <run-id>`. |
 | `failed` with `the persistence lock is still held` | Another AEGIS process is running against the same repository. ADORE already retried once. | Let the other process finish (or find out what is holding the lock). **Never delete a lock file to bypass a live owner.** Then `adore retry <run-id>`. |
 | `failed` naming `GRAPH-STALE-UPDATE`, `REQUIREMENT-STALE-UPDATE`, a corrupt schema, or a run-resolution error | AEGIS's integrity floor. ADORE never repairs AEGIS state. | Repair the run state in the target clone by hand, then `adore retry <run-id>`. |
-| `failed` with `AEGIS contract failure (...)` | The payload answered outside the supported contract - a usage error, a missing Python runtime, unparseable output, an unknown stage, or a timeout. | Look at ADORE or the payload, not the ticket. Check the payload with `bash .agentic/tools/run.sh config validate --json` in the clone. |
+| `failed` with `AEGIS artifact failure (...)` | A run artifact was missing, unsafe, not a regular bounded UTF-8 file, corrupt, cross-run, or contradicted another artifact. | Inspect the pinned `.agentic/runs/<aegis-run-id>/` files. Repair or regenerate evidence through AEGIS; never edit ADORE state to claim a pass. |
+| `failed` with `AEGIS contract failure (...)` | The payload answered outside the supported contract - a usage error, a missing Python runtime, unparseable output, an unknown stage, or a timeout. | Look at ADORE or the payload, not the ticket. Check the payload with `bash .agentic/tools/run.sh --json config validate` in the clone. |
+| A `QUICK-SCOPE-ADVISORY` warning | AEGIS accepted a quick run but found scope that may deserve the full profile. | Review the named reason and exact restart command. The advisory is visible but non-blocking; a human decides whether to abandon and restart as full. |
+| Terminal `abandoned` | A human ended the AEGIS run outside ADORE. | No publication occurs. Preserve the evidence or dispose of the ADORE run with the normal operator commands. |
 
 The run's worktree is always kept for a failed run, so the AEGIS run records
 under `.agentic/runs/<aegis-run-id>/` are available for inspection.
+
+### Interpret governance outcomes truthfully
+
+- `ok` / passed means an actively enforced check has passing evidence.
+- `waived` means a failing enforced check was accepted by a human waiver. It is
+  accepted, but it is never rendered as passed.
+- `not-enforced` and `not-applicable` (`N/A`) are neutral and named explicitly;
+  neither contributes pass evidence.
+- A quick required check must carry real registered RED-before-code and
+  GREEN-after-code results. Executor success or manually asserted evidence is
+  insufficient, and “nothing ran” fails closed.
+
+These values appear in the ADORE journal, ticket status, draft MR/PR body, and
+the metrics `governance_outcome` field. Read those surfaces together when
+reviewing exceptions.
+
+### ADORE cancellation is not AEGIS abandonment
+
+`adore cancel`, `delete`, and `reset` change only ADORE-owned state; they never
+invoke `aegis run abandon`. If the governed run itself must be abandoned, that
+is an explicit human action from the correct worktree:
+
+```bash
+bash .agentic/tools/run.sh --run <aegis-run-id> --json run abandon --reason "<reason>"
+```
+
+Validate the pinned run id and worktree first. An abandoned AEGIS run is
+complete and can never be published by ADORE.
 
 ## Steer Ticket Pickup
 
@@ -139,6 +171,8 @@ adore --profile <profile-name> export --csv
 
 `stats --html` writes the configured static dashboard. Use `stats --rebuild`
 once if older terminal runs need to be re-summarized into the metrics database.
+Per-run reports and exports include the governance outcome separately from the
+ADORE terminal state so accepted waivers cannot look like clean passes.
 
 ## Background Operation
 

@@ -164,7 +164,7 @@ backfilled via `stats --rebuild`). The operator commands are wired:
 `adore reset <run-id> --to <stage> --force` (state surgery, then `adore
 retry`) and `adore cleanup` (stale lock, orphaned containers, orphaned/husk
 worktrees; corrupt state reported, never auto-deleted). The full design-12a
-CLI surface is implemented except `config set`. Deployment scripts are in
+CLI surface, including `config set`, is implemented. Deployment scripts are in
 `04_Software/deploy/` (design 12a): systemd unit + installer for Ubuntu 22+,
 Task Scheduler installer for Windows 11 (loop at logon or repeating
 `--once`), both fail-fast/idempotent, secrets never in argv. Runtime
@@ -187,26 +187,31 @@ Executor credentials remain an operator-managed security decision.
 **In progress (unreleased): the ADORE 3.0 hard break to AEGIS 3.x**
 (`00_Planning/AEGIS_3x_HardBreak_Adaptation/`). ADORE now speaks exactly one
 governance contract - the AEGIS 3.x grouped CLI (`bash .agentic/tools/run.sh
-<group> <action> --run <id> --json`) - with no AEGIS 1.x support, detection, or
+--run <id> --json <group> <action>`) - with no AEGIS 1.x support, detection, or
 migration of any kind. `adore/gates.py` and its 1.x verbs are deleted and
 replaced by `adore/aegis.py`, the single component that owns the invocation
 shape, the four-key envelope, exit-code discrimination, and the typed
 fail-loud errors. The AEGIS run id minted at `run start` is persisted on
 `RunState` and pinned with `--run` everywhere; the `current_run` pointer is
-never read. Conduction is `next`-driven: AEGIS owns the stage pointer, ADORE
-reads it from `run status`, guards it with a per-profile allowlist (eight
-stages, or four with `--quick`), launches the executor for one stage, verifies
+never read. Conduction is context-driven: AEGIS owns the stage pointer, ADORE
+reads it from `run status`, validates the bounded schema-1 `run context` before
+every fresh executor session, guards the stage with a per-profile allowlist
+(eight stages, or four with `--quick`), launches the executor for one stage, verifies
 objectively (`stage show` readiness, `aegis verify run` at validation and
 delivery, committed work), and issues `stage close` itself as the delegated
 approver - the executor is instructed never to close a stage or add a waiver.
 Publication (integrate, `verify run`, push, draft MR) is ADORE's own phase
-under the stage name `publication`. Failure evidence comes from
-`validation-summary.json`, the schema-3 `graph.json`, and `report.md`;
+under the stage name `publication`. Failure evidence comes through one strict
+contained-file boundary from `validation-summary.json`, the schema-3
+`graph.json`, and `report.md`. Run, profile, evidence, waiver,
+not-enforced/not-applicable, and quick red/green truth must agree across those
+artifacts; an abandoned run can never publish.
 `classify_block` decides park / one bounded lock retry / escalate, and every
 escalation carries the exact AEGIS error, its remediation, and where relevant
 the exact `aegis waive add` command a human would run. Run kind and profile
 come from ticket labels through a validated `[workflow]` config section, and
-`doctor.detect_aegis` probes a target repository for a schema-3 payload. The
-offline suite is green at 358 tests; the live pilot (plan WP8) is still
-pending, so nothing in this paragraph is live-verified yet. The 3.0.0 release
-version has not been cut.
+`doctor.detect_aegis` probes a target repository for a schema-3 payload. CR1-CR4
+are implemented and the Windows offline suite is green at 418 tests; the live
+pilot (plan CR6/WP8) is still pending, so none of the ADORE 3.0 behavior in this
+paragraph is live-verified yet. The selected 3.0.0 release version has not been
+cut.

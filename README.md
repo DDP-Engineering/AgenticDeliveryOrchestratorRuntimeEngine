@@ -6,14 +6,19 @@ See the LICENSE.txt file for full license details.
 SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
-# ADORE — Agentic Delivery Orchestrator & Runtime Engine
+# ADORE - Agentic Delivery Orchestrator & Runtime Engine
 
 Current release: **ADORE 1.2.0**.
 
+The ADORE 3.0 hard-break implementation is **unreleased**. Its selected product
+version is 3.0.0, but the installed version declarations remain 1.2.0 until the
+CR1-CR6 acceptance evidence is green and the release is cut.
+
 This is the standalone repository for **Agentic Delivery Orchestrator & Runtime Engine**:
 a service that selects eligible tickets from GitLab, GitHub or Gitea, guides an
-executor agent (OpenCode, Pi, Codex, or Qwen) through the workflow gates, and—after
-the required checks pass—opens a **draft** merge/pull request for human review.
+executor agent (OpenCode, Pi, Codex, or Qwen) through governed AEGIS stages and,
+after the required evidence is accepted, opens a **draft** merge/pull request
+for human review.
 A human still reviews and merges.
 
 The repository keeps planning, operator documentation, tooling, implementation,
@@ -50,7 +55,8 @@ forge ticket (eligible labels and readiness rules)
         -> guides the executor stage by stage (thick conductor)
              intake -> alignment -> requirement -> design -> check ->
              implementation -> validation -> delivery      (quick: 4 stages)
-             executor fills and applies each stage form;
+             every fresh executor session starts from validated `run context`;
+             executor follows AEGIS-owned reads and stage instructions;
              ADORE verifies objectively and closes the stage
         -> parks and asks on ambiguity (posts a comment, resumes on reply)
         -> AEGIS run complete -> integrate target, `aegis verify run`, push
@@ -69,11 +75,18 @@ human reviewer -> approves and merges
   AEGIS 3.x grouped CLI. AEGIS owns the stage pointer and the verification;
   ADORE reads it from `run status`, checks it against the declared sequence,
   and never guesses. No AEGIS 1.x support and no migration layer.
+- **Context-led and fail-closed.** Every fresh executor session receives the
+  bounded schema-1 `run context` bootstrap. ADORE reads run artifacts only
+  through a contained, regular-file, size-bounded, strict-UTF-8 boundary and
+  rejects corrupt, cross-run, or contradictory evidence.
 - **Thick conductor, delegated approver.** The orchestrator drives one AEGIS
-  stage at a time. The executor fills and applies the stage forms; ADORE
+  stage at a time. AEGIS context owns the procedure; ADORE
   verifies objectively - stage readiness, `aegis verify run`, committed work -
   and issues `aegis stage close` itself. It never waives a blocker and never
   repairs AEGIS state: both escalate to a human with the exact command.
+- **Truthful outcomes.** A waived failing check is accepted but never reported
+  as passed; not-enforced and not-applicable checks remain neutral. An AEGIS
+  run completed as `abandoned` is terminal and can never enter publication.
 - **Human-gated delivery.** The orchestrator opens a draft MR/PR only; it never
   merges. Merge stays a human decision.
 - **Portable.** Targets Ubuntu 22+ and Windows 11; the orchestrator is written

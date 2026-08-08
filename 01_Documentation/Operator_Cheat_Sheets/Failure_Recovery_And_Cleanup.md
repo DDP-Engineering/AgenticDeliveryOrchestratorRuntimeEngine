@@ -7,7 +7,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Failure Recovery And Cleanup
 
-Applies to ADORE 1.2.0.
+Applies to the unreleased ADORE 3.0 hard-break implementation; installed
+version declarations remain 1.2.0 until CR6 acceptance and the release cut.
 
 Use this when a run is parked, failed, no longer wanted, or has left resources
 behind after a crash, close, merge, or interrupted host session.
@@ -58,9 +59,9 @@ the configured terminal state, normally `failed`.
 
 | Situation | Command | Effect |
 | --- | --- | --- |
-| Failed run should continue from stored stage. | `adore retry <run-id>` | Re-arms retry flow without repeating completed gates. |
+| Failed run should continue from governed stage. | `adore retry <run-id>` | Re-arms retry flow and re-reads pinned AEGIS status/context. |
 | Run should stop gracefully. | `adore cancel <run-id>` | Cancels the run and updates state. |
-| Run must restart from a specific gate. | `adore reset <run-id> --to <stage> --force` | Moves the stage pointer, then requires `retry`. |
+| ADORE bookkeeping should restart from a named stage. | `adore reset <run-id> --to <stage> --force` | Moves ADORE's pointer only, then requires `retry`; AEGIS still owns its stage. |
 | Run state is no longer needed. | `adore delete <run-id> --force` | Irrecoverably removes run state. |
 | Stale locks, containers, or worktrees may remain. | `adore cleanup` | Sweeps resources that no active valid run owns. |
 
@@ -68,7 +69,7 @@ Windows examples:
 
 ```powershell
 .\.venv\Scripts\adore.exe --profile <profile-name> retry <run-id>
-.\.venv\Scripts\adore.exe --profile <profile-name> reset <run-id> --to verify --force
+.\.venv\Scripts\adore.exe --profile <profile-name> reset <run-id> --to validation --force
 .\.venv\Scripts\adore.exe --profile <profile-name> cleanup
 ```
 
@@ -76,7 +77,7 @@ Linux examples:
 
 ```bash
 ./.venv/bin/adore --profile <profile-name> retry <run-id>
-./.venv/bin/adore --profile <profile-name> reset <run-id> --to verify --force
+./.venv/bin/adore --profile <profile-name> reset <run-id> --to validation --force
 ./.venv/bin/adore --profile <profile-name> cleanup
 ```
 
@@ -89,8 +90,10 @@ budget, and churn ticket comments. After reset, ADORE tells you to run:
 adore retry <run-id>
 ```
 
-Use reset only when the stored stage is wrong or the operator deliberately wants
-to re-run a gate.
+Use reset only when ADORE's stored stage is wrong or the operator deliberately
+wants to repeat orchestration work. It cannot route or abandon AEGIS, add a
+waiver, or repair governed evidence. A human-abandoned AEGIS run is terminal
+and is never published.
 
 ## Cleanup Safety
 

@@ -7,7 +7,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Monitoring And Steering
 
-Applies to ADORE 1.2.0.
+Applies to the unreleased ADORE 3.0 hard-break implementation; installed
+version declarations remain 1.2.0 until CR6 acceptance and the release cut.
 
 Use this when ADORE is running, you need to understand its current state, or you
 need to pause and resume ticket pickup safely.
@@ -79,8 +80,12 @@ triage. Resume only after `config validate` is clean.
 | `stats --by priority` | Grouped by priority. |
 | `stats --by outcome` | Grouped by outcome. |
 | `stats --html` | Self-contained static dashboard at configured `html_out`. |
-| `report <run-id>` | JSON summary for one run. |
-| `export --csv` | CSV for external reporting. |
+| `report <run-id>` | JSON summary for one run, including governance outcome. |
+| `export --csv` | CSV for external reporting, including governance outcome. |
+
+Treat `waived` as an accepted failure, never a pass. `not-enforced` and
+`not-applicable` are neutral. These truths remain separate from the ADORE
+terminal state in journals, reports, exports, ticket comments, and draft MR/PRs.
 
 If metrics were added after older terminal runs, rebuild summaries once:
 

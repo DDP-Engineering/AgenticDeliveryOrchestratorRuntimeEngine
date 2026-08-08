@@ -7,7 +7,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Profiles And Container Images
 
-Applies to ADORE 1.2.0.
+Applies to the unreleased ADORE 3.0 hard-break implementation; installed
+version declarations remain 1.2.0 until CR6 acceptance and the release cut.
 
 Use this when you operate more than one runtime project, switch active projects,
 or need to decide which executor image a profile should use.
@@ -50,7 +51,7 @@ for daily interactive work after you trust the selection.
 | Layer | What belongs there | Example |
 | --- | --- | --- |
 | ADORE executor base | Shared executor tooling such as Python, Node, git, uv, and executor CLIs. | `adore-executor-base:1.0.0` |
-| Runtime-project image | Project-specific gate tools and caches. | `adore-executor-<runtime-project>:<tag>` |
+| Runtime-project image | AEGIS prerequisites plus project build, test, and verification tools and caches. | `adore-executor-<runtime-project>:<tag>` |
 | Per-run container | One isolated claim of one ticket. | Created and removed by ADORE. |
 
 Do not put secrets into images. Model provider keys and forge tokens belong in
@@ -66,6 +67,8 @@ The profile's `[container] image` chooses the runtime image:
 runtime = "docker"
 image = "adore-executor-<runtime-project>:<tag>"
 required_tool_checks = [
+  "python3 --version",
+  "node --version",
   "make --version",
   "shellcheck --version",
   "terraform --version",
@@ -99,7 +102,7 @@ required_tool_checks = [
 
 Avoid checks that mutate the project, download dependencies, or require a live
 network. The point is to prove the selected image is usable before the executor
-spends a gate attempt.
+spends a stage attempt.
 
 ## Active Profile Safety
 

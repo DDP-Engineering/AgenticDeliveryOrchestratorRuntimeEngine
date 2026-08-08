@@ -37,20 +37,31 @@ Before creating a profile, establish the following for `<runtime-project>`:
 ADORE 3.0 speaks exactly one governance contract: the AEGIS 3.x grouped CLI.
 There is no AEGIS 1.x support, no detection, and no migration path. A
 repository carrying an older payload cannot be conducted; install or upgrade
-it with WAEGIS first.
+it with the approved WAEGIS 3.0.0 distribution first. For an existing clean
+repository, preview and then approve the normal adoption flow:
+
+```text
+waegis adopt <runtime-project> --dry-run
+waegis adopt <runtime-project>
+waegis check --repo <runtime-project> --json
+```
+
+WAEGIS performs no branch, stage, commit, or push operation. The operator must
+review and commit the provisioned payload. Use the exact approved AEGIS/WAEGIS
+3.0.0 artifact identity; do not copy files selectively from another checkout.
 
 ADORE does not judge whether work is correct. It verifies with the target
 repository's own AEGIS payload, invoked inside the run container as:
 
 ```text
-bash .agentic/tools/run.sh <group> <action> --run <run-id> --json
+bash .agentic/tools/run.sh --run <run-id> --json <group> <action>
 ```
 
 Smoke-test the payload from the clone before creating a profile - this is the
 same probe `adore init` runs:
 
 ```bash
-bash .agentic/tools/run.sh config validate --json
+bash .agentic/tools/run.sh --json config validate
 ```
 
 It must answer `"status": "ok"` with `"schema_version": 3`.
@@ -93,16 +104,40 @@ full   intake -> alignment -> requirement -> design -> check ->
 quick  intake -> implementation -> validation -> delivery
 ```
 
-Per stage, the executor runs `stage prepare`, fills the generated form at the
-`artifact` path, and runs `stage apply` - content enters through forms, never
-through CLI flags. ADORE then verifies objectively (`stage show` reports
-`ready` with no blockers; validation and delivery additionally survive
+Before every fresh executor session, ADORE requests and validates the run's
+bounded schema-1 `run context`. Its `required_reads`, checklist, artifact
+availability, and `next_commands` are the authoritative stage procedure; the
+ADORE prompt supplies policy and identity, not a second workflow. ADORE may
+issue `stage prepare` only when context says the current form is genuinely
+unprepared. A restart whose stage is already applied and ready skips the
+executor and resumes at verification/close.
+
+The executor follows that context, fills the generated form at the `artifact`
+path, and applies it - content enters through forms, never through CLI flags.
+It must not close a stage, add a waiver, change the run, route stages, or
+perform remote Git/forge operations. ADORE verifies objectively (`stage show`
+reports `ready` with no blockers; validation and delivery additionally survive
 `aegis verify run`) and issues `aegis stage close` itself. **ADORE is the
-delegated approver; the executor is instructed never to close a stage.** The
-real human approval stays at the draft MR review. When AEGIS reports the run
-complete, ADORE's own publication phase integrates the target branch, re-runs
-`aegis verify run`, composes the MR body from `aegis delivery report`, pushes,
-and opens the draft MR.
+delegated approver.** The real human approval stays at draft MR review.
+
+For a new quick run, implementation must create and register a real focused
+check while the defect is still present, record its RED result, make the code
+change, then record the GREEN result from the same check. An executor exit code
+alone is not evidence, manually asserted evidence is not a substitute, and a
+run where nothing actually ran fails INV-3. AEGIS may emit
+`QUICK-SCOPE-ADVISORY`; ADORE surfaces its exact restart command but does not
+block the proportional run.
+
+When AEGIS reports the run complete, ADORE's own publication phase integrates
+the target branch, re-runs `aegis verify run`, composes the MR body from the
+exact `aegis delivery report` artifact, pushes, and opens the draft MR. A run
+completed as `abandoned` is terminal and never enters publication.
+
+ADORE reads `graph.json`, `validation-summary.json`, and `report.md` only
+through a contained POSIX-relative-path, regular-file, 4 MiB, strict-UTF-8
+boundary. It verifies pinned run/profile identity and cross-artifact evidence.
+Missing, escaped, special, oversized, corrupt, or contradictory artifacts fail
+closed instead of producing a draft MR/PR.
 
 #### Escalation semantics
 
@@ -113,12 +148,14 @@ and opens the draft MR.
 | `GRAPH-STALE-UPDATE`, `REQUIREMENT-STALE-UPDATE`, schema corruption, any run-resolution error | Escalates: state repair is a human task and ADORE never performs it. |
 | A waivable blocker | Escalates with the exact `aegis waive add <id> --reason "..."` command. **ADORE never waives.** |
 | A stage outside the declared sequence, or a backwards move | Escalates: routing is a human decision in this version. |
+| Corrupt, unsafe, cross-run, oversized, or contradictory run artifacts | Escalates as an AEGIS artifact failure; ADORE never guesses or silently repairs evidence. |
 | Exit 2, a timeout, or a non-conforming envelope | Escalates, tagged as a contract failure - look at ADORE or the payload, not the ticket. |
 
 Because ADORE invokes AEGIS inside the run container, the project image must
 also satisfy the payload's runtime prerequisites: Python 3.11+ resolvable as
 `python3`, `git`, `bash`, and `node` for the guard hooks - which fail closed
-without it, silently. Cover them with `[container] required_tool_checks` so a
+with an explicit error when unavailable. Cover them with `[container]
+required_tool_checks` so a
 mismatched image fails before a stage starts rather than midway through a run.
 
 AEGIS is versioned independently of ADORE. ADORE uses only its stable command
@@ -199,12 +236,10 @@ authentication and secret handling.
 
 ## 5. Prepare Tickets for Pickup
 
-The default readiness gate expects a ticket to have:
+The default readiness filter enforces:
 
 - a clear goal;
 - acceptance criteria;
-- a known component or path;
-- a scope no larger than the configured maximum;
 - one priority label;
 - the configured ready label, normally `agent-ready`; and
 - optionally a kind label (`bug`/`fix`/`change` by default) selecting the AEGIS
@@ -212,6 +247,11 @@ The default readiness gate expects a ticket to have:
   four-stage profile. An unlabelled ticket starts a `feature` run; the quick
   label is ignored on anything that does not resolve to `fix` or `change`,
   because AEGIS permits `--quick` only there.
+
+The ticket should still name a component/path and a bounded scope, but
+`require_known_component` and `max_scope_hint` are currently validated
+configuration only: they do not filter pickup. Do not rely on those two keys as
+an enforcement boundary.
 
 A concise ticket structure is:
 
@@ -249,7 +289,7 @@ adore --profile <profile-name> run --once
 Confirm the target repository is AEGIS-ready in the same pass, from the clone:
 
 ```bash
-bash .agentic/tools/run.sh config validate --json
+bash .agentic/tools/run.sh --json config validate
 ```
 
 Inspect the dry-run decision before the supervised poll. It should explain why

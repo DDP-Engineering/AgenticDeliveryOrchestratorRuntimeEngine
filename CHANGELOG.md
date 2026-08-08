@@ -19,7 +19,8 @@ This project follows Keep a Changelog and Semantic Versioning.
   source checkout, documents the unchanged runtime contract and the WAEGIS 3
   pilot-provisioning boundary, and renames current-facing ADORE/AEGIS product
   labels accordingly. The installed ADORE version remains 1.2.0 until CR1-CR6
-  and the live pilot are complete and a separate release cut is requested.
+  and the live pilot are complete. The user-selected 3.0.0 version will be cut
+  only as the final action after that acceptance evidence is green.
 - **WSL2 bind-mount teardown-race retry moved from the core loop to the
   isolation layer** (review finding ADORE-ARCH-009). `_TEARDOWN_RACE_MARKERS`,
   `_is_teardown_race`, and the retry-with-backoff lived in `orchestrator.py`,
@@ -65,12 +66,16 @@ This project follows Keep a Changelog and Semantic Versioning.
   reports that `glab`/`tea` do not. Every error message format is unchanged;
   the existing forge adapter tests pass without modification.
 - **ADORE 3.0 hard break to AEGIS 3.x - WP3: the conduction loop is
-  `next`-driven.** `_conduct` no longer walks a hard-coded gate list. It
+  context-driven.** `_conduct` no longer walks a hard-coded gate list. It
   starts the AEGIS run once (`run start <kind> [--quick]`, kind and profile
   resolved from ticket labels through the new `[workflow]` section), then
   loops: `aegis run status` for the authoritative stage, an allowlist check
   against the profile's declared sequence (`STANDARD_STAGES` eight,
-  `QUICK_STAGES` four), one executor launch for that stage, then ADORE's own
+  `QUICK_STAGES` four), validates the bounded schema-1 `run context` before
+  every fresh executor session, and launches at most one executor for that
+  stage. A genuinely unprepared stage is safely prepared first; an applied,
+  ready stage found after restart skips the executor. ADORE then performs its
+  own
   verification - `aegis stage show` readiness with no blockers, plus
   `aegis verify run` at validation and delivery, plus the committed-work
   check - and only then `aegis stage close`. ADORE is the delegated approver;
@@ -88,15 +93,16 @@ This project follows Keep a Changelog and Semantic Versioning.
   routes, or repairs AEGIS state. Journal event names follow the stage
   vocabulary (`stage-launch`, `stage-closed`, `stage-failed`,
   `stage-not-ready`, `verify-failed`, `aegis-run-started`,
-  `aegis-run-complete`, `aegis-blocked`, `aegis-contract-failure`); metrics
+  `aegis-run-complete`, `aegis-blocked`, `aegis-contract-failure`); a terminal
+  AEGIS `abandoned` outcome never enters publication. Metrics
   read the new names into the existing summary columns.
 - **ADORE 3.0 hard break to AEGIS 3.x - WP4: failure evidence and block
   classification.** Retry prompts are now built from the AEGIS 3.x sources, in
   order and bounded: the blocked/failed response itself (`error`,
   `remediation`, stage `blockers[]`, the exact `next` command), then
   `validation-summary.json` (failing gate groups, invariants that do not hold,
-  traceability/coverage/working-tree findings - disabled and waived gates are
-  reported as such, never as passed), then the schema-3 `graph.json`
+  traceability/coverage/working-tree findings - not-enforced, not-applicable,
+  and waived checks are reported as such, never as passed), then the schema-3 `graph.json`
   `evidence[]` rows, then the `report.md` excerpts. Journal scraping is gone
   with the AEGIS 1.x `gate.output` event it depended on. A started run whose
   `graph.json` is missing escalates instead of yielding an empty evidence
@@ -110,22 +116,26 @@ This project follows Keep a Changelog and Semantic Versioning.
   the AEGIS error, its remediation, and the exact
   `aegis waive add <id> --reason "..."` command a human could run - never an
   automatic waiver. The waive hint is advisory and can never hide the original
-  error.
-- **ADORE 3.0 hard break to AEGIS 3.x - WP5: executor prompts speak AEGIS
-  3.x.** `_GATE_GOALS` became `_STAGE_GOALS`, covering all eight stages plus
-  `revise` in the form-first vocabulary: `stage prepare` / `show`, fill the
-  generated form at the `artifact` path, `stage apply`, `check prepare` /
-  `record` / `run`, `evidence prepare` / `apply`, red-before-green. Every
-  prompt now forbids `aegis stage close` (ADORE is the delegated approver) and
-  `aegis waive add` (a human decides), relays AEGIS's own exact `next`
-  command and form path, and pins the run with `--run <aegis-run-id>` - the
-  same pin the orchestrator uses - so a repository holding several runs cannot
-  be worked on through the wrong one. Quick runs get implementation and
-  validation variants that name the four bypassed stages, walk the manual
-  evidence path, and explain that the `not-applicable - quick run` audits are
-  the expected state. Questions may be recorded in the form's
-  `control.unresolved_questions` or in the questions file; both are named and
-  either parks the run.
+  error. Artifact ingestion is a single strict trust boundary: the pinned path
+  must be contained, POSIX-relative, regular, no larger than 4 MiB, and strict
+  UTF-8. Graph schema/profile/run identity, validation status and gate
+  vocabulary, evidence links/results, waiver truth, quick RED/GREEN proof,
+  working-tree/audit truth, and delivery-report path/heading are validated and
+  cross-checked. Missing, escaped, special, oversized, corrupt, cross-run, or
+  contradictory evidence raises typed `AegisArtifactError` and blocks
+  publication. Run summaries persist a separate `governance_outcome` so an
+  accepted waiver cannot become a clean pass in reports.
+- **ADORE 3.0 hard break to AEGIS 3.x - WP5: executor prompts are policy-thin
+  and context-led.** `_STAGE_GOALS` names the objective, while the validated
+  AEGIS `run context` owns `required_reads`, checklist, artifact availability,
+  and exact procedure. Prompts pin the run and forbid stage close, waiver,
+  run/profile changes, routing, and remote Git/forge operations. They do not
+  replay AEGIS mechanics. For a new quick run, the executor must create and
+  register a real focused check before changing code, record its RED result,
+  then record the GREEN result from the same check after the change. Exit zero,
+  manual assertions, and a nothing-ran path cannot satisfy INV-3. The
+  `QUICK-SCOPE-ADVISORY` reason and exact full-run restart command are surfaced
+  without blocking the proportional run.
 - **ADORE 3.0 hard break to AEGIS 3.x - WP6: config, wizard, doctor, image.**
   A new validated `[workflow]` section decides how a ticket becomes an AEGIS
   run: `default_kind`, a `kind_labels` map (first configured match wins),
@@ -139,7 +149,7 @@ This project follows Keep a Changelog and Semantic Versioning.
   `adore init` wizard now asks for the ready/fix/change/quick labels (writing
   neither table when every default is accepted) and probes the target clone
   with the new `doctor.detect_aegis`: the POSIX wrapper must exist,
-  `aegis config validate --json` must answer `status: ok`, and the policy must
+  `bash .agentic/tools/run.sh --json config validate` must answer `status: ok`, and the policy must
   report schema 3. Anything else - a missing wrapper, a blocked response,
   unparseable output, a different schema - reads as not-ready with the AEGIS
   detail preserved, and the guidance points at WAEGIS while stating that AEGIS
@@ -154,8 +164,13 @@ This project follows Keep a Changelog and Semantic Versioning.
   outcome - park, blocked with remediation, waivable blocker with the exact
   `aegis waive add` command, a held persistence lock, the integrity floor, and
   a contract failure - to what an operator should do.
-  `Configuration_Reference.md`, `CLI_Reference.md`, both READMEs, and the
-  `AGENTS.md` status paragraph follow the same vocabulary.
+  `Configuration_Reference.md`, `CLI_Reference.md`, setup/recovery/operator
+  cheat sheets, both READMEs, and the `AGENTS.md` status paragraph follow the
+  same vocabulary. They record the canonical global-option command order,
+  approved WAEGIS 3 provisioning boundary, context-led stage procedure, quick
+  real RED/GREEN contract, strict artifact trust boundary, truthful waiver /
+  not-enforced / N/A reporting, and ADORE-cancel versus human AEGIS-abandon
+  ownership boundary.
 - `adore reset --to` now accepts the eight AEGIS stages or `publication`. It
   moves ADORE's own pointer only - AEGIS still owns the governed run's stage,
   which conduction re-reads from `run status` - and it never touches AEGIS
@@ -286,11 +301,13 @@ This project follows Keep a Changelog and Semantic Versioning.
   redaction is unchanged - callers redact before passing the reason in.
 - **ADORE 3.0 hard break to AEGIS 3.x - WP1: the AEGIS client
   (`adore/aegis.py`).** One component owns the whole AEGIS-facing contract:
-  it invokes the grouped CLI as `bash .agentic/tools/run.sh <group> <action>
-  [--run <id>] --json` inside the run's container, pins the AEGIS run id
+  it invokes the grouped CLI as `bash .agentic/tools/run.sh [--run <id>]
+  --json <group> <action>` inside the run's container, pins the AEGIS run id
   captured at `run start` on every later call (the worktree `current_run`
   pointer is never read again), and parses the stable four-key envelope into
-  a frozen `AegisResponse` with `ok`/`blocked`/`failed`/`complete`/`error`/
+  a frozen `AegisResponse`. Successful `run context` is a deliberately
+  separate, closed schema-1 `AegisContext` response family. Helpers expose
+  `ok`/`blocked`/`failed`/`complete`/`error`/
   `code`/`remediation` helpers. Exit 0 and exit 1 are workflow signals
   returned as data; everything else fails loud - exit 2 (usage error, or the
   wrapper finding no Python runtime), a timeout, unparseable or non-object
@@ -301,7 +318,9 @@ This project follows Keep a Changelog and Semantic Versioning.
   `change`, and `waive add` is deliberately not wrapped: waiving stays a
   human decision. Wrappers: `run_start`, `run_status`, `run_resume`,
   `stage_show`, `stage_close`, `verify_run`, `delivery_report`, `waive_list`,
-  `config_validate`. Covered by 16 offline tests over a fake exec seam.
+  `config_validate` and `run_context`. Warnings and quick-scope advisories are
+  bounded, validated, and preserved. Covered through the offline fake-exec
+  contract suite, including malformed/oversized context and envelope cases.
 - **ADORE 3.0 hard break to AEGIS 3.x - WP2: the AEGIS run id is persisted.**
   `RunState` gains `aegis_run_id`, written into `state.json` at
   `aegis run start` and never cleared, so a restart or a resume pins the same

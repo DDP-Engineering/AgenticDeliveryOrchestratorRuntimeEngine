@@ -22,7 +22,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
     </marker>
   </defs>
   <rect class="bg" x="0" y="0" width="1120" height="430" />
-  <text class="text" x="44" y="45">ADORE 1.2.0 monitor first, then act</text>
+  <text class="text" x="44" y="45">ADORE 3.0 monitor first, then act</text>
   <g transform="translate(60 80)">
     <rect class="inspect" width="210" height="250" />
     <text class="text" x="20" y="38">Inspect</text>

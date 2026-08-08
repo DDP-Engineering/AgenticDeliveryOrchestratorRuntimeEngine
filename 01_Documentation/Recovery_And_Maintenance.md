@@ -43,7 +43,7 @@ run to the configured terminal state, normally `failed`.
 
 | Situation | Command | Result |
 | --- | --- | --- |
-| Continue a failed or retryable run | `adore --profile <profile-name> retry <run-id>` | Re-arms retry flow without repeating completed gates. |
+| Continue a failed or retryable run | `adore --profile <profile-name> retry <run-id>` | Re-arms retry flow; conduction re-reads the pinned AEGIS status/context and does not repeat an already-applied ready stage. |
 | Stop a run gracefully | `adore --profile <profile-name> cancel <run-id>` | Cancels the run and updates stored state. |
 | Re-run from a deliberate stage | `adore --profile <profile-name> reset <run-id> --to <stage> --force` | Moves the stage pointer; run `retry` afterwards. |
 | Permanently remove stored run state | `adore --profile <profile-name> delete <run-id> --force` | Irrecoverable removal. |
@@ -53,7 +53,13 @@ run to the configured terminal state, normally `failed`.
 change ticket history. `delete` is for deliberate disposal, not routine
 cleanup.
 
-### Runs abandoned by a crashed conductor
+All five commands above operate on ADORE-owned state and resources only.
+`reset` cannot move the governed AEGIS stage pointer, and none of them invokes
+`aegis run abandon`, adds a waiver, or repairs governed artifacts. If a human
+explicitly abandons the pinned AEGIS run in its worktree, ADORE treats that
+outcome as terminal and performs no publication.
+
+### Working runs left by an interrupted conductor
 
 A run whose orchestrator process died mid-conduct (power loss, `SIGKILL`, a
 systemd restart) stays `working` in the store. Because `working` runs count

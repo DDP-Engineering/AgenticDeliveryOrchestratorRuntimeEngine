@@ -7,7 +7,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Setup And First Run
 
-Applies to ADORE 1.2.0.
+Applies to the unreleased ADORE 3.0 hard-break implementation; installed
+version declarations remain 1.2.0 until CR6 acceptance and the release cut.
 
 Use this when you are preparing a host, creating a runtime-project profile, or
 validating the first safe ADORE poll. The full, authoritative sequence is in
@@ -31,6 +32,8 @@ Confirm these are available to the same user account that will run ADORE:
 - A forge CLI: `glab` for GitLab, `gh` for GitHub, or `tea` (>= 0.15) for
   Gitea.
 - A local clone of the runtime project.
+- An approved WAEGIS 3.0.0 installation and a committed AEGIS 3.0.0 payload in
+  that clone.
 - Executor credentials supplied through the ADORE runtime environment or its
   `.env` file.
 - A project image with the runtime project's tools.
@@ -72,6 +75,20 @@ Expected version:
 ```text
 adore 1.2.0
 ```
+
+The selected 3.0.0 product version is not reported until CR6 is green and the
+release is formally cut.
+
+Before creating the profile, require the target clone to return `status: ok`
+and schema 3:
+
+```bash
+bash .agentic/tools/run.sh --json config validate
+```
+
+If it does not, preview and approve `waegis adopt <runtime-project>` with the
+approved WAEGIS 3.0.0 distribution, then review and commit the payload. WAEGIS
+does not branch, stage, commit, or push for you.
 
 ## Create The Profile
 

@@ -86,6 +86,8 @@ uv sync --frozen
 ```
 
 The command should report the installed release, for example `adore 1.2.0`.
+The selected ADORE 3.0.0 product line remains unreleased until CR6 acceptance;
+do not expect `adore 3.0.0` from a package until that release is formally cut.
 Keep the runtime directory available: deployed services and scheduled tasks use
 it as their working directory.
 
@@ -129,7 +131,30 @@ any secret. In particular, executor secrets may be loaded from `.env` in the
 ADORE runtime working directory, while forge authentication is normally handled
 by the forge CLI's authenticated host session or a real process environment.
 
-## 5. Create a Runtime-Project Profile
+## 5. Provision and Validate AEGIS 3
+
+ADORE 3.0 conducts only AEGIS 3.x schema-3 repositories. It has no older-payload
+fallback or migration path. Install the approved AEGIS 3.0.0 payload with the
+approved WAEGIS 3.0.0 distribution. For an existing clean clone, preview before
+approving mutation:
+
+```text
+waegis adopt <runtime-project> --dry-run
+waegis adopt <runtime-project>
+waegis check --repo <runtime-project> --json
+```
+
+WAEGIS does not branch, stage, commit, or push. Review and commit the installed
+payload yourself. From the target clone, run the same exact probe used by the
+ADORE wizard and require `"status": "ok"` with `"schema_version": 3`:
+
+```bash
+bash .agentic/tools/run.sh --json config validate
+```
+
+Do not create or enable the ADORE profile until this probe is green.
+
+## 6. Create a Runtime-Project Profile
 
 Run the guided setup from the ADORE runtime directory:
 
@@ -155,10 +180,12 @@ During the wizard, choose:
 | Auth | `api-key` for provider keys; `host-auth` only where supported by the selected executor. |
 | Run mode | `once` while the project is being proven. |
 
-The wizard writes no secret values to the profile. For non-interactive setup,
-use `adore init <profile-name> --answers <answers.toml>`.
+The wizard writes no secret values to the profile. It also probes the selected
+clone for the AEGIS 3 schema above and reports precise WAEGIS guidance when it
+is absent or incompatible. For non-interactive setup, use
+`adore init <profile-name> --answers <answers.toml>`.
 
-## 6. Select, Validate, and Prove the Profile
+## 7. Select, Validate, and Prove the Profile
 
 Make the new profile active for interactive use, but keep `--profile` in
 automation and first-run commands:

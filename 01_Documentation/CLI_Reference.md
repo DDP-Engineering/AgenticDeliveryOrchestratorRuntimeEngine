@@ -50,7 +50,7 @@ unless `ADORE_HOME` overrides the location.
 | --- | --- |
 | `adore [selector] config show` | Print the resolved configuration as JSON. |
 | `adore [selector] config validate` | Validate the resolved configuration and report any issues. |
-| `adore [selector] config set <section.key> <value>` | Set one scalar key in the resolved config file (e.g. `budgets.max_iterations 12`). Comments are preserved and the value type is inferred; the write is refused unless the whole resulting config still validates. Secret-looking keys are rejected — put secrets in `.env`. |
+| `adore [selector] config set <section.key> <value>` | Set one scalar key in the resolved config file (e.g. `budgets.max_iterations 12`). Comments are preserved and the value type is inferred; the write is refused unless the whole resulting config still validates. Secret-looking keys are rejected - put secrets in `.env`. |
 
 In this table, `[selector]` means `-c <config.toml>` or `--profile
 <profile-name>` where appropriate.
@@ -84,6 +84,11 @@ resolved configuration.
 Read [Recovery_And_Maintenance.md](Recovery_And_Maintenance.md) before using a
 destructive command.
 
+These intervention commands mutate ADORE-owned state only. None invokes AEGIS
+`run abandon`, routes an AEGIS stage, adds a waiver, or edits governed evidence.
+If a human deliberately abandons the pinned AEGIS run from its worktree, ADORE
+recognizes the terminal `abandoned` outcome and never publishes it.
+
 ## Metrics and Reports
 
 | Command | Purpose |
@@ -91,8 +96,8 @@ destructive command.
 | `adore [selector] stats [--since <duration>] [--by priority|outcome]` | Summarize terminal-run metrics. |
 | `adore [selector] stats --html` | Write the configured static HTML dashboard. |
 | `adore [selector] stats --rebuild` | Re-summarize terminal runs into the metrics database. |
-| `adore [selector] report <run-id>` | Print a JSON summary for one run. |
-| `adore [selector] export --csv` | Export metrics as CSV. |
+| `adore [selector] report <run-id>` | Print a JSON summary for one run, including the governance outcome. |
+| `adore [selector] export --csv` | Export metrics, including governance outcome, as CSV. |
 
 ## Exit Codes
 

@@ -7,7 +7,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # ADORE Operator Cheat Sheets
 
-Applies to ADORE 1.2.0.
+Applies to the unreleased ADORE 3.0 hard-break implementation; installed
+version declarations remain 1.2.0 until CR6 acceptance and the release cut.
 
 Use these short operator sheets when you need the fastest safe path through an
 ADORE task. They are derived quick references; the full guides in
@@ -35,9 +36,12 @@ and [CLI_Reference.md](../CLI_Reference.md).
 ## Golden Rules
 
 - Start with `adore --profile <name> config validate`.
+- Require `bash .agentic/tools/run.sh --json config validate` to return schema 3
+  in the target clone.
 - Use `adore --profile <name> run --dry-run` before the first real pickup.
 - Use `adore --profile <name> run --once` while validating a new project.
 - Let ADORE open draft MR/PRs; humans still review and merge.
+- Treat waivers as accepted failures and not-enforced/N/A checks as neutral.
 - Do not manually edit ADORE marker lines in ticket comments.
 - Keep secrets out of `config.toml`; use environment variables or `.env`.
 

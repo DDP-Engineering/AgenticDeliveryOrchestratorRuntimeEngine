@@ -85,8 +85,8 @@ Explicitly not owned: prompting/wizard flow (task 3), CLI wiring, writing config
 
 - **AEGIS 3.x target-repository probe** (`detect_aegis`, ADORE 3.0 WP6):
   three facts, all required before a repository can be conducted - the POSIX
-  wrapper `.agentic/tools/run.sh` exists, `bash .agentic/tools/run.sh config
-  validate --json` answers `status: ok`, and the policy it validated reports
+  wrapper `.agentic/tools/run.sh` exists, `bash .agentic/tools/run.sh --json
+  config validate` answers `status: ok`, and the policy it validated reports
   `schema_version: 3`. The command runs with the repository as its working
   directory, which is where AEGIS discovers its root. Everything crosses a
   trust boundary, so a non-zero exit, unparseable output, a blocked response,

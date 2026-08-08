@@ -7,9 +7,10 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Configuration Reference
 
-> **Status**: Implementation reference for ADORE 1.2.0. Consolidated list of
-> every `config.toml` setting, its meaning, default value, and examples. Keys
-> are grouped by section.
+> **Status**: Implementation reference for the unreleased ADORE 3.0 hard-break
+> implementation. The selected version is 3.0.0; installed declarations remain
+> 1.2.0 until CR6 acceptance and the release cut. This is the consolidated list
+> of every `config.toml` setting, its meaning, default value, and examples.
 
 ## Profiles & assisted setup (recommended)
 
@@ -51,7 +52,7 @@ document describes every key the wizard (or you) can set.
 `adore config validate` checks the resolved configuration. `adore config set
 <section.key> <value>` edits one scalar in the resolved config file (comments
 preserved, value type inferred), writing only when the whole result still
-validates; secret-looking keys are rejected — put secrets in `.env`. All three
+validates; secret-looking keys are rejected - put secrets in `.env`. All three
 use the normal resolution order above.
 
 ## Full Example `config.toml`
@@ -337,7 +338,7 @@ teams can rename without code changes; the orchestrator refers to labels by role
 | `questions_file` | File the executor writes clarification questions to. | `"ADORE_QUESTIONS.md"` |
 | `env_keys` | The only environment variables (from host env / `.env`) injected into the executor container. | `["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]` |
 | `stage_host_auth` | Pilot-only: copy host auth into the run container at provision. Implemented for opencode (`~/.local/share/opencode/auth.json`) and Codex (`~/.codex/auth.json` staged into an ADORE-owned `CODEX_HOME`). | `false` |
-| `[executor.<name>].command` | Command template for that executor; `{prompt}` (shell-quoted), `{model}`, and `{worktree}` (container path `/adore/work`) are substituted. opencode/pi continue with `--session <id>`; Codex uses the `{resume}` placeholder for `codex exec resume --last`; Qwen is stateless per gate. Safety validation rejects opencode `--auto`, Codex commands missing non-interactive/user-config guards, and Qwen yolo mode. | per executor |
+| `[executor.<name>].command` | Command template for that executor; `{prompt}` (shell-quoted), `{model}`, and `{worktree}` (container path `/adore/work`) are substituted. opencode/pi continue with `--session <id>`; Codex uses the `{resume}` placeholder for `codex exec resume --last`; Qwen is stateless per stage. Safety validation rejects opencode `--auto`, Codex commands missing non-interactive/user-config guards, and Qwen yolo mode. | per executor |
 | `[executor.<name>].model` | Model/provider string for that executor. | (required) |
 
 ## `[clarification]` - Clarification
@@ -362,7 +363,7 @@ teams can rename without code changes; the orchestrator refers to labels by role
 | `npm_cache_volume` | Persistent npm cache volume for fast `npm ci`. | `"adore-npm-cache"` |
 | `runtime_env` | Non-secret environment injected at container creation and every `exec`. Use it for portable tool behavior such as `UV_LINK_MODE=copy` or a project-specific `UV_PROJECT_ENVIRONMENT`; ADORE rejects overrides of managed isolation/proxy keys (`HOME`, `GIT_*`, `CODEX_HOME`, `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, `NO_PROXY`, and lowercase variants). | `{ UV_LINK_MODE = "copy" }` |
 | `run_args` | Extra option tokens for `<runtime> run` (one option per entry, no spaces; validated). DOCKER: build the base image with `--build-arg USER_UID=$(id -u) --build-arg USER_GID=$(id -g)` so the container user/group match the host user; no `run_args` needed for UID mapping. ROOTLESS PODMAN: requires `["--userns=keep-id"]` instead (verified 2026-07-04: without it container uid 1000 maps to a subuid that cannot write the bind-mounted worktree). Also the seam for future resource limits (`"--memory=2g"`). | `[]` |
-| `required_tool_checks` | Shell-free command strings run inside the provisioned container before any executor gate starts. Use this for runtime-project images, for example `["make --version", "shellcheck --version", "terraform --version", "tflint --version"]`. | `[]` |
+| `required_tool_checks` | Shell-free command strings run inside the provisioned container before any executor stage starts. Include the AEGIS runtime prerequisites and project tools, for example `["python3 --version", "node --version", "make --version", "shellcheck --version"]`. | `[]` |
 
 ## `[container.egress]` - Executor Network Egress
 
@@ -394,6 +395,13 @@ How a ticket becomes an AEGIS 3.x run. ADORE starts exactly one governed run
 per ticket with `aegis run start <kind> [--quick]`; this section decides which.
 Every key is optional and defaults as documented, so an absent `[workflow]`
 section is valid.
+
+The section selects identity and budgets only. It does not define stage
+mechanics: before every fresh executor session ADORE validates the pinned
+AEGIS schema-1 `run context`, and that context's `required_reads`, checklist,
+artifact state, and `next_commands` own the procedure. For a new quick run,
+AEGIS requires a real registered RED-before-code and GREEN-after-code result;
+an executor exit code or manual assertion cannot replace that evidence.
 
 | Key | Meaning | Default |
 |---|---|---|
@@ -461,12 +469,15 @@ are CLI commands, not config; see design doc section 8c.
 | `enabled` | Turn statistics capture on/off. | `true` |
 | `db_path` | SQLite database of run summaries (stdlib `sqlite3`). | `".adore/metrics.db"` |
 | `export_jsonl` | Mirrored append-only export of run summaries. | `".adore/metrics/runs.jsonl"` |
-| `capture_tokens` | Record executor token usage per run/gate. | `true` |
+| `capture_tokens` | Record executor token usage per run/stage launch. | `true` |
 | `capture_resource` | Probe container/disk resource stats. **Reserved; not yet consulted by the runtime** (review finding ADORE-ARCH-007) - no resource probing is implemented. | `true` |
 | `html_out` | Output path for `adore stats --html` static dashboard. | `".adore/metrics/stats.html"` |
 
 Access is CLI-first (`adore stats`, `adore report`, `adore export`) plus the
 optional static HTML; there is no Prometheus endpoint or hosted service.
+Each run summary also stores `governance_outcome`, distinct from the ADORE
+terminal state: clean pass, accepted waiver, not-enforced/not-applicable truth,
+and abandonment must remain distinguishable in reports and exports.
 
 ## Notes
 
