@@ -97,6 +97,26 @@ function Read-PackageVersion {
     return $match.Matches[0].Groups[1].Value
 }
 
+function Write-PortableZip([string]$Bundle, [string]$Archive) {
+    $zipper = Join-Path $ScriptDir "create_portable_zip.py"
+    if (-not (Test-Path -LiteralPath $zipper -PathType Leaf)) {
+        Fail "portable ZIP helper missing: $zipper"
+    }
+    $python = Get-Command "python" -ErrorAction SilentlyContinue
+    $pythonArgs = @()
+    if ($null -eq $python) {
+        $python = Get-Command "py" -ErrorAction SilentlyContinue
+        $pythonArgs = @("-3")
+    }
+    if ($null -eq $python) {
+        Fail "Python 3.11+ is required to create a portable ZIP"
+    }
+    & $python.Source @pythonArgs $zipper $Bundle $Archive
+    if ($LASTEXITCODE -ne 0) {
+        Fail "portable ZIP creation failed: $Archive"
+    }
+}
+
 function Write-BundleReadme([string]$DestinationRoot, [string]$Version) {
     $readme = @'
 # ADORE Runtime Bundle
@@ -224,7 +244,7 @@ $archive = Join-Path $outputFull "$PackageName.zip"
 if (Test-Path -LiteralPath $archive) {
     Remove-Item -LiteralPath $archive -Force
 }
-Compress-Archive -LiteralPath $bundleDir -DestinationPath $archive -Force
+Write-PortableZip $bundleDir $archive
 Remove-TreeInside $stageRoot $outputFull
 Note "wrote $archive"
 

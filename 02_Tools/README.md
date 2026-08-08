@@ -21,6 +21,9 @@ The current implemented tool is the runtime-bundle packager:
 - `package_runtime.cmd` - cmd.exe wrapper around the PowerShell packager.
 - `package_runtime.sh` - POSIX/Bash packager; writes a trimmed
   `adore-runtime-<version>.tar.gz`, `.zip`, or directory under `07_Delivery/`.
+- `create_portable_zip.py` - shared standard-library ZIP writer used by both
+  packagers; rejects links/unsafe placement and always writes POSIX member
+  names so Windows-built ZIPs extract to the documented tree on Linux.
 
 The runtime bundle contains the runnable contents of `04_Software/` needed on a
 deployment host: `adore/`, `deploy/`, `docker/`, package metadata, lockfile,

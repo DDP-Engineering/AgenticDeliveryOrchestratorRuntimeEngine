@@ -25,6 +25,7 @@ import zipfile
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CHECKER = REPO_ROOT / "02_Tools" / "check_release_consistency.py"
+PORTABLE_ZIPPER = REPO_ROOT / "02_Tools" / "create_portable_zip.py"
 REQUIRED_INPUTS = (
     "README.md",
     "CHANGELOG.md",
@@ -120,5 +121,59 @@ def test_release_check_scans_presentation_xml(tmp_path: Path) -> None:
 
     assert result.returncode == 1
     assert "legacy identity in operator.pptx:ppt/slides/slide1.xml" in result.stderr
+
+
+def test_portable_zip_command_writes_cross_platform_member_names(
+    tmp_path: Path,
+) -> None:
+    """
+    @brief   The public ZIP writer creates the documented nested tree with
+             forward-slash names on every host.
+    """
+    bundle = tmp_path / "adore-runtime-test"
+    nested = bundle / "Documentation"
+    nested.mkdir(parents=True)
+    (nested / "README.md").write_text("portable\n", encoding="utf-8")
+    archive = tmp_path / "runtime.zip"
+
+    result = subprocess.run(
+        [sys.executable, str(PORTABLE_ZIPPER), str(bundle), str(archive)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    with zipfile.ZipFile(archive) as runtime_zip:
+        names = runtime_zip.namelist()
+        runtime_zip.extractall(tmp_path / "unpacked")
+    assert names
+    assert all("\\" not in name for name in names)
+    assert (tmp_path / "unpacked/adore-runtime-test/Documentation/README.md").is_file()
+
+
+def test_portable_zip_command_fails_closed_on_missing_bundle(
+    tmp_path: Path,
+) -> None:
+    """
+    @brief   A missing external bundle path returns an error and creates no ZIP.
+    """
+    archive = tmp_path / "runtime.zip"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(PORTABLE_ZIPPER),
+            str(tmp_path / "missing"),
+            str(archive),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    assert "error:" in result.stderr
+    assert not archive.exists()
 
 # END OF FILE

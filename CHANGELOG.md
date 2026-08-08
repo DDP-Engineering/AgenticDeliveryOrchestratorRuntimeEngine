@@ -182,6 +182,14 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- **CR6 cross-platform acceptance findings.** WSL mount conversion now
+  normalizes Windows separators explicitly instead of delegating to the host
+  OS's `Path` flavour, so Windows drive paths produce the same `/mnt/<drive>`
+  mount on Windows and Linux. The Windows and POSIX runtime packagers now share
+  a fail-closed standard-library ZIP writer that emits canonical `/` member
+  names; Windows `Compress-Archive` had written backslash members that did not
+  extract to the documented tree on Linux. Happy and negative regression tests
+  cover portable ZIP creation and invalid bundle input.
 - **A genuine inner exit 124 is no longer misreported as ADORE's own
   timeout** (review finding ADORE-ARCH-010). `docker exec` propagates
   whatever exit code the INNER command used, so a payload legitimately

@@ -109,7 +109,12 @@ side keeps working normally with its absolute paths. The admin dir name is
   translated to the WSL view (`D:\x` -> `/mnt/d/x`, via `wsl_mount_path`),
   and the container env keys are listed in `WSLENV` so their Windows-side
   values actually cross into the WSL process (wsl.exe forwards no other env
-  vars).
+  vars). `wsl_mount_path` normalizes Windows separators explicitly instead of
+  relying on the current host's `Path` flavour, so the same Windows path
+  contract is testable and stable on both Windows and Linux. WSL mount-source
+  construction recognizes an absolute Windows drive path before asking the
+  current host to resolve it; a Linux test host therefore cannot accidentally
+  prefix its own working directory to `D:\...`.
 - `exec` returns the `CommandResult` as **data** - a failing gate command is
   a conductor signal, not an isolation failure. Only runtime-level failures
   (daemon down, image missing) raise `IsolationError`.
@@ -229,7 +234,8 @@ result = containers.exec("adore-run-gitlab-x-14", ["opencode", "--version"])
   container env contract, provision when absent (mounts, workdir, bare
   `--env KEY`, secret value absent from argv but present in process env),
   provision idempotency, absent-vs-error status, idempotent-but-fail-closed
-  stop/remove, volume creation, and exec-returns-data.
+  stop/remove, volume creation, and exec-returns-data; Windows drive-path
+  translation and wrapped-runtime mount construction on both host OSes.
 - `tests/test_orchestrator.py` covers the delivery integration case where
   conductor-owned gate/report commands generate final workflow artifacts and
   ADORE commits them before push.

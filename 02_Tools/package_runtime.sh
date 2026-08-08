@@ -173,16 +173,8 @@ EOF
 make_zip() {
     local bundle_dir="$1"
     local archive="$2"
-    "${PYTHON_CMD[@]}" - "${bundle_dir}" "${archive}" <<'PY'
-from pathlib import Path
-import sys
-import zipfile
-bundle = Path(sys.argv[1]).resolve()
-archive = Path(sys.argv[2]).resolve()
-with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-    for path in sorted(bundle.rglob("*")):
-        zf.write(path, path.relative_to(bundle.parent))
-PY
+    "${PYTHON_CMD[@]}" "${SCRIPT_DIR}/create_portable_zip.py" \
+        "${bundle_dir}" "${archive}"
 }
 
 # ARGUMENTS

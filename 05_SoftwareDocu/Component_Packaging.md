@@ -9,6 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Packaging (`02_Tools/package_runtime.*`)
 
 > Sources: `02_Tools/check_release_consistency.py`,
+> `02_Tools/create_portable_zip.py`,
 > `02_Tools/package_runtime.ps1`, `02_Tools/package_runtime.cmd`, and
 > `02_Tools/package_runtime.sh`.
 
@@ -37,7 +38,7 @@ publishing are not owned by this component.
 
 ## 3. Implementation Overview
 
-The PowerShell and Bash scripts independently implement the same bundle shape:
+The PowerShell and Bash scripts stage the same bundle shape:
 
 ```text
 adore-runtime-<version>/
@@ -56,13 +57,16 @@ adore-runtime-<version>/
 
 `package_runtime.cmd` is a thin wrapper that delegates to the PowerShell script.
 Both real packagers stage into `<output>/.packaging_tmp`, archive or move the
-bundle, and then remove the temporary staging directory.
+bundle, and then remove the temporary staging directory. Both ZIP paths call
+`create_portable_zip.py`, which writes member names with `/` regardless of the
+host OS, rejects links and special entries, refuses an output inside the source
+bundle, and atomically replaces the destination only after a complete archive.
 
 ## 4. Dependencies
 
 - Internal: `04_Software/` runtime files, root `CHANGELOG.md`.
-- External: PowerShell with `Compress-Archive` for `.zip`; Bash plus Python 3
-  for version parsing and `.zip` creation; `tar` for `.tar.gz`.
+- External: PowerShell or Bash plus Python 3 for version parsing and portable
+  `.zip` creation; `tar` for `.tar.gz`.
 
 ## 5. Inputs And Outputs
 
@@ -125,6 +129,9 @@ Minimum validation after changes:
 - Run `check_release_consistency.py --require-artifacts`; it validates both
   artifact names and their layout, exclusions, embedded package/lock metadata,
   documentation entry points, credential guidance, and legacy identity scan.
+- `tests/test_release_consistency.py` invokes the public portable-ZIP command
+  on a nested bundle, verifies forward-slash names and Linux extraction, and
+  verifies a missing source fails closed without creating an artifact.
 
 ## 10. Limitations And Future Work
 

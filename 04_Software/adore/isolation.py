@@ -153,7 +153,10 @@ def wsl_mount_path(path: str | Path) -> str:
     @param[in]  path Host path.
     @return     The mount source usable by a WSL-side docker daemon.
     """
-    posix = Path(path).as_posix()
+    # Path.as_posix() follows the current host's path flavour. On Linux a
+    # Windows-looking string remains full of backslashes, so normalize the
+    # external path syntax explicitly before matching its drive letter.
+    posix = os.fspath(path).replace("\\", "/")
     match = _DRIVE_RE.match(posix)
     if not match:
         return posix
@@ -1046,6 +1049,9 @@ class ContainerManager:
         @return     WSL-translated (/mnt/<drive>/...) in WSL mode, POSIX-style
                     otherwise.
         """
+        raw = os.fspath(path)
+        if self.wsl_mode and _DRIVE_RE.match(raw.replace("\\", "/")):
+            return wsl_mount_path(raw)
         absolute = Path(path).resolve()
         return wsl_mount_path(absolute) if self.wsl_mode else absolute.as_posix()
 
