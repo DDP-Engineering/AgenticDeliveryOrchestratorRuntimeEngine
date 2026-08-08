@@ -23,7 +23,8 @@ optional self-contained static HTML file.
 
 - `summarize_run(store, run_id, files_changed)` - compute one flat
   `RunSummary` from the run's journal (the append-only truth), state, and
-  ticket snapshot: outcome, priority, span / parked-wait / time-to-MR
+  ticket snapshot: outcome, final AEGIS governance outcome (`ok`, `waived`,
+  or `failed`), priority, span / parked-wait / time-to-MR
   seconds, gate passes/failures, invariant failures, executor launches,
   clarification/review rounds, token totals and cost (from journal `usage`
   events), files changed, MR URL.
@@ -74,6 +75,10 @@ transitions), token extraction (executor launcher), resource probing
 
 - One SQLite row per run (`run_summaries`, PK run_id), columns = the
   `RunSummary` fields; the JSONL mirror always equals the table.
+- `_connect` adds newly introduced summary columns with neutral defaults, so
+  an existing metrics database gains `governance_outcome` without being
+  discarded. The value comes from the final `verify-run-result` journal event;
+  `waived` therefore remains observable after an MR is eventually merged.
 - Journal `usage` event shape: `{event: "usage", context: <gate|phase>,
   tokens_in, tokens_out, cost_usd}`.
 
@@ -87,7 +92,8 @@ terminal runs in the store (used once to backfill the pilot run).
 ## 9. Validation And Tests
 
 - `tests/test_metrics.py`: full catalog computation from a crafted journal,
-  duplicate-free SQLite round-trip + mirror, since-window filtering
+  including a final waived governance outcome; duplicate-free SQLite
+  round-trip + mirror; in-place legacy table extension; since-window filtering
   (unparseable timestamps excluded), grouped aggregation, CSV/HTML outputs
   (escaping, no scripts), terminal classification.
 - `tests/test_executor.py`: usage extraction (summed, malformed-tolerant).

@@ -135,13 +135,16 @@ human action. The real human approval stays at the draft MR review.
   authoritative post-merge `aegis verify run` (which in 3.x already includes
   the gate run plus the invariant, traceability, coverage and working-tree
   audits, so it replaces both 1.x steps; fix loop bounded by budgets),
-  compose the MR body from `aegis delivery report`, commit any
+  validate the durable summary against that response, compose the MR body
+  from a required validated `aegis delivery report`, commit any
   AEGIS-generated run records, push the run
   branch (the only remote-writing git call; the executor cannot push), open
   the DRAFT MR (reviewers assigned, "Related to #N", never a merge flag),
   post the kind=delivery comment, and retain the environment (container
   stopped, worktree kept) for review. An already-open MR for the branch is
-  adopted, never duplicated.
+  adopted, never duplicated. The journal, ticket comment, and MR body preserve
+  the exact `ok|waived|failed` verification vocabulary and name waived,
+  not-enforced, and not-applicable results; none is rewritten as passed.
 - **Post-MR outcomes** (design 11b): each poll checks in-review runs by MR
   iid - merged -> `done` + full teardown (state kept for audit); closed
   without merge -> `failed` + teardown. An MR that reads back as **deleted**
@@ -248,23 +251,34 @@ interface) and metrics.
   created/started/running, and a "created" container resets the stored
   session id (journal: `session-reset`) - a fresh container can never be
   asked to continue a dead session (live finding 2026-07-04).
+- `_read_aegis_artifact` is the single direct-file trust boundary: only strict
+  UTF-8 regular files under the worktree, addressed by contained
+  repository-relative POSIX paths and bounded to 4 MiB, may enter ADORE.
+  `graph.json` is validated as the closed schema-3 shape with the pinned run,
+  documented optional omissions, profile/red-green policy, human waivers, and
+  terminal outcome. `validation-summary.json` validates the pinned run and
+  exact top-level/gate vocabularies, rejects `nothing-ran` success, and is
+  cross-checked against the verify response plus active executed evidence.
+  A successful `delivery report` must name the exact existing report for the
+  pinned run, whose heading identifies that run. Any violation raises
+  `AegisArtifactError` and escalates; no empty-string fallback exists.
 - Stage failures, not-ready stages, and failed verifications relaunch the
   same stage with the reason plus read-only AEGIS failure evidence as added
   prompt context; the iterations budget ends the loop. Evidence sources, in
   order and each bounded (5000 characters, 5 items): the blocked/failed
   response itself (`error`, `remediation`, stage `blockers[]`, the exact
   `next` command), `validation-summary.json` (failing gate groups, invariants
-  that do not hold, traceability/coverage/working-tree findings - disabled and
-  waived gates are reported as such, never as passed), the schema-3
+  that do not hold, traceability/coverage/working-tree findings - waived and
+  not-enforced gates are reported as such, never as passed), the schema-3
   `graph.json` `evidence[]` rows (`id`, `kind`, `stage`, `summary`, `command`,
   `failure_kind`), and the `report.md` excerpts. All of it lives under
   `.agentic/runs/<aegis-run-id>/`, addressed by the run id ADORE persisted and
   never by the worktree's `current_run` pointer (design decision 4). Reading
   invokes no extra AEGIS command and changes no pass/fail decision. Journal
   scraping is gone: the AEGIS 1.x `gate.output` event no longer exists, and the
-  envelope plus the validation summary cover the need. A started run whose
-  `graph.json` is missing is a broken record and escalates rather than
-  yielding an empty evidence block.
+  envelope plus the validation summary cover the need. Malformed persisted
+  evidence is a conductor trust-boundary failure and escalates rather than
+  being described to the executor or yielding an empty evidence block.
 - The post-merge `aegis verify run` fix prompts use the same evidence
   enrichment, while merge-conflict prompts remain based on git merge output.
   Configured executor secret values are redacted from all appended failure
@@ -356,7 +370,7 @@ adore logs <run-id>
 
 ## 9. Validation And Tests
 
-- `tests/test_orchestrator.py` (107 tests; all collaborators faked, real
+- `tests/test_orchestrator.py` (118 tests; all collaborators faked, real
   store/config). A scripted `FakeAegis` answers the grouped CLI with
   conforming envelopes and advances its own stage pointer on `stage close`,
   so the loop is exercised as it would be against a live payload.
@@ -390,9 +404,13 @@ adore logs <run-id>
   override; round-cap escalation; TTL reap vs run survival; answer timeout
   release; pause/capacity; deleted/closed reconciliation; cancel/retry round
   trip; `reset` touching no AEGIS state; labels-channel transitions;
-  publication ordering including artifact commit-before-push; a report path
-  outside the worktree ignored; archive-stem passing and executor-artifact
-  journal entries.
+  publication ordering including artifact commit-before-push; valid
+  full/quick/historical-quick graphs; malformed/wrong-run/unknown-outcome
+  graphs; strict validation-summary and every gate status; nothing-ran and
+  executed red/green evidence under exit zero; truthful waived journal,
+  ticket, MR, and metrics surfaces; missing/escaping reports blocking
+  publication; warning/advisory propagation; abandoned no-publication;
+  archive-stem passing and executor-artifact journal entries.
 - Minimum validation after a change: `python -m pytest -q` from
   `04_Software`.
 - Live pilot pending (plan WP8): one supervised ticket end to end against a

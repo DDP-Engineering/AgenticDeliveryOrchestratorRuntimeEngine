@@ -41,7 +41,7 @@ from dataclasses import asdict, dataclass
 from functools import partial
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import random
 import re
 import shutil
@@ -53,6 +53,7 @@ from adore.aegis import (
     INTEGRITY_CODES,
     QUICK_KINDS,
     RUN_RESOLUTION_CODES,
+    AegisArtifactError,
     AegisClient,
     AegisContext,
     AegisError,
@@ -112,6 +113,16 @@ _AEGIS_RUN_DIR = ".agentic/runs"
 _AGENTIC_FAILURE_CONTEXT_LIMIT = 5000
 _AGENTIC_FAILURE_ITEMS_LIMIT = 5
 _AGENTIC_ORIENTATION_LIMIT = 3000
+_AEGIS_ARTIFACT_LIMIT_BYTES = 4 * 1024 * 1024
+
+_GRAPH_REQUIRED_KEYS = {
+    "run_id", "stage", "intent", "schema_version", "access_mode",
+    "complete", "alignment", "design", "spec_items", "checks", "evidence",
+    "change_units", "decisions", "stage_records",
+}
+_GRAPH_OPTIONAL_KEYS = {"profile", "red_green_policy", "waivers", "outcome"}
+_GATE_STATUSES = {"passed", "failed", "waived", "not-enforced", "not-run"}
+_VERIFICATION_STATUSES = {"ok", "waived", "failed"}
 
 # classify_block outcomes.
 BLOCK_PARK = "park"
@@ -794,6 +805,18 @@ class Orchestrator:
                 lock_retries += 1
                 continue
             terminal_outcome = status.terminal_outcome
+            if terminal_outcome is not None:
+                graph = self._load_aegis_graph(run)
+                assert graph is not None
+                graph_outcome = (
+                    "abandoned" if graph.get("outcome") == "abandoned" else "normal"
+                )
+                if graph["complete"] is not True or graph_outcome != terminal_outcome:
+                    raise AegisArtifactError(
+                        "AEGIS terminal status disagrees with graph.json "
+                        f"(status={terminal_outcome!r}, graph={graph_outcome!r}, "
+                        f"complete={graph['complete']!r})"
+                    )
             if terminal_outcome == "normal":
                 self.store.journal(run.run_id, "aegis-run-complete",
                                    aegis_run=client.run_id)
@@ -1336,7 +1359,18 @@ class Orchestrator:
             )
         if stage in ("validation", "delivery"):
             verified = client.verify_run()
-            if not verified.ok:
+            if verified.blocked:
+                self.store.journal(run.run_id, "verify-failed", stage=stage,
+                                   exit_code=verified.exit_code)
+                return (
+                    f"`aegis verify run` was blocked at the {stage} stage "
+                    f"(exit {verified.exit_code}). Fix every blocking finding "
+                    "and re-run it until it passes.",
+                    verified,
+                )
+            summary = self._validated_verification(run, verified)
+            verdict = summary["status"]
+            if verdict == "failed":
                 self.store.journal(run.run_id, "verify-failed", stage=stage,
                                    exit_code=verified.exit_code)
                 return (
@@ -1345,13 +1379,57 @@ class Orchestrator:
                     "and re-run it until it passes.",
                     verified,
                 )
-            self.store.journal(run.run_id, "verify-passed", stage=stage)
+            facts = self._verification_facts(summary)
+            self.store.journal(
+                run.run_id,
+                "verify-result",
+                stage=stage,
+                status=verdict,
+                **facts,
+            )
+            self.log(
+                f"{run.run_id}: AEGIS verification at {stage}: {verdict}"
+            )
         if stage == "validation":
             committed = self._work_committed(run)
             if committed:
                 self.store.journal(run.run_id, "work-uncommitted")
                 return committed, None
         return "", None
+
+    @staticmethod
+    def _verification_facts(summary: dict) -> dict[str, list[str]]:
+        """
+        @brief      Extract truthful non-pass governance outcomes for surfaces.
+        @return     Stable waived, not-enforced, and not-applicable labels.
+        """
+        waived = [
+            f"gate:{name}" for name, item in summary["gates"].items()
+            if item["status"] == "waived"
+        ]
+        not_enforced = [
+            name for name, item in summary["gates"].items()
+            if item["status"] == "not-enforced"
+        ]
+        not_applicable = [
+            f"invariant:{item['id']}" for item in summary["invariants"]
+            if item.get("status") == "not-applicable"
+        ]
+        for name in ("traceability", "coverage"):
+            if any(
+                item.get("status") == "not-applicable"
+                for item in summary[name]
+            ):
+                not_applicable.append(name)
+        waived.extend(
+            f"invariant:{item['id']}" for item in summary["invariants"]
+            if item.get("waived") is True
+        )
+        return {
+            "waived": sorted(waived),
+            "not_enforced": sorted(not_enforced),
+            "not_applicable": sorted(not_applicable),
+        }
 
     def _handle_block(
         self,
@@ -1481,8 +1559,9 @@ class Orchestrator:
         run_dir = self._aegis_run_dir(run)
         if run_dir is None or not stage or stage == "none":
             return None
-        graph = self._load_aegis_graph(run_dir / "graph.json")
-        records = graph.get("stage_records") if isinstance(graph, dict) else None
+        graph = self._load_aegis_graph(run)
+        assert graph is not None
+        records = graph["stage_records"]
         record = records.get(stage) if isinstance(records, dict) else None
         return record if isinstance(record, dict) else None
 
@@ -1587,7 +1666,15 @@ class Orchestrator:
             with contextlib.suppress(ForgeError):
                 existing = self.forge.get_merge_request(run.mr_iid or run.branch)
                 if existing and existing.state == "opened":
-                    self._enter_review(run, existing)
+                    existing_summary = self._load_validation_summary(
+                        run, required=False
+                    )
+                    self._enter_review(
+                        run,
+                        existing,
+                        self._governance_note(existing_summary)
+                        if existing_summary else "",
+                    )
                     return
         # 2. integrate the target branch (conflicts -> executor resolves)
         while True:
@@ -1612,9 +1699,22 @@ class Orchestrator:
         # coverage and working-tree audits, so it replaces both 1.x steps.
         while True:
             verified = client.verify_run()
-            if verified.ok:
-                self.store.journal(run.run_id, "verify-run-passed")
-                break
+            verification_summary = None
+            if not verified.blocked:
+                verification_summary = self._validated_verification(run, verified)
+                if verification_summary["status"] in {"ok", "waived"}:
+                    facts = self._verification_facts(verification_summary)
+                    self.store.journal(
+                        run.run_id,
+                        "verify-run-result",
+                        status=verification_summary["status"],
+                        **facts,
+                    )
+                    self.log(
+                        f"{run.run_id}: post-merge AEGIS verification: "
+                        f"{verification_summary['status']}"
+                    )
+                    break
             context = self._failure_context(
                 run,
                 f"`aegis verify run` failed (exit {verified.exit_code}) after "
@@ -1626,9 +1726,10 @@ class Orchestrator:
                 return
         # Compose the MR body before pushing: the report command generates
         # `.agentic` artifacts that must be committed with the delivered branch.
+        assert verification_summary is not None
         title = f"Resolve #{ticket.iid}: {ticket.title}"
         body = "" if revise and run.mr_iid else self._mr_description(
-            run, ticket, client
+            run, ticket, client, verification_summary
         )
         try:
             if self.worktrees.commit_all_if_dirty(
@@ -1648,7 +1749,9 @@ class Orchestrator:
             # the same branch backs the MR: the push updated it in place and
             # it stays a draft; just re-enter review with an update comment
             self.store.journal(run.run_id, "mr-updated", mr=run.mr_url)
-            self._enter_review(run, None)
+            self._enter_review(
+                run, None, self._governance_note(verification_summary)
+            )
             return
         # 6. open the DRAFT MR - never a merge flag, never merge
         try:
@@ -1669,7 +1772,9 @@ class Orchestrator:
         run.mr_iid = self._parse_mr_iid(url)
         self.store.save(run)
         self.store.journal(run.run_id, "mr-opened", url=url)
-        self._enter_review(run, None)
+        self._enter_review(
+            run, None, self._governance_note(verification_summary)
+        )
 
     def _delivery_fix(
         self,
@@ -1717,7 +1822,12 @@ class Orchestrator:
             return False
         return True
 
-    def _enter_review(self, run: RunState, adopted: MergeRequest | None) -> None:
+    def _enter_review(
+        self,
+        run: RunState,
+        adopted: MergeRequest | None,
+        governance_note: str = "",
+    ) -> None:
         """
         @brief      Hand off to human review, keeping the environment alive.
         @details    Design 11a step 8: container stopped (not removed),
@@ -1726,6 +1836,7 @@ class Orchestrator:
                     carries the MR link.
         @param[in]  run The run.
         @param[in]  adopted An already-open MR when adopting, else None.
+        @param[in]  governance_note Truthful verification outcome summary.
         """
         if adopted is not None:
             run.mr_iid = adopted.iid
@@ -1733,9 +1844,11 @@ class Orchestrator:
         run.lifecycle = "in-review"
         self.store.save(run)
         self._mark(run, "review", "delivery")
+        note_line = f"Governance: {governance_note}\n" if governance_note else ""
         with contextlib.suppress(ForgeError):
             self.forge.post_comment(run.ticket_iid, (
                 f"{self.identity.tag} Draft MR ready for review: {run.mr_url}\n"
+                f"{note_line}"
                 "Review and merge stay human decisions; this MR was opened as "
                 "a draft and will never be merged by the agent.\n"
                 f"{self.identity.make_marker(run.run_id, 'delivery')}"
@@ -1880,8 +1993,13 @@ class Orchestrator:
         # recreated (run.mr_iid is set), and stays a draft
         self._deliver(run, ticket, thread, revise=True)
 
-    def _mr_description(self, run: RunState, ticket: Ticket,
-                        client: AegisClient) -> str:
+    def _mr_description(
+        self,
+        run: RunState,
+        ticket: Ticket,
+        client: AegisClient,
+        verification_summary: dict,
+    ) -> str:
         """
         @brief      Compose the draft MR description (design 11).
         @details    "Related to #N", never an auto-close keyword - closure is
@@ -1891,43 +2009,170 @@ class Orchestrator:
         @param[in]  run The run.
         @param[in]  ticket Current ticket.
         @param[in]  client The run's AEGIS client.
+        @param[in]  verification_summary Validated post-merge AEGIS result.
         @return     The MR body.
         @exception  AegisError When the CLI contract is violated.
         """
         report = client.delivery_report()
+        if not report.ok:
+            raise AegisProtocolError(
+                f"AEGIS `delivery report` reported {report.status}: "
+                f"{report.error or 'no detail'}"
+            )
+        expected = f"{_AEGIS_RUN_DIR}/{client.run_id}/report.md"
+        if report.detail("report") != expected or report.artifact != expected:
+            raise AegisArtifactError(
+                "AEGIS delivery report response did not name the pinned "
+                f"run's report.md ({expected})"
+            )
+        body = self._read_aegis_artifact(
+            run, expected, label="report.md", required=True
+        )
+        heading = f"# AEGIS Report: {client.run_id}"
+        if not body.strip() or body.splitlines()[0].strip() != heading:
+            raise AegisArtifactError(
+                "AEGIS report.md is empty or does not identify the pinned run"
+            )
+        note = self._governance_note(verification_summary)
         parts = [
             f"Related to #{ticket.iid}: {ticket.title}",
             f"Produced by {self.identity.name} (run `{run.run_id}`, AEGIS run "
-            f"`{client.run_id}`); every AEGIS stage passed its approval and "
-            "`aegis verify run` passed after integrating "
-            f"`{run.base_ref}`. Opened as a DRAFT - review and merge are human "
-            "decisions.",
+            f"`{client.run_id}`). After integrating `{run.base_ref}`, "
+            f"`aegis verify run` reported `{verification_summary['status']}`. "
+            f"{note} Opened as a DRAFT - review and merge are human decisions.",
         ]
-        body = self._read_aegis_artifact(run, report.detail("report"))
-        if body.strip():
-            parts.append("### AEGIS delivery report\n```\n"
-                         + self._tail_lines(body, 2500) + "\n```")
+        parts.append("### AEGIS delivery report\n```\n"
+                     + self._tail_lines(body, 2500) + "\n```")
         parts.append(self.identity.make_marker(run.run_id, "delivery"))
         return self._redact_failure_context("\n\n".join(parts))
 
-    def _read_aegis_artifact(self, run: RunState, relative: object) -> str:
+    def _governance_note(self, summary: dict | None) -> str:
         """
-        @brief      Read a repository-relative artifact AEGIS just wrote.
-        @details    AEGIS returns repository-relative POSIX paths. Only paths
-                    that stay inside the run's worktree are read, so a
-                    surprising value can never pull an unrelated host file into
-                    a merge request body or a prompt.
+        @brief      Render accepted governance truth for tickets and MRs.
+        @return     One sentence naming waived, not-enforced, and N/A results.
+        """
+        if summary is None:
+            return ""
+        facts = self._verification_facts(summary)
+        parts = [f"Verification outcome: `{summary['status']}`."]
+        if facts["waived"]:
+            parts.append(
+                "Explicit human waivers accepted failed results: "
+                + ", ".join(f"`{item}`" for item in facts["waived"])
+                + ". These are not passes."
+            )
+        if facts["not_enforced"]:
+            parts.append(
+                "Gate groups not enforced: "
+                + ", ".join(f"`{item}`" for item in facts["not_enforced"])
+                + "."
+            )
+        if facts["not_applicable"]:
+            parts.append(
+                "Not applicable: "
+                + ", ".join(f"`{item}`" for item in facts["not_applicable"])
+                + "."
+            )
+        return " ".join(parts)
+
+    def _read_aegis_artifact(
+        self,
+        run: RunState,
+        relative: object,
+        *,
+        label: str,
+        required: bool = True,
+    ) -> str:
+        """
+        @brief      The single typed boundary for direct AEGIS file reads.
+        @details    AEGIS returns repository-relative POSIX paths. The value,
+                    containment, regular-file existence, size, and strict UTF-8
+                    encoding are validated before data crosses into ADORE.
+                    Optional means only that a valid contained path may be
+                    absent; malformed paths and unreadable files still fail.
         @param[in]  run The run whose worktree holds the artifact.
         @param[in]  relative The `artifact`/`report` value from an envelope.
-        @return     The file content, or "" when the value is unusable.
+        @param[in]  label Operator-facing artifact name for errors.
+        @param[in]  required Whether absence is a contract failure.
+        @return     Strict UTF-8 content, or "" for an absent optional file.
+        @exception  AegisArtifactError On an invalid path or file boundary.
         """
-        if not isinstance(relative, str) or not relative or relative == "none":
-            return ""
+        if (
+            not isinstance(relative, str)
+            or not relative
+            or relative == "none"
+            or "\\" in relative
+        ):
+            raise AegisArtifactError(
+                f"AEGIS {label} path must be a non-empty repository-relative "
+                "POSIX path"
+            )
+        posix = PurePosixPath(relative)
+        if posix.is_absolute() or any(part in ("", ".", "..") for part in posix.parts):
+            raise AegisArtifactError(
+                f"AEGIS {label} path escapes its repository contract: {relative!r}"
+            )
         worktree = self.worktrees.path_for(run.run_id).resolve()
-        candidate = (worktree / relative).resolve()
-        if not candidate.is_relative_to(worktree) or not candidate.is_file():
+        try:
+            candidate = (worktree / Path(*posix.parts)).resolve()
+        except OSError as exc:
+            raise AegisArtifactError(
+                f"cannot resolve AEGIS {label} path {relative!r}: {exc}"
+            ) from exc
+        if not candidate.is_relative_to(worktree):
+            raise AegisArtifactError(
+                f"AEGIS {label} path escapes the worktree: {relative!r}"
+            )
+        if not candidate.exists():
+            if required:
+                raise AegisArtifactError(
+                    f"AEGIS {label} is missing: {relative}"
+                )
             return ""
-        return self._read_text(candidate)
+        if not candidate.is_file():
+            raise AegisArtifactError(
+                f"AEGIS {label} is not a regular file: {relative}"
+            )
+        try:
+            size = candidate.stat().st_size
+            if size > _AEGIS_ARTIFACT_LIMIT_BYTES:
+                raise AegisArtifactError(
+                    f"AEGIS {label} exceeds {_AEGIS_ARTIFACT_LIMIT_BYTES} bytes: "
+                    f"{relative}"
+                )
+            return candidate.read_text(encoding="utf-8", errors="strict")
+        except (OSError, UnicodeError) as exc:
+            raise AegisArtifactError(
+                f"cannot read AEGIS {label} {relative}: {exc}"
+            ) from exc
+
+    def _read_aegis_json(
+        self,
+        run: RunState,
+        relative: str,
+        *,
+        label: str,
+        required: bool = True,
+    ) -> dict | None:
+        """
+        @brief      Read one AEGIS JSON object through the typed file boundary.
+        @return     Decoded mapping, or None for an absent optional file.
+        @exception  AegisArtifactError On file, JSON, or root-shape failure.
+        """
+        text = self._read_aegis_artifact(
+            run, relative, label=label, required=required
+        )
+        if not text and not required:
+            return None
+        try:
+            value = json.loads(text)
+        except json.JSONDecodeError as exc:
+            raise AegisArtifactError(
+                f"AEGIS {label} contains malformed JSON: {exc}"
+            ) from exc
+        if not isinstance(value, dict):
+            raise AegisArtifactError(f"AEGIS {label} root must be an object")
+        return value
 
     def _workflow_orientation(self, client: AegisClient) -> str:
         """
@@ -2010,9 +2255,8 @@ class Orchestrator:
         @param[in]  base The original exit-code/stderr failure summary.
         @param[in]  response The blocked/failed response, when one caused this.
         @return     Bounded prompt context for the executor retry.
-        @exception  AegisProtocolError When the run exists but its graph does
-                    not - a started run always has one, so its absence is a
-                    broken record, not an empty one.
+        @exception  AegisArtifactError When a persisted artifact is missing,
+                    malformed, or disagrees with the pinned run.
         """
         parts = [base.strip()]
         if response is not None:
@@ -2081,34 +2325,26 @@ class Orchestrator:
         @param[in]  run The ADORE run.
         @param[in]  stage The stage just applied.
         @return     A rendered question block, or "" when there are none.
+        @exception  AegisArtifactError When graph question state is invalid.
         """
         run_dir = self._aegis_run_dir(run)
         if run_dir is None:
             raise AegisProtocolError(
                 "cannot read AEGIS question state without a pinned run"
             )
-        graph = self._load_aegis_graph(run_dir / "graph.json")
-        if not isinstance(graph, dict):
-            raise AegisProtocolError(
-                "AEGIS graph.json is missing or malformed while reading questions"
-            )
-        if graph.get("schema_version") != 3 or graph.get("run_id") != run.aegis_run_id:
-            raise AegisProtocolError(
-                "AEGIS question graph disagrees with schema 3 or the pinned run"
-            )
-        records = graph.get("stage_records")
-        if not isinstance(records, dict):
-            raise AegisProtocolError("AEGIS graph stage_records must be an object")
+        graph = self._load_aegis_graph(run)
+        assert graph is not None
+        records = graph["stage_records"]
         record = records.get(stage)
         if not isinstance(record, dict):
-            raise AegisProtocolError(
+            raise AegisArtifactError(
                 f"AEGIS graph has no valid stage record for {stage!r}"
             )
         raw_questions = record.get("unresolved_questions")
         if not isinstance(raw_questions, list) or not all(
             isinstance(item, str) for item in raw_questions
         ):
-            raise AegisProtocolError(
+            raise AegisArtifactError(
                 "AEGIS unresolved_questions must be a string list"
             )
         questions = [item.strip() for item in raw_questions if item.strip()]
@@ -2121,19 +2357,483 @@ class Orchestrator:
             f"stage form:\n\n{listed}"
         )
 
-    def _load_aegis_graph(self, path: Path) -> dict | None:
+    def _load_aegis_graph(
+        self, run: RunState, *, required: bool = True
+    ) -> dict | None:
         """
-        @brief      Load the AEGIS run graph, or None when it is unusable.
-        @param[in]  path Path to `graph.json`.
-        @return     The decoded graph mapping, or None.
+        @brief      Load and validate the pinned schema-3 AEGIS run graph.
+        @param[in]  run ADORE run naming the only acceptable graph run id.
+        @param[in]  required Whether an absent graph is an error.
+        @return     Validated graph mapping, or None when optional and absent.
+        @exception  AegisArtifactError On file, schema, run, or shape failure.
         """
-        if not path.is_file():
+        if not run.aegis_run_id:
+            if required:
+                raise AegisArtifactError(
+                    "cannot read graph.json without a pinned AEGIS run"
+                )
             return None
-        try:
-            graph = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
+        relative = f"{_AEGIS_RUN_DIR}/{run.aegis_run_id}/graph.json"
+        graph = self._read_aegis_json(
+            run, relative, label="graph.json", required=required
+        )
+        if graph is None:
             return None
-        return graph if isinstance(graph, dict) else None
+        self._validate_aegis_graph(run, graph)
+        return graph
+
+    @staticmethod
+    def _validate_aegis_graph(run: RunState, graph: dict) -> None:
+        """
+        @brief      Enforce AEGIS's closed schema-3 graph boundary.
+        @details    The documented omissions are accepted: `profile` for full,
+                    `waivers` when empty, `outcome` for normal completion, and
+                    historical quick `red_green_policy` (interpreted only as
+                    `legacy-not-applicable`). Container and discriminator
+                    values used by ADORE are otherwise validated fail-closed.
+        @exception  AegisArtifactError On any unsupported graph shape.
+        """
+        keys = set(graph)
+        missing = sorted(_GRAPH_REQUIRED_KEYS - keys)
+        unknown = sorted(keys - _GRAPH_REQUIRED_KEYS - _GRAPH_OPTIONAL_KEYS)
+        if missing or unknown:
+            raise AegisArtifactError(
+                "AEGIS graph.json has an invalid closed schema-3 shape; "
+                f"missing={missing}, unknown={unknown}"
+            )
+        if type(graph["schema_version"]) is not int or graph["schema_version"] != 3:
+            raise AegisArtifactError("AEGIS graph.json requires schema_version 3")
+        if graph["run_id"] != run.aegis_run_id:
+            raise AegisArtifactError(
+                f"AEGIS graph run id {graph['run_id']!r} disagrees with pinned "
+                f"run {run.aegis_run_id!r}"
+            )
+        stage = graph["stage"]
+        if not isinstance(stage, str) or stage not in STANDARD_STAGES:
+            raise AegisArtifactError(
+                f"AEGIS graph has unsupported stage {stage!r}"
+            )
+        if graph["access_mode"] not in {"standard", "repo-wide"}:
+            raise AegisArtifactError("AEGIS graph has invalid access_mode")
+        if not isinstance(graph["complete"], bool):
+            raise AegisArtifactError("AEGIS graph complete must be boolean")
+        profile = graph.get("profile", "full")
+        if profile not in {"full", "quick"}:
+            raise AegisArtifactError("AEGIS graph profile must be full or quick")
+        red_green = graph.get(
+            "red_green_policy",
+            "legacy-not-applicable" if profile == "quick" else "required",
+        )
+        if red_green not in {"required", "legacy-not-applicable"}:
+            raise AegisArtifactError("AEGIS graph has invalid red_green_policy")
+        if profile == "full" and red_green != "required":
+            raise AegisArtifactError(
+                "AEGIS full graph requires red_green_policy required"
+            )
+        outcome = graph.get("outcome", "")
+        if outcome not in {"", "abandoned"}:
+            raise AegisArtifactError(
+                f"AEGIS graph has unknown terminal outcome {outcome!r}"
+            )
+        if outcome and graph["complete"] is not True:
+            raise AegisArtifactError(
+                "AEGIS graph reports an outcome before completion"
+            )
+        intent = graph["intent"]
+        if not isinstance(intent, dict) or intent.get("kind") not in {
+            "feature", "fix", "change"
+        }:
+            raise AegisArtifactError("AEGIS graph intent must name a development kind")
+        if not isinstance(intent.get("id"), str) or not isinstance(
+            intent.get("statement"), str
+        ):
+            raise AegisArtifactError("AEGIS graph intent has invalid identity/content")
+        if graph["alignment"] is not None and not isinstance(graph["alignment"], dict):
+            raise AegisArtifactError("AEGIS graph alignment must be object or null")
+        if graph["design"] is not None and not isinstance(graph["design"], dict):
+            raise AegisArtifactError("AEGIS graph design must be object or null")
+        for name in (
+            "spec_items", "checks", "evidence", "change_units", "decisions"
+        ):
+            value = graph[name]
+            if not isinstance(value, list) or not all(
+                isinstance(item, dict) for item in value
+            ):
+                raise AegisArtifactError(
+                    f"AEGIS graph {name} must be a list of objects"
+                )
+        for index, check in enumerate(graph["checks"]):
+            if (
+                not isinstance(check.get("id"), str)
+                or check.get("state") not in {"red", "green", "unknown"}
+                or any(
+                    value is not None and not isinstance(value, str)
+                    for value in (
+                        check.get("red_evidence"), check.get("green_evidence")
+                    )
+                )
+            ):
+                raise AegisArtifactError(
+                    f"AEGIS graph checks[{index}] has invalid evidence state"
+                )
+        for index, evidence in enumerate(graph["evidence"]):
+            if (
+                not isinstance(evidence.get("id"), str)
+                or evidence.get("kind") not in {
+                    "test-run", "diff", "scan", "gate", "decision", "note"
+                }
+                or evidence.get("result") not in {"pass", "fail", "info"}
+                or evidence.get("status") not in {"active", "superseded"}
+                or not isinstance(evidence.get("summary"), str)
+            ):
+                raise AegisArtifactError(
+                    f"AEGIS graph evidence[{index}] has invalid result shape"
+                )
+        records = graph["stage_records"]
+        if not isinstance(records, dict):
+            raise AegisArtifactError("AEGIS graph stage_records must be an object")
+        for name, record in records.items():
+            questions = record.get("unresolved_questions") if isinstance(
+                record, dict
+            ) else None
+            if not isinstance(questions, list) or not all(
+                isinstance(item, str) for item in questions
+            ):
+                raise AegisArtifactError(
+                    "AEGIS unresolved_questions must be a string list"
+                )
+            if (
+                name not in STANDARD_STAGES
+                or not isinstance(record, dict)
+                or record.get("stage") != name
+                or record.get("status") not in {"prepared", "applied", "closed"}
+            ):
+                raise AegisArtifactError(
+                    f"AEGIS graph stage_records[{name!r}] has invalid shape"
+                )
+        waivers = graph.get("waivers", [])
+        if not isinstance(waivers, list):
+            raise AegisArtifactError("AEGIS graph waivers must be a list")
+        for index, waiver in enumerate(waivers):
+            if (
+                not isinstance(waiver, dict)
+                or waiver.get("approver") != "human"
+                or not isinstance(waiver.get("id"), str)
+                or not isinstance(waiver.get("blocker_id"), str)
+                or not isinstance(waiver.get("reason"), str)
+                or not isinstance(waiver.get("state_digests"), dict)
+            ):
+                raise AegisArtifactError(
+                    f"AEGIS graph waivers[{index}] has invalid human approval"
+                )
+
+    def _load_validation_summary(
+        self, run: RunState, *, required: bool = True
+    ) -> dict | None:
+        """
+        @brief      Load the pinned schema-3 validation summary fail-closed.
+        @return     Validated summary, or None when optional and absent.
+        @exception  AegisArtifactError On file, schema, run, or truth failure.
+        """
+        if not run.aegis_run_id:
+            if required:
+                raise AegisArtifactError(
+                    "cannot read validation-summary.json without a pinned run"
+                )
+            return None
+        relative = (
+            f"{_AEGIS_RUN_DIR}/{run.aegis_run_id}/validation-summary.json"
+        )
+        summary = self._read_aegis_json(
+            run, relative, label="validation-summary.json", required=required
+        )
+        if summary is None:
+            return None
+        self._validate_validation_summary(run, summary)
+        return summary
+
+    @staticmethod
+    def _contains_execution_status(value: object, status: str) -> bool:
+        """@brief Recursively find one structured execution-status value."""
+        if isinstance(value, dict):
+            if value.get("execution_status") == status:
+                return True
+            return any(
+                Orchestrator._contains_execution_status(item, status)
+                for item in value.values()
+            )
+        if isinstance(value, list):
+            return any(
+                Orchestrator._contains_execution_status(item, status)
+                for item in value
+            )
+        return False
+
+    @staticmethod
+    def _validate_validation_summary(run: RunState, summary: dict) -> None:
+        """
+        @brief      Validate AEGIS verification vocabulary and consistency.
+        @details    `not-enforced` and `not-applicable` are neutral but never
+                    passes. `waived` remains a visible accepted failure.
+                    `not-run` and nested `nothing-ran` are failures even if an
+                    enclosing command returned exit zero.
+        @exception  AegisArtifactError On malformed or contradictory truth.
+        """
+        required = {
+            "schema_version", "run_id", "status", "gates", "invariants",
+            "traceability", "coverage", "working_tree",
+        }
+        missing = sorted(required - set(summary))
+        if missing:
+            raise AegisArtifactError(
+                f"AEGIS validation-summary.json is missing keys {missing}"
+            )
+        if type(summary["schema_version"]) is not int or summary["schema_version"] != 3:
+            raise AegisArtifactError(
+                "AEGIS validation-summary.json requires schema_version 3"
+            )
+        if summary["run_id"] != run.aegis_run_id:
+            raise AegisArtifactError(
+                "AEGIS validation summary run id disagrees with the pinned run"
+            )
+        verdict = summary["status"]
+        if verdict not in _VERIFICATION_STATUSES:
+            raise AegisArtifactError(
+                f"AEGIS validation summary has unknown status {verdict!r}"
+            )
+        if "waived" in summary and not isinstance(summary["waived"], bool):
+            raise AegisArtifactError(
+                "AEGIS validation summary waived marker must be boolean"
+            )
+        gates = summary["gates"]
+        if not isinstance(gates, dict):
+            raise AegisArtifactError("AEGIS validation gates must be an object")
+        gate_statuses: list[str] = []
+        for name, gate in gates.items():
+            if not isinstance(name, str) or not isinstance(gate, dict):
+                raise AegisArtifactError("AEGIS validation gate rows must be objects")
+            status = gate.get("status")
+            commands = gate.get("commands")
+            if status not in _GATE_STATUSES:
+                raise AegisArtifactError(
+                    f"AEGIS gate {name!r} has unknown status {status!r}"
+                )
+            if not isinstance(commands, list) or not all(
+                isinstance(item, str) for item in commands
+            ):
+                raise AegisArtifactError(
+                    f"AEGIS gate {name!r} commands must be a string list"
+                )
+            if status == "waived" and gate.get("waived") is not True:
+                raise AegisArtifactError(
+                    f"AEGIS gate {name!r} waived status lacks waiver metadata"
+                )
+            gate_statuses.append(status)
+        invariants = summary["invariants"]
+        if not isinstance(invariants, list):
+            raise AegisArtifactError("AEGIS invariants must be a list")
+        invariant_failed = False
+        invariant_waived = False
+        for index, item in enumerate(invariants):
+            if (
+                not isinstance(item, dict)
+                or not isinstance(item.get("id"), str)
+                or not isinstance(item.get("message"), str)
+                or (
+                    item.get("holds") is not None
+                    and not isinstance(item.get("holds"), bool)
+                )
+            ):
+                raise AegisArtifactError(
+                    f"AEGIS invariant[{index}] has invalid result shape"
+                )
+            status = item.get("status")
+            policy = item.get("policy")
+            if policy not in {
+                "blocking", "non-waivable", "advisory", "not-applicable"
+            }:
+                raise AegisArtifactError(
+                    f"AEGIS invariant[{index}] has unknown policy {policy!r}"
+                )
+            if status is not None and status != "not-applicable":
+                raise AegisArtifactError(
+                    f"AEGIS invariant[{index}] has unknown status {status!r}"
+                )
+            if status == "not-applicable" and item.get("holds") is not None:
+                raise AegisArtifactError(
+                    "AEGIS not-applicable invariant must have holds: null"
+                )
+            if item.get("holds") is False:
+                if item.get("waived") is True:
+                    invariant_waived = True
+                elif policy in {"blocking", "non-waivable"}:
+                    invariant_failed = True
+        audit_failed = False
+        audit_waived = False
+        for name in ("traceability", "coverage"):
+            rows = summary[name]
+            if not isinstance(rows, list) or not all(
+                isinstance(item, dict) for item in rows
+            ):
+                raise AegisArtifactError(
+                    f"AEGIS validation {name} must be a list of objects"
+                )
+            for item in rows:
+                if item.get("status") is not None and item.get("status") not in {
+                    "failed", "waived", "not-applicable"
+                }:
+                    raise AegisArtifactError(
+                        f"AEGIS validation {name} has unknown status "
+                        f"{item.get('status')!r}"
+                    )
+                if item.get("status") == "not-applicable":
+                    continue
+                if item.get("status") == "waived" or item.get("waived") is True:
+                    audit_waived = True
+                else:
+                    audit_failed = True
+        working_tree = summary["working_tree"]
+        if not isinstance(working_tree, dict) or not isinstance(
+            working_tree.get("blocking_findings"), list
+        ):
+            raise AegisArtifactError(
+                "AEGIS validation working_tree requires blocking_findings[]"
+            )
+        working_failed = any(
+            isinstance(item, dict) and item.get("waived") is not True
+            for item in working_tree["blocking_findings"]
+        )
+        working_waived = any(
+            isinstance(item, dict) and item.get("waived") is True
+            for item in working_tree["blocking_findings"]
+        )
+        if not all(
+            isinstance(item, dict)
+            for item in working_tree["blocking_findings"]
+        ):
+            raise AegisArtifactError(
+                "AEGIS working-tree blocking findings must be objects"
+            )
+        nothing_ran = Orchestrator._contains_execution_status(
+            summary, "nothing-ran"
+        )
+        unwaived_failure = (
+            any(status in {"failed", "not-run"} for status in gate_statuses)
+            or invariant_failed
+            or audit_failed
+            or working_failed
+            or nothing_ran
+        )
+        waived_failure = (
+            any(status == "waived" for status in gate_statuses)
+            or invariant_waived
+            or audit_waived
+            or working_waived
+            or summary.get("waived") is True
+        )
+        if verdict == "ok" and (unwaived_failure or waived_failure):
+            raise AegisArtifactError(
+                "AEGIS validation summary labels failed/waived evidence as ok"
+            )
+        if verdict == "waived" and (unwaived_failure or not waived_failure):
+            raise AegisArtifactError(
+                "AEGIS validation summary has a contradictory waived verdict"
+            )
+        if verdict == "failed" and not unwaived_failure:
+            raise AegisArtifactError(
+                "AEGIS validation summary says failed without a failing result"
+            )
+
+    def _validated_verification(
+        self, run: RunState, response: AegisResponse
+    ) -> dict:
+        """
+        @brief      Cross-check a verify envelope against its durable artifact.
+        @return     Validated validation-summary mapping.
+        @exception  AegisArtifactError On path, payload, or evidence mismatch.
+        """
+        expected = f"{_AEGIS_RUN_DIR}/{run.aegis_run_id}/validation-summary.json"
+        if response.artifact != expected:
+            raise AegisArtifactError(
+                f"AEGIS verify response named {response.artifact!r}, expected "
+                f"{expected!r}"
+            )
+        summary = self._load_validation_summary(run)
+        assert summary is not None
+        if response.detail("verification") != summary:
+            raise AegisArtifactError(
+                "AEGIS verify response disagrees with validation-summary.json"
+            )
+        if response.verification_status != summary["status"]:
+            raise AegisArtifactError(
+                "AEGIS verification status disagrees with its durable summary"
+            )
+        graph = self._load_aegis_graph(run)
+        assert graph is not None
+        self._validate_evidence_truth(graph, summary)
+        return summary
+
+    @staticmethod
+    def _validate_evidence_truth(graph: dict, summary: dict) -> None:
+        """
+        @brief      Cross-check gate/check claims against executed evidence.
+        @details    Exit zero never supplies truth: active `evidence[].result`
+                    rows do. Linked red evidence must fail and linked green
+                    evidence must pass. A passing gate needs active passing
+                    gate evidence and cannot hide an active failing row.
+        @exception  AegisArtifactError On missing or contradictory evidence.
+        """
+        active = {
+            item["id"]: item
+            for item in graph["evidence"]
+            if item["status"] == "active"
+        }
+        if (
+            graph.get("profile", "full") == "quick"
+            and graph.get("red_green_policy", "legacy-not-applicable") == "required"
+        ):
+            if not graph["checks"]:
+                raise AegisArtifactError(
+                    "AEGIS required quick red/green policy has no checks"
+                )
+            if any(
+                not check.get("red_evidence") or not check.get("green_evidence")
+                for check in graph["checks"]
+            ):
+                raise AegisArtifactError(
+                    "AEGIS required quick check lacks red/green evidence links"
+                )
+        for check in graph["checks"]:
+            for key, expected in (("red_evidence", "fail"), ("green_evidence", "pass")):
+                evidence_id = check.get(key)
+                if evidence_id is None:
+                    continue
+                item = active.get(evidence_id)
+                if item is None or item.get("result") != expected:
+                    raise AegisArtifactError(
+                        f"AEGIS check {check['id']} {key} does not link active "
+                        f"{expected} evidence"
+                    )
+        for name, gate in summary["gates"].items():
+            rows = [
+                item for item in active.values()
+                if item.get("kind") == "gate" and item.get("gate_name") == name
+            ]
+            if gate["status"] == "passed" and (
+                not rows
+                or any(item["result"] == "fail" for item in rows)
+                or not any(item["result"] == "pass" for item in rows)
+            ):
+                raise AegisArtifactError(
+                    f"AEGIS gate {name!r} passed without active passing evidence"
+                )
+            if gate["status"] in {"failed", "waived"} and (
+                not rows or not any(item["result"] == "fail" for item in rows)
+            ):
+                raise AegisArtifactError(
+                    f"AEGIS gate {name!r} {gate['status']} without active "
+                    "failing evidence"
+                )
 
     def _aegis_failure_evidence(self, run: RunState) -> str:
         """
@@ -2143,57 +2843,49 @@ class Orchestrator:
                     ADORE persisted rather than by the retired worktree
                     pointer: `validation-summary.json` first (the authoritative
                     verification result), then the schema-3 `graph.json`
-                    evidence rows, then `report.md` when it exists. Malformed
-                    files are reported in the prompt so the executor
-                    understands that evidence was present but damaged. A
-                    STARTED run always has a `graph.json`, so its absence is a
-                    broken record and fails loud.
+                    evidence rows, then `report.md` when it exists. Every read
+                    crosses the typed artifact boundary; malformed state is a
+                    conductor escalation, never retry context for the executor.
+                    A STARTED run always has `graph.json`, so its absence fails
+                    loud.
         @param[in]  run ADORE run whose worktree is inspected.
         @return     Markdown-ish evidence block, or "" when no evidence exists.
-        @exception  AegisProtocolError When the run's graph.json is missing.
+        @exception  AegisArtifactError When any artifact contract is broken.
         """
         run_dir = self._aegis_run_dir(run)
         if run_dir is None:
             return ""
-        graph_path = run_dir / "graph.json"
-        if not graph_path.is_file():
-            raise AegisProtocolError(
-                f"AEGIS run {run.aegis_run_id} has no "
-                f"{_AEGIS_RUN_DIR}/{run.aegis_run_id}/graph.json; the run "
-                "record is missing or was removed from the worktree"
-            )
+        graph = self._load_aegis_graph(run)
+        assert graph is not None
+        summary = self._load_validation_summary(run, required=False)
+        report_relative = f"{_AEGIS_RUN_DIR}/{run.aegis_run_id}/report.md"
+        report = self._read_aegis_artifact(
+            run, report_relative, label="report.md", required=False
+        )
         sections = [
             f"AEGIS failure evidence from `{_AEGIS_RUN_DIR}/{run.aegis_run_id}`:"
         ]
-        sections.extend(
-            self._summary_failure_evidence(run_dir / "validation-summary.json")
-        )
-        sections.extend(self._graph_failure_evidence(graph_path))
-        sections.extend(self._report_failure_evidence(run_dir / "report.md"))
+        sections.extend(self._summary_failure_evidence(summary))
+        sections.extend(self._graph_failure_evidence(graph))
+        sections.extend(self._report_failure_evidence(report))
         if len(sections) == 1:
             return ""
         rendered = "\n".join(sections)
         return self._tail_lines(rendered, _AGENTIC_FAILURE_CONTEXT_LIMIT)
 
-    def _summary_failure_evidence(self, path: Path) -> list[str]:
+    def _summary_failure_evidence(self, summary: dict | None) -> list[str]:
         """
         @brief      Extract failing gates and invariants from the summary.
         @details    `validation-summary.json` is what `aegis verify run`
                     writes, so it is the authoritative account of WHY
-                    verification failed. Disabled and waived gates are reported
-                    verbatim - AEGIS never renders either as passed, and
-                    neither does this prompt.
-        @param[in]  path Path to `validation-summary.json`.
+                    verification failed. Waived and not-enforced gates are
+                    reported verbatim - AEGIS never renders either as passed,
+                    and neither does this prompt.
+        @param[in]  summary Validated summary, or None before verification.
         @return     Lines to append to the retry prompt.
         """
-        if not path.is_file():
+        if summary is None:
             return []
-        try:
-            summary = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
-            return [f"- validation-summary.json: could not parse ({exc})."]
-        if not isinstance(summary, dict):
-            return ["- validation-summary.json: malformed payload."]
         lines: list[str] = []
         gates = summary.get("gates")
         if isinstance(gates, dict):
@@ -2201,10 +2893,29 @@ class Orchestrator:
                 f"{name} ({value.get('status')})"
                 for name, value in sorted(gates.items())
                 if isinstance(value, dict)
-                and value.get("status") not in ("passed", "disabled")
+                and value.get("status") in {"failed", "not-run"}
             ][:_AGENTIC_FAILURE_ITEMS_LIMIT]
             if failing:
                 lines.append("- Failing gate groups: " + ", ".join(failing))
+            waived = [
+                name for name, value in sorted(gates.items())
+                if isinstance(value, dict) and value.get("status") == "waived"
+            ][:_AGENTIC_FAILURE_ITEMS_LIMIT]
+            if waived:
+                lines.append(
+                    "- Waived gate groups (accepted failure, not pass): "
+                    + ", ".join(waived)
+                )
+            not_enforced = [
+                name for name, value in sorted(gates.items())
+                if isinstance(value, dict)
+                and value.get("status") == "not-enforced"
+            ][:_AGENTIC_FAILURE_ITEMS_LIMIT]
+            if not_enforced:
+                lines.append(
+                    "- Not-enforced gate groups (not pass): "
+                    + ", ".join(not_enforced)
+                )
         invariants = summary.get("invariants")
         if isinstance(invariants, list):
             broken = [
@@ -2243,23 +2954,15 @@ class Orchestrator:
                 lines.append("- Working-tree findings: " + "; ".join(findings))
         return lines
 
-    def _graph_failure_evidence(self, path: Path) -> list[str]:
+    def _graph_failure_evidence(self, graph: dict) -> list[str]:
         """
         @brief      Extract active failing evidence rows from graph.json.
         @details    Schema-3 `evidence[]` rows with `result: "fail"` that were
                     not superseded, rendered with the fields the executor needs
                     to act: id, kind, stage, summary, command, failure kind.
-        @param[in]  path Path to the AEGIS run graph.
+        @param[in]  graph Validated AEGIS run graph.
         @return     Lines to append to the retry prompt.
         """
-        if not path.is_file():
-            return []
-        try:
-            graph = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
-            return [f"- graph.json: could not parse failure evidence ({exc})."]
-        if not isinstance(graph, dict) or not isinstance(graph.get("evidence"), list):
-            return ["- graph.json: malformed evidence payload."]
         failing = [
             item for item in graph["evidence"]
             if isinstance(item, dict)
@@ -2286,18 +2989,15 @@ class Orchestrator:
                 lines.append(f"    failure kind: {item['failure_kind']}")
         return lines
 
-    def _report_failure_evidence(self, path: Path) -> list[str]:
+    def _report_failure_evidence(self, report: str) -> list[str]:
         """
         @brief      Extract short report.md excerpts around failure markers.
-        @param[in]  path Path to the workflow report.
+        @param[in]  report Validated optional workflow-report text.
         @return     Lines to append to the retry prompt.
         """
-        if not path.is_file():
+        if not report:
             return []
-        try:
-            lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
-        except OSError as exc:
-            return [f"- report.md: could not read report excerpts ({exc})."]
+        lines = report.splitlines()
         markers = ("fail", "failed", "failure", "blocking", "error", "issue")
         excerpts: list[str] = []
         last_end = -1
@@ -2316,18 +3016,6 @@ class Orchestrator:
             return []
         rendered = "\n\n---\n".join(self._tail_lines(excerpt, 900) for excerpt in excerpts)
         return ["- Report excerpts around failure markers:\n" + rendered]
-
-    @staticmethod
-    def _read_text(path: Path) -> str:
-        """
-        @brief      Read a text file, returning "" when it is absent/unreadable.
-        @param[in]  path Path to read.
-        @return     File content or "".
-        """
-        try:
-            return path.read_text(encoding="utf-8", errors="replace")
-        except OSError:
-            return ""
 
     def _redact_failure_context(self, text: str) -> str:
         """

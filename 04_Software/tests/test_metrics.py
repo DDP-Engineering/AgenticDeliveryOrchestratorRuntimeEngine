@@ -16,6 +16,7 @@ from __future__ import annotations
 
 # IMPORTS
 from pathlib import Path
+import sqlite3
 
 from adore.metrics import (
     RunSummary,
@@ -64,6 +65,7 @@ def _seed_run(tmp_path: Path) -> StateStore:
          {"context": "requirement", "tokens_in": 2000, "tokens_out": 150,
           "cost_usd": 0.03}),
         ("2026-07-04T11:10:01Z", "stage-closed", {"stage": "requirement"}),
+        ("2026-07-04T11:19:59Z", "verify-run-result", {"status": "waived"}),
         ("2026-07-04T11:20:00Z", "mr-opened", {"url": "https://x/mr/29"}),
         ("2026-07-04T12:00:00Z", "merged", {"mr": "https://x/mr/29"}),
     ]
@@ -88,6 +90,7 @@ def test_summarize_run_computes_the_catalog(tmp_path: Path) -> None:
     assert summary.ticket_iid == 45
     assert summary.priority == "P1"
     assert summary.outcome == "merged"
+    assert summary.governance_outcome == "waived"
     assert summary.gates_passed == 2
     assert summary.gate_failures == 1
     assert summary.invariant_failures == 1
@@ -115,6 +118,45 @@ def test_record_load_roundtrip_is_duplicate_free(tmp_path: Path) -> None:
     assert len(rows) == 2
     assert {r.run_id: r.outcome for r in rows} == {"a": "merged", "b": "merged"}
     assert len(mirror.read_text(encoding="utf-8").strip().splitlines()) == 2
+
+
+def test_existing_metrics_database_gains_governance_outcome(tmp_path: Path) -> None:
+    """
+    @brief   A pre-CR4 database is extended in place and preserves new waiver
+             truth instead of requiring deletion or a separate migration.
+    """
+    db = tmp_path / "legacy.db"
+    legacy_columns = [
+        "run_id TEXT PRIMARY KEY", "ticket_iid INTEGER", "title TEXT",
+        "priority TEXT", "lifecycle TEXT", "outcome TEXT", "started_at TEXT",
+        "ended_at TEXT", "span_seconds INTEGER", "parked_wait_seconds INTEGER",
+        "time_to_mr_seconds INTEGER", "gates_passed INTEGER",
+        "gate_failures INTEGER", "invariant_failures INTEGER",
+        "executor_launches INTEGER", "clarification_rounds INTEGER",
+        "review_rounds INTEGER", "tokens_in INTEGER", "tokens_out INTEGER",
+        "cost_usd REAL", "files_changed INTEGER", "mr_url TEXT",
+    ]
+    with sqlite3.connect(db) as connection:
+        connection.execute(
+            "CREATE TABLE run_summaries (" + ", ".join(legacy_columns) + ")"
+        )
+        connection.execute(
+            "INSERT INTO run_summaries (run_id, outcome) VALUES (?, ?)",
+            ("legacy", "merged"),
+        )
+
+    record_summary(
+        db,
+        RunSummary(
+            run_id="legacy",
+            outcome="merged",
+            governance_outcome="waived",
+        ),
+    )
+
+    rows = load_summaries(db)
+    assert len(rows) == 1
+    assert rows[0].governance_outcome == "waived"
 
 
 def test_since_window_filters_by_ended_at(tmp_path: Path) -> None:

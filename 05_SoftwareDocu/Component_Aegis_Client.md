@@ -40,6 +40,10 @@ a broken contract into an escalation instead of a silent degradation.
   repository-relative bootstrap paths.
 - Preserve validated bounded `run start` warnings and typed `stage close`
   advisories for journaling/operator output.
+- Provide `AegisArtifactError`, the shared typed failure for persisted AEGIS
+  graph, verification-summary, and report trust-boundary violations. The
+  orchestrator raises it for missing, escaping, malformed, wrong-run, or
+  semantically contradictory artifacts; it is never converted to empty data.
 - Require a bounded explicit `stage close --approver` identity and confirm the
   successful response recorded that exact delegated identity.
 - Discriminate outcomes: exit 0 and exit 1 are workflow signals returned as
@@ -100,7 +104,8 @@ notes 11.3). A declared `code`/`remediation` field always wins.
 - Inputs: group/action argv, an exec seam bound to the run's container, the
   AEGIS run id, per-command timeouts.
 - Outputs: `AegisResponse` for normal/blocked envelopes, `AegisContext` for a
-  successful context call, or `AegisProtocolError` / `AegisTimeoutError`.
+  successful context call, or `AegisProtocolError` / `AegisArtifactError` /
+  `AegisTimeoutError`.
 
 ## 6. Data Contracts
 

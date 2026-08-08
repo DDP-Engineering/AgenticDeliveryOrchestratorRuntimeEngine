@@ -26,6 +26,7 @@ import json
 import pathlib
 from pathlib import Path
 
+from adore import metrics
 from adore.aegis import STAGE_REFERENCES, STAGE_SKILLS, AegisResponse
 from adore.config import Config, ExecutorCommand
 from adore.executor.base import Executor, GateRun
@@ -295,6 +296,9 @@ class FakeAegis:
         # knobs
         self.blockers: dict[str, list[list[str]]] = {}  # stage -> per-attempt
         self.verify_results: list[int] = []             # exit codes, then 0
+        self.verify_verdicts: list[str] = []            # ok/waived/failed
+        self.verify_gate_statuses: list[str] = []
+        self.verification_changes: dict = {}
         self.close_blocked: dict[str, str] = {}         # stage -> error text
         self.start_blocked = ""
         self.status_override: list[CommandResult] = []
@@ -320,6 +324,13 @@ class FakeAegis:
         self.missing_current_form = False
         self.bootstrap_padding = 0
         self.context_changes: dict = {}
+        self.graph_changes: dict = {}
+        self.start_warnings: list[str] = []
+        self.close_advisories: dict[str, list[dict]] = {}
+        self.abandoned = False
+        self.break_quick_green = False
+        self.skip_report_write = False
+        self.omit_red_green_policy = False
 
     # -- helpers ---------------------------------------------------------------
 
@@ -479,14 +490,103 @@ class FakeAegis:
             return
         run_dir = self.worktree / ".agentic" / "runs" / self.run_id
         run_dir.mkdir(parents=True, exist_ok=True)
+        evidence = []
+        for item in self.evidence:
+            normalized = {
+                "id": item.get("id", f"E-{len(evidence) + 1:04d}"),
+                "kind": item.get("kind", "note"),
+                "result": item.get("result", "info"),
+                "summary": item.get("summary", "test evidence"),
+                "status": item.get("status", "active"),
+                "failure_kind": item.get("failure_kind"),
+                "superseded_by": item.get("superseded_by"),
+                "supersede_reason": item.get("supersede_reason"),
+                "command": item.get("command"),
+                "path": item.get("path"),
+                "stage": item.get("stage"),
+                "check_id": item.get("check_id"),
+                "gate_name": item.get("gate_name"),
+                "exit_status": item.get("exit_status"),
+                "output_log": item.get("output_log"),
+                "created_at": item.get("created_at", "2026-08-01T10:11:12+00:00"),
+            }
+            evidence.append(normalized)
+        checks = []
+        quick_evidence_required = (
+            self.profile == "quick"
+            and (self.complete or self.stage in {"validation", "delivery"})
+        )
+        if quick_evidence_required:
+            defaults = [
+                ("E-QRED", "fail", "quick red witness", "implementation"),
+                (
+                    "E-QGREEN",
+                    "fail" if self.break_quick_green else "pass",
+                    "quick green witness",
+                    "implementation",
+                ),
+            ]
+            known = {item["id"] for item in evidence}
+            for evidence_id, result, summary, stage in defaults:
+                if evidence_id not in known:
+                    evidence.append({
+                        "id": evidence_id,
+                        "kind": "test-run",
+                        "result": result,
+                        "summary": summary,
+                        "status": "active",
+                        "failure_kind": None,
+                        "superseded_by": None,
+                        "supersede_reason": None,
+                        "command": "python -m pytest -q",
+                        "path": None,
+                        "stage": stage,
+                        "check_id": "CHK-Q1",
+                        "gate_name": None,
+                        "exit_status": 1 if result == "fail" else 0,
+                        "output_log": None,
+                        "created_at": "2026-08-01T10:11:12+00:00",
+                    })
+            checks = [{
+                "id": "CHK-Q1",
+                "level": "integration",
+                "cites_spec": [],
+                "cites_requirement": [],
+                "command": "python -m pytest -q",
+                "path": "tests",
+                "state": "green",
+                "red_evidence": "E-QRED",
+                "green_evidence": "E-QGREEN",
+                "contract_variants": [],
+                "concerns": [],
+                "parity_targets": [],
+            }]
+        graph_stage = self.stages[-1] if self.complete else self.stage
+        intent_kind = self.kind or self.run_id.split("-", maxsplit=1)[0]
         graph = {
             "run_id": self.run_id,
             "schema_version": 3,
-            "stage": self.stage,
+            "stage": graph_stage,
+            "intent": {
+                "id": "INT-1",
+                "kind": intent_kind,
+                "statement": "offline fake run",
+                "scope_hint": [],
+                "status": "draft",
+                "created_at": "2026-08-01T10:11:12+00:00",
+            },
+            "access_mode": "standard",
             "complete": self.complete,
-            "evidence": self.evidence,
+            "alignment": None,
+            "design": None,
+            "spec_items": [],
+            "checks": checks,
+            "evidence": evidence,
+            "change_units": [],
+            "decisions": [],
             "stage_records": {
-                name: {"status": state, "unresolved_questions": [],
+                name: {"stage": name, "status": state,
+                       "unresolved_questions": [],
                        "requested_access_mode": "", "route_to": "",
                        **self.stage_control.get(name, {})}
                 for name, state in self.stage_states.items()
@@ -494,7 +594,11 @@ class FakeAegis:
         }
         if self.profile == "quick":
             graph["profile"] = "quick"
-            graph["red_green_policy"] = "required"
+            if not self.omit_red_green_policy:
+                graph["red_green_policy"] = "required"
+        if self.abandoned:
+            graph["outcome"] = "abandoned"
+        graph.update(self.graph_changes)
         (run_dir / "graph.json").write_text(
             json.dumps(graph, indent=2), encoding="utf-8"
         )
@@ -557,12 +661,14 @@ class FakeAegis:
                     "applied" if self.start_applied else "prepared"
                 )
             }
-            self.report_path = f".agentic/runs/{self.run_id}/report.md"
+            if self.report_path == ".agentic/runs/RUN/report.md":
+                self.report_path = f".agentic/runs/{self.run_id}/report.md"
             self.write_bootstrap()
             self.write_graph()
             return CommandResult(
                 exit_code=0,
                 stdout=self._envelope(run_id=self.run_id, kind=self.kind,
+                                      warnings=self.start_warnings,
                                       **self._quick_details()),
             )
         if verbs[:2] == ["run", "context"]:
@@ -573,11 +679,15 @@ class FakeAegis:
             target = self.route_back.pop(self.stage, "")
             if target:
                 self.index = self.stages.index(target)
+            if self.abandoned:
+                self.complete = True
+                self.write_graph()
             return CommandResult(
                 exit_code=0,
                 stdout=self._envelope(
                     run_id=self.run_id,
                     complete=self.complete,
+                    **({"outcome": "abandoned"} if self.abandoned else {}),
                     readiness={} if self.complete else self._readiness(),
                     evidence=self.evidence,
                     **self._quick_details(),
@@ -613,26 +723,92 @@ class FakeAegis:
             return CommandResult(exit_code=0, stdout=self._envelope(
                 complete=self.complete,
                 approver=argv[argv.index("--approver") + 1],
+                advisories=self.close_advisories.get(stage, []),
                 **self._quick_details(),
             ))
         if verbs[:2] == ["verify", "run"]:
-            code = self.verify_results.pop(0) if self.verify_results else 0
+            if self.verify_verdicts:
+                verdict = self.verify_verdicts.pop(0)
+            elif self.verify_results:
+                verdict = "failed" if self.verify_results.pop(0) else "ok"
+            else:
+                verdict = "ok"
+            gate_status = (
+                self.verify_gate_statuses.pop(0)
+                if self.verify_gate_statuses else
+                "waived" if verdict == "waived" else
+                "failed" if verdict == "failed" else "passed"
+            )
+            for item in self.evidence:
+                if item.get("kind") == "gate" and item.get("gate_name") == "test":
+                    item["status"] = "superseded"
+            if gate_status in {"passed", "failed", "waived"}:
+                gate_result = "pass" if gate_status == "passed" else "fail"
+                self.evidence.append({
+                    "id": f"E-GATE-{len(self.evidence) + 1}",
+                    "kind": "gate",
+                    "result": gate_result,
+                    "status": "active",
+                    "summary": f"test gate {gate_result}",
+                    "gate_name": "test",
+                    "stage": self.stage,
+                })
+            self.write_graph()
+            gate = {
+                "status": gate_status,
+                "commands": ["python -m pytest -q"],
+            }
+            if gate_status == "waived":
+                gate.update({
+                    "failure_status": "failed",
+                    "waived": True,
+                    "waivers": [{"id": "W-1", "reason": "human accepted"}],
+                })
+            summary = {
+                "schema_version": 3,
+                "run_id": self.run_id,
+                "status": verdict,
+                "gates": {"test": gate},
+                "invariants": [],
+                "traceability": [],
+                "coverage": [],
+                "working_tree": {"blocking_findings": []},
+            }
+            if verdict == "waived":
+                summary["waived"] = True
+            summary.update(self.verification_changes)
+            relative = f".agentic/runs/{self.run_id}/validation-summary.json"
+            path = self.worktree / relative  # type: ignore[operator]
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
             return CommandResult(
-                exit_code=1 if code else 0,
+                exit_code=1 if verdict == "failed" else 0,
                 stdout=self._envelope(
-                    "failed" if code else "ok",
-                    verification={
-                        "status": "failed" if code else "ok",
-                        "gates": {"test": {"status": "failed" if code
-                                             else "passed"}},
-                    },
+                    "failed" if verdict == "failed" else "ok",
+                    artifact=relative,
+                    verification=summary,
                 ),
             )
         if verbs[:2] == ["delivery", "report"]:
             if self.on_delivery_report is not None:
                 self.on_delivery_report()
+            if self.report_path == ".agentic/runs/RUN/report.md":
+                self.report_path = f".agentic/runs/{self.run_id}/report.md"
+            worktree = self.worktree.resolve()  # type: ignore[union-attr]
+            path = (worktree / self.report_path).resolve()
+            if path.is_relative_to(worktree) and not self.skip_report_write:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                if not path.exists():
+                    path.write_text(
+                        f"# AEGIS Report: {self.run_id}\n\n"
+                        f"- Stage: `{self.stage}`\n",
+                        encoding="utf-8",
+                    )
             return CommandResult(exit_code=0,
-                                 stdout=self._envelope(report=self.report_path))
+                                 stdout=self._envelope(
+                                     artifact=self.report_path,
+                                     report=self.report_path,
+                                 ))
         if verbs[:2] == ["config", "validate"]:
             return CommandResult(exit_code=0, stdout=json.dumps({
                 "status": "ok", "stage": "none",
@@ -856,15 +1032,18 @@ def write_agentic_failure_evidence(
         json.dumps({
             "schema_version": 3,
             "run_id": AEGIS_RUN,
+            "status": "failed",
             "gates": {gate: {"status": "failed", "commands": [command]},
                       "lint": {"status": "passed", "commands": []},
-                      "security": {"status": "disabled", "commands": []}},
+                      "security": {"status": "not-enforced", "commands": []}},
             "invariants": [
                 {"id": "INV-4", "name": "evidence", "holds": False,
                  "policy": "blocking", "message": "failing gate evidence"},
                 {"id": "INV-1", "name": "traceability", "holds": True,
                  "policy": "blocking", "message": "ok"},
             ],
+            "traceability": [],
+            "coverage": [],
             "working_tree": {"entries": [], "untracked": [],
                              "blocking_findings": []},
         }, indent=2),
@@ -944,7 +1123,7 @@ def test_full_profile_walks_all_eight_stages_to_a_draft_mr(tmp_path: Path) -> No
     summary = engine.poll_once()
     assert summary["picked"] == 14
     run = engine.store.load(engine._run_id(14))
-    assert run.lifecycle == "in-review"
+    assert run.lifecycle == "in-review", run.outcome
     assert run.stage == PUBLICATION_STAGE
     assert run.aegis_run_id == "feature-2026-08-01T101112Z-0a1b2c3d"
     assert run.mr_iid == 1 and "/merge_requests/1" in run.mr_url
@@ -1456,7 +1635,7 @@ def test_stage_failure_retry_prompt_includes_aegis_evidence(tmp_path: Path) -> N
     assert "AEGIS failure evidence" in retry_prompt
     # validation-summary.json first: the authoritative verification account
     assert "Failing gate groups: test (failed)" in retry_prompt
-    assert "security (disabled)" not in retry_prompt  # never rendered as failing
+    assert "Not-enforced gate groups (not pass): security" in retry_prompt
     assert "INV-4 (blocking): failing gate evidence" in retry_prompt
     assert "INV-1" not in retry_prompt  # holds, so not a finding
     # then the schema-3 graph evidence rows
@@ -1612,7 +1791,8 @@ def test_damaged_question_graph_escalates_before_executor_launch(
 
     run = engine.store.load(engine._run_id(14))
     assert run.lifecycle == "failed"
-    assert "graph.json is missing or malformed while reading questions" in run.outcome
+    assert "AegisArtifactError" in run.outcome
+    assert "graph.json contains malformed JSON" in run.outcome
     assert executor.prompts == []
 
 
@@ -1714,8 +1894,13 @@ def test_failed_verification_relaunches_the_validation_stage(
     assert run.lifecycle == "in-review"
     validation_relaunch = executor.prompts[STANDARD_STAGES.index("validation") + 1]
     assert "`aegis verify run` failed at the validation stage" in validation_relaunch
-    events = [e["event"] for e in engine.store.read_journal(run.run_id)]
-    assert "verify-failed" in events and "verify-passed" in events
+    journal = engine.store.read_journal(run.run_id)
+    events = [e["event"] for e in journal]
+    assert "verify-failed" in events
+    assert any(
+        e["event"] == "verify-result" and e["status"] == "ok"
+        for e in journal
+    )
 
 
 def test_blocked_stage_close_escalates_with_the_aegis_remediation(
@@ -2219,7 +2404,7 @@ def test_retry_of_publication_never_re_enters_the_stage_loop(
     containers.aegis.complete = True
     assert engine.retry(run_id) is True
     run = engine.store.load(run_id)
-    assert run.lifecycle == "in-review"
+    assert run.lifecycle == "in-review", run.outcome
     assert engine.executor.prompts == []  # no stage relaunched
     assert containers.aegis.closes == []  # no stage closed either
     assert forge.mr_creations[0]["source"] == "feature/adore-14"
@@ -2325,7 +2510,8 @@ def test_mr_description_truncates_on_line_boundaries(tmp_path: Path) -> None:
               / AEGIS_RUN / "report.md")
     report.parent.mkdir(parents=True, exist_ok=True)
     report.write_text(
-        "\n".join(f"- `E-{i:04}` gate/pass: line {i}" for i in range(200)),
+        f"# AEGIS Report: {AEGIS_RUN}\n"
+        + "\n".join(f"- `E-{i:04}` gate/pass: line {i}" for i in range(200)),
         encoding="utf-8",
     )
 
@@ -2339,13 +2525,12 @@ def test_mr_description_truncates_on_line_boundaries(tmp_path: Path) -> None:
     assert lines[-1].startswith("- `E-0199`")
 
 
-def test_mr_description_ignores_a_report_path_outside_the_worktree(
+def test_mr_description_rejects_a_report_path_outside_the_worktree(
     tmp_path: Path,
 ) -> None:
     """
-    @brief   A `report` path that escapes the run's worktree is never read into
-             the merge-request body; the MR is still opened, without a report
-             section.
+    @brief   A successful `delivery report` response with an escaping path
+             fails closed; publication never silently omits its report.
     """
     engine, forge, containers, _ = make_engine(
         tmp_path, FakeExecutor([gate_ok()] * 8)
@@ -2357,9 +2542,12 @@ def test_mr_description_ignores_a_report_path_outside_the_worktree(
 
     engine.poll_once()
 
-    body = forge.mr_creations[0]["body"]
-    assert "### AEGIS delivery report" not in body
-    assert "host-only content" not in body
+    run = engine.store.load(engine._run_id(14))
+    assert run.lifecycle == "failed"
+    assert "AegisArtifactError" in run.outcome
+    assert "did not name the pinned run's report.md" in run.outcome
+    assert forge.mr_creations == []
+    assert secret.read_text(encoding="utf-8") == "host-only content"
 
 
 # PUBLIC API / TESTS - delivery (design 11a/11b)
@@ -2386,11 +2574,13 @@ def test_delivery_sequence_and_draft_mr(tmp_path: Path) -> None:
     assert creation["target"] == "develop"
     assert creation["title"] == "Resolve #14: Refresh"
     assert "Related to #14" in creation["body"]
+    assert "`aegis verify run` reported `ok`" in creation["body"]
+    assert "every AEGIS stage passed" not in creation["body"]
     assert "close" not in creation["body"].lower()  # human decides closure
     assert creation["reviewers"] == ["r"]
     assert run.lifecycle == "in-review"
     assert worktrees.removed == []  # environment retained for review
-    expected_order = ["delivery-start", "target-merged", "verify-run-passed",
+    expected_order = ["delivery-start", "target-merged", "verify-run-result",
                       "pushed", "mr-opened", "in-review"]
     events = [e["event"] for e in engine.store.read_journal(run.run_id)]
     assert [e for e in events if e in expected_order] == expected_order
@@ -3496,6 +3686,286 @@ def test_kind_and_quick_labels_come_from_the_workflow_section(
     # the quick label cannot apply to a feature run - AEGIS forbids it
     feature_quick = forge.add_ticket(4, labels=["agent-ready", "P1", "ai-quick"])
     assert engine._run_kind(feature_quick) == ("feature", False)
+
+
+# PUBLIC API / TESTS - AEGIS artifact truth boundary (ADORE 3.0 CR4)
+
+
+def test_schema3_graph_rejects_wrong_run_and_unknown_outcome(tmp_path: Path) -> None:
+    """@brief Persisted graph identity and outcome corruption fail closed."""
+    cases = [
+        ({"run_id": "feature-2026-08-01T101112Z-deadbeef"}, "disagrees"),
+        ({"outcome": "mystery"}, "unknown terminal outcome"),
+    ]
+    for index, (changes, expected) in enumerate(cases):
+        root = tmp_path / str(index)
+        engine, forge, containers, _ = make_engine(root, FakeExecutor())
+        containers.aegis.graph_changes = changes
+        forge.add_ticket(14)
+
+        engine.poll_once()
+
+        run = engine.store.load(engine._run_id(14))
+        assert run.lifecycle == "failed"
+        assert "AegisArtifactError" in run.outcome
+        assert expected in run.outcome
+        assert forge.mr_creations == []
+
+
+def test_historical_quick_graph_policy_omission_is_accepted(tmp_path: Path) -> None:
+    """@brief A schema-3 historical quick graph may omit red_green_policy."""
+    engine, forge, containers, _ = make_engine(
+        tmp_path, FakeExecutor([gate_ok()] * 4)
+    )
+    containers.aegis.omit_red_green_policy = True
+    forge.add_ticket(
+        14, labels=["agent-ready", "P1", "bug", "agent-quick"]
+    )
+
+    engine.poll_once()
+
+    run = engine.store.load(engine._run_id(14))
+    assert run.lifecycle == "in-review", run.outcome
+    assert forge.mr_creations
+
+
+def test_successful_verify_requires_its_durable_summary(tmp_path: Path) -> None:
+    """@brief Exit-zero verification cannot succeed without its artifact."""
+    engine, forge, containers, _ = make_engine(
+        tmp_path, FakeExecutor([gate_ok()] * 8)
+    )
+    relative = f".agentic/runs/{AEGIS_RUN}/validation-summary.json"
+    summary = {
+        "schema_version": 3,
+        "run_id": AEGIS_RUN,
+        "status": "ok",
+        "gates": {"test": {"status": "passed", "commands": ["pytest"]}},
+        "invariants": [],
+        "traceability": [],
+        "coverage": [],
+        "working_tree": {"blocking_findings": []},
+    }
+    containers.aegis.overrides[("verify", "run")] = CommandResult(
+        exit_code=0,
+        stdout=json.dumps({
+            "status": "ok",
+            "stage": "validation",
+            "artifact": relative,
+            "next": "aegis stage close",
+            "verification": summary,
+        }),
+    )
+    forge.add_ticket(14)
+
+    engine.poll_once()
+
+    run = engine.store.load(engine._run_id(14))
+    assert run.lifecycle == "failed"
+    assert "validation-summary.json is missing" in run.outcome
+    assert forge.mr_creations == []
+
+
+def test_validation_summary_rejects_the_wrong_run_id(tmp_path: Path) -> None:
+    """@brief A well-formed exit-zero summary for another run fails closed."""
+    engine, forge, containers, _ = make_engine(
+        tmp_path, FakeExecutor([gate_ok()] * 8)
+    )
+    containers.aegis.verification_changes = {
+        "run_id": "feature-2026-08-01T101112Z-deadbeef"
+    }
+    forge.add_ticket(14)
+
+    engine.poll_once()
+
+    run = engine.store.load(engine._run_id(14))
+    assert run.lifecycle == "failed"
+    assert "validation summary run id disagrees" in run.outcome
+    assert forge.mr_creations == []
+
+
+def test_verification_gate_vocabularies_keep_exact_meaning(tmp_path: Path) -> None:
+    """@brief Every AEGIS gate status remains pass/fail/neutral/waived truth."""
+    cases = [
+        ("passed", "ok", "verify-result"),
+        ("not-enforced", "ok", "verify-result"),
+        ("waived", "waived", "verify-result"),
+        ("failed", "failed", "verify-failed"),
+        ("not-run", "failed", "verify-failed"),
+    ]
+    for index, (gate_status, verdict, expected_event) in enumerate(cases):
+        root = tmp_path / str(index)
+        engine, forge, containers, _ = make_engine(
+            root, FakeExecutor([gate_ok()] * 9)
+        )
+        containers.aegis.verify_gate_statuses = [gate_status]
+        containers.aegis.verify_verdicts = [verdict]
+        forge.add_ticket(14)
+
+        engine.poll_once()
+
+        run = engine.store.load(engine._run_id(14))
+        assert run.lifecycle == "in-review", run.outcome
+        journal = engine.store.read_journal(run.run_id)
+        assert any(item["event"] == expected_event for item in journal)
+        if gate_status == "not-enforced":
+            result = next(
+                item for item in journal
+                if item["event"] == "verify-result"
+            )
+            assert result["not_enforced"] == ["test"]
+        if gate_status == "waived":
+            result = next(
+                item for item in journal
+                if item["event"] == "verify-result"
+            )
+            assert result["status"] == "waived"
+            assert result["waived"] == ["gate:test"]
+
+
+def test_nothing_ran_under_exit_zero_escalates(tmp_path: Path) -> None:
+    """@brief Structured nothing-ran cannot inherit an exit-zero success."""
+    engine, forge, containers, _ = make_engine(
+        tmp_path, FakeExecutor([gate_ok()] * 8)
+    )
+    containers.aegis.verification_changes = {
+        "impact_execution": {
+            "execution_status": "nothing-ran",
+            "executed_count": 0,
+        }
+    }
+    forge.add_ticket(14)
+
+    engine.poll_once()
+
+    run = engine.store.load(engine._run_id(14))
+    assert run.lifecycle == "failed"
+    assert "labels failed/waived evidence as ok" in run.outcome
+    assert forge.mr_creations == []
+
+
+def test_quick_green_link_uses_evidence_result_not_exit_zero(tmp_path: Path) -> None:
+    """@brief A linked green ID whose result is fail cannot verify a quick run."""
+    engine, forge, containers, _ = make_engine(
+        tmp_path, FakeExecutor([gate_ok()] * 4)
+    )
+    containers.aegis.break_quick_green = True
+    forge.add_ticket(
+        14, labels=["agent-ready", "P1", "bug", "agent-quick"]
+    )
+
+    engine.poll_once()
+
+    run = engine.store.load(engine._run_id(14))
+    assert run.lifecycle == "failed"
+    assert "green_evidence does not link active pass evidence" in run.outcome
+    assert forge.mr_creations == []
+
+
+def test_waived_publication_is_truthful_everywhere(tmp_path: Path) -> None:
+    """@brief Accepted human waivers remain visible in journal/ticket/MR/metrics."""
+    engine, forge, containers, _ = make_engine(
+        tmp_path, FakeExecutor([gate_ok()] * 8)
+    )
+    containers.aegis.verify_verdicts = ["waived", "waived", "waived"]
+    forge.add_ticket(14)
+
+    engine.poll_once()
+
+    run = engine.store.load(engine._run_id(14))
+    assert run.lifecycle == "in-review", run.outcome
+    body = forge.mr_creations[0]["body"]
+    assert "reported `waived`" in body
+    assert "Explicit human waivers accepted failed results" in body
+    assert "These are not passes" in body
+    ticket_text = "\n".join(item.body for item in forge.comments[14])
+    assert "Verification outcome: `waived`" in ticket_text
+    journal = engine.store.read_journal(run.run_id)
+    assert any(
+        item["event"] == "verify-run-result"
+        and item["status"] == "waived"
+        and item["waived"] == ["gate:test"]
+        for item in journal
+    )
+    assert metrics.summarize_run(
+        engine.store, run.run_id
+    ).governance_outcome == "waived"
+
+
+def test_missing_delivery_report_blocks_publication(tmp_path: Path) -> None:
+    """@brief A successful report response cannot silently omit report.md."""
+    engine, forge, containers, _ = make_engine(
+        tmp_path, FakeExecutor([gate_ok()] * 8)
+    )
+    containers.aegis.skip_report_write = True
+    forge.add_ticket(14)
+
+    engine.poll_once()
+
+    run = engine.store.load(engine._run_id(14))
+    assert run.lifecycle == "failed"
+    assert "report.md is missing" in run.outcome
+    assert forge.mr_creations == []
+
+
+def test_warnings_and_quick_scope_advisory_reach_operator_surfaces(
+    tmp_path: Path,
+) -> None:
+    """@brief Non-blocking warnings/advisories are journaled and logged exactly."""
+    engine, forge, containers, _ = make_engine(
+        tmp_path, FakeExecutor([gate_ok()] * 8)
+    )
+    logs: list[str] = []
+    engine.log = logs.append
+    warning = "Another incomplete run remains selected for manual recovery."
+    containers.aegis.start_warnings = [warning]
+    advisory = {
+        "code": "QUICK-SCOPE-ADVISORY",
+        "status": "advisory",
+        "changed_path_count": 8,
+        "max_paths": 5,
+        "message": "Scope exceeded quick guidance; restart as full.",
+        "restart_command": "aegis run start feature",
+    }
+    containers.aegis.close_advisories["intake"] = [advisory]
+    forge.add_ticket(14)
+
+    engine.poll_once()
+
+    run = engine.store.load(engine._run_id(14))
+    assert run.lifecycle == "in-review", run.outcome
+    journal = engine.store.read_journal(run.run_id)
+    assert any(
+        item["event"] == "aegis-run-warning" and item["warning"] == warning
+        for item in journal
+    )
+    assert any(
+        item["event"] == "aegis-advisory"
+        and item["code"] == "QUICK-SCOPE-ADVISORY"
+        and item["restart_command"] == "aegis run start feature"
+        for item in journal
+    )
+    assert any(warning in line for line in logs)
+    assert any("QUICK-SCOPE-ADVISORY" in line for line in logs)
+
+
+def test_externally_abandoned_run_never_publishes(tmp_path: Path) -> None:
+    """@brief A complete abandoned graph is terminal non-publication."""
+    engine, forge, containers, worktrees = make_engine(tmp_path, FakeExecutor())
+    containers.aegis.abandoned = True
+    forge.add_ticket(14)
+
+    engine.poll_once()
+
+    run = engine.store.load(engine._run_id(14))
+    assert run.lifecycle == "failed"
+    assert run.outcome == "aegis-abandoned"
+    assert engine.executor.prompts == []
+    assert worktrees.pushed == []
+    assert forge.mr_creations == []
+    assert any(
+        item["event"] == "aegis-run-abandoned"
+        for item in engine.store.read_journal(run.run_id)
+    )
 
 
 # END OF FILE

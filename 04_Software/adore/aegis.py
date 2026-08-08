@@ -167,6 +167,17 @@ class AegisProtocolError(AegisError):
     """
 
 
+class AegisArtifactError(AegisError):
+    """
+    @brief   A persisted AEGIS artifact failed its file or schema contract.
+    @details Raised for missing, escaping, oversized, unreadable, malformed,
+             wrong-run, or semantically contradictory graph, verification,
+             and report artifacts. Persisted AEGIS state is an external trust
+             boundary: callers escalate this error and never substitute an
+             empty value or infer success from the process exit code.
+    """
+
+
 class AegisTimeoutError(AegisError):
     """
     @brief   One AEGIS command exceeded its wall-clock bound.

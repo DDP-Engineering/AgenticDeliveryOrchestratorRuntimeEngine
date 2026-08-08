@@ -15,7 +15,9 @@
          state + ticket and upserted into a SQLite database, mirrored to a
          JSONL export. Access is CLI-first (stats/report/export) plus an
          optional self-contained static HTML file - no server, no exporter.
-         This data is the crawl -> walk -> run promotion signal.
+         This data is the crawl -> walk -> run promotion signal. The final
+         AEGIS `ok|waived|failed` governance outcome is a separate column, so
+         an accepted waiver never becomes an apparent pass after human merge.
 """
 
 from __future__ import annotations
@@ -54,6 +56,7 @@ class RunSummary:
     priority: str = ""
     lifecycle: str = ""
     outcome: str = ""
+    governance_outcome: str = ""
     started_at: str = ""
     ended_at: str = ""
     span_seconds: int = 0
@@ -104,6 +107,25 @@ def _connect(db_path: str | Path) -> sqlite3.Connection:
         for f in fields(RunSummary)
     )
     connection.execute(f"CREATE TABLE IF NOT EXISTS {_TABLE} ({columns})")
+    existing = {
+        str(row[1])
+        for row in connection.execute(f"PRAGMA table_info({_TABLE})").fetchall()
+    }
+    for item in fields(RunSummary):
+        if item.name in existing:
+            continue
+        affinity = (
+            "REAL" if item.type == "float" else
+            "INTEGER" if item.type == "int" else "TEXT"
+        )
+        default = (
+            "0.0" if affinity == "REAL" else
+            "0" if affinity == "INTEGER" else "''"
+        )
+        connection.execute(
+            f"ALTER TABLE {_TABLE} ADD COLUMN {item.name} {affinity} "
+            f"NOT NULL DEFAULT {default}"
+        )
     return connection
 
 
@@ -167,6 +189,10 @@ def summarize_run(store: StateStore, run_id: str,
             summary.gate_failures += 1
         elif name in ("stage-not-ready", "verify-failed"):
             summary.invariant_failures += 1
+        elif name == "verify-run-result":
+            status = event.get("status")
+            if status in {"ok", "waived", "failed"}:
+                summary.governance_outcome = str(status)
         elif name == "usage":
             summary.tokens_in += int(event.get("tokens_in", 0) or 0)
             summary.tokens_out += int(event.get("tokens_out", 0) or 0)
