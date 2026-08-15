@@ -32,7 +32,7 @@ Keep each log line to one sentence.
 
 # TASK-654e2ef2 — Adopt ADORE repository governance
 
-stage: close
+stage: done
 type: adopt
 path: full
 requirements: REQ-FUNC-308299d1,REQ-FUNC-1aa7a007,REQ-FUNC-2613bf7d,REQ-FUNC-ca17a8e8,REQ-FUNC-97e17737,REQ-FUNC-de3089bd,REQ-FUNC-7b4caf58,REQ-FUNC-0bdb23d5,REQ-FUNC-51f9c365,REQ-FUNC-1a2c56fe,REQ-FUNC-f699f84a,REQ-FUNC-e7a89a6d,REQ-FUNC-fcb2448b,REQ-FUNC-42b1c98a,REQ-FUNC-0ad8ba4f,REQ-FUNC-59ccdb74,REQ-FUNC-c6e5282d,REQ-FUNC-4fe259b0,REQ-FUNC-16237c6d,REQ-FUNC-ff7dad34,REQ-FUNC-83133b5e,REQ-FUNC-1ec4a21d,REQ-FUNC-db248962,REQ-FUNC-41265a32,REQ-FUNC-5771eecc,REQ-FUNC-6c82ad42,REQ-FUNC-69bfe896,REQ-FUNC-8a2e5904,REQ-FUNC-39697089,REQ-FUNC-3557ecdf,REQ-FUNC-f5aaaa62,REQ-FUNC-ef74f46e,REQ-FUNC-d9453193,REQ-FUNC-e3daac09,REQ-FUNC-78969e20
@@ -68,8 +68,8 @@ opened: 2026-08-15
 - [x] requirement templates contain no placeholder behavior, verification, or draft status
 - [x] final full check recorded
 - [x] refreshed report recorded
-- [ ] adoption changes committed
-- [ ] close-out recorded after the agreed Git outcome
+- [x] adoption changes committed
+- [x] close-out recorded after the agreed Git outcome
 
 ## Log
 
@@ -82,6 +82,7 @@ opened: 2026-08-15
 - 2026-08-15 components: branding source and its complete focused test were read end to end; its single shared identity behavior is covered by REQ-FUNC-308299d1.
 - 2026-08-15 components: completed the behavior register with 35 active requirements linked to focused automated tests or an explicit installer inspection; each component knowledge page lists its coverage.
 - 2026-08-15 close: refreshed full strict check passed; the only governance note is the explicit manual deployment-installer inspection and the task has no errors or warnings.
+- 2026-08-15 done: committed the complete adoption record on master as 9c6ede0; no remote push was requested or performed.
 
 ## Delivery report (2026-08-15)
 
