@@ -18,8 +18,15 @@ from __future__ import annotations
 
 # IMPORTS
 import json
+from pathlib import Path
+import shlex
 
 from adore.aegis import (
+    AEGIS_CLI,
+    AEGIS_SCRIPT,
+    AEGIS_STDERR_FILE,
+    AEGIS_STDOUT_FILE,
+    MAX_JSON_BYTES,
     VERIFY_TIMEOUT,
     AegisClient,
     AegisProtocolError,
@@ -57,11 +64,23 @@ class FakeExec:
 # HELPER FUNCTIONS
 
 
-def result(payload=None, *, code: int = 0, stdout: str = "", timed_out=False):
+def result(
+    payload=None,
+    *,
+    code: int = 0,
+    stdout: str = "",
+    stderr: str = "",
+    timed_out=False,
+):
     """@brief Build a captured command result from JSON or explicit text."""
     if payload is not None:
         stdout = json.dumps(payload)
-    return CommandResult(exit_code=code, stdout=stdout, timed_out=timed_out)
+    return CommandResult(
+        exit_code=code,
+        stdout=stdout,
+        stderr=stderr,
+        timed_out=timed_out,
+    )
 
 
 def task_payload(
@@ -104,7 +123,7 @@ def task_payload(
     }
 
 
-def status_list(*, schema: int = 1, unreadable=None):
+def status_list(*, schema: int = 1, unreadable=None, stage: str = "frame"):
     """@brief Return a valid status-list probe document."""
     return {
         "schema": schema,
@@ -112,7 +131,7 @@ def status_list(*, schema: int = 1, unreadable=None):
         "tasks": [{
             "id": TASK_ID,
             "title": "Implement bounded change",
-            "stage": "frame",
+            "stage": stage,
             "file": f".agentic/tasks/{TASK_ID}.md",
         }],
         "hidden_done": 0,
@@ -171,6 +190,25 @@ def test_probe_rejects_wrong_schema_and_unreadable_journal() -> None:
         AegisClient(FakeExec(
             result(stdout="aegis 0.5.0"), result(status_list(schema=2)),
         )).probe()
+
+
+@pytest.mark.parametrize("stage", ["survey", "components", "close"])
+def test_probe_accepts_authoritative_adoption_stages(stage: str) -> None:
+    """@brief Repository probing accepts AEGIS adoption journals as foreign work."""
+    execute = FakeExec(
+        result(stdout="aegis 0.5.0"),
+        result(status_list(stage=stage)),
+    )
+    assert AegisClient(execute).probe().schema == 1
+
+
+def test_status_probe_still_rejects_an_unknown_stage() -> None:
+    """@brief Status-list widening remains bounded to AEGIS's documented stages."""
+    with pytest.raises(AegisProtocolError, match="unknown stage"):
+        AegisClient(FakeExec(
+            result(stdout="aegis 0.5.0"),
+            result(status_list(stage="invented")),
+        )).probe()
     with pytest.raises(AegisProtocolError, match="unreadable"):
         AegisClient(FakeExec(
             result(stdout="aegis 0.5.0"),
@@ -216,11 +254,112 @@ def test_task_journal_trust_boundary_fails_closed(mutation, error: str) -> None:
         AegisClient(FakeExec(result(payload))).task_status(TASK_ID)
 
 
+def test_active_task_decoder_rejects_adoption_stage() -> None:
+    """@brief ADORE conducts only its seven stages even though probing is wider."""
+    payload = task_payload()
+    payload["task"]["stage"] = "survey"
+    payload["task"]["header"]["stage"] = "survey"
+    payload["task"]["step_file"] = "adopt.md"
+    with pytest.raises(AegisTaskError, match="stage"):
+        AegisClient(FakeExec(result(payload))).task_status(TASK_ID)
+
+
 def test_task_creation_rejects_path_escape_and_extra_output() -> None:
     """@brief The created task path is exact and singular."""
     for stdout in ("../TASK-abc123ef.md\n", ".agentic/tasks/TASK-abc123ef.md\nnoise\n"):
         with pytest.raises(AegisProtocolError):
             AegisClient(FakeExec(result(stdout=stdout))).create_task("Title", "fix")
+
+
+def test_container_transport_quotes_title_and_reads_validated_stdout(
+    tmp_path: Path,
+) -> None:
+    """@brief Shell-sensitive ticket text crosses the WSL boundary only in a file."""
+    io_dir = tmp_path / "io"
+    calls: list[list[str]] = []
+    title = "Fix user's $(touch /tmp/pwned) & preserve spaces"
+
+    def execute(argv, *, timeout=None):
+        """@brief Simulate the script's bounded stdout/stderr side effects."""
+        calls.append(list(argv))
+        (io_dir / AEGIS_STDOUT_FILE).write_text(
+            f".agentic/tasks/{TASK_ID}.md\n", encoding="utf-8"
+        )
+        (io_dir / AEGIS_STDERR_FILE).write_text("", encoding="utf-8")
+        return CommandResult(exit_code=0, stdout="wrapper output must be ignored")
+
+    client = AegisClient(execute, "python3", io_dir)
+
+    assert client.create_task(title, "fix") == TASK_ID
+    assert calls == [["sh", f"/adore/io/{AEGIS_SCRIPT}"]]
+    assert all(" " not in token for token in calls[0])
+    script = (io_dir / AEGIS_SCRIPT).read_text(encoding="utf-8")
+    expected = shlex.join(["python3", AEGIS_CLI, "task", title, "--type", "fix"])
+    assert "\r" not in script
+    assert expected in script
+    assert f"> /adore/io/{AEGIS_STDOUT_FILE}" in script
+    assert f"2> /adore/io/{AEGIS_STDERR_FILE}" in script
+
+
+def test_container_transport_timeout_stays_typed_without_exchange_files(
+    tmp_path: Path,
+) -> None:
+    """@brief A wrapper timeout wins even when the killed command wrote no files."""
+    execute = FakeExec(result(code=124, stdout="unrelated", timed_out=True))
+
+    with pytest.raises(AegisTimeoutError):
+        AegisClient(execute, io_dir=tmp_path / "io").task_status(TASK_ID)
+
+    assert execute.calls == [["sh", f"/adore/io/{AEGIS_SCRIPT}"]]
+
+
+def test_container_transport_surfaces_bounded_pre_script_failure(
+    tmp_path: Path,
+) -> None:
+    """@brief A failed container exec retains its real exit and bounded stderr."""
+    stderr = "discarded-prefix\n" + ("x" * 1300) + "\nruntime daemon unavailable"
+    execute = FakeExec(result(code=127, stderr=stderr))
+
+    with pytest.raises(AegisProtocolError) as raised:
+        AegisClient(execute, io_dir=tmp_path / "io").task_status(TASK_ID)
+
+    message = str(raised.value)
+    assert "exited 127" in message
+    assert "runtime daemon unavailable" in message
+    assert "discarded-prefix" not in message
+    assert execute.calls == [["sh", f"/adore/io/{AEGIS_SCRIPT}"]]
+
+
+@pytest.mark.parametrize("failure", ["missing", "unreadable"])
+def test_container_transport_requires_readable_exchange_output(
+    tmp_path: Path, failure: str,
+) -> None:
+    """@brief Missing or unreadable stdout fails closed as a typed protocol error."""
+    io_dir = tmp_path / "io"
+
+    def execute(argv, *, timeout=None):
+        """@brief Leave stdout absent or replace it with an unreadable directory."""
+        if failure == "unreadable":
+            (io_dir / AEGIS_STDOUT_FILE).mkdir()
+        (io_dir / AEGIS_STDERR_FILE).write_text("", encoding="utf-8")
+        return CommandResult(exit_code=0)
+
+    with pytest.raises(AegisProtocolError, match="stdout is missing or unreadable"):
+        AegisClient(execute, io_dir=io_dir).task_status(TASK_ID)
+
+
+def test_container_transport_rejects_oversized_exchange_output(tmp_path: Path) -> None:
+    """@brief Container output is read with the same finite JSON byte bound."""
+    io_dir = tmp_path / "io"
+
+    def execute(argv, *, timeout=None):
+        """@brief Write one byte beyond the accepted stdout boundary."""
+        (io_dir / AEGIS_STDOUT_FILE).write_bytes(b"x" * (MAX_JSON_BYTES + 1))
+        (io_dir / AEGIS_STDERR_FILE).write_text("", encoding="utf-8")
+        return CommandResult(exit_code=0)
+
+    with pytest.raises(AegisProtocolError, match="stdout exceeds its size bound"):
+        AegisClient(execute, io_dir=io_dir).task_status(TASK_ID)
 
 
 def test_check_parses_strict_findings_and_executed_commands() -> None:

@@ -362,9 +362,10 @@ class WorktreeConfig:
 class WorkflowConfig:
     """
     @brief   [workflow] - how ticket labels map onto an AEGIS 0.5 task.
-    @details `kind_labels` maps a ticket label to an AEGIS task type; the first
-             configured entry whose label the ticket carries wins. The quick
-             label is a framing hint only; the executor must still apply
+    @details `kind_labels` maps a ticket label to an AEGIS task type; fix/bug
+             labels win over change, then configured feature labels, with
+             `default_kind` used when none match. The quick label is a framing
+             hint only; the executor must still apply
              AEGIS's documented eligibility rules. `stage_timeout_overrides`
              raises or lowers the
              per-executor-launch bound for individual stages; anything absent

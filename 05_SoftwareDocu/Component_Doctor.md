@@ -24,7 +24,10 @@ not-ready `AegisStatus` with bounded detail.
 
 All probes use injected `CommandRunner`; unit tests never contact external
 systems. The wizard prints the same guidance. Other probes cover Git,
-Docker/Podman/WSL, forge CLI/auth and executor availability.
+Docker/Podman/WSL, forge CLI/auth and executor availability. GitLab/GitHub
+guidance states the runtime routing contract explicitly: ADORE uses the
+platform CLI's active/default authenticated host, which must be the intended
+corporate instance. Gitea continues to route through its selected tea login.
 
 ## 4. Validation and Tests
 

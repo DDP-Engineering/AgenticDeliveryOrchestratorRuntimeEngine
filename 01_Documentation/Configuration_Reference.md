@@ -35,13 +35,16 @@ actionable hard-break message and is never reinterpreted or migrated.
 | `poll_interval_seconds` | Base loop interval. | `60` |
 | `poll_jitter_seconds` | Added random jitter. | `5` |
 | `poll_backoff` | Back off after forge errors. | `true` |
-| `max_concurrent_runs` | Simultaneous `working` runs. Parked/approval/review states release slots. | `1` |
+| `max_concurrent_runs` | Capacity ceiling for persisted `working` runs; it does not enable parallel conduction. | `1` |
 | `quiet_hours` | `HH:MM-HH:MM` windows. | `[]` |
 | `readiness.require_acceptance_criteria` | Require heading or task list. | `true` |
 | `readiness.require_priority_label` | Require a configured priority. | `true` |
 
 `require_known_component` and `max_scope_hint` remain reserved configuration
 intent and are not pickup filters.
+
+Conduction is synchronous and serial: one `poll_once` call works at most one
+run at a time. Values above `1` do not create parallel gates or workers.
 
 ## Labels
 
@@ -67,6 +70,10 @@ names such as `GITHUB_TOKEN`, `GH_TOKEN`, `GITLAB_TOKEN`, `GLAB_TOKEN`,
 remain offline. ADORE never places forge credentials in the executor
 environment.
 
+For CLI engine commands, `.env` beside the resolved `config.toml` is loaded
+first; if absent, cwd `.env` is used. The real process environment has highest
+precedence, and only names in `executor.env_keys` reach the executor container.
+
 ## Workflow
 
 ```toml
@@ -79,7 +86,8 @@ stage_timeout_overrides = { build = 5400, validate = 3600 }
 ```
 
 - `default_kind` and mapping values accept `feature`, `fix`, or `change`.
-- Bug/fix labels win over change; otherwise the task is feature.
+- Bug/fix labels win over change, configured feature labels follow, and
+  `default_kind` is used only when no configured label matches.
 - `quick_label` is only a framing hint. ADORE does not select the path.
 - `aegis_python` is the one-token executable used with `.agentic/aegis.py`.
 - timeout override keys are `frame`, `specify`, `design`, `build`, `validate`,
@@ -151,6 +159,10 @@ candidate and accepts only a fresh re-add after presentation. Approval is
 bound to candidate fingerprint and target commit. Every revision creates a
 new task and repeats validation and approval. Review reminder behavior remains
 reserved; the hard round limit is enforced.
+
+`awaiting-approval` and `in-review` are intentionally human-paced and have no
+timers. They wait until reconciliation observes approval, revision, merge,
+close, deletion, or source-ticket closure.
 
 ## Reconciliation and Metrics
 

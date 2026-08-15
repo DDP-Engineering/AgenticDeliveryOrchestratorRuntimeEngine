@@ -44,6 +44,7 @@ from adore.branding import (
     CONTAINER_REPO_MOUNT,
     CONTAINER_UV_CACHE_MOUNT,
     CONTAINER_WORKTREE_MOUNT,
+    EGRESS_NETWORK_PREFIX,
     EGRESS_PROXY_ALIAS,
 )
 from adore.config import ContainerEgressConfig
@@ -419,19 +420,6 @@ class WorktreeManager:
         result = self._run_wt(str(self.path_for(run_id)), "status", "--porcelain")
         return bool(result.stdout.strip())
 
-    def commits_ahead(self, run_id: str, base_ref: str) -> int:
-        """
-        @brief      How many commits the run branch has over its base ref.
-        @param[in]  run_id Stable run identifier.
-        @param[in]  base_ref The ref the run branched from.
-        @return     Commit count (0 = nothing to deliver).
-        @exception  IsolationError When git fails.
-        """
-        result = self._run_wt(
-            str(self.path_for(run_id)), "rev-list", "--count", f"{base_ref}..HEAD"
-        )
-        return int(result.stdout.strip() or 0)
-
     def changed_files(self, run_id: str, base_ref: str) -> int:
         """
         @brief      How many files the run has touched vs its base ref.
@@ -647,10 +635,10 @@ class ContainerManager:
     @brief   Per-run executor containers (execution isolation).
     @details One long-lived container per run-id, kept idle with
              `sleep infinity`; the executor is launched inside it via exec.
-             Stopped (not removed) on park for fast resume; reaped (stopped +
-             removed) when the parked TTL expires (design 8b). The worktree
-             and repo are bind-mounted; project dependencies resolve into the
-             mounted cache volumes, never into the worktree (design 10a).
+             Parked containers are stopped and retained for resume or explicit
+             cleanup boundaries. The worktree and repo are bind-mounted;
+             project dependencies resolve into the mounted cache volumes,
+             never into the worktree (design 10a).
     """
 
     def __init__(
@@ -718,7 +706,10 @@ class ContainerManager:
             [*self.runtime_argv, "ps", "--all",
              "--filter", f"name={prefix}", "--format", "{{.Names}}"]
         )
-        return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+        return [
+            name for line in result.stdout.splitlines()
+            if (name := line.strip()) and name.startswith(prefix)
+        ]
 
     def list_egress_networks(self, prefix: str | None = None) -> list[str]:
         """
@@ -732,7 +723,90 @@ class ContainerManager:
             [*self.runtime_argv, "network", "ls",
              "--filter", f"name={network_prefix}", "--format", "{{.Name}}"]
         )
-        return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+        owned_prefix = f"{network_prefix}-"
+        return [
+            name for line in result.stdout.splitlines()
+            if (name := line.strip()) and name.startswith(owned_prefix)
+        ]
+
+    def cleanup_orphan_containers(
+        self,
+        prefix: str,
+        protected: set[str],
+    ) -> list[str]:
+        """
+        @brief      Best-effort removal of unprotected executor containers.
+        @details    The runtime filter supplies candidates only. Exact prefix
+                    filtering happens in `list_containers`, and egress proxies
+                    are handled separately so cleanup can report them after a
+                    profile changes egress mode.
+        @param[in]  prefix Deterministic executor-container prefix.
+        @param[in]  protected Exact persisted container names to retain.
+        @return     Executor container names successfully removed.
+        """
+        removed: list[str] = []
+        for name in self.list_containers(prefix):
+            if name.endswith(_PROXY_SUFFIX) or name in protected:
+                continue
+            try:
+                self._remove_container(name)
+            except IsolationError:
+                continue
+            removed.append(name)
+        return removed
+
+    def cleanup_egress_proxies(
+        self,
+        prefix: str,
+        protected: set[str],
+    ) -> list[str]:
+        """
+        @brief      Best-effort removal of unprotected ADORE proxy containers.
+        @param[in]  prefix Deterministic executor-container prefix.
+        @param[in]  protected Exact persisted executor names to retain.
+        @return     Proxy container names successfully removed.
+        """
+        retained = {self._proxy_name(name) for name in protected}
+        removed: list[str] = []
+        for name in self.list_containers(prefix):
+            if not name.endswith(_PROXY_SUFFIX) or name in retained:
+                continue
+            try:
+                self._remove_container(name)
+            except IsolationError:
+                continue
+            removed.append(name)
+        return removed
+
+    def cleanup_egress_networks(self, protected: set[str]) -> list[str]:
+        """
+        @brief      Best-effort removal of unprotected ADORE egress networks.
+        @details    Sweeps both the canonical ADORE prefix and the current
+                    configured prefix even when the current mode is not
+                    allowlist-proxy. Arbitrary historical prefixes are never
+                    guessed.
+        @param[in]  protected Exact persisted executor names to retain.
+        @return     Egress network names successfully removed.
+        """
+        prefixes = {EGRESS_NETWORK_PREFIX, self.egress.network_prefix}
+        retained = {
+            self._egress_network_name(name, prefix=prefix)
+            for prefix in prefixes
+            for name in protected
+        }
+        removed: list[str] = []
+        seen: set[str] = set()
+        for prefix in sorted(prefixes):
+            for name in self.list_egress_networks(prefix):
+                if name in seen or name in retained:
+                    continue
+                seen.add(name)
+                try:
+                    self._remove_network(name)
+                except IsolationError:
+                    continue
+                removed.append(name)
+        return removed
 
     def ensure_volumes(self) -> None:
         """
@@ -904,9 +978,7 @@ class ContainerManager:
         @param[in]  name Container name.
         @exception  IsolationError When the runtime fails for another reason.
         """
-        result = self.runner([*self.runtime_argv, "rm", "--force", name])
-        if not result.ok and self.status(name) != "absent":
-            raise IsolationError(f"{self.runtime} rm failed", result.argv, result.stderr)
+        self._remove_container(name)
         self.remove_egress(name)
 
     def remove_egress(self, name: str) -> None:
@@ -918,21 +990,9 @@ class ContainerManager:
         if self.egress.mode != "allowlist-proxy":
             return
         proxy_name = self._proxy_name(name)
-        proxy_result = self.runner([*self.runtime_argv, "rm", "--force", proxy_name])
-        if not proxy_result.ok and self.status(proxy_name) != "absent":
-            raise IsolationError(
-                f"{self.runtime} proxy rm failed", proxy_result.argv, proxy_result.stderr
-            )
+        self._remove_container(proxy_name)
         network = self._egress_network_name(name)
-        network_result = self.runner([*self.runtime_argv, "network", "rm", network])
-        if network_result.ok:
-            return
-        text = (network_result.stderr + network_result.stdout).lower()
-        if any(marker in text for marker in _ABSENT_MARKERS):
-            return
-        raise IsolationError(
-            f"{self.runtime} network rm failed", network_result.argv, network_result.stderr
-        )
+        self._remove_network(network)
 
     def exec(
         self,
@@ -999,13 +1059,40 @@ class ContainerManager:
         safe = _SAFE_NAME_RE.sub("-", value).strip("-._")
         return (safe or "run")[:limit]
 
-    def _egress_network_name(self, name: str) -> str:
+    def _egress_network_name(self, name: str, *, prefix: str | None = None) -> str:
         """
         @brief      Per-run internal egress network name.
         @param[in]  name Executor container name.
+        @param[in]  prefix Optional owned network prefix override.
         @return     Network name.
         """
-        return f"{self.egress.network_prefix}-{self._safe_name(name)}"
+        return f"{prefix or self.egress.network_prefix}-{self._safe_name(name)}"
+
+    def _remove_container(self, name: str) -> None:
+        """
+        @brief      Idempotently force-remove one exact container name.
+        @param[in]  name Executor or proxy container name.
+        @exception  IsolationError When the runtime fails for another reason.
+        """
+        result = self.runner([*self.runtime_argv, "rm", "--force", name])
+        if not result.ok and self.status(name) != "absent":
+            raise IsolationError(f"{self.runtime} rm failed", result.argv, result.stderr)
+
+    def _remove_network(self, name: str) -> None:
+        """
+        @brief      Idempotently remove one exact egress network name.
+        @param[in]  name Egress network name from an owned-prefix listing.
+        @exception  IsolationError When the runtime fails unexpectedly.
+        """
+        result = self.runner([*self.runtime_argv, "network", "rm", name])
+        if result.ok:
+            return
+        text = (result.stderr + result.stdout).lower()
+        if any(marker in text for marker in _ABSENT_MARKERS):
+            return
+        raise IsolationError(
+            f"{self.runtime} network rm failed", result.argv, result.stderr
+        )
 
     def _proxy_name(self, name: str) -> str:
         """

@@ -241,9 +241,12 @@ def test_is_terminal_classification() -> None:
     """
     @brief   Only true end states are recordable.
     """
-    for lifecycle in ("done", "failed", "cancelled", "stale", "ticket-closed"):
+    for lifecycle in ("done", "failed", "cancelled"):
         assert is_terminal(lifecycle)
-    for lifecycle in ("working", "parked", "in-review", "validated"):
+    for lifecycle in (
+        "working", "parked", "in-review", "validated", "stale",
+        "ticket-closed", "deleted",
+    ):
         assert not is_terminal(lifecycle)
 
 

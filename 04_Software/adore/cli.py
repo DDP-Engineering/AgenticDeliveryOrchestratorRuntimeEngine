@@ -9,7 +9,7 @@
 # -----------------------------------------------------------------------------
 """
 @file cli.py
-@brief Command-line interface for ADORE over the adore.core library.
+@brief Command-line interface over the ADORE runtime package.
 @details Defines the `adore` command surface (lifecycle, operations, statistics,
          config) using only the standard library (argparse). `config set`
          edits one scalar key in the resolved config file, preserving comments,
@@ -24,6 +24,7 @@ from __future__ import annotations
 
 # IMPORTS
 import argparse
+from collections.abc import Iterator
 import contextlib
 from dataclasses import asdict
 import json
@@ -34,7 +35,7 @@ import tomllib
 from adore import __version__, metrics
 from adore.branding import PACKAGE_NAME, PRODUCT_NAME
 from adore.config import Config, load_config, validate_config
-from adore.orchestrator import Orchestrator
+from adore.orchestrator import LockHeldError, Orchestrator
 from adore.process_log import ProcessLogger, process_log_path
 from adore.profiles import ProfileError, ProfileStore, resolve_config_path
 from adore.state import StateStore
@@ -190,6 +191,41 @@ def _store(config: Config) -> StateStore:
     @return     The StateStore for this deployment.
     """
     return StateStore(config.state.store_root, config.agent.slug)
+
+
+def _env_file_for_config(config_path: str | Path) -> Path:
+    """
+    @brief      Resolve the secret file used for an engine command.
+    @details    Prefer `.env` beside the resolved config/profile. If it is not
+                present, use cwd `.env`; `Orchestrator.from_config` still gives
+                the process environment final precedence.
+    @param[in]  config_path Resolved config path selected by `_load`.
+    @return     Preferred existing path, or the cwd fallback path.
+    """
+    beside_config = Path(config_path).expanduser().resolve().parent / ".env"
+    cwd_fallback = Path.cwd() / ".env"
+    return beside_config if beside_config.is_file() else cwd_fallback
+
+
+@contextlib.contextmanager
+def _operator_lock(store: StateStore) -> Iterator[None]:
+    """
+    @brief      Hold the single-conductor lock around an operator mutation.
+    @param[in]  store State store whose lock protects the selected profile.
+    @exception  LockHeldError When a live or unknown holder owns the lock.
+    """
+    if not store.acquire_lock():
+        info = store.lock_info()
+        pid = info.get("pid") if info else None
+        holder = f"pid {pid}" if isinstance(pid, int) else "an unknown holder"
+        raise LockHeldError(
+            f"the poller or another operator holds the lock ({holder}); "
+            "stop it or wait for it to finish before mutating run state"
+        )
+    try:
+        yield
+    finally:
+        store.release_lock()
 
 
 # COMMAND HANDLERS
@@ -485,7 +521,10 @@ def _engine(args: argparse.Namespace) -> tuple[Config, Orchestrator] | None:
         print(f"error: {args.config} has {len(issues)} issue(s); "
               "run `adore config validate`")
         return None
-    return config, Orchestrator.from_config(config)
+    return config, Orchestrator.from_config(
+        config,
+        env_file=_env_file_for_config(args.config),
+    )
 
 
 def _cmd_run(args: argparse.Namespace) -> int:
@@ -510,11 +549,14 @@ def _cmd_run(args: argparse.Namespace) -> int:
         return engine.run_loop()
     try:
         summary = engine.poll_once()
-    except RuntimeError as exc:
+    except LockHeldError as exc:
         store = _store(config)
         logger.emit(f"error: {exc} ({store.lock_path})")
-        logger.emit("hint: if no other adore process is running, remove the stale "
-                    "lock file and re-run")
+        logger.emit("hint: stop or wait for a live holder; `adore cleanup` reclaims "
+                    "only a provably stale local lock")
+        return EXIT_ERROR
+    except RuntimeError as exc:
+        logger.emit(f"error: {exc}")
         return EXIT_ERROR
     logger.emit(json.dumps(summary))
     return EXIT_OK
@@ -541,25 +583,31 @@ def _cmd_run_op(args: argparse.Namespace) -> int:
             suffix = f" {json.dumps(details, ensure_ascii=False)}" if details else ""
             print(f"{event.get('ts', '?')} {event.get('event', '?')}{suffix}")
         return EXIT_OK
-    if args.command == "cancel":
-        ok = engine.cancel(args.run_id)
-        print("cancelled" if ok else f"no such run: {args.run_id}")
-        return EXIT_OK if ok else EXIT_ERROR
-    if args.command == "retry":
-        ok = engine.retry(args.run_id)
-        print("retried" if ok else f"cannot retry: {args.run_id}")
-        return EXIT_OK if ok else EXIT_ERROR
     # delete: destructive - confirm via --force (design 8c guardrail)
-    if not store.exists(args.run_id):
-        print(f"no such run: {args.run_id}")
+    if args.command == "delete":
+        if not store.exists(args.run_id):
+            print(f"no such run: {args.run_id}")
+            return EXIT_ERROR
+        if not args.force:
+            print("delete removes ALL run state irrecoverably; re-run with --force")
+            return EXIT_ERROR
+    try:
+        with _operator_lock(store):
+            if args.command == "cancel":
+                ok = engine.cancel(args.run_id)
+                print("cancelled" if ok else f"no such run: {args.run_id}")
+                return EXIT_OK if ok else EXIT_ERROR
+            if args.command == "retry":
+                ok = engine.retry(args.run_id)
+                print("retried" if ok else f"cannot retry: {args.run_id}")
+                return EXIT_OK if ok else EXIT_ERROR
+            engine.cancel(args.run_id, outcome="deleted")
+            store.delete_run(args.run_id)
+            print(f"deleted {args.run_id}")
+            return EXIT_OK
+    except LockHeldError as exc:
+        print(f"error: {exc}")
         return EXIT_ERROR
-    if not args.force:
-        print("delete removes ALL run state irrecoverably; re-run with --force")
-        return EXIT_ERROR
-    engine.cancel(args.run_id, outcome="deleted")
-    store.delete_run(args.run_id)
-    print(f"deleted {args.run_id}")
-    return EXIT_OK
 
 
 def _cmd_stats(args: argparse.Namespace) -> int:
@@ -811,10 +859,16 @@ def _cmd_reset(args: argparse.Namespace) -> int:
     built = _engine(args)
     if built is None:
         return EXIT_ERROR
-    _, engine = built
-    if not engine.reset(args.run_id, args.to):
-        print(f"cannot reset {args.run_id} to {args.to!r} "
-              "(unknown run or invalid stage)")
+    config, engine = built
+    store = _store(config)
+    try:
+        with _operator_lock(store):
+            if not engine.reset(args.run_id, args.to):
+                print(f"cannot reset {args.run_id} to {args.to!r} "
+                      "(unknown run or invalid stage)")
+                return EXIT_ERROR
+    except LockHeldError as exc:
+        print(f"error: {exc}")
         return EXIT_ERROR
     print(f"{args.run_id}: stage set to {args.to}; run `adore retry "
           f"{args.run_id}` to continue from there")
@@ -824,8 +878,9 @@ def _cmd_reset(args: argparse.Namespace) -> int:
 def _cmd_cleanup(args: argparse.Namespace) -> int:
     """
     @brief      Handle `adore cleanup`: sweep stale lock + orphaned resources.
-    @details    Only touches containers/worktrees whose runs are terminal or
-                unknown; corrupt run state is reported, never deleted.
+    @details    Preserves active and failed runs for resume/retry. Cancelled,
+                completed and unknown resources are eligible; corrupt run
+                state is reported, never deleted.
     @param[in]  args Parsed arguments.
     @return     Process exit code.
     """

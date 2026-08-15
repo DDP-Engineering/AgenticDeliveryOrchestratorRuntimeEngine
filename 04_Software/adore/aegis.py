@@ -22,12 +22,14 @@ from __future__ import annotations
 
 # IMPORTS
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import json
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 import re
+import shlex
 from typing import Any
 
+from adore.branding import CONTAINER_IO_MOUNT, CONTAINER_WORKTREE_MOUNT
 from adore.executor.base import ExecTarget
 from adore.util import CommandResult
 
@@ -42,6 +44,10 @@ MAX_JSON_BYTES = 4 * 1024 * 1024
 MAX_TEXT_BYTES = 64 * 1024
 MAX_LIST_ITEMS = 10_000
 
+AEGIS_SCRIPT = "aegis.sh"
+AEGIS_STDOUT_FILE = "aegis.stdout"
+AEGIS_STDERR_FILE = "aegis.stderr"
+
 TASK_ID_RE = re.compile(r"^TASK-[0-9a-f]{8}$")
 VERSION_RE = re.compile(r"^aegis\s+(\d+)\.(\d+)\.(\d+)$")
 
@@ -50,6 +56,8 @@ QUICK_KINDS = ("fix", "change")
 FULL_STAGES = ("frame", "specify", "design", "build", "validate", "deliver", "done")
 QUICK_STAGES = ("frame", "build", "validate", "deliver", "done")
 ALL_STAGES = FULL_STAGES
+ADOPTION_STAGES = ("survey", "components", "close")
+STATUS_STAGES = (*ALL_STAGES, *ADOPTION_STAGES)
 STAGE_STEP_FILES = {
     "frame": "1_frame.md",
     "specify": "2_specify.md",
@@ -232,11 +240,26 @@ def allowed_transition(previous: str, current: str, path: str) -> bool:
 
 
 class AegisClient:
-    """@brief Typed AEGIS 0.5 companion-CLI client bound to one container."""
+    """@brief Typed AEGIS 0.5 client using direct or file-transport execution."""
 
-    def __init__(self, execute: ExecTarget, python_command: str = "python") -> None:
+    def __init__(
+        self,
+        execute: ExecTarget,
+        python_command: str = "python",
+        io_dir: str | Path | None = None,
+    ) -> None:
+        """
+        @brief      Bind the client to a direct or container execution seam.
+        @param[in]  execute Command executor, normally a bound container exec.
+        @param[in]  python_command Python command in the target environment.
+        @param[in]  io_dir Host side of the run's `/adore/io` mount. When set,
+                           AEGIS commands and results cross the runtime boundary
+                           through bounded files so raw arguments never enter
+                           the WSL-wrapped container argv.
+        """
         self.execute = execute
         self.python_command = python_command
+        self.io_dir = Path(io_dir) if io_dir is not None else None
 
     def probe(self) -> AegisProbe:
         """@brief Prove that the payload is AEGIS 0.5.x with schema 1."""
@@ -376,7 +399,11 @@ class AegisClient:
         allowed: tuple[int, ...] = (0,),
     ) -> CommandResult:
         command = self._command(argv)
-        result = self.execute(command, timeout=timeout)
+        result = (
+            self.execute(command, timeout=timeout)
+            if self.io_dir is None
+            else self._run_from_files(command, timeout=timeout)
+        )
         if "\ufffd" in result.stdout or "\ufffd" in result.stderr:
             raise AegisProtocolError(
                 f"AEGIS command `{' '.join(command)}` returned invalid UTF-8"
@@ -391,6 +418,83 @@ class AegisClient:
                 f"AEGIS command `{' '.join(command)}` exited {result.exit_code}: {detail}"
             )
         return result
+
+    def _run_from_files(
+        self,
+        command: Sequence[str],
+        *,
+        timeout: float | None,
+    ) -> CommandResult:
+        """
+        @brief      Invoke AEGIS through the host-mounted run exchange directory.
+        @param[in]  command Complete AEGIS command tokens.
+        @param[in]  timeout Wall-clock execution bound.
+        @return     Container exit/timeout data with bounded file output.
+        @exception  AegisProtocolError When exchange setup or output is unusable.
+        """
+        assert self.io_dir is not None  # construction chooses this path
+        script_path = self.io_dir / AEGIS_SCRIPT
+        stdout_path = self.io_dir / AEGIS_STDOUT_FILE
+        stderr_path = self.io_dir / AEGIS_STDERR_FILE
+        try:
+            self.io_dir.mkdir(parents=True, exist_ok=True)
+            stdout_path.unlink(missing_ok=True)
+            stderr_path.unlink(missing_ok=True)
+            quoted = " ".join(shlex.quote(str(token)) for token in command)
+            script = (
+                "#!/bin/sh\n"
+                f"cd {CONTAINER_WORKTREE_MOUNT}\n"
+                f"{quoted} > {CONTAINER_IO_MOUNT}/{AEGIS_STDOUT_FILE} "
+                f"2> {CONTAINER_IO_MOUNT}/{AEGIS_STDERR_FILE}\n"
+            )
+            with script_path.open("w", encoding="utf-8", newline="\n") as handle:
+                handle.write(script)
+        except OSError as exc:
+            raise AegisProtocolError(f"AEGIS exchange setup failed: {exc}") from exc
+
+        result = self.execute(
+            ["sh", f"{CONTAINER_IO_MOUNT}/{AEGIS_SCRIPT}"],
+            timeout=timeout,
+        )
+        if result.timed_out:
+            return result
+        if result.exit_code != 0 and (
+            not stdout_path.exists() or not stderr_path.exists()
+        ):
+            if "\ufffd" in result.stdout or "\ufffd" in result.stderr:
+                raise AegisProtocolError(
+                    f"AEGIS command `{' '.join(command)}` returned invalid UTF-8"
+                )
+            detail = (result.stderr or result.stdout).strip()[-1200:]
+            raise AegisProtocolError(
+                f"AEGIS command `{' '.join(command)}` exited "
+                f"{result.exit_code}: {detail}"
+            )
+        stdout = self._read_exchange(stdout_path, "stdout", MAX_JSON_BYTES)
+        stderr = self._read_exchange(stderr_path, "stderr", MAX_TEXT_BYTES)
+        return replace(result, stdout=stdout, stderr=stderr)
+
+    @staticmethod
+    def _read_exchange(path: Path, stream: str, limit: int) -> str:
+        """
+        @brief      Read one required bounded AEGIS exchange artifact.
+        @param[in]  path Host exchange-file path.
+        @param[in]  stream Diagnostic stream name.
+        @param[in]  limit Maximum accepted byte count.
+        @return     UTF-8-decoded content; invalid bytes remain visible as U+FFFD.
+        @exception  AegisProtocolError When the artifact is absent, unreadable,
+                    or exceeds its bound.
+        """
+        try:
+            with path.open("rb") as handle:
+                content = handle.read(limit + 1)
+        except OSError as exc:
+            raise AegisProtocolError(
+                f"AEGIS exchange {stream} is missing or unreadable: {exc}"
+            ) from exc
+        if len(content) > limit:
+            raise AegisProtocolError(f"AEGIS exchange {stream} exceeds its size bound")
+        return content.decode("utf-8", "replace")
 
     def _json(
         self,
@@ -438,7 +542,7 @@ class AegisClient:
             if file != f".agentic/tasks/{task_id}.md":
                 raise AegisProtocolError(f"AEGIS task {task_id} has a mismatched file")
             stage = item.get("stage")
-            if stage not in ALL_STAGES:
+            if stage not in STATUS_STAGES:
                 raise AegisProtocolError(f"AEGIS task {task_id} has unknown stage {stage!r}")
             result.append(dict(item))
         return result

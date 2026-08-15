@@ -427,37 +427,15 @@ def run_wizard(
     # Phase A guidance is informational and platform-aware; print it now.
     _report_environment(out, runner, key, kind)
 
-    host = ""
     login = ""
     if kind == "gitea":
         # Gitea is always an instance; tea binds host + token to a named
-        # login, so the login name replaces the hosting/URL questions.
+        # login, so the login name selects the runtime route explicitly.
         login = ask(FieldSpec(
             "login", "tea login name (see `tea logins list`; blank = default):",
             "selects which authenticated Gitea instance/account tea uses",
             "home", default="",
         ), asker, out).strip()
-    else:
-        hosting = ask(FieldSpec(
-            "hosting", "Public service or corporate/self-hosted instance?",
-            "gitlab.com/github.com, or a company instance", "corporate",
-            default="public", choices=("public", "corporate"),
-        ), asker, out)
-        if hosting == "corporate":
-            host = ask(FieldSpec(
-                "host_url", "Instance URL:",
-                "the CLI must be authenticated against this host "
-                "(glab auth login --hostname <host>)",
-                "https://gitlab.example.com",
-                validate=lambda v: None if v.startswith("http") else "must be a URL",
-            ), asker, out)
-    # Visibility is informational: it decides whether auth is mandatory (the
-    # environment check above already surfaces the token/login guidance).
-    ask(FieldSpec(
-        "visibility", "Is the repository public or private/corporate?",
-        "a private repo needs CLI auth or a token (see the guidance above)",
-        "private", default="private", choices=("public", "private"),
-    ), asker, out)
     repo = ask(FieldSpec(
         "repo", "Repository path (group/subgroup/project, NOT a URL):"
         if kind != "gitea" else "Repository path (owner/repo, NOT a URL):",
@@ -686,7 +664,7 @@ def run_wizard(
     config_path.parent.mkdir(parents=True, exist_ok=True)
     config_path.write_text(document, encoding="utf-8")
     profile = store.create(
-        name, overwrite=force, description=description, platform=kind, host=host,
+        name, overwrite=force, description=description, platform=kind,
         repo=repo, runtime=runtime, host_os=key, config_path=str(config_path),
         store_root=store_root,
     )
@@ -786,6 +764,9 @@ def _report_environment(
     out(f"  [{'OK' if auth.authenticated else 'CHECK'}] {auth.cli} auth")
     if not auth.authenticated:
         out("        " + doctor.guidance_for(doctor.auth_component_for_kind(kind), os_key))
+    if kind in {"gitlab", "github"}:
+        out(f"        ADORE uses {auth.cli}'s active/default authenticated host; "
+            "for corporate instances, verify it is the intended host.")
     out("-----------------------------------------")
 
 
@@ -932,7 +913,8 @@ def _print_next_steps(
     out("Next steps:")
     if auth_mode == "api-key":
         keys = " / ".join(_env_keys_for_model(model))
-        out(f"  1. Put your provider key ({keys}) in a .env file beside the clone.")
+        out(f"  1. Put your provider key ({keys}) in .env beside this profile's "
+            f"config.toml (`adore profile path {name}`).")
     else:
         out("  1. host-auth mode: ensure your local opencode session is authorized.")
     out(f"  2. Build the executor image ({image}) - see docker/README.md.")

@@ -40,6 +40,11 @@ gh auth login
 gh auth status
 ```
 
+For GitLab and GitHub, ADORE does not carry a separate host setting. It uses
+the active/default authenticated host selected by `glab` or `gh`; on a
+corporate instance, verify that host is the intended company instance before
+starting ADORE. Gitea remains explicitly selectable through its named login.
+
 ```bash
 tea login add --name <login-name> --url http://<host>:<port> --token <token>
 tea logins default <login-name>
@@ -68,9 +73,11 @@ the forge; they are the final delivery boundary.
 
 ### Important: ADORE `.env` Is Not Forge-CLI Login
 
-ADORE reads `.env` from its current working directory, normally the unpacked
-ADORE runtime directory. It reads the file into an internal mapping and passes
-only configured `[executor] env_keys` to executor containers.
+For CLI engine commands, ADORE reads `.env` beside the resolved profile/config
+first and falls back to cwd `.env` when no adjacent file exists. Direct library
+callers default to cwd `.env`. The real process environment overrides file
+values. ADORE passes only configured `[executor] env_keys` to executor
+containers.
 
 Therefore a `GITLAB_TOKEN` or `GITHUB_TOKEN` stored only in that `.env` file is
 not used by `glab` or `gh` on the host. Use an authenticated CLI session or put
@@ -90,7 +97,7 @@ env_keys = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]
 ```
 
 Provide the corresponding values through the ADORE process environment or an
-`.env` file in the ADORE runtime working directory:
+`.env` beside the selected profile/config (cwd is the fallback):
 
 ```dotenv
 OPENAI_API_KEY=<provider-key>

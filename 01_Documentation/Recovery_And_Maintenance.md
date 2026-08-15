@@ -37,6 +37,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
    ```
 
 The first retry attempt is a fresh model session and re-reads durable artifacts.
+An interrupted publication retry also rechecks fresh approval. If the label was
+removed, ADORE returns to validation/presentation instead of publishing.
 
 ## Stage-Failure Accounting
 
@@ -65,12 +67,23 @@ old approval based on a visually similar diff.
 Answer on the source ticket and add `agent-answered`. A normal poll supplies
 the bounded human thread to a fresh executor. If the timeout or round limit has
 already failed the run, answer first and then explicitly retry.
+The questions handoff file is removed after its text is posted and journaled.
+If the ticket title/body changed, the snapshot is refreshed and the resume
+thread records `ticket content changed since pickup`.
 
 ## Review Recovery
 
 Apply `agent-revise` only when a bounded review round should begin. Every round
 creates a new task journal. If the review limit fails the run, a human must
 decide whether to raise the configured limit and retry or continue manually.
+Task creation happens before ADORE removes the revise label. When label removal
+fails, the run fails closed and the label remains. Because AEGIS has no
+idempotency key, inspect `revision-task-created` for a possible orphan task
+after a crash in the narrow create/remove/state-save boundary.
+
+If publication created an MR/PR but failed to persist its identity, retry adopts
+the existing open branch MR/PR. If the AEGIS task is already done, recovery
+still checkpoints and pushes close-out changes before returning to review.
 
 ## State Surgery and Cleanup
 
@@ -79,6 +92,17 @@ remains executor-owned and will be reread; therefore reset cannot falsify a
 journal transition. Use it only after understanding the mismatch, then run
 `retry`.
 
-`cleanup` clears a stale lock and removes orphan resources. It reports corrupt
-state and never auto-deletes it. `delete --force` is irreversible and should be
-used only after separately preserving required evidence.
+`cleanup` clears only a readable local lock whose recorded PID is provably gone,
+then removes orphan executor/proxy containers, egress networks and worktree
+husks. Active and failed runs are protected: a failed run's container
+companions, worktree and evidence remain available for `retry`. Release those
+resources explicitly with `cancel <run-id>` while retaining audit state, or
+with irreversible `delete <run-id> --force` after separately preserving any
+required evidence. A live, different-host, unreadable, or otherwise unknown
+lock remains present and is reported as `lock_held_by`; never remove it until
+ownership is verified. Cleanup reports corrupt state and never auto-deletes it.
+
+Stop the service poller before `retry`, `cancel`, `delete`, or `reset`; these
+commands acquire the same single-conductor lock and refuse a live/unknown
+holder. `pause` prevents new pickup but does not stop the poller or release its
+lock. `logs` is read-only and remains available during conduction.

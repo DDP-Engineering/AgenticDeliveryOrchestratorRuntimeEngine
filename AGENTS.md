@@ -144,76 +144,18 @@ documentation conventions. Use the referenced
 
 ## Status
 
-Phase 1 (base services) implemented under `04_Software/`: util (command
-runner), typed config + validation, marker-based identity, local state store,
-forge adapters (GitLab/GitHub, live-verified read-only against GitLab), CLI
-wiring (`config`/`status`/`runs`/`pause`/`resume`), and an offline test
-suite. Phase 2 done and live-verified (Docker in WSL2): isolation (worktree +
-container lifecycle, `docker/Dockerfile.executor`) and the executor launcher
-(file-based gate protocol; mutating opencode spike passed). Phase 3 done: the
-thick-conductor engine (polling, selection, per-gate loop with verification
-and budgets, clarification park/resume, TTL/timeouts) wired to the CLI.
-Phases 3 and 4 were live-piloted END TO END on a real ticket: #45 went from
-the `agent-ready` label to draft MR !29 on the real repository, fully
-conducted by ADORE (prereq report sections 15-16, including all ten hardening
-findings fixed with regression tests along the way). The post-MR revise cycle was live-verified (MR !29 revised on request) and
-the human merge closed the full lifecycle. Metrics (design 13) are
-implemented: per-launch usage journaling, SQLite run summaries at terminal
-states, `adore stats|report|export` + static HTML dashboard (pilot run
-backfilled via `stats --rebuild`). The operator commands are wired:
-`adore reset <run-id> --to <stage> --force` (state surgery, then `adore
-retry`) and `adore cleanup` (stale lock, orphaned containers, orphaned/husk
-worktrees; corrupt state reported, never auto-deleted). The full design-12a
-CLI surface, including `config set`, is implemented. Deployment scripts are in
-`04_Software/deploy/` (design 12a): systemd unit + installer for Ubuntu 22+,
-Task Scheduler installer for Windows 11 (loop at logon or repeating
-`--once`), both fail-fast/idempotent, secrets never in argv. Runtime
-portability: both docker (WSL2) and rootless podman are live-verified END TO
-END - podman conducted ticket #47 agent-ready -> draft MR !30 on 2026-07-05
-(needs `run_args = ["--userns=keep-id"]`); two podman/docker parity bugs were
-found and fixed with regression tests (idempotent `ensure_volumes`,
-reparse-point-safe `force_rmtree`). Assisted config + multi-project profiles are
-implemented (Assisted_Config_And_Profiles_Plan.md, all 8 tasks): `adore init`
-wizard (`adore/wizard.py`), environment detection/guidance (`adore/doctor.py`),
-profile store + resolution (`adore/profiles.py`), `adore profile ...` +
-`--profile` with per-profile statistics, under a cross-platform config home
-(`%APPDATA%`/`~/.config/adore`/`ADORE_HOME`); one install serves many projects.
-Cross-platform E2E green on Windows 11 and Ubuntu 24.04/WSL2 (prereq report
-section 17); onboarding in 01_Documentation/Onboarding_New_Project.md. ADORE
-1.0.0 is the complete hard-cut product identity, with no compatibility or
-migration layer. Container egress allowlisting is implemented and live-verified.
-Executor credentials remain an operator-managed security decision.
+ADORE 0.5 is the hard-break companion orchestrator for repository-installed
+AEGIS 0.5.x. It invokes `python .agentic/aegis.py`, accepts AEGIS JSON schema 1,
+and persists its own run state as schema 4. Executors advance the durable AEGIS
+task journals; ADORE independently owns ticket selection, worktree/container
+isolation, bounded recovery, validation, candidate-bound human approval, Git
+publication, forge comments, and draft-only MR/PR creation. ADORE never merges
+and has no compatibility or migration layer for the former ADORE 3.x contract.
 
-**Released: the ADORE 3.0 hard break to AEGIS 3.x**
-(`00_Planning/AEGIS_3x_HardBreak_Adaptation/`). ADORE now speaks exactly one
-governance contract - the AEGIS 3.x grouped CLI (`bash .agentic/tools/run.sh
---run <id> --json <group> <action>`) - with no AEGIS 1.x support, detection, or
-migration of any kind. `adore/gates.py` and its 1.x verbs are deleted and
-replaced by `adore/aegis.py`, the single component that owns the invocation
-shape, the four-key envelope, exit-code discrimination, and the typed
-fail-loud errors. The AEGIS run id minted at `run start` is persisted on
-`RunState` and pinned with `--run` everywhere; the `current_run` pointer is
-never read. Conduction is context-driven: AEGIS owns the stage pointer, ADORE
-reads it from `run status`, validates the bounded schema-1 `run context` before
-every fresh executor session, guards the stage with a per-profile allowlist
-(eight stages, or four with `--quick`), launches the executor for one stage, verifies
-objectively (`stage show` readiness, `aegis verify run` at validation and
-delivery, committed work), and issues `stage close` itself as the delegated
-approver - the executor is instructed never to close a stage or add a waiver.
-Publication (integrate, `verify run`, push, draft MR) is ADORE's own phase
-under the stage name `publication`. Failure evidence comes through one strict
-contained-file boundary from `validation-summary.json`, the schema-3
-`graph.json`, and `report.md`. Run, profile, evidence, waiver,
-not-enforced/not-applicable, and quick red/green truth must agree across those
-artifacts; an abandoned run can never publish.
-`classify_block` decides park / one bounded lock retry / escalate, and every
-escalation carries the exact AEGIS error, its remediation, and where relevant
-the exact `aegis waive add` command a human would run. Run kind and profile
-come from ticket labels through a validated `[workflow]` config section, and
-`doctor.detect_aegis` probes a target repository for a schema-3 payload.
-CR1-CR6 and WP8 completed on 2026-08-08; the offline suite is green at 427
-tests on native Windows and Ubuntu 24.04/WSL2. Full and quick Gitea pilots,
-restart, waiver/not-enforced/advisory truth, abandoned no-publication, and a
-same-draft-PR revise cycle are live-verified in prerequisites report section
-19. ADORE 3.0.0 is cut with aligned package, lock, changelog, documentation,
-and version-derived runtime artifacts. No pilot PR was merged.
+The runnable implementation under `04_Software/` supports GitLab, GitHub and
+Gitea adapters; Docker, Podman and WSL-wrapped runtimes; open/none/allowlisted
+egress; assisted multi-project profiles; durable notification replay; metrics;
+and operator recovery/cleanup commands. Failures become explicit terminal
+state with preserved retry evidence, while cancel/delete are the explicit
+resource-release boundaries. Verification is offline by default; live forge,
+container and credential checks remain operator-authorized acceptance work.

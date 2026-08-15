@@ -133,6 +133,10 @@ the container, so the executor cannot push regardless.
   ignored.
 - `GateRun.ok` = exit code 0; necessary but not sufficient to advance - the
   conductor still checks `has_questions` and runs `invariants`.
+- `GateRun.timed_out` copies `CommandResult.timed_out` from the physical launch;
+  it is never inferred from exit code or stderr. Archive-error returns preserve
+  it, archive metadata records it, and a timed-out launch cannot trigger the
+  dead-session self-heal.
 - `GateRun.session_id` falls back to the passed-in session when the output
   stream yields none, so continuation is never lost to a parse gap.
 - **Dead-session self-heal** (live finding 2026-07-04): a launch failing
@@ -173,8 +177,9 @@ elif run.ok:
   protocol (two-token argv, LF-only script, quoted prompt, redirections),
   session continuation and fallback, questions detection, stale-questions
   clearing, failure/timeout as data, normal/missing-output/nonzero/session-
-  reset archive behavior, archive-write failure as data, `--auto` rejection,
-  factory wiring.
+  reset archive behavior, authoritative timeout propagation (including archive
+  failure and reset-like stderr), archive-write failure as data, `--auto`
+  rejection, factory wiring.
 - `tests/test_config.py`: `--auto` flagged by `validate_config`; Codex must
   be non-interactive JSON, ignore machine-local user config, and disable
   bundled plugins.

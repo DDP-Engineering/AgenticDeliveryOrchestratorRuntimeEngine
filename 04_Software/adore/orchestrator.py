@@ -43,6 +43,7 @@ from adore.aegis import (
     AegisProtocolError,
     AegisTask,
     AegisTaskError,
+    AegisTimeoutError,
     allowed_transition,
 )
 from adore.branding import (
@@ -90,6 +91,9 @@ _REDACTIONS = (
     re.compile(r"(?i)(api[_-]?key\s*[:=]\s*)(\S+)"),
 )
 _MAX_EVIDENCE = 6000
+_TICKET_CONTENT_CHANGED_NOTE = "ticket content changed since pickup"
+# Valid only while the single-conductor lock prevents another process from
+# reconciling a legitimately long-running stage as abandoned.
 _STALE_WORKING_GRACE_SECONDS = 60
 
 
@@ -109,19 +113,28 @@ def _task_type(ticket: Ticket, config: Config) -> str:
     labels = set(ticket.labels)
     mappings = config.workflow.kind_labels
     fix_labels = {
-        label for label, kind in mappings.items() if kind in {"bug", "fix"}
+        label for label, kind in mappings.items() if kind == "fix"
     } | {"bug", "fix", config.labels.selection.type_bug}
     change_labels = {
         label for label, kind in mappings.items() if kind == "change"
     } | {"change"}
+    feature_labels = {
+        label for label, kind in mappings.items() if kind == "feature"
+    }
     if labels & fix_labels:
         return "fix"
     if labels & change_labels:
         return "change"
-    return "feature"
+    if labels & feature_labels:
+        return "feature"
+    return config.workflow.default_kind
 
 
 # PUBLIC API
+
+
+class LockHeldError(RuntimeError):
+    """@brief A live or unknown holder owns the single-conductor lock."""
 
 
 class Orchestrator:
@@ -164,8 +177,17 @@ class Orchestrator:
         self._in_flight_run_id = ""
 
     @classmethod
-    def from_config(cls, config: Config, env_file: str = ".env") -> Orchestrator:
-        """@brief Build the conductor with configured production collaborators."""
+    def from_config(
+        cls,
+        config: Config,
+        env_file: str | Path = ".env",
+    ) -> Orchestrator:
+        """
+        @brief      Build the conductor with configured production collaborators.
+        @param[in]  config Validated runtime configuration.
+        @param[in]  env_file Secret file; direct callers default to cwd `.env`.
+        @return     Production-wired orchestrator.
+        """
         entry = config.executor.commands[config.executor.default]
         env = {**load_env_file(env_file), **os.environ}
         secrets = {key: env[key] for key in config.executor.env_keys if env.get(key)}
@@ -227,7 +249,7 @@ class Orchestrator:
         own_lock = False
         if not dry_run and not locked:
             if not self.store.acquire_lock():
-                raise RuntimeError("another instance holds the lock")
+                raise LockHeldError("another instance holds the lock")
             own_lock = True
         summary: dict[str, Any] = {
             "resumed": 0,
@@ -275,7 +297,7 @@ class Orchestrator:
         except (FileNotFoundError, StateError):
             return False
         self._teardown(run, remove_worktree=True)
-        run.lifecycle = "failed" if outcome == "failed" else outcome
+        run.lifecycle = "failed" if outcome == "failed" else "cancelled"
         run.outcome = outcome
         self.store.save(run)
         self.store.journal(run_id, "cancelled", outcome=outcome)
@@ -304,6 +326,16 @@ class Orchestrator:
             and bool(run.validation_evidence)
             and bool(run.approval_presented_at)
         )
+        if resume_publication:
+            approval_absent = (
+                not run.approval_label_removed
+                or self.config.delivery.approval_label not in ticket.labels
+            )
+            approval_ready = self._approval_ready(run, ticket)
+            if not approval_ready and not approval_absent:
+                # Freshness errors and candidate drift already fail or re-conduct.
+                return True
+            resume_publication = approval_ready
         run.lifecycle = "working"
         run.outcome = ""
         run.stage_failures = 0
@@ -337,31 +369,45 @@ class Orchestrator:
         return True
 
     def cleanup(self) -> dict[str, Any]:
-        """@brief Remove resources not owned by an active schema-4 run."""
+        """@brief Remove resources not owned by an active or failed run."""
         report: dict[str, Any] = {
             "lock_cleared": False,
+            "lock_held_by": None,
             "containers_removed": [],
+            "proxy_containers_removed": [],
+            "egress_networks_removed": [],
             "worktrees_removed": [],
             "corrupt_runs": self.store.invalid_runs(),
         }
-        if self.store.lock_info() is not None:
-            self.store.release_lock()
+        if self.store.reclaim_stale_lock():
             report["lock_cleared"] = True
-        active = {
-            run.run_id for run in self.store.list_runs()
-            if run.lifecycle in ACTIVE_LIFECYCLES
-        }
+        else:
+            lock = self.store.lock_info()
+            if lock is not None:
+                report["lock_held_by"] = lock.get("pid", "unknown")
+        protected_runs = [
+            run for run in self.store.list_runs()
+            if run.lifecycle in ACTIVE_LIFECYCLES or run.lifecycle == "failed"
+        ]
+        protected_ids = {run.run_id for run in protected_runs}
+        protected_containers = {
+            self.identity.container_name(run.run_id) for run in protected_runs
+        } | {run.container for run in protected_runs if run.container}
         prefix = f"{self.identity.slug}-run-"
         with contextlib.suppress(IsolationError):
-            for name in self.containers.list_containers(prefix):
-                if name.endswith("-egress-proxy"):
-                    continue
-                if name[len(prefix):] not in active:
-                    with contextlib.suppress(IsolationError):
-                        self.containers.remove(name)
-                        report["containers_removed"].append(name)
+            report["containers_removed"] = self.containers.cleanup_orphan_containers(
+                prefix, protected_containers
+            )
+        with contextlib.suppress(IsolationError):
+            report["proxy_containers_removed"] = self.containers.cleanup_egress_proxies(
+                prefix, protected_containers
+            )
+        with contextlib.suppress(IsolationError):
+            report["egress_networks_removed"] = self.containers.cleanup_egress_networks(
+                protected_containers
+            )
         for path in self.worktrees.list_dirs():
-            if path.name in active:
+            if path.name in protected_ids:
                 continue
             with contextlib.suppress(IsolationError):
                 self.worktrees.remove(path.name)
@@ -418,6 +464,45 @@ class Orchestrator:
                 return False
         return True
 
+    @staticmethod
+    def _ticket_snapshot(ticket: Ticket) -> dict[str, Any]:
+        """@brief Build the normalized durable ticket snapshot."""
+        return {
+            "iid": ticket.iid,
+            "title": ticket.title,
+            "description": ticket.description,
+            "labels": ticket.labels,
+            "author": ticket.author,
+            "web_url": ticket.web_url,
+            "snapshotted_at": utc_now_iso(),
+        }
+
+    def _refresh_ticket_snapshot(
+        self, run: RunState, ticket: Ticket, *, context: str
+    ) -> bool:
+        """
+        @brief      Refresh a changed ticket snapshot and surface the drift.
+        @param[in]  run Persisted run whose source ticket was freshly observed.
+        @param[in]  ticket Fresh normalized forge ticket.
+        @param[in]  context Reconciliation point that observed the change.
+        @return     True when title or description changed since the last snapshot.
+        """
+        fresh_hash = content_hash(ticket.title, ticket.description)
+        if fresh_hash == run.content_hash:
+            return False
+        # Snapshot first: a crash can cause a harmless repeated observation, never
+        # a new hash that points at stale ticket content.
+        self.store.save_ticket(run.run_id, self._ticket_snapshot(ticket))
+        run.content_hash = fresh_hash
+        self.store.save(run)
+        self.store.journal(
+            run.run_id,
+            "ticket-content-refreshed",
+            context=context,
+            note=_TICKET_CONTENT_CHANGED_NOTE,
+        )
+        return True
+
     def _claim_and_conduct(self, ticket: Ticket) -> None:
         """@brief Persist ticket identity before any isolated code work starts."""
         run_id = self._run_id(ticket.iid)
@@ -435,15 +520,7 @@ class Orchestrator:
         comments = self.forge.list_comments(ticket.iid)
         run.last_seen_comment_id = max((item.id for item in comments), default=None)
         self.store.save(run)
-        self.store.save_ticket(run_id, {
-            "iid": ticket.iid,
-            "title": ticket.title,
-            "description": ticket.description,
-            "labels": ticket.labels,
-            "author": ticket.author,
-            "web_url": ticket.web_url,
-            "snapshotted_at": utc_now_iso(),
-        })
+        self.store.save_ticket(run_id, self._ticket_snapshot(ticket))
         self.store.journal(run_id, "picked", ticket=ticket.iid, title=ticket.title)
         try:
             self.forge.remove_labels(ticket.iid, [self.config.labels.lifecycle.ready])
@@ -474,31 +551,42 @@ class Orchestrator:
             execute = partial(
                 self.containers.exec, run.container, env=self._container_env(run)
             )
-            client = AegisClient(execute, self.config.workflow.aegis_python)
-            try:
-                if run.active_task_id is None:
-                    # Probe before task creation: unsupported payloads never consume tickets.
-                    probe = client.probe()
-                    task_id = client.create_task(ticket.title.strip(), run.aegis_type)
-                    run.active_task_id = task_id
-                    run.task_ids.append(task_id)
-                    self.store.save(run)
-                    self.store.journal(
-                        run.run_id,
-                        "aegis-task-created",
-                        task=task_id,
-                        version=probe.version,
-                        schema=probe.schema,
-                    )
-                    self._checkpoint(run, f"ADORE create {task_id}")
-                else:
-                    client.probe()
-                self._conduct_task(run, ticket, client, thread)
-            except AegisProtocolError as exc:
-                # Protocol/version/schema/path violations are trust-boundary failures.
-                self._fail_immediately(run, "AEGIS_PROTOCOL", exc)
-            except AegisTaskError as exc:
-                self._fail_immediately(run, "AEGIS_FATAL", exc)
+            client = AegisClient(
+                execute,
+                self.config.workflow.aegis_python,
+                self._io_dir(run.run_id),
+            )
+            while run.lifecycle == "working":
+                try:
+                    if run.active_task_id is None:
+                        # Probe before task creation: unsupported payloads never consume tickets.
+                        probe = client.probe()
+                        task_id = client.create_task(ticket.title.strip(), run.aegis_type)
+                        run.active_task_id = task_id
+                        run.task_ids.append(task_id)
+                        self.store.save(run)
+                        self.store.journal(
+                            run.run_id,
+                            "aegis-task-created",
+                            task=task_id,
+                            version=probe.version,
+                            schema=probe.schema,
+                        )
+                        self._checkpoint(run, f"ADORE create {task_id}")
+                    else:
+                        client.probe()
+                    self._conduct_task(run, ticket, client, thread)
+                    return
+                except AegisProtocolError as exc:
+                    # Protocol/version/schema/path violations are trust-boundary failures.
+                    self._fail_immediately(run, "AEGIS_PROTOCOL", exc)
+                    return
+                except AegisTaskError as exc:
+                    self._fail_immediately(run, "AEGIS_FATAL", exc)
+                    return
+                except AegisTimeoutError as exc:
+                    if not self._stage_failure(run, "AEGIS_TIMEOUT", exc):
+                        return
 
     def _conduct_task(
         self,
@@ -522,10 +610,7 @@ class Orchestrator:
                 failure_context = _sanitize(exc)
                 continue
             if task.done:
-                if run.mr_iid is None:
-                    self._fail_immediately(
-                        run, "PREMATURE_DONE", "AEGIS task reached done before publication"
-                    )
+                self._recover_done_publication(run)
                 return
             run.aegis_path = task.path
             previous = run.stage
@@ -601,7 +686,7 @@ class Orchestrator:
                 self._park(run, result.questions)
                 return
             if not result.ok:
-                code = "EXECUTOR_TIMEOUT" if "timeout" in result.stderr.lower() else "EXECUTOR_EXIT"
+                code = "EXECUTOR_TIMEOUT" if result.timed_out else "EXECUTOR_EXIT"
                 evidence = result.stderr or result.output or f"exit {result.exit_code}"
                 if not self._stage_failure(run, code, evidence):
                     return
@@ -615,8 +700,9 @@ class Orchestrator:
                 failure_context = _sanitize(exc)
                 continue
             if updated.stage == task.stage:
-                if self._read_questions(run):
-                    self._park(run, self._read_questions(run))
+                questions = self._read_questions(run)
+                if questions:
+                    self._park(run, questions)
                     return
                 if not self._stage_failure(
                     run,
@@ -903,7 +989,11 @@ class Orchestrator:
             self._conduct_task(
                 run,
                 ticket,
-                AegisClient(execute, self.config.workflow.aegis_python),
+                AegisClient(
+                    execute,
+                    self.config.workflow.aegis_python,
+                    self._io_dir(run.run_id),
+                ),
                 "",
             )
         return False
@@ -1014,6 +1104,8 @@ class Orchestrator:
         run.candidate_base_ref = ""
         run.approval_presented_at = ""
         run.approval_label_removed = False
+        run.stage_failures = 0
+        run.active_started_at = utc_now_iso()
         self.store.save(run)
         self.store.journal(run.run_id, "approval-invalidated", reason=reason)
         self._required_comment(
@@ -1038,28 +1130,15 @@ class Orchestrator:
             execute = partial(
                 self.containers.exec, run.container, env=self._container_env(run)
             )
-            client = AegisClient(execute, self.config.workflow.aegis_python)
+            client = AegisClient(
+                execute,
+                self.config.workflow.aegis_python,
+                self._io_dir(run.run_id),
+            )
             client.probe()
             task = self._task(client, run)
             if task.done:
-                if run.mr_iid is None:
-                    self._fail_immediately(
-                        run, "PREMATURE_DONE", "done task has no published draft MR/PR"
-                    )
-                    return
-                self._checkpoint(run, f"ADORE recover close-out {run.active_task_id}")
-                push = self.worktrees.push(run.run_id, run.branch)
-                if not push.ok:
-                    self._fail_immediately(
-                        run, "CLOSE_OUT_PUSH_FAILED", push.stderr or push.stdout
-                    )
-                    return
-                run.lifecycle = "in-review"
-                run.stage = "done"
-                self.store.save(run)
-                self._status(run)
-                with contextlib.suppress(IsolationError):
-                    self.containers.stop(run.container)
+                self._recover_done_publication(run)
                 return
             approved_product = self.worktrees.product_diff_fingerprint(
                 run.run_id, run.base_ref
@@ -1128,22 +1207,40 @@ class Orchestrator:
                 self._fail_immediately(run, "PUSH_FAILED", push.stderr or push.stdout)
                 return
             if run.mr_iid is None:
-                run.mr_url = self.forge.open_merge_request(
-                    run.branch,
-                    self.config.delivery.target_branch,
-                    ticket.title,
-                    self._mr_body(run, ticket),
-                    draft=True,
-                    reviewers=self.config.delivery.reviewers,
-                    remove_source_branch=self.config.delivery.remove_source_branch,
-                    cwd=run.worktree,
-                )
                 mr = self.forge.get_merge_request(run.branch)
-                if mr is None:
+                mr_event = "mr-adopted"
+                if mr is not None and mr.state == "opened" and (
+                    mr.iid < 1 or not mr.web_url.strip()
+                ):
+                    raise ForgeError(
+                        "existing open draft MR/PR is missing its iid or URL"
+                    )
+                if mr is None or mr.state != "opened":
+                    self.forge.open_merge_request(
+                        run.branch,
+                        self.config.delivery.target_branch,
+                        ticket.title,
+                        self._mr_body(run, ticket),
+                        draft=True,
+                        reviewers=self.config.delivery.reviewers,
+                        remove_source_branch=self.config.delivery.remove_source_branch,
+                        cwd=run.worktree,
+                    )
+                    mr = self.forge.get_merge_request(run.branch)
+                    mr_event = "mr-opened"
+                if (
+                    mr is None
+                    or mr.state != "opened"
+                    or mr.iid < 1
+                    or not mr.web_url.strip()
+                ):
                     raise ForgeError("draft MR/PR was created but could not be read back")
                 run.mr_iid = mr.iid
+                run.mr_url = mr.web_url
+                self.store.journal(
+                    run.run_id, mr_event, url=run.mr_url, iid=run.mr_iid
+                )
             self.store.save(run)
-            self.store.journal(run.run_id, "mr-opened", url=run.mr_url, iid=run.mr_iid)
             close_task = self._task(client, run)
             close = self._launch_stage(
                 run,
@@ -1177,6 +1274,32 @@ class Orchestrator:
         except (AegisError, IsolationError) as exc:
             self._fail_immediately(run, "PUBLICATION_FAILED", exc)
             return
+        self._enter_review(run)
+
+    def _recover_done_publication(self, run: RunState) -> None:
+        """
+        @brief Recover a done AEGIS task without skipping its final checkpoint/push.
+        """
+        if run.mr_iid is None:
+            self._fail_immediately(
+                run, "PREMATURE_DONE", "done task has no published draft MR/PR"
+            )
+            return
+        try:
+            self._checkpoint(run, f"ADORE recover close-out {run.active_task_id}")
+            push = self.worktrees.push(run.run_id, run.branch)
+        except IsolationError as exc:
+            self._fail_immediately(run, "PUBLICATION_SETUP", exc)
+            return
+        if not push.ok:
+            self._fail_immediately(
+                run, "CLOSE_OUT_PUSH_FAILED", push.stderr or push.stdout
+            )
+            return
+        self._enter_review(run)
+
+    def _enter_review(self, run: RunState) -> None:
+        """@brief Persist the post-publication review state and release execution."""
         run.lifecycle = "in-review"
         run.stage = "done"
         run.stage_failures = 0
@@ -1539,12 +1662,22 @@ class Orchestrator:
             "working state had no live conductor; explicit retry is required",
         )
 
+    def _cancel_if_ticket_closed(self, run: RunState, ticket: Ticket) -> bool:
+        """@brief Cancel through the normal teardown path when the source closes."""
+        if ticket.state == "opened":
+            return False
+        self.cancel(run.run_id, outcome="ticket closed")
+        return True
+
     def _reconcile_approval(self, run: RunState, summary: dict[str, Any]) -> None:
         """@brief Observe fresh approval or deleted resources without using a slot."""
         ticket = self.forge.get_ticket(run.ticket_iid)
         if ticket is None:
             self._fail_immediately(run, "TICKET_DELETED", "ticket deleted during approval")
             return
+        if self._cancel_if_ticket_closed(run, ticket):
+            return
+        self._refresh_ticket_snapshot(run, ticket, context="approval")
         if not self._approval_ready(run, ticket):
             return
         summary["approved"] += 1
@@ -1586,6 +1719,8 @@ class Orchestrator:
         run.parked_polls = 0
         self.store.save(run)
         self.store.journal(run.run_id, "parked", questions=clean)
+        with contextlib.suppress(OSError):
+            (Path(run.worktree) / self.questions_file).unlink(missing_ok=True)
         with contextlib.suppress(IsolationError):
             self.containers.stop(run.container)
         self._status(run)
@@ -1596,6 +1731,8 @@ class Orchestrator:
         if ticket is None:
             self._fail_immediately(run, "TICKET_DELETED", "ticket deleted while parked")
             return
+        if self._cancel_if_ticket_closed(run, ticket):
+            return
         comments = self.forge.list_comments(run.ticket_iid)
         answers = [
             item for item in comments
@@ -1605,10 +1742,14 @@ class Orchestrator:
         ]
         answered = self.config.labels.lifecycle.answered in ticket.labels
         if answers and answered:
+            content_changed = self._refresh_ticket_snapshot(
+                run, ticket, context="clarification-resume"
+            )
             run.last_seen_comment_id = max(item.id for item in comments)
             run.lifecycle = "working"
             run.parked_at = ""
             run.parked_polls = 0
+            run.active_started_at = utc_now_iso()
             self.store.save(run)
             self.store.journal(run.run_id, "resumed")
             with contextlib.suppress(ForgeError):
@@ -1617,12 +1758,15 @@ class Orchestrator:
                     [self.config.labels.lifecycle.answered, self.config.labels.lifecycle.clarify],
                 )
             summary["resumed"] += 1
-            self._conduct(run, ticket, self._render_thread(comments))
+            thread = self._render_thread(comments)
+            if content_changed:
+                thread = f"{thread}\n\n{_TICKET_CONTENT_CHANGED_NOTE}".strip()
+            self._conduct(run, ticket, thread)
             return
         run.parked_polls += 1
         parked = iso_to_datetime(run.parked_at)
         now = iso_to_datetime(utc_now_iso())
-        timeout_seconds = self._duration_seconds(self.config.clarification.answer_timeout)
+        timeout_seconds = self.config.clarification.answer_timeout_seconds()
         expired = bool(parked and now and (now - parked).total_seconds() >= timeout_seconds)
         if expired:
             summary["timed_out"] += 1
@@ -1660,6 +1804,12 @@ class Orchestrator:
         if mr.state == "closed":
             self._fail_immediately(run, "MR_CLOSED", "draft MR/PR closed without merge")
             return
+        ticket = self.forge.get_ticket(run.ticket_iid)
+        if ticket is None:
+            self._fail_immediately(run, "TICKET_DELETED", "source ticket deleted in review")
+            return
+        if self._cancel_if_ticket_closed(run, ticket):
+            return
         if self.config.review.revise_label not in mr.labels:
             self.store.save(run)
             return
@@ -1672,21 +1822,34 @@ class Orchestrator:
             return
         try:
             comments = self.forge.list_mr_comments(run.mr_iid)
-            self.forge.remove_mr_labels(run.mr_iid, [self.config.review.revise_label])
-            ticket = self.forge.get_ticket(run.ticket_iid)
-            if ticket is None:
-                raise ForgeError("source ticket deleted before revision")
             self._transient(run, "revision-provision", lambda: self._provision(run))
             execute = partial(
                 self.containers.exec, run.container, env=self._container_env(run)
             )
-            client = AegisClient(execute, self.config.workflow.aegis_python)
+            client = AegisClient(
+                execute,
+                self.config.workflow.aegis_python,
+                self._io_dir(run.run_id),
+            )
             client.probe()
             task_id = client.create_task(
                 f"Review round {run.review_rounds + 1}: {ticket.title}", "change"
             )
         except (ForgeError, IsolationError, AegisError) as exc:
             self._fail_immediately(run, "REVIEW_START_FAILED", exc)
+            return
+        self.store.journal(
+            run.run_id,
+            "revision-task-created",
+            round=run.review_rounds + 1,
+            task=task_id,
+        )
+        try:
+            self.forge.remove_mr_labels(
+                run.mr_iid, [self.config.review.revise_label]
+            )
+        except ForgeError as exc:
+            self._notification_transport_failure(run, "REVISE_LABEL_REMOVE", exc)
             return
         run.review_rounds += 1
         run.active_task_id = task_id
@@ -1701,6 +1864,7 @@ class Orchestrator:
         run.approval_presented_at = ""
         run.approval_label_removed = False
         run.lifecycle = "working"
+        run.active_started_at = utc_now_iso()
         self.store.save(run)
         self.store.journal(
             run.run_id, "revision-started", round=run.review_rounds, task=task_id
@@ -1726,15 +1890,6 @@ class Orchestrator:
             return f"Unable to read questions file: {exc}"
         path.unlink(missing_ok=True)
         return text.strip()
-
-    @staticmethod
-    def _duration_seconds(value: str) -> int:
-        """@brief Parse the validated compact duration form."""
-        match = re.fullmatch(r"(\d+)([smhd])", value.strip())
-        if match is None:
-            return 0
-        factors = {"s": 1, "m": 60, "h": 3600, "d": 86400}
-        return int(match.group(1)) * factors[match.group(2)]
 
     # Shared isolation, budget, status and metrics internals
 
@@ -1834,8 +1989,9 @@ class Orchestrator:
         now = iso_to_datetime(utc_now_iso())
         if started and now and (now - started).total_seconds() >= budgets.max_wall_clock_seconds:
             return f"active work clock reached {budgets.max_wall_clock_seconds}s"
-        if self._cost_spent(run) >= budgets.max_cost_usd:
-            return f"cost budget reached (${self._cost_spent(run):.2f})"
+        cost_spent = self._cost_spent(run)
+        if cost_spent >= budgets.max_cost_usd:
+            return f"cost budget reached (${cost_spent:.2f})"
         if run.base_ref and self.worktrees.exists(run.run_id):
             try:
                 if not self.worktrees.merge_in_progress(run.run_id):
@@ -1847,7 +2003,7 @@ class Orchestrator:
         return ""
 
     def _ticket_from_snapshot(self, run: RunState) -> Ticket:
-        """@brief Rebuild prompt context from the immutable pickup snapshot."""
+        """@brief Rebuild prompt context from the latest persisted ticket snapshot."""
         data = self.store.load_ticket(run.run_id)
         return Ticket(
             iid=run.ticket_iid,
@@ -1886,6 +2042,16 @@ class Orchestrator:
                 "last_error": _sanitize(exc),
             }
             run.notification_outbox.append(record)
+            if run.lifecycle in {"cancelled", "done", "failed"}:
+                self.store.save(run)
+                self.store.journal(
+                    run.run_id,
+                    "notification-blocked",
+                    code="STATUS_NOTIFICATION",
+                    evidence=_sanitize(exc),
+                    terminal_lifecycle=run.lifecycle,
+                )
+                return
             self._notification_transport_failure(run, "STATUS_NOTIFICATION", exc)
 
     def _status_labels(self, run: RunState) -> None:

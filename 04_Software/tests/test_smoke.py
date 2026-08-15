@@ -18,12 +18,16 @@
 from __future__ import annotations
 
 # IMPORTS
+import os
 from pathlib import Path
 
 from adore import __version__
 from adore.cli import EXIT_ERROR, EXIT_OK, main
 from adore.executor.launcher import OpencodeExecutor, build_executor
+from adore.forge import ForgeError
+from adore.orchestrator import LockHeldError
 from adore.process_log import ProcessLogger, process_log_path
+from adore.state import RunState, StateStore
 import pytest
 
 # CONSTANTS
@@ -66,6 +70,25 @@ def _config_file(tmp_path: Path, text: str = VALID_CONFIG) -> str:
 
 
 # PUBLIC API / TESTS
+
+
+class FakeMutationEngine:
+    """@brief Record CLI mutation calls without touching external systems."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple] = []
+
+    def retry(self, run_id: str) -> bool:
+        self.calls.append(("retry", run_id))
+        return True
+
+    def cancel(self, run_id: str, *, outcome: str = "cancelled") -> bool:
+        self.calls.append(("cancel", run_id, outcome))
+        return True
+
+    def reset(self, run_id: str, stage: str) -> bool:
+        self.calls.append(("reset", run_id, stage))
+        return True
 
 
 def test_version_present() -> None:
@@ -267,7 +290,9 @@ def test_cli_run_once_writes_process_log(
             self.log("engine line")
             return {"picked": None, "dry_run": dry_run}
 
-    monkeypatch.setattr("adore.cli.Orchestrator.from_config", lambda _config: FakeEngine())
+    monkeypatch.setattr(
+        "adore.cli.Orchestrator.from_config", lambda _config, **_kwargs: FakeEngine()
+    )
 
     assert main(["-c", config, "run", "--once"]) == EXIT_OK
 
@@ -277,6 +302,170 @@ def test_cli_run_once_writes_process_log(
     log_text = process_log_path(tmp_path / ".adore").read_text(encoding="utf-8")
     assert "engine line" in log_text
     assert '"picked": null' in log_text
+
+
+def test_cli_engine_prefers_profile_env_then_falls_back_to_cwd(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    @brief   Engine commands pass the config-adjacent `.env` when present and
+             otherwise the cwd fallback, independent of the selected config.
+    """
+    profile_dir = tmp_path / "profile"
+    cwd_dir = tmp_path / "service-cwd"
+    profile_dir.mkdir()
+    cwd_dir.mkdir()
+    config = _config_file(profile_dir)
+    profile_env = profile_dir / ".env"
+    cwd_env = cwd_dir / ".env"
+    profile_env.write_text("KEY=profile\n", encoding="utf-8")
+    cwd_env.write_text("KEY=cwd\n", encoding="utf-8")
+    selected: list[Path] = []
+
+    class FakeEngine:
+        """@brief Minimal dry-run engine for env-path selection."""
+
+        def __init__(self) -> None:
+            self.log = print
+
+        def poll_once(self, *, dry_run: bool = False) -> dict:
+            return {"dry_run": dry_run}
+
+    def build(_config, *, env_file):
+        selected.append(Path(env_file))
+        return FakeEngine()
+
+    monkeypatch.setattr("adore.cli.Orchestrator.from_config", build)
+    monkeypatch.chdir(cwd_dir)
+
+    assert main(["-c", config, "run", "--dry-run"]) == EXIT_OK
+    profile_env.unlink()
+    assert main(["-c", config, "run", "--dry-run"]) == EXIT_OK
+
+    assert selected == [profile_env.resolve(), cwd_env]
+
+
+@pytest.mark.parametrize(
+    ("error", "expected", "has_lock_hint"),
+    [
+        (LockHeldError("another instance holds the lock"), "another instance", True),
+        (ForgeError("forge transport failed"), "forge transport failed", False),
+    ],
+)
+def test_cli_run_once_reserves_lock_advice_for_lock_contention(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    error: RuntimeError,
+    expected: str,
+    has_lock_hint: bool,
+) -> None:
+    """@brief Non-lock RuntimeErrors keep their text without lock-removal advice."""
+    config = _config_file(tmp_path)
+
+    class FailingEngine:
+        """@brief Minimal run-once engine raising one scripted failure."""
+
+        def __init__(self) -> None:
+            self.log = print
+
+        def poll_once(self, *, dry_run: bool = False) -> dict:
+            raise error
+
+    monkeypatch.setattr(
+        "adore.cli.Orchestrator.from_config", lambda _config, **_kwargs: FailingEngine()
+    )
+    assert main(["-c", config, "run", "--once"]) == EXIT_ERROR
+    out = capsys.readouterr().out
+    assert expected in out
+    assert ("provably stale local lock" in out) is has_lock_hint
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["retry", "run-1"],
+        ["cancel", "run-1"],
+        ["delete", "run-1", "--force"],
+        ["reset", "run-1", "--to", "frame", "--force"],
+    ],
+)
+def test_cli_operator_mutations_refuse_a_live_lock(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    argv: list[str],
+) -> None:
+    """@brief Retry/cancel/delete/reset fail closed without touching live work."""
+    config = _config_file(tmp_path)
+    store = StateStore(tmp_path / ".adore")
+    store.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="failed"))
+    engine = FakeMutationEngine()
+    monkeypatch.setattr(
+        "adore.cli.Orchestrator.from_config", lambda _config, **_kwargs: engine
+    )
+    assert store.acquire_lock()
+    try:
+        assert main(["-c", config, *argv]) == EXIT_ERROR
+        assert "holds the lock" in capsys.readouterr().out
+        assert engine.calls == []
+        assert store.exists("run-1")
+        assert store.lock_info()["pid"] == os.getpid()
+    finally:
+        store.release_lock()
+
+
+@pytest.mark.parametrize(
+    ("argv", "expected"),
+    [
+        (["retry", "run-1"], ("retry", "run-1")),
+        (["cancel", "run-1"], ("cancel", "run-1", "cancelled")),
+        (["delete", "run-1", "--force"], ("cancel", "run-1", "deleted")),
+        (["reset", "run-1", "--to", "frame", "--force"],
+         ("reset", "run-1", "frame")),
+    ],
+)
+def test_cli_operator_mutations_acquire_and_release_the_lock(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    argv: list[str],
+    expected: tuple,
+) -> None:
+    """@brief Every successful operator mutation releases its acquired lock."""
+    config = _config_file(tmp_path)
+    store = StateStore(tmp_path / ".adore")
+    store.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="failed"))
+    engine = FakeMutationEngine()
+    monkeypatch.setattr(
+        "adore.cli.Orchestrator.from_config", lambda _config, **_kwargs: engine
+    )
+
+    assert main(["-c", config, *argv]) == EXIT_OK
+    assert engine.calls == [expected]
+    assert store.lock_info() is None
+
+
+def test_cli_logs_remain_available_while_lock_is_held(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """@brief Read-only journal inspection does not contend with the conductor."""
+    config = _config_file(tmp_path)
+    store = StateStore(tmp_path / ".adore")
+    store.journal("run-1", "picked", ticket=1)
+    monkeypatch.setattr(
+        "adore.cli.Orchestrator.from_config",
+        lambda _config, **_kwargs: FakeMutationEngine(),
+    )
+    assert store.acquire_lock()
+    try:
+        assert main(["-c", config, "logs", "run-1"]) == EXIT_OK
+        assert "picked" in capsys.readouterr().out
+        assert store.lock_info()["pid"] == os.getpid()
+    finally:
+        store.release_lock()
 
 
 def test_process_log_rotates(tmp_path: Path) -> None:
@@ -356,8 +545,8 @@ def _answers_file(tmp_path: Path) -> str:
     (clone / ".git").mkdir(parents=True)
     answers = tmp_path / "answers.toml"
     answers.write_text(
-        f'kind = "gitlab"\nhosting = "public"\nvisibility = "private"\n'
-        f'repo = "grp/proj"\nrepo_path = "{clone.as_posix()}"\n'
+        f'kind = "gitlab"\nrepo = "grp/proj"\n'
+        f'repo_path = "{clone.as_posix()}"\n'
         f'has_push_rule = "no"\nruntime = "docker"\nmodel = "openai/gpt-5.5"\n'
         f'auth_mode = "api-key"\nreviewers = "dan.pasare"\n'
         f'budgets_choice = "recommended"\npolling_mode = "once"\n'

@@ -82,8 +82,6 @@ def _answers(clone: Path, **overrides: object) -> dict[str, object]:
     answers: dict[str, object] = {
         "description": "test project",
         "kind": "gitlab",
-        "hosting": "public",
-        "visibility": "private",
         "repo": "grp/sub/proj",
         "repo_path": str(clone),
         "has_push_rule": "yes",
@@ -261,25 +259,28 @@ def test_wizard_non_interactive_is_reproducible_and_fails_fast(tmp_path: Path) -
 # PUBLIC API / TESTS - conditional branches (host / budgets / agent)
 
 
-def test_wizard_corporate_host_is_recorded(tmp_path: Path) -> None:
+def test_wizard_gitlab_uses_cli_host_guidance_without_dead_prompts(
+    tmp_path: Path,
+) -> None:
     """
-    @brief   Choosing a corporate/self-hosted instance asks for and records the
-             host URL in the profile metadata.
+    @brief   GitLab/GitHub routing stays with the CLI's active/default host;
+             the wizard neither collects nor records ineffective host data.
     """
     store = _store(tmp_path)
-    asker = ScriptedAsker(_answers(_clone(tmp_path), hosting="corporate",
-                                   host_url="https://gitlab.example.com"))
-    profile = run_wizard(store, asker=asker, out=lambda _l: None, runner=_runner(),
+    asker = ScriptedAsker(_answers(_clone(tmp_path)))
+    output: list[str] = []
+    profile = run_wizard(store, asker=asker, out=output.append, runner=_runner(),
                          os_key="linux", name="corp")
-    assert profile.host == "https://gitlab.example.com"
-    assert asker.reads.count("host_url") == 1
+    assert profile.host == ""
+    assert {"hosting", "host_url", "visibility"}.isdisjoint(asker.reads)
+    assert any("active/default authenticated host" in line for line in output)
+    assert any("adore profile path corp" in line for line in output)
 
 
 def test_wizard_gitea_asks_login_instead_of_hosting(tmp_path: Path) -> None:
     """
-    @brief   The gitea path replaces the hosting/URL questions with the tea
-             login name (tea binds host + token to a login) and writes it to
-             [platform] login; the saved config validates.
+    @brief   The gitea path keeps its tea login selector (tea binds host + token
+             to a login) and writes it to [platform] login.
     """
     store = _store(tmp_path)
     asker = ScriptedAsker(_answers(_clone(tmp_path), kind="gitea",
@@ -292,7 +293,7 @@ def test_wizard_gitea_asks_login_instead_of_hosting(tmp_path: Path) -> None:
     assert config.platform.login == "home"
     assert profile.platform == "gitea" and profile.host == ""
     assert asker.reads.count("login") == 1
-    assert "hosting" not in asker.reads and "host_url" not in asker.reads
+    assert {"hosting", "host_url", "visibility"}.isdisjoint(asker.reads)
 
 
 def test_wizard_custom_budgets_are_written(tmp_path: Path) -> None:

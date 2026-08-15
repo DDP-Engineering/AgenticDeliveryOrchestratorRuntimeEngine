@@ -207,15 +207,20 @@ def test_executor_failure_passes_through_as_data(tmp_path: Path) -> None:
     """
     worktree, io_dir = _dirs(tmp_path)
     run = _executor().run_gate(
-        FakeExec(CommandResult(exit_code=124, stderr="timeout after 1200s")),
+        FakeExec(CommandResult(
+            exit_code=124,
+            stderr="process ended after the wall-clock bound",
+            timed_out=True,
+        )),
         worktree,
         io_dir,
         "p",
     )
     assert not run.ok
     assert run.exit_code == 124
+    assert run.timed_out
     assert run.output == ""
-    assert "timeout" in run.stderr
+    assert "wall-clock" in run.stderr
 
 
 def test_gate_launch_archive_preserves_output_and_meta(tmp_path: Path) -> None:
@@ -275,7 +280,7 @@ def test_archive_records_missing_output_as_empty_file(tmp_path: Path) -> None:
     assert meta["stderr_file_present"] is False
 
 
-def test_archive_records_nonzero_exit(tmp_path: Path) -> None:
+def test_archive_records_nonzero_exit_and_timeout(tmp_path: Path) -> None:
     """
     @brief   A failed executor launch still archives the partial output and
              stderr before the conductor decides whether to retry.
@@ -287,7 +292,7 @@ def test_archive_records_nonzero_exit(tmp_path: Path) -> None:
         (io_dir / STDERR_FILE).write_text("tool exploded\n", encoding="utf-8")
 
     run = _executor().run_gate(
-        FakeExec(CommandResult(exit_code=124), write_partial),
+        FakeExec(CommandResult(exit_code=124, timed_out=True), write_partial),
         worktree,
         io_dir,
         "p",
@@ -296,11 +301,13 @@ def test_archive_records_nonzero_exit(tmp_path: Path) -> None:
 
     archive = io_dir / ARCHIVE_DIR / "003-requirement-attempt1"
     assert not run.ok
+    assert run.timed_out
     assert run.artifact_dirs == [str(archive)]
     assert "partial stream" in (archive / OUTPUT_FILE).read_text(encoding="utf-8")
     assert "tool exploded" in (archive / STDERR_FILE).read_text(encoding="utf-8")
     meta = json.loads((archive / "meta.json").read_text(encoding="utf-8"))
     assert meta["exit_code"] == 124
+    assert meta["timed_out"] is True
 
 
 def test_archive_write_failure_fails_gate_as_data(
@@ -322,7 +329,7 @@ def test_archive_write_failure_fails_gate_as_data(
     monkeypatch.setattr(executor, "_archive_launch", fail_archive)
 
     run = executor.run_gate(
-        FakeExec(CommandResult(exit_code=0)),
+        FakeExec(CommandResult(exit_code=124, timed_out=True)),
         worktree,
         io_dir,
         "p",
@@ -330,6 +337,7 @@ def test_archive_write_failure_fails_gate_as_data(
     )
 
     assert not run.ok
+    assert run.timed_out
     assert "archive write failed" in run.stderr
     assert "disk full" in run.stderr
     assert run.artifact_dirs == []
@@ -378,6 +386,29 @@ def test_session_not_found_self_heals_with_fresh_session(tmp_path: Path) -> None
     second = Path(run.artifact_dirs[1])
     assert "Session not found" in (first / STDERR_FILE).read_text(encoding="utf-8")
     assert "ses_fresh" in (second / OUTPUT_FILE).read_text(encoding="utf-8")
+
+
+def test_timeout_does_not_trigger_dead_session_self_heal(tmp_path: Path) -> None:
+    """@brief A wrapper timeout remains authoritative despite reset-like stderr."""
+    worktree, io_dir = _dirs(tmp_path)
+    calls: list[list[str]] = []
+
+    def exec_target(argv, *, timeout=None):
+        """@brief Simulate a killed launch whose partial stderr names a dead session."""
+        calls.append(list(argv))
+        (io_dir / STDERR_FILE).write_text("Error: Session not found\n", encoding="utf-8")
+        return CommandResult(exit_code=124, timed_out=True)
+
+    run = _executor().run_gate(
+        exec_target,
+        worktree,
+        io_dir,
+        "p",
+        session="ses_dead",
+    )
+
+    assert run.timed_out
+    assert len(calls) == 1
 
 
 def test_usage_extraction_from_event_stream(tmp_path: Path) -> None:

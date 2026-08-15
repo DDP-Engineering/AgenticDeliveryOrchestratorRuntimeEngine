@@ -205,7 +205,11 @@ def test_guidance_is_os_specific_where_it_matters() -> None:
     # token setup is shared and explicit about the format
     token = doctor.guidance_for(doctor.GLAB_AUTH, "windows")
     assert token == doctor.guidance_for(doctor.GLAB_AUTH, "linux")
-    assert "glpat-" in token and "never the value" in token
+    assert "glpat-" in token and "never values" in token
+    assert "active/default authenticated host" in token
+    assert "active/default authenticated host" in doctor.guidance_for(
+        doctor.GH_AUTH, "linux"
+    )
 
 
 def test_guidance_unknown_component_is_graceful() -> None:

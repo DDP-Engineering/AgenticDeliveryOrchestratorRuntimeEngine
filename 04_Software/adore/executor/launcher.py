@@ -246,10 +246,16 @@ class FileProtocolExecutor(Executor):
                     session_id=self._extract_session_id(output) or session,
                     output=output,
                     stderr=(stderr + "\n" + archive_error).strip(),
+                    timed_out=result.timed_out,
                     artifact_dirs=artifacts,
                 )
             artifacts.append(str(archive_dir))
-        if not result.ok and session and self._is_session_reset(stderr):
+        if (
+            not result.ok
+            and not result.timed_out
+            and session
+            and self._is_session_reset(stderr)
+        ):
             # the stored session died with its container (or was pruned);
             # self-heal by relaunching once with a fresh session
             return self._run_gate_attempt(
@@ -272,6 +278,7 @@ class FileProtocolExecutor(Executor):
             session_id=self._extract_session_id(output) or session,
             output=output,
             stderr=stderr,
+            timed_out=result.timed_out,
             tokens_in=tokens_in,
             tokens_out=tokens_out,
             cost_usd=cost,
@@ -371,6 +378,7 @@ class FileProtocolExecutor(Executor):
             "archive_stem": archive_stem,
             "attempt": attempt,
             "exit_code": result.exit_code,
+            "timed_out": result.timed_out,
             "argv": result.argv,
             "timeout": timeout,
             "session": session,

@@ -558,12 +558,14 @@ def test_workflow_rejects_kinds_aegis_does_not_conduct(tmp_path: Path) -> None:
     issues = validate_config(load_config(_write_config(tmp_path, MINIMAL_VALID + """
 [workflow]
 default_kind = "refactor"
-kind_labels = { bug = "fix", legacy = "adoption", odd = "nonsense" }
+kind_labels = { bug = "fix", legacy = "adoption", odd = "nonsense", dead = "bug" }
 """)))
     assert any("default_kind must be one of" in issue for issue in issues)
     assert any("kind_labels.legacy must name an AEGIS run kind" in issue
                for issue in issues)
     assert any("kind_labels.odd must name an AEGIS run kind" in issue
+               for issue in issues)
+    assert any("kind_labels.dead must name an AEGIS run kind" in issue
                for issue in issues)
 
     adoption = validate_config(load_config(_write_config(tmp_path, MINIMAL_VALID + """

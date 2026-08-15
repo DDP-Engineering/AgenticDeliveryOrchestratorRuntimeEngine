@@ -27,8 +27,11 @@ publication human-approved and draft-only.
   candidate/target/commit series;
 - require a fresh approval-label transition after presentation;
 - push and open/update a draft MR/PR, then require journal close-out at done;
-- create a new AEGIS task for each bounded review round;
-- reconcile parked, approval, review, stale-working and outbox states.
+- adopt an existing open branch MR/PR before attempting draft creation;
+- create a new AEGIS task before consuming each bounded review request;
+- reconcile parked, approval, review, stale-working and outbox states;
+- garbage-collect only resources not owned by active or failed runs, including
+  orphan allowlist proxy containers and egress networks.
 
 The component never edits AEGIS journals, gives forge credentials to an
 executor, or merges.
@@ -36,22 +39,59 @@ executor, or merges.
 ## 3. State Machine
 
 Lifecycle states are `working`, `parked-clarification`, `awaiting-approval`,
-`publishing`, `in-review`, `failed`, and `done`. AEGIS stage is tracked
+`publishing`, `in-review`, `failed`, `done`, and `cancelled`. AEGIS stage is tracked
 separately.
 
-Every nonterminal state has a poll action or timeout. A stale `working` state
-with no live conductor becomes a loud failure rather than occupying capacity.
+Every nonterminal state has a poll action. Clarification has a timeout;
+`awaiting-approval` and `in-review` intentionally do not because they are
+human-paced states. A stale `working` state with no live conductor becomes a
+loud failure rather than occupying capacity.
+The 60-second grace is valid only under the single-conductor lock invariant:
+operator mutations and poll conduction cannot run concurrently.
+Closing the source ticket while clarification or approval is waiting, or while
+an MR/PR remains open in review, cancels through the normal teardown path with
+outcome `ticket closed`. A merged or closed-unmerged MR/PR is authoritative and
+is reconciled before the source ticket state.
 
 ## 4. Recovery Contract
 
 `max_stage_failures` counts attempts for the current stage. The default third
 failure posts a terminal comment, stops the container and preserves the
-worktree. Multiple AEGIS findings in one invocation count once. A successful
+worktree. Routine cleanup protects failed worktrees, container companions and
+evidence until explicit retry, cancel or delete. Multiple AEGIS findings in
+one invocation count once. A successful
 stage transition resets the counter. Questions do not consume it.
+The active wall-clock budget restarts when clarification resumes, a review
+revision begins, approval is invalidated for re-conduction, or an operator
+explicitly retries. Iteration, cost, and file budgets remain cumulative.
+Revision and approval invalidation reset the stage-failure counter for their
+new work phase; clarification resume preserves failures already recorded for
+the current stage.
+An AEGIS invocation timeout is recorded as `AEGIS_TIMEOUT` through this same
+stage-attempt path instead of escaping and terminating the poller. When an
+attempt remains, conduction retries immediately inside the same locked
+conductor; the configured limit remains terminal. Clarification expiry uses the
+validated configuration duration parser, including numeric and uppercase-unit
+forms.
+All container-bound AEGIS clients receive the run's mounted io directory;
+pre-pick repository compatibility probing remains a direct host subprocess.
+Executor failure classification uses `GateRun.timed_out` exclusively:
+timeout-like stderr without the flag is `EXECUTOR_EXIT`, while a true wrapper
+timeout remains `EXECUTOR_TIMEOUT` regardless of its stderr wording.
 
 `max_transient_retries` covers container/fetch/forge transport independently.
 Required comments are outboxed before transport. A write failure stops code
 work and polling replays it without consuming an execution slot.
+Terminal status-write failures retain the existing `cancelled`, `done`, or
+`failed` lifecycle and outcome while the status replay remains queued.
+
+Ticket task type resolves fix/bug, change, then configured feature labels;
+unmatched tickets use `workflow.default_kind`. Each global budget check reads
+durable cost once.
+
+Clarification handoff text is consumed once. After the question is posted and
+journaled, `ADORE_QUESTIONS.md` is removed on a fail-safe basis so it cannot be
+included in a later integration checkpoint.
 
 ## 5. Validation and Approval
 
@@ -60,6 +100,19 @@ calls `check --task <id> --strict --run --json`. It requires at least one
 executed successful verification command and a task at deliver. Approval is
 bound to the candidate fingerprint and target commit. Any drift or product
 mutation invalidates approval.
+On clarification resume and approval observation, title/body drift refreshes
+the persisted ticket snapshot and content hash and records `ticket content
+changed since pickup`; the observation alone does not invalidate the candidate.
+Publication retry rechecks approval freshness. Existing open branch MRs are
+adopted before creation, and a task already at `done` still receives the shared
+close-out checkpoint/push recovery before entering review.
+
+The revise label remains present through provisioning, AEGIS probe, and task
+creation. It is removed only after the new task exists and immediately before
+the run-state transition. Without an AEGIS idempotency key, a crash in that
+small boundary can leave a duplicate/orphan task; the pre-removal task-created
+journal event provides operator evidence and preserves at-least-once intent for
+ordinary failures.
 
 ## 6. Dependencies
 
@@ -71,6 +124,11 @@ collaborators are injectable for offline tests.
 
 `tests/test_orchestrator.py` covers full/quick paths, fresh sessions,
 checkpointing, two failures then success, exact third-attempt abort,
-finding-count semantics, questions, incident editing, outbox outage/replay,
-MR fallback, approval freshness/drift, prompt restrictions and the absence of
-a merge capability.
+finding-count semantics, one-time question handoff and cleanup, incident
+editing, outbox outage/replay, closed-ticket cancellation, ticket-content
+refresh, MR fallback/adoption, approval retry freshness, close-out recovery,
+revise-label ordering, AEGIS timeout handling, typed executor-timeout
+classification, clarification duration forms, live-lock-safe cleanup,
+failed-resource preservation, egress companion GC, configured task-kind
+fallback, one-read cost checks, environment precedence, human-merge metrics,
+prompt restrictions and the absence of a merge capability.

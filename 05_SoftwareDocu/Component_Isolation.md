@@ -38,7 +38,7 @@ guardrails, not a sandbox (design 10).
   data, left in progress for the executor), `merge_in_progress`, and `push`
   (the ONLY remote-writing git call in ADORE) - `commit_all_if_dirty` for
   conductor-generated stage/delivery artifacts, plus the committed-state checks
-  `is_dirty` / `commits_ahead`; `ref_head`, `commit_series`, and
+  `is_dirty`; `ref_head`, `commit_series`, and
   `candidate_fingerprint` bind approval to the target, tree and exact commit
   sequence; `product_diff_fingerprint` detects product mutation while allowing
   expected `.agentic/` delivery bookkeeping; and `list_dirs` (every directory under the
@@ -51,16 +51,17 @@ guardrails, not a sandbox (design 10).
   (park) / `remove` (reap), `status`, `list_containers(prefix)` (all
   containers in any state whose name starts with `<slug>-run-`; feeds
   `adore cleanup`'s orphan sweep), `list_egress_networks(prefix)`,
-  `remove_egress(name)`, `verify_required_tools` (project-image checks run
-  inside the provisioned container), and `exec` (the seam the executor launcher
-  runs commands through).
+  `remove_egress(name)`, the best-effort `cleanup_orphan_containers`,
+  `cleanup_egress_proxies`, and `cleanup_egress_networks` methods,
+  `verify_required_tools` (project-image checks run inside the provisioned
+  container), and `exec` (the seam the executor launcher runs commands through).
 - `build_container_env(git_dir_name, git_name, git_email)` - the git
   environment injected at provision (see section 3).
 - `IsolationError` - typed fail-closed error carrying argv + stderr.
 
-Explicitly not owned: *when* to park/reap/resume (orchestrator policy, TTL
-per design 8b), what runs inside the container (executor launcher), and any
-remote git operation (push stays with the orchestrator on the host).
+Explicitly not owned: *when* to park/reap/resume (orchestrator lifecycle
+policy), what runs inside the container (executor launcher), and any remote git
+operation (push stays with the orchestrator on the host).
 
 ## 3. Implementation Overview
 
@@ -192,15 +193,19 @@ side keeps working normally with its absolute paths. The admin dir name is
   run IO directory, uses one proxy container named
   `<executor-container>-egress-proxy`, and one network named
   `<network_prefix>-<safe-executor-container-name>`. Cleanup removes executor,
-  proxy container, and network; `adore cleanup` also sweeps orphan proxies and
-  networks for inactive runs.
+  proxy container, and network; `adore cleanup` also sweeps exact-prefix orphan
+  executors, proxies, and networks while retaining companions computed from
+  active and failed persisted container names. The network sweep checks the
+  canonical `adore-egress` prefix even after the current profile changes mode,
+  plus the current configured prefix; it never guesses arbitrary historical
+  names.
 
 ## 7. Workflow Integration
 
 The orchestrator (phase 3) calls this at run start (fetch, create worktree,
-ensure volumes, provision container), on park (stop), on TTL expiry (reap =
-stop + remove), on resume (provision = start or recreate; the durable
-worktree + state make recreation seamless), and at terminal states (remove
+ensure volumes, provision container), on park (stop and retain), on resume
+(provision = start or recreate; the durable worktree + state make recreation
+seamless), and at explicit cleanup or completed terminal boundaries (remove
 container, remove worktree, optionally delete the branch). The executor
 launcher (phase 2, next) runs the executor through `exec`.
 

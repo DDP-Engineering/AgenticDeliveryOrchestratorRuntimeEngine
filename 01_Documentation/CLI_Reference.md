@@ -79,7 +79,7 @@ resolved configuration.
 | `adore [selector] cancel <run-id>` | Cancel a run gracefully. |
 | `adore [selector] reset <run-id> --to <stage> --force` | Deliberately move ADORE's own pointer to `frame`, `specify`, `design`, `build`, `validate`, `deliver`, or `publishing`. It never edits the AEGIS task journal; conduction rereads that journal. `--force` is required. Run `retry` afterwards. |
 | `adore [selector] delete <run-id> --force` | Irreversibly remove run state. |
-| `adore [selector] cleanup` | Remove stale locks, containers, and worktrees that no active valid run owns. |
+| `adore [selector] cleanup` | Reclaim a provably stale local lock and sweep orphan executor/proxy containers, egress networks, and worktree husks. Active and failed runs are protected; a live/unknown lock remains held and is reported. |
 
 Read [Recovery_And_Maintenance.md](Recovery_And_Maintenance.md) before using a
 destructive command.
@@ -88,6 +88,17 @@ These intervention commands mutate ADORE-owned state only. None edits an AEGIS
 task journal. `retry` resets the current stage counter and active-work clock but
 preserves task/failure history, and refuses to run while a required notification
 remains pending.
+
+Failed-run resources are released only by explicit `cancel <run-id>` (audit
+state retained) or `delete <run-id> --force` (state removed irreversibly), not
+by routine cleanup.
+
+`retry`, `cancel`, `delete`, and `reset` hold the single-conductor lock for the
+entire mutation and refuse when a live or unknown holder owns it. Stop the
+service poller first; `pause` does not release its process lock. Read-only
+`logs` remains available while the lock is held. `run --once` prints lock
+guidance only for actual lock contention; other runtime errors retain their own
+diagnostic.
 
 ## Metrics and Reports
 

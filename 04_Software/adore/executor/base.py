@@ -61,11 +61,12 @@ class GateRun:
     """
     @brief   Result of running one workflow gate via the executor.
     @details The conductor's decision inputs (design 7a step 3): the exit
-             code, whether the executor asked clarification questions, and
-             the session id for continuing the same executor session at the
-             next gate. `output` is the raw event stream (also persisted in
-             the run's io dir for audit). `artifact_dirs` names immutable
-             per-launch archive directories created by the file protocol.
+             code, authoritative wrapper-timeout flag, whether the executor
+             asked clarification questions, and the session id for continuing
+             the same executor session at the next gate. `output` is the raw
+             event stream (also persisted in the run's io dir for audit).
+             `artifact_dirs` names immutable per-launch archive directories
+             created by the file protocol.
     """
 
     exit_code: int
@@ -74,6 +75,7 @@ class GateRun:
     session_id: str = ""
     output: str = ""
     stderr: str = ""
+    timed_out: bool = False
     tokens_in: int = 0
     tokens_out: int = 0
     cost_usd: float = 0.0

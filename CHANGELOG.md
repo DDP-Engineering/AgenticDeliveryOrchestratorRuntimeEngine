@@ -12,6 +12,55 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+### Fixed
+
+- AEGIS invocation timeouts now become retry-budgeted `AEGIS_TIMEOUT` stage
+  failures, and clarification expiry uses the validated shared duration parser.
+- Clarification resume, review revision, and approval invalidation now restart
+  the active wall-clock phase without resetting cumulative budgets; approval
+  invalidation also clears stale per-stage failures before re-conduction.
+- Container-bound AEGIS calls now use a bounded, shell-quoted file exchange so
+  spaced or shell-sensitive ticket text never crosses WSL-wrapped runtime argv,
+  while pre-script failures preserve bounded runtime exit diagnostics.
+- Executor timeout classification now follows the command runner's typed
+  `timed_out` signal instead of guessing from stderr text.
+- Human merges now count in aggregate, profile, and dashboard success metrics.
+- Cleanup preserves live/unknown locks, operator mutations share the
+  single-conductor lock, and `run --once` gives lock advice only for typed lock
+  contention.
+- Repository probing accepts AEGIS 0.5 adoption stages while active ADORE task
+  decoding remains restricted to the seven conduction stages.
+- Clarification handoffs are consumed once and removed after durable posting;
+  closed source tickets cancel waiting/open-review runs without overriding an
+  authoritative terminal MR/PR, while ticket text drift refreshes the persisted
+  snapshot with a visible journal/resume note.
+- Publication retry rechecks approval, adopts existing open branch MRs/PRs, and
+  preserves close-out checkpoint/push recovery for already-done tasks.
+- Review intent is consumed only after new-task creation, and terminal status
+  replay no longer overwrites a cancelled, done, or failed lifecycle/outcome.
+- Cleanup now protects failed-run worktrees, containers and evidence for retry,
+  while sweeping exact-prefix orphan executor/proxy containers and egress
+  networks with separate report fields even after allowlist mode changes.
+- Ticket task-kind selection honors configured feature mappings before
+  `workflow.default_kind`, and each budget check reads durable cost only once.
+- CLI engine construction now prefers `.env` beside the resolved config,
+  falls back to cwd, preserves process-environment precedence, and continues
+  to inject only configured executor keys.
+
+### Changed
+
+- Metrics terminal classification now contains only runtime-emitted `done`,
+  `failed`, and `cancelled`; the unused worktree commit-count API was removed.
+- GitLab/GitHub wizard hosting/URL/visibility prompts were removed. Guidance now
+  states that the platform CLI's active/default authenticated host controls
+  corporate routing; Gitea retains explicit tea login selection.
+- Operator guidance now states that conduction is serial, approval/review have
+  no timers by design, failed resources require explicit cancel/delete to
+  release, and the repository status describes the current ADORE/AEGIS 0.5
+  companion-CLI contract.
+- Container lifecycle documentation now states that parked containers are
+  stopped and retained for resume or explicit cleanup boundaries.
+
 ## [0.5.0] - 2026-08-14
 
 ### Added

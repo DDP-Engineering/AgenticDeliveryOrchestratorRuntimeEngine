@@ -186,7 +186,7 @@ def test_profile_stats_render_in_list_and_show(tmp_path: Path, monkeypatch, caps
     home = _home(tmp_path, monkeypatch)
     store = _ready_profile(home)
     db = store.default_store_root("proj") / "metrics.db"
-    record_summary(db, RunSummary(run_id="1", outcome="merged", lifecycle="done",
+    record_summary(db, RunSummary(run_id="1", outcome="merged by human", lifecycle="done",
                                   ended_at="2026-07-01T00:00:00Z"))
     record_summary(db, RunSummary(run_id="2", outcome="failed", lifecycle="failed",
                                   ended_at="2026-07-02T00:00:00Z"))

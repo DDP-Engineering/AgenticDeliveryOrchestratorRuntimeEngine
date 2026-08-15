@@ -92,19 +92,23 @@ commands + `--profile` resolution.
 ## 6. Data Contracts
 
 - Answer keys (interactive prompts and `--answers`) are the `FieldSpec.key`
-  values: `profile_name, description, agent_name, kind, hosting, host_url,
-  login, visibility, repo, repo_path, worktree_root, target_branch,
+  values: `profile_name, description, agent_name, kind, login, repo,
+  repo_path, worktree_root, target_branch,
   has_push_rule, branch_rule, branch_template, runtime, image, executor_cli,
   model, auth_mode, reviewers, budgets_choice, max_*, polling_mode,
-  state_location, confirm`. `kind` accepts gitlab/github/gitea; for gitea the
-  hosting/host questions are replaced by `login` (the tea login name, written
-  to `[platform] login` when non-empty - tea binds host + token to a login),
+  state_location, confirm`. `kind` accepts gitlab/github/gitea. GitLab/GitHub
+  deliberately ask no hosting, host URL, or visibility questions because
+  routing follows the platform CLI's active/default authenticated host; the
+  wizard warns corporate users to verify it. Gitea retains `login` (written to
+  `[platform] login` when non-empty because tea binds host + token to a login),
   and the repo hint becomes `owner/repo` (Gitea has no subgroups).
 - Interactive fixed choices are displayed as numbered options and accept either
   the number or the literal choice text; `--answers` files should use the
   literal choice text for readability.
 - The emitted config always satisfies `validate_config` (enforced by the
   write-then-validate guard).
+- API-key next steps place `.env` beside the generated profile `config.toml`,
+  matching CLI engine resolution rather than relying on the service cwd.
 
 - **Workflow labels:** the wizard asks for the ready label,
   task-type labels (fix/change), and the quick framing hint, and writes

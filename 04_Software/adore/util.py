@@ -54,7 +54,7 @@ class CommandResult:
              `docker exec`) propagates whatever exit code the INNER process
              used, and a payload legitimately exiting 124 for its own
              reasons must not be misreported as ADORE's own timeout
-             (ADORE-ARCH-010) - see `aegis.py`'s `AegisClient.invoke`, the
+             (ADORE-ARCH-010) - see `aegis.py`'s `AegisClient._run`, the
              consumer that keys `AegisTimeoutError` on this flag rather than
              on the raw exit code.
     """

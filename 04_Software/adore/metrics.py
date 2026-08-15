@@ -277,7 +277,7 @@ def aggregate(summaries: list[RunSummary],
         spans = [m.span_seconds for m in members if m.span_seconds]
         result[key] = {
             "runs": len(members),
-            "merged": sum(1 for m in members if m.outcome == "merged"),
+            "merged": sum(1 for m in members if m.outcome.startswith("merged")),
             "failed": sum(1 for m in members if m.lifecycle == "failed"),
             "avg_span_s": int(sum(spans) / len(spans)) if spans else 0,
             "launches": sum(m.executor_launches for m in members),
@@ -376,10 +376,9 @@ def is_terminal(lifecycle: str) -> bool:
     """
     @brief      Whether a run lifecycle is a terminal (recordable) state.
     @param[in]  lifecycle Run lifecycle value.
-    @return     True for done/failed and the terminal outcomes.
+    @return     True for actual runtime terminal lifecycles.
     """
-    return lifecycle in ("done", "failed", "cancelled", "stale",
-                         "ticket-closed", "deleted")
+    return lifecycle in ("done", "failed", "cancelled")
 
 
 # END OF FILE

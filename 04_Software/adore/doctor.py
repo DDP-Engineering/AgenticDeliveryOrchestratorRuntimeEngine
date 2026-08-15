@@ -118,16 +118,20 @@ GUIDANCE: dict[str, dict[str, str]] = {
             "like `glpat-XXXXXXXXXXXXXXXXXXXX` (the prefix `glpat-` followed by "
             "20 characters). Then authenticate the CLI: `glab auth login` (for a "
             "corporate instance choose the hostname, e.g. gitlab.mycorp.fr, and "
-            "paste the token). Alternatively set GITLAB_TOKEN in the project "
-            ".env - the wizard records the key NAME, never the value."
+            "paste the token). ADORE uses glab's active/default authenticated "
+            "host, so verify it is the intended corporate instance. Alternatively "
+            "set GITLAB_TOKEN in the ADORE process environment; the wizard "
+            "records secret key NAMES, never values."
         )
     },
     GH_AUTH: {
         "*": (
             "Create a fine-grained GitHub Personal Access Token with Contents + "
             "Pull requests + Issues (read/write), then run `gh auth login` and "
-            "paste it. Alternatively set GITHUB_TOKEN in the project .env - the "
-            "wizard records the key NAME, never the value."
+            "paste it. ADORE uses gh's active/default authenticated host, so "
+            "verify it is the intended corporate instance. Alternatively set "
+            "GITHUB_TOKEN in the ADORE process environment; the wizard records "
+            "secret key NAMES, never values."
         )
     },
     TEA: {

@@ -37,7 +37,9 @@ optional self-contained static HTML file.
 - `profile_stats(db_path)` - one project's headline figures (runs, merged,
   failed, success_rate, avg_span_s, launches, tokens, cost, last_run) for the
   `adore profile list`/`show` commands; a missing DB yields zeros.
-- `is_terminal(lifecycle)` - which states are recordable.
+- `is_terminal(lifecycle)` - only runtime-emitted terminal states are
+  recordable: `done`, `failed`, and `cancelled`. Historical phantom names such
+  as `ticket-closed`, `deleted`, and `stale` are not accepted.
 
 Explicitly not owned: when to record (orchestrator, at terminal
 transitions), token extraction (executor launcher), resource probing
@@ -53,6 +55,9 @@ transitions), token extraction (executor launcher), resource probing
   sums those events.
 - The orchestrator records terminal ADORE lifecycle outcomes; metrics failures
   are logged and never mask the governed run result.
+- Human merge completion is stored as `merged by human`; aggregate and profile
+  success metrics count outcomes beginning with `merged`, preserving both the
+  operator-visible wording and older `merged` summary rows.
 - Parked wait = sum of parked->resumed gaps; span = first->last journal
   timestamp (includes waits, deliberately - it is the human-visible
   latency); time-to-MR = first event -> `mr-opened`.
@@ -92,7 +97,8 @@ terminal runs in the store (used once to backfill the pilot run).
   including failed and successful strict checks; duplicate-free SQLite
   round-trip + mirror; in-place legacy table extension; since-window filtering
   (unparseable timestamps excluded), grouped aggregation, CSV/HTML outputs
-  (escaping, no scripts), terminal classification.
+  (escaping, no scripts), merged-by-human aggregation/profile statistics, and
+  terminal classification.
 - `tests/test_executor.py`: usage extraction (summed, malformed-tolerant).
 - `tests/test_orchestrator.py`: merged run records one row with summed usage;
   `enabled=false` records nothing.

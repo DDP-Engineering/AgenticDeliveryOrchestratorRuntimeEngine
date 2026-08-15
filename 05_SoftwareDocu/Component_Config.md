@@ -16,7 +16,13 @@ settings before a poll starts.
 
 `WorkflowConfig` maps ticket labels to `feature`, `fix`, or `change`, carries a
 quick-path hint, selects the one-token Python executable, and permits timeout
-overrides only for the six working AEGIS stages.
+overrides only for the six working AEGIS stages. Mapping values accept only
+those three task kinds. Bug/fix mappings win over change, configured feature
+labels follow, and an unmatched ticket uses `default_kind`.
+
+`PollingConfig.max_concurrent_runs` is a capacity ceiling only. The current
+conductor is synchronous and serial; values above one do not create parallel
+gates or workers.
 
 `RecoveryConfig` owns `max_stage_failures`, `max_transient_retries`, and a
 nonempty nonnegative backoff list. Defaults are 3, 3 and `[5, 30, 120]`.

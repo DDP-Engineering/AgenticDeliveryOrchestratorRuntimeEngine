@@ -317,6 +317,16 @@ def test_stale_lock_from_this_host_is_reclaimed(tmp_path: Path) -> None:
     store.release_lock()
 
 
+def test_reclaim_stale_lock_reports_only_proven_removal(tmp_path: Path) -> None:
+    """@brief The public cleanup seam removes stale locks and reports success."""
+    root = tmp_path / ".adore"
+    _write_lock(root, pid=424242, host=socket.gethostname())
+    store = StateStore(root, slug="adore", process_alive=lambda _pid: False)
+    assert store.reclaim_stale_lock() is True
+    assert store.lock_info() is None
+    assert store.reclaim_stale_lock() is False
+
+
 def test_live_lock_is_never_reclaimed(tmp_path: Path) -> None:
     """
     @brief   A lock whose owner is still alive is never stolen (no double poller).
@@ -325,6 +335,8 @@ def test_live_lock_is_never_reclaimed(tmp_path: Path) -> None:
     _write_lock(root, pid=4242, host=socket.gethostname())
     store = StateStore(root, slug="adore", process_alive=lambda _pid: True)
     assert store.acquire_lock() is False
+    assert store.reclaim_stale_lock() is False
+    assert store.lock_path.is_file()
 
 
 def test_lock_from_another_host_is_not_reclaimed(tmp_path: Path) -> None:
@@ -348,6 +360,19 @@ def test_unreadable_lock_is_not_reclaimed(tmp_path: Path) -> None:
     (root / "adore.lock").write_text("###", encoding="utf-8")
     store = StateStore(root, slug="adore", process_alive=lambda _pid: False)
     assert store.acquire_lock() is False
+    assert store.reclaim_stale_lock() is False
+    assert store.lock_path.is_file()
+
+
+def test_wrong_shape_lock_is_unknown_and_not_reclaimed(tmp_path: Path) -> None:
+    """@brief Valid JSON with the wrong shape is still an unknown held lock."""
+    root = tmp_path / ".adore"
+    root.mkdir(parents=True, exist_ok=True)
+    (root / "adore.lock").write_text("[]", encoding="utf-8")
+    store = StateStore(root, slug="adore", process_alive=lambda _pid: False)
+    assert store.lock_info() == {}
+    assert store.reclaim_stale_lock() is False
+    assert store.lock_path.is_file()
 
 
 # END OF FILE

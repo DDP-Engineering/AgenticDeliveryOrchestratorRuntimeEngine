@@ -31,4 +31,7 @@ adore --profile <name> cleanup
 
 Retry resets only the active stage counter and active-work clock. Reset changes
 ADORE state but never edits an AEGIS task journal. Cleanup reports corrupt
-state and never auto-deletes it. `delete --force` is irreversible.
+state, sweeps orphan executor/proxy/network resources and worktree husks, and
+never auto-deletes state. Failed runs are protected for retry; release one
+with `cancel <run-id>` (retain audit state) or irreversible `delete <run-id>
+--force`.

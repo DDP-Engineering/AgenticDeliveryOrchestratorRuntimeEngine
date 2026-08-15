@@ -449,10 +449,24 @@ class StateStore:
         self.root.mkdir(parents=True, exist_ok=True)
         if self._try_create_lock():
             return True
-        if self._lock_is_stale():
-            self.lock_path.unlink(missing_ok=True)
+        if self.reclaim_stale_lock():
             return self._try_create_lock()
         return False
+
+    def reclaim_stale_lock(self) -> bool:
+        """
+        @brief   Remove the lock only when its recorded local owner is gone.
+        @details A live owner, a different-host owner, or an unreadable/unknown
+                 record fails closed and remains in place.
+        @return  True only when this call removed a provably stale lock.
+        """
+        if not self._lock_is_stale():
+            return False
+        try:
+            self.lock_path.unlink()
+        except FileNotFoundError:
+            return False
+        return True
 
     def _try_create_lock(self) -> bool:
         """
@@ -512,9 +526,10 @@ class StateStore:
             return None
         try:
             with self.lock_path.open(encoding="utf-8") as handle:
-                return json.load(handle)
+                data = json.load(handle)
         except (OSError, json.JSONDecodeError):
             return {}
+        return data if isinstance(data, dict) else {}
 
     # -- global pause flag -------------------------------------------------------
 

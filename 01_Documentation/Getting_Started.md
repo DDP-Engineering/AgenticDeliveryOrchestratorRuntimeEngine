@@ -35,8 +35,11 @@ adore --profile my-project config validate
 ```
 
 The wizard creates non-secret configuration. Put only model-provider values in
-the ADORE process environment or `.env`; forge authentication belongs to the
-host CLI and is not exposed to executor containers.
+the ADORE process environment or `.env` beside the generated profile
+`config.toml` (cwd `.env` is the fallback); forge authentication belongs to the
+host CLI and is not exposed to executor containers. For corporate GitLab or
+GitHub, ensure `glab`/`gh` has the intended instance selected as its
+active/default authenticated host. ADORE adds no separate host route.
 
 Minimum project-specific settings:
 

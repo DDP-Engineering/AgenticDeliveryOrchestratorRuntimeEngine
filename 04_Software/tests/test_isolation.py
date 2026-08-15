@@ -512,6 +512,80 @@ def test_container_remove_allowlist_proxy_removes_proxy_and_network() -> None:
     ]
 
 
+def test_cleanup_container_sweeps_preserve_protected_exact_names() -> None:
+    """
+    @brief   Cleanup removes only exact-prefix executor/proxy orphans while
+             retaining active/failed companions and ignoring filter overmatch.
+    """
+    listing = "\n".join([
+        "not-adore-run-x",
+        "adore-run-active",
+        "adore-run-failed",
+        "adore-run-orphan",
+        "adore-run-active-egress-proxy",
+        "adore-run-failed-egress-proxy",
+        "adore-run-orphan-egress-proxy",
+    ])
+    protected = {"adore-run-active", "adore-run-failed"}
+    runner = FakeRunner(_ok(listing), _ok(), _ok(listing), _ok())
+    manager = _manager(runner)
+
+    executors = manager.cleanup_orphan_containers("adore-run-", protected)
+    proxies = manager.cleanup_egress_proxies("adore-run-", protected)
+
+    assert executors == ["adore-run-orphan"]
+    assert proxies == ["adore-run-orphan-egress-proxy"]
+    assert runner.calls[1] == ["docker", "rm", "--force", "adore-run-orphan"]
+    assert runner.calls[3] == [
+        "docker", "rm", "--force", "adore-run-orphan-egress-proxy",
+    ]
+
+
+def test_cleanup_network_sweep_survives_allowlist_mode_change() -> None:
+    """
+    @brief   Open-mode cleanup still reclaims canonical allowlist networks and
+             preserves the exact active/failed network companions.
+    """
+    listing = "\n".join([
+        "other-adore-egress-unowned",
+        "adore-egress-adore-run-active",
+        "adore-egress-adore-run-failed",
+        "adore-egress-adore-run-orphan",
+    ])
+    runner = FakeRunner(_ok(listing), _ok())
+    manager = ContainerManager(
+        "docker",
+        "adore-executor-base:1.0.0",
+        "uv-cache",
+        "npm-cache",
+        runner,
+        egress=ContainerEgressConfig(mode="open"),
+    )
+
+    removed = manager.cleanup_egress_networks(
+        {"adore-run-active", "adore-run-failed"}
+    )
+
+    assert removed == ["adore-egress-adore-run-orphan"]
+    assert runner.calls[1] == [
+        "docker", "network", "rm", "adore-egress-adore-run-orphan",
+    ]
+
+
+def test_cleanup_container_sweep_continues_after_one_remove_failure() -> None:
+    """@brief One orphan removal failure does not block later cleanup work."""
+    runner = FakeRunner(
+        _ok("adore-run-stuck\nadore-run-removable\n"),
+        _fail("permission denied"),
+        _ok("running"),
+        _ok(),
+    )
+
+    removed = _manager(runner).cleanup_orphan_containers("adore-run-", set())
+
+    assert removed == ["adore-run-removable"]
+
+
 def test_container_provision_is_idempotent(tmp_path: Path) -> None:
     """
     @brief   running -> no-op; exited -> start (keep-warm resume).
