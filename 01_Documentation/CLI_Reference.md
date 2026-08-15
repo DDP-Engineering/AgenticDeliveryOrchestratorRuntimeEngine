@@ -29,6 +29,13 @@ Use `--profile` in automation and first-run commands. It is unambiguous and
 does not rely on the shell's working directory or a previous active-profile
 choice.
 
+For engine commands (`run`, `retry`, `cancel`, `delete`, `reset`, and
+`cleanup`), ADORE loads `.env` beside the resolved `config.toml` when it
+exists; otherwise it falls back to `./.env`. Values already present in the
+process environment take precedence. Only names listed in `executor.env_keys`
+are passed into the executor container, and forge authentication remains the
+responsibility of the host `gh`, `glab`, or `tea` CLI.
+
 ## Setup and Profiles
 
 | Command | Purpose |

@@ -59,7 +59,7 @@ Defaults can be renamed in `config.toml`, but the roles stay the same.
 | Feature | `feature` | Human | Selects the default full feature run. |
 | Bug/fix | `bug` or `fix` | Human | Selects an AEGIS fix run. |
 | Change | `change` | Human | Selects an AEGIS change run. |
-| Quick | `agent-quick` | Human | Requests the four-stage profile for fix/change only. |
+| Quick | `agent-quick` | Human | Hints that framing may select the quick path; AEGIS records the final path decision. |
 | Executor pin | `agent-exec:<name>` | Human | Forces a configured executor for this ticket. |
 | Revise | `agent-revise` | Reviewer | Requests a post-MR revision cycle. |
 

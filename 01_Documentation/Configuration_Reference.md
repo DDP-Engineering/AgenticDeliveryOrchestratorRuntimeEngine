@@ -9,7 +9,9 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 This reference describes the ADORE 0.5 hard-break configuration. The canonical
 annotated example is [config.example.toml](../04_Software/config.example.toml).
-Unknown sections and keys fail validation. Secrets do not belong in TOML.
+Unknown top-level sections fail validation. Unknown keys within known sections
+are currently ignored, so use only documented keys and run `adore config
+validate` after an edit. Secrets do not belong in TOML.
 
 ## Agent, Platform and State
 
@@ -21,7 +23,7 @@ Unknown sections and keys fail validation. Secrets do not belong in TOML.
 | `platform.kind` | `github`, `gitlab`, or `gitea`. | `gitlab` |
 | `platform.repo` | Forge repository identity. | required |
 | `platform.login` | Named `tea` login; Gitea only. | empty |
-| `state.channel` | `comments`, `labels`, or `both`. | `comments` |
+| `state.channel` | Reserved compatibility setting; status uses its comment and lifecycle labels regardless of this value. | `comments` |
 | `state.store_root` | Local schema-4 state root. | `.<slug>` |
 
 ADORE 0.5 state schema is `4`. Old ADORE 3.x state is rejected with an
@@ -70,6 +72,12 @@ names such as `GITHUB_TOKEN`, `GH_TOKEN`, `GITLAB_TOKEN`, `GLAB_TOKEN`,
 remain offline. ADORE never places forge credentials in the executor
 environment.
 
+`executor.mode` is validated but reserved: the current conductor always uses
+thick executor sessions. Parked containers are stopped and retained for resume
+or explicit cleanup. The accepted `container.keep_parked`,
+`parked_ttl_mode`, `parked_ttl_seconds`, and `parked_ttl_polls` settings are
+reserved and do not currently change that behavior.
+
 For CLI engine commands, `.env` beside the resolved `config.toml` is loaded
 first; if absent, cwd `.env` is used. The real process environment has highest
 precedence, and only names in `executor.env_keys` reach the executor container.
@@ -117,9 +125,9 @@ transport retries. Those attempts do not consume the stage counter.
 | Key | Meaning | Default |
 | --- | --- | --- |
 | `max_rounds` | Human question/answer rounds. | `3` |
-| `reminder_after` | Reserved reminder threshold. | `24h` |
+| `reminder_after` | Reserved; its format and ordering are validated, but no reminder is sent. | `24h` |
 | `answer_timeout` | Loud-failure timeout. | `72h` |
-| `timeout_state` | Validated terminal choice. | `failed` |
+| `timeout_state` | Reserved; its choice is validated, but expiry currently fails the run. | `failed` |
 
 Questions park the run, stop the container, release the slot, and do not count
 as stage failures. Resume requires a human comment plus `agent-answered`.
@@ -129,7 +137,7 @@ as stage failures. Resume requires a human comment plus `agent-answered`.
 | Key | Meaning | Default |
 | --- | --- | --- |
 | `max_iterations` | Total executor launches. | `20` |
-| `max_wall_clock_seconds` | Active-work time; reset by explicit retry. | `3600` |
+| `max_wall_clock_seconds` | Active-work time; re-armed by retry, clarification resume, revision, or approval invalidation. | `3600` |
 | `per_gate_timeout_seconds` | One executor attempt. | `1800` |
 | `max_cost_usd` | Reported model spend. | `5.0` |
 | `max_files_touched` | Product plus governance paths. | `120` |
@@ -172,4 +180,5 @@ failures, pending notifications replay without consuming a slot, and terminal
 runs retain state evidence.
 
 `[metrics]` controls SQLite/JSONL/static HTML summaries. Metrics are
-best-effort and can never change governance outcomes.
+best-effort and can never change governance outcomes. `capture_resource` is
+reserved; ADORE currently performs no resource-usage probing.

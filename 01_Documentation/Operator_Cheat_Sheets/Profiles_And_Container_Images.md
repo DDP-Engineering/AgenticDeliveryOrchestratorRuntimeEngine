@@ -51,7 +51,7 @@ for daily interactive work after you trust the selection.
 | --- | --- | --- |
 | ADORE executor base | Shared executor tooling such as Python, Node, git, uv, and executor CLIs. | `adore-executor-base:1.0.0` |
 | Runtime-project image | AEGIS prerequisites plus project build, test, and verification tools and caches. | `adore-executor-<runtime-project>:<tag>` |
-| Per-run container | One isolated claim of one ticket. | Created and removed by ADORE. |
+| Per-run container | One isolated claim of one ticket. | Created by ADORE; a failed run retains it for explicit retry or cleanup. |
 
 Do not put secrets into images. Model provider keys and forge tokens belong in
 the host environment or `.env`, and only configured `env_keys` reach the

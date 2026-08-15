@@ -66,7 +66,9 @@ old approval based on a visually similar diff.
 
 Answer on the source ticket and add `agent-answered`. A normal poll supplies
 the bounded human thread to a fresh executor. If the timeout or round limit has
-already failed the run, answer first and then explicitly retry.
+already failed the run, explicitly retry only after deciding how to provide the
+missing direction again: terminal retry starts a fresh stage session but does
+not replay ticket comments posted after the run left `parked-clarification`.
 The questions handoff file is removed after its text is posted and journaled.
 If the ticket title/body changed, the snapshot is refreshed and the resume
 thread records `ticket content changed since pickup`.
