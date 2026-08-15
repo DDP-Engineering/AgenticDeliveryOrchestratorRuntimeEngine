@@ -40,6 +40,17 @@ stage_host_auth = false
 command = "opencode run --dir {worktree} -m {model} --format json {prompt}"
 model = "provider/model"
 
+[workflow]
+default_kind = "feature"
+kind_labels = { bug = "fix", fix = "fix", change = "change" }
+quick_label = "agent-quick"
+aegis_python = "python"
+
+[recovery]
+max_stage_failures = 3
+max_transient_retries = 3
+retry_backoff_seconds = [5, 30, 120]
+
 [budgets]
 max_iterations = 12
 max_wall_clock_seconds = 5400
@@ -54,6 +65,7 @@ answer_timeout = "2h"
 [delivery]
 target_branch = "main"
 reviewers = ["reviewer"]
+approval_label = "agent-approved"
 
 [polling]
 mode = "once"

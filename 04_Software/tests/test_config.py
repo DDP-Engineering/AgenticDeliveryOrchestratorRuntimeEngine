@@ -542,7 +542,11 @@ def test_workflow_defaults_are_valid_and_documented(tmp_path: Path) -> None:
     assert config.workflow.kind_labels == {"bug": "fix", "fix": "fix",
                                            "change": "change"}
     assert config.workflow.quick_label == "agent-quick"
+    assert config.workflow.aegis_python == "python"
     assert config.workflow.stage_timeout_overrides == {}
+    assert config.recovery.max_stage_failures == 3
+    assert config.recovery.max_transient_retries == 3
+    assert config.recovery.retry_backoff_seconds == [5, 30, 120]
 
 
 def test_workflow_rejects_kinds_aegis_does_not_conduct(tmp_path: Path) -> None:
@@ -557,7 +561,8 @@ default_kind = "refactor"
 kind_labels = { bug = "fix", legacy = "adoption", odd = "nonsense" }
 """)))
     assert any("default_kind must be one of" in issue for issue in issues)
-    assert any("kind_labels.legacy cannot map to" in issue for issue in issues)
+    assert any("kind_labels.legacy must name an AEGIS run kind" in issue
+               for issue in issues)
     assert any("kind_labels.odd must name an AEGIS run kind" in issue
                for issue in issues)
 
@@ -565,17 +570,15 @@ kind_labels = { bug = "fix", legacy = "adoption", odd = "nonsense" }
 [workflow]
 default_kind = "adoption"
 """)))
-    assert any('default_kind cannot be "adoption"' in issue for issue in adoption)
+    assert any("default_kind must be one of" in issue for issue in adoption)
 
 
-def test_quick_label_must_be_reachable_from_a_fix_or_change_kind(
+def test_quick_label_is_only_a_frame_hint(
     tmp_path: Path,
 ) -> None:
     """
-    @brief   AEGIS allows --quick for fix/change only, so a quick label that no
-             kind mapping can ever pair with one of those is dead config - and
-             a silently ignored label would let an operator believe a run was
-             proportional when it was not.
+    @brief   The hint stays valid even when framing ultimately selects full;
+             ADORE never preselects the path from this label.
     """
     dead = validate_config(load_config(_write_config(tmp_path, MINIMAL_VALID + """
 [workflow]
@@ -583,7 +586,7 @@ default_kind = "feature"
 kind_labels = {}
 quick_label = "agent-quick"
 """)))
-    assert any("can never apply" in issue for issue in dead)
+    assert dead == []
 
     reachable = validate_config(load_config(_write_config(tmp_path, MINIMAL_VALID + """
 [workflow]
@@ -610,18 +613,46 @@ def test_stage_timeout_overrides_must_name_stages_and_positive_seconds(
     """
     issues = validate_config(load_config(_write_config(tmp_path, MINIMAL_VALID + """
 [workflow.stage_timeout_overrides]
-implementation = 5400
+build = 5400
 publication = 900
-validation = 0
+validate = 0
 design = "long"
 """)))
     assert any("stage_timeout_overrides.publication is not an AEGIS stage" in i
                for i in issues)
-    assert any("stage_timeout_overrides.validation must be a positive" in i
+    assert any("stage_timeout_overrides.validate must be a positive" in i
                for i in issues)
     assert any("stage_timeout_overrides.design must be a positive" in i
                for i in issues)
-    assert not any("stage_timeout_overrides.implementation" in i for i in issues)
+    assert not any("stage_timeout_overrides.build" in i for i in issues)
+
+
+def test_recovery_and_approval_settings_fail_closed(tmp_path: Path) -> None:
+    """@brief Retry limits, backoff and approval identity are validated."""
+    text = MINIMAL_VALID.replace(
+        'reviewers = ["dan.pasare"]',
+        'reviewers = ["dan.pasare"]\napproval_label = "agent-ready"',
+    ) + """
+[recovery]
+max_stage_failures = 0
+max_transient_retries = 0
+retry_backoff_seconds = []
+"""
+    issues = validate_config(load_config(_write_config(tmp_path, text)))
+    assert any("max_stage_failures must be >= 1" in item for item in issues)
+    assert any("max_transient_retries must be >= 1" in item for item in issues)
+    assert any("retry_backoff_seconds must be a non-empty" in item for item in issues)
+    assert any("approval_label must be distinct" in item for item in issues)
+
+
+def test_executor_cannot_receive_forge_credentials(tmp_path: Path) -> None:
+    """@brief Executor env allowlists reject host forge credential names."""
+    text = MINIMAL_VALID + """
+[executor]
+env_keys = ["OPENAI_API_KEY", "GITHUB_TOKEN", "GITLAB_TOKEN"]
+"""
+    issues = validate_config(load_config(_write_config(tmp_path, text)))
+    assert any("must not expose forge credentials" in item for item in issues)
 
 
 # END OF FILE

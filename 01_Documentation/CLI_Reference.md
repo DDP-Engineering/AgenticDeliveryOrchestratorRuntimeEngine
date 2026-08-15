@@ -77,17 +77,17 @@ resolved configuration.
 | --- | --- |
 | `adore [selector] retry <run-id>` | Re-arm a retryable run. |
 | `adore [selector] cancel <run-id>` | Cancel a run gracefully. |
-| `adore [selector] reset <run-id> --to <stage> --force` | Deliberately move ADORE's own stage pointer (an AEGIS stage name, or `publication`). It never touches AEGIS state - conduction re-reads the governed stage from `aegis run status`. `--force` is required. Run `retry` afterwards. |
+| `adore [selector] reset <run-id> --to <stage> --force` | Deliberately move ADORE's own pointer to `frame`, `specify`, `design`, `build`, `validate`, `deliver`, or `publishing`. It never edits the AEGIS task journal; conduction rereads that journal. `--force` is required. Run `retry` afterwards. |
 | `adore [selector] delete <run-id> --force` | Irreversibly remove run state. |
 | `adore [selector] cleanup` | Remove stale locks, containers, and worktrees that no active valid run owns. |
 
 Read [Recovery_And_Maintenance.md](Recovery_And_Maintenance.md) before using a
 destructive command.
 
-These intervention commands mutate ADORE-owned state only. None invokes AEGIS
-`run abandon`, routes an AEGIS stage, adds a waiver, or edits governed evidence.
-If a human deliberately abandons the pinned AEGIS run from its worktree, ADORE
-recognizes the terminal `abandoned` outcome and never publishes it.
+These intervention commands mutate ADORE-owned state only. None edits an AEGIS
+task journal. `retry` resets the current stage counter and active-work clock but
+preserves task/failure history, and refuses to run while a required notification
+remains pending.
 
 ## Metrics and Reports
 

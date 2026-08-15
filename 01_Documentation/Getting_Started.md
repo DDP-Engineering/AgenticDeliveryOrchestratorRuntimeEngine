@@ -5,215 +5,135 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
-# Getting Started With ADORE
+# Getting Started
 
-Use this guide to prepare a host, install ADORE, create the first
-runtime-project profile, and prove a safe poll. It is intentionally generic:
-use one profile per target project and substitute the placeholders shown below.
+ADORE 0.5 selects eligible GitHub, GitLab or Gitea tickets, runs AEGIS 0.5
+inside isolated worktrees and containers, and opens draft MR/PRs after fresh
+human approval. It never merges.
 
-## The Operating Model
+## Prerequisites
 
-ADORE runs from one host installation and can manage multiple target projects.
-Each target project has a named **profile** containing its non-secret
-configuration, state location, metrics, and selected container image.
+- Python 3.11 or newer for ADORE;
+- Git and a non-interactively pushable target clone;
+- Docker or rootless Podman;
+- authenticated `gh`, `glab`, or `tea` on the host;
+- an executor supported by the configured launcher;
+- AEGIS 0.5.x installed in the target repository as `.agentic/aegis.py`;
+- schema 1 from `status --all --json` and valid configured AEGIS tests.
 
-An operator should establish this sequence before enabling unattended polling:
+ADORE 0.5 does not read or migrate ADORE 3.x state. Start with a separate
+schema-4 state root/profile; retain old state only as historical evidence.
 
-1. Prepare the host, runtime project clone, and project image.
-2. Authenticate the forge CLI and provide executor credentials.
-3. Create and validate a profile.
-4. Run a dry run, then one supervised real poll.
-5. Enable scheduled or loop operation only after the first delivery cycle is
-   understood.
+## Install and Configure
 
-## 1. Prepare the Run-As Account
-
-Install and operate ADORE under the same ordinary user account that will run the
-scheduled task or service. That account needs access to:
-
-- Git and a local clone of `<runtime-project>`;
-- Python 3.11 or newer and `uv`;
-- Docker or Podman;
-- `glab` for GitLab, `gh` for GitHub, or `tea` (>= 0.15) for Gitea;
-- the chosen executor's credentials; and
-- the container runtime socket or rootless runtime environment.
-
-On Windows, ADORE can use Docker Desktop, a native Docker engine, or a Docker
-engine exposed through WSL. For a WSL-backed engine, configure the runtime
-command in the profile, for example `wsl -d <distribution> -- docker`.
-
-Verify the tools from the run-as account:
-
-```powershell
-git --version
-python --version
-uv --version
-glab auth status
-docker version
-```
-
-```bash
-git --version
-python3 --version
-uv --version
-gh auth status
-docker version
-```
-
-For Gitea, the auth check is `tea whoami` (tea has no `auth status`
-subcommand). Use the CLI appropriate to the selected forge; the commands above
-show the options, not a requirement to install them all.
-
-## 2. Install the Runtime Bundle
-
-Unpack the ADORE runtime bundle into a directory owned by the run-as account.
-Replace `<version>` with the release being installed.
-
-```powershell
-Expand-Archive -LiteralPath C:\Downloads\adore-runtime-<version>.zip `
-  -DestinationPath D:\Tools\ADORE
-Set-Location D:\Tools\ADORE\adore-runtime-<version>
-uv sync --frozen
-.\.venv\Scripts\adore.exe --version
-```
-
-```bash
-mkdir -p ~/tools/adore
-tar -xzf ~/Downloads/adore-runtime-<version>.tar.gz -C ~/tools/adore
-cd ~/tools/adore/adore-runtime-<version>
-uv sync --frozen
-./.venv/bin/adore --version
-```
-
-The command should report the installed release: `adore 3.0.0`.
-ADORE 3.0.0 is the released hard-break product line for the AEGIS 3.x
-contract; earlier AEGIS contracts are not supported.
-Keep the runtime directory available: deployed services and scheduled tasks use
-it as their working directory.
-
-## 3. Build the Execution Images
-
-ADORE supplies a reusable base image. Each target project should provide or
-adopt an image that adds the project-specific build and verification tools.
-
-Build the base image from the unpacked runtime directory:
-
-```bash
-docker build \
-  --build-arg USER_UID=$(id -u) \
-  --build-arg USER_GID=$(id -g) \
-  -f docker/Dockerfile.executor-base \
-  -t adore-executor-base:1.0.0 \
-  docker
-```
-
-Build the project image using its own Dockerfile and context:
-
-```bash
-docker build \
-  -f <project-dockerfile> \
-  -t adore-executor-<runtime-project>:<tag> \
-  <project-build-context>
-```
-
-For Podman, use `podman` in place of `docker`. Rootless Podman profiles should
-normally include `run_args = ["--userns=keep-id"]`; see
-[Configuration_Reference.md](Configuration_Reference.md).
-
-## 4. Establish Credentials Before Running Work
-
-Authenticate `glab`, `gh` or `tea` under the run-as account, then configure
-the selected executor's model-provider credential. Do this before creating the
-first real run.
-
-Read [Security_And_Credentials.md](Security_And_Credentials.md) before placing
-any secret. In particular, executor secrets may be loaded from `.env` in the
-ADORE runtime working directory, while forge authentication is normally handled
-by the forge CLI's authenticated host session or a real process environment.
-
-## 5. Provision and Validate AEGIS 3
-
-ADORE 3.0 conducts only AEGIS 3.x schema-3 repositories. It has no older-payload
-fallback or migration path. Install the approved AEGIS 3.0.0 payload with the
-approved WAEGIS 3.0.0 distribution. For an existing clean clone, preview before
-approving mutation:
+From `04_Software`:
 
 ```text
-waegis adopt <runtime-project> --dry-run
-waegis adopt <runtime-project>
-waegis check --repo <runtime-project> --json
+python -m pip install -e .
+adore init my-project
+adore --profile my-project config validate
 ```
 
-WAEGIS does not branch, stage, commit, or push. Review and commit the installed
-payload yourself. From the target clone, run the same exact probe used by the
-ADORE wizard and require `"status": "ok"` with `"schema_version": 3`:
+The wizard creates non-secret configuration. Put only model-provider values in
+the ADORE process environment or `.env`; forge authentication belongs to the
+host CLI and is not exposed to executor containers.
 
-```bash
-bash .agentic/tools/run.sh --json config validate
+Minimum project-specific settings:
+
+```toml
+[platform]
+kind = "github" # or gitlab / gitea
+repo = "owner/repository"
+
+[worktree]
+repo_path = "D:/source/runtime-project"
+
+[container]
+runtime = "docker"
+image = "my-project-adore:latest"
+
+[workflow]
+aegis_python = "python"
+
+[recovery]
+max_stage_failures = 3
+max_transient_retries = 3
+retry_backoff_seconds = [5, 30, 120]
+
+[delivery]
+target_branch = "main"
+reviewers = ["human-reviewer"]
+approval_label = "agent-approved"
+draft = true
 ```
 
-Do not create or enable the ADORE profile until this probe is green.
+## Verify AEGIS and the Environment
 
-## 6. Create a Runtime-Project Profile
+In the target clone:
 
-Run the guided setup from the ADORE runtime directory:
-
-```powershell
-.\.venv\Scripts\adore.exe init <profile-name>
+```text
+python .agentic/aegis.py --version
+python .agentic/aegis.py status --all --json
 ```
 
-```bash
-./.venv/bin/adore init <profile-name>
+Expected version is `aegis 0.5.x`; expected JSON schema is `1`. The assisted
+environment check reports a missing, malformed or incompatible payload before
+the first run.
+
+Build the executor image and verify the configured container runtime. For
+rootless Podman, the typical setting is:
+
+```toml
+[container]
+runtime = "podman"
+run_args = ["--userns=keep-id"]
 ```
 
-During the wizard, choose:
+## Prepare a Ticket
 
-| Area | Decision |
-| --- | --- |
-| Profile | A short, distinct name for the target project. |
-| Forge | The forge matching the authenticated CLI. |
-| Runtime project | The local clone path and repository identifier. |
-| State | Profile-owned state unless the team deliberately needs it beside the clone. |
-| Runtime | The Docker or Podman command verified on this host. |
-| Image | The target project's image, not merely the generic base image. |
-| Executor | An executor and model approved for the target project. |
-| Auth | `api-key` for provider keys; `host-auth` only where supported by the selected executor. |
-| Run mode | `once` while the project is being proven. |
+An eligible ticket normally needs:
 
-The wizard writes no secret values to the profile. It also probes the selected
-clone for the AEGIS 3 schema above and reports precise WAEGIS guidance when it
-is absent or incompatible. For non-interactive setup, use
-`adore init <profile-name> --answers <answers.toml>`.
+- `agent-ready`;
+- one configured priority label such as `P1`, `P2`, or `P3`;
+- acceptance criteria in the body;
+- optionally `bug`, `fix`, or `change` for AEGIS task type;
+- optionally `agent-quick` as a framing hint only.
 
-## 7. Select, Validate, and Prove the Profile
+Run selection without mutation:
 
-Make the new profile active for interactive use, but keep `--profile` in
-automation and first-run commands:
-
-```powershell
-.\.venv\Scripts\adore.exe profile use <profile-name>
-.\.venv\Scripts\adore.exe --profile <profile-name> config validate
-.\.venv\Scripts\adore.exe --profile <profile-name> run --dry-run
-.\.venv\Scripts\adore.exe --profile <profile-name> run --once
+```text
+adore --profile my-project run --dry-run
 ```
 
-```bash
-./.venv/bin/adore profile use <profile-name>
-./.venv/bin/adore --profile <profile-name> config validate
-./.venv/bin/adore --profile <profile-name> run --dry-run
-./.venv/bin/adore --profile <profile-name> run --once
+Then conduct one poll:
+
+```text
+adore --profile my-project run --once
 ```
 
-Do not enable a background runner until validation is clean, the dry run shows
-the intended ticket selection, and the supervised poll behaves as expected.
+## Approval and Draft Publication
 
-## Next Steps
+When strict validation passes, ADORE removes the approval label, presents the
+evidence and fingerprint on the ticket, enters `awaiting-approval`, stops the
+container, and releases the slot. Review the evidence, then freshly add
+`agent-approved`. The next poll rechecks the exact candidate and target before
+publication.
 
-- Configure the target project completely in
-  [Integrating_A_Runtime_Project.md](Integrating_A_Runtime_Project.md).
-- Learn normal monitoring, review, and scheduling in
-  [Operations_Guide.md](Operations_Guide.md).
-- Use [Recovery_And_Maintenance.md](Recovery_And_Maintenance.md) when a run
-  needs intervention.
-- Use the deployment scripts in `04_Software/deploy/` only after completing the
-  safe first-run sequence above.
+ADORE pushes only after approval, opens a draft MR/PR, records close-out in the
+AEGIS task, and stops in `in-review`. A human reviews and merges.
+
+## Failure and Recovery
+
+A stage receives three failed attempts by default; the third stops. Questions
+park without consuming that counter. Every problem is durable in local JSONL
+and visible on the active ticket or MR/PR. A notification outage stops code
+work and remains queued for later polling.
+
+Inspect and explicitly retry after remediation:
+
+```text
+adore --profile my-project logs <run-id>
+adore --profile my-project retry <run-id>
+```
+
+Retry is refused while a required notification remains pending.

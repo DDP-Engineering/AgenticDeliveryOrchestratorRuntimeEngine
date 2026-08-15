@@ -80,7 +80,7 @@ def _build_parser() -> argparse.ArgumentParser:
     run.add_argument("--dry-run", action="store_true", help="Show actions without side effects")
 
     sub.add_parser("status", help="Show overall state")
-    sub.add_parser("runs", help="List active/parked/in-review runs")
+    sub.add_parser("runs", help="List schema-4 working/parked/approval/review runs")
     sub.add_parser("pause", help="Stop picking new tickets")
     sub.add_parser("resume", help="Allow picking new tickets")
     sub.add_parser("cleanup", help="Garbage-collect orphaned worktrees/containers/state")
@@ -96,7 +96,7 @@ def _build_parser() -> argparse.ArgumentParser:
     reset = sub.add_parser("reset", help="Force a run back to a stage")
     reset.add_argument("run_id")
     reset.add_argument("--to", required=True,
-                       help="Target stage (an AEGIS stage or 'publication')")
+                       help="Target stage (an AEGIS 0.5 stage or 'publishing')")
     reset.add_argument("--force", action="store_true",
                        help="Required: resetting re-runs work (cost, churn)")
 
@@ -800,7 +800,7 @@ def _cmd_reset(args: argparse.Namespace) -> int:
     @details    Destructive (re-runs completed work), so it requires --force
                 per the design 8c guardrail. The run is left retry-able. It
                 moves ADORE's own pointer only: AEGIS still owns the governed
-                run's stage, and conduction re-reads it from `run status`.
+                run's stage, and conduction re-reads the active task journal.
     @param[in]  args Parsed arguments.
     @return     Process exit code.
     """

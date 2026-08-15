@@ -7,193 +7,84 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Operations Guide
 
-This guide covers normal, day-to-day operation after a runtime-project profile
-has passed validation and a supervised poll. Use explicit `--profile` in
-automation and when more than one target project exists.
+## Runtime States
 
-## Start Each Operating Session Safely
-
-Confirm the intended profile and configuration before asking ADORE to do work:
-
-```bash
-adore profile list
-adore --profile <profile-name> config validate
-adore --profile <profile-name> status
-```
-
-Configuration resolution is explicit `-c FILE`, then `--profile NAME`, then the
-active profile, then `./config.toml`. An explicit profile avoids accidentally
-operating a different target project.
-
-## Choose the Run Mode
-
-| Mode | Command | Use it when |
+| State | Meaning | Next action |
 | --- | --- | --- |
-| Dry run | `adore --profile <profile-name> run --dry-run` | Checking configuration or ticket eligibility without side effects. |
-| One poll | `adore --profile <profile-name> run --once` | Supervised work, scheduled polling, or a controlled maintenance window. |
-| Loop | `adore --profile <profile-name> run --loop` | A long-running service after the project has proven safe. |
+| `working` | A fresh stage attempt may run. | Advance, park, or fail within budgets. |
+| `parked-clarification` | A human answer is required. | Comment plus `agent-answered`, or timeout. |
+| `awaiting-approval` | Validated candidate is presented. | Freshly add the approval label, or candidate/target drift invalidates it. |
+| `publishing` | Approved delivery bookkeeping and remote publication. | Reach draft MR/PR or fail loudly. |
+| `in-review` | Draft MR/PR awaits human action. | Merge, close, or request a bounded revision. |
+| `failed` | Execution stopped with preserved evidence. | Fix cause, clear pending notification, then explicit retry. |
+| `done` | A human merged the draft. | Cleanup is complete/auditable. |
 
-Without a run-mode flag, ADORE uses `[polling] mode`. Keep a new target project
-in `once` mode until its ticket rules, image, credentials, and delivery flow are
-all proven.
+AEGIS stage is recorded separately as `frame`, `specify`, `design`, `build`,
+`validate`, `deliver`, or `done`. Quick tasks omit specify/design.
 
-## Monitor Work
+## Normal Operator Loop
 
-Use the following commands before making a state-changing intervention:
-
-```bash
-adore --profile <profile-name> status
-adore --profile <profile-name> runs
-adore --profile <profile-name> logs <run-id>
+```text
+adore --profile <name> status
+adore --profile <name> run --dry-run
+adore --profile <name> run --once
+adore --profile <name> runs
+adore --profile <name> logs <run-id>
 ```
 
-`status` reports configuration health, state location, pause state, lock state,
-and run counts. `runs` lists active, parked, and review runs. `logs` shows the
-structured journal for one run. Live executor files are held under the run's
-`io/` directory; immutable per-launch copies are in `io/archive/`.
+Continuous service mode uses `run --loop`. Every executor launch, transition,
+failure, question, notification delivery, approval and publication event is
+appended to `journal.jsonl` under the profile state root.
 
-## Read an AEGIS Escalation
+## Failure Interpretation
 
-Every run is governed by the target repository's AEGIS 3.x payload. An
-AEGIS-facing signal deterministically parks, retries one lock once, escalates,
-or completes without publication when the governed outcome is `abandoned`.
-The reason is journaled and posted on the ticket, so `adore runs` plus the
-ticket comment tell you what happened and what it is waiting for.
-
-An escalation posts its own comment, separate from the edited status line:
-the full reason - the AEGIS error, its `remediation:` clause, and where
-relevant the exact `aegis waive add` command - plus the `adore logs` /
-`adore retry` commands for that run. You do not need host access to read it.
-The post is best-effort: local state is authoritative, so a forge outage
-still leaves the run `failed` with the reason in `adore logs <run-id>`.
-
-| What you see | What happened | What to do |
+| Signal | Meaning | Operator response |
 | --- | --- | --- |
-| The run is **parked** and the ticket carries a clarification comment | The executor recorded unresolved questions in the AEGIS stage form, alignment decided to pause, or the stage asked for `repo-wide` access or for routing back to an earlier stage. | Answer in a normal ticket comment. The run resumes on the next poll. Routing and access widening are human decisions in this version. |
-| `failed` with `AEGIS blocked ...` and a `remediation:` clause | AEGIS refused an action for a governance reason ADORE is not allowed to resolve. | Do what the remediation says in the target clone, then `adore retry <run-id>`. |
-| `failed` with `... a human may waive one of these ...` | A blocker AEGIS considers waivable stopped the run. **ADORE never waives.** | Decide whether the exception is acceptable; if it is, run the exact `aegis waive add <blocker-id> --reason "..."` command from the message in the run's worktree, then `adore retry <run-id>`. |
-| `failed` with `the persistence lock is still held` | Another AEGIS process is running against the same repository. ADORE already retried once. | Let the other process finish (or find out what is holding the lock). **Never delete a lock file to bypass a live owner.** Then `adore retry <run-id>`. |
-| `failed` naming `GRAPH-STALE-UPDATE`, `REQUIREMENT-STALE-UPDATE`, a corrupt schema, or a run-resolution error | AEGIS's integrity floor. ADORE never repairs AEGIS state. | Repair the run state in the target clone by hand, then `adore retry <run-id>`. |
-| `failed` with `AEGIS artifact failure (...)` | A run artifact was missing, unsafe, not a regular bounded UTF-8 file, corrupt, cross-run, or contradicted another artifact. | Inspect the pinned `.agentic/runs/<aegis-run-id>/` files. Repair or regenerate evidence through AEGIS; never edit ADORE state to claim a pass. |
-| `failed` with `AEGIS contract failure (...)` | The payload answered outside the supported contract - a usage error, a missing Python runtime, unparseable output, an unknown stage, or a timeout. | Look at ADORE or the payload, not the ticket. Check the payload with `bash .agentic/tools/run.sh --json config validate` in the clone. |
-| A `QUICK-SCOPE-ADVISORY` warning | AEGIS accepted a quick run but found scope that may deserve the full profile. | Review the named reason and exact restart command. The advisory is visible but non-blocking; a human decides whether to abandon and restart as full. |
-| Terminal `abandoned` | A human ended the AEGIS run outside ADORE. | No publication occurs. Preserve the evidence or dispose of the ADORE run with the normal operator commands. |
+| Incident attempt `1/3` or `2/3` | Recoverable stage attempt failed. | Observe the fresh remediation attempt; intervene if evidence shows a policy/resource issue. |
+| Incident attempt `3/3` plus terminal comment | Stage limit reached. | Inspect local/MR evidence and explicitly retry only after correcting the cause. |
+| `AEGIS_PROTOCOL` | Wrong version/schema, malformed CLI output, identity/path violation. | Repair the target payload/journal; do not repeatedly launch an executor. |
+| `NOTIFICATION_DELIVERY` | Required ticket/MR write failed. | Restore forge transport. Polling replays the outbox without an execution slot. |
+| `BUDGET_EXHAUSTED` | Iteration/time/cost/file cap reached. | Adjust scope/config deliberately, then retry. |
+| `STALE_WORKING` | A conductor died or lost ownership. | Inspect evidence, reconcile the worktree, then retry. |
+| `CLARIFICATION_TIMEOUT` / `REVIEW_LIMIT` | Human/review bound exhausted. | Decide manually; retry only with a new explicit intent. |
 
-The run's worktree is always kept for a failed run, so the AEGIS run records
-under `.agentic/runs/<aegis-run-id>/` are available for inspection.
+Evidence is sanitized before comments. Local JSONL remains the durable audit
+record. ADORE treats required problem notification as part of correctness, not
+best-effort telemetry.
 
-### Interpret governance outcomes truthfully
+## Approval Operations
 
-- `ok` / passed means an actively enforced check has passing evidence.
-- `waived` means a failing enforced check was accepted by a human waiver. It is
-  accepted, but it is never rendered as passed.
-- `not-enforced` and `not-applicable` (`N/A`) are neutral and named explicitly;
-  neither contributes pass evidence.
-- A quick required check must carry real registered RED-before-code and
-  GREEN-after-code results. Executor success or manually asserted evidence is
-  insufficient, and “nothing ran” fails closed.
+The approval presentation lists strict evidence, warnings, commands, diff
+size, exact commits, candidate fingerprint and target commit. Do not pre-apply
+`agent-approved`; ADORE removes and verifies it absent before presentation.
 
-These values appear in the ADORE journal, ticket status, draft MR/PR body, and
-the metrics `governance_outcome` field. Read those surfaces together when
-reviewing exceptions.
+After reviewing the presentation, add `agent-approved`. The next poll fetches
+the target and recomputes the fingerprint. Drift removes the label and returns
+the run to integration/validation. Approval is never reused for a revision.
 
-### ADORE cancellation is not AEGIS abandonment
+## Review Operations
 
-`adore cancel`, `delete`, and `reset` change only ADORE-owned state; they never
-invoke `aegis run abandon`. If the governed run itself must be abandoned, that
-is an explicit human action from the correct worktree:
+ADORE opens only a draft. Apply `agent-revise` to the MR/PR to request a
+governed revision. The next poll creates a new AEGIS task on the same branch,
+preserves earlier journals, and repeats the path. The configured review-round
+limit ends visibly on both active surfaces.
 
-```bash
-bash .agentic/tools/run.sh --run <aegis-run-id> --json run abandon --reason "<reason>"
-```
+ADORE has no merge operation. The human review/merge path remains protected by
+forge permissions and branch rules.
 
-Validate the pinned run id and worktree first. An abandoned AEGIS run is
-complete and can never be published by ADORE.
+## Notification Outbox
 
-## Steer Ticket Pickup
+An outbox record is stored before every required problem/approval comment. A
+failed transport stops code work. Polling retries due records using capped
+backoff without provisioning a container. If a draft MR/PR is confirmed
+deleted, delivery falls back to the source ticket. If the source ticket is also
+deleted, the notification is marked undeliverable in the audit log.
 
-The default labels divide control between people and ADORE:
+`adore retry` refuses a run while its outbox is nonempty.
 
-| Intent | Default action |
-| --- | --- |
-| Permit pickup | Add `agent-ready` and a priority label (`P1`, `P2`, or `P3`). |
-| Hold work | Add `agent-hold`, or pause ADORE globally. |
-| Exclude work | Add `no-agent`. |
-| Pin an executor | Add `agent-exec:<executor-name>`. |
-| Answer a clarification | Add a normal comment, then `agent-answered` where label signaling is configured. |
-| Request a revision | Apply `agent-revise` to the draft MR/PR, then run another poll. |
+## Stopping and Cleanup
 
-ADORE may create a draft MR/PR and update its branch. A human reviews, approves,
-and merges it. Do not edit ADORE's hidden status marker lines in ticket
-comments.
-
-## Pause Before Changing the Operating Environment
-
-Pause prevents new ticket pickup; it does not terminate in-flight work.
-
-```bash
-adore --profile <profile-name> pause
-adore --profile <profile-name> resume
-```
-
-Pause before profile edits, image changes, label migrations, credential
-maintenance, or planned host work. Validate the profile before resuming.
-
-## Adjust Configuration Safely
-
-Change one scalar setting without opening an editor:
-
-```bash
-adore --profile <profile-name> config set budgets.max_iterations 12
-adore --profile <profile-name> config show
-```
-
-`config set` edits the resolved configuration file in place, preserving
-comments and every other key, and infers the value type. It refuses the write
-unless the whole resulting configuration still validates, so a typo cannot
-leave a profile unloadable. Secret-looking keys are rejected: credentials
-belong in `.env`, never in `config.toml`.
-
-Edit the file directly for anything `config set` does not cover - tables, lists,
-or several related keys at once - and run `config validate` afterwards. Use
-`adore profile path <profile-name>` to locate it.
-
-## Review Metrics and Reports
-
-```bash
-adore --profile <profile-name> stats
-adore --profile <profile-name> stats --since 30d
-adore --profile <profile-name> stats --by priority
-adore --profile <profile-name> stats --html
-adore --profile <profile-name> report <run-id>
-adore --profile <profile-name> export --csv
-```
-
-`stats --html` writes the configured static dashboard. Use `stats --rebuild`
-once if older terminal runs need to be re-summarized into the metrics database.
-Per-run reports and exports include the governance outcome separately from the
-ADORE terminal state so accepted waivers cannot look like clean passes.
-
-## Background Operation
-
-Enable a service or scheduled task only after a supervised first run. The
-deployment materials under `04_Software/deploy/` use the ADORE runtime directory
-as the working directory, so keep its configuration and executor `.env` under
-the control of the run-as account.
-
-On Linux, the default service name is `adore.service`:
-
-```bash
-systemctl status adore.service
-journalctl -u adore.service
-```
-
-On Windows, the default scheduled-task name is
-`ADORE Orchestrator & Runtime Engine`:
-
-```powershell
-Get-ScheduledTask -TaskName 'ADORE Orchestrator & Runtime Engine'
-```
-
-Use [Recovery_And_Maintenance.md](Recovery_And_Maintenance.md) for failed,
-parked, or unwanted work rather than manually removing state or containers.
+`cancel` removes active resources and retains audit state. Failed runs keep the
+worktree by design. `cleanup` removes only containers/worktrees not owned by an
+active valid run and reports corrupt state without deleting it. `delete
+--force` is the explicit irreversible state removal command.

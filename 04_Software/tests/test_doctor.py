@@ -242,31 +242,31 @@ def test_guidance_covers_tea_install_and_auth() -> None:
 
 def _aegis_repo(tmp_path: Path) -> Path:
     """
-    @brief      A directory carrying the AEGIS POSIX wrapper.
+    @brief      A directory carrying the AEGIS Python companion CLI.
     @param[in]  tmp_path pytest tmp dir.
     @return     The repository root.
     """
     root = tmp_path / "target-repo"
-    wrapper = root / ".agentic" / "tools" / "run.sh"
+    wrapper = root / ".agentic" / "aegis.py"
     wrapper.parent.mkdir(parents=True, exist_ok=True)
-    wrapper.write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+    wrapper.write_text("#!/usr/bin/env python3\n", encoding="utf-8")
     return root
 
 
-def test_aegis_probe_accepts_a_valid_schema_3_payload(tmp_path: Path) -> None:
+def test_aegis_probe_accepts_a_valid_05_schema_1_payload(tmp_path: Path) -> None:
     """
-    @brief   The probe is the AEGIS 3.x readiness check: the wrapper exists,
-             `config validate` answers ok, and the policy is schema 3. It runs
-             the command with the repository as its working directory.
+    @brief   Version 0.5.x plus schema-1 status proves target readiness.
     """
     root = _aegis_repo(tmp_path)
     runner = FakeRunner({
-        "bash .agentic/tools/run.sh config validate --json": CommandResult(
+        "python .agentic/aegis.py --version": CommandResult(
+            exit_code=0, stdout="aegis 0.5.2\n",
+        ),
+        "python .agentic/aegis.py status --all --json": CommandResult(
             exit_code=0,
             stdout=json.dumps({
-                "status": "ok", "stage": "none",
-                "artifact": ".agentic/workflow.toml",
-                "next": "aegis run start feature", "schema_version": 3,
+                "schema": 1, "command": "status", "tasks": [],
+                "hidden_done": 0, "unreadable": [],
             }),
         ),
     })
@@ -275,20 +275,19 @@ def test_aegis_probe_accepts_a_valid_schema_3_payload(tmp_path: Path) -> None:
 
     assert status.ok
     assert status.wrapper_present and status.config_valid
-    assert status.schema_version == 3
-    assert runner.calls[0] == ["bash", ".agentic/tools/run.sh", "config",
-                               "validate", "--json"]
+    assert status.schema_version == 1 and status.version == "aegis 0.5.2"
+    assert runner.calls[0] == ["python", ".agentic/aegis.py", "--version"]
 
 
 def test_aegis_probe_reports_a_missing_payload(tmp_path: Path) -> None:
     """
-    @brief   No wrapper means no AEGIS 3.x payload; the probe never runs a
+    @brief   No companion CLI means no AEGIS 0.5 payload; no command runs.
              command it knows will fail.
     """
     runner = FakeRunner({})
     status = doctor.detect_aegis(tmp_path / "bare", runner)
     assert not status.ok and not status.wrapper_present
-    assert ".agentic/tools/run.sh is missing" in status.detail
+    assert ".agentic/aegis.py is missing" in status.detail
     assert runner.calls == []
 
 
@@ -296,27 +295,31 @@ def test_aegis_probe_fails_closed_on_a_blocked_or_unparseable_answer(
     tmp_path: Path,
 ) -> None:
     """
-    @brief   A blocked `config validate` and non-JSON output both read as
+    @brief   A nonconforming status and non-JSON output both read as
              not-ready with the detail preserved; neither is mistaken for a
              healthy repository.
     """
     root = _aegis_repo(tmp_path)
     blocked = doctor.detect_aegis(root, FakeRunner({
-        "bash .agentic/tools/run.sh": CommandResult(
+        "python .agentic/aegis.py --version": CommandResult(
+            exit_code=0, stdout="aegis 0.5.0",
+        ),
+        "python .agentic/aegis.py status --all --json": CommandResult(
             exit_code=1,
             stdout=json.dumps({
-                "status": "blocked", "stage": "none",
-                "artifact": ".agentic/workflow.toml",
-                "next": "aegis config validate",
-                "error": "workflow.toml: schema_version must be 3",
+                "schema": 1, "command": "status", "tasks": [],
+                "unreadable": [{"file": "bad.md"}],
             }),
         ),
     }))
     assert not blocked.ok and blocked.wrapper_present
-    assert "schema_version must be 3" in blocked.detail
+    assert "unreadable" in blocked.detail
 
     garbage = doctor.detect_aegis(root, FakeRunner({
-        "bash .agentic/tools/run.sh": CommandResult(
+        "python .agentic/aegis.py --version": CommandResult(
+            exit_code=0, stdout="aegis 0.5.0",
+        ),
+        "python .agentic/aegis.py status --all --json": CommandResult(
             exit_code=2,
             stderr="No AEGIS Python runtime is available.",
         ),
@@ -325,36 +328,42 @@ def test_aegis_probe_fails_closed_on_a_blocked_or_unparseable_answer(
     assert "No AEGIS Python runtime" in garbage.detail
 
 
-def test_aegis_probe_rejects_a_schema_other_than_three(tmp_path: Path) -> None:
+def test_aegis_probe_rejects_wrong_schema_or_version(tmp_path: Path) -> None:
     """
-    @brief   ADORE 3.0 speaks schema 3 only; an older policy is reported, never
-             accepted, and there is no migration path.
+    @brief   ADORE 0.5 speaks only AEGIS 0.5.x schema 1.
     """
     root = _aegis_repo(tmp_path)
     status = doctor.detect_aegis(root, FakeRunner({
-        "bash .agentic/tools/run.sh": CommandResult(
+        "python .agentic/aegis.py --version": CommandResult(
+            exit_code=0, stdout="aegis 0.5.0",
+        ),
+        "python .agentic/aegis.py status --all --json": CommandResult(
             exit_code=0,
             stdout=json.dumps({
-                "status": "ok", "stage": "none",
-                "artifact": ".agentic/workflow.toml",
-                "next": "aegis run start feature", "schema_version": 2,
+                "schema": 2, "command": "status", "tasks": [],
+                "hidden_done": 0, "unreadable": [],
             }),
         ),
     }))
     assert not status.ok and status.config_valid
     assert status.schema_version == 2
-    assert "requires schema 3" in status.detail
+    assert "requires schema 1" in status.detail
+
+    wrong = doctor.detect_aegis(root, FakeRunner({
+        "python .agentic/aegis.py --version": CommandResult(
+            exit_code=0, stdout="aegis 0.6.0",
+        ),
+    }))
+    assert not wrong.ok and "0.6.0" in wrong.detail
 
 
-def test_aegis_guidance_points_at_waegis_and_refuses_1x(tmp_path: Path) -> None:
+def test_aegis_guidance_names_hard_break(tmp_path: Path) -> None:
     """
-    @brief   The guidance names the WAEGIS install path and states plainly that
-             AEGIS 1.x is unsupported with no migration.
+    @brief   Guidance states the 0.5-only contract and no 3.x migration.
     """
     text = doctor.guidance_for(doctor.AEGIS, "linux")
     assert text == doctor.guidance_for(doctor.AEGIS, "windows")
-    assert "waegis" in text.lower()
-    assert "1.x" in text and "no migration" in text
+    assert "0.5" in text and "3.x" in text and "no" in text.lower()
 
 
 # END OF FILE

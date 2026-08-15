@@ -125,8 +125,8 @@ The operator's control plane (design 8c), now complete: `run --loop` /
 Scheduler on Windows 11); `cancel`/`retry`/`reset`/`delete` are the manual
 overrides; `cleanup` is the recovery tool after crashes or the WSL
 bind-mount teardown race; `stats`/`report`/`export` read the metrics store.
-The intervention commands mutate ADORE-owned state only: they do not abandon
-or route an AEGIS run, add a waiver, or rewrite governed evidence.
+The intervention commands mutate ADORE-owned state only: they do not edit
+AEGIS payload files or executor-owned task journals.
 
 ## 8. Usage
 

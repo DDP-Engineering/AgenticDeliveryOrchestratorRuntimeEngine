@@ -49,23 +49,23 @@ def _seed_run(tmp_path: Path) -> StateStore:
                                "labels": ["agent-ready", "P1"]})
     timeline = [
         ("2026-07-04T10:00:00Z", "picked", {}),
-        ("2026-07-04T10:00:01Z", "stage-launch", {"stage": "intake"}),
+        ("2026-07-04T10:00:01Z", "stage-launch", {"stage": "frame"}),
         ("2026-07-04T10:03:00Z", "usage",
-         {"context": "intake", "tokens_in": 1000, "tokens_out": 50,
+         {"context": "frame", "tokens_in": 1000, "tokens_out": 50,
           "cost_usd": 0.02}),
-        ("2026-07-04T10:03:01Z", "stage-closed", {"stage": "intake"}),
-        ("2026-07-04T10:03:02Z", "stage-launch", {"stage": "requirement"}),
-        ("2026-07-04T10:05:00Z", "stage-failed", {"stage": "requirement"}),
-        ("2026-07-04T10:05:01Z", "stage-launch", {"stage": "requirement"}),
-        ("2026-07-04T10:08:00Z", "verify-failed", {"stage": "requirement"}),
+        ("2026-07-04T10:03:01Z", "stage-advanced", {"stage": "frame"}),
+        ("2026-07-04T10:03:02Z", "stage-launch", {"stage": "specify"}),
+        ("2026-07-04T10:05:00Z", "stage-failed", {"stage": "specify"}),
+        ("2026-07-04T10:05:01Z", "stage-launch", {"stage": "specify"}),
+        ("2026-07-04T10:08:00Z", "strict-verification", {"passed": False}),
         ("2026-07-04T10:08:01Z", "parked", {"round": 1}),
         ("2026-07-04T11:08:01Z", "resumed", {}),
-        ("2026-07-04T11:08:02Z", "stage-launch", {"stage": "requirement"}),
+        ("2026-07-04T11:08:02Z", "stage-launch", {"stage": "specify"}),
         ("2026-07-04T11:10:00Z", "usage",
-         {"context": "requirement", "tokens_in": 2000, "tokens_out": 150,
+         {"context": "specify", "tokens_in": 2000, "tokens_out": 150,
           "cost_usd": 0.03}),
-        ("2026-07-04T11:10:01Z", "stage-closed", {"stage": "requirement"}),
-        ("2026-07-04T11:19:59Z", "verify-run-result", {"status": "waived"}),
+        ("2026-07-04T11:10:01Z", "stage-advanced", {"stage": "specify"}),
+        ("2026-07-04T11:19:59Z", "strict-verification", {"passed": True}),
         ("2026-07-04T11:20:00Z", "mr-opened", {"url": "https://x/mr/29"}),
         ("2026-07-04T12:00:00Z", "merged", {"mr": "https://x/mr/29"}),
     ]
@@ -90,7 +90,7 @@ def test_summarize_run_computes_the_catalog(tmp_path: Path) -> None:
     assert summary.ticket_iid == 45
     assert summary.priority == "P1"
     assert summary.outcome == "merged"
-    assert summary.governance_outcome == "waived"
+    assert summary.governance_outcome == "ok"
     assert summary.gates_passed == 2
     assert summary.gate_failures == 1
     assert summary.invariant_failures == 1
@@ -122,8 +122,8 @@ def test_record_load_roundtrip_is_duplicate_free(tmp_path: Path) -> None:
 
 def test_existing_metrics_database_gains_governance_outcome(tmp_path: Path) -> None:
     """
-    @brief   A pre-CR4 database is extended in place and preserves new waiver
-             truth instead of requiring deletion or a separate migration.
+    @brief   An older metrics database is extended in place and preserves the
+             strict-check result without requiring deletion.
     """
     db = tmp_path / "legacy.db"
     legacy_columns = [
@@ -150,13 +150,13 @@ def test_existing_metrics_database_gains_governance_outcome(tmp_path: Path) -> N
         RunSummary(
             run_id="legacy",
             outcome="merged",
-            governance_outcome="waived",
+            governance_outcome="ok",
         ),
     )
 
     rows = load_summaries(db)
     assert len(rows) == 1
-    assert rows[0].governance_outcome == "waived"
+    assert rows[0].governance_outcome == "ok"
 
 
 def test_since_window_filters_by_ended_at(tmp_path: Path) -> None:

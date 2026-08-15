@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Monitoring And Steering
 
-Applies to released ADORE 3.0.0 and its AEGIS 3.x hard-break contract.
+Applies to ADORE 0.5.0 and its AEGIS 0.5.x schema-1 hard-break contract.
 
 Use this when ADORE is running, you need to understand its current state, or you
 need to pause and resume ticket pickup safely.
@@ -82,9 +82,9 @@ triage. Resume only after `config validate` is clean.
 | `report <run-id>` | JSON summary for one run, including governance outcome. |
 | `export --csv` | CSV for external reporting, including governance outcome. |
 
-Treat `waived` as an accepted failure, never a pass. `not-enforced` and
-`not-applicable` are neutral. These truths remain separate from the ADORE
-terminal state in journals, reports, exports, ticket comments, and draft MR/PRs.
+Treat the AEGIS strict-check outcome (`ok` or `failed`) separately from the
+ADORE lifecycle outcome. Both remain visible in journals, reports, exports,
+ticket comments, and draft MR/PRs.
 
 If metrics were added after older terminal runs, rebuild summaries once:
 

@@ -304,8 +304,8 @@ branch_template = "{slug}/{run_id}"
 branch_rule = ""
 
 # ----- AEGIS workflow ------------------------------------------------------------
-# How a ticket becomes an AEGIS 3.x run. ADORE starts exactly one governed run
-# per ticket with `aegis run start <kind> [--quick]`; these keys decide which.
+# How a ticket becomes an AEGIS 0.5 task journal. ADORE creates the task after
+# creating the task branch; the frame executor chooses and justifies its path.
 # All of them are optional - the defaults below are what ADORE uses when the
 # section is absent.
 [workflow]
@@ -313,20 +313,27 @@ branch_rule = ""
 # One of: feature, fix, change. ("adoption" runs are interactive and are not
 # conducted by ADORE, so they are rejected here.)
 default_kind = "feature"
-# Ticket label -> AEGIS run kind. The FIRST entry whose label the ticket
-# carries wins, so overlapping labels stay deterministic.
+# Ticket label -> AEGIS task type. Bug/fix wins over change, then feature.
 kind_labels = { bug = "fix", fix = "fix", change = "change" }
-# Label opting a ticket into the proportional four-stage AEGIS profile
-# (intake -> implementation -> validation -> delivery). AEGIS allows --quick
-# for fix and change runs ONLY, so the label is ignored on a feature ticket.
-# Set to "" to disable the quick profile entirely. Config validation rejects a
-# quick label that no kind mapping could ever pair with fix or change.
+# Framing hint only. The executor remains responsible for selecting and
+# justifying full or quick in the task journal.
 quick_label = "agent-quick"
+# Python executable used for `python .agentic/aegis.py ...`.
+aegis_python = "python"
 # Optional per-stage override of [budgets] per_gate_timeout_seconds, for the
 # stages that legitimately need more room than intake does. Keys must be AEGIS
 # stage names; values are whole seconds.
-# stage_timeout_overrides = { implementation = 5400, validation = 3600 }
+# stage_timeout_overrides = { build = 5400, validate = 3600 }
 stage_timeout_overrides = {}
+
+# ----- Failure recovery ----------------------------------------------------------
+# Failed stage ATTEMPTS are distinct from individual AEGIS findings. The third
+# failed attempt stops; transient container/git/forge transport retries use a
+# separate counter and never consume this stage budget.
+[recovery]
+max_stage_failures = 3
+max_transient_retries = 3
+retry_backoff_seconds = [5, 30, 120]
 
 # ----- Run budgets ---------------------------------------------------------------
 # Hard bounds per run; exceeding any of them escalates to `failed` instead of
@@ -334,12 +341,9 @@ stage_timeout_overrides = {}
 # the counters and continues from where AEGIS says the run stands (it never
 # redoes closed stages).
 [budgets]
-# Executor LAUNCHES per run: one per AEGIS stage (8 for a full run, 4 for a
-# quick one = one clean pass) + one per fix launch (merge conflict or a failing
-# `aegis verify run` during publication) + one per revise round. Clean
-# publication adds zero. Sizing: 8 = crawl pilot (no headroom), 14-18 =
-# supervised with fix headroom; the runtime default of 20 provides unattended
-# headroom. The setup wizard recommends 12 for a tighter first profile.
+# Executor LAUNCHES per run: six working stages for a full path, four for quick,
+# plus remediation, delivery bookkeeping and close-out launches. The default
+# provides bounded unattended headroom.
 max_iterations           = 20
 max_wall_clock_seconds   = 3600   # total wall-clock per run (whole-run ceiling)
 per_gate_timeout_seconds = 1800   # default wall-clock bound on ONE executor launch
@@ -358,14 +362,14 @@ draft = true
 reviewers = ["reviewer.one"]
 # Delete the run branch when the human merges (GitLab option).
 remove_source_branch = true
+# ADORE removes this label before presentation and accepts only a fresh re-add.
+approval_label = "agent-approved"
 
 # ----- Post-MR review loop ----------------------------------------------------
 # How ADORE reacts to review feedback on its draft MR. It never auto-reacts to
 # every comment: by default a reviewer explicitly requests a revision.
 [review]
-# "label" (recommended) = reviewer applies revise_label to request changes;
-# "comment-marker" = a marked comment triggers it; "auto" = react to any
-# change-request (not recommended).
+# ADORE 0.5 accepts the explicit label trigger only.
 trigger = "label"
 # The label a reviewer applies to request an agent revision.
 revise_label = "agent-revise"

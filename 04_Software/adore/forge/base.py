@@ -212,6 +212,24 @@ class Forge(ABC):
         """
 
     @abstractmethod
+    def post_mr_comment(self, mr_iid: int, body: str) -> int:
+        """
+        @brief      Post a marker-owned problem/status comment on an MR/PR.
+        @param[in]  mr_iid MR/PR number.
+        @param[in]  body Comment body.
+        @return     Created comment id.
+        """
+
+    @abstractmethod
+    def edit_mr_comment(self, mr_iid: int, comment_id: int, body: str) -> None:
+        """
+        @brief      Edit one marker-owned MR/PR comment in place.
+        @param[in]  mr_iid MR/PR number.
+        @param[in]  comment_id Existing comment id.
+        @param[in]  body Replacement body.
+        """
+
+    @abstractmethod
     def remove_mr_labels(self, mr_iid: int, labels: list[str]) -> None:
         """
         @brief      Remove labels from an MR/PR (clear the revise trigger).

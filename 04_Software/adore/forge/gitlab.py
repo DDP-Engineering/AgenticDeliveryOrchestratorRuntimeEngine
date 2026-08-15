@@ -246,6 +246,30 @@ class GitLabForge(Forge):
             for note in self._parse_json(result, list)
         ]
 
+    def post_mr_comment(self, mr_iid: int, body: str) -> int:
+        """@brief Create an MR note through the GitLab API."""
+        endpoint = f"projects/{self._project_enc}/merge_requests/{mr_iid}/notes"
+        result = self._run([
+            "glab", "api", "--method", "POST", endpoint,
+            "--raw-field", f"body={body}",
+        ])
+        data = self._parse_json(result, dict)
+        if type(data.get("id")) is not int:
+            raise ForgeError("gitlab MR note response carries no integer id",
+                             result.argv, result.stderr)
+        return data["id"]
+
+    def edit_mr_comment(self, mr_iid: int, comment_id: int, body: str) -> None:
+        """@brief Edit an MR note through the GitLab API."""
+        endpoint = (
+            f"projects/{self._project_enc}/merge_requests/{mr_iid}/notes/"
+            f"{comment_id}"
+        )
+        self._run([
+            "glab", "api", "--method", "PUT", endpoint,
+            "--raw-field", f"body={body}",
+        ])
+
     def remove_mr_labels(self, mr_iid: int, labels: list[str]) -> None:
         """
         @brief      Remove MR labels via the API (PUT remove_labels).

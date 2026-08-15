@@ -12,13 +12,47 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-08-14
+
+### Added
+
+- Durable schema-4 run state for active and historical AEGIS task journals,
+  stage-scoped failure history, validation evidence, candidate fingerprints,
+  approval transitions, marker-owned incidents, and a required-notification
+  outbox with idempotent ticket/MR replay and deleted-MR fallback.
+- Configurable stage and transient recovery limits with defaults of three
+  total failed attempts per stage and backoff `[5, 30, 120]`, plus the fresh
+  delivery approval label protocol (`agent-approved`).
+- Forge-agnostic MR/PR comment create/edit operations for GitHub, GitLab and
+  Gitea, and product-diff/candidate fingerprint support in isolation.
+
+### Changed
+
+- The ADORE release identity is intentionally synchronized with its supported
+  AEGIS line: ADORE `0.5.0` conducts AEGIS `0.5.x` only.
+- **BREAKING: ADORE now supports only AEGIS 0.5.x JSON schema 1.** The grouped
+  AEGIS 3.x client, run graph, waiver, schema-3 evidence and delegated
+  stage-close behavior are removed. There is no compatibility or migration
+  layer for unfinished ADORE 3.x state.
+- One ticket now owns a task branch/worktree/container and one or more AEGIS
+  `TASK-<id>` journals. Executors own journal stages; ADORE independently
+  checks transitions, integrates the target, runs strict verification,
+  checkpoints every successful stage locally, and owns all Git/forge writes.
+- Publication requires a fresh post-presentation approval label bound to the
+  exact candidate and target. Revisions create new AEGIS tasks on the same
+  branch and require revalidation plus fresh approval. Publication remains
+  draft-only and ADORE still never merges.
+
 ### Fixed
 
-- **Operator documentation now matches the released ADORE 3.0 runtime.** The
-  CLI, configuration, getting-started, integration, and operator cheat-sheet
-  materials now describe the AEGIS 3 hard-break contract, Gitea support,
-  stage ownership, enforced versus reserved settings, current defaults, and
-  the released 3.0.0 product identity consistently.
+- Autonomous work can no longer remain silently stuck. Recoverable failures
+  update a durable incident and the third failed attempt aborts; protocol,
+  state, containment, policy and global-budget failures abort immediately.
+  Notification failure itself stops work and remains queued for poll replay.
+
+- Operator documentation now describes the AEGIS 0.5 hard-break contract,
+  Gitea support, journal-stage ownership, fail-loud recovery, approval
+  freshness, current defaults, and the released 0.5.0 identity consistently.
 
 ## [3.0.0] - 2026-08-09
 

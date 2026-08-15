@@ -255,6 +255,14 @@ class GiteaForge(Forge):
         """
         return self.list_comments(mr_iid)
 
+    def post_mr_comment(self, mr_iid: int, body: str) -> int:
+        """@brief Post a PR conversation comment through the issues surface."""
+        return self.post_comment(mr_iid, body)
+
+    def edit_mr_comment(self, mr_iid: int, comment_id: int, body: str) -> None:
+        """@brief Edit a PR conversation comment through the issues surface."""
+        self.edit_comment(mr_iid, comment_id, body)
+
     def remove_mr_labels(self, mr_iid: int, labels: list[str]) -> None:
         """
         @brief      Remove PR labels via `tea pulls edit --remove-labels`.

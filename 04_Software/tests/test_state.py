@@ -20,7 +20,14 @@ import os
 from pathlib import Path
 import socket
 
-from adore.state import RunState, StateError, StateStore, content_hash, derive_run_id
+from adore.state import (
+    STATE_SCHEMA_VERSION,
+    RunState,
+    StateError,
+    StateStore,
+    content_hash,
+    derive_run_id,
+)
 import pytest
 
 # HELPER FUNCTIONS
@@ -62,56 +69,91 @@ def test_save_load_round_trip(tmp_path: Path) -> None:
     @brief   RunState persists and reloads with timestamps stamped.
     """
     store = _store(tmp_path)
-    state = RunState(run_id="gitlab-g-p-14", ticket_iid=14, stage="check", lifecycle="working")
+    state = RunState(
+        run_id="gitlab-g-p-14", ticket_iid=14, stage="validate", lifecycle="working"
+    )
     store.save(state)
     assert state.created_at and state.updated_at
     loaded = store.load("gitlab-g-p-14")
     assert loaded.run_id == "gitlab-g-p-14"
     assert loaded.ticket_iid == 14
-    assert loaded.stage == "check"
+    assert loaded.stage == "validate"
     assert loaded.created_at == state.created_at
 
 
-def test_from_dict_ignores_unknown_keys() -> None:
+def test_from_dict_rejects_unknown_keys() -> None:
     """
-    @brief   Newer state files with extra keys still load (forward compat).
+    @brief   Schema-4 state is closed so ambiguous future data fails loudly.
     """
-    state = RunState.from_dict({"run_id": "r", "ticket_iid": 1, "future_field": True})
-    assert state.run_id == "r"
+    with pytest.raises(StateError, match="unknown keys"):
+        RunState.from_dict({
+            "schema_version": STATE_SCHEMA_VERSION,
+            "run_id": "r",
+            "ticket_iid": 1,
+            "future_field": True,
+        })
 
 
-def test_aegis_run_id_round_trips(tmp_path: Path) -> None:
+def test_active_and_historical_aegis_tasks_round_trip(tmp_path: Path) -> None:
     """
-    @brief   The AEGIS run id survives save/load, so a restart resumes the
-             same governed run instead of starting a second one.
+    @brief   The active and historical task journals survive restart.
     """
     store = _store(tmp_path)
-    aegis_run = "fix-2026-08-01T101112Z-0a1b2c3d"
-    state = RunState(run_id="gitlab-g-p-14", ticket_iid=14, aegis_run_id=aegis_run)
+    state = RunState(
+        run_id="gitlab-g-p-14",
+        ticket_iid=14,
+        active_task_id="TASK-bbbbbbbb",
+        task_ids=["TASK-aaaaaaaa", "TASK-bbbbbbbb"],
+    )
     store.save(state)
-    assert store.load("gitlab-g-p-14").aegis_run_id == aegis_run
+    loaded = store.load("gitlab-g-p-14")
+    assert loaded.active_task_id == "TASK-bbbbbbbb"
+    assert loaded.task_ids == ["TASK-aaaaaaaa", "TASK-bbbbbbbb"]
     payload = json.loads(
         (store.run_dir("gitlab-g-p-14") / "state.json").read_text(encoding="utf-8")
     )
-    assert payload["aegis_run_id"] == aegis_run
+    assert payload["active_task_id"] == "TASK-bbbbbbbb"
 
 
-def test_state_without_the_aegis_run_id_field_loads_as_not_started(
+def test_adore_3_state_is_rejected_with_hard_break_diagnostic(
     tmp_path: Path,
 ) -> None:
     """
-    @brief   A state file written before the field existed yields None - the
-             conductor's "no AEGIS run started yet" signal. The dataclass
-             default is the whole mechanism; no migration code exists.
+    @brief   ADORE 3 state is never silently reinterpreted or migrated.
     """
     store = _store(tmp_path)
     run_dir = store.run_dir("gitlab-g-p-15")
     run_dir.mkdir(parents=True, exist_ok=True)
     (run_dir / "state.json").write_text(
-        json.dumps({"run_id": "gitlab-g-p-15", "ticket_iid": 15, "stage": "intake"}),
+        json.dumps({
+            "run_id": "gitlab-g-p-15",
+            "ticket_iid": 15,
+            "stage": "intake",
+            "aegis_run_id": "old-run",
+        }),
         encoding="utf-8",
     )
-    assert store.load("gitlab-g-p-15").aegis_run_id is None
+    with pytest.raises(StateError, match="does not migrate ADORE 3.x"):
+        store.load("gitlab-g-p-15")
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"run_id": "../escape"},
+        {"stage": "intake"},
+        {"lifecycle": "validated"},
+        {"task_ids": ["not-a-task"]},
+        {"candidate_fingerprint": "not-hex"},
+        {"notification_outbox": ["bad"]},
+    ],
+)
+def test_schema_4_state_trust_boundary_rejects_corrupt_fields(changes: dict) -> None:
+    """@brief Persisted path, vocabulary, ids, digests and outbox fail closed."""
+    payload = RunState(run_id="run-1", ticket_iid=1).to_dict()
+    payload.update(changes)
+    with pytest.raises(StateError):
+        RunState.from_dict(payload)
 
 
 def test_ticket_snapshot_and_journal(tmp_path: Path) -> None:

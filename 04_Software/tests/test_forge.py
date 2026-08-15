@@ -774,4 +774,30 @@ def test_gitea_open_pr_title_prefix_edges_and_missing_url() -> None:
         )
 
 
+def test_gitlab_post_and_edit_mr_incident_comment() -> None:
+    """@brief GitLab MR incidents use merge-request notes, not ticket notes."""
+    runner = FakeRunner(_ok('{"id": 765}'), _ok("{}"))
+    forge = GitLabForge("group/project", runner)
+    assert forge.post_mr_comment(29, "problem") == 765
+    forge.edit_mr_comment(29, 765, "updated")
+    assert "merge_requests/29/notes" in " ".join(runner.calls[0])
+    assert "merge_requests/29/notes/765" in " ".join(runner.calls[1])
+
+
+@pytest.mark.parametrize("kind", ["github", "gitea"])
+def test_issue_style_forges_route_pr_comments_through_issue_surface(kind: str) -> None:
+    """@brief GitHub/Gitea PR conversation comments reuse validated issue APIs."""
+    if kind == "github":
+        runner = FakeRunner(
+            _ok("https://github.com/o/r/issues/9#issuecomment-777\n"), _ok("{}")
+        )
+        forge = GitHubForge("o/r", runner)
+    else:
+        runner = FakeRunner(_api_ok('{"id":777}', status=201), _api_ok("{}"))
+        forge = GiteaForge("o/r", runner)
+    assert forge.post_mr_comment(9, "problem") == 777
+    forge.edit_mr_comment(9, 777, "updated")
+    assert len(runner.calls) == 2
+
+
 # END OF FILE

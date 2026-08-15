@@ -98,7 +98,22 @@ ANTHROPIC_API_KEY=<provider-key>
 ```
 
 Only key names listed in `env_keys` reach the executor container. Keep the list
-small and remove keys the selected executor does not need.
+limited to model-provider credentials. ADORE 0.5 rejects known forge credential
+names (`GITHUB_TOKEN`, `GH_TOKEN`, `GITLAB_TOKEN`, `GLAB_TOKEN`, `GITEA_TOKEN`,
+and `TEA_TOKEN`) in `env_keys`. The executor prompt also forbids commit, push,
+MR/PR creation and merge. ADORE alone creates local checkpoint commits and
+performs remote publication after a fingerprint-bound human approval.
+
+The optional `stage_host_auth` bridge stages only the selected executor's own
+authentication file into its container-specific home. It does not stage host
+Git or forge CLI credentials.
+
+Every required problem/approval comment is written to a local outbox before
+transport. Evidence is bounded and common credential forms are redacted. A
+notification failure stops active code work instead of silently losing the
+operator signal.
+
+Keep the list small and remove keys the selected executor does not need.
 
 ## Host-Auth Mode
 

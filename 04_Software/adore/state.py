@@ -17,18 +17,20 @@
          pause flag. The local state is the source of truth; Git-platform
          labels/comments only reflect it. Corrupt persisted state fails closed:
          loading raises StateError so the caller can skip or escalate
-         deterministically, never guess.
+         deterministically, never guess. ADORE 0.5 uses state schema 4 and
+         intentionally refuses the pre-hard-break ADORE 3.x state shape.
 """
 
 from __future__ import annotations
 
 # IMPORTS
 from collections.abc import Callable
-from dataclasses import asdict, dataclass, fields
+from dataclasses import asdict, dataclass, field, fields
 import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import socket
 from typing import Any
@@ -42,6 +44,15 @@ STATE_FILE = "state.json"
 TICKET_FILE = "ticket.json"
 JOURNAL_FILE = "journal.jsonl"
 PAUSE_FILE = "paused"
+STATE_SCHEMA_VERSION = 4
+_TASK_ID_RE = re.compile(r"^TASK-[0-9a-f]{8,64}$")
+_RUN_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+_STAGES = {"frame", "specify", "design", "build", "validate", "deliver", "done",
+           "publishing"}
+_LIFECYCLES = {
+    "working", "parked-clarification", "awaiting-approval", "publishing",
+    "in-review", "failed", "done", "cancelled", "stale",
+}
 
 # DATA MODELS / TYPEDEFINITIONS
 
@@ -59,29 +70,31 @@ class StateError(RuntimeError):
 class RunState:
     """
     @brief   In-memory view of a single run's persisted state.
-    @details Everything the orchestrator needs to resume a run after a restart
-             without re-fetching the ticket: identity, stage, the AEGIS run
-             this ADORE run drives, signaling comment ids, round/budget
-             counters, park bookkeeping, and resource names.
+    @details Everything the orchestrator needs to resume a run after a restart:
+             the active/historical AEGIS tasks, journal stage, recoverable
+             failure counters, durable notification outbox, approval-bound
+             candidate fingerprint, signaling ids, and isolated resources.
     """
 
     run_id: str
     ticket_iid: int
-    stage: str = "intake"
+    schema_version: int = STATE_SCHEMA_VERSION
+    stage: str = "frame"
     lifecycle: str = "working"
-    # The AEGIS run id minted by `aegis run start`, pinned with `--run` on
-    # every later AEGIS call and used to address the run-local `.agentic`
-    # files. None means "no AEGIS run started yet"; it is never cleared once
-    # set, so a restart resumes the same governed run instead of starting a
-    # second one.
-    aegis_run_id: str | None = None
+    active_task_id: str | None = None
+    task_ids: list[str] = field(default_factory=list)
+    aegis_type: str = "feature"
+    aegis_path: str = "full"
+    stage_failures: int = 0
+    failure_history: list[dict[str, Any]] = field(default_factory=list)
     content_hash: str = ""
     status_comment_id: int | None = None
     question_comment_id: int | None = None
+    incident_comment_id: int | None = None
+    incident_target: str = ""
     last_seen_comment_id: int | None = None
     clarification_rounds: int = 0
     review_rounds: int = 0
-    executor_session: str = ""
     branch: str = ""
     base_ref: str = ""
     worktree: str = ""
@@ -93,7 +106,15 @@ class RunState:
     mr_iid: int | None = None
     mr_url: str = ""
     mr_missing_polls: int = 0
+    notification_outbox: list[dict[str, Any]] = field(default_factory=list)
+    candidate_fingerprint: str = ""
+    candidate_base_ref: str = ""
+    approval_presented_at: str = ""
+    approval_comment_id: int | None = None
+    approval_label_removed: bool = False
+    validation_evidence: dict[str, Any] = field(default_factory=dict)
     outcome: str = ""
+    active_started_at: str = ""
     created_at: str = ""
     updated_at: str = ""
 
@@ -108,17 +129,65 @@ class RunState:
     def from_dict(cls, data: dict[str, Any]) -> RunState:
         """
         @brief      Rebuild a RunState from a persisted mapping.
-        @details    Unknown keys are ignored so older ADORE versions can read
-                    state written by newer ones. A state file written before
-                    `aegis_run_id` existed simply defaults it to None, which
-                    the conductor reads as "no AEGIS run started yet" - the
-                    field default is the whole story; there is no migration
-                    code anywhere.
+        @details    This is a deliberate hard break. Missing/wrong schema and
+                    unknown keys are rejected, so ADORE 3.x state is never
+                    reinterpreted as an AEGIS 0.5 task run.
         @param[in]  data Mapping loaded from state.json.
         @return     The reconstructed RunState.
         """
+        if data.get("schema_version") != STATE_SCHEMA_VERSION:
+            raise StateError(
+                "unsupported run-state schema; ADORE 0.5 requires schema 4 "
+                "and does not migrate ADORE 3.x runs"
+            )
         known = {f.name for f in fields(cls)}
-        return cls(**{key: value for key, value in data.items() if key in known})
+        unknown = sorted(set(data) - known)
+        if unknown:
+            raise StateError(f"run-state schema 4 has unknown keys: {unknown}")
+        state = cls(**data)
+        if (
+            not isinstance(state.run_id, str)
+            or _RUN_ID_RE.fullmatch(state.run_id) is None
+            or state.run_id in {".", ".."}
+        ):
+            raise StateError("run-state run_id must be a safe path component")
+        if type(state.ticket_iid) is not int or state.ticket_iid < 1:
+            raise StateError("run-state ticket_iid must be a positive integer")
+        if state.stage not in _STAGES:
+            raise StateError(f"run-state carries unknown stage {state.stage!r}")
+        if state.lifecycle not in _LIFECYCLES:
+            raise StateError(f"run-state carries unknown lifecycle {state.lifecycle!r}")
+        if state.aegis_type not in {"feature", "fix", "change"}:
+            raise StateError(f"run-state carries unknown AEGIS type {state.aegis_type!r}")
+        if state.aegis_path not in {"full", "quick"}:
+            raise StateError(f"run-state carries unknown AEGIS path {state.aegis_path!r}")
+        if not isinstance(state.task_ids, list) or not all(
+            isinstance(item, str) and _TASK_ID_RE.fullmatch(item)
+            for item in state.task_ids
+        ):
+            raise StateError("run-state task_ids must be a valid TASK id list")
+        if state.active_task_id is not None and (
+            _TASK_ID_RE.fullmatch(state.active_task_id) is None
+            or state.active_task_id not in state.task_ids
+        ):
+            raise StateError("run-state active_task_id must name a historical task")
+        if type(state.stage_failures) is not int or state.stage_failures < 0:
+            raise StateError("run-state stage_failures must be non-negative")
+        if not isinstance(state.failure_history, list) or not all(
+            isinstance(item, dict) for item in state.failure_history
+        ):
+            raise StateError("run-state failure_history must be an object list")
+        if not isinstance(state.notification_outbox, list) or not all(
+            isinstance(item, dict) for item in state.notification_outbox
+        ):
+            raise StateError("run-state notification_outbox must be an object list")
+        if not isinstance(state.validation_evidence, dict):
+            raise StateError("run-state validation_evidence must be an object")
+        for name in ("candidate_fingerprint", "candidate_base_ref"):
+            value = getattr(state, name)
+            if value and re.fullmatch(r"[0-9a-f]{40,64}", value) is None:
+                raise StateError(f"run-state {name} must be a hexadecimal digest")
+        return state
 
 
 # PUBLIC API
@@ -222,8 +291,11 @@ class StateStore:
                           created_at is set on first save).
         """
         now = utc_now_iso()
+        state.schema_version = STATE_SCHEMA_VERSION
         if not state.created_at:
             state.created_at = now
+        if not state.active_started_at:
+            state.active_started_at = now
         state.updated_at = now
         self._write_json(self.run_dir(state.run_id) / STATE_FILE, state.to_dict())
 

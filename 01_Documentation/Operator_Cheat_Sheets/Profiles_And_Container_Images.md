@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Profiles And Container Images
 
-Applies to released ADORE 3.0.0 and its AEGIS 3.x hard-break contract.
+Applies to ADORE 0.5.0 and its AEGIS 0.5.x schema-1 hard-break contract.
 
 Use this when you operate more than one runtime project, switch active projects,
 or need to decide which executor image a profile should use.

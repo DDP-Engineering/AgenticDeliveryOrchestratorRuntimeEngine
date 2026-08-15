@@ -27,7 +27,7 @@ import shlex
 import tomllib
 from typing import Any
 
-from adore.aegis import QUICK_KINDS, RUN_KINDS
+from adore.aegis import RUN_KINDS
 from adore.branding import (
     EGRESS_NETWORK_PREFIX,
     EGRESS_PROXY_IMAGE,
@@ -63,11 +63,14 @@ _MANAGED_CONTAINER_ENV = frozenset({
     "no_proxy",
 })
 _SHELL_CONTROL_CHARS = frozenset("|&;<>")
-# The AEGIS 3.x stage names a per-stage timeout override may target. Declared
+_FORGE_CREDENTIAL_ENV = frozenset({
+    "GITHUB_TOKEN", "GH_TOKEN", "GITLAB_TOKEN", "GLAB_TOKEN", "GITEA_TOKEN",
+    "TEA_TOKEN",
+})
+# The AEGIS 0.5 task stages a per-stage timeout override may target. Declared
 # here rather than imported from the orchestrator so configuration validation
 # stays free of the engine.
-AEGIS_STAGES = ("intake", "alignment", "requirement", "design", "check",
-                "implementation", "validation", "delivery")
+AEGIS_STAGES = ("frame", "specify", "design", "build", "validate", "deliver")
 _HOST_LABEL_RE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$")
 
 KNOWN_SECTIONS = frozenset(
@@ -83,6 +86,7 @@ KNOWN_SECTIONS = frozenset(
         "container",
         "worktree",
         "workflow",
+        "recovery",
         "budgets",
         "delivery",
         "review",
@@ -357,13 +361,12 @@ class WorktreeConfig:
 @dataclass
 class WorkflowConfig:
     """
-    @brief   [workflow] - how ticket labels map onto an AEGIS 3.x run.
-    @details `kind_labels` maps a ticket label to an AEGIS run kind; the first
-             configured entry whose label the ticket carries wins, so
-             overlapping labels stay deterministic. Unmapped tickets use
-             `default_kind`. `quick_label` opts a ticket into the proportional
-             four-stage profile, which AEGIS permits only for `fix` and
-             `change` runs. `stage_timeout_overrides` raises or lowers the
+    @brief   [workflow] - how ticket labels map onto an AEGIS 0.5 task.
+    @details `kind_labels` maps a ticket label to an AEGIS task type; the first
+             configured entry whose label the ticket carries wins. The quick
+             label is a framing hint only; the executor must still apply
+             AEGIS's documented eligibility rules. `stage_timeout_overrides`
+             raises or lowers the
              per-executor-launch bound for individual stages; anything absent
              uses [budgets] per_gate_timeout_seconds.
     """
@@ -373,7 +376,17 @@ class WorkflowConfig:
         default_factory=lambda: {"bug": "fix", "fix": "fix", "change": "change"}
     )
     quick_label: str = "agent-quick"
+    aegis_python: str = "python"
     stage_timeout_overrides: dict[str, int] = field(default_factory=dict)
+
+
+@dataclass
+class RecoveryConfig:
+    """@brief [recovery] - bounded stage and transient failure handling."""
+
+    max_stage_failures: int = 3
+    max_transient_retries: int = 3
+    retry_backoff_seconds: list[int] = field(default_factory=lambda: [5, 30, 120])
 
 
 @dataclass
@@ -392,11 +405,9 @@ class BudgetsConfig:
     max_wall_clock_seconds: int = 3600
     per_gate_timeout_seconds: int = 1800
     max_cost_usd: float = 5.0
-    # AEGIS 3 full runs persist forms, snapshots, evidence, graph, journal,
-    # summaries, and reports alongside product changes. The CR6 pilot reached
-    # 45 governed paths before implementation, so the legacy 40-file default
-    # made a clean full run impossible. Keep the run bounded, but leave honest
-    # headroom for the governance payload as well as the product diff.
+    # AEGIS task journals, step files, anchors, evolution records and reports
+    # count alongside product changes. Keep the run bounded while leaving
+    # honest headroom for governance evidence and the product diff.
     max_files_touched: int = 120
 
 
@@ -410,6 +421,7 @@ class DeliveryConfig:
     draft: bool = True
     reviewers: list[str] = field(default_factory=list)
     remove_source_branch: bool = True
+    approval_label: str = "agent-approved"
 
 
 @dataclass
@@ -469,6 +481,7 @@ class Config:
     container: ContainerConfig = field(default_factory=ContainerConfig)
     worktree: WorktreeConfig = field(default_factory=WorktreeConfig)
     workflow: WorkflowConfig = field(default_factory=WorkflowConfig)
+    recovery: RecoveryConfig = field(default_factory=RecoveryConfig)
     budgets: BudgetsConfig = field(default_factory=BudgetsConfig)
     delivery: DeliveryConfig = field(default_factory=DeliveryConfig)
     review: ReviewConfig = field(default_factory=ReviewConfig)
@@ -495,6 +508,7 @@ class Config:
                 "container",
                 "worktree",
                 "workflow",
+                "recovery",
                 "budgets",
                 "delivery",
                 "review",
@@ -654,6 +668,7 @@ def load_config(path: str | Path) -> Config:
         container=_build_container(raw.get("container")),
         worktree=_build_section(WorktreeConfig, raw.get("worktree")),
         workflow=_build_section(WorkflowConfig, raw.get("workflow")),
+        recovery=_build_section(RecoveryConfig, raw.get("recovery")),
         budgets=_build_section(BudgetsConfig, raw.get("budgets")),
         delivery=_build_section(DeliveryConfig, raw.get("delivery")),
         review=_build_section(ReviewConfig, raw.get("review")),
@@ -731,6 +746,11 @@ def validate_config(config: Config) -> list[str]:
     check(
         config.executor.mode in ("thick", "headless"),
         f"[executor] mode must be thick/headless: {config.executor.mode!r}",
+    )
+    check(
+        not (_FORGE_CREDENTIAL_ENV & set(config.executor.env_keys)),
+        "[executor] env_keys must not expose forge credentials to executors: "
+        f"{sorted(_FORGE_CREDENTIAL_ENV & set(config.executor.env_keys))}",
     )
     default = config.executor.default
     entry = config.executor.commands.get(default)
@@ -993,15 +1013,9 @@ def validate_config(config: Config) -> list[str]:
         f"{workflow.default_kind!r}",
     )
     check(
-        workflow.default_kind != "adoption",
-        "[workflow] default_kind cannot be \"adoption\": adoption runs are "
-        "interactive and are not conducted by ADORE",
-    )
-    check(
         isinstance(workflow.kind_labels, dict),
-        "[workflow] kind_labels must be a table of label -> AEGIS run kind",
+        "[workflow] kind_labels must be a table of label -> AEGIS task type",
     )
-    mapped_kinds: list[str] = []
     if isinstance(workflow.kind_labels, dict):
         for label, kind in workflow.kind_labels.items():
             if not isinstance(label, str) or not label.strip():
@@ -1014,32 +1028,16 @@ def validate_config(config: Config) -> list[str]:
                     f"kind ({', '.join(RUN_KINDS)}): {kind!r}"
                 )
                 continue
-            if kind == "adoption":
-                issues.append(
-                    f"[workflow] kind_labels.{label} cannot map to "
-                    "\"adoption\": adoption runs are not conducted by ADORE"
-                )
-                continue
-            mapped_kinds.append(kind)
     check(
         isinstance(workflow.quick_label, str),
         "[workflow] quick_label must be a label name or an empty string",
     )
-    if isinstance(workflow.quick_label, str) and workflow.quick_label.strip():
-        # AEGIS accepts --quick only for fix/change, so a quick label that no
-        # kind mapping can ever pair with one of those is dead configuration -
-        # and a silently ignored label is exactly the kind of drift that makes
-        # an operator think a run was proportional when it was not.
-        reachable = [
-            kind for kind in (workflow.default_kind, *mapped_kinds)
-            if kind in QUICK_KINDS
-        ]
-        check(
-            bool(reachable),
-            f"[workflow] quick_label {workflow.quick_label!r} can never apply: "
-            f"AEGIS allows --quick only for {' and '.join(QUICK_KINDS)} runs, "
-            "and neither default_kind nor any kind_labels entry maps to one",
-        )
+    check(
+        isinstance(workflow.aegis_python, str)
+        and bool(workflow.aegis_python.strip())
+        and not any(char.isspace() for char in workflow.aegis_python),
+        "[workflow] aegis_python must be one executable token",
+    )
     check(
         isinstance(workflow.stage_timeout_overrides, dict),
         "[workflow] stage_timeout_overrides must be a table of stage -> seconds",
@@ -1059,6 +1057,30 @@ def validate_config(config: Config) -> list[str]:
                     f"positive whole number of seconds: {seconds!r}"
                 )
 
+    recovery = config.recovery
+    check(
+        isinstance(recovery.max_stage_failures, int)
+        and not isinstance(recovery.max_stage_failures, bool)
+        and recovery.max_stage_failures >= 1,
+        "[recovery] max_stage_failures must be >= 1",
+    )
+    check(
+        isinstance(recovery.max_transient_retries, int)
+        and not isinstance(recovery.max_transient_retries, bool)
+        and recovery.max_transient_retries >= 1,
+        "[recovery] max_transient_retries must be >= 1",
+    )
+    check(
+        isinstance(recovery.retry_backoff_seconds, list)
+        and bool(recovery.retry_backoff_seconds),
+        "[recovery] retry_backoff_seconds must be a non-empty integer list",
+    )
+    if isinstance(recovery.retry_backoff_seconds, list):
+        for value in recovery.retry_backoff_seconds:
+            check(
+                isinstance(value, int) and not isinstance(value, bool) and value >= 0,
+                f"[recovery] retry_backoff_seconds entries must be >= 0: {value!r}",
+            )
     check(config.budgets.max_iterations >= 1, "[budgets] max_iterations must be >= 1")
     check(
         config.budgets.max_wall_clock_seconds >= 1,
@@ -1074,10 +1096,21 @@ def validate_config(config: Config) -> list[str]:
     check(bool(config.delivery.target_branch.strip()), "[delivery] target_branch is required")
     check(bool(config.delivery.reviewers), "[delivery] reviewers must list at least one human")
     check(config.delivery.draft, "[delivery] draft must stay true: ADORE never opens ready MRs")
+    check(
+        isinstance(config.delivery.approval_label, str)
+        and bool(config.delivery.approval_label.strip()),
+        "[delivery] approval_label must be a non-empty label",
+    )
+    lifecycle_labels = set(asdict(config.labels.lifecycle).values())
+    control_labels = set(asdict(config.labels.control).values())
+    check(
+        config.delivery.approval_label not in lifecycle_labels | control_labels,
+        "[delivery] approval_label must be distinct from lifecycle/control labels",
+    )
 
     check(
-        config.review.trigger in ("label", "comment-marker", "auto"),
-        f"[review] trigger must be label/comment-marker/auto: {config.review.trigger!r}",
+        config.review.trigger == "label",
+        f"[review] trigger must be label in ADORE 0.5: {config.review.trigger!r}",
     )
     check(config.review.max_review_rounds >= 1, "[review] max_review_rounds must be >= 1")
 

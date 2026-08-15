@@ -30,6 +30,7 @@ from __future__ import annotations
 
 # IMPORTS
 from collections.abc import Callable, Sequence
+import hashlib
 import os
 from pathlib import Path
 import re
@@ -451,6 +452,72 @@ class WorktreeManager:
             if entry:
                 names.add(entry)
         return len(names)
+
+    def ref_head(self, ref: str) -> str:
+        """
+        @brief      Resolve a ref to its exact commit identifier.
+        @param[in]  ref Local or remote ref to resolve.
+        @return     Full commit SHA.
+        @exception  IsolationError When the ref is missing or git fails.
+        """
+        return self._git("rev-parse", "--verify", f"{ref}^{{commit}}").stdout.strip()
+
+    def candidate_fingerprint(self, run_id: str, base_ref: str) -> str:
+        """
+        @brief      Fingerprint the clean candidate and its exact commit series.
+        @details    The target head, candidate head/tree and ordered commits are
+                    bound together so either candidate mutation or target drift
+                    invalidates a previously presented approval.
+        @param[in]  run_id Stable run identifier.
+        @param[in]  base_ref Target ref used as the integration base.
+        @return     Lower-case SHA-256 hexadecimal fingerprint.
+        @exception  IsolationError When the tree is dirty or git fails.
+        """
+        if self.is_dirty(run_id):
+            raise IsolationError("cannot fingerprint a dirty candidate worktree")
+        wt = str(self.path_for(run_id))
+        tree = self._run_wt(wt, "rev-parse", "HEAD^{tree}").stdout.strip()
+        head = self._run_wt(wt, "rev-parse", "HEAD^{commit}").stdout.strip()
+        target = self.ref_head(base_ref)
+        commits = self._run_wt(
+            wt, "rev-list", "--reverse", f"{base_ref}..HEAD"
+        ).stdout.strip()
+        material = "\0".join((target, head, tree, commits)).encode("utf-8")
+        return hashlib.sha256(material).hexdigest()
+
+    def product_diff_fingerprint(self, run_id: str, base_ref: str) -> str:
+        """
+        @brief      Fingerprint candidate content outside `.agentic/`.
+        @details    Delivery bookkeeping is expected to change governed
+                    journal/report files. Product code is not; this digest lets
+                    the conductor detect that prohibited candidate mutation.
+        @param[in]  run_id Stable run identifier.
+        @param[in]  base_ref Integrated target ref.
+        @return     SHA-256 of the binary product diff.
+        """
+        if self.is_dirty(run_id):
+            raise IsolationError("cannot fingerprint a dirty product candidate")
+        result = self._run_wt(
+            str(self.path_for(run_id)),
+            "diff",
+            "--binary",
+            f"{base_ref}...HEAD",
+            "--",
+            ".",
+            ":(exclude).agentic/**",
+        )
+        return hashlib.sha256(result.stdout.encode("utf-8")).hexdigest()
+
+    def commit_series(self, run_id: str, base_ref: str) -> list[str]:
+        """@brief Return the ordered SHA and subject series over the target."""
+        result = self._run_wt(
+            str(self.path_for(run_id)),
+            "log",
+            "--format=%H %s",
+            "--reverse",
+            f"{base_ref}..HEAD",
+        )
+        return [line.strip() for line in result.stdout.splitlines() if line.strip()]
 
     @staticmethod
     def _porcelain_path(line: str) -> str:

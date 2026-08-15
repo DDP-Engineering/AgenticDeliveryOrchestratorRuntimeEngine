@@ -141,6 +141,7 @@ It intentionally excludes tests, worktrees, .adore state, caches, and .venv.
 
 Read [Documentation](Documentation/README.md) before deployment. It contains
 the prerequisite, credential, configuration, operation, and recovery guides.
+Start with the [runtime integration guide](Documentation/Integrating_A_Runtime_Project.md).
 
 Prepare:
 

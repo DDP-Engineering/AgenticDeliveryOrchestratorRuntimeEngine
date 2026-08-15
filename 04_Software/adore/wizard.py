@@ -226,6 +226,14 @@ def _positive_number(value: str) -> str | None:
     return None
 
 
+def _nonnegative_int_list(value: str) -> str | None:
+    """@brief Validate a nonempty comma-separated nonnegative integer list."""
+    parts = [item.strip() for item in value.split(",")]
+    if not parts or any(not item or not item.isdigit() for item in parts):
+        return "use comma-separated nonnegative whole seconds, e.g. 5,30,120"
+    return None
+
+
 def _slugify(name: str) -> str:
     """
     @brief      Derive a config slug from a display name (matches config rules).
@@ -317,7 +325,7 @@ def _toml_value(value: object) -> str:
     if isinstance(value, float):
         return repr(value)
     if isinstance(value, list):
-        return "[" + ", ".join(_toml_string(str(item)) for item in value) + "]"
+        return "[" + ", ".join(_toml_value(item) for item in value) + "]"
     if isinstance(value, dict):
         items = ", ".join(
             f"{_toml_string(str(key))} = {_toml_value(item)}"
@@ -558,18 +566,18 @@ def run_wizard(
     ), asker, out)
     fix_label = ask(FieldSpec(
         "fix_label", "Label marking a ticket as a FIX (bug) run:",
-        "maps to `aegis run start fix`; anything unlabelled starts a feature run",
+        "maps the created AEGIS task type to fix; anything else is feature",
         "bug", default="bug", validate=_require,
     ), asker, out)
     change_label = ask(FieldSpec(
         "change_label", "Label marking a ticket as a CHANGE run:",
-        "maps to `aegis run start change`",
+        "maps the created AEGIS task type to change",
         "change", default="change", validate=_require,
     ), asker, out)
     quick_label = ask(FieldSpec(
-        "quick_label", "Label opting a ticket into the QUICK AEGIS profile:",
-        "four stages instead of eight; AEGIS allows it for fix/change runs "
-        "only, so it is ignored on a feature ticket. Empty disables it.",
+        "quick_label", "Label hinting that frame should consider QUICK:",
+        "a hint only; the frame executor applies AEGIS eligibility and records "
+        "the full/quick justification. Empty disables the hint.",
         "agent-quick", default="agent-quick",
     ), asker, out)
 
@@ -582,6 +590,11 @@ def run_wizard(
         else "at least one reviewer is required",
     ), asker, out)
     reviewers = [part.strip() for part in reviewers_raw.split(",") if part.strip()]
+    approval_label = ask(FieldSpec(
+        "approval_label", "Fresh human approval label:",
+        "ADORE removes it before presenting evidence and accepts only a re-add",
+        "agent-approved", default="agent-approved", validate=_require,
+    ), asker, out)
 
     # -- Phase H (budgets & policy) -----------------------------------------------
     budgets_choice = ask(FieldSpec(
@@ -606,6 +619,24 @@ def run_wizard(
         budgets["max_files_touched"] = int(ask(FieldSpec(
             "max_files_touched", "Max files a run may change:", "", "120",
             default="120", validate=_positive_int), asker, out))
+    max_stage_failures = int(ask(FieldSpec(
+        "max_stage_failures", "Failed attempts allowed per AEGIS stage:",
+        "the final attempt aborts; 3 means there is no fourth launch",
+        "3", default="3", validate=_positive_int,
+    ), asker, out))
+    max_transient_retries = int(ask(FieldSpec(
+        "max_transient_retries", "Transient infrastructure attempts:",
+        "container, fetch and forge transport; does not consume stage attempts",
+        "3", default="3", validate=_positive_int,
+    ), asker, out))
+    retry_backoff_raw = ask(FieldSpec(
+        "retry_backoff_seconds", "Transient/outbox backoff seconds:",
+        "comma-separated, capped at the last value", "5,30,120",
+        default="5,30,120", validate=_nonnegative_int_list,
+    ), asker, out)
+    retry_backoff_seconds = [
+        int(item.strip()) for item in retry_backoff_raw.split(",")
+    ]
     polling_mode = ask(FieldSpec(
         "polling_mode", "Run mode:",
         "once = single pass (cron/Task Scheduler); loop = long-running service",
@@ -629,7 +660,11 @@ def run_wizard(
         branch_rule=branch_rule, runtime=runtime, run_args=run_args, image=image,
         executor_cli=executor_cli, command=_command_for(executor_cli), model=model,
         auth_mode=auth_mode, target_branch=target_branch, reviewers=reviewers,
+        approval_label=approval_label,
         budgets=budgets, budgets_choice=budgets_choice, polling_mode=polling_mode,
+        max_stage_failures=max_stage_failures,
+        max_transient_retries=max_transient_retries,
+        retry_backoff_seconds=retry_backoff_seconds,
         ready_label=ready_label, fix_label=fix_label, change_label=change_label,
         quick_label=quick_label,
     )
@@ -707,7 +742,7 @@ def _report_aegis(
     os_key: str,
 ) -> None:
     """
-    @brief      Report whether the target clone carries a usable AEGIS 3.x.
+    @brief      Report whether the target clone carries usable AEGIS 0.5.x.
     @details    Informational like the rest of the environment check: the
                 wizard never blocks, so an operator can install the payload in
                 another terminal and continue. What it must NOT do is imply a
@@ -719,7 +754,7 @@ def _report_aegis(
     @param[in]  os_key Host OS key (selects guidance wording).
     """
     status = doctor.detect_aegis(repo_path, runner)
-    out(f"  [{'OK' if status.ok else 'CHECK'}] AEGIS 3.x payload"
+    out(f"  [{'OK' if status.ok else 'CHECK'}] AEGIS 0.5.x payload"
         + (f" (schema {status.schema_version})" if status.ok else ""))
     if status.ok:
         return
@@ -798,10 +833,19 @@ def _assemble_sections(**a: object) -> list[tuple[str, dict[str, object]]]:
     sections.append((f"executor.{a['executor_cli']}",
                      {"command": a["command"], "model": a["model"]}))
 
-    delivery: dict[str, object] = {"reviewers": a["reviewers"]}
+    delivery: dict[str, object] = {
+        "reviewers": a["reviewers"],
+        "approval_label": a["approval_label"],
+    }
     if a["target_branch"] != "develop":
         delivery["target_branch"] = a["target_branch"]
     sections.append(("delivery", delivery))
+
+    sections.append(("recovery", {
+        "max_stage_failures": a["max_stage_failures"],
+        "max_transient_retries": a["max_transient_retries"],
+        "retry_backoff_seconds": a["retry_backoff_seconds"],
+    }))
 
     if a["budgets_choice"] == "custom" or a["budgets"] != _RECOMMENDED_BUDGETS:
         sections.append(("budgets", dict(a["budgets"])))  # type: ignore[arg-type]

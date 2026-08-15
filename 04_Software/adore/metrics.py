@@ -16,8 +16,8 @@
          JSONL export. Access is CLI-first (stats/report/export) plus an
          optional self-contained static HTML file - no server, no exporter.
          This data is the crawl -> walk -> run promotion signal. The final
-         AEGIS `ok|waived|failed` governance outcome is a separate column, so
-         an accepted waiver never becomes an apparent pass after human merge.
+         The final AEGIS 0.5 strict-check outcome (`ok` or `failed`) remains a
+         separate column from the ADORE lifecycle outcome.
 """
 
 from __future__ import annotations
@@ -178,21 +178,19 @@ def summarize_run(store: StateStore, run_id: str,
     for event in events:
         name = event.get("event", "")
         ts = event.get("ts", "")
-        # Journal event names follow the AEGIS 3.x stage vocabulary; the
-        # summary column names are kept so existing metrics databases,
-        # exports, and dashboards stay readable across the 3.0 break.
+        # Summary column names remain stable while schema-4 journal events use
+        # the AEGIS 0.5 task-stage vocabulary.
         if name in ("stage-launch", "delivery-fix", "revise-start"):
             summary.executor_launches += 1
-        elif name == "stage-closed":
+        elif name == "stage-advanced":
             summary.gates_passed += 1
         elif name == "stage-failed":
             summary.gate_failures += 1
-        elif name in ("stage-not-ready", "verify-failed"):
-            summary.invariant_failures += 1
-        elif name == "verify-run-result":
-            status = event.get("status")
-            if status in {"ok", "waived", "failed"}:
-                summary.governance_outcome = str(status)
+        elif name == "strict-verification":
+            passed = event.get("passed") is True
+            summary.governance_outcome = "ok" if passed else "failed"
+            if not passed:
+                summary.invariant_failures += 1
         elif name == "usage":
             summary.tokens_in += int(event.get("tokens_in", 0) or 0)
             summary.tokens_out += int(event.get("tokens_out", 0) or 0)

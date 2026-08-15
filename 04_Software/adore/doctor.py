@@ -30,6 +30,7 @@ from dataclasses import dataclass, field
 import json
 from pathlib import Path
 import platform
+import re
 
 from adore.util import CommandRunner, run_command
 
@@ -49,9 +50,10 @@ TEA_AUTH = "tea-auth"
 OPENCODE = "opencode"
 AEGIS = "aegis"
 
-# The AEGIS 3.x payload contract the target repository must satisfy.
-AEGIS_WRAPPER = ".agentic/tools/run.sh"
-AEGIS_SCHEMA_VERSION = 3
+# The AEGIS 0.5 payload contract the target repository must satisfy.
+AEGIS_WRAPPER = ".agentic/aegis.py"
+AEGIS_SCHEMA_VERSION = 1
+AEGIS_VERSION_RE = re.compile(r"aegis\s+0\.5\.\d+\Z")
 
 # Platform-CLI + auth mapping by platform kind.
 _CLI_FOR_KIND = {"gitlab": GLAB, "github": GH, "gitea": TEA}
@@ -155,12 +157,11 @@ GUIDANCE: dict[str, dict[str, str]] = {
     },
     AEGIS: {
         "*": (
-            "The target repository must carry an installed AEGIS 3.x payload: "
-            "`.agentic/tools/run.sh` plus a schema-3 `.agentic/workflow.toml`. "
-            "Install or upgrade it with WAEGIS (`waegis adopt` / `waegis "
-            "upgrade`) in the target clone, then re-run `adore doctor`. ADORE "
-            "3.0 speaks only the AEGIS 3.x grouped CLI; AEGIS 1.x repositories "
-            "are not supported and there is no migration path."
+            "The target repository must carry the current AEGIS 0.5.x payload "
+            "with `.agentic/aegis.py` and JSON schema 1. Install the payload in "
+            "the target clone without changing its source, then re-run `adore "
+            "doctor`. ADORE 0.5 speaks only the AEGIS 0.5 companion CLI and has "
+            "no AEGIS 3.x compatibility or migration path."
         )
     },
 }
@@ -207,23 +208,23 @@ class RuntimeDetection:
 @dataclass
 class AegisStatus:
     """
-    @brief   Whether a target repository carries a usable AEGIS 3.x payload.
-    @details Three independent facts, all required: the POSIX wrapper exists,
-             `aegis config validate` answers `status: ok`, and the policy it
-             validated is schema 3. `detail` carries the AEGIS error verbatim
-             when it does not.
+    @brief   Whether a target repository carries a usable AEGIS 0.5 payload.
+    @details The Python companion CLI must exist, report version 0.5.x, and
+             return a valid schema-1 status-list payload with no unreadable
+             journals. `detail` carries the bounded failure reason.
     """
 
     repo_path: str
     wrapper_present: bool
     config_valid: bool
     schema_version: int | None = None
+    version: str = ""
     detail: str = ""
 
     @property
     def ok(self) -> bool:
         """
-        @brief   True when the repository is governed by a usable AEGIS 3.x.
+        @brief   True when the repository is governed by usable AEGIS 0.5.x.
         @return  Readiness flag.
         """
         return (
@@ -384,16 +385,11 @@ def detect_aegis(
     runner: CommandRunner = run_command,
 ) -> AegisStatus:
     """
-    @brief      Probe a target repository for a usable AEGIS 3.x payload.
-    @details    Replaces every AEGIS 1.x verb probe. Three checks, in order:
-                `.agentic/tools/run.sh` exists, `bash .agentic/tools/run.sh
-                config validate --json` answers `status: ok`, and the
-                `schema_version` it reports is 3. The command runs with the
-                repository as its working directory, which is where AEGIS
-                discovers its root. Everything crosses a trust boundary, so a
-                non-zero exit, unparseable output, or a wrong schema is
-                reported as not-ready with the detail preserved - never
-                silently accepted.
+    @brief      Probe a target repository for a usable AEGIS 0.5.x payload.
+    @details    Requires `.agentic/aegis.py`, exact `aegis 0.5.x` version
+                output, and a schema-1 `status --all --json` document. ADORE
+                refuses malformed output, unknown versions/schemas and any
+                unreadable journal before ticket pickup.
     @param[in]  repo_path Local clone the runs are created from.
     @param[in]  runner Injectable command runner.
     @return     The AegisStatus.
@@ -404,35 +400,52 @@ def detect_aegis(
             repo_path=str(root), wrapper_present=False, config_valid=False,
             detail=f"{AEGIS_WRAPPER} is missing",
         )
-    result = runner(
-        ["bash", AEGIS_WRAPPER, "config", "validate", "--json"], cwd=str(root)
-    )
-    if result.exit_code == 127:
+    version_result = runner(["python", AEGIS_WRAPPER, "--version"], cwd=str(root))
+    version = version_result.stdout.strip()
+    if version_result.exit_code == 127:
         return AegisStatus(
             repo_path=str(root), wrapper_present=True, config_valid=False,
-            detail="bash is not available to run the AEGIS wrapper",
+            detail="python is not available to run the AEGIS companion CLI",
         )
+    if not version_result.ok or AEGIS_VERSION_RE.fullmatch(version) is None:
+        return AegisStatus(
+            repo_path=str(root), wrapper_present=True, config_valid=False,
+            version=version,
+            detail=(version_result.stderr.strip() or version
+                    or "AEGIS returned no version")[:400],
+        )
+    result = runner(
+        ["python", AEGIS_WRAPPER, "status", "--all", "--json"], cwd=str(root)
+    )
     try:
         payload = json.loads(result.stdout)
     except json.JSONDecodeError:
         return AegisStatus(
             repo_path=str(root), wrapper_present=True, config_valid=False,
+            version=version,
             detail=(result.stderr.strip() or result.stdout.strip()
-                    or "the AEGIS wrapper produced no JSON")[:400],
+                    or "the AEGIS companion CLI produced no JSON")[:400],
         )
-    if not isinstance(payload, dict) or payload.get("status") != "ok":
-        detail = str(payload.get("error") or payload.get("status")) \
-            if isinstance(payload, dict) else "unexpected payload"
+    valid_shape = (
+        result.ok
+        and isinstance(payload, dict)
+        and payload.get("command") == "status"
+        and isinstance(payload.get("tasks"), list)
+        and payload.get("unreadable") == []
+    )
+    if not valid_shape:
+        detail = (result.stderr.strip() or str(payload))[:400]
         return AegisStatus(
             repo_path=str(root), wrapper_present=True, config_valid=False,
-            detail=detail[:400],
+            version=version, detail=detail,
         )
-    schema = payload.get("schema_version")
+    schema = payload.get("schema")
     return AegisStatus(
         repo_path=str(root), wrapper_present=True, config_valid=True,
         schema_version=schema if isinstance(schema, int) else None,
+        version=version,
         detail="" if schema == AEGIS_SCHEMA_VERSION
-        else f"policy reports schema {schema!r}, ADORE 3.0 requires "
+        else f"status reports schema {schema!r}, ADORE 0.5 requires "
              f"schema {AEGIS_SCHEMA_VERSION}",
     )
 

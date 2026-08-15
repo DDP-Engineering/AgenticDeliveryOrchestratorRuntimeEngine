@@ -68,7 +68,7 @@ commands + `--profile` resolution.
   the container user/group match the host (no `run_args` needed for UID mapping). The executor `env_keys` are
   derived from the model's provider (names only, never secret values - D5).
 - **Governance-aware file budget:** the recommended profile allows 120 touched
-  files. AEGIS 3 durable run artifacts count toward the same bound as product
+  files. AEGIS 0.5 task journals and evidence count toward the same bound as product
   files, and the CR6 full pilot occupied 45 paths before implementation; the
   older 40-file recommendation failed an otherwise healthy governed run.
 - **TOML emission** prefers literal single-quoted strings, so regexes and
@@ -106,14 +106,18 @@ commands + `--profile` resolution.
 - The emitted config always satisfies `validate_config` (enforced by the
   write-then-validate guard).
 
-- **Workflow labels** (ADORE 3.0 WP6): the wizard asks for the ready label
-  and for the labels that select the AEGIS run kind (fix, change) and the
-  quick profile, and writes them into `[labels.lifecycle]` and `[workflow]`.
+- **Workflow labels:** the wizard asks for the ready label,
+  task-type labels (fix/change), and the quick framing hint, and writes
+  non-defaults into `[labels.lifecycle]` and `[workflow]`.
   Accepting every default writes neither table, keeping the emitted config
   minimal. It also probes the named clone with `doctor.detect_aegis` and
-  prints the WAEGIS guidance when the target repository carries no usable
-  AEGIS 3.x payload - informational like the rest of the environment check, so
+  prints hard-break guidance when the target repository carries no usable
+  AEGIS 0.5.x payload - informational like the rest of the environment check, so
   an operator can install the payload in another terminal and continue.
+- **Fail-loud recovery and approval:** the wizard asks for the approval label,
+  stage-attempt limit, transient-attempt limit and capped backoff list, then
+  emits explicit `[delivery]` and `[recovery]` values. Defaults are
+  `agent-approved`, `3`, `3`, and `[5, 30, 120]`.
 
 ## 7. Workflow Integration
 

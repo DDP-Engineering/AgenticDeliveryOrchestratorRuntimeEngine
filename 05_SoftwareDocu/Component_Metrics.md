@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Metrics (`adore/metrics.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/adore/metrics.py` - file version 0.3.0.
+> Source: `04_Software/adore/metrics.py` - ADORE 0.5.0.
 > Design: Orchestrator_Design_And_Decisions.md section 13.
 
 ## 1. Purpose
@@ -23,8 +23,8 @@ optional self-contained static HTML file.
 
 - `summarize_run(store, run_id, files_changed)` - compute one flat
   `RunSummary` from the run's journal (the append-only truth), state, and
-  ticket snapshot: outcome, final AEGIS governance outcome (`ok`, `waived`,
-  or `failed`), priority, span / parked-wait / time-to-MR
+  ticket snapshot: outcome, final AEGIS 0.5 strict-check outcome (`ok` or
+  `failed`), priority, span / parked-wait / time-to-MR
   seconds, gate passes/failures, invariant failures, executor launches,
   clarification/review rounds, token totals and cost (from journal `usage`
   events), files changed, MR URL.
@@ -51,10 +51,8 @@ transitions), token extraction (executor launcher), resource probing
   events - schema pinned live 2026-07-03) and the orchestrator journals a
   `usage` event per launch (gated by `[metrics] capture_tokens`). Metrics
   sums those events.
-- The orchestrator records at every terminal transition (escalate, cancel,
-  answer-timeout, orphaned, merged, mr-closed) - **before** teardown on
-  merge/close so files-changed is still measurable - and metrics failures
-  are logged, never breaking a run.
+- The orchestrator records terminal ADORE lifecycle outcomes; metrics failures
+  are logged and never mask the governed run result.
 - Parked wait = sum of parked->resumed gaps; span = first->last journal
   timestamp (includes waits, deliberately - it is the human-visible
   latency); time-to-MR = first event -> `mr-opened`.
@@ -75,10 +73,9 @@ transitions), token extraction (executor launcher), resource probing
 
 - One SQLite row per run (`run_summaries`, PK run_id), columns = the
   `RunSummary` fields; the JSONL mirror always equals the table.
-- `_connect` adds newly introduced summary columns with neutral defaults, so
-  an existing metrics database gains `governance_outcome` without being
-  discarded. The value comes from the final `verify-run-result` journal event;
-  `waived` therefore remains observable after an MR is eventually merged.
+- `_connect` adds newly introduced summary columns with neutral defaults. The
+  `governance_outcome` value comes only from schema-4 `strict-verification`
+  journal events and is `ok` or `failed`.
 - Journal `usage` event shape: `{event: "usage", context: <gate|phase>,
   tokens_in, tokens_out, cost_usd}`.
 
@@ -91,16 +88,14 @@ terminal runs in the store (used once to backfill the pilot run).
 
 ## 9. Validation And Tests
 
-- `tests/test_metrics.py`: full catalog computation from a crafted journal,
-  including a final waived governance outcome; duplicate-free SQLite
+- `tests/test_metrics.py`: full catalog computation from a schema-4 journal,
+  including failed and successful strict checks; duplicate-free SQLite
   round-trip + mirror; in-place legacy table extension; since-window filtering
   (unparseable timestamps excluded), grouped aggregation, CSV/HTML outputs
   (escaping, no scripts), terminal classification.
 - `tests/test_executor.py`: usage extraction (summed, malformed-tolerant).
 - `tests/test_orchestrator.py`: merged run records one row with summed usage;
   `enabled=false` records nothing.
-- Live: `adore stats --rebuild` backfilled pilot run #45 from its journal
-  (merged, 6 gates, 2 clarification rounds, 1 review round, 31 launches).
 - Minimum validation after a change: `uv run --group dev pytest tests/test_metrics.py`.
 
 ## 10. Limitations And Future Work

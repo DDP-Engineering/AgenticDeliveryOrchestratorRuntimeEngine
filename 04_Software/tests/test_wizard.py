@@ -129,6 +129,9 @@ def test_wizard_writes_a_valid_minimal_profile(tmp_path: Path) -> None:
     assert config.container.runtime == "docker"
     assert config.worktree.branch_rule.startswith("^(feature")
     assert config.delivery.reviewers == ["reviewer.one", "reviewer.two"]
+    assert config.delivery.approval_label == "agent-approved"
+    assert config.recovery.max_stage_failures == 3
+    assert config.recovery.retry_backoff_seconds == [5, 30, 120]
     assert config.budgets.max_files_touched == 120
     assert config.state.store_root.endswith("state")         # profile-owned (D2)
     assert profile.platform == "gitlab" and profile.repo == "grp/sub/proj"
@@ -145,6 +148,25 @@ def test_wizard_podman_adds_userns_keepid(tmp_path: Path) -> None:
     config = load_config(store.config_path("p"))
     assert config.container.run_args == ["--userns=keep-id"]
     assert validate_config(config) == []
+
+
+def test_wizard_writes_custom_recovery_and_approval(tmp_path: Path) -> None:
+    """@brief Fail-loud thresholds and approval label are assisted settings."""
+    store = _store(tmp_path)
+    asker = ScriptedAsker(_answers(
+        _clone(tmp_path),
+        max_stage_failures="4",
+        max_transient_retries="2",
+        retry_backoff_seconds="1,10",
+        approval_label="human-approved",
+    ))
+    run_wizard(store, asker=asker, out=lambda _l: None, runner=_runner(),
+               os_key="linux", name="recovery")
+    config = load_config(store.config_path("recovery"))
+    assert config.recovery.max_stage_failures == 4
+    assert config.recovery.max_transient_retries == 2
+    assert config.recovery.retry_backoff_seconds == [1, 10]
+    assert config.delivery.approval_label == "human-approved"
 
 
 # PUBLIC API / TESTS - re-prompting on invalid input
@@ -420,8 +442,8 @@ def test_wizard_writes_custom_workflow_labels(tmp_path: Path) -> None:
 
 def test_wizard_reports_a_missing_aegis_payload(tmp_path: Path) -> None:
     """
-    @brief   The wizard probes the target clone for an AEGIS 3.x payload and
-             prints the WAEGIS guidance when it is absent - informational, so
+    @brief   The wizard probes the target clone for an AEGIS 0.5.x payload and
+             prints hard-break guidance when it is absent - informational, so
              the wizard still completes.
     """
     clone = _clone(tmp_path)
@@ -430,9 +452,9 @@ def test_wizard_reports_a_missing_aegis_payload(tmp_path: Path) -> None:
     run_wizard(store, asker=ScriptedAsker(_answers(clone)), out=lines.append,
                runner=_runner(), os_key="linux", name="p")
     printed = "\n".join(lines)
-    assert "[CHECK] AEGIS 3.x payload" in printed
-    assert ".agentic/tools/run.sh is missing" in printed
-    assert "waegis" in printed.lower()
+    assert "[CHECK] AEGIS 0.5.x payload" in printed
+    assert ".agentic/aegis.py is missing" in printed
+    assert "AEGIS 0.5" in printed and "no AEGIS 3.x" in printed
     assert store.config_path("p").is_file()  # never blocks
 
 
