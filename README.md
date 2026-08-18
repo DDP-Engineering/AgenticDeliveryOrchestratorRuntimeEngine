@@ -8,12 +8,14 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # ADORE - Agentic Delivery Orchestrator & Runtime Engine
 
-Current release: **ADORE 0.5.0**. Its release identity is aligned with
-AEGIS 0.5.0.
+Current release: **ADORE 0.6.0**.
 
-ADORE 0.5 is the hard break to the current agent-driven AEGIS 0.5.x companion
-CLI and JSON schema 1. It has no AEGIS 3.x compatibility or state migration
-layer.
+ADORE conducts the agent-driven AEGIS companion CLI over JSON schema 1. It
+does not pin an AEGIS minor: the supported range is a major line with a
+floor, declared once in `04_Software/adore/aegis.py`, so a new AEGIS minor
+needs no change here. A payload below the floor, or on a different major, is
+refused at probe rather than half-conducted. ADORE migrates no earlier run
+state.
 
 ADORE selects opt-in GitHub, GitLab or Gitea tickets, creates an isolated task
 branch/worktree/container, and supervises a fresh executor session for each
@@ -22,7 +24,7 @@ clarification, review monitoring and draft MR/PR publication. It never merges.
 
 ```text
 ticket
-  -> schema-4 ADORE run
+  -> schema-1 ADORE run
   -> branch + worktree + container
   -> active AEGIS TASK journal
   -> local checkpoint after each stage

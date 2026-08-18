@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Setup and First Run
 
-Applies to ADORE 0.5.0 and AEGIS 0.5.x schema 1.
+Applies to ADORE 0.6.0 and AEGIS schema 1.
 
 1. Authenticate host `gh`, `glab`, or `tea` and verify Git can push `origin`.
 2. Verify Docker/Podman and the project executor image.
@@ -18,7 +18,7 @@ Applies to ADORE 0.5.0 and AEGIS 0.5.x schema 1.
    python .agentic/aegis.py status --all --json
    ```
 
-   Require `aegis 0.5.x`, schema `1`, and no unreadable journals.
+   Require a supported `aegis` version, schema `1`, and no unreadable journals.
 
 4. Create and validate a profile:
 
@@ -40,4 +40,4 @@ Applies to ADORE 0.5.0 and AEGIS 0.5.x schema 1.
 8. At `awaiting-approval`, review evidence and freshly add `agent-approved`.
 9. Run another poll and confirm a draft MR/PR opens. A human reviews and merges.
 
-ADORE 0.5 does not read or migrate unfinished ADORE 3.x state.
+ADORE migrates no earlier run state; start from a fresh state root.

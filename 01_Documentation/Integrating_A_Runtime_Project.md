@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Integrating a Runtime Project
 
-ADORE 0.5 conducts repositories that already contain AEGIS 0.5.x. It uses the
+ADORE conducts repositories that already contain AEGIS. It uses the
 payload exactly as installed and never edits AEGIS source or payload files.
 
 ## Required Repository Contract
@@ -15,7 +15,7 @@ payload exactly as installed and never edits AEGIS source or payload files.
 The target clone must provide:
 
 - Git with a configured `origin` and the target branch;
-- `.agentic/aegis.py` reporting `aegis 0.5.x`;
+- `.agentic/aegis.py` reporting a supported `aegis` version;
 - schema-1 JSON from `python .agentic/aegis.py status --all --json`;
 - readable AEGIS task journals with no path escapes;
 - project test commands configured in AEGIS;
@@ -29,11 +29,11 @@ python .agentic/aegis.py status --all --json
 ```
 
 ADORE rejects unknown versions, schemas, malformed output, or unreadable
-journals before governed work. Repository probing accepts AEGIS 0.5 adoption
+journals before governed work. Repository probing accepts AEGIS adoption
 journals at `survey`, `components`, or `close`; those are valid foreign journals
 but are never valid stages for the ADORE-created task, whose decoder remains
 restricted to `frame`, `specify`, `design`, `build`, `validate`, `deliver`, and
-`done`. There is no AEGIS 3.x detection, compatibility, or migration path.
+`done`. Any other AEGIS contract is refused at probe.
 
 The pre-pick repository probe runs directly on the host. After a run container
 is provisioned, ADORE writes each fully shell-quoted AEGIS command to the run's

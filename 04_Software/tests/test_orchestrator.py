@@ -9,7 +9,7 @@
 # -----------------------------------------------------------------------------
 """
 @file test_orchestrator.py
-@brief ADORE 0.5 conductor, recovery, approval and notification tests.
+@brief ADORE conductor, recovery, approval and notification tests.
 @details Uses only injected offline fakes; no forge, git, container or model is
          contacted. The tests focus on observable contracts and fail-closed
          trust boundaries rather than private implementation structure.

@@ -9,8 +9,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 ## 1. Purpose
 
-`adore/orchestrator.py` is the deterministic ADORE 0.5 conductor around the
-agent-driven AEGIS 0.5 workflow. It prevents silent stalls and keeps remote
+`adore/orchestrator.py` is the deterministic ADORE conductor around the
+agent-driven AEGIS workflow. It prevents silent stalls and keeps remote
 publication human-approved and draft-only.
 
 ## 2. Responsibilities

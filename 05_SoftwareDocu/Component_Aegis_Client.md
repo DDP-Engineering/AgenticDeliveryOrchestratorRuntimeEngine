@@ -9,8 +9,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 ## 1. Purpose
 
-`adore/aegis.py` is the sole AEGIS trust-boundary component. ADORE 0.5 speaks
-only the Python companion CLI shipped by AEGIS 0.5.x and JSON schema 1.
+`adore/aegis.py` is the sole AEGIS trust-boundary component. ADORE speaks
+only the Python companion CLI shipped by AEGIS and JSON schema 1.
 
 ## 2. Responsibilities
 
@@ -56,7 +56,7 @@ and Python runtime.
 
 ## 5. Data Contracts
 
-- supported version: `aegis 0.5.x`;
+- supported version: a supported `aegis` version;
 - supported JSON schema: integer `1`;
 - task ids: `TASK-<hex>` and exact `.agentic/tasks/<id>.md` path;
 - repository status-list stages: the seven conduction stages plus AEGIS

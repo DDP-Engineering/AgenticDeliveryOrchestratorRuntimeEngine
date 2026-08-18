@@ -15,7 +15,7 @@ probes for assisted setup.
 ## 2. AEGIS Probe
 
 `detect_aegis` requires `.agentic/aegis.py`, runs `--version`, accepts only
-`aegis 0.5.x`, then runs `status --all --json` and requires schema 1, command
+a supported `aegis` version, then runs `status --all --json` and requires schema 1, command
 `status`, a task list and an empty unreadable list. Missing Python, nonzero
 exit, malformed JSON, wrong shape/version/schema, or unreadable tasks return a
 not-ready `AegisStatus` with bounded detail.
@@ -31,5 +31,5 @@ corporate instance. Gitea continues to route through its selected tea login.
 
 ## 4. Validation and Tests
 
-`tests/test_doctor.py` covers valid 0.5/schema-1 detection, missing payload,
-malformed/blocked status, wrong version/schema, and hard-break guidance.
+`tests/test_doctor.py` covers valid version/schema-1 detection, missing payload,
+malformed/blocked status, wrong version/schema, and guidance.

@@ -7,8 +7,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # ADORE Operator Cheat Sheets
 
-Applies to ADORE 0.5.0 and AEGIS 0.5.x schema 1. There is no ADORE 3.x state
-migration.
+Applies to ADORE 0.6.0 and AEGIS schema 1. ADORE migrates no earlier run
+state.
 
 - [Setup and First Run](Setup_And_First_Run.md)
 - [Tickets, Readiness and Labels](Tickets_Readiness_And_Labels.md)

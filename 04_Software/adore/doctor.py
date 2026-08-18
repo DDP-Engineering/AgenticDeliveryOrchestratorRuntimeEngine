@@ -30,8 +30,8 @@ from dataclasses import dataclass, field
 import json
 from pathlib import Path
 import platform
-import re
 
+from adore.aegis import MINIMUM_SERIES, SUPPORTED_MAJOR, VERSION_RE
 from adore.util import CommandRunner, run_command
 
 # CONSTANTS
@@ -50,10 +50,15 @@ TEA_AUTH = "tea-auth"
 OPENCODE = "opencode"
 AEGIS = "aegis"
 
-# The AEGIS 0.5 payload contract the target repository must satisfy.
+# The AEGIS payload contract the target repository must satisfy.
 AEGIS_WRAPPER = ".agentic/aegis.py"
 AEGIS_SCHEMA_VERSION = 1
-AEGIS_VERSION_RE = re.compile(r"aegis\s+0\.5\.\d+\Z")
+#: Human form of the supported range, built from the client's own constants so
+#: doctor can never disagree with the gate the orchestrator actually applies.
+AEGIS_SUPPORTED_TEXT = (
+    f"{SUPPORTED_MAJOR}.x at "
+    f"{'.'.join(str(part) for part in (*MINIMUM_SERIES, 0))} or newer"
+)
 
 # Platform-CLI + auth mapping by platform kind.
 _CLI_FOR_KIND = {"gitlab": GLAB, "github": GH, "gitea": TEA}
@@ -161,11 +166,11 @@ GUIDANCE: dict[str, dict[str, str]] = {
     },
     AEGIS: {
         "*": (
-            "The target repository must carry the current AEGIS 0.5.x payload "
-            "with `.agentic/aegis.py` and JSON schema 1. Install the payload in "
-            "the target clone without changing its source, then re-run `adore "
-            "doctor`. ADORE 0.5 speaks only the AEGIS 0.5 companion CLI and has "
-            "no AEGIS 3.x compatibility or migration path."
+            f"The target repository must carry an AEGIS {AEGIS_SUPPORTED_TEXT} "
+            "payload with `.agentic/aegis.py` and JSON schema 1. Install the "
+            "payload in the target clone without changing its source, then "
+            "re-run `adore doctor`. ADORE speaks only the AEGIS companion "
+            "CLI over JSON schema 1."
         )
     },
 }
@@ -212,8 +217,8 @@ class RuntimeDetection:
 @dataclass
 class AegisStatus:
     """
-    @brief   Whether a target repository carries a usable AEGIS 0.5 payload.
-    @details The Python companion CLI must exist, report version 0.5.x, and
+    @brief   Whether a target repository carries a usable AEGIS payload.
+    @details The Python companion CLI must exist, report a supported version, and
              return a valid schema-1 status-list payload with no unreadable
              journals. `detail` carries the bounded failure reason.
     """
@@ -228,7 +233,7 @@ class AegisStatus:
     @property
     def ok(self) -> bool:
         """
-        @brief   True when the repository is governed by usable AEGIS 0.5.x.
+        @brief   True when the repository is governed by usable AEGIS.
         @return  Readiness flag.
         """
         return (
@@ -253,6 +258,22 @@ class EnvironmentReport:
 
 
 # HELPER FUNCTIONS
+
+
+def aegis_version_supported(version: str) -> bool:
+    """
+    @brief      Whether reported `aegis --version` text is in the supported range.
+    @param[in]  version Raw text reported by the companion CLI.
+    @return     True when the major matches and the minor is at or above the floor.
+    @details    Delegates to the client's regex and constants rather than keeping
+                a second pattern here: one gate, one place to change. Doctor once
+                carried its own copy, which silently went stale.
+    """
+    match = VERSION_RE.fullmatch(version.strip())
+    if match is None:
+        return False
+    major, minor, _patch = (int(item) for item in match.groups())
+    return major == SUPPORTED_MAJOR and (major, minor) >= MINIMUM_SERIES
 
 
 def _os_key(system_name: str) -> str:
@@ -389,8 +410,8 @@ def detect_aegis(
     runner: CommandRunner = run_command,
 ) -> AegisStatus:
     """
-    @brief      Probe a target repository for a usable AEGIS 0.5.x payload.
-    @details    Requires `.agentic/aegis.py`, exact `aegis 0.5.x` version
+    @brief      Probe a target repository for a usable AEGIS payload.
+    @details    Requires `.agentic/aegis.py`, exact a supported `aegis` version version
                 output, and a schema-1 `status --all --json` document. ADORE
                 refuses malformed output, unknown versions/schemas and any
                 unreadable journal before ticket pickup.
@@ -411,7 +432,7 @@ def detect_aegis(
             repo_path=str(root), wrapper_present=True, config_valid=False,
             detail="python is not available to run the AEGIS companion CLI",
         )
-    if not version_result.ok or AEGIS_VERSION_RE.fullmatch(version) is None:
+    if not version_result.ok or not aegis_version_supported(version):
         return AegisStatus(
             repo_path=str(root), wrapper_present=True, config_valid=False,
             version=version,
@@ -449,7 +470,7 @@ def detect_aegis(
         schema_version=schema if isinstance(schema, int) else None,
         version=version,
         detail="" if schema == AEGIS_SCHEMA_VERSION
-        else f"status reports schema {schema!r}, ADORE 0.5 requires "
+        else f"status reports schema {schema!r}, ADORE requires "
              f"schema {AEGIS_SCHEMA_VERSION}",
     )
 

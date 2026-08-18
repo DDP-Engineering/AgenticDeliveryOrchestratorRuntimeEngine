@@ -39,9 +39,9 @@ clear human control points.
 
 ## Relationship Between ADORE and AEGIS
 
-ADORE 0.5 is a hard-break companion to repository-installed AEGIS 0.5.x. It
-supports the AEGIS Python companion CLI and JSON schema 1 only; it does not
-interpret or migrate the former ADORE/AEGIS 3.x contracts.
+ADORE is a companion to repository-installed AEGIS. It supports the AEGIS
+Python companion CLI and JSON schema 1 only; any other contract is refused
+rather than interpreted.
 
 The ownership boundary is deliberate:
 
@@ -61,7 +61,7 @@ as the resume authority.
 
 ```text
 eligible ticket
-  -> ADORE schema-4 run state
+  -> ADORE schema-1 run state
   -> isolated branch + worktree + container
   -> AEGIS task journal
   -> one fresh executor session per stage
@@ -214,7 +214,7 @@ credentials, human approval, branch protection, and review remain essential.
 
 ## Current Product Position
 
-ADORE 0.5.0 is a working, offline-tested companion runtime for AEGIS 0.5.x. It
+ADORE 0.6.0 is a working, offline-tested companion runtime for AEGIS. It
 provides the complete path from opt-in ticket selection through isolated
 execution, durable recovery, strict validation, fresh approval, and draft
 publication. The design intentionally favors a simple single-conductor model,

@@ -14,7 +14,7 @@ schema = 1
 # and must match the category folder this file sits in.
 id = "REQ-FUNC-0bdb23d5"
 
-title = "Persist schema-4 run state safely"
+title = "Persist versioned run state safely"
 
 # draft while being written, active once it is built and tested,
 # retired when the behavior is deliberately removed.
@@ -49,7 +49,7 @@ When persisted run state is corrupt or has an unknown schema or field, the runti
 # "Inspection:" and name the method, and `check` records the requirement
 # as verified by hand instead of counting it among the tests still owed.
 # The prefix alone is not enough — it has to say what someone does.
-verification = "Automated state tests reject unknown fields, schema-3 state, and corrupt JSON while reporting invalid runs."
+verification = "Automated state tests reject unknown fields, state carrying any schema version other than the current one, and corrupt JSON, while reporting invalid runs."
 
 # Repo-relative, forward slashes. The source files this behavior lives in.
 affected_paths = ["04_Software/adore/state.py"]

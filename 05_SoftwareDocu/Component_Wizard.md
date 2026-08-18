@@ -68,7 +68,7 @@ commands + `--profile` resolution.
   the container user/group match the host (no `run_args` needed for UID mapping). The executor `env_keys` are
   derived from the model's provider (names only, never secret values - D5).
 - **Governance-aware file budget:** the recommended profile allows 120 touched
-  files. AEGIS 0.5 task journals and evidence count toward the same bound as product
+  files. AEGIS task journals and evidence count toward the same bound as product
   files, and the CR6 full pilot occupied 45 paths before implementation; the
   older 40-file recommendation failed an otherwise healthy governed run.
 - **TOML emission** prefers literal single-quoted strings, so regexes and
@@ -115,8 +115,8 @@ commands + `--profile` resolution.
   non-defaults into `[labels.lifecycle]` and `[workflow]`.
   Accepting every default writes neither table, keeping the emitted config
   minimal. It also probes the named clone with `doctor.detect_aegis` and
-  prints hard-break guidance when the target repository carries no usable
-  AEGIS 0.5.x payload - informational like the rest of the environment check, so
+  prints setup guidance when the target repository carries no usable
+  AEGIS payload - informational like the rest of the environment check, so
   an operator can install the payload in another terminal and continue.
 - **Fail-loud recovery and approval:** the wizard asks for the approval label,
   stage-attempt limit, transient-attempt limit and capped backoff list, then

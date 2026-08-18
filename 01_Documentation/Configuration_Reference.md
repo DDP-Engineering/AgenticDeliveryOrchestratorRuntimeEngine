@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Configuration Reference
 
-This reference describes the ADORE 0.5 hard-break configuration. The canonical
+This reference describes the ADORE configuration. The canonical
 annotated example is [config.example.toml](../04_Software/config.example.toml).
 Unknown top-level sections fail validation. Unknown keys within known sections
 are currently ignored, so use only documented keys and run `adore config
@@ -24,10 +24,12 @@ validate` after an edit. Secrets do not belong in TOML.
 | `platform.repo` | Forge repository identity. | required |
 | `platform.login` | Named `tea` login; Gitea only. | empty |
 | `state.channel` | Reserved compatibility setting; status uses its comment and lifecycle labels regardless of this value. | `comments` |
-| `state.store_root` | Local schema-4 state root. | `.<slug>` |
+| `state.store_root` | Local run-state root. | `.<slug>` |
 
-ADORE 0.5 state schema is `4`. Old ADORE 3.x state is rejected with an
-actionable hard-break message and is never reinterpreted or migrated.
+ADORE's run-state schema is `1`, numbered alongside the AEGIS JSON schema it
+is conducted with and independent of any ADORE release number. Any other
+value is rejected with an actionable message and never reinterpreted or
+migrated.
 
 ## Polling and Readiness
 
@@ -101,7 +103,7 @@ stage_timeout_overrides = { build = 5400, validate = 3600 }
 - timeout override keys are `frame`, `specify`, `design`, `build`, `validate`,
   or `deliver`.
 
-ADORE supports AEGIS `0.5.x` and JSON schema `1` only.
+ADORE supports AEGIS and JSON schema `1` only.
 
 ## Recovery
 
@@ -174,7 +176,7 @@ close, deletion, or source-ticket closure.
 
 ## Reconciliation and Metrics
 
-The `[reconcile]` values remain reserved. Current schema-4 behavior is fixed:
+The `[reconcile]` values remain reserved. Current schema-1 behavior is fixed:
 deleted/closed resources fail visibly, stale `working` runs become loud
 failures, pending notifications replay without consuming a slot, and terminal
 runs retain state evidence.

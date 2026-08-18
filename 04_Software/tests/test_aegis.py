@@ -9,7 +9,7 @@
 # -----------------------------------------------------------------------------
 """
 @file test_aegis.py
-@brief Offline contract tests for the AEGIS 0.5 companion-CLI client.
+@brief Offline contract tests for the AEGIS companion-CLI client.
 @details Covers every supported operation and the untrusted version, JSON,
          schema, task identity, journal, path, stage, exit and timeout inputs.
 """
@@ -166,20 +166,53 @@ def check_payload(*, passed: bool = True, warnings: int = 0, runs=None):
 # PUBLIC API
 
 
-def test_probe_accepts_only_version_05_and_schema_1() -> None:
+def test_probe_accepts_any_supported_minor_and_schema_1() -> None:
     """@brief Version and schema are both proved before work."""
-    execute = FakeExec(result(stdout="aegis 0.5.9\n"), result(status_list()))
+    execute = FakeExec(result(stdout="aegis 0.6.9\n"), result(status_list()))
     probe = AegisClient(execute).probe()
-    assert probe.version == "0.5.9" and probe.schema == 1
+    assert probe.version == "0.6.9" and probe.schema == 1
     assert execute.calls == [
         ["python", ".agentic/aegis.py", "--version"],
         ["python", ".agentic/aegis.py", "status", "--all", "--json"],
     ]
 
 
-@pytest.mark.parametrize("version", ["aegis 0.4.9", "aegis 1.0.0", "0.5.0", ""])
-def test_probe_rejects_unknown_version(version: str) -> None:
-    """@brief Unknown series and malformed version text fail closed."""
+@pytest.mark.parametrize("version", ["aegis 0.5.0", "aegis 0.6.0", "aegis 0.99.7"])
+def test_probe_accepts_the_whole_supported_major_from_the_floor_up(
+    version: str,
+) -> None:
+    """
+    @brief   A newer AEGIS minor needs no ADORE change.
+    @details The supported range is declared once in the client. Anything at or
+             above the floor within the major is conducted, so an AEGIS minor
+             release does not require editing ADORE at all.
+    """
+    execute = FakeExec(result(stdout=version), result(status_list()))
+    assert AegisClient(execute).probe().schema == 1
+
+
+@pytest.mark.parametrize("version", ["aegis 1.0.0", "aegis 2.3.4"])
+def test_probe_rejects_a_different_major(version: str) -> None:
+    """@brief A major bump means the companion contract itself changed."""
+    with pytest.raises(AegisProtocolError, match="unsupported"):
+        AegisClient(FakeExec(result(stdout=version))).probe()
+
+
+@pytest.mark.parametrize("version", ["aegis 0.4.9", "aegis 0.0.1"])
+def test_probe_rejects_below_the_command_floor(version: str) -> None:
+    """
+    @brief   A payload older than the floor fails at probe, not mid-stage.
+    @details `anchor` and `evolution` arrived in AEGIS 0.5.0 and this client
+             calls both, so an older payload would satisfy a bare major check
+             and then fail partway through a task.
+    """
+    with pytest.raises(AegisProtocolError, match="at least"):
+        AegisClient(FakeExec(result(stdout=version))).probe()
+
+
+@pytest.mark.parametrize("version", ["0.6.0", "", "aegis", "aegis 0.6"])
+def test_probe_rejects_malformed_version_text(version: str) -> None:
+    """@brief Version text that is not the documented shape fails closed."""
     with pytest.raises(AegisProtocolError, match="unsupported"):
         AegisClient(FakeExec(result(stdout=version))).probe()
 
@@ -188,7 +221,7 @@ def test_probe_rejects_wrong_schema_and_unreadable_journal() -> None:
     """@brief A bad schema or any corrupt journal prevents pickup."""
     with pytest.raises(AegisProtocolError, match="schema"):
         AegisClient(FakeExec(
-            result(stdout="aegis 0.5.0"), result(status_list(schema=2)),
+            result(stdout="aegis 0.6.0"), result(status_list(schema=2)),
         )).probe()
 
 
@@ -196,7 +229,7 @@ def test_probe_rejects_wrong_schema_and_unreadable_journal() -> None:
 def test_probe_accepts_authoritative_adoption_stages(stage: str) -> None:
     """@brief Repository probing accepts AEGIS adoption journals as foreign work."""
     execute = FakeExec(
-        result(stdout="aegis 0.5.0"),
+        result(stdout="aegis 0.6.0"),
         result(status_list(stage=stage)),
     )
     assert AegisClient(execute).probe().schema == 1
@@ -206,12 +239,12 @@ def test_status_probe_still_rejects_an_unknown_stage() -> None:
     """@brief Status-list widening remains bounded to AEGIS's documented stages."""
     with pytest.raises(AegisProtocolError, match="unknown stage"):
         AegisClient(FakeExec(
-            result(stdout="aegis 0.5.0"),
+            result(stdout="aegis 0.6.0"),
             result(status_list(stage="invented")),
         )).probe()
     with pytest.raises(AegisProtocolError, match="unreadable"):
         AegisClient(FakeExec(
-            result(stdout="aegis 0.5.0"),
+            result(stdout="aegis 0.6.0"),
             result(status_list(unreadable=[{"file": "bad.md"}])),
         )).probe()
 

@@ -10,7 +10,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 ## 1. Purpose
 
 `adore/state.py` persists the local source of operational truth and append-only
-audit log. ADORE 0.5 introduces closed state schema 4.
+audit log. The closed run-state schema is `1`.
 
 ## 2. Responsibilities
 
@@ -25,9 +25,9 @@ audit log. ADORE 0.5 introduces closed state schema 4.
 
 ## 3. Data Contract
 
-Every `state.json` contains `schema_version: 4`. Missing/wrong schema and unknown
-keys raise `StateError`. ADORE 3.x state is rejected with a no-migration
-diagnostic. Outbox/failure/task histories are lists and validation evidence is
+Every `state.json` contains `schema_version: 1`. Missing/wrong schema and unknown
+keys raise `StateError`. Any earlier state shape is rejected with a
+no-migration diagnostic. Outbox/failure/task histories are lists and validation evidence is
 an object.
 
 Writes use temporary-file replacement. JSONL is append-only; a torn trailing
@@ -49,6 +49,6 @@ ownership until a human verifies the process and state.
 
 ## 5. Validation and Tests
 
-`tests/test_state.py` covers schema-4 round trips, task history, hard-break
+`tests/test_state.py` covers schema-1 round trips, task history, refusal
 rejection, corrupt state, snapshots, JSONL, locking, public stale reclamation,
 unknown-lock fail-closed behavior, pause and cleanup support.

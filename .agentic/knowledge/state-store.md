@@ -10,7 +10,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 ## Purpose
 
-Persists schema-4 `RunState` records, append-only JSONL audit events, pending
+Persists schema-1 `RunState` records, append-only JSONL audit events, pending
 notification outbox records, pause state, and the single-conductor lock.
 
 ## Public contract
@@ -29,7 +29,7 @@ and failed runs are retained until an operator performs an explicit action.
 
 ## Requirement coverage
 
-- `REQ-FUNC-0bdb23d5` - schema-4 state corruption fails closed.
+- `REQ-FUNC-0bdb23d5` - schema-1 state corruption fails closed.
 - `REQ-FUNC-51f9c365` - lock reclamation requires a provably dead local owner.
 - `REQ-FUNC-1a2c56fe` - append-only journal persistence and torn-tail recovery.
 

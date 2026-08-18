@@ -17,8 +17,9 @@
          pause flag. The local state is the source of truth; Git-platform
          labels/comments only reflect it. Corrupt persisted state fails closed:
          loading raises StateError so the caller can skip or escalate
-         deterministically, never guess. ADORE 0.5 uses state schema 4 and
-         intentionally refuses the pre-hard-break ADORE 3.x state shape.
+         deterministically, never guess. The run-state schema is numbered from
+         1 alongside the AEGIS JSON schema; any other value is refused, and no
+         earlier state shape is migrated.
 """
 
 from __future__ import annotations
@@ -44,7 +45,10 @@ STATE_FILE = "state.json"
 TICKET_FILE = "ticket.json"
 JOURNAL_FILE = "journal.jsonl"
 PAUSE_FILE = "paused"
-STATE_SCHEMA_VERSION = 4
+#: ADORE's durable run-state schema, numbered from 1 alongside the AEGIS JSON
+#: schema it is conducted with. It counts the shape of `state.json` only, and
+#: is deliberately independent of any ADORE release number.
+STATE_SCHEMA_VERSION = 1
 _TASK_ID_RE = re.compile(r"^TASK-[0-9a-f]{8,64}$")
 _RUN_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 _STAGES = {"frame", "specify", "design", "build", "validate", "deliver", "done",
@@ -129,21 +133,23 @@ class RunState:
     def from_dict(cls, data: dict[str, Any]) -> RunState:
         """
         @brief      Rebuild a RunState from a persisted mapping.
-        @details    This is a deliberate hard break. Missing/wrong schema and
-                    unknown keys are rejected, so ADORE 3.x state is never
-                    reinterpreted as an AEGIS 0.5 task run.
+        @details    Missing or wrong schema and unknown keys are rejected, so
+                    foreign state is never reinterpreted as an AEGIS task run.
         @param[in]  data Mapping loaded from state.json.
         @return     The reconstructed RunState.
         """
         if data.get("schema_version") != STATE_SCHEMA_VERSION:
             raise StateError(
-                "unsupported run-state schema; ADORE 0.5 requires schema 4 "
-                "and does not migrate ADORE 3.x runs"
+                f"unsupported run-state schema; ADORE requires schema "
+                f"{STATE_SCHEMA_VERSION} and migrates no earlier run state"
             )
         known = {f.name for f in fields(cls)}
         unknown = sorted(set(data) - known)
         if unknown:
-            raise StateError(f"run-state schema 4 has unknown keys: {unknown}")
+            raise StateError(
+                f"run-state schema {STATE_SCHEMA_VERSION} has unknown "
+                f"keys: {unknown}"
+            )
         state = cls(**data)
         if (
             not isinstance(state.run_id, str)

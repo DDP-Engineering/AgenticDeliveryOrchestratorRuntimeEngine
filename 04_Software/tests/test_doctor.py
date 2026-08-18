@@ -285,7 +285,7 @@ def test_aegis_probe_accepts_a_valid_05_schema_1_payload(tmp_path: Path) -> None
 
 def test_aegis_probe_reports_a_missing_payload(tmp_path: Path) -> None:
     """
-    @brief   No companion CLI means no AEGIS 0.5 payload; no command runs.
+    @brief   No companion CLI means no AEGIS payload; no command runs.
              command it knows will fail.
     """
     runner = FakeRunner({})
@@ -334,7 +334,7 @@ def test_aegis_probe_fails_closed_on_a_blocked_or_unparseable_answer(
 
 def test_aegis_probe_rejects_wrong_schema_or_version(tmp_path: Path) -> None:
     """
-    @brief   ADORE 0.5 speaks only AEGIS 0.5.x schema 1.
+    @brief   ADORE speaks only AEGIS schema 1.
     """
     root = _aegis_repo(tmp_path)
     status = doctor.detect_aegis(root, FakeRunner({
@@ -353,21 +353,45 @@ def test_aegis_probe_rejects_wrong_schema_or_version(tmp_path: Path) -> None:
     assert status.schema_version == 2
     assert "requires schema 1" in status.detail
 
-    wrong = doctor.detect_aegis(root, FakeRunner({
+    # below the command floor: `anchor`/`evolution` do not exist there
+    too_old = doctor.detect_aegis(root, FakeRunner({
         "python .agentic/aegis.py --version": CommandResult(
-            exit_code=0, stdout="aegis 0.6.0",
+            exit_code=0, stdout="aegis 0.4.0",
         ),
     }))
-    assert not wrong.ok and "0.6.0" in wrong.detail
+    assert not too_old.ok and "0.4.0" in too_old.detail
+
+    # a different major means the companion contract itself changed
+    other_major = doctor.detect_aegis(root, FakeRunner({
+        "python .agentic/aegis.py --version": CommandResult(
+            exit_code=0, stdout="aegis 1.0.0",
+        ),
+    }))
+    assert not other_major.ok and "1.0.0" in other_major.detail
+
+
+def test_aegis_doctor_shares_one_gate_with_the_client() -> None:
+    """
+    @brief   Doctor and the orchestrator never disagree about what is supported.
+    @details Doctor once carried its own version regex, which silently went
+             stale when the client's supported range moved. It now derives the
+             answer from the client's constants, so this holds for any minor.
+    """
+    assert doctor.aegis_version_supported("aegis 0.5.0")
+    assert doctor.aegis_version_supported("aegis 0.99.7")
+    assert not doctor.aegis_version_supported("aegis 0.4.9")
+    assert not doctor.aegis_version_supported("aegis 1.0.0")
+    assert not doctor.aegis_version_supported("nonsense")
 
 
 def test_aegis_guidance_names_hard_break(tmp_path: Path) -> None:
     """
-    @brief   Guidance states the 0.5-only contract and no 3.x migration.
+    @brief   Guidance states the supported range and the schema it speaks.
     """
     text = doctor.guidance_for(doctor.AEGIS, "linux")
     assert text == doctor.guidance_for(doctor.AEGIS, "windows")
-    assert "0.5" in text and "3.x" in text and "no" in text.lower()
+    assert doctor.AEGIS_SUPPORTED_TEXT in text
+    assert "schema 1" in text and "only" in text.lower()
 
 
 # END OF FILE

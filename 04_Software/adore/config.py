@@ -67,7 +67,7 @@ _FORGE_CREDENTIAL_ENV = frozenset({
     "GITHUB_TOKEN", "GH_TOKEN", "GITLAB_TOKEN", "GLAB_TOKEN", "GITEA_TOKEN",
     "TEA_TOKEN",
 })
-# The AEGIS 0.5 task stages a per-stage timeout override may target. Declared
+# The AEGIS task stages a per-stage timeout override may target. Declared
 # here rather than imported from the orchestrator so configuration validation
 # stays free of the engine.
 AEGIS_STAGES = ("frame", "specify", "design", "build", "validate", "deliver")
@@ -361,7 +361,7 @@ class WorktreeConfig:
 @dataclass
 class WorkflowConfig:
     """
-    @brief   [workflow] - how ticket labels map onto an AEGIS 0.5 task.
+    @brief   [workflow] - how ticket labels map onto an AEGIS task.
     @details `kind_labels` maps a ticket label to an AEGIS task type; fix/bug
              labels win over change, then configured feature labels, with
              `default_kind` used when none match. The quick label is a framing
@@ -1111,7 +1111,7 @@ def validate_config(config: Config) -> list[str]:
 
     check(
         config.review.trigger == "label",
-        f"[review] trigger must be label in ADORE 0.5: {config.review.trigger!r}",
+        f"[review] trigger must be label in ADORE: {config.review.trigger!r}",
     )
     check(config.review.max_review_rounds >= 1, "[review] max_review_rounds must be >= 1")
 

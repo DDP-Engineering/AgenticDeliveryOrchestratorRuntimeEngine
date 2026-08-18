@@ -133,7 +133,7 @@ def test_adore_3_state_is_rejected_with_hard_break_diagnostic(
         }),
         encoding="utf-8",
     )
-    with pytest.raises(StateError, match="does not migrate ADORE 3.x"):
+    with pytest.raises(StateError, match="migrates no earlier run state"):
         store.load("gitlab-g-p-15")
 
 

@@ -9,13 +9,13 @@
 # -----------------------------------------------------------------------------
 """
 @file aegis.py
-@brief Typed client for the agent-driven AEGIS 0.5 companion CLI.
-@details ADORE 0.5 invokes ``python .agentic/aegis.py`` inside the isolated
+@brief Typed client for the agent-driven AEGIS companion CLI.
+@details ADORE invokes ``python .agentic/aegis.py`` inside the isolated
          worktree. AEGIS owns task journals and workflow instructions; ADORE
          creates tasks, reads schema-1 status/check documents, runs objective
          verification, and fails loudly when the CLI or persisted journal
-         crosses the documented trust boundary incorrectly. There is no
-         AEGIS 3.x grouped-CLI, run-graph, waiver, or stage-close fallback.
+         crosses the documented trust boundary incorrectly. It speaks the
+         documented CLI and schema, with no alternate-contract fallback.
 """
 
 from __future__ import annotations
@@ -36,7 +36,14 @@ from adore.util import CommandResult
 # CONSTANTS
 
 AEGIS_CLI = ".agentic/aegis.py"
-SUPPORTED_SERIES = (0, 5)
+#: The AEGIS major line ADORE speaks. A major bump is the signal that the
+#: companion contract itself changed, so it is refused rather than guessed at.
+SUPPORTED_MAJOR = 0
+#: Oldest AEGIS release exposing every command this client calls. `anchor` and
+#: `evolution` arrived in 0.5.0, so an older payload would parse here and then
+#: fail mid-stage; the floor turns that into an honest refusal at probe.
+MINIMUM_SERIES = (0, 5)
+#: The real compatibility contract. Version is metadata; this is the promise.
 JSON_SCHEMA = 1
 DEFAULT_TIMEOUT = 300
 VERIFY_TIMEOUT = 5400
@@ -240,7 +247,7 @@ def allowed_transition(previous: str, current: str, path: str) -> bool:
 
 
 class AegisClient:
-    """@brief Typed AEGIS 0.5 client using direct or file-transport execution."""
+    """@brief Typed AEGIS client using direct or file-transport execution."""
 
     def __init__(
         self,
@@ -262,7 +269,7 @@ class AegisClient:
         self.io_dir = Path(io_dir) if io_dir is not None else None
 
     def probe(self) -> AegisProbe:
-        """@brief Prove that the payload is AEGIS 0.5.x with schema 1."""
+        """@brief Prove the payload is a supported AEGIS major with schema 1."""
         result = self._run(["--version"], timeout=DEFAULT_TIMEOUT)
         match = VERSION_RE.fullmatch(result.stdout.strip())
         if match is None:
@@ -270,9 +277,16 @@ class AegisClient:
                 f"AEGIS --version returned an unsupported value: {result.stdout.strip()!r}"
             )
         major, minor, patch = (int(item) for item in match.groups())
-        if (major, minor) != SUPPORTED_SERIES:
+        minimum = ".".join(str(part) for part in (*MINIMUM_SERIES, 0))
+        if major != SUPPORTED_MAJOR:
             raise AegisProtocolError(
-                f"AEGIS {major}.{minor}.{patch} is unsupported; ADORE 0.5 requires 0.5.x"
+                f"AEGIS {major}.{minor}.{patch} is unsupported; ADORE speaks the "
+                f"AEGIS {SUPPORTED_MAJOR}.x line"
+            )
+        if (major, minor) < MINIMUM_SERIES:
+            raise AegisProtocolError(
+                f"AEGIS {major}.{minor}.{patch} is unsupported; ADORE requires at "
+                f"least {minimum} for the anchor and evolution commands"
             )
         payload, _ = self._json(["status", "--all", "--json"])
         self._status_list(payload)

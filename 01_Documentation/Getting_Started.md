@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Getting Started
 
-ADORE 0.5 selects eligible GitHub, GitLab or Gitea tickets, runs AEGIS 0.5
+ADORE selects eligible GitHub, GitLab or Gitea tickets, runs AEGIS
 inside isolated worktrees and containers, and opens draft MR/PRs after fresh
 human approval. It never merges.
 
@@ -18,11 +18,11 @@ human approval. It never merges.
 - Docker or rootless Podman;
 - authenticated `gh`, `glab`, or `tea` on the host;
 - an executor supported by the configured launcher;
-- AEGIS 0.5.x installed in the target repository as `.agentic/aegis.py`;
+- AEGIS installed in the target repository as `.agentic/aegis.py`;
 - schema 1 from `status --all --json` and valid configured AEGIS tests.
 
-ADORE 0.5 does not read or migrate ADORE 3.x state. Start with a separate
-schema-4 state root/profile; retain old state only as historical evidence.
+ADORE reads only its own schema-1 run state and migrates nothing. Point it
+at a fresh state root and profile.
 
 ## Install and Configure
 
@@ -79,7 +79,7 @@ python .agentic/aegis.py --version
 python .agentic/aegis.py status --all --json
 ```
 
-Expected version is `aegis 0.5.x`; expected JSON schema is `1`. The assisted
+Expected version is a supported `aegis` version; expected JSON schema is `1`. The assisted
 environment check reports a missing, malformed or incompatible payload before
 the first run.
 

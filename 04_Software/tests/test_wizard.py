@@ -443,8 +443,8 @@ def test_wizard_writes_custom_workflow_labels(tmp_path: Path) -> None:
 
 def test_wizard_reports_a_missing_aegis_payload(tmp_path: Path) -> None:
     """
-    @brief   The wizard probes the target clone for an AEGIS 0.5.x payload and
-             prints hard-break guidance when it is absent - informational, so
+    @brief   The wizard probes the target clone for an AEGIS payload and
+             prints setup guidance when it is absent - informational, so
              the wizard still completes.
     """
     clone = _clone(tmp_path)
@@ -453,9 +453,9 @@ def test_wizard_reports_a_missing_aegis_payload(tmp_path: Path) -> None:
     run_wizard(store, asker=ScriptedAsker(_answers(clone)), out=lines.append,
                runner=_runner(), os_key="linux", name="p")
     printed = "\n".join(lines)
-    assert "[CHECK] AEGIS 0.5.x payload" in printed
+    assert "[CHECK] AEGIS payload" in printed
     assert ".agentic/aegis.py is missing" in printed
-    assert "AEGIS 0.5" in printed and "no AEGIS 3.x" in printed
+    assert "AEGIS" in printed and "JSON schema 1" in printed
     assert store.config_path("p").is_file()  # never blocks
 
 

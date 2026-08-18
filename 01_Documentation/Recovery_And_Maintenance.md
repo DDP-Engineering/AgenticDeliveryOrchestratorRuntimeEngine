@@ -9,7 +9,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 ## Recovery Invariants
 
-- ADORE 0.5 reads only state schema 4. It never migrates ADORE 3.x state.
+- ADORE reads only run-state schema 1. It migrates no earlier state shape.
 - AEGIS task journals, not executor sessions, decide resume stage/path.
 - Failed runs stop their container, release capacity, preserve worktree/state,
   and require explicit `adore retry`.

@@ -36,4 +36,4 @@ offline and preventing doctor from changing the workstation or repository.
 GitLab/GitHub guidance reminds operators that the active/default CLI host is
 the routing authority; Gitea routes through the selected `tea` login.
 `04_Software/tests/test_doctor.py` covers readiness, absent payloads, invalid
-responses, hard-break version/schema cases, and guidance.
+responses, unsupported version/schema cases, and guidance.

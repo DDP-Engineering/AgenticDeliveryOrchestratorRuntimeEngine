@@ -9,7 +9,7 @@
 # -----------------------------------------------------------------------------
 """
 @file orchestrator.py
-@brief ADORE 0.5 conductor for the agent-driven AEGIS 0.5 workflow.
+@brief ADORE conductor for the agent-driven AEGIS workflow.
 @details ADORE owns forge, isolation, budgets, recovery, approval and remote
          publication. The executor owns every AEGIS task-journal transition.
          Durable AEGIS journals are the only resume authority; executor
@@ -109,7 +109,7 @@ def _sanitize(value: Any, limit: int = _MAX_EVIDENCE) -> str:
 
 
 def _task_type(ticket: Ticket, config: Config) -> str:
-    """@brief Map configured ticket labels to the AEGIS 0.5 type vocabulary."""
+    """@brief Map configured ticket labels to the AEGIS type vocabulary."""
     labels = set(ticket.labels)
     mappings = config.workflow.kind_labels
     fix_labels = {
@@ -139,7 +139,7 @@ class LockHeldError(RuntimeError):
 
 class Orchestrator:
     """
-    @brief Deterministic ADORE 0.5 conductor.
+    @brief Deterministic ADORE conductor.
     @details All collaborators are injectable, keeping driver, failure,
              notification, approval and publication behavior testable offline.
     """
@@ -796,7 +796,7 @@ class Orchestrator:
     ) -> str:
         """@brief Compose a stage-bounded prompt without duplicating AEGIS procedure."""
         parts = [
-            "You are a fresh executor session for one AEGIS 0.5 task stage.",
+            "You are a fresh executor session for one AEGIS task stage.",
             f"Ticket #{ticket.iid}: {ticket.title}\n\n{ticket.description.strip()}",
             f"Active task: {task.task_id}; current stage: {task.stage}; path: {task.path}.",
             "Use `python .agentic/aegis.py`. Read AGENTS.md and the current AEGIS "
@@ -2055,7 +2055,7 @@ class Orchestrator:
             self._notification_transport_failure(run, "STATUS_NOTIFICATION", exc)
 
     def _status_labels(self, run: RunState) -> None:
-        """@brief Map schema-4 lifecycle to existing ticket labels."""
+        """@brief Map schema-1 lifecycle to existing ticket labels."""
         lifecycle = self.config.labels.lifecycle
         known = [
             lifecycle.ready,

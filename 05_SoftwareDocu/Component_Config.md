@@ -9,10 +9,10 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 ## 1. Purpose
 
-`adore/config.py` loads typed TOML and rejects unsafe or ambiguous ADORE 0.5
+`adore/config.py` loads typed TOML and rejects unsafe or ambiguous ADORE
 settings before a poll starts.
 
-## 2. AEGIS 0.5 Settings
+## 2. AEGIS Settings
 
 `WorkflowConfig` maps ticket labels to `feature`, `fix`, or `change`, carries a
 quick-path hint, selects the one-token Python executable, and permits timeout

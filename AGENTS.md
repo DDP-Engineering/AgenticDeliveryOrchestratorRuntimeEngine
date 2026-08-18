@@ -144,13 +144,14 @@ documentation conventions. Use the referenced
 
 ## Status
 
-ADORE 0.5 is the hard-break companion orchestrator for repository-installed
-AEGIS 0.5.x. It invokes `python .agentic/aegis.py`, accepts AEGIS JSON schema 1,
-and persists its own run state as schema 4. Executors advance the durable AEGIS
+ADORE is the companion orchestrator for repository-installed AEGIS. It invokes
+`python .agentic/aegis.py`, accepts AEGIS JSON schema 1, and persists its own
+run state as schema 1. The supported AEGIS range is declared once in
+`04_Software/adore/aegis.py`, never in prose. Executors advance the durable AEGIS
 task journals; ADORE independently owns ticket selection, worktree/container
 isolation, bounded recovery, validation, candidate-bound human approval, Git
-publication, forge comments, and draft-only MR/PR creation. ADORE never merges
-and has no compatibility or migration layer for the former ADORE 3.x contract.
+publication, forge comments, and draft-only MR/PR creation. ADORE never
+merges, and migrates no earlier run state.
 
 The runnable implementation under `04_Software/` supports GitLab, GitHub and
 Gitea adapters; Docker, Podman and WSL-wrapped runtimes; open/none/allowlisted
@@ -184,5 +185,13 @@ Artifacts: requirements in `.agentic/requirements/<category>/`, specs in
 `.agentic/specs/`, journals in `.agentic/tasks/`, component pages in
 `.agentic/knowledge/`. `python .agentic/aegis.py check` is advisory - read
 its findings and self-correct; nothing here blocks you mid-flight.
+
+Say a deviation out loud when you record one, as one line -
+`DEVIATION <stage>: <what> - <why accepted, or what it costs>` - then carry
+on. It never pauses the work and autopilot never suppresses it. You owe one
+for an accepted `check` warning, a non-zero exit or a verification you
+skipped, an unexpected `anchor`/`evolution` report, a manual method standing
+in for an automatable test, a retired requirement, and unrequested work found
+in review.
 
 <!-- AEGIS:END -->

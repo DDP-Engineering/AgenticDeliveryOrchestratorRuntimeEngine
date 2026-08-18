@@ -16,7 +16,7 @@
          JSONL export. Access is CLI-first (stats/report/export) plus an
          optional self-contained static HTML file - no server, no exporter.
          This data is the crawl -> walk -> run promotion signal. The final
-         The final AEGIS 0.5 strict-check outcome (`ok` or `failed`) remains a
+         The final AEGIS strict-check outcome (`ok` or `failed`) remains a
          separate column from the ADORE lifecycle outcome.
 """
 
@@ -178,8 +178,8 @@ def summarize_run(store: StateStore, run_id: str,
     for event in events:
         name = event.get("event", "")
         ts = event.get("ts", "")
-        # Summary column names remain stable while schema-4 journal events use
-        # the AEGIS 0.5 task-stage vocabulary.
+        # Summary column names remain stable while schema-1 journal events use
+        # the AEGIS task-stage vocabulary.
         if name in ("stage-launch", "delivery-fix", "revise-start"):
             summary.executor_launches += 1
         elif name == "stage-advanced":

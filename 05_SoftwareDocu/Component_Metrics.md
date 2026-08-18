@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Metrics (`adore/metrics.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/adore/metrics.py` - ADORE 0.5.0.
+> Source: `04_Software/adore/metrics.py` - ADORE 0.6.0.
 > Design: Orchestrator_Design_And_Decisions.md section 13.
 
 ## 1. Purpose
@@ -23,7 +23,7 @@ optional self-contained static HTML file.
 
 - `summarize_run(store, run_id, files_changed)` - compute one flat
   `RunSummary` from the run's journal (the append-only truth), state, and
-  ticket snapshot: outcome, final AEGIS 0.5 strict-check outcome (`ok` or
+  ticket snapshot: outcome, final AEGIS strict-check outcome (`ok` or
   `failed`), priority, span / parked-wait / time-to-MR
   seconds, gate passes/failures, invariant failures, executor launches,
   clarification/review rounds, token totals and cost (from journal `usage`
@@ -79,7 +79,7 @@ transitions), token extraction (executor launcher), resource probing
 - One SQLite row per run (`run_summaries`, PK run_id), columns = the
   `RunSummary` fields; the JSONL mirror always equals the table.
 - `_connect` adds newly introduced summary columns with neutral defaults. The
-  `governance_outcome` value comes only from schema-4 `strict-verification`
+  `governance_outcome` value comes only from schema-1 `strict-verification`
   journal events and is `ok` or `failed`.
 - Journal `usage` event shape: `{event: "usage", context: <gate|phase>,
   tokens_in, tokens_out, cost_usd}`.
@@ -93,7 +93,7 @@ terminal runs in the store (used once to backfill the pilot run).
 
 ## 9. Validation And Tests
 
-- `tests/test_metrics.py`: full catalog computation from a schema-4 journal,
+- `tests/test_metrics.py`: full catalog computation from a schema-1 journal,
   including failed and successful strict checks; duplicate-free SQLite
   round-trip + mirror; in-place legacy table extension; since-window filtering
   (unparseable timestamps excluded), grouped aggregation, CSV/HTML outputs
