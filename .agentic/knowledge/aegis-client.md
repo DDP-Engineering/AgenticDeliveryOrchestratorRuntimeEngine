@@ -11,8 +11,9 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 ## Purpose
 
 `04_Software/adore/aegis.py` is ADORE's sole companion-governance boundary. It
-speaks only the installed AEGIS 0.5 Python CLI and its schema-1 JSON contract;
-it does not support older or alternate governance APIs.
+speaks the installed AEGIS Python CLI at 0.5 or later within major 0 and its
+schema-1 JSON contract; it does not support older or alternate governance
+APIs, and a major bump is refused at probe rather than guessed at.
 
 ## Public interface
 
@@ -26,7 +27,7 @@ anchors, evolution, configured tests, and reports. Its validated value objects
 Host pre-pick probing uses direct subprocess argv. Calls made from a run
 container instead write a LF-only, POSIX-quoted `aegis.sh` and invoke exactly
 `sh /adore/io/aegis.sh`; bounded UTF-8 exchange files replace wrapper output.
-The client accepts only `aegis 0.5.x`, schema `1`, expected task ids, legal
+The client accepts only `aegis` major 0 at 0.5 or later, schema `1`, expected task ids, legal
 stages/paths, contained artifact paths, and internally consistent strict-check
 results. Malformed JSON, path escapes, unknown schema/version, missing or
 oversized exchange files, unexpected exits, and typed timeouts fail closed as

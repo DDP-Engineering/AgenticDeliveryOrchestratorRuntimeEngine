@@ -12,6 +12,21 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-08-22
+
+### Changed
+
+- Documentation now states the real AEGIS compatibility contract — major 0 at
+  0.5 or later, JSON schema 1 — where it previously implied a hard 0.5.x pin
+  (`04_Software/README.md`, `config.example.toml`, and the aegis-client
+  knowledge page). Verified against AEGIS 0.7.0: the version gate, schema-1
+  payloads, and the `report` confirmation are all unchanged, so 0.7.0 targets
+  are conducted without any code change.
+- Refreshed this repository's own `.agentic/` companion from AEGIS 0.6.0 to
+  0.7.0 (new `diagram` and `explain` commands, deviation-first delivery
+  reports, and the `## Architecture` knowledge-page workflow). This governs
+  how ADORE is developed and does not ship in the runtime bundle.
+
 ## [0.6.0] - 2026-08-18
 
 ### Changed
