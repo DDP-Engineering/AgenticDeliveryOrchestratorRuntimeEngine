@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Setup and First Run
 
-Applies to ADORE 0.6.0 and AEGIS schema 1.
+Applies to ADORE 0.7.0 and AEGIS schema 1.
 
 1. Authenticate host `gh`, `glab`, or `tea` and verify Git can push `origin`.
 2. Verify Docker/Podman and the project executor image.

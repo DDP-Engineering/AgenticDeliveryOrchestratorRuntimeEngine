@@ -304,7 +304,7 @@ branch_template = "{slug}/{run_id}"
 branch_rule = ""
 
 # ----- AEGIS workflow ------------------------------------------------------------
-# How a ticket becomes an AEGIS 0.5 task journal. ADORE creates the task after
+# How a ticket becomes an AEGIS task journal (AEGIS 0.5+, schema 1). ADORE creates the task after
 # creating the task branch; the frame executor chooses and justifies its path.
 # All of them are optional - the defaults below are what ADORE uses when the
 # section is absent.

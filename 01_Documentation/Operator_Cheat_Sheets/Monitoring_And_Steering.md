@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Monitoring And Steering
 
-Applies to ADORE 0.6.0 and its AEGIS schema-1 contract.
+Applies to ADORE 0.7.0 and its AEGIS schema-1 contract.
 
 Use this when ADORE is running, you need to understand its current state, or you
 need to pause and resume ticket pickup safely.

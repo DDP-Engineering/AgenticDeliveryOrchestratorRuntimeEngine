@@ -12,20 +12,39 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
-## [0.6.1] - 2026-08-22
+## [0.7.0] - 2026-08-22
 
 ### Changed
 
+- **ADORE conducts the whole AEGIS 0.7 line without a code change**, and that
+  claim is now checked rather than asserted. Every contract surface the client
+  depends on was re-verified against AEGIS 0.7.2: the `aegis <major>.<minor>.<patch>`
+  version line, JSON schema `1` on every payload, the `status` list and task
+  document (`header`, `stage`, `step_file`, `done`, `checklist`, `log`), the
+  `check` document (`findings`/`summary`/`run`, and `strict` present only under
+  `--strict`), and the `report appended to ` confirmation. All unchanged, so
+  the version gate in `04_Software/adore/aegis.py` — major 0, floor 0.5 — needed
+  no edit. This is the payoff of the 0.6.0 change that replaced the exact-minor
+  pin with a major-plus-floor range.
+- What AEGIS 0.7.1 and 0.7.2 did add falls outside ADORE's parsing boundary and
+  is deliberately not modelled: the new `diagram` and `explain` commands are not
+  called by the orchestrator (executors reach them through `AGENTS.md` like any
+  other AEGIS command); the reworked `coverage_class` precedence changes which
+  findings `check` emits, not the shape ADORE decodes; and the tightened
+  `DEVIATION <stage>:` marker is read by AEGIS alone — `04_Software/` has no
+  notion of deviations yet. Surfacing them at the approval gate remains open
+  work, tracked in `.agentic/tasks/TASK-9aebe1f3.md`.
 - Documentation now states the real AEGIS compatibility contract — major 0 at
   0.5 or later, JSON schema 1 — where it previously implied a hard 0.5.x pin
   (`04_Software/README.md`, `config.example.toml`, and the aegis-client
-  knowledge page). Verified against AEGIS 0.7.0: the version gate, schema-1
-  payloads, and the `report` confirmation are all unchanged, so 0.7.0 targets
-  are conducted without any code change.
-- Refreshed this repository's own `.agentic/` companion from AEGIS 0.6.0 to
-  0.7.0 (new `diagram` and `explain` commands, deviation-first delivery
-  reports, and the `## Architecture` knowledge-page workflow). This governs
-  how ADORE is developed and does not ship in the runtime bundle.
+  knowledge page). No documentation names an AEGIS version, so a companion
+  release no longer dates the prose.
+- Refreshed this repository's own `.agentic/` companion to AEGIS 0.7.2, which
+  also narrows AEGIS's scope to software development operations: version
+  assignment and release-package construction — this release included — now
+  follow the repository's own procedures rather than opening a task journal.
+  The companion governs how ADORE is developed and does not ship in the runtime
+  bundle.
 
 ## [0.6.0] - 2026-08-18
 

@@ -8,7 +8,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # ADORE - Agentic Delivery Orchestrator & Runtime Engine
 
-Current release: **ADORE 0.6.0**.
+Current release: **ADORE 0.7.0**.
 
 ADORE conducts the agent-driven AEGIS companion CLI over JSON schema 1. It
 does not pin an AEGIS minor: the supported range is a major line with a
