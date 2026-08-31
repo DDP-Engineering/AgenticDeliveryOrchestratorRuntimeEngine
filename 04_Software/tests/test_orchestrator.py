@@ -1060,6 +1060,15 @@ def test_executor_prompt_forbids_remote_and_uses_quick_only_as_hint(tmp_path: Pa
     assert "python .agentic/aegis.py" in prompt
 
 
+def test_executor_prompt_forbids_child_task_journals(tmp_path: Path) -> None:
+    """@brief A conducted run pins one journal; AEGIS 0.9.0 children stay out."""
+    engine, forge, _, _, _ = make_engine(tmp_path)
+    run = make_run(engine)
+    prompt = engine._stage_prompt(run, forge.ticket, task("build"), "", "")
+    assert "task --parent" in prompt
+    assert "child task journal" in prompt
+
+
 def test_approved_publication_opens_draft_and_pushes_close_out(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:

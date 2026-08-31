@@ -108,7 +108,8 @@ Only key names listed in `env_keys` reach the executor container. Keep the list
 limited to model-provider credentials. ADORE rejects known forge credential
 names (`GITHUB_TOKEN`, `GH_TOKEN`, `GITLAB_TOKEN`, `GLAB_TOKEN`, `GITEA_TOKEN`,
 and `TEA_TOKEN`) in `env_keys`. The executor prompt also forbids commit, push,
-MR/PR creation and merge. ADORE alone creates local checkpoint commits and
+MR/PR creation, merge, and creating AEGIS child task journals (`task --parent`)
+outside the single pinned task. ADORE alone creates local checkpoint commits and
 performs remote publication after a fingerprint-bound human approval.
 
 The optional `stage_host_auth` bridge stages only the selected executor's own

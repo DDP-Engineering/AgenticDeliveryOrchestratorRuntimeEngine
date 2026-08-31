@@ -22,7 +22,10 @@ budgets, retries, clarification parking, notifications/outbox replay,
 validation, candidate fingerprinting, and draft-only MR/PR publication. AEGIS
 owns journal content and governance checks; the executor performs bounded code
 work; forge adapters perform remote operations. ADORE never merges and never
-hands forge credentials to an executor.
+hands forge credentials to an executor. Each stage prompt also forbids AEGIS
+0.9.0 child task journals (`task --parent`): the conductor pins exactly one
+task per run and reads only that journal, so work in a child would be invisible
+to stage supervision.
 
 ## Recovery and delivery contract
 

@@ -12,6 +12,43 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-08-31
+
+### Changed
+
+- **ADORE's release number now tracks the AEGIS line it was verified
+  against**: this release jumps from 0.7.0 directly to 0.9.0, deliberately
+  skipping 0.8.0, so the ADORE version names the newest AEGIS release the
+  companion contract was re-proven on. The runtime still conducts the whole
+  supported range (AEGIS major 0 at 0.5 or later); the aligned number is a
+  statement about verification, not a narrowing of compatibility.
+- **ADORE conducts the AEGIS 0.8/0.9 releases without a version-gate or parser
+  change**, and as with 0.7 the claim was checked surface by surface against
+  the AEGIS 0.9.0 template rather than asserted. Re-verified unchanged: the
+  `aegis <major>.<minor>.<patch>` version line (0.9.0 passes the major-0,
+  floor-0.5 gate in `04_Software/adore/aegis.py`), JSON schema `1` on every
+  payload, the `status` list and task documents (the new `parent:` header key
+  is additive and the decoder tolerates extra string header keys), the `check`
+  document (`findings`/`summary`/`run`, `strict` only under `--strict`; new
+  check ids such as `review-state` flow through as ordinary findings), the
+  single-path `task` creation output, the `report appended to ` confirmation,
+  and the untouched `anchor`/`evolution` envelopes.
+- One behavioral change closes the only supervision gap the new features open:
+  the executor stage prompt now forbids creating child task journals
+  (`task --parent`) in conducted runs. ADORE pins exactly one active task and
+  reads only it, so executor work in a child journal would be invisible to
+  stage supervision and end in a misleading `NO_STAGE_PROGRESS` failure;
+  coordination is the conductor's job, not the executor's.
+- What AEGIS 0.8.0 and 0.9.0 otherwise added falls outside ADORE's parsing
+  boundary and is deliberately not modelled: the `summary` and `brief`
+  commands are not called by the orchestrator (executors reach them through
+  `AGENTS.md` like any other AEGIS command); the stage-report, rulings, and
+  handoff journal sections are not decoded and do not appear in the status
+  JSON; and `[review]` verdict policy belongs to the target repository, whose
+  problems reach ADORE generically as check findings. Surfacing summaries,
+  deviations, and review verdicts at the approval gate remains open work,
+  tracked in `.agentic/tasks/TASK-9aebe1f3.md`.
+
 ## [0.7.0] - 2026-08-22
 
 ### Changed

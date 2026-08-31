@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Isolation (`adore/isolation.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/adore/isolation.py` - file version 0.7.0.
+> Source: `04_Software/adore/isolation.py` - file version 0.9.0.
 > Design: Orchestrator_Design_And_Decisions.md sections 8b, 10, 10a.
 > Images: `04_Software/docker/Dockerfile.executor-base`,
 > `04_Software/docker/Dockerfile.egress-proxy`, plus runtime-project images

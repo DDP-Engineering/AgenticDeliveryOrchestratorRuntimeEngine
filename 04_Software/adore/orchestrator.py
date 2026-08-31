@@ -822,9 +822,11 @@ class Orchestrator:
         parts.append(
             "Never commit, push, open or merge an MR/PR, access forge credentials, or "
             "modify AEGIS source/payload files. You may edit only executor-owned journal "
-            "content and ticket-scoped repository files. Ask blocking questions in "
-            f"{self.questions_file}; questions are not failures. Stop after the current "
-            "stage has legally advanced or routed backward."
+            "content and ticket-scoped repository files. Never create a child task "
+            "journal (`task --parent`): this run conducts exactly one pinned task, and "
+            "work in an unsupervised child is invisible to its conductor. Ask blocking "
+            f"questions in {self.questions_file}; questions are not failures. Stop after "
+            "the current stage has legally advanced or routed backward."
         )
         return "\n\n".join(parts)
 

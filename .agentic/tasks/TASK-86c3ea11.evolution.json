@@ -1,0 +1,84 @@
+{
+  "reports": [
+    {
+      "anchor_created_at": "2026-08-31T13:51:38.732282Z",
+      "anchor_head": "28ad753012820ed126d65a5f7ccc8099d244f98c",
+      "anchor_id": "708242478621f5e5",
+      "anchor_stage": "build",
+      "changes": [
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "adaeb96a430eb44c2536e2cf79430f1d3dc1d50528dd04bff30f282620c87b3f"
+          },
+          "area": "other",
+          "before": {
+            "kind": "file",
+            "sha256": "4c059eb7e0ef12c992fd56f7cacd7b2088e3dd71b8cd1829155fc7b289803cdb"
+          },
+          "path": "01_Documentation/Security_And_Credentials.md",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "1bce7982535190bf21821d4ec8d104568c1c24c227b4c3ce6db0418176ef1779"
+          },
+          "area": "source",
+          "before": {
+            "kind": "file",
+            "sha256": "ac3e53a7768f4258ab51aa2c0630c9c793720dce9aa11705f282bd5b39c2f300"
+          },
+          "path": "04_Software/adore/orchestrator.py",
+          "status": "modified"
+        },
+        {
+          "after": {
+            "kind": "file",
+            "sha256": "d01702f08ecb599b26334ea0b978cd7d7fbe8921cad2d5af3436b93e08d19a3c"
+          },
+          "area": "other",
+          "before": {
+            "kind": "file",
+            "sha256": "0bdb6cfcb5cf63a36106f67f27e8c73be148a11eebc3979acee3ab9af3643665"
+          },
+          "path": "CHANGELOG.md",
+          "status": "modified"
+        }
+      ],
+      "counts": {
+        "area": {
+          "other": {
+            "added": 0,
+            "modified": 2,
+            "removed": 0,
+            "unchanged": 76
+          },
+          "source": {
+            "added": 0,
+            "modified": 1,
+            "removed": 0,
+            "unchanged": 23
+          },
+          "tests": {
+            "added": 0,
+            "modified": 0,
+            "removed": 0,
+            "unchanged": 19
+          }
+        },
+        "status": {
+          "added": 0,
+          "modified": 3,
+          "removed": 0,
+          "unchanged": 118
+        }
+      },
+      "current_head": "28ad753012820ed126d65a5f7ccc8099d244f98c",
+      "evolution_stage": "deliver",
+      "evolved_at": "2026-08-31T14:22:06.219070Z"
+    }
+  ],
+  "schema": 1,
+  "task": "TASK-86c3ea11"
+}

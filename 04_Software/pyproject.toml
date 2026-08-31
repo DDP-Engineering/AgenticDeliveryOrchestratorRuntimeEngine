@@ -5,7 +5,7 @@
 
 [project]
 name = "adore"
-version = "0.7.0"
+version = "0.9.0"
 description = "Agentic Delivery Orchestrator & Runtime Engine - ticket-to-draft-MR orchestration over an agentic workflow."
 readme = "README.md"
 requires-python = ">=3.11"
