@@ -12,6 +12,11 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+### Changed
+
+- Updated the installed AEGIS workflow to 0.12.0 for focused verification and
+  leaner records, preserving repository configuration and engineering history.
+
 ## [0.9.0] - 2026-08-31
 
 ### Changed
