@@ -12,10 +12,59 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-09-12
+
 ### Changed
 
-- Updated the installed AEGIS workflow to 0.12.0 for focused verification and
-  leaner records, preserving repository configuration and engineering history.
+- **ADORE's release number tracks the AEGIS line it was verified against**:
+  this release jumps from 0.9.0 to 0.13.0, skipping 0.10.0, 0.11.0 and
+  0.12.0, so the ADORE version names the newest AEGIS release the companion
+  contract was re-proven on. The runtime still conducts the whole supported
+  range (AEGIS major 0 at 0.5 or later); the number is a statement about
+  verification, not a narrowing of compatibility.
+- **ADORE conducts AEGIS 0.9.1 through 0.13.0 without a version-gate or
+  parser change**, checked surface by surface against the AEGIS 0.13.0
+  template. Re-verified unchanged: the `aegis <major>.<minor>.<patch>`
+  version line (0.13.0 passes the major-0, floor-0.5 gate in
+  `04_Software/adore/aegis.py`), JSON schema `1` on every payload, the
+  `status` list and task documents (the new `interaction:` header key is an
+  additive string the decoder already tolerates), the `check` document
+  (`findings`/`summary`/`run`, `strict` only under `--strict`; an invalid
+  `[interaction]` table arrives as an ordinary `config` finding), the
+  single-path `task` creation output, the `report appended to `
+  confirmation, and the `evolution` envelope, which changes only under the
+  `--compact` flag ADORE never passes.
+- One behavioral change closes the only supervision gap the new releases
+  open: the executor stage prompt now declares every conducted task
+  autopilot-to-deliver by explicit conductor instruction and has the
+  executor record `interaction: autopilot` in the journal header. AEGIS
+  0.13.0 makes checkpoint mode the default and stops before every stage
+  transition, which ADORE would otherwise read as `NO_STAGE_PROGRESS` and
+  fail after three attempts. The instruction is the per-task override AEGIS
+  itself defines, so no target `aegis.toml` changes; frame keeps its
+  path-selection sentence.
+- What AEGIS 0.9.1 through 0.13.0 otherwise added falls outside ADORE's
+  parsing boundary and is deliberately not modelled: the `trace` and
+  `components` commands, `test --no-fallback` and `--dry-run`, the
+  project-owned context scaffolds, the Routing-based component page
+  template, the compact journal-ledger rules, and the optional host
+  integrations for OpenCode, Pi, Codex, Qwen Code and Claude Code. Executors
+  reach all of them through `AGENTS.md` like any other AEGIS feature, and
+  ADORE's executors read `AGENTS.md` natively inside their container.
+  Surfacing summaries, deviations and review verdicts at the approval gate
+  remains open work, tracked in `.agentic/tasks/TASK-9aebe1f3.md`.
+- Refreshed this repository's own `.agentic/` companion to AEGIS 0.13.0,
+  preserving repository configuration and engineering history. The
+  companion governs how ADORE is developed and does not ship in the runtime
+  bundle.
+
+### Removed
+
+- `AegisClient.anchor()` and `AegisClient.test()`. No orchestrator path
+  called them: the executor runs `anchor` and `test` itself during build and
+  validate, and ADORE's own verification goes through `check --strict --run`.
+  The client now carries only the operations the conductor issues, which is
+  the surface re-verified on every AEGIS release.
 
 ## [0.9.0] - 2026-08-31
 

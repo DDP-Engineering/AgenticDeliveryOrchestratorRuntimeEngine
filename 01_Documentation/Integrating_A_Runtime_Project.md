@@ -91,9 +91,15 @@ closed.
 
 ## Stage Sessions and Checkpoints
 
-ADORE creates the task after creating the branch. Frame runs in autonomous
-autopilot-to-deliver mode and does not pause at its checkpoint. Each attempt
-uses a fresh executor session. Durable AEGIS artifacts are the resume authority.
+ADORE creates the task after creating the branch. Every stage prompt declares
+the task autopilot-to-deliver by explicit conductor instruction, the per-task
+override AEGIS defines for its `[interaction]` default: the executor records
+`interaction: autopilot` in the journal header and never stops at a
+stage-boundary checkpoint to present choices. The target repository's
+`[interaction]` setting keeps governing human sessions and needs no change for
+conducted runs. ADORE supervises every stage and owns the pre-publication
+approval. Each attempt uses a fresh executor session. Durable AEGIS artifacts
+are the resume authority.
 
 After every successful stage transition, ADORE creates an unpushed local
 checkpoint commit. Those commits preserve journal evolution, give crash

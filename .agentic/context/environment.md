@@ -6,21 +6,83 @@ See the LICENSE.txt in the .agentic folder for full license details.
 SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
-
 # Environment guide
 
 ## Toolchain
 
+Python 3.11 or later with `uv`; the runtime itself uses only the standard
+library. Verification uses pytest and Ruff from the `dev` dependency group in
+`04_Software/pyproject.toml`. Git is required. Live operation additionally
+needs Docker or rootless Podman, natively or as Docker Engine inside WSL2 on
+Windows, and an authenticated `glab`, `gh` or `tea`. Node.js is needed only
+inside the executor image, where the executors are installed as npm packages.
+
 ## Setup
+
+From `04_Software`, `uv sync` creates `.venv` with the locked dependencies and
+the `dev` group and installs the `adore` command in editable mode. Operator
+installation on a host follows `01_Documentation/Getting_Started.md`;
+unattended installation follows `04_Software/deploy/README.md`.
 
 ## Configuration and services
 
+Runtime configuration is `config.toml`, started from
+`04_Software/config.example.toml` and documented in
+`01_Documentation/Configuration_Reference.md`. `adore init <profile>` creates
+it under the profile home, `%APPDATA%\adore` on Windows or `~/.config/adore`
+on Linux, unless `ADORE_HOME` overrides the location. Executor provider keys
+named by `[executor].env_keys` live only in a gitignored `.env` beside the
+configuration or in the process environment; forge authentication belongs to
+the host CLI. Run state, the conductor lock and metrics live under the
+configured `store_root`, `.adore/` by default.
+
 ## Readiness checks
+
+`adore --profile <name> config validate` proves the configuration. Guided setup
+(`adore init`) probes the host tools and the target repository's AEGIS
+payload, which must provide `.agentic/aegis.py` at a supported version and
+schema-1 `status --all --json`; the same two commands verify a target clone by
+hand. `adore --profile <name> run --dry-run` shows ticket selection without
+side effects.
 
 ## Build and run
 
+The package has no build step: run `adore` from the synced `.venv`
+(`.venv\Scripts\adore.exe` on Windows, `.venv/bin/adore` on Linux) with
+`run --dry-run`, `run --once` or `run --loop`. Executor images are built from
+`04_Software/docker/` as its README documents: the generic
+`adore-executor-base:1.0.0`, the optional `adore-egress-proxy:1.0.0`, and one
+project image per runtime project. Runtime bundles are produced by
+`02_Tools/package_runtime.ps1` or `package_runtime.sh` into `07_Delivery/`.
+
 ## Verification
+
+`.agentic/aegis.toml` `[commands]` owns the canonical `test` and `lint`
+commands, run from `workdir = "04_Software"`; the suite is fully offline.
+Focused work runs `pytest -q tests/test_<component>.py` from `04_Software`.
+The final proof for a governed task is
+`python .agentic/aegis.py check --task TASK-<id> --strict --run`. A release
+additionally passes `python 02_Tools/check_release_consistency.py
+--require-artifacts`. Outcomes belong in task evidence, not here.
 
 ## Platform details
 
+Development and packaging run on Windows 11 with PowerShell and Git Bash, and
+on Ubuntu 22+. `.gitattributes` normalizes text to LF in the index except
+`.ps1`, `.cmd` and `.bat`, which are CRLF; a Windows working copy may hold
+either, so scripted edits should preserve each file's existing line endings.
+The `[commands]` entries in `aegis.toml` name the Windows `.venv\Scripts`
+executables; use the `.venv/bin` equivalents on Linux. WSL-wrapped container
+runtimes receive mount-path translation and `WSLENV` propagation from ADORE.
+
 ## Authoritative references
+
+- `.agentic/aegis.toml` - executable verification commands, layout and check
+  configuration.
+- `01_Documentation/Getting_Started.md` - prerequisites, installation and the
+  first poll.
+- `01_Documentation/Security_And_Credentials.md` - where every credential
+  lives.
+- `04_Software/deploy/README.md` - systemd and Task Scheduler installation.
+- `04_Software/docker/README.md` - executor and proxy image build commands.
+- `02_Tools/README.md` - release check and packaging scripts.

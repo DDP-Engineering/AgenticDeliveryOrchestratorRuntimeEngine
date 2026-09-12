@@ -1069,6 +1069,22 @@ def test_executor_prompt_forbids_child_task_journals(tmp_path: Path) -> None:
     assert "child task journal" in prompt
 
 
+def test_executor_prompt_declares_autopilot_on_every_stage(tmp_path: Path) -> None:
+    """
+    @brief   Every stage prompt overrides the AEGIS checkpoint default.
+    @details AEGIS 0.13 checkpoint mode stops before each stage transition,
+             which ADORE would read as NO_STAGE_PROGRESS. The explicit
+             autopilot instruction is the per-task override AEGIS defines.
+    """
+    engine, forge, _, _, _ = make_engine(tmp_path)
+    run = make_run(engine)
+    for stage in ("frame", "specify", "design", "build", "validate", "deliver"):
+        prompt = engine._stage_prompt(run, forge.ticket, task(stage), "", "")
+        assert "autopilot-to-deliver" in prompt
+        assert "interaction: autopilot" in prompt
+        assert "stage-boundary checkpoint" in prompt
+
+
 def test_approved_publication_opens_draft_and_pushes_close_out(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:

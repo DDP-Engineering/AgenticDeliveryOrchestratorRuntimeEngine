@@ -22,7 +22,6 @@ ARG NODE_MAJOR=24
 ARG GLAB_VERSION=1.55.0
 ARG OPENCODE_PACKAGE=opencode-ai
 # Pi is the config-selectable alternative executor ([executor] default = "pi").
-# Package name from the workflow template's .pi peerDependency.
 ARG PI_PACKAGE=@earendil-works/pi-coding-agent@0.80.3
 # OpenAI Codex is the config-selectable alternative ([executor] default = "codex").
 ARG CODEX_PACKAGE=@openai/codex
@@ -114,11 +113,9 @@ RUN uv python install 3.11
 ENV UV_PYTHON=3.11
 
 # Make `python3`/`python` on PATH resolve to the uv-managed 3.11 release:
-# the target repo's AEGIS 3.x CLI (`bash .agentic/tools/run.sh <group>
-# <action>`) resolves `python3` and requires 3.11+ (system /usr/bin/python3
-# stays 3.10 for apt). AEGIS itself is stdlib-only; bash, git and node are the
-# other prerequisites, and node matters because the AEGIS guard hooks fail
-# closed without it.
+# the target repo's AEGIS CLI (`python .agentic/aegis.py`) is stdlib-only but
+# requires Python 3.11+ (system /usr/bin/python3 stays 3.10 for apt). git
+# enables its diff-based checks; node serves the npm-installed executors above.
 USER root
 RUN target="$(ls -d /home/adore/.local/share/uv/python/cpython-3.11*/bin/python3.11 2>/dev/null | head -n1)" \
     && test -x "$target" \

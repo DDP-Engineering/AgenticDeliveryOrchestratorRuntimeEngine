@@ -18,8 +18,8 @@ only the Python companion CLI shipped by AEGIS and JSON schema 1.
   operation through a shell-quoted file exchange;
 - probe exact version series and schema before governed work;
 - create/list/read task journals and pin exact task identity;
-- expose advisory/strict check, anchor, evolution, configured test and report
-  operations;
+- expose advisory/strict check, evolution and report operations; the executor
+  runs `anchor` and `test` itself during its stages;
 - validate bounded JSON, UTF-8, contained POSIX paths, headers, stage/path/type,
   checklist/log data, finding counts and verification command results;
 - distinguish typed protocol, timeout and task failures;

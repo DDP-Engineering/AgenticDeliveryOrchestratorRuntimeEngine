@@ -26,8 +26,8 @@ the scripts in `02_Tools/`:
 bash 02_Tools/package_runtime.sh
 ```
 
-The generated 0.9.0 bundle is named `adore-runtime-0.9.0.zip` on Windows or
-`adore-runtime-0.9.0.tar.gz` on POSIX. It contains the runnable `04_Software`
+The generated 0.13.0 bundle is named `adore-runtime-0.13.0.zip` on Windows or
+`adore-runtime-0.13.0.tar.gz` on POSIX. It contains the runnable `04_Software`
 package contents, deployment scripts under `deploy/`, and the canonical
 operator documentation under `Documentation/`. It excludes development files,
 test suites, virtual environments, worktrees, local `.adore` state, and

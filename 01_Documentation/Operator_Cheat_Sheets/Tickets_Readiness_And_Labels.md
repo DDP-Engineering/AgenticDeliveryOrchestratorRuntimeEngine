@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Tickets, Readiness, And Labels
 
-Applies to ADORE 0.9.0 and its AEGIS schema-1 contract.
+Applies to ADORE 0.13.0 and its AEGIS schema-1 contract.
 
 Use this when you want ADORE to pick up a ticket, skip a ticket, resume a parked
 ticket, or route a ticket to a specific executor.

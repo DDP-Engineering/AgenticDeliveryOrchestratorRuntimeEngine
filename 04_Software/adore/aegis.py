@@ -39,9 +39,9 @@ AEGIS_CLI = ".agentic/aegis.py"
 #: The AEGIS major line ADORE speaks. A major bump is the signal that the
 #: companion contract itself changed, so it is refused rather than guessed at.
 SUPPORTED_MAJOR = 0
-#: Oldest AEGIS release exposing every command this client calls. `anchor` and
-#: `evolution` arrived in 0.5.0, so an older payload would parse here and then
-#: fail mid-stage; the floor turns that into an honest refusal at probe.
+#: Oldest AEGIS release exposing every command this client calls. `evolution`
+#: arrived in 0.5.0, so an older payload would parse here and then fail at
+#: delivery; the floor turns that into an honest refusal at probe.
 MINIMUM_SERIES = (0, 5)
 #: The real compatibility contract. Version is metadata; this is the promise.
 JSON_SCHEMA = 1
@@ -286,7 +286,7 @@ class AegisClient:
         if (major, minor) < MINIMUM_SERIES:
             raise AegisProtocolError(
                 f"AEGIS {major}.{minor}.{patch} is unsupported; ADORE requires at "
-                f"least {minimum} for the anchor and evolution commands"
+                f"least {minimum} for the evolution command"
             )
         payload, _ = self._json(["status", "--all", "--json"])
         self._status_list(payload)
@@ -360,38 +360,11 @@ class AegisClient:
         )
         return self._decode_check(payload, result.exit_code, task_id, strict)
 
-    def anchor(self, task_id: str) -> Mapping[str, Any]:
-        """@brief Persist and return the task's Git-visible starting anchor."""
-        self._task_id(task_id)
-        payload, _ = self._json(["anchor", "--task", task_id, "--json"])
-        return payload
-
     def evolution(self, task_id: str) -> Mapping[str, Any]:
         """@brief Persist and return the task's final evolution record."""
         self._task_id(task_id)
         payload, _ = self._json(["evolution", "--task", task_id, "--json"])
         return payload
-
-    def test(
-        self,
-        task_id: str,
-        name: str = "test",
-        *,
-        impacted: bool = False,
-        base: str | None = None,
-        timeout: float | None = VERIFY_TIMEOUT,
-    ) -> CommandResult:
-        """@brief Run one configured AEGIS command, returning its exit as data."""
-        self._task_id(task_id)
-        argv = ["test"]
-        if name != "test":
-            argv.append(name)
-        if impacted:
-            argv.append("--impacted")
-        if base:
-            argv += ["--base", base]
-        argv += ["--task", task_id]
-        return self._run(argv, timeout=timeout, allowed=tuple(range(0, 256)))
 
     def report(self, task_id: str) -> None:
         """@brief Append the AEGIS delivery report to the task journal."""

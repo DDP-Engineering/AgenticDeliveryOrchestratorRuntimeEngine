@@ -100,8 +100,8 @@ required_tool_checks = [
 ```
 
 The AEGIS CLI is stdlib-only, so nothing has to be installed for it beyond a
-Python 3.11+ resolvable as `python3`. `node` is listed because the AEGIS guard
-hooks fail closed without it, and their absence is otherwise silent.
+Python 3.11+ resolvable as `python3`. `node` is listed because the executors
+are npm packages and cannot start without it.
 
 ## Egress proxy image
 

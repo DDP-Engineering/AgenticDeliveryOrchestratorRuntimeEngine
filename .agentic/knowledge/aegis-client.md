@@ -18,7 +18,8 @@ APIs, and a major bump is refused at probe rather than guessed at.
 ## Public interface
 
 `AegisClient` probes a target, creates and reads task journals, runs checks,
-anchors, evolution, configured tests, and reports. Its validated value objects
+records evolution, and appends the delivery report; the executor runs `anchor`
+and `test` itself during its stages. Its validated value objects
 (`AegisProbe`, `AegisTask`, `AegisCheck`, `AegisFinding`, and
 `AegisCommandRun`) expose only decision-safe data to the orchestrator.
 

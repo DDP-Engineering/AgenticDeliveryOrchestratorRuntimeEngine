@@ -369,7 +369,7 @@ approval_label = "agent-approved"
 # How ADORE reacts to review feedback on its draft MR. It never auto-reacts to
 # every comment: by default a reviewer explicitly requests a revision.
 [review]
-# ADORE 0.5 accepts the explicit label trigger only.
+# ADORE accepts the explicit label trigger only.
 trigger = "label"
 # The label a reviewer applies to request an agent revision.
 revise_label = "agent-revise"

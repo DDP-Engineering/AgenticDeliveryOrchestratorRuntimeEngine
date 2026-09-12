@@ -108,6 +108,7 @@ def task_payload(
                 "stage": stage,
                 "type": task_type,
                 "path": path,
+                "interaction": "checkpoint",
                 "requirements": "REQ-FUNC-1",
                 "branch": branch,
                 "base": "abc123",
@@ -202,9 +203,9 @@ def test_probe_rejects_a_different_major(version: str) -> None:
 def test_probe_rejects_below_the_command_floor(version: str) -> None:
     """
     @brief   A payload older than the floor fails at probe, not mid-stage.
-    @details `anchor` and `evolution` arrived in AEGIS 0.5.0 and this client
-             calls both, so an older payload would satisfy a bare major check
-             and then fail partway through a task.
+    @details `evolution` arrived in AEGIS 0.5.0 and this client calls it at
+             delivery, so an older payload would satisfy a bare major check
+             and then fail at the end of a task.
     """
     with pytest.raises(AegisProtocolError, match="at least"):
         AegisClient(FakeExec(result(stdout=version))).probe()
@@ -430,24 +431,17 @@ def test_check_rejects_malformed_run_evidence_and_summary_mismatch() -> None:
         AegisClient(FakeExec(result(mismatch))).check(TASK_ID, strict=True)
 
 
-def test_anchor_evolution_test_and_report_command_shapes() -> None:
+def test_evolution_and_report_command_shapes() -> None:
     """@brief Every remaining supported AEGIS operation has one exact command."""
     execute = FakeExec(
-        result({"schema": 1, "command": "anchor", "task": TASK_ID}),
         result({"schema": 1, "command": "evolution", "task": TASK_ID}),
-        result(stdout="tests passed\n"),
         result(stdout=f"report appended to .agentic/tasks/{TASK_ID}.md\n"),
     )
     client = AegisClient(execute)
-    assert client.anchor(TASK_ID)["command"] == "anchor"
     assert client.evolution(TASK_ID)["command"] == "evolution"
-    assert client.test(TASK_ID, "lint", impacted=True, base="origin/main").ok
     client.report(TASK_ID)
     assert execute.calls == [
-        ["python", ".agentic/aegis.py", "anchor", "--task", TASK_ID, "--json"],
         ["python", ".agentic/aegis.py", "evolution", "--task", TASK_ID, "--json"],
-        ["python", ".agentic/aegis.py", "test", "lint", "--impacted", "--base",
-         "origin/main", "--task", TASK_ID],
         ["python", ".agentic/aegis.py", "report", TASK_ID],
     ]
 

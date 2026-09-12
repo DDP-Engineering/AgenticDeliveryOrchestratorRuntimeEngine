@@ -802,11 +802,15 @@ class Orchestrator:
             "Use `python .agentic/aegis.py`. Read AGENTS.md and the current AEGIS "
             "step file, then update the task journal and governed artifacts exactly as "
             "AEGIS documents. The durable task journal, not prior model memory, is authority.",
+            "This task runs autopilot-to-deliver by explicit conductor instruction, which "
+            "overrides the repository's configured `[interaction]` default: set "
+            "`interaction: autopilot` in the journal header when it is not already, and "
+            "never stop at a stage-boundary checkpoint to present choices or wait for a "
+            "user. ADORE supervises every stage and owns the pre-publication approval.",
         ]
         if task.stage == "frame":
             parts.append(
-                "Run frame autonomously in autopilot-to-deliver mode. Select and justify "
-                "full or quick in the AEGIS journal; do not pause at the frame checkpoint."
+                "Select and justify full or quick in the AEGIS journal."
             )
             if self.config.workflow.quick_label in ticket.labels:
                 parts.append(

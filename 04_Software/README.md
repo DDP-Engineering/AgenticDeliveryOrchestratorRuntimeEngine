@@ -8,7 +8,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 # ADORE Runtime Software
 
 This directory contains the portable Python implementation and offline tests
-for ADORE 0.5.
+for ADORE.
 
 Key components:
 
