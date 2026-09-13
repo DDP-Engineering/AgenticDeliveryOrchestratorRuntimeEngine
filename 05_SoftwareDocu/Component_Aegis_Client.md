@@ -18,6 +18,8 @@ only the Python companion CLI shipped by AEGIS and JSON schema 1.
   operation through a shell-quoted file exchange;
 - probe exact version series and schema before governed work;
 - create/list/read task journals and pin exact task identity;
+- expose the journal's recorded `DEVIATION <stage>` entries with the same
+  marker rule AEGIS applies to its delivery report;
 - expose advisory/strict check, evolution and report operations; the executor
   runs `anchor` and `test` itself during its stages;
 - validate bounded JSON, UTF-8, contained POSIX paths, headers, stage/path/type,

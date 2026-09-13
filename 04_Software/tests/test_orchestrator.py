@@ -440,12 +440,35 @@ def test_clean_full_and_quick_paths_stop_for_fresh_approval(
     assert saved.stage == "deliver"
     assert saved.validation_evidence["passed"] is True
     assert saved.candidate_fingerprint == worktrees.fingerprint
+    assert saved.validation_evidence["deviations"] == []
+    assert "Deviations recorded: 0" in forge.ticket_comments[saved.approval_comment_id]
     assert len(executor.sessions) == len(stages) - 1
     assert set(executor.sessions) == {""}
     assert not forge.opened
     assert containers.stopped
     stage_commits = [item for item in worktrees.checkpoints if "ADORE checkpoint" in item]
     assert len(stage_commits) == len(stages) - 1
+
+
+def test_approval_presentation_lists_recorded_deviations(tmp_path: Path) -> None:
+    """@brief Journal deviations reach the approver as a count plus full text."""
+    engine, forge, _, _, _ = make_engine(tmp_path)
+    run = make_run(engine, task_type="fix", path="quick")
+    stages = sequence("frame", "build", "validate", "deliver", path="quick", task_type="fix")
+    stages[-1] = replace(stages[-1], log=(
+        "2026-09-13 build: DEVIATION build - accepted one check warning",
+        "2026-09-13 build: the DEVIATION policy is one line, said aloud",
+    ))
+
+    engine._conduct_task(run, forge.ticket, FakeAegis(stages), "")
+
+    saved = engine.store.load(run.run_id)
+    assert saved.lifecycle == "awaiting-approval"
+    assert saved.validation_evidence["deviations"] == ["build - accepted one check warning"]
+    body = forge.ticket_comments[saved.approval_comment_id]
+    assert "Deviations recorded: 1" in body
+    assert "- build - accepted one check warning" in body
+    assert "policy is one line" not in body
 
 
 def test_two_failures_then_success_resets_counter_and_questions_do_not_consume_it(

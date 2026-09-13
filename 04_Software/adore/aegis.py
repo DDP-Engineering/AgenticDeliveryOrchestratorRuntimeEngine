@@ -74,6 +74,13 @@ STAGE_STEP_FILES = {
     "deliver": "6_deliver.md",
     "done": None,
 }
+#: A recorded deviation in the one shape AEGIS itself harvests for its
+#: delivery report: the standalone token, a stage it knows, then `:` or
+#: ` - `. Prose that merely mentions the word is not a deviation.
+DEVIATION_RE = re.compile(
+    r"(?<![\w-])DEVIATION[ \t]+"
+    rf"(?=(?:{'|'.join(STATUS_STAGES)})\b[ \t]*(?::|[ \t][-\u2013\u2014][ \t]))"
+)
 
 # DATA MODELS / TYPEDEFINITIONS
 
@@ -150,6 +157,16 @@ class AegisTask:
             for item in self.header.get("requirements", "").split(",")
             if item.strip()
         )
+
+    @property
+    def deviations(self) -> tuple[str, ...]:
+        """@brief Recorded `DEVIATION <stage>` log entries, token stripped, in order."""
+        found = []
+        for entry in self.log:
+            match = DEVIATION_RE.search(entry)
+            if match:
+                found.append(" ".join(entry[match.end():].split()))
+        return tuple(found)
 
 
 @dataclass(frozen=True)

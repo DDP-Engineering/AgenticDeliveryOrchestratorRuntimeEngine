@@ -252,9 +252,9 @@ consult them yet; `config.example.toml` marks each one:
   is always stopped and retained until resume or explicit cleanup;
 - `[metrics] capture_resource`: no container or disk resource probing.
 
-Deviations, stage summaries, and review verdicts that the executor records in
-the AEGIS journal are not yet surfaced at the approval gate; that work is
-tracked in `.agentic/tasks/TASK-9aebe1f3.md`. Native Windows single-file
+Stage summaries and review verdicts that the executor records in the AEGIS
+journal are not surfaced at the approval gate; recorded deviations are, as a
+count and in full. Native Windows single-file
 executables and Ubuntu `.deb` packages are not implemented; delivery is a
 Python package directory plus an executor container image.
 

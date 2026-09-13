@@ -32,10 +32,10 @@ Keep each log line to one sentence.
 
 # TASK-9aebe1f3 — Surface recorded AEGIS deviations at the delivery approval gate
 
-stage: frame
+stage: done
 type: feature
 path: full
-requirements:
+requirements: REQ-FUNC-ab65704b
 branch: master
 base: b622849f56fb268f357808939ada0fb1193f3155
 opened: 2026-08-21
@@ -58,3 +58,20 @@ opened: 2026-08-21
 - 2026-08-21 frame: Expected requirements: one functional requirement for deviation extraction and typed exposure through `AegisClient`, one for presentation at the approval gate; exact IDs assigned at specify.
 - 2026-08-21 frame: Path: full — new behavior crossing aegis-client, orchestrator/state, and operator-facing approval output warrants specify and design.
 - 2026-08-21 frame: DEVIATION frame: task branch not created and scope not yet confirmed — journal opened ahead of work at operator request; establish the branch and confirm scope when work begins, then advance `stage:`.
+- 2026-09-13 build: implemented directly at the user's instruction, outside the checkpoint flow: `AegisTask.deviations` harvests `DEVIATION <stage>` log entries with AEGIS's own marker rule, strict verification copies them into the validation evidence, and the approval presentation leads with their count and full text; REQ-FUNC-ab65704b links the tests.
+- 2026-09-13 validate: full offline suite and ruff green; deviations inform and never block, as scoped; no AEGIS payload change.
+- 2026-09-13 done: delivered on master; task closed.
+
+## Stage report
+
+stage: deliver
+result: completed
+current: done
+changed: 04_Software/adore/aegis.py, 04_Software/adore/orchestrator.py, 04_Software/tests/test_aegis.py, 04_Software/tests/test_orchestrator.py, documentation and knowledge pages
+evidence: pytest full suite and ruff check green on 2026-09-13; release checker consistent
+issues: none
+next: none
+needs_user: no
+spec_compliance: disabled
+implementation_quality: disabled
+review_round:

@@ -904,6 +904,7 @@ class Orchestrator:
             return self._validation_failure(
                 run, "STRICT_STAGE_MISMATCH", f"strict pass left task at {task.stage}"
             )
+        evidence["deviations"] = list(task.deviations)
         self._checkpoint(run, f"ADORE verified {run.active_task_id}")
         try:
             fingerprint = self.worktrees.candidate_fingerprint(run.run_id, run.base_ref)
@@ -1035,6 +1036,7 @@ class Orchestrator:
             "approval-presented",
             fingerprint=run.candidate_fingerprint,
             target=run.candidate_base_ref,
+            deviations=len(run.validation_evidence.get("deviations", [])),
         )
         with contextlib.suppress(IsolationError):
             self.containers.stop(run.container)
@@ -1059,6 +1061,10 @@ class Orchestrator:
             diff_files = -1
         commit_lines = "\n".join(f"- `{item}`" for item in commits) or "- none"
         warnings = int(evidence.get("warnings", 0) or 0)
+        deviations = [str(item) for item in evidence.get("deviations", [])]
+        deviation_lines = "\n".join(
+            f"- {_sanitize(item, 1000)}" for item in deviations
+        ) or "- none recorded"
         return (
             f"{self.identity.tag} Candidate validated for ticket #{ticket.iid}.\n\n"
             f"- AEGIS task: `{run.active_task_id}`\n"
@@ -1067,8 +1073,10 @@ class Orchestrator:
             f"- Warnings: {warnings}; promoted warnings: "
             f"{evidence.get('promoted_warnings', '?')}\n"
             f"- Changed files: {diff_files}\n"
+            f"- Deviations recorded: {len(deviations)}\n"
             f"- Candidate fingerprint: `{run.candidate_fingerprint}`\n"
             f"- Target commit: `{run.candidate_base_ref}`\n\n"
+            f"Recorded deviations:\n{deviation_lines}\n\n"
             f"Verification commands:\n{command_lines}\n\n"
             f"Local commit series:\n{commit_lines}\n\n"
             "Intended outcome: push this exact candidate and open/update a draft MR/PR; "

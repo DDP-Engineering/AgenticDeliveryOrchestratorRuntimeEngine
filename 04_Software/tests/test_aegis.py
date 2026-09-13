@@ -288,6 +288,22 @@ def test_task_journal_trust_boundary_fails_closed(mutation, error: str) -> None:
         AegisClient(FakeExec(result(payload))).task_status(TASK_ID)
 
 
+def test_task_deviations_follow_the_aegis_marker_rule() -> None:
+    """@brief Only `DEVIATION <stage>:` or its ` - ` spelling is a deviation."""
+    payload = task_payload(stage="deliver")
+    payload["task"]["log"] = [
+        "2026-08-21 frame: DEVIATION frame: branch not created - opened ahead of work",
+        "2026-08-22 build: DEVIATION build - accepted two check warnings",
+        "2026-08-22 build: the DEVIATION policy: one line, said aloud",
+        "2026-08-23 validate: full suite green",
+    ]
+    task = AegisClient(FakeExec(result(payload))).task_status(TASK_ID)
+    assert task.deviations == (
+        "frame: branch not created - opened ahead of work",
+        "build - accepted two check warnings",
+    )
+
+
 def test_active_task_decoder_rejects_adoption_stage() -> None:
     """@brief ADORE conducts only its seven stages even though probing is wider."""
     payload = task_payload()

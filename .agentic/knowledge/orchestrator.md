@@ -38,7 +38,8 @@ retries, questions, typed AEGIS timeouts, and typed executor timeouts are
 classified independently and journaled. Failed resources are preserved for
 operator recovery. Strict verification and a fresh approval must match the
 exact candidate fingerprint before a push or a draft MR/PR; any drift forces
-re-conduction.
+re-conduction. The approval presentation leads with the deviations the
+journal recorded; they inform the approver and never block.
 
 ## Requirement coverage
 

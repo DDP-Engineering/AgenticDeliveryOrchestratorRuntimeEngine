@@ -44,7 +44,7 @@ the `adore` package; no REST API or web UI exists in v1 by design.
 - Wire the metrics commands (phase 5): `adore stats [--since 30d] [--by
   priority|outcome] [--html] [--rebuild]`, `adore report <run-id>` (live
   journal summary as JSON), `adore export --csv` (all summaries to stdout).
-- Wire the operator commands (design 8c):
+- Wire the operator commands:
   - `adore reset <run-id> --to <stage> --force` - state surgery; refuses
     without `--force` (resetting may repeat orchestration work: executor cost,
     ticket churn), then tells the operator to `adore retry`. It moves only
@@ -63,7 +63,7 @@ the `adore` package; no REST API or web UI exists in v1 by design.
     full stats block - runs/merged/failed/success-rate/launches/tokens/
     avg-span/last-run - from the profile's metrics DB, zeros when empty).
   - global `--profile NAME` - resolve any command's config from a profile.
-- **Config resolution (`_load`, decision D3):** explicit `-c FILE` >
+- **Config resolution (`_load`):** explicit `-c FILE` >
   `--profile NAME` > the active profile pointer > `./config.toml`. The
   resolved path is shown in messages, and resolving a profile records a use
   (use_count / last_used_at). Single-config users (no profile) are
@@ -117,7 +117,7 @@ Explicitly not owned: any engine behavior; the handlers are thin views over
 
 ## 6. Data Contracts
 
-- The command surface matches design doc 12a; the argument shapes fixed in
+- The command surface is stable; the argument shapes fixed in
   phase 1 (`retry <run-id>`, `reset <run-id> --to <stage>`, `stats --since
   --by --html`, ...) were kept unchanged when the commands were wired.
 - `cleanup` prints its report as JSON (`lock_cleared`, `lock_held_by`,
@@ -131,7 +131,7 @@ Explicitly not owned: any engine behavior; the handlers are thin views over
 
 ## 7. Workflow Integration
 
-The operator's control plane (design 8c), now complete: `run --loop` /
+The operator's control plane: `run --loop` /
 `--once` drives the engine (service mode via systemd on Ubuntu 22 or Task
 Scheduler on Windows 11); `cancel`/`retry`/`reset`/`delete` are the manual
 overrides; `cleanup` is the recovery tool after crashes or the WSL

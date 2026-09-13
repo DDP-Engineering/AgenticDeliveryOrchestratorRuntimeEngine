@@ -66,8 +66,10 @@ best-effort telemetry.
 
 ## Approval Operations
 
-The approval presentation lists strict evidence, warnings, commands, diff
-size, exact commits, candidate fingerprint and target commit. Do not pre-apply
+The approval presentation leads with the deviations the AEGIS journal
+recorded, as a count and in full, then lists strict evidence, warnings,
+commands, diff size, exact commits, candidate fingerprint and target commit.
+Deviations inform the approver; they never block. Do not pre-apply
 `agent-approved`; ADORE removes and verifies it absent before presentation.
 
 After reviewing the presentation, add `agent-approved`. The next poll fetches

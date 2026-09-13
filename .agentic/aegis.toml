@@ -31,6 +31,12 @@ workdir = "04_Software"                # run commands here, not at the root
 # Globs used by the traceability heuristics of `aegis check`.
 source = ["04_Software/adore/"]
 tests = ["04_Software/tests/"]
+docs = [
+  "00_Planning/", "01_Documentation/", "05_SoftwareDocu/",
+  "README.md", "CHANGELOG.md", "LICENSE.txt",
+  "02_Tools/README.md", "04_Software/README.md", "04_Software/deploy/README.md",
+  "04_Software/docker/README.md", "07_Delivery/README.md",
+]
 
 [zones]
 # What each stage may write besides `.agentic/`, which every stage may

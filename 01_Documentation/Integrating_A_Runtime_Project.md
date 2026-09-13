@@ -119,8 +119,9 @@ promoted warnings, at least one executed verification command, successful
 completion of every executed command, and a valid task journal at `deliver`.
 
 ADORE fingerprints the target commit, candidate tree and exact local commit
-series. It removes `agent-approved`, verifies absence, posts the evidence, and
-stops the container in `awaiting-approval`. Only a fresh re-addition after that
+series. It removes `agent-approved`, verifies absence, posts the evidence together
+with every `DEVIATION <stage>` entry the AEGIS journal recorded, and stops
+the container in `awaiting-approval`. Only a fresh re-addition after that
 presentation is accepted. Candidate changes or target drift invalidate the
 approval and force integration, validation, presentation and approval again.
 

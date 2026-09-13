@@ -100,7 +100,9 @@ included in a later integration checkpoint.
 
 The conductor integrates `origin/<target>`, runs the validation executor, then
 calls `check --task <id> --strict --run --json`. It requires at least one
-executed successful verification command and a task at deliver. Approval is
+executed successful verification command and a task at deliver. The deviations
+that journal recorded are copied into the validation evidence and lead the
+approval presentation; they inform the approver and never block. Approval is
 bound to the candidate fingerprint and target commit. Any drift or product
 mutation invalidates approval.
 On clarification resume and approval observation, title/body drift refreshes

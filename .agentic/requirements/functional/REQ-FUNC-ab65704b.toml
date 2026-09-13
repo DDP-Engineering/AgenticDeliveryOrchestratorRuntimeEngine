@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-FUNC-ab65704b"
+
+title = "Surface recorded AEGIS deviations at the approval gate"
+
+status = "active"
+
+requirement = """
+When strict verification passes, the conductor shall copy every `DEVIATION <stage>` entry recorded in the AEGIS task journal into the validation evidence and lead the approval presentation with their count and full text, without blocking approval.
+"""
+
+verification = "Automated tests harvest only marker-shaped deviation entries from a task journal and prove the approval comment and persisted evidence carry the recorded deviation count and text."
+
+affected_paths = ["04_Software/adore/aegis.py", "04_Software/adore/orchestrator.py"]
+
+linked_tests = ["04_Software/tests/test_aegis.py::test_task_deviations_follow_the_aegis_marker_rule", "04_Software/tests/test_orchestrator.py::test_approval_presentation_lists_recorded_deviations"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = "The approval gate is the one moment a human is guaranteed to read; judgement calls made on their behalf must be visible there."
+
+created = 2026-09-13
+updated = 2026-09-13

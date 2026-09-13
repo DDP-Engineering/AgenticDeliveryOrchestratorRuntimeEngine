@@ -71,7 +71,7 @@ Explicitly not owned: posting/editing comments (forge adapters) and deciding
   (keys `[A-Za-z0-9_-]+`, values non-whitespace) + `-->`. `run` and `kind`
   are always present.
 - Renaming the bot is a single `[agent]` config change; every derived
-  identifier follows (design 5c). Nothing else hard-codes "adore".
+  identifier follows. Nothing else hard-codes "adore".
 
 ## 7. Workflow Integration
 

@@ -136,7 +136,7 @@ Start-ScheduledTask -TaskName "ADORE Orchestrator & Runtime Engine"
 ## 10. Limitations And Future Work
 
 - The Ubuntu service runs as a normal user with docker access; a dedicated
-  service account is on the organizational checklist (prereq report).
+  service account is on the organizational checklist.
 - Egress proxy is HTTP/HTTPS proxy based; SSH and other non-proxy-aware
   protocols remain outside v1.
 - Native packaging (Windows exe / Ubuntu deb) is separate future work; the

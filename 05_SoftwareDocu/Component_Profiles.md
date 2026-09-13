@@ -33,11 +33,11 @@ resolution order that lets every command target a chosen profile.
   /adore.
 - `Profile` - the `profile.json` metadata (name, description, created/updated/
   last-used timestamps, use_count, platform/host/repo/runtime/host_os,
-  adore_version, config_path, store_root). **No secret values ever** (design D5).
+  adore_version, config_path, store_root). **No secret values ever**.
 - `ProfileStore` - `create/save/load/list_profiles/invalid_profiles/touch/
   rename/delete`, the active pointer (`get_active/set_active/clear_active`), and
   path helpers (`profile_dir/config_path/default_store_root`).
-- `resolve_config_path(explicit, profile, store, cwd_default)` - decision D3:
+- `resolve_config_path(explicit, profile, store, cwd_default)`:
   explicit `-c FILE` > `--profile NAME` > active pointer > `./config.toml`.
 - `ProfileError` - fail-closed error for a missing or corrupt profile.
 

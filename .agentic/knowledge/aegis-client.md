@@ -19,7 +19,9 @@ APIs, and a major bump is refused at probe rather than guessed at.
 
 `AegisClient` probes a target, creates and reads task journals, runs checks,
 records evolution, and appends the delivery report; the executor runs `anchor`
-and `test` itself during its stages. Its validated value objects
+and `test` itself during its stages. `AegisTask.deviations` harvests the
+journal's `DEVIATION <stage>` entries with the marker rule AEGIS uses for its
+own delivery report. Its validated value objects
 (`AegisProbe`, `AegisTask`, `AegisCheck`, `AegisFinding`, and
 `AegisCommandRun`) expose only decision-safe data to the orchestrator.
 

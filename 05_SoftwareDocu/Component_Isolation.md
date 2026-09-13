@@ -23,7 +23,7 @@ The two isolation layers every run gets, both keyed by the stable run-id: a
 the local clone's object store) mounted into a **container** (execution
 isolation - the real sandbox bounding what the executor can touch). Isolation
 is mandatory once the human leaves the loop; the workflow's hooks are
-guardrails, not a sandbox (design 10).
+guardrails, not a sandbox.
 
 ## 2. Responsibilities
 
@@ -77,7 +77,7 @@ side keeps working normally with its absolute paths. The admin dir name is
 *read* from the pointer file (git suffixes it on collision), never assumed.
 
 - **`WorktreeManager.remove` retries past the WSL2 bind-mount teardown
-  race** (ADORE-ARCH-009): `docker/podman rm` returns before the kernel
+  race**: `docker/podman rm` returns before the kernel
   releases the container's 9P/drvfs bind mount on the worktree, so an
   immediate `git worktree remove` can fail with ENOSYS/EBUSY/ENOTEMPTY until
   the mount clears (a few seconds). `remove` retries the whole operation with

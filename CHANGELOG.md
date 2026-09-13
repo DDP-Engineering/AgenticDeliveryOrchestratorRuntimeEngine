@@ -12,6 +12,16 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+### Added
+
+- The approval presentation now leads with the deviations the AEGIS task
+  journal recorded: a count and the full text of every `DEVIATION <stage>`
+  entry, harvested with the same marker rule AEGIS applies to its own delivery
+  report and copied into the persisted validation evidence. Deviations inform
+  the approver and never block; a run with none says so explicitly.
+- A root `LICENSE.txt` carrying the PolyForm Noncommercial 1.0.0 text that
+  every file header already references.
+
 ## [0.13.0] - 2026-09-12
 
 ### Changed

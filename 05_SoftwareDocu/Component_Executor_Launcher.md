@@ -55,8 +55,8 @@ to the Git platform (forge; the executor never touches the remote).
 
 **The file-based gate protocol** - every byte crosses process boundaries in
 files, never argv or live stdout, because of two verified findings:
-`wsl.exe` splits argv elements containing spaces (prereq 12), and opencode
-buffers stdout so live streaming looks hung (prereq 9).
+`wsl.exe` splits argv elements containing spaces, and opencode buffers stdout
+so live streaming looks hung.
 
 1. Delete a stale questions file from the worktree - its presence after the
    gate must mean it was written by THIS gate.
@@ -142,7 +142,7 @@ the container, so the executor cannot push regardless.
 - **Dead-session self-heal** (live finding 2026-07-04): a launch failing
   with "Session not found" (the session died with its container or was
   pruned) relaunches once with a fresh session instead of failing the gate.
-- The questions-file convention (design 6): executor writes
+- The questions-file convention: executor writes
   `ADORE_QUESTIONS.md` (configurable) in the worktree and stops; presence
   after the gate = park.
 
@@ -151,7 +151,7 @@ the container, so the executor cannot push regardless.
 The conductor loop (phase 3) calls `run_gate` once per gate with the gate's
 prompt, passing the session id from the previous `GateRun` so opencode keeps
 its context, then branches on the result: questions -> park; failure/budget
--> retry or escalate; clean -> verify invariants and advance (design 7a).
+-> retry or escalate; clean -> verify invariants and advance.
 
 ## 8. Usage
 
@@ -184,12 +184,12 @@ elif run.ok:
   be non-interactive JSON, ignore machine-local user config, and disable
   bundled plugins.
 - **Live verification done 2026-07-03** (real container, Docker in WSL2,
-  8/8 steps; prereq report section 13): a hostile prompt (quotes, `$`,
+  8/8 steps): a hostile prompt (quotes, `$`,
   backticks, `%`, newline) round-trips byte-exact through the WSL boundary;
   questions detection, stale clearing, exit-code passthrough, artifact
   persistence.
-- **Mutating opencode spike done 2026-07-03** (prereq report section 14,
-  real gpt-5.5 session on a scratch worktree of the real repo): opencode
+- **Mutating opencode spike done 2026-07-03** (a real gpt-5.5
+  session on a scratch worktree of the real repo): opencode
   executed the `.agentic` CLI non-interactively, loaded the
   `agentic-development` skill unprompted, committed evidence under the bot
   identity, and the push attempt was auto-rejected headless - all three
