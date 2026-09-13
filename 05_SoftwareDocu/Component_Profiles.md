@@ -9,9 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Runtime-Project Profiles (`adore/profiles.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/adore/profiles.py` - file version 0.2.0.
-> Plan: `00_Planning/Assisted_Config_And_Profiles_Plan.md` (task 1 of 8; all
-> tasks complete).
+> Source: `04_Software/adore/profiles.py`.
 > Scope note: this component is the **persistence foundation**. The pieces built
 > on it are documented separately: the `adore init` wizard in Component_Wizard.md;
 > environment detection/guidance in Component_Doctor.md; the `adore profile`
@@ -80,8 +78,8 @@ components use this store; they do not duplicate its persistence rules.
 
 ## 6. Data Contracts
 
-- `profile.json` schema = the `Profile` dataclass fields (see
-  `Assisted_Config_And_Profiles_Plan.md` §5). Secret values are never persisted.
+- `profile.json` schema = the `Profile` dataclass fields in
+  `adore/profiles.py`. Secret values are never persisted.
 - The config-path resolution order (D3) is stable and script-safe; when no
   profile is used it returns `./config.toml`, preserving single-config behavior.
 

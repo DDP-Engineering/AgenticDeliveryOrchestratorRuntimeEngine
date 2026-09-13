@@ -65,7 +65,8 @@ Defaults can be renamed in `config.toml`, but the roles stay the same.
 
 ## ADORE-Managed Lifecycle Labels
 
-These labels are only applied when `[state] channel` is `labels` or `both`.
+ADORE applies these labels on every state change regardless of `[state]
+channel`; that setting is validated for compatibility but not consulted.
 
 | Default label | Meaning |
 | --- | --- |
@@ -75,8 +76,9 @@ These labels are only applied when `[state] channel` is `labels` or `both`.
 | `agent-failed` | ADORE stopped after a failure, budget, or timeout. |
 | `agent-done` | Optional final label after a human merge. |
 
-In comment mode, the authoritative state still lives locally and ADORE mirrors
-status through ticket comments instead of lifecycle labels.
+The authoritative state lives locally under the profile state root; the
+ticket mirrors it through one status comment, edited in place, plus these
+labels.
 
 ## Readiness Rules
 
@@ -107,7 +109,7 @@ Check the active configuration:
 | Stop pickup temporarily. | Add `agent-hold`. |
 | Stop a run already in progress. | Run `adore cancel <run-id>`; a mid-run hold label has no effect. |
 | Make the ticket human-only. | Add `no-agent`. |
-| Answer a clarification. | Reply in a normal human comment, then add `agent-answered` if labels are used. |
+| Answer a clarification. | Reply in a normal human comment, then add `agent-answered`. |
 | Request a revision after draft MR/PR review. | Add `agent-revise` to the MR/PR, then run another poll. |
 | Force opencode for one ticket. | Add `agent-exec:opencode`. |
 

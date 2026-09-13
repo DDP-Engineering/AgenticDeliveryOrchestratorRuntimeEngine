@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Util (`adore/util.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/adore/util.py` - file version 0.3.0.
+> Source: `04_Software/adore/util.py`.
 
 ## 1. Purpose
 

@@ -18,6 +18,9 @@ publication human-approved and draft-only.
 - select/claim forge tickets and provision worktree/container isolation;
 - create and bind active/historical AEGIS tasks;
 - launch a fresh executor session for each stage attempt;
+- compose each stage prompt as an explicit autopilot-to-deliver instruction
+  that has the executor record `interaction: autopilot` in the journal and
+  forbids commit, push, MR/PR creation, merge, and child task journals;
 - validate full/quick progression and documented validation rollback;
 - create an unpushed local checkpoint commit after every successful stage;
 - distinguish clarification, stage failures, transient infrastructure failures

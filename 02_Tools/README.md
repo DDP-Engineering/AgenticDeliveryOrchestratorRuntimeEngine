@@ -10,12 +10,12 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 This folder holds repository-level scripts used outside the runtime package.
 Use it for development-environment setup, release/delivery preparation,
 packaging, verification helpers, and other repository automation scripts.
-The current implemented tool is the runtime-bundle packager:
+The implemented tools are the release checker and the runtime-bundle packager:
 
 - `check_release_consistency.py` - fails closed when the ADORE package,
-  lockfile, images, deployment names, documentation, delivery-artifact
-  contents, or forbidden pre-1.0 identifiers drift from the 1.0.0 release
-  contract.
+  lockfile, image tags, deployment names, documentation, delivery-artifact
+  contents, or forbidden pre-rename identifiers drift from the release
+  identity declared by its `EXPECTED_VERSION` constant.
 - `package_runtime.ps1` - Windows PowerShell packager; writes a trimmed
   `adore-runtime-<version>.zip` or directory under `07_Delivery/`.
 - `package_runtime.cmd` - cmd.exe wrapper around the PowerShell packager.

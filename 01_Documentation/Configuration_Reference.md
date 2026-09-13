@@ -103,7 +103,9 @@ stage_timeout_overrides = { build = 5400, validate = 3600 }
 - timeout override keys are `frame`, `specify`, `design`, `build`, `validate`,
   or `deliver`.
 
-ADORE supports AEGIS and JSON schema `1` only.
+ADORE conducts AEGIS major 0 from 0.5.0 upward over JSON schema `1`; a
+different major, a payload below the floor, or any other contract is refused
+at probe.
 
 ## Recovery
 

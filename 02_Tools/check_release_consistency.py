@@ -64,11 +64,6 @@ REQUIRED_BUNDLE_FILES = frozenset({
 FORBIDDEN_BUNDLE_PARTS = frozenset({
     ".adore", ".venv", "__pycache__", "tests", "worktrees",
 })
-ALLOWED_HISTORY_PATH = Path("00_Planning/Onboarding_Wizards_Analysis_And_Proposal.md")
-ALLOWED_HISTORY_LINE = (
-    "> Historical note: this repository was renamed from Agentic Delivery "
-    "Orchestrator (AD" + "OR) to ADORE for the 1.0.0 hard cut."
-)
 TEXT_SUFFIXES = {
     ".bat", ".cfg", ".cmd", ".html", ".ini", ".json", ".md", ".ps1",
     ".py", ".service", ".sh", ".svg", ".toml", ".txt", ".yaml", ".yml",
@@ -193,8 +188,6 @@ def _check_legacy_identifiers(root: Path, issues: list[str]) -> None:
             issues.append(f"cannot scan {relative_text}: {exc}")
             continue
         for line_number, line in enumerate(lines, start=1):
-            if relative == ALLOWED_HISTORY_PATH and line == ALLOWED_HISTORY_LINE:
-                continue
             if any(pattern.search(line) for pattern in patterns):
                 issues.append(
                     f"legacy identity in {relative_text}:{line_number}: {line.strip()}"

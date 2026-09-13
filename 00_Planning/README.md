@@ -7,24 +7,29 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Planning
 
-Architecture notes, requirements, design decisions, and roadmap for the Agentic
-Delivery Orchestrator belong here.
+Architecture notes, design decisions, and the roadmap for ADORE, the Agentic
+Delivery Orchestrator & Runtime Engine, belong here.
 
-This folder is for planning and project memory: documents used to design and
-develop the current app, strategic choices, investigation records, and TODOs.
-AI agents must not update planning documents as routine implementation
-maintenance. Update this folder only when the user explicitly asks for a
-planning, strategy, decision-record, or TODO change.
+This folder is planning and project memory: the documents that describe why
+ADORE is shaped the way it is, what it deliberately does not do, and what
+remains open. AI agents must not update planning documents as routine
+implementation maintenance. Update this folder only when the user explicitly
+asks for a planning, strategy, decision-record, or TODO change.
 
-Planned contents:
+Contents:
 
-- `Orchestrator_Architecture.md` - the orchestrator design: the thick-conductor
-  state machine, forge adapter interface, executor launcher, isolation model,
-  and the draft-MR delivery boundary.
-- `Clarification_Flow.md` - the park-on-ambiguity design: how the orchestrator
-  posts questions to the ticket, parks the run, and resumes it on a human reply.
-- `Forge_And_Executor_Adapters.md` - the abstractions that keep GitLab/GitHub
-  and opencode/pi/codex swappable.
-- `Roadmap.md` - the crawl -> walk -> run adoption path and known trade-offs.
-- Design references carried over from the initial proposal
-  (`Agentic_Automation_Proposal.md`).
+- `ADORE_System_Overview.md` - what ADORE is, the ADORE/AEGIS ownership
+  boundary, the end-to-end run, runtime states, the safety and approval model,
+  the components as implemented, the supported environment, and the known
+  limits and open work of the current release.
+
+Design detail lives with the implementation rather than here:
+
+- `05_SoftwareDocu/Component_*.md` - one contract per component, updated in
+  the same change as the code;
+- `.agentic/knowledge/<component>.md` and `.agentic/context/` - the routes and
+  current facts an agent reads before changing a component;
+- `.agentic/requirements/` - the behavior register;
+- `01_Documentation/` - operator guides and the configuration and CLI
+  references;
+- `CHANGELOG.md` - release history, including each AEGIS re-verification.

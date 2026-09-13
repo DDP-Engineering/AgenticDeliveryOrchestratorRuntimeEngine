@@ -39,9 +39,14 @@ clear human control points.
 
 ## Relationship Between ADORE and AEGIS
 
-ADORE is a companion to repository-installed AEGIS. It supports the AEGIS
-Python companion CLI and JSON schema 1 only; any other contract is refused
-rather than interpreted.
+ADORE is a companion to repository-installed AEGIS. It conducts the AEGIS
+Python companion CLI on the major-0 line from 0.5.0 upward over JSON schema 1,
+a range declared once in `04_Software/adore/aegis.py`. A different major, a
+payload below the floor, or any other contract is refused at probe rather than
+interpreted, so a new AEGIS minor needs no ADORE code change. Each AEGIS
+release is still re-verified surface by surface, and the ADORE release number
+names the AEGIS release the contract was last re-proven on; that is why 0.13.0
+followed 0.9.0 directly.
 
 The ownership boundary is deliberate:
 
@@ -55,7 +60,11 @@ The ownership boundary is deliberate:
 
 ADORE does not edit AEGIS journals as an alternative machine API. It invokes
 the AEGIS CLI, validates the returned contract, and treats the durable journal
-as the resume authority.
+as the resume authority. Every stage prompt declares the task
+autopilot-to-deliver by explicit conductor instruction, the per-task override
+AEGIS defines for its checkpoint default, so an executor never stops at a
+stage boundary that ADORE is waiting to observe. The pre-publication approval
+is ADORE's own and happens on the forge.
 
 ## End-to-End Workflow
 
@@ -82,8 +91,10 @@ frame -> specify -> design -> build -> validate -> deliver -> done
 Eligible quick work omits `specify` and `design`. The ticket label is only a
 hint; the governed framing decision must still justify the selected path.
 
-ADORE conducts synchronously and serially. It may retain several durable runs
-in waiting states, but a poll works on at most one active run at a time.
+ADORE conducts one ticket per poll pass, synchronously, and picks a new ticket
+only while fewer than `[polling] max_concurrent_runs` runs are `working`; the
+default is one. Runs in waiting states persist between passes and are
+reconciled before any pickup.
 
 ## Runtime States
 
@@ -101,7 +112,8 @@ in waiting states, but a poll works on at most one active run at a time.
 Clarification, approval, and review waits do not silently consume active-work
 time. The active clock is re-armed when clarification resumes, a revision
 begins, approval drift forces re-conduction, or an operator explicitly retries.
-Iteration, cost, and file limits remain cumulative.
+Iteration, cost, and file limits remain cumulative. `awaiting-approval` and
+`in-review` have no timers by design; they are human-paced.
 
 ## Safety and Recovery Model
 
@@ -144,15 +156,17 @@ rules and human permissions remain the final delivery boundary.
 
 | Component | Responsibility |
 | --- | --- |
-| CLI and profiles | Configuration, project selection, operator commands, and multi-project operation |
+| CLI and profiles | The `adore` command, configuration selection, operator commands, and per-project profile homes |
+| Setup | Guided `adore init` with host and target-payload readiness probes and validated configuration |
 | Orchestrator | Polling, state transitions, recovery, budgets, approval, and publication |
-| Forge adapters | Normalized GitHub, GitLab, and Gitea ticket/MR operations |
-| AEGIS client | Version/schema checks and validated access to the AEGIS companion CLI |
+| Forge adapters | Normalized GitHub (`gh`), GitLab (`glab`), and Gitea (`tea`) ticket, comment, label, and draft MR/PR operations |
+| AEGIS client | Version-range and schema checks, validated task and check documents, and the evolution and report calls |
 | Worktree manager | Run branches, isolated worktrees, checkpoints, integration, fingerprints, and push |
-| Container manager | Docker/Podman lifecycle, mounts, tools, credentials boundary, and egress policy |
-| Executor launcher | Fresh stage sessions for supported coding executors and bounded result capture |
-| State store | Schema-4 run records, ticket snapshots, locks, JSONL journals, and notification outbox |
-| Metrics | Best-effort SQLite, JSONL, CSV, and static HTML operational summaries |
+| Container manager | Docker/Podman lifecycle, WSL-wrapped runtimes, mounts, tool checks, the credential boundary, and egress policy |
+| Executor launcher | Fresh stage sessions for OpenCode, Pi, Codex, and Qwen Code through a file-based gate protocol |
+| State store | Schema-1 run records, ticket snapshots, the single-conductor lock, JSONL journals, and the notification outbox |
+| Metrics | SQLite run summaries with a JSONL mirror, CSV export, and a static HTML dashboard |
+| Process log | Rotating `adore.log` mirror of `run` output under the state root |
 
 The runnable Python implementation and offline tests are under `04_Software/`.
 Component-level contracts are documented under `05_SoftwareDocu/`.
@@ -170,11 +184,14 @@ adore init <profile>
 adore --profile <profile> config validate
 adore --profile <profile> run --dry-run
 adore --profile <profile> run --once
+adore --profile <profile> run --loop
 adore --profile <profile> status
 adore --profile <profile> runs
 adore --profile <profile> logs <run-id>
 adore --profile <profile> retry <run-id>
+adore --profile <profile> cancel <run-id>
 adore --profile <profile> cleanup
+adore --profile <profile> stats --html
 ```
 
 Forge credentials stay with the authenticated host CLI (`gh`, `glab`, or
@@ -188,8 +205,9 @@ ADORE supports:
 - GitHub, GitLab, and Gitea through forge adapters;
 - Docker, rootless Podman, and WSL-wrapped container commands;
 - open, disabled, or allowlist-proxy container egress;
-- configurable executor launchers, including opencode, pi.dev, and Codex;
-- Windows and Linux-oriented deployment scripts;
+- OpenCode, Pi, Codex, and Qwen Code executor launchers;
+- Windows 11 Task Scheduler and Ubuntu 22+ systemd deployment scripts, and a
+  trimmed runtime bundle built by the `02_Tools/` packagers;
 - offline unit and contract testing through injectable command runners.
 
 Each real project still requires operator-authorized acceptance checks for its
@@ -212,12 +230,40 @@ ADORE is not:
 Its isolation controls reduce risk, while repository policy, scoped
 credentials, human approval, branch protection, and review remain essential.
 
+## Known Limits and Open Work
+
+The configuration accepts and validates these keys, and the runtime does not
+consult them yet; `config.example.toml` marks each one:
+
+- `[readiness] require_known_component` and `max_scope_hint`: pickup filters
+  only on acceptance criteria and the priority label;
+- `[executor] mode`: the conductor is always thick, one stage per session;
+- `[review] review_reminder_after`: no MR/PR reminder is posted;
+- `[reconcile] on_ticket_deleted` and `on_ticket_closed` values: reconciliation
+  applies one built-in behavior regardless of the value, and
+  `on_trigger_removed` has no effect at all, so an active run is stopped with
+  `adore cancel`;
+- `[state] channel`: the ticket always receives one status comment and the
+  lifecycle labels;
+- `[clarification] reminder_after` and `timeout_state`: no reminder is
+  posted and a timeout always fails the run; the `stale` lifecycle value is
+  accepted by the state schema but never produced;
+- `[container] keep_parked` and the `parked_ttl_*` keys: a parked container
+  is always stopped and retained until resume or explicit cleanup;
+- `[metrics] capture_resource`: no container or disk resource probing.
+
+Deviations, stage summaries, and review verdicts that the executor records in
+the AEGIS journal are not yet surfaced at the approval gate; that work is
+tracked in `.agentic/tasks/TASK-9aebe1f3.md`. Native Windows single-file
+executables and Ubuntu `.deb` packages are not implemented; delivery is a
+Python package directory plus an executor container image.
+
 ## Current Product Position
 
-ADORE 0.6.0 is a working, offline-tested companion runtime for AEGIS. It
-provides the complete path from opt-in ticket selection through isolated
-execution, durable recovery, strict validation, fresh approval, and draft
-publication. The design intentionally favors a simple single-conductor model,
-explicit limits, typed failure, preserved evidence, and human-controlled merge
-over speculative concurrency or hidden automation.
-
+ADORE 0.13.0 is a working, offline-tested companion runtime for AEGIS,
+re-verified against AEGIS 0.13.0. It provides the complete path from opt-in
+ticket selection through isolated execution, durable recovery, strict
+validation, fresh approval, and draft publication. The design intentionally
+favors a simple single-conductor model, explicit limits, typed failure,
+preserved evidence, and human-controlled merge over speculative concurrency or
+hidden automation.

@@ -9,9 +9,9 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Executor Launcher (`adore/executor/`)
 
 > Component documentation per `component_documentation_template.md`.
-> Sources: `04_Software/adore/executor/base.py` (0.2.0),
-> `04_Software/adore/executor/launcher.py` (0.6.0).
-> Design: Orchestrator_Design_And_Decisions.md sections 6 and 7a;
+> Sources: `04_Software/adore/executor/base.py`,
+> `04_Software/adore/executor/launcher.py`.
+> Design context: `00_Planning/ADORE_System_Overview.md`;
 > Runtime-image and credential contracts: `04_Software/docker/README.md` and
 > `01_Documentation/Security_And_Credentials.md`.
 

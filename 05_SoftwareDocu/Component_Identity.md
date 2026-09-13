@@ -9,8 +9,8 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Identity (`adore/identity.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/adore/identity.py` - file version 0.1.1.
-> Design: Orchestrator_Design_And_Decisions.md sections 5c and 5d.
+> Source: `04_Software/adore/identity.py`.
+> Design context: `00_Planning/ADORE_System_Overview.md`.
 
 ## 1. Purpose
 

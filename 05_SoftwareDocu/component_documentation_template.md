@@ -1,14 +1,14 @@
 <!--
 Copyright (c) 2026 DDP Engineering
-This software is licensed under the GNU Affero General Public License v3.0
-(AGPL-3.0) with additional Non-Commercial restriction.
-See the LICENSE and LICENSE_NC.txt files for full license details.
+This software is licensed under the PolyForm Noncommercial License 1.0.0.
+Commercial use requires a separate commercial license.
+See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
 # Component Documentation Template
 
-Use this template when creating a new `Audiomancer` component document
-under `05_SoftwareDocu/`.
+Use this template when creating a new ADORE component document under
+`05_SoftwareDocu/`.
 
 Keep sections that are relevant to the component. Remove empty sections rather
 than filling them with placeholder text.

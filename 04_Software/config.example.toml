@@ -53,12 +53,11 @@ repo = "group/subgroup/project"
 # How run state is reflected ON THE TICKET for humans. The authoritative state
 # always lives locally under the store_root; the ticket only mirrors it.
 [state]
-# "comments" = one status comment (default; avoids label churn),
-# "labels"   = lifecycle labels only,
-# "both"     = comment and labels.
+# Accepted values: "comments" | "labels" | "both". Validated for compatibility;
+# the runtime mirrors every state change with ONE status comment, edited in
+# place, and the lifecycle labels regardless of this value. Clarification and
+# delivery notices are separate comments.
 channel = "comments"
-# In comment mode ADORE keeps ONE status comment and edits it in place on each
-# state change; clarification and delivery notices are separate comments.
 # Local authoritative state directory (runs, lock, pause flag, metrics).
 # Leave out to derive ".<slug>".
 store_root = ".adore"

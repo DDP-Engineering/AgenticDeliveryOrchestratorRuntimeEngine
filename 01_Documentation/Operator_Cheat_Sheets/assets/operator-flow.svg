@@ -22,7 +22,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
     </marker>
   </defs>
   <rect class="bg" x="0" y="0" width="1120" height="360" />
-  <text class="text" x="40" y="48">ADORE 0.5 first-run path</text>
+  <text class="text" x="40" y="48">ADORE first-run path</text>
   <g transform="translate(40 85)">
     <rect class="card" x="0" y="0" width="150" height="135" />
     <rect class="accent" x="0" y="0" width="150" height="12" />

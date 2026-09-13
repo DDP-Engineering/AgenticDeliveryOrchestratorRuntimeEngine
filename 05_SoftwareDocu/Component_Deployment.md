@@ -9,9 +9,9 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Deployment (`04_Software/deploy/`)
 
 > Component documentation per `component_documentation_template.md`.
-> Sources: `deploy/install-ubuntu.sh` (0.2.0), `deploy/install-windows.ps1`
-> (0.2.0), `deploy/adore.service` (template).
-> Design: Orchestrator_Design_And_Decisions.md sections 12, 12a, 12b.
+> Sources: `deploy/install-ubuntu.sh`, `deploy/install-windows.ps1`,
+> `deploy/adore.service` (template).
+> Design context: `00_Planning/ADORE_System_Overview.md`.
 
 ## 1. Purpose
 

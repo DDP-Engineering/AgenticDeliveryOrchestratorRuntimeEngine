@@ -68,6 +68,16 @@ guides belong in `01_Documentation/`.
 - `Component_Packaging.md` - runtime-bundle packaging scripts
   (`02_Tools/package_runtime.*`).
 
+## Component documentation (phase 5 - assisted setup and profiles)
+
+- `Component_Profiles.md` - runtime-project profile store: config home,
+  profile metadata, active pointer, and config-path resolution
+  (`adore/profiles.py`).
+- `Component_Doctor.md` - host and target-payload readiness probes used by
+  assisted setup (`adore/doctor.py`).
+- `Component_Wizard.md` - the `adore init` guided setup that emits a minimal
+  validated profile (`adore/wizard.py`).
+
 ## Cross-cutting contracts
 
 The implemented run-state, recovery, and idempotency contracts are currently

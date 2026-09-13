@@ -9,9 +9,8 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: CLI (`adore/cli.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/adore/cli.py` - file version 0.6.0.
-> Design: Orchestrator_Design_And_Decisions.md section 12a;
-> Assisted_Config_And_Profiles_Plan.md (init / profile / --profile).
+> Source: `04_Software/adore/cli.py`.
+> Design context: `00_Planning/ADORE_System_Overview.md`.
 
 ## 1. Purpose
 
@@ -55,7 +54,7 @@ the `adore` package; no REST API or web UI exists in v1 by design.
     report. Corrupt
     run state is reported but never auto-deleted (that is `adore delete
     <run-id> --force`'s explicit job).
-- Wire assisted-config + profiles (Assisted_Config_And_Profiles_Plan):
+- Wire assisted-config + profiles:
   - `adore init [name] [--force] [--answers FILE]` - the setup wizard
     (delegates to `adore.wizard`); writes a validated runtime-project profile.
   - `adore profile list|show|use|rename|delete|path` - manage profiles

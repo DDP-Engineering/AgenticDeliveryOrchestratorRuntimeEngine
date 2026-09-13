@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Process Log (`adore/process_log.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/adore/process_log.py` - file version 0.1.0.
+> Source: `04_Software/adore/process_log.py`.
 > Design: unattended run auditability for `adore run`.
 
 ## 1. Purpose

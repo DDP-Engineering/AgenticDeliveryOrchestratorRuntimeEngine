@@ -41,7 +41,8 @@ where appropriate.
 ## 4. Inputs and Outputs
 
 Input is a TOML file plus derived profile paths. Output is a `Config` dataclass
-and a stable list of validation problems. Unknown sections/keys are errors.
+and a stable list of validation problems. An unknown top-level section is an
+error; unknown keys inside a known section are ignored.
 
 ## 5. Validation and Tests
 

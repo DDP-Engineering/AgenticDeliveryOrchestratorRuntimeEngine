@@ -9,8 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Component: Assisted-Config Wizard (`adore/wizard.py`)
 
 > Component documentation per `component_documentation_template.md`.
-> Source: `04_Software/adore/wizard.py` - file version 0.5.0.
-> Historical design source: `00_Planning/Assisted_Config_And_Profiles_Plan.md`.
+> Source: `04_Software/adore/wizard.py`.
 > CLI: `adore init` (wired in `adore/cli.py`).
 
 ## 1. Purpose
@@ -28,7 +27,7 @@ get in-line, OS-specific guidance from `doctor`.
   choices, validator) + `ask()` (read -> default -> validate -> re-prompt).
 - **Askers:** `ConsoleAsker` (interactive stdin/stdout) and `ScriptedAsker`
   (tests + `--answers FILE`; `interactive=False` fails fast instead of looping).
-- **The flow:** `run_wizard()` walks the plan's Phase A-I - environment report,
+- **The flow:** `run_wizard()` walks nine phases - environment report,
   identity, platform/repo, local clone, branch conventions, runtime/executor,
   delivery, budgets/policy - and assembles a **minimal** config (only keys that
   matter; defaults omitted).
