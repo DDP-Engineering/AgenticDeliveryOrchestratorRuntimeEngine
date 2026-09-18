@@ -27,23 +27,26 @@ outcomes.
 
 - `Executor` (ABC in `base.py`) + `ExecTarget` protocol (the container exec
   seam, bound by the orchestrator to the run's container) + `GateRun` (the
-  conductor's decision inputs: exit code, questions, session id, raw output,
-  immutable artifact archive directories).
+  conductor's decision inputs: exit code, questions, raw output, immutable
+  artifact archive directories). There is deliberately no session id.
 - `FileProtocolExecutor` (`launcher.py`): the shared, executor-agnostic
-  file-based gate protocol (section 3), template substitution, session
-  continuation (`--session <id>`), questions-file detection, per-launch
-  archiving, and the dead-session self-heal. Subclasses supply only the JSON
-  parsers.
-- `OpencodeExecutor`: the `--auto` refusal, `sessionID` parsing, and
-  `step_finish` token/cost usage.
-- `PiExecutor`: Pi (`@earendil-works/pi-coding-agent`); session id from Pi's
-  `{"type":"session","id":...}` stream header; usage falls back to zeros (Pi
-  does not report tokens in its stream today).
-- `CodexExecutor`: OpenAI Codex CLI; first gate uses `codex exec`, later gates
-  rewrite `{resume}` to `resume --last ` because Codex continuation changes
-  the subcommand shape instead of using a `--session` flag.
-- `QwenExecutor`: Qwen Code; stateless per gate, so session continuation is
-  intentionally ignored.
+  file-based gate protocol (section 3), template substitution,
+  questions-file detection, and per-launch archiving. Subclasses supply only
+  the optional usage parser.
+- Every launch is a FRESH executor session. The durable AEGIS journal is the
+  resume authority, so nothing is continued and no session id is tracked. The
+  `--session` continuation, the dead-session self-heal relaunch, and the
+  per-executor `_extract_session_id` hooks were removed: the orchestrator
+  always launched with an empty session and never stored one back, so none of
+  that machinery could ever run.
+- `OpencodeExecutor`: the `--auto` refusal and `step_finish` token/cost usage.
+- `PiExecutor`: Pi (`@earendil-works/pi-coding-agent`); usage falls back to
+  zeros (Pi does not report tokens in its stream today).
+- `CodexExecutor`: OpenAI Codex CLI; supplies the template's `{resume}` slot as
+  empty so the command stays plain `codex exec`. The slot is still accepted so
+  an existing profile keeps working.
+- `QwenExecutor`: Qwen Code; nothing executor-specific beyond the `--yolo`
+  refusal.
 - `build_executor(kind, command_template, model, questions_file)` - the config
   selection point (`kind` = `opencode` | `pi` | `codex` | `qwen`).
 
@@ -62,8 +65,8 @@ so live streaming looks hung.
    gate must mean it was written by THIS gate.
 2. Render the command from the `[executor.<name>]` template: `{prompt}` ->
    shell-quoted prompt text, `{model}` -> quoted model, `{worktree}` ->
-   `/adore/work` (the container-side mount). A continuing session appends
-   `--session <id>`.
+   `/adore/work` (the container-side mount), and for Codex `{resume}` -> empty.
+   Nothing is appended for continuation: each gate is a fresh session.
 3. Write `gate.sh` (LF endings; Windows CRLF would break `sh`) into the
    run's io dir: `cd /adore/work`, then the command wrapped in a `{ ...; }`
    group with stdout redirected to `output.jsonl` and stderr to `stderr.log`,
@@ -74,18 +77,16 @@ so live streaming looks hung.
    tokens, immune to WSL argv splitting. The script's exit status is the
    executor's.
 5. Read back from the HOST filesystem: the event stream and stderr from the
-   io dir, questions from `<worktree>/<questions_file>`. The session id is
-   parsed per executor (opencode: the `sessionID` key; Pi: the `id` of the
-   `{"type":"session",...}` header event; Codex: session-thread events when
-   present). A missing output file is NOT an error - the exit code carries the
-   failure and the conductor decides.
+   io dir, questions from `<worktree>/<questions_file>`. Token usage is parsed
+   per executor. A missing output file is NOT an error - the exit code carries
+   the failure and the conductor decides.
 6. When the orchestrator supplies `archive_stem`, copy the just-finished
-   launch into `io/archive/<stem>-attemptN/` with `gate.sh`, `output.jsonl`,
-   `stderr.log`, and `meta.json` before any self-heal retry can overwrite the
-   live files.
+   launch into `io/archive/<stem>-attempt1/` with `gate.sh`, `output.jsonl`,
+   `stderr.log`, and `meta.json`. One launch per gate, so the suffix is
+   constant; a reused stem is disambiguated with a numeric suffix.
 
-Steps 1-5 live in `FileProtocolExecutor`; subclasses customize only session
-continuation shape and stream parsing. All supported executors read the repo's
+Steps 1-5 live in `FileProtocolExecutor`; subclasses customize only stream
+parsing. All supported executors read the repo's
 `AGENTS.md` gate contract natively and get their push/merge guardrails from
 the repo adapter plus container isolation - there are no remote credentials in
 the container, so the executor cannot push regardless.
@@ -116,8 +117,8 @@ the container, so the executor cannot push regardless.
 
 ## 5. Inputs And Outputs
 
-- Inputs: gate prompt, host worktree path, host io-dir path, optional
-  session id, timeout (run budgets), and archive stem.
+- Inputs: gate prompt, host worktree path, host io-dir path, timeout (run
+  budgets), and archive stem. No session id: every launch is a fresh session.
 - Outputs: a `GateRun`; live exchange files in the io dir; immutable archive
   directories when requested; whatever the executor itself did to the
   worktree (edits, local commits).

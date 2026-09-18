@@ -800,4 +800,238 @@ def test_issue_style_forges_route_pr_comments_through_issue_surface(kind: str) -
     assert len(runner.calls) == 2
 
 
+# PUBLIC API / TESTS - branch lookup misses (the adoption probe)
+
+
+def test_github_branch_without_pr_is_absence_not_failure() -> None:
+    """
+    @brief   gh's BRANCH miss wording differs from its 404/number wording.
+             `_publish` probes by branch before creating the draft, so a miss
+             must read as "no PR yet"; raising there failed every run after
+             the push and after human approval.
+    """
+    runner = FakeRunner(_fail('no pull requests found for branch "adore/o-r-14"'))
+    assert GitHubForge("o/r", runner).get_merge_request("adore/o-r-14") is None
+
+
+def test_gitlab_branch_without_mr_is_absence_not_failure() -> None:
+    """
+    @brief   Same adoption probe on glab, whose branch miss reads "no open
+             merge request available for" and matched no inherited marker.
+    """
+    runner = FakeRunner(_fail('no open merge request available for "adore/g-p-14"'))
+    assert GitLabForge("g/p", runner).get_merge_request("adore/g-p-14") is None
+
+
+def test_branch_lookup_still_raises_on_a_real_failure() -> None:
+    """
+    @brief   Widening the markers must not swallow genuine errors: an auth or
+             transport failure still raises instead of reporting absence,
+             which would make ADORE open a duplicate MR.
+    """
+    runner = FakeRunner(_fail("error connecting to gitlab.example: timeout"))
+    with pytest.raises(ForgeError):
+        GitLabForge("g/p", runner).get_merge_request("adore/g-p-14")
+
+
+# PUBLIC API / TESTS - comment pagination
+
+
+def test_github_list_comments_walks_every_page() -> None:
+    """
+    @brief   One gh api call returns the OLDEST 100 comments. Without a page
+             walk a parked run never sees the newer human answer and dies on
+             the clarification timeout, so the adapter must page to the end.
+    """
+    first = "[" + ",".join(
+        f'{{"id":{index},"body":"b","user":{{"login":"u"}},"created_at":"t"}}'
+        for index in range(1, 101)
+    ) + "]"
+    second = '[{"id":137,"body":"answer","user":{"login":"human"},"created_at":"t"}]'
+    runner = FakeRunner(_ok(first), _ok(second))
+    comments = GitHubForge("o/r", runner).list_comments(14)
+    assert len(comments) == 101
+    assert comments[-1].id == 137  # the answer the resume check filters on
+    assert "page=1" in runner.calls[0][-1]
+    assert "page=2" in runner.calls[1][-1]
+
+
+def test_gitlab_list_notes_walk_every_page_on_both_surfaces() -> None:
+    """
+    @brief   GitLab reaches the 100-note cap fastest, because every ADORE
+             label change adds a system note. Issue and MR surfaces both page.
+    """
+    first = "[" + ",".join(
+        f'{{"id":{index},"body":"b","author":{{"username":"u"}},"system":true}}'
+        for index in range(1, 101)
+    ) + "]"
+    second = '[{"id":137,"body":"answer","author":{"username":"human"}}]'
+    runner = FakeRunner(_ok(first), _ok(second), _ok(first), _ok(second))
+    forge = GitLabForge("g/p", runner)
+    assert [item.id for item in forge.list_comments(14)][-1] == 137
+    assert [item.id for item in forge.list_mr_comments(7)][-1] == 137
+    assert "page=2" in runner.calls[1][-1]
+    assert "merge_requests/7/notes" in runner.calls[2][-1]
+
+
+# PUBLIC API / TESTS - pipeline verdicts
+
+
+def test_gitlab_pipeline_status_maps_head_pipeline() -> None:
+    """
+    @brief   GitLab carries the verdict inline on the MR document, so one call
+             answers. Cancelled is not a failure, and an older GitLab that
+             omits the key reads as unknown rather than as a pass.
+    """
+    forge = GitLabForge("g/p", FakeRunner(_ok('{"head_pipeline":{"status":"failed"}}')))
+    assert forge.pipeline_status(9) == "failed"
+    forge = GitLabForge("g/p", FakeRunner(_ok('{"head_pipeline":{"status":"running"}}')))
+    assert forge.pipeline_status(9) == "running"
+    forge = GitLabForge("g/p", FakeRunner(_ok('{"head_pipeline":{"status":"canceled"}}')))
+    assert forge.pipeline_status(9) == "none"
+    forge = GitLabForge("g/p", FakeRunner(_ok('{"head_pipeline":null}')))
+    assert forge.pipeline_status(9) == "none"
+    forge = GitLabForge("g/p", FakeRunner(_ok('{"iid":9}')))
+    assert forge.pipeline_status(9) == "unknown"
+
+
+def test_github_pipeline_status_rolls_up_checks_and_statuses() -> None:
+    """
+    @brief   statusCheckRollup mixes Actions check runs (status + conclusion)
+             with external commit statuses (state). The worst verdict wins, an
+             unfinished check outranks the greens already in, and NEUTRAL or
+             SKIPPED is not a failure.
+    """
+    red = (
+        '{"statusCheckRollup":['
+        '{"__typename":"CheckRun","status":"COMPLETED","conclusion":"SUCCESS"},'
+        '{"__typename":"CheckRun","status":"COMPLETED","conclusion":"FAILURE"}]}'
+    )
+    assert GitHubForge("o/r", FakeRunner(_ok(red))).pipeline_status(9) == "failed"
+
+    busy = (
+        '{"statusCheckRollup":['
+        '{"__typename":"CheckRun","status":"COMPLETED","conclusion":"SUCCESS"},'
+        '{"__typename":"CheckRun","status":"IN_PROGRESS","conclusion":""}]}'
+    )
+    assert GitHubForge("o/r", FakeRunner(_ok(busy))).pipeline_status(9) == "running"
+
+    external = '{"statusCheckRollup":[{"__typename":"StatusContext","state":"SUCCESS"}]}'
+    assert GitHubForge("o/r", FakeRunner(_ok(external))).pipeline_status(9) == "success"
+
+    neutral = (
+        '{"statusCheckRollup":['
+        '{"__typename":"CheckRun","status":"COMPLETED","conclusion":"SKIPPED"}]}'
+    )
+    assert GitHubForge("o/r", FakeRunner(_ok(neutral))).pipeline_status(9) == "none"
+    assert GitHubForge("o/r", FakeRunner(_ok('{"statusCheckRollup":[]}'))
+                       ).pipeline_status(9) == "none"
+
+
+def test_pipeline_status_never_raises_on_a_forge_failure() -> None:
+    """
+    @brief   The post-MR poll watches a run doing no code work, so an
+             unreadable pipeline must degrade to "unknown" - which is silent -
+             rather than raising into the poll. A gh too old to know the field
+             is exactly this case.
+    """
+    old_gh = FakeRunner(_fail("unknown JSON field: statusCheckRollup"))
+    assert GitHubForge("o/r", old_gh).pipeline_status(9) == "unknown"
+    assert GitLabForge("g/p", FakeRunner(_fail("timeout"))).pipeline_status(9) == "unknown"
+    assert GiteaForge("o/r", FakeRunner(_api_ok("", status=500))).pipeline_status(9) == "unknown"
+
+
+def test_gitea_pipeline_status_reads_the_head_commit_status() -> None:
+    """
+    @brief   Gitea keys status by commit, so the pull is read for head.sha and
+             then its combined status. An empty state means no CI reported.
+    """
+    pull = '{"number":9,"head":{"sha":"abc123"}}'
+    failed = '{"state":"failure","statuses":[{"status":"failure"}],"total_count":1}'
+    runner = FakeRunner(_api_ok(pull), _api_ok(failed))
+    forge = GiteaForge("o/r", runner)
+    assert forge.pipeline_status(9) == "failed"
+    assert "commits/abc123/status" in runner.calls[1][-1]
+
+    runner = FakeRunner(_api_ok(pull), _api_ok('{"state":"","total_count":0}'))
+    assert GiteaForge("o/r", runner).pipeline_status(9) == "none"
+
+
+def test_gitea_no_ci_at_all_is_none_not_running() -> None:
+    """
+    @brief   Gitea answers `state: "pending"` with an EMPTY status list when
+             nothing has reported on the commit, so a repository with no CI
+             would otherwise read as a pipeline forever in progress (live
+             finding against Gitea 1.27.2). The count decides first.
+    """
+    pull = '{"number":9,"head":{"sha":"abc123"}}'
+    empty = '{"state":"pending","statuses":null,"total_count":0}'
+    runner = FakeRunner(_api_ok(pull), _api_ok(empty))
+    assert GiteaForge("o/r", runner).pipeline_status(9) == "none"
+
+    # a genuine queued pipeline still reads as running
+    queued = '{"state":"pending","statuses":[{"status":"pending"}],"total_count":1}'
+    runner = FakeRunner(_api_ok(pull), _api_ok(queued))
+    assert GiteaForge("o/r", runner).pipeline_status(9) == "running"
+
+
+# PUBLIC API / TESTS - the PR review surfaces the revise loop feeds on
+
+
+def test_github_mr_comments_include_review_bodies_and_inline_comments() -> None:
+    """
+    @brief   A reviewer using "Files changed" then "Review changes" writes to
+             pulls/<n>/reviews and pulls/<n>/comments, not the conversation.
+             Reading only the conversation handed the revision executor an
+             empty thread. Bodyless reviews are bare approve events and are
+             dropped; everything else merges onto one timeline, oldest first.
+    """
+    conversation = (
+        '[{"id":1,"body":"conversation","user":{"login":"a"},'
+        '"created_at":"2026-01-01T00:00:00Z"}]'
+    )
+    reviews = (
+        '[{"id":50,"body":"please rename the helper","user":{"login":"rev"},'
+        '"submitted_at":"2026-01-02T00:00:00Z"},'
+        '{"id":51,"body":"","user":{"login":"rev"},'
+        '"submitted_at":"2026-01-02T12:00:00Z"}]'
+    )
+    inline = (
+        '[{"id":60,"body":"this line is wrong","user":{"login":"rev"},'
+        '"created_at":"2026-01-03T00:00:00Z"}]'
+    )
+    runner = FakeRunner(_ok(conversation), _ok(reviews), _ok(inline))
+    comments = GitHubForge("o/r", runner).list_mr_comments(9)
+    assert [item.body for item in comments] == [
+        "conversation", "please rename the helper", "this line is wrong",
+    ]
+
+
+def test_gitea_mr_comments_include_review_bodies_and_inline_comments() -> None:
+    """
+    @brief   Gitea splits the same way: review text and inline diff comments
+             live behind pulls/<n>/reviews, one extra call per review.
+    """
+    conversation = (
+        '[{"id":1,"body":"conversation","user":{"login":"a"},'
+        '"created_at":"2026-01-01T00:00:00Z"}]'
+    )
+    reviews = (
+        '[{"id":50,"body":"please rename the helper","user":{"login":"rev"},'
+        '"submitted_at":"2026-01-02T00:00:00Z"}]'
+    )
+    inline = (
+        '[{"id":60,"body":"this line is wrong","user":{"login":"rev"},'
+        '"created_at":"2026-01-03T00:00:00Z"}]'
+    )
+    runner = FakeRunner(
+        _api_ok(conversation), _api_ok(reviews), _api_ok(inline),
+    )
+    comments = GiteaForge("o/r", runner).list_mr_comments(9)
+    assert [item.body for item in comments] == [
+        "conversation", "please rename the helper", "this line is wrong",
+    ]
+    assert comments[1].author == "rev"
+
+
 # END OF FILE

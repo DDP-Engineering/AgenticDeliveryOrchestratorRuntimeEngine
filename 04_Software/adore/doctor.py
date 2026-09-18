@@ -49,6 +49,8 @@ GH_AUTH = "gh-auth"
 TEA_AUTH = "tea-auth"
 OPENCODE = "opencode"
 AEGIS = "aegis"
+GIT_PUSH = "git-push"
+GITIGNORE = "gitignore"
 
 # The AEGIS payload contract the target repository must satisfy.
 AEGIS_WRAPPER = ".agentic/aegis.py"
@@ -169,8 +171,30 @@ GUIDANCE: dict[str, dict[str, str]] = {
             f"The target repository must carry an AEGIS {AEGIS_SUPPORTED_TEXT} "
             "payload with `.agentic/aegis.py` and JSON schema 1. Install the "
             "payload in the target clone without changing its source, then "
-            "re-run `adore doctor`. ADORE speaks only the AEGIS companion "
-            "CLI over JSON schema 1."
+            "re-run `adore init <profile>` to repeat this check. ADORE speaks "
+            "only the AEGIS companion CLI over JSON schema 1."
+        )
+    },
+    GITIGNORE: {
+        "*": (
+            "Add a `.gitignore` to the target repository covering its build "
+            "artifacts and tool caches. ADORE checkpoints each stage with "
+            "`git add -A`, which is what captures governed artifacts and new "
+            "source the executor wrote; only the repository's own ignore rules "
+            "can tell those apart from generated files. Without it those files "
+            "join the candidate, consume the `max_files_touched` budget, and "
+            "give the reviewer noise to read past."
+        )
+    },
+    GIT_PUSH: {
+        "*": (
+            "ADORE pushes the run branch with HOST git, using the host's own "
+            "credentials - the platform CLI login does not cover this. Make "
+            "`git ls-remote origin` succeed in the target clone before the "
+            "first run: load your SSH key into an agent (`ssh-add`), or "
+            "refresh the HTTPS credential helper. Otherwise the failure "
+            "surfaces only at publication, after a human has already approved "
+            "the candidate, and that approval is discarded."
         )
     },
 }
@@ -472,6 +496,78 @@ def detect_aegis(
         detail="" if schema == AEGIS_SCHEMA_VERSION
         else f"status reports schema {schema!r}, ADORE requires "
              f"schema {AEGIS_SCHEMA_VERSION}",
+    )
+
+
+def detect_gitignore(repo_path: str | Path) -> ToolStatus:
+    """
+    @brief      Whether the target clone carries a `.gitignore`.
+    @details    ADORE's per-stage checkpoints run `git add -A`, which is what
+                captures the governed artifacts and any new source the executor
+                wrote. It cannot tell those apart from bytecode and tool caches;
+                only the repository's own `.gitignore` can. Without one, a
+                pilot candidate carried four `__pycache__` files and reported
+                fifteen changed files for a two-file change (live finding
+                2026-09-18), consuming the `max_files_touched` budget and
+                giving the reviewer noise to read past.
+    @param[in]  repo_path Local clone the run worktrees are created from.
+    @return     The ToolStatus for the ignore file.
+    """
+    root = Path(repo_path).expanduser()
+    if not root.is_dir():
+        return ToolStatus(
+            name=GITIGNORE, present=False,
+            detail=f"the target clone directory does not exist: {root}",
+        )
+    if (root / ".gitignore").is_file():
+        return ToolStatus(name=GITIGNORE, present=True, version="present")
+    return ToolStatus(
+        name=GITIGNORE, present=False,
+        detail="the target repository has no .gitignore",
+    )
+
+
+def detect_push_access(
+    repo_path: str | Path,
+    runner: CommandRunner = run_command,
+    remote: str = "origin",
+) -> ToolStatus:
+    """
+    @brief      Whether HOST git can reach the target remote.
+    @details    `WorktreeManager.push` is ADORE's only remote-writing git call
+                and runs on the host with the host's own credentials, which are
+                entirely separate from the glab/gh/tea auth probed elsewhere -
+                `detect_git` only proves the binary exists. Unprobed, an
+                unloaded SSH key or an expired HTTPS helper stays invisible
+                until `_publish` reaches the push: by then every AEGIS stage
+                has run, the budget is spent, and a human has approved a
+                candidate that the resulting PUSH_FAILED discards.
+                `git ls-remote` performs the same authentication and ref
+                negotiation as a push while writing nothing.
+    @param[in]  repo_path Local clone the run worktrees are created from.
+    @param[in]  runner Injectable command runner.
+    @param[in]  remote Remote name ADORE pushes to.
+    @return     The ToolStatus for remote access.
+    """
+    root = Path(repo_path).expanduser()
+    if not root.is_dir():
+        # Check first: git run with a missing cwd fails as "no such file" on
+        # POSIX and WinError 267 on Windows, which this would otherwise report
+        # as a missing git binary or a raw OS code. During `adore init` the
+        # likeliest cause is simply a mistyped clone path, so say that.
+        return ToolStatus(
+            name=GIT_PUSH, present=False,
+            detail=f"the target clone directory does not exist: {root}",
+        )
+    result = runner(["git", "ls-remote", "--heads", remote], cwd=str(root))
+    if result.exit_code == 127:
+        return ToolStatus(name=GIT_PUSH, present=False, detail="git not found on PATH")
+    if result.ok:
+        return ToolStatus(name=GIT_PUSH, present=True, version=f"{remote} reachable")
+    return ToolStatus(
+        name=GIT_PUSH,
+        present=True,
+        detail=(result.stderr.strip() or f"cannot reach {remote}")[:400],
     )
 
 

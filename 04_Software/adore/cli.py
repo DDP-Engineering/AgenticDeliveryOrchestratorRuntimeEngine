@@ -555,7 +555,12 @@ def _cmd_run(args: argparse.Namespace) -> int:
         logger.emit("hint: stop or wait for a live holder; `adore cleanup` reclaims "
                     "only a provably stale local lock")
         return EXIT_ERROR
-    except RuntimeError as exc:
+    except Exception as exc:  # noqa: BLE001 - one pass must not traceback
+        # `run --loop` survives an unexpected fault and keeps polling, so a
+        # single pass must not be noisier than the daemon for the same cause:
+        # `--once` is what cron and Task Scheduler call, where a traceback is
+        # just a nonzero exit with an ugly log. The run itself is already
+        # failed and journaled by the engine.
         logger.emit(f"error: {exc}")
         return EXIT_ERROR
     logger.emit(json.dumps(summary))

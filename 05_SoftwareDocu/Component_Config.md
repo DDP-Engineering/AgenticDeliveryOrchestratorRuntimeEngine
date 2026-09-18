@@ -36,7 +36,13 @@ mandatory.
 Executor `env_keys` may contain model-provider keys but known forge credential
 names are rejected. Container-managed Git/proxy/home values cannot be
 overridden. Commands remain noninteractive and shell control input is rejected
-where appropriate.
+where appropriate. `container.selinux_relabel` accepts only the values in
+`SELINUX_RELABEL_OPTIONS`, which maps each accepted mode to the per-mount
+option it appends and from which `SELINUX_RELABEL_MODES` is derived, so a mode
+can never be accepted without an option to apply. The modes are `off` and
+`shared`; the private SELinux `Z`
+label is refused because it would bind the shared repository clone to a single
+container.
 
 ## 4. Inputs and Outputs
 

@@ -70,9 +70,24 @@ names such as `GITHUB_TOKEN`, `GH_TOKEN`, `GITLAB_TOKEN`, `GLAB_TOKEN`,
 
 `container.runtime` is Docker/Podman or a WSL-wrapped equivalent.
 `container.image`, cache volumes, `run_args`, `runtime_env`,
-`required_tool_checks`, and the egress mode configure isolation. Unit tests
-remain offline. ADORE never places forge credentials in the executor
-environment.
+`required_tool_checks`, `selinux_relabel`, and the egress mode configure
+isolation. Unit tests remain offline. ADORE never places forge credentials in
+the executor environment.
+
+`container.egress` mode `allowlist-proxy` requires Podman 4.0 or newer with the
+netavark backend, because the executor resolves the proxy by DNS alias on an
+internal network. Podman 3.x with CNI cannot serve that alias. Docker is
+unconstrained, as are the `open` and `none` modes.
+
+`container.selinux_relabel` is `off` or `shared` and defaults to `off`. Set it
+to `shared` on a host with SELinux enforcing, which is the default on Fedora,
+RHEL, CentOS Stream, Rocky, and Alma. It appends `z` to ADORE's host bind
+mounts, namely the clone, the worktree, the run io directory, and the generated
+egress-proxy config, so the container may read them; without it every stage
+fails on permission denied. Named cache volumes are not relabeled because the
+runtime already labels them. The private `Z` label is rejected: it labels
+content per container, and the clone is shared by every run and by host git, so
+`Z` would bind the clone to one container and break the next run.
 
 `executor.mode` is validated but reserved: the current conductor always uses
 thick executor sessions. Parked containers are stopped and retained for resume
@@ -165,6 +180,15 @@ revise_label = "agent-revise"
 max_review_rounds = 3
 review_reminder_after = "48h"
 ```
+
+`review.on_pipeline_failure` is `revise` (default), `notify`, or `ignore`, and
+decides what a newly `failed` forge pipeline on the published draft does.
+`revise` starts a governed repair round on the same bounded path the revise
+label uses, so the repair still ends at strict validation and a fresh human
+approval before any push; `notify` posts one comment and waits; `ignore` skips
+the pipeline read. All three obey `max_review_rounds`, which bounds repairs and
+human-requested revisions together. Only a changed verdict is a signal, and an
+unreadable verdict is silent.
 
 `draft=false` is invalid. ADORE removes `approval_label` before presenting a
 candidate and accepts only a fresh re-add after presentation. Approval is

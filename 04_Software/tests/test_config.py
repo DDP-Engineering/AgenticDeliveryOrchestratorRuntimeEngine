@@ -289,6 +289,67 @@ run_args = ["--userns=keep-id", "rm", "--memory 2g"]
     assert any("'rm'" in issue for issue in run_args_issues)
 
 
+def test_container_selinux_relabel_accepts_shared_and_defaults_off(
+    tmp_path: Path,
+) -> None:
+    """
+    @brief   selinux_relabel defaults to off and accepts "shared", the mode an
+             SELinux-enforcing host needs so container_t can read the bind
+             mounts.
+    """
+    default = load_config(_write_config(tmp_path, MINIMAL_VALID))
+    assert default.container.selinux_relabel == "off"
+    assert not validate_config(default)
+    text = MINIMAL_VALID + """
+[container]
+selinux_relabel = "shared"
+"""
+    config = load_config(_write_config(tmp_path, text))
+    assert config.container.selinux_relabel == "shared"
+    assert not validate_config(config)
+
+
+def test_container_selinux_relabel_rejects_the_private_label(
+    tmp_path: Path,
+) -> None:
+    """
+    @brief   The private SELinux `Z` label is refused, and the message says
+             why: it labels content per container, so the repository clone
+             every run shares would be locked to whichever container mounted
+             it first.
+    """
+    text = MINIMAL_VALID + """
+[container]
+selinux_relabel = "Z"
+"""
+    issues = validate_config(load_config(_write_config(tmp_path, text)))
+    relabel_issues = [issue for issue in issues if "selinux_relabel" in issue]
+    assert len(relabel_issues) == 1
+    assert "shared" in relabel_issues[0]
+    assert "clone" in relabel_issues[0]
+
+
+def test_executor_command_rejects_a_placeholder_the_launcher_cannot_fill(
+    tmp_path: Path,
+) -> None:
+    """
+    @brief   The launcher renders the template with str.format, so an
+             unsupported brace raises KeyError at GATE time, once per attempt
+             until the stage budget is spent, pointing at nothing. Only Codex
+             supplies {resume}; a shell `${HOME}` fails the same way. Both are
+             caught at setup instead.
+    """
+    text = MINIMAL_VALID.replace(
+        'command = "opencode run --dir {worktree} -m {model} {prompt}"',
+        'command = "opencode run -m {model} {resume}${HOME} {prompt}"',
+    )
+    issues = validate_config(load_config(_write_config(tmp_path, text)))
+    placeholder = [issue for issue in issues if "placeholder" in issue]
+    assert len(placeholder) == 2
+    assert any("{resume}" in issue for issue in placeholder)
+    assert any("{HOME}" in issue for issue in placeholder)
+
+
 def _codex_config(command: str) -> str:
     """
     @brief      A minimal config with codex as the default executor.

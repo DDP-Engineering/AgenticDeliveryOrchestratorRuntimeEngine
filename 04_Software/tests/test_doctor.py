@@ -189,6 +189,57 @@ def test_detect_all_aggregate() -> None:
     assert report.os_key in ("windows", "linux", "macos", "other")
 
 
+def test_detect_push_access_reports_a_reachable_remote(tmp_path: Path) -> None:
+    """
+    @brief   `git ls-remote` proves the HOST credentials ADORE pushes with,
+             which the platform-CLI auth probe does not cover. It runs in the
+             target clone so the remote resolves.
+    """
+    runner = FakeRunner({"git ls-remote": _ok("abc123\trefs/heads/main")})
+    status = doctor.detect_push_access(tmp_path, runner)
+    assert status.present and status.version == "origin reachable"
+    assert runner.calls[0] == ["git", "ls-remote", "--heads", "origin"]
+
+
+def test_detect_gitignore_flags_a_target_without_one(tmp_path: Path) -> None:
+    """
+    @brief   ADORE checkpoints with `git add -A` and cannot tell new source
+             from generated files; only the repository's ignore rules can. A
+             target without a .gitignore is flagged at setup rather than
+             discovered as fifteen changed files for a two-file change.
+    """
+    assert not doctor.detect_gitignore(tmp_path).present
+    assert "no .gitignore" in doctor.detect_gitignore(tmp_path).detail
+    (tmp_path / ".gitignore").write_text("__pycache__/\n", encoding="utf-8")
+    assert doctor.detect_gitignore(tmp_path).present
+    assert "max_files_touched" in doctor.guidance_for(doctor.GITIGNORE, "linux")
+
+
+def test_detect_push_access_names_a_missing_clone_directory(tmp_path: Path) -> None:
+    """
+    @brief   During `adore init` the likeliest cause is a mistyped clone path.
+             git run with a missing cwd fails as "no such file" on POSIX and
+             WinError 267 on Windows, either of which would otherwise be
+             reported as a missing git binary or a raw OS code.
+    """
+    status = doctor.detect_push_access(tmp_path / "not-cloned-yet", FakeRunner({}))
+    assert not status.present
+    assert "does not exist" in status.detail
+
+
+def test_detect_push_access_surfaces_a_credential_failure(tmp_path: Path) -> None:
+    """
+    @brief   An unloaded SSH key fails here, at setup, instead of at
+             publication - where it would discard a human approval that had
+             already been given for the candidate.
+    """
+    runner = FakeRunner({"git ls-remote": _fail("Permission denied (publickey).")})
+    status = doctor.detect_push_access(tmp_path, runner)
+    assert status.present and not status.version
+    assert "publickey" in status.detail
+    assert "ssh-add" in doctor.guidance_for(doctor.GIT_PUSH, "linux")
+
+
 # PUBLIC API / TESTS - guidance text
 
 

@@ -16,8 +16,8 @@
          the Prerequisites_Check_Report findings. The command runner is
          injected so the adapter is unit-testable without glab. `_run`,
          `_is_not_found`, and `_parse_json` moved to the shared `Forge` base
-         (ADORE-PY-004); this adapter's `_NOT_FOUND_MARKERS` already matched
-         the base default, so no override was needed.
+         (ADORE-PY-004); this adapter overrides `_NOT_FOUND_MARKERS` to add
+         glab's branch-lookup miss, which the shared 404 default never matched.
 """
 
 from __future__ import annotations
@@ -38,6 +38,23 @@ _MR_URL_RE = re.compile(r"https?://\S+/-/merge_requests/\d+")
 # than silently truncating the selection pool; bounded so a runaway never loops.
 _PAGE_SIZE = 100
 _MAX_LIST_PAGES = 50
+# GitLab pipeline `status` -> the normalized PIPELINE_STATES vocabulary. The
+# queued/preparing family all mean "not finished yet"; cancelled and skipped
+# are deliberately NOT failures, so they read as "no verdict".
+_PIPELINE_STATES = {
+    "success": "success",
+    "failed": "failed",
+    "created": "running",
+    "waiting_for_resource": "running",
+    "preparing": "running",
+    "pending": "running",
+    "running": "running",
+    "scheduled": "running",
+    "manual": "none",
+    "canceled": "none",
+    "cancelled": "none",
+    "skipped": "none",
+}
 
 # PUBLIC API
 
@@ -46,6 +63,13 @@ class GitLabForge(Forge):
     """
     @brief   GitLab implementation of the Forge interface (via `glab`).
     """
+
+    #: glab's BRANCH lookup miss reads "no open merge request available for
+    #: <branch>" (gitlab-org/cli internal/commands/mr/mrutils) and shares no
+    #: wording with the shared 404 default. Without it the adoption probe
+    #: `_publish` runs before creating the draft raises instead of reporting
+    #: "no MR yet", failing every run after the push and after human approval.
+    _NOT_FOUND_MARKERS = ("404", "not found", "no open merge request available")
 
     def __init__(self, repo: str, runner: CommandRunner = run_command) -> None:
         """
@@ -110,25 +134,17 @@ class GitLabForge(Forge):
     def list_comments(self, iid: int) -> list[Comment]:
         """
         @brief      Read all notes oldest-first via the notes API.
+        @details    Paginated through `_list_notes`. GitLab caps a page at 100
+                    and every ADORE label change adds a SYSTEM note, so one
+                    ticket can cross that bound inside a single run; an
+                    unwalked ascending page would then hold nothing but early
+                    system notes and a parked run would never see the human
+                    answer.
         @param[in]  iid Issue iid.
         @return     All notes, system notes flagged.
         @exception  ForgeError When glab fails.
         """
-        endpoint = (
-            f"projects/{self._project_enc}/issues/{iid}/notes"
-            "?order_by=created_at&sort=asc&per_page=100"
-        )
-        result = self._run(["glab", "api", endpoint])
-        return [
-            Comment(
-                id=int(note["id"]),
-                body=note.get("body", ""),
-                author=(note.get("author") or {}).get("username", ""),
-                created_at=note.get("created_at", ""),
-                system=bool(note.get("system", False)),
-            )
-            for note in self._parse_json(result, list)
-        ]
+        return self._list_notes("issues", iid)
 
     def post_comment(self, iid: int, body: str) -> int:
         """
@@ -223,28 +239,44 @@ class GitLabForge(Forge):
             labels=list(data.get("labels") or []),
         )
 
+    def pipeline_status(self, mr_iid: int) -> str:
+        """
+        @brief      The MR's head-pipeline verdict, normalized; never raises.
+        @details    GitLab returns the pipeline inline on the MR document, so
+                    this is one call and needs no commit lookup. An older
+                    GitLab that omits the key reads as "unknown" rather than
+                    being reported as a passing pipeline.
+        @param[in]  mr_iid MR iid.
+        @return     A PIPELINE_STATES value.
+        """
+        result = self.runner(
+            ["glab", "mr", "view", str(mr_iid), "--repo", self.repo, "--output", "json"]
+        )
+        if not result.ok:
+            return "unknown"
+        try:
+            data = self._parse_json(result, dict)
+        except ForgeError:
+            return "unknown"
+        if "head_pipeline" not in data and "pipeline" not in data:
+            return "unknown"
+        pipeline = data.get("head_pipeline") or data.get("pipeline")
+        if not isinstance(pipeline, dict):
+            return "none"  # the key is present and null: no pipeline for this MR
+        return _PIPELINE_STATES.get(str(pipeline.get("status", "")).lower(), "unknown")
+
     def list_mr_comments(self, mr_iid: int) -> list[Comment]:
         """
         @brief      Read all MR notes oldest-first via the notes API.
+        @details    Paginated like the issue surface. GitLab's notes endpoint
+                    already returns DiffNote entries, so the review thread the
+                    revise loop feeds the executor is complete here without a
+                    separate review surface.
         @param[in]  mr_iid MR iid.
         @return     All notes, system notes flagged.
         @exception  ForgeError When glab fails.
         """
-        endpoint = (
-            f"projects/{self._project_enc}/merge_requests/{mr_iid}/notes"
-            "?order_by=created_at&sort=asc&per_page=100"
-        )
-        result = self._run(["glab", "api", endpoint])
-        return [
-            Comment(
-                id=int(note["id"]),
-                body=note.get("body", ""),
-                author=(note.get("author") or {}).get("username", ""),
-                created_at=note.get("created_at", ""),
-                system=bool(note.get("system", False)),
-            )
-            for note in self._parse_json(result, list)
-        ]
+        return self._list_notes("merge_requests", mr_iid)
 
     def post_mr_comment(self, mr_iid: int, body: str) -> int:
         """@brief Create an MR note through the GitLab API."""
@@ -304,6 +336,9 @@ class GitLabForge(Forge):
         @param[in]  draft Open as draft (ADORE always passes true).
         @param[in]  reviewers Reviewer usernames.
         @param[in]  remove_source_branch Delete the branch on merge.
+        @param[in]  cwd Git checkout to run in; glab resolves remotes from a
+                        local repo even with --repo, so the run's worktree is
+                        passed (see the Forge base contract).
         @return     MR web URL.
         @exception  ForgeError When glab fails or no URL is printed.
         """
@@ -329,6 +364,39 @@ class GitLabForge(Forge):
         return match.group(0)
 
     # -- internals ------------------------------------------------------------------
+
+    def _list_notes(self, kind: str, iid: int) -> list[Comment]:
+        """
+        @brief      Read one resource's notes oldest-first, page by page.
+        @details    GitLab caps `per_page` at 100, so a single ascending page
+                    hides every later note. Pages are walked until a short
+                    (last) page, bounded by `_MAX_LIST_PAGES`.
+        @param[in]  kind Notes owner path segment ("issues" | "merge_requests").
+        @param[in]  iid Issue or MR iid.
+        @return     All notes, oldest first, system notes flagged.
+        @exception  ForgeError When glab fails or a page is malformed.
+        """
+        notes: list[Comment] = []
+        page = 1
+        while True:
+            endpoint = (
+                f"projects/{self._project_enc}/{kind}/{iid}/notes"
+                f"?order_by=created_at&sort=asc&per_page={_PAGE_SIZE}&page={page}"
+            )
+            batch = self._parse_json(self._run(["glab", "api", endpoint]), list)
+            notes.extend(
+                Comment(
+                    id=int(note["id"]),
+                    body=note.get("body", ""),
+                    author=(note.get("author") or {}).get("username", ""),
+                    created_at=note.get("created_at", ""),
+                    system=bool(note.get("system", False)),
+                )
+                for note in batch
+            )
+            if len(batch) < _PAGE_SIZE or page >= _MAX_LIST_PAGES:
+                return notes
+            page += 1
 
     @property
     def _project_enc(self) -> str:

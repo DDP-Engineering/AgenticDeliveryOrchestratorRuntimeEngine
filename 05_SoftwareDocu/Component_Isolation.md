@@ -45,7 +45,7 @@ guardrails, not a sandbox.
   worktrees root, including husks deregistered but not deleted after the WSL
   bind-mount teardown race - the input `adore cleanup` sweeps).
 - `ContainerManager(runtime, image, uv_cache_volume, npm_cache_volume,
-  run_args=..., egress=...)` -
+  run_args=..., egress=..., selinux_relabel=...)` -
   container lifecycle: `ensure_volumes`, idempotent `provision`
   (running -> no-op, stopped -> start, absent -> create), `start` / `stop`
   (park) / `remove` (reap), `status`, `list_containers(prefix)` (all
@@ -173,6 +173,16 @@ side keeps working normally with its absolute paths. The admin dir name is
   event streams out; outside the worktree so the executor can never commit
   them), uv cache volume -> `/home/adore/.cache/uv`, npm cache volume ->
   `/home/adore/.npm`.
+- SELinux relabel contract: `[container] selinux_relabel` is `off` (default)
+  or `shared`. Under `shared`, `_bind_mount` appends `z` to the HOST bind
+  mounts only - repo, worktree, io, and the generated egress-proxy config,
+  which becomes `ro,z`. The uv/npm entries are NAMED VOLUMES and are never
+  relabeled, because the runtime already creates them with a container-readable
+  label. The private `Z` label is refused by both config validation and the
+  `ContainerManager` constructor: it labels content per container, and the
+  clone is shared across runs and with host git, so `Z` would bind the clone to
+  one container and break the next run. An operator who accepts that trade can
+  still express it through `run_args`.
 - Git env contract inside the container: `GIT_DIR` points at the mounted
   linked-worktree admin dir, `GIT_COMMON_DIR` at `/adore/repo/.git`, and
   `GIT_WORK_TREE` at `/adore/work`. This keeps Git usable even though the

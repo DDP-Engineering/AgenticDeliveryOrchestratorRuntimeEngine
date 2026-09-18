@@ -33,6 +33,11 @@ from adore.util import CommandRunner, run_command
 _ISSUE_JSON_FIELDS = "number,title,body,labels,author,state,url,createdAt,updatedAt"
 _COMMENT_ID_RE = re.compile(r"#issuecomment-(\d+)")
 _PR_URL_RE = re.compile(r"https?://\S+/pull/\d+")
+# GitHub caps a REST page at 100 and `gh api` fetches exactly one page, so a
+# list endpoint must be walked or it silently returns only the OLDEST 100
+# items; bounded so a runaway never loops.
+_PAGE_SIZE = 100
+_MAX_LIST_PAGES = 50
 
 # PUBLIC API
 
@@ -45,7 +50,15 @@ class GitHubForge(Forge):
     #: gh additionally reports an unresolvable --repo as "could not resolve
     #: to a Repository", which glab/tea never print - kept as an override
     #: rather than widening the shared default (ADORE-PY-004).
-    _NOT_FOUND_MARKERS = ("404", "not found", "could not resolve")
+    #: "no pull requests found" is gh's BRANCH lookup miss (cli/cli
+    #: pkg/cmd/pr/shared/finder.go). It shares no wording with the 404/number
+    #: forms, and without it the very first `get_merge_request(branch)` of
+    #: every run - the adoption probe `_publish` runs before creating the
+    #: draft - raises instead of reporting "no MR yet", failing the run after
+    #: the push and after human approval.
+    _NOT_FOUND_MARKERS = (
+        "404", "not found", "could not resolve", "no pull requests found",
+    )
 
     def __init__(self, repo: str, runner: CommandRunner = run_command) -> None:
         """
@@ -106,23 +119,19 @@ class GitHubForge(Forge):
     def list_comments(self, iid: int) -> list[Comment]:
         """
         @brief      Read all issue comments oldest-first via the REST API.
+        @details    Paginated through `_paged`: a single page is the OLDEST
+                    100 comments, so on a busier ticket the newest ones -
+                    including the human answer a parked run is waiting for -
+                    would never be read, and the run would die on the
+                    clarification timeout instead of resuming.
         @param[in]  iid Issue number.
         @return     All comments (GitHub keeps system events separate, so
                     system is always False here).
         @exception  ForgeError When gh fails.
         """
-        result = self._run(
-            ["gh", "api", f"repos/{self.repo}/issues/{iid}/comments?per_page=100"]
-        )
         return [
-            Comment(
-                id=int(item["id"]),
-                body=item.get("body", ""),
-                author=(item.get("user") or {}).get("login", ""),
-                created_at=item.get("created_at", ""),
-                system=False,
-            )
-            for item in self._parse_json(result, list)
+            self._to_comment(item)
+            for item in self._paged(f"repos/{self.repo}/issues/{iid}/comments")
         ]
 
     def post_comment(self, iid: int, body: str) -> int:
@@ -234,17 +243,106 @@ class GitHubForge(Forge):
             labels=[label["name"] for label in data.get("labels") or []],
         )
 
+    def pipeline_status(self, mr_iid: int) -> str:
+        """
+        @brief      The PR's combined check verdict, normalized; never raises.
+        @details    `statusCheckRollup` merges both surfaces GitHub exposes:
+                    Actions check runs, which report `status` plus
+                    `conclusion`, and commit statuses from external CI, which
+                    report only `state`. It is requested in its OWN `gh pr
+                    view` call rather than being added to the field set
+                    `get_merge_request` asks for, so a gh version that does not
+                    know the field cannot break the MR read that the whole
+                    post-MR poll depends on.
+        @param[in]  mr_iid PR number.
+        @return     A PIPELINE_STATES value.
+        """
+        result = self.runner(
+            ["gh", "pr", "view", str(mr_iid), "--repo", self.repo,
+             "--json", "statusCheckRollup"]
+        )
+        if not result.ok:
+            return "unknown"
+        try:
+            data = self._parse_json(result, dict)
+        except ForgeError:
+            return "unknown"
+        rollup = data.get("statusCheckRollup")
+        if not isinstance(rollup, list):
+            return "unknown"
+        states = {
+            self._check_state(item) for item in rollup if isinstance(item, dict)
+        }
+        # Worst verdict wins: one red check makes the whole rollup red, and a
+        # check still running outranks the greens that already landed.
+        for verdict in ("failed", "running", "success"):
+            if verdict in states:
+                return verdict
+        return "none"
+
+    @staticmethod
+    def _check_state(item: dict[str, Any]) -> str:
+        """
+        @brief      Normalize one statusCheckRollup entry.
+        @details    A CheckRun is only meaningful once `status` is COMPLETED;
+                    until then its `conclusion` is empty and it counts as
+                    running. A StatusContext has no `status` field at all, so
+                    it falls through to `state`. NEUTRAL, SKIPPED and CANCELLED
+                    are not failures.
+        @param[in]  item One rollup entry.
+        @return     A PIPELINE_STATES value other than "unknown".
+        """
+        status = str(item.get("status") or "").upper()
+        if status and status != "COMPLETED":
+            return "running"
+        verdict = str(item.get("conclusion") or item.get("state") or "").upper()
+        if verdict in {"FAILURE", "ERROR", "TIMED_OUT", "STARTUP_FAILURE",
+                       "ACTION_REQUIRED"}:
+            return "failed"
+        if verdict == "SUCCESS":
+            return "success"
+        if verdict in {"PENDING", "QUEUED", "IN_PROGRESS", "WAITING", "EXPECTED"}:
+            return "running"
+        return "none"
+
     def list_mr_comments(self, mr_iid: int) -> list[Comment]:
         """
-        @brief      Read PR conversation comments oldest-first (REST API).
-        @details    PRs are issues on GitHub, so the issues comments endpoint
-                    covers the conversation; inline review-thread comments
-                    are a later refinement.
+        @brief      Read the whole PR review thread oldest-first (REST API).
+        @details    A GitHub PR carries THREE comment surfaces and the revise
+                    loop needs all of them. PRs are issues, so the issues
+                    endpoint covers the conversation tab; a submitted review's
+                    own text lives under `pulls/<n>/reviews`; inline diff
+                    comments live under `pulls/<n>/comments`. Reading only the
+                    conversation handed the revision executor an EMPTY thread
+                    whenever a reviewer used "Files changed" then "Review
+                    changes", which is the normal way to request changes, so
+                    the round was spent revising blind.
         @param[in]  mr_iid PR number.
-        @return     All conversation comments.
+        @return     Conversation, review-body and inline comments, oldest first.
         @exception  ForgeError When gh fails.
         """
-        return self.list_comments(mr_iid)
+        comments = self.list_comments(mr_iid)
+        comments.extend(self._review_comments(mr_iid))
+        comments.sort(key=lambda item: (item.created_at, item.id))
+        return comments
+
+    def _review_comments(self, mr_iid: int) -> list[Comment]:
+        """
+        @brief      Submitted review bodies plus inline diff comments.
+        @details    A review with an empty body is a bare approve/close event
+                    that carries no instruction, so it is dropped rather than
+                    padding the thread the executor reads.
+        @param[in]  mr_iid PR number.
+        @return     Review-surface comments (empty when the PR has none).
+        @exception  ForgeError When gh fails.
+        """
+        found: list[Comment] = []
+        for surface in ("reviews", "comments"):
+            for item in self._paged(f"repos/{self.repo}/pulls/{mr_iid}/{surface}"):
+                if not str(item.get("body") or "").strip():
+                    continue
+                found.append(self._to_comment(item))
+        return found
 
     def post_mr_comment(self, mr_iid: int, body: str) -> int:
         """@brief Post a PR conversation comment through the issues surface."""
@@ -289,6 +387,9 @@ class GitHubForge(Forge):
         @param[in]  draft Open as draft (ADORE always passes true).
         @param[in]  reviewers Reviewer logins.
         @param[in]  remove_source_branch Ignored (a repo setting on GitHub).
+        @param[in]  cwd Git checkout to run in; gh resolves remotes from a
+                        local repo even with --repo, so the run's worktree is
+                        passed (see the Forge base contract).
         @return     PR web URL.
         @exception  ForgeError When gh fails or no URL is printed.
         """
@@ -312,6 +413,49 @@ class GitHubForge(Forge):
         return match.group(0)
 
     # -- internals ------------------------------------------------------------------
+
+    def _paged(self, path: str) -> list[dict[str, Any]]:
+        """
+        @brief      GET every page of a REST list endpoint.
+        @details    `gh api` fetches ONE page and GitHub caps a page at 100,
+                    so an unwalked call returns the oldest 100 items and hides
+                    the rest with no error. Pages are walked until a short
+                    (last) page; `_MAX_LIST_PAGES` bounds a runaway.
+        @param[in]  path Endpoint path, without a query string.
+        @return     The concatenated item list.
+        @exception  ForgeError When gh fails or a page is malformed.
+        """
+        items: list[dict[str, Any]] = []
+        page = 1
+        while True:
+            result = self._run(
+                ["gh", "api", f"{path}?per_page={_PAGE_SIZE}&page={page}"]
+            )
+            batch = self._parse_json(result, list)
+            items.extend(batch)
+            if len(batch) < _PAGE_SIZE or page >= _MAX_LIST_PAGES:
+                return items
+            page += 1
+
+    @staticmethod
+    def _to_comment(item: dict[str, Any]) -> Comment:
+        """
+        @brief      Map one gh comment, review, or inline-comment record.
+        @details    A submitted review timestamps itself with `submitted_at`
+                    rather than `created_at`; falling back keeps every surface
+                    on one sortable timeline instead of pinning reviews to the
+                    start of the thread.
+        @param[in]  item Raw comment/review mapping.
+        @return     The normalized Comment (GitHub keeps system events on a
+                    separate timeline, so `system` is always False).
+        """
+        return Comment(
+            id=int(item["id"]),
+            body=item.get("body", ""),
+            author=(item.get("user") or {}).get("login", ""),
+            created_at=item.get("created_at") or item.get("submitted_at", ""),
+            system=False,
+        )
 
     @staticmethod
     def _to_ticket(item: dict[str, Any]) -> Ticket:

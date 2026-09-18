@@ -14,6 +14,146 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Added
 
+- **ADORE now watches the forge pipeline on a published draft and can repair
+  it.** Each poll of an `in-review` run reads the verdict through the new
+  `Forge.pipeline_status`, normalized to `success`, `failed`, `running`, `none`
+  or `unknown`. GitLab reads it inline from the MR document; GitHub requests
+  `statusCheckRollup` in a separate `gh pr view` call, so a gh that does not
+  know the field cannot break the MR read the poll depends on; Gitea reads the
+  pull for `head.sha` and then that commit's combined status. The method is
+  contracted never to raise, because the poll is watching a run doing no code
+  work: anything unreadable is `unknown`, which is silent.
+- New `[review] on_pipeline_failure`, defaulting to `revise`, decides what a
+  newly failed verdict does. `revise` starts a governed repair round on the
+  same bounded path the revise label uses: a new AEGIS task on the same branch,
+  earlier journals preserved, and the executor told that a green pipeline is
+  part of this round's acceptance criteria. The round therefore still ends at
+  strict validation and a **fresh human approval** before anything is pushed,
+  so automatic repair never weakens the delivery gate and ADORE still never
+  merges. `notify` posts one comment and waits for a human; `ignore` skips the
+  read entirely for a repository with no CI.
+- A repair round announces itself on the draft, so a reviewer watching the
+  MR/PR learns why commits are about to arrive instead of seeing an unexplained
+  push. The notice names the round number and how to opt out.
+- Only a CHANGED verdict is a signal, and `pipeline_reported` is cleared when a
+  revision starts, so a run waiting days is neither nagged on every poll nor
+  repaired twice for one failure, and the pipeline a repair produces is judged
+  on its own. Repairs and human-requested revisions share `max_review_rounds`,
+  so a permanently red pipeline cannot loop; when the budget is spent the run
+  keeps waiting in review with a comment saying so rather than being failed.
+
+### Fixed
+
+- **GitHub and GitLab could never open a draft MR/PR.** Before creating one,
+  `_publish` probes for an adoptable MR/PR by branch. `gh pr view <branch>`
+  reports a branch miss as `no pull requests found for branch`, and
+  `glab mr view <branch>` as `no open merge request available for`; neither
+  matched the adapters' not-found markers, so the probe raised instead of
+  reporting "none yet". The run then failed as `MR_CREATE_FAILED` after the
+  push and after a human had approved the candidate, and `adore retry` hit the
+  same wall. Both adapters now recognise their CLI's branch-miss wording; a
+  genuine transport or auth failure still raises, so ADORE never opens a
+  duplicate on a bad read. Gitea was unaffected.
+- **A parked run on a busy ticket never resumed.** GitHub and GitLab comment
+  reads fetched a single page, which is the OLDEST 100 entries, so a human
+  answer past that point was invisible and the run died on
+  `CLARIFICATION_TIMEOUT`. GitLab hit the cap fastest because every ADORE label
+  change adds a system note. Both adapters now walk pages to the end, as the
+  Gitea adapter already did.
+- **The revise loop read an empty review thread on GitHub and Gitea.** Both
+  routed MR/PR comments through the issue surface only, so a reviewer who
+  requested changes through "Review changes" left the revision executor nothing
+  to act on and the round was spent on a blind revision. Both adapters now also
+  read submitted review bodies and inline diff comments and merge all surfaces
+  onto one timeline. GitLab already returned diff notes.
+- **An unexpected error killed the poll loop instead of one run.** `run_loop`
+  caught only `ForgeError`, so an `IsolationError` from a checkpoint commit, or
+  a `KeyError` from an executor template carrying an unsupported brace, ended
+  the process and stranded every waiting run; the next start then failed the
+  in-flight run as `STALE_WORKING`. The loop now logs any unexpected error and
+  continues with the configured backoff, while `KeyboardInterrupt` still stops
+  it cleanly.
+- **`run_command` let some OS errors escape.** Only `FileNotFoundError` and
+  `TimeoutExpired` became a `CommandResult`; a `PermissionError` or a command
+  line past the Windows 32767-character limit propagated raw, past every
+  handler. Any `OSError` is now reported as exit code 126.
+- **A transient push failure ended a fully validated run.** Found in the Gitea
+  pilot: a one-off `remote: Failed to authenticate user` from a credential
+  refresh hit `PUSH_FAILED`, which is terminal, discarding both the run's work
+  and the human approval bound to that exact candidate. The identical command
+  succeeded seconds later. Every fetch around the push already retried through
+  `_transient`; the push did not, because it returns its outcome as data rather
+  than raising. All three push sites now retry on the same bounded schedule. A
+  genuine refusal, such as a protected branch or a non-fast-forward, still fails
+  every attempt and ends the run loudly.
+- **Strict verification ran twice on every successful run.** The
+  validate-to-deliver transition verifies, then the next pass of the conduct
+  loop reads the task back at deliver and verified again, re-running the whole
+  check catalogue and every configured command. Six seconds on the pilot's toy
+  suite, a doubled test suite on a real repository. Re-verification is now
+  skipped only when the candidate hashes identically to the one the stored
+  evidence describes. Recorded deviations are re-harvested from the task the
+  loop already read, which the second verification pass had been providing by
+  accident.
+- **Tool-regenerated files counted as product mutation.** A target repository
+  without matching `.gitignore` rules carries its own bytecode and tool caches
+  in the candidate, and the delivery gate reruns the configured commands, which
+  rewrites them. That could invalidate an approval a human had already given,
+  for a file nobody edited. Bytecode and the common tool caches are now excluded
+  from the product fingerprint only; they stay in the diff and in
+  `changed_files`, because the candidate really does contain them. `adore init`
+  additionally flags a target repository that has no `.gitignore`, since that is
+  the root cause and only the repository's own rules can separate generated
+  files from new source the executor wrote.
+- **Gitea reported a pipeline as `running` for a repository with no CI.** Gitea
+  answers `state: "pending"` with `total_count: 0` when nothing has reported on
+  the commit, so a repository without CI read as a pipeline forever in progress.
+  The status count now decides before the state does.
+- **A mistyped clone path during `adore init` was misdiagnosed.** git run with
+  a missing working directory fails as "no such file" on POSIX and WinError 267
+  on Windows, so the new push-access probe reported a missing git binary or a
+  raw OS code. It now names the directory that does not exist.
+- **An executor command template could carry a placeholder nothing fills.** The
+  launcher renders the template with `str.format`, so `{resume}` on a non-Codex
+  executor, or a shell `${HOME}`, raised `KeyError` at gate time once per
+  attempt until the stage budget was spent, with nothing pointing at the cause.
+  Configuration validation now rejects unsupported and malformed placeholders
+  at setup.
+- **`run --once` tracebacked where `run --loop` recovered.** After the poll loop
+  was taught to survive an unexpected fault, a single pass still exited with a
+  raw traceback for the same cause. That is the mode cron and Task Scheduler
+  call, so it now reports the error and exits nonzero like every other CLI
+  failure.
+- **A missing lifecycle label failed the first run in silence.** The forge
+  write that fails at claim time is the same one that would carry the
+  explanation, so nothing appeared on the ticket. The reason is now logged to
+  the console and `adore.log`, and `Getting_Started.md` lists the nine labels
+  that must exist in the repository before the first run.
+
+### Changed
+
+- The executor launcher no longer carries session-continuation machinery. The
+  orchestrator always launched with an empty session and never stored one back,
+  so the `--session` append, Codex's `resume --last` rewrite, the dead-session
+  self-heal relaunch and the per-executor `_extract_session_id` hooks could
+  never run; `GateRun.session_id` and the `session` argument are gone with
+  them. Every gate was, and remains, a fresh executor session with the durable
+  AEGIS journal as the resume authority. Codex's `{resume}` template slot is
+  still accepted and always resolves to empty, so existing profiles keep
+  working.
+- `adore init` now probes host git push access with `git ls-remote` in the
+  target clone. That credential is separate from the platform CLI login and was
+  previously unverified until `_publish` reached the push, where a failure
+  discarded an approval a human had already given.
+- The AEGIS setup guidance pointed at `adore doctor`, a command the CLI does not
+  implement; it now names `adore init <profile>`, which repeats the same probe.
+- Documented that ADORE reads no forge pipeline, check-run or commit-status
+  result, so a failing pipeline on a draft is a human decision point, and that
+  `allowlist-proxy` egress needs Podman 4.0 or newer with netavark, since
+  Podman 3.x with CNI cannot resolve the proxy alias on an internal network.
+
+### Added
+
 - The approval presentation now leads with the deviations the AEGIS task
   journal recorded: a count and the full text of every `DEVIATION <stage>`
   entry, harvested with the same marker rule AEGIS applies to its own delivery
@@ -21,6 +161,20 @@ This project follows Keep a Changelog and Semantic Versioning.
   the approver and never block; a run with none says so explicitly.
 - A root `LICENSE.txt` carrying the PolyForm Noncommercial 1.0.0 text that
   every file header already references.
+- `[container] selinux_relabel` makes ADORE usable on a host with SELinux
+  enforcing, the default on Fedora, RHEL, CentOS Stream, Rocky and Alma.
+  `docker/README.md` already named the requirement, but the four bind mounts
+  were composed as bare `source:target` and no configuration could add a
+  relabel suffix, so those hosts denied the container every read and each stage
+  failed on permission denied. `shared` now appends `z` to the host bind mounts
+  only - clone, worktree, run io directory, and the generated egress-proxy
+  config, which becomes `ro,z` - while the named cache volumes stay untouched
+  because the runtime already labels them. The default stays `off`, so Windows,
+  WSL and Ubuntu profiles are unchanged. The private `Z` label is refused by
+  both configuration validation and the `ContainerManager` constructor: it
+  labels content with a per-container category, and the repository clone is
+  shared by every run and by host git, so `Z` would bind the clone to whichever
+  container mounted it first and break the next run.
 
 ## [0.13.0] - 2026-09-12
 

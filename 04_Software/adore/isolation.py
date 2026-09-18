@@ -47,7 +47,7 @@ from adore.branding import (
     EGRESS_NETWORK_PREFIX,
     EGRESS_PROXY_ALIAS,
 )
-from adore.config import ContainerEgressConfig
+from adore.config import SELINUX_RELABEL_OPTIONS, ContainerEgressConfig
 from adore.util import (
     DEFAULT_COMMAND_TIMEOUT,
     CommandResult,
@@ -64,6 +64,11 @@ _EXISTS_MARKERS = ("already exists",)
 _CONNECTED_MARKERS = ("already exists", "is already connected")
 _DRIVE_RE = re.compile(r"^([A-Za-z]):[\\/]")
 _SAFE_NAME_RE = re.compile(r"[^A-Za-z0-9_.-]+")
+# The mode -> per-mount option map comes from config (SELINUX_RELABEL_OPTIONS)
+# so there is one list, not two that can drift apart. Only HOST BIND MOUNTS
+# take the option: the uv/npm cache mounts are NAMED VOLUMES, which the runtime
+# already creates carrying a container-readable label, and relabeling those
+# would be both pointless and slow.
 _PROXY_SUFFIX = "-egress-proxy"
 PROXY_ALIAS = EGRESS_PROXY_ALIAS
 _INLINE_ENV_KEYS = frozenset({
@@ -103,6 +108,20 @@ _TEARDOWN_RACE_MARKERS = (
     "directory not empty",        # ENOTEMPTY - files not yet released
 )
 _TEARDOWN_RETRY_DELAYS = (1.0, 2.0, 4.0)  # ~7s ceiling; the race clears in seconds
+
+# Paths a TOOL regenerates rather than a person editing them. Excluded from the
+# PRODUCT fingerprint only: rerunning a configured command rewrites them, and
+# that must never read as the delivery executor changing product code after a
+# human approved the candidate. Deliberately narrow - anything whose content a
+# person could meaningfully author stays inside the fingerprint.
+_GENERATED_PATHSPECS = (
+    ":(exclude)**/__pycache__/**",
+    ":(exclude)**/*.pyc",
+    ":(exclude)**/*.pyo",
+    ":(exclude)**/.pytest_cache/**",
+    ":(exclude)**/.ruff_cache/**",
+    ":(exclude)**/.mypy_cache/**",
+)
 
 # DATA MODELS / TYPEDEFINITIONS
 
@@ -479,6 +498,16 @@ class WorktreeManager:
         @details    Delivery bookkeeping is expected to change governed
                     journal/report files. Product code is not; this digest lets
                     the conductor detect that prohibited candidate mutation.
+
+                    Tool-regenerated paths are excluded too. A target
+                    repository without a matching `.gitignore` carries its own
+                    bytecode and tool caches in the candidate, and the delivery
+                    gate reruns the configured commands, which rewrites them.
+                    Counting that as the delivery executor mutating product
+                    code would invalidate an approval a human had already
+                    given, for a file nobody edited (live finding 2026-09-18).
+                    They stay in the diff and in `changed_files`: the candidate
+                    really does contain them and the reviewer should see that.
         @param[in]  run_id Stable run identifier.
         @param[in]  base_ref Integrated target ref.
         @return     SHA-256 of the binary product diff.
@@ -493,6 +522,7 @@ class WorktreeManager:
             "--",
             ".",
             ":(exclude).agentic/**",
+            *_GENERATED_PATHSPECS,
         )
         return hashlib.sha256(result.stdout.encode("utf-8")).hexdigest()
 
@@ -651,6 +681,7 @@ class ContainerManager:
         *,
         run_args: Sequence[str] = (),
         egress: ContainerEgressConfig | None = None,
+        selinux_relabel: str = "off",
     ) -> None:
         """
         @brief      Configure the manager from the [container] section.
@@ -667,7 +698,18 @@ class ContainerManager:
                              ([container] run_args; e.g. "--userns=keep-id"
                              for rootless podman, live finding 2026-07-04).
         @param[in]  egress Optional egress policy for executor containers.
+        @param[in]  selinux_relabel [container] selinux_relabel mode; "shared"
+                             appends `z` to every host bind mount so an
+                             SELinux-enforcing host lets the container read
+                             them. Config validation is the operator-facing
+                             gate; an unknown value fails closed here too
+                             rather than silently mounting unlabeled.
+        @exception  ValueError When selinux_relabel is not a known mode.
         """
+        if selinux_relabel not in SELINUX_RELABEL_OPTIONS:
+            raise ValueError(
+                f"unsupported selinux_relabel mode: {selinux_relabel!r}"
+            )
         self.runtime = runtime
         self.runtime_argv = shlex.split(runtime)
         self.wsl_mode = Path(self.runtime_argv[0]).stem.lower() == "wsl"
@@ -677,6 +719,7 @@ class ContainerManager:
         self.runner = runner
         self.run_args = [str(arg) for arg in run_args]
         self.egress = egress or ContainerEgressConfig()
+        self.selinux_relabel = selinux_relabel
 
     def status(self, name: str) -> str:
         """
@@ -879,9 +922,9 @@ class ContainerManager:
         argv = [
             *self.runtime_argv, "run", "--detach", *self.run_args,
             "--name", name,
-            "--volume", f"{self._mount_source(repo_path)}:{CONTAINER_REPO_MOUNT}",
-            "--volume", f"{self._mount_source(worktree_path)}:{CONTAINER_WORKTREE_MOUNT}",
-            "--volume", f"{self._mount_source(io_path)}:{CONTAINER_IO_MOUNT}",
+            "--volume", self._bind_mount(repo_path, CONTAINER_REPO_MOUNT),
+            "--volume", self._bind_mount(worktree_path, CONTAINER_WORKTREE_MOUNT),
+            "--volume", self._bind_mount(io_path, CONTAINER_IO_MOUNT),
             "--volume", f"{self.uv_cache_volume}:{CONTAINER_UV_CACHE_MOUNT}",
             "--volume", f"{self.npm_cache_volume}:{CONTAINER_NPM_CACHE_MOUNT}",
             "--workdir", CONTAINER_WORKTREE_MOUNT,
@@ -1175,7 +1218,7 @@ class ContainerManager:
             self._run([
                 *self.runtime_argv, "run", "--detach",
                 "--name", proxy_name,
-                "--volume", f"{self._mount_source(config_path)}:/etc/squid/squid.conf:ro",
+                "--volume", self._bind_mount(config_path, "/etc/squid/squid.conf", "ro"),
                 self.egress.proxy_image,
             ])
         elif proxy_state != "running":
@@ -1208,6 +1251,28 @@ class ContainerManager:
             return wsl_mount_path(raw)
         absolute = Path(path).resolve()
         return wsl_mount_path(absolute) if self.wsl_mode else absolute.as_posix()
+
+    def _bind_mount(self, source: str | Path, target: str, *options: str) -> str:
+        """
+        @brief      Compose one HOST BIND MOUNT argument for `--volume`.
+        @details    Appends the configured SELinux relabel option after any
+                    caller-supplied option, producing forms like `ro,z` that
+                    both docker and podman accept. Without it, an enforcing
+                    host leaves the mounted content carrying its host file
+                    label, which `container_t` cannot read, and every stage
+                    fails on permission denied. Named cache VOLUMES must not be
+                    built here - see `SELINUX_RELABEL_OPTIONS` in config.
+        @param[in]  source Host path to mount.
+        @param[in]  target Container mount point.
+        @param[in]  options Extra per-mount options, for example "ro".
+        @return     The `source:target[:options]` argument value.
+        """
+        parts = [*options]
+        relabel = SELINUX_RELABEL_OPTIONS[self.selinux_relabel]
+        if relabel:
+            parts.append(relabel)
+        suffix = f":{','.join(parts)}" if parts else ""
+        return f"{self._mount_source(source)}:{target}{suffix}"
 
     def _run(self, argv: list[str]) -> CommandResult:
         """

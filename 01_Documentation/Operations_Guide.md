@@ -102,6 +102,44 @@ entering `in-review`.
 ADORE has no merge operation. The human review/merge path remains protected by
 forge permissions and branch rules.
 
+On GitLab the revision thread comes from the MR notes endpoint, which already
+includes diff notes. On GitHub and Gitea ADORE additionally reads the submitted
+reviews and their inline comments, so feedback left through "Review changes"
+reaches the executor and not only conversation-tab comments.
+
+### Pipeline failures
+
+While a run is `in-review`, each poll reads the forge pipeline verdict for the
+draft and normalizes it to `success`, `failed`, `running`, `none` or `unknown`.
+Only a *change* in that verdict is a signal, so a run that waits days is neither
+nagged nor repaired twice for one failure. `[review] on_pipeline_failure`
+decides what a new `failed` verdict does:
+
+| Mode | Behavior |
+| --- | --- |
+| `revise` (default) | Start a governed repair round automatically. |
+| `notify` | Post one comment on the draft and wait for a human. |
+| `ignore` | Skip the pipeline read entirely. |
+
+A repair round is the same bounded path the revise label uses: a new AEGIS task
+on the same branch, the prior journals preserved, and the executor told that a
+green pipeline is part of this round's acceptance criteria. It therefore ends
+where every other round ends, at strict validation and a **fresh human approval**
+before anything is pushed. ADORE still never merges.
+
+`max_review_rounds` bounds repairs and human-requested revisions together, so a
+permanently red pipeline cannot loop. When the budget is spent, ADORE posts a
+comment saying so and leaves the run in review rather than failing it.
+
+A pipeline that is unreadable, or a `gh` too old to report check status, reads
+as `unknown` and is silent. It never blocks the poll and never triggers a
+repair.
+
+ADORE also verifies `check --strict --run` inside the container, which covers
+only the commands the target repository configures for AEGIS. Keep those aligned
+with the pipeline if you want local validation to predict the pipeline result
+and avoid spending repair rounds on failures the container could have caught.
+
 ## Notification Outbox
 
 An outbox record is stored before every required problem/approval comment. A

@@ -16,11 +16,13 @@
          embedded) is written to a script in the run's io dir and executed as
          `sh /adore/io/gate.sh` - so no prompt content ever travels through argv
          (wsl.exe splits argv elements containing spaces) and the event stream
-         is captured to a file, never streamed from stdout. Executors differ
-         only in how they continue sessions and parse their own JSON event
-         stream (session id, token usage); everything else - the WSL-safe
-         protocol, clarification-questions detection, and session self-heal -
-         is shared. Supported executors read the repo's AGENTS.md gate
+         is captured to a file, never streamed from stdout. Every launch is a
+         FRESH executor session: the durable AEGIS journal is the resume
+         authority, so nothing is continued and no session id is tracked.
+         Executors differ only in how they parse their own JSON event stream
+         for token usage; everything else - the WSL-safe protocol,
+         clarification-questions detection, and per-launch archiving - is
+         shared. Supported executors read the repo's AGENTS.md gate
          contract natively and get their push/merge guardrails from the repo's
          adapter plus container isolation (no remote credentials in the
          container).
@@ -47,8 +49,6 @@ OUTPUT_FILE = "output.jsonl"
 STDERR_FILE = "stderr.log"
 ARCHIVE_DIR = "archive"
 
-# opencode tags each event with "sessionID" / "session_id".
-_OPENCODE_SESSION_RE = re.compile(r'"session_?[iI][dD]"\s*:\s*"([^"]+)"')
 _ARCHIVE_STEM_RE = re.compile(r"[^A-Za-z0-9_.-]+")
 
 # PUBLIC API
@@ -61,23 +61,16 @@ class FileProtocolExecutor(Executor):
              (the command with the shell-quoted prompt) into the io dir, exec
              it in the container, and read every result back from files
              (output stream, stderr, questions) - never from live stdout.
-             When an archive stem is provided, each actual launch copies its
-             gate.sh/output/stderr/meta into an immutable archive directory
-             before any dead-session self-heal can relaunch and overwrite the
-             live exchange files.
-             Continuation appends `--session <id>` (the convention shared by
-             opencode and pi). Subclasses supply only the JSON parsers:
-             `_extract_session_id` (required) and `_extract_usage` (optional,
-             defaults to no usage). `forbidden_flags` and
-             `session_reset_markers` are per-executor class attributes.
+             When an archive stem is provided, the launch copies its
+             gate.sh/output/stderr/meta into an immutable archive directory.
+             Every launch is a fresh session; subclasses supply only the
+             optional `_extract_usage` JSON parser (default: no usage) and the
+             per-executor `forbidden_flags`.
     """
 
     #: Command-template tokens rejected at construction (a bypass of the
     #: executor's own push/merge guardrails). Per-executor.
     forbidden_flags: tuple[str, ...] = ()
-    #: stderr substrings that mean the stored session died with its container
-    #: (or was pruned) - relaunch once with a fresh session.
-    session_reset_markers: tuple[str, ...] = ("session not found",)
 
     def __init__(
         self,
@@ -121,7 +114,6 @@ class FileProtocolExecutor(Executor):
         io_dir: str | Path,
         prompt: str,
         *,
-        session: str = "",
         timeout: float | None = None,
         archive_stem: str = "",
     ) -> GateRun:
@@ -135,59 +127,19 @@ class FileProtocolExecutor(Executor):
                     output file is not an error - the exit code carries the
                     failure and the conductor decides. When archive_stem is
                     set, the live files are copied to
-                    `io/archive/<stem>-attemptN/` after each actual launch. A
-                    dead session
-                    (session_reset_markers in stderr) self-heals by relaunching
-                    once with a fresh session.
+                    `io/archive/<stem>-attempt1/`.
+
+                    The launch is always a FRESH executor session, so there is
+                    no session to continue and no dead-session relaunch: the
+                    conductor re-sends everything a stage needs in its prompt,
+                    and the durable AEGIS journal is the resume authority.
         @param[in]  execute Exec seam bound to the run's container.
         @param[in]  worktree HOST path of the run's worktree.
         @param[in]  io_dir HOST path of the run's io exchange dir.
         @param[in]  prompt Gate instruction (never enters argv).
-        @param[in]  session Executor session id to continue ("" = new).
         @param[in]  timeout Wall-clock bound (run budgets).
         @param[in]  archive_stem Optional immutable archive name stem.
         @return     A GateRun describing the outcome.
-        """
-        return self._run_gate_attempt(
-            execute,
-            worktree,
-            io_dir,
-            prompt,
-            session=session,
-            timeout=timeout,
-            archive_stem=archive_stem,
-            attempt=1,
-            artifact_dirs=[],
-        )
-
-    def _run_gate_attempt(
-        self,
-        execute: ExecTarget,
-        worktree: str | Path,
-        io_dir: str | Path,
-        prompt: str,
-        *,
-        session: str,
-        timeout: float | None,
-        archive_stem: str,
-        attempt: int,
-        artifact_dirs: list[str],
-    ) -> GateRun:
-        """
-        @brief      Run one physical executor launch, archiving before retry.
-        @details    Split from run_gate so a dead-session self-heal can carry
-                    forward the first attempt's archive path before relaunching
-                    with a fresh session.
-        @param[in]  execute Exec seam bound to the run's container.
-        @param[in]  worktree HOST path of the run's worktree.
-        @param[in]  io_dir HOST path of the run's io exchange dir.
-        @param[in]  prompt Gate instruction.
-        @param[in]  session Executor session id for this attempt.
-        @param[in]  timeout Wall-clock bound.
-        @param[in]  archive_stem Optional immutable archive name stem.
-        @param[in]  attempt Attempt number for this stem.
-        @param[in]  artifact_dirs Archive dirs already produced.
-        @return     A GateRun describing the final outcome.
         """
         worktree = Path(worktree)
         io_dir = Path(io_dir)
@@ -200,7 +152,6 @@ class FileProtocolExecutor(Executor):
             prompt=shlex.quote(prompt),
             model=shlex.quote(self.model),
             worktree=CONTAINER_WORKTREE_MOUNT,
-            session=session,
         )
         # No `exec` prefix: the template may be a compound command, and the
         # script's exit status is the command's status either way. The command
@@ -224,18 +175,16 @@ class FileProtocolExecutor(Executor):
         stderr_path = io_dir / STDERR_FILE
         output = self._read(output_path)
         stderr = self._read(stderr_path) or result.stderr
-        artifacts = list(artifact_dirs)
+        artifacts: list[str] = []
         if archive_stem:
             try:
                 archive_dir = self._archive_launch(
                     io_dir,
                     archive_stem,
-                    attempt,
                     result,
                     output,
                     stderr,
                     timeout,
-                    session,
                     output_path.is_file(),
                     stderr_path.is_file(),
                 )
@@ -243,39 +192,18 @@ class FileProtocolExecutor(Executor):
                 archive_error = f"archive write failed: {exc}"
                 return GateRun(
                     exit_code=result.exit_code or 1,
-                    session_id=self._extract_session_id(output) or session,
                     output=output,
                     stderr=(stderr + "\n" + archive_error).strip(),
                     timed_out=result.timed_out,
                     artifact_dirs=artifacts,
                 )
             artifacts.append(str(archive_dir))
-        if (
-            not result.ok
-            and not result.timed_out
-            and session
-            and self._is_session_reset(stderr)
-        ):
-            # the stored session died with its container (or was pruned);
-            # self-heal by relaunching once with a fresh session
-            return self._run_gate_attempt(
-                execute,
-                worktree,
-                io_dir,
-                prompt,
-                session="",
-                timeout=timeout,
-                archive_stem=archive_stem,
-                attempt=attempt + 1,
-                artifact_dirs=artifacts,
-            )
         questions = self._read(questions_path)
         tokens_in, tokens_out, cost = self._extract_usage(output)
         return GateRun(
             exit_code=result.exit_code,
             has_questions=questions_path.is_file(),
             questions=questions,
-            session_id=self._extract_session_id(output) or session,
             output=output,
             stderr=stderr,
             timed_out=result.timed_out,
@@ -287,34 +215,20 @@ class FileProtocolExecutor(Executor):
 
     # -- executor-specific command build + parsing (subclasses) -------------------
 
-    def _build_command(self, *, prompt: str, model: str, worktree: str, session: str) -> str:
+    def _build_command(self, *, prompt: str, model: str, worktree: str) -> str:
         """
-        @brief      Compose the executor command (shared default: append
-                    `--session <id>` to continue).
-        @details    Overridable so an executor whose continuation changes the
-                    command STRUCTURE (e.g. Codex's `exec` -> `exec resume`)
-                    can express it, rather than only appending a flag. `prompt`
-                    and `model` arrive already shell-quoted; `session` is raw.
+        @brief      Compose the executor command from the configured template.
+        @details    Overridable so an executor whose template carries an extra
+                    placeholder (Codex's `{resume}`) can supply it. `prompt`
+                    and `model` arrive already shell-quoted.
         @param[in]  prompt Shell-quoted prompt text.
         @param[in]  model Shell-quoted model string.
         @param[in]  worktree Container worktree mount (/adore/work).
-        @param[in]  session Session id to continue ("" = new).
         @return     The full command string embedded into gate.sh.
         """
-        command = self.command_template.format(
+        return self.command_template.format(
             prompt=prompt, model=model, worktree=worktree
         )
-        if session:
-            command += f" --session {shlex.quote(session)}"
-        return command
-
-    def _extract_session_id(self, output: str) -> str:
-        """
-        @brief      Pull the executor's session id from its event stream.
-        @param[in]  output Raw event-stream text.
-        @return     The session id, or "".
-        """
-        raise NotImplementedError  # pragma: no cover - abstract hook
 
     def _extract_usage(self, output: str) -> tuple[int, int, float]:
         """
@@ -333,12 +247,10 @@ class FileProtocolExecutor(Executor):
         self,
         io_dir: Path,
         archive_stem: str,
-        attempt: int,
         result,
         output: str,
         stderr: str,
         timeout: float | None,
-        session: str,
         output_present: bool,
         stderr_present: bool,
     ) -> Path:
@@ -350,12 +262,10 @@ class FileProtocolExecutor(Executor):
                     was skipped.
         @param[in]  io_dir Host io exchange directory.
         @param[in]  archive_stem Base name supplied by the orchestrator.
-        @param[in]  attempt Physical launch number for this stem.
         @param[in]  result Container exec result.
         @param[in]  output Captured output stream or "".
         @param[in]  stderr Captured stderr stream or fallback stderr.
         @param[in]  timeout Launch timeout.
-        @param[in]  session Session id used for this launch.
         @param[in]  output_present Whether live output.jsonl existed.
         @param[in]  stderr_present Whether live stderr.log existed.
         @return     Archive directory path.
@@ -363,7 +273,10 @@ class FileProtocolExecutor(Executor):
         """
         archive_root = io_dir / ARCHIVE_DIR
         archive_root.mkdir(parents=True, exist_ok=True)
-        base_name = f"{self._safe_archive_stem(archive_stem)}-attempt{attempt}"
+        # One physical launch per gate now that nothing relaunches, so the
+        # suffix is constant; the collision loop below still disambiguates a
+        # reused stem.
+        base_name = f"{self._safe_archive_stem(archive_stem)}-attempt1"
         archive_dir = archive_root / base_name
         suffix = 2
         while archive_dir.exists():
@@ -376,12 +289,10 @@ class FileProtocolExecutor(Executor):
         meta = {
             "created_at": utc_now_iso(),
             "archive_stem": archive_stem,
-            "attempt": attempt,
             "exit_code": result.exit_code,
             "timed_out": result.timed_out,
             "argv": result.argv,
             "timeout": timeout,
-            "session": session,
             "output_file_present": output_present,
             "stderr_file_present": stderr_present,
         }
@@ -401,15 +312,6 @@ class FileProtocolExecutor(Executor):
         safe = _ARCHIVE_STEM_RE.sub("-", value.strip()).strip(".-")
         return safe or "launch"
 
-    def _is_session_reset(self, stderr: str) -> bool:
-        """
-        @brief      Whether stderr signals a dead/pruned session (self-heal).
-        @param[in]  stderr Captured stderr.
-        @return     True when any reset marker is present.
-        """
-        lowered = stderr.lower()
-        return any(marker in lowered for marker in self.session_reset_markers)
-
     @staticmethod
     def _read(path: Path) -> str:
         """
@@ -426,23 +328,14 @@ class FileProtocolExecutor(Executor):
 class OpencodeExecutor(FileProtocolExecutor):
     """
     @brief   opencode implementation of the executor launcher.
-    @details Template is the [executor.opencode] command; session continuation
-             appends `--session <id>` so gate-by-gate driving and clarification
-             resume reuse the same opencode session. Rejects `--auto` (it would
-             auto-approve the push/pr/merge permissions). Usage comes from
-             opencode's step_finish events.
+    @details Template is the [executor.opencode] command; every gate runs a
+             fresh opencode session, since the AEGIS journal carries the state
+             across stages. Rejects `--auto` (it would auto-approve the
+             push/pr/merge permissions). Usage comes from opencode's
+             step_finish events.
     """
 
     forbidden_flags = ("--auto",)
-
-    def _extract_session_id(self, output: str) -> str:
-        """
-        @brief      The opencode session id ("sessionID"/"session_id" anywhere).
-        @param[in]  output Raw --format json event stream.
-        @return     The first session id found, or "".
-        """
-        match = _OPENCODE_SESSION_RE.search(output)
-        return match.group(1) if match else ""
 
     def _extract_usage(self, output: str) -> tuple[int, int, float]:
         """
@@ -474,46 +367,20 @@ class PiExecutor(FileProtocolExecutor):
     """
     @brief   Pi (@earendil-works/pi-coding-agent) executor launcher.
     @details Runs headless via the [executor.pi] template, e.g.
-             `pi -p --mode json --model {model} {prompt}`; session continuation
-             appends `--session <id>` (same convention as opencode). Pi reads
-             the repo's AGENTS.md gate contract natively and enforces the
-             push/merge guardrails through the repo's .pi agentic-guard
-             extension (a return-value block, active in every mode including
-             print/json) - plus container isolation (no remote credentials in
-             the container). Pi's JSON stream opens with a
-             {"type":"session","id":...} header; token usage is not reported in
-             the stream today, so usage falls back to zeros (metrics tolerate
-             it) until a spike pins a usage field.
+             `pi -p --mode json --model {model} {prompt}`; every gate runs a
+             fresh Pi session. Pi reads the repo's AGENTS.md gate contract
+             natively and enforces the push/merge guardrails through the repo's
+             .pi agentic-guard extension (a return-value block, active in every
+             mode including print/json) - plus container isolation (no remote
+             credentials in the container). Token usage is not reported in Pi's
+             stream today, so usage falls back to zeros (metrics tolerate it)
+             until a spike pins a usage field.
     """
 
     # Pi loads its project-local guard/skills only after the project is
     # trusted; ADORE must pre-trust the worktree for headless runs (container
     # isolation still prevents remote writes regardless). See the executor
     # component doc / TODO for the trust-provisioning spike.
-    session_reset_markers = ("session not found", "no such session")
-
-    def _extract_session_id(self, output: str) -> str:
-        """
-        @brief      The Pi session id from the JSON stream's session header.
-        @details    Pi's `--mode json` stream begins with
-                    {"type":"session","version":N,"id":"<uuid>",...}; the id is
-                    read from that event (order-independent parse), falling
-                    back to a generic scan.
-        @param[in]  output Raw json-lines event stream.
-        @return     The session id, or "".
-        """
-        for raw in output.splitlines():
-            line = raw.strip()
-            if '"session"' not in line:
-                continue
-            try:
-                event = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if isinstance(event, dict) and event.get("type") == "session" and event.get("id"):
-                return str(event["id"])
-        match = _OPENCODE_SESSION_RE.search(output)  # tolerate a sessionID field too
-        return match.group(1) if match else ""
 
 
 class CodexExecutor(FileProtocolExecutor):
@@ -527,12 +394,12 @@ class CodexExecutor(FileProtocolExecutor):
              isolation (no remote credentials in the container).
 
              Two Codex specifics vs opencode/pi:
-             1. **Continuation is a subcommand, not a flag.** The first gate is
-                `codex exec ...`; a later gate resumes the previous gate's
-                session in the same container/cwd with `codex exec resume
-                --last ...`. `_build_command` substitutes the `{resume}`
-                placeholder accordingly - no session id is tracked (one session
-                per run container); `_extract_session_id` is best-effort/audit.
+             1. **The `{resume}` placeholder always resolves to empty.** Codex
+                continues a session with the `exec resume --last` subcommand
+                rather than a flag, so the template carries a `{resume}` slot.
+                ADORE runs every gate fresh, so `_build_command` fills it with
+                "" and the command stays plain `codex exec`. The slot is still
+                accepted so an existing profile keeps working.
              2. **Approval model is inverted.** The command MUST run
                 non-interactively (`--sandbox workspace-write`,
                 `--full-auto`, or
@@ -551,44 +418,22 @@ class CodexExecutor(FileProtocolExecutor):
 
     forbidden_flags: tuple[str, ...] = ()
 
-    def _build_command(self, *, prompt: str, model: str, worktree: str, session: str) -> str:
+    def _build_command(self, *, prompt: str, model: str, worktree: str) -> str:
         """
-        @brief      Codex command: `exec` (new) or `exec resume --last` (cont.).
-        @details    Substitutes the template's `{resume}` placeholder. A
-                    template without `{resume}` degrades gracefully to
-                    stateless (each gate a fresh session) since str.format
-                    ignores the unused key.
+        @brief      Codex command: always plain `exec`, never `exec resume`.
+        @details    Supplies the template's `{resume}` placeholder as empty.
+                    The placeholder is kept accepted rather than rejected so an
+                    existing profile carrying it keeps working, but ADORE
+                    starts a fresh session every gate, so it never resolves to
+                    `resume --last `.
         @param[in]  prompt Shell-quoted prompt.
         @param[in]  model Shell-quoted model.
         @param[in]  worktree Container worktree mount.
-        @param[in]  session Non-empty -> resume the previous gate's session.
         @return     The full command string.
         """
-        resume = "resume --last " if session else ""
         return self.command_template.format(
-            prompt=prompt, model=model, worktree=worktree, resume=resume
+            prompt=prompt, model=model, worktree=worktree, resume=""
         )
-
-    def _extract_session_id(self, output: str) -> str:
-        """
-        @brief      Best-effort Codex session/thread id from `--json` (audit
-                    only; Codex continues via `resume --last`, not an id).
-        @param[in]  output Raw json-lines event stream.
-        @return     The id, or "".
-        """
-        for raw in output.splitlines():
-            line = raw.strip()
-            if '"session' not in line and '"thread' not in line:
-                continue
-            try:
-                event = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if isinstance(event, dict):
-                sid = event.get("session_id") or event.get("thread_id")
-                if sid:
-                    return str(sid)
-        return ""
 
     def _extract_usage(self, output: str) -> tuple[int, int, float]:
         """
@@ -629,13 +474,11 @@ class QwenExecutor(FileProtocolExecutor):
              `.agentic` guards + a push/pr/merge deny list) plus ADORE container
              isolation.
 
-             Unlike opencode/pi/codex, Qwen has **no session continuation** -
-             each gate is a fresh `qwen -p` run. This is viable because the
-             workflow's state lives in files (`.agentic/`, git, the ticket
-             thread ADORE re-sends on resume), so `_build_command` ignores the
-             `session` argument (stateless) and `_extract_session_id` returns
-             "". Whether stateless-per-gate holds in practice is the key spike
-             assumption.
+             Qwen has no session continuation of its own, which costs ADORE
+             nothing: every executor runs each gate fresh here. That is viable
+             because the workflow's state lives in files (`.agentic/`, git, and
+             the ticket thread ADORE re-sends on resume). Whether
+             stateless-per-gate holds in practice is the key spike assumption.
 
              Safety: `forbidden_flags` rejects `--yolo` (auto-approve all
              tools); config validation additionally bans `--approval-mode yolo`.
@@ -645,25 +488,6 @@ class QwenExecutor(FileProtocolExecutor):
     """
 
     forbidden_flags = ("--yolo",)
-
-    def _build_command(self, *, prompt: str, model: str, worktree: str, session: str) -> str:
-        """
-        @brief      Stateless command build: no session/resume (Qwen has none).
-        @param[in]  prompt Shell-quoted prompt.
-        @param[in]  model Shell-quoted model.
-        @param[in]  worktree Container worktree mount.
-        @param[in]  session Ignored (Qwen does not continue sessions).
-        @return     The formatted command.
-        """
-        return self.command_template.format(prompt=prompt, model=model, worktree=worktree)
-
-    def _extract_session_id(self, output: str) -> str:
-        """
-        @brief      No session id (Qwen runs stateless).
-        @param[in]  output Ignored.
-        @return     "".
-        """
-        return ""
 
 
 def build_executor(

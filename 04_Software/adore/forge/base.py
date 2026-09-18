@@ -37,6 +37,15 @@ from typing import Any
 
 from adore.util import CommandResult, CommandRunner
 
+# CONSTANTS
+
+#: The normalized pipeline vocabulary every adapter maps its platform's own
+#: states onto. Only "failed" is acted on, and only by posting a notice: ADORE
+#: does not gate delivery on CI. "none" and "unknown" are deliberately distinct
+#: - no pipeline ran, versus the answer could not be read - even though both
+#: are silent, because the journal records which one was observed.
+PIPELINE_STATES = ("success", "failed", "running", "none", "unknown")
+
 # DATA MODELS / TYPEDEFINITIONS
 
 
@@ -198,6 +207,27 @@ class Forge(ABC):
                     MRs, so terminal-state polling must use the stored iid.
         @param[in]  ref MR iid/number, or the source branch name.
         @return     The MergeRequest, or None when none exists.
+        """
+
+    @abstractmethod
+    def pipeline_status(self, mr_iid: int) -> str:
+        """
+        @brief      The forge pipeline verdict for an MR/PR, normalized.
+        @details    Read only by the post-MR poll, so a repository without CI
+                    pays nothing for it. ADORE does not gate on the result and
+                    never merges: a red pipeline is surfaced to the human and
+                    nothing else happens automatically.
+
+                    Implementations are BEST-EFFORT and must never raise. The
+                    poll that calls this is watching a run that is doing no
+                    code work, so a forge hiccup on advisory information must
+                    not disturb it; anything unreadable is "unknown", which is
+                    silent.
+        @param[in]  mr_iid MR iid / PR number.
+        @return     One of PIPELINE_STATES: "success", "failed", "running"
+                    (not finished yet), "none" (no pipeline, or a verdict that
+                    is neither pass nor fail, such as skipped or cancelled), or
+                    "unknown" (could not be determined).
         """
 
     @abstractmethod

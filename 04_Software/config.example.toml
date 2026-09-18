@@ -256,6 +256,18 @@ runtime_env = { UV_LINK_MODE = "copy" }
 # runtime; no image rebuild needed.
 # Also the place for future resource limits, e.g. "--memory=2g", "--cpus=2".
 run_args = []
+# SELinux relabeling for ADORE's host bind mounts: "off" | "shared".
+# Leave "off" on Windows/WSL and Ubuntu hosts, which do not enforce SELinux.
+# Set "shared" on Fedora/RHEL/CentOS Stream/Rocky/Alma, where SELinux is
+# enforcing by default: without it the mounted clone, worktree and io dir keep
+# their host file label, `container_t` cannot read them, and every stage fails
+# on permission denied. "shared" appends `z` to those three bind mounts and to
+# the generated egress-proxy config; the named cache volumes need nothing,
+# because the runtime already labels them.
+# The private `Z` label is deliberately not offered: it labels content per
+# container, and the repository clone is shared by every run and by host git,
+# so `Z` would lock the clone to one container and break the next run.
+selinux_relabel = "off"
 # Project-image fail-fast checks. Keep empty for executor-base-only validation;
 # add the tools your runtime project needs before any executor gate can run.
 required_tool_checks = [
@@ -372,8 +384,20 @@ approval_label = "agent-approved"
 trigger = "label"
 # The label a reviewer applies to request an agent revision.
 revise_label = "agent-revise"
-# Revise cycles before the run escalates to `failed`.
+# Revise cycles before the run escalates to `failed`. Bounds human-requested
+# revisions and automatic pipeline repairs together, so a permanently red
+# pipeline cannot loop.
 max_review_rounds = 3
+# What a NEW `failed` forge pipeline verdict on the published draft does:
+#   "revise" - start a governed repair round automatically (default). Same
+#              bounded path as the revise label: a new AEGIS task on the same
+#              branch, ending at strict validation and a FRESH human approval
+#              before anything is pushed. ADORE still never merges.
+#   "notify" - post one comment on the draft and wait for a human.
+#   "ignore" - skip the pipeline read entirely (no CI in this repository).
+# Only a CHANGED verdict is a signal, so a run waiting days is neither nagged
+# nor repaired twice for one failure. An unreadable verdict is silent.
+on_pipeline_failure = "revise"
 # Optional nudge if the MR sits undecided this long.
 # RESERVED; NOT YET CONSULTED BY THE RUNTIME: no MR-reminder nudge is
 # implemented (review finding ADORE-ARCH-007).

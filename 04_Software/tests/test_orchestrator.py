@@ -67,6 +67,7 @@ class FakeForge:
         self.next_comment = 100
         self.opened: list[dict] = []
         self.branch_mr_exists = False
+        self.pipeline = "unknown"
 
     def list_ready(self, ready_label: str):
         return [self.ticket] if self.ticket and ready_label in self.ticket.labels else []
@@ -106,6 +107,11 @@ class FakeForge:
 
     def list_mr_comments(self, mr_iid: int):
         return [Comment(id=key, body=value) for key, value in self.mr_comments.items()]
+
+    def pipeline_status(self, mr_iid: int) -> str:
+        # Default "unknown" keeps every existing review test silent, which is
+        # also what a repository with no CI configured produces.
+        return self.pipeline
 
     def post_mr_comment(self, mr_iid: int, body: str):
         if self.fail_comments:
@@ -253,11 +259,12 @@ class FakeExecutor:
 
     def __init__(self, *results: GateRun) -> None:
         self.results = deque(results)
-        self.sessions: list[str] = []
         self.prompts: list[str] = []
 
     def run_gate(self, execute, worktree, io_dir, prompt, **kwargs):
-        self.sessions.append(kwargs.get("session", "missing"))
+        # Every gate is a FRESH executor session, so the launcher takes no
+        # session argument and the conductor must never pass one.
+        assert "session" not in kwargs
         self.prompts.append(prompt)
         if not self.results:
             return GateRun(exit_code=0)
@@ -442,8 +449,7 @@ def test_clean_full_and_quick_paths_stop_for_fresh_approval(
     assert saved.candidate_fingerprint == worktrees.fingerprint
     assert saved.validation_evidence["deviations"] == []
     assert "Deviations recorded: 0" in forge.ticket_comments[saved.approval_comment_id]
-    assert len(executor.sessions) == len(stages) - 1
-    assert set(executor.sessions) == {""}
+    assert len(executor.prompts) == len(stages) - 1
     assert not forge.opened
     assert containers.stopped
     stage_commits = [item for item in worktrees.checkpoints if "ADORE checkpoint" in item]
@@ -514,7 +520,7 @@ def test_exact_third_failed_attempt_aborts_without_fourth_launch(tmp_path: Path)
     saved = engine.store.load(run.run_id)
     assert saved.lifecycle == "failed"
     assert saved.stage_failures == 3
-    assert len(executor.sessions) == 3
+    assert len(executor.prompts) == 3
     assert "attempt 3/3" in saved.outcome
     assert containers.stopped
     assert len(forge.ticket_comments) >= 2  # edited incident + separate terminal
@@ -592,7 +598,7 @@ def test_aegis_timeout_retries_inside_the_same_conductor(
     assert clients[0].status_reads == 2
     assert saved.lifecycle == "parked-clarification"
     assert saved.failure_history[-1]["code"] == "AEGIS_TIMEOUT"
-    assert len(executor.sessions) == 1
+    assert len(executor.prompts) == 1
     assert engine._in_flight_run_id == ""
 
 
@@ -1153,7 +1159,7 @@ def test_approved_publication_opens_draft_and_pushes_close_out(
     assert saved.lifecycle == "in-review" and saved.stage == "done"
     assert forge.opened and forge.opened[0]["draft"] is True
     assert len(worktrees.pushes) == 2
-    assert len(executor.sessions) == 2 and set(executor.sessions) == {""}
+    assert len(executor.prompts) == 2
 
 
 def test_publication_adopts_existing_open_mr_before_create(
@@ -1316,6 +1322,223 @@ def test_review_round_creates_new_aegis_task_on_same_branch(
     assert saved.active_task_id == "TASK-deadbeef"
     assert saved.review_rounds == 1 and saved.lifecycle == "working"
     assert conducted == ["TASK-deadbeef"]
+
+
+def test_strict_verification_runs_once_per_successful_run(tmp_path: Path) -> None:
+    """
+    @brief   The validate -> deliver transition verifies, and the next pass of
+             the conduct loop reads the task back at deliver. Both call sites
+             used to fire, so the whole strict catalogue AND every configured
+             command ran twice on every successful run - a doubled test suite
+             on a real repository (live finding 2026-09-18).
+    """
+    engine, forge, _, _, _ = make_engine(tmp_path)
+    run = make_run(engine)
+    client = FakeAegis(sequence("frame", "specify", "design", "build",
+                                "validate", "deliver"))
+
+    engine._conduct_task(run, forge.ticket, client, "")
+
+    saved = engine.store.load(run.run_id)
+    assert saved.lifecycle == "awaiting-approval"
+    strict = [e for e in engine.store.read_journal(run.run_id)
+              if e["event"] == "strict-verification"]
+    assert len(strict) == 1
+
+
+def test_push_retries_a_transient_remote_failure(tmp_path: Path) -> None:
+    """
+    @brief   A one-off credential refresh used to end a fully validated run at
+             the push, discarding the human approval bound to that candidate
+             (live finding 2026-09-18). Every fetch around the push already
+             retried; the push itself did not. Retrying is safe because the
+             same refs produce the same remote state.
+    """
+    engine, _, worktrees, _, _ = make_engine(tmp_path)
+    run = make_run(engine)
+    attempts: list[int] = []
+
+    def flaky(run_id, branch):
+        attempts.append(1)
+        if len(attempts) == 1:
+            return CommandResult(exit_code=1, stderr="remote: Failed to authenticate user")
+        return CommandResult(exit_code=0)
+
+    worktrees.push = flaky
+    result = engine._push_branch(run)
+
+    assert result.ok and len(attempts) == 2
+    transient = [e for e in engine.store.read_journal(run.run_id)
+                 if e["event"] == "transient-failure" and e["operation"] == "push"]
+    assert len(transient) == 1
+
+
+def test_push_still_fails_loudly_when_the_remote_refuses(tmp_path: Path) -> None:
+    """
+    @brief   A genuine refusal - a protected branch, a non-fast-forward - must
+             still end the run. Retrying only delays it, bounded by
+             max_transient_retries.
+    """
+    engine, _, worktrees, _, _ = make_engine(tmp_path)
+    engine.config.recovery.max_transient_retries = 3
+    run = make_run(engine)
+    attempts: list[int] = []
+
+    def refused(run_id, branch):
+        attempts.append(1)
+        return CommandResult(exit_code=1, stderr="remote: protected branch hook declined")
+
+    worktrees.push = refused
+    result = engine._push_branch(run)
+
+    assert not result.ok and len(attempts) == 3
+
+
+def _review_run(engine, forge, **overrides):
+    """
+    @brief      An in-review run bound to the fake forge's draft MR.
+    @param[in]  engine The orchestrator under test.
+    @param[in]  forge The FakeForge backing it.
+    @param[in]  overrides Extra RunState fields to set.
+    @return     The persisted RunState.
+    """
+    run = make_run(engine)
+    run.lifecycle = "in-review"
+    run.stage = "done"
+    run.mr_iid = forge.mr.iid
+    run.mr_url = forge.mr.web_url
+    for key, value in overrides.items():
+        setattr(run, key, value)
+    engine.store.save(run)
+    return run
+
+
+class _ReviewClient:
+    """@brief AEGIS client double that only has to create the revision task."""
+
+    def __init__(self, *args, **kwargs) -> None:
+        pass
+
+    def probe(self):
+        return None
+
+    def create_task(self, title, task_type):
+        return "TASK-deadbeef"
+
+
+def test_failed_pipeline_starts_a_governed_repair_round(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    @brief   A newly red pipeline starts a revision on the SAME bounded path
+             the revise label uses, with no label applied and no human action.
+             The executor is told the pipeline is what must go green, and the
+             run returns to `working` so the round ends at a fresh approval
+             before anything is pushed.
+    """
+    engine, forge, _, _, _ = make_engine(tmp_path)
+    forge.pipeline = "failed"
+    run = _review_run(engine, forge)
+    threads: list[str] = []
+    monkeypatch.setattr(orchestrator_module, "AegisClient", _ReviewClient)
+    monkeypatch.setattr(engine, "_conduct", lambda state, ticket, thread="": (
+        threads.append(thread)
+    ))
+
+    engine._reconcile_review(run, {"revised": 0})
+
+    saved = engine.store.load(run.run_id)
+    assert saved.review_rounds == 1 and saved.lifecycle == "working"
+    assert saved.active_task_id == "TASK-deadbeef"
+    assert "pipeline" in threads[0] and "green" in threads[0]
+    # the reviewer watching the draft is told why commits are about to arrive
+    announced = "\n".join(forge.mr_comments.values())
+    assert "automatic repair round (1/3)" in announced
+    # the verdict is cleared so the NEXT pipeline run is judged on its own
+    assert saved.pipeline_reported == ""
+    # no label was involved, so none was removed
+    assert forge.mr.labels == []
+
+
+def test_failed_pipeline_is_not_repaired_twice_for_one_verdict(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    @brief   An unchanged red verdict must not restart a repair round on every
+             poll while the previous one is still in flight, so only a CHANGE
+             is a signal.
+    """
+    engine, forge, _, _, _ = make_engine(tmp_path)
+    forge.pipeline = "failed"
+    run = _review_run(engine, forge, pipeline_reported="failed")
+    monkeypatch.setattr(orchestrator_module, "AegisClient", _ReviewClient)
+    monkeypatch.setattr(engine, "_conduct", lambda *a, **k: None)
+
+    engine._reconcile_review(run, {"revised": 0})
+
+    saved = engine.store.load(run.run_id)
+    assert saved.review_rounds == 0 and saved.lifecycle == "in-review"
+
+
+def test_notify_mode_reports_a_red_pipeline_without_acting(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    @brief   With automatic repair off, the red pipeline is surfaced once on
+             the MR and the run keeps waiting for a human.
+    """
+    engine, forge, _, _, _ = make_engine(tmp_path)
+    engine.config.review.on_pipeline_failure = "notify"
+    forge.pipeline = "failed"
+    run = _review_run(engine, forge)
+    monkeypatch.setattr(orchestrator_module, "AegisClient", _ReviewClient)
+
+    engine._reconcile_review(run, {"revised": 0})
+
+    saved = engine.store.load(run.run_id)
+    assert saved.review_rounds == 0 and saved.lifecycle == "in-review"
+    posted = "\n".join(forge.mr_comments.values())
+    assert "failed" in posted and engine.config.review.revise_label in posted
+
+
+def test_pipeline_repair_stops_at_the_review_round_budget(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    @brief   A permanently red pipeline cannot loop: once the review-round
+             budget is spent the run is left in review with a comment saying
+             so, rather than being failed or repaired again.
+    """
+    engine, forge, _, _, _ = make_engine(tmp_path)
+    engine.config.review.max_review_rounds = 2
+    forge.pipeline = "failed"
+    run = _review_run(engine, forge, review_rounds=2)
+    monkeypatch.setattr(orchestrator_module, "AegisClient", _ReviewClient)
+
+    engine._reconcile_review(run, {"revised": 0})
+
+    saved = engine.store.load(run.run_id)
+    assert saved.review_rounds == 2 and saved.lifecycle == "in-review"
+    assert "budget is spent" in "\n".join(forge.mr_comments.values())
+
+
+def test_ignore_mode_never_reads_the_pipeline(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    @brief   A repository with no CI pays nothing: the adapter is not called.
+    """
+    engine, forge, _, _, _ = make_engine(tmp_path)
+    engine.config.review.on_pipeline_failure = "ignore"
+    asked: list[int] = []
+    forge.pipeline_status = lambda mr_iid: asked.append(mr_iid) or "failed"
+    run = _review_run(engine, forge)
+    monkeypatch.setattr(orchestrator_module, "AegisClient", _ReviewClient)
+
+    engine._reconcile_review(run, {"revised": 0})
+
+    assert asked == []
+    assert engine.store.load(run.run_id).lifecycle == "in-review"
 
 
 def test_review_revision_rearms_only_the_active_wall_clock(

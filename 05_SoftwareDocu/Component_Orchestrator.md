@@ -112,6 +112,19 @@ Publication retry rechecks approval freshness. Existing open branch MRs are
 adopted before creation, and a task already at `done` still receives the shared
 close-out checkpoint/push recovery before entering review.
 
+Two triggers feed one governed revision path: the revise label a human applies,
+and a newly `failed` forge pipeline when `[review] on_pipeline_failure` is
+`revise`. An explicit human request wins when both are present. A pipeline
+repair applies no label, so none is removed, and the executor's thread is
+prefixed with the instruction that a green pipeline is part of this round's
+acceptance criteria. Only a CHANGED verdict is a signal, and `pipeline_reported`
+is cleared when a revision starts, so the pipeline the revision produces is
+judged on its own and one failure cannot restart a round already in flight.
+Both triggers share `max_review_rounds`, so a permanently red pipeline cannot
+loop; when the budget is spent the run keeps waiting in review with a comment
+saying so. Every round still ends at strict validation and a fresh human
+approval before a push, so automatic repair never weakens the delivery gate.
+
 The revise label remains present through provisioning, AEGIS probe, and task
 creation. It is removed only after the new task exists and immediately before
 the run-state transition. Without an AEGIS idempotency key, a crash in that

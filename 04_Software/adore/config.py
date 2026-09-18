@@ -24,6 +24,7 @@ from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 import re
 import shlex
+from string import Formatter
 import tomllib
 from typing import Any
 
@@ -67,6 +68,22 @@ _FORGE_CREDENTIAL_ENV = frozenset({
     "GITHUB_TOKEN", "GH_TOKEN", "GITLAB_TOKEN", "GLAB_TOKEN", "GITEA_TOKEN",
     "TEA_TOKEN",
 })
+#: Accepted `[container] selinux_relabel` values, mapped to the per-mount
+#: option each one appends to ADORE's host bind mounts. "shared" appends `z`,
+#: which an SELinux-enforcing host needs before a container may read the
+#: mounted clone, worktree and io directory. The private `Z` label is
+#: deliberately NOT offered: it relabels content with a per-container MCS
+#: category, and the repository clone is shared by every run and by host git,
+#: so a private label would lock the clone to one container and break the next
+#: run. An operator who truly needs `Z` can still pass a mount through
+#: [container] run_args and own that decision explicitly.
+#:
+#: This mapping is the single source of truth. The accepted-mode tuple is
+#: derived from it rather than written out again, so a mode can never be
+#: accepted by validation and then have no option to apply.
+SELINUX_RELABEL_OPTIONS = {"off": "", "shared": "z"}
+SELINUX_RELABEL_MODES = tuple(SELINUX_RELABEL_OPTIONS)
+
 # The AEGIS task stages a per-stage timeout override may target. Declared
 # here rather than imported from the orchestrator so configuration validation
 # stays free of the engine.
@@ -320,6 +337,9 @@ class ContainerConfig:
              project-image checks run after provision so a profile fails fast
              when the selected runtime-project image lacks required tooling.
              egress controls the run container's outbound network boundary.
+             selinux_relabel adds the SELinux relabel suffix ADORE's host bind
+             mounts need on an enforcing host; see SELINUX_RELABEL_MODES for
+             why only the shared label is offered.
     @details `parked_state` was removed (review finding ADORE-ARCH-007): it
              was validated but never consulted at runtime - `keep_parked` is
              the field parking actually reads - so a redundant, misleading
@@ -337,6 +357,7 @@ class ContainerConfig:
     run_args: list[str] = field(default_factory=list)
     runtime_env: dict[str, str] = field(default_factory=lambda: {"UV_LINK_MODE": "copy"})
     required_tool_checks: list[str] = field(default_factory=list)
+    selinux_relabel: str = "off"
     egress: ContainerEgressConfig = field(default_factory=ContainerEgressConfig)
 
 
@@ -428,13 +449,20 @@ class DeliveryConfig:
 @dataclass
 class ReviewConfig:
     """
-    @brief   [review] - post-MR revise loop trigger and bounds.
+    @brief   [review] - post-MR revise loop triggers and bounds.
+    @details `on_pipeline_failure` decides what a red forge pipeline on the
+             published draft does. "revise" starts a governed repair round on
+             the SAME bounded path the revise label uses, so the repair still
+             ends at a fresh human approval before anything is pushed;
+             "notify" posts one comment and waits for a human; "ignore" skips
+             the pipeline read entirely. Every mode obeys `max_review_rounds`.
     """
 
     trigger: str = "label"
     revise_label: str = "agent-revise"
     max_review_rounds: int = 3
     review_reminder_after: str = "48h"
+    on_pipeline_failure: str = "revise"
 
 
 @dataclass
@@ -587,6 +615,41 @@ def _build_container(data: Any) -> ContainerConfig:
     section = _build_section(ContainerConfig, scalars)
     section.egress = _build_section(ContainerEgressConfig, data.get("egress"))
     return section
+
+
+def _command_placeholder_issues(default: str, command: str) -> list[str]:
+    """
+    @brief      Reject a command template whose braces the launcher cannot fill.
+    @details    The launcher renders the template with `str.format`, so any
+                brace the executor does not supply raises `KeyError` at GATE
+                time - after provisioning, once per attempt, until the stage
+                budget is spent - with nothing pointing at the real cause.
+                Only Codex supplies `{resume}`; a shell brace such as
+                `${HOME}` or an inline JSON argument fails the same way.
+                Catching it here turns an opaque runtime failure into a setup
+                message.
+    @param[in]  default The selected executor kind.
+    @param[in]  command The configured command template.
+    @return     One issue per unsupported or malformed placeholder.
+    """
+    supported = {"prompt", "model", "worktree"}
+    if default == "codex":
+        supported.add("resume")
+    try:
+        fields = {
+            name for _, name, _, _ in Formatter().parse(command) if name is not None
+        }
+    except ValueError as exc:
+        return [
+            f"[executor.{default}] command has malformed placeholder braces: {exc}"
+        ]
+    unsupported = sorted(name for name in fields if name.split(".")[0] not in supported)
+    return [
+        f"[executor.{default}] command uses a placeholder the launcher cannot "
+        f"fill: {{{name}}} (supported: {', '.join(sorted(supported))}). A literal "
+        "brace must be doubled."
+        for name in unsupported
+    ]
 
 
 def _valid_hostname_pattern(value: str) -> bool:
@@ -758,6 +821,7 @@ def validate_config(config: Config) -> list[str]:
     if entry is None:
         issues.append(f"[executor] default {default!r} has no [executor.{default}] table")
     else:
+        issues.extend(_command_placeholder_issues(default, entry.command))
         check(bool(entry.command.strip()), f"[executor.{default}] command is required")
         check(bool(entry.model.strip()), f"[executor.{default}] model is required")
         check(
@@ -842,6 +906,13 @@ def validate_config(config: Config) -> list[str]:
             "[container] run_args entries must be single option tokens "
             f'starting with "-" (e.g. "--userns=keep-id"): {arg!r}',
         )
+    check(
+        config.container.selinux_relabel in SELINUX_RELABEL_MODES,
+        "[container] selinux_relabel must be "
+        f"{'/'.join(SELINUX_RELABEL_MODES)} (the private SELinux `Z` label is "
+        "not offered: it would lock the shared repository clone to one "
+        f"container): {config.container.selinux_relabel!r}",
+    )
     check(
         isinstance(config.container.runtime_env, dict),
         "[container] runtime_env must be a TOML inline table or section",
@@ -1114,6 +1185,11 @@ def validate_config(config: Config) -> list[str]:
         f"[review] trigger must be label in ADORE: {config.review.trigger!r}",
     )
     check(config.review.max_review_rounds >= 1, "[review] max_review_rounds must be >= 1")
+    check(
+        config.review.on_pipeline_failure in ("revise", "notify", "ignore"),
+        "[review] on_pipeline_failure must be revise/notify/ignore: "
+        f"{config.review.on_pipeline_failure!r}",
+    )
 
     check(
         config.reconcile.on_ticket_deleted in ("abort-cleanup", "ignore"),

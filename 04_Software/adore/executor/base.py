@@ -61,18 +61,17 @@ class GateRun:
     """
     @brief   Result of running one workflow gate via the executor.
     @details The conductor's decision inputs (design 7a step 3): the exit
-             code, authoritative wrapper-timeout flag, whether the executor
-             asked clarification questions, and the session id for continuing
-             the same executor session at the next gate. `output` is the raw
-             event stream (also persisted in the run's io dir for audit).
-             `artifact_dirs` names immutable per-launch archive directories
-             created by the file protocol.
+             code, authoritative wrapper-timeout flag, and whether the executor
+             asked clarification questions. `output` is the raw event stream
+             (also persisted in the run's io dir for audit). `artifact_dirs`
+             names immutable per-launch archive directories created by the file
+             protocol. There is deliberately no session id: every stage gets a
+             FRESH executor session, so nothing is ever continued.
     """
 
     exit_code: int
     has_questions: bool = False
     questions: str = ""
-    session_id: str = ""
     output: str = ""
     stderr: str = ""
     timed_out: bool = False
@@ -108,19 +107,20 @@ class Executor(ABC):
         io_dir: str | Path,
         prompt: str,
         *,
-        session: str = "",
         timeout: float | None = None,
         archive_stem: str = "",
     ) -> GateRun:
         """
         @brief      Launch the executor for a single workflow gate.
+        @details    Every launch starts a FRESH executor session. The durable
+                    AEGIS journal, not model memory, is the resume authority,
+                    so there is no session to continue and no session argument.
         @param[in]  execute Exec seam bound to the run's container.
         @param[in]  worktree HOST path of the run's worktree (questions file).
         @param[in]  io_dir HOST path of the run's io exchange dir (gate
                            script in, event stream out; mounted at /adore/io).
         @param[in]  prompt Gate-specific instruction (any content; it never
                            travels through argv).
-        @param[in]  session Executor session id to continue ("" = new).
         @param[in]  timeout Wall-clock bound (run budgets).
         @param[in]  archive_stem Optional immutable archive name stem.
         @return     A GateRun describing the outcome.

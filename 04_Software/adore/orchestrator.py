@@ -65,6 +65,7 @@ from adore.isolation import (
 )
 from adore.state import RunState, StateError, StateStore, content_hash, derive_run_id
 from adore.util import (
+    CommandResult,
     force_rmtree,
     in_quiet_hours,
     iso_to_datetime,
@@ -205,6 +206,7 @@ class Orchestrator:
                 config.container.npm_cache_volume,
                 run_args=config.container.run_args,
                 egress=config.container.egress,
+                selinux_relabel=config.container.selinux_relabel,
             ),
             executor=build_executor(
                 config.executor.default,
@@ -233,6 +235,18 @@ class Orchestrator:
                         backoff = 1
                     except ForgeError as exc:
                         self.log(f"poll error (platform): {exc}")
+                        if self.config.polling.poll_backoff:
+                            backoff = min(backoff * 2, 8)
+                    except Exception as exc:  # noqa: BLE001 - the loop outlives one pass
+                        # One run's unexpected failure must not end the daemon
+                        # and strand every other run. An IsolationError from a
+                        # checkpoint commit, or a KeyError from an executor
+                        # command template carrying an unsupported brace, used
+                        # to escape here and kill the process; the next start
+                        # then failed the in-flight run as STALE_WORKING.
+                        # KeyboardInterrupt is a BaseException and still stops
+                        # the loop through the handler below.
+                        self.log(f"poll error (unexpected): {_sanitize(exc)}")
                         if self.config.polling.poll_backoff:
                             backoff = min(backoff * 2, 8)
                 interval = self.config.polling.poll_interval_seconds * backoff
@@ -668,7 +682,9 @@ class Orchestrator:
                     )
                     self._successful_transition(run, "deliver", "validate")
                     continue
-                if not self._strict_verification(run, client):
+                if self._already_verified(run):
+                    self._refresh_deviations(run, task)
+                elif not self._strict_verification(run, client):
                     return
                 self._present_for_approval(run, ticket)
                 return
@@ -776,7 +792,6 @@ class Orchestrator:
             self._stage_prompt(
                 run, ticket, task, failure_context, thread, close_out=close_out
             ),
-            session="",
             timeout=timeout,
             archive_stem=f"{run.stage}-attempt-{run.stage_failures + 1}",
         )
@@ -918,6 +933,50 @@ class Orchestrator:
         run.stage = "deliver"
         self.store.save(run)
         return True
+
+    def _refresh_deviations(self, run: RunState, task: AegisTask) -> None:
+        """
+        @brief      Re-harvest recorded deviations into the stored evidence.
+        @details    Verification happens on the validate -> deliver transition,
+                    before the executor has written its final journal entries,
+                    so the deviations captured there can already be stale when
+                    the candidate is presented. While the strict check ran twice
+                    the second pass hid this, because it re-read the journal. It
+                    costs nothing to do properly: the conduct loop has already
+                    read the current task, so the approval presentation keeps
+                    showing what the journal actually records.
+        @param[in]  run The run about to be presented for approval.
+        @param[in]  task The task document the conduct loop just read.
+        """
+        run.validation_evidence["deviations"] = list(task.deviations)
+        self.store.save(run)
+
+    def _already_verified(self, run: RunState) -> bool:
+        """
+        @brief      Whether the exact candidate on disk was already verified.
+        @details    The validate -> deliver transition verifies, and the next
+                    pass of the conduct loop reads the task back at deliver and
+                    would verify again. That ran the whole strict catalogue AND
+                    every configured command a SECOND time on every successful
+                    run - six seconds on a toy repository, a doubled test suite
+                    on a real one (live finding 2026-09-18).
+
+                    Re-verification is skipped only when the candidate hashes
+                    identically to the one the stored evidence describes, so a
+                    tree that moved for any reason is verified again. A
+                    fingerprint failure, including a dirty worktree, answers
+                    "not verified" and the full check runs.
+        @param[in]  run The run sitting at the deliver stage.
+        @return     True when the stored evidence still describes this exact
+                    candidate.
+        """
+        if not run.validation_evidence or not run.candidate_fingerprint:
+            return False
+        try:
+            current = self.worktrees.candidate_fingerprint(run.run_id, run.base_ref)
+        except IsolationError:
+            return False
+        return current == run.candidate_fingerprint
 
     @staticmethod
     def _validation_payload(check: AegisCheck) -> dict[str, Any]:
@@ -1216,7 +1275,7 @@ class Orchestrator:
                 run.run_id, run.base_ref
             )
             self.store.save(run)
-            push = self.worktrees.push(run.run_id, run.branch)
+            push = self._push_branch(run)
             if not push.ok:
                 self._fail_immediately(run, "PUSH_FAILED", push.stderr or push.stdout)
                 return
@@ -1278,7 +1337,7 @@ class Orchestrator:
                     self._publish(run, ticket)
                 return
             self._checkpoint(run, f"ADORE close {run.active_task_id} MR {run.mr_iid}")
-            push = self.worktrees.push(run.run_id, run.branch)
+            push = self._push_branch(run)
             if not push.ok:
                 self._fail_immediately(run, "CLOSE_OUT_PUSH_FAILED", push.stderr or push.stdout)
                 return
@@ -1301,7 +1360,7 @@ class Orchestrator:
             return
         try:
             self._checkpoint(run, f"ADORE recover close-out {run.active_task_id}")
-            push = self.worktrees.push(run.run_id, run.branch)
+            push = self._push_branch(run)
         except IsolationError as exc:
             self._fail_immediately(run, "PUBLICATION_SETUP", exc)
             return
@@ -1422,11 +1481,24 @@ class Orchestrator:
         self.log(f"{run.run_id}: failed loudly ({code})")
 
     def _fail_without_notification(self, run: RunState, code: str, evidence: Any) -> None:
-        """@brief Record a failure when the forge was unavailable before claim."""
+        """
+        @brief Record a failure when the forge was unavailable before claim.
+        @details No comment can be posted here - the forge write is what
+                 failed - so the run would otherwise fail in silence and the
+                 ticket would just sit there still wearing its ready label.
+                 The most common cause is a lifecycle label that does not
+                 exist in the repository yet, which GitHub and Gitea reject by
+                 name, so the reason is logged to stdout and `adore.log`
+                 instead of only to the run journal.
+        """
         run.lifecycle = "failed"
         run.outcome = f"{code}: {_sanitize(evidence)}"
         self.store.save(run)
         self.store.journal(run.run_id, "failed", code=code, evidence=_sanitize(evidence))
+        self.log(
+            f"{run.run_id}: failed before claim ({code}); no ticket comment was "
+            f"possible: {_sanitize(evidence, 500)}"
+        )
 
     def _notification_transport_failure(
         self, run: RunState, code: str, evidence: Any
@@ -1616,6 +1688,45 @@ class Orchestrator:
         if now is None:
             return utc_now_iso()
         return (now + timedelta(seconds=seconds)).isoformat()
+
+    def _push_branch(self, run: RunState) -> CommandResult:
+        """
+        @brief      Push the run branch, retrying a transient remote failure.
+        @details    The push is the most expensive moment in a run to lose: every
+                    engineering stage has been paid for and a human has already
+                    approved this exact candidate, which a terminal failure
+                    discards along with the approval. Every fetch around it
+                    already retries through `_transient`; the push did not, so a
+                    single "Failed to authenticate user" from a credential
+                    refresh ended a fully validated run (live finding
+                    2026-09-18, Gitea pilot).
+
+                    Retrying is safe because a push is idempotent in effect: the
+                    same refs produce the same remote state. A genuine refusal -
+                    a protected branch, a non-fast-forward - fails every attempt
+                    and still ends the run loudly, only later. `push` returns its
+                    outcome as DATA rather than raising, which is why this cannot
+                    reuse `_transient`.
+        @param[in]  run The run whose branch to push.
+        @return     The last CommandResult, successful or not.
+        """
+        attempts = max(self.config.recovery.max_transient_retries, 1)
+        schedule = self.config.recovery.retry_backoff_seconds
+        result = self.worktrees.push(run.run_id, run.branch)
+        attempt = 1
+        while not result.ok and attempt < attempts:
+            self.store.journal(
+                run.run_id,
+                "transient-failure",
+                operation="push",
+                attempt=attempt,
+                limit=attempts,
+                evidence=_sanitize(result.stderr or result.stdout),
+            )
+            self.sleep(schedule[min(attempt - 1, len(schedule) - 1)])
+            result = self.worktrees.push(run.run_id, run.branch)
+            attempt += 1
+        return result
 
     def _transient(self, run: RunState, operation: str, call: Callable[[], Any]) -> Any:
         """@brief Retry infrastructure independently from the stage-failure counter."""
@@ -1824,7 +1935,24 @@ class Orchestrator:
             return
         if self._cancel_if_ticket_closed(run, ticket):
             return
-        if self.config.review.revise_label not in mr.labels:
+        # Two triggers feed ONE governed revision path. An explicit human
+        # request wins over an inferred one, so the label is checked first.
+        requested = self.config.review.revise_label in mr.labels
+        observed = self._observe_pipeline(run)
+        pipeline_failed = observed == "failed"
+        auto_repair = (
+            pipeline_failed
+            and not requested
+            and self.config.review.on_pipeline_failure == "revise"
+            and run.review_rounds < self.config.review.max_review_rounds
+        )
+        if pipeline_failed and not auto_repair and not requested:
+            # Either the mode is notify/ignore, or the round budget is spent:
+            # say so on the MR and leave the run for a human.
+            self._notify_pipeline_failure(run)
+            self.store.save(run)
+            return
+        if not requested and not auto_repair:
             self.store.save(run)
             return
         if run.review_rounds >= self.config.review.max_review_rounds:
@@ -1858,13 +1986,14 @@ class Orchestrator:
             round=run.review_rounds + 1,
             task=task_id,
         )
-        try:
-            self.forge.remove_mr_labels(
-                run.mr_iid, [self.config.review.revise_label]
-            )
-        except ForgeError as exc:
-            self._notification_transport_failure(run, "REVISE_LABEL_REMOVE", exc)
-            return
+        if requested:
+            try:
+                self.forge.remove_mr_labels(
+                    run.mr_iid, [self.config.review.revise_label]
+                )
+            except ForgeError as exc:
+                self._notification_transport_failure(run, "REVISE_LABEL_REMOVE", exc)
+                return
         run.review_rounds += 1
         run.active_task_id = task_id
         run.task_ids.append(task_id)
@@ -1879,13 +2008,133 @@ class Orchestrator:
         run.approval_label_removed = False
         run.lifecycle = "working"
         run.active_started_at = utc_now_iso()
+        # Clear the surfaced verdict: this revision produces new commits and so
+        # a new pipeline run, whose result must be observed afresh.
+        run.pipeline_reported = ""
         self.store.save(run)
         self.store.journal(
-            run.run_id, "revision-started", round=run.review_rounds, task=task_id
+            run.run_id,
+            "revision-started",
+            round=run.review_rounds,
+            task=task_id,
+            trigger="revise-label" if requested else "pipeline-failed",
         )
         self._checkpoint(run, f"ADORE create revision {task_id}")
         summary["revised"] += 1
-        self._conduct(run, ticket, self._render_thread(comments))
+        thread = self._render_thread(comments)
+        if auto_repair:
+            thread = "\n\n".join(part for part in (self._pipeline_brief(), thread) if part)
+            self._announce_pipeline_repair(run)
+        self._conduct(run, ticket, thread)
+
+    def _announce_pipeline_repair(self, run: RunState) -> None:
+        """
+        @brief      Say on the draft that an automatic repair round has begun.
+        @details    Nobody asked for this round, so without a notice a reviewer
+                    watching the MR/PR sees commits arrive with no explanation.
+                    The ticket's status comment moves back to `working`, but
+                    that is the wrong surface for someone following the draft.
+                    Best-effort: losing the notice must not stop the repair.
+        @param[in]  run The run whose repair round is starting.
+        """
+        if run.mr_iid is None:
+            return
+        rounds = self.config.review.max_review_rounds
+        marker = self.identity.make_marker(
+            run.run_id, "pipeline-repair", round=str(run.review_rounds)
+        )
+        body = (
+            f"{self.identity.tag} The forge pipeline reported `failed`, so ADORE "
+            f"started an automatic repair round ({run.review_rounds}/{rounds}).\n\n"
+            "New commits will appear on this branch once the work passes strict "
+            "validation and a human re-approves the candidate on the source "
+            "ticket. ADORE still never merges. Set "
+            "`[review] on_pipeline_failure = \"notify\"` to be asked first "
+            f"instead.\n{marker}"
+        )
+        with contextlib.suppress(ForgeError):
+            self.forge.post_mr_comment(run.mr_iid, body)
+
+    def _pipeline_brief(self) -> str:
+        """
+        @brief   The instruction handed to an executor revising a red pipeline.
+        @details ADORE cannot read job logs through the platform CLIs it wraps,
+                 so the executor is pointed at the repository's own CI
+                 definition and told to reproduce the failure in the container
+                 rather than being handed a summary that might be stale.
+        @return  Thread text prepended to the review discussion.
+        """
+        return (
+            "The forge pipeline on the published draft reported `failed`, and "
+            "this revision exists to make it green. Read the repository's CI "
+            "configuration, reproduce the failing checks inside this container, "
+            "and fix the cause. Treat a green pipeline as part of the "
+            "acceptance criteria for this round."
+        )
+
+    def _observe_pipeline(self, run: RunState) -> str:
+        """
+        @brief      Read the draft's pipeline verdict, reporting only a CHANGE.
+        @details    Returns "" unless the verdict is new, because a run can sit
+                    in review for days: acting on the current value every poll
+                    would nag the reviewer, and would restart a repair round on
+                    a failure already being repaired. The read is best-effort -
+                    an in-review run is doing no code work, so a forge hiccup
+                    on advisory information must not disturb it - and "unknown"
+                    or "none" never become a signal.
+
+                    `[review] on_pipeline_failure = "ignore"` skips the read
+                    entirely, so a repository with no CI pays nothing.
+        @param[in]  run The in-review run whose MR/PR to inspect.
+        @return     The newly observed PIPELINE_STATES value, or "" when the
+                    verdict is unchanged, unreadable, or not applicable.
+        """
+        if run.mr_iid is None or self.config.review.on_pipeline_failure == "ignore":
+            return ""
+        try:
+            status = self.forge.pipeline_status(run.mr_iid)
+        except ForgeError as exc:  # an adapter is contracted not to raise here
+            self.log(f"{run.run_id}: pipeline status unavailable: {_sanitize(exc, 300)}")
+            return ""
+        if status in {"unknown", "none"} or status == run.pipeline_reported:
+            return ""
+        run.pipeline_reported = status
+        self.store.save(run)
+        self.store.journal(
+            run.run_id, "pipeline-observed", status=status, mr=run.mr_iid
+        )
+        return status
+
+    def _notify_pipeline_failure(self, run: RunState) -> None:
+        """
+        @brief      Post the one-time red-pipeline notice and take no action.
+        @details    Used when automatic repair is off, or when the review-round
+                    budget is already spent. ADORE never merges, so the run
+                    simply stays in review for a human. Best-effort: losing an
+                    advisory comment must not fail a run that is doing no work.
+        @param[in]  run The in-review run whose MR/PR reported failure.
+        """
+        if run.mr_iid is None:
+            return
+        rounds = self.config.review.max_review_rounds
+        exhausted = run.review_rounds >= rounds
+        next_step = (
+            f"The review-round budget is spent ({run.review_rounds}/{rounds}), so "
+            "no further automatic repair will run."
+            if exhausted else
+            "Automatic repair is off for this profile "
+            f"(`[review] on_pipeline_failure`). To request a governed revision, "
+            f"add `{self.config.review.revise_label}`."
+        )
+        body = (
+            f"{self.identity.tag} The forge pipeline on this draft reports "
+            f"`failed`.\n\n{next_step} ADORE never merges, so this run stays in "
+            "review until a human merges it, closes it, or closes the source "
+            "ticket.\n"
+            f"{self.identity.make_marker(run.run_id, 'pipeline', status='failed')}"
+        )
+        with contextlib.suppress(ForgeError):
+            self.forge.post_mr_comment(run.mr_iid, body)
 
     @staticmethod
     def _render_thread(comments: list[Comment], limit: int = 20) -> str:

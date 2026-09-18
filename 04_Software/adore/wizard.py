@@ -734,11 +734,26 @@ def _report_aegis(
     status = doctor.detect_aegis(repo_path, runner)
     out(f"  [{'OK' if status.ok else 'CHECK'}] AEGIS payload"
         + (f" (schema {status.schema_version})" if status.ok else ""))
-    if status.ok:
+    if not status.ok:
+        if status.detail:
+            out(f"        {status.detail}")
+        out("        " + doctor.guidance_for(doctor.AEGIS, os_key))
+    # Host git push access is probed here because this is where the clone path
+    # is known. It is the one prerequisite that otherwise fails at the very end
+    # of a run, discarding a human approval (see doctor.detect_push_access).
+    ignore = doctor.detect_gitignore(repo_path)
+    out(f"  [{'OK' if ignore.present else 'CHECK'}] target .gitignore")
+    if not ignore.present:
+        out(f"        {ignore.detail}")
+        out("        " + doctor.guidance_for(doctor.GITIGNORE, os_key))
+    push = doctor.detect_push_access(repo_path, runner)
+    out(f"  [{'OK' if push.version else 'CHECK'}] host git push access"
+        + (f" ({push.version})" if push.version else ""))
+    if push.version:
         return
-    if status.detail:
-        out(f"        {status.detail}")
-    out("        " + doctor.guidance_for(doctor.AEGIS, os_key))
+    if push.detail:
+        out(f"        {push.detail}")
+    out("        " + doctor.guidance_for(doctor.GIT_PUSH, os_key))
 
 
 def _report_environment(

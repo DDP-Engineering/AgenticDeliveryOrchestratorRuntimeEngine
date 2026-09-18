@@ -195,6 +195,28 @@ def test_changed_files_counts_renames_and_quoted_paths_once(tmp_path: Path) -> N
     assert manager.changed_files("run-1", "origin/develop") == 4
 
 
+def test_product_fingerprint_ignores_tool_regenerated_paths(tmp_path: Path) -> None:
+    """
+    @brief   A target repo without a matching .gitignore carries its own
+             bytecode in the candidate, and the delivery gate reruns the
+             configured commands, which rewrites it. Counting that as the
+             delivery executor mutating product code would invalidate an
+             approval a human already gave, for a file nobody edited (live
+             finding 2026-09-18). Governed and generated paths are both
+             excluded; real product changes are not.
+    """
+    runner = FakeRunner(_ok(), _ok(), _ok("diff --git a/calc/core.py"))
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "wt", runner)
+    manager.product_diff_fingerprint("run-1", "origin/master")
+    argv = runner.calls[-1]
+    assert ":(exclude).agentic/**" in argv
+    assert ":(exclude)**/__pycache__/**" in argv
+    assert ":(exclude)**/*.pyc" in argv
+    assert ":(exclude)**/.ruff_cache/**" in argv
+    # the product itself is still what gets hashed
+    assert "." in argv and "--binary" in argv
+
+
 def test_worktree_remove_missing_is_not_an_error(tmp_path: Path) -> None:
     """
     @brief   Removing an already-gone worktree only prunes (idempotent).
@@ -390,6 +412,80 @@ def test_container_provision_inserts_run_args(tmp_path: Path) -> None:
     run_argv = runner.calls[1]
     assert run_argv[:4] == ["podman", "run", "--detach", "--userns=keep-id"]
     assert run_argv[4:6] == ["--name", "p-run-x"]
+
+
+def test_container_provision_relabels_only_bind_mounts_for_selinux(
+    tmp_path: Path,
+) -> None:
+    """
+    @brief   selinux_relabel="shared" appends `z` to the three HOST bind
+             mounts, so an enforcing host lets container_t read the clone,
+             worktree and io dir instead of denying every stage. The named
+             cache VOLUMES keep no suffix: the runtime already labels those.
+             The unlabeled default is pinned by
+             test_container_provision_creates_when_absent's exact mounts.
+    """
+    runner = FakeRunner(_fail("Error: No such object: adore-run-x"), _ok("cid"))
+    manager = ContainerManager(
+        "podman", "adore-executor-base:1.0.0", "uv-cache", "npm-cache", runner,
+        selinux_relabel="shared",
+    )
+    io_dir = tmp_path / "io"
+    manager.provision("adore-run-x", tmp_path / "repo", tmp_path / "wt",
+                      io_dir, {"HOME": "/home/adore"})
+    run_argv = runner.calls[1]
+    mounts = [run_argv[index + 1] for index, part in enumerate(run_argv[:-1])
+              if part == "--volume"]
+    assert f"{(tmp_path / 'repo').as_posix()}:{CONTAINER_REPO_MOUNT}:z" in mounts
+    assert f"{(tmp_path / 'wt').as_posix()}:{CONTAINER_WORKTREE_MOUNT}:z" in mounts
+    assert f"{io_dir.as_posix()}:{CONTAINER_IO_MOUNT}:z" in mounts
+    assert "uv-cache:/home/adore/.cache/uv" in mounts
+    assert "npm-cache:/home/adore/.npm" in mounts
+
+
+def test_container_proxy_config_mount_combines_ro_and_relabel(
+    tmp_path: Path,
+) -> None:
+    """
+    @brief   The generated squid config is a host bind mount too, so under
+             selinux_relabel="shared" it carries BOTH options as `ro,z`, the
+             comma form docker and podman both accept. Relabeling only the
+             executor mounts would still break allowlist-proxy egress on an
+             enforcing host, because squid could not read its own config.
+    """
+    runner = FakeRunner(
+        _fail("No such container: adore-run-x"),
+        _ok("network"),
+        _fail("No such container: adore-run-x-egress-proxy"),
+        _ok("proxy"),
+        _ok(),
+        _ok("cid"),
+    )
+    manager = ContainerManager(
+        "podman", "adore-executor-base:1.0.0", "uv-cache", "npm-cache", runner,
+        egress=ContainerEgressConfig(
+            mode="allowlist-proxy", allowlist=["api.openai.com"],
+        ),
+        selinux_relabel="shared",
+    )
+    io_dir = tmp_path / "io"
+    manager.provision("adore-run-x", tmp_path / "repo", tmp_path / "wt",
+                      io_dir, {"HOME": "/home/adore"})
+    proxy_run = runner.calls[3]
+    config_source = (io_dir / "egress-proxy" / "squid.conf").as_posix()
+    assert f"{config_source}:/etc/squid/squid.conf:ro,z" in proxy_run
+
+
+def test_container_rejects_unknown_selinux_relabel_mode() -> None:
+    """
+    @brief   An unknown relabel mode fails closed at construction. The private
+             `Z` label is the one operators reach for by habit; accepting it
+             would relabel the shared clone per container and break the next
+             run, so it is refused here as well as in config validation.
+    """
+    with pytest.raises(ValueError, match="selinux_relabel"):
+        ContainerManager("docker", "adore-executor-base:1.0.0", "uv-cache",
+                         "npm-cache", FakeRunner(), selinux_relabel="Z")
 
 
 def test_container_provision_none_uses_no_network(tmp_path: Path) -> None:

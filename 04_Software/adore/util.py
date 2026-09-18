@@ -127,9 +127,10 @@ def run_command(
     """
     @brief      Run an external command without a shell, capturing all output.
     @details    Never raises for command failure; errors are reported through
-                the exit code (127 = binary missing, 124 = timeout) so callers
-                decide deterministically. Output is decoded as UTF-8 with
-                replacement to survive Windows console encodings.
+                the exit code (127 = binary missing, 126 = the OS refused the
+                spawn, 124 = timeout) so callers decide deterministically.
+                Output is decoded as UTF-8 with replacement to survive Windows
+                console encodings.
 
                 `timed_out=True` is set ONLY on the wrapper-timeout path
                 below (`subprocess.TimeoutExpired`); the normal-completion
@@ -168,6 +169,16 @@ def run_command(
             stderr=stderr or f"timeout after {timeout}s",
             timed_out=True,
         )
+    except OSError as exc:
+        # Everything else the OS can refuse: a locked or antivirus-held
+        # executable (WinError 5), a command line past the Windows
+        # 32767-character limit (WinError 206), an unusable cwd. None of these
+        # is a RuntimeError, so an uncaught one escapes every ForgeError /
+        # IsolationError handler above and takes the poll loop down with it.
+        # Reporting a failed command keeps the failure inside the caller's
+        # existing error path. 126 mirrors the shell's "found but not
+        # executable", distinct from 127 (missing) and 124 (timeout).
+        return CommandResult(argv=argv_list, exit_code=126, stderr=str(exc))
     return CommandResult(
         argv=argv_list,
         exit_code=completed.returncode,

@@ -56,6 +56,16 @@ _WIP_RE = re.compile(r"(?i)^\s*(?:wip:|\[wip\])")
 # beyond one page is still ranked; bounded so a runaway never loops.
 _PAGE_SIZE = 50
 _MAX_LIST_PAGES = 50
+# Gitea CombinedStatus `state` -> the normalized PIPELINE_STATES vocabulary.
+# "warning" is Gitea's non-blocking verdict, so it is not a failure.
+_PIPELINE_STATES = {
+    "success": "success",
+    "failure": "failed",
+    "error": "failed",
+    "pending": "running",
+    "running": "running",
+    "warning": "none",
+}
 
 # PUBLIC API
 
@@ -137,16 +147,7 @@ class GiteaForge(Forge):
         @exception  ForgeError When tea fails or the response is malformed.
         """
         items = self._get_paged(f"repos/{self.repo}/issues/{iid}/comments", {})
-        return [
-            Comment(
-                id=int(item["id"]),
-                body=item.get("body", ""),
-                author=self._username(item.get("user")),
-                created_at=item.get("created_at", ""),
-                system=False,
-            )
-            for item in items
-        ]
+        return [self._to_comment(item) for item in items]
 
     def post_comment(self, iid: int, body: str) -> int:
         """
@@ -242,18 +243,91 @@ class GiteaForge(Forge):
                 return self._to_merge_request(item)
         return None
 
+    def pipeline_status(self, mr_iid: int) -> str:
+        """
+        @brief      The PR head commit's combined status; never raises.
+        @details    Gitea keys commit status by SHA, not by PR, so this reads
+                    the pull to learn `head.sha` and then its combined status.
+                    An empty `state` means no CI reported on that commit, which
+                    is "none" rather than a pass. Actions and external CI both
+                    land on this endpoint.
+        @param[in]  mr_iid PR number.
+        @return     A PIPELINE_STATES value.
+        """
+        try:
+            pull = self._api("GET", f"repos/{self.repo}/pulls/{mr_iid}", allow_404=True)
+            if pull is None:
+                return "unknown"
+            head = self._parse_json(pull, dict).get("head") or {}
+            sha = head.get("sha") if isinstance(head, dict) else None
+            if not sha:
+                return "unknown"
+            combined = self._api(
+                "GET", f"repos/{self.repo}/commits/{sha}/status", allow_404=True
+            )
+            if combined is None:
+                return "none"
+            payload = self._parse_json(combined, dict)
+        except ForgeError:
+            return "unknown"
+        # Gitea answers `state: "pending"` with an EMPTY status list when
+        # NOTHING has reported on the commit, so a repository with no CI at all
+        # would read as a pipeline forever in progress (live finding, Gitea
+        # 1.27.2). The count decides before the state does.
+        if not payload.get("total_count") and not payload.get("statuses"):
+            return "none"
+        state = str(payload.get("state") or "").lower()
+        if not state:
+            return "none"
+        return _PIPELINE_STATES.get(state, "unknown")
+
     def list_mr_comments(self, mr_iid: int) -> list[Comment]:
         """
-        @brief      Read PR conversation comments oldest-first (REST API).
-        @details    Issues and PRs share one index space on Gitea, so the
-                    issues comments endpoint covers the PR conversation;
-                    inline review-thread comments are a later refinement
-                    (same v1 scope as the GitHub adapter).
+        @brief      Read the whole PR review thread oldest-first (REST API).
+        @details    Issues and PRs share one index space, so the issues
+                    comments endpoint covers the conversation - but a
+                    submitted review's own text and its inline diff comments
+                    live under `pulls/<n>/reviews`. The revise loop needs
+                    those: without them a reviewer who requested changes from
+                    the diff view left the revision executor an EMPTY thread,
+                    spending a review round on a blind revision.
         @param[in]  mr_iid PR number.
-        @return     All conversation comments.
+        @return     Conversation, review-body and inline comments, oldest first.
         @exception  ForgeError When tea fails.
         """
-        return self.list_comments(mr_iid)
+        comments = self.list_comments(mr_iid)
+        comments.extend(self._review_comments(mr_iid))
+        comments.sort(key=lambda item: (item.created_at, item.id))
+        return comments
+
+    def _review_comments(self, mr_iid: int) -> list[Comment]:
+        """
+        @brief      Submitted review bodies plus their inline diff comments.
+        @details    Gitea keeps a review's inline comments behind a per-review
+                    endpoint, so each review with an id costs one extra call.
+                    A bodyless review is a bare approve/close event carrying no
+                    instruction, so it is dropped rather than padding the
+                    thread the executor reads.
+        @param[in]  mr_iid PR number.
+        @return     Review-surface comments (empty when the PR has none).
+        @exception  ForgeError When tea fails.
+        """
+        found: list[Comment] = []
+        reviews = self._get_paged(f"repos/{self.repo}/pulls/{mr_iid}/reviews", {})
+        for review in reviews:
+            if str(review.get("body") or "").strip():
+                found.append(self._to_comment(review))
+            review_id = review.get("id")
+            if review_id is None:
+                continue
+            inline = self._get_paged(
+                f"repos/{self.repo}/pulls/{mr_iid}/reviews/{review_id}/comments", {}
+            )
+            found.extend(
+                self._to_comment(item) for item in inline
+                if str(item.get("body") or "").strip()
+            )
+        return found
 
     def post_mr_comment(self, mr_iid: int, body: str) -> int:
         """@brief Post a PR conversation comment through the issues surface."""
@@ -443,6 +517,26 @@ class GiteaForge(Forge):
         if not isinstance(user, dict):
             return ""
         return user.get("login") or user.get("username") or ""
+
+    @classmethod
+    def _to_comment(cls, item: dict[str, Any]) -> Comment:
+        """
+        @brief      Map one Gitea comment or review record to a Comment.
+        @details    A submitted review timestamps itself with `submitted_at`
+                    rather than `created_at`; falling back keeps every review
+                    surface on one sortable timeline instead of pinning
+                    reviews to the start of the thread. Gitea keeps system
+                    events out of these endpoints, so `system` is always False.
+        @param[in]  item Raw comment/review mapping.
+        @return     The normalized Comment.
+        """
+        return Comment(
+            id=int(item["id"]),
+            body=item.get("body", ""),
+            author=cls._username(item.get("user")),
+            created_at=item.get("created_at") or item.get("submitted_at", ""),
+            system=False,
+        )
 
     @classmethod
     def _to_ticket(cls, item: dict[str, Any]) -> Ticket:

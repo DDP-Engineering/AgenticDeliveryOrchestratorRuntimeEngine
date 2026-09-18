@@ -92,6 +92,29 @@ runtime = "podman"
 run_args = ["--userns=keep-id"]
 ```
 
+## Create the Labels First
+
+ADORE applies and removes labels but never creates them. GitHub and Gitea
+reject an unknown label name, so the very first poll fails before it can post
+anything to the ticket; the reason is printed to the console and `adore.log`.
+Create all of these in the forge repository before the first run, renaming them
+here only if you also change the matching configuration key:
+
+| Label | Config key |
+| --- | --- |
+| `agent-ready` | `labels.lifecycle.ready` |
+| `agent-working` | `labels.lifecycle.working` |
+| `agent-clarify` | `labels.lifecycle.clarify` |
+| `agent-answered` | `labels.lifecycle.answered` |
+| `agent-mr` | `labels.lifecycle.review` |
+| `agent-failed` | `labels.lifecycle.failed` |
+| `agent-done` | `labels.lifecycle.done` |
+| `agent-approved` | `delivery.approval_label` |
+| `agent-revise` | `review.revise_label` |
+
+All seven lifecycle labels are needed, not only the ones you expect to see: on
+every status update ADORE removes the five it is not currently applying.
+
 ## Prepare a Ticket
 
 An eligible ticket normally needs:

@@ -138,6 +138,27 @@ def test_cli_missing_config_is_a_clean_error(
     assert "not found" in capsys.readouterr().out
 
 
+def test_cli_run_once_reports_an_unexpected_fault_without_a_traceback(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    @brief   `run --loop` survives an unexpected fault and keeps polling, so a
+             single pass must not be noisier for the same cause. `--once` is
+             what cron and Task Scheduler call, where a traceback is just a
+             nonzero exit with an ugly log.
+    """
+    from adore import cli as cli_module
+
+    def boom(*args, **kwargs):
+        raise KeyError("resume")
+
+    monkeypatch.setattr(cli_module.Orchestrator, "poll_once", boom)
+    config = _config_file(tmp_path)
+    assert main(["-c", config, "run", "--once"]) == EXIT_ERROR
+    assert "error:" in capsys.readouterr().out
+
+
 def test_cli_status_pause_resume_runs(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

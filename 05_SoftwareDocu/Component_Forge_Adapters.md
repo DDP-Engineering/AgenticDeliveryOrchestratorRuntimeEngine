@@ -22,10 +22,22 @@ ticket, comment, label and draft MR/PR contract.
 - remove review-trigger labels;
 - open a draft MR/PR.
 
-The base interface deliberately has no merge operation. GitHub and Gitea use
-their issue-comment surface for MR/PR comments; GitLab uses merge-request
-notes. CLI JSON, URLs, HTTP statuses and not-found behavior fail closed through
-`ForgeError` or an explicit missing resource.
+The base interface deliberately has no merge operation. For MR/PR comments,
+GitLab uses merge-request notes, which already include diff notes; GitHub and
+Gitea combine their issue-comment surface with the submitted reviews and inline
+diff comments, merged onto one timeline, so the revise loop sees the feedback a
+reviewer left from the diff view. CLI JSON, URLs, HTTP statuses and not-found
+behavior fail closed through `ForgeError` or an explicit missing resource.
+
+`pipeline_status(mr_iid)` is the one deliberate exception to failing closed. It
+normalizes each platform's own vocabulary onto `PIPELINE_STATES` and is
+contracted NEVER to raise: it is read by the post-MR poll, which is watching a
+run doing no code work, so an unreadable verdict must degrade to `"unknown"`
+(silent) rather than disturb the poll. GitLab reads the verdict inline from the
+MR document; GitHub requests `statusCheckRollup` in its own `gh pr view` call so
+a gh that does not know the field cannot break the MR read the whole poll
+depends on; Gitea reads the pull for `head.sha` and then that commit's combined
+status.
 
 ## 3. Notification Integration
 

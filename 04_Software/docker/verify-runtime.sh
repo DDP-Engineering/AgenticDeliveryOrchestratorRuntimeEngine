@@ -38,9 +38,14 @@
 #          verifies the new network posture; in proxy mode, ALLOWLIST is a
 #          comma-separated hostname list and ALLOWED_URL / DENIED_URL prove the
 #          proxy permits only the configured hosts.
+#          SELINUX_RELABEL=off|shared mirrors [container] selinux_relabel; use
+#          "shared" on an SELinux-enforcing host (Fedora/RHEL/CentOS Stream/
+#          Rocky/Alma) so the bind mounts carry `z` exactly as ADORE sends
+#          them. Verifying with "off" there fails on permission denied, which
+#          is the real host behaviour, not a script defect.
 # @author  Eng. Dan Dumitru Pasare
-# @date    2026-07-04
-# @version 0.5.1
+# @date    2026-09-18
+# @version 0.6.0
 # -----------------------------------------------------------------------------
 # shellcheck disable=SC2015  # `check && ok || bad` is safe: ok is a bare echo
 set -euo pipefail
@@ -62,6 +67,16 @@ VOL_NPM="adore-verify-npm-$$"
 SCRATCH="$(mktemp -d)"
 read -r -a RT <<< "${RUNTIME}"
 read -r -a EXTRA_RUN_ARGS <<< "${RUN_ARGS:-}"
+# Mirrors [container] selinux_relabel: "shared" appends `z` to the HOST bind
+# mounts (never the named cache volumes), which an SELinux-enforcing host needs
+# before the container may read them. Without this the script would report a
+# false failure on exactly the hosts that setting exists for.
+SELINUX_RELABEL="${SELINUX_RELABEL:-off}"
+case "${SELINUX_RELABEL}" in
+    off)    BIND_SUFFIX="" ;;
+    shared) BIND_SUFFIX=":z" ;;
+    *) echo "error: SELINUX_RELABEL must be off or shared"; exit 1 ;;
+esac
 
 STEP=0
 FAILURES=0
@@ -87,7 +102,8 @@ command -v git >/dev/null 2>&1 || { echo "error: git is required on this host"; 
 command -v "${RT[0]}" >/dev/null 2>&1 || { echo "error: '${RT[0]}' not found"; exit 1; }
 
 echo "ADORE runtime verification: RUNTIME='${RUNTIME}', IMAGE='${IMAGE}'," \
-     "RUN_ARGS='${RUN_ARGS:-}', EGRESS_MODE='${EGRESS_MODE}'"
+     "RUN_ARGS='${RUN_ARGS:-}', EGRESS_MODE='${EGRESS_MODE}'," \
+     "SELINUX_RELABEL='${SELINUX_RELABEL}'"
 echo
 
 # 1-2. runtime + image
@@ -157,7 +173,7 @@ coredump_dir /var/spool/squid
 EOF
     "${RT[@]}" network create --internal "${EGRESS_NETWORK}" >/dev/null \
         && "${RT[@]}" run --detach --name "${PROXY_NAME}" \
-            --volume "${PROXY_CONF}:/etc/squid/squid.conf:ro" \
+            --volume "${PROXY_CONF}:/etc/squid/squid.conf:ro${BIND_SUFFIX/:/,}" \
             "${PROXY_IMAGE}" >/dev/null \
         && "${RT[@]}" network connect --alias adore-egress-proxy \
             "${EGRESS_NETWORK}" "${PROXY_NAME}" \
@@ -192,9 +208,9 @@ export GIT_AUTHOR_NAME="ADORE" GIT_AUTHOR_EMAIL="adore-bot@local"
 export GIT_COMMITTER_NAME="ADORE" GIT_COMMITTER_EMAIL="adore-bot@local"
 "${RT[@]}" run --detach ${EXTRA_RUN_ARGS[@]+"${EXTRA_RUN_ARGS[@]}"} \
     --name "${NAME}" \
-    --volume "${SCRATCH}/repo:/adore/repo" \
-    --volume "${SCRATCH}/work:/adore/work" \
-    --volume "${SCRATCH}/io:/adore/io" \
+    --volume "${SCRATCH}/repo:/adore/repo${BIND_SUFFIX}" \
+    --volume "${SCRATCH}/work:/adore/work${BIND_SUFFIX}" \
+    --volume "${SCRATCH}/io:/adore/io${BIND_SUFFIX}" \
     --volume "${VOL_UV}:/home/adore/.cache/uv" \
     --volume "${VOL_NPM}:/home/adore/.npm" \
     --workdir /adore/work \

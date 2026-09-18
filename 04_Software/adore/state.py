@@ -110,6 +110,11 @@ class RunState:
     mr_iid: int | None = None
     mr_url: str = ""
     mr_missing_polls: int = 0
+    #: Last forge pipeline verdict already surfaced for this MR/PR, so a red
+    #: pipeline is reported once rather than on every poll of a run that may
+    #: sit in review for days. Additive with a default, so state written before
+    #: it existed still loads.
+    pipeline_reported: str = ""
     notification_outbox: list[dict[str, Any]] = field(default_factory=list)
     candidate_fingerprint: str = ""
     candidate_base_ref: str = ""

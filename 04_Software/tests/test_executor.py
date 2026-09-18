@@ -146,24 +146,9 @@ def test_gate_script_protocol_is_wsl_safe(tmp_path: Path) -> None:
     assert "{ " in script and "; } > " in script
     assert f"> /adore/io/{OUTPUT_FILE}" in script
     assert run.ok
-    assert run.session_id == "ses_abc123"
     assert not run.has_questions
     assert "session.start" in run.output
-
-
-def test_session_continuation_appends_session_flag(tmp_path: Path) -> None:
-    """
-    @brief   A given session id is appended as --session and survives as the
-             GateRun session when the output has none.
-    """
-    worktree, io_dir = _dirs(tmp_path)
-    exec_target = FakeExec(CommandResult(exit_code=0))
-    run = _executor().run_gate(
-        exec_target, worktree, io_dir, "next gate", session="ses_prev"
-    )
-    script = (io_dir / GATE_SCRIPT).read_text(encoding="utf-8")
-    assert "--session ses_prev" in script
-    assert run.session_id == "ses_prev"  # no output file -> keep the known id
+    assert "--session" not in script  # every gate is a fresh session
 
 
 def test_questions_file_parks_the_gate(tmp_path: Path) -> None:
@@ -343,74 +328,6 @@ def test_archive_write_failure_fails_gate_as_data(
     assert run.artifact_dirs == []
 
 
-def test_session_not_found_self_heals_with_fresh_session(tmp_path: Path) -> None:
-    """
-    @brief   A dead session (container recreated / pruned) relaunches once
-             without --session instead of failing the gate (live finding
-             2026-07-03).
-    """
-    worktree, io_dir = _dirs(tmp_path)
-    executor = _executor()
-    calls: list[str] = []
-
-    def exec_target(argv, *, timeout=None):
-        script = (io_dir / GATE_SCRIPT).read_text(encoding="utf-8")
-        calls.append(script)
-        if "--session" in script:
-            (io_dir / "stderr.log").write_text("Error: Session not found\n",
-                                               encoding="utf-8")
-            return CommandResult(exit_code=1, stderr="")
-        (io_dir / "stderr.log").write_text("", encoding="utf-8")
-        (io_dir / OUTPUT_FILE).write_text('{"sessionID":"ses_fresh"}\n',
-                                          encoding="utf-8")
-        return CommandResult(exit_code=0)
-
-    run = executor.run_gate(
-        exec_target,
-        worktree,
-        io_dir,
-        "p",
-        session="ses_dead",
-        archive_stem="004-implementation",
-    )
-    assert run.ok
-    assert run.session_id == "ses_fresh"
-    assert len(calls) == 2
-    assert "--session ses_dead" in calls[0]
-    assert "--session" not in calls[1]
-    assert run.artifact_dirs == [
-        str(io_dir / ARCHIVE_DIR / "004-implementation-attempt1"),
-        str(io_dir / ARCHIVE_DIR / "004-implementation-attempt2"),
-    ]
-    first = Path(run.artifact_dirs[0])
-    second = Path(run.artifact_dirs[1])
-    assert "Session not found" in (first / STDERR_FILE).read_text(encoding="utf-8")
-    assert "ses_fresh" in (second / OUTPUT_FILE).read_text(encoding="utf-8")
-
-
-def test_timeout_does_not_trigger_dead_session_self_heal(tmp_path: Path) -> None:
-    """@brief A wrapper timeout remains authoritative despite reset-like stderr."""
-    worktree, io_dir = _dirs(tmp_path)
-    calls: list[list[str]] = []
-
-    def exec_target(argv, *, timeout=None):
-        """@brief Simulate a killed launch whose partial stderr names a dead session."""
-        calls.append(list(argv))
-        (io_dir / STDERR_FILE).write_text("Error: Session not found\n", encoding="utf-8")
-        return CommandResult(exit_code=124, timed_out=True)
-
-    run = _executor().run_gate(
-        exec_target,
-        worktree,
-        io_dir,
-        "p",
-        session="ses_dead",
-    )
-
-    assert run.timed_out
-    assert len(calls) == 1
-
-
 def test_usage_extraction_from_event_stream(tmp_path: Path) -> None:
     """
     @brief   step_finish token/cost totals are summed into the GateRun;
@@ -477,21 +394,19 @@ def test_factory_selects_qwen_and_bans_yolo() -> None:
 
 def test_qwen_is_stateless_no_session_or_resume(tmp_path: Path) -> None:
     """
-    @brief   Qwen runs each gate fresh: a fresh gate surfaces no session id (so
-             the conductor never propagates one), and even when a session id is
-             passed the gate.sh carries neither --session nor a resume - the
-             workflow's file-based state carries context.
+    @brief   Qwen runs each gate fresh through the shared base build, and the
+             gate.sh carries neither --session nor a resume; the workflow's
+             file-based state carries context between stages.
     """
     worktree, io_dir = _dirs(tmp_path)
     executor = QwenExecutor(QWEN_TEMPLATE, "qwen3-coder-plus")
 
     fresh = executor.run_gate(FakeExec(CommandResult(exit_code=0)), worktree, io_dir,
                               "gate one")
-    assert fresh.session_id == ""           # nothing to continue; stays empty in flow
     assert fresh.tokens_in == 0 and fresh.cost_usd == 0.0   # usage pinned in spike
 
     executor.run_gate(FakeExec(CommandResult(exit_code=0)), worktree, io_dir,
-                      "gate two", session="ignored-by-qwen")
+                      "gate two")
     script = (io_dir / GATE_SCRIPT).read_text(encoding="utf-8")
     assert "qwen -p --model qwen3-coder-plus --output-format json" in script
     assert "--session" not in script and "resume" not in script
@@ -528,25 +443,39 @@ def test_factory_selects_codex_and_allows_container_full_auto() -> None:
     assert isinstance(executor, CodexExecutor)
 
 
-def test_codex_first_gate_vs_resume_command_structure(tmp_path: Path) -> None:
+def test_codex_resume_placeholder_always_resolves_empty(tmp_path: Path) -> None:
     """
-    @brief   The first gate runs `codex exec ...`; a continuing gate rewrites
-             the structure to `codex exec resume --last ...` (not an appended
-             --session flag).
+    @brief   Codex continues a session with the `exec resume --last`
+             subcommand, so its template carries a `{resume}` slot. ADORE runs
+             every gate fresh, so the slot must resolve to nothing and the
+             command must stay plain `codex exec` on every launch - including
+             the second one, which used to become `exec resume --last`.
     """
     worktree, io_dir = _dirs(tmp_path)
     executor = CodexExecutor(CODEX_TEMPLATE, "gpt-5.5-codex")
+    for prompt in ("gate one", "gate two"):
+        executor.run_gate(FakeExec(CommandResult(exit_code=0)), worktree, io_dir, prompt)
+        script = (io_dir / GATE_SCRIPT).read_text(encoding="utf-8")
+        assert "codex exec --json" in script
+        assert "resume" not in script
+        assert "--session" not in script
 
-    executor.run_gate(FakeExec(CommandResult(exit_code=0)), worktree, io_dir, "gate one")
-    new_script = (io_dir / GATE_SCRIPT).read_text(encoding="utf-8")
-    assert "codex exec --json" in new_script
-    assert "resume" not in new_script
-    assert "--session" not in new_script          # codex never uses --session
 
-    executor.run_gate(FakeExec(CommandResult(exit_code=0)), worktree, io_dir,
-                      "gate two", session="anything-truthy")
-    resume_script = (io_dir / GATE_SCRIPT).read_text(encoding="utf-8")
-    assert "codex exec resume --last --json" in resume_script
+def test_pi_gate_uses_the_shared_fresh_session_protocol(tmp_path: Path) -> None:
+    """
+    @brief   Pi runs through the same WSL-safe gate.sh protocol as opencode,
+             with no session flag appended.
+    """
+    worktree, io_dir = _dirs(tmp_path)
+    run = PiExecutor(PI_TEMPLATE, "openai/gpt-5.5").run_gate(
+        FakeExec(CommandResult(exit_code=0)), worktree, io_dir, "next gate",
+        timeout=900,
+    )
+    script = (io_dir / GATE_SCRIPT).read_text(encoding="utf-8")
+    assert "pi -p --mode json --model openai/gpt-5.5" in script
+    assert "--session" not in script
+    assert "\r" not in script and "cd /adore/work" in script
+    assert run.ok
 
 
 def test_codex_parses_usage_from_json(tmp_path: Path) -> None:
@@ -570,7 +499,6 @@ def test_codex_parses_usage_from_json(tmp_path: Path) -> None:
         FakeExec(CommandResult(exit_code=0), write_stream), worktree, io_dir, "p")
     assert run.tokens_in == 120 and run.tokens_out == 30
     assert abs(run.cost_usd - 0.02) < 1e-9
-    assert run.session_id == "th_abc"
 
 
 def test_codex_questions_and_failure_inherited(tmp_path: Path) -> None:
@@ -604,44 +532,6 @@ def test_factory_selects_pi() -> None:
     assert isinstance(executor, PiExecutor)
     # the shared file protocol is inherited: same gate.sh, same argv shape
     assert executor.questions_file == "ADORE_QUESTIONS.md"
-
-
-def test_pi_gate_uses_shared_protocol_and_session(tmp_path: Path) -> None:
-    """
-    @brief   Pi runs through the same WSL-safe gate.sh protocol and appends
-             `--session` for continuation, exactly like opencode.
-    """
-    worktree, io_dir = _dirs(tmp_path)
-    executor = PiExecutor(PI_TEMPLATE, "openai/gpt-5.5")
-    run = executor.run_gate(FakeExec(CommandResult(exit_code=0)), worktree, io_dir,
-                            "next gate", session="ses_prev", timeout=900)
-    calls_script = (io_dir / GATE_SCRIPT).read_text(encoding="utf-8")
-    assert "pi -p --mode json --model openai/gpt-5.5" in calls_script
-    assert "--session ses_prev" in calls_script
-    assert "\r" not in calls_script and "cd /adore/work" in calls_script
-    assert run.session_id == "ses_prev"     # no output -> keep the known id
-
-
-def test_pi_session_id_parsed_from_session_header(tmp_path: Path) -> None:
-    """
-    @brief   Pi's JSON stream opens with a {"type":"session","id":...} header;
-             the id is read from that event (not opencode's sessionID key).
-    """
-    worktree, io_dir = _dirs(tmp_path)
-
-    def write_stream() -> None:
-        (io_dir / OUTPUT_FILE).write_text(
-            '{"type":"session","version":3,"id":"pi-uuid-123","cwd":"/adore/work"}\n'
-            '{"type":"message_update","assistantMessageEvent":{"type":"text_delta",'
-            '"delta":"working"}}\n',
-            encoding="utf-8",
-        )
-
-    run = PiExecutor(PI_TEMPLATE, "m").run_gate(
-        FakeExec(CommandResult(exit_code=0), write_stream), worktree, io_dir, "p")
-    assert run.session_id == "pi-uuid-123"
-    # Pi does not report usage in the stream today -> zeros (metrics tolerate)
-    assert run.tokens_in == 0 and run.tokens_out == 0 and run.cost_usd == 0.0
 
 
 def test_pi_questions_and_failure_behave_like_the_shared_base(tmp_path: Path) -> None:

@@ -127,6 +127,20 @@ allowlist = ["gitlab.example.com", "api.openai.com", "*.pythonhosted.org"]
 The allowlist accepts exact hostnames and leading wildcards. SSH and other
 protocols that cannot use an HTTP(S) proxy are outside this mode's scope.
 
+**Podman 4.0 or newer is required for this mode**, with netavark as the network
+backend. The executor reaches the proxy by the DNS alias `adore-egress-proxy` on
+an `--internal` network, and Podman 3.x with the older CNI backend both disables
+DNS on internal networks and cannot attach a running container to a second
+network. Ubuntu 22.04 packages Podman 3.4, so check `podman --version` before
+choosing this mode there, and confirm with:
+
+```bash
+EGRESS_MODE=allowlist-proxy RUNTIME=podman ./verify-runtime.sh
+```
+
+Docker has no equivalent constraint. The other two egress modes, `open` and
+`none`, work on every supported runtime version.
+
 ## Verify a container runtime
 
 `verify-runtime.sh` checks the operations ADORE performs: image inspect/build,
@@ -157,10 +171,29 @@ DENIED_URL="https://github.com" \
 ```
 
 For rootless Podman, install `podman`, `uidmap`, and `slirp4netns`; build images
-separately for Docker and Podman because their image stores differ. On SELinux
-hosts, bind mounts can also require `:z` or `:Z` labels. On Windows-mounted
-worktrees, project tools must not force `TMPDIR` into the worktree because Unix
-sockets cannot be created there.
+separately for Docker and Podman because their image stores differ. On Windows-
+mounted worktrees, project tools must not force `TMPDIR` into the worktree
+because Unix sockets cannot be created there.
+
+## SELinux hosts
+
+On a host with SELinux enforcing, which is the default on Fedora, RHEL, CentOS
+Stream, Rocky, and Alma, a bind mount keeps its host file label and the
+container process cannot read it. Every stage then fails on permission denied.
+Set the relabel mode in the profile:
+
+```toml
+[container]
+selinux_relabel = "shared"
+```
+
+That appends `z` to the mounted clone, worktree, and io directory, and to the
+generated egress-proxy config. The named cache volumes are left alone, because
+the runtime already creates them with a container-readable label.
+
+ADORE does not offer the private `Z` label. It labels content with a
+per-container category, and the repository clone is shared by every run and by
+host git, so `Z` would bind the clone to one container and break the next run.
 
 ## First-build checks
 
