@@ -30,7 +30,13 @@ adore --profile <name> cleanup
 ```
 
 Retry resets only the active stage counter and active-work clock. Reset changes
-ADORE state but never edits an AEGIS task journal. Cleanup reports corrupt
+ADORE state but never edits an AEGIS task journal.
+
+Reach for reset rather than retry after `FORBIDDEN_STAGE_TRANSITION`. That
+failure means the journal reports a stage ADORE cannot legally reach from the
+one it recorded, with no Log entry for the stages in between, so retry replays
+the identical refusal. Read the journal, pick the stage the work genuinely
+reached, `reset --to` it, then retry. The terminal comment names the command. Cleanup reports corrupt
 state, sweeps orphan executor/proxy/network resources and worktree husks, and
 never auto-deletes state. Failed runs are protected for retry; release one
 with `cancel <run-id>` (retain audit state) or irreversible `delete <run-id>

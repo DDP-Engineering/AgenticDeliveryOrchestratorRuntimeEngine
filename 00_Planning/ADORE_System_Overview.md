@@ -78,7 +78,7 @@ eligible ticket
   -> target integration + strict independent verification
   -> candidate fingerprint + fresh human approval
   -> push + draft MR/PR
-  -> governed revision loop when requested
+  -> governed revision loop on request or a failed pipeline
   -> human review and merge
 ```
 
@@ -104,7 +104,7 @@ reconciled before any pickup.
 | `parked-clarification` | The executor asked a question and the run awaits a human answer. |
 | `awaiting-approval` | Validation passed and the exact candidate awaits fresh human approval. |
 | `publishing` | Approved delivery bookkeeping, push, and draft creation are in progress. |
-| `in-review` | A draft MR/PR awaits merge, close, or a bounded revision request. |
+| `in-review` | A draft MR/PR awaits merge, close, or a bounded revision, requested by a human or started by a failed pipeline. |
 | `failed` | Work stopped loudly and retry evidence is preserved. |
 | `done` | A human merged the draft. |
 | `cancelled` | An operator or closed source ticket ended the run. |
@@ -125,7 +125,13 @@ operation.
 - Executor launches, AEGIS calls, active wall-clock time, reported cost, and
   files touched are bounded.
 - Transient forge, Git, and container retries are separate from engineering
-  stage failures.
+  stage failures. The push is retried on the same bounded schedule: it is the
+  least reversible moment in a run, and a credential refresh must not discard a
+  validated candidate and the approval bound to it.
+- Work a failed publication attempt leaves behind is committed before the next
+  attempt, so a precondition meant to protect the candidate cannot consume the
+  retry budget instead. The mutation guard still compares against the state the
+  human approved, not against what the failed attempt left.
 - A single-conductor lock prevents the poller and operator mutations from
   changing the same run concurrently.
 - Required notifications use a durable outbox. If a problem cannot be reported,
@@ -152,6 +158,31 @@ invalidates the earlier approval and requires integration, validation, and a
 new approval. Publication creates or adopts a draft MR/PR only. Forge branch
 rules and human permissions remain the final delivery boundary.
 
+## Pipeline Observation and Repair
+
+While a run waits in `in-review`, each poll reads the forge pipeline verdict for
+the draft and normalizes it across platforms to `success`, `failed`, `running`,
+`none`, or `unknown`. Only a change in that verdict is a signal, so a run that
+waits for days is neither nagged nor repaired twice for one failure, and an
+unreadable verdict is silent.
+
+`[review] on_pipeline_failure` decides what a newly failed verdict does.
+`revise`, the default, starts a governed repair round; `notify` posts one
+comment and waits for a human; `ignore` skips the read for a repository with no
+CI.
+
+A repair is the same bounded path a human request uses: a new task on the same
+branch, earlier journals preserved, and the executor told that a green pipeline
+is part of this round's acceptance criteria. It therefore ends where every round
+ends, at strict validation and a fresh human approval before anything is pushed.
+`max_review_rounds` bounds repairs and requested revisions together, so a
+permanently red pipeline cannot loop; when the budget is spent the run keeps
+waiting with a comment saying so rather than failing.
+
+ADORE reads the verdict only. It does not fetch job logs, so a repair executor
+reproduces the failure from the repository's own CI definition inside its
+container.
+
 ## Main Components
 
 | Component | Responsibility |
@@ -159,10 +190,10 @@ rules and human permissions remain the final delivery boundary.
 | CLI and profiles | The `adore` command, configuration selection, operator commands, and per-project profile homes |
 | Setup | Guided `adore init` with host and target-payload readiness probes and validated configuration |
 | Orchestrator | Polling, state transitions, recovery, budgets, approval, and publication |
-| Forge adapters | Normalized GitHub (`gh`), GitLab (`glab`), and Gitea (`tea`) ticket, comment, label, and draft MR/PR operations |
+| Forge adapters | Normalized GitHub (`gh`), GitLab (`glab`), and Gitea (`tea`) ticket, comment, label, draft MR/PR, and pipeline-verdict operations |
 | AEGIS client | Version-range and schema checks, validated task and check documents, and the evolution and report calls |
 | Worktree manager | Run branches, isolated worktrees, checkpoints, integration, fingerprints, and push |
-| Container manager | Docker/Podman lifecycle, WSL-wrapped runtimes, mounts, tool checks, the credential boundary, and egress policy |
+| Container manager | Docker/Podman lifecycle, WSL-wrapped runtimes, mounts and their SELinux labeling, tool checks, the credential boundary, and egress policy |
 | Executor launcher | Fresh stage sessions for OpenCode, Pi, Codex, and Qwen Code through a file-based gate protocol |
 | State store | Schema-1 run records, ticket snapshots, the single-conductor lock, JSONL journals, and the notification outbox |
 | Metrics | SQLite run summaries with a JSONL mirror, CSV export, and a static HTML dashboard |
@@ -219,7 +250,8 @@ rules, and installed AEGIS payload.
 ADORE is not:
 
 - a replacement for AEGIS governance;
-- a general-purpose CI/CD server;
+- a general-purpose CI/CD server: it reads a pipeline verdict to decide whether
+  to open a repair round, and never runs, hosts, or reports pipelines itself;
 - an automatic merge bot;
 - a multi-worker parallel scheduler;
 - a system that grants an executor forge credentials;
@@ -237,7 +269,12 @@ consult them yet; `config.example.toml` marks each one:
 
 - `[readiness] require_known_component` and `max_scope_hint`: pickup filters
   only on acceptance criteria and the priority label;
-- `[executor] mode`: the conductor is always thick, one stage per session;
+- `[executor] mode`: the conductor is always thick and launches one stage per
+  session. An executor that instead runs several stages in one session is
+  accepted when the durable journal carries an entry for every stage it
+  crossed, and refused otherwise, but the run then loses the per-stage
+  checkpoints, error budget, and failure-context handback that the session
+  boundary provides;
 - `[review] review_reminder_after`: no MR/PR reminder is posted;
 - `[reconcile] on_ticket_deleted` and `on_ticket_closed` values: reconciliation
   applies one built-in behavior regardless of the value, and
@@ -254,7 +291,15 @@ consult them yet; `config.example.toml` marks each one:
 
 Stage summaries and review verdicts that the executor records in the AEGIS
 journal are not surfaced at the approval gate; recorded deviations are, as a
-count and in full. Native Windows single-file
+count and in full.
+
+Pipeline job logs are not fetched, so a repair round reproduces the failure
+locally rather than reading what the forge already recorded. On GitHub and Gitea
+the review thread covers conversation comments, submitted review bodies, and
+inline diff comments; GitLab's notes endpoint already carries all three. The
+GitLab adapter is the one forge not yet exercised against a live instance: its
+branch-lookup, pagination, and pipeline behavior are derived from the published
+CLI and API contracts rather than observed. Native Windows single-file
 executables and Ubuntu `.deb` packages are not implemented; delivery is a
 Python package directory plus an executor container image.
 

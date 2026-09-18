@@ -83,6 +83,20 @@ runtime = "podman"
 run_args = ["--userns=keep-id"]
 ```
 
+On a host with SELinux enforcing, the default on Fedora, RHEL, CentOS Stream,
+Rocky, and Alma, add the relabel mode as well. Without it the container cannot
+read the mounted clone or worktree and every stage fails on permission denied:
+
+```toml
+[container]
+selinux_relabel = "shared"
+```
+
+The `allowlist-proxy` egress mode additionally needs Podman 4.0 or newer with
+the netavark backend, because the executor reaches the proxy by DNS alias on an
+internal network. Ubuntu 22.04 packages Podman 3.4, which cannot serve that
+alias; check `podman --version` before choosing that mode there.
+
 ## Image Readiness Check
 
 `required_tool_checks` is the fast failure point for missing project tools. If a

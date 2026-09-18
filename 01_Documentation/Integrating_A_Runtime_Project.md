@@ -18,8 +18,47 @@ The target clone must provide:
 - `.agentic/aegis.py` reporting a supported `aegis` version;
 - schema-1 JSON from `python .agentic/aegis.py status --all --json`;
 - readable AEGIS task journals with no path escapes;
-- project test commands configured in AEGIS;
+- project test commands configured in AEGIS, written for the CONTAINER;
+- a `.gitignore` covering build artifacts and tool caches;
 - a project-specific container image with Python and required build tools.
+
+### Commands run in the container, not on your machine
+
+ADORE executes `[commands]` from `.agentic/aegis.toml` inside the Linux
+executor container during its own strict verification. A command written for the
+workstation that authored it fails there, whatever it does locally. A Windows
+entry such as:
+
+```toml
+test = ".\\.venv\\Scripts\\python.exe -m pytest -q"
+```
+
+must be expressed for the container instead:
+
+```toml
+test = "python3 -m unittest discover -s tests -q"
+```
+
+Every stage passes and the run then dies at validation, because the commands
+ADORE runs to verify the candidate independently are the repository's own. Check
+them by hand before the first run:
+
+```bash
+docker run --rm -v "$PWD:/w" -w /w <your-executor-image> sh -lc "<your test command>"
+```
+
+Depend only on what the image guarantees. The ADORE base image carries Python,
+uv, Node, and Git, but no test framework: a `pytest` entry needs pytest in your
+project image, while the standard library's `unittest` needs nothing.
+
+### Ignore rules are part of the contract
+
+ADORE checkpoints each stage with `git add -A`, which is what captures governed
+artifacts and any new source the executor wrote. It cannot tell those apart from
+generated files; only your `.gitignore` can. Without one, bytecode and tool
+caches join the candidate, consume the `max_files_touched` budget, and give the
+reviewer noise to read past. `adore init` reports a target repository that has
+none.
 
 Verify the contract in the target clone:
 
@@ -94,12 +133,23 @@ closed.
 ADORE creates the task after creating the branch. Every stage prompt declares
 the task autopilot-to-deliver by explicit conductor instruction, the per-task
 override AEGIS defines for its `[interaction]` default: the executor records
-`interaction: autopilot` in the journal header and never stops at a
-stage-boundary checkpoint to present choices. The target repository's
+`interaction: autopilot` in the journal header and never pauses to present
+choices to a human, because no human is reading. Autopilot governs who decides,
+not how much the executor does in one session. The target repository's
 `[interaction]` setting keeps governing human sessions and needs no change for
 conducted runs. ADORE supervises every stage and owns the pre-publication
 approval. Each attempt uses a fresh executor session. Durable AEGIS artifacts
 are the resume authority.
+
+The prompt asks for exactly one stage per session, and the session boundary is
+what gives ADORE a checkpoint to recover from, a per-stage error budget, and the
+chance to hand the executor what failed last time. An executor that runs several
+stages in one session is accepted when the journal carries a Log entry for every
+stage it crossed, recorded as a `stages-run-ahead` event rather than tolerated
+silently, and refused when entries are missing, because a gap cannot be told
+apart from a skipped stage. Either way the run loses the three benefits above,
+so a model that follows the one-stage instruction reliably is worth more than a
+marginally faster one.
 
 After every successful stage transition, ADORE creates an unpushed local
 checkpoint commit. Those commits preserve journal evolution, give crash

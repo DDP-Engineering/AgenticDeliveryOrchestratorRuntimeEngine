@@ -38,7 +38,31 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 The first retry attempt is a fresh model session and re-reads durable artifacts.
 An interrupted publication retry also rechecks fresh approval. If the label was
-removed, ADORE returns to validation/presentation instead of publishing.
+removed, ADORE returns to validation/presentation instead of publishing. Work a
+failed publication attempt left in the worktree is committed before the retry
+proceeds, so a half-finished bookkeeping attempt does not block the next one;
+the candidate-mutation guard still compares against the state the human
+approved.
+
+## When Retry Cannot Help
+
+`adore retry` re-runs the same decision against the same durable state. One
+failure is therefore immune to it: `FORBIDDEN_STAGE_TRANSITION`, raised when the
+journal reports a stage ADORE cannot legally reach from the one it recorded, and
+the stages in between carry no Log entry of their own. Retrying replays the
+identical refusal.
+
+Read the journal, decide which stage the work genuinely reached, then move
+ADORE's own record to a stage the journal's stage is reachable from, and retry:
+
+```text
+adore --profile <name> reset <run-id> --to validate --force
+adore --profile <name> retry <run-id>
+```
+
+The terminal comment for this failure names that command. Reset changes only
+ADORE's record; the AEGIS journal stays untouched, and the run re-verifies from
+the stage you chose rather than trusting the executor's claim.
 
 ## Stage-Failure Accounting
 
@@ -75,8 +99,14 @@ thread records `ticket content changed since pickup`.
 
 ## Review Recovery
 
-Apply `agent-revise` only when a bounded review round should begin. Every round
-creates a new task journal. If the review limit fails the run, a human must
+Apply `agent-revise` only when a bounded review round should begin. A newly
+failed forge pipeline starts the same kind of round on its own when
+`[review] on_pipeline_failure` is `revise`, the default; the draft carries a
+comment saying so, and the journal records the trigger. Set the key to `notify`
+if you would rather be asked first, or `ignore` for a repository with no CI.
+Repairs and requested revisions share `max_review_rounds`, so a permanently red
+pipeline cannot loop: when the budget is spent the run waits in review with a
+comment rather than failing. Every round creates a new task journal. If the review limit fails the run, a human must
 decide whether to raise the configured limit and retry or continue manually.
 Task creation happens before ADORE removes the revise label. When label removal
 fails, the run fails closed and the label remains. Because AEGIS has no

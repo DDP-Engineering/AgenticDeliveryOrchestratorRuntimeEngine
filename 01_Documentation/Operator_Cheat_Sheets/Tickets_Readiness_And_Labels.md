@@ -80,6 +80,17 @@ The authoritative state lives locally under the profile state root; the
 ticket mirrors it through one status comment, edited in place, plus these
 labels.
 
+**Create every label before the first run.** ADORE applies and removes labels
+but never creates them, and GitHub and Gitea reject a name that does not exist
+in the repository. The failure lands at claim time, before ADORE can post
+anything to the ticket, so the ticket simply sits there still wearing its ready
+label while the reason goes to the console and `adore.log`.
+
+All seven lifecycle labels are needed, not only the ones you expect to see: on
+every status update ADORE removes the five it is not currently applying. With
+`agent-ready`, `agent-answered`, the approval label, and the revise label, that
+is nine in total, plus your priority labels.
+
 ## Readiness Rules
 
 The implemented readiness filter rejects tickets that are missing:
