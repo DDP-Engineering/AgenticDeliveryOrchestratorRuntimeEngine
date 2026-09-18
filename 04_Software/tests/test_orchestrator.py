@@ -1346,6 +1346,51 @@ def test_strict_verification_runs_once_per_successful_run(tmp_path: Path) -> Non
     assert len(strict) == 1
 
 
+def test_publication_retry_survives_a_dirty_worktree(tmp_path: Path) -> None:
+    """
+    @brief   `_publish` retries itself after a bookkeeping stage failure, but a
+             failed attempt can leave the worktree dirty and fingerprinting
+             refuses a dirty candidate. The retry then died instantly as
+             PUBLICATION_SETUP, so a failure budgeted for three attempts got
+             one (live finding 2026-09-18, GitHub pilot). Leftover work is now
+             checkpointed and the retry proceeds.
+    """
+    engine, _, worktrees, _, _ = make_engine(tmp_path)
+    run = make_run(engine)
+    run.approved_product = "a" * 64          # publication already began
+    engine.store.save(run)
+    worktrees.dirty = True
+
+    engine._approved_product(run)            # must not raise on a dirty tree
+    assert engine.store.load(run.run_id).approved_product == "a" * 64
+
+
+def test_approved_product_baseline_is_captured_once_and_reused(
+    tmp_path: Path,
+) -> None:
+    """
+    @brief   Recapturing the baseline on a retry would adopt whatever the
+             failed attempt left as "approved", letting an unapproved product
+             change pass the CANDIDATE_MUTATION guard meant to catch it. It is
+             captured once and reused, so the comparison keeps referring to
+             what the human actually approved.
+    """
+    engine, _, worktrees, _, _ = make_engine(tmp_path)
+    run = make_run(engine)
+    captures: list[int] = []
+    original = worktrees.product_diff_fingerprint
+
+    def counting(run_id, base_ref):
+        captures.append(1)
+        return original(run_id, base_ref)
+
+    worktrees.product_diff_fingerprint = counting
+    first = engine._approved_product(run)
+    second = engine._approved_product(engine.store.load(run.run_id))
+
+    assert first == second and len(captures) == 1
+
+
 def test_push_retries_a_transient_remote_failure(tmp_path: Path) -> None:
     """
     @brief   A one-off credential refresh used to end a fully validated run at

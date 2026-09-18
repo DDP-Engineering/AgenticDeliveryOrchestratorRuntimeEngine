@@ -45,6 +45,8 @@ from adore.aegis import (
     AegisTaskError,
     AegisTimeoutError,
     allowed_transition,
+    evidenced_transition,
+    logged_stages,
 )
 from adore.branding import (
     CONTAINER_CODEX_HOME,
@@ -341,6 +343,10 @@ class Orchestrator:
             and bool(run.approval_presented_at)
         )
         if resume_publication:
+            # A failed publication attempt can leave work behind, and EVERY
+            # fingerprint refuses a dirty tree - including the freshness check
+            # just below, which runs before `_publish` can settle anything.
+            self._settle_worktree(run, "retry")
             approval_absent = (
                 not run.approval_label_removed
                 or self.config.delivery.approval_label not in ticket.labels
@@ -628,12 +634,7 @@ class Orchestrator:
                 return
             run.aegis_path = task.path
             previous = run.stage
-            if not allowed_transition(previous, task.stage, task.path):
-                self._fail_immediately(
-                    run,
-                    "FORBIDDEN_STAGE_TRANSITION",
-                    f"AEGIS moved {previous} -> {task.stage} on {task.path}",
-                )
+            if not self._transition_accepted(run, previous, task):
                 return
             if task.stage != previous:
                 self._successful_transition(run, previous, task.stage)
@@ -728,12 +729,7 @@ class Orchestrator:
                     return
                 failure_context = "Complete or legally route the current AEGIS stage."
                 continue
-            if not allowed_transition(task.stage, updated.stage, updated.path):
-                self._fail_immediately(
-                    run,
-                    "FORBIDDEN_STAGE_TRANSITION",
-                    f"AEGIS moved {task.stage} -> {updated.stage} on {updated.path}",
-                )
+            if not self._transition_accepted(run, task.stage, updated):
                 return
             self._checkpoint(run, f"ADORE checkpoint {run.active_task_id} {task.stage}")
             self._successful_transition(run, task.stage, updated.stage)
@@ -746,6 +742,55 @@ class Orchestrator:
             run.aegis_path = updated.path
             run.stage = updated.stage
             self.store.save(run)
+
+    def _transition_accepted(
+        self, run: RunState, previous: str, task: AegisTask
+    ) -> bool:
+        """
+        @brief      Rule on one executor-authored stage transition.
+        @details    A documented transition passes. A forward JUMP is accepted
+                    only when the durable journal carries a Log entry for every
+                    stage it crossed, which separates an executor that ran the
+                    whole task in one session - a contract deviation, with the
+                    work actually done - from one that skipped stages, which
+                    stays refused. Refusing both discarded completed, correct
+                    work and produced a run `adore retry` could not clear,
+                    because it replayed the same refusal (live finding
+                    2026-09-18, GitHub pilot).
+
+                    The deviation is recorded, never silently accepted, and the
+                    terminal message for a genuine skip names the reset command
+                    that clears it, since retry cannot.
+        @param[in]  run The run being conducted.
+        @param[in]  previous The stage ADORE last recorded.
+        @param[in]  task The task document the journal now reports.
+        @return     True when conduction may continue.
+        """
+        if allowed_transition(previous, task.stage, task.path):
+            return True
+        if evidenced_transition(previous, task.stage, task.path, task.log):
+            self.store.journal(
+                run.run_id,
+                "stages-run-ahead",
+                previous=previous,
+                current=task.stage,
+                path=task.path,
+                crossed=sorted(logged_stages(task.log)),
+            )
+            self.log(
+                f"{run.run_id}: executor ran {previous} -> {task.stage} in one "
+                "session; the journal evidences every stage it crossed"
+            )
+            return True
+        self._fail_immediately(
+            run,
+            "FORBIDDEN_STAGE_TRANSITION",
+            f"AEGIS moved {previous} -> {task.stage} on {task.path} without a "
+            f"journal entry for every stage crossed. `adore retry` will repeat "
+            f"this refusal; inspect the journal, then clear it with "
+            f"`adore reset {run.run_id} --to <stage> --force`.",
+        )
+        return False
 
     def _task(self, client: AegisClient, run: RunState) -> AegisTask:
         """@brief Read and bind the active AEGIS task to immutable run identity."""
@@ -1175,6 +1220,7 @@ class Orchestrator:
         run.validation_evidence = {}
         run.candidate_fingerprint = ""
         run.candidate_base_ref = ""
+        run.approved_product = ""
         run.approval_presented_at = ""
         run.approval_label_removed = False
         run.stage_failures = 0
@@ -1213,9 +1259,9 @@ class Orchestrator:
             if task.done:
                 self._recover_done_publication(run)
                 return
-            approved_product = self.worktrees.product_diff_fingerprint(
-                run.run_id, run.base_ref
-            )
+            if run.approved_product:
+                self._settle_worktree(run, "publication retry")
+            approved_product = self._approved_product(run)
         except (AegisError, IsolationError) as exc:
             self._fail_immediately(run, "PUBLICATION_SETUP", exc)
             return
@@ -1349,6 +1395,63 @@ class Orchestrator:
             return
         self._enter_review(run)
 
+    def _settle_worktree(self, run: RunState, reason: str) -> None:
+        """
+        @brief      Commit work a failed publication attempt left behind.
+        @details    EVERY fingerprint refuses a dirty tree, by design: a
+                    candidate cannot be hashed mid-edit. That precondition was
+                    written for the first entry into publication, where
+                    validation guarantees a clean tree, and it turns hostile on
+                    the paths that re-enter afterwards - the `_publish` retry
+                    and the approval-freshness check in `retry` - where a
+                    part-finished bookkeeping attempt has left files touched.
+                    Both then failed terminally on a condition they could have
+                    cleared (live finding 2026-09-18, GitHub pilot).
+
+                    Settling is safe because the mutation guard compares against
+                    the baseline captured when publication began, not against
+                    whatever is on disk now, so committing leftover work cannot
+                    launder an unapproved product change into the baseline.
+        @param[in]  run The run whose worktree may carry leftover work.
+        @param[in]  reason Short phrase naming the path, used in the message.
+        """
+        if not run.worktree or not self.worktrees.exists(run.run_id):
+            return
+        with contextlib.suppress(IsolationError):
+            if self.worktrees.is_dirty(run.run_id):
+                self._checkpoint(
+                    run, f"ADORE settle {reason} {run.active_task_id}"
+                )
+
+    def _approved_product(self, run: RunState) -> str:
+        """
+        @brief      The product digest the human approved, captured once.
+        @details    `_publish` retries itself after a bookkeeping stage failure,
+                    and a failed attempt can leave the worktree dirty. Two
+                    things then went wrong: fingerprinting refuses a dirty
+                    candidate, so the retry died instantly as
+                    PUBLICATION_SETUP and a failure budgeted for three attempts
+                    got one (live finding 2026-09-18, GitHub pilot); and
+                    recapturing the baseline would have adopted whatever the
+                    failed attempt left as "approved", so an unapproved product
+                    change could pass the CANDIDATE_MUTATION guard it is meant
+                    to catch.
+
+                    Capturing once and persisting fixes both: leftover work is
+                    checkpointed so the tree is clean, while the comparison
+                    still refers to the state the human actually approved, which
+                    makes the guard stricter across retries rather than weaker.
+        @param[in]  run The run entering or retrying publication.
+        @return     The stored product digest.
+        @exception  IsolationError When the first capture finds a dirty tree.
+        """
+        if not run.approved_product:
+            run.approved_product = self.worktrees.product_diff_fingerprint(
+                run.run_id, run.base_ref
+            )
+            self.store.save(run)
+        return run.approved_product
+
     def _recover_done_publication(self, run: RunState) -> None:
         """
         @brief Recover a done AEGIS task without skipping its final checkpoint/push.
@@ -1376,6 +1479,7 @@ class Orchestrator:
         run.lifecycle = "in-review"
         run.stage = "done"
         run.stage_failures = 0
+        run.approved_product = ""
         self.store.save(run)
         self._status(run)
         with contextlib.suppress(IsolationError):
@@ -2004,6 +2108,7 @@ class Orchestrator:
         run.validation_evidence = {}
         run.candidate_fingerprint = ""
         run.candidate_base_ref = ""
+        run.approved_product = ""
         run.approval_presented_at = ""
         run.approval_label_removed = False
         run.lifecycle = "working"

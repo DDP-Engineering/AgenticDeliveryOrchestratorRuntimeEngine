@@ -77,6 +77,12 @@ STAGE_STEP_FILES = {
 #: A recorded deviation in the one shape AEGIS itself harvests for its
 #: delivery report: the standalone token, a stage it knows, then `:` or
 #: ` - `. Prose that merely mentions the word is not a deviation.
+#: A Log entry opens with the stage it reports on, after an optional list
+#: bullet and date. Anchored so prose that merely mentions a stage name is
+#: never read as evidence that the stage ran.
+_STAGE_LOG_RE = re.compile(
+    rf"^\s*(?:[-*]\s+)?(?:\d{{4}}-\d{{2}}-\d{{2}}\s+)?({'|'.join(FULL_STAGES)})\s*:"
+)
 DEVIATION_RE = re.compile(
     r"(?<![\w-])DEVIATION[ \t]+"
     rf"(?=(?:{'|'.join(STATUS_STAGES)})\b[ \t]*(?::|[ \t][-\u2013\u2014][ \t]))"
@@ -258,6 +264,59 @@ def allowed_transition(previous: str, current: str, path: str) -> bool:
     if previous == "validate" and current in {"specify", "design", "build"}:
         return path == "full" or current == "build"
     return previous == "deliver" and current == "validate"
+
+
+def logged_stages(log: Sequence[str]) -> frozenset[str]:
+    """
+    @brief      Stages that carry a Log entry of their own in a task journal.
+    @details    AEGIS writes one Log line per stage it completes, opened by the
+                stage name after an optional date. Matching is anchored to the
+                start of an entry so prose merely mentioning a stage cannot be
+                mistaken for evidence that the stage ran.
+    @param[in]  log The task journal's Log entries.
+    @return     The stage names with an entry of their own.
+    """
+    found = {
+        match.group(1)
+        for entry in log
+        if (match := _STAGE_LOG_RE.match(entry)) is not None
+    }
+    return frozenset(found)
+
+
+def evidenced_transition(
+    previous: str, current: str, path: str, log: Sequence[str]
+) -> bool:
+    """
+    @brief      Whether a multi-stage forward jump is backed by the journal.
+    @details    An executor is instructed to stop after one stage, but a model
+                may run the whole task in a single session instead. That is a
+                contract DEVIATION, not a skipped stage, and the two must not
+                share a verdict: refusing both discards completed, correct work
+                and leaves a run that `adore retry` cannot clear, because it
+                replays the same refusal (live finding 2026-09-18, GitHub
+                pilot - the same model stopped per stage six times running on
+                another forge, so the behaviour is nondeterministic).
+
+                The durable journal answers which stages actually ran. Only a
+                FORWARD jump on the selected path is considered, and only when
+                every stage from `previous` up to `current` carries its own Log
+                entry. A genuine skip leaves gaps and stays refused, so the
+                trust boundary is unchanged.
+    @param[in]  previous The stage ADORE last recorded.
+    @param[in]  current The stage the journal now reports.
+    @param[in]  path The selected full/quick workflow path.
+    @param[in]  log The task journal's Log entries.
+    @return     True when the jump is evidenced and may be accepted.
+    """
+    sequence = QUICK_STAGES if path == "quick" else FULL_STAGES
+    if previous not in sequence or current not in sequence:
+        return False
+    start, end = sequence.index(previous), sequence.index(current)
+    if end <= start + 1:
+        return False  # not a jump; allowed_transition already ruled on it
+    done = logged_stages(log)
+    return all(stage in done for stage in sequence[start:end])
 
 
 # PUBLIC API

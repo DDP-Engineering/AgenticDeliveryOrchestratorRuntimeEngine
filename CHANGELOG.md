@@ -77,6 +77,25 @@ This project follows Keep a Changelog and Semantic Versioning.
   `TimeoutExpired` became a `CommandResult`; a `PermissionError` or a command
   line past the Windows 32767-character limit propagated raw, past every
   handler. Any `OSError` is now reported as exit code 126.
+- **An executor that ran the whole task in one session lost all its work.** The
+  stage guard is a pure function of two stage names, so a skipped stage and a
+  task completed in a single launch produce the identical hop and were refused
+  alike. The run failed terminally, `adore retry` replayed the same refusal, and
+  the completed work sat uncommitted. A forward jump is now accepted when the
+  durable journal carries a Log entry for every stage it crossed, recorded as
+  `stages-run-ahead` rather than tolerated silently; a genuine skip leaves gaps
+  and stays refused. Found in the GitHub pilot, where the same model ran ahead
+  in two of three launches and never once in seven on Gitea.
+- **A failed publication attempt made the next one fail differently.** Every
+  fingerprint refuses a dirty worktree, which is right for the first entry into
+  publication, where validation guarantees a clean tree. On the paths that
+  re-enter afterwards - the `_publish` retry and the approval-freshness check in
+  `retry` - a part-finished bookkeeping attempt leaves files touched, so both
+  died terminally on a condition they could have cleared, and a failure budgeted
+  for three attempts got one. Leftover work is now settled first. The baseline
+  for the candidate-mutation guard is captured once when publication begins and
+  reused, so settling cannot launder an unapproved product change into the
+  baseline; the guard is stricter across retries, not weaker.
 - **A transient push failure ended a fully validated run.** Found in the Gitea
   pilot: a one-off `remote: Failed to authenticate user` from a credential
   refresh hit `PUSH_FAILED`, which is terminal, discarding both the run's work

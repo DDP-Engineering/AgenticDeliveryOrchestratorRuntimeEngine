@@ -118,6 +118,11 @@ class RunState:
     notification_outbox: list[dict[str, Any]] = field(default_factory=list)
     candidate_fingerprint: str = ""
     candidate_base_ref: str = ""
+    #: Product digest of the candidate a human approved, captured ONCE when
+    #: publication begins and reused by every retry. Without it a retry
+    #: recaptured the baseline from whatever the failed attempt left behind,
+    #: which would let an unapproved product change become the new baseline.
+    approved_product: str = ""
     approval_presented_at: str = ""
     approval_comment_id: int | None = None
     approval_label_removed: bool = False
@@ -194,7 +199,7 @@ class RunState:
             raise StateError("run-state notification_outbox must be an object list")
         if not isinstance(state.validation_evidence, dict):
             raise StateError("run-state validation_evidence must be an object")
-        for name in ("candidate_fingerprint", "candidate_base_ref"):
+        for name in ("candidate_fingerprint", "candidate_base_ref", "approved_product"):
             value = getattr(state, name)
             if value and re.fullmatch(r"[0-9a-f]{40,64}", value) is None:
                 raise StateError(f"run-state {name} must be a hexadecimal digest")

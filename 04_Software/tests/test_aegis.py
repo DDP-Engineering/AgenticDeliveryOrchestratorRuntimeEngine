@@ -33,6 +33,8 @@ from adore.aegis import (
     AegisTaskError,
     AegisTimeoutError,
     allowed_transition,
+    evidenced_transition,
+    logged_stages,
 )
 from adore.util import CommandResult
 import pytest
@@ -495,6 +497,59 @@ def test_protocol_rejects_invalid_utf8_marker_timeout_and_unexpected_exit() -> N
 def test_transition_allowlist(previous: str, current: str, path: str, expected: bool) -> None:
     """@brief Only documented progression and validation rollback are legal."""
     assert allowed_transition(previous, current, path) is expected
+
+
+_RAN_AHEAD_LOG = (
+    "2026-09-18 frame: scope accepted, path full",
+    "2026-09-18 specify: created 2 functional requirements",
+    "2026-09-18 design: note recorded",
+    "2026-09-18 build: guard added, suite green",
+    "2026-09-18 validate: strict check clean",
+)
+
+
+def test_evidenced_jump_accepts_an_executor_that_ran_the_whole_task() -> None:
+    """
+    @brief   A model may run every stage in one session instead of stopping
+             after one. That is a contract deviation with the work actually
+             done, not a skipped stage, and the journal proves which happened
+             (live finding 2026-09-18). Every crossed stage carries a Log
+             entry, so the jump is accepted.
+    """
+    assert allowed_transition("frame", "deliver", "full") is False
+    assert evidenced_transition("frame", "deliver", "full", _RAN_AHEAD_LOG) is True
+
+
+def test_evidenced_jump_still_refuses_a_genuine_skip() -> None:
+    """
+    @brief   The trust boundary is unchanged: a gap in the Log means the stage
+             did not run, so the jump stays refused however far it reaches.
+    """
+    missing_build = tuple(e for e in _RAN_AHEAD_LOG if not e.startswith("2026-09-18 build"))
+    assert evidenced_transition("frame", "deliver", "full", missing_build) is False
+    assert evidenced_transition("frame", "deliver", "full", ()) is False
+
+
+def test_evidenced_jump_ignores_prose_that_merely_names_a_stage() -> None:
+    """
+    @brief   Matching is anchored to the start of an entry, so a sentence
+             mentioning a stage cannot fake evidence that it ran.
+    """
+    prose = (
+        "2026-09-18 frame: scope accepted",
+        "2026-09-18 specify: the build: prefix here is prose, not an entry",
+    )
+    assert evidenced_transition("frame", "build", "quick", prose) is False
+    assert logged_stages(prose) == frozenset({"frame", "specify"})
+
+
+def test_evidenced_jump_declines_what_allowed_transition_already_rules_on() -> None:
+    """
+    @brief   Single steps and backward routes stay the allowlist's business;
+             this function answers only for forward jumps of more than one.
+    """
+    assert evidenced_transition("frame", "specify", "full", _RAN_AHEAD_LOG) is False
+    assert evidenced_transition("deliver", "validate", "full", _RAN_AHEAD_LOG) is False
 
 
 # END OF FILE
