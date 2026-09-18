@@ -102,6 +102,10 @@ class GitLabForge(Forge):
                     "glab", "issue", "list",
                     "--repo", self.repo,
                     "--label", ready_label,
+                    # Explicit, like the gh and tea adapters: glab defaults to
+                    # open, but a selection boundary should not depend on a
+                    # CLI default staying put across versions.
+                    "--state", "opened",
                     "--output", "json",
                     "--per-page", str(_PAGE_SIZE),
                     "--page", str(page),
@@ -263,7 +267,16 @@ class GitLabForge(Forge):
         pipeline = data.get("head_pipeline") or data.get("pipeline")
         if not isinstance(pipeline, dict):
             return "none"  # the key is present and null: no pipeline for this MR
-        return _PIPELINE_STATES.get(str(pipeline.get("status", "")).lower(), "unknown")
+        status = str(pipeline.get("status", "")).lower()
+        if not status:
+            # glab prints the API object straight from its Go client, so a
+            # merge request with no pipeline can arrive as a ZERO-VALUED object
+            # rather than null. An empty status means nothing ran, which is
+            # "none" - not an unreadable answer, and never a pipeline in
+            # progress. Gitea reported exactly this shape as "pending" until it
+            # was corrected (live finding 2026-09-18).
+            return "none"
+        return _PIPELINE_STATES.get(status, "unknown")
 
     def list_mr_comments(self, mr_iid: int) -> list[Comment]:
         """

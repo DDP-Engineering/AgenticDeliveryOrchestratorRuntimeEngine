@@ -449,10 +449,30 @@ class Orchestrator:
         AegisClient(execute, self.config.workflow.aegis_python).probe()
 
     def _pick_ticket(self) -> Ticket | None:
-        """@brief Select the highest-priority ticket that satisfies readiness."""
+        """
+        @brief      Select the highest-priority ticket that satisfies readiness.
+        @details    The eligibility label is re-checked HERE rather than trusted
+                    from the adapter's query. A server that silently drops an
+                    unrecognised `labels=` filter answers with its whole open
+                    backlog, and this is the boundary where ADORE decides what
+                    to act on autonomously - a typo in `[labels.lifecycle]
+                    ready` must select nothing, never everything. Gitea 1.25.4
+                    was observed doing exactly that (live finding 2026-07-29);
+                    GitHub was verified to filter correctly (2026-09-18) and
+                    GitLab is unverified, which is precisely why the guard lives
+                    here instead of in each adapter.
+        @return     The selected ticket, or None when none is eligible.
+        """
         labels = self.config.labels
         candidates: list[Ticket] = []
         for ticket in self.forge.list_ready(labels.lifecycle.ready):
+            if ticket.state != "opened":
+                # GitHub and Gitea ask the server for open tickets explicitly;
+                # glab is left on its default. Conducting a closed ticket would
+                # be worse than missing one, so the state is confirmed here too.
+                continue
+            if labels.lifecycle.ready not in ticket.labels:
+                continue
             if labels.control.hold in ticket.labels:
                 continue
             if labels.control.exclude in ticket.labels:
@@ -864,9 +884,18 @@ class Orchestrator:
             "AEGIS documents. The durable task journal, not prior model memory, is authority.",
             "This task runs autopilot-to-deliver by explicit conductor instruction, which "
             "overrides the repository's configured `[interaction]` default: set "
-            "`interaction: autopilot` in the journal header when it is not already, and "
-            "never stop at a stage-boundary checkpoint to present choices or wait for a "
-            "user. ADORE supervises every stage and owns the pre-publication approval.",
+            "`interaction: autopilot` in the journal header when it is not already. "
+            "Autopilot governs WHO decides, not how much you do: never pause to present "
+            "choices to a human or wait for an answer, because no human is reading. It "
+            "does not ask you to carry on past this stage. ADORE supervises every stage "
+            "and owns the pre-publication approval.",
+            "Do exactly ONE stage in this session: the current one. The moment the AEGIS "
+            "journal shows that stage advanced or legally routed backward, end the "
+            "session and return. Do not begin the next stage, however small it looks. "
+            "ADORE relaunches you with a fresh session for it, and only the boundary "
+            "between sessions gives it a checkpoint to recover from, a per-stage error "
+            "budget, and a chance to hand you what went wrong last time. Running several "
+            "stages in one session discards all three and can strand the work.",
         ]
         if task.stage == "frame":
             parts.append(
@@ -889,8 +918,7 @@ class Orchestrator:
             "content and ticket-scoped repository files. Never create a child task "
             "journal (`task --parent`): this run conducts exactly one pinned task, and "
             "work in an unsupervised child is invisible to its conductor. Ask blocking "
-            f"questions in {self.questions_file}; questions are not failures. Stop after "
-            "the current stage has legally advanced or routed backward."
+            f"questions in {self.questions_file}; questions are not failures."
         )
         return "\n\n".join(parts)
 

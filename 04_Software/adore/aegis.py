@@ -74,15 +74,15 @@ STAGE_STEP_FILES = {
     "deliver": "6_deliver.md",
     "done": None,
 }
-#: A recorded deviation in the one shape AEGIS itself harvests for its
-#: delivery report: the standalone token, a stage it knows, then `:` or
-#: ` - `. Prose that merely mentions the word is not a deviation.
 #: A Log entry opens with the stage it reports on, after an optional list
 #: bullet and date. Anchored so prose that merely mentions a stage name is
 #: never read as evidence that the stage ran.
 _STAGE_LOG_RE = re.compile(
     rf"^\s*(?:[-*]\s+)?(?:\d{{4}}-\d{{2}}-\d{{2}}\s+)?({'|'.join(FULL_STAGES)})\s*:"
 )
+#: A recorded deviation in the one shape AEGIS itself harvests for its
+#: delivery report: the standalone token, a stage it knows, then `:` or
+#: ` - `. Prose that merely mentions the word is not a deviation.
 DEVIATION_RE = re.compile(
     r"(?<![\w-])DEVIATION[ \t]+"
     rf"(?=(?:{'|'.join(STATUS_STAGES)})\b[ \t]*(?::|[ \t][-\u2013\u2014][ \t]))"

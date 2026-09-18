@@ -68,8 +68,13 @@ class FakeForge:
         self.opened: list[dict] = []
         self.branch_mr_exists = False
         self.pipeline = "unknown"
+        self.ready: list[Ticket] | None = None
 
     def list_ready(self, ready_label: str):
+        # `ready` overrides the filtered answer, so a test can simulate a server
+        # that silently ignores an unrecognised `labels=` filter.
+        if self.ready is not None:
+            return list(self.ready)
         return [self.ticket] if self.ticket and ready_label in self.ticket.labels else []
 
     def get_ticket(self, iid: int):
@@ -1111,7 +1116,32 @@ def test_executor_prompt_declares_autopilot_on_every_stage(tmp_path: Path) -> No
         prompt = engine._stage_prompt(run, forge.ticket, task(stage), "", "")
         assert "autopilot-to-deliver" in prompt
         assert "interaction: autopilot" in prompt
-        assert "stage-boundary checkpoint" in prompt
+        assert "never pause to present" in prompt
+
+
+def test_executor_prompt_does_not_contradict_itself_about_stopping(
+    tmp_path: Path,
+) -> None:
+    """
+    @brief   The autopilot override and the one-stage rule must not read as
+             opposites.
+    @details The override was added for AEGIS 0.13's checkpoint default, and it
+             once said "never stop at a stage-boundary checkpoint" while the
+             closing paragraph said "stop after the current stage". A model
+             resolving that in favour of the louder, earlier instruction runs
+             the whole task in one session, which costs ADORE its per-stage
+             checkpoints, error budget and failure-context handback (live
+             finding 2026-09-18: two of three GitHub launches). Autopilot must
+             therefore speak only about WHO decides, never about how far to go.
+    """
+    engine, forge, _, _, _ = make_engine(tmp_path)
+    prompt = engine._stage_prompt(make_run(engine), forge.ticket, task("frame"), "", "")
+    autopilot, _, rest = prompt.partition("autopilot-to-deliver")
+    clause = rest.split("\n\n")[0]
+    assert "never stop" not in clause.lower()
+    assert "pause" in clause.lower()          # it is about human pauses only
+    assert "Do exactly ONE stage in this session" in prompt
+    assert "end the session" in prompt
 
 
 def test_approved_publication_opens_draft_and_pushes_close_out(
@@ -1346,6 +1376,40 @@ def test_strict_verification_runs_once_per_successful_run(tmp_path: Path) -> Non
     assert len(strict) == 1
 
 
+def test_selection_never_trusts_the_server_label_filter(tmp_path: Path) -> None:
+    """
+    @brief   A server that silently drops an unrecognised `labels=` filter
+             answers with its whole open backlog, which at this boundary would
+             mean ADORE autonomously conducting arbitrary tickets. Gitea 1.25.4
+             was observed doing exactly that; GitHub was verified to filter
+             correctly and GitLab is unverified, so the label is re-checked
+             here rather than trusted from any adapter.
+    """
+    engine, forge, _, _, _ = make_engine(tmp_path)
+    ready = engine.config.labels.lifecycle.ready
+    unrelated = Ticket(
+        iid=99, title="Not for the agent",
+        description="## Acceptance Criteria\n- [ ] x", labels=["P1"],
+    )
+    forge.ticket.labels = [ready, "P2"]
+    forge.ready = [unrelated, forge.ticket]      # server ignored the filter
+
+    assert engine._pick_ticket().iid == forge.ticket.iid
+
+
+def test_selection_skips_a_ticket_that_is_not_open(tmp_path: Path) -> None:
+    """
+    @brief   Conducting a closed ticket is worse than missing one, so the state
+             is confirmed at the boundary and not left to a CLI default.
+    """
+    engine, forge, _, _, _ = make_engine(tmp_path)
+    forge.ticket.labels = [engine.config.labels.lifecycle.ready, "P2"]
+    forge.ticket.state = "closed"
+    forge.ready = [forge.ticket]
+
+    assert engine._pick_ticket() is None
+
+
 def test_publication_retry_survives_a_dirty_worktree(tmp_path: Path) -> None:
     """
     @brief   `_publish` retries itself after a bookkeeping stage failure, but a
@@ -1358,11 +1422,37 @@ def test_publication_retry_survives_a_dirty_worktree(tmp_path: Path) -> None:
     engine, _, worktrees, _, _ = make_engine(tmp_path)
     run = make_run(engine)
     run.approved_product = "a" * 64          # publication already began
+    run.worktree = str(tmp_path / "wt")
     engine.store.save(run)
     worktrees.dirty = True
 
-    engine._approved_product(run)            # must not raise on a dirty tree
-    assert engine.store.load(run.run_id).approved_product == "a" * 64
+    engine._settle_worktree(run, "publication retry")
+
+    # the leftover work is committed, so the fingerprints that follow - in
+    # `_publish` and in `retry`'s freshness check - no longer meet a dirty tree
+    assert not worktrees.dirty
+    assert any(
+        e["event"] == "checkpoint" and "settle" in e["message"]
+        for e in engine.store.read_journal(run.run_id)
+    )
+
+
+def test_settle_is_a_no_op_on_a_clean_worktree(tmp_path: Path) -> None:
+    """
+    @brief   Settling must not manufacture an empty commit on the first entry
+             into publication, where validation already guarantees a clean tree.
+    """
+    engine, _, worktrees, _, _ = make_engine(tmp_path)
+    run = make_run(engine)
+    run.worktree = str(tmp_path / "wt")
+    worktrees.dirty = False
+
+    engine._settle_worktree(run, "publication retry")
+
+    assert not any(
+        "settle" in e.get("message", "")
+        for e in engine.store.read_journal(run.run_id)
+    )
 
 
 def test_approved_product_baseline_is_captured_once_and_reused(

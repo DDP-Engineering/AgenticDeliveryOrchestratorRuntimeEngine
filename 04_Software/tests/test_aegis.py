@@ -538,9 +538,13 @@ def test_evidenced_jump_ignores_prose_that_merely_names_a_stage() -> None:
     prose = (
         "2026-09-18 frame: scope accepted",
         "2026-09-18 specify: the build: prefix here is prose, not an entry",
+        "2026-09-18 design: note recorded",
     )
-    assert evidenced_transition("frame", "build", "quick", prose) is False
-    assert logged_stages(prose) == frozenset({"frame", "specify"})
+    # frame -> validate on full is a genuine jump, so the verdict depends on
+    # whether `build` counts as evidenced. It must not: the only mention of it
+    # sits mid-sentence inside the specify entry.
+    assert evidenced_transition("frame", "validate", "full", prose) is False
+    assert logged_stages(prose) == frozenset({"frame", "specify", "design"})
 
 
 def test_evidenced_jump_declines_what_allowed_transition_already_rules_on() -> None:

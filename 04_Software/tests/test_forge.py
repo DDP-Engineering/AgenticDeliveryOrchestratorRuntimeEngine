@@ -895,6 +895,31 @@ def test_gitlab_pipeline_status_maps_head_pipeline() -> None:
     assert forge.pipeline_status(9) == "unknown"
 
 
+def test_gitlab_pipeline_status_handles_a_zero_valued_object() -> None:
+    """
+    @brief   glab prints the API object straight from its Go client, so a merge
+             request with no pipeline can arrive as a ZERO-VALUED object rather
+             than null. An empty status means nothing ran, which is "none" and
+             silent - never a pipeline forever in progress, the shape that had
+             to be corrected on Gitea (live finding 2026-09-18).
+    """
+    zero = '{"iid":9,"head_pipeline":{"id":0,"sha":"","ref":"","status":""}}'
+    assert GitLabForge("g/p", FakeRunner(_ok(zero))).pipeline_status(9) == "none"
+    null = '{"iid":9,"head_pipeline":null,"pipeline":null}'
+    assert GitLabForge("g/p", FakeRunner(_ok(null))).pipeline_status(9) == "none"
+
+
+def test_gitlab_list_ready_asks_for_open_tickets_explicitly() -> None:
+    """
+    @brief   gh and tea name the state; glab was left on its default. A
+             selection boundary must not depend on a CLI default staying put.
+    """
+    runner = FakeRunner(_ok("[]"))
+    GitLabForge("g/p", runner).list_ready("agent-ready")
+    argv = runner.calls[0]
+    assert "--state" in argv and argv[argv.index("--state") + 1] == "opened"
+
+
 def test_github_pipeline_status_rolls_up_checks_and_statuses() -> None:
     """
     @brief   statusCheckRollup mixes Actions check runs (status + conclusion)

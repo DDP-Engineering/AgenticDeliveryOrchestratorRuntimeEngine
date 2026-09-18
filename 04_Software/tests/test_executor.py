@@ -208,6 +208,46 @@ def test_executor_failure_passes_through_as_data(tmp_path: Path) -> None:
     assert "wall-clock" in run.stderr
 
 
+def test_a_silent_launch_does_not_inherit_the_previous_stream(tmp_path: Path) -> None:
+    """
+    @brief   A launch that produces nothing must read back as nothing.
+    @details opencode can exit 0 in a second without writing, and the live
+             exchange files then still hold the PREVIOUS stage's transcript.
+             Reading them attributed that stage's work to this one in the
+             archive and re-counted its tokens against the cost budget (live
+             finding 2026-09-18: a build attempt archived byte-identical
+             design output, same sessionID). The streams are cleared before
+             every launch, exactly as the questions file already was.
+    """
+    worktree, io_dir = _dirs(tmp_path)
+    executor = _executor()
+
+    def write_previous_stage() -> None:
+        (io_dir / OUTPUT_FILE).write_text(
+            '{"sessionID":"ses_design","part":{"tokens":{"input":900,"output":100},'
+            '"cost":0.5}}\n',
+            encoding="utf-8",
+        )
+        (io_dir / STDERR_FILE).write_text("design noise\n", encoding="utf-8")
+
+    first = executor.run_gate(
+        FakeExec(CommandResult(exit_code=0), write_previous_stage),
+        worktree, io_dir, "design", archive_stem="design",
+    )
+    assert first.tokens_in == 900
+
+    # now a launch that writes nothing at all
+    silent = executor.run_gate(
+        FakeExec(CommandResult(exit_code=0)), worktree, io_dir,
+        "build", archive_stem="build",
+    )
+
+    assert silent.output == ""          # not the design transcript
+    assert silent.tokens_in == 0 and silent.cost_usd == 0.0   # not re-counted
+    archived = (io_dir / ARCHIVE_DIR / "build-attempt1" / OUTPUT_FILE)
+    assert archived.read_text(encoding="utf-8") == ""
+
+
 def test_gate_launch_archive_preserves_output_and_meta(tmp_path: Path) -> None:
     """
     @brief   A normal launch keeps the live exchange files and also creates an

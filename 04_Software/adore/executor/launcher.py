@@ -148,6 +148,20 @@ class FileProtocolExecutor(Executor):
         questions_path = worktree / self.questions_file
         questions_path.unlink(missing_ok=True)
 
+        # The same rule the questions file already follows, for the streams:
+        # whatever is read back afterwards must have been written by THIS
+        # launch. A launch that produces nothing - opencode exiting 0 in a
+        # second, a refused session - otherwise leaves the PREVIOUS stage's
+        # transcript in place, and it is then archived as this stage's
+        # evidence and re-counted by `_extract_usage` against the cost budget
+        # (live finding 2026-09-18: a build attempt archived byte-identical
+        # design output). Removing them first makes an empty read mean
+        # exactly what it says.
+        output_path = io_dir / OUTPUT_FILE
+        stderr_path = io_dir / STDERR_FILE
+        output_path.unlink(missing_ok=True)
+        stderr_path.unlink(missing_ok=True)
+
         command = self._build_command(
             prompt=shlex.quote(prompt),
             model=shlex.quote(self.model),
@@ -171,8 +185,6 @@ class FileProtocolExecutor(Executor):
 
         result = execute(["sh", f"{CONTAINER_IO_MOUNT}/{GATE_SCRIPT}"], timeout=timeout)
 
-        output_path = io_dir / OUTPUT_FILE
-        stderr_path = io_dir / STDERR_FILE
         output = self._read(output_path)
         stderr = self._read(stderr_path) or result.stderr
         artifacts: list[str] = []

@@ -77,6 +77,25 @@ This project follows Keep a Changelog and Semantic Versioning.
   `TimeoutExpired` became a `CommandResult`; a `PermissionError` or a command
   line past the Windows 32767-character limit propagated raw, past every
   handler. Any `OSError` is now reported as exit code 126.
+- **The stage prompt contradicted itself about stopping.** The autopilot
+  override added for AEGIS 0.13's checkpoint default said "never stop at a
+  stage-boundary checkpoint", while the closing paragraph said "stop after the
+  current stage". Both are reconcilable, but only via a trailing qualifier, and
+  a model resolving the conflict in favour of the louder, earlier instruction
+  runs the whole task in one session. Autopilot now speaks only about who
+  decides and never about how far to go, and the one-stage rule is its own
+  paragraph giving the reason: the session boundary is what gives ADORE a
+  checkpoint, a per-stage error budget, and the chance to hand back the last
+  failure. Measured on the same model, repository and ticket shape: two
+  run-aheads in three launches before, none in six after.
+- **A launch that produced nothing inherited the previous stage's transcript.**
+  The gate protocol cleared the questions file before each launch so its
+  presence afterwards could only mean this launch wrote it, but never applied
+  the same rule to the output and stderr streams. An executor exiting zero
+  without writing therefore had the previous stage's transcript archived as its
+  own evidence and its tokens re-counted against the cost budget. Observed live:
+  a build attempt archived byte-identical design output under the same session
+  id. The streams are now cleared with the questions file.
 - **An executor that ran the whole task in one session lost all its work.** The
   stage guard is a pure function of two stage names, so a skipped stage and a
   task completed in a single launch produce the identical hop and were refused
