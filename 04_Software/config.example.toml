@@ -358,7 +358,7 @@ retry_backoff_seconds = [5, 30, 120]
 max_iterations           = 20
 max_wall_clock_seconds   = 3600   # total wall-clock per run (whole-run ceiling)
 per_gate_timeout_seconds = 1800   # default wall-clock bound on ONE executor launch
-max_cost_usd             = 5.0    # model spend per run
+max_cost_usd             = 5.0    # reported cost cap; 0 disables this cap
 max_files_touched        = 120    # includes AEGIS forms/evidence + product files
 
 # ----- Delivery ------------------------------------------------------------------
@@ -375,6 +375,8 @@ reviewers = ["reviewer.one"]
 remove_source_branch = true
 # ADORE removes this label before presentation and accepts only a fresh re-add.
 approval_label = "agent-approved"
+# Opt in to remote WIP checkpoints; delivery still needs fresh human approval.
+publish_checkpoints = false
 
 # ----- Post-MR review loop ----------------------------------------------------
 # How ADORE reacts to review feedback on its draft MR. It never auto-reacts to

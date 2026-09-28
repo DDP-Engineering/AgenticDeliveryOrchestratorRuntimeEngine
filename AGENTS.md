@@ -46,8 +46,9 @@ A deeper `AGENTS.md` overrides this file for its subtree.
 - Make changes incrementally.
 - Update documentation in the same change when behavior, commands, folder
   layout, or contracts change.
-- Bound every autonomous run with explicit limits (iterations, wall-clock,
-  cost, files touched).
+- Bound every autonomous run with explicit iteration, wall-clock and file limits.
+  Enforce positive reported-cost caps; operators may explicitly disable only the
+  monetary cap with `max_cost_usd = 0` for subscription or local execution.
 
 ## Testing Rules
 

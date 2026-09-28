@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+id = "REQ-FUNC-dff76be9"
+title = "Continue evidenced partial stage work within run budgets"
+status = "active"
+requirement = "When a successful executor gate leaves the same governed stage with changed candidate content and a strict append-only extension of its work log, the conductor shall checkpoint and continue that stage in a fresh bounded session without consuming or resetting its failure count."
+verification = "Offline orchestrator tests simulate multiple progressing partial gates, rejection of journal-only/code-only/rewritten evidence, continued iteration-budget enforcement and failed snapshots; isolation tests cover tracked/untracked changes, unsafe paths and Git failure."
+affected_paths = ["04_Software/adore/orchestrator.py", "04_Software/adore/isolation.py"]
+linked_tests = ["04_Software/tests/test_orchestrator.py", "04_Software/tests/test_isolation.py"]
+created = 2026-09-28
+updated = 2026-09-28

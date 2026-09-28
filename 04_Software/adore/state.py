@@ -34,6 +34,7 @@ from pathlib import Path
 import re
 import shutil
 import socket
+import tempfile
 from typing import Any
 
 from adore.branding import DEFAULT_STATE_ROOT, PRODUCT_SLUG
@@ -55,7 +56,7 @@ _STAGES = {"frame", "specify", "design", "build", "validate", "deliver", "done",
            "publishing"}
 _LIFECYCLES = {
     "working", "parked-clarification", "awaiting-approval", "publishing",
-    "in-review", "failed", "done", "cancelled", "stale",
+    "in-review", "failed", "done", "cancelled", "stale", "handed-off", "handoff-pending",
 }
 
 # DATA MODELS / TYPEDEFINITIONS
@@ -128,6 +129,8 @@ class RunState:
     approval_label_removed: bool = False
     validation_evidence: dict[str, Any] = field(default_factory=dict)
     outcome: str = ""
+    checkpoint_remote_commit: str = ""
+    checkpoint_error: str = ""
     active_started_at: str = ""
     created_at: str = ""
     updated_at: str = ""
@@ -199,6 +202,13 @@ class RunState:
             raise StateError("run-state notification_outbox must be an object list")
         if not isinstance(state.validation_evidence, dict):
             raise StateError("run-state validation_evidence must be an object")
+        if not isinstance(state.checkpoint_error, str):
+            raise StateError("run-state checkpoint_error must be text")
+        if not isinstance(state.checkpoint_remote_commit, str) or (
+            state.checkpoint_remote_commit
+            and re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", state.checkpoint_remote_commit) is None
+        ):
+            raise StateError("run-state checkpoint_remote_commit must be a commit digest")
         for name in ("candidate_fingerprint", "candidate_base_ref", "approved_product"):
             value = getattr(state, name)
             if value and re.fullmatch(r"[0-9a-f]{40,64}", value) is None:
@@ -405,6 +415,52 @@ class StateStore:
         if not isinstance(data, dict):
             raise StateError(f"corrupt ticket.json for run {run_id!r}: not a JSON object")
         return data
+
+    def request_handoff(self, run_id: str) -> None:
+        """
+        @brief Atomically request ownership transfer without editing conductor state.
+        @param[in] run_id Existing safe run identity.
+        @exception StateError When the run is corrupt or already released.
+        """
+        if _RUN_ID_RE.fullmatch(run_id) is None or run_id in {".", ".."}:
+            raise StateError("handoff requires a safe run identity")
+        run = self.load(run_id)
+        if run.lifecycle in {"done", "cancelled"}:
+            raise StateError("completed or cancelled runs cannot be handed off")
+        path = self.run_dir(run_id) / "handoff-request.json"
+        fd, temporary = tempfile.mkstemp(prefix=".handoff-", dir=path.parent)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                json.dump({"schema": 1, "run_id": run_id,
+                           "requested_at": utc_now_iso()}, handle)
+            os.replace(temporary, path)
+        finally:
+            Path(temporary).unlink(missing_ok=True)
+
+    def handoff_requested(self, run_id: str) -> bool:
+        """
+        @brief Read the durable request with exact identity and schema validation.
+        @param[in] run_id Run owned by the calling conductor.
+        @return True when a trusted request exists.
+        @exception StateError When request data is corrupt or foreign.
+        """
+        path = self.run_dir(run_id) / "handoff-request.json"
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            return False
+        except (OSError, ValueError) as exc:
+            raise StateError(f"invalid handoff request: {exc}") from exc
+        if (not isinstance(data, dict) or set(data) != {"schema", "run_id", "requested_at"}
+                or type(data["schema"]) is not int or data["schema"] != 1
+                or data["run_id"] != run_id or not isinstance(data["requested_at"], str)
+                or not data["requested_at"]):
+            raise StateError("invalid handoff request identity/schema")
+        return True
+
+    def clear_handoff_request(self, run_id: str) -> None:
+        """@brief Remove a request after durable ownership transfer."""
+        (self.run_dir(run_id) / "handoff-request.json").unlink(missing_ok=True)
 
     # -- journal -----------------------------------------------------------------
 

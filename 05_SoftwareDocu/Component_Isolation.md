@@ -40,7 +40,12 @@ guardrails, not a sandbox.
   conductor-generated stage/delivery artifacts, plus the committed-state checks
   `is_dirty`; `ref_head`, `commit_series`, and
   `candidate_fingerprint` bind approval to the target, tree and exact commit
-  sequence; `product_diff_fingerprint` detects product mutation while allowing
+  sequence; `worktree_progress_fingerprint` hashes tracked changes against HEAD plus
+  named untracked content, excluding `.agentic/tasks/**` and generated caches;
+  it includes authored requirements/specs/docs. Git/read failures, unsafe paths,
+  special files and symlink directory parents raise `IsolationError`; file
+  symlinks contribute literal targets without following them.
+  `product_diff_fingerprint` detects product mutation while allowing
   expected `.agentic/` delivery bookkeeping; and `list_dirs` (every directory under the
   worktrees root, including husks deregistered but not deleted after the WSL
   bind-mount teardown race - the input `adore cleanup` sweeps).
@@ -307,3 +312,9 @@ result = containers.exec("adore-run-gitlab-x-14", ["opencode", "--version"])
   shell re-parses them, so argv elements containing spaces can be split. The
   executor launcher must pass prompts through a file, never through argv
   (planned anyway for output capture).
+
+## Checkpoint publication and human ownership
+
+WorktreeManager.push_checkpoint validates exact local branch and commit identities, parses one exact remote ref, requires owned ancestor history and publishes with an exact remote lease. Remote divergence/races raise CheckpointConflictError; malformed identities raise CheckpointProtocolError; transport errors raise IsolationError. It verifies the resulting remote head and recognizes an already-successful interrupted push.
+
+Offline contract coverage: `04_Software/tests/test_checkpoint_handoff.py`.

@@ -8,7 +8,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # Assisted configuration wizard
 
-## Purpose
+## Purpose and boundaries
 
 `04_Software/adore/wizard.py` implements `adore init`: it turns explicit
 operator answers and environment guidance into a minimal, validated
@@ -22,7 +22,7 @@ validated prompt primitive; `ConsoleAsker` is interactive and `ScriptedAsker`
 drives `--answers FILE` and offline tests. The result is a profile config and
 metadata created through `ProfileStore`.
 
-## Contract and safety boundary
+## Invariants
 
 Every answer is validated before output. Non-interactive bad input fails fast;
 interactive input is re-prompted. The assembled TOML is written to a temporary
@@ -43,3 +43,34 @@ It composes doctor probes, profiles, typed config validation, and an injected
 command runner. `04_Software/tests/test_wizard.py` covers a golden valid
 profile, answer failures, overwrite/confirmation safeguards, deterministic
 non-interactive output, branch checks, and the no-invalid-save guarantee.
+
+
+## Routing
+
+For assisted profile creation and custom budget answers, start at
+`04_Software/adore/wizard.py` and `04_Software/tests/test_wizard.py`.
+Enforcement and recovery belong to Orchestrator; profile storage belongs to Profiles.
+
+## Key behaviors
+
+- `REQ-FUNC-b0811cbe`: finite nonnegative reported-cost caps; zero explicitly
+  disables monetary enforcement for subscription/local execution while retaining
+  usage telemetry and other run bounds. Negative/nonfinite/type-invalid caps
+  cannot create an executable profile. Positive defaults remain 5.0.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  input([adore init / run_wizard]) --> ask[FieldSpec and ask]
+  ask --> cost[Finite nonnegative custom cost answer]
+  cost --> emit[TOML emission]
+  emit --> validator([load_config / validate_config])
+  validator --> storage[(ProfileStore)]
+```
+
+## Files
+
+- `04_Software/adore/wizard.py`: validated interactive/scripted profile creation.
+- `04_Software/tests/test_wizard.py`: generated-config and answer boundaries.
+- `05_SoftwareDocu/Component_Wizard.md`: implementation-facing wizard contract.

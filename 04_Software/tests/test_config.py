@@ -18,6 +18,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from adore.config import Config, load_config, validate_config
+import pytest
 
 # CONSTANTS
 
@@ -719,3 +720,15 @@ env_keys = ["OPENAI_API_KEY", "GITHUB_TOKEN", "GITLAB_TOKEN"]
 
 
 # END OF FILE
+
+
+@pytest.mark.parametrize("cap", ["0", "0.0", "6.5", "-1", "nan", "inf", "true", '\"free\"'])
+def test_cost_cap_zero_is_explicit_opt_out_and_invalid_inputs_fail_closed(tmp_path, cap):
+    """@brief Only finite nonnegative numeric cost caps pass configuration validation."""
+    text = MINIMAL_VALID + "\n[budgets]\nmax_cost_usd = " + cap + "\n"
+    cfg = load_config(_write_config(tmp_path, text))
+    issues = validate_config(cfg)
+    if cap in ("0", "0.0", "6.5"):
+        assert issues == []
+    else:
+        assert any("max_cost_usd" in issue for issue in issues)

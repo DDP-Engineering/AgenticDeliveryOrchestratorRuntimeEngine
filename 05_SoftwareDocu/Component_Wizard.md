@@ -66,6 +66,9 @@ commands + `--profile` resolution.
   built with `--build-arg USER_UID=$(id -u) --build-arg USER_GID=$(id -g)` so
   the container user/group match the host (no `run_args` needed for UID mapping). The executor `env_keys` are
   derived from the model's provider (names only, never secret values).
+- **Reported-cost opt-out:** custom budgets accept finite nonnegative USD values.
+  Zero explicitly disables the dollar cap for subscription/local execution;
+  the prompt states this option, and negative/nonfinite inputs fail validation.
 - **Governance-aware file budget:** the recommended profile allows 120 touched
   files. AEGIS task journals and evidence count toward the same bound as product
   files, and the CR6 full pilot occupied 45 paths before implementation; the

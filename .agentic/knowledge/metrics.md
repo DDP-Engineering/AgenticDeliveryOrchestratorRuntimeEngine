@@ -8,7 +8,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # Metrics
 
-## Purpose
+## Purpose and boundaries
 
 `04_Software/adore/metrics.py` turns durable terminal-run state and journals
 into honest operator statistics. It remains local and standard-library based:
@@ -20,10 +20,10 @@ service is required.
 `summarize_run()` builds one `RunSummary`; `record_summary()` upserts it by
 run id and refreshes the JSONL mirror. `load_summaries`, `aggregate`,
 `export_csv`, `render_html`, and `profile_stats` supply the CLI report, export,
-dashboard, and profile figures. Only `done`, `failed`, and `cancelled` are
+dashboard, and profile figures. `done`, `failed`, `cancelled`, and `handed-off` are
 recordable terminal lifecycles.
 
-## Data and truth contract
+## Invariants
 
 Usage comes from append-only journal `usage` events, not transient executor IO
 files. One SQLite row per run and the mirror must agree. Governance outcome is
@@ -43,3 +43,26 @@ It depends on state/journal access and standard-library `sqlite3`, `csv`,
 calculation, strict outcomes, idempotent persistence, migrations, filters,
 aggregates, escaping, and human-merge statistics; executor and orchestrator
 tests cover usage and terminal recording integration.
+
+## Routing
+
+For metrics interfaces, start at `04_Software/adore/metrics.py` and its matching existing component tests. Checkpoint/handoff contracts are covered in `04_Software/tests/test_checkpoint_handoff.py`; conduction belongs to Orchestrator.
+
+## Key behaviors
+
+- `REQ-FUNC-c9d64cfe`: explicit safe human ownership with durable recovery evidence and protected run state.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  run[(Terminal run and usage journal)] --> summarize[summarize_run]
+  summarize --> db[(SQLite and JSONL)]
+  db --> views([CLI statistics / CSV / HTML])
+  human[(handed-off ownership outcome)] --> summarize
+```
+
+## Files
+
+- `04_Software/adore/metrics.py`.
+- `04_Software/tests/test_checkpoint_handoff.py`: ownership contract boundaries.

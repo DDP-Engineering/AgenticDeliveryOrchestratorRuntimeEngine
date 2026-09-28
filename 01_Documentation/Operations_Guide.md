@@ -17,6 +17,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 | `publishing` | Approved delivery bookkeeping and remote publication. | Reach draft MR/PR or fail loudly. |
 | `in-review` | Draft MR/PR awaits human action. | Merge, close, or request a bounded revision. |
 | `failed` | Execution stopped with preserved evidence. | Fix cause, clear pending notification, then explicit retry. |
+| `handoff-pending` | Ownership transfer is unfinished; local editing waits. | Finish the current bounded session and verify stop/checkpoint work. |
+| `handed-off` | A human owns the preserved worktree and branch. | Human continues; automatic retry/reset/cleanup preserve ownership. |
 | `done` | A human merged the draft. | Cleanup is complete/auditable. |
 | `cancelled` | An operator or closed source ticket ended the run. | Audit state remains; delete explicitly if no longer needed. |
 
@@ -47,16 +49,44 @@ Continuous service mode uses `run --loop`. Every executor launch, transition,
 failure, question, notification delivery, approval and publication event is
 appended to `journal.jsonl` under the profile state root.
 
+## Stage Completion and Continuation
+
+Each fresh executor session is instructed to complete its current AEGIS stage.
+The durable task journal determines whether that stage advanced or legally
+routed backward. An executor may leave the stage unfinished after useful work;
+ADORE observes both the candidate and the work Log before deciding what follows.
+
+A successful gate that leaves the same stage continues automatically when:
+
+- authored candidate content changed during the session; task journals and
+  generated caches are excluded from this observation;
+- the task Log retains its existing entries and appends nonempty work evidence.
+
+ADORE creates a local checkpoint, publishes it when `delivery.publish_checkpoints`
+is enabled, and records `stage-continuation` in
+`journal.jsonl`. It starts a fresh session with the recent work evidence and
+instructions to read the journal, Handoff and Stage report and finish the
+remaining work. The run remains `working` at the same stage. No operator action
+is needed for an evidenced continuation.
+
+Continuation preserves the stage failure count. Every launch still consumes
+`max_iterations`, active-work time and reported cost, and the file budget remains
+in force. A legal stage transition resets the failure count. Strict validation
+and fresh human approval still precede publication.
+
 ## Failure Interpretation
 
 | Signal | Meaning | Operator response |
 | --- | --- | --- |
 | Incident attempt `1/3` or `2/3` | Recoverable stage attempt failed. | Observe the fresh remediation attempt; intervene if evidence shows a policy/resource issue. |
 | Incident attempt `3/3` plus terminal comment | Stage limit reached. | Inspect local/MR evidence and explicitly retry only after correcting the cause. |
+| `stage-continuation` journal event | Candidate changes and appended work evidence justify another session at the same stage. | Observe the fresh session; an unchanged stage alone is expected here. |
+| `NO_STAGE_PROGRESS` | A successful same-stage gate lacks candidate changes or a nonempty append-only work Log. | Read the task Log, Handoff and candidate diff; the configured stage recovery limit applies. |
+| `WORKTREE_PROGRESS` | Git or file reads could not produce a trustworthy progress observation. | Restore worktree access and inspect Git/path errors before retrying. |
 | `AEGIS_PROTOCOL` | Wrong version/schema, malformed CLI output, identity/path violation. | Repair the target payload/journal; do not repeatedly launch an executor. |
 | `AEGIS_TIMEOUT` / `EXECUTOR_TIMEOUT` | The bounded command runner reports that it killed an AEGIS or executor process. | Inspect resource pressure and the configured bound; stderr wording and exit code alone do not produce this classification. |
 | `NOTIFICATION_DELIVERY` | Required ticket/MR write failed. | Restore forge transport. Polling replays the outbox without an execution slot. |
-| `BUDGET_EXHAUSTED` | Iteration/time/cost/file cap reached. | Adjust scope/config deliberately, then retry. |
+| `BUDGET_EXHAUSTED` | Iteration/time/enabled cost/file cap reached. | Inspect the specific cap; subscription/local profiles may set `max_cost_usd = 0` to disable dollar enforcement, then retry. |
 | `STALE_WORKING` | A conductor died or lost ownership. | Inspect evidence, reconcile the worktree, then retry. |
 | `CLARIFICATION_TIMEOUT` / `REVIEW_LIMIT` | Human/review bound exhausted. | Decide manually; retry only with a new explicit intent. |
 
@@ -125,7 +155,7 @@ A repair round is the same bounded path the revise label uses: a new AEGIS task
 on the same branch, the prior journals preserved, and the executor told that a
 green pipeline is part of this round's acceptance criteria. It therefore ends
 where every other round ends, at strict validation and a **fresh human approval**
-before anything is pushed. ADORE still never merges.
+before delivery publication. ADORE still never merges.
 
 `max_review_rounds` bounds repairs and human-requested revisions together, so a
 permanently red pipeline cannot loop. When the budget is spent, ADORE posts a

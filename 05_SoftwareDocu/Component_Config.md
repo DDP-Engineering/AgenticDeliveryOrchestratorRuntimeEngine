@@ -55,3 +55,18 @@ error; unknown keys inside a known section are ignored.
 `tests/test_config.py` covers defaults, recovery bounds, AEGIS stage names,
 approval-label collisions, forge credential denial, container trust boundaries
 and existing cross-platform configuration rules.
+
+
+## Reported-cost budget contract
+
+`budgets.max_cost_usd` accepts finite nonnegative integers/floats and rejects
+booleans, nonnumeric values, negatives and nonfinite floats. Zero explicitly
+disables monetary enforcement; positive values retain their thresholds and the
+5.0 default. Other budgets remain required. `REQ-FUNC-b0811cbe` covers load-time
+trust boundaries and shared conduction/wizard semantics.
+
+## Checkpoint publication and human ownership
+
+DeliveryConfig.publish_checkpoints is a strict boolean default false. Opt-in authorizes WIP branch pushes and leaves candidate-bound delivery approval required.
+
+Offline contract coverage: `04_Software/tests/test_checkpoint_handoff.py`.

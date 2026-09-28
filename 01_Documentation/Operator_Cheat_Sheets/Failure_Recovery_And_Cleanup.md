@@ -9,12 +9,20 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 Applies to ADORE 0.13.0 and AEGIS schema 1.
 
+- `stage-continuation`: useful candidate changes plus appended work evidence;
+  ADORE checkpoints and starts a fresh session at the same stage automatically.
+  Failure counts are preserved; global run budgets still apply.
+- `NO_STAGE_PROGRESS`: the same stage lacks either progress signal or its Log
+  history was rewritten; this spends a failed attempt.
+- `WORKTREE_PROGRESS`: observation failed; repair worktree/Git access before retry.
 - Attempts `1/3` and `2/3`: read the edited incident; a fresh remediation
   session may run.
 - Attempt `3/3`: no fourth launch. The terminal comment confirms container
   stop, preserved worktree/evidence and released slot.
 - Questions: answer on the ticket and add `agent-answered`; no stage failure is
   consumed.
+- Subscription/local cost stop: set `[budgets] max_cost_usd = 0`, validate the
+  profile and retry. Recorded usage remains visible; other bounds still apply.
 - Notification outage: restore forge access and poll until the outbox delivers.
   `adore retry` is refused while it remains pending.
 - Target/candidate drift: expect approval removal, reintegration, validation,
