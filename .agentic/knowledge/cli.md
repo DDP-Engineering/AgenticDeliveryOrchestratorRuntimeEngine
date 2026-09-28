@@ -8,13 +8,13 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # CLI
 
-## Purpose
+## Purpose and boundaries
 
 `04_Software/adore/cli.py` is ADORE's operator control plane. The `adore`
 console script and `python -m adore` are deliberately thin argparse adapters
 over typed components; there is no parallel web or REST control surface.
 
-## Command groups
+## Public interface
 
 The CLI exposes configuration (`show`, `validate`, guarded scalar `set`),
 runtime lifecycle (`run`, `status`, `runs`, pause/resume, cancel/retry/logs,
@@ -23,7 +23,7 @@ and management (`init`, `profile`, global `--profile`). Its configuration path
 precedence is explicit `-c`, named profile, active profile, then local
 `config.toml`.
 
-## Operator safeguards
+## Invariants
 
 Invalid/missing configuration produces a clear nonzero result rather than a
 traceback. Destructive state operations require `--force`; mutations acquire
@@ -43,3 +43,27 @@ The CLI composes config, state, orchestrator, process log, metrics, profiles,
 wizard, and utilities. `04_Software/tests/test_smoke.py` exercises command
 outcomes, configuration errors, locks, force guards, logging/rotation, cleanup
 reports, and profile-oriented flows against temporary local state.
+
+## Routing
+
+For cli interfaces, start at `04_Software/adore/cli.py` and its matching existing component tests. Checkpoint/handoff contracts are covered in `04_Software/tests/test_checkpoint_handoff.py`; conduction belongs to Orchestrator.
+
+## Key behaviors
+
+- `REQ-FUNC-c9d64cfe`: explicit safe human ownership with durable recovery evidence and protected run state.
+
+## Architecture
+
+```mermaid
+flowchart TD
+  command([handoff RUN_ID]) --> load[Validated profile and run]
+  load --> request[(Atomic request marker)]
+  request --> lock{Operator lock available?}
+  lock -->|yes| transfer([Orchestrator.handoff])
+  lock -->|no| queued([Queued; current gate finishes])
+```
+
+## Files
+
+- `04_Software/adore/cli.py`.
+- `04_Software/tests/test_checkpoint_handoff.py`: ownership contract boundaries.

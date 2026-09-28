@@ -34,6 +34,7 @@ from adore.aegis import (
 from adore.config import Config, ExecutorCommand
 from adore.executor.base import GateRun
 from adore.forge import Comment, Forge, ForgeError, MergeRequest, Ticket
+from adore.isolation import IsolationError
 from adore.metrics import aggregate, load_summaries, profile_stats
 import adore.orchestrator as orchestrator_module
 from adore.orchestrator import Orchestrator
@@ -153,6 +154,7 @@ class FakeWorktrees:
         self.target = "a" * 40
         self.fingerprint = "b" * 64
         self.product_fingerprint = "c" * 64
+        self.progress_fingerprint = "initial"
         self.checkpoints: list[str] = []
         self.pushes: list[str] = []
         self.removed: list[str] = []
@@ -192,6 +194,9 @@ class FakeWorktrees:
 
     def product_diff_fingerprint(self, run_id, base_ref):
         return self.product_fingerprint
+
+    def worktree_progress_fingerprint(self, run_id):
+        return self.progress_fingerprint
 
     def ref_head(self, ref):
         return self.target
@@ -2020,3 +2025,163 @@ def test_forge_contract_deliberately_has_no_merge_operation() -> None:
 
 
 # END OF FILE
+
+
+@pytest.mark.parametrize("signal", ["both", "files", "log", "rewrite", "empty"])
+def test_partial_stage_requires_candidate_and_append_only_evidence(tmp_path, monkeypatch, signal):
+    """@brief Useful partial work continues; incomplete or rewritten evidence fails."""
+    engine, forge, worktrees, _, executor = make_engine(tmp_path)
+    engine.config.recovery.max_stage_failures = 1
+    engine.config.budgets.max_iterations = 2
+    run = make_run(engine)
+    run.stage = "build"
+    before = replace(task("build"), log=("original work",))
+    logs = {
+        "both": ("original work", "build partial green: tests pass, browser work remains"),
+        "files": ("original work",),
+        "log": ("original work", "build partial green: tests pass"),
+        "rewrite": ("rewritten work", "build partial green: tests pass"),
+        "empty": ("original work", " "),
+    }
+    after = replace(before, log=logs[signal])
+    snapshots = [before, after, after, replace(after, log=(*after.log, "continued work"))]
+    original = executor.run_gate
+    def execute(*args, **kwargs):
+        result = original(*args, **kwargs)
+        if signal != "log":
+            worktrees.progress_fingerprint += "change"
+        return result
+    monkeypatch.setattr(executor, "run_gate", execute)
+    engine._conduct_task(run, forge.ticket, FakeAegis(snapshots), "")
+    if signal == "both":
+        assert len(executor.prompts) == 2
+        assert "BUDGET_EXHAUSTED" in run.outcome
+        assert run.stage_failures == 0
+        assert len(worktrees.checkpoints) == 2
+        assert "browser work remains" in executor.prompts[1]
+        assert "Handoff" in executor.prompts[1]
+    else:
+        assert len(executor.prompts) == 1
+        assert run.failure_history[-1]["code"] == "NO_STAGE_PROGRESS"
+
+
+def test_partial_stage_preserves_prior_failure_count(tmp_path, monkeypatch):
+    """@brief A continuation never resets a real failure and remains iteration bounded."""
+    engine, forge, worktrees, _, executor = make_engine(tmp_path)
+    engine.config.budgets.max_iterations = 1
+    run = make_run(engine)
+    run.stage = "build"
+    run.stage_failures = 2
+    before = replace(task("build"), log=("old",))
+    after = replace(before, log=("old", "build: partial tests pass"))
+    def execute(*args, **kwargs):
+        worktrees.progress_fingerprint = "changed"
+        return GateRun(exit_code=0)
+    monkeypatch.setattr(executor, "run_gate", execute)
+    engine._conduct_task(run, forge.ticket, FakeAegis([before, after]), "")
+    assert "BUDGET_EXHAUSTED" in run.outcome
+    assert run.stage_failures == 2
+    assert worktrees.checkpoints
+
+
+
+def test_partial_stage_eventually_advances_and_requests_approval(tmp_path, monkeypatch):
+    """@brief Continuation leads to governed validation and the existing approval stop."""
+    engine, forge, worktrees, _, executor = make_engine(tmp_path)
+    engine.config.recovery.max_stage_failures = 1
+    run = make_run(engine)
+    run.stage = "build"
+    before = replace(task("build"), log=("build red: regression fails",))
+    after = replace(before, log=(*before.log, "build partial green: focused tests pass"))
+    original = executor.run_gate
+    def execute(*args, **kwargs):
+        worktrees.progress_fingerprint += "change"
+        return original(*args, **kwargs)
+    monkeypatch.setattr(executor, "run_gate", execute)
+    client = FakeAegis([before, after, after, task("validate"),
+                        task("validate"), task("deliver"), task("deliver")])
+    engine._conduct_task(run, forge.ticket, client, "")
+    assert run.lifecycle == "awaiting-approval"
+    assert not run.failure_history
+    assert len(executor.prompts) == 3
+    assert not worktrees.pushes
+
+
+@pytest.mark.parametrize("when", ["before", "after"])
+def test_partial_stage_snapshot_failure_stops_visibly(tmp_path, monkeypatch, when):
+    """@brief Untrustworthy progress observations are terminal, never continuations."""
+    engine, forge, worktrees, _, executor = make_engine(tmp_path)
+    run = make_run(engine)
+    run.stage = "build"
+    before = task("build")
+    after = replace(before, log=("build: useful work",))
+    calls = 0
+    def observe(run_id):
+        nonlocal calls
+        calls += 1
+        if calls == (1 if when == "before" else 2):
+            raise IsolationError("unreadable worktree")
+        return "baseline"
+    monkeypatch.setattr(worktrees, "worktree_progress_fingerprint", observe)
+    engine._conduct_task(run, forge.ticket, FakeAegis([before, after]), "")
+    assert "WORKTREE_PROGRESS" in run.outcome
+    assert run.lifecycle == "failed"
+    assert len(executor.prompts) == (0 if when == "before" else 1)
+    assert not worktrees.checkpoints
+
+
+def test_nonzero_gate_with_candidate_work_is_still_failure(tmp_path, monkeypatch):
+    """@brief Progress never overrides a genuine failed gate."""
+    engine, forge, worktrees, _, executor = make_engine(tmp_path)
+    engine.config.recovery.max_stage_failures = 1
+    run = make_run(engine)
+    run.stage = "build"
+    def execute(*args, **kwargs):
+        worktrees.progress_fingerprint = "changed"
+        return GateRun(exit_code=2, stderr="failed gate")
+    monkeypatch.setattr(executor, "run_gate", execute)
+    engine._conduct_task(run, forge.ticket, FakeAegis([task("build")]), "")
+    assert run.failure_history[-1]["code"] == "EXECUTOR_EXIT"
+    assert not worktrees.checkpoints
+
+
+@pytest.mark.parametrize("bound", ["none", "iterations", "clock", "files"])
+def test_disabled_cost_cap_preserves_other_bounds_and_usage(tmp_path, monkeypatch, bound):
+    """@brief High reported cost remains visible but cannot stop a zero-cap run."""
+    engine, _, worktrees, _, _ = make_engine(tmp_path)
+    engine.config.budgets.max_cost_usd = 0
+    run = make_run(engine)
+    engine.store.journal(run.run_id, "usage", cost_usd=6.22)
+    if bound == "iterations":
+        run.iterations = engine.config.budgets.max_iterations
+    elif bound == "clock":
+        run.active_started_at = "2020-01-01T00:00:00Z"
+    elif bound == "files":
+        monkeypatch.setattr(worktrees, "changed_files", lambda *args: 121)
+    before = engine.store.read_journal(run.run_id)
+    def forbidden_cost_read(*args):
+        pytest.fail("Disabled cap must not enforce dollar accounting")
+    monkeypatch.setattr(engine, "_cost_spent", forbidden_cost_read)
+    reason = engine._budget_exceeded(run)
+    if bound == "none":
+        assert reason == ""
+    else:
+        assert {"iterations": "iteration budget", "clock": "active work clock",
+                "files": "file budget"}[bound] in reason
+    assert engine.store.read_journal(run.run_id) == before
+
+
+@pytest.mark.parametrize("cap", [0, 5.0])
+def test_reported_cost_cap_controls_validation_resume_without_erasing_usage(tmp_path, cap):
+    """@brief Preserved subscription work reaches approval at zero; paid caps still stop."""
+    engine, forge, _, _, executor = make_engine(tmp_path)
+    engine.config.budgets.max_cost_usd = cap
+    run = make_run(engine)
+    run.stage = "validate"
+    engine.store.journal(run.run_id, "usage", cost_usd=6.22)
+    engine._conduct_task(run, forge.ticket, FakeAegis(sequence("validate", "deliver")), "")
+    assert run.lifecycle == ("awaiting-approval" if cap == 0 else "failed")
+    assert any(e.get("cost_usd") == 6.22 for e in engine.store.read_journal(run.run_id))
+    assert bool(executor.prompts) == (cap == 0)
+    if cap > 0:
+        assert "cost budget reached ($6.22)" in run.outcome

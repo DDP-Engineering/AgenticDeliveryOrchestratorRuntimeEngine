@@ -112,3 +112,9 @@ terminal runs in the store (used once to backfill the pilot run).
   them (the pilot run included).
 - Time-per-gate breakdown exists in the journal but is not yet a summary
   column; add when the dashboard needs it.
+
+## Checkpoint publication and human ownership
+
+handed-off is a recordable terminal ownership outcome, distinct from merged/failed/cancelled. handoff-pending is not terminal.
+
+Offline contract coverage: `04_Software/tests/test_checkpoint_handoff.py`.

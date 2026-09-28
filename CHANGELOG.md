@@ -14,6 +14,13 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Added
 
+- Optional `delivery.publish_checkpoints` publishes guarded WIP checkpoints to
+  ticket branches with exact remote status and bounded transport recovery.
+  Remote ownership changes stop automation; delivery approval remains mandatory.
+- `adore handoff RUN_ID` transfers preserved work to human ownership at a safe
+  boundary, attempts final recovery publication, queues while a conductor is
+  active, and protects the work from automatic retry/reset/cleanup.
+
 - **ADORE now watches the forge pipeline on a published draft and can repair
   it.** Each poll of an `in-review` run reads the verdict through the new
   `Forge.pipeline_status`, normalized to `success`, `failed`, `running`, `none`
@@ -43,6 +50,17 @@ This project follows Keep a Changelog and Semantic Versioning.
   keeps waiting in review with a comment saying so rather than being failed.
 
 ### Fixed
+
+- Allow `max_cost_usd = 0` to disable reported-cost enforcement for subscription
+  or local execution. Config and custom setup budgets reject invalid/nonfinite
+  caps; positive caps, usage metrics and all other run bounds retain their behavior.
+
+- Continue successful unfinished AEGIS stages when candidate changes and an
+  append-only work Log prove progress. Fresh continuation sessions checkpoint
+  through the conductor, preserve genuine failure counts and remain bounded by
+  run budgets; initial prompts require whole-stage completion and durable handoff.
+
+- Collect Pi assistant token usage and reported cost so run budgets account for Pi launches without counting repeated summaries.
 
 - **GitHub and GitLab could never open a draft MR/PR.** Before creating one,
   `_publish` probes for an adoptable MR/PR by branch. `gh pr view <branch>`
@@ -316,7 +334,7 @@ This project follows Keep a Changelog and Semantic Versioning.
   document (`header`, `stage`, `step_file`, `done`, `checklist`, `log`), the
   `check` document (`findings`/`summary`/`run`, and `strict` present only under
   `--strict`), and the `report appended to ` confirmation. All unchanged, so
-  the version gate in `04_Software/adore/aegis.py` — major 0, floor 0.5 — needed
+  the version gate in `04_Software/adore/aegis.py` â€” major 0, floor 0.5 â€” needed
   no edit. This is the payoff of the 0.6.0 change that replaced the exact-minor
   pin with a major-plus-floor range.
 - What AEGIS 0.7.1 and 0.7.2 did add falls outside ADORE's parsing boundary and
@@ -324,17 +342,17 @@ This project follows Keep a Changelog and Semantic Versioning.
   called by the orchestrator (executors reach them through `AGENTS.md` like any
   other AEGIS command); the reworked `coverage_class` precedence changes which
   findings `check` emits, not the shape ADORE decodes; and the tightened
-  `DEVIATION <stage>:` marker is read by AEGIS alone — `04_Software/` has no
+  `DEVIATION <stage>:` marker is read by AEGIS alone â€” `04_Software/` has no
   notion of deviations yet. Surfacing them at the approval gate remains open
   work, tracked in `.agentic/tasks/TASK-9aebe1f3.md`.
-- Documentation now states the real AEGIS compatibility contract — major 0 at
-  0.5 or later, JSON schema 1 — where it previously implied a hard 0.5.x pin
+- Documentation now states the real AEGIS compatibility contract â€” major 0 at
+  0.5 or later, JSON schema 1 â€” where it previously implied a hard 0.5.x pin
   (`04_Software/README.md`, `config.example.toml`, and the aegis-client
   knowledge page). No documentation names an AEGIS version, so a companion
   release no longer dates the prose.
 - Refreshed this repository's own `.agentic/` companion to AEGIS 0.7.2, which
   also narrows AEGIS's scope to software development operations: version
-  assignment and release-package construction — this release included — now
+  assignment and release-package construction â€” this release included â€” now
   follow the repository's own procedures rather than opening a task journal.
   The companion governs how ADORE is developed and does not ship in the runtime
   bundle.

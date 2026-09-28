@@ -8,46 +8,50 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # Executor launcher
 
-## Purpose
+## Routing
 
-`04_Software/adore/executor/` launches one bounded executor gate inside an
-already-provisioned container. It is an executor-neutral transport and result
-collector; the orchestrator decides which stage to run and what an outcome
-means.
+Use for executor commands, gate exchange files, questions, launch archives and token/cost parsing. Start at `04_Software/adore/executor/launcher.py` and `04_Software/tests/test_executor.py`. Container lifecycle belongs to isolation; run budgets and publication belong to the orchestrator.
+
+## Purpose and boundaries
+
+Launch one fresh, bounded executor gate in an existing isolated container and collect its typed result. The orchestrator owns stage selection and lifecycle decisions.
 
 ## Public interface
 
-- `build_executor(kind, command_template, model, questions_file)` selects the
-  `opencode`, `pi`, `codex`, or `qwen` implementation.
-- `FileProtocolExecutor.run_gate(...)` accepts an injected container-exec seam,
-  worktree/io paths, prompt, timeout, optional session, and archive stem; it
-  returns a typed `GateRun`.
-- `GateRun` reports exit status, typed `timed_out`, session id, questions,
-  bounded output, usage, and archive information.
+`build_executor(kind, command_template, model, questions_file)` selects the launcher. `FileProtocolExecutor.run_gate(...)` accepts a container-exec seam, worktree, IO directory, prompt, timeout and archive stem and returns `GateRun` with exit/timeout, questions, output, usage and archives.
 
-## Contract and safety boundary
+## Invariants
 
-The launcher writes LF-only `gate.sh` into the run IO directory and invokes
-only `sh /adore/io/gate.sh`; prompts and models are shell-quoted before they
-enter that script. Results cross the container boundary through `output.jsonl`,
-`stderr.log`, and the configured questions file rather than fragile host/WSL
-argv or streamed output. A timeout is taken solely from `CommandResult.timed_out`,
-not guessed from exit text. Each requested archive is immutable under
-`io/archive/`, so a retry cannot destroy prior evidence.
+Prompts and model names are shell-quoted in LF-only `gate.sh`; the container executes only `sh /adore/io/gate.sh`. Live exchange files are cleared before each launch. Timeouts come from typed command results. Per-launch archives are immutable. The executor receives no forge credentials; unsafe executor flags are rejected. Each launch starts a fresh session.
 
-The executor receives no forge credentials and cannot publish. Unsafe
-auto-approval flags are rejected by configuration validation. The launcher
-may retry a known dead session once, but never after a typed timeout.
+## Key behaviors
+
+- Output, errors and questions cross the host/container boundary through files.
+- Pi usage sums assistant `message_end` records: input plus cacheRead/cacheWrite, output, and provider-reported USD `cost.total`. `agent_end` duplicates and non-assistant messages are ignored. Invalid structures, negative counts/costs and non-finite costs are skipped; streams without usage remain zero.
+- OpenCode parses step-finish usage; Codex parses completion usage; Qwen uses the shared transport.
+- Questions park through the orchestrator; archives preserve each attempt's evidence.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  Conductor --> Launcher
+  Launcher --> GateScript
+  GateScript --> Container
+  Container --> ExchangeFiles
+  ExchangeFiles --> UsageParser
+  UsageParser --> GateRun
+  ExchangeFiles --> Archive
+```
+
+## Files
+
+- `04_Software/adore/executor/base.py`: execution and result contracts.
+- `04_Software/adore/executor/launcher.py`: shared file transport and executor usage parsers.
+- `04_Software/tests/test_executor.py`: offline public gate tests, including Pi stream boundaries.
 
 ## Requirement coverage
 
-- `REQ-FUNC-59ccdb74` - WSL-safe file transport and typed timeout propagation.
-- `REQ-FUNC-c6e5282d` - questions parking and immutable launch archives.
-
-## Dependencies and verification
-
-It depends on the container `ExecTarget`, `adore.util.CommandResult`, executor
-configuration, and mount paths supplied by isolation/branding. Offline
-coverage is in `04_Software/tests/test_executor.py`, including hostile prompt
-quoting, session continuation, questions, archives, missing output, rejected
-flags, and timeout propagation.
+- `REQ-FUNC-59ccdb74`: WSL-safe transport and typed timeout propagation.
+- `REQ-FUNC-c6e5282d`: questions and immutable archives.
+- `REQ-FUNC-28f0cd82`: completed Pi assistant usage accounting.

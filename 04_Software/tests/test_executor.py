@@ -518,6 +518,67 @@ def test_pi_gate_uses_the_shared_fresh_session_protocol(tmp_path: Path) -> None:
     assert run.ok
 
 
+def test_pi_collects_completed_assistant_usage_once(tmp_path: Path) -> None:
+    """@brief REQ-FUNC-28f0cd82: assistant usage includes caches, not summaries."""
+    worktree, io_dir = _dirs(tmp_path)
+    messages = [
+        {"role": "assistant", "usage": {"input": 1077, "output": 5,
+         "cacheRead": 10, "cacheWrite": 20, "cost": {"total": 0.002204}}},
+        {"role": "assistant", "usage": {"input": 3, "output": 2,
+         "cost": {"total": 0.001}}},
+    ]
+    events = [{"type": "message_end", "message": message} for message in messages]
+    events += [{"type": "agent_end", "messages": messages},
+               {"type": "message_update", "message": messages[0]},
+               {"type": "message_end", "message": {"role": "user",
+                "usage": messages[0]["usage"]}}]
+
+    def emit() -> None:
+        """@brief Emit the observed Pi message schema through the public gate."""
+        (io_dir / OUTPUT_FILE).write_text(
+            "\n".join(json.dumps(event) for event in events), encoding="utf-8",
+        )
+
+    run = PiExecutor(PI_TEMPLATE, "openai-codex/gpt-6-sol").run_gate(
+        FakeExec(CommandResult(exit_code=0), emit), worktree, io_dir, "gate",
+    )
+    assert run.tokens_in == 1110
+    assert run.tokens_out == 7
+    assert run.cost_usd == pytest.approx(0.003204)
+
+
+@pytest.mark.parametrize("invalid", [None, [], "bad", -1, True, float("nan"),
+                                     float("inf"), {"total": -1}])
+def test_pi_ignores_invalid_usage_without_losing_valid_messages(
+    tmp_path: Path, invalid: object,
+) -> None:
+    """@brief REQ-FUNC-28f0cd82: invalid external records never inflate usage."""
+    worktree, io_dir = _dirs(tmp_path)
+    events = [
+        [], {"type": "message_end", "message": []},
+        {"type": "message_end", "message": {"role": "assistant", "usage": invalid}},
+        {"type": "message_end", "message": {"role": "assistant", "usage": {
+            "input": invalid, "output": 2, "cost": {"total": 0.1}}}},
+        {"type": "message_end", "message": {"role": "assistant", "usage": {
+            "input": 1, "output": 2, "cost": {"total": invalid}}}},
+        {"type": "message_end", "message": {"role": "assistant", "usage": {
+            "input": 1, "output": 2, "cost": {"total": 0.1}}}},
+    ]
+
+    def emit() -> None:
+        """@brief Mix corrupt and valid Pi output without a real executor."""
+        (io_dir / OUTPUT_FILE).write_text(
+            "not json\n" + "\n".join(json.dumps(event) for event in events),
+            encoding="utf-8",
+        )
+
+    run = PiExecutor(PI_TEMPLATE, "openai-codex/gpt-6-sol").run_gate(
+        FakeExec(CommandResult(exit_code=0), emit), worktree, io_dir, "gate",
+    )
+    assert (run.tokens_in, run.tokens_out) == (1, 2)
+    assert run.cost_usd == pytest.approx(0.1)
+
+
 def test_codex_parses_usage_from_json(tmp_path: Path) -> None:
     """
     @brief   Codex --json usage (input/output tokens, cost) is summed into the

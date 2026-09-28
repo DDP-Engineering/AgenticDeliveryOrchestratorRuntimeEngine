@@ -110,7 +110,11 @@ names (`GITHUB_TOKEN`, `GH_TOKEN`, `GITLAB_TOKEN`, `GLAB_TOKEN`, `GITEA_TOKEN`,
 and `TEA_TOKEN`) in `env_keys`. The executor prompt also forbids commit, push,
 MR/PR creation, merge, and creating AEGIS child task journals (`task --parent`)
 outside the single pinned task. ADORE alone creates local checkpoint commits and
-performs remote publication after a fingerprint-bound human approval.
+publishes opt-in WIP checkpoints or an explicitly requested human handoff to the
+ticket branch. Delivery publication requires fingerprint-bound human approval.
+Checkpoint pushes require an owned fast-forward history and an exact remote-ref
+lease; developer commits and unexpected local branch changes stop automation.
+They do not grant approval or open a PR.
 
 The optional `stage_host_auth` bridge stages only the selected executor's own
 authentication file into its container-specific home. It does not stage host

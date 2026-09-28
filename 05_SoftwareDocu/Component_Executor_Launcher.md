@@ -40,8 +40,9 @@ outcomes.
   always launched with an empty session and never stored one back, so none of
   that machinery could ever run.
 - `OpencodeExecutor`: the `--auto` refusal and `step_finish` token/cost usage.
-- `PiExecutor`: Pi (`@earendil-works/pi-coding-agent`); usage falls back to
-  zeros (Pi does not report tokens in its stream today).
+- `PiExecutor`: Pi (`@earendil-works/pi-coding-agent`); sums completed assistant
+  `message_end` usage, including input/cache tokens, output tokens and reported
+  `cost.total`. Repeated `agent_end` summaries and invalid records are ignored.
 - `CodexExecutor`: OpenAI Codex CLI; supplies the template's `{resume}` slot as
   empty so the command stays plain `codex exec`. The slot is still accepted so
   an existing profile keeps working.

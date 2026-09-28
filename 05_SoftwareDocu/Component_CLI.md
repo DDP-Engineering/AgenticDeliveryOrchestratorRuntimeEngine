@@ -186,3 +186,9 @@ adore --profile <profile-name> run --dry-run   # any command against a profile
   purpose. Comments on the edited line are kept via a quote-aware heuristic.
 - No `--json` output mode for `status`/`runs` yet; add when scripting needs
   it.
+
+## Checkpoint publication and human ownership
+
+adore handoff RUN_ID persists a validated request. With a free lock it performs the transfer under the operator lock; a held lock queues safely and reports that current bounded execution must finish. Done/cancelled or missing/corrupt runs are refused. Ownership state distinguishes pending transfer from permission to edit.
+
+Offline contract coverage: `04_Software/tests/test_checkpoint_handoff.py`.

@@ -21,6 +21,7 @@ from __future__ import annotations
 
 # IMPORTS
 from dataclasses import asdict, dataclass, field, fields
+import math
 from pathlib import Path
 import re
 import shlex
@@ -426,7 +427,7 @@ class BudgetsConfig:
     max_iterations: int = 20
     max_wall_clock_seconds: int = 3600
     per_gate_timeout_seconds: int = 1800
-    max_cost_usd: float = 5.0
+    max_cost_usd: float = 5.0  # Zero explicitly disables reported-cost enforcement.
     # AEGIS task journals, step files, anchors, evolution records and reports
     # count alongside product changes. Keep the run bounded while leaving
     # honest headroom for governance evidence and the product diff.
@@ -444,6 +445,7 @@ class DeliveryConfig:
     reviewers: list[str] = field(default_factory=list)
     remove_source_branch: bool = True
     approval_label: str = "agent-approved"
+    publish_checkpoints: bool = False
 
 
 @dataclass
@@ -1162,10 +1164,20 @@ def validate_config(config: Config) -> list[str]:
         config.budgets.per_gate_timeout_seconds >= 1,
         "[budgets] per_gate_timeout_seconds must be >= 1",
     )
-    check(config.budgets.max_cost_usd > 0, "[budgets] max_cost_usd must be > 0")
+    cost_cap = config.budgets.max_cost_usd
+    check(
+        isinstance(cost_cap, (int, float)) and not isinstance(cost_cap, bool)
+        and cost_cap >= 0
+        and (not isinstance(cost_cap, float) or math.isfinite(cost_cap)),
+        "[budgets] max_cost_usd must be a finite nonnegative number (0 disables the cap)",
+    )
     check(config.budgets.max_files_touched >= 1, "[budgets] max_files_touched must be >= 1")
 
     check(bool(config.delivery.target_branch.strip()), "[delivery] target_branch is required")
+    check(
+        type(config.delivery.publish_checkpoints) is bool,
+        "[delivery] publish_checkpoints must be a boolean",
+    )
     check(bool(config.delivery.reviewers), "[delivery] reviewers must list at least one human")
     check(config.delivery.draft, "[delivery] draft must stay true: ADORE never opens ready MRs")
     check(

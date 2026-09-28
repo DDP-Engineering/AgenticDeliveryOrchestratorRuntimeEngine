@@ -82,16 +82,18 @@ resolved configuration.
 
 | Command | Purpose |
 | --- | --- |
-| `adore [selector] retry <run-id>` | Re-arm a retryable run. |
+| `adore [selector] retry <run-id>` | Re-arm a retryable failed run; human-owned runs are refused. |
+| `adore [selector] handoff <run-id>` | Explicitly request human ownership and final WIP checkpoint publication. Queues at a safe boundary if a live conductor holds the lock. |
 | `adore [selector] cancel <run-id>` | Cancel a run gracefully. |
 | `adore [selector] reset <run-id> --to <stage> --force` | Deliberately move ADORE's own pointer to `frame`, `specify`, `design`, `build`, `validate`, `deliver`, or `publishing`. It never edits the AEGIS task journal; conduction rereads that journal. `--force` is required. Run `retry` afterwards. |
 | `adore [selector] delete <run-id> --force` | Irreversibly remove run state. |
-| `adore [selector] cleanup` | Reclaim a provably stale local lock and sweep orphan executor/proxy containers, egress networks, and worktree husks. Active and failed runs are protected; a live/unknown lock remains held and is reported. |
+| `adore [selector] cleanup` | Reclaim a provably stale local lock and sweep orphan executor/proxy containers, egress networks, and worktree husks. Active, failed, pending-handoff and human-owned runs are protected; a live/unknown lock remains held and is reported. |
 
 Read [Recovery_And_Maintenance.md](Recovery_And_Maintenance.md) before using a
 destructive command.
 
-These intervention commands mutate ADORE-owned state only. None edits an AEGIS
+Handoff commits/publishes recovery work through the conductor. Other intervention
+commands mutate ADORE-owned state only. None edits an AEGIS
 task journal. `retry` resets the current stage counter and active-work clock but
 preserves task/failure history, and refuses to run while a required notification
 remains pending.

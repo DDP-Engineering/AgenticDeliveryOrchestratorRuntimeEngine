@@ -136,6 +136,14 @@ stage. With the default, attempts 1 and 2 may remediate; attempt 3 stops and
 there is no fourth launch. A check invocation counts once even when it reports
 many findings. The counter resets after a successful legal stage transition.
 
+A successful same-stage gate with changed authored candidate content and a
+nonempty append-only work Log is a continuation. It neither spends nor resets
+`max_stage_failures`; `NO_STAGE_PROGRESS` uses the failure limit when the required
+progress is absent. Continuation is automatic and has no separate configuration
+key. Every continuation consumes the budgets below, including one iteration per
+executor launch. Generated caches and task-journal changes alone do not count as
+candidate progress.
+
 `max_transient_retries` independently bounds container, fetch, and forge
 transport retries. Those attempts do not consume the stage counter.
 
@@ -158,8 +166,24 @@ as stage failures. Resume requires a human comment plus `agent-answered`.
 | `max_iterations` | Total executor launches. | `20` |
 | `max_wall_clock_seconds` | Active-work time; re-armed by retry, clarification resume, revision, or approval invalidation. | `3600` |
 | `per_gate_timeout_seconds` | One executor attempt. | `1800` |
-| `max_cost_usd` | Reported model spend. | `5.0` |
+| `max_cost_usd` | Finite nonnegative reported-cost cap; `0` disables dollar enforcement. | `5.0` |
 | `max_files_touched` | Product plus governance paths. | `120` |
+
+For subscription or local execution, opt out of ADORE's dollar cap explicitly:
+
+```toml
+[budgets]
+max_cost_usd = 0
+```
+
+Positive values enforce the reported-cost threshold; zero disables only that
+check. Usage events and cost metrics remain recorded, and iteration, active-time,
+per-gate timeout and file limits remain enforced. The setup wizard's custom
+budgets accept zero. Negative, nonfinite, boolean or nonnumeric caps are invalid.
+
+Executor-reported cost is telemetry, not proof of a provider invoice. Select this
+setting according to the executor's authentication/billing method. Provider
+subscription quotas remain independent of ADORE's configuration.
 
 Budget exhaustion fails immediately, preserves evidence, and requires
 `adore retry` after operator remediation.
@@ -173,6 +197,7 @@ draft = true
 reviewers = ["reviewer"]
 remove_source_branch = true
 approval_label = "agent-approved"
+publish_checkpoints = false
 
 [review]
 trigger = "label"
@@ -185,7 +210,7 @@ review_reminder_after = "48h"
 decides what a newly `failed` forge pipeline on the published draft does.
 `revise` starts a governed repair round on the same bounded path the revise
 label uses, so the repair still ends at strict validation and a fresh human
-approval before any push; `notify` posts one comment and waits; `ignore` skips
+approval before delivery publication; `notify` posts one comment and waits; `ignore` skips
 the pipeline read. All three obey `max_review_rounds`, which bounds repairs and
 human-requested revisions together. Only a changed verdict is a signal, and an
 unreadable verdict is silent.
@@ -199,6 +224,25 @@ reserved; the hard round limit is enforced.
 `awaiting-approval` and `in-review` are intentionally human-paced and have no
 timers. They wait until reconciliation observes approval, revision, merge,
 close, deletion, or source-ticket closure.
+
+### Work-in-progress checkpoints
+
+`delivery.publish_checkpoints` is a strict boolean, default `false`. With `true`,
+local checkpoints from stages and evidenced continuations are pushed to the
+existing ticket branch. The editable ticket status includes a branch link,
+last verified remote commit and stale-upload error. These commits are unfinished
+work; validation and fresh candidate-bound approval still precede delivery.
+
+Transport failures use bounded retries, retain local commits and post a required
+stale-checkpoint notice. Later checkpoints retry. Failed runs also publish their
+existing committed recovery head during polling, without starting an executor
+or committing dirty files. Corrupt remote identities, unexpected branch updates
+or non-fast-forward history stop automation. Exact leases prevent a concurrent
+remote update from being overwritten; recovery accepts a remote head that already
+matches the current local checkpoint after an interrupted push.
+
+`adore handoff RUN_ID` explicitly authorizes one final recovery checkpoint push
+regardless of this automatic publishing setting. Credentials remain on the host.
 
 ## Reconciliation and Metrics
 

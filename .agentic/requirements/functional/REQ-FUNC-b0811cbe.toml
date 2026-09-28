@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+id = "REQ-FUNC-b0811cbe"
+title = "Permit an explicitly disabled reported-cost budget"
+status = "active"
+requirement = "When the operator sets max_cost_usd to zero, the runtime shall disable reported-cost enforcement while preserving usage history and the other run budgets; positive finite caps retain enforcement, and invalid numeric or type inputs are rejected before profile execution."
+verification = "Offline config and wizard tests accept zero and reject negative/nonfinite/malformed caps; conductor tests continue with high historical cost at zero, enforce a positive threshold, and retain iteration/time/file stops."
+affected_paths = ["04_Software/adore/config.py", "04_Software/adore/orchestrator.py", "04_Software/adore/wizard.py"]
+linked_tests = ["04_Software/tests/test_config.py", "04_Software/tests/test_orchestrator.py", "04_Software/tests/test_wizard.py"]
+created = 2026-09-28
+updated = 2026-09-28

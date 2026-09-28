@@ -460,3 +460,24 @@ def test_wizard_reports_a_missing_aegis_payload(tmp_path: Path) -> None:
 
 
 # END OF FILE
+
+
+@pytest.mark.parametrize("cap", ["0", "-1", "nan", "inf"])
+def test_wizard_custom_cost_cap_zero_and_invalid_boundary(tmp_path, cap):
+    """@brief Wizard accepts explicit opt-out and refuses nonfinite/negative caps."""
+    store = _store(tmp_path)
+    asker = ScriptedAsker(_answers(
+        _clone(tmp_path), budgets_choice="custom", max_iterations="9",
+        max_wall_clock_seconds="1200", max_cost_usd=cap, max_files_touched="15",
+    ), interactive=False)
+    if cap == "0":
+        run_wizard(store, asker=asker, out=lambda _: None, runner=_runner(),
+                   os_key="linux", name="free")
+        cfg = load_config(store.config_path("free"))
+        assert cfg.budgets.max_cost_usd == 0
+        assert validate_config(cfg) == []
+    else:
+        with pytest.raises(WizardError):
+            run_wizard(store, asker=asker, out=lambda _: None, runner=_runner(),
+                       os_key="linux", name="free")
+        assert not store.config_path("free").exists()

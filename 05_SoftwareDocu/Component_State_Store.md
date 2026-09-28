@@ -52,3 +52,9 @@ ownership until a human verifies the process and state.
 `tests/test_state.py` covers schema-1 round trips, task history, refusal
 rejection, corrupt state, snapshots, JSONL, locking, public stale reclamation,
 unknown-lock fail-closed behavior, pause and cleanup support.
+
+## Checkpoint publication and human ownership
+
+RunState schema1 adds defaulted checkpoint_remote_commit and checkpoint_error fields, validates their types and recognizes handoff-pending/handed-off. request_handoff writes a unique atomic handoff-request.json independently of the conductor lock; handoff_requested validates exact schema/identity; clear_handoff_request completes transfer. Corrupt requests fail closed.
+
+Offline contract coverage: `04_Software/tests/test_checkpoint_handoff.py`.

@@ -1,0 +1,18 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+id = "REQ-FUNC-dd307c58"
+title = "Publish explicit work-in-progress checkpoints with remote ownership protection"
+status = "active"
+requirement = "Where publish_checkpoints is enabled, the conductor shall publish durable work-in-progress commits to the ticket branch, expose the last verified remote checkpoint and stale failures, preserve local recovery evidence after bounded transport failure, and stop on unexpected remote ownership without granting delivery approval."
+verification = "Offline config, isolation and conductor tests cover disabled defaults, strict boolean values, successful guarded checkpoint publication, replay, transient failure, remote divergence/races/malformed output and unchanged approval-bound draft delivery."
+affected_paths = ["04_Software/adore/config.py", "04_Software/adore/isolation.py", "04_Software/adore/orchestrator.py", "04_Software/adore/state.py"]
+linked_tests = ["04_Software/tests/test_checkpoint_handoff.py"]
+spec = "specs/REQ-FUNC-dd307c58.md"
+created = 2026-09-28
+updated = 2026-09-28

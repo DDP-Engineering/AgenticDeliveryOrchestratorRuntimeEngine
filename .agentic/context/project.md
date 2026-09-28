@@ -14,7 +14,7 @@ ADORE, the Agentic Delivery Orchestrator & Runtime Engine, conducts
 AEGIS-governed repositories for a team. It selects opt-in GitHub, GitLab or
 Gitea tickets, runs one fresh executor session per AEGIS stage inside an
 isolated branch, worktree and container, verifies the candidate independently,
-and publishes only a draft MR/PR after fresh human approval. It never merges.
+and publishes optional WIP checkpoints and opens only a draft MR/PR after fresh human delivery approval. It never merges.
 Its users are the operator who runs the conductor on a host, the reviewers who
 approve and merge on the forge, and the coding executors it launches:
 OpenCode, Pi, Codex and Qwen Code.
@@ -47,8 +47,11 @@ passes, on Windows 11 through Task Scheduler or on Ubuntu 22+ through systemd.
 Run lifecycle states (`working`, parked, awaiting approval, publishing, in
 review, terminal) are separate from the AEGIS stage. A stage receives a bounded
 number of failed attempts, questions park the run without consuming that
-budget, and required forge notifications pass through a persisted outbox.
-Publication requires a fresh `agent-approved` label bound to the exact
+budget. Evidenced partial stage sessions checkpoint and continue within global
+run budgets without consuming or resetting failures, and required forge notifications pass through a persisted outbox.
+Operators may explicitly disable only the reported-cost cap with
+`max_cost_usd = 0` for subscription/local execution; usage remains recorded and
+iteration, time and file bounds remain enforced. Delivery publication requires a fresh `agent-approved` label bound to the exact
 candidate fingerprint and target commit; every review round repeats validation
 and approval.
 
@@ -95,3 +98,9 @@ and approval.
   the human merge boundary.
 - `05_SoftwareDocu/README.md` - component contract index.
 - `CHANGELOG.md` - release history, including each AEGIS re-verification.
+
+## Remote progress and human ownership
+
+`delivery.publish_checkpoints` opts a profile into guarded WIP branch publication.
+`adore handoff RUN_ID` transfers a run at a safe boundary; pending and human-owned
+work is retained and automatic retry/reset is refused. Credentials remain host-only.

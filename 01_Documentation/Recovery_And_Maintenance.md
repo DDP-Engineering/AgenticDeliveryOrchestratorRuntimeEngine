@@ -71,8 +71,33 @@ executor nonzero/timeout, no-progress outcome, repairable journal failure,
 strict-check invocation, unresolved conflict, or post-validation mutation is
 one attempt regardless of the number of findings it contains.
 
+Successful unfinished stage work can continue without spending or resetting the
+failure count. ADORE requires changed authored candidate content plus a strict,
+nonempty append to the task Log, creates a local checkpoint and records
+`stage-continuation`. The next session reads the durable Handoff and remaining
+work; the stage stays unchanged until completed. Each continuation consumes the
+existing iteration, active-time, cost and file budgets.
+
+`NO_STAGE_PROGRESS` counts as a stage failure when either progress signal is
+missing or the existing Log was rewritten. Journal-only updates and generated
+cache changes do not establish candidate progress. A nonzero/timeout gate still
+counts as a failure even when it changed files. `WORKTREE_PROGRESS` stops the run
+immediately when Git or content reads fail; restore reliable worktree observation
+before retrying. Use `logs <run-id>` to distinguish continuation from failure.
+
 Questions do not count. Temporary container, fetch or forge transport failures
 use the independent transient counter.
+
+## Reported-Cost Stops with Subscription Executors
+
+When a failed run reports `BUDGET_EXHAUSTED: cost budget reached`, inspect its
+profile's `max_cost_usd` and executor authentication. The cost field is executor
+telemetry; it does not establish a provider charge. For subscription/local
+execution, set `[budgets] max_cost_usd = 0`, validate the profile, and use the
+standard recovery procedure to retry the preserved run. Historical usage remains
+in the journal and metrics. Other run bounds and provider usage quotas still
+apply. A positive cap continues enforcing its threshold against cumulative usage,
+so a retry with the same positive cap and accumulated cost can immediately stop.
 
 ## Notification Outage
 
@@ -138,3 +163,44 @@ Stop the service poller before `retry`, `cancel`, `delete`, or `reset`; these
 commands acquire the same single-conductor lock and refuse a live/unknown
 holder. `pause` prevents new pickup but does not stop the poller or release its
 lock. `logs` is read-only and remains available during conduction.
+
+## Human takeover and remote recovery
+
+Enable `delivery.publish_checkpoints=true` to keep committed WIP checkpoints
+available on the ticket branch. Visibility does not mean delivery approval.
+Inspect the last verified remote commit and any stale-upload error in ticket
+status; local work remains authoritative after a failed upload.
+
+Request exclusive human ownership using the public operator command:
+
+```bash
+adore --profile nilo handoff RUN_ID
+adore --profile nilo runs
+```
+
+A live conductor keeps its lock and completes the current bounded executor
+session. The command returns `queued`; do not edit the worktree yet. At the safe
+boundary, ADORE saves `handoff-pending`, stops the container, attempts a final
+local commit and guarded remote push, and then saves `handed-off`. Stop failure
+leaves transfer pending and never announces that editing is safe. Interrupted
+pending transfers resume before another executor can launch.
+
+`handed-off` means the conductor has finished Git mutations and automatic
+execution is disabled. Notification failure retains this ownership and replays
+through the outbox. Worktree, state and container evidence remain preserved.
+`retry` and `reset` refuse human-owned or pending transfers; cleanup protects them.
+Explicit `cancel` or `delete --force` releases resources and can destroy this work.
+
+Read `AGENTS.md`, the full AEGIS task journal, Stage report and Handoff before
+continuing. If the remote checkpoint is current, another developer can fetch:
+
+```bash
+git fetch origin
+git switch --track origin/adore/pi-26
+```
+
+If committing or pushing failed, use the recorded local worktree. Git bundles
+carry committed history only; uncommitted changes and untracked files require
+separate preservation. The handoff notice identifies these recovery limitations.
+Automatic hand-back to ADORE is intentionally unsupported; assign future work
+explicitly. A handoff creates no PR and grants no delivery approval.

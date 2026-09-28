@@ -32,6 +32,7 @@ from __future__ import annotations
 
 # IMPORTS
 import json
+import math
 from pathlib import Path
 import re
 import shlex
@@ -384,15 +385,53 @@ class PiExecutor(FileProtocolExecutor):
              natively and enforces the push/merge guardrails through the repo's
              .pi agentic-guard extension (a return-value block, active in every
              mode including print/json) - plus container isolation (no remote
-             credentials in the container). Token usage is not reported in Pi's
-             stream today, so usage falls back to zeros (metrics tolerate it)
-             until a spike pins a usage field.
+             credentials in the container). Completed assistant messages supply
+             token usage and provider-reported cost; summary events are ignored
+             because they repeat those same messages.
     """
 
     # Pi loads its project-local guard/skills only after the project is
     # trusted; ADORE must pre-trust the worktree for headless runs (container
     # isolation still prevents remote writes regardless). See the executor
     # component doc / TODO for the trust-provisioning spike.
+
+    def _extract_usage(self, output: str) -> tuple[int, int, float]:
+        """
+        @brief      Collect Pi message_end assistant usage exactly once.
+        @param[in]  output JSON event stream from one fresh Pi launch.
+        @return     Input tokens including cache use, output tokens, USD cost.
+        @note       Malformed records are ignored; agent_end repeats messages.
+        """
+        tokens_in = tokens_out = 0
+        cost = 0.0
+        for raw in output.splitlines():
+            try:
+                event = json.loads(raw)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(event, dict) or event.get("type") != "message_end":
+                continue
+            message = event.get("message")
+            if not isinstance(message, dict) or message.get("role") != "assistant":
+                continue
+            usage = message.get("usage")
+            if not isinstance(usage, dict):
+                continue
+            counts = [usage.get(key, 0) for key in
+                      ("input", "cacheRead", "cacheWrite", "output")]
+            if any(type(value) is not int or value < 0 for value in counts):
+                continue
+            reported_cost = usage.get("cost", {})
+            if not isinstance(reported_cost, dict):
+                continue
+            total = reported_cost.get("total", 0.0)
+            if (type(total) not in (int, float) or total < 0
+                    or not math.isfinite(total)):
+                continue
+            tokens_in += sum(counts[:3])
+            tokens_out += counts[3]
+            cost += total
+        return tokens_in, tokens_out, cost
 
 
 class CodexExecutor(FileProtocolExecutor):

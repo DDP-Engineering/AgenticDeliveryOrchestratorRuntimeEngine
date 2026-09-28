@@ -22,7 +22,8 @@ publication human-approved and draft-only.
   that has the executor record `interaction: autopilot` in the journal and
   forbids commit, push, MR/PR creation, merge, and child task journals;
 - validate full/quick progression and documented validation rollback;
-- create an unpushed local checkpoint commit after every successful stage;
+- create a local checkpoint after successful stages and evidenced continuations,
+  with optional guarded WIP publication;
 - distinguish clarification, stage failures, transient infrastructure failures
   and immediate integrity/policy/budget failures;
 - persist and deliver mandatory incident/terminal/approval notifications;
@@ -42,7 +43,8 @@ executor, or merges.
 ## 3. State Machine
 
 Lifecycle states are `working`, `parked-clarification`, `awaiting-approval`,
-`publishing`, `in-review`, `failed`, `done`, and `cancelled`. AEGIS stage is tracked
+`publishing`, `in-review`, `failed`, `done`, `cancelled`, `handoff-pending`,
+and `handed-off`. AEGIS stage is tracked
 separately.
 
 Every nonterminal state has a poll action. Clarification has a timeout;
@@ -64,6 +66,15 @@ worktree. Routine cleanup protects failed worktrees, container companions and
 evidence until explicit retry, cancel or delete. Multiple AEGIS findings in
 one invocation count once. A successful
 stage transition resets the counter. Questions do not consume it.
+A successful same-stage gate with changed candidate content and a strict,
+nonempty append to its work Log is an evidenced continuation: the conductor
+creates a local checkpoint, records `stage-continuation` and launches a fresh
+session with the recent evidence and Handoff/Stage report instructions. It does
+not increment or reset failures, and all iteration, active time, cost and file
+budgets remain in force. Missing/revised evidence or journal-only activity uses
+`NO_STAGE_PROGRESS`; an unreadable progress snapshot stops as `WORKTREE_PROGRESS`.
+The executor is instructed to complete the whole stage and to document remaining
+work when a context handoff is necessary, preserving AEGIS authority.
 The active wall-clock budget restarts when clarification resumes, a review
 revision begins, approval is invalidated for re-conduction, or an operator
 explicitly retries. Iteration, cost, and file budgets remain cumulative.
@@ -87,6 +98,11 @@ Required comments are outboxed before transport. A write failure stops code
 work and polling replays it without consuming an execution slot.
 Terminal status-write failures retain the existing `cancelled`, `done`, or
 `failed` lifecycle and outcome while the status replay remains queued.
+
+The monetary check runs only when `budgets.max_cost_usd > 0`. Zero explicitly
+skips dollar enforcement without changing durable usage events or metrics.
+Iteration, active-work time, per-gate timeout and file bounds remain enforced;
+positive cost checks still read cumulative reported usage once per decision.
 
 Ticket task type resolves fix/bug, change, then configured feature labels;
 unmatched tickets use `workflow.default_kind`. Each global budget check reads
@@ -150,3 +166,9 @@ classification, clarification duration forms, live-lock-safe cleanup,
 failed-resource preservation, egress companion GC, configured task-kind
 fallback, one-read cost checks, environment precedence, human-merge metrics,
 prompt restrictions and the absence of a merge capability.
+
+## Checkpoint publication and human ownership
+
+Optional checkpoint publication records checkpoint_remote_commit and checkpoint_error, reports WIP/stale status and retries transport within configured bounds. Remote conflicts/protocol errors halt conduction. Failed runs publish committed recovery heads without restarting an executor or committing dirty files. handoff requests are consumed before launches and after gate completion; handoff-pending reserves ownership during stop/Git work, then handed-off protects the candidate. Delivery approval remains mandatory.
+
+Offline contract coverage: `04_Software/tests/test_checkpoint_handoff.py`.

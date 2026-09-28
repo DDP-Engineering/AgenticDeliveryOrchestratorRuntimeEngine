@@ -29,6 +29,7 @@ from __future__ import annotations
 # IMPORTS
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+import math
 from pathlib import Path
 import re
 import tempfile
@@ -216,11 +217,12 @@ def _positive_int(value: str) -> str | None:
     return None
 
 
-def _positive_number(value: str) -> str | None:
-    """@brief A positive number (float ok)."""
+def _nonnegative_number(value: str) -> str | None:
+    """@brief A finite nonnegative number; zero explicitly disables the cost cap."""
     try:
-        if float(value) <= 0:
-            return "must be a positive number"
+        number = float(value)
+        if not math.isfinite(number) or number < 0:
+            return "must be a finite nonnegative number (0 disables the cost cap)"
     except ValueError:
         return "must be a number"
     return None
@@ -592,8 +594,9 @@ def run_wizard(
             "restarts on retry/resume", "5400", default="5400",
             validate=_positive_int), asker, out))
         budgets["max_cost_usd"] = float(ask(FieldSpec(
-            "max_cost_usd", "Max model spend per run (USD):", "", "5.0",
-            default="5.0", validate=_positive_number), asker, out))
+            "max_cost_usd", "Max reported model cost per run (USD):",
+            "0 disables the dollar cap for subscription/local execution", "5.0",
+            default="5.0", validate=_nonnegative_number), asker, out))
         budgets["max_files_touched"] = int(ask(FieldSpec(
             "max_files_touched", "Max files a run may change:", "", "120",
             default="120", validate=_positive_int), asker, out))
