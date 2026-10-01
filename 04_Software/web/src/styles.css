@@ -162,6 +162,20 @@ td.strong { font-weight: 800; }
 .project-meta { font-size: .74rem; color: var(--muted); margin-top: auto; }
 .form-stack, .form-grid { display: grid; gap: 16px; }
 .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 18px; }
+.project-create-form { margin-top: 0; }
+.guided-field { min-width: 0; }
+.guided-label { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.guided-label label { display: block; font-size: .83rem; font-weight: 700; }
+.guided-help { position: relative; flex: none; font-size: .76rem; }
+.guided-help summary { color: var(--accent-deep); font-weight: 700; cursor: pointer; }
+.guided-help summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.guided-help p { position: absolute; z-index: 4; right: 0; top: 100%; width: min(310px, 75vw); padding: 11px 13px; margin: 5px 0 0; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); box-shadow: var(--shadow); color: var(--text); font-weight: 400; line-height: 1.45; }
+.guided-field > input, .guided-field > select { width: 100%; }
+.field-hint { display: block; margin-top: 5px; color: var(--muted); font-size: .74rem; line-height: 1.35; }
+.project-create-actions { display: flex; align-items: end; gap: 9px; flex-wrap: wrap; }
+@media (max-width: 950px) {
+  .project-create-form { grid-template-columns: 1fr; }
+}
 .form-submit { align-self: end; }
 .inline-form { display: flex; align-items: end; gap: 10px; }
 .inline-form label { width: 200px; }

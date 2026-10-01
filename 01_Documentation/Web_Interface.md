@@ -14,6 +14,14 @@ active, awaiting-review and failed jobs. Select a project from the expanded
 Projects table; closing a card returns to Recent jobs. The project selector in
 the top bar remains available on other pages.
 
+Administrators open Add project from the Projects directory as a separate
+page. Every field has a Help disclosure. Local clone path means an absolute
+path to an existing Git clone on the ADORE server, not on the browser computer.
+Executor image accepts a suggested tag or a custom local tag. Suggestions are
+examples, not a live inventory; build or load the image on the server before
+running jobs. Save opens the new project's details; Back to projects and Cancel
+return to the directory without creating a project.
+
 The web worker is the scheduler and executes queued operations through the existing
 ADORE CLI. Run one web worker per ADORE home, and do not run a separate
 `adore run --loop` scheduler for those projects. The web worker runs one engine

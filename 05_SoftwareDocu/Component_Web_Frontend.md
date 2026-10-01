@@ -25,7 +25,7 @@ Previous/Next for finite pages. Audit fetches the full authorized history;
 Jobs delegates the page size and filtering to the scoped API. Other tables
 paginate their rendered rows and reset to the first page when size changes.
 The top bar is the single page title and holds the project selector outside
-Overview and Projects. On Overview, four expandable summary cards replace that selector:
+Overview, Projects and Add project. On Overview, four expandable summary cards replace that selector:
 Projects opens a table of authorized projects where a row selects the project,
 and Active jobs, Awaiting review and Failed jobs open paged run tables for the
 selected project. Closing a card restores Recent jobs. Opening a run navigates
@@ -37,8 +37,15 @@ The Jobs list starts with filters instead of repeating the page title, and the
 Administration account section is labelled Users in every locale.
 The About dialog constrains its width and height to the viewport, with internal
 scrolling for the license and notice content and an accessible Close button.
-The new-project form offers host-auth only for OpenCode and Codex; selecting
-Pi or Qwen limits authentication to API-key mode, matching server validation.
+Add project opens a separate administrator page from Projects. The form gives
+each field a localized Help disclosure with expected values and purpose. The
+clone path hint identifies the ADORE host and requires an existing local clone.
+The executor image field accepts either a suggested image tag or a custom tag;
+suggestions are examples, not an inventory of installed images. The image must
+already be present on the host. The form offers host-auth only for OpenCode and
+Codex; selecting Pi or Qwen limits authentication to API-key mode, matching
+server validation. Successful creation opens the new project's details; a
+Back to projects or Cancel action returns without creating a project.
 About displays the project license text and the bundled third-party notices.
 Projects show archived state and let administrators archive or restore a
 quiescent project. Archived jobs and metrics stay visible, while job and pickup
