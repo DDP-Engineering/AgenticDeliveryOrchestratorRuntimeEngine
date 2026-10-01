@@ -24,7 +24,12 @@ Tables with more than ten rows offer 10, 25, 50 and All choices with
 Previous/Next for finite pages. Audit fetches the full authorized history;
 Jobs delegates the page size and filtering to the scoped API. Other tables
 paginate their rendered rows and reset to the first page when size changes.
-The top bar is the single page title and holds the project selector. Content
+The top bar is the single page title and holds the project selector outside
+Overview. On Overview, four expandable summary cards replace that selector:
+Projects opens a table of authorized projects where a row selects the project,
+and Active jobs, Awaiting review and Failed jobs open paged run tables for the
+selected project. Closing a card restores Recent jobs. Opening a run navigates
+to its Jobs detail; opening a project navigates to Project details. Content
 starts directly with the page's controls and data; at narrow widths the title,
 actions and selector wrap into separate rows. Statistic hints and user rows wrap
 instead of clipping or colliding on small screens.

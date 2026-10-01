@@ -9,7 +9,12 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 The optional web installation serves the React interface and a same-origin
 FastAPI API. It uses the same project profiles and run state as the CLI. The
-web worker is the scheduler and executes queued operations through the existing
+Overview cards expand to show authorized projects or the selected project's
+active, awaiting-review and failed jobs. Select a project from the expanded
+Projects table; closing a card returns to Recent jobs. The project selector in
+the top bar remains available on other pages.
+
+The web worker is the scheduler and executes queued operations through the existing
 ADORE CLI. Run one web worker per ADORE home, and do not run a separate
 `adore run --loop` scheduler for those projects. The web worker runs one engine
 command at a time. During any blocking worker command or project poll it

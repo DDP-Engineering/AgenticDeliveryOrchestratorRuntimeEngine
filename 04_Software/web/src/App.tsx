@@ -26,6 +26,7 @@ type AuditRow = { id: number; actor: string | null; action: string; project: str
 type Price = { id: number; executor: string; model: string; effective_from: string; input_usd_per_million: string; output_usd_per_million: string };
 type Page = "overview" | "projects" | "projectDetails" | "jobs" | "metrics" | "administration" | "adminUsers" | "adminAudit" | "settings";
 type MetricsTab = "summary" | "usage" | "quality" | "trends" | "projects";
+type OverviewSection = "projects" | "active" | "review" | "failed" | null;
 const metricsTabLabels: Record<MetricsTab, MessageKey> = {
   summary: "metricsTabSummary", usage: "metricsTabUsage", quality: "metricsTabQuality",
   trends: "metricsTabTrends", projects: "metricsTabProjects",
@@ -78,6 +79,8 @@ export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState<Page>("overview");
+  const [overviewSection, setOverviewSection] = useState<OverviewSection>(null);
+  const [overviewRuns, setOverviewRuns] = useState<Run[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectQuery, setProjectQuery] = useState("");
   const [projectState, setProjectState] = useState("");
@@ -376,6 +379,27 @@ export default function App() {
     const timer = window.setInterval(() => void refreshSelected(), 15000);
     return () => window.clearInterval(timer);
   }, [refreshSelected]);
+
+  useEffect(() => {
+    if (page !== "overview" || !selected || !session || !overviewSection || overviewSection === "projects") {
+      setOverviewRuns([]);
+      return;
+    }
+    const generation = viewGeneration.current;
+    let active = true;
+    setOverviewRuns([]);
+    const refresh = async () => {
+      try {
+        const result = await request<RunPage>(`/projects/${encodeURIComponent(selected)}/runs-page?limit=all`);
+        if (active && generation === viewGeneration.current) setOverviewRuns(result.items);
+      } catch (cause) {
+        if (active && generation === viewGeneration.current) setError((cause as Error).message);
+      }
+    };
+    void refresh();
+    const timer = window.setInterval(() => void refresh(), 15000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, [page, selected, session, overviewSection]);
 
   const refreshJobPage = useCallback(async () => {
     if (!selected || !session || page !== "jobs") return;
@@ -794,7 +818,7 @@ export default function App() {
 
     <div className="workspace" inert={!!about}>
       <header className="topbar"><h1 className="topbar-title" aria-label={isAdmin && adminPages.includes(page) ? `${t("administration")} / ${t(page === "administration" ? "systemStatus" : page)}` : t(page === "settings" ? "myAccount" : page)}><span className="topbar-brand">ADORE</span><span aria-hidden="true">/</span>{isAdmin && adminPages.includes(page) ? `${t("administration")} / ${t(page === "administration" ? "systemStatus" : page)}` : t(page === "settings" ? "myAccount" : page)}</h1>
-        {projects.length > 0 && <label className="project-picker">{t("project")}<select value={selected} onChange={event => setSelected(event.target.value)}>{projects.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}
+        {page !== "overview" && projects.length > 0 && <label className="project-picker">{t("project")}<select value={selected} onChange={event => setSelected(event.target.value)}>{projects.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}
         <div className="top-actions">
         <span className="refresh-stamp">{lastRefresh && `${t("lastRefresh")}: ${formatDate(lastRefresh.toISOString())}`}</span>
         <button className="ghost" onClick={() => { void refreshProjects(); void refreshSelected(); void refreshJobPage(); }}>{t("refresh")}</button>
@@ -808,12 +832,14 @@ export default function App() {
         {operation && <div className="notice" role="status">{t("operationStatus")}: #{operation.id} · {operation.status}{operation.result ? ` · ${operation.result}` : ""}</div>}
         {page === "overview" && <>
           <div className="stats-grid">
-            <Stat label={t("allProjects")} value={formatNumber(projects.length)} hint={t("projects")} />
-            <Stat label={t("activeJobs")} value={formatNumber(activeJobs)} hint={selectedProject?.name || "—"} />
-            <Stat label={t("needsReview")} value={formatNumber(reviewJobs)} hint={t("approval")} />
-            <Stat label={t("failedJobs")} value={formatNumber(failedJobs)} hint={selectedProject?.name || "—"} />
+            <OverviewCard label={t("allProjects")} value={formatNumber(projects.length)} hint={t("projects")} selected={overviewSection === "projects"} onClick={() => setOverviewSection(section => section === "projects" ? null : "projects")} />
+            <OverviewCard label={t("activeJobs")} value={formatNumber(activeJobs)} hint={selectedProject?.name || "—"} selected={overviewSection === "active"} onClick={() => setOverviewSection(section => section === "active" ? null : "active")} />
+            <OverviewCard label={t("needsReview")} value={formatNumber(reviewJobs)} hint={selectedProject?.name || "—"} selected={overviewSection === "review"} onClick={() => setOverviewSection(section => section === "review" ? null : "review")} />
+            <OverviewCard label={t("failedJobs")} value={formatNumber(failedJobs)} hint={selectedProject?.name || "—"} selected={overviewSection === "failed"} onClick={() => setOverviewSection(section => section === "failed" ? null : "failed")} />
           </div>
-          <section className="panel"><div className="panel-heading"><h2>{t("recentJobs")}</h2><button className="text-button" onClick={() => setPage("jobs")}>{t("view")} →</button></div><RunTable runs={runs.slice(0, 7)} t={t} formatDate={formatDate} onOpen={openRun} /></section>
+          <section className="panel" id="overview-detail"><div className="panel-heading"><h2>{t(overviewSection === "projects" ? "allProjects" : overviewSection === "active" ? "activeJobs" : overviewSection === "review" ? "needsReview" : overviewSection === "failed" ? "failedJobs" : "recentJobs")}{overviewSection && overviewSection !== "projects" && selectedProject ? ` · ${selectedProject.name}` : ""}</h2>{overviewSection !== "projects" && <button className="text-button" onClick={() => setPage("jobs")}>{t("view")} →</button>}</div>
+            {overviewSection === "projects" ? projects.length ? <PagedTable t={t}><table><thead><tr><th>{t("project")}</th><th>{t("repository")}</th><th>{t("status")}</th><th>{t("jobs")}</th><th>{t("actions")}</th></tr></thead><tbody>{projects.map(item => <tr key={item.id} className={item.id === selected ? "overview-project-selected" : ""}><td className="strong"><button className="text-button" aria-current={item.id === selected ? "true" : undefined} onClick={() => setSelected(item.id)}>{item.name}</button></td><td>{item.repo}</td><td>{t(item.readiness === "configured" ? "configured" : item.readiness === "needs-config" ? "needsConfig" : item.readiness === "invalid-state" ? "invalidState" : item.readiness === "archived" ? "archived" : "paused")}</td><td>{item.runs}</td><td><button className="text-button" onClick={() => { setSelected(item.id); setPage("projectDetails"); }}>{t("view")} →</button></td></tr>)}</tbody></table></PagedTable> : <Empty label={t("noProjects")} /> : <RunTable runs={overviewSection ? overviewRuns.filter(run => overviewSection === "active" ? run.lifecycle === "working" : overviewSection === "review" ? ["awaiting-approval", "in-review"].includes(run.lifecycle) : run.lifecycle === "failed") : runs.slice(0, 7)} t={t} formatDate={formatDate} onOpen={runId => { void openRun(runId); setPage("jobs"); }} paged={!!overviewSection} />}
+          </section>
         </>}
 
         {page === "projects" && <>
@@ -1028,6 +1054,10 @@ function Stat({ label, value, hint }: { label: string; value: string; hint: stri
   return <div className="stat-card"><span>{label}</span><strong>{value}</strong><small>{hint}</small></div>;
 }
 
+function OverviewCard({ label, value, hint, selected, onClick }: { label: string; value: string; hint: string; selected: boolean; onClick: () => void }) {
+  return <button type="button" className={`stat-card overview-card${selected ? " selected" : ""}`} aria-expanded={selected} aria-controls="overview-detail" onClick={onClick}><span>{label}</span><strong>{value}</strong><small>{hint}</small><span className="overview-chevron" aria-hidden="true">{selected ? "⌃" : "⌄"}</span></button>;
+}
+
 function Empty({ label }: { label: string }) { return <p className="empty">{label}</p>; }
 
 function PagedTable({ t, children }: { t: (key: MessageKey) => string; children: ReactElement<{ children?: ReactNode }> }) {
@@ -1075,7 +1105,8 @@ function GuidedConfigForm({ config, t, onSubmit, disabled }: { config: Record<st
   </form>;
 }
 
-function RunTable({ runs, t, formatDate, onOpen, emptyLabel }: { runs: Run[]; t: (key: MessageKey) => string; formatDate: (value: string) => string; onOpen: (id: string) => void; emptyLabel?: string }) {
+function RunTable({ runs, t, formatDate, onOpen, emptyLabel, paged = false }: { runs: Run[]; t: (key: MessageKey) => string; formatDate: (value: string) => string; onOpen: (id: string) => void; emptyLabel?: string; paged?: boolean }) {
   if (!runs.length) return <Empty label={emptyLabel || t("noJobs")} />;
-  return <div className="table-scroll"><table><thead><tr><th>{t("ticket")}</th><th>{t("status")}</th><th>{t("stage")}</th><th>{t("updated")}</th><th>{t("actions")}</th></tr></thead><tbody>{runs.map(run => <tr key={run.run_id}><td className="strong">#{run.ticket_iid}</td><td><span className={`status status-${run.lifecycle}`}>{displayCode(run.lifecycle, lifecycleLabels, t)}</span></td><td>{displayCode(run.stage, stageLabels, t)}</td><td>{formatDate(run.updated_at)}</td><td><button className="text-button" onClick={() => onOpen(run.run_id)}>{t("view")} →</button></td></tr>)}</tbody></table></div>;
+  const table = <table><thead><tr><th>{t("ticket")}</th><th>{t("status")}</th><th>{t("stage")}</th><th>{t("updated")}</th><th>{t("actions")}</th></tr></thead><tbody>{runs.map(run => <tr key={run.run_id}><td className="strong">#{run.ticket_iid}</td><td><span className={`status status-${run.lifecycle}`}>{displayCode(run.lifecycle, lifecycleLabels, t)}</span></td><td>{displayCode(run.stage, stageLabels, t)}</td><td>{formatDate(run.updated_at)}</td><td><button className="text-button" onClick={() => onOpen(run.run_id)}>{t("view")} →</button></td></tr>)}</tbody></table>;
+  return paged ? <PagedTable t={t}>{table}</PagedTable> : <div className="table-scroll">{table}</div>;
 }

@@ -84,6 +84,9 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
   text filters; grants and corrupt-state checks precede data. Malformed or reversed date inputs fail;
   corrupt persisted update timestamps fail closed when date filtering is used.
   The overview requests seven recent runs plus unfiltered lifecycle counts.
+  Its summary cards expand into a project table or a selected-project job table;
+  expanded job tables request authorized full run history and paginate locally.
+  The project selector is inside the Projects expansion on Overview.
   Pending and completed human handoffs have localized lifecycle labels and
   filters. Cancel is unavailable during and after human ownership transfer.
 - The React session switch clears private caches and increments a generation

@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-15ad4473"
+
+title = "Expand overview summary into a scoped table"
+
+status = "active"
+
+requirement = """
+On Overview, selecting one of the Projects, Active jobs, Awaiting review or Failed jobs summary cards shall expand a table for that category and selecting the card again shall return to Recent jobs. The Projects table shall allow selecting an authorized project, and job tables shall show only that project's matching jobs; the Overview top bar shall not show a project selector.
+"""
+
+verification = "Manual: In the browser, open Overview with several projects and jobs; expand and collapse all four cards, select another project in the Projects table, verify the three job tables and counts follow that project, open a job and a project, and repeat at narrow width and increased zoom."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/styles.css", "04_Software/adore/web/static/"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = "Keep overview navigation and job status detail in one compact page."        # why this behavior exists, if not obvious
+
+created = 2026-10-01
+updated = 2026-10-01

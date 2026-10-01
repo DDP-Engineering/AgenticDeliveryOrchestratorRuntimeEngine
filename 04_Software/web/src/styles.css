@@ -105,6 +105,13 @@ h3 { font-size: .95rem; margin: 20px 0 8px; }
 .stat-card span { color: var(--muted); font-size: .81rem; font-weight: 650; }
 .stat-card strong { font-size: clamp(1.75rem, 2vw, 2.5rem); letter-spacing: -.045em; margin: auto 0 4px; line-height: 1; overflow-wrap: anywhere; }
 .stat-card small { font-size: .74rem; overflow-wrap: anywhere; }
+.overview-card { position: relative; width: 100%; color: var(--text); text-align: left; cursor: pointer; font: inherit; }
+.overview-card:hover, .overview-card.selected { border-color: var(--accent); }
+.overview-card.selected { background: var(--accent-soft); }
+.overview-card:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.overview-chevron { position: absolute; right: 20px; top: 17px; font-size: 1.25rem !important; color: var(--accent-deep) !important; }
+.overview-project-selected { background: var(--accent-soft); }
+.overview-project-selected .text-button { font-weight: 800; }
 .panel { padding: 22px; margin-bottom: 20px; min-width: 0; }
 .panel.compact { padding: 16px 22px; }
 .panel-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; }

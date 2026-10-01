@@ -12,6 +12,10 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+### Changed
+
+- Overview summary cards now expand into project or scoped job tables, with project selection in the Projects expansion.
+
 ### Fixed
 
 - The web runtime now reads DCP checkpoint-bearing run state, preserves guarded
