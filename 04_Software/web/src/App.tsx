@@ -37,6 +37,19 @@ type StorageStatus = { threshold_bytes: number; low: boolean; volumes: Array<{ s
 type AuditPolicy = { retention_days: number | null; max_bytes: number | null };
 type ProjectReadiness = { context: string; checked_at: string; checks: Record<string, boolean | null | string>; model_probe?: { context: string; ready: boolean; model: string; reason: string } };
 
+const commonSettings: Array<{ key: string; label: MessageKey; help: MessageKey; kind: "text" | "positive" | "forge" | "runtime" | "executor" }> = [
+  { key: "platform.repo", label: "repository", help: "settingHelpRepository", kind: "text" },
+  { key: "platform.kind", label: "forge", help: "settingHelpForge", kind: "forge" },
+  { key: "container.runtime", label: "runtime", help: "settingHelpRuntime", kind: "runtime" },
+  { key: "container.image", label: "image", help: "settingHelpImage", kind: "text" },
+  { key: "executor.default", label: "executor", help: "settingHelpExecutor", kind: "executor" },
+  { key: "polling.poll_interval_seconds", label: "pollInterval", help: "settingHelpPollInterval", kind: "positive" },
+  { key: "polling.max_concurrent_runs", label: "concurrentJobs", help: "settingHelpConcurrent", kind: "positive" },
+  { key: "budgets.max_iterations", label: "maxIterations", help: "settingHelpIterations", kind: "positive" },
+  { key: "budgets.max_wall_clock_seconds", label: "maxWallClock", help: "settingHelpWallClock", kind: "positive" },
+  { key: "budgets.max_files_touched", label: "maxFilesTouched", help: "settingHelpFiles", kind: "positive" },
+];
+
 const localeNames: Record<Locale, string> = { en: "English", fr: "Français", de: "Deutsch", ro: "Română" };
 const initialLocale = (): Locale => {
   const saved = localStorage.getItem("adore-language") as Locale | null;
@@ -110,8 +123,11 @@ export default function App() {
   const [allUsage, setAllUsage] = useState<Record<string, Usage> | null>(null);
   const [usageRefresh, setUsageRefresh] = useState(0);
   const [config, setConfig] = useState<Config | null>(null);
+  const [configScope, setConfigScope] = useState("");
   const [pendingConfig, setPendingConfig] = useState<PendingConfig | null>(null);
+  const [pendingConfigScope, setPendingConfigScope] = useState("");
   const [prices, setPrices] = useState<Price[]>([]);
+  const [pricesScope, setPricesScope] = useState("");
   const [users, setUsers] = useState<User[]>([]);
   const [auditRows, setAuditRows] = useState<AuditRow[]>([]);
   const [auditPolicy, setAuditPolicy] = useState<AuditPolicy | null>(null);
@@ -187,6 +203,9 @@ export default function App() {
     else { setProjectSortKey(key); setProjectSortDescending(false); }
   };
   const selectedProject = projects.find(item => item.id === selected);
+  const projectConfig = configScope === selected ? config : null;
+  const projectPendingConfig = pendingConfigScope === selected ? pendingConfig : null;
+  const projectPrices = pricesScope === selected ? prices : [];
   const modelReason = (reason: string): string => {
     const keys: Record<string, MessageKey> = {
       ready: "checkPassed", "not-configured": "modelNotConfigured",
@@ -448,13 +467,15 @@ export default function App() {
       request<AuditRow[]>("/audit?limit=all").then(value => { if (generation === viewGeneration.current) setAuditRows(value); }).catch(cause => setError(cause.message));
       request<AuditPolicy>("/audit-policy").then(value => { if (generation === viewGeneration.current) setAuditPolicy(value); }).catch(cause => setError(cause.message));
     }
-    if (page === "settings" && isAdmin && selected) {
+    if (page === "projectDetails" && selected) {
       const generation = viewGeneration.current;
       const revision = ++configRequest.current;
-      setConfig(null); setPendingConfig(null);
-      request<Config>(`/projects/${encodeURIComponent(selected)}/config`).then(value => { if (generation === viewGeneration.current && revision === configRequest.current) setConfig(value); }).catch(cause => { if (generation === viewGeneration.current && revision === configRequest.current) setError(cause.message); });
-      request<PendingConfig | null>(`/projects/${encodeURIComponent(selected)}/config/pending`).then(value => { if (generation === viewGeneration.current && revision === configRequest.current) setPendingConfig(value); }).catch(cause => { if (generation === viewGeneration.current && revision === configRequest.current) setError(cause.message); });
-      request<Price[]>(`/projects/${encodeURIComponent(selected)}/prices`).then(value => { if (generation === viewGeneration.current) setPrices(value); }).catch(cause => setError(cause.message));
+      setConfig(null); setConfigScope(""); setPendingConfig(null); setPendingConfigScope(""); setPrices([]); setPricesScope("");
+      request<Config>(`/projects/${encodeURIComponent(selected)}/config`).then(value => { if (generation === viewGeneration.current && revision === configRequest.current) { setConfig(value); setConfigScope(selected); } }).catch(cause => { if (generation === viewGeneration.current && revision === configRequest.current) setError(cause.message); });
+      if (isAdmin) {
+        request<PendingConfig | null>(`/projects/${encodeURIComponent(selected)}/config/pending`).then(value => { if (generation === viewGeneration.current && revision === configRequest.current) { setPendingConfig(value); setPendingConfigScope(selected); } }).catch(cause => { if (generation === viewGeneration.current && revision === configRequest.current) setError(cause.message); });
+        request<Price[]>(`/projects/${encodeURIComponent(selected)}/prices`).then(value => { if (generation === viewGeneration.current && revision === configRequest.current) { setPrices(value); setPricesScope(selected); } }).catch(cause => { if (generation === viewGeneration.current && revision === configRequest.current) setError(cause.message); });
+      }
     }
   }, [page, isAdmin, selected]);
 
@@ -717,7 +738,7 @@ export default function App() {
     const fields = Object.fromEntries(new FormData(form));
     try {
       const staged = await request<PendingConfig>(`/projects/${encodeURIComponent(selected)}/config/pending`, "POST", { ...fields, revision: config.revision }, session?.csrf);
-      setPendingConfig(staged); setNotice(t("changeStaged")); form.reset();
+      setPendingConfig(staged); setPendingConfigScope(selected); setNotice(t("changeStaged")); form.reset();
     } catch (cause) { setError((cause as Error).message); }
   };
 
@@ -742,7 +763,7 @@ export default function App() {
         ca_file: fields.ca_file,
         revision: config.revision,
       }, session?.csrf);
-      setPendingConfig(staged); setNotice(t("changeStaged"));
+      setPendingConfig(staged); setPendingConfigScope(selected); setNotice(t("changeStaged"));
     } catch (cause) { setError((cause as Error).message); }
   };
 
@@ -752,7 +773,7 @@ export default function App() {
       await request(`/projects/${encodeURIComponent(selected)}/config/apply`, "POST", {
         candidate_revision: pendingConfig.candidate_revision,
       }, session?.csrf);
-      setConfig(await request<Config>(`/projects/${encodeURIComponent(selected)}/config`));
+      setConfig(await request<Config>(`/projects/${encodeURIComponent(selected)}/config`)); setConfigScope(selected);
       setPendingConfig(null); setNotice(t("changeApplied"));
       await refreshProjects();
     } catch (cause) { setError((cause as Error).message); }
@@ -786,7 +807,7 @@ export default function App() {
     try {
       await request(`/projects/${encodeURIComponent(selected)}/prices`, "POST",
         Object.fromEntries(new FormData(form)), session?.csrf);
-      setPrices(await request<Price[]>(`/projects/${encodeURIComponent(selected)}/prices`));
+      setPrices(await request<Price[]>(`/projects/${encodeURIComponent(selected)}/prices`)); setPricesScope(selected);
       setNotice(t("priceSaved")); form.reset();
     } catch (cause) { setError((cause as Error).message); }
   };
@@ -893,9 +914,16 @@ export default function App() {
         </>}
 
         {page === "projectDetails" && selectedProject && <>
-          <section className="panel"><div className="panel-heading"><h2>{selectedProject.name}</h2><span className={`status status-${selectedProject.readiness}`}>{t(selectedProject.readiness === "configured" ? "configured" : selectedProject.readiness === "needs-config" ? "needsConfig" : selectedProject.readiness === "invalid-state" ? "invalidState" : selectedProject.readiness === "archived" ? "archived" : "paused")}</span></div><p>{selectedProject.description || selectedProject.repo}</p><div className="project-meta">{t("forge")}: {selectedProject.platform} · {t("repository")}: {selectedProject.repo}</div><div className="project-meta">{t("runtime")}: {selectedProject.runtime} · {t("executor")}: {selectedProject.executor || "—"}</div><div className="project-meta">{t("lastActivity")}: {selectedProject.last_activity ? formatDate(selectedProject.last_activity) : "—"}</div><div className="button-row"><button className="primary" onClick={() => setPage("jobs")}>{t("jobs")}</button><button className="ghost" onClick={() => setPage("metrics")}>{t("metrics")}</button>{isAdmin && <><button className="ghost" onClick={() => setPage("settings")}>{t("settings")}</button><button className="ghost" onClick={() => setPage("adminUsers")}>{t("assignedProjects")}</button></>}</div></section>
+          <section className="panel"><div className="panel-heading"><h2>{selectedProject.name}</h2><span className={`status status-${selectedProject.readiness}`}>{t(selectedProject.readiness === "configured" ? "configured" : selectedProject.readiness === "needs-config" ? "needsConfig" : selectedProject.readiness === "invalid-state" ? "invalidState" : selectedProject.readiness === "archived" ? "archived" : "paused")}</span></div><p>{selectedProject.description || selectedProject.repo}</p><div className="project-meta">{t("forge")}: {selectedProject.platform} · {t("repository")}: {selectedProject.repo}</div><div className="project-meta">{t("runtime")}: {selectedProject.runtime} · {t("executor")}: {selectedProject.executor || "—"}</div><div className="project-meta">{t("lastActivity")}: {selectedProject.last_activity ? formatDate(selectedProject.last_activity) : "—"}</div><div className="button-row"><button className="primary" onClick={() => setPage("jobs")}>{t("jobs")}</button><button className="ghost" onClick={() => setPage("metrics")}>{t("metrics")}</button><button className="ghost" disabled={!projectConfig} onClick={() => document.getElementById("project-settings")?.scrollIntoView()}>{t("settings")}</button>{isAdmin && <button className="ghost" onClick={() => setPage("adminUsers")}>{t("assignedProjects")}</button>}</div></section>
           {isAdmin && <section className="panel"><div className="panel-heading"><h2>{t("hostReadiness")}</h2><button className="ghost" onClick={() => void checkProjectReadiness()}>{t("runReadinessCheck")}</button></div><p className="muted">{t("hostReadinessHelp")}</p>{projectReadiness && <><p className="muted">{t("checkedAt")}: {formatDate(projectReadiness.checked_at)}</p><div className="detail-grid">{Object.entries(projectReadiness.checks).map(([key, value]) => <span key={key}>{t(({ git: "gitTool", forge_cli: "forgeCli", forge_auth: "forgeAuth", container_runtime: "containerRuntime", executor_cli: "executorCli", aegis_files: "aegisPayload", model_endpoint: "modelEndpoint" } as Record<string, MessageKey>)[key])}: <strong>{value === true ? t("checkPassed") : value === false ? t("checkMissing") : t("checkUnverified")}</strong></span>)}</div>{projectReadiness.model_probe && <p className="muted">{t("modelEndpoint")}: {modelReason(projectReadiness.model_probe.reason)}{projectReadiness.model_probe.model ? ` (${projectReadiness.model_probe.model})` : ""}</p>}</>}</section>}
           <section className="panel"><div className="panel-heading"><h2>{t("recentJobs")}</h2><button className="text-button" onClick={() => setPage("jobs")}>{t("view")} →</button></div><RunTable runs={runs} t={t} formatDate={formatDate} onOpen={openRun} /></section>
+          {projectConfig && <ProjectConfigReadOnly config={projectConfig.config} t={t} />}
+          {isAdmin && selected && projectConfig && (projectConfig.config.executor as { default?: string } | undefined)?.default === "opencode" && <section className="panel wide-panel"><h2>{t("localEndpoint")}</h2><p className="muted">{t("localEndpointHelp")}</p><p className="muted">{t("localProviderHelp")}</p>{(projectConfig.config.executor as { default?: string } | undefined)?.default === "opencode" && <form key={`${selected}-${projectConfig.revision}`} className="inline-form config-form" onSubmit={saveEndpoint}><Field name="model" label={t("model")} defaultValue={(projectConfig.config.executor as { commands?: { opencode?: { model?: string } } }).commands?.opencode?.model || ""} required /><Field name="endpoint" label={t("localEndpoint")} type="url" defaultValue={(projectConfig.config.container as { runtime_env?: { OPENAI_BASE_URL?: string } } | undefined)?.runtime_env?.OPENAI_BASE_URL || ""} required /><label>{t("endpointAuth")}<select name="auth_env"><option value="">{t("none")}</option><option value="OPENAI_API_KEY">OPENAI_API_KEY</option></select></label><label>{t("endpointProtocol")}<select name="protocol"><option value="openai-chat-completions">OpenAI chat completions</option></select></label><Field name="timeout_seconds" label={t("endpointTimeout")} type="number" defaultValue={String(projectConfig.local_endpoint_timeout_seconds || 300)} required /><Field name="ca_file" label={t("endpointCa")} defaultValue={(projectConfig.config.container as { runtime_env?: { NODE_EXTRA_CA_CERTS?: string } } | undefined)?.runtime_env?.NODE_EXTRA_CA_CERTS || ""} /><button className="primary" disabled={!!projectPendingConfig}>{t("stageChange")}</button></form>}</section>}
+          {isAdmin && selected && <section className="panel wide-panel"><h2>{t("estimatedPrices")}</h2><p className="muted">{t("priceHelp")}</p>
+            <form className="form-grid" onSubmit={savePrice}><label>{t("executor")}<select name="executor"><option value="codex">codex</option><option value="opencode">opencode</option><option value="pi">pi</option><option value="qwen">qwen</option></select></label><Field name="model" label={t("model")} required /><label>{t("effectiveFrom")}<input name="effective_from" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required /></label><label>{t("inputRate")}<input name="input_usd_per_million" type="number" min="0" max="1000000" step="0.000001" required /></label><label>{t("outputRate")}<input name="output_usd_per_million" type="number" min="0" max="1000000" step="0.000001" required /></label><button className="primary form-submit" type="submit">{t("save")}</button></form>
+            {projectPrices.length > 0 && <PagedTable t={t}><table><thead><tr><th>{t("executor")}</th><th>{t("model")}</th><th>{t("effectiveFrom")}</th><th>{t("inputRate")}</th><th>{t("outputRate")}</th></tr></thead><tbody>{projectPrices.map(price => <tr key={price.id}><td>{price.executor}</td><td>{price.model}</td><td>{price.effective_from}</td><td>{price.input_usd_per_million}</td><td>{price.output_usd_per_million}</td></tr>)}</tbody></table></PagedTable>}
+          </section>}
+          {isAdmin && selected && <section className="panel wide-panel"><h2>{t("config")}</h2>{projectConfig ? <><p className="muted">{t("revision")}: {projectConfig.revision.slice(0, 12)}</p>{projectConfig.issues.length > 0 && <div className="alert">{projectConfig.issues.join(" · ")}</div>}<GuidedConfigForm key={`${selected}-${projectConfig.revision}`} config={projectConfig.config} t={t} onSubmit={editConfig} disabled={!!projectPendingConfig} /><details><summary>{t("advancedConfig")}</summary><form className="inline-form config-form" onSubmit={editConfig}><Field name="key" label={t("configKey")} required /><Field name="value" label={t("configValue")} required /><button className="primary" disabled={!!projectPendingConfig}>{t("stageChange")}</button></form></details>{projectPendingConfig && <div className="import-preview" role="status"><h3>{t("pendingChange")}</h3><p>{projectPendingConfig.key}: {projectPendingConfig.value}</p>{projectPendingConfig.endpoint && <div className="detail-grid"><span>{t("endpointProtocol")}: {projectPendingConfig.endpoint.protocol}</span><span>{t("model")}: {projectPendingConfig.endpoint.model}</span><span>{t("endpointTimeout")}: {projectPendingConfig.endpoint.timeout_seconds ?? "—"}</span><span>{t("endpointAuth")}: {projectPendingConfig.endpoint.auth_env || "—"}</span><span>{t("endpointCa")}: {projectPendingConfig.endpoint.ca_file || "—"}</span></div>}<p className="muted">{t("revision")}: {projectPendingConfig.candidate_revision.slice(0, 12)}</p><p className="muted">{projectPendingConfig.restart_required ? t("pendingRestartHelp") : t("pendingApplyHelp")}</p><div className="button-row"><button className="primary" onClick={() => void applyPendingConfig()}>{t("apply")}</button><button className="ghost" onClick={() => void discardPendingConfig()}>{t("discardChange")}</button></div></div>}<details><summary>{t("rawConfig")}</summary><pre className="config-preview">{JSON.stringify(projectConfig.config, null, 2)}</pre></details></> : <Empty label={t("empty")} />}</section>}
         </>}
 
         {page === "jobs" && <>
@@ -1059,12 +1087,6 @@ export default function App() {
         </div>}
 
         {page === "settings" && <div className="two-column"><section className="panel"><h2>{t("appearance")}</h2><div className="form-stack"><label>{t("language")}<select value={locale} onChange={event => updatePreference("language", event.target.value)}>{Object.entries(localeNames).map(([key, value]) => <option key={key} value={key}>{value}</option>)}</select></label><label>{t("theme")}<select value={theme} onChange={event => updatePreference("theme", event.target.value)}><option value="system">{t("system")}</option><option value="light">{t("light")}</option><option value="dark">{t("dark")}</option></select></label></div></section><section className="panel"><h2>{t("changePassword")}</h2><form className="form-stack" onSubmit={changePassword}><Field name="current" label={t("currentPassword")} type="password" required /><Field name="replacement" label={t("newPassword")} type="password" required /><button className="primary">{t("save")}</button></form></section>
-          {isAdmin && selected && config && <section className="panel wide-panel"><h2>{t("localEndpoint")}</h2><p className="muted">{t("localEndpointHelp")}</p><p className="muted">{t("localProviderHelp")}</p>{(config.config.executor as { default?: string } | undefined)?.default === "opencode" && <form key={`${selected}-${config.revision}`} className="inline-form config-form" onSubmit={saveEndpoint}><Field name="model" label={t("model")} defaultValue={(config.config.executor as { commands?: { opencode?: { model?: string } } }).commands?.opencode?.model || ""} required /><Field name="endpoint" label={t("localEndpoint")} type="url" defaultValue={(config.config.container as { runtime_env?: { OPENAI_BASE_URL?: string } } | undefined)?.runtime_env?.OPENAI_BASE_URL || ""} required /><label>{t("endpointAuth")}<select name="auth_env"><option value="">{t("none")}</option><option value="OPENAI_API_KEY">OPENAI_API_KEY</option></select></label><label>{t("endpointProtocol")}<select name="protocol"><option value="openai-chat-completions">OpenAI chat completions</option></select></label><Field name="timeout_seconds" label={t("endpointTimeout")} type="number" defaultValue={String(config.local_endpoint_timeout_seconds || 300)} required /><Field name="ca_file" label={t("endpointCa")} defaultValue={(config.config.container as { runtime_env?: { NODE_EXTRA_CA_CERTS?: string } } | undefined)?.runtime_env?.NODE_EXTRA_CA_CERTS || ""} /><button className="primary" disabled={!!pendingConfig}>{t("stageChange")}</button></form>}</section>}
-          {isAdmin && selected && <section className="panel wide-panel"><h2>{t("estimatedPrices")}</h2><p className="muted">{t("priceHelp")}</p>
-            <form className="form-grid" onSubmit={savePrice}><label>{t("executor")}<select name="executor"><option value="codex">codex</option><option value="opencode">opencode</option><option value="pi">pi</option><option value="qwen">qwen</option></select></label><Field name="model" label={t("model")} required /><label>{t("effectiveFrom")}<input name="effective_from" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required /></label><label>{t("inputRate")}<input name="input_usd_per_million" type="number" min="0" max="1000000" step="0.000001" required /></label><label>{t("outputRate")}<input name="output_usd_per_million" type="number" min="0" max="1000000" step="0.000001" required /></label><button className="primary form-submit" type="submit">{t("save")}</button></form>
-            {prices.length > 0 && <PagedTable t={t}><table><thead><tr><th>{t("executor")}</th><th>{t("model")}</th><th>{t("effectiveFrom")}</th><th>{t("inputRate")}</th><th>{t("outputRate")}</th></tr></thead><tbody>{prices.map(price => <tr key={price.id}><td>{price.executor}</td><td>{price.model}</td><td>{price.effective_from}</td><td>{price.input_usd_per_million}</td><td>{price.output_usd_per_million}</td></tr>)}</tbody></table></PagedTable>}
-          </section>}
-          {isAdmin && selected && <section className="panel wide-panel"><h2>{t("config")}</h2>{config ? <><p className="muted">{t("revision")}: {config.revision.slice(0, 12)}</p>{config.issues.length > 0 && <div className="alert">{config.issues.join(" · ")}</div>}<GuidedConfigForm key={`${selected}-${config.revision}`} config={config.config} t={t} onSubmit={editConfig} disabled={!!pendingConfig} /><details><summary>{t("advancedConfig")}</summary><form className="inline-form config-form" onSubmit={editConfig}><Field name="key" label={t("configKey")} required /><Field name="value" label={t("configValue")} required /><button className="primary" disabled={!!pendingConfig}>{t("stageChange")}</button></form></details>{pendingConfig && <div className="import-preview" role="status"><h3>{t("pendingChange")}</h3><p>{pendingConfig.key}: {pendingConfig.value}</p>{pendingConfig.endpoint && <div className="detail-grid"><span>{t("endpointProtocol")}: {pendingConfig.endpoint.protocol}</span><span>{t("model")}: {pendingConfig.endpoint.model}</span><span>{t("endpointTimeout")}: {pendingConfig.endpoint.timeout_seconds ?? "—"}</span><span>{t("endpointAuth")}: {pendingConfig.endpoint.auth_env || "—"}</span><span>{t("endpointCa")}: {pendingConfig.endpoint.ca_file || "—"}</span></div>}<p className="muted">{t("revision")}: {pendingConfig.candidate_revision.slice(0, 12)}</p><p className="muted">{pendingConfig.restart_required ? t("pendingRestartHelp") : t("pendingApplyHelp")}</p><div className="button-row"><button className="primary" onClick={() => void applyPendingConfig()}>{t("apply")}</button><button className="ghost" onClick={() => void discardPendingConfig()}>{t("discardChange")}</button></div></div>}<pre className="config-preview">{JSON.stringify(config.config, null, 2)}</pre></> : <Empty label={t("empty")} />}</section>}
         </div>}
       </main>
     </div>
@@ -1105,30 +1127,56 @@ function Field({ name, label, type = "text", required = false, defaultValue }: {
   return <label>{label}<input name={name} type={type} required={required} defaultValue={defaultValue} /></label>;
 }
 
+function ProjectConfigReadOnly({ config, t }: { config: Record<string, unknown>; t: (key: MessageKey) => string }) {
+  const flatten = (value: unknown, prefix: string): Array<[string, unknown]> => {
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      return Object.entries(value as Record<string, unknown>).flatMap(([key, child]) => flatten(child, prefix ? `${prefix}.${key}` : key));
+    }
+    return [[prefix, value]];
+  };
+  const sections = Object.entries(config).map(([section, value]) => [section, flatten(value, section)] as const);
+  const typeOf = (key: string, value: unknown) => {
+    if (commonSettings.some(item => item.key === key && (item.kind === "forge" || item.kind === "executor"))) return t("settingEnum");
+    if (Array.isArray(value)) return t("settingList");
+    if (typeof value === "boolean") return t("settingBoolean");
+    if (typeof value === "number") return Number.isInteger(value) ? t("settingInteger") : t("settingNumber");
+    if (/(?:^|\.)(?:repo_path|root|store_root|db_path|export_jsonl|html_out|ca_file)$/.test(key)) return t("settingPath");
+    return t("settingText");
+  };
+  const shown = (value: unknown) => value == null || value === "" ? "—" :
+    Array.isArray(value) || typeof value === "object" ? JSON.stringify(value) : String(value);
+  return <section className="panel" id="project-settings">
+    <h2>{t("projectSettings")}</h2><p className="muted">{t("projectSettingsHelp")}</p>
+    <div className="setting-groups">{sections.map(([section, rows]) => <details key={section}>
+      <summary>{section} <span className="muted">({rows.length})</span></summary>
+      <div className="setting-list">{rows.map(([key, value]) => {
+        const known = commonSettings.find(item => item.key === key);
+        return <div className="setting-row" key={key}>
+          <div><strong>{known ? t(known.label) : key.slice(section.length + 1).replaceAll("_", " ")}</strong><small>{key}</small></div>
+          <code>{shown(value)}</code>
+          <details><summary aria-label={`${t("settingHelp")} ${key}`}>{t("settingHelp")}</summary>
+            <p>{typeOf(key, value)}{known?.kind === "positive" ? ` · ${t("settingPositive")}` : known?.kind === "forge" ? " · gitlab, github, gitea" : known?.kind === "executor" ? " · opencode, pi, codex, qwen" : known?.kind === "runtime" ? ` · ${t("settingRuntimeDomain")}` : ""}</p>
+            <p>{known ? t(known.help) : t("settingGeneralHelp")}</p>
+          </details>
+        </div>;
+      })}</div>
+    </details>)}</div>
+  </section>;
+}
+
 function GuidedConfigForm({ config, t, onSubmit, disabled }: { config: Record<string, unknown>; t: (key: MessageKey) => string; onSubmit: (event: FormEvent<HTMLFormElement>) => void; disabled: boolean }) {
-  const fields: Array<{ key: string; label: MessageKey; numeric?: boolean }> = [
-    { key: "platform.repo", label: "repository" },
-    { key: "platform.kind", label: "forge" },
-    { key: "container.runtime", label: "runtime" },
-    { key: "container.image", label: "image" },
-    { key: "executor.default", label: "executor" },
-    { key: "polling.poll_interval_seconds", label: "pollInterval", numeric: true },
-    { key: "polling.max_concurrent_runs", label: "concurrentJobs", numeric: true },
-    { key: "budgets.max_iterations", label: "maxIterations", numeric: true },
-    { key: "budgets.max_wall_clock_seconds", label: "maxWallClock", numeric: true },
-    { key: "budgets.max_files_touched", label: "maxFilesTouched", numeric: true },
-  ];
   const read = (key: string) => {
     const value = key.split(".").reduce<unknown>((current, part) =>
       current && typeof current === "object" ? (current as Record<string, unknown>)[part] : undefined, config);
     return value === undefined || value === null ? "" : String(value);
   };
-  const [key, setKey] = useState(fields[0].key);
-  const [value, setValue] = useState(read(fields[0].key));
-  const chosen = fields.find(item => item.key === key) || fields[0];
+  const [key, setKey] = useState(commonSettings[0].key);
+  const [value, setValue] = useState(read(commonSettings[0].key));
+  const chosen = commonSettings.find(item => item.key === key) || commonSettings[0];
   return <form className="inline-form config-form" onSubmit={onSubmit}>
-    <label>{t("commonSetting")}<select name="key" value={key} onChange={event => { setKey(event.target.value); setValue(read(event.target.value)); }}>{fields.map(item => <option key={item.key} value={item.key}>{t(item.label)}</option>)}</select></label>
-    <label>{t("configValue")}<input name="value" type={chosen.numeric ? "number" : "text"} min={chosen.numeric ? "0" : undefined} value={value} onChange={event => setValue(event.target.value)} required /></label>
+    <label>{t("commonSetting")}<select name="key" value={key} onChange={event => { setKey(event.target.value); setValue(read(event.target.value)); }}>{commonSettings.map(item => <option key={item.key} value={item.key}>{t(item.label)}</option>)}</select></label>
+    <label>{t("configValue")}{chosen.kind === "forge" || chosen.kind === "executor" ? <select name="value" value={value} onChange={event => setValue(event.target.value)}>{(chosen.kind === "forge" ? ["gitlab", "github", "gitea"] : ["opencode", "pi", "codex", "qwen"]).map(item => <option key={item} value={item}>{item}</option>)}</select> : <input name="value" type={chosen.kind === "positive" ? "number" : "text"} min={chosen.kind === "positive" ? "1" : undefined} step={chosen.kind === "positive" ? "1" : undefined} value={value} onChange={event => setValue(event.target.value)} required />}</label>
+    <p className="setting-editor-help">{t(chosen.help)} <span className="muted">{chosen.kind === "positive" ? t("settingPositive") : chosen.kind === "runtime" ? t("settingRuntimeDomain") : ""}</span></p>
     <button className="primary" disabled={disabled}>{t("stageChange")}</button>
   </form>;
 }

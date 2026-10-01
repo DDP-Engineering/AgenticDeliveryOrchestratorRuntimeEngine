@@ -1701,7 +1701,8 @@ def create_app(home: str | Path | None = None,
             return _profile_view(profiles, item)
 
     @app.get("/api/v1/projects/{name}/config")
-    def config_view(name: str, user: Annotated[dict, Depends(administrator)]) -> dict:
+    def config_view(name: str, user: Annotated[dict, Depends(principal)]) -> dict:
+        """@brief Return redacted effective settings for an authorized project."""
         item = project(name, user)
         path = profiles.config_path(item.name)
         try:

@@ -43,7 +43,9 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
   preference reads and CSRF-protected partial updates remain account-scoped;
   null values use the browser fallback and corrupt rows fail closed.
 - Developer routes check membership before reading a project and omit all
-  financial fields. Account/config/global metrics routes require admin.
+  financial fields. Project configuration reads return redacted effective
+  settings to assigned developers; other project identities return 404.
+  Configuration mutations, account management and global metrics require admin.
 - Schema 7 binds grants to immutable profile IDs. Older creation-stamped grants
   migrate only while they still match the original profile; name-only grants
   are cleared. Schema 9 binds rates to project IDs, retaining older rates
@@ -160,6 +162,8 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 - `REQ-FUNC-f9946b6b` - durable selected-ticket operations and admin pickup.
 - `REQ-FUNC-448cbde7` - observed usage, reported/estimated costs and coverage.
 - `REQ-UX-749d37c8` - four locales, themes and responsive UI.
+- `REQ-UX-66e6f3f5` - project details presents collapsible, guided settings with administrator editing.
+- `REQ-SEC-c2298428` - redacted project configuration reads follow grants; edits remain administrator-only.
 - `REQ-PLAT-a1b60ff9` - host-specific offline installation.
 - `REQ-REL-94e653aa` - checkpoint-bearing state and handoff lifecycles remain
   readable and protected after replacement of the DCP runtime.
@@ -189,7 +193,11 @@ API liveness at `/api/v1/health` is separate from readiness at `/api/v1/ready`.
 The worker refreshes a schema-5 SQLite heartbeat even while an engine command
 blocks; a stopped, stale or corrupt heartbeat does not claim readiness.
 Administration expands into System status, Users, Audit and Settings sidebar
-pages; developers keep a My account page. Audit policy defaults to unlimited
+pages; developers keep a My account page. Project details shows effective
+configuration in compact sections with field type, domain and purpose help;
+administrators stage configuration, endpoint and price changes there. The
+settings response is scoped to the current project identity so switching
+projects cannot briefly show another project's values. Audit policy defaults to unlimited
 and allows administrators to set day and stored-text byte limits. Schema 12
 prunes oldest events transactionally when configured while preserving other
 history. Audit and other long tables provide 10/25/50/All paging; Jobs uses

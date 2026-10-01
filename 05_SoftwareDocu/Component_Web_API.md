@@ -145,6 +145,10 @@ Captured command output and
 credentials never enter the response. Corrupt configuration returns 503, while
 a syntactically valid but invalid configuration returns 409. Unit tests inject
 the command runner and never invoke external tools.
+`GET /api/v1/projects/{name}/config` returns redacted effective configuration
+to administrators and developers assigned to that project. Other project
+identities return 404. The read response excludes credential-looking keys and
+inline provider JSON; every configuration mutation remains administrator-only.
 `GET/POST/DELETE /api/v1/projects/{name}/config/pending` read, stage and
 discard the single candidate. `POST /api/v1/projects/{name}/config/apply`
 requires its candidate SHA-256 revision. All four routes are administrator-only;

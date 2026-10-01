@@ -244,10 +244,14 @@ def test_cli_and_web_config_edits_share_process_lock(tmp_path, capsys):
     assert load_config(path).budgets.max_iterations == 12
 
 
-def test_developer_cannot_read_or_edit_config(tmp_path):
-    """@brief Assigned developers have no configuration access."""
+def test_developer_reads_assigned_config_but_cannot_edit_or_read_other_project(tmp_path):
+    """@brief Scoped redacted reads stay separate from administrator edits."""
     profiles = ProfileStore(tmp_path / "home")
     profiles.create("alpha")
+    profiles.create("beta")
+    example = Path(__file__).resolve().parents[1] / "config.example.toml"
+    for name in ("alpha", "beta"):
+        profiles.config_path(name).write_bytes(example.read_bytes())
     app = create_app(profiles.home)
     web = app.state.web_store
     developer = web.create_user("dev", "longer-password", "developer")
@@ -256,7 +260,11 @@ def test_developer_cannot_read_or_edit_config(tmp_path):
         login = client.post(
             "/api/v1/session", json={"username": "dev", "password": "longer-password"}
         )
-        assert client.get("/api/v1/projects/alpha/config").status_code == 403
+        visible = client.get("/api/v1/projects/alpha/config")
+        assert visible.status_code == 200
+        assert visible.json()["config"]["platform"]["repo"] == "group/subgroup/project"
+        assert client.get("/api/v1/projects/beta/config").status_code == 404
+        assert client.get("/api/v1/projects/alpha/config/pending").status_code == 403
         assert client.put(
             "/api/v1/projects/alpha/config",
             json={"key": "polling.poll_interval_seconds", "value": "60", "revision": "x"},
@@ -276,8 +284,16 @@ def test_config_view_redacts_accidental_secret_values(tmp_path):
     assert "private-value" in text
     path.write_text(text, encoding="utf-8")
     app = create_app(profiles.home)
+    web = app.state.web_store
+    developer = web.create_user("dev", "longer-password", "developer")
+    web.set_memberships(developer["id"], ["alpha"])
     with TestClient(app) as client:
         client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
+        response = client.get("/api/v1/projects/alpha/config")
+        assert response.status_code == 200
+        assert "private-value" not in response.text
+        client.post("/api/v1/session", json={
+            "username": "dev", "password": "longer-password"})
         response = client.get("/api/v1/projects/alpha/config")
         assert response.status_code == 200
         assert "private-value" not in response.text

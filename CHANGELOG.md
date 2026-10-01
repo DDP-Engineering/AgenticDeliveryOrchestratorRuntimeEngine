@@ -14,6 +14,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Project details now shows redacted project settings and field guidance to assigned developers; administrators edit project configuration, endpoint and estimated prices there.
 - Projects now uses sortable, paged rows with pickup, archive and details actions per project.
 - Overview summary cards now expand into project or scoped job tables, with project selection in the Projects expansion.
 

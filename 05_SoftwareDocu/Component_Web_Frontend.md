@@ -56,8 +56,13 @@ mutating actions. A valid configuration is labelled as such, not as a live
 forge or model readiness check.
 Selecting a project opens a scoped detail view with status, repository,
 runtime, executor, last activity and recent jobs. Its actions open the Jobs and
-Metrics views for that selection, plus administrator Settings and membership
-management links.
+Metrics views for that selection, and jump to project settings on the same page.
+Assigned developers can inspect the redacted effective configuration in
+collapsible sections. Each field shows its type and contextual help; common
+settings also describe their valid domain. Administrators can stage and apply
+project configuration, local endpoint and estimated-price changes there, while
+membership management remains under Users. Administration/Settings holds
+account appearance and password controls.
 Administrators can explicitly run a host-prerequisite check there. The view
 labels model-endpoint and WSL runtime results as unverified when they cannot
 be established from the API host, and never treats static config validity as

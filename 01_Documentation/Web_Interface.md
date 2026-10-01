@@ -229,7 +229,10 @@ are not supported.
 ## Project and model setup
 
 An administrator can create a profile in Projects, edit validated scalar
-configuration keys in Settings, and use the CLI for other complex settings.
+configuration keys in Project details, and use the CLI for other complex settings.
+Assigned developers can inspect that project's effective settings in the same
+view, with redacted secrets, field types and help. They cannot stage or apply
+changes. Administration/Settings contains account preferences and password.
 Web-created profiles place worktrees under an absolute, project-specific path
 inside ADORE home. For Pi authenticated through an existing ChatGPT
 subscription, mount the Pi agent credential directory into the container at
@@ -295,7 +298,7 @@ must size storage and back it up.
 Jobs can be filtered by an exact observed executor. Older jobs whose journals
 did not record executor identity will not match this filter.
 
-In Settings, administrator configuration changes are staged for review before
+In Project details, administrator configuration changes are staged for review before
 they are applied. Staging leaves the live TOML unchanged. Review the displayed
 key, value and revision, then choose Apply or Discard. Apply rejects a stale
 revision, active job, conductor lock or unfinished web operation. For project
@@ -312,7 +315,7 @@ The existing Codex host-auth executor remains suitable for the owner's
 ChatGPT-subscription testing where that CLI supports it. A ChatGPT subscription
 is not an OpenAI API key or metered API billing source. For OpenCode and an
 OpenAI-compatible local server, save the exact `provider/model` ID and its URL
-together in Settings. ADORE validates and writes both settings atomically. It
+together in Project details. ADORE validates and writes both settings atomically. It
 sets `OPENAI_BASE_URL` and OpenCode's `OPENCODE_CONFIG_CONTENT` provider override,
 using `@ai-sdk/openai-compatible` and the selected model ID.
 An optional `OPENAI_API_KEY` environment reference lets OpenCode resolve an
