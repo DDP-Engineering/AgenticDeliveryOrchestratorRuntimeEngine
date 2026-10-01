@@ -19,7 +19,14 @@ administrator project/account setup, settings, four language catalogs,
 an administrator audit trail, light/dark/system themes and an About dialog.
 Administration expands into System status, Users, Audit and Settings in the
 sidebar. Developers see My account for their own preferences and password.
-Audit has administrator day and MiB retention controls; blank means unlimited.
+Audit has administrator day and MiB retention controls populated from saved policy.
+Unlimited limits display zero; zero or blank saves as null in the API. Days are
+whole numbers through 36500, sizes are finite MiB through 1024 and round to
+positive whole bytes. Fractional MiB preserves policies below one MiB. Invalid
+values are rejected before a request with localized guidance. Successful saves
+restore the canonical saved/default display, including zero for unlimited.
+`src/auditPolicy.ts` owns conversion; offline `tests/auditPolicy.test.mjs`
+covers saved/default values and rejected input.
 Tables with more than ten rows offer 10, 25, 50 and All choices with
 Previous/Next for finite pages. Audit fetches the full authorized history;
 Jobs delegates the page size and filtering to the scoped API. Other tables

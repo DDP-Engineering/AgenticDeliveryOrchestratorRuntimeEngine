@@ -224,7 +224,11 @@ Cloud forges and AI services may still need network access at runtime.
 
 History is retained indefinitely by default. An administrator can set audit
 retention by days, stored audit-text MiB, or both under Administration > Audit;
-the oldest events are removed first when either bound is exceeded. Blank
+the boxes show saved limits, with **0** for unlimited. Enter zero or clear a box
+to remove that limit. Days must be whole numbers up to 36500; the size supports
+fractional MiB up to 1024, rounded to whole bytes. A positive size must represent
+at least one byte after rounding. Saving or reopening displays the current policy.
+The oldest events are removed first when either bound is exceeded. Unlimited
 limits retain audit events indefinitely. The size bound counts UTF-8 audit
 payloads, not SQLite file allocation, which may remain larger after pruning.
 Accounts, prices, journals and usage are not pruned by these limits. Stop both

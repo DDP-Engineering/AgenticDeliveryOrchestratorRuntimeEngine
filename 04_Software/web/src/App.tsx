@@ -7,6 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 import { Children, cloneElement, isValidElement, useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactElement, type ReactNode } from "react";
 import { aggregateMetrics, aggregateUsage, type Metrics, type Usage } from "./metrics";
 import { messages, type Locale, type MessageKey } from "./i18n";
+import { auditPolicyPayload } from "./auditPolicy";
 
 type User = { id: number; username: string; role: "admin" | "developer"; disabled: boolean; projects?: string[] };
 type Session = { user: User; csrf: string };
@@ -657,18 +658,17 @@ export default function App() {
 
   const saveAuditPolicy = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const values = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const values = new FormData(form);
     const days = String(values.get("retention_days") || "").trim();
     const mebibytes = String(values.get("max_mib") || "").trim();
     try {
-      const policy = await request<AuditPolicy>("/audit-policy", "PUT", {
-        retention_days: days ? Number(days) : null,
-        max_bytes: mebibytes ? Number(mebibytes) * 1024 * 1024 : null,
-      }, session?.csrf);
+      const policy = await request<AuditPolicy>("/audit-policy", "PUT", auditPolicyPayload(days, mebibytes), session?.csrf);
       setAuditPolicy(policy);
+      form.reset();
       setAuditRows(await request<AuditRow[]>("/audit?limit=all"));
       setNotice(t("auditPolicySaved"));
-    } catch (cause) { setError((cause as Error).message); }
+    } catch (cause) { setError(cause instanceof RangeError ? t("auditInvalidLimit") : (cause as Error).message); }
   };
 
   const assignProjects = async (event: FormEvent<HTMLFormElement>, userId: number) => {
@@ -1069,7 +1069,7 @@ export default function App() {
         </div>}
 
         {page === "adminAudit" && isAdmin && <div className="two-column">
-          <section className="panel wide-panel"><h2>{t("auditRetention")}</h2><p className="muted">{t("auditRetentionHelp")}</p>{auditPolicy && <form key={`${auditPolicy.retention_days}-${auditPolicy.max_bytes}`} className="inline-form audit-policy-form" onSubmit={saveAuditPolicy}><label>{t("auditDays")}<input name="retention_days" type="number" min="1" max="36500" step="1" defaultValue={auditPolicy.retention_days ?? ""} /></label><label>{t("auditMib")}<input name="max_mib" type="number" min="1" max="1024" step="1" defaultValue={auditPolicy.max_bytes == null ? "" : auditPolicy.max_bytes / 1024**2} /></label><button className="primary" type="submit">{t("save")}</button></form>}</section>
+          <section className="panel wide-panel"><h2>{t("auditRetention")}</h2><p className="muted">{t("auditRetentionHelp")}</p>{auditPolicy && <form key={`${auditPolicy.retention_days}-${auditPolicy.max_bytes}`} className="inline-form audit-policy-form" onSubmit={saveAuditPolicy}><label>{t("auditDays")}<input name="retention_days" type="number" min="0" max="36500" step="1" defaultValue={auditPolicy.retention_days ?? 0} /></label><label>{t("auditMib")}<input name="max_mib" type="number" min="0" max="1024" step="any" defaultValue={auditPolicy.max_bytes == null ? 0 : auditPolicy.max_bytes / 1024**2} /></label><button className="primary" type="submit">{t("save")}</button></form>}</section>
           <section className="panel wide-panel"><div className="panel-heading"><h2>{t("auditTrail")}</h2><button className="ghost" onClick={() => request<AuditRow[]>("/audit?limit=all").then(setAuditRows).catch(cause => setError(cause.message))}>{t("refresh")}</button></div>
             {auditRows.length ? <PagedTable t={t}><table><thead><tr><th>{t("date")}</th><th>{t("actor")}</th><th>{t("action")}</th><th>{t("project")}</th><th>{t("detail")}</th></tr></thead><tbody>{auditRows.map(row => <tr key={row.id}><td>{formatDate(row.created_at)}</td><td>{row.actor || "—"}</td><td>{row.action}</td><td>{row.project || "—"}</td><td>{row.detail || "—"}</td></tr>)}</tbody></table></PagedTable> : <Empty label={t("empty")} />}
           </section>

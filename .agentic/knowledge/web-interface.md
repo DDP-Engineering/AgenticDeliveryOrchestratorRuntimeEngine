@@ -214,7 +214,10 @@ configuration in compact sections with field type, domain and purpose help;
 administrators stage configuration, endpoint and price changes there. The
 settings response is scoped to the current project identity so switching
 projects cannot briefly show another project's values. Audit policy defaults to unlimited
-and allows administrators to set day and stored-text byte limits. Schema 12
+and its form displays saved day/MiB limits, representing unlimited as zero.
+Zero or blank maps to API null; bounded values convert to integer days/bytes
+through `04_Software/web/src/auditPolicy.ts`, covered by offline Node tests.
+Administrators can set day and stored-text byte limits. Schema 12
 prunes oldest events transactionally when configured while preserving other
 history. Audit and other long tables provide 10/25/50/All paging; Jobs uses
 the scoped run-page API for the same choices. API fetches bypass browser cache

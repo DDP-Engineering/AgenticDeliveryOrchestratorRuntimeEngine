@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-a8a3e280"
+
+title = "Show explicit audit retention limits in the form"
+
+status = "active"
+
+requirement = """
+The Audit retention form shall display saved day and MiB limits, using zero for each unlimited limit. Saving zero or blank shall preserve unlimited retention; positive inputs shall map to bounded integer days and byte limits, and invalid inputs shall be rejected before a policy request. Saved responses and reopening the page shall repopulate current policy values.
+"""
+
+verification = "Manual: Open a disposable Audit page, inspect zero defaults, save 30 days/64 MiB and reopen/reload, then reset zero and inspect persistence; verify negative/native bounds. Offline frontend tests prove numeric payload conversion and invalid input rejection; existing audit API tests prove RBAC, CSRF, persisted policy and corruption boundaries."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/auditPolicy.ts", "04_Software/web/src/i18n.ts"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-01
+updated = 2026-10-01
