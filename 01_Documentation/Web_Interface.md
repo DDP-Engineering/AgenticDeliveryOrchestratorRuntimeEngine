@@ -11,8 +11,8 @@ The optional web installation serves the React interface and a same-origin
 FastAPI API. It uses the same project profiles and run state as the CLI. The
 Overview cards expand to show authorized projects or the selected project's
 active, awaiting-review and failed jobs. Select a project from the expanded
-Projects table; closing a card returns to Recent jobs. The project selector in
-the top bar remains available on other pages.
+Projects table; closing a card returns to Recent jobs. Open another project
+from Projects to view its details.
 
 Administrators open Add project from the Projects directory as a separate
 page. Every field has a Help disclosure. Local clone path means an absolute
@@ -131,8 +131,10 @@ start with **All projects**, showing overall Summary totals and a project table.
 Selecting one project applies to every category and export, including project
 and repository comparison tables. Opening Metrics from project details selects
 that project. Developers choose only their assigned projects.
-The top bar names the current page and provides common actions. Only Project details
-shows a project selector there. System status, Users, Audit and Settings operate
+The top bar names the current page and provides common actions. Project details
+retains the project opened from Projects; its Jobs, Metrics and Settings actions
+use that identity. Metadata rows have breathing room, with a clear gap before
+actions. System status, Users, Audit and Settings operate
 at platform or account scope, with project membership managed on Users. On a
 phone, these controls wrap above the page content; use Menu to switch pages.
 Jobs and tables with more than ten rows offer 10, 25, 50 and All row choices.

@@ -14,12 +14,12 @@ title = "Keep platform administration independent of project selection"
 status = "active"
 
 requirement = """
-The header project selector shall appear only on Project details and be absent from platform System status, Users, Audit and Settings, including developer account settings. These pages retain their platform-wide status, user project-assignment and per-account preference/password controls.
+The header shall show the current page title and common actions on every page, while project scope is selected through the authorized Projects/Overview lists and page-local Jobs/Metrics controls. Project details actions retain the opened project identity; platform and account pages retain their own status, membership and preference/password controls.
 """
 
-verification = "Manual: Navigate to System status, Users, Audit and Settings at desktop and phone sizes, confirm zero header project selectors and intact page controls; inspect Project details retains authorized selection and Jobs/Metrics retain page-local scope. Existing offline RBAC tests verify platform/account/project authorization."
+verification = "Manual: Open Project details at desktop and phone sizes and confirm no header project selector; open another project through Projects and verify Jobs/Metrics preserve the selected identity and page-local scope. Inspect header source for common-controls-only rendering; existing offline RBAC tests prove authorization."
 
-affected_paths = ["04_Software/web/src/App.tsx"]
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/styles.css"]
 
 linked_tests = []
 

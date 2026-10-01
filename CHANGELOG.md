@@ -14,6 +14,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Project details uses the opened project context with a common-controls-only header and clearer spacing between metadata and actions.
+
 - Audit retention displays saved limits and explicit zero values for unlimited retention, with localized guidance and validated input conversion.
 - Platform System status, Users, Audit and account Settings show their own controls without an unrelated header project selector.
 - Metrics uses one project scope across all tabs and CSV exports. Administrator

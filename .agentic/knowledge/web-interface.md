@@ -235,8 +235,10 @@ an explicit service error if measurement fails, without exposing host paths.
 The React About dialog makes the surrounding shell inert, keeps keyboard focus
 on its Close button, and restores focus to About when closed. Narrow layouts
 expose Sign out in the top bar while the sidebar account row is hidden.
-The top bar supplies the sole page title, common actions and the project selector
-on Project details; platform administration/account pages use their own controls. Responsive rows
+The top bar supplies the sole page title and common actions on every page.
+Project details keeps the identity opened through authorized Projects rows.
+Its metadata rows use 4px gaps and 18px separation before actions. Platform
+administration/account pages use their own controls. Responsive rows
 keep these controls visible while content begins with page data. Metric hints,
 usage actions and account rows wrap on narrow screens.
 Metrics keeps its authorized project selector with the common reporting range,

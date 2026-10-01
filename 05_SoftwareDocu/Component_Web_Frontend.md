@@ -7,6 +7,9 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Web frontend
 
+Project details groups its three metadata rows with a 4px gap and separates
+the action row by 18px; long values wrap within the panel.
+
 Secondary text uses contrasting light/dark theme colours. Project metadata,
 configuration values, type/domain hints and field help use 0.875rem text with
 1.5 line height; long identifiers and guidance wrap within their panels.
@@ -36,16 +39,16 @@ Tables with more than ten rows offer 10, 25, 50 and All choices with
 Previous/Next for finite pages. Audit fetches the full authorized history;
 Jobs delegates the page size and filtering to the scoped API. Other tables
 paginate their rendered rows and reset to the first page when size changes.
-The top bar supplies the single page title and common actions. Project details
-uses its authorized project selector; platform administration and account settings
+The top bar supplies the single page title and common actions on every page.
+Project details uses the identity opened from Projects; platform administration and account settings
 use their own status, membership and preference controls. Jobs and Metrics
 keep their project selectors in page content. On Overview, four expandable summary cards select the scope:
 Projects opens a table of authorized projects where a row selects the project,
 and Active jobs, Awaiting review and Failed jobs open paged run tables for the
 selected project. Closing a card restores Recent jobs. Opening a run navigates
 to its Jobs detail; opening a project navigates to Project details. Content
-starts directly with the page's controls and data; at narrow widths the title,
-actions and selector wrap into separate rows. Statistic hints and user rows wrap
+starts directly with the page's controls and data; at narrow widths the title
+and actions wrap into separate rows. Statistic hints and user rows wrap
 instead of clipping or colliding on small screens.
 Jobs places its authorized project selector in page content beside the ticket
 and Start job controls. Ticket Help explains the existing repository issue
