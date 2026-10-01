@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # TASK-c765e6b4 - Implement ADORE web interface
 
-stage: deliver
+stage: done
 type: feature
 path: full
 interaction: autopilot
@@ -24,9 +24,9 @@ opened: 2026-09-29
 - [x] validated candidate confirmed unchanged; otherwise returned to validate
 - [x] validation evidence, diff, exclusions, and outcome presented
 - [x] delivery confirmed by the human
-- [ ] journal and report included in the delivery commit
-- [ ] agreed outcome delivered, normally a PR
-- [ ] close-out committed after the outcome succeeded, or carried by the delivery commit where nothing could fail after it
+- [x] journal and report included in the delivery commit
+- [x] agreed outcome delivered as the owner-requested local commit and DCP deployment
+- [x] close-out committed after the outcome succeeded
 
 ## Frame
 
@@ -311,6 +311,7 @@ Path and reason: Full. New UI/API/data/dependencies/security contracts require s
 - 2026-10-01 build green: `.venv\Scripts\python.exe -m pytest -q tests/test_web_metrics.py` exited 0 with 32 tests; Ruff passed. Completed-job trends now use the last lifecycle-matching terminal event and use the stored update time only for legacy runs without terminal evidence. The metrics and reliability requirements, user guide, Web API component page and knowledge are current; evolution lists expected source and documentation paths.
 - 2026-10-01 validate proof: `py -3.12 .agentic/aegis.py check --task TASK-c765e6b4 --strict --run` exited 0 after the final metrics correction. The configured full offline test and Ruff commands passed; frontend TypeScript/Vite and `git diff --check` also passed. AEGIS reported zero errors, eight advisory warnings and one unrelated manual note. Warnings are two pre-existing tracked fingerprint sidecars, an old ruling's malformed supersedes field retained under the append-only rule, intentional `.gitignore` and example-config layout entries, and password/bootstrap strings in API/store/UI rather than embedded credentials.
 - 2026-10-01 validate live inspection: DCP R3 HTTPS health, readiness, admin login and all six project detail/history/metrics routes returned 200; Chrome showed Nilo's historical failed job and functional Metrics tabs. The Nilo run-state bytes were restored from the preweb backup after a repeated-poll bug and then remained SHA-256 `ec1afac5ad7ff7999261316620401676209cc21778c42e4c0c70cc18a21ffec4` through API reads and worker polling. The R4 package containing the final trend correction is pending installation. No real ticket was started by this cutover. The real local-model inference acceptance remains unverified.
+- 2026-10-01 deliver outcome: commit `0669199` contains the validated DCP compatibility repair on top of `8192bb0`. The R4 Linux offline archive SHA-256 `1ba6fb81f846673120e398b2569c0f59b7c3df7a23b9703a074e611eef821ce4` installed with no network dependency. DCP `adore-web.service` and `adore-web-worker.service` are enabled, active and use the real six-profile home; the legacy poll timer remains disabled. HTTPS health, readiness, About, admin login with Secure/HttpOnly cookie, all six project detail/history/metrics endpoints and global metrics returned 200. Chrome showed Nilo's original September 28 failed job and the corrected September 28 completion trend; its state SHA-256 remained equal to the preweb backup after more than six minutes of worker polling. The isolated acceptance services and local demo listener were stopped; the test server directory was archived mode 600, verified and removed. The Gitea acceptance repository and unmerged draft PR remain as historical test evidence; no existing real repository was changed or merged. DCP deployment handoff is in `~/apps/adore/web-release-dcp-r4/DEPLOYMENT.md`. Real local-model inference was not exercised in this cutover.
 
 ## Rulings
 
@@ -320,21 +321,21 @@ Path and reason: Full. New UI/API/data/dependencies/security contracts require s
 
 ## Handoff
 
-current: deliver
+current: done
 status: ready
-next: Commit the validated compatibility candidate, then install R4 and verify the real service before retiring the test deployment.
-must_read: .agentic/steps/6_deliver.md, 04_Software/adore/web/app.py, 04_Software/adore/orchestrator.py
-blockers: real local-model inference acceptance remains unverified
+next: Operate the real DCP web service and change the bootstrap administrator password when ready.
+must_read: 01_Documentation/Web_Interface.md
+blockers: none for the approved deployment; real local-model inference remains an optional future acceptance check
 
 ## Stage report
 
-stage: validate
+stage: deliver
 result: completed
-current: deliver
-changed: DCP checkpoint/handoff compatibility, zero-cost-cap semantics, web handoff visibility, component/user documentation and tests
-evidence: final strict offline test/Ruff gate exited 0 with zero errors; frontend build and diff check passed; DCP R3 six-project API and browser inspection passed
-issues: DCP R4 package swap and acceptance-instance retirement remain; real local-model inference unverified
-next: commit final code, deploy R4 and verify, archive/remove isolated acceptance instance, close out
+current: done
+changed: DCP real ADORE web deployment at R4, preserved six profiles, removed isolated acceptance service and directory
+evidence: final strict offline test/Ruff gate exited 0; R4 installed offline; live HTTPS/UI and six-project API passed; Nilo state hash unchanged through worker polling
+issues: real local-model inference remains unverified; the Gitea acceptance repository and draft PR remain as test evidence
+next: operate the real web service from the documented DCP handoff
 needs_user: no
 spec_compliance: disabled
 implementation_quality: disabled
