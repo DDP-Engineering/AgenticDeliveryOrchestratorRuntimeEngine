@@ -55,6 +55,10 @@ budget, and required forge notifications pass through a persisted outbox.
 Publication requires a fresh `agent-approved` label bound to the exact
 candidate fingerprint and target commit; every review round repeats validation
 and approval.
+An explicit profile opt-in may publish guarded work-in-progress checkpoints to
+the owned ticket branch before approval, without opening an MR/PR. An operator
+can hand a run to a human at a safe boundary; the resulting terminal state
+protects the worktree from routine cleanup and further autonomous execution.
 
 ## Established constraints
 

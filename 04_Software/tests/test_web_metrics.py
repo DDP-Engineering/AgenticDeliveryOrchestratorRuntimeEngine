@@ -56,6 +56,29 @@ def test_daily_usage_and_financial_privacy(tmp_path):
         assert body["daily"][0]["cost_usd"] == 0.1
 
 
+def test_terminal_daily_count_ignores_later_checkpoint_activity(tmp_path):
+    """@brief A recovery checkpoint cannot turn an old failure into today's completion."""
+    profiles = ProfileStore(tmp_path / "home")
+    profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
+    state = StateStore(profile.store_root)
+    run = RunState(run_id="run-1", ticket_iid=42, lifecycle="failed",
+                   updated_at="2026-09-28T15:26:39Z")
+    state.save(run)
+    state.journal(run.run_id, "picked", ts="2026-09-28T12:00:00Z")
+    state.journal(run.run_id, "stage-failed", ts="2026-09-28T15:26:39Z")
+    state.journal(run.run_id, "checkpoint-pushed", ts="2026-10-01T05:48:26Z",
+                  commit="d" * 40)
+    metrics.record_summary(state.root / "metrics.db", metrics.summarize_run(state, run.run_id))
+    app = create_app(profiles.home)
+    with TestClient(app) as client:
+        client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
+        response = client.get("/api/v1/projects/alpha/metrics")
+        assert response.status_code == 200, response.text
+        assert [(row["date"], row["completed"]) for row in response.json()["daily"]] == [
+            ("2026-09-28", 1)
+        ]
+
+
 def test_usage_projection_replay_and_missing_source_fail_closed(tmp_path):
     """@brief Web usage reads backfill once and reject lost source evidence."""
     profiles = ProfileStore(tmp_path / "home")

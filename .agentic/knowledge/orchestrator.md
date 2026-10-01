@@ -25,7 +25,8 @@ operations. ADORE never merges or gives forge credentials to an executor.
 ## Public interface
 
 `poll_once(ticket_iid=None)` selects an eligible ticket and conducts its run;
-`run_loop()`, `retry(run_id)` and `cancel(run_id)` expose bounded operations.
+`run_loop()`, `retry(run_id)`, `cancel(run_id)` and `handoff(run_id)` expose
+bounded operations.
 `Orchestrator.from_config()` constructs the conductor from validated settings.
 
 ## Invariants
@@ -33,11 +34,19 @@ operations. ADORE never merges or gives forge credentials to an executor.
 The conductor owns ticket claiming, worktrees/containers, budgets, retries,
 clarification parking, outbox replay, candidate fingerprinting and draft-only
 MR/PR publication. One AEGIS task is pinned to each run. Strict verification
-and fresh candidate-bound approval precede push or draft creation; drift forces
-re-conduction. Failed resources remain available for recovery. Selected-ticket
+and fresh candidate-bound approval precede delivery push or draft creation;
+optional guarded progress checkpoints stay on the owned ticket branch and do
+not open an MR/PR. Drift forces re-conduction. Failed and handed-off resources
+remain available for recovery. Selected-ticket
 requests retain readiness, hold and exclude checks.
 Worker-authorized cancellation markers interrupt a working executor gate;
 the conductor alone finalizes cancellation and clears the marker.
+At a safe boundary, a requested handoff stops autonomous work, preserves the
+worktree and wins over a concurrent cancellation request. A foreign remote
+checkpoint commit stops execution instead of replacing human work.
+An idle poll republishes failed-run recovery commits only when the local branch
+has advanced or a recorded transport error remains; a verified checkpoint
+does not refresh historical run timestamps.
 
 ## Key behaviors
 
@@ -48,6 +57,8 @@ the conductor alone finalizes cancellation and clears the marker.
 - `REQ-FUNC-448cbde7` - usage events carry executor/model/review-round context
   and explicit token/cost coverage for web analytics. Complete zero-token
   reports remain known zero; partial records do not create numeric usage.
+- `REQ-REL-94e653aa` - opt-in remote checkpoints and durable human handoff
+  preserve DCP recovery evidence and the fresh approval boundary.
 
 ## Architecture
 
@@ -69,3 +80,4 @@ process.
 
 - `04_Software/adore/orchestrator.py` - lifecycle and gate logic.
 - `04_Software/tests/test_orchestrator.py` - selection, recovery and delivery.
+- `04_Software/tests/test_checkpoint_handoff.py` - checkpoint and handoff edges.

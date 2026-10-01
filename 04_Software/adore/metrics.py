@@ -508,7 +508,7 @@ def is_terminal(lifecycle: str) -> bool:
     @param[in]  lifecycle Run lifecycle value.
     @return     True for actual runtime terminal lifecycles.
     """
-    return lifecycle in ("done", "failed", "cancelled")
+    return lifecycle in ("done", "failed", "cancelled", "handed-off")
 
 
 # END OF FILE

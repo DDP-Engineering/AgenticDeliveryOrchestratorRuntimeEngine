@@ -135,6 +135,8 @@ td.strong { font-weight: 800; }
 .status-working { color: var(--accent-deep); background: var(--accent-soft); }
 .status-failed { color: var(--danger); background: var(--danger-soft); }
 .status-in-review, .status-awaiting-approval { color: #8a5b16; background: #fff3d7; }
+.status-handoff-pending { color: #8a5b16; background: #fff3d7; }
+.status-handed-off { color: var(--accent-deep); background: var(--accent-soft); }
 .readiness { border-radius: 999px; padding: 7px 12px; background: var(--surface-alt); font-size: .8rem; }
 .readiness-ready { color: var(--accent-deep); background: var(--accent-soft); }
 .readiness-unavailable, .readiness-error { color: var(--danger); background: var(--danger-soft); }

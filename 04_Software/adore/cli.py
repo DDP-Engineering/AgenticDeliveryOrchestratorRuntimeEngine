@@ -39,7 +39,7 @@ from adore.config_edit import ConfigEditLockedError, config_edit_lock
 from adore.orchestrator import LockHeldError, Orchestrator
 from adore.process_log import ProcessLogger, process_log_path
 from adore.profiles import ProfileError, ProfileStore, resolve_config_path
-from adore.state import StateStore
+from adore.state import StateError, StateStore
 from adore.util import parse_duration
 from adore.wizard import ConsoleAsker, ScriptedAsker, WizardError, run_wizard
 
@@ -89,7 +89,7 @@ def _build_parser() -> argparse.ArgumentParser:
     sub.add_parser("resume", help="Allow picking new tickets")
     sub.add_parser("cleanup", help="Garbage-collect orphaned worktrees/containers/state")
 
-    for name in ("retry", "cancel", "logs"):
+    for name in ("retry", "cancel", "logs", "handoff"):
         p = sub.add_parser(name, help=f"{name} a run")
         p.add_argument("run_id")
 
@@ -607,6 +607,20 @@ def _cmd_run_op(args: argparse.Namespace) -> int:
         return EXIT_ERROR
     config, engine = built
     store = _store(config)
+    if args.command == "handoff":
+        try:
+            store.request_handoff(args.run_id)
+            with _operator_lock(store):
+                ok = engine.handoff(args.run_id)
+                print("handed off; inspect remote checkpoint and local evidence"
+                      if ok else "handoff pending; ownership has not transferred")
+                return EXIT_OK if ok else EXIT_ERROR
+        except LockHeldError:
+            print("handoff queued; current bounded session must finish before human editing")
+            return EXIT_OK
+        except (StateError, OSError) as exc:
+            print(f"error: cannot request handoff: {exc}")
+            return EXIT_ERROR
     if args.command == "logs":
         events = store.read_journal(args.run_id)
         if not events:
@@ -960,7 +974,7 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_pause(args, paused=False)
     if args.command == "run":
         return _cmd_run(args)
-    if args.command in ("cancel", "retry", "logs", "delete"):
+    if args.command in ("cancel", "retry", "logs", "delete", "handoff"):
         return _cmd_run_op(args)
     if args.command == "stats":
         return _cmd_stats(args)

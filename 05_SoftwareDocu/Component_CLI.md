@@ -36,11 +36,15 @@ the `adore` package. An optional web API also exposes selected controls.
   config): `adore run --loop|--once|--dry-run` (default mode from
   `[polling] mode`; `--once` prints the poll summary as JSON; all `run`
   modes also mirror their output to `<store_root>/adore.log`),
-  `adore cancel <run-id>`, `adore retry <run-id>`, `adore logs <run-id>`
+  `adore cancel <run-id>`, `adore retry <run-id>`, `adore handoff <run-id>`,
+  `adore logs <run-id>`
   (journal, including executor archive paths when present), and
   `adore delete <run-id> --force` (destructive; refuses without `--force`,
   design 8c guardrail). Retry, cancel, delete, and reset acquire the
   single-conductor lock for their entire mutation; logs remain unlocked.
+  Handoff queues an exact durable request when that lock is held, then the
+  conductor stops at a safe boundary and preserves human-owned work. With an
+  idle lock, the CLI completes the transfer directly.
 - Wire the metrics commands (phase 5): `adore stats [--since 30d] [--by
   priority|outcome] [--html] [--rebuild]`, `adore report <run-id>` (live
   journal summary as JSON), `adore export --csv` (all summaries to stdout).

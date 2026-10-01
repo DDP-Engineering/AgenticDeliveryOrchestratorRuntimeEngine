@@ -113,6 +113,23 @@ def test_revoked_membership_fails_closed_before_execution(tmp_path):
     assert web.operation(queued["id"])["status"] == "failed"
 
 
+def test_queued_cancel_cannot_reclaim_human_handoff(tmp_path):
+    """@brief A stale queued cancel never invokes the engine after ownership transfer."""
+    profiles = ProfileStore(tmp_path / "home")
+    profiles.create("alpha")
+    state = StateStore(profiles.default_store_root("alpha"))
+    state.save(RunState("run-1", 1, lifecycle="handed-off"))
+    web = WebStore(profiles.home / "web.db")
+    admin = web.authenticate("admin", "admin")
+    queued = web.enqueue(admin["id"], "alpha", "cancel", "run-1", "stale")
+    calls = []
+    worker = CommandWorker(profiles, web,
+                           runner=lambda argv, env: calls.append(argv) or 0)
+    assert worker.run_pending() == 1
+    assert calls == []
+    assert web.operation(queued["id"])["status"] == "failed"
+
+
 def test_replaced_profile_rejects_queued_developer_command(tmp_path):
     """@brief Reused project labels cannot execute old developer commands."""
     profiles = ProfileStore(tmp_path / "home")

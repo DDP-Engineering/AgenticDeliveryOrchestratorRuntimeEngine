@@ -84,6 +84,8 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
   text filters; grants and corrupt-state checks precede data. Malformed or reversed date inputs fail;
   corrupt persisted update timestamps fail closed when date filtering is used.
   The overview requests seven recent runs plus unfiltered lifecycle counts.
+  Pending and completed human handoffs have localized lifecycle labels and
+  filters. Cancel is unavailable during and after human ownership transfer.
 - The React session switch clears private caches and increments a generation
   guard so in-flight responses from the previous account are ignored.
 - Project daily CSV exports follow the same financial filter as metrics JSON;
@@ -94,6 +96,8 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
   The `period` object sums selected dated journal buckets; `totals`,
   coverage, run rows and revision attribution remain all-time. Summary-only
   usage is not fabricated into daily buckets, and developers receive no money.
+  Completed-job trends use terminal lifecycle evidence rather than a later
+  recovery checkpoint event; legacy journals fall back to stored run update time.
 - Project/global metrics expose terminal elapsed-time sample count, average
   and median separately from event-based throughput. The period duration
   sample uses local completion day. Missing timestamps are excluded; corrupt
@@ -120,6 +124,7 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
   without reported cost and remain separate from reported totals.
 - Worker authorization is rechecked after queueing. Interrupted operations
   become `uncertain`, never blindly replayed.
+  A queued Cancel is rejected if the run became human-owned before execution.
 - During every blocking worker command or project poll, a watcher rechecks
   pending cancel grants across projects and
   writes a per-run marker. The conductor interrupts the matching working gate
@@ -151,6 +156,8 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 - `REQ-FUNC-448cbde7` - observed usage, reported/estimated costs and coverage.
 - `REQ-UX-749d37c8` - four locales, themes and responsive UI.
 - `REQ-PLAT-a1b60ff9` - host-specific offline installation.
+- `REQ-REL-94e653aa` - checkpoint-bearing state and handoff lifecycles remain
+  readable and protected after replacement of the DCP runtime.
 
 ## Architecture
 

@@ -18,6 +18,7 @@ audit log. The closed run-state schema is `1`.
 - append/read JSONL events;
 - own pause and single-instance lock files;
 - own per-run `cancel.request` markers used by the web worker and conductor;
+- own validated `handoff-request.json` markers for operator ownership transfer;
 - expose fail-closed stale-lock reclamation for cleanup: only a readable local
   lock whose PID is provably gone may be removed;
 - preserve active/historical task ids, stage/path/type, counters, incidents,
@@ -30,6 +31,10 @@ Every `state.json` contains `schema_version: 1`. Missing/wrong schema and unknow
 keys raise `StateError`. Any earlier state shape is rejected with a
 no-migration diagnostic. Outbox/failure/task histories are lists and validation evidence is
 an object.
+The schema also carries a verified remote checkpoint commit and a checkpoint
+error. Older schema-1 records load with empty defaults; malformed commit
+digests fail closed. `handoff-pending` and `handed-off` are explicit lifecycle
+states. `handed-off` is terminal for metrics while cleanup protects its worktree.
 
 Writes use temporary-file replacement. JSONL is append-only; a torn trailing
 line may be skipped because `state.json`, not the log, drives decisions.
@@ -49,10 +54,14 @@ unreadable, or wrong-shape lock records. Those records remain held with unknown
 ownership until a human verifies the process and state.
 
 `request_cancel()` creates an idempotent marker only for a nonterminal run.
+Pending or completed human handoff refuses new cancellation requests.
 Invalid run IDs and nonempty, symlinked or otherwise malformed markers raise
 `StateError`. The conductor clears
 the marker after normal cancellation; the marker never changes `state.json`
 without that conductor decision.
+`request_handoff()` writes an exact run identity and timestamp atomically.
+Malformed or foreign handoff markers raise `StateError`; the conductor clears
+the marker after durable ownership transfer.
 
 ## 5. Validation and Tests
 

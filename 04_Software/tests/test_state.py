@@ -379,6 +379,10 @@ def test_cancel_request_is_durable_and_validated(tmp_path: Path) -> None:
         store.request_cancel("missing")
     store.save(RunState(run_id="active-1", ticket_iid=1, lifecycle="done"))
     assert not store.request_cancel("active-1")
+    for lifecycle in ("handoff-pending", "handed-off"):
+        store.save(RunState(run_id="active-1", ticket_iid=1,
+                            lifecycle=lifecycle))
+        assert not store.request_cancel("active-1")
 
 
 def test_cancel_request_malformed_marker_fails_closed(tmp_path: Path) -> None:

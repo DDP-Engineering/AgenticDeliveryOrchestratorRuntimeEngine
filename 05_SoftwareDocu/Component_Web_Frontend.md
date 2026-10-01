@@ -173,7 +173,9 @@ remove a previous custom trust reference during a staged edit.
 
 The API serves the build from its own process. Developers can start, retry and
 cancel assigned jobs; job details show retry for failed runs and cancel for
-nonterminal runs. Only administrators see cost and account/config screens.
+nonterminal runs still owned by ADORE. Pending and completed human handoffs
+have localized status labels; neither shows Cancel. Only administrators see
+cost and account/config screens.
 
 ## 9. Validation And Tests
 

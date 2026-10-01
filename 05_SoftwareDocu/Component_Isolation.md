@@ -36,13 +36,15 @@ guardrails, not a sandbox.
   `changed_files` (committed + pending paths vs the base ref; feeds the
   max_files_touched budget; a rename counts as ONE file - its destination - and
   git's path quoting is stripped), the delivery git plumbing - `merge` (conflict =
-  data, left in progress for the executor), `merge_in_progress`, and `push`
-  (the ONLY remote-writing git call in ADORE) - `commit_all_if_dirty` for
+  data, left in progress for the executor), `merge_in_progress`, `push`
+  (approved draft delivery), and `push_checkpoint` (opt-in guarded WIP branch
+  publication) - `commit_all_if_dirty` for
   conductor-generated stage/delivery artifacts with the configured agent's
   host-side Git identity, plus the committed-state checks
   `is_dirty`; `ref_head`, `commit_series`, and
   `candidate_fingerprint` bind approval to the target, tree and exact commit
-  sequence; `product_diff_fingerprint` detects product mutation while allowing
+  sequence; `worktree_progress_fingerprint` detects source progress across an
+  executor gate; `product_diff_fingerprint` detects product mutation while allowing
   expected `.agentic/` delivery bookkeeping; and `list_dirs` (every directory under the
   worktrees root, including husks deregistered but not deleted after the WSL
   bind-mount teardown race - the input `adore cleanup` sweeps).
@@ -72,6 +74,11 @@ command bound. It targets the exact run container and raises `IsolationError`
 on a real runtime failure; the conductor still owns final state and teardown.
 An Ubuntu Docker-in-WSL acceptance probe stopped a running `docker exec sleep`
 in 2.24 seconds through this method; the executor exited nonzero.
+
+`push_checkpoint()` validates the exact local and remote ticket ref, verifies
+ancestry, and uses a compare-and-update lease. A foreign branch or rejected
+lease raises a typed conflict; malformed Git output raises a protocol error.
+It never pushes the target branch or opens an MR/PR.
 
 Explicitly not owned: *when* to park/reap/resume (orchestrator lifecycle
 policy), what runs inside the container (executor launcher), and any remote git

@@ -24,7 +24,7 @@ its HTTP routes live in `web-interface.md`.
 ## Command groups
 
 The CLI exposes configuration (`show`, `validate`, guarded scalar `set`),
-runtime lifecycle (`run`, `status`, `runs`, pause/resume, cancel/retry/logs,
+runtime lifecycle (`run`, `status`, `runs`, pause/resume, cancel/retry/handoff/logs,
 reset/delete/cleanup), metrics (`stats`, `report`, `export`), and profile setup
 and management (`init`, `profile`, global `--profile`). Its configuration path
 precedence is explicit `-c`, named profile, active profile, then local
@@ -45,6 +45,9 @@ configuration precedence. Invalid config returns nonzero. Engine mutations
 respect the conductor lock; force is required for destructive state changes.
 `config set` shares a per-directory edit lock with the web API; contention
 returns a nonzero result without changing the config file.
+`handoff` queues a validated request when a conductor holds the lock and
+completes the transfer under the lock when idle. The terminal state preserves
+the worktree for human ownership and grants no publication approval.
 The CLI never merges or edits AEGIS journals directly.
 `report` and `stats --rebuild` return a typed metrics-evidence error for
 conflicting versioned usage. Rebuild computes all summaries before writing so
@@ -64,6 +67,7 @@ state only: they do not edit AEGIS journals or cause a merge.
 - `REQ-FUNC-39697089` - explicit force and live-lock protection for mutations.
 - `REQ-FUNC-3557ecdf` - profile resolution, use tracking, and visible corrupt run state.
 - `REQ-FUNC-f9946b6b` - selected-ticket web operations retain CLI boundaries.
+- `REQ-REL-94e653aa` - operator handoff uses the conductor's safe boundary.
 
 ## Architecture
 
@@ -84,3 +88,4 @@ The web worker calls the same CLI command boundary with fixed argument vectors.
 - `04_Software/adore/cli.py` - command parsing and routing.
 - `04_Software/tests/test_smoke.py` - CLI behavior and failure contracts.
 - `04_Software/tests/test_orchestrator.py` - selected-ticket selection checks.
+- `04_Software/tests/test_checkpoint_handoff.py` - handoff command boundaries.

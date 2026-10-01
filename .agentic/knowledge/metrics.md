@@ -28,6 +28,8 @@ daily reporting; it does not replace them.
 refreshes the mirror. `load_summaries`, `aggregate`, `export_csv`, `render_html`
 and `profile_stats` supply CLI reporting and exports. Only terminal lifecycles
 are recordable.
+The terminal set includes `handed-off`, which records human-owned work as a
+distinct outcome without marking it merged or approved.
 
 ## Invariants
 
@@ -51,6 +53,7 @@ views, and raises `MetricsError` on malformed or conflicting versioned input.
 - `REQ-FUNC-f5aaaa62` - one truthful terminal summary per run.
 - `REQ-FUNC-ef74f46e` - filtered aggregates, CSV and escaped static HTML.
 - `REQ-FUNC-448cbde7` - web daily trends and explicit cost coverage.
+- `REQ-REL-94e653aa` - human handoff is a terminal, preserved outcome.
 - Administrator web estimates use immutable project/executor/model rates from
   `WebStore`; reported and estimated money never sum the same event twice.
 - Web revision counts distinguish human-requested MR/PR changes (`revise-label`)

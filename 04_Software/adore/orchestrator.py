@@ -33,6 +33,7 @@ import shutil
 from threading import Event, Thread
 import time
 from typing import Any
+from urllib.parse import quote, urlsplit, urlunsplit
 from uuid import uuid4
 
 from adore import metrics
@@ -61,6 +62,8 @@ from adore.executor.launcher import build_executor
 from adore.forge import Comment, Forge, ForgeError, Ticket, build_forge
 from adore.identity import AgentIdentity
 from adore.isolation import (
+    CheckpointConflictError,
+    CheckpointProtocolError,
     ContainerManager,
     IsolationError,
     WorktreeManager,
@@ -99,6 +102,10 @@ _TICKET_CONTENT_CHANGED_NOTE = "ticket content changed since pickup"
 # Valid only while the single-conductor lock prevents another process from
 # reconciling a legitimately long-running stage as abandoned.
 _STALE_WORKING_GRACE_SECONDS = 60
+
+
+class _CheckpointHalted(IsolationError):
+    """@brief A checkpoint already recorded a terminal ownership/signaling failure."""
 
 
 # HELPER FUNCTIONS
@@ -287,7 +294,8 @@ class Orchestrator:
             if self.store.is_paused():
                 summary["paused"] = True
                 return summary
-            active = [r for r in self.store.list_runs() if r.lifecycle == "working"]
+            active = [r for r in self.store.list_runs()
+                      if r.lifecycle in {"working", "handoff-pending"}]
             if len(active) >= self.config.polling.max_concurrent_runs:
                 summary["at_capacity"] = True
                 return summary
@@ -324,6 +332,7 @@ class Orchestrator:
         self.store.save(run)
         self.store.clear_cancel_request(run_id)
         self.store.journal(run_id, "cancelled", outcome=outcome)
+        self.store.clear_handoff_request(run_id)
         self._status(run)
         self._record_metrics(run)
         return True
@@ -387,6 +396,9 @@ class Orchestrator:
             run = self.store.load(run_id)
         except (FileNotFoundError, StateError):
             return False
+        if run.lifecycle in {"handed-off", "handoff-pending"}:
+            self.log("human-owned run cannot be reset for automatic execution")
+            return False
         run.stage = stage
         run.lifecycle = "failed"
         run.stage_failures = 0
@@ -414,7 +426,8 @@ class Orchestrator:
                 report["lock_held_by"] = lock.get("pid", "unknown")
         protected_runs = [
             run for run in self.store.list_runs()
-            if run.lifecycle in ACTIVE_LIFECYCLES or run.lifecycle == "failed"
+            if run.lifecycle in ACTIVE_LIFECYCLES
+            or run.lifecycle in {"failed", "handed-off", "handoff-pending"}
         ]
         protected_ids = {run.run_id for run in protected_runs}
         protected_containers = {
@@ -441,6 +454,96 @@ class Orchestrator:
             force_rmtree(path)
             report["worktrees_removed"].append(path.name)
         return report
+
+    def handoff(self, run_id: str) -> bool:
+        """
+        @brief Stop at an operator-owned safe boundary and preserve human-owned work.
+        @param[in] run_id Existing run selected explicitly by the operator.
+        @return True when durable ownership was transferred; False when unsafe.
+        @note The caller must hold the conductor lock. Active CLI requests are queued.
+        """
+        try:
+            run = self.store.load(run_id)
+        except (FileNotFoundError, StateError):
+            return False
+        if run.lifecycle == "handed-off":
+            if self.store.handoff_requested(run_id):
+                self._handoff_notice(run)
+            self.store.clear_handoff_request(run_id)
+            return True
+        if run.lifecycle in {"done", "cancelled"}:
+            return False
+        self.store.request_handoff(run_id)
+        # Pending is durable before stop/checkpoint work. Human ownership is announced
+        # only after the container has stopped and every Git mutation has finished.
+        run.lifecycle = "handoff-pending"
+        run.outcome = "handoff pending; wait before editing local work"
+        run.approval_presented_at = ""
+        run.approval_label_removed = False
+        self.store.save(run)
+        try:
+            if run.container:
+                self.containers.stop(run.container)
+        except IsolationError as exc:
+            self.log(f"handoff pending; container stop not verified: {_sanitize(exc)}")
+            self.store.journal(run_id, "handoff-pending", evidence=_sanitize(exc))
+            return False
+        try:
+            if not run.worktree or not self.worktrees.exists(run_id):
+                raise IsolationError("local worktree unavailable; inspect preserved state")
+            created = self.worktrees.commit_all_if_dirty(
+                run_id, f"WIP ADORE human handoff {run.active_task_id or run_id}"
+            )
+            self.store.journal(run_id, "checkpoint", created=created, reason="human handoff")
+            self._push_checkpoint(run, handoff=True)
+        except IsolationError as exc:
+            run.checkpoint_error = _sanitize(exc, 2000)
+            self.store.save(run)
+        run.lifecycle = "handed-off"
+        run.outcome = "human ownership; automatic execution disabled"
+        self.store.save(run)
+        self.store.journal(run_id, "handed-off", branch=run.branch, worktree=run.worktree,
+                           task=run.active_task_id, remote=run.checkpoint_remote_commit,
+                           error=run.checkpoint_error)
+        self._handoff_notice(run)
+        self.store.clear_handoff_request(run_id)
+        self._status(run)
+        self._record_metrics(run)
+        return True
+
+    def _handoff_notice(self, run: RunState) -> None:
+        """@brief Persist the takeover instructions without duplicating recovery notifications."""
+        if any(item.get("kind") == "human-handoff" for item in run.notification_outbox):
+            return
+        if any(event.get("event") == "notification-delivered"
+               and event.get("kind") == "human-handoff"
+               for event in self.store.read_journal(run.run_id)):
+            return
+        body = (
+            f"{self.identity.tag} Human handoff complete. Automatic execution is disabled.\n\n"
+            f"Work in progress; delivery is not approved by this handoff.\n\n"
+            f"Branch: {self._checkpoint_branch_link(run)}\n"
+            f"Remote checkpoint: `{run.checkpoint_remote_commit or 'not verified'}`\n"
+            f"Local worktree: `{run.worktree}`\n"
+            f"AEGIS task: `{run.active_task_id or 'not created'}`\n\n"
+            "Read AGENTS.md, the full task journal and Handoff before continuing. "
+            "Fetch the branch only when the remote checkpoint is current; local files "
+            "and uncommitted changes remain authoritative when publication failed.\n"
+            + (f"Recovery limitation: {_sanitize(run.checkpoint_error)}\n"
+               if run.checkpoint_error else "")
+        )
+        self._required_comment(run, "human-handoff", body, force_ticket=True)
+
+    def _handoff_at_boundary(self, run: RunState) -> bool:
+        """@brief Consume an exact durable request before any further autonomous work."""
+        try:
+            requested = self.store.handoff_requested(run.run_id)
+        except StateError as exc:
+            self._fail_immediately(run, "HANDOFF_REQUEST_INVALID", exc)
+            return True
+        if requested:
+            self.handoff(run.run_id)
+        return requested
 
     # Selection and startup
 
@@ -606,7 +709,7 @@ class Orchestrator:
                 self._io_dir(run.run_id),
             )
             while run.lifecycle == "working":
-                if self._cancel_if_requested(run):
+                if self._handoff_at_boundary(run) or self._cancel_if_requested(run):
                     return
                 try:
                     if run.active_task_id is None:
@@ -632,6 +735,8 @@ class Orchestrator:
                     # Protocol/version/schema/path violations are trust-boundary failures.
                     self._fail_immediately(run, "AEGIS_PROTOCOL", exc)
                     return
+                except _CheckpointHalted:
+                    return
                 except AegisTaskError as exc:
                     self._fail_immediately(run, "AEGIS_FATAL", exc)
                     return
@@ -640,6 +745,15 @@ class Orchestrator:
                         return
 
     def _conduct_task(
+        self, run: RunState, ticket: Ticket, client: AegisClient, thread: str,
+    ) -> None:
+        """@brief Supervise task work, stopping when checkpoint ownership is lost."""
+        try:
+            self._conduct_task_impl(run, ticket, client, thread)
+        except _CheckpointHalted:
+            return
+
+    def _conduct_task_impl(
         self,
         run: RunState,
         ticket: Ticket,
@@ -649,7 +763,7 @@ class Orchestrator:
         """@brief Run fresh, journal-authoritative stage attempts until deliver."""
         failure_context = ""
         while run.lifecycle == "working":
-            if self._cancel_if_requested(run):
+            if self._handoff_at_boundary(run) or self._cancel_if_requested(run):
                 return
             budget = self._budget_exceeded(run)
             if budget:
@@ -728,6 +842,11 @@ class Orchestrator:
                 return
             if task.stage == "validate" and not self._integrate_target(run):
                 failure_context = "Resolve the current target integration conflict."
+            try:
+                progress_before = self.worktrees.worktree_progress_fingerprint(run.run_id)
+            except IsolationError as exc:
+                self._fail_immediately(run, "WORKTREE_PROGRESS", exc)
+                return
             result = self._launch_stage(
                 run,
                 ticket,
@@ -760,6 +879,32 @@ class Orchestrator:
                 if questions:
                     self._park(run, questions)
                     return
+                try:
+                    progress_after = self.worktrees.worktree_progress_fingerprint(run.run_id)
+                except IsolationError as exc:
+                    self._fail_immediately(run, "WORKTREE_PROGRESS", exc)
+                    return
+                added = updated.log[len(task.log):]
+                if (progress_before != progress_after and added
+                        and updated.log[:len(task.log)] == task.log
+                        and all(entry.strip() for entry in added)):
+                    self._checkpoint(
+                        run, f"ADORE continue {run.active_task_id} {task.stage}"
+                    )
+                    self.store.journal(
+                        run.run_id, "stage-continuation", stage=task.stage,
+                        iteration=run.iterations, failed_attempts=run.stage_failures,
+                        evidence=_sanitize("\n".join(added)),
+                    )
+                    failure_context = (
+                        "The preceding session made candidate progress and appended work "
+                        "evidence, but this stage remains unfinished. Read the full task "
+                        "journal, Handoff and Stage report; complete the remaining stage "
+                        "work and legally advance it. Do not repeat completed work or "
+                        "fabricate a stage transition. Recent work evidence:\n"
+                        + _sanitize("\n".join(added))
+                    )
+                    continue
                 if not self._stage_failure(
                     run,
                     "NO_STAGE_PROGRESS",
@@ -857,6 +1002,8 @@ class Orchestrator:
         close_out: str = "",
     ) -> GateRun:
         """@brief Launch exactly one fresh executor session for one attempt."""
+        if self._handoff_at_boundary(run):
+            raise _CheckpointHalted("human handoff requested")
         run.iterations += 1
         self.store.save(run)
         self.store.journal(
@@ -902,6 +1049,9 @@ class Orchestrator:
                 watcher.join(timeout=21)
         self._journal_usage(run, run.stage, result)
         self._journal_artifacts(run, run.stage, result)
+        if self._handoff_at_boundary(run):
+            # The executor has exited, so no container writer can race human ownership.
+            raise _CheckpointHalted("human handoff requested")
         return result
 
     def _stage_prompt(
@@ -929,6 +1079,11 @@ class Orchestrator:
             "choices to a human or wait for an answer, because no human is reading. It "
             "does not ask you to carry on past this stage. ADORE supervises every stage "
             "and owns the pre-publication approval.",
+            "Complete all required work of the current stage before returning. A zero "
+            "exit alone does not complete a stage. If a context handoff is necessary, "
+            "preserve actual candidate changes and append concise evidence of completed "
+            "and remaining work to the Log, Handoff and Stage report; ADORE can continue "
+            "that work in a bounded fresh session. Never advance unfinished work.",
             "Do exactly ONE stage in this session: the current one. The moment the AEGIS "
             "journal shows that stage advanced or legally routed backward, end the "
             "session and return. Do not begin the next stage, however small it looks. "
@@ -947,7 +1102,7 @@ class Orchestrator:
                     "as a quick-path hint; apply AEGIS eligibility and record the justification."
                 )
         if failure_context:
-            parts.append("Previous failed-attempt evidence:\n" + _sanitize(failure_context))
+            parts.append("Recovery or continuation context:\n" + _sanitize(failure_context))
         if thread:
             parts.append("Human clarification thread:\n" + thread)
         if close_out:
@@ -976,9 +1131,86 @@ class Orchestrator:
         self.store.save(run)
 
     def _checkpoint(self, run: RunState, message: str) -> None:
-        """@brief Create an ADORE-owned, unpushed local checkpoint commit."""
-        created = self.worktrees.commit_all_if_dirty(run.run_id, message)
+        """@brief Create a durable local checkpoint and optionally publish WIP progress."""
+        progress = self.config.delivery.publish_checkpoints and run.lifecycle != "publishing"
+        created = self.worktrees.commit_all_if_dirty(
+            run.run_id, f"WIP {message}" if progress else message
+        )
         self.store.journal(run.run_id, "checkpoint", message=message, created=created)
+        if progress:
+            self._push_checkpoint(run)
+
+    def _checkpoint_branch_link(self, run: RunState) -> str:
+        """@brief Render an adapter-neutral branch link from the trusted ticket snapshot."""
+        try:
+            snapshot = self.store.load_ticket(run.run_id)
+        except (OSError, StateError):
+            return f"`{run.branch}`"
+        url = str(snapshot.get("web_url", ""))
+        parsed = urlsplit(url)
+        separator = "/-/issues/" if self.config.platform.kind == "gitlab" else "/issues/"
+        if (parsed.scheme in {"http", "https"} and parsed.netloc
+                and not parsed.username and not parsed.password and separator in parsed.path):
+            project = parsed.path.split(separator, 1)[0]
+            route = {"gitlab": "/-/tree/", "github": "/tree/", "gitea": "/src/branch/"}
+            link = urlunsplit((parsed.scheme, parsed.netloc,
+                              project + route[self.config.platform.kind]
+                              + quote(run.branch, safe=""),
+                              "", ""))
+            return f"[{run.branch}]({link})"
+        return f"`{run.branch}`"
+
+    def _push_checkpoint(self, run: RunState, *, handoff: bool = False) -> None:
+        """@brief Publish bounded WIP progress; stop on remote ownership loss."""
+        if not run.branch or run.branch == self.config.delivery.target_branch:
+            error = "checkpoint branch must differ from target"
+            if handoff:
+                raise CheckpointConflictError(error)
+            self._fail_immediately(run, "REMOTE_CHECKPOINT_CONFLICT", error)
+            raise _CheckpointHalted(error)
+        attempts = self.config.recovery.max_transient_retries
+        last = ""
+        for index in range(attempts):
+            try:
+                head = self.worktrees.push_checkpoint(
+                    run.run_id, run.branch, run.checkpoint_remote_commit
+                )
+                run.checkpoint_remote_commit = head
+                run.checkpoint_error = ""
+                self.store.save(run)
+                self.store.journal(run.run_id, "checkpoint-pushed", branch=run.branch,
+                                   commit=head, work_in_progress=True)
+                return
+            except (CheckpointConflictError, CheckpointProtocolError) as exc:
+                run.checkpoint_error = _sanitize(exc, 2000)
+                self.store.save(run)
+                if handoff:
+                    raise
+                code = ("REMOTE_CHECKPOINT_CONFLICT" if isinstance(exc, CheckpointConflictError)
+                        else "REMOTE_CHECKPOINT_PROTOCOL")
+                self._fail_immediately(run, code, exc)
+                raise _CheckpointHalted("remote checkpoint ownership lost") from exc
+            except IsolationError as exc:
+                last = _sanitize(exc, 2000)
+                if index + 1 < attempts:
+                    delays = self.config.recovery.retry_backoff_seconds
+                    self.sleep(delays[min(index, len(delays) - 1)])
+        changed = run.checkpoint_error != last
+        run.checkpoint_error = last
+        self.store.save(run)
+        self.store.journal(run.run_id, "checkpoint-push-failed", branch=run.branch,
+                           remote=run.checkpoint_remote_commit, evidence=last)
+        if handoff:
+            return
+        if changed:
+            self._required_comment(run, "checkpoint-push-failed",
+                f"{self.identity.tag} Work in progress: remote checkpoint is stale. "
+                "Local commits and evidence are preserved. "
+                f"Branch: {self._checkpoint_branch_link(run)}. "
+                f"Last verified remote commit: `{run.checkpoint_remote_commit or 'none'}`. "
+                f"Bounded push attempts failed: {last}", force_ticket=True)
+            if run.lifecycle == "failed":
+                raise _CheckpointHalted("checkpoint notification failed")
 
     # Integration, validation, approval and publication
 
@@ -987,6 +1219,8 @@ class Orchestrator:
         try:
             self._transient(run, "git-fetch", self.worktrees.fetch)
             result = self.worktrees.merge(run.run_id, run.base_ref)
+        except _CheckpointHalted:
+            return False
         except IsolationError as exc:
             self._fail_immediately(run, "GIT_INTEGRATION", exc)
             return False
@@ -1309,6 +1543,15 @@ class Orchestrator:
             self._conduct(run, ticket)
 
     def _publish(self, run: RunState, ticket: Ticket) -> None:
+        """@brief Publish approved delivery while honoring safe ownership transfer."""
+        if self._handoff_at_boundary(run):
+            return
+        try:
+            self._publish_impl(run, ticket)
+        except _CheckpointHalted:
+            return
+
+    def _publish_impl(self, run: RunState, ticket: Ticket) -> None:
         """@brief Finish AEGIS delivery bookkeeping and publish only a draft MR/PR."""
         if self._cancel_if_requested(run):
             return
@@ -1680,8 +1923,9 @@ class Orchestrator:
         self, run: RunState, code: str, evidence: Any
     ) -> None:
         """@brief Stop code work when a required forge signaling operation fails."""
-        run.lifecycle = "failed"
-        run.outcome = f"{code}: {_sanitize(evidence)}"
+        if run.lifecycle not in {"handed-off", "handoff-pending"}:
+            run.lifecycle = "failed"
+            run.outcome = f"{code}: {_sanitize(evidence)}"
         self.store.save(run)
         self.store.journal(
             run.run_id,
@@ -1902,6 +2146,10 @@ class Orchestrator:
             self.sleep(schedule[min(attempt - 1, len(schedule) - 1)])
             result = self.worktrees.push(run.run_id, run.branch)
             attempt += 1
+        if result.ok and (self.config.delivery.publish_checkpoints or run.checkpoint_remote_commit):
+            run.checkpoint_remote_commit = self.worktrees.ref_head(run.branch)
+            run.checkpoint_error = ""
+            self.store.save(run)
         return result
 
     def _transient(self, run: RunState, operation: str, call: Callable[[], Any]) -> Any:
@@ -1933,6 +2181,8 @@ class Orchestrator:
     def _reconcile_runs(self, summary: dict[str, Any]) -> None:
         """@brief Give every nonterminal state one bounded next action."""
         for run in self.store.list_runs():
+            if self._handoff_at_boundary(run):
+                continue
             if run.lifecycle != "publishing" and self._cancel_if_requested(run):
                 continue
             if run.notification_outbox:
@@ -1952,10 +2202,28 @@ class Orchestrator:
                 )
             elif run.lifecycle == "working" and run.run_id != self._in_flight_run_id:
                 self._reconcile_stale_working(run)
+            elif (run.lifecycle == "failed" and self.config.delivery.publish_checkpoints
+                  and not run.notification_outbox and self.worktrees.exists(run.run_id)
+                  and not run.outcome.startswith(("REMOTE_CHECKPOINT_CONFLICT:",
+                                                  "REMOTE_CHECKPOINT_PROTOCOL:"))):
+                # A rollout or an earlier transport failure may leave committed recovery
+                # work local. Publish it without starting an executor or committing dirty files.
+                if run.branch and run.checkpoint_remote_commit and not run.checkpoint_error:
+                    try:
+                        local_head = self.worktrees.ref_head(run.branch)
+                    except IsolationError as exc:
+                        self.log(f"failed-run checkpoint identity unavailable: {_sanitize(exc)}")
+                        continue
+                    if local_head == run.checkpoint_remote_commit:
+                        continue
+                with contextlib.suppress(_CheckpointHalted):
+                    self._push_checkpoint(run)
+                self._status(run)
 
     def _cancel_if_requested(self, run: RunState) -> bool:
         """@brief Honor an authorized durable cancellation before more work."""
-        if run.lifecycle in ("done", "failed", "cancelled"):
+        if run.lifecycle in ("done", "failed", "cancelled",
+                            "handoff-pending", "handed-off"):
             if self.store.cancel_requested(run.run_id):
                 self.store.clear_cancel_request(run.run_id)
             return False
@@ -2442,9 +2710,10 @@ class Orchestrator:
         now = iso_to_datetime(utc_now_iso())
         if started and now and (now - started).total_seconds() >= budgets.max_wall_clock_seconds:
             return f"active work clock reached {budgets.max_wall_clock_seconds}s"
-        cost_spent = self._cost_spent(run)
-        if cost_spent >= budgets.max_cost_usd:
-            return f"cost budget reached (${cost_spent:.2f})"
+        if budgets.max_cost_usd > 0:
+            cost_spent = self._cost_spent(run)
+            if cost_spent >= budgets.max_cost_usd:
+                return f"cost budget reached (${cost_spent:.2f})"
         if run.base_ref and self.worktrees.exists(run.run_id):
             try:
                 if not self.worktrees.merge_in_progress(run.run_id):
@@ -2472,6 +2741,15 @@ class Orchestrator:
         body = self.identity.status_comment(
             run.run_id, run.lifecycle, run.stage, utc_now_iso()
         )
+        if (self.config.delivery.publish_checkpoints or run.checkpoint_remote_commit
+                or run.checkpoint_error):
+            body += (
+                f"\n\nWork in progress; checkpoint visibility does not approve delivery.\n"
+                f"Branch: {self._checkpoint_branch_link(run)}\n"
+                f"Last verified remote checkpoint: `{run.checkpoint_remote_commit or 'none'}`\n"
+                + (f"Remote checkpoint stale: {_sanitize(run.checkpoint_error)}\n"
+                   if run.checkpoint_error else "")
+            )
         try:
             if run.status_comment_id is None:
                 run.status_comment_id = self.forge.post_comment(run.ticket_iid, body)
@@ -2495,7 +2773,7 @@ class Orchestrator:
                 "last_error": _sanitize(exc),
             }
             run.notification_outbox.append(record)
-            if run.lifecycle in {"cancelled", "done", "failed"}:
+            if run.lifecycle in {"cancelled", "done", "failed", "handed-off", "handoff-pending"}:
                 self.store.save(run)
                 self.store.journal(
                     run.run_id,

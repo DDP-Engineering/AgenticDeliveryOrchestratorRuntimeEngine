@@ -1,0 +1,15 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-REL-94e653aa"
+title = "Preserve DCP checkpoint, handoff, and subscription budget semantics"
+status = "active"
+requirement = """When the web runtime replaces the DCP ADORE installation, it shall load valid persisted checkpoint fields without discarding them and fail closed on malformed checkpoint identities. Profiles shall keep checkpoint publication disabled by default; when explicitly enabled, the conductor may push owned work-in-progress commits to its ticket branch under an exact remote lease, but shall still require fresh candidate-bound human approval before draft MR/PR creation. A remote ownership conflict shall stop autonomous execution. An operator's human handoff shall durably transfer ownership at a safe boundary, preserve the worktree, and prevent later automated execution or cancellation. Web history shall show pending and completed handoffs, and shall treat completed handoffs as terminal for metrics, archive, and job controls. A configured cost cap of zero shall disable reported-cost enforcement for subscription-backed executors while leaving all other run limits active; invalid or negative caps shall be rejected."""
+verification = "Offline tests load old and checkpoint-bearing state, reject malformed checkpoint digests and markers, exercise guarded pushes and remote conflict/retry, prove repeated idle polls leave a verified failed checkpoint and its history timestamp unchanged, prove later checkpoint events do not redate completed-job trends, prove handoff crash recovery and no pre-approval MR/PR, verify zero and invalid cost caps, and verify cancel/worker/API treatment of handoff states. On DCP, load the existing Nilo run without changing its state, and verify all six real project history and metrics endpoints through HTTPS."
+affected_paths = ["04_Software/adore/state.py", "04_Software/adore/config.py", "04_Software/adore/isolation.py", "04_Software/adore/orchestrator.py", "04_Software/adore/cli.py", "04_Software/adore/wizard.py", "04_Software/adore/metrics.py", "04_Software/adore/web/app.py", "04_Software/adore/web/commands.py", "04_Software/web/src/App.tsx", "04_Software/web/src/i18n.ts", "04_Software/web/src/styles.css", "04_Software/config.example.toml"]
+linked_tests = ["04_Software/tests/test_checkpoint_handoff.py", "04_Software/tests/test_config.py", "04_Software/tests/test_isolation.py", "04_Software/tests/test_orchestrator.py", "04_Software/tests/test_state.py", "04_Software/tests/test_web_archive.py", "04_Software/tests/test_web_commands.py", "04_Software/tests/test_web_metrics.py"]
+created = 2026-10-01
+updated = 2026-10-01

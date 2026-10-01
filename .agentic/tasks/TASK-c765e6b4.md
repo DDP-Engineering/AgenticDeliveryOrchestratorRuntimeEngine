@@ -13,7 +13,7 @@ stage: deliver
 type: feature
 path: full
 interaction: autopilot
-requirements: REQ-SEC-9ee171c9, REQ-SEC-59d97c68, REQ-FUNC-7ce5b17a, REQ-FUNC-f9946b6b, REQ-FUNC-448cbde7, REQ-UX-749d37c8, REQ-PLAT-a1b60ff9, REQ-FUNC-c369cfa6, REQ-FUNC-fec24fc3, REQ-FUNC-2710d0f4, REQ-FUNC-7bb356df, REQ-DATA-2a1292db, REQ-FUNC-b3ac688c, REQ-FUNC-930e3ae0, REQ-UX-1a34d639, REQ-PLAT-487933ca, REQ-PLAT-3ef15c3a
+requirements: REQ-SEC-9ee171c9, REQ-SEC-59d97c68, REQ-FUNC-7ce5b17a, REQ-FUNC-f9946b6b, REQ-FUNC-448cbde7, REQ-UX-749d37c8, REQ-PLAT-a1b60ff9, REQ-FUNC-c369cfa6, REQ-FUNC-fec24fc3, REQ-FUNC-2710d0f4, REQ-FUNC-7bb356df, REQ-DATA-2a1292db, REQ-FUNC-b3ac688c, REQ-FUNC-930e3ae0, REQ-UX-1a34d639, REQ-PLAT-487933ca, REQ-PLAT-3ef15c3a, REQ-REL-94e653aa
 parent:
 branch: task/adore-web-interface
 base: a4d0e20b0046fc07d4e29bb688e0e5e383fbaac0
@@ -24,7 +24,7 @@ opened: 2026-09-29
 - [x] validated candidate confirmed unchanged; otherwise returned to validate
 - [x] validation evidence, diff, exclusions, and outcome presented
 - [x] delivery confirmed by the human
-- [x] journal and report included in the delivery commit
+- [ ] journal and report included in the delivery commit
 - [ ] agreed outcome delivered, normally a PR
 - [ ] close-out committed after the outcome succeeded, or carried by the delivery commit where nothing could fail after it
 
@@ -296,6 +296,21 @@ Path and reason: Full. New UI/API/data/dependencies/security contracts require s
 - 2026-09-30 deliver inspection: the final5 installed service now runs against the isolated DCP acceptance home on DCP loopback. An SSH tunnel exposes it only at local `127.0.0.1:18776`; Chrome signed in and showed the `acceptance` project, one run in review, and administrator metrics. The existing DCP projects remain untouched. The historic Pi run has fifteen launches with unavailable token/cost observations because its original journal predates final telemetry capture; no fabricated cost was shown. The disposable local fresh-install UI remains at `127.0.0.1:18774`.
 
 - 2026-10-01 deliver decision: the owner explicitly approved committing the validated candidate and replacing the existing real DCP ADORE installation with this version, while removing the isolated test deployment. The delivery outcome includes host verification; no repository push or PR was requested. Existing real project repositories and data will be preserved.
+- 2026-10-01 deliver deviation and return to build: commit 8192bb0 and the first offline DCP install passed HTTPS health, readiness, login, secure-cookie and six-project listing. Real Nilo history/metrics then returned typed 503 because its existing state carries checkpoint fields from the later DCP repair runtime. The DCP repair also contains checkpoint publication and handoff behavior absent from the committed bundle. The real web units were stopped and disabled before any real job was started; the separate acceptance instance remains. Real home backup `~/apps/adore/backups/adore-home-preweb-20261001.tar.gz` is retained. Reconcile the deployed runtime contract before retrying cutover.
+
+- 2026-10-01 build red: command=`.venv\Scripts\python.exe -m pytest -q tests/test_checkpoint_handoff.py::test_checkpoint_handoff_state_additive_and_strict`; exit=1; expected missing behavior=the committed runtime has no checkpoint state fields, so a valid DCP run cannot load for REQ-FUNC-7ce5b17a and existing conductor behavior cannot be preserved for REQ-FUNC-f9946b6b.
+- 2026-10-01 build red: command=`.venv\Scripts\python.exe -m pytest -q tests/test_web_archive.py::test_human_handoff_is_visible_and_preserves_web_ownership --tb=short`; exit=1; expected missing behavior=the web API accepts Cancel while a human handoff is pending and cannot filter or archive the completed handoff as terminal history (REQ-FUNC-7ce5b17a, REQ-FUNC-f9946b6b).
+- 2026-10-01 build red: command=`.venv\Scripts\python.exe -m pytest -q tests/test_web_commands.py::test_queued_cancel_cannot_reclaim_human_handoff tests/test_state.py::test_cancel_request_is_durable_and_validated --tb=short`; exit=1; expected missing behavior=a persisted handoff can still receive a cancellation marker and a stale web worker invokes Cancel after ownership transfer (REQ-FUNC-f9946b6b).
+- 2026-10-01 build green: REQ-REL-94e653aa links the three red compatibility seams and the merged DCP repair tests. Focused checkpoint, state, conductor, configuration, isolation and web-control suites passed; the full installed-venv offline suite passed 688 tests with one skip. Ruff and TypeScript/Vite passed after removal of a duplicate test fake method. All six real profiles remain paused; no real job was started during the failed first cutover.
+- 2026-10-01 build review: the final candidate preserves valid checkpoint digests, guarded optional WIP publication, human-owned handoffs and the subscription cost-cap value zero; malformed state/config and ownership conflicts fail closed. Evolution lists the expected changed source, test, UI and documentation paths since the latest behavior anchor. The earlier anchor covering the engine import was replaced by later increment anchors, so this last evolution is a partial fingerprint view; the reviewed Git diff and full validation cover the integrated candidate.
+- 2026-10-01 validate-to-build: the first corrected DCP runtime passed HTTPS API reads for six profiles, but the active Nilo checkpoint profile was polled by the new worker. Its failed run was republished on every idle poll; only `updated_at` changed, making historical activity appear current. The API and worker were stopped. Fix repeated-poll idempotence and restore the original timestamp from the verified preweb backup before resuming.
+- 2026-10-01 build red: command=`.venv\Scripts\python.exe -m pytest -q tests/test_checkpoint_handoff.py::test_checkpoint_handoff_failed_run_publishes_commits_without_resuming --tb=short`; exit=1; expected missing behavior=the second idle poll pushed the already-verified checkpoint again instead of leaving the failed historical run unchanged (REQ-REL-94e653aa).
+- 2026-10-01 build green: `.venv\Scripts\python.exe -m pytest -q tests/test_checkpoint_handoff.py tests/test_orchestrator.py` exited 0 with 128 tests. Failed-run checkpoint reconciliation now skips an already verified local head with no transport error. The regression proves a second idle poll performs no push and does not rewrite run state. The linked reliability requirement and orchestrator component docs are current; evolution lists the intended new source/doc changes.
+- 2026-10-01 validate-to-build: the corrected live worker left Nilo's restored run-state SHA-256 unchanged, but Metrics counted the old failed run as completed on the day of a later checkpoint journal event. This is a reporting attribution error, not new job work. Fix terminal-day attribution before final cutover.
+- 2026-10-01 build red: command=`.venv\Scripts\python.exe -m pytest -q tests/test_web_metrics.py::test_terminal_daily_count_ignores_later_checkpoint_activity --tb=short`; exit=1; expected missing behavior=a late checkpoint-pushed event shifted one failed job's completed count from September 28 to October 1 (REQ-FUNC-b3ac688c, REQ-REL-94e653aa).
+- 2026-10-01 build green: `.venv\Scripts\python.exe -m pytest -q tests/test_web_metrics.py` exited 0 with 32 tests; Ruff passed. Completed-job trends now use the last lifecycle-matching terminal event and use the stored update time only for legacy runs without terminal evidence. The metrics and reliability requirements, user guide, Web API component page and knowledge are current; evolution lists expected source and documentation paths.
+- 2026-10-01 validate proof: `py -3.12 .agentic/aegis.py check --task TASK-c765e6b4 --strict --run` exited 0 after the final metrics correction. The configured full offline test and Ruff commands passed; frontend TypeScript/Vite and `git diff --check` also passed. AEGIS reported zero errors, eight advisory warnings and one unrelated manual note. Warnings are two pre-existing tracked fingerprint sidecars, an old ruling's malformed supersedes field retained under the append-only rule, intentional `.gitignore` and example-config layout entries, and password/bootstrap strings in API/store/UI rather than embedded credentials.
+- 2026-10-01 validate live inspection: DCP R3 HTTPS health, readiness, admin login and all six project detail/history/metrics routes returned 200; Chrome showed Nilo's historical failed job and functional Metrics tabs. The Nilo run-state bytes were restored from the preweb backup after a repeated-poll bug and then remained SHA-256 `ec1afac5ad7ff7999261316620401676209cc21778c42e4c0c70cc18a21ffec4` through API reads and worker polling. The R4 package containing the final trend correction is pending installation. No real ticket was started by this cutover. The real local-model inference acceptance remains unverified.
 
 ## Rulings
 
@@ -306,20 +321,20 @@ Path and reason: Full. New UI/API/data/dependencies/security contracts require s
 ## Handoff
 
 current: deliver
-status: active
-next: Commit the validated candidate, then deploy it to the real DCP ADORE installation and retire the isolated test service.
-must_read: 04_Software/web/src/App.tsx, 04_Software/adore/web/store.py, 04_Software/adore/web/app.py, 05_SoftwareDocu/Component_Web_Frontend.md
+status: ready
+next: Commit the validated compatibility candidate, then install R4 and verify the real service before retiring the test deployment.
+must_read: .agentic/steps/6_deliver.md, 04_Software/adore/web/app.py, 04_Software/adore/orchestrator.py
 blockers: real local-model inference acceptance remains unverified
 
 ## Stage report
 
-stage: deliver
-result: in_progress
+stage: validate
+result: completed
 current: deliver
-changed: Administration submenus, audit retention policy and schema 12, table paging, Jobs All query, uncached API reads, localization, documentation, tests and current offline media
-evidence: 36 focused web auth/RBAC tests, TypeScript/Vite, local Chrome admin/developer workflows, Windows offline install/HTTP smoke, Linux archive integrity, and final full offline test/Ruff strict gate exited 0
-issues: audit size counts stored text rather than physical DB bytes; new submenu not separately checked at 360px/200% zoom; current Linux archive not installed on native host; live local-model inference remains unverified
-next: commit candidate and replace real DCP installation after backup and service inspection
+changed: DCP checkpoint/handoff compatibility, zero-cost-cap semantics, web handoff visibility, component/user documentation and tests
+evidence: final strict offline test/Ruff gate exited 0 with zero errors; frontend build and diff check passed; DCP R3 six-project API and browser inspection passed
+issues: DCP R4 package swap and acceptance-instance retirement remain; real local-model inference unverified
+next: commit final code, deploy R4 and verify, archive/remove isolated acceptance instance, close out
 needs_user: no
 spec_compliance: disabled
 implementation_quality: disabled
@@ -350,4 +365,32 @@ review_round:
 - explicit review: disabled; existing validation remains required
 - diff vs task base a4d0e20: 125 file(s) changed, 17098 line(s) added
 - checks: errors=0 warnings=10 notes=1
+- checklist: 3/6 done; open: journal and report included in the delivery commit; agreed outcome delivered, normally a PR; close-out committed after the outcome succeeded, or carried by the delivery commit where nothing could fail after it
+
+## Delivery report (2026-10-01)
+
+- stage: deliver; type: feature; path: full; branch: task/adore-web-interface
+- requirements:
+  - REQ-SEC-9ee171c9 - Local web accounts and sessions
+  - REQ-SEC-59d97c68 - Project authorization and financial privacy
+  - REQ-FUNC-7ce5b17a - Web project configuration and status
+  - REQ-FUNC-f9946b6b - Developer job controls
+  - REQ-FUNC-448cbde7 - Web metrics and usage history
+  - REQ-UX-749d37c8 - Localized responsive web interface
+  - REQ-PLAT-a1b60ff9 - Offline web deployment
+  - REQ-FUNC-c369cfa6 - Stable web project identity
+  - REQ-FUNC-fec24fc3 - Local model endpoint profile and readiness
+  - REQ-FUNC-2710d0f4 - Model endpoint execution-context readiness
+  - REQ-FUNC-7bb356df - Historical usage backfill and coverage
+  - REQ-DATA-2a1292db - Normalized usage event history
+  - REQ-FUNC-b3ac688c - Reporting timezone and period trends
+  - REQ-FUNC-930e3ae0 - Cost and quality efficiency metrics
+  - REQ-UX-1a34d639 - Accessible responsive web journeys
+  - REQ-PLAT-487933ca - Offline host prerequisite and TLS deployment
+  - REQ-PLAT-3ef15c3a - TLS proxy deployment acceptance
+  - REQ-REL-94e653aa - Preserve DCP checkpoint, handoff, and subscription budget semantics
+- deviations: none recorded
+- explicit review: disabled; existing validation remains required
+- diff vs task base a4d0e20: 127 file(s) changed, 18659 line(s) added; 1 file(s) not content-scanned
+- checks: errors=0 warnings=9 notes=1
 - checklist: 3/6 done; open: journal and report included in the delivery commit; agreed outcome delivered, normally a PR; close-out committed after the outcome succeeded, or carried by the delivery commit where nothing could fail after it

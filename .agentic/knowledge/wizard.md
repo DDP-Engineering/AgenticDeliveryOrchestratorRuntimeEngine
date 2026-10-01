@@ -40,6 +40,8 @@ derived. The wizard validates branch-rule compatibility and reports missing
 tools or unsuitable AEGIS payloads as setup guidance, not a hidden mutation.
 ADORE-managed host-auth staging is offered only for OpenCode and Codex; an
 unsupported Pi/Qwen staging answer fails before the profile is written.
+The reported-cost prompt accepts finite nonnegative USD input; zero disables
+that cap for a subscription/local model while other run limits remain.
 
 ## Key behaviors
 
@@ -47,6 +49,7 @@ unsupported Pi/Qwen staging answer fails before the profile is written.
 - `REQ-FUNC-6c82ad42` - invalid/unconfirmed answers cannot create or overwrite a profile.
 - `REQ-FUNC-7ce5b17a` - web project creation reuses guided answers and the
   same validation path.
+- `REQ-REL-94e653aa` - generated cost caps retain the DCP subscription mode.
 
 ## Architecture
 

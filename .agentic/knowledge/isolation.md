@@ -37,8 +37,8 @@ host-side checkpoint commits, so a new clone needs no local Git identity.
 - Mounts the repository, worktree and bounded IO exchange. Explicit configured
   mounts may also provide executor credentials; forge credentials remain on
   the host.
-- Cleanup preserves resources owned by active and failed runs and rejects
-  uncertain ownership rather than broad deletion.
+- Cleanup preserves resources owned by active, failed and handed-off runs and
+  rejects uncertain ownership rather than broad deletion.
 - Git identity is applied only to ADORE checkpoint commits; it does not
   reconfigure the operator's clone.
 
@@ -49,6 +49,8 @@ host-side checkpoint commits, so a new clone needs no local Git identity.
 - `REQ-FUNC-0ad8ba4f` - WSL runtime mount translation and command prefixing.
 - `REQ-FUNC-f9946b6b` - an active executor gate can be interrupted for a
   worker-authorized cancellation.
+- `REQ-REL-94e653aa` - guarded ticket-branch pushes verify exact remote
+  identity and ancestry; worktree progress is measured between gates.
 
 ## Architecture
 
@@ -68,3 +70,4 @@ provision, interrupt or release them.
 
 - `04_Software/adore/isolation.py`
 - `04_Software/tests/test_isolation.py`
+- `04_Software/tests/test_checkpoint_handoff.py`

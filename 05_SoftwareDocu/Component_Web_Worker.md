@@ -28,7 +28,8 @@ rejects an operation when its project was archived after queueing, and
 periodic pickup skips archived profiles. Named and active-profile CLI `run`
 also refuse pickup until restore. An explicit standalone `-c` config remains
 an operator override outside profile archive control. The default runner
-rechecks cancel targets before invoking the CLI; completed or failed runs are
+rechecks cancel targets before invoking the CLI; completed, failed and
+human-owned runs are
 left unchanged when a queued cancel arrives late. A run already cancelled by
 the active conductor resolves the queued operation as succeeded. Around
 every blocking worker command and project poll, a watcher inspects pending

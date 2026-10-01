@@ -31,6 +31,8 @@ get in-line, OS-specific guidance from `doctor`.
   identity, platform/repo, local clone, branch conventions, runtime/executor,
   delivery, budgets/policy - and assembles a **minimal** config (only keys that
   matter; defaults omitted).
+  The reported-cost cap accepts finite nonnegative USD input; zero disables
+  that cap for subscription/local execution while other run bounds remain.
 - **Emit + guard:** a stdlib TOML emitter (`_emit_config_toml`, no `tomli_w`
   dependency) and `_validate_or_raise()` - the assembled config is written to a
   temp file, loaded and validated the same way the engine does at startup, and

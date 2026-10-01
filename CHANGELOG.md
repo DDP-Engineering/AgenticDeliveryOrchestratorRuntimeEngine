@@ -14,6 +14,11 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- The web runtime now reads DCP checkpoint-bearing run state, preserves guarded
+  checkpoint publication and human handoff, and shows handoffs as protected
+  project history. Pending or completed handoffs cannot be cancelled by a
+  queued web command.
+
 - Creating a user and staging configuration no longer show a false form-reset
   error after success. Switching accounts returns to Overview instead of
   leaving an inaccessible administrator page selected.

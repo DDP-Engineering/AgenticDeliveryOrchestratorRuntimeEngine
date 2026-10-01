@@ -17,7 +17,7 @@ requirement = """
 When an authorized user selects a reporting timezone, period and daily, weekly or monthly granularity, ADORE web shall bucket observed job and usage timestamps in that timezone, preserve separate all-time totals, and show the selected period with explicit coverage through daylight-saving changes.
 """
 
-verification = "Use UTC events around midnight and DST transitions to compare day/week/month JSON, charts and CSV in two timezones; verify empty, reversed or unsupported ranges fail explicitly and undated history remains outside invented buckets."
+verification = "Use UTC events around midnight and DST transitions to compare day/week/month JSON, charts and CSV in two timezones; verify a later checkpoint does not redate a terminal job, empty, reversed or unsupported ranges fail explicitly, and undated history remains outside invented buckets."
 
 affected_paths = ["04_Software/adore/web/app.py", "04_Software/web/src/App.tsx"]
 
@@ -30,4 +30,4 @@ priority = "normal"   # low | normal | high
 rationale = ""        # why this behavior exists, if not obvious
 
 created = 2026-09-30
-updated = 2026-09-30
+updated = 2026-10-01

@@ -62,6 +62,7 @@ async function request<T>(path: string, method = "GET", body?: unknown, csrf?: s
 const lifecycleLabels: Record<string, MessageKey> = {
   working: "working", publishing: "publishingStatus", "awaiting-approval": "awaitingApprovalStatus",
   "parked-clarification": "parkedClarificationStatus", "in-review": "inReviewStatus",
+  "handoff-pending": "handoffPendingStatus", "handed-off": "handedOffStatus",
   done: "done", failed: "failed", cancelled: "cancelled",
 };
 const stageLabels: Record<string, MessageKey> = {
@@ -858,7 +859,7 @@ export default function App() {
           </section>
           {details && <section className="panel detail-panel"><div className="panel-heading"><h2>{t("ticket")} #{details.run.ticket_iid}</h2><button className="ghost" onClick={() => setDetails(null)}>{t("close")}</button></div>
             <div className="detail-grid"><span>{t("status")}: <strong>{displayCode(details.run.lifecycle, lifecycleLabels, t)}</strong></span><span>{t("stage")}: <strong>{displayCode(details.run.stage, stageLabels, t)}</strong></span><span>{t("reviewRounds")}: <strong>{details.run.review_rounds}</strong></span><span>{t("attempts")}: <strong>{details.run.stage_failures}</strong></span></div>
-            <div className="button-row">{!projects.find(project => project.id === selected)?.archived && details.run.lifecycle === "failed" && <button className="ghost" onClick={() => operate("retry", details.run.run_id)}>{t("retry")}</button>}{!projects.find(project => project.id === selected)?.archived && !["done", "failed", "cancelled"].includes(details.run.lifecycle) && <button className="danger" onClick={() => operate("cancel", details.run.run_id)}>{t("cancel")}</button>}{details.run.mr_url && <a className="ghost link-button" href={details.run.mr_url} target="_blank" rel="noreferrer">{t("draft")} ↗</a>}</div>
+            <div className="button-row">{!projects.find(project => project.id === selected)?.archived && details.run.lifecycle === "failed" && <button className="ghost" onClick={() => operate("retry", details.run.run_id)}>{t("retry")}</button>}{!projects.find(project => project.id === selected)?.archived && !["done", "failed", "cancelled", "handoff-pending", "handed-off"].includes(details.run.lifecycle) && <button className="danger" onClick={() => operate("cancel", details.run.run_id)}>{t("cancel")}</button>}{details.run.mr_url && <a className="ghost link-button" href={details.run.mr_url} target="_blank" rel="noreferrer">{t("draft")} ↗</a>}</div>
             <h3>{t("timeline")}</h3><ol className="timeline">{details.events.map((event, index) => <li key={index}><time>{formatDate(String(event.ts || ""))}</time><strong>{String(event.event || "")}</strong>{Boolean(event.stage) && <span>{String(event.stage)}</span>}</li>)}</ol>
           </section>}
         </>}

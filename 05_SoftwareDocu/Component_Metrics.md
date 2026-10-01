@@ -38,7 +38,7 @@ optional self-contained static HTML file.
   failed, success_rate, avg_span_s, launches, tokens, cost, last_run) for the
   `adore profile list`/`show` commands; a missing DB yields zeros.
 - `is_terminal(lifecycle)` - only runtime-emitted terminal states are
-  recordable: `done`, `failed`, and `cancelled`. Historical phantom names such
+  recordable: `done`, `failed`, `cancelled`, and `handed-off`. Historical phantom names such
   as `ticket-closed`, `deleted`, and `stale` are not accepted.
 
 Explicitly not owned: when to record (orchestrator, at terminal

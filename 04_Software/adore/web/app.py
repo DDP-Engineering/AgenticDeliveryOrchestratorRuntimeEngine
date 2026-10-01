@@ -49,7 +49,7 @@ from adore.config import load_config, validate_config
 from adore.config_edit import ConfigEditLockedError, config_edit_lock
 from adore.isolation import ContainerManager, IsolationError
 from adore.profiles import ProfileError, ProfileStore
-from adore.state import StateError, StateStore
+from adore.state import RunState, StateError, StateStore
 from adore.util import CommandRunner, run_command
 from adore.web.endpoint_probe import probe_endpoint
 from adore.web.store import WebStore, WebStoreError
@@ -60,6 +60,13 @@ _PROFILE_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
 _STATIC = Path(__file__).with_name("static")
 _COOKIE = "adore_session"
 _LOW_STORAGE_BYTES = 1024**3
+_TERMINAL_RUN_LIFECYCLES = ("done", "failed", "cancelled", "handed-off")
+_TERMINAL_JOURNAL_EVENTS = {
+    "done": {"done"},
+    "failed": {"failed", "immediate-failure", "stage-failed", "notification-blocked"},
+    "cancelled": {"cancelled"},
+    "handed-off": {"handed-off"},
+}
 
 
 # DATA MODELS / TYPEDEFINITIONS
@@ -314,6 +321,16 @@ def _event_day(event: dict, zone=UTC) -> str | None:
         return parsed.astimezone(zone).date().isoformat()
     except ValueError:
         return None
+
+
+def _completion_day(run: RunState, events: list[dict], zone=UTC) -> str | None:
+    """@brief Use terminal evidence, not later recovery activity, for completion trends."""
+    terminal = _TERMINAL_JOURNAL_EVENTS.get(run.lifecycle, set())
+    for event in reversed(events):
+        if event.get("event") in terminal:
+            return _event_day(event, zone)
+    # Older imported runs may lack an explicit terminal event in their journals.
+    return _event_day({"ts": run.updated_at}, zone)
 
 
 def _csv_text(value: str) -> str:
@@ -653,7 +670,7 @@ def _duration_samples(summaries: list[metrics.RunSummary], zone=UTC) -> list[tup
         if (not isinstance(start, str) or not isinstance(end, str)
                 or not isinstance(span, int) or isinstance(span, bool) or span < 0):
             raise _error(503, "metrics_corrupt")
-        if summary.lifecycle not in ("done", "failed", "cancelled"):
+        if summary.lifecycle not in _TERMINAL_RUN_LIFECYCLES:
             continue
         if not start and not end and span == 0:
             continue  # Legacy summary without elapsed-time evidence.
@@ -907,8 +924,8 @@ def _metric_view(profiles: ProfileStore, profile, admin: bool,
             started = _event_day(events[0], zone)
             if started is not None:
                 bucket(started)["started"] += 1
-            if run.lifecycle in ("done", "failed", "cancelled"):
-                ended = _event_day(events[-1], zone)
+            if run.lifecycle in _TERMINAL_RUN_LIFECYCLES:
+                ended = _completion_day(run, events, zone)
                 if ended is not None:
                     bucket(ended)["completed"] += 1
         for event in events:
@@ -1023,7 +1040,7 @@ def _metric_view(profiles: ProfileStore, profile, admin: bool,
         if reviewed:
             quality["reviewed_jobs"] += 1
             quality["reworked_jobs"] += reviewer_rework
-            quality["open_review_jobs"] += run.lifecycle not in ("done", "failed", "cancelled")
+            quality["open_review_jobs"] += run.lifecycle not in _TERMINAL_RUN_LIFECYCLES
             if run.lifecycle == "done" and run.outcome == "merged by human":
                 quality["human_merged_jobs"] += 1
                 quality["first_pass_merges"] += not reviewer_rework
@@ -1250,7 +1267,7 @@ def create_app(home: str | Path | None = None,
             if (_read_pending_config(profiles.profile_dir(item.name)
                                      / "pending_config.json") is not None
                     or state.invalid_runs()
-                    or any(run.lifecycle not in ("done", "failed", "cancelled")
+                    or any(run.lifecycle not in _TERMINAL_RUN_LIFECYCLES
                            for run in state.list_runs())
                     or web.has_unfinished_operations(item.name)
                     or _restart_required(key) and not state.is_paused()):
@@ -1536,7 +1553,7 @@ def create_app(home: str | Path | None = None,
                 if checked["issues"]:
                     raise _error(409, "project_import_conflict")
                 if (state.invalid_runs()
-                        or any(run.lifecycle not in ("done", "failed", "cancelled")
+                        or any(run.lifecycle not in _TERMINAL_RUN_LIFECYCLES
                                for run in state.list_runs())):
                     raise _error(409, "project_has_active_work")
                 directory = profiles.profile_dir(body.name)
@@ -1660,7 +1677,7 @@ def create_app(home: str | Path | None = None,
                     raise _error(409, "project_has_active_work")
                 try:
                     if (state.invalid_runs()
-                            or any(run.lifecycle not in ("done", "failed", "cancelled")
+                            or any(run.lifecycle not in _TERMINAL_RUN_LIFECYCLES
                                    for run in state.list_runs())
                             or web.has_unfinished_operations(item.name)):
                         raise _error(409, "project_has_active_work")
@@ -1871,7 +1888,7 @@ def create_app(home: str | Path | None = None,
                 raise _error(409, "project_has_active_work")
             try:
                 if (state.invalid_runs()
-                        or any(run.lifecycle not in ("done", "failed", "cancelled")
+                        or any(run.lifecycle not in _TERMINAL_RUN_LIFECYCLES
                                for run in state.list_runs())
                         or web.has_unfinished_operations(item.name)
                         or pending.get("restart_required") and not state.is_paused()):
@@ -1934,6 +1951,7 @@ def create_app(home: str | Path | None = None,
         lifecycle: Literal[
             "working", "publishing", "awaiting-approval", "parked-clarification",
             "in-review", "done", "failed", "cancelled",
+            "handoff-pending", "handed-off",
         ] | None = None,
         stage: Literal["frame", "specify", "design", "build", "validate", "deliver"] | None = None,
         updated_from: date | None = None,
@@ -2261,7 +2279,8 @@ def create_app(home: str | Path | None = None,
                 raise _error(404, "run_not_found") from exc
             except StateError as exc:
                 raise _error(503, "run_state_corrupt") from exc
-            if action == "cancel" and run.lifecycle in ("done", "failed", "cancelled"):
+            if action == "cancel" and run.lifecycle in (*_TERMINAL_RUN_LIFECYCLES,
+                                                         "handoff-pending"):
                 raise _error(409, "run_already_finished")
             target = body.run_id
         else:

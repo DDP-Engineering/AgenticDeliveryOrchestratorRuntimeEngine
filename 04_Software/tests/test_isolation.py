@@ -1050,3 +1050,63 @@ def test_plain_docker_runtime_does_not_set_wslenv(tmp_path: Path) -> None:
 
 
 # END OF FILE
+
+
+
+def test_worktree_progress_observes_content_and_excludes_bookkeeping(tmp_path):
+    """@brief Tracked and untracked bytes contribute; journals and caches are excluded."""
+    runner = FakeRunner(_ok("diff-one"), _ok("new file.py\0"),
+                        _ok("diff-one"), _ok("new file.py\0"),
+                        _ok("diff-two"), _ok("new file.py\0"))
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=runner)
+    wt = manager.path_for("run-1")
+    wt.mkdir(parents=True)
+    source = wt / "new file.py"
+    source.write_text("one")
+    first = manager.worktree_progress_fingerprint("run-1")
+    source.write_text("two")
+    second = manager.worktree_progress_fingerprint("run-1")
+    third = manager.worktree_progress_fingerprint("run-1")
+    assert first != second != third
+    assert all(":(exclude).agentic/tasks/**" in call for call in runner.calls)
+    assert all(":(exclude)**/__pycache__/**" in call for call in runner.calls)
+
+
+@pytest.mark.parametrize("name", ["../secret", "/absolute", "C:/outside", "missing", "dir/file"])
+def test_worktree_progress_refuses_unsafe_or_unreadable_paths(tmp_path, name):
+    """@brief Git-supplied paths cannot escape or silently ignore missing content."""
+    runner = FakeRunner(_ok(), _ok(name + "\0"))
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=runner)
+    manager.path_for("run-1").mkdir(parents=True)
+    with pytest.raises(IsolationError):
+        manager.worktree_progress_fingerprint("run-1")
+
+
+def test_worktree_progress_refuses_git_failure(tmp_path):
+    """@brief An unavailable diff never becomes a false empty progress snapshot."""
+    runner = FakeRunner(CommandResult(exit_code=1, stderr="bad diff"))
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=runner)
+    with pytest.raises(IsolationError, match="bad diff"):
+        manager.worktree_progress_fingerprint("run-1")
+
+
+
+def test_worktree_progress_hashes_links_without_following_and_rejects_link_parents(tmp_path):
+    """@brief A link target counts without external reads; linked directories are refused."""
+    runner = FakeRunner(_ok(), _ok("link\0"), _ok(), _ok("link\0"),
+                        _ok(), _ok("directory/secret\0"))
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=runner)
+    wt = manager.path_for("run-1")
+    wt.mkdir(parents=True)
+    link = wt / "link"
+    try:
+        link.symlink_to(tmp_path / "absent-one")
+    except OSError:
+        pytest.skip("platform does not permit unprivileged symbolic links")
+    first = manager.worktree_progress_fingerprint("run-1")
+    link.unlink()
+    link.symlink_to(tmp_path / "absent-two")
+    assert first != manager.worktree_progress_fingerprint("run-1")
+    (wt / "directory").symlink_to(tmp_path, target_is_directory=True)
+    with pytest.raises(IsolationError, match="symlink parent"):
+        manager.worktree_progress_fingerprint("run-1")

@@ -30,6 +30,11 @@ nonempty nonnegative backoff list. Defaults are 3, 3 and `[5, 30, 120]`.
 `DeliveryConfig.approval_label` defaults to `agent-approved`, must be nonempty
 and cannot collide with lifecycle/control labels. Draft delivery remains
 mandatory.
+`publish_checkpoints` is a strict boolean, off by default. When enabled, the
+conductor may publish guarded ticket-branch checkpoints before approval; draft
+MR/PR creation still waits for fresh candidate-bound approval. The reported
+cost budget accepts a finite nonnegative USD amount; zero disables that cap
+for subscription or local execution while iteration, time and file caps remain.
 
 ## 3. Security Validation
 

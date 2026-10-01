@@ -30,6 +30,12 @@ publication human-approved and draft-only.
 - create an unpushed local checkpoint commit after every successful stage,
   using the configured agent identity even when the host clone has no
   repository or global Git identity;
+- optionally publish owned ticket-branch progress checkpoints under a remote
+  lease, and stop on foreign branch ownership without weakening approval;
+- reconcile an unpublished failed-run checkpoint once, leaving already verified
+  failed-run state and its historical update time unchanged on later polls;
+- transfer a run to a human at an operator-requested boundary, preserving its
+  worktree and remote/local recovery evidence;
 - distinguish clarification, stage failures, transient infrastructure failures
   and immediate integrity/policy/budget failures;
 - persist and deliver mandatory incident/terminal/approval notifications;
@@ -49,8 +55,15 @@ executor, or merges.
 ## 3. State Machine
 
 Lifecycle states are `working`, `parked-clarification`, `awaiting-approval`,
-`publishing`, `in-review`, `failed`, `done`, and `cancelled`. AEGIS stage is tracked
+`publishing`, `in-review`, `failed`, `done`, `cancelled`, `handoff-pending`,
+and `handed-off`. AEGIS stage is tracked
 separately.
+
+`handoff-pending` is durable before stopping the container or writing Git.
+`handed-off` disables further autonomous work, while cleanup protects the
+human-owned worktree. When handoff and web cancellation are both pending at a
+boundary, handoff takes precedence. Checkpoint publication never creates a
+draft MR/PR; candidate-bound approval still gates that step.
 
 Every nonterminal state has a poll action. Clarification has a timeout;
 `awaiting-approval` and `in-review` intentionally do not because they are

@@ -33,6 +33,10 @@ run state, metrics, prices or audit history.
 Administrators can also preview and import an existing TOML configuration
 without rewriting comments or unknown keys. The imported project starts with
 ticket pickup paused.
+Run pages accept `handoff-pending` and `handed-off` as lifecycle filters.
+Pending handoff blocks cancellation and archive while ownership is moving;
+completed handoff remains readable and is terminal for cancellation and
+archive checks. Human-owned worktrees remain protected by conductor cleanup.
 
 ## 3. Implementation Overview
 
@@ -178,6 +182,9 @@ Project and administrator-global metrics JSON accept inclusive `day_from` and
 selected local-date buckets, grouped by Monday-start week or calendar month
 when requested. The separate `period` object adds the selected dated events
 before grouping and identifies its `dated_events` basis.
+Completed-job buckets use the last lifecycle-matching terminal journal event;
+later checkpoint publication is not a new completion. Legacy runs without a
+terminal event fall back to their stored update timestamp.
 Summary-only historical tokens are not assigned to an invented day. Both
 project and global CSV exports accept the same options. Invalid/reversed dates,
 unsupported timezones and granularities return 422; developer responses and

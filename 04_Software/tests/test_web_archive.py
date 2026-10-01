@@ -75,6 +75,31 @@ def test_archive_rejects_nonterminal_runs_and_queued_operations(tmp_path):
         assert profiles.load("alpha").archived is False
 
 
+def test_human_handoff_is_visible_and_preserves_web_ownership(tmp_path):
+    """@brief A pending transfer blocks writes; completed handoff is terminal history."""
+    profiles = ProfileStore(tmp_path / "home")
+    profiles.create("alpha")
+    state = StateStore(profiles.default_store_root("alpha"))
+    state.save(RunState(run_id="run-1", ticket_iid=42,
+                        lifecycle="handoff-pending"))
+    with TestClient(create_app(profiles.home)) as client:
+        headers = {"X-CSRF-Token": _login(client)}
+        cancel = "/api/v1/projects/alpha/operations/cancel"
+        body = {"run_id": "run-1", "idempotency_key": "pending-cancel"}
+        assert client.post(cancel, headers=headers, json=body).status_code == 409
+        assert client.post("/api/v1/projects/alpha/archive",
+                           headers=headers).status_code == 409
+        state.save(RunState(run_id="run-1", ticket_iid=42,
+                            lifecycle="handed-off"))
+        page = client.get("/api/v1/projects/alpha/runs-page?lifecycle=handed-off")
+        assert page.status_code == 200, page.text
+        assert [row["run_id"] for row in page.json()["items"]] == ["run-1"]
+        body["idempotency_key"] = "terminal-cancel"
+        assert client.post(cancel, headers=headers, json=body).status_code == 409
+        assert client.post("/api/v1/projects/alpha/archive",
+                           headers=headers).status_code == 200
+
+
 def test_archive_rejects_active_conductor_lock(tmp_path):
     """@brief An idle-looking project with a running poll cannot archive."""
     profiles = ProfileStore(tmp_path / "home")

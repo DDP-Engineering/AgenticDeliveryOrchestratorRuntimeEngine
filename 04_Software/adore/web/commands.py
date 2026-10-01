@@ -106,7 +106,7 @@ class CommandWorker:
                 self.web.audit(actor["id"], "operation-finished", project,
                                "cancel:succeeded")
                 return 1
-            if run.lifecycle in ("done", "failed"):
+            if run.lifecycle in ("done", "failed", "handoff-pending", "handed-off"):
                 self.web.finish(operation["id"], "failed", "run already finished")
                 return 1
         if action == "start" and target.isdigit() and int(target) > 0:

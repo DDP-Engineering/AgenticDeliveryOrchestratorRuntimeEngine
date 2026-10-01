@@ -64,6 +64,10 @@ unless `ADORE_HOME` overrides the location.
 
 In this table, `[selector]` means `-c <config.toml>` or `--profile
 <profile-name>` where appropriate.
+`delivery.publish_checkpoints` is off by default and accepts only a TOML
+boolean. Enabling it publishes guarded ticket-branch progress commits without
+creating an MR/PR before approval. `budgets.max_cost_usd = 0` disables the
+reported-cost cap; iteration, wall-clock and file bounds still apply.
 
 ## Running and Monitoring
 
@@ -87,6 +91,7 @@ resolved configuration.
 | --- | --- |
 | `adore [selector] retry <run-id>` | Re-arm a retryable run. |
 | `adore [selector] cancel <run-id>` | Cancel a run gracefully. |
+| `adore [selector] handoff <run-id>` | Transfer a run to a human at the next safe boundary, preserving its worktree and checkpoint evidence. If the conductor lock is held, the command queues the request; wait for `handed-off` before editing. This does not approve publication. |
 | `adore [selector] reset <run-id> --to <stage> --force` | Deliberately move ADORE's own pointer to `frame`, `specify`, `design`, `build`, `validate`, `deliver`, or `publishing`. It never edits the AEGIS task journal; conduction rereads that journal. `--force` is required. Run `retry` afterwards. |
 | `adore [selector] delete <run-id> --force` | Irreversibly remove run state. |
 | `adore [selector] cleanup` | Reclaim a provably stale local lock and sweep orphan executor/proxy containers, egress networks, and worktree husks. Active and failed runs are protected; a live/unknown lock remains held and is reported. |

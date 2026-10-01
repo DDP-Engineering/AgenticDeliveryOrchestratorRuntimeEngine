@@ -53,6 +53,12 @@ conductor then performs normal cancellation cleanup. A cancel received while
 the conductor is outside an executor gate can still wait for that bounded
 operation to finish. If the run completes first,
 the worker rejects the late cancel and preserves its completed state.
+An operator may use `adore handoff <run-id>` to transfer a run to a human.
+Jobs shows pending and completed handoffs. A completed handoff preserves its
+worktree, remains in history and cannot be cancelled from the web interface.
+Optional `delivery.publish_checkpoints = true` makes owned ticket-branch
+progress commits fetchable before approval; draft MR/PR creation still waits
+for a fresh candidate-bound human approval. The default is false.
 Disabling a user revokes sessions; the last
 active administrator cannot be disabled. Administrators can reset an account's
 password in Administration; this revokes all of that account's sessions. There
@@ -89,6 +95,11 @@ HTTPS returns a `Secure` session cookie and that the API listener remains bound
 to loopback. The certificate, DNS entry and Nginx installation are host
 prerequisites supplied before offline deployment; the ADORE installer never
 fetches them.
+A host-specific launcher can instead serve `create_app(ADORE_HOME)` directly
+with Uvicorn's SSL certificate and key arguments and `proxy_headers=False`.
+Bind only a trusted LAN/VPN address, restrict its firewall port to those
+networks, and verify the HTTPS login cookie is `Secure`. The host supplies and
+rotates its certificate and key; the offline bundle does not fetch them.
 On Jobs, select a project, then filter by lifecycle, AEGIS stage, inclusive
 last-update dates in UTC, or text contained in the job outcome (ignoring case).
 The top bar names the current page and contains the project selector. On a
@@ -348,6 +359,8 @@ runtime. Older undated summaries are omitted from the duration sample instead
 of being counted as zero. With a date range selected, a second duration
 panel includes jobs by their completion day in the selected timezone; its sample may differ from
 the daily completion count when timestamps are unavailable.
+Daily completed-job trends use the run's terminal journal event. Later recovery
+checkpoints do not make an older failed job appear newly completed.
 The administrator project table also shows each project's measured-job count
 and average elapsed time; its total row sums counts but leaves average blank.
 On Metrics, the reporting period, timezone and day/week/month grouping sit above

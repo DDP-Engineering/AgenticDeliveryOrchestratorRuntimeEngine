@@ -32,9 +32,10 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 import hashlib
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 import re
 import shlex
+import stat
 import time
 
 from adore.branding import (
@@ -217,6 +218,14 @@ def build_container_env(git_dir_name: str, git_name: str, git_email: str) -> dic
         "GIT_COMMITTER_NAME": git_name,
         "GIT_COMMITTER_EMAIL": git_email,
     }
+
+
+class CheckpointConflictError(IsolationError):
+    """@brief Remote ticket branch changed outside the conductor's ownership."""
+
+
+class CheckpointProtocolError(IsolationError):
+    """@brief Git checkpoint identity cannot be trusted; automatic work must stop."""
 
 
 class WorktreeManager:
@@ -420,8 +429,9 @@ class WorktreeManager:
     def push(self, run_id: str, branch: str) -> CommandResult:
         """
         @brief      Push the run branch to origin (orchestrator-owned).
-        @details    The ONLY remote-writing git call in ADORE; the executor is
-                    blocked from pushing (design 11). Returned as data so the
+        @details    Approved delivery uses this push; guarded WIP publication
+                    uses push_checkpoint. The executor is blocked from pushing.
+                    Returned as data so the
                     conductor decides (auth/protection failures escalate).
         @param[in]  run_id Stable run identifier.
         @param[in]  branch Branch name to push.
@@ -432,6 +442,65 @@ class WorktreeManager:
             ["git", "-C", str(self.path_for(run_id)),
              "push", "--set-upstream", "origin", branch]
         )
+
+    def push_checkpoint(self, run_id: str, branch: str, expected: str) -> str:
+        """
+        @brief Publish an owned, fast-forward checkpoint with an exact remote lease.
+        @param[in] run_id Run whose clean checkpoint is being published.
+        @param[in] branch Ticket branch, never the target branch.
+        @param[in] expected Last verified remote commit, or empty for a new branch.
+        @return Full commit verified on the remote after publication.
+        @exception CheckpointConflictError When remote ownership or ancestry changed.
+        @exception IsolationError When Git output or transport cannot be trusted.
+        """
+        ref = f"refs/heads/{branch}"
+        if not branch or branch.startswith("-") or (expected and re.fullmatch(
+            r"[0-9a-f]{40}|[0-9a-f]{64}", expected
+        ) is None):
+            raise CheckpointProtocolError("invalid checkpoint branch or expected commit")
+        try:
+            self._git("check-ref-format", ref)
+        except IsolationError as exc:
+            raise CheckpointProtocolError("invalid checkpoint branch format") from exc
+        current = self._run_wt(str(self.path_for(run_id)), "symbolic-ref", "-q", "HEAD")
+        if current.stdout.strip() != ref:
+            raise CheckpointConflictError("local worktree is no longer on the ticket branch")
+        head = self.ref_head(ref)
+        if re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", head) is None:
+            raise CheckpointProtocolError("invalid local checkpoint commit")
+
+        def remote_head() -> str:
+            """@brief Parse one exact remote branch identity, rejecting foreign output."""
+            output = self._git("ls-remote", "--heads", "origin", ref).stdout.strip()
+            if not output:
+                return ""
+            match = re.fullmatch(r"([0-9a-f]{40}|[0-9a-f]{64})\t" + re.escape(ref), output)
+            if match is None:
+                raise CheckpointProtocolError("invalid remote checkpoint identity")
+            return match[1]
+
+        remote = remote_head()
+        if remote == head:
+            return head  # Recover an already successful push after a state-write crash.
+        if remote != expected:
+            raise CheckpointConflictError("remote ticket branch changed outside ADORE")
+        if remote:
+            ancestry = self.runner([
+                "git", "-C", str(self.repo_path), "merge-base", "--is-ancestor", remote, head,
+            ])
+            if not ancestry.ok:
+                raise CheckpointConflictError("checkpoint would replace remote history")
+        self.scrub_container_worktree_config()
+        result = self.runner([
+            "git", "-C", str(self.path_for(run_id)), "push",
+            f"--force-with-lease={ref}:{remote}", "origin", f"{head}:{ref}",
+        ])
+        observed = remote_head()
+        if observed == head:
+            return head
+        if observed != remote:
+            raise CheckpointConflictError("remote branch changed during checkpoint push")
+        raise IsolationError("checkpoint push not verified", result.argv, result.stderr)
 
     def is_dirty(self, run_id: str) -> bool:
         """
@@ -498,6 +567,52 @@ class WorktreeManager:
         ).stdout.strip()
         material = "\0".join((target, head, tree, commits)).encode("utf-8")
         return hashlib.sha256(material).hexdigest()
+
+    def worktree_progress_fingerprint(self, run_id: str) -> str:
+        """
+        @brief      Observe candidate changes independently of task bookkeeping.
+        @details    Hash tracked diff against HEAD and untracked content, excluding
+                    journals and generated caches. Symlinks contribute their target
+                    text; directory symlinks and malformed paths fail closed.
+        @param[in]  run_id Stable run identifier.
+        @return     SHA-256 fingerprint, including dirty candidate changes.
+        @exception  IsolationError When Git or a content observation fails.
+        """
+        wt = self.path_for(run_id)
+        paths = (".", ":(exclude).agentic/tasks/**", *_GENERATED_PATHSPECS)
+        diff = self._run_wt(str(wt), "diff", "--binary", "HEAD", "--", *paths)
+        untracked = self._run_wt(
+            str(wt), "ls-files", "-z", "--others", "--exclude-standard", "--", *paths
+        ).stdout
+        if untracked and not untracked.endswith("\0"):
+            raise IsolationError("unterminated untracked progress path list")
+        digest = hashlib.sha256(diff.stdout.encode("utf-8"))
+        for name in sorted(untracked.split("\0")[:-1]):
+            relative = PurePosixPath(name)
+            if (not name or relative.is_absolute() or PureWindowsPath(name).drive
+                    or "\\" in name or ".." in relative.parts
+                    or relative.as_posix() != name):
+                raise IsolationError(f"unsafe untracked progress path: {name!r}")
+            source = wt.joinpath(*relative.parts)
+            try:
+                for parent in source.parents:
+                    if parent == wt:
+                        break
+                    if parent.is_symlink():
+                        raise IsolationError(f"symlink parent in progress path: {name!r}")
+                mode = source.lstat().st_mode
+                if stat.S_ISLNK(mode):
+                    kind, content = b"link", os.fsencode(os.readlink(source))
+                elif stat.S_ISREG(mode):
+                    kind, content = b"file", source.read_bytes()
+                else:
+                    raise IsolationError(f"unsupported progress file: {name!r}")
+            except OSError as exc:
+                raise IsolationError(f"cannot observe progress file {name!r}: {exc}") from exc
+            for value in (name.encode("utf-8"), kind, content):
+                digest.update(len(value).to_bytes(8, "big"))
+                digest.update(value)
+        return digest.hexdigest()
 
     def product_diff_fingerprint(self, run_id: str, base_ref: str) -> str:
         """
