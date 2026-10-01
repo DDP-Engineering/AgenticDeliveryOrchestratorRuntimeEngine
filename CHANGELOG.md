@@ -14,6 +14,9 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Metrics uses one project scope across all tabs and CSV exports. Administrator
+  All projects scope shows pooled totals and a project breakdown; selecting a
+  project focuses every view, with assigned-project privacy for developers.
 - Metrics now places project selection within its common reporting controls, with full-width project selection on phones.
 - Jobs now aligns wider executor/outcome filters with localized Help explaining recorded data sources and matching rules.
 - Jobs now places project selection beside its ticket/start controls and provides localized ticket-number help.

@@ -5,6 +5,7 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
 import { Children, cloneElement, isValidElement, useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactElement, type ReactNode } from "react";
+import { aggregateMetrics, aggregateUsage, type Metrics, type Usage } from "./metrics";
 import { messages, type Locale, type MessageKey } from "./i18n";
 
 type User = { id: number; username: string; role: "admin" | "developer"; disabled: boolean; projects?: string[] };
@@ -15,12 +16,7 @@ type ImportPreview = { name: string; revision: string; issues: string[]; platfor
 type PendingConfig = { base_revision: string; candidate_revision: string; key: string; value: string; created_at: string; restart_required: boolean; endpoint?: { protocol: string; model: string; auth_env: string | null; timeout_seconds: number | null; ca_file: string | null } };
 type Run = { run_id: string; ticket_iid: number; stage: string; lifecycle: string; outcome: string; stage_failures: number; review_rounds: number; mr_url: string; updated_at: string };
 type RunPage = { items: Run[]; total: number; counts: Record<string, number>; limit: number; offset: number };
-type Duration = { sampled_runs: number; avg_span_seconds: number | null; median_span_seconds: number | null };
-type CostEvidence = { jobs_with_evidence: number; usd_per_job: number | null };
-type Quality = { reviewed_jobs: number; reworked_jobs: number; review_rework_rate: number | null; open_review_jobs: number; validated_jobs: number; first_pass_validations: number; first_validation_rate: number | null; human_merged_jobs: number; first_pass_merges: number; first_pass_merge_rate: number | null; stage_failures: number; operator_retries: number; cost_efficiency?: Record<string, CostEvidence> };
-type Metrics = { totals: Record<string, number | null>; duration: Duration; quality: Quality; runs: Array<Record<string, string | number | null>>; daily: Array<{ date: string; started: number; completed: number; tokens_in: number; tokens_out: number; mr_revisions: number; pipeline_repairs: number; cost_usd?: number | null; estimated_cost_usd?: number | null }>; period: { from: string | null; to: string | null; basis: string; started: number; completed: number; tokens_in: number; tokens_out: number; mr_revisions: number; pipeline_repairs: number; duration: Duration; cost_usd?: number | null; estimated_cost_usd?: number | null }; revisions?: Array<{ run_id: string; revision: number; trigger: string; date: string | null; tokens_in: number; tokens_out: number; reported_cost_usd: number | null; estimated_cost_usd: number | null }>; coverage: { runs_with_usage: number; revision_events_unclassified: number; launches_with_reported_tokens: number; launches_with_unavailable_tokens: number; launches_capture_disabled: number; launches_with_reported_cost?: number; launches_with_unavailable_cost?: number; runs_with_reported_cost?: number; runs_with_estimated_cost?: number; usage_events_unpriced?: number } };
 type Config = { config: Record<string, unknown>; revision: string; issues: string[]; local_endpoint_timeout_seconds?: number | null };
-type Usage = { totals: { events: number; tokens_in: number; tokens_out: number; cache_read_tokens: number | null; cache_write_tokens: number | null; reported_cost_usd?: number | null; estimated_cost_usd?: number | null; unpriced_events?: number }; daily: Array<{ date: string; executor: string | null; model: string | null; events: number; tokens_in: number; tokens_out: number; cache_read_tokens: number | null; cache_write_tokens: number | null; reported_cost_usd?: number | null; estimated_cost_usd?: number | null }> };
 type Operation = { id: number; status: string; result?: string };
 type AuditRow = { id: number; actor: string | null; action: string; project: string; detail: string; created_at: string };
 type Price = { id: number; executor: string; model: string; effective_from: string; input_usd_per_million: string; output_usd_per_million: string };
@@ -110,16 +106,19 @@ export default function App() {
   const [jobUpdatedFrom, setJobUpdatedFrom] = useState("");
   const [jobUpdatedTo, setJobUpdatedTo] = useState("");
   const [jobOutcome, setJobOutcome] = useState("");
-  const [metrics, setMetrics] = useState<Metrics | null>(null);
+  const [selectedMetrics, setMetrics] = useState<Metrics | null>(null);
   const [allMetrics, setAllMetrics] = useState<Record<string, Metrics> | null>(null);
   const [metricFrom, setMetricFrom] = useState("");
   const [metricTo, setMetricTo] = useState("");
   const [metricTimezone, setMetricTimezone] = useState("UTC");
   const [metricGranularity, setMetricGranularity] = useState<"day" | "week" | "month">("day");
+  const [metricAllProjects, setMetricAllProjects] = useState(true);
+  const [metricsScope, setMetricsScope] = useState("");
   const [metricsTab, setMetricsTab] = useState<MetricsTab>("summary");
   const [usageExecutor, setUsageExecutor] = useState("");
   const [usageModel, setUsageModel] = useState("");
-  const [usage, setUsage] = useState<Usage | null>(null);
+  const [selectedUsage, setUsage] = useState<Usage | null>(null);
+  const [usageScope, setUsageScope] = useState("");
   const [allUsage, setAllUsage] = useState<Record<string, Usage> | null>(null);
   const [usageRefresh, setUsageRefresh] = useState(0);
   const [config, setConfig] = useState<Config | null>(null);
@@ -229,30 +228,20 @@ export default function App() {
   if (usageExecutor.trim()) usageParams.set("executor", usageExecutor.trim());
   if (usageModel.trim()) usageParams.set("model", usageModel.trim());
   const usageSuffix = usageParams.toString() ? `?${usageParams}` : "";
-  const globalRows = Object.entries(allMetrics || {});
+  const allProjectScope = isAdmin && metricAllProjects;
+  const scopeLabel = allProjectScope ? t("metricsAllProjects") : selectedProject?.name || "";
+  const scopeProjects = allProjectScope ? projects : projects.filter(project => project.id === selected);
+  const globalRows = allProjectScope ? Object.entries(allMetrics || {}) :
+    selectedMetrics && metricsScope === selected && selectedProject ? [[selectedProject.name, selectedMetrics] as [string, Metrics]] : [];
+  const metrics = allProjectScope ? (allMetrics ? aggregateMetrics(Object.values(allMetrics), metricTimezone, metricFrom, metricTo) : null) :
+    metricsScope === selected ? selectedMetrics : null;
+  const usage = allProjectScope ? (allUsage ? aggregateUsage(Object.values(allUsage)) : null) : usageScope === selected ? selectedUsage : null;
+  const scopedUsageRows = allProjectScope ? Object.entries(allUsage || {}) : selectedUsage && selectedProject ? [[selectedProject.name, selectedUsage] as [string, Usage]] : [];
   const globalTokensIn = globalRows.reduce((sum, [, item]) => sum + (item.totals.tokens_in || 0), 0);
   const globalTokensOut = globalRows.reduce((sum, [, item]) => sum + (item.totals.tokens_out || 0), 0);
   const globalReportedCost = globalRows.reduce((sum, [, item]) => sum + (item.totals.cost_usd || 0), 0);
-  const globalEstimatedCost = globalRows.reduce((sum, [, item]) => sum + (item.totals.estimated_cost_usd || 0), 0);
   const globalReviewRounds = globalRows.reduce((sum, [, item]) => sum + item.runs.reduce((runSum, run) => runSum + Number(run.review_rounds || 0), 0), 0);
-  const globalDaily = Object.values(globalRows.flatMap(([, item]) => item.daily).reduce<Record<string, Metrics["daily"][number]>>((acc, day) => {
-    const row = acc[day.date] || (acc[day.date] = { date: day.date, started: 0, completed: 0, tokens_in: 0, tokens_out: 0, mr_revisions: 0, pipeline_repairs: 0, cost_usd: null, estimated_cost_usd: null });
-    row.started += day.started; row.completed += day.completed;
-    row.tokens_in += day.tokens_in; row.tokens_out += day.tokens_out;
-    row.mr_revisions += day.mr_revisions; row.pipeline_repairs += day.pipeline_repairs;
-    if (day.cost_usd != null) row.cost_usd = (row.cost_usd || 0) + day.cost_usd;
-    if (day.estimated_cost_usd != null) row.estimated_cost_usd = (row.estimated_cost_usd || 0) + day.estimated_cost_usd;
-    return acc;
-  }, {})).sort((a, b) => a.date.localeCompare(b.date));
-  const globalPeriod = globalDaily.reduce((acc, day) => {
-    acc.started += day.started; acc.completed += day.completed;
-    acc.tokens_in += day.tokens_in; acc.tokens_out += day.tokens_out;
-    acc.mr_revisions += day.mr_revisions; acc.pipeline_repairs += day.pipeline_repairs;
-    if (day.cost_usd != null) acc.cost_usd = (acc.cost_usd || 0) + day.cost_usd;
-    if (day.estimated_cost_usd != null) acc.estimated_cost_usd = (acc.estimated_cost_usd || 0) + day.estimated_cost_usd;
-    return acc;
-  }, { started: 0, completed: 0, tokens_in: 0, tokens_out: 0, mr_revisions: 0, pipeline_repairs: 0, cost_usd: null as number | null, estimated_cost_usd: null as number | null });
-  const repositoryRows = Object.entries(projects.reduce<Record<string, {
+  const repositoryRows = Object.entries(scopeProjects.reduce<Record<string, {
     projects: number; jobs: number; tokensIn: number; tokensOut: number; mrRevisions: number; pipelineRepairs: number;
     reported: number; estimated: number; hasReported: boolean; hasEstimated: boolean;
   }>>((acc, project) => {
@@ -261,7 +250,7 @@ export default function App() {
       projects: 0, jobs: 0, tokensIn: 0, tokensOut: 0, mrRevisions: 0, pipelineRepairs: 0,
       reported: 0, estimated: 0, hasReported: false, hasEstimated: false,
     });
-    const item = allMetrics?.[project.name];
+    const item = globalRows.find(([name]) => name === project.name)?.[1];
     row.projects += 1;
     row.jobs += project.runs;
     row.tokensIn += item?.totals.tokens_in || 0;
@@ -278,27 +267,6 @@ export default function App() {
     }
     return acc;
   }, {})).sort(([a], [b]) => a.localeCompare(b));
-  const selectedRepository = projects.find(project => project.id === selected)?.repo || "";
-  const repositoryDaily = selectedRepository ? Object.values(
-    projects.filter(project => project.repo === selectedRepository)
-      .flatMap(project => allMetrics?.[project.name]?.daily || [])
-      .reduce<Record<string, Metrics["daily"][number]>>((acc, day) => {
-        const row = acc[day.date] || (acc[day.date] = {
-          date: day.date, started: 0, completed: 0, tokens_in: 0, tokens_out: 0,
-          mr_revisions: 0, pipeline_repairs: 0, cost_usd: null, estimated_cost_usd: null,
-        });
-        row.started += day.started;
-        row.completed += day.completed;
-        row.tokens_in += day.tokens_in;
-        row.tokens_out += day.tokens_out;
-        row.mr_revisions += day.mr_revisions;
-        row.pipeline_repairs += day.pipeline_repairs;
-        if (day.cost_usd != null) row.cost_usd = (row.cost_usd || 0) + day.cost_usd;
-        if (day.estimated_cost_usd != null) row.estimated_cost_usd =
-          (row.estimated_cost_usd || 0) + day.estimated_cost_usd;
-        return acc;
-      }, {})
-  ).sort((a, b) => a.date.localeCompare(b.date)) : [];
   const formatNumber = (value: number) => new Intl.NumberFormat(locale).format(value || 0);
   const formatPercent = (value: number | null | undefined) => value == null ? "—" : new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 1 }).format(value);
   const formatMoney = (value: number | null | undefined) => value == null ? "—" : new Intl.NumberFormat(locale, { style: "currency", currency: "USD" }).format(value);
@@ -367,7 +335,7 @@ export default function App() {
     const refresh = async () => {
       try {
         const scoped = await request<Usage>(`/projects/${encodeURIComponent(selected)}/usage${usageSuffix}`);
-        if (generation === viewGeneration.current && revision === usageRequest.current) setUsage(scoped);
+        if (generation === viewGeneration.current && revision === usageRequest.current) { setUsage(scoped); setUsageScope(selected); }
         if (isAdmin) {
           const global = await request<Record<string, Usage>>(`/usage${usageSuffix}`);
           if (generation === viewGeneration.current && revision === usageRequest.current) setAllUsage(global);
@@ -393,7 +361,7 @@ export default function App() {
       if (generation !== viewGeneration.current || revision !== selectedMetricsRequest.current) return;
       setRuns(runData.items);
       setRunCounts(runData.counts);
-      setMetrics(metricData);
+      setMetrics(metricData); setMetricsScope(selected);
       setLastRefresh(new Date());
     } catch (cause) {
       if (generation === viewGeneration.current && revision === selectedMetricsRequest.current) setError((cause as Error).message);
@@ -524,7 +492,7 @@ export default function App() {
     void refresh();
     const timer = window.setInterval(() => void refresh(), 30000);
     return () => window.clearInterval(timer);
-  }, [page, isAdmin, metricSuffix]);
+  }, [page, isAdmin, metricSuffix, usageRefresh]);
 
   useEffect(() => {
     if (!operation || !["pending", "running"].includes(operation.status)) return;
@@ -573,8 +541,8 @@ export default function App() {
     setJobOffset(0); setJobLifecycle(""); setJobStage("");
     setJobUpdatedFrom(""); setJobUpdatedTo(""); setJobOutcome("");
     setMetrics(null); setAllMetrics(null); setMetricFrom(""); setMetricTo("");
-    setMetricTimezone("UTC"); setMetricGranularity("day"); setMetricsTab("summary");
-    setUsage(null); setAllUsage(null); setUsageExecutor(""); setUsageModel("");
+    setMetricAllProjects(true); setMetricsScope(""); setMetricTimezone("UTC"); setMetricGranularity("day"); setMetricsTab("summary");
+    setUsage(null); setUsageScope(""); setAllUsage(null); setUsageExecutor(""); setUsageModel("");
     setConfig(null); setPendingConfig(null); setPrices([]);
     setUsers([]); setAuditRows([]); setAuditPolicy(null); setDetails(null); setOperation(null);
     clearImportDraft();
@@ -857,7 +825,7 @@ export default function App() {
         {page !== "overview" && page !== "projects" && page !== "createProject" && page !== "importProject" && page !== "jobs" && page !== "metrics" && projects.length > 0 && <label className="project-picker">{t("project")}<select value={selected} onChange={event => setSelected(event.target.value)}>{projects.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}
         <div className="top-actions">
         <span className="refresh-stamp">{lastRefresh && `${t("lastRefresh")}: ${formatDate(lastRefresh.toISOString())}`}</span>
-        <button className="ghost" onClick={() => { void refreshProjects(); void refreshSelected(); void refreshJobPage(); }}>{t("refresh")}</button>
+        <button className="ghost" onClick={() => { void refreshProjects(); void refreshSelected(); void refreshJobPage(); setUsageRefresh(value => value + 1); }}>{t("refresh")}</button>
         <button className="ghost" ref={aboutTrigger} onClick={() => request<typeof about>("/about").then(setAbout).catch(cause => setError(cause.message))}>{t("about")}</button>
         <button className="ghost mobile-signout" onClick={signOut}>{t("logout")}</button>
       </div></header>
@@ -931,7 +899,7 @@ export default function App() {
         </>}
 
         {page === "projectDetails" && selectedProject && <>
-          <section className="panel"><div className="panel-heading"><h2>{selectedProject.name}</h2><span className={`status status-${selectedProject.readiness}`}>{t(selectedProject.readiness === "configured" ? "configured" : selectedProject.readiness === "needs-config" ? "needsConfig" : selectedProject.readiness === "invalid-state" ? "invalidState" : selectedProject.readiness === "archived" ? "archived" : "paused")}</span></div><p>{selectedProject.description || selectedProject.repo}</p><div className="project-meta">{t("forge")}: {selectedProject.platform} · {t("repository")}: {selectedProject.repo}</div><div className="project-meta">{t("runtime")}: {selectedProject.runtime} · {t("executor")}: {selectedProject.executor || "—"}</div><div className="project-meta">{t("lastActivity")}: {selectedProject.last_activity ? formatDate(selectedProject.last_activity) : "—"}</div><div className="button-row"><button className="primary" onClick={() => setPage("jobs")}>{t("jobs")}</button><button className="ghost" onClick={() => setPage("metrics")}>{t("metrics")}</button><button className="ghost" disabled={!projectConfig} onClick={() => document.getElementById("project-settings")?.scrollIntoView()}>{t("settings")}</button>{isAdmin && <button className="ghost" onClick={() => setPage("adminUsers")}>{t("assignedProjects")}</button>}</div></section>
+          <section className="panel"><div className="panel-heading"><h2>{selectedProject.name}</h2><span className={`status status-${selectedProject.readiness}`}>{t(selectedProject.readiness === "configured" ? "configured" : selectedProject.readiness === "needs-config" ? "needsConfig" : selectedProject.readiness === "invalid-state" ? "invalidState" : selectedProject.readiness === "archived" ? "archived" : "paused")}</span></div><p>{selectedProject.description || selectedProject.repo}</p><div className="project-meta">{t("forge")}: {selectedProject.platform} · {t("repository")}: {selectedProject.repo}</div><div className="project-meta">{t("runtime")}: {selectedProject.runtime} · {t("executor")}: {selectedProject.executor || "—"}</div><div className="project-meta">{t("lastActivity")}: {selectedProject.last_activity ? formatDate(selectedProject.last_activity) : "—"}</div><div className="button-row"><button className="primary" onClick={() => setPage("jobs")}>{t("jobs")}</button><button className="ghost" onClick={() => { setMetricAllProjects(false); setPage("metrics"); }}>{t("metrics")}</button><button className="ghost" disabled={!projectConfig} onClick={() => document.getElementById("project-settings")?.scrollIntoView()}>{t("settings")}</button>{isAdmin && <button className="ghost" onClick={() => setPage("adminUsers")}>{t("assignedProjects")}</button>}</div></section>
           {isAdmin && <section className="panel"><div className="panel-heading"><h2>{t("hostReadiness")}</h2><button className="ghost" onClick={() => void checkProjectReadiness()}>{t("runReadinessCheck")}</button></div><p className="muted">{t("hostReadinessHelp")}</p>{projectReadiness && <><p className="muted">{t("checkedAt")}: {formatDate(projectReadiness.checked_at)}</p><div className="detail-grid">{Object.entries(projectReadiness.checks).map(([key, value]) => <span key={key}>{t(({ git: "gitTool", forge_cli: "forgeCli", forge_auth: "forgeAuth", container_runtime: "containerRuntime", executor_cli: "executorCli", aegis_files: "aegisPayload", model_endpoint: "modelEndpoint" } as Record<string, MessageKey>)[key])}: <strong>{value === true ? t("checkPassed") : value === false ? t("checkMissing") : t("checkUnverified")}</strong></span>)}</div>{projectReadiness.model_probe && <p className="muted">{t("modelEndpoint")}: {modelReason(projectReadiness.model_probe.reason)}{projectReadiness.model_probe.model ? ` (${projectReadiness.model_probe.model})` : ""}</p>}</>}</section>}
           <section className="panel"><div className="panel-heading"><h2>{t("recentJobs")}</h2><button className="text-button" onClick={() => setPage("jobs")}>{t("view")} →</button></div><RunTable runs={runs} t={t} formatDate={formatDate} onOpen={openRun} /></section>
           {projectConfig && <ProjectConfigReadOnly config={projectConfig.config} t={t} />}
@@ -965,7 +933,7 @@ export default function App() {
         </>}
 
         {page === "metrics" && <>
-        <section className="panel compact metrics-period"><div className="panel-heading"><h2>{t("reportingPeriod")}</h2>{(selected || isAdmin) && <details className="metrics-export"><summary className="ghost metrics-export-trigger">{t("exportCsv")}</summary><div className="metrics-export-links">{selected && <><a href={`/api/v1/projects/${encodeURIComponent(selected)}/metrics.csv${metricSuffix}`}>{t("projectMetricsExport")}</a><a href={`/api/v1/projects/${encodeURIComponent(selected)}/usage.csv${usageSuffix}`}>{t("projectUsageExport")}</a></>}{isAdmin && <><a href={`/api/v1/metrics.csv${metricSuffix}`}>{t("allMetricsExport")}</a><a href={`/api/v1/usage.csv${usageSuffix}`}>{t("allUsageExport")}</a></>}</div></details>}</div><div className="job-filters">{projects.length > 0 && <label className="metrics-project-filter" htmlFor="metrics-project">{t("project")}<select id="metrics-project" value={selected} onChange={event => setSelected(event.target.value)}>{projects.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}<label>{t("dateFromLocal")}<input type="date" value={metricFrom} max={metricTo || undefined} onChange={event => setMetricFrom(event.target.value)} /></label><label>{t("dateToLocal")}<input type="date" value={metricTo} min={metricFrom || undefined} onChange={event => setMetricTo(event.target.value)} /></label><label>{t("reportingTimezone")}<select value={metricTimezone} onChange={event => setMetricTimezone(event.target.value)}><option value="UTC">UTC</option><option value="Europe/Bucharest">Europe/Bucharest</option><option value="Europe/Paris">Europe/Paris</option><option value="Europe/Berlin">Europe/Berlin</option><option value="America/New_York">America/New_York</option></select></label><label>{t("trendGranularity")}<select value={metricGranularity} onChange={event => setMetricGranularity(event.target.value as "day" | "week" | "month")}><option value="day">{t("byDay")}</option><option value="week">{t("byWeek")}</option><option value="month">{t("byMonth")}</option></select></label></div><p className="muted">{t("reportingScopeHelp")}</p></section>
+        <section className="panel compact metrics-period"><div className="panel-heading"><h2>{t("reportingPeriod")}</h2>{(selected || isAdmin) && <details className="metrics-export"><summary className="ghost metrics-export-trigger">{t("exportCsv")}</summary><div className="metrics-export-links">{!allProjectScope && selected && <><a href={`/api/v1/projects/${encodeURIComponent(selected)}/metrics.csv${metricSuffix}`}>{t("projectMetricsExport")}</a><a href={`/api/v1/projects/${encodeURIComponent(selected)}/usage.csv${usageSuffix}`}>{t("projectUsageExport")}</a></>}{allProjectScope && <><a href={`/api/v1/metrics.csv${metricSuffix}`}>{t("allMetricsExport")}</a><a href={`/api/v1/usage.csv${usageSuffix}`}>{t("allUsageExport")}</a></>}</div></details>}</div><div className="job-filters">{projects.length > 0 && <label className="metrics-project-filter" htmlFor="metrics-project">{t("project")}<select id="metrics-project" value={allProjectScope ? "" : selected} onChange={event => { setMetricAllProjects(event.target.value === ""); if (event.target.value) setSelected(event.target.value); }}>{isAdmin && <option value="">{t("metricsAllProjects")}</option>}{projects.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}<label>{t("dateFromLocal")}<input type="date" value={metricFrom} max={metricTo || undefined} onChange={event => setMetricFrom(event.target.value)} /></label><label>{t("dateToLocal")}<input type="date" value={metricTo} min={metricFrom || undefined} onChange={event => setMetricTo(event.target.value)} /></label><label>{t("reportingTimezone")}<select value={metricTimezone} onChange={event => setMetricTimezone(event.target.value)}><option value="UTC">UTC</option><option value="Europe/Bucharest">Europe/Bucharest</option><option value="Europe/Paris">Europe/Paris</option><option value="Europe/Berlin">Europe/Berlin</option><option value="America/New_York">America/New_York</option></select></label><label>{t("trendGranularity")}<select value={metricGranularity} onChange={event => setMetricGranularity(event.target.value as "day" | "week" | "month")}><option value="day">{t("byDay")}</option><option value="week">{t("byWeek")}</option><option value="month">{t("byMonth")}</option></select></label></div><p className="muted">{t("metricsScopeHelp")} {t("reportingScopeHelp")}</p></section>
         <div className="metrics-tabs" role="tablist" aria-label={t("metrics")}>
           {metricsTabs.map(tab => <button key={tab} id={`metrics-tab-${tab}`} type="button" role="tab" aria-controls="metrics-tab-panel" aria-selected={metricsTab === tab} tabIndex={metricsTab === tab ? 0 : -1} onClick={() => setMetricsTab(tab)} onKeyDown={event => onMetricsTabKeyDown(event, tab)}>{t(metricsTabLabels[tab])}</button>)}
         </div>
@@ -976,41 +944,46 @@ export default function App() {
           <p className="muted">{t("attributedUsageHelp")}</p>
           {usage && <p className="muted">{t("usageEvents")}: {formatNumber(usage.totals.events)} · {t("tokensIn")}: {formatNumber(usage.totals.tokens_in)} · {t("tokensOut")}: {formatNumber(usage.totals.tokens_out)} / {t("cacheRead")}: {usage.totals.cache_read_tokens == null ? "\u2014" : formatNumber(usage.totals.cache_read_tokens)} / {t("cacheWrite")}: {usage.totals.cache_write_tokens == null ? "\u2014" : formatNumber(usage.totals.cache_write_tokens)}{isAdmin && <> · {t("cost")}: {formatMoney(usage.totals.reported_cost_usd)} · {t("estimatedCost")}: {formatMoney(usage.totals.estimated_cost_usd)}</>}</p>}
           {usage?.daily.length ? <PagedTable t={t}><table><thead><tr><th>{t("date")}</th><th>{t("executor")}</th><th>{t("model")}</th><th>{t("usageEvents")}</th><th>{t("tokensIn")}</th><th>{t("tokensOut")}</th><th>{t("cacheRead")}</th><th>{t("cacheWrite")}</th>{isAdmin && <th>{t("cost")}</th>}{isAdmin && <th>{t("estimatedCost")}</th>}</tr></thead><tbody>{usage.daily.map((row, index) => <tr key={`${row.date}-${row.executor}-${row.model}-${index}`}><td>{row.date}</td><td>{row.executor || "—"}</td><td>{row.model || "—"}</td><td>{formatNumber(row.events)}</td><td>{formatNumber(row.tokens_in)}</td><td>{formatNumber(row.tokens_out)}</td><td>{row.cache_read_tokens == null ? "\u2014" : formatNumber(row.cache_read_tokens)}</td><td>{row.cache_write_tokens == null ? "\u2014" : formatNumber(row.cache_write_tokens)}</td>{isAdmin && <td>{formatMoney(row.reported_cost_usd)}</td>}{isAdmin && <td>{formatMoney(row.estimated_cost_usd)}</td>}</tr>)}</tbody></table></PagedTable> : <Empty label={t("noMatchingMetrics")} />}
-          {isAdmin && allUsage && <><h3>{t("allProjects")}</h3><PagedTable t={t}><table><thead><tr><th>{t("project")}</th><th>{t("usageEvents")}</th><th>{t("tokensIn")}</th><th>{t("tokensOut")}</th><th>{t("cost")}</th><th>{t("estimatedCost")}</th></tr></thead><tbody>{Object.entries(allUsage).map(([name, item]) => <tr key={name}><td>{name}</td><td>{formatNumber(item.totals.events)}</td><td>{formatNumber(item.totals.tokens_in)}</td><td>{formatNumber(item.totals.tokens_out)}</td><td>{formatMoney(item.totals.reported_cost_usd)}</td><td>{formatMoney(item.totals.estimated_cost_usd)}</td></tr>)}</tbody></table></PagedTable></>}
+          {allProjectScope && allUsage && <><h3>{t("allProjects")}</h3><PagedTable t={t}><table><thead><tr><th>{t("project")}</th><th>{t("usageEvents")}</th><th>{t("tokensIn")}</th><th>{t("tokensOut")}</th><th>{t("cost")}</th><th>{t("estimatedCost")}</th></tr></thead><tbody>{scopedUsageRows.map(([name, item]) => <tr key={name}><td>{name}</td><td>{formatNumber(item.totals.events)}</td><td>{formatNumber(item.totals.tokens_in)}</td><td>{formatNumber(item.totals.tokens_out)}</td><td>{formatMoney(item.totals.reported_cost_usd)}</td><td>{formatMoney(item.totals.estimated_cost_usd)}</td></tr>)}</tbody></table></PagedTable></>}
         </section></>}
         {metricsTab === "summary" && <>
-        <p className="muted">{t("allTimeTotals")}</p><div className="stats-grid">
-          <Stat label={t("runs")} value={formatNumber(metrics?.totals.runs || 0)} hint={selectedProject?.name || "—"} />
+        <p className="muted">{scopeLabel} · {t("allTimeTotals")}</p><div className="stats-grid">
+          <Stat label={t("runs")} value={formatNumber(metrics?.totals.runs || 0)} hint={scopeLabel} />
           <Stat label={t("tokensIn")} value={formatNumber(metrics?.totals.tokens_in || 0)} hint={t("coverage")} />
           <Stat label={t("tokensOut")} value={formatNumber(metrics?.totals.tokens_out || 0)} hint={t("coverage")} />
-          <Stat label={t("reviewRounds")} value={formatNumber(metrics?.runs.reduce((sum, row) => sum + Number(row.review_rounds || 0), 0) || 0)} hint={selectedProject?.name || "—"} />
-          <Stat label={t("mrRevisions")} value={formatNumber(metrics?.totals.mr_revisions || 0)} hint={selectedProject?.name || "—"} />
-          <Stat label={t("pipelineRepairs")} value={formatNumber(metrics?.totals.pipeline_repairs || 0)} hint={selectedProject?.name || "—"} />
-          {isAdmin && <Stat label={t("cost")} value={metrics?.totals.cost_usd == null ? "—" : new Intl.NumberFormat(locale, { style: "currency", currency: "USD" }).format(metrics.totals.cost_usd)} hint={selectedProject?.name || "—"} />}
-          {isAdmin && <Stat label={t("estimatedCost")} value={formatMoney(metrics?.totals.estimated_cost_usd)} hint={selectedProject?.name || "—"} />}
+          <Stat label={t("reviewRounds")} value={formatNumber(metrics?.runs.reduce((sum, row) => sum + Number(row.review_rounds || 0), 0) || 0)} hint={scopeLabel} />
+          <Stat label={t("mrRevisions")} value={formatNumber(metrics?.totals.mr_revisions || 0)} hint={scopeLabel} />
+          <Stat label={t("pipelineRepairs")} value={formatNumber(metrics?.totals.pipeline_repairs || 0)} hint={scopeLabel} />
+          {isAdmin && <Stat label={t("cost")} value={metrics?.totals.cost_usd == null ? "—" : new Intl.NumberFormat(locale, { style: "currency", currency: "USD" }).format(metrics.totals.cost_usd)} hint={scopeLabel} />}
+          {isAdmin && <Stat label={t("estimatedCost")} value={formatMoney(metrics?.totals.estimated_cost_usd)} hint={scopeLabel} />}
         </div>
+        {allProjectScope && allMetrics && <section className="panel"><div className="panel-heading"><h2>{t("projectComparison")}</h2><span className="muted">{t("allTimeTotals")}</span></div>
+          <PagedTable t={t}><table><thead><tr><th>{t("project")}</th><th>{t("jobs")}</th><th>{t("tokensIn")}</th><th>{t("tokensOut")}</th><th>{t("reviewRounds")}</th><th>{t("mrRevisions")}</th><th>{t("pipelineRepairs")}</th><th>{t("cost")}</th><th>{t("estimatedCost")}</th></tr></thead><tbody>
+            {globalRows.map(([name, item]) => <tr key={name}><td>{name}</td><td>{formatNumber(item.totals.runs || 0)}</td><td>{formatNumber(item.totals.tokens_in || 0)}</td><td>{formatNumber(item.totals.tokens_out || 0)}</td><td>{formatNumber(item.runs.reduce((total, row) => total + Number(row.review_rounds || 0), 0))}</td><td>{formatNumber(item.totals.mr_revisions || 0)}</td><td>{formatNumber(item.totals.pipeline_repairs || 0)}</td><td>{formatMoney(item.totals.cost_usd)}</td><td>{formatMoney(item.totals.estimated_cost_usd)}</td></tr>)}
+          </tbody></table></PagedTable>
+        </section>}
         <section className="panel"><div className="panel-heading"><h2>{t("coverage")}</h2><span className="muted">{t("allTimeTotals")}</span></div>
           <p className="muted">{t("launchCoverageHelp")}</p><div className="stats-grid">
-            <Stat label={t("reportedTokenLaunches")} value={formatNumber(metrics?.coverage.launches_with_reported_tokens || 0)} hint={selectedProject?.name || ""} />
-            <Stat label={t("unavailableTokenLaunches")} value={formatNumber(metrics?.coverage.launches_with_unavailable_tokens || 0)} hint={selectedProject?.name || ""} />
-            <Stat label={t("disabledCaptureLaunches")} value={formatNumber(metrics?.coverage.launches_capture_disabled || 0)} hint={selectedProject?.name || ""} />
-            {isAdmin && <Stat label={t("reportedCostLaunches")} value={formatNumber(metrics?.coverage.launches_with_reported_cost || 0)} hint={selectedProject?.name || ""} />}
-            {isAdmin && <Stat label={t("unavailableCostLaunches")} value={formatNumber(metrics?.coverage.launches_with_unavailable_cost || 0)} hint={selectedProject?.name || ""} />}
+            <Stat label={t("reportedTokenLaunches")} value={formatNumber(metrics?.coverage.launches_with_reported_tokens || 0)} hint={scopeLabel} />
+            <Stat label={t("unavailableTokenLaunches")} value={formatNumber(metrics?.coverage.launches_with_unavailable_tokens || 0)} hint={scopeLabel} />
+            <Stat label={t("disabledCaptureLaunches")} value={formatNumber(metrics?.coverage.launches_capture_disabled || 0)} hint={scopeLabel} />
+            {isAdmin && <Stat label={t("reportedCostLaunches")} value={formatNumber(metrics?.coverage.launches_with_reported_cost || 0)} hint={scopeLabel} />}
+            {isAdmin && <Stat label={t("unavailableCostLaunches")} value={formatNumber(metrics?.coverage.launches_with_unavailable_cost || 0)} hint={scopeLabel} />}
           </div>
         </section>
         <section className="panel"><div className="panel-heading"><h2>{t("jobDuration")}</h2><span className="muted">{t("allTimeTotals")}</span></div>
           <p className="muted">{t("durationHelp")}</p><div className="stats-grid">
-            <Stat label={t("measuredJobs")} value={formatNumber(metrics?.duration.sampled_runs || 0)} hint={selectedProject?.name || "—"} />
+            <Stat label={t("measuredJobs")} value={formatNumber(metrics?.duration.sampled_runs || 0)} hint={scopeLabel} />
             <Stat label={t("averageSpan")} value={metrics?.duration.avg_span_seconds == null ? "—" : `${formatNumber(metrics.duration.avg_span_seconds)} s`} hint={t("jobDuration")} />
             <Stat label={t("medianSpan")} value={metrics?.duration.median_span_seconds == null ? "—" : `${formatNumber(metrics.duration.median_span_seconds)} s`} hint={t("jobDuration")} />
           </div>
         </section>
-        {(metricFrom || metricTo) && metrics?.period && <section className="panel"><div className="panel-heading"><h2>{t("periodTotals")}</h2><span className="muted">{metricTimezone}</span></div><p className="muted">{t("datedEventsHelp")}</p><PagedTable t={t}><table><thead><tr><th>{t("project")}</th><th>{t("jobsStarted")}</th><th>{t("completed")}</th><th>{t("tokensIn")}</th><th>{t("tokensOut")}</th><th>{t("mrRevisions")}</th><th>{t("pipelineRepairs")}</th>{isAdmin && <th>{t("cost")}</th>}{isAdmin && <th>{t("estimatedCost")}</th>}</tr></thead><tbody><tr><td>{selectedProject?.name}</td><td>{formatNumber(metrics.period.started)}</td><td>{formatNumber(metrics.period.completed)}</td><td>{formatNumber(metrics.period.tokens_in)}</td><td>{formatNumber(metrics.period.tokens_out)}</td><td>{formatNumber(metrics.period.mr_revisions)}</td><td>{formatNumber(metrics.period.pipeline_repairs)}</td>{isAdmin && <td>{formatMoney(metrics.period.cost_usd)}</td>}{isAdmin && <td>{formatMoney(metrics.period.estimated_cost_usd)}</td>}</tr>{isAdmin && allMetrics && <tr><th>{t("allProjects")}</th><td>{formatNumber(globalPeriod.started)}</td><td>{formatNumber(globalPeriod.completed)}</td><td>{formatNumber(globalPeriod.tokens_in)}</td><td>{formatNumber(globalPeriod.tokens_out)}</td><td>{formatNumber(globalPeriod.mr_revisions)}</td><td>{formatNumber(globalPeriod.pipeline_repairs)}</td><td>{formatMoney(globalPeriod.cost_usd)}</td><td>{formatMoney(globalPeriod.estimated_cost_usd)}</td></tr>}</tbody></table></PagedTable></section>}
+        {(metricFrom || metricTo) && metrics?.period && <section className="panel"><div className="panel-heading"><h2>{t("periodTotals")}</h2><span className="muted">{metricTimezone}</span></div><p className="muted">{t("datedEventsHelp")}</p><PagedTable t={t}><table><thead><tr><th>{t("project")}</th><th>{t("jobsStarted")}</th><th>{t("completed")}</th><th>{t("tokensIn")}</th><th>{t("tokensOut")}</th><th>{t("mrRevisions")}</th><th>{t("pipelineRepairs")}</th>{isAdmin && <th>{t("cost")}</th>}{isAdmin && <th>{t("estimatedCost")}</th>}</tr></thead><tbody><tr><td>{scopeLabel}</td><td>{formatNumber(metrics.period.started)}</td><td>{formatNumber(metrics.period.completed)}</td><td>{formatNumber(metrics.period.tokens_in)}</td><td>{formatNumber(metrics.period.tokens_out)}</td><td>{formatNumber(metrics.period.mr_revisions)}</td><td>{formatNumber(metrics.period.pipeline_repairs)}</td>{isAdmin && <td>{formatMoney(metrics.period.cost_usd)}</td>}{isAdmin && <td>{formatMoney(metrics.period.estimated_cost_usd)}</td>}</tr></tbody></table></PagedTable></section>}
         {(metricFrom || metricTo) && metrics?.period && <section className="panel"><div className="panel-heading"><h2>{t("jobDuration")} · {t("periodTotals")}</h2><span className="muted">{metricTimezone}</span></div>
           <p className="muted">{t("durationPeriodHelp")}</p><div className="stats-grid">
-            <Stat label={t("measuredJobs")} value={formatNumber(metrics.period.duration.sampled_runs)} hint={selectedProject?.name || "—"} />
-            <Stat label={t("averageSpan")} value={metrics.period.duration.avg_span_seconds == null ? "—" : `${formatNumber(metrics.period.duration.avg_span_seconds)} s`} hint={selectedProject?.name || "—"} />
-            <Stat label={t("medianSpan")} value={metrics.period.duration.median_span_seconds == null ? "—" : `${formatNumber(metrics.period.duration.median_span_seconds)} s`} hint={selectedProject?.name || "—"} />
+            <Stat label={t("measuredJobs")} value={formatNumber(metrics.period.duration.sampled_runs)} hint={scopeLabel} />
+            <Stat label={t("averageSpan")} value={metrics.period.duration.avg_span_seconds == null ? "—" : `${formatNumber(metrics.period.duration.avg_span_seconds)} s`} hint={scopeLabel} />
+            <Stat label={t("medianSpan")} value={metrics.period.duration.median_span_seconds == null ? "—" : `${formatNumber(metrics.period.duration.median_span_seconds)} s`} hint={scopeLabel} />
           </div>
         </section>}
         </>}
@@ -1036,22 +1009,22 @@ export default function App() {
           </tbody></table></PagedTable>
           <p className="muted coverage-note">{t("unclassifiedRevisions")}: {formatNumber(metrics?.coverage.revision_events_unclassified || 0)}</p>
         </section>
-        {isAdmin && <section className="panel"><div className="panel-heading"><h2>{t("allProjects")} · {t("mrRevisions")} / {t("pipelineRepairs")}</h2></div>
+        {allProjectScope && <section className="panel"><div className="panel-heading"><h2>{t("metricsAllProjects")} · {t("mrRevisions")} / {t("pipelineRepairs")}</h2></div>
           <PagedTable t={t}><table><thead><tr><th>{t("project")}</th><th>{t("mrRevisions")}</th><th>{t("pipelineRepairs")}</th></tr></thead><tbody>
             {globalRows.map(([name, item]) => <tr key={name}><td>{name}</td><td>{formatNumber(item.totals.mr_revisions || 0)}</td><td>{formatNumber(item.totals.pipeline_repairs || 0)}</td></tr>)}
           </tbody></table></PagedTable>
         </section>}
-        {isAdmin && selected && (metrics?.revisions?.length || 0) > 0 && <section className="panel"><div className="panel-heading"><h2>{t("revisionCosts")}</h2><span className="muted">{selectedProject?.name}</span></div>
+        {isAdmin && !allProjectScope && selected && (metrics?.revisions?.length || 0) > 0 && <section className="panel"><div className="panel-heading"><h2>{t("revisionCosts")}</h2><span className="muted">{scopeLabel}</span></div>
           <PagedTable t={t}><table><thead><tr><th>{t("jobs")}</th><th>{t("revision")}</th><th>{t("date")}</th><th>{t("status")}</th><th>{t("tokensIn")}</th><th>{t("tokensOut")}</th><th>{t("cost")}</th><th>{t("estimatedCost")}</th></tr></thead><tbody>
             {metrics?.revisions?.map(row => <tr key={`${row.run_id}-${row.revision}`}><td>{row.run_id}</td><td>{row.revision}</td><td>{row.date || "—"}</td><td>{row.trigger === "revise-label" ? t("mrRevisions") : row.trigger === "pipeline-failed" ? t("pipelineRepairs") : t("unclassifiedRevisions")}</td><td>{formatNumber(row.tokens_in)}</td><td>{formatNumber(row.tokens_out)}</td><td>{formatMoney(row.reported_cost_usd)}</td><td>{formatMoney(row.estimated_cost_usd)}</td></tr>)}
           </tbody></table></PagedTable>
         </section>}
         </>}
         {metricsTab === "projects" && isAdmin && <>
-        <section className="panel"><div className="panel-heading metrics-project-heading"><h2>{t("projectComparison")}</h2><span className="muted">{projects.length} {t("projects")} · {repositoryRows.length} {t("repository")}</span></div>
+        <section className="panel"><div className="panel-heading metrics-project-heading"><h2>{t("projectComparison")}</h2><span className="muted">{scopeProjects.length} {t("projects")} · {repositoryRows.length} {t("repository")}</span></div>
           <PagedTable t={t}><table><thead><tr><th>{t("project")}</th><th>{t("repository")}</th><th>{t("jobs")}</th><th>{t("measuredJobs")}</th><th>{t("averageSpan")}</th><th>{t("reviewReworkRate")}</th><th>{t("tokensIn")}</th><th>{t("tokensOut")}</th><th>{t("reviewRounds")}</th><th>{t("cost")}</th></tr></thead><tbody>
             {globalRows.map(([name, item]) => <tr key={name}><td>{name}</td><td>{projects.find(project => project.name === name)?.repo || "—"}</td><td>{formatNumber(projects.find(project => project.name === name)?.runs || 0)}</td><td>{formatNumber(item.duration.sampled_runs)}</td><td>{item.duration.avg_span_seconds == null ? "—" : `${formatNumber(item.duration.avg_span_seconds)} s`}</td><td>{formatPercent(item.quality.review_rework_rate)} ({formatNumber(item.quality.reworked_jobs)}/{formatNumber(item.quality.reviewed_jobs)})</td><td>{formatNumber(item.totals.tokens_in || 0)}</td><td>{formatNumber(item.totals.tokens_out || 0)}</td><td>{formatNumber(item.runs.reduce((sum, run) => sum + Number(run.review_rounds || 0), 0))}</td><td>{item.totals.cost_usd == null ? "—" : new Intl.NumberFormat(locale, { style: "currency", currency: "USD" }).format(item.totals.cost_usd)}</td></tr>)}
-            <tr><th>{t("allProjects")}</th><th>{repositoryRows.length}</th><th>{formatNumber(projects.reduce((sum, project) => sum + project.runs, 0))}</th><th>{formatNumber(globalRows.reduce((sum, [, item]) => sum + item.duration.sampled_runs, 0))}</th><th>—</th><th>—</th><th>{formatNumber(globalTokensIn)}</th><th>{formatNumber(globalTokensOut)}</th><th>{formatNumber(globalReviewRounds)}</th><th>{globalRows.some(([, item]) => item.totals.cost_usd != null) ? new Intl.NumberFormat(locale, { style: "currency", currency: "USD" }).format(globalReportedCost) : "—"}</th></tr>
+            {allProjectScope && <tr><th>{t("metricsAllProjects")}</th><th>{repositoryRows.length}</th><th>{formatNumber(scopeProjects.reduce((sum, project) => sum + project.runs, 0))}</th><th>{formatNumber(globalRows.reduce((sum, [, item]) => sum + item.duration.sampled_runs, 0))}</th><th>—</th><th>—</th><th>{formatNumber(globalTokensIn)}</th><th>{formatNumber(globalTokensOut)}</th><th>{formatNumber(globalReviewRounds)}</th><th>{globalRows.some(([, item]) => item.totals.cost_usd != null) ? new Intl.NumberFormat(locale, { style: "currency", currency: "USD" }).format(globalReportedCost) : "—"}</th></tr>}
           </tbody></table></PagedTable></section>
         {isAdmin && repositoryRows.length > 0 && <section className="panel"><div className="panel-heading"><h2>{t("repository")}</h2><span className="muted">{repositoryRows.length}</span></div>
           <PagedTable t={t}><table><thead><tr><th>{t("repository")}</th><th>{t("projects")}</th><th>{t("jobs")}</th><th>{t("tokensIn")}</th><th>{t("tokensOut")}</th><th>{t("cost")}</th><th>{t("estimatedCost")}</th></tr></thead><tbody>
@@ -1059,21 +1032,14 @@ export default function App() {
           </tbody></table></PagedTable></section>}
         </>}
         {metricsTab === "trends" && <>
-        {isAdmin && repositoryDaily.length > 0 && <section className="panel"><div className="panel-heading"><h2>{t("repository")} · {selectedRepository} · {trendTitle}</h2><span className="muted">{metricTimezone}</span></div>
-          <PagedTable t={t}><table><thead><tr><th>{t("date")}</th><th>{t("jobsStarted")}</th><th>{t("completed")}</th><th>{t("tokensIn")}</th><th>{t("tokensOut")}</th><th>{t("cost")}</th><th>{t("estimatedCost")}</th></tr></thead><tbody>
-            {repositoryDaily.map(day => <tr key={day.date}><td>{day.date}</td><td>{formatNumber(day.started)}</td><td>{formatNumber(day.completed)}</td><td>{formatNumber(day.tokens_in)}</td><td>{formatNumber(day.tokens_out)}</td><td>{formatMoney(day.cost_usd)}</td><td>{formatMoney(day.estimated_cost_usd)}</td></tr>)}
-          </tbody></table></PagedTable></section>}
-        {isAdmin && globalDaily.length > 0 && <section className="panel"><div className="panel-heading"><h2>{trendTitle} · {t("allProjects")}</h2><span className="muted">{metricTimezone}</span></div>
-          <PagedTable t={t}><table><thead><tr><th>{t("date")}</th><th>{t("jobsStarted")}</th><th>{t("completed")}</th><th>{t("tokensIn")}</th><th>{t("tokensOut")}</th><th>{t("cost")}</th><th>{t("estimatedCost")}</th></tr></thead><tbody>{globalDaily.map(day => <tr key={day.date}><td>{day.date}</td><td>{formatNumber(day.started)}</td><td>{formatNumber(day.completed)}</td><td>{formatNumber(day.tokens_in)}</td><td>{formatNumber(day.tokens_out)}</td><td>{formatMoney(day.cost_usd)}</td><td>{formatMoney(day.estimated_cost_usd)}</td></tr>)}</tbody></table></PagedTable>
-        </section>}
         <section className="panel"><div className="panel-heading"><h2>{trendTitle}</h2><span className="muted">{metricTimezone}</span></div>
           {metrics?.daily.length ? <PagedTable t={t}><table><thead><tr><th>{t("date")}</th><th>{t("jobsStarted")}</th><th>{t("completed")}</th><th>{t("tokensIn")}</th><th>{t("tokensOut")}</th>{isAdmin && <th>{t("cost")}</th>}</tr></thead><tbody>{metrics.daily.map(day => <tr key={day.date}><td>{day.date}</td><td>{formatNumber(day.started)}</td><td>{formatNumber(day.completed)}</td><td>{formatNumber(day.tokens_in)}</td><td>{formatNumber(day.tokens_out)}</td>{isAdmin && <td>{day.cost_usd == null ? "—" : new Intl.NumberFormat(locale, { style: "currency", currency: "USD" }).format(day.cost_usd)}</td>}</tr>)}</tbody></table></PagedTable> : <Empty label={metricFrom || metricTo ? t("noMatchingMetrics") : t("noMetrics")} />}
-          <p className="muted coverage-note">{t("coverage")}: {formatNumber(metrics?.coverage.runs_with_usage || 0)} / {formatNumber(projects.find(project => project.id === selected)?.runs || 0)} {t("jobs")}</p>
+          <p className="muted coverage-note">{t("coverage")}: {formatNumber(metrics?.coverage.runs_with_usage || 0)} / {formatNumber(metrics?.totals.runs || 0)} {t("jobs")}</p>
         </section>
-        {isAdmin && <section className="panel"><div className="panel-heading"><h2>{t("estimatedCost")}</h2><strong>{formatMoney(globalRows.some(([, item]) => item.totals.estimated_cost_usd != null) ? globalEstimatedCost : null)} {t("allProjects")}</strong></div>
+        {isAdmin && <section className="panel"><div className="panel-heading"><h2>{t("estimatedCost")}</h2><strong>{formatMoney(metrics?.totals.estimated_cost_usd)} {scopeLabel}</strong></div>
           <p className="muted">{t("priceHelp")}</p>
           <PagedTable t={t}><table><thead><tr><th>{t("project")}</th><th>{t("estimatedCost")}</th><th>{t("unpricedEvents")}</th></tr></thead><tbody>{globalRows.map(([name, item]) => <tr key={name}><td>{name}</td><td>{formatMoney(item.totals.estimated_cost_usd)}</td><td>{formatNumber(item.coverage.usage_events_unpriced || 0)}</td></tr>)}</tbody></table></PagedTable>
-          <h3>{selectedProject?.name} {trendTitle}</h3>
+          <h3>{scopeLabel} {trendTitle}</h3>
           <PagedTable t={t}><table><thead><tr><th>{t("date")}</th><th>{t("estimatedCost")}</th></tr></thead><tbody>{metrics?.daily.map(day => <tr key={day.date}><td>{day.date}</td><td>{formatMoney(day.estimated_cost_usd)}</td></tr>)}</tbody></table></PagedTable>
         </section>}</>}
         </div></>}

@@ -232,9 +232,15 @@ on project-detail/account/administration views; responsive rows
 keep these controls visible while content begins with page data. Metric hints,
 usage actions and account rows wrap on narrow screens.
 Metrics keeps its authorized project selector with the common reporting range,
-timezone, grouping and CSV menu above
-keyboard-operable Summary, Usage, Quality, Trends and administrator-only Projects
-tabs. Developer export choices remain project-scoped and omit money; usage
+timezone, grouping and CSV menu above keyboard-operable Summary, Usage, Quality,
+Trends and administrator-only Projects tabs. Administrators use All projects
+scope for pooled totals and comparisons.
+Every category and CSV menu follows that scope; single-project mode limits
+comparison rows and developer mode exposes assigned-project operational data.
+Summary includes a paginated project breakdown in All projects scope.
+`04_Software/web/src/metrics.ts` pools counters, nullable evidence, quality cohorts and
+terminal duration samples; `04_Software/web/tests/metrics.test.mjs` verifies it offline.
+Developer export choices remain project-scoped and omit money; usage
 exports also carry the Usage tab's executor/model filters. Compact layouts put
 the shared reporting controls in two rows.
 Session clearing also returns the shell to Overview, preventing a blank

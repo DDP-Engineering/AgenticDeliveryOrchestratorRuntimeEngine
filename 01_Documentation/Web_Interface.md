@@ -120,10 +120,12 @@ number from that project's repository: enter a positive integer such as `42`
 for `/issues/42`, without `#` or the URL. Switching projects clears the ticket
 draft. Archived projects remain selectable for history; Start job is available
 on unarchived projects and still applies ready, hold and exclude rules.
-Metrics places its project selector with the common reporting period controls;
-it scopes the selected-project statistics, usage and project CSV exports.
-Changing projects retains the reporting period and category tab. Administrator
-global totals and all-project exports retain their global scope.
+Metrics places its scope selector with the common reporting period controls.
+Changing projects retains the reporting period and category tab. Administrators
+start with **All projects**, showing overall Summary totals and a project table.
+Selecting one project applies to every category and export, including project
+and repository comparison tables. Opening Metrics from project details selects
+that project. Developers choose only their assigned projects.
 The top bar names the current page and provides common actions. Project details
 and account/administration views also show a project selector there. On a
 phone, these controls wrap above the page content; use Menu to switch pages.
@@ -405,21 +407,21 @@ The administrator project table also shows each project's measured-job count
 and average elapsed time; its total row sums counts but leaves average blank.
 On Metrics, the reporting period, timezone and day/week/month grouping sit above
 the Summary, Usage, Quality, Trends and Projects tabs. The Projects tab is
-administrator-only. The **Export CSV** menu in the same area offers selected-project
-metrics and usage files, plus administrator-only all-project files. All four
+administrator-only. The **Export CSV** menu in the same area offers metrics and
+usage files for the selected scope: one project or administrator **All projects**. These
 exports use the shared period, timezone and grouping; the usage files also use
 the executor and model filters in the Usage tab. The default is UTC and daily
 grouping. The date fields limit period tables, trend tables, usage events and CSV
 exports to an inclusive period in the selected timezone; week buckets begin on
-Monday and month buckets begin on the first. The selected-project period row and administrator global
-period row sum only dated journal events. Headline, project/repository, coverage,
+Monday and month buckets begin on the first. The period row for the selected
+scope sums only dated journal events. Headline, project/repository, coverage,
 and revision-history totals remain all-time. Legacy usage known only from a run
 summary may appear in the all-time total without appearing in a period row.
 The **Usage by executor and model** tab applies the selected local-date range plus
 exact executor/model text filters to dated usage events. It shows event and
 token totals by the selected grouping, with unknown identity marked when old journal entries
 lack it. The selected-project CSV uses the same filters. Administrators also
-see filtered totals for all projects and can export a global CSV with project
+see filtered totals for all projects when All projects is selected, and export a global CSV with project
 and repository labels. Developers can inspect their assigned project's usage
 and export tokens, but receive no monetary fields. Job counts and headline
 totals in Summary are not filtered by executor/model because a run may
@@ -448,6 +450,10 @@ Stage failures and operator retries are separate event counts. Administrators
 also see reported and estimated USD per completed and human-merged job; each
 figure uses only jobs with that kind of monetary evidence and shows its
 denominator. The two cost sources are never added together.
+In All projects scope, quality rates use the combined eligible-job counts,
+and cost-per-job figures use the combined jobs with monetary evidence.
+Duration averages and medians are calculated from individual measured jobs.
+Choosing one project limits these figures and all breakdown rows to that project.
 Administrators can add immutable, effective-dated USD prices per project, executor and exact model
 in Settings. Each rate is input/output USD per one million tokens. For a
 token-only usage event, the dashboard uses the rate effective on that event's

@@ -26,7 +26,8 @@ From `04_Software`, `uv sync` creates `.venv` with the locked dependencies and
 the `dev` group and installs the `adore` command in editable mode. Operator
 installation on a host follows `01_Documentation/Getting_Started.md`;
 unattended installation follows `04_Software/deploy/README.md`.
-For web development use `uv sync --extra web --group dev`, then `npm ci` and
+Frontend calculation tests use Node.js 22.18 or later for native TypeScript loading.
+For web development use `uv sync --extra web --group dev`, then `npm ci`, `npm test` and
 `npm run build` in `04_Software/web`.
 
 ## Configuration and services

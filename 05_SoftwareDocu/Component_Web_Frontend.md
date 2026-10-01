@@ -116,14 +116,18 @@ amounts separately, adds a combined daily view for the selected repository,
 and links to administrator global CSV.
 The Metrics page keeps its authorized project selector, inclusive date range, IANA reporting timezone,
 day/week/month grouping and CSV export menu above five category tabs: Summary,
-Usage, Quality, Trends and administrator-only Projects. Export choices are
-selected-project metrics/usage and administrator all-project metrics/usage;
-the latter never appear for developers. Arrow keys, Home and End switch tabs,
+Usage, Quality, Trends and administrator-only Projects. Administrators initially
+see All projects, with pooled headline totals and a paginated project breakdown
+in Summary. Selecting one project scopes every category, project/repository
+comparison and export to that project. Project details opens Metrics for that
+project. Developers select assigned projects and receive operational data only.
+The export menu offers metrics and usage CSV files for the current scope;
+global choices appear only in administrator All projects scope. Arrow keys, Home and End switch tabs,
 and the shared controls retain their values when categories change. On compact
 screens project selection spans a full row above the four period controls in
 two rows. Switching projects retains the category and reporting parameters;
 selected-project metric/usage requests and CSV links use the new project ID.
-The filters are shared by project and global tables and CSV links.
+The filters are shared by the scoped tables and CSV links.
 It displays period totals separately from
 all-time headline totals; period sums use dated journal events and may omit
 legacy summary-only usage. Range changes discard stale metric responses.
@@ -139,10 +143,20 @@ The administrator project comparison table includes sample count and average
 per project; it does not average the per-project averages into a global value.
 The attributed-usage tab uses the same timezone, grouping and date range plus exact
 executor/model text filters. It displays observed usage-event and token totals,
-selected-project trend rows, and administrator global project rows with
+scoped trend rows, and administrator All projects breakdown rows with
 reported/estimated amounts. Its CSV options carry the same filters. Main job
 counts and all-time headline metrics stay independent of usage identity.
 Session changes and filter changes discard stale usage responses.
+`src/metrics.ts` pools validated project responses: additive counts, nullable
+cost/cache evidence, and date/executor/model buckets. Quality rates use pooled
+numerators and denominators; USD per job uses evidence-weighted cohort totals.
+Elapsed-time averages and medians use individual terminal spans, including
+zero-second samples. Period duration selects completion days in the chosen
+timezone, independently of week/month bucket labels. Missing evidence remains
+unavailable. Invalid numeric/duration evidence raises a RangeError.
+Offline `npm test` (Node.js 22.18 or later) covers these calculation contracts,
+empty cohorts, timezone boundaries and corrupt evidence; the canonical AEGIS
+verification includes this frontend test command.
 Signing out and signing in as another role returns to Overview, so an
 administrator-only view cannot remain selected for a developer. Asynchronous
 user creation and config staging keep their form reference until the request

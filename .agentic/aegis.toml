@@ -8,6 +8,7 @@ schema = 1
 test = ".\\.venv\\Scripts\\python.exe -m pytest -q"
 # test_impacted = "pytest -q {tests}"   # {tests} = the focused regression set
 lint = ".\\.venv\\Scripts\\ruff.exe check adore tests"
+frontend = "node --test web/tests/metrics.test.mjs"
 # timeout = 0                           # seconds allowed per command; 0 or
 #                                       # absent means no limit at all
 workdir = "04_Software"                # run commands here, not at the root
@@ -34,7 +35,7 @@ source = [
   "04_Software/pyproject.toml", "04_Software/ruff.toml",
   "04_Software/uv.lock",
 ]
-tests = ["04_Software/tests/"]
+tests = ["04_Software/tests/", "04_Software/web/tests/"]
 docs = [
   "00_Planning/", "01_Documentation/", "05_SoftwareDocu/",
   "README.md", "CHANGELOG.md", "LICENSE.txt",
@@ -62,6 +63,6 @@ docs = [
 secret_patterns_extra = []
 ignore = []
 strict_promote = []
-run = ["test", "lint"]
+run = ["test", "lint", "frontend"]
 # run = ["test", "lint"]   # restrict what `check --run` executes; without
 #                          # this, side-effect-looking names are skipped
