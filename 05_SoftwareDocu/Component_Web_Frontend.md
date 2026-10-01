@@ -25,7 +25,7 @@ Previous/Next for finite pages. Audit fetches the full authorized history;
 Jobs delegates the page size and filtering to the scoped API. Other tables
 paginate their rendered rows and reset to the first page when size changes.
 The top bar is the single page title and holds the project selector outside
-Overview. On Overview, four expandable summary cards replace that selector:
+Overview and Projects. On Overview, four expandable summary cards replace that selector:
 Projects opens a table of authorized projects where a row selects the project,
 and Active jobs, Awaiting review and Failed jobs open paged run tables for the
 selected project. Closing a card restores Recent jobs. Opening a run navigates
@@ -48,10 +48,12 @@ validated identity, state path and issues, then import that exact revision.
 The form explains that paths must be absolute, the file remains unchanged and
 pickup starts paused. The file text stays in browser memory for the two
 requests; it is not displayed in the preview.
-The Projects directory searches authorized project name, description and
-repository, filters by status, and shows executor, static config status and
-UTC last run activity. A valid configuration is labelled as such, not as a
-live forge or model readiness check.
+The Projects directory lists authorized projects in a sortable, paged table
+with project, repository, static config status, job
+count and last activity columns. Administrators can pause/resume pickup and
+archive/restore directly on each row; developers can open details but see no
+mutating actions. A valid configuration is labelled as such, not as a live
+forge or model readiness check.
 Selecting a project opens a scoped detail view with status, repository,
 runtime, executor, last activity and recent jobs. Its actions open the Jobs and
 Metrics views for that selection, plus administrator Settings and membership

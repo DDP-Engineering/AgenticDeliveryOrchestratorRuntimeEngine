@@ -112,6 +112,11 @@ h3 { font-size: .95rem; margin: 20px 0 8px; }
 .overview-chevron { position: absolute; right: 20px; top: 17px; font-size: 1.25rem !important; color: var(--accent-deep) !important; }
 .overview-project-selected { background: var(--accent-soft); }
 .overview-project-selected .text-button { font-weight: 800; }
+.sort-heading { display: inline-flex; align-items: center; gap: 6px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer; white-space: nowrap; }
+.sort-heading:hover { color: var(--accent-deep); }
+.sort-heading:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.project-row-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-width: 250px; }
+.project-row-actions .text-button { white-space: nowrap; }
 .panel { padding: 22px; margin-bottom: 20px; min-width: 0; }
 .panel.compact { padding: 16px 22px; }
 .panel-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; }

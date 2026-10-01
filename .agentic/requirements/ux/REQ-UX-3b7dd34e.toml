@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-3b7dd34e"
+
+title = "Sort and page authorized projects with row actions"
+
+status = "active"
+
+requirement = """
+On the Projects page, ADORE shall show each authorized project as a row in a sortable table with 10, 25, 50 and All pagination choices when more than ten rows exist. Administrators shall have per-row pickup, archive/restore and detail actions, while developers shall have a detail action only. The page shall not show a top-bar project selector, search field, status filter, project cards or a separate selected-project action panel.
+"""
+
+verification = "Manual: Open Projects as administrator and developer, sort each column in both directions, select different page sizes with more than ten projects, use each authorized row action on a safe test profile, and verify the top bar and old controls are absent at desktop and narrow widths."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/styles.css", "04_Software/adore/web/static/"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = "Make project status and operations easier to scan without repeating a project selector."        # why this behavior exists, if not obvious
+
+created = 2026-10-01
+updated = 2026-10-01

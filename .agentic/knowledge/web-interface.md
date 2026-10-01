@@ -86,7 +86,9 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
   The overview requests seven recent runs plus unfiltered lifecycle counts.
   Its summary cards expand into a project table or a selected-project job table;
   expanded job tables request authorized full run history and paginate locally.
-  The project selector is inside the Projects expansion on Overview.
+  The project selector is inside the Projects expansion on Overview. The
+  Projects page itself uses sortable, paged authorized rows and per-row
+  administrator pickup/archive actions with scoped details for all roles.
   Pending and completed human handoffs have localized lifecycle labels and
   filters. Cancel is unavailable during and after human ownership transfer.
 - The React session switch clears private caches and increments a generation
@@ -201,7 +203,8 @@ an explicit service error if measurement fails, without exposing host paths.
 The React About dialog makes the surrounding shell inert, keeps keyboard focus
 on its Close button, and restores focus to About when closed. Narrow layouts
 expose Sign out in the top bar while the sidebar account row is hidden.
-The top bar supplies the sole page title and project selector; responsive rows
+The top bar supplies the sole page title and the project selector on scoped
+pages outside Overview and Projects; responsive rows
 keep these controls visible while content begins with page data. Metric hints,
 usage actions and account rows wrap on narrow screens.
 Metrics keeps the common reporting range, timezone, grouping and CSV menu above

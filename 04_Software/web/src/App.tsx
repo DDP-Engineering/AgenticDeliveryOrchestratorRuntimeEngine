@@ -27,6 +27,7 @@ type Price = { id: number; executor: string; model: string; effective_from: stri
 type Page = "overview" | "projects" | "projectDetails" | "jobs" | "metrics" | "administration" | "adminUsers" | "adminAudit" | "settings";
 type MetricsTab = "summary" | "usage" | "quality" | "trends" | "projects";
 type OverviewSection = "projects" | "active" | "review" | "failed" | null;
+type ProjectSortKey = "name" | "repo" | "readiness" | "runs" | "last_activity";
 const metricsTabLabels: Record<MetricsTab, MessageKey> = {
   summary: "metricsTabSummary", usage: "metricsTabUsage", quality: "metricsTabQuality",
   trends: "metricsTabTrends", projects: "metricsTabProjects",
@@ -82,8 +83,8 @@ export default function App() {
   const [overviewSection, setOverviewSection] = useState<OverviewSection>(null);
   const [overviewRuns, setOverviewRuns] = useState<Run[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [projectQuery, setProjectQuery] = useState("");
-  const [projectState, setProjectState] = useState("");
+  const [projectSortKey, setProjectSortKey] = useState<ProjectSortKey>("name");
+  const [projectSortDescending, setProjectSortDescending] = useState(false);
   const [selected, setSelected] = useState("");
   const [runs, setRuns] = useState<Run[]>([]);
   const [runCounts, setRunCounts] = useState<Record<string, number>>({});
@@ -171,12 +172,20 @@ export default function App() {
     setMetricsTab(metricsTabs[next]);
     document.getElementById(`metrics-tab-${metricsTabs[next]}`)?.focus();
   };
-  const filteredProjects = projects.filter(item => {
-    const needle = projectQuery.trim().toLocaleLowerCase();
-    return (!needle || [item.name, item.description, item.repo].some(
-      value => value.toLocaleLowerCase().includes(needle))) &&
-      (!projectState || item.readiness === projectState);
+  const projectStatusLabel = (item: Project) => t(item.readiness === "configured" ? "configured" : item.readiness === "needs-config" ? "needsConfig" : item.readiness === "invalid-state" ? "invalidState" : item.readiness === "archived" ? "archived" : "paused");
+  const sortedProjects = [...projects].sort((left, right) => {
+    const a = projectSortKey === "readiness" ? projectStatusLabel(left) : left[projectSortKey];
+    const b = projectSortKey === "readiness" ? projectStatusLabel(right) : right[projectSortKey];
+    if (a === null || a === "") return b === null || b === "" ? left.name.localeCompare(right.name, locale) : 1;
+    if (b === null || b === "") return -1;
+    const comparison = typeof a === "number" && typeof b === "number" ? a - b :
+      String(a).localeCompare(String(b), locale, { numeric: true, sensitivity: "base" });
+    return (projectSortDescending ? -comparison : comparison) || left.name.localeCompare(right.name, locale);
   });
+  const changeProjectSort = (key: ProjectSortKey) => {
+    if (key === projectSortKey) setProjectSortDescending(value => !value);
+    else { setProjectSortKey(key); setProjectSortDescending(false); }
+  };
   const selectedProject = projects.find(item => item.id === selected);
   const modelReason = (reason: string): string => {
     const keys: Record<string, MessageKey> = {
@@ -531,7 +540,7 @@ export default function App() {
     importFileRead.current += 1;
     importPreviewRequest.current += 1;
     setProjects([]); setSelected(""); setRuns([]); setRunCounts({});
-    setProjectQuery(""); setProjectState("");
+    setProjectSortKey("name"); setProjectSortDescending(false);
     setJobPage({ items: [], total: 0, counts: {}, limit: 25, offset: 0 });
     setJobOffset(0); setJobLifecycle(""); setJobStage("");
     setJobUpdatedFrom(""); setJobUpdatedTo(""); setJobOutcome("");
@@ -566,14 +575,14 @@ export default function App() {
     finally { setSession(null); clearPrivateView(); }
   };
 
-  const operate = async (action: "start" | "retry" | "cancel" | "pause" | "resume", target = "") => {
-    if (!session || !selected) return;
+  const operate = async (action: "start" | "retry" | "cancel" | "pause" | "resume", target = "", projectId = selected) => {
+    if (!session || !projectId) return;
     setError(""); setNotice("");
     const body = action === "start" ? { ticket_iid: Number(target) } :
       action === "retry" || action === "cancel" ? { run_id: target } : {};
     try {
       const op = await request<{ id: number; status: string }>(
-        `/projects/${encodeURIComponent(selected)}/operations/${action}`, "POST",
+        `/projects/${encodeURIComponent(projectId)}/operations/${action}`, "POST",
         { ...body, idempotency_key: crypto.randomUUID() }, session.csrf,
       );
       setOperation(op);
@@ -631,11 +640,11 @@ export default function App() {
     } catch (cause) { if (generation === viewGeneration.current) setError((cause as Error).message); }
   };
 
-  const setProjectArchive = async (archive: boolean) => {
-    if (!selected || !session || !isAdmin) return;
+  const setProjectArchive = async (archive: boolean, projectId = selected) => {
+    if (!projectId || !session || !isAdmin) return;
     setError(""); setNotice("");
     try {
-      await request(`/projects/${encodeURIComponent(selected)}/${archive ? "archive" : "restore"}`,
+      await request(`/projects/${encodeURIComponent(projectId)}/${archive ? "archive" : "restore"}`,
         "POST", undefined, session.csrf);
       await refreshProjects();
       setNotice(t(archive ? "projectArchived" : "projectRestored"));
@@ -818,7 +827,7 @@ export default function App() {
 
     <div className="workspace" inert={!!about}>
       <header className="topbar"><h1 className="topbar-title" aria-label={isAdmin && adminPages.includes(page) ? `${t("administration")} / ${t(page === "administration" ? "systemStatus" : page)}` : t(page === "settings" ? "myAccount" : page)}><span className="topbar-brand">ADORE</span><span aria-hidden="true">/</span>{isAdmin && adminPages.includes(page) ? `${t("administration")} / ${t(page === "administration" ? "systemStatus" : page)}` : t(page === "settings" ? "myAccount" : page)}</h1>
-        {page !== "overview" && projects.length > 0 && <label className="project-picker">{t("project")}<select value={selected} onChange={event => setSelected(event.target.value)}>{projects.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}
+        {page !== "overview" && page !== "projects" && projects.length > 0 && <label className="project-picker">{t("project")}<select value={selected} onChange={event => setSelected(event.target.value)}>{projects.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}
         <div className="top-actions">
         <span className="refresh-stamp">{lastRefresh && `${t("lastRefresh")}: ${formatDate(lastRefresh.toISOString())}`}</span>
         <button className="ghost" onClick={() => { void refreshProjects(); void refreshSelected(); void refreshJobPage(); }}>{t("refresh")}</button>
@@ -863,10 +872,24 @@ export default function App() {
           </form>
           {importPreview && <div className="import-preview"><h3>{t("importPreview")}</h3><p>{importFileName} · {importPreview.platform || "—"} · {importPreview.repo || "—"} · {importPreview.runtime || "—"}</p>{importPreview.store_root && <p className="muted">{t("stateRoot")}: {importPreview.store_root}</p>}<p className="muted">{t("importUnchanged")}</p>{importPreview.issues.length ? <ul>{importPreview.issues.map((issue, index) => <li key={`${issue}-${index}`}>{issue}</li>)}</ul> : <button className="primary" onClick={() => void importProject()}>{t("importProject")}</button>}</div>}
           </section>}
-          <div className="job-filters"><label>{t("searchProjects")}<input type="search" maxLength={80} value={projectQuery} onChange={event => setProjectQuery(event.target.value)} /></label><label>{t("status")}<select value={projectState} onChange={event => setProjectState(event.target.value)}><option value="">{t("all")}</option><option value="configured">{t("configured")}</option><option value="needs-config">{t("needsConfig")}</option><option value="paused">{t("paused")}</option><option value="archived">{t("archived")}</option><option value="invalid-state">{t("invalidState")}</option></select></label></div>
-          <div className="project-grid">{filteredProjects.map(item => <button className="project-card" key={item.name} onClick={() => { setSelected(item.id); setPage("projectDetails"); }}><span className="project-initial">{item.name.charAt(0).toUpperCase()}</span><strong>{item.name}</strong><small>{item.repo}</small><span className="project-meta">{item.platform} · {item.runtime} · {item.executor || "—"} · {item.runs} {t("jobs")}</span><span className="project-meta">{t(item.readiness === "configured" ? "configured" : item.readiness === "needs-config" ? "needsConfig" : item.readiness === "invalid-state" ? "invalidState" : item.readiness === "archived" ? "archived" : "paused")} · {t("lastActivity")}: {item.last_activity ? formatDate(item.last_activity) : "—"}</span></button>)}</div>
-          {!filteredProjects.length && <Empty label={projects.length ? t("noMatchingProjects") : t("noProjects")} />}
-          {isAdmin && selected && <section className="panel compact"><div className="panel-heading"><h2>{selectedProject?.name}</h2><span className="muted">{projects.find(project => project.id === selected)?.archived ? t("archived") : projects.find(project => project.id === selected)?.paused ? t("paused") : t("pickupEnabled")}</span></div><div className="button-row">{!projects.find(project => project.id === selected)?.archived && <button className="ghost" onClick={() => operate(projects.find(project => project.id === selected)?.paused ? "resume" : "pause")}>{t(projects.find(project => project.id === selected)?.paused ? "resume" : "pause")}</button>}<button className="ghost" onClick={() => void setProjectArchive(!projects.find(project => project.id === selected)?.archived)}>{t(projects.find(project => project.id === selected)?.archived ? "restoreProject" : "archiveProject")}</button></div><p className="muted">{t("archiveHelp")}</p></section>}
+          <section className="panel">
+            {projects.length ? <PagedTable key={`${projectSortKey}-${projectSortDescending}`} t={t}><table className="projects-table"><thead><tr>
+              <SortHeader label={t("project")} sortKey="name" activeKey={projectSortKey} descending={projectSortDescending} onSort={changeProjectSort} />
+              <SortHeader label={t("repository")} sortKey="repo" activeKey={projectSortKey} descending={projectSortDescending} onSort={changeProjectSort} />
+              <SortHeader label={t("status")} sortKey="readiness" activeKey={projectSortKey} descending={projectSortDescending} onSort={changeProjectSort} />
+              <SortHeader label={t("jobs")} sortKey="runs" activeKey={projectSortKey} descending={projectSortDescending} onSort={changeProjectSort} />
+              <SortHeader label={t("lastActivity")} sortKey="last_activity" activeKey={projectSortKey} descending={projectSortDescending} onSort={changeProjectSort} />
+              <th>{t("actions")}</th>
+            </tr></thead><tbody>{sortedProjects.map(item => <tr key={item.id}>
+              <td className="strong">{item.name}</td><td>{item.repo}</td>
+              <td><span className={`status status-${item.readiness}`}>{projectStatusLabel(item)}</span></td>
+              <td>{item.runs}</td><td>{item.last_activity ? formatDate(item.last_activity) : "\u2014"}</td>
+              <td><div className="project-row-actions"><button className="text-button" onClick={() => { setSelected(item.id); setPage("projectDetails"); }}>{t("view")}</button>
+                {isAdmin && <>{!item.archived && <button className="text-button" onClick={() => void operate(item.paused ? "resume" : "pause", "", item.id)}>{t(item.paused ? "resume" : "pause")}</button>}
+                  <button className="text-button" onClick={() => void setProjectArchive(!item.archived, item.id)}>{t(item.archived ? "restoreProject" : "archiveProject")}</button></>}
+              </div></td>
+            </tr>)}</tbody></table></PagedTable> : <Empty label={t("noProjects")} />}
+          </section>
         </>}
 
         {page === "projectDetails" && selectedProject && <>
@@ -1056,6 +1079,11 @@ function Stat({ label, value, hint }: { label: string; value: string; hint: stri
 
 function OverviewCard({ label, value, hint, selected, onClick }: { label: string; value: string; hint: string; selected: boolean; onClick: () => void }) {
   return <button type="button" className={`stat-card overview-card${selected ? " selected" : ""}`} aria-expanded={selected} aria-controls="overview-detail" onClick={onClick}><span>{label}</span><strong>{value}</strong><small>{hint}</small><span className="overview-chevron" aria-hidden="true">{selected ? "⌃" : "⌄"}</span></button>;
+}
+
+function SortHeader({ label, sortKey, activeKey, descending, onSort }: { label: string; sortKey: ProjectSortKey; activeKey: ProjectSortKey; descending: boolean; onSort: (key: ProjectSortKey) => void }) {
+  const active = sortKey === activeKey;
+  return <th aria-sort={active ? descending ? "descending" : "ascending" : undefined}><button type="button" className="sort-heading" onClick={() => onSort(sortKey)}>{label}<span aria-hidden="true">{active ? descending ? "↓" : "↑" : "↕"}</span></button></th>;
 }
 
 function Empty({ label }: { label: string }) { return <p className="empty">{label}</p>; }

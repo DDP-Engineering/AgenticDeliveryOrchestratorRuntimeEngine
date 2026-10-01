@@ -14,6 +14,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Projects now uses sortable, paged rows with pickup, archive and details actions per project.
 - Overview summary cards now expand into project or scoped job tables, with project selection in the Projects expansion.
 
 ### Fixed

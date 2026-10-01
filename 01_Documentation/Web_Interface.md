@@ -107,7 +107,8 @@ networks, and verify the HTTPS login cookie is `Secure`. The host supplies and
 rotates its certificate and key; the offline bundle does not fetch them.
 On Jobs, select a project, then filter by lifecycle, AEGIS stage, inclusive
 last-update dates in UTC, or text contained in the job outcome (ignoring case).
-The top bar names the current page and contains the project selector. On a
+The top bar names the current page and contains the project selector on scoped
+pages outside Overview and Projects. On a
 phone, these controls wrap above the page content; use Menu to switch pages.
 Jobs and tables with more than ten rows offer 10, 25, 50 and All row choices.
 Previous/Next moves between pages when a finite size is selected. All returns
@@ -268,11 +269,14 @@ remain readable to assigned users, but the web worker and named/active-profile
 CLI pickup stop new work; job controls return after an administrator restores
 the project. Archive rejects active or corrupt run state. A standalone CLI
 invocation with an explicit `-c` file is outside profile archive control.
-The Projects page searches names, descriptions and repositories, filters by
-project status, and shows configured executor and last run activity. "Config
+The Projects page lists authorized projects in a sortable table with
+10, 25, 50 and All row choices when needed. Administrators can pause or resume
+pickup and archive or restore a project directly from its row; all authorized
+users can open project details. The table shows configured executor and last
+run activity. "Config
 valid" means the TOML passed static validation; it does not establish that
 forge credentials, containers or the model endpoint are reachable.
-Select a project card to see its status and recent jobs, then open that
+Select a project's Details action to see its status and recent jobs, then open that
 project's Jobs or Metrics view. Administrators can also jump to Settings and
 membership management from the project details.
 Administrators can use **Check now** on project details to test the API host's
