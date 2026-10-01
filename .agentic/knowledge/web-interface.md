@@ -101,7 +101,8 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
   corrupt persisted update timestamps fail closed when date filtering is used.
   The overview requests seven recent runs plus unfiltered lifecycle counts.
   Selected-ticket history displays Date, Event and Stage in a locally paged
-  table, preserving journal order and escaped event text. It starts with ten
+  table, showing latest entries first by reversing a copy of the journal array.
+  Saved journal order and escaped event text are preserved. It starts with ten
   rows and offers 10/25/50/All for longer history. Project/run changes reset
   its paging, and empty history uses the standard empty state.
   Its summary cards expand into a project table or a selected-project job table;

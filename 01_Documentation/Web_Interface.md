@@ -140,7 +140,8 @@ phone, these controls wrap above the page content; use Menu to switch pages.
 Jobs and tables with more than ten rows offer 10, 25, 50 and All row choices.
 Opening a ticket's details shows its timeline as a Date, Event and Stage table.
 It starts with ten events per page and offers the same row choices and
-Previous/Next navigation for longer histories. Events retain journal order;
+Previous/Next navigation for longer histories. The latest recorded events appear
+first, and Next moves toward older events. Saved journals retain append order;
 opening another ticket starts at the first page. Empty histories show the
 empty-state message.
 Previous/Next moves between pages when a finite size is selected. All returns

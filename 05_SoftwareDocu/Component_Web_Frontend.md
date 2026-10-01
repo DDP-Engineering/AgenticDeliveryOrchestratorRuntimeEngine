@@ -40,7 +40,8 @@ Previous/Next for finite pages. Audit fetches the full authorized history;
 Jobs delegates the page size and filtering to the scoped API. Other tables
 paginate their rendered rows and reset to the first page when size changes.
 Selected-ticket history uses the shared paged table with Date, Event and Stage
-columns in journal order. It starts at ten events per page, offers 10/25/50/All
+columns in reverse journal order, with latest events first. A reversed copy
+preserves the received event array. It starts at ten events per page, offers 10/25/50/All
 for longer histories, and resets on project/run identity changes. Empty history
 uses the standard empty state; event text remains escaped by React.
 The top bar supplies the single page title and common actions on every page.

@@ -14,6 +14,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Ticket timelines show the latest recorded events first; subsequent pages move toward older history.
 - Selected-ticket timelines on Jobs now use a table with 10/25/50/All row choices and page navigation.
 - Project details uses the opened project context with a common-controls-only header and clearer spacing between metadata and actions.
 
