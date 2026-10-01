@@ -113,10 +113,15 @@ with Uvicorn's SSL certificate and key arguments and `proxy_headers=False`.
 Bind only a trusted LAN/VPN address, restrict its firewall port to those
 networks, and verify the HTTPS login cookie is `Secure`. The host supplies and
 rotates its certificate and key; the offline bundle does not fetch them.
-On Jobs, select a project, then filter by lifecycle, AEGIS stage, inclusive
-last-update dates in UTC, or text contained in the job outcome (ignoring case).
+On Jobs, select a project beside the ticket field within the page, then filter
+by lifecycle, AEGIS stage, inclusive last-update dates in UTC, or text contained
+in the job outcome (ignoring case). Ticket Help explains the existing issue
+number from that project's repository: enter a positive integer such as `42`
+for `/issues/42`, without `#` or the URL. Switching projects clears the ticket
+draft. Archived projects remain selectable for history; Start job is available
+on unarchived projects and still applies ready, hold and exclude rules.
 The top bar names the current page and contains the project selector on scoped
-pages outside Overview and Projects. On a
+pages outside Overview, Projects, Add project, Import project and Jobs. On a
 phone, these controls wrap above the page content; use Menu to switch pages.
 Jobs and tables with more than ten rows offer 10, 25, 50 and All row choices.
 Previous/Next moves between pages when a finite size is selected. All returns

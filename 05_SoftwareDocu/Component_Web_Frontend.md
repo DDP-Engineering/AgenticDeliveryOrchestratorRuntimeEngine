@@ -33,8 +33,13 @@ to its Jobs detail; opening a project navigates to Project details. Content
 starts directly with the page's controls and data; at narrow widths the title,
 actions and selector wrap into separate rows. Statistic hints and user rows wrap
 instead of clipping or colliding on small screens.
-The Jobs list starts with filters instead of repeating the page title, and the
-Administration account section is labelled Users in every locale.
+Jobs places its authorized project selector in page content beside the ticket
+and Start job controls. Ticket Help explains the existing repository issue
+number, positive integer format, example and eligibility checks in each locale.
+Switching that selector clears the ticket draft. Archived projects retain the
+selector for history while hiding ticket and Start controls. The form wraps at
+narrow widths; the header contains the page title and common actions.
+Administration's account section is labelled Users in every locale.
 The About dialog constrains its width and height to the viewport, with internal
 scrolling for the license and notice content and an accessible Close button.
 Add project opens a separate administrator page from Projects. The form gives

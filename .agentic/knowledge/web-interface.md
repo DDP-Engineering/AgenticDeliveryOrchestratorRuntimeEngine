@@ -81,6 +81,10 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
   ADORE home. ADORE uses the configured agent identity for host-side checkpoint
   commits, even when the fresh clone has no local Git identity.
 - The audit trail is available only on the administrator API and page.
+- Jobs keeps authorized project selection beside ticket/start controls in page
+  content. Localized ticket Help describes an existing repository issue number
+  and positive integer syntax. Switching projects clears the ticket draft;
+  archived profiles expose history selection with job-start controls hidden.
 - The Jobs UI uses `/projects/{name}/runs-page` with a 25-item response and
   exact lifecycle/stage/observed-executor, inclusive UTC last-update date, and bounded outcome
   text filters; grants and corrupt-state checks precede data. Malformed or reversed date inputs fail;

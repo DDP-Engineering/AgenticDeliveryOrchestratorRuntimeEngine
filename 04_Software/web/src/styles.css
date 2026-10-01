@@ -179,6 +179,9 @@ td.strong { font-weight: 800; }
 .form-submit { align-self: end; }
 .inline-form { display: flex; align-items: end; gap: 10px; }
 .inline-form label { width: 200px; }
+.job-start-form { flex-wrap: wrap; }
+.job-start-form > label, .job-start-form > .guided-field { width: min(220px, 100%); min-width: 0; }
+.job-start-form .guided-label label { width: auto; }
 .config-form { margin: 16px 0; flex-wrap: wrap; }
 .config-form label { width: min(260px, 100%); }
 .coverage-note { font-size: .78rem; margin: 15px 0 0; }
@@ -244,6 +247,7 @@ td.strong { font-weight: 800; }
   .project-picker { order: 3; flex: 1 0 100%; min-width: 0; margin-left: 0; }
   .two-column { grid-template-columns: 1fr; }
   .form-grid { grid-template-columns: 1fr; }
+  .job-start-form > label, .job-start-form > .guided-field { width: 100%; }
 }
 @media (max-width: 480px) {
   .topbar { gap: 8px; }
