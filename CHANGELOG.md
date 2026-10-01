@@ -14,6 +14,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Platform System status, Users, Audit and account Settings show their own controls without an unrelated header project selector.
 - Metrics uses one project scope across all tabs and CSV exports. Administrator
   All projects scope shows pooled totals and a project breakdown; selecting a
   project focuses every view, with assigned-project privacy for developers.

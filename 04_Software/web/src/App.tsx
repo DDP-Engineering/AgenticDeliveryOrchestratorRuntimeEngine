@@ -822,7 +822,7 @@ export default function App() {
 
     <div className="workspace" inert={!!about}>
       <header className="topbar"><h1 className="topbar-title" aria-label={isAdmin && adminPages.includes(page) ? `${t("administration")} / ${t(page === "administration" ? "systemStatus" : page)}` : t(page === "settings" ? "myAccount" : page)}><span className="topbar-brand">ADORE</span><span aria-hidden="true">/</span>{isAdmin && adminPages.includes(page) ? `${t("administration")} / ${t(page === "administration" ? "systemStatus" : page)}` : t(page === "settings" ? "myAccount" : page)}</h1>
-        {page !== "overview" && page !== "projects" && page !== "createProject" && page !== "importProject" && page !== "jobs" && page !== "metrics" && projects.length > 0 && <label className="project-picker">{t("project")}<select value={selected} onChange={event => setSelected(event.target.value)}>{projects.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}
+        {page === "projectDetails" && projects.length > 0 && <label className="project-picker">{t("project")}<select value={selected} onChange={event => setSelected(event.target.value)}>{projects.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}
         <div className="top-actions">
         <span className="refresh-stamp">{lastRefresh && `${t("lastRefresh")}: ${formatDate(lastRefresh.toISOString())}`}</span>
         <button className="ghost" onClick={() => { void refreshProjects(); void refreshSelected(); void refreshJobPage(); setUsageRefresh(value => value + 1); }}>{t("refresh")}</button>

@@ -126,8 +126,9 @@ start with **All projects**, showing overall Summary totals and a project table.
 Selecting one project applies to every category and export, including project
 and repository comparison tables. Opening Metrics from project details selects
 that project. Developers choose only their assigned projects.
-The top bar names the current page and provides common actions. Project details
-and account/administration views also show a project selector there. On a
+The top bar names the current page and provides common actions. Only Project details
+shows a project selector there. System status, Users, Audit and Settings operate
+at platform or account scope, with project membership managed on Users. On a
 phone, these controls wrap above the page content; use Menu to switch pages.
 Jobs and tables with more than ten rows offer 10, 25, 50 and All row choices.
 Previous/Next moves between pages when a finite size is selected. All returns

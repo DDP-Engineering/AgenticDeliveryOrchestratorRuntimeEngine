@@ -25,7 +25,8 @@ Previous/Next for finite pages. Audit fetches the full authorized history;
 Jobs delegates the page size and filtering to the scoped API. Other tables
 paginate their rendered rows and reset to the first page when size changes.
 The top bar supplies the single page title and common actions. Project details
-and account/administration views use its project selector; Jobs and Metrics
+uses its authorized project selector; platform administration and account settings
+use their own status, membership and preference controls. Jobs and Metrics
 keep their project selectors in page content. On Overview, four expandable summary cards select the scope:
 Projects opens a table of authorized projects where a row selects the project,
 and Active jobs, Awaiting review and Failed jobs open paged run tables for the
