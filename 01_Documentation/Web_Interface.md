@@ -29,6 +29,11 @@ command at a time. During any blocking worker command or project poll it
 watches queued cancellations across projects, rechecks the actor's access, and signals the matching conductor
 gate.
 
+Secondary text uses contrasting light/dark theme colours. Project metadata,
+configuration values, type/domain hints and field help use 0.875rem text with
+1.5 line height; long identifiers and guidance wrap within their panels.
+On narrow screens, setting labels, values and help stack vertically.
+
 ## Start from source
 
 On a development machine, install the optional web dependencies and build the

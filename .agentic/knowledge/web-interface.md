@@ -8,6 +8,11 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # Web interface
 
+Secondary text uses contrasting light/dark theme colours. Project metadata,
+configuration values, type/domain hints and field help use 0.875rem text with
+1.5 line height; long identifiers and guidance wrap within their panels.
+On narrow screens, setting labels, values and help stack vertically.
+
 ## Routing
 
 Use this page for `adore-web`, `adore-web-worker`, `/api/v1`, web login/RBAC,

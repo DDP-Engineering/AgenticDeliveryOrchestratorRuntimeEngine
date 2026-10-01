@@ -7,6 +7,11 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Web frontend
 
+Secondary text uses contrasting light/dark theme colours. Project metadata,
+configuration values, type/domain hints and field help use 0.875rem text with
+1.5 line height; long identifiers and guidance wrap within their panels.
+On narrow screens, setting labels, values and help stack vertically.
+
 ## 1. Purpose
 
 `04_Software/web` is the React/TypeScript source for the responsive ADORE

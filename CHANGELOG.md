@@ -30,6 +30,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Improved faint project details text with stronger theme contrast, larger metadata/settings guidance and wrapping for long values.
+
 - The web runtime now reads DCP checkpoint-bearing run state, preserves guarded
   checkpoint publication and human handoff, and shows handoffs as protected
   project history. Pending or completed handoffs cannot be cancelled by a
