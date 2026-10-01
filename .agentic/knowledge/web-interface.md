@@ -85,6 +85,11 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
   content. Localized ticket Help describes an existing repository issue number
   and positive integer syntax. Switching projects clears the ticket draft;
   archived profiles expose history selection with job-start controls hidden.
+  Observed executor and Outcome contains use aligned wider fields with localized
+  Help and examples. Executor is exact and case-sensitive against recorded
+  journal identity; outcome is a case-insensitive fragment of the saved ADORE
+  result/error explanation. These filters retain their bounds and do not search
+  full AEGIS or executor logs. Text fields stack on narrow screens.
 - The Jobs UI uses `/projects/{name}/runs-page` with a 25-item response and
   exact lifecycle/stage/observed-executor, inclusive UTC last-update date, and bounded outcome
   text filters; grants and corrupt-state checks precede data. Malformed or reversed date inputs fail;

@@ -134,6 +134,10 @@ h3 { font-size: .95rem; margin: 20px 0 8px; }
 .metrics-project-heading { flex-wrap: wrap; }
 .job-filters { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
 .job-filters label { width: min(220px, 100%); }
+.job-basic-filters, .job-text-filters { display: grid; align-items: start; }
+.job-basic-filters { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.job-text-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.job-basic-filters label, .job-text-filters label { width: auto; min-width: 0; }
 .page-controls { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 12px; margin-top: 16px; font-size: .82rem; }
 .page-controls label { flex-direction: row; align-items: center; gap: 8px; }
 .page-controls select { width: auto; min-width: 75px; min-height: 36px; }
@@ -232,7 +236,7 @@ td.strong { font-weight: 800; }
 .login-card .primary { width: 100%; margin-top: 6px; }
 .login-preferences { margin-top: 25px; border-top: 1px solid var(--border); padding-top: 19px; }
 
-@media (max-width: 1100px) { .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .refresh-stamp { display: none; } }
+@media (max-width: 1100px) { .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .refresh-stamp { display: none; } .job-basic-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 760px) {
   .shell { display: block; }
   .sidebar { min-height: auto; height: auto; position: relative; padding: 10px 15px; border-right: 0; border-bottom: 1px solid var(--border); }
@@ -248,6 +252,7 @@ td.strong { font-weight: 800; }
   .two-column { grid-template-columns: 1fr; }
   .form-grid { grid-template-columns: 1fr; }
   .job-start-form > label, .job-start-form > .guided-field { width: 100%; }
+  .job-text-filters { grid-template-columns: 1fr; }
 }
 @media (max-width: 480px) {
   .topbar { gap: 8px; }
@@ -257,6 +262,7 @@ td.strong { font-weight: 800; }
   .stat-card { min-height: 126px; padding: 14px; }
   .stat-card strong { font-size: 1.55rem; }
   .panel { padding: 15px; }
+  .job-basic-filters { grid-template-columns: 1fr; }
   .topbar-title { color: var(--text); font-size: .95rem; }
   .topbar-title span { display: none; }
   .top-actions { flex-wrap: wrap; justify-content: flex-end; }

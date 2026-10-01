@@ -14,6 +14,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Jobs now aligns wider executor/outcome filters with localized Help explaining recorded data sources and matching rules.
 - Jobs now places project selection beside its ticket/start controls and provides localized ticket-number help.
 - Import project now opens a standalone page with localized field help and clears the browser-held file and preview when leaving.
 - Add project now opens a standalone page with localized field help, server-side clone-path guidance and editable executor-image suggestions.

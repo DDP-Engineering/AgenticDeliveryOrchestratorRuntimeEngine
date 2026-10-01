@@ -312,6 +312,15 @@ space. This check does not remove data; with indefinite non-audit retention, ope
 must size storage and back it up.
 Jobs can be filtered by an exact observed executor. Older jobs whose journals
 did not record executor identity will not match this filter.
+The wider **Observed executor** and **Outcome contains** fields share one row
+and stack on narrow screens. Each has Help with examples and matching rules.
+Observed executor takes the case-sensitive name recorded in ADORE's job
+journal, such as `pi`, `codex`, `opencode` or `qwen` (up to 200 characters).
+Outcome contains searches a fragment of ADORE's saved result or error text,
+ignoring case (up to 80 characters): examples include `EXECUTOR_TIMEOUT`,
+`ticket closed` and `merged by human`. Saved outcomes can include AEGIS error
+details; the filter does not search the full AEGIS or executor log. Leave
+either field empty to remove that filter.
 
 In Project details, administrator configuration changes are staged for review before
 they are applied. Staging leaves the live TOML unchanged. Review the displayed

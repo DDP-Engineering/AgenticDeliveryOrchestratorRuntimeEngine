@@ -40,6 +40,15 @@ Switching that selector clears the ticket draft. Archived projects retain the
 selector for history while hiding ticket and Start controls. The form wraps at
 narrow widths; the header contains the page title and common actions.
 Administration's account section is labelled Users in every locale.
+Jobs aligns Observed executor and Outcome contains in two equal-width fields
+below the basic filters, stacking them at narrow widths. Each has localized
+Help and an example placeholder. Executor matches the exact case-sensitive
+name recorded in the ADORE job journal; jobs with no recorded name are excluded
+by that filter. Outcome matches a case-insensitive fragment of ADORE's saved
+result or error explanation, which may contain AEGIS error details. These
+fields search recorded ADORE data rather than full AEGIS/executor logs.
+Inputs retain the 200-character executor and 80-character outcome bounds;
+blank values omit that filter.
 The About dialog constrains its width and height to the viewport, with internal
 scrolling for the license and notice content and an accessible Close button.
 Add project opens a separate administrator page from Projects. The form gives

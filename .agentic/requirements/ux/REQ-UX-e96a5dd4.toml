@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-e96a5dd4"
+
+title = "Explain and align Jobs text filters"
+
+status = "active"
+
+requirement = """
+Jobs shall present Observed executor and Outcome contains as two wider aligned text fields with localized Help and example placeholders. Help shall distinguish the exact case-sensitive executor name recorded in ADORE's journal from the case-insensitive substring search of ADORE's saved outcome, including possible AEGIS-related error details. Both fields shall stack at narrow widths with no clipping. Clearing filters restores matching history under the existing project authorization and input bounds.
+"""
+
+verification = "Manual: Inspect the equal-width fields and Help in all four locales at desktop and phone widths; use disposable journal/state fixtures to filter exact executor and case-insensitive outcome, verify non-matches and clearing. Offline API tests cover invalid inputs, corrupt state/journal and project access."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/i18n.ts", "04_Software/web/src/styles.css"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-01
+updated = 2026-10-01
