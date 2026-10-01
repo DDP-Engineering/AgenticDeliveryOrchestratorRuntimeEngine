@@ -95,11 +95,15 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
   journal identity; outcome is a case-insensitive fragment of the saved ADORE
   result/error explanation. These filters retain their bounds and do not search
   full AEGIS or executor logs. Text fields stack on narrow screens.
-- The Jobs UI uses `/projects/{name}/runs-page` with a 25-item response and
+- The Jobs UI uses `/projects/{name}/runs-page` with an initial ten-item response and
   exact lifecycle/stage/observed-executor, inclusive UTC last-update date, and bounded outcome
   text filters; grants and corrupt-state checks precede data. Malformed or reversed date inputs fail;
   corrupt persisted update timestamps fail closed when date filtering is used.
   The overview requests seven recent runs plus unfiltered lifecycle counts.
+  Selected-ticket history displays Date, Event and Stage in a locally paged
+  table, preserving journal order and escaped event text. It starts with ten
+  rows and offers 10/25/50/All for longer history. Project/run changes reset
+  its paging, and empty history uses the standard empty state.
   Its summary cards expand into a project table or a selected-project job table;
   expanded job tables request authorized full run history and paginate locally.
   The project selector is inside the Projects expansion on Overview. The

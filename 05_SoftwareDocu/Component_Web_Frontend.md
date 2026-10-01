@@ -39,6 +39,10 @@ Tables with more than ten rows offer 10, 25, 50 and All choices with
 Previous/Next for finite pages. Audit fetches the full authorized history;
 Jobs delegates the page size and filtering to the scoped API. Other tables
 paginate their rendered rows and reset to the first page when size changes.
+Selected-ticket history uses the shared paged table with Date, Event and Stage
+columns in journal order. It starts at ten events per page, offers 10/25/50/All
+for longer histories, and resets on project/run identity changes. Empty history
+uses the standard empty state; event text remains escaped by React.
 The top bar supplies the single page title and common actions on every page.
 Project details uses the identity opened from Projects; platform administration and account settings
 use their own status, membership and preference controls. Jobs and Metrics
