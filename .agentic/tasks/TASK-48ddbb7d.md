@@ -62,6 +62,7 @@ Render one table from the authorized `GET /projects` list. Sort by a single colu
 - 2026-10-01 build correction: Live DCP inspection found the nine-column table pushed action controls off-screen even at 1920px. Reduced the directory to five sortable data columns plus Actions; forge, runtime and executor remain on Project details.
 - 2026-10-01 build proof: TypeScript/Vite passed after the layout correction. A local 12-project browser fixture verified 10/25/50/All controls, Next, descending numeric job sorting and reset to page one; mocked row pickup/archive requests used the clicked project ID, and a developer saw only View. Live DCP showed all six real projects, Nilo sorting first by job count, actions visible without desktop horizontal scrolling, and no page-wide overflow at 360px. HTTPS health, ready, UI and the compiled asset returned 200. The full offline suite and Ruff passed before the column-only correction; no backend behavior changed.
 - 2026-10-01 build partial delivery: Hash-verified UI assets switched on DCP with separate rollback directories; real project settings, run state and repositories were unchanged. The removal action remains pending the owner's meaning of “remove ADORE from project.”
+- 2026-10-01 build pause: Commit `93765f7` records the tested table. The removal action awaits the owner choice between detaching this ADORE profile with history preserved and changing integration files in the repository; the existing destructive profile-delete command is not used.
 
 ## Rulings
 
@@ -70,7 +71,7 @@ Render one table from the authorized `GET /projects` list. Sort by a single colu
 
 
 current: build
-status: ready
+status: waiting
 next: resolve removal meaning, then implement and verify its action
 must_read: 04_Software/web/src/App.tsx, 05_SoftwareDocu/Component_Web_Frontend.md
 blockers: removal scope pending; table portion is deployed
@@ -78,7 +79,7 @@ blockers: removal scope pending; table portion is deployed
 ## Stage report
 
 stage: build
-result: in_progress
+result: paused
 current: build
 changed: sortable Projects table, row controls, bundled UI and documentation
 evidence: local 12-project browser fixture, real DCP browser at desktop/360px, TypeScript/Vite, full offline suite/Ruff, HTTPS health/ready/assets 200
