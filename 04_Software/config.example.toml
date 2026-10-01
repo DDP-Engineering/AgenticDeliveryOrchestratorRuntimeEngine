@@ -151,8 +151,8 @@ questions_file = "ADORE_QUESTIONS.md"
 # The ONLY environment variables passed into the executor container (values
 # come from the host environment or .env; design: scope secrets minimally).
 env_keys = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]
-# PILOT-ONLY: copy the host's opencode auth.json (OAuth/ChatGPT-account
-# session) into the run container at provision. Use when no provider API key
+# PILOT-ONLY: copy the selected OpenCode or Codex host OAuth auth.json
+# into the run container at provision. Pi and Qwen are not supported. Use when no provider API key
 # exists yet (01_Documentation/Security_And_Credentials.md). Fragile for
 # long-running use
 # (refresh tokens rotate); production needs a real key in .env instead.

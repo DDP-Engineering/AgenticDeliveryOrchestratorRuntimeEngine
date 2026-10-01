@@ -9,7 +9,8 @@ src = ["adore", "tests"]
 
 [lint]
 select = ["E", "F", "I", "W", "UP", "B", "SIM"]
-ignore = []
+# The repository requires an explicit UTF-8 Python file prologue.
+ignore = ["UP009"]
 
 [lint.isort]
 force-sort-within-sections = true

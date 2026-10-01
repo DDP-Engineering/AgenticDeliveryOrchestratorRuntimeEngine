@@ -236,6 +236,9 @@ class WorktreeManager:
         root: str | Path,
         runner: CommandRunner = run_command,
         sleep: Callable[[float], None] = time.sleep,
+        *,
+        git_name: str = "",
+        git_email: str = "",
     ) -> None:
         """
         @brief      Bind the manager to a local clone and a worktrees root.
@@ -248,11 +251,15 @@ class WorktreeManager:
         @param[in]  runner Command runner (injectable for tests).
         @param[in]  sleep Sleep function used by `remove`'s teardown-race
                           backoff (test override).
+        @param[in]  git_name Name for host-side ADORE checkpoint commits.
+        @param[in]  git_email Email for host-side ADORE checkpoint commits.
         """
         self.repo_path = Path(repo_path).resolve()
         self.root = Path(root).resolve()
         self.runner = runner
         self.sleep = sleep
+        self.git_name = git_name
+        self.git_email = git_email
 
     def path_for(self, run_id: str) -> Path:
         """
@@ -653,7 +660,11 @@ class WorktreeManager:
         @exception  IsolationError When git exits non-zero.
         """
         self.scrub_container_worktree_config()
-        argv = ["git", "-C", worktree, *args]
+        identity = (["-c", f"user.name={self.git_name}",
+                     "-c", f"user.email={self.git_email}"]
+                    if args[0] == "commit" and self.git_name and self.git_email
+                    else [])
+        argv = ["git", "-C", worktree, *identity, *args]
         result = self.runner(argv)
         if not result.ok:
             raise IsolationError(f"git {args[0]} failed", result.argv, result.stderr)
@@ -682,6 +693,7 @@ class ContainerManager:
         run_args: Sequence[str] = (),
         egress: ContainerEgressConfig | None = None,
         selinux_relabel: str = "off",
+        pull_never: bool = False,
     ) -> None:
         """
         @brief      Configure the manager from the [container] section.
@@ -704,6 +716,9 @@ class ContainerManager:
                              them. Config validation is the operator-facing
                              gate; an unknown value fails closed here too
                              rather than silently mounting unlabeled.
+        @param[in]  pull_never Require both executor and proxy images to be
+                    present locally. The disposable web readiness probe uses
+                    this without changing normal conductor image policy.
         @exception  ValueError When selinux_relabel is not a known mode.
         """
         if selinux_relabel not in SELINUX_RELABEL_OPTIONS:
@@ -720,6 +735,7 @@ class ContainerManager:
         self.run_args = [str(arg) for arg in run_args]
         self.egress = egress or ContainerEgressConfig()
         self.selinux_relabel = selinux_relabel
+        self.pull_never = pull_never
 
     def status(self, name: str) -> str:
         """
@@ -921,6 +937,7 @@ class ContainerManager:
         Path(io_path).mkdir(parents=True, exist_ok=True)
         argv = [
             *self.runtime_argv, "run", "--detach", *self.run_args,
+            *(["--pull=never"] if self.pull_never else []),
             "--name", name,
             "--volume", self._bind_mount(repo_path, CONTAINER_REPO_MOUNT),
             "--volume", self._bind_mount(worktree_path, CONTAINER_WORKTREE_MOUNT),
@@ -1012,6 +1029,20 @@ class ContainerManager:
         result = self.runner([*self.runtime_argv, "stop", name])
         if not result.ok and self.status(name) != "absent":
             raise IsolationError(f"{self.runtime} stop failed", result.argv, result.stderr)
+
+    def interrupt(self, name: str) -> None:
+        """
+        @brief Promptly stop an active executor container after a cancel request.
+        @param[in] name Exact run container name.
+        @exception IsolationError When the bounded stop fails.
+        """
+        result = self.runner(
+            [*self.runtime_argv, "stop", "--time", "2", name], timeout=20,
+        )
+        if not result.ok:
+            raise IsolationError(
+                f"{self.runtime} interrupt failed", result.argv, result.stderr,
+            )
 
     def remove(self, name: str) -> None:
         """
@@ -1217,6 +1248,7 @@ class ContainerManager:
             config_path = self._write_proxy_config(io_path)
             self._run([
                 *self.runtime_argv, "run", "--detach",
+                *(["--pull=never"] if self.pull_never else []),
                 "--name", proxy_name,
                 "--volume", self._bind_mount(config_path, "/etc/squid/squid.conf", "ro"),
                 self.egress.proxy_image,

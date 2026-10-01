@@ -17,6 +17,7 @@ audit log. The closed run-state schema is `1`.
 - atomically save/load run state and ticket snapshots;
 - append/read JSONL events;
 - own pause and single-instance lock files;
+- own per-run `cancel.request` markers used by the web worker and conductor;
 - expose fail-closed stale-lock reclamation for cleanup: only a readable local
   lock whose PID is provably gone may be removed;
 - preserve active/historical task ids, stage/path/type, counters, incidents,
@@ -46,6 +47,12 @@ journal records the observation; it does not itself invalidate the candidate.
 `acquire_lock()` and `reclaim_stale_lock()` never steal live, different-host,
 unreadable, or wrong-shape lock records. Those records remain held with unknown
 ownership until a human verifies the process and state.
+
+`request_cancel()` creates an idempotent marker only for a nonterminal run.
+Invalid run IDs and nonempty, symlinked or otherwise malformed markers raise
+`StateError`. The conductor clears
+the marker after normal cancellation; the marker never changes `state.json`
+without that conductor decision.
 
 ## 5. Validation and Tests
 

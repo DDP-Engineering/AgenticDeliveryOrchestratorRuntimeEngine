@@ -30,6 +30,7 @@ from pathlib import Path
 import random
 import re
 import shutil
+from threading import Event, Thread
 import time
 from typing import Any
 from uuid import uuid4
@@ -200,7 +201,10 @@ class Orchestrator:
                 config.platform.kind, config.platform.repo, login=config.platform.login
             ),
             store=StateStore(config.state.store_root, config.agent.slug),
-            worktrees=WorktreeManager(config.worktree.repo_path, config.worktree.root),
+            worktrees=WorktreeManager(
+                config.worktree.repo_path, config.worktree.root,
+                git_name=config.agent.name, git_email=config.agent.email,
+            ),
             containers=ContainerManager(
                 config.container.runtime,
                 config.container.image,
@@ -260,8 +264,9 @@ class Orchestrator:
         finally:
             self.store.release_lock()
 
-    def poll_once(self, *, dry_run: bool = False, locked: bool = False) -> dict[str, Any]:
-        """@brief Reconcile durable work before optionally selecting one ticket."""
+    def poll_once(self, *, dry_run: bool = False, locked: bool = False,
+                  ticket_iid: int | None = None) -> dict[str, Any]:
+        """@brief Reconcile durable work before optionally selecting one eligible ticket."""
         own_lock = False
         if not dry_run and not locked:
             if not self.store.acquire_lock():
@@ -293,7 +298,7 @@ class Orchestrator:
                     summary["payload_error"] = _sanitize(exc)
                     self.log(f"AEGIS pre-pick probe failed: {_sanitize(exc)}")
                     return summary
-            ticket = self._pick_ticket()
+            ticket = self._pick_ticket(ticket_iid=ticket_iid)
             if ticket is None:
                 return summary
             summary["picked"] = ticket.iid
@@ -312,10 +317,12 @@ class Orchestrator:
             run = self.store.load(run_id)
         except (FileNotFoundError, StateError):
             return False
+        self.store.cancel_requested(run_id)
         self._teardown(run, remove_worktree=True)
         run.lifecycle = "failed" if outcome == "failed" else "cancelled"
         run.outcome = outcome
         self.store.save(run)
+        self.store.clear_cancel_request(run_id)
         self.store.journal(run_id, "cancelled", outcome=outcome)
         self._status(run)
         self._record_metrics(run)
@@ -448,7 +455,7 @@ class Orchestrator:
 
         AegisClient(execute, self.config.workflow.aegis_python).probe()
 
-    def _pick_ticket(self) -> Ticket | None:
+    def _pick_ticket(self, *, ticket_iid: int | None = None) -> Ticket | None:
         """
         @brief      Select the highest-priority ticket that satisfies readiness.
         @details    The eligibility label is re-checked HERE rather than trusted
@@ -466,6 +473,8 @@ class Orchestrator:
         labels = self.config.labels
         candidates: list[Ticket] = []
         for ticket in self.forge.list_ready(labels.lifecycle.ready):
+            if ticket_iid is not None and ticket.iid != ticket_iid:
+                continue
             if ticket.state != "opened":
                 # GitHub and Gitea ask the server for open tickets explicitly;
                 # glab is left on its default. Conducting a closed ticket would
@@ -597,6 +606,8 @@ class Orchestrator:
                 self._io_dir(run.run_id),
             )
             while run.lifecycle == "working":
+                if self._cancel_if_requested(run):
+                    return
                 try:
                     if run.active_task_id is None:
                         # Probe before task creation: unsupported payloads never consume tickets.
@@ -638,6 +649,8 @@ class Orchestrator:
         """@brief Run fresh, journal-authoritative stage attempts until deliver."""
         failure_context = ""
         while run.lifecycle == "working":
+            if self._cancel_if_requested(run):
+                return
             budget = self._budget_exceeded(run)
             if budget:
                 self._fail_immediately(run, "BUDGET_EXHAUSTED", budget)
@@ -676,6 +689,8 @@ class Orchestrator:
                         thread=thread,
                     )
                     thread = ""
+                    if self._cancel_if_requested(run):
+                        return
                     if result.has_questions:
                         self._park(run, result.questions)
                         return
@@ -707,6 +722,8 @@ class Orchestrator:
                     self._refresh_deviations(run, task)
                 elif not self._strict_verification(run, client):
                     return
+                if self._cancel_if_requested(run):
+                    return
                 self._present_for_approval(run, ticket)
                 return
             if task.stage == "validate" and not self._integrate_target(run):
@@ -719,6 +736,8 @@ class Orchestrator:
                 thread=thread,
             )
             thread = ""
+            if self._cancel_if_requested(run):
+                return
             if result.has_questions:
                 self._park(run, result.questions)
                 return
@@ -850,16 +869,37 @@ class Orchestrator:
         timeout = self.config.workflow.stage_timeout_overrides.get(
             run.stage, self.config.budgets.per_gate_timeout_seconds
         )
-        result = self.executor.run_gate(
-            partial(self.containers.exec, run.container, env=self._container_env(run)),
-            run.worktree,
-            self._io_dir(run.run_id),
-            self._stage_prompt(
-                run, ticket, task, failure_context, thread, close_out=close_out
-            ),
-            timeout=timeout,
-            archive_stem=f"{run.stage}-attempt-{run.stage_failures + 1}",
-        )
+        watch_done = Event()
+        watcher: Thread | None = None
+        if run.lifecycle == "working":
+            def interrupt_on_cancel() -> None:
+                """@brief Stop only this run's gate when its marker appears."""
+                while not watch_done.wait(0.2):
+                    try:
+                        if not self.store.cancel_requested(run.run_id):
+                            continue
+                        self.containers.interrupt(run.container)
+                    except (StateError, IsolationError) as exc:
+                        self.log(f"cancel interruption failed: {_sanitize(exc)}")
+                    return
+
+            watcher = Thread(target=interrupt_on_cancel, daemon=True)
+            watcher.start()
+        try:
+            result = self.executor.run_gate(
+                partial(self.containers.exec, run.container, env=self._container_env(run)),
+                run.worktree,
+                self._io_dir(run.run_id),
+                self._stage_prompt(
+                    run, ticket, task, failure_context, thread, close_out=close_out
+                ),
+                timeout=timeout,
+                archive_stem=f"{run.stage}-attempt-{run.stage_failures + 1}",
+            )
+        finally:
+            watch_done.set()
+            if watcher is not None:
+                watcher.join(timeout=21)
         self._journal_usage(run, run.stage, result)
         self._journal_artifacts(run, run.stage, result)
         return result
@@ -1115,6 +1155,8 @@ class Orchestrator:
                 "the evidence below, and stop after that legal route.\n" + _sanitize(evidence)
             ),
         )
+        if self._cancel_if_requested(run):
+            return False
         if result.has_questions:
             self._park(run, result.questions)
             return False
@@ -1268,6 +1310,8 @@ class Orchestrator:
 
     def _publish(self, run: RunState, ticket: Ticket) -> None:
         """@brief Finish AEGIS delivery bookkeeping and publish only a draft MR/PR."""
+        if self._cancel_if_requested(run):
+            return
         run.lifecycle = "publishing"
         run.stage = "deliver"
         self.store.save(run)
@@ -1889,6 +1933,8 @@ class Orchestrator:
     def _reconcile_runs(self, summary: dict[str, Any]) -> None:
         """@brief Give every nonterminal state one bounded next action."""
         for run in self.store.list_runs():
+            if run.lifecycle != "publishing" and self._cancel_if_requested(run):
+                continue
             if run.notification_outbox:
                 summary["notifications"] += self._retry_outbox(run)
                 run = self.store.load(run.run_id)
@@ -1906,6 +1952,17 @@ class Orchestrator:
                 )
             elif run.lifecycle == "working" and run.run_id != self._in_flight_run_id:
                 self._reconcile_stale_working(run)
+
+    def _cancel_if_requested(self, run: RunState) -> bool:
+        """@brief Honor an authorized durable cancellation before more work."""
+        if run.lifecycle in ("done", "failed", "cancelled"):
+            if self.store.cancel_requested(run.run_id):
+                self.store.clear_cancel_request(run.run_id)
+            return False
+        if self.store.cancel_requested(run.run_id):
+            self.cancel(run.run_id)
+            return True
+        return False
 
     def _reconcile_stale_working(self, run: RunState) -> None:
         """@brief Convert a crashed conductor's stale slot into a visible failure."""
@@ -2487,17 +2544,57 @@ class Orchestrator:
                 self.log(f"{run.run_id}: worktree husk retained for cleanup: {exc}")
 
     def _journal_usage(self, run: RunState, context: str, result: GateRun) -> None:
-        """@brief Persist executor usage for budgets and metrics."""
-        if self.config.metrics.capture_tokens and (
+        """@brief Persist one launch's telemetry status plus observed usage."""
+        captured = self.config.metrics.capture_tokens
+        observed_tokens = (result.tokens_reported
+                           if result.tokens_reported is not None
+                           else bool(result.tokens_in or result.tokens_out))
+        observed_cost = result.cost_reported or result.cost_usd > 0
+        configured_executor = self.config.executor.commands.get(
+            self.config.executor.default)
+        model = configured_executor.model if configured_executor else None
+        self.store.journal(
+            run.run_id,
+            "usage-observation",
+            schema=1,
+            event_id=f"{run.run_id}:{run.iterations}",
+            attempt=run.iterations,
+            stage=context,
+            review_round=run.review_rounds,
+            executor=self.config.executor.default,
+            model=model,
+            token_status=("disabled" if not captured else
+                          "reported" if observed_tokens else "unavailable"),
+            cost_status=("disabled" if not captured else
+                         "reported" if observed_cost else "unavailable"),
+            tokens_in=result.tokens_in if captured and observed_tokens else None,
+            tokens_out=result.tokens_out if captured and observed_tokens else None,
+              cache_read_tokens=(result.cache_read_tokens
+                                 if captured and observed_tokens else None),
+              cache_write_tokens=(result.cache_write_tokens
+                                  if captured and observed_tokens else None),
+              input_includes_cache=True,
+            cost_usd=result.cost_usd if captured and observed_cost else None,
+        )
+        if self.config.metrics.capture_tokens and observed_tokens and (
             result.tokens_in or result.tokens_out or result.cost_usd
         ):
             self.store.journal(
                 run.run_id,
                 "usage",
+                event_id=f"{run.run_id}:{run.iterations}",
+                attempt=run.iterations,
                 context=context,
                 tokens_in=result.tokens_in,
                 tokens_out=result.tokens_out,
+                  cache_read_tokens=result.cache_read_tokens,
+                  cache_write_tokens=result.cache_write_tokens,
+                  input_includes_cache=True,
                 cost_usd=result.cost_usd,
+                cost_reported=result.cost_reported or result.cost_usd > 0,
+                executor=self.config.executor.default,
+                model=model,
+                review_round=run.review_rounds,
             )
 
     def _journal_artifacts(self, run: RunState, context: str, result: GateRun) -> None:

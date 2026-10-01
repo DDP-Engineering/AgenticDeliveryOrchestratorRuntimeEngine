@@ -35,6 +35,7 @@ import tomllib
 from adore import __version__, metrics
 from adore.branding import PACKAGE_NAME, PRODUCT_NAME
 from adore.config import Config, load_config, validate_config
+from adore.config_edit import ConfigEditLockedError, config_edit_lock
 from adore.orchestrator import LockHeldError, Orchestrator
 from adore.process_log import ProcessLogger, process_log_path
 from adore.profiles import ProfileError, ProfileStore, resolve_config_path
@@ -79,6 +80,8 @@ def _build_parser() -> argparse.ArgumentParser:
     run.add_argument("--loop", action="store_true", help="Long-running loop")
     run.add_argument("--once", action="store_true", help="Single poll pass")
     run.add_argument("--dry-run", action="store_true", help="Show actions without side effects")
+    run.add_argument("--ticket", type=int, metavar="IID",
+                     help="Run one eligible ticket (with --once); readiness still applies")
 
     sub.add_parser("status", help="Show overall state")
     sub.add_parser("runs", help="List schema-1 working/parked/approval/review runs")
@@ -358,6 +361,16 @@ def _config_set(args: argparse.Namespace) -> int:
     except ProfileError as exc:
         print(f"error: {exc}")
         return EXIT_ERROR
+    try:
+        with config_edit_lock(path):
+            return _config_set_locked(args, path)
+    except ConfigEditLockedError as exc:
+        print(f"error: {exc}")
+        return EXIT_ERROR
+
+
+def _config_set_locked(args: argparse.Namespace, path: Path) -> int:
+    """@brief Validate and atomically write one scalar under the edit lock."""
     args.config = str(path)
     try:
         original = path.read_text(encoding="utf-8")
@@ -534,21 +547,37 @@ def _cmd_run(args: argparse.Namespace) -> int:
     @param[in]  args Parsed arguments.
     @return     Process exit code.
     """
+    profile_store = ProfileStore()
+    try:
+        _path, profile_name = resolve_config_path(
+            getattr(args, "config", None), getattr(args, "profile", None),
+            store=profile_store,
+        )
+        if profile_name and profile_store.load(profile_name).archived:
+            print(f"error: profile {profile_name!r} is archived; restore it before pickup")
+            return EXIT_ERROR
+    except ProfileError as exc:
+        print(f"error: {exc}")
+        return EXIT_ERROR
     built = _engine(args)
     if built is None:
         return EXIT_ERROR
     config, engine = built
+    if args.ticket is not None and (args.ticket < 1 or not args.once or args.loop):
+        print("error: --ticket requires a positive IID and --once")
+        return EXIT_ERROR
     logger = ProcessLogger(process_log_path(config.state.store_root))
     engine.log = logger.emit
+    poll_options = {"ticket_iid": args.ticket} if args.ticket is not None else {}
     if args.dry_run:
-        summary = engine.poll_once(dry_run=True)
+        summary = engine.poll_once(dry_run=True, **poll_options)
         logger.emit(json.dumps(summary))
         return EXIT_OK
     loop = args.loop or (config.polling.mode == "loop" and not args.once)
     if loop:
         return engine.run_loop()
     try:
-        summary = engine.poll_once()
+        summary = engine.poll_once(**poll_options)
     except LockHeldError as exc:
         store = _store(config)
         logger.emit(f"error: {exc} ({store.lock_path})")
@@ -564,7 +593,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
         logger.emit(f"error: {exc}")
         return EXIT_ERROR
     logger.emit(json.dumps(summary))
-    return EXIT_OK
+    return EXIT_ERROR if args.ticket is not None and summary["picked"] is None else EXIT_OK
 
 
 def _cmd_run_op(args: argparse.Namespace) -> int:
@@ -626,14 +655,17 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         return EXIT_ERROR
     store = _store(config)
     if args.rebuild:
-        rebuilt = 0
-        for run in store.list_runs():
-            if metrics.is_terminal(run.lifecycle):
-                summary = metrics.summarize_run(store, run.run_id)
-                metrics.record_summary(config.metrics.db_path, summary,
-                                       config.metrics.export_jsonl)
-                rebuilt += 1
-        print(f"rebuilt {rebuilt} run summarie(s)")
+        try:
+            rebuilt = [metrics.summarize_run(store, run.run_id)
+                       for run in store.list_runs()
+                       if metrics.is_terminal(run.lifecycle)]
+        except metrics.MetricsError as exc:
+            print(f"error: metrics evidence corrupt: {exc}")
+            return EXIT_ERROR
+        for summary in rebuilt:
+            metrics.record_summary(config.metrics.db_path, summary,
+                                   config.metrics.export_jsonl)
+        print(f"rebuilt {len(rebuilt)} run summarie(s)")
     since = None
     if args.since:
         try:
@@ -675,7 +707,11 @@ def _cmd_report(args: argparse.Namespace) -> int:
     if not store.exists(args.run_id):
         print(f"no such run: {args.run_id}")
         return EXIT_ERROR
-    summary = metrics.summarize_run(store, args.run_id)
+    try:
+        summary = metrics.summarize_run(store, args.run_id)
+    except metrics.MetricsError as exc:
+        print(f"error: metrics evidence corrupt: {exc}")
+        return EXIT_ERROR
     print(json.dumps(asdict(summary), indent=2, ensure_ascii=False))
     return EXIT_OK
 

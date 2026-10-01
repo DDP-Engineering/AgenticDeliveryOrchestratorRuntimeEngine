@@ -532,8 +532,13 @@ def run_wizard(
     auth_mode = ask(FieldSpec(
         "auth_mode", "Executor auth mode:",
         "api-key sets a provider key in .env (production); host-auth bridges a "
-        "local OAuth session (pilot only)",
+        "local OpenCode/Codex OAuth session (pilot only)",
         "api-key", default="api-key", choices=("api-key", "host-auth"),
+        validate=lambda value: (
+            "host-auth is supported only for opencode or codex"
+            if value == "host-auth" and executor_cli not in ("opencode", "codex")
+            else None
+        ),
     ), asker, out)
 
     # -- Phase F2 (workflow labels) -----------------------------------------------

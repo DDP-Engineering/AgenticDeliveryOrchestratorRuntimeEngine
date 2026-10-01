@@ -31,6 +31,8 @@ from dataclasses import asdict, dataclass, fields
 import json
 import os
 from pathlib import Path
+import re
+from uuid import NAMESPACE_URL, uuid4, uuid5
 
 from adore import __version__
 from adore.branding import PRODUCT_SLUG, PROFILE_HOME_ENV
@@ -73,6 +75,7 @@ class Profile:
     """
 
     name: str
+    project_id: str = ""
     description: str = ""
     created_at: str = ""
     updated_at: str = ""
@@ -86,6 +89,7 @@ class Profile:
     adore_version: str = ""
     config_path: str = ""
     store_root: str = ""
+    archived: bool = False
 
 
 # HELPER FUNCTIONS
@@ -106,7 +110,21 @@ def _profile_from_dict(data: dict, name: str) -> Profile:
     @return     The reconstructed Profile.
     """
     known = {key: value for key, value in data.items() if key in _PROFILE_FIELDS}
+    if "project_id" not in known:
+        legacy_name = data.get("name")
+        created_at = data.get("created_at")
+        if (not isinstance(legacy_name, str) or not legacy_name
+                or not isinstance(created_at, str) or not created_at):
+            raise ProfileError(f"corrupt profile.json for {name!r}: missing project ID")
+        known["project_id"] = uuid5(
+            NAMESPACE_URL, f"adore-legacy-project:{created_at}:{legacy_name}"
+        ).hex
+    if (not isinstance(known["project_id"], str)
+            or not re.fullmatch(r"[0-9a-f]{32}", known["project_id"])):
+        raise ProfileError(f"corrupt profile.json for {name!r}: invalid project ID")
     known["name"] = name
+    if type(known.get("archived", False)) is not bool:
+        raise ProfileError(f"corrupt profile.json for {name!r}: invalid archived flag")
     return Profile(**known)
 
 
@@ -268,9 +286,11 @@ class ProfileStore:
         """
         if self.exists(name) and not overwrite:
             raise ProfileError(f"profile already exists: {name!r}")
-        allowed = {key: value for key, value in fields_.items() if key in _PROFILE_FIELDS}
+        allowed = {key: value for key, value in fields_.items()
+                   if key in _PROFILE_FIELDS and key != "project_id"}
         now = self._now()
-        profile = Profile(name=name, adore_version=__version__, created_at=now, **allowed)
+        profile = Profile(name=name, project_id=uuid4().hex,
+                          adore_version=__version__, created_at=now, **allowed)
         self.save(profile)
         return profile
 
@@ -281,6 +301,13 @@ class ProfileStore:
         """
         if not profile.created_at:
             profile.created_at = self._now()
+        if not profile.project_id:
+            profile.project_id = uuid5(
+                NAMESPACE_URL,
+                f"adore-legacy-project:{profile.created_at}:{profile.name}",
+            ).hex
+        if not re.fullmatch(r"[0-9a-f]{32}", profile.project_id):
+            raise ProfileError(f"invalid project ID for {profile.name!r}")
         profile.updated_at = self._now()
         self._write_json(self._metadata_path(profile.name), asdict(profile))
 
@@ -317,6 +344,18 @@ class ProfileStore:
             except ProfileError:
                 continue
         return sorted(profiles, key=lambda profile: profile.name)
+
+    def find_by_id(self, project_id: str) -> Profile | None:
+        """@brief Resolve one immutable project ID, rejecting corrupt collisions."""
+        if not isinstance(project_id, str) or not re.fullmatch(r"[0-9a-f]{32}", project_id):
+            raise ProfileError("invalid project ID")
+        if self.invalid_profiles():
+            raise ProfileError("project metadata is corrupt")
+        matches = [item for item in self.list_profiles()
+                   if item.project_id == project_id]
+        if len(matches) > 1:
+            raise ProfileError("duplicate project ID")
+        return matches[0] if matches else None
 
     def invalid_profiles(self) -> list[str]:
         """

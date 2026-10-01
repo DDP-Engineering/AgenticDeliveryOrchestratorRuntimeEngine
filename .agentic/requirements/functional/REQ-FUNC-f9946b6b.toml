@@ -1,0 +1,15 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-f9946b6b"
+title = "Developer job controls"
+status = "active"
+requirement = """When an authorized user starts, retries, or cancels a job in an assigned project, ADORE web shall use the existing conductor rules, persist and report the operation without bypassing readiness, locks, or publication approval. During any blocking worker command or project poll, a pending cancellation in any project shall be signalled only after worker-side grant recheck, interrupt the matching working executor gate when active, and then follow normal conductor teardown. Only administrators may pause or resume project pickup."""
+verification = "Verify authorized controls, rejected cross-project and ineligible actions, idempotent submission, worker-side revocation, cross-project cancel signalling during a busy poll or command, prompt gate interruption, cancelled-operation reconciliation, and uncertain outcome after interruption."
+affected_paths = ["04_Software/adore/web/commands.py", "04_Software/adore/web/store.py", "04_Software/adore/orchestrator.py", "04_Software/adore/isolation.py", "04_Software/adore/state.py", "04_Software/adore/cli.py"]
+linked_tests = ["04_Software/tests/test_web_commands.py", "04_Software/tests/test_orchestrator.py", "04_Software/tests/test_isolation.py", "04_Software/tests/test_state.py"]
+created = 2026-09-29
+updated = 2026-09-29

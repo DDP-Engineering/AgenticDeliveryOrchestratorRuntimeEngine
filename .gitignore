@@ -17,6 +17,15 @@ __pycache__/
 # OS / editor
 .DS_Store
 Thumbs.db
+*.code-workspace
+
+# Local web packaging and installation checks (release media are built afresh)
+07_Delivery/adore-web-*/
+07_Delivery/web-candidate-*/
+07_Delivery/web-final-*/
+07_Delivery/web-runtime-check/
+07_Delivery/web-build-check/
+07_Delivery/ui-smoke-home-*/
 # AEGIS:BEGIN (managed by .agentic/aegis.py init)
 .agentic/tasks/*.anchor.json
 .agentic/tasks/*.evolution.json

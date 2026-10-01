@@ -1,0 +1,15 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-SEC-9ee171c9"
+title = "Local web accounts and sessions"
+status = "active"
+requirement = """When ADORE web is installed on a fresh host, the service shall create one administrator named admin with initial password admin, store only a salted password hash, require authenticated sessions for protected routes, and preserve changed credentials across restart and upgrade; corrupt account storage fails closed."""
+verification = "Verify fresh login, password replacement, restart, denial of invalid credentials, and corrupt-store rejection."
+affected_paths = ["04_Software/adore/web/store.py", "04_Software/adore/web/app.py", "04_Software/adore/web/server.py"]
+linked_tests = ["04_Software/tests/test_web_auth.py", "04_Software/tests/test_web_server.py"]
+created = 2026-09-29
+updated = 2026-09-29

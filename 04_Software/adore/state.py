@@ -34,6 +34,7 @@ from pathlib import Path
 import re
 import shutil
 import socket
+import stat
 from typing import Any
 
 from adore.branding import DEFAULT_STATE_ROOT, PRODUCT_SLUG
@@ -297,6 +298,56 @@ class StateStore:
         @return     True when state.json exists for the run.
         """
         return (self.run_dir(run_id) / STATE_FILE).is_file()
+
+    def cancel_requested(self, run_id: str) -> bool:
+        """
+        @brief Check a durable request to stop a running executor gate.
+        @param[in] run_id Valid run identifier.
+        @return True when a cancellation marker exists.
+        @exception StateError For an invalid run ID or malformed marker.
+        """
+        marker = self._cancel_marker(run_id)
+        try:
+            info = marker.lstat()
+        except FileNotFoundError:
+            return False
+        except OSError as exc:
+            raise StateError(f"cannot read cancel request for run {run_id!r}") from exc
+        if not stat.S_ISREG(info.st_mode) or info.st_size != 0:
+            raise StateError(f"invalid cancel request for run {run_id!r}")
+        return True
+
+    def request_cancel(self, run_id: str) -> bool:
+        """
+        @brief Persist an idempotent cancellation request for a live run.
+        @param[in] run_id Valid run identifier.
+        @return False if the run became terminal before the request.
+        @exception StateError For an invalid run ID or malformed state/marker.
+        """
+        marker = self._cancel_marker(run_id)
+        pending = self.cancel_requested(run_id)
+        run = self.load(run_id)
+        if run.lifecycle in ("done", "failed", "cancelled"):
+            return False
+        if pending:
+            return True
+        try:
+            with marker.open("x", encoding="utf-8"):
+                pass
+        except FileExistsError:
+            if not self.cancel_requested(run_id):
+                raise StateError(f"invalid cancel request for run {run_id!r}") from None
+        return True
+
+    def clear_cancel_request(self, run_id: str) -> None:
+        """
+        @brief Remove a processed cancellation request.
+        @param[in] run_id Valid run identifier.
+        @exception StateError For an invalid run ID or malformed marker.
+        """
+        marker = self._cancel_marker(run_id)
+        self.cancel_requested(run_id)
+        marker.unlink(missing_ok=True)
 
     # -- run state ------------------------------------------------------------
 
@@ -570,6 +621,12 @@ class StateStore:
         return (self.root / PAUSE_FILE).is_file()
 
     # -- internals ------------------------------------------------------------------
+
+    def _cancel_marker(self, run_id: str) -> Path:
+        """@brief Keep cancellation markers inside a validated run directory."""
+        if not isinstance(run_id, str) or _RUN_ID_RE.fullmatch(run_id) is None:
+            raise StateError(f"invalid run ID for cancellation: {run_id!r}")
+        return self.run_dir(run_id) / "cancel.request"
 
     def _run_dirs(self) -> list[Path]:
         """

@@ -53,6 +53,11 @@ label is only a hint.
   explicit recovery.
 - **Four executors, three forges.** OpenCode, Pi, Codex and Qwen Code as
   executors; `gh`, `glab` and `tea` as the forge CLIs.
+- **Optional web interface.** A local React/FastAPI dashboard adds project and
+  job visibility, account/project permissions, reported usage, administrator
+  costs, and a durable worker. See
+  [Web_Interface.md](01_Documentation/Web_Interface.md) for the offline bundle
+  and operating limits.
 
 ## Requirements
 

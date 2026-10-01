@@ -211,7 +211,8 @@ class FileProtocolExecutor(Executor):
                 )
             artifacts.append(str(archive_dir))
         questions = self._read(questions_path)
-        tokens_in, tokens_out, cost = self._extract_usage(output)
+        tokens_in, tokens_out, cost, cache_read, cache_write = (
+            self._extract_usage_detail(output))
         return GateRun(
             exit_code=result.exit_code,
             has_questions=questions_path.is_file(),
@@ -221,7 +222,11 @@ class FileProtocolExecutor(Executor):
             timed_out=result.timed_out,
             tokens_in=tokens_in,
             tokens_out=tokens_out,
+            cache_read_tokens=cache_read,
+            cache_write_tokens=cache_write,
+            tokens_reported=self._tokens_reported(output),
             cost_usd=cost,
+            cost_reported=self._cost_reported(output),
             artifact_dirs=artifacts,
         )
 
@@ -252,6 +257,21 @@ class FileProtocolExecutor(Executor):
         @return     (tokens_in, tokens_out, cost_usd).
         """
         return 0, 0, 0.0
+
+    def _extract_usage_detail(
+        self, output: str,
+    ) -> tuple[int, int, float, int | None, int | None]:
+        """@brief Preserve optional cache categories alongside total input."""
+        incoming, outgoing, cost = self._extract_usage(output)
+        return incoming, outgoing, cost, None, None
+
+    def _cost_reported(self, output: str) -> bool:
+        """@brief Whether the executor explicitly reported a cost value."""
+        return False
+
+    def _tokens_reported(self, output: str) -> bool:
+        """@brief Whether a complete, valid token count was observed."""
+        return False
 
     # -- internals ----------------------------------------------------------------
 
@@ -349,6 +369,34 @@ class OpencodeExecutor(FileProtocolExecutor):
 
     forbidden_flags = ("--auto",)
 
+    def _tokens_reported(self, output: str) -> bool:
+        """@brief Count a valid step token object even when both totals are zero."""
+        for raw in output.splitlines():
+            try:
+                event = json.loads(raw)
+            except json.JSONDecodeError:
+                continue
+            part = event.get("part") if isinstance(event, dict) else None
+            tokens = part.get("tokens") if isinstance(part, dict) else None
+            if (isinstance(tokens, dict)
+                    and all(type(tokens.get(key)) is int
+                            and 0 <= tokens[key] <= 1_000_000_000
+                            for key in ("input", "output"))):
+                return True
+        return False
+
+    def _cost_reported(self, output: str) -> bool:
+        """@brief Detect an explicit OpenCode step cost, including zero."""
+        for raw in output.splitlines():
+            try:
+                event = json.loads(raw)
+            except json.JSONDecodeError:
+                continue
+            part = event.get("part") if isinstance(event, dict) else None
+            if isinstance(part, dict) and isinstance(part.get("cost"), (int, float)):
+                return True
+        return False
+
     def _extract_usage(self, output: str) -> tuple[int, int, float]:
         """
         @brief      Sum opencode step_finish token/cost totals for the launch.
@@ -384,15 +432,77 @@ class PiExecutor(FileProtocolExecutor):
              natively and enforces the push/merge guardrails through the repo's
              .pi agentic-guard extension (a return-value block, active in every
              mode including print/json) - plus container isolation (no remote
-             credentials in the container). Token usage is not reported in Pi's
-             stream today, so usage falls back to zeros (metrics tolerate it)
-             until a spike pins a usage field.
+             credentials in the container). Completed `turn_end` events carry
+             input, output, cache-read and cache-write token counts. Pi's
+             cost object is an executor estimate, not provider-billed cost;
+             administrator price rules may estimate from captured tokens.
     """
 
     # Pi loads its project-local guard/skills only after the project is
     # trusted; ADORE must pre-trust the worktree for headless runs (container
     # isolation still prevents remote writes regardless). See the executor
     # component doc / TODO for the trust-provisioning spike.
+
+    def _tokens_reported(self, output: str) -> bool:
+        """@brief Recognize a complete final turn, including a zero-token turn."""
+        for raw in output.splitlines():
+            try:
+                event = json.loads(raw)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(event, dict) or event.get("type") != "turn_end":
+                continue
+            message = event.get("message")
+            usage = message.get("usage") if isinstance(message, dict) else None
+            if (isinstance(usage, dict)
+                    and all(type(usage.get(key, 0 if key.startswith("cache") else None))
+                            is int
+                            and 0 <= usage.get(key, 0) <= 1_000_000_000
+                            for key in ("input", "output", "cacheRead", "cacheWrite"))):
+                return True
+        return False
+
+    def _extract_usage(self, output: str) -> tuple[int, int, float]:
+        """@brief Sum final Pi turn usage, including cached prompt tokens.
+        @param[in] output Pi JSONL event stream from one gate.
+        @return Input/output tokens and zero billed cost.
+        @note Streaming updates and message-end events duplicate turn-end usage.
+        """
+        tokens_in, tokens_out, cost, _read, _write = (
+            self._extract_usage_detail(output))
+        return tokens_in, tokens_out, cost
+
+    def _extract_usage_detail(
+        self, output: str,
+    ) -> tuple[int, int, float, int | None, int | None]:
+        """@brief Keep Pi cache counts separate; input already includes them."""
+        tokens_in = tokens_out = cache_read = cache_write = 0
+        observed = False
+        for raw in output.splitlines():
+            try:
+                event = json.loads(raw)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(event, dict) or event.get("type") != "turn_end":
+                continue
+            message = event.get("message")
+            usage = message.get("usage") if isinstance(message, dict) else None
+            if not isinstance(usage, dict):
+                continue
+            values = [usage.get(key, 0 if key.startswith("cache") else None)
+                      for key in ("input", "output", "cacheRead", "cacheWrite")]
+            if any(type(value) is not int or not 0 <= value <= 1_000_000_000
+                   for value in values):
+                continue
+            prompt, completion, turn_cache_read, turn_cache_write = values
+            tokens_in += prompt + turn_cache_read + turn_cache_write
+            tokens_out += completion
+            cache_read += turn_cache_read
+            cache_write += turn_cache_write
+            observed = True
+        return (tokens_in, tokens_out, 0.0,
+                cache_read if observed else None,
+                cache_write if observed else None)
 
 
 class CodexExecutor(FileProtocolExecutor):
@@ -429,6 +539,35 @@ class CodexExecutor(FileProtocolExecutor):
     """
 
     forbidden_flags: tuple[str, ...] = ()
+
+    def _tokens_reported(self, output: str) -> bool:
+        """@brief Recognize complete Codex usage, including an explicit zero."""
+        for raw in output.splitlines():
+            try:
+                event = json.loads(raw)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(event, dict):
+                continue
+            usage = event.get("usage") if isinstance(event.get("usage"), dict) else event
+            if all(type(usage.get(key)) is int and 0 <= usage[key] <= 1_000_000_000
+                   for key in ("input_tokens", "output_tokens")):
+                return True
+        return False
+
+    def _cost_reported(self, output: str) -> bool:
+        """@brief Detect explicit Codex cost without treating tokens as billing."""
+        for raw in output.splitlines():
+            try:
+                event = json.loads(raw)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(event, dict):
+                continue
+            usage = event.get("usage") if isinstance(event.get("usage"), dict) else event
+            if isinstance(usage.get("cost_usd"), (int, float)):
+                return True
+        return False
 
     def _build_command(self, *, prompt: str, model: str, worktree: str) -> str:
         """

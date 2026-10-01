@@ -40,8 +40,10 @@ outcomes.
   always launched with an empty session and never stored one back, so none of
   that machinery could ever run.
 - `OpencodeExecutor`: the `--auto` refusal and `step_finish` token/cost usage.
-- `PiExecutor`: Pi (`@earendil-works/pi-coding-agent`); usage falls back to
-  zeros (Pi does not report tokens in its stream today).
+- `PiExecutor`: Pi (`@earendil-works/pi-coding-agent`); final `turn_end`
+  events report input/output and cache read/write tokens. Streaming updates
+  and message-end duplicates are ignored. Its embedded cost is an executor
+  estimate, so ADORE leaves reported cost unavailable.
 - `CodexExecutor`: OpenAI Codex CLI; supplies the template's `{resume}` slot as
   empty so the command stays plain `codex exec`. The slot is still accepted so
   an existing profile keeps working.
@@ -199,8 +201,22 @@ elif run.ok:
 
 ## 10. Limitations And Future Work
 
-- **opencode is live-proven; pi/codex/qwen are selectable variants with
-  offline contract coverage.** Live pilots remain executor-specific because
+- Pi final-turn usage records cache-read and cache-write token counts on
+  `GateRun`. `tokens_in` includes these categories, so reports expose them as
+  subsets rather than adding them to input again. Missing categories remain
+  unavailable for other executors.
+
+- `GateRun.cost_reported` distinguishes an explicitly emitted cost (including
+  zero) from the default zero used when the executor has no cost telemetry.
+  `GateRun.tokens_reported` similarly distinguishes a complete zero-token
+  report from absent or partial usage. File-protocol launchers set this flag
+  from valid final executor events; older injected results may leave it unset.
+  OpenCode and Codex detect their explicit cost fields; Pi and Qwen have no
+  billed-cost telemetry. The orchestrator journals this
+  coverage along with executor, model and review-round identifiers.
+
+- **OpenCode and Pi are live-proven; Codex and Qwen are selectable variants
+  with offline contract coverage.** Live pilots remain executor-specific because
   each CLI has its own trust/auth/session quirks.
 - Codex live finding 2026-07-06: avoid copying host desktop Codex config into
   the run. Use `--ignore-user-config`; the orchestrator stages only

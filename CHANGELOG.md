@@ -12,7 +12,159 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+### Fixed
+
+- Creating a user and staging configuration no longer show a false form-reset
+  error after success. Switching accounts returns to Overview instead of
+  leaving an inaccessible administrator page selected.
+
+- Removed repeated page headings so dashboard content starts higher. The
+  project selector now sits in the top bar, and narrow metric hints, usage
+  actions and account rows wrap without clipped or overlapping text. The About
+  dialog stays within the viewport and scrolls internally on small screens.
+
 ### Added
+
+- Administration now groups System status, Users, Audit and Settings in a
+  sidebar submenu. Administrators can set audit retention by days and stored
+  text size; the default remains unlimited. Audit, Jobs and data tables show
+  10/25/50/All paging when they exceed ten rows.
+
+- Metrics now has a shared reporting filter and CSV export area with Summary,
+  Usage, Quality, Trends and administrator-only Projects tabs.
+
+- Pi usage now retains cache-read and cache-write categories separately from
+  total input tokens; the web usage view and CSV expose known categories.
+
+- Offline media can name large, preinstalled executor images as checked
+  prerequisites without embedding an additional image archive and verifies
+  the selected executor binary inside the image without network access.
+- Append-only SQLite usage projection with immutable project/source identities,
+  conflict-checked replay, and an administrator history rebuild action.
+- SQLite schema 11 projects launch coverage and retains per-run journal cursors;
+  replay is idempotent and detects changed or truncated earlier evidence.
+- Offline installer prerequisites now match actual execution ownership:
+  host Git/forge/runtime, with executor CLI readiness checked inside the
+  prepared project image without an image pull.
+- OpenCode endpoint staging now records the supported protocol, bounded
+  request timeout and optional HTTPS custom-CA path, and shows the resulting
+  non-secret settings in the pending review.
+- Clearing the endpoint CA field removes an earlier custom-CA reference when
+  switching back to an HTTP or default-trust endpoint.
+- Immutable web project IDs for browser selection, developer grants, queued
+  commands and administrator prices, preserving ownership across profile
+  renames and preventing replacement-name inheritance.
+- Evidence-denominated reported and estimated USD per completed and
+  human-merged job, with stage failures and operator retries shown separately.
+- OpenCode local endpoints can use an allowlisted executor environment-key
+  reference; inline provider configuration is omitted from API config reads.
+- Administrator local-model readiness checks from a disposable executor
+  container with project egress policy, bounded tool-stream probe and no image
+  pull or host-connectivity fallback.
+- Offline media records forge, executor and runtime host prerequisites; its
+  installer offers a read-only preflight and checks image availability before
+  creating the target runtime.
+- Loopback-only web listener explicitly restricts trusted proxy headers to
+  local peers; HTTPS login cookie and raw forwarded-header boundaries are tested.
+- Compact collapsible navigation and narrow-width wrapping for small displays
+  and high zoom, exercised across phone, tablet and desktop viewport sizes.
+- IANA-timezone reporting with daily, Monday-weekly and monthly metrics and
+  attributed-usage trends, backed by bundled offline timezone data.
+- Explicit executor token-coverage signals so complete zero-token reports
+  remain known zero while absent or partial reports remain unavailable.
+- Administrator storage status for ADORE home and project run-state volumes,
+  with a low-space warning below 1 GiB and explicit measurement errors.
+- Versioned per-launch usage observations and dashboard coverage that separate
+  reported, unavailable and disabled telemetry without double-counting usage;
+  monetary coverage remains administrator-only.
+- Stable run/attempt IDs on numeric usage events, with identical journal replay
+  counted once and conflicting versioned evidence rejected in summaries and
+  web metrics.
+- Bounded whole-pair API/worker restart with increasing backoff in the offline
+  launcher and an operator-configurable restart limit.
+- Administrator staged configuration review and safe apply/discard, with
+  conductor and active-work checks and paused pickup for runtime changes.
+- Guided administrator controls for common project settings, with the
+  validated key editor retained for advanced settings.
+- Project detail view linking scoped status and recent jobs to jobs, metrics,
+  settings and membership management.
+- Exact observed-executor filter for project job pages, with corrupt journal
+  identity rejected instead of inferred from today's project configuration.
+- Staged configuration apply can reconcile an interrupted metadata update and
+  preserves candidate bytes across Windows and Linux.
+- About now includes notices for the locked React and Python web dependencies.
+- Explicit administrator host-prerequisite diagnostics on project details,
+  with bounded command probes and no CLI output in browser responses.
+- Searchable, status-filterable project directory with static configuration
+  status, executor and UTC last activity.
+- Administrator preview and byte-preserving import of an existing ADORE TOML
+  configuration, with path/secret validation and paused pickup.
+- Administrator project archive and restore retain job, metrics and price history while stopping web and profile-based CLI pickup.
+- Optional same-origin React/FastAPI dashboard with local Argon2id accounts,
+  admin/developer project RBAC, four languages, light/dark/system themes,
+  project and job views, reported metrics and administrator-only costs.
+- Durable web operation queue and single-host worker for selected-ticket
+  start, retry, cancel and profile polling. Selected-ticket starts retain the
+  existing ticket eligibility and draft-publication gates.
+- OS/Python-specific offline web bundle with bundled UI and dependency wheels,
+  SHA-256 verification and a `pip --no-index` installer.
+- The offline installer resolves symlinked host Python executables before
+  creating a virtual environment.
+- Administrator password reset with session revocation; web config and journal
+  views filter credential-bearing fields before sending them to browsers.
+- Administrator audit-history view of account, project and operation actions.
+- Per-project daily CSV export with monetary values reserved for administrators,
+  plus an administrator-only global daily CSV with project/repository identity.
+- Immutable administrator-managed USD-per-million-token prices and dated cost
+  estimates, shown separately from provider-reported cost.
+- Repository-grouped token/job/cost totals in the administrator dashboard and
+  live-run usage in project headline totals.
+- Separate reviewer-requested MR/PR revision and automatic pipeline-repair
+  counts in daily/project metrics and CSV exports.
+- Administrator-only per-revision token and cost attribution from journal usage,
+  keeping reported, estimated, and unavailable amounts distinct.
+- UTC-normalized daily metrics for journal events with timezone offsets.
+- Project and administrator-global attributed usage views and CSV exports with
+  UTC date, executor and model filters; financial values remain administrator-only.
+- OpenCode local endpoint configuration now writes an OpenAI-compatible provider
+  override for the selected model, rather than relying on a base URL variable.
+- The OpenCode web form now saves the model ID and local endpoint URL together
+  in one validated configuration revision.
+- A queued web cancellation rechecks run lifecycle and cannot rewrite a run
+  that finished before the worker reached the command.
+- A worker-side cancellation watcher now rechecks grants across projects
+  during any blocking command or poll, signals the conductor, and interrupts the matching executor
+  container before normal cancellation cleanup.
+- CLI `config set` and web configuration edits now share a local process lock,
+  rejecting concurrent ADORE edits without changing the configuration file.
+- Public API liveness and worker readiness endpoints, backed by a durable
+  heartbeat that stays current during blocking engine commands.
+- The About dialog keeps keyboard focus inside and restores it on close;
+  compact layouts keep Sign out available in the top bar.
+- Project-scoped, bounded Jobs pages with lifecycle and stage filters, plus
+  localized status/stage labels and full overview lifecycle counts.
+- Clear cached account/project data on browser sign-out and discard responses
+  started under the previous session.
+- Administrator control-worker readiness status with automatic refresh and
+  localized ready, unavailable and check-failed states.
+- Inclusive UTC last-update dates and case-insensitive outcome text filters for
+  scoped, paged Jobs queries.
+- Inclusive UTC daily reporting periods for project/global metrics and CSV,
+  with dated-event period totals separate from all-time totals.
+- Terminal job elapsed-time sample count, average and median in Metrics, with
+  a separate UTC completion-period view and explicit undated-history coverage.
+- Evidence-based reviewer-rework, first-validation and human-merge quality
+  rates with eligible-job denominators and open-review counts.
+- Account-scoped language and theme preferences with browser fallback before
+  login and a schema-6 migration preserving existing identity data.
+
+### Changed
+
+- Web identity schema 4 binds developer grants to the profile creation time.
+  Upgrading from schemas 1-3 clears older name-only grants; administrators must
+  reassign access to the current profiles.
+- Web identity schema 5 adds worker heartbeat storage while preserving existing
+  users, sessions, grants and prices.
 
 - **ADORE now watches the forge pipeline on a published draft and can repair
   it.** Each poll of an `in-review` run reads the verdict through the new
@@ -43,6 +195,18 @@ This project follows Keep a Changelog and Semantic Versioning.
   keeps waiting in review with a comment saying so rather than being failed.
 
 ### Fixed
+
+- Assisted and web project setup now reject host-auth for Pi and Qwen before
+  creating a profile; configuration validation enforces the same executor
+  boundary instead of failing during job provisioning.
+- Web-created projects now use an absolute per-project worktree directory,
+  preventing retries from targeting a different path when the worker starts
+  from another working directory.
+- ADORE's host-side checkpoint commits now use the configured agent name and
+  email, so a fresh clone does not depend on global Git identity settings.
+- Pi JSONL completed-turn usage now records prompt, cached-input and output
+  tokens once per turn. Pi's estimated cost remains distinct from a billed
+  provider cost, so administrator price rules can supply an estimate.
 
 - **GitHub and GitLab could never open a draft MR/PR.** Before creating one,
   `_publish` probes for an adoptable MR/PR by branch. `gh pr view <branch>`

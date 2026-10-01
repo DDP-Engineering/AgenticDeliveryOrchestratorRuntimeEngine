@@ -37,6 +37,8 @@ guides belong in `01_Documentation/`.
   (`adore/forge/`).
 - `Component_CLI.md` - the `adore` command surface and exit-code contract
   (`adore/cli.py`).
+- `Component_Config_Edit.md` - shared CLI/web local configuration edit lock
+  (`adore/config_edit.py`).
 
 ## Component documentation (phase 2 - isolation and executor)
 
@@ -77,6 +79,14 @@ guides belong in `01_Documentation/`.
   assisted setup (`adore/doctor.py`).
 - `Component_Wizard.md` - the `adore init` guided setup that emits a minimal
   validated profile (`adore/wizard.py`).
+
+## Web interface
+
+- `Component_Web_Identity.md` - SQLite accounts, sessions, grants and queue.
+- `Component_Web_API.md` - same-origin HTTP API and role enforcement.
+- `Component_Web_Endpoint_Probe.md` - disposable executor-context local-model readiness.
+- `Component_Web_Worker.md` - authorized queued CLI operations and scheduling.
+- `Component_Web_Frontend.md` - React views, locale catalogs and themes.
 
 ## Cross-cutting contracts
 

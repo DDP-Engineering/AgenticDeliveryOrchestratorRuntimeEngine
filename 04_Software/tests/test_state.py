@@ -364,6 +364,36 @@ def test_unreadable_lock_is_not_reclaimed(tmp_path: Path) -> None:
     assert store.lock_path.is_file()
 
 
+def test_cancel_request_is_durable_and_validated(tmp_path: Path) -> None:
+    """@brief A live run can be signalled once; terminal/invalid targets fail closed."""
+    store = _store(tmp_path)
+    store.save(RunState(run_id="active-1", ticket_iid=1, lifecycle="working"))
+    assert store.request_cancel("active-1")
+    assert StateStore(store.root).cancel_requested("active-1")
+    assert store.request_cancel("active-1")
+    store.clear_cancel_request("active-1")
+    assert not store.cancel_requested("active-1")
+    with pytest.raises(StateError):
+        store.request_cancel("../outside")
+    with pytest.raises(FileNotFoundError):
+        store.request_cancel("missing")
+    store.save(RunState(run_id="active-1", ticket_iid=1, lifecycle="done"))
+    assert not store.request_cancel("active-1")
+
+
+def test_cancel_request_malformed_marker_fails_closed(tmp_path: Path) -> None:
+    """@brief A directory masquerading as a marker cannot signal a run."""
+    store = _store(tmp_path)
+    store.save(RunState(run_id="active-1", ticket_iid=1, lifecycle="working"))
+    (store.run_dir("active-1") / "cancel.request").mkdir()
+    with pytest.raises(StateError):
+        store.request_cancel("active-1")
+    (store.run_dir("active-1") / "cancel.request").rmdir()
+    (store.run_dir("active-1") / "cancel.request").write_text("junk", encoding="utf-8")
+    with pytest.raises(StateError):
+        store.cancel_requested("active-1")
+
+
 def test_wrong_shape_lock_is_unknown_and_not_reclaimed(tmp_path: Path) -> None:
     """@brief Valid JSON with the wrong shape is still an unknown held lock."""
     root = tmp_path / ".adore"

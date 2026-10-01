@@ -22,6 +22,7 @@ from collections import deque
 from dataclasses import replace
 import os
 from pathlib import Path
+from threading import Event
 
 from adore.aegis import (
     AegisCheck,
@@ -37,7 +38,7 @@ from adore.forge import Comment, Forge, ForgeError, MergeRequest, Ticket
 from adore.metrics import aggregate, load_summaries, profile_stats
 import adore.orchestrator as orchestrator_module
 from adore.orchestrator import Orchestrator
-from adore.state import RunState, StateStore, content_hash
+from adore.state import RunState, StateError, StateStore, content_hash
 from adore.util import CommandResult, utc_now_iso
 import pytest
 
@@ -219,6 +220,8 @@ class FakeContainers:
 
     def __init__(self) -> None:
         self.stopped: list[str] = []
+        self.interrupted: list[str] = []
+        self.interrupt_event = Event()
         self.removed: list[str] = []
         self.cleanup_containers: list[str] = []
         self.cleanup_proxies: list[str] = []
@@ -239,6 +242,10 @@ class FakeContainers:
 
     def stop(self, name):
         self.stopped.append(name)
+
+    def interrupt(self, name):
+        self.interrupted.append(name)
+        self.interrupt_event.set()
 
     def remove(self, name):
         self.removed.append(name)
@@ -451,6 +458,12 @@ def test_clean_full_and_quick_paths_stop_for_fresh_approval(
     assert saved.lifecycle == "awaiting-approval"
     assert saved.stage == "deliver"
     assert saved.validation_evidence["passed"] is True
+    observations = [event for event in engine.store.read_journal(run.run_id)
+                    if event.get("event") == "usage-observation"]
+    assert len(observations) == len(executor.prompts)
+    assert len({event["event_id"] for event in observations}) == len(observations)
+    assert all(event["schema"] == 1 and event["token_status"] == "unavailable"
+               and event["cost_status"] == "unavailable" for event in observations)
     assert saved.candidate_fingerprint == worktrees.fingerprint
     assert saved.validation_evidence["deviations"] == []
     assert "Deviations recorded: 0" in forge.ticket_comments[saved.approval_comment_id]
@@ -459,6 +472,149 @@ def test_clean_full_and_quick_paths_stop_for_fresh_approval(
     assert containers.stopped
     stage_commits = [item for item in worktrees.checkpoints if "ADORE checkpoint" in item]
     assert len(stage_commits) == len(stages) - 1
+
+
+def test_launch_telemetry_distinguishes_observed_and_disabled_capture(tmp_path):
+    """@brief Completed gates record coverage without double-counting usage."""
+    first = GateRun(exit_code=0, tokens_in=10, tokens_out=2,
+                    cache_read_tokens=3, cache_write_tokens=1)
+    engine, forge, _worktrees, _containers, _executor = make_engine(
+        tmp_path / "observed", executor=FakeExecutor(first))
+    run = make_run(engine)
+    engine._conduct_task(run, forge.ticket,
+                         FakeAegis(sequence("frame", "build", "validate", "deliver")), "")
+    journal = engine.store.read_journal(run.run_id)
+    observed = [event for event in journal if event.get("event") == "usage-observation"]
+    usage = [event for event in journal if event.get("event") == "usage"]
+    assert observed[0]["token_status"] == "reported"
+    assert observed[0]["cost_status"] == "unavailable"
+    assert observed[0]["tokens_in"] == 10
+    assert observed[0]["cache_read_tokens"] == 3
+    assert observed[0]["input_includes_cache"] is True
+    assert len(usage) == 1 and usage[0]["tokens_in"] == 10
+    assert usage[0]["cache_write_tokens"] == 1
+    assert usage[0]["event_id"] == observed[0]["event_id"]
+    assert usage[0]["attempt"] == observed[0]["attempt"]
+
+    disabled, forge, _worktrees, _containers, _executor = make_engine(
+        tmp_path / "disabled", executor=FakeExecutor(first))
+    disabled.config.metrics.capture_tokens = False
+    run = make_run(disabled)
+    disabled._conduct_task(run, forge.ticket,
+                           FakeAegis(sequence("frame", "build", "validate", "deliver")), "")
+    journal = disabled.store.read_journal(run.run_id)
+    observed = [event for event in journal if event.get("event") == "usage-observation"]
+    assert observed[0]["token_status"] == "disabled"
+    assert observed[0]["cost_status"] == "disabled"
+    assert observed[0]["tokens_in"] is None
+    assert not any(event.get("event") == "usage" for event in journal)
+
+
+def test_launch_telemetry_preserves_reported_zero(tmp_path):
+    """@brief Zero measured tokens remain reported in the durable journal."""
+    result = GateRun(exit_code=0, tokens_reported=True)
+    engine, forge, _worktrees, _containers, _executor = make_engine(
+        tmp_path, executor=FakeExecutor(result))
+    run = make_run(engine)
+    engine._conduct_task(run, forge.ticket,
+                         FakeAegis(sequence("frame", "build", "validate", "deliver")), "")
+    observations = [event for event in engine.store.read_journal(run.run_id)
+                    if event.get("event") == "usage-observation"]
+    assert observations[0]["token_status"] == "reported"
+    assert observations[0]["tokens_in"] == 0
+    assert observations[0]["tokens_out"] == 0
+
+
+def test_partial_telemetry_does_not_write_numeric_usage(tmp_path):
+    """@brief Explicit incomplete telemetry stays unknown in projections."""
+    result = GateRun(exit_code=0, tokens_in=4, tokens_reported=False)
+    engine, forge, _worktrees, _containers, _executor = make_engine(
+        tmp_path, executor=FakeExecutor(result))
+    run = make_run(engine)
+    engine._conduct_task(run, forge.ticket,
+                         FakeAegis(sequence("frame", "build", "validate", "deliver")), "")
+    journal = engine.store.read_journal(run.run_id)
+    observations = [event for event in journal
+                    if event.get("event") == "usage-observation"]
+    assert observations[0]["token_status"] == "unavailable"
+    assert observations[0]["tokens_in"] is None
+    assert not any(event.get("event") == "usage" for event in journal)
+
+
+def test_requested_cancel_stops_before_next_gate(tmp_path: Path) -> None:
+    """@brief Durable cancellation takes precedence over another stage attempt."""
+    engine, forge, _, containers, executor = make_engine(tmp_path)
+    run = make_run(engine)
+    assert engine.store.request_cancel(run.run_id)
+
+    engine._conduct_task(run, forge.ticket, FakeAegis([task("frame")]), "")
+
+    assert engine.store.load(run.run_id).lifecycle == "cancelled"
+    assert not engine.store.cancel_requested(run.run_id)
+    assert executor.prompts == []
+    assert containers.removed
+
+
+def test_requested_cancel_interrupts_active_gate(tmp_path: Path) -> None:
+    """@brief A running executor gate is interrupted and finalized as cancelled."""
+    engine, forge, _, containers, _ = make_engine(tmp_path)
+    run = make_run(engine)
+
+    class CancellingExecutor(FakeExecutor):
+        def run_gate(self, execute, worktree, io_dir, prompt, **kwargs):
+            engine.store.request_cancel(run.run_id)
+            assert containers.interrupt_event.wait(2)
+            return GateRun(exit_code=1, stderr="container stopped")
+
+    engine.executor = CancellingExecutor()
+    engine._conduct_task(run, forge.ticket, FakeAegis([task("frame")]), "")
+
+    saved = engine.store.load(run.run_id)
+    assert saved.lifecycle == "cancelled"
+    assert saved.failure_history == []
+    assert containers.interrupted == [run.container]
+
+
+def test_cancel_marker_survives_worker_crash_and_reconciles(tmp_path: Path) -> None:
+    """@brief A later conductor poll completes an authorized durable cancel."""
+    engine, _, _, _, _ = make_engine(tmp_path)
+    run = make_run(engine)
+    engine.store.request_cancel(run.run_id)
+    engine.store.pause()
+
+    engine.poll_once()
+
+    assert engine.store.load(run.run_id).lifecycle == "cancelled"
+    assert not engine.store.cancel_requested(run.run_id)
+
+
+def test_corrupt_cancel_marker_stops_reconciliation(tmp_path: Path) -> None:
+    """@brief A damaged cancellation request cannot be guessed or discarded."""
+    engine, _, _, _, _ = make_engine(tmp_path)
+    run = make_run(engine)
+    (engine.store.run_dir(run.run_id) / "cancel.request").write_text(
+        "junk", encoding="utf-8"
+    )
+    engine.store.pause()
+
+    with pytest.raises(StateError):
+        engine.poll_once()
+    assert engine.store.load(run.run_id).lifecycle == "working"
+
+
+def test_cancel_before_publication_does_not_push_or_open_draft(tmp_path: Path) -> None:
+    """@brief A waiting cancellation wins before publication side effects."""
+    engine, forge, worktrees, _, _ = make_engine(tmp_path)
+    run = make_run(engine)
+    run.lifecycle = "awaiting-approval"
+    engine.store.save(run)
+    engine.store.request_cancel(run.run_id)
+
+    engine._publish(run, forge.ticket)
+
+    assert engine.store.load(run.run_id).lifecycle == "cancelled"
+    assert worktrees.pushes == []
+    assert forge.opened == []
 
 
 def test_approval_presentation_lists_recorded_deviations(tmp_path: Path) -> None:
@@ -1408,6 +1564,26 @@ def test_selection_skips_a_ticket_that_is_not_open(tmp_path: Path) -> None:
     forge.ready = [forge.ticket]
 
     assert engine._pick_ticket() is None
+
+
+def test_explicit_ticket_start_keeps_readiness_boundary(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """@brief A web-selected ticket must still satisfy normal readiness."""
+    engine, forge, _, _, _ = make_engine(tmp_path)
+    ready = engine.config.labels.lifecycle.ready
+    forge.ticket.labels = [ready, "P2"]
+    other = Ticket(iid=99, title="Held", description="- [ ] Acceptance Criteria",
+                   labels=[ready, "P1", engine.config.labels.control.hold])
+    forge.ready = [other, forge.ticket]
+    selected = []
+    monkeypatch.setattr(engine, "_probe_repository_payload", lambda: None)
+    monkeypatch.setattr(engine, "_claim_and_conduct", lambda ticket: selected.append(ticket.iid))
+
+    assert engine.poll_once(ticket_iid=99)["picked"] is None
+    assert selected == []
+    assert engine.poll_once(ticket_iid=forge.ticket.iid)["picked"] == forge.ticket.iid
+    assert selected == [forge.ticket.iid]
 
 
 def test_publication_retry_survives_a_dirty_worktree(tmp_path: Path) -> None:

@@ -28,6 +28,9 @@ Commands that operate on a runtime project resolve configuration in this order:
 Use `--profile` in automation and first-run commands. It is unambiguous and
 does not rely on the shell's working directory or a previous active-profile
 choice.
+An archived named or active profile refuses `run` pickup until restored in
+the web Projects page. An explicit `-c FILE` is outside profile archive
+control and remains an operator override.
 
 For engine commands (`run`, `retry`, `cancel`, `delete`, `reset`, and
 `cleanup`), ADORE loads `.env` beside the resolved `config.toml` when it
@@ -57,7 +60,7 @@ unless `ADORE_HOME` overrides the location.
 | --- | --- |
 | `adore [selector] config show` | Print the resolved configuration as JSON. |
 | `adore [selector] config validate` | Validate the resolved configuration and report any issues. |
-| `adore [selector] config set <section.key> <value>` | Set one scalar key in the resolved config file (e.g. `budgets.max_iterations 12`). Comments are preserved and the value type is inferred; the write is refused unless the whole resulting config still validates. Secret-looking keys are rejected - put secrets in `.env`. |
+| `adore [selector] config set <section.key> <value>` | Set one scalar key in the resolved config file (e.g. `budgets.max_iterations 12`). Comments are preserved and the value type is inferred; the write is refused unless the whole resulting config still validates. Secret-looking keys are rejected - put secrets in `.env`. CLI and web edits share a local process lock; a concurrent edit is refused. |
 
 In this table, `[selector]` means `-c <config.toml>` or `--profile
 <profile-name>` where appropriate.
@@ -113,9 +116,13 @@ diagnostic.
 | --- | --- |
 | `adore [selector] stats [--since <duration>] [--by priority|outcome]` | Summarize terminal-run metrics. |
 | `adore [selector] stats --html` | Write the configured static HTML dashboard. |
-| `adore [selector] stats --rebuild` | Re-summarize terminal runs into the metrics database. |
+| `adore [selector] stats --rebuild` | Re-summarize terminal runs into the metrics database. Re-running is idempotent and leaves run state and journals unchanged. |
 | `adore [selector] report <run-id>` | Print a JSON summary for one run, including the governance outcome. |
 | `adore [selector] export --csv` | Export metrics, including governance outcome, as CSV. |
+
+`report` and `stats --rebuild` fail with a metrics-evidence error when a
+versioned usage record is malformed or conflicts with another record for the
+same launch. Rebuild validates all terminal runs before refreshing summaries.
 
 ## Exit Codes
 

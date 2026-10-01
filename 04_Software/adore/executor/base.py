@@ -77,7 +77,11 @@ class GateRun:
     timed_out: bool = False
     tokens_in: int = 0
     tokens_out: int = 0
+    cache_read_tokens: int | None = None
+    cache_write_tokens: int | None = None
+    tokens_reported: bool | None = None
     cost_usd: float = 0.0
+    cost_reported: bool = False
     artifact_dirs: list[str] = field(default_factory=list)
 
     @property

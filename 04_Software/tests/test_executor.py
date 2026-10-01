@@ -390,6 +390,61 @@ def test_usage_extraction_from_event_stream(tmp_path: Path) -> None:
     assert run.tokens_in == 300
     assert run.tokens_out == 50
     assert abs(run.cost_usd - 0.03) < 1e-9
+    assert run.cost_reported is True
+
+
+def test_token_usage_without_cost_is_not_reported_as_free(tmp_path: Path) -> None:
+    """@brief Token-only output leaves monetary coverage unknown."""
+    worktree, io_dir = _dirs(tmp_path)
+
+    def write_stream() -> None:
+        (io_dir / OUTPUT_FILE).write_text(
+            '{"type":"step_finish","part":{"tokens":{"input":10,"output":2}}}\n',
+            encoding="utf-8",
+        )
+
+    run = _executor().run_gate(
+        FakeExec(CommandResult(exit_code=0), write_stream), worktree, io_dir, "p"
+    )
+    assert run.tokens_in == 10 and run.tokens_out == 2
+    assert run.cost_usd == 0.0 and run.cost_reported is False
+
+
+def test_explicit_zero_token_report_is_known_usage(tmp_path: Path) -> None:
+    """@brief A valid zero usage event is measured, unlike absent telemetry."""
+    worktree, io_dir = _dirs(tmp_path)
+
+    def write_stream() -> None:
+        (io_dir / OUTPUT_FILE).write_text(
+            '{"type":"step_finish","part":{"tokens":{"input":0,"output":0}}}\n',
+            encoding="utf-8",
+        )
+
+    measured = _executor().run_gate(
+        FakeExec(CommandResult(exit_code=0), write_stream), worktree, io_dir, "p"
+    )
+    assert measured.tokens_in == measured.tokens_out == 0
+    assert measured.tokens_reported is True
+    absent = _executor().run_gate(
+        FakeExec(CommandResult(exit_code=0)), worktree, io_dir, "p"
+    )
+    assert absent.tokens_reported is False
+
+
+def test_partial_token_report_does_not_claim_coverage(tmp_path: Path) -> None:
+    """@brief A missing category does not turn partial telemetry into fact."""
+    worktree, io_dir = _dirs(tmp_path)
+
+    def write_stream() -> None:
+        (io_dir / OUTPUT_FILE).write_text(
+            '{"type":"step_finish","part":{"tokens":{"input":4}}}\n',
+            encoding="utf-8",
+        )
+
+    run = _executor().run_gate(
+        FakeExec(CommandResult(exit_code=0), write_stream), worktree, io_dir, "p"
+    )
+    assert run.tokens_reported is False
 
 
 def test_auto_flag_is_rejected_at_construction() -> None:
@@ -516,6 +571,77 @@ def test_pi_gate_uses_the_shared_fresh_session_protocol(tmp_path: Path) -> None:
     assert "--session" not in script
     assert "\r" not in script and "cd /adore/work" in script
     assert run.ok
+
+
+def test_pi_counts_completed_turn_usage_once(tmp_path: Path) -> None:
+    """@brief Pi's final turn events count cached input without duplicate updates."""
+    worktree, io_dir = _dirs(tmp_path)
+    usage = {"input": 100, "output": 20, "cacheRead": 50,
+             "cacheWrite": 10, "totalTokens": 180,
+             "cost": {"total": 0.25}}
+
+    def write_stream() -> None:
+        events = [
+            {"type": "message_update", "usage": usage},
+            {"type": "message_end", "message": {"usage": usage}},
+            {"type": "turn_end", "message": {"usage": usage}},
+            {"type": "turn_end", "message": {"usage": {
+                "input": 30, "output": 5, "cacheRead": 0,
+                "cacheWrite": 0}}},
+        ]
+        (io_dir / OUTPUT_FILE).write_text(
+            "\n".join(json.dumps(event) for event in events), encoding="utf-8")
+
+    run = PiExecutor(PI_TEMPLATE, "openai-codex/gpt-6-sol").run_gate(
+        FakeExec(CommandResult(exit_code=0), write_stream), worktree, io_dir,
+        "gate")
+    assert (run.tokens_in, run.tokens_out) == (190, 25)
+    assert (run.cache_read_tokens, run.cache_write_tokens) == (50, 10)
+    assert run.tokens_reported is True
+    assert run.cost_usd == 0.0 and not run.cost_reported
+
+
+def test_pi_explicit_zero_turn_is_reported(tmp_path: Path) -> None:
+    """@brief Pi's complete final usage may legitimately be zero."""
+    worktree, io_dir = _dirs(tmp_path)
+
+    def write_stream() -> None:
+        (io_dir / OUTPUT_FILE).write_text(json.dumps({
+            "type": "turn_end", "message": {"usage": {
+                "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0}},
+        }), encoding="utf-8")
+
+    run = PiExecutor(PI_TEMPLATE, "m").run_gate(
+        FakeExec(CommandResult(exit_code=0), write_stream), worktree, io_dir, "gate")
+    assert run.tokens_reported is True
+    assert (run.tokens_in, run.tokens_out) == (0, 0)
+    assert (run.cache_read_tokens, run.cache_write_tokens) == (0, 0)
+
+
+def test_pi_ignores_malformed_or_unfinished_usage(tmp_path: Path) -> None:
+    """@brief Corrupt and partial Pi events never inflate token totals."""
+    worktree, io_dir = _dirs(tmp_path)
+
+    def write_stream() -> None:
+        events = [
+            "not json",
+            json.dumps({"type": "message_update", "usage": {
+                "input": 900, "output": 900}}),
+            json.dumps({"type": "turn_end", "message": {"usage": "bad"}}),
+            json.dumps({"type": "turn_end", "message": {"usage": {
+                "input": True, "output": 1}}}),
+            json.dumps({"type": "turn_end", "message": {"usage": {
+                "input": -1, "output": 1}}}),
+            json.dumps({"type": "turn_end", "message": {"usage": {
+                "input": 1_000_000_001, "output": 1}}}),
+        ]
+        (io_dir / OUTPUT_FILE).write_text("\n".join(events), encoding="utf-8")
+
+    run = PiExecutor(PI_TEMPLATE, "m").run_gate(
+        FakeExec(CommandResult(exit_code=0), write_stream), worktree, io_dir,
+        "gate")
+    assert (run.tokens_in, run.tokens_out) == (0, 0)
+    assert run.tokens_reported is False
 
 
 def test_codex_parses_usage_from_json(tmp_path: Path) -> None:

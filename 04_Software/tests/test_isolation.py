@@ -568,6 +568,25 @@ def test_container_provision_allowlist_proxy_lifecycle(tmp_path: Path) -> None:
     assert "NO_PROXY=localhost,127.0.0.1,::1" in env_values
 
 
+def test_disposable_probe_never_pulls_executor_or_egress_proxy(tmp_path: Path) -> None:
+    """@brief A local-only probe applies the no-pull policy to both images."""
+    runner = FakeRunner(
+        _fail("No such container: adore-probe-x"), _ok("network"),
+        _fail("No such container: adore-probe-x-egress-proxy"),
+        _ok("proxy"), _ok(), _ok("cid"),
+    )
+    manager = ContainerManager(
+        "docker", "executor:local", "uv-cache", "npm-cache", runner,
+        egress=ContainerEgressConfig(
+            mode="allowlist-proxy", allowlist=["model.internal"]),
+        pull_never=True,
+    )
+    manager.provision("adore-probe-x", tmp_path / "repo", tmp_path / "work",
+                      tmp_path / "io", {})
+    assert "--pull=never" in runner.calls[3]
+    assert "--pull=never" in runner.calls[5]
+
+
 def test_container_provision_allowlist_proxy_failure_raises(tmp_path: Path) -> None:
     """
     @brief   Proxy network/runtime failures fail closed with IsolationError.
@@ -717,6 +736,18 @@ def test_container_stop_remove_idempotent_but_fail_closed() -> None:
         _manager(stuck).remove("c")
 
 
+def test_container_interrupt_is_bounded_and_fails_closed() -> None:
+    """@brief Cancel uses a short stop, and runtime failure is explicit."""
+    okay = FakeRunner(_ok())
+    _manager(okay).interrupt("adore-run-one")
+    assert okay.calls == [["docker", "stop", "--time", "2", "adore-run-one"]]
+    assert okay.timeouts == [20]
+
+    stuck = FakeRunner(_fail("daemon unavailable"))
+    with pytest.raises(IsolationError):
+        _manager(stuck).interrupt("adore-run-one")
+
+
 def test_container_ensure_volumes_and_failure() -> None:
     """
     @brief   Both cache volumes are created; a runtime failure raises.
@@ -861,6 +892,34 @@ def test_worktree_relative_root_resolves_against_cwd(
     add_argv = runner.calls[1]
     assert str(tmp_path / "wt-root" / "r1") in add_argv
     assert "wt-root/r1" not in add_argv and "wt-root\\r1" not in add_argv
+
+
+def test_checkpoint_commit_uses_configured_git_identity(tmp_path: Path) -> None:
+    """@brief A fresh clone needs no global Git identity for ADORE commits."""
+    runner = FakeRunner(_ok(" M file.py"), _ok(), _ok("M  file.py"), _ok())
+    manager = WorktreeManager(
+        tmp_path / "repo", tmp_path / "worktrees", runner,
+        git_name="ADORE Bot", git_email="adore@example.invalid",
+    )
+    assert manager.commit_all_if_dirty("run-1", "checkpoint") is True
+    assert runner.calls[-1][-7:] == [
+        "-c", "user.name=ADORE Bot", "-c",
+        "user.email=adore@example.invalid", "commit", "-m", "checkpoint",
+    ]
+
+
+def test_checkpoint_commit_reports_git_failure(tmp_path: Path) -> None:
+    """@brief Git commit failure remains a typed isolation error."""
+    runner = FakeRunner(
+        _ok(" M file.py"), _ok(), _ok("M  file.py"),
+        _fail("commit rejected"),
+    )
+    manager = WorktreeManager(
+        tmp_path / "repo", tmp_path / "worktrees", runner,
+        git_name="ADORE Bot", git_email="adore@example.invalid",
+    )
+    with pytest.raises(IsolationError, match="git commit failed"):
+        manager.commit_all_if_dirty("run-1", "checkpoint")
 
 
 def test_container_mount_sources_are_always_absolute(

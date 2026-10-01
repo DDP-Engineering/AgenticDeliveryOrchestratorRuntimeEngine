@@ -52,6 +52,10 @@ commands + `--profile` resolution.
 - **Re-prompting vs fail-fast:** `ask()` re-prompts on an interactive asker and
   raises `WizardError` on a non-interactive one - so `--answers` fails fast on a
   bad value rather than looping.
+- **Executor authentication:** host-auth is accepted only for OpenCode and
+  Codex, the two executors with a supported OAuth file staging path. Pi and
+  Qwen setup asks for API-key mode instead of writing a profile that will fail
+  when a job provisions its container.
 - **Branch cross-check:** the branch-template validator renders a sample with
   `{slug}/{run_id}/{iid}` and, when a push rule is set, rejects a template the
   rule would reject (the exact check that bit the first pilot) - inline, before

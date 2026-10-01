@@ -21,8 +21,9 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from adore import __version__
+from adore import __version__, metrics
 from adore.cli import EXIT_ERROR, EXIT_OK, main
+from adore.config import load_config
 from adore.executor.launcher import OpencodeExecutor, build_executor
 from adore.forge import ForgeError
 from adore.orchestrator import LockHeldError
@@ -280,6 +281,56 @@ def test_cli_stats_and_export_work_empty(
     assert main(["-c", config, "export", "--csv"]) == EXIT_OK
     assert capsys.readouterr().out.startswith("run_id,")
     assert main(["-c", config, "report", "nope"]) == EXIT_ERROR
+
+
+def test_cli_report_and_rebuild_reject_conflicting_usage(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """@brief CLI metrics fail with a typed message on versioned replay conflict."""
+    config = _config_file(tmp_path)
+    store = StateStore(tmp_path / ".adore")
+    store.save(RunState(run_id="a-clean", ticket_iid=2, lifecycle="done"))
+    store.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="done"))
+    usage = {"event_id": "run-1:1", "attempt": 1, "context": "build",
+             "executor": "codex", "model": "example", "review_round": 0,
+             "tokens_in": 10, "tokens_out": 2, "cost_usd": 0.5,
+             "cost_reported": True}
+    store.journal("run-1", "usage", **usage)
+    assert main(["-c", config, "report", "run-1"]) == EXIT_OK
+    assert '"tokens_in": 10' in capsys.readouterr().out
+    store.journal("run-1", "usage", **{**usage, "tokens_in": 11})
+    assert main(["-c", config, "report", "run-1"]) == EXIT_ERROR
+    assert "conflicting versioned usage" in capsys.readouterr().out
+    assert main(["-c", config, "stats", "--rebuild"]) == EXIT_ERROR
+    assert "conflicting versioned usage" in capsys.readouterr().out
+    assert not Path(load_config(config).metrics.db_path).exists()
+
+
+def test_cli_rebuild_replays_usage_idempotently_without_changing_run_state(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """@brief Historical rebuild upserts known evidence and preserves journals."""
+    config = _config_file(tmp_path)
+    state = StateStore(tmp_path / ".adore")
+    state.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="done"))
+    usage = {"event_id": "run-1:1", "attempt": 1, "context": "build",
+             "executor": "codex", "model": "local/test", "review_round": 0,
+             "tokens_in": 7, "tokens_out": 3, "cost_usd": 0,
+             "cost_reported": False}
+    state.journal("run-1", "usage", **usage)
+    state.journal("run-1", "usage", **usage)
+    before = {item.name: item.read_bytes() for item in state.run_dir("run-1").iterdir()
+              if item.is_file()}
+    db = load_config(config).metrics.db_path
+    assert main(["-c", config, "stats", "--rebuild"]) == EXIT_OK
+    first = metrics.load_summaries(db)
+    assert len(first) == 1
+    assert (first[0].tokens_in, first[0].tokens_out) == (7, 3)
+    assert main(["-c", config, "stats", "--rebuild"]) == EXIT_OK
+    assert metrics.load_summaries(db) == first
+    assert {item.name: item.read_bytes() for item in state.run_dir("run-1").iterdir()
+            if item.is_file()} == before
+    assert "rebuilt 1 run" in capsys.readouterr().out
 
 
 def test_cli_run_once_writes_process_log(

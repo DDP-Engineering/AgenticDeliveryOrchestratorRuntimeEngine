@@ -22,6 +22,7 @@ from __future__ import annotations
 
 # IMPORTS
 import argparse
+import os
 from pathlib import Path
 import re
 import sys
@@ -158,40 +159,48 @@ def _check_legacy_identifiers(root: Path, issues: list[str]) -> None:
     @param[out] issues Accumulated validation issues.
     """
     patterns = _legacy_patterns()
-    for path in sorted(root.rglob("*")):
-        relative = path.relative_to(root)
-        if any(part in SKIP_DIRS for part in relative.parts):
-            continue
-        relative_text = relative.as_posix()
-        if any(pattern.search(relative_text) for pattern in patterns):
-            issues.append(f"legacy identity in path: {relative_text}")
-        if path.is_file() and path.suffix.lower() == ".pptx":
+    for directory, dirnames, filenames in os.walk(root, followlinks=False):
+        parent = Path(directory)
+        parent_relative = parent.relative_to(root)
+        dirnames[:] = sorted(
+            name for name in dirnames
+            if name not in SKIP_DIRS
+            and not (parent_relative == Path("07_Delivery")
+                     and name.startswith("web-candidate-"))
+        )
+        for name in [*dirnames, *sorted(filenames)]:
+            path = parent / name
+            relative = path.relative_to(root)
+            relative_text = relative.as_posix()
+            if any(pattern.search(relative_text) for pattern in patterns):
+                issues.append(f"legacy identity in path: {relative_text}")
+            if path.is_file() and path.suffix.lower() == ".pptx":
+                try:
+                    with zipfile.ZipFile(path) as presentation:
+                        for member in presentation.namelist():
+                            if not member.endswith((".xml", ".rels")):
+                                continue
+                            text = presentation.read(member).decode("utf-8")
+                            if any(pattern.search(text) for pattern in patterns):
+                                issues.append(
+                                    "legacy identity in "
+                                    f"{relative_text}:{member}"
+                                )
+                except (OSError, UnicodeError, zipfile.BadZipFile) as exc:
+                    issues.append(f"cannot scan presentation {relative_text}: {exc}")
+                continue
+            if not path.is_file() or not _is_text_candidate(path):
+                continue
             try:
-                with zipfile.ZipFile(path) as presentation:
-                    for member in presentation.namelist():
-                        if not member.endswith((".xml", ".rels")):
-                            continue
-                        text = presentation.read(member).decode("utf-8")
-                        if any(pattern.search(text) for pattern in patterns):
-                            issues.append(
-                                "legacy identity in "
-                                f"{relative_text}:{member}"
-                            )
-            except (OSError, UnicodeError, zipfile.BadZipFile) as exc:
-                issues.append(f"cannot scan presentation {relative_text}: {exc}")
-            continue
-        if not path.is_file() or not _is_text_candidate(path):
-            continue
-        try:
-            lines = _read_text(path).splitlines()
-        except (OSError, UnicodeError) as exc:
-            issues.append(f"cannot scan {relative_text}: {exc}")
-            continue
-        for line_number, line in enumerate(lines, start=1):
-            if any(pattern.search(line) for pattern in patterns):
-                issues.append(
-                    f"legacy identity in {relative_text}:{line_number}: {line.strip()}"
-                )
+                lines = _read_text(path).splitlines()
+            except (OSError, UnicodeError) as exc:
+                issues.append(f"cannot scan {relative_text}: {exc}")
+                continue
+            for line_number, line in enumerate(lines, start=1):
+                if any(pattern.search(line) for pattern in patterns):
+                    issues.append(
+                        f"legacy identity in {relative_text}:{line_number}: {line.strip()}"
+                    )
 
 
 def _check_metadata(root: Path, issues: list[str]) -> None:
@@ -210,8 +219,13 @@ def _check_metadata(root: Path, issues: list[str]) -> None:
         if project.get("version") != EXPECTED_VERSION:
             issues.append(f"pyproject version must be {EXPECTED_VERSION}")
         scripts = project.get("scripts", {})
-        if scripts != {EXPECTED_NAME: "adore.cli:main"}:
-            issues.append("pyproject must expose only the adore console command")
+        expected_scripts = {
+            EXPECTED_NAME: "adore.cli:main",
+            "adore-web": "adore.web.server:main",
+            "adore-web-worker": "adore.web.commands:main",
+        }
+        if scripts != expected_scripts:
+            issues.append("pyproject has unexpected console commands")
         packages = pyproject["tool"]["hatch"]["build"]["targets"]["wheel"]["packages"]
         if packages != [EXPECTED_NAME]:
             issues.append("wheel package selection must contain only adore")

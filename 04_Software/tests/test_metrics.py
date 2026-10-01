@@ -19,6 +19,7 @@ from pathlib import Path
 import sqlite3
 
 from adore.metrics import (
+    MetricsError,
     RunSummary,
     aggregate,
     export_csv,
@@ -30,6 +31,7 @@ from adore.metrics import (
     summarize_run,
 )
 from adore.state import RunState, StateStore
+import pytest
 
 # HELPER FUNCTIONS
 
@@ -102,6 +104,23 @@ def test_summarize_run_computes_the_catalog(tmp_path: Path) -> None:
     assert summary.span_seconds == 7200         # 10:00 -> 12:00
     assert summary.files_changed == 3
     assert summary.clarification_rounds == 2 and summary.review_rounds == 1
+
+
+def test_versioned_usage_replay_counts_once_and_conflict_fails(tmp_path: Path) -> None:
+    """@brief Replayed launch usage cannot inflate a terminal summary."""
+    store = StateStore(tmp_path / "state")
+    store.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="done"))
+    usage = {"event_id": "run-1:1", "attempt": 1, "context": "build",
+             "executor": "codex", "model": "example", "review_round": 0,
+             "tokens_in": 10, "tokens_out": 2, "cost_usd": 0.5,
+             "cost_reported": True}
+    store.journal("run-1", "usage", **usage)
+    store.journal("run-1", "usage", **usage)
+    summary = summarize_run(store, "run-1")
+    assert (summary.tokens_in, summary.tokens_out, summary.cost_usd) == (10, 2, 0.5)
+    store.journal("run-1", "usage", **{**usage, "tokens_in": 11})
+    with pytest.raises(MetricsError, match="conflicting"):
+        summarize_run(store, "run-1")
 
 
 def test_record_load_roundtrip_is_duplicate_free(tmp_path: Path) -> None:

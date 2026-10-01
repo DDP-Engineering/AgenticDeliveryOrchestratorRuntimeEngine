@@ -31,9 +31,9 @@ resolution order that lets every command target a chosen profile.
   `_home_for(os_name, environ)`): `ADORE_HOME` override, else Windows
   `%APPDATA%`/`%LOCALAPPDATA%`\\adore, else POSIX `$XDG_CONFIG_HOME`/`~/.config`
   /adore.
-- `Profile` - the `profile.json` metadata (name, description, created/updated/
+- `Profile` - the `profile.json` metadata (immutable `project_id`, name, description, created/updated/
   last-used timestamps, use_count, platform/host/repo/runtime/host_os,
-  adore_version, config_path, store_root). **No secret values ever**.
+  adore_version, config_path, store_root, archived). **No secret values ever**.
 - `ProfileStore` - `create/save/load/list_profiles/invalid_profiles/touch/
   rename/delete`, the active pointer (`get_active/set_active/clear_active`), and
   path helpers (`profile_dir/config_path/default_store_root`).
@@ -58,7 +58,12 @@ components use this store; they do not duplicate its persistence rules.
   reports them - never a silent reinitialize.
 - **Atomic writes:** `profile.json` is written to a `.tmp` file then `replace()`d.
 - **Forward compatible:** unknown keys in `profile.json` are dropped on load and
-  the directory name is the authoritative identity (overrides any stored `name`).
+  the directory name is the authoritative profile label (overrides any stored
+  `name`). New profiles receive random 128-bit project IDs. Older metadata
+  derives a stable ID from its original stored name and creation timestamp;
+  saving persists it, so renaming retains identity. A malformed ID fails closed.
+  Missing `archived` defaults to false for older profiles; a non-boolean value
+  is corrupt metadata and raises `ProfileError`.
 - **Deletes** use the read-only/reparse-point-tolerant `force_rmtree` and clear
   the active pointer when they remove the active profile; **renames** move the
   whole directory and repoint the active pointer.

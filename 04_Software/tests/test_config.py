@@ -70,6 +70,23 @@ def test_minimal_config_is_valid_with_defaults(tmp_path: Path) -> None:
     assert config.review.trigger == "label"
 
 
+def test_host_auth_requires_supported_executor(tmp_path: Path) -> None:
+    """@brief Host OAuth staging works for OpenCode but rejects Pi."""
+    supported = MINIMAL_VALID.replace(
+        "[executor.opencode]", "[executor]\nstage_host_auth = true\n\n[executor.opencode]"
+    )
+    assert validate_config(load_config(_write_config(tmp_path, supported))) == []
+
+    unsupported = supported.replace(
+        "stage_host_auth = true", "default = 'pi'\nstage_host_auth = true"
+    )
+    unsupported = unsupported.replace("[executor.opencode]", "[executor.pi]")
+    unsupported = unsupported.replace("opencode run --dir {worktree} -m {model} {prompt}",
+                                      "pi -p --mode json --model {model} {prompt}")
+    issues = validate_config(load_config(_write_config(tmp_path, unsupported)))
+    assert any("stage_host_auth" in issue and "pi" in issue for issue in issues)
+
+
 def test_derived_names_follow_the_slug(tmp_path: Path) -> None:
     """
     @brief   slug, store_root, questions file, and metrics paths derive from

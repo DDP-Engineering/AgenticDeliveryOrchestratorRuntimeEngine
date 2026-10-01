@@ -18,11 +18,18 @@ publication human-approved and draft-only.
 - select/claim forge tickets and provision worktree/container isolation;
 - create and bind active/historical AEGIS tasks;
 - launch a fresh executor session for each stage attempt;
+- journal a versioned telemetry observation for every executor launch, including
+  unavailable and administrator-disabled capture; keep the existing numeric
+  `usage` event only when capture produced values, linked to the observation
+  by the run/attempt event ID; an explicit complete zero-token report remains
+  `reported`, while partial or absent token evidence is `unavailable`;
 - compose each stage prompt as an explicit autopilot-to-deliver instruction
   that has the executor record `interaction: autopilot` in the journal and
   forbids commit, push, MR/PR creation, merge, and child task journals;
 - validate full/quick progression and documented validation rollback;
-- create an unpushed local checkpoint commit after every successful stage;
+- create an unpushed local checkpoint commit after every successful stage,
+  using the configured agent identity even when the host clone has no
+  repository or global Git identity;
 - distinguish clarification, stage failures, transient infrastructure failures
   and immediate integrity/policy/budget failures;
 - persist and deliver mandatory incident/terminal/approval notifications;
@@ -49,6 +56,11 @@ Every nonterminal state has a poll action. Clarification has a timeout;
 `awaiting-approval` and `in-review` intentionally do not because they are
 human-paced states. A stale `working` state with no live conductor becomes a
 loud failure rather than occupying capacity.
+An authorized web cancellation creates a per-run marker after worker-side
+grant recheck. Before more stage work, the conductor handles that marker with
+normal `cancel()` teardown. A watcher during a working executor gate uses the
+container's bounded interrupt call, then the conductor marks the run cancelled
+instead of counting an executor failure. The marker is cleared after teardown.
 The 60-second grace is valid only under the single-conductor lock invariant:
 operator mutations and poll conduction cannot run concurrently.
 Closing the source ticket while clarification or approval is waiting, or while
@@ -150,3 +162,7 @@ classification, clarification duration forms, live-lock-safe cleanup,
 failed-resource preservation, egress companion GC, configured task-kind
 fallback, one-read cost checks, environment precedence, human-merge metrics,
 prompt restrictions and the absence of a merge capability.
+
+`poll_once(ticket_iid=IID)` filters ticket selection to one ready ticket while
+preserving the same eligibility and publication gates. This is the web worker's
+selected-ticket start path; the existing polling path is unchanged.

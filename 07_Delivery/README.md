@@ -37,3 +37,13 @@ Delivery model: ADORE is delivered as a Python package directory plus an executo
 container image. Python 3.11+ and `uv` prepare the host-side `.venv` executable;
 the executor and target-repo tooling run inside the container. Native Windows
 single-file executables and Ubuntu `.deb` packages are not implemented yet.
+
+The optional web candidate is built with
+`python 02_Tools/package_web_offline.py --output 07_Delivery/<candidate-directory>`
+on each matching Windows or Ubuntu
+build host. Each OS/Python-specific directory contains the compiled UI,
+application and dependency wheels, a checksummed manifest, `install.py`, and
+`launch.py`. Installation uses only those wheels; host Python with
+`venv`/`ensurepip`, container runtime, forge/executor CLIs, prepared project
+images, and any model service remain prerequisites. See
+`01_Documentation/Web_Interface.md` for install, backup and restore guidance.

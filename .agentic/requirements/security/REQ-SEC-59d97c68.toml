@@ -1,0 +1,15 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-SEC-59d97c68"
+title = "Project authorization and financial privacy"
+status = "active"
+requirement = """When a developer accesses ADORE web, the API shall restrict project data and start/retry/cancel operations to assigned projects and exclude monetary values from all developer responses; administrators retain global access. Account preferences shall be read and changed only by the current authenticated user, with CSRF protection on writes. Audit history and retention settings shall be administrator-only. The audit policy shall default to unlimited, persist independently of sessions, prune oldest events under configured day and stored-text byte bounds, and fail closed on invalid input or corrupt persisted policy. On sign-out or account switch, the browser shall clear cached account/project views and ignore responses started by the previous session."""
+verification = "Verify two users with disjoint memberships, denied cross-project reads/actions, financial-field exclusion, account preference session and CSRF checks, administrator access, and an administrator-to-developer browser switch without stale administrator views. Verify audit policy defaults, migration preservation, configured pruning, CSRF and role denial, and corrupt-state rejection."
+affected_paths = ["04_Software/adore/web/app.py", "04_Software/adore/web/store.py", "04_Software/web/src/App.tsx"]
+linked_tests = ["04_Software/tests/test_web_rbac.py", "04_Software/tests/test_web_auth.py", "04_Software/tests/test_web_config.py", "04_Software/tests/test_web_pricing.py", "04_Software/tests/test_web_metrics.py"]
+created = 2026-09-29
+updated = 2026-10-01

@@ -100,6 +100,9 @@ Deployment itself remains the responsibility of the included `deploy/` scripts.
 The release workflow runs `check_release_consistency.py` before packaging and
 runs it again with `--require-artifacts` after both delivery archives exist;
 the packagers do not invoke the checker themselves.
+The legacy-identity source scan skips generated `07_Delivery/web-candidate-*`
+trees, including installed Linux test runtimes whose symlinks Windows cannot
+stat. It still scans source documentation and checks canonical runtime archives.
 
 ## 8. Usage
 
@@ -136,6 +139,36 @@ Minimum validation after changes:
 
 ## 10. Limitations And Future Work
 
-- The bundle still requires Python 3.11+, `uv`, `git`, `glab`/`gh`/`tea`, and a
-  container runtime on the deployment host.
+- The optional web bundle is built by `02_Tools/package_web_offline.py` for
+  one OS, architecture and Python minor version. It includes the compiled UI,
+  application/dependency wheels pinned by `uv.lock` (including IANA `tzdata`
+  for Windows reporting), license, SHA-256 manifest and a `pip --no-index`
+  installer. Installation rejects missing, changed or unlisted media before
+  creating a runtime. The manifest also records required host tool groups:
+  Git, one selected forge CLI, and a container runtime. The selected executor
+  CLI is recorded as an image prerequisite and checked by project readiness
+  inside the already prepared image.
+  `install.py --check-only` verifies these and checksummed media without
+  changing the target; embedded images load or are inspected before virtual
+  environment creation. A symlinked host Python is resolved before virtual
+  environment creation. `02_Tools/launch_web.py` supervises the installed API
+  and worker as one pair: if either exits, it stops the sibling and restarts
+  both at most three times with 1/2/4-second backoff. `--restart-limit 0..10`
+  changes that finite limit; exhausted or failed startup returns nonzero.
+  Child console signals are isolated so a supervisor Ctrl-C stops both
+  processes. A service manager may instead run the two
+  installed entrypoints independently with its own restart policy.
+  Container images can be embedded with `--image` or required as preinstalled
+  tags with `--require-image`; both are verified before runtime creation.
+  A selected executor is checked with a no-network, no-pull Python probe inside
+  `--executor-image TAG`, or the sole listed image.
+  Forge CLIs remain host
+  prerequisites, while executor CLIs and project toolchains belong in prepared
+  project images. See
+  `01_Documentation/Web_Interface.md`.
+
+- The bundle still requires the matching Python with `venv` and `ensurepip`
+  (Ubuntu's `python3-venv` package or an equivalent offline Python distribution), `git`,
+  the selected forge CLI and a container runtime on the deployment
+  host. `uv` is needed only on the build host.
 - Native Windows executable and Ubuntu package creation remain future work.

@@ -8,7 +8,14 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # Configuration
 
-## Purpose
+## Routing
+
+Use this page for typed TOML loading, executor/auth validation, budgets,
+container settings and delivery policy. Start at `04_Software/adore/config.py`;
+verify with `04_Software/tests/test_config.py`. Web config edits belong to
+`web-interface.md` and assisted prompts to `wizard.md`.
+
+## Purpose and boundaries
 
 Loads TOML into typed configuration for platform, selection, executor,
 container, recovery, budgets, delivery, profiles, and metrics. Validation
@@ -21,18 +28,36 @@ fails closed at external trust boundaries before a poll starts.
 - `ConfigError` distinguishes unreadable/malformed configuration from a valid
   model with reported validation issues.
 
-## Safety contract
+## Invariants
 
 Configuration establishes the permitted forge, executor, container, budget,
 and delivery policy before an orchestration run begins. It forbids forge
 credentials in executor environment allowlists, rejects unsafe executor modes,
 requires draft-only delivery, and validates paths, labels, retries, duration,
 and resource limits instead of letting a later component guess.
+ADORE-managed `stage_host_auth` supports only OpenCode and Codex. Pi may use an
+operator-provided credential mount with staging disabled; unsupported
+executor/staging pairs fail validation before a run starts.
 
-## Requirement coverage
+## Key behaviors
 
 - `REQ-FUNC-ca17a8e8` - draft-only delivery and credential isolation.
 - `REQ-FUNC-97e17737` - executor and egress policy validation.
+- `REQ-FUNC-7ce5b17a` - web-created and imported profiles share the typed
+  validator.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    toml[(config.toml)] --> load[load_config]
+    load --> model[Typed Config]
+    model --> validate[validate_config]
+    validate --> conductor([Orchestrator])
+    validate --> web([Web configuration API])
+```
+
+Both CLI and web use the same validated model before changing runtime policy.
 
 ## Files
 

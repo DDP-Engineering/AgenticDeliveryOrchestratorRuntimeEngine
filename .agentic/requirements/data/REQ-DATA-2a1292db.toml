@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-DATA-2a1292db"
+
+title = "Normalized usage event history"
+
+status = "active"
+
+requirement = """
+When an executor launch finishes or reports unavailable usage, ADORE shall persist one versioned normalized observation with stable source identity, UTC time, run/attempt/stage/review context, executor/model, nonnegative token categories, nullable reported money and separate coverage status so replay cannot inflate totals.
+"""
+
+verification = "Feed complete, cumulative, duplicate, malformed and absent executor events through the public launch/journal path; verify one durable observation per launch, category semantics, idempotent replay, typed corruption response and no fabricated zero for unknown telemetry."
+
+affected_paths = ["04_Software/adore/executor/base.py", "04_Software/adore/executor/launcher.py", "04_Software/adore/orchestrator.py", "04_Software/adore/metrics.py", "04_Software/adore/web/app.py"]
+
+linked_tests = ["04_Software/tests/test_executor.py", "04_Software/tests/test_orchestrator.py", "04_Software/tests/test_metrics.py", "04_Software/tests/test_web_metrics.py"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-09-30
+updated = 2026-09-30

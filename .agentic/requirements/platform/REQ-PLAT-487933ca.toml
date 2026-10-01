@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-PLAT-487933ca"
+
+title = "Offline host prerequisite and TLS deployment"
+
+status = "active"
+
+requirement = """
+When a supported Windows or Ubuntu host installs or upgrades ADORE web with external network access blocked, the delivery media shall verify a checksummed host prerequisite manifest, use supplied application wheels/assets and optional image archives, and fail explicitly before partial installation when Python, container runtime, forge CLI, executor or required image prerequisites are missing.
+"""
+
+verification = "Install and upgrade on clean matching Windows and Ubuntu hosts with network blocked, supplied Python and preinstalled execution tools; load a bundled image and first-load every UI asset. Remove or mismatch each prerequisite and verify a named offline error before changing the target runtime; verify checksum failure and backup/restore with retained credentials and history."
+
+affected_paths = ["02_Tools/package_web_offline.py", "02_Tools/install_web_offline.py", "02_Tools/launch_web.py"]
+
+linked_tests = ["04_Software/tests/test_web_package.py"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-09-30
+updated = 2026-09-30

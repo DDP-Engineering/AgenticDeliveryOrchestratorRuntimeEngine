@@ -34,6 +34,8 @@ Follow these guides in order when introducing ADORE to a host or a project:
   `config.toml` setting, profile resolution, defaults, and validation rules.
 - [CLI_Reference.md](CLI_Reference.md) - the complete command-line interface,
   command syntax, safety flags, and exit codes.
+- [Web_Interface.md](Web_Interface.md) - optional browser interface, accounts,
+  RBAC, metrics, offline installation, and worker operations.
 
 ## Quick References
 

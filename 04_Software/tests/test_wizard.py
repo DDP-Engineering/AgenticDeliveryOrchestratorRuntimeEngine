@@ -135,6 +135,18 @@ def test_wizard_writes_a_valid_minimal_profile(tmp_path: Path) -> None:
     assert profile.platform == "gitlab" and profile.repo == "grp/sub/proj"
 
 
+def test_wizard_rejects_pi_host_auth_before_saving(tmp_path: Path) -> None:
+    """@brief Scripted setup rejects an auth mode that Pi cannot stage."""
+    store = _store(tmp_path)
+    asker = ScriptedAsker(_answers(
+        _clone(tmp_path), executor_cli="pi", auth_mode="host-auth"
+    ), interactive=False)
+    with pytest.raises(WizardError, match="auth_mode"):
+        run_wizard(store, asker=asker, out=lambda _line: None,
+                   runner=_runner(), os_key="linux", name="pi-host-auth")
+    assert not store.exists("pi-host-auth")
+
+
 def test_wizard_podman_adds_userns_keepid(tmp_path: Path) -> None:
     """
     @brief   Choosing a podman runtime auto-adds run_args=["--userns=keep-id"].

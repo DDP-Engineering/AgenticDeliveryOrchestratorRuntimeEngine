@@ -817,6 +817,11 @@ def validate_config(config: Config) -> list[str]:
         f"{sorted(_FORGE_CREDENTIAL_ENV & set(config.executor.env_keys))}",
     )
     default = config.executor.default
+    check(
+        not config.executor.stage_host_auth or default in ("opencode", "codex"),
+        "[executor] stage_host_auth supports only opencode or codex, "
+        f"not {default!r}",
+    )
     entry = config.executor.commands.get(default)
     if entry is None:
         issues.append(f"[executor] default {default!r} has no [executor.{default}] table")

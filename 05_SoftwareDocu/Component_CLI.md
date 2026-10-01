@@ -16,7 +16,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 The single user-facing entry point: the `adore` command. CLI-first over a
 library core - the command surface is thin argparse wiring that delegates to
-the `adore` package; no REST API or web UI exists in v1 by design.
+the `adore` package. An optional web API also exposes selected controls.
 
 ## 2. Responsibilities
 
@@ -44,6 +44,9 @@ the `adore` package; no REST API or web UI exists in v1 by design.
 - Wire the metrics commands (phase 5): `adore stats [--since 30d] [--by
   priority|outcome] [--html] [--rebuild]`, `adore report <run-id>` (live
   journal summary as JSON), `adore export --csv` (all summaries to stdout).
+  Report and rebuild return an explicit error on malformed or conflicting
+  versioned usage. Rebuild validates every terminal run before writing any
+  refreshed summary.
 - Wire the operator commands:
   - `adore reset <run-id> --to <stage> --force` - state surgery; refuses
     without `--force` (resetting may repeat orchestration work: executor cost,
@@ -70,6 +73,8 @@ the `adore` package; no REST API or web UI exists in v1 by design.
   unaffected. Engine commands prefer `.env` beside that resolved config and
   fall back to cwd `.env`; process environment precedence remains in the
   orchestrator constructor.
+  `run` refuses an archived named or active profile before constructing the
+  engine. Explicit `-c FILE` is an independent operator config override.
 
 Explicitly not owned: any engine behavior; the handlers are thin views over
 `config`, `state`, and the orchestrator.
@@ -87,6 +92,8 @@ Explicitly not owned: any engine behavior; the handlers are thin views over
 - `_operator_lock` protects retry/cancel/delete/reset and always releases a lock
   it acquired, including unsuccessful mutations. A live or unknown holder
   refuses the command clearly; read-only logs do not acquire the lock.
+- `config set` holds the shared per-directory `config_edit_lock` through read,
+  validation and replacement. A concurrent CLI or web edit fails clearly.
 - `_cmd_run` wraps the engine logger with `ProcessLogger`, so engine log
   lines and the final `--once` / `--dry-run` JSON summary are both printed to
   stdout and appended to `<store_root>/adore.log`. Other commands remain
@@ -180,6 +187,10 @@ adore --profile <profile-name> run --dry-run   # any command against a profile
   and `uv run adore -c config.example.toml config validate`.
 
 ## 10. Limitations And Future Work
+
+- `adore run --once --ticket IID` requests one specific ready ticket. The
+  normal hold/exclude/readiness checks still apply; a missing or ineligible
+  ticket returns an error. The web worker uses this entry point for Start.
 
 - `adore config set` edits one scalar at a time and infers the value type from
   the text; it does not set arrays/tables or change a value's declared type on

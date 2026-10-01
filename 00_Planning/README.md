@@ -18,6 +18,9 @@ asks for a planning, strategy, decision-record, or TODO change.
 
 Contents:
 
+- [ADORE_Web_Interface_Plan.md](ADORE_Web_Interface_Plan.md) - draft web
+  interface architecture, login and project access, configuration, metrics,
+  deployment, phased delivery, and open product decisions.
 - `ADORE_System_Overview.md` - what ADORE is, the ADORE/AEGIS ownership
   boundary, the end-to-end run, runtime states, the safety and approval model,
   the components as implemented, the supported environment, and the known

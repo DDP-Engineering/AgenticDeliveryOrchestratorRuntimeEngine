@@ -36,6 +36,10 @@ OpenCode, Pi, Codex and Qwen Code.
   profile homes and the `adore` command; `metrics.py`, `process_log.py`,
   `identity.py`, `branding.py` and `util.py` provide run statistics, mirrored
   logs, derived resource names, identity constants and shared helpers.
+- The optional `adore/web/` API, SQLite identity/operation store and worker
+  serve a bundled React dashboard from `04_Software/web/`. The worker uses
+  existing CLI/conductor commands; browser roles are admin and project-scoped
+  developer, with cost data reserved for admins.
 
 `python .agentic/aegis.py components` lists the knowledge page that routes
 each component to its source and tests.
@@ -54,7 +58,8 @@ and approval.
 
 ## Established constraints
 
-- The runtime is standard-library Python 3.11+ with no runtime dependencies.
+- The CLI runtime is standard-library Python 3.11+ with no runtime dependencies.
+  The optional `web` extra adds FastAPI, Uvicorn and Argon2id support.
 - ADORE conducts AEGIS major 0 at 0.5 or later over JSON schema 1, declared
   once in `adore/aegis.py`. It never edits the AEGIS payload, and the ADORE
   release number names the AEGIS release the contract was last re-verified
@@ -76,6 +81,8 @@ and approval.
 
 - `04_Software/adore/` is the package; `04_Software/tests/` is the fully
   offline pytest suite, one file per component.
+- `04_Software/web/` is the build-time React source; the packaged static build
+  lives in `04_Software/adore/web/static/`.
 - `04_Software/deploy/` holds the host installers and systemd unit;
   `04_Software/docker/` holds the executor base and egress-proxy images.
 - `01_Documentation/` is operator documentation, `05_SoftwareDocu/` holds
@@ -93,5 +100,6 @@ and approval.
   setting and command.
 - `01_Documentation/Security_And_Credentials.md` - credential placement and
   the human merge boundary.
+- `01_Documentation/Web_Interface.md` - web deployment, roles and metrics.
 - `05_SoftwareDocu/README.md` - component contract index.
 - `CHANGELOG.md` - release history, including each AEGIS re-verification.

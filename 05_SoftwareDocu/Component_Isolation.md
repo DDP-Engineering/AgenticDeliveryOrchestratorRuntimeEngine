@@ -27,7 +27,8 @@ guardrails, not a sandbox.
 
 ## 2. Responsibilities
 
-- `WorktreeManager(repo_path, root, runner=..., sleep=...)` - worktree
+- `WorktreeManager(repo_path, root, runner=..., sleep=...,
+  git_name=..., git_email=...)` - worktree
   lifecycle on the host: idempotent `create` (reuse -> re-attach branch ->
   create fresh from base_ref), idempotent `remove` (+ prune, optional branch
   delete; retries past the WSL2 teardown race, see section 3), `fetch`,
@@ -37,7 +38,8 @@ guardrails, not a sandbox.
   git's path quoting is stripped), the delivery git plumbing - `merge` (conflict =
   data, left in progress for the executor), `merge_in_progress`, and `push`
   (the ONLY remote-writing git call in ADORE) - `commit_all_if_dirty` for
-  conductor-generated stage/delivery artifacts, plus the committed-state checks
+  conductor-generated stage/delivery artifacts with the configured agent's
+  host-side Git identity, plus the committed-state checks
   `is_dirty`; `ref_head`, `commit_series`, and
   `candidate_fingerprint` bind approval to the target, tree and exact commit
   sequence; `product_diff_fingerprint` detects product mutation while allowing
@@ -45,10 +47,11 @@ guardrails, not a sandbox.
   worktrees root, including husks deregistered but not deleted after the WSL
   bind-mount teardown race - the input `adore cleanup` sweeps).
 - `ContainerManager(runtime, image, uv_cache_volume, npm_cache_volume,
-  run_args=..., egress=..., selinux_relabel=...)` -
+  run_args=..., egress=..., selinux_relabel=..., pull_never=...)` -
   container lifecycle: `ensure_volumes`, idempotent `provision`
   (running -> no-op, stopped -> start, absent -> create), `start` / `stop`
-  (park) / `remove` (reap), `status`, `list_containers(prefix)` (all
+  (park) / `interrupt` (bounded cancellation stop) / `remove` (reap),
+  `status`, `list_containers(prefix)` (all
   containers in any state whose name starts with `<slug>-run-`; feeds
   `adore cleanup`'s orphan sweep), `list_egress_networks(prefix)`,
   `remove_egress(name)`, the best-effort `cleanup_orphan_containers`,
@@ -58,6 +61,17 @@ guardrails, not a sandbox.
 - `build_container_env(git_dir_name, git_name, git_email)` - the git
   environment injected at provision (see section 3).
 - `IsolationError` - typed fail-closed error carrying argv + stderr.
+
+`pull_never=True` adds `--pull=never` to executor and allowlist-proxy container
+creation. The web endpoint probe uses it after local image inspection so an
+explicit readiness check cannot fetch images at first use. The default keeps
+the conductor's existing image policy.
+
+`interrupt(name)` uses a two-second runtime stop grace with a 20-second host
+command bound. It targets the exact run container and raises `IsolationError`
+on a real runtime failure; the conductor still owns final state and teardown.
+An Ubuntu Docker-in-WSL acceptance probe stopped a running `docker exec sleep`
+in 2.24 seconds through this method; the executor exited nonzero.
 
 Explicitly not owned: *when* to park/reap/resume (orchestrator lifecycle
 policy), what runs inside the container (executor launcher), and any remote git

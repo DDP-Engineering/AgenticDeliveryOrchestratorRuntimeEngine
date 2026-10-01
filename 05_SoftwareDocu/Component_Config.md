@@ -43,6 +43,9 @@ can never be accepted without an option to apply. The modes are `off` and
 `shared`; the private SELinux `Z`
 label is refused because it would bind the shared repository clone to a single
 container.
+`stage_host_auth` is valid only with the OpenCode or Codex executor, whose
+host OAuth files ADORE knows how to stage. Pi and Qwen must use provider-key
+configuration; validation rejects their host-auth setting before a run starts.
 
 ## 4. Inputs and Outputs
 

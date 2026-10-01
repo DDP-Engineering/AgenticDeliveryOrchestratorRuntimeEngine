@@ -114,6 +114,7 @@ def test_profile_crud_round_trip(tmp_path: Path) -> None:
     created = store.create("runtime-project", repo="g/p", platform="gitlab",
                            runtime="docker")
     assert created.created_at == FIXED_NOW and created.use_count == 0
+    assert len(created.project_id) == 32
     assert store.exists("runtime-project")
     assert store.config_path("runtime-project").name == "config.toml"
     assert store.default_store_root("runtime-project").name == "state"
@@ -121,7 +122,8 @@ def test_profile_crud_round_trip(tmp_path: Path) -> None:
     loaded = store.load("runtime-project")
     assert loaded == created
 
-    store.create("beta", platform="github")
+    beta = store.create("beta", platform="github")
+    assert beta.project_id != created.project_id
     assert [p.name for p in store.list_profiles()] == ["beta", "runtime-project"]
 
     touched = store.touch("runtime-project")
@@ -146,12 +148,13 @@ def test_profile_rename_and_delete(tmp_path: Path) -> None:
              (idempotent) and both keep the active pointer consistent.
     """
     store = _store(tmp_path)
-    store.create("old", repo="g/p")
+    original = store.create("old", repo="g/p")
     store.set_active("old")
 
     store.rename("old", "new")
     assert not store.exists("old") and store.exists("new")
     assert store.load("new").name == "new"      # metadata name follows the dir
+    assert store.load("new").project_id == original.project_id
     assert store.get_active() == "new"          # active pointer repointed
 
     store.delete("new")
@@ -270,6 +273,28 @@ def test_profile_json_ignores_unknown_keys(tmp_path: Path) -> None:
     meta.write_text(json.dumps(data), encoding="utf-8")
     loaded = store.load("proj")
     assert loaded.name == "proj" and loaded.repo == "g/p"
+
+
+def test_legacy_profile_identity_survives_rename_and_bad_ids_fail(tmp_path: Path) -> None:
+    """@brief Legacy metadata gets a stable ID and corrupt IDs fail closed."""
+    store = _store(tmp_path)
+    store.create("old", repo="g/p")
+    meta = store.profile_dir("old") / "profile.json"
+    data = json.loads(meta.read_text(encoding="utf-8"))
+    data.pop("project_id")
+    meta.write_text(json.dumps(data), encoding="utf-8")
+    legacy_id = store.load("old").project_id
+    assert len(legacy_id) == 32
+    store.rename("old", "new")
+    assert store.load("new").project_id == legacy_id
+    stored = json.loads((store.profile_dir("new") / "profile.json").read_text(
+        encoding="utf-8"))
+    assert stored["project_id"] == legacy_id
+    stored["project_id"] = "invalid"
+    (store.profile_dir("new") / "profile.json").write_text(
+        json.dumps(stored), encoding="utf-8")
+    with pytest.raises(ProfileError, match="project ID"):
+        store.load("new")
 
 
 # END OF FILE

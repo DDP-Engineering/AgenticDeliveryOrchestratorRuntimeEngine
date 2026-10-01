@@ -29,6 +29,7 @@ from datetime import UTC, datetime, timedelta
 import html
 import io
 import json
+import math
 from pathlib import Path
 import sqlite3
 from typing import Any
@@ -40,6 +41,10 @@ from adore.util import iso_to_datetime
 # CONSTANTS
 
 _TABLE = "run_summaries"
+
+
+class MetricsError(ValueError):
+    """@brief Persisted metrics evidence violates its versioned contract."""
 
 # DATA MODELS / TYPEDEFINITIONS
 
@@ -132,14 +137,139 @@ def _connect(db_path: str | Path) -> sqlite3.Connection:
 # PUBLIC API
 
 
+def validate_usage_observation(event: dict, run_id: str) -> tuple:
+    """
+    @brief Validate one versioned launch coverage record for replay.
+    @param[in] event Persisted usage-observation journal object.
+    @param[in] run_id Owning run identity.
+    @return Stable replay identity and validated usage/coverage fields.
+    @exception MetricsError On malformed or non-UTC evidence.
+    """
+    attempt = event.get("attempt")
+    token_status = event.get("token_status")
+    cost_status = event.get("cost_status")
+    incoming = event.get("tokens_in")
+    outgoing = event.get("tokens_out")
+    money = event.get("cost_usd")
+    cache_read = event.get("cache_read_tokens")
+    cache_write = event.get("cache_write_tokens")
+    includes_cache = event.get("input_includes_cache")
+    stamp = event.get("ts")
+    try:
+        observed_at = datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+    except (AttributeError, TypeError, ValueError) as exc:
+        raise MetricsError("malformed usage observation timestamp") from exc
+    if observed_at.utcoffset() != timedelta(0):
+        raise MetricsError("non-UTC usage observation timestamp")
+    if (type(event.get("schema")) is not int or event["schema"] != 1
+            or type(attempt) is not int or attempt < 1
+            or event.get("event_id") != f"{run_id}:{attempt}"
+            or type(event.get("stage")) is not str
+            or not 0 < len(event["stage"]) <= 80
+            or type(event.get("review_round")) is not int
+            or event["review_round"] < 0
+            or type(event.get("executor")) is not str
+            or not 0 < len(event["executor"]) <= 200
+            or (event.get("model") is not None and (
+                type(event["model"]) is not str or len(event["model"]) > 200))
+            or token_status not in ("reported", "unavailable", "disabled")
+            or cost_status not in ("reported", "unavailable", "disabled")
+            or (token_status == "disabled") != (cost_status == "disabled")):
+        raise MetricsError("malformed usage observation")
+    if token_status == "reported":
+        if (type(incoming) is not int or incoming < 0
+                or type(outgoing) is not int or outgoing < 0):
+            raise MetricsError("malformed usage observation")
+    elif incoming is not None or outgoing is not None:
+        raise MetricsError("malformed usage observation")
+    if ((cache_read is not None and
+         (type(cache_read) is not int or cache_read < 0))
+            or (cache_write is not None and
+                (type(cache_write) is not int or cache_write < 0))
+            or (includes_cache is not None and type(includes_cache) is not bool)
+            or ((cache_read is not None or cache_write is not None)
+                and (token_status != "reported" or includes_cache is not True))):
+        raise MetricsError("malformed usage observation")
+    if cost_status == "reported":
+        if (type(money) not in (int, float) or money < 0
+                or not math.isfinite(money)):
+            raise MetricsError("malformed usage observation")
+    elif money is not None:
+        raise MetricsError("malformed usage observation")
+    return (event["event_id"], attempt, event["stage"], event["review_round"],
+            event["executor"], event.get("model"), token_status, cost_status,
+            incoming, outgoing, money, cache_read, cache_write, includes_cache)
+
+
+def unique_usage_events(events: list[dict], run_id: str) -> list[dict]:
+    """@brief Keep one numeric usage event per versioned launch identity.
+
+    @param[in] events Run journal records in persisted order.
+    @param[in] run_id Run owning those records.
+    @return Journal records with identical versioned usage replays removed.
+    @exception MetricsError Malformed or conflicting versioned evidence.
+    @note Legacy usage without an event ID retains its original behavior.
+    """
+    seen: dict[str, tuple] = {}
+    result: list[dict] = []
+    for event in events:
+        if not isinstance(event, dict):
+            raise MetricsError("non-object journal record")
+        if event.get("event") != "usage" or "event_id" not in event:
+            result.append(event)
+            continue
+        attempt = event.get("attempt")
+        incoming = event.get("tokens_in")
+        outgoing = event.get("tokens_out")
+        money = event.get("cost_usd")
+        context = event.get("context")
+        executor = event.get("executor")
+        model = event.get("model")
+        review_round = event.get("review_round")
+        reported = event.get("cost_reported")
+        cache_read = event.get("cache_read_tokens")
+        cache_write = event.get("cache_write_tokens")
+        includes_cache = event.get("input_includes_cache")
+        if (type(attempt) is not int or attempt < 1
+                or event.get("event_id") != f"{run_id}:{attempt}"
+                or type(context) is not str or not 0 < len(context) <= 80
+                or type(executor) is not str or not 0 < len(executor) <= 200
+                or (model is not None and (type(model) is not str or len(model) > 200))
+                or type(review_round) is not int or review_round < 0
+                or type(incoming) is not int or incoming < 0
+                or type(outgoing) is not int or outgoing < 0
+                or type(money) not in (int, float) or money < 0
+                or not math.isfinite(money) or type(reported) is not bool):
+            raise MetricsError("malformed versioned usage")
+        if ((cache_read is not None and
+             (type(cache_read) is not int or cache_read < 0))
+                or (cache_write is not None and
+                    (type(cache_write) is not int or cache_write < 0))
+                or (includes_cache is not None and type(includes_cache) is not bool)
+                or ((cache_read is not None or cache_write is not None)
+                    and includes_cache is not True)):
+            raise MetricsError("malformed versioned cache usage")
+        identity = event["event_id"]
+        value = (context, executor, model, review_round, incoming,
+                 outgoing, money, reported, cache_read, cache_write,
+                 includes_cache)
+        if identity in seen:
+            if seen[identity] != value:
+                raise MetricsError("conflicting versioned usage")
+            continue
+        seen[identity] = value
+        result.append(event)
+    return result
+
+
 def summarize_run(store: StateStore, run_id: str,
                   files_changed: int = 0) -> RunSummary:
     """
     @brief      Compute a run's summary from its journal, state, and ticket.
     @details    The journal is the source of truth: AEGIS stage outcomes,
                 usage events (tokens/cost per launch), park/resume gaps, and
-                the time to the MR all come from its timestamps. Never raises
-                for partial data - metrics are best-effort by design.
+                the time to the MR all come from its timestamps. Legacy partial
+                data remains best effort; malformed versioned usage fails closed.
     @param[in]  store The state store holding the run.
     @param[in]  run_id Stable run identifier.
     @param[in]  files_changed Files-touched count when the caller still has a
@@ -147,7 +277,7 @@ def summarize_run(store: StateStore, run_id: str,
     @return     The RunSummary.
     """
     state = store.load(run_id)
-    events = store.read_journal(run_id)
+    events = unique_usage_events(store.read_journal(run_id), run_id)
     try:
         ticket = store.load_ticket(run_id)
     except Exception:  # noqa: BLE001 - missing snapshot is fine

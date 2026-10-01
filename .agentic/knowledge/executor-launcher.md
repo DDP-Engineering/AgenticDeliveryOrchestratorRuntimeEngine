@@ -8,7 +8,15 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # Executor launcher
 
-## Purpose
+## Routing
+
+Use this page for executor selection, gate script transport, output parsing,
+session handling and usage/cost telemetry. Start at
+`04_Software/adore/executor/launcher.py`; verify with
+`04_Software/tests/test_executor.py`. Stage decisions belong to
+`orchestrator.md`.
+
+## Purpose and boundaries
 
 `04_Software/adore/executor/` launches one bounded executor gate inside an
 already-provisioned container. It is an executor-neutral transport and result
@@ -22,10 +30,10 @@ means.
 - `FileProtocolExecutor.run_gate(...)` accepts an injected container-exec seam,
   worktree/io paths, prompt, timeout, optional session, and archive stem; it
   returns a typed `GateRun`.
-- `GateRun` reports exit status, typed `timed_out`, session id, questions,
-  bounded output, usage, and archive information.
+- `GateRun` reports exit status, typed `timed_out`, questions, bounded output,
+  usage, explicit token/cost coverage, and archive information.
 
-## Contract and safety boundary
+## Invariants
 
 The launcher writes LF-only `gate.sh` into the run IO directory and invokes
 only `sh /adore/io/gate.sh`; prompts and models are shell-quoted before they
@@ -37,17 +45,41 @@ not guessed from exit text. Each requested archive is immutable under
 
 The executor receives no forge credentials and cannot publish. Unsafe
 auto-approval flags are rejected by configuration validation. The launcher
-may retry a known dead session once, but never after a typed timeout.
+starts a fresh session for each gate and never guesses a retry from timeout text.
+OpenCode and Codex mark cost as reported only when their event stream has an
+explicit cost field; token-only usage does not prove a zero-dollar cost.
+Complete OpenCode, Pi and Codex token records mark token coverage even when
+their counts are zero; missing or partial records do not claim coverage.
+Pi counts only completed `turn_end` JSON events, including cache-read and
+cache-write input tokens; streaming and message-end copies are ignored. Invalid
+usage values are skipped. Pi's embedded monetary value is an executor estimate,
+so the launcher leaves billed cost unavailable for administrator price rules.
 
-## Requirement coverage
+## Key behaviors
 
 - `REQ-FUNC-59ccdb74` - WSL-safe file transport and typed timeout propagation.
 - `REQ-FUNC-c6e5282d` - questions parking and immutable launch archives.
+- `REQ-FUNC-448cbde7` - usage and cost coverage for web metrics.
 
-## Dependencies and verification
+## Architecture
 
-It depends on the container `ExecTarget`, `adore.util.CommandResult`, executor
-configuration, and mount paths supplied by isolation/branding. Offline
-coverage is in `04_Software/tests/test_executor.py`, including hostile prompt
-quoting, session continuation, questions, archives, missing output, rejected
-flags, and timeout propagation.
+```mermaid
+flowchart LR
+    conductor([Orchestrator]) --> factory[build_executor]
+    factory --> gate[FileProtocolExecutor.run_gate]
+    gate --> io[(Run IO files)]
+    gate --> container([ExecTarget])
+    container --> output[(output.jsonl and stderr)]
+    output --> gate
+    gate --> result[GateRun]
+    result --> conductor
+```
+
+The file protocol decouples prompts and results from host/container argument
+quoting; the caller owns stage policy.
+
+## Files
+
+- `04_Software/adore/executor/base.py` - typed gate result and common helpers.
+- `04_Software/adore/executor/launcher.py` - file protocol and parsers.
+- `04_Software/tests/test_executor.py` - launch, timeout and usage contracts.

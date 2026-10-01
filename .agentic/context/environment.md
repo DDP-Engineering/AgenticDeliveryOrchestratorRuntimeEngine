@@ -16,6 +16,9 @@ library. Verification uses pytest and Ruff from the `dev` dependency group in
 needs Docker or rootless Podman, natively or as Docker Engine inside WSL2 on
 Windows, and an authenticated `glab`, `gh` or `tea`. Node.js is needed only
 inside the executor image, where the executors are installed as npm packages.
+The optional web extra uses FastAPI, Uvicorn and Argon2id. Node.js/npm are
+also needed on the web **build** machine for `04_Software/web/npm run build`;
+the installed web runtime serves local assets without Node.js.
 
 ## Setup
 
@@ -23,6 +26,8 @@ From `04_Software`, `uv sync` creates `.venv` with the locked dependencies and
 the `dev` group and installs the `adore` command in editable mode. Operator
 installation on a host follows `01_Documentation/Getting_Started.md`;
 unattended installation follows `04_Software/deploy/README.md`.
+For web development use `uv sync --extra web --group dev`, then `npm ci` and
+`npm run build` in `04_Software/web`.
 
 ## Configuration and services
 
@@ -54,6 +59,11 @@ The package has no build step: run `adore` from the synced `.venv`
 `adore-executor-base:1.0.0`, the optional `adore-egress-proxy:1.0.0`, and one
 project image per runtime project. Runtime bundles are produced by
 `02_Tools/package_runtime.ps1` or `package_runtime.sh` into `07_Delivery/`.
+The optional host-specific offline web media comes from
+`02_Tools/package_web_offline.py`; its installer uses local locked wheels with
+`pip --no-index`, and its launcher starts API and worker processes.
+For web service monitoring, `/api/v1/health` checks the API listener and
+`/api/v1/ready` requires a recent heartbeat from the separate control worker.
 
 ## Verification
 
@@ -86,3 +96,4 @@ runtimes receive mount-path translation and `WSLENV` propagation from ADORE.
 - `04_Software/deploy/README.md` - systemd and Task Scheduler installation.
 - `04_Software/docker/README.md` - executor and proxy image build commands.
 - `02_Tools/README.md` - release check and packaging scripts.
+- `01_Documentation/Web_Interface.md` - optional web setup and offline media.

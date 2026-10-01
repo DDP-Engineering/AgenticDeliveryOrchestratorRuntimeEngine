@@ -132,7 +132,12 @@ session. It is currently implemented only for:
 - Codex: `~/.codex/auth.json`, staged into an ADORE-owned container
   `CODEX_HOME`.
 
-Do not choose host-auth for Pi or Qwen. For unattended operation, prefer an
+Configuration validation and assisted setup reject host-auth for Pi or Qwen.
+An existing Pi subscription session can be supplied separately with a
+container bind mount from a protected Pi agent directory to
+`/home/adore/.pi/agent`; keep `stage_host_auth = false`. The mounted directory
+contains credentials and must not be placed in a repository or web upload.
+For unattended operation, prefer an
 explicit model-provider key and `api-key` mode. Host-auth does not remove the
 need to protect the host account's own credential store.
 

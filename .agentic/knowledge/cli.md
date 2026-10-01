@@ -8,11 +8,18 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # CLI
 
-## Purpose
+## Routing
+
+Use this page for `adore` commands, argparse, profile/config precedence and
+selected-ticket invocation. Start at `04_Software/adore/cli.py`; verify with
+`04_Software/tests/test_smoke.py`. The HTTP API is in `web-interface.md`.
+
+## Purpose and boundaries
 
 `04_Software/adore/cli.py` is ADORE's operator control plane. The `adore`
 console script and `python -m adore` are deliberately thin argparse adapters
-over typed components; there is no parallel web or REST control surface.
+over typed components. The optional web worker invokes this CLI for operations;
+its HTTP routes live in `web-interface.md`.
 
 ## Command groups
 
@@ -22,6 +29,26 @@ reset/delete/cleanup), metrics (`stats`, `report`, `export`), and profile setup
 and management (`init`, `profile`, global `--profile`). Its configuration path
 precedence is explicit `-c`, named profile, active profile, then local
 `config.toml`.
+`run --once --ticket IID` selects one eligible ticket for a web Start request;
+it returns nonzero if that ticket cannot be picked.
+
+## Public interface
+
+The `adore` console command and `python -m adore` expose configuration,
+profiles, operator controls, run execution and metrics. `run --once --ticket`
+accepts a positive forge ticket IID with normal selection checks.
+
+## Invariants
+
+Explicit `-c`, named profile, active profile and local `config.toml` define
+configuration precedence. Invalid config returns nonzero. Engine mutations
+respect the conductor lock; force is required for destructive state changes.
+`config set` shares a per-directory edit lock with the web API; contention
+returns a nonzero result without changing the config file.
+The CLI never merges or edits AEGIS journals directly.
+`report` and `stats --rebuild` return a typed metrics-evidence error for
+conflicting versioned usage. Rebuild computes all summaries before writing so
+a late corrupt run cannot partially refresh the projection.
 
 ## Operator safeguards
 
@@ -32,14 +59,28 @@ reports corrupt state without deleting it. `run` additionally tees output to
 the rotating ADORE process log. All intervention commands change ADORE-owned
 state only: they do not edit AEGIS journals or cause a merge.
 
-## Requirement coverage
+## Key behaviors
 
 - `REQ-FUNC-39697089` - explicit force and live-lock protection for mutations.
 - `REQ-FUNC-3557ecdf` - profile resolution, use tracking, and visible corrupt run state.
+- `REQ-FUNC-f9946b6b` - selected-ticket web operations retain CLI boundaries.
 
-## Dependencies and verification
+## Architecture
 
-The CLI composes config, state, orchestrator, process log, metrics, profiles,
-wizard, and utilities. `04_Software/tests/test_smoke.py` exercises command
-outcomes, configuration errors, locks, force guards, logging/rotation, cleanup
-reports, and profile-oriented flows against temporary local state.
+```mermaid
+flowchart LR
+    argv([adore argv]) --> parser[cli.py argparse]
+    parser --> profiles[(ProfileStore)]
+    parser --> config[(Config)]
+    parser --> engine[Orchestrator]
+    parser --> metrics[metrics.py]
+    engine --> state[(StateStore)]
+```
+
+The web worker calls the same CLI command boundary with fixed argument vectors.
+
+## Files
+
+- `04_Software/adore/cli.py` - command parsing and routing.
+- `04_Software/tests/test_smoke.py` - CLI behavior and failure contracts.
+- `04_Software/tests/test_orchestrator.py` - selected-ticket selection checks.

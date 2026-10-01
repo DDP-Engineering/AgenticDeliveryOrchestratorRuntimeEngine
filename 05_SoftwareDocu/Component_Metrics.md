@@ -52,7 +52,10 @@ transitions), token extraction (executor launcher), resource probing
   launch (`GateRun.tokens_in/out/cost_usd` from opencode `step_finish`
   events - schema pinned live 2026-07-03) and the orchestrator journals a
   `usage` event per launch (gated by `[metrics] capture_tokens`). Metrics
-  sums those events.
+  sums those events. New events carry a run/attempt ID; identical replay is
+  counted once in terminal summaries and web views, while a conflicting or
+  malformed versioned replay raises `MetricsError`. Older events without IDs
+  retain their historical behavior.
 - The orchestrator records terminal ADORE lifecycle outcomes; metrics failures
   are logged and never mask the governed run result.
 - Human merge completion is stored as `merged by human`; aggregate and profile
@@ -81,15 +84,33 @@ transitions), token extraction (executor launcher), resource probing
 - `_connect` adds newly introduced summary columns with neutral defaults. The
   `governance_outcome` value comes only from schema-1 `strict-verification`
   journal events and is `ok` or `failed`.
-- Journal `usage` event shape: `{event: "usage", context: <gate|phase>,
-  tokens_in, tokens_out, cost_usd}`.
+- Journal `usage` event shape: `{event: "usage", event_id: "<run>:<attempt>",
+  attempt, context: <gate|phase>, executor, model, review_round, tokens_in,
+  tokens_out, cost_usd, cost_reported}` for new launches. Legacy events may
+  omit identity fields.
 
 ## 7. Workflow Integration
+
+Pi versioned usage records carry nullable `cache_read_tokens` and
+`cache_write_tokens` with `input_includes_cache=true`; duplicate identity
+comparison checks these fields. The web daily usage projection exposes them as
+nullable subsets of input and exports both columns. Legacy and other-executor
+records have unknown cache categories, not an inferred zero.
+Web analytics projects versioned launch observations alongside numeric usage,
+with a per-run journal cursor. An unchanged journal replay adds no rows;
+append-only attempts advance the cursor, and altered earlier evidence fails
+closed. Observation timestamps must be UTC and timezone-aware.
 
 `adore stats [--since 30d] [--by priority|outcome] [--html] [--rebuild]`,
 `adore report <run-id>` (live compute from the journal - works for any run,
 recorded or not), `adore export --csv`. `--rebuild` re-summarizes all
-terminal runs in the store (used once to backfill the pilot run).
+terminal runs in the store. The summary key is the run ID, so repeated rebuilds
+retain one row per run; the run state and journals remain unchanged. Web usage
+views reconcile versioned source identities into the web SQLite projection and
+do not add those events to legacy summary totals a second time. An
+administrator can replay all retained journals through the web rebuild action;
+missing legacy usage remains
+unknown rather than being assigned to an invented day.
 
 ## 9. Validation And Tests
 
@@ -105,6 +126,13 @@ terminal runs in the store (used once to backfill the pilot run).
 - Minimum validation after a change: `uv run --group dev pytest tests/test_metrics.py`.
 
 ## 10. Limitations And Future Work
+
+- The web API groups journal usage by UTC event date and includes live-run
+  usage in headline totals, with terminal-summary token fallback for legacy
+  runs without usable journal usage. It removes all cost fields for developers and returns null
+  cost to admins when no explicit cost was reported (or when an old event has
+  the default zero without coverage). This does not turn the
+  existing summary's zero defaults into a complete billing ledger.
 
 - `capture_resource` (docker stats / disk probes) is config intent, pending.
 - Code-size lines (+/-) not captured yet (files-changed count only).
