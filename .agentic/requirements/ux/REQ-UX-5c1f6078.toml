@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-5c1f6078"
+
+title = "Open project import on a separate page"
+
+status = "active"
+
+requirement = """
+When an administrator selects Import project from Projects, the web interface shall open a dedicated page without the Projects table or project selector, with localized Help for the name, description and config file fields. A successful import opens the new project's details.
+"""
+
+verification = "Manual: Sign in as administrator, open Import project, inspect the separate page and three Help disclosures in supported locales and at narrow and wide viewports. Confirm a developer cannot open the import action. Use a valid disposable config to confirm import opens Project details."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/i18n.ts"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = "Keep the Projects directory focused while giving import preview its own workflow."
+
+created = 2026-10-01
+updated = 2026-10-01

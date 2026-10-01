@@ -50,11 +50,15 @@ About displays the project license text and the bundled third-party notices.
 Projects show archived state and let administrators archive or restore a
 quiescent project. Archived jobs and metrics stay visible, while job and pickup
 controls are hidden until restore.
-An administrator can select an existing `config.toml` in Projects, review its
-validated identity, state path and issues, then import that exact revision.
-The form explains that paths must be absolute, the file remains unchanged and
-pickup starts paused. The file text stays in browser memory for the two
-requests; it is not displayed in the preview.
+Import project opens a separate administrator page from Projects. Its name,
+description and file fields have localized Help disclosures. An administrator
+selects an existing `config.toml`, reviews its validated identity, state path
+and issues, then imports that exact revision. The form explains that paths
+must be absolute on the ADORE host, the file remains unchanged and pickup
+starts paused. The file text stays in browser memory for the two requests;
+it is not displayed in the preview and is cleared on leaving the page.
+Successful import opens the new project's details; Back to projects and Cancel
+return to the Projects directory without importing.
 The Projects directory lists authorized projects in a sortable, paged table
 with project, repository, static config status, job
 count and last activity columns. Administrators can pause/resume pickup and

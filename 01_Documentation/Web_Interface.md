@@ -254,8 +254,9 @@ Its CLI cost number is an estimate and is not presented as billed cost;
 administrator price rules can provide a separate estimate. A subscription
 therefore still needs iteration and wall-clock limits because a monetary
 budget cannot be enforced from a provider charge that is not reported.
-To bring an existing ADORE `config.toml` into the dashboard, use **Import
-project** in Projects. Choose the file, provide a new project name, review the
+To bring an existing ADORE `config.toml` into the dashboard, open **Import
+project** from Projects. It opens a dedicated page with Help for each field.
+Choose the file, provide a new project name, review the
 forge/repository, runtime, state directory and validation issues, then import.
 The copied TOML is byte-for-byte unchanged, including comments and unknown
 keys. State, repository, worktree and metrics paths must be absolute, and no
@@ -263,7 +264,8 @@ other profile may own the state directory. Existing completed jobs at that
 state path remain visible. Import rejects active or corrupt jobs and an active
 conductor lock. Pickup starts paused; an administrator resumes it after checking
 the imported configuration and supplying credentials. Secret values in TOML
-are rejected; `.env` is not imported.
+are rejected; `.env` is not imported. Back and Cancel discard the browser's
+selected file and preview. After a successful import, Project details opens.
 Config edits include a SHA-256 revision so stale browser pages receive a
 conflict. CLI `config set` and web edits also share a local process lock;
 concurrent ADORE edits receive a conflict instead of overwriting each other.

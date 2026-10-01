@@ -7,6 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 export const messages = {
   en: {
+    importConfigHelp: "Select an existing ADORE config.toml from your computer. The file is read for validation and copied unchanged to the ADORE host after you confirm the preview. Paths inside it must be absolute host paths; do not include secrets.",
     menu: "Menu",
     modelNotConfigured: "No local endpoint configured", modelUnsupported: "Selected executor has no probe", modelInvalidConfig: "Invalid endpoint configuration", modelImageMissing: "Executor image missing locally", modelCredentialMissing: "Credential unavailable to executor", modelIncompatible: "Streaming tool call unsupported", modelUnreachable: "Endpoint unreachable or incompatible", modelRedirectRejected: "Redirect rejected", modelRuntimeError: "Container probe failed",
     endpointAuth: "Credential environment reference", endpointProtocol: "Protocol", endpointTimeout: "Request timeout (seconds)", endpointCa: "Custom CA file in executor image (HTTPS only)", rebuildUsage: "Rebuild usage history", usageRebuilt: "Usage events reconciled", none: "Keep current",
@@ -71,6 +72,7 @@ export const messages = {
     cancelled: "Cancelled", working: "Working", parked: "Parked", review: "In review", done: "Done", pause: "Pause pickup", resume: "Resume pickup", paused: "Pickup paused", pickupEnabled: "Pickup enabled",
   },
   fr: {
+    importConfigHelp: "Choisissez un config.toml ADORE existant sur votre ordinateur. Le fichier est lu pour validation puis copié sans modification sur l’hôte ADORE après confirmation de l’aperçu. Les chemins doivent être absolus sur l’hôte ; n’incluez pas de secrets.",
     menu: "Menu",
     modelNotConfigured: "Aucun point d'accès local configuré", modelUnsupported: "Aucun test pour cet exécuteur", modelInvalidConfig: "Configuration du modèle invalide", modelImageMissing: "Image de l'exécuteur absente", modelCredentialMissing: "Identifiant indisponible dans l'exécuteur", modelIncompatible: "Appel d'outil en flux non pris en charge", modelUnreachable: "Point d'accès inaccessible ou incompatible", modelRedirectRejected: "Redirection refusée", modelRuntimeError: "Échec du test dans le conteneur",
     endpointAuth: "Référence de variable d'identification", endpointProtocol: "Protocole", endpointTimeout: "Délai maximal de la requête (secondes)", endpointCa: "Fichier CA dans l'image d'exécution (HTTPS uniquement)", rebuildUsage: "Reconstruire l'historique d'utilisation", usageRebuilt: "Événements d'utilisation rapprochés", none: "Conserver la valeur actuelle",
@@ -135,6 +137,7 @@ export const messages = {
     cancelled: "Annulée", working: "En cours", parked: "En pause", review: "En revue", done: "Terminée", pause: "Suspendre la sélection", resume: "Reprendre la sélection", paused: "Sélection suspendue", pickupEnabled: "Sélection active",
   },
   de: {
+    importConfigHelp: "Wählen Sie eine vorhandene ADORE-config.toml auf Ihrem Computer. Die Datei wird zur Prüfung gelesen und nach Bestätigung der Vorschau unverändert auf den ADORE-Host kopiert. Darin müssen absolute Host-Pfade stehen; keine Geheimnisse eintragen.",
     menu: "Menü",
     modelNotConfigured: "Kein lokaler Endpunkt eingerichtet", modelUnsupported: "Kein Test für diesen Executor", modelInvalidConfig: "Ungültige Modellkonfiguration", modelImageMissing: "Executor-Image lokal nicht vorhanden", modelCredentialMissing: "Zugangsdaten im Executor nicht verfügbar", modelIncompatible: "Gestreamter Werkzeugaufruf nicht unterstützt", modelUnreachable: "Endpunkt nicht erreichbar oder inkompatibel", modelRedirectRejected: "Weiterleitung abgelehnt", modelRuntimeError: "Containerprüfung fehlgeschlagen",
     endpointAuth: "Umgebungsreferenz für Zugangsdaten", endpointProtocol: "Protokoll", endpointTimeout: "Anfragezeitlimit (Sekunden)", endpointCa: "CA-Datei im Executor-Image (nur HTTPS)", rebuildUsage: "Nutzungsverlauf neu aufbauen", usageRebuilt: "Nutzungsereignisse abgeglichen", none: "Aktuellen Wert behalten",
@@ -199,6 +202,7 @@ export const messages = {
     cancelled: "Abgebrochen", working: "In Arbeit", parked: "Pausiert", review: "In Prüfung", done: "Fertig", pause: "Aufnahme pausieren", resume: "Aufnahme fortsetzen", paused: "Aufnahme pausiert", pickupEnabled: "Aufnahme aktiv",
   },
   ro: {
+    importConfigHelp: "Alegeți un config.toml ADORE existent de pe calculatorul dumneavoastră. Fișierul este citit pentru validare, apoi copiat nemodificat pe gazda ADORE după confirmarea previzualizării. Căile din el trebuie să fie absolute pe gazdă; nu includeți secrete.",
     menu: "Meniu",
     modelNotConfigured: "Nu este configurat un endpoint local", modelUnsupported: "Nu există test pentru acest executor", modelInvalidConfig: "Configurație invalidă a modelului", modelImageMissing: "Imaginea executorului lipsește local", modelCredentialMissing: "Acreditarea nu este disponibilă în executor", modelIncompatible: "Apelul de unealtă în flux nu este acceptat", modelUnreachable: "Endpoint inaccesibil sau incompatibil", modelRedirectRejected: "Redirecționare refuzată", modelRuntimeError: "Testul din container a eșuat",
     endpointAuth: "Referință la variabila de acreditare", endpointProtocol: "Protocol", endpointTimeout: "Timp limită pentru cerere (secunde)", endpointCa: "Fișier CA în imaginea executorului (numai HTTPS)", rebuildUsage: "Reconstruiește istoricul utilizării", usageRebuilt: "Evenimente de utilizare reconciliate", none: "Păstrează valoarea curentă",

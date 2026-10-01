@@ -24,7 +24,7 @@ type Usage = { totals: { events: number; tokens_in: number; tokens_out: number; 
 type Operation = { id: number; status: string; result?: string };
 type AuditRow = { id: number; actor: string | null; action: string; project: string; detail: string; created_at: string };
 type Price = { id: number; executor: string; model: string; effective_from: string; input_usd_per_million: string; output_usd_per_million: string };
-type Page = "overview" | "projects" | "createProject" | "projectDetails" | "jobs" | "metrics" | "administration" | "adminUsers" | "adminAudit" | "settings";
+type Page = "overview" | "projects" | "createProject" | "importProject" | "projectDetails" | "jobs" | "metrics" | "administration" | "adminUsers" | "adminAudit" | "settings";
 type MetricsTab = "summary" | "usage" | "quality" | "trends" | "projects";
 type OverviewSection = "projects" | "active" | "review" | "failed" | null;
 type ProjectSortKey = "name" | "repo" | "readiness" | "runs" | "last_activity";
@@ -145,7 +145,6 @@ export default function App() {
   const [operation, setOperation] = useState<Operation | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [projectExecutor, setProjectExecutor] = useState("opencode");
-  const [showImportForm, setShowImportForm] = useState(false);
   const [importName, setImportName] = useState("");
   const [importDescription, setImportDescription] = useState("");
   const [importText, setImportText] = useState("");
@@ -547,6 +546,17 @@ export default function App() {
     return () => window.clearInterval(timer);
   }, [operation?.id, operation?.status, refreshSelected, refreshProjects, refreshJobPage]);
 
+  const clearImportDraft = () => {
+    importFileRead.current += 1;
+    importPreviewRequest.current += 1;
+    setImportName(""); setImportDescription(""); setImportText("");
+    setImportFileName(""); setImportPreview(null);
+  };
+
+  useEffect(() => {
+    if (page !== "importProject") clearImportDraft();
+  }, [page]);
+
   const clearPrivateView = () => {
     viewGeneration.current += 1;
     setPage("overview"); setMenuOpen(false);
@@ -557,8 +567,6 @@ export default function App() {
     configRequest.current += 1;
     preferenceRequest.current.language += 1;
     preferenceRequest.current.theme += 1;
-    importFileRead.current += 1;
-    importPreviewRequest.current += 1;
     setProjects([]); setSelected(""); setRuns([]); setRunCounts({});
     setProjectSortKey("name"); setProjectSortDescending(false);
     setJobPage({ items: [], total: 0, counts: {}, limit: 25, offset: 0 });
@@ -569,8 +577,7 @@ export default function App() {
     setUsage(null); setAllUsage(null); setUsageExecutor(""); setUsageModel("");
     setConfig(null); setPendingConfig(null); setPrices([]);
     setUsers([]); setAuditRows([]); setAuditPolicy(null); setDetails(null); setOperation(null);
-    setShowImportForm(false); setImportName(""); setImportDescription("");
-    setImportText(""); setImportFileName(""); setImportPreview(null);
+    clearImportDraft();
     setWorkerStatus("checking");
     setNotice(""); setLastRefresh(null);
   };
@@ -654,8 +661,8 @@ export default function App() {
         revision: importPreview.revision,
       }, session?.csrf);
       if (generation !== viewGeneration.current) return;
-      setShowImportForm(false); setImportPreview(null); setImportText("");
-      await refreshProjects(); setSelected(created.id);
+      clearImportDraft();
+      await refreshProjects(); setSelected(created.id); setPage("projectDetails");
       setNotice(t("projectImported"));
     } catch (cause) { if (generation === viewGeneration.current) setError((cause as Error).message); }
   };
@@ -837,7 +844,7 @@ export default function App() {
       <div className="brand"><span className="brand-mark">A</span><div><strong>ADORE</strong><small>{t("subtitle")}</small></div></div>
       <button className="mobile-menu ghost" type="button" aria-controls="primary-navigation" aria-expanded={menuOpen} onClick={() => setMenuOpen(open => !open)}>☰ {t("menu")}</button>
       <nav id="primary-navigation" aria-label="Primary" className={menuOpen ? "nav-open" : ""}>
-        {nav.map(item => <button key={item} className={page === item || (item === "projects" && page === "createProject") ? "nav-item active" : "nav-item"} onClick={() => { setPage(item); setDetails(null); setMenuOpen(false); }}>{t(item)}</button>)}
+        {nav.map(item => <button key={item} className={page === item || (item === "projects" && (page === "createProject" || page === "importProject")) ? "nav-item active" : "nav-item"} onClick={() => { setPage(item); setDetails(null); setMenuOpen(false); }}>{t(item)}</button>)}
         {isAdmin ? <><button className={`nav-item nav-parent${adminPages.includes(page) ? " admin-active" : ""}`} aria-expanded={adminMenuOpen} aria-controls="admin-navigation" onClick={() => setAdminMenuOpen(open => !open)}>{t("administration")} <span aria-hidden="true">{adminMenuOpen ? "⌄" : "›"}</span></button>
           {adminMenuOpen && <div id="admin-navigation" className="nav-submenu">{adminPages.map(item => <button key={item} className={page === item ? "nav-item active" : "nav-item"} onClick={() => { setPage(item); setDetails(null); setMenuOpen(false); }}>{t(item === "administration" ? "systemStatus" : item)}</button>)}</div>}</>
           : <button className={page === "settings" ? "nav-item active" : "nav-item"} onClick={() => { setPage("settings"); setDetails(null); setMenuOpen(false); }}>{t("myAccount")}</button>}
@@ -847,7 +854,7 @@ export default function App() {
 
     <div className="workspace" inert={!!about}>
       <header className="topbar"><h1 className="topbar-title" aria-label={isAdmin && adminPages.includes(page) ? `${t("administration")} / ${t(page === "administration" ? "systemStatus" : page)}` : t(page === "settings" ? "myAccount" : page)}><span className="topbar-brand">ADORE</span><span aria-hidden="true">/</span>{isAdmin && adminPages.includes(page) ? `${t("administration")} / ${t(page === "administration" ? "systemStatus" : page)}` : t(page === "settings" ? "myAccount" : page)}</h1>
-        {page !== "overview" && page !== "projects" && page !== "createProject" && projects.length > 0 && <label className="project-picker">{t("project")}<select value={selected} onChange={event => setSelected(event.target.value)}>{projects.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}
+        {page !== "overview" && page !== "projects" && page !== "createProject" && page !== "importProject" && projects.length > 0 && <label className="project-picker">{t("project")}<select value={selected} onChange={event => setSelected(event.target.value)}>{projects.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}
         <div className="top-actions">
         <span className="refresh-stamp">{lastRefresh && `${t("lastRefresh")}: ${formatDate(lastRefresh.toISOString())}`}</span>
         <button className="ghost" onClick={() => { void refreshProjects(); void refreshSelected(); void refreshJobPage(); }}>{t("refresh")}</button>
@@ -872,15 +879,7 @@ export default function App() {
         </>}
 
         {page === "projects" && <>
-          <div className="section-actions">{isAdmin && <><button className="primary" onClick={() => { setError(""); setPage("createProject"); }}>{t("createProject")}</button><button className="ghost" onClick={() => setShowImportForm(!showImportForm)}>{t("importProject")}</button></>}</div>
-          {isAdmin && showImportForm && <section className="panel"><h2>{t("importProject")}</h2><p className="muted">{t("importHelp")}</p><form className="form-grid" onSubmit={previewProjectImport}>
-            <label>{t("name")}<input value={importName} onChange={event => { importPreviewRequest.current += 1; setImportName(event.target.value); setImportPreview(null); }} required /></label>
-            <label>{t("description")}<input value={importDescription} onChange={event => { importPreviewRequest.current += 1; setImportDescription(event.target.value); setImportPreview(null); }} /></label>
-            <label>{t("configFile")}<input type="file" accept=".toml,.txt" onChange={event => { const file = event.target.files?.[0]; const read = ++importFileRead.current; importPreviewRequest.current += 1; setImportPreview(null); setImportText(""); setImportFileName(file?.name || ""); if (file) void file.text().then(value => { if (read === importFileRead.current) setImportText(value); }).catch(cause => { if (read === importFileRead.current) setError(String(cause)); }); }} required /></label>
-            <button className="primary form-submit" type="submit" disabled={!importText}>{t("previewImport")}</button>
-          </form>
-          {importPreview && <div className="import-preview"><h3>{t("importPreview")}</h3><p>{importFileName} · {importPreview.platform || "—"} · {importPreview.repo || "—"} · {importPreview.runtime || "—"}</p>{importPreview.store_root && <p className="muted">{t("stateRoot")}: {importPreview.store_root}</p>}<p className="muted">{t("importUnchanged")}</p>{importPreview.issues.length ? <ul>{importPreview.issues.map((issue, index) => <li key={`${issue}-${index}`}>{issue}</li>)}</ul> : <button className="primary" onClick={() => void importProject()}>{t("importProject")}</button>}</div>}
-          </section>}
+          <div className="section-actions">{isAdmin && <><button className="primary" onClick={() => { setError(""); setPage("createProject"); }}>{t("createProject")}</button><button className="ghost" onClick={() => { setError(""); setPage("importProject"); }}>{t("importProject")}</button></>}</div>
           <section className="panel">
             {projects.length ? <PagedTable key={`${projectSortKey}-${projectSortDescending}`} t={t}><table className="projects-table"><thead><tr>
               <SortHeader label={t("project")} sortKey="name" activeKey={projectSortKey} descending={projectSortDescending} onSort={changeProjectSort} />
@@ -918,6 +917,17 @@ export default function App() {
             <GuidedField id="new-project-auth" label={t("authMode")} help={t("createHelpAuthMode")} helpLabel={t("settingHelp")}><select id="new-project-auth" name="auth_mode" key={projectExecutor}>{["opencode", "codex"].includes(projectExecutor) && <option value="host-auth">host-auth</option>}<option value="api-key">api-key</option></select></GuidedField>
             <div className="project-create-actions"><button className="primary" type="submit">{t("save")}</button><button className="ghost" type="button" onClick={() => { setError(""); setPage("projects"); }}>{t("cancel")}</button></div>
           </form></section>
+        </>}
+
+        {page === "importProject" && isAdmin && <>
+          <div className="section-actions"><button className="ghost" type="button" onClick={() => { setError(""); setPage("projects"); }}>{t("backToProjects")}</button></div>
+          <section className="panel"><p className="muted">{t("importHelp")}</p><form className="form-grid project-create-form" onSubmit={previewProjectImport}>
+            <GuidedField id="import-project-name" label={t("name")} help={t("createHelpName")} helpLabel={t("settingHelp")}><input id="import-project-name" value={importName} onChange={event => { importPreviewRequest.current += 1; setImportName(event.target.value); setImportPreview(null); }} pattern="[a-z0-9][a-z0-9._-]{0,63}" maxLength={64} required /></GuidedField>
+            <GuidedField id="import-project-description" label={t("description")} help={t("createHelpDescription")} helpLabel={t("settingHelp")}><input id="import-project-description" value={importDescription} onChange={event => { importPreviewRequest.current += 1; setImportDescription(event.target.value); setImportPreview(null); }} /></GuidedField>
+            <GuidedField id="import-project-file" label={t("configFile")} help={t("importConfigHelp")} helpLabel={t("settingHelp")}><input id="import-project-file" type="file" accept=".toml,.txt" onChange={event => { const file = event.target.files?.[0]; const read = ++importFileRead.current; importPreviewRequest.current += 1; setImportPreview(null); setImportText(""); setImportFileName(file?.name || ""); if (file) void file.text().then(value => { if (read === importFileRead.current) setImportText(value); }).catch(cause => { if (read === importFileRead.current) setError(String(cause)); }); }} required /></GuidedField>
+            <div className="project-create-actions"><button className="primary" type="submit" disabled={!importText}>{t("previewImport")}</button><button className="ghost" type="button" onClick={() => { setError(""); setPage("projects"); }}>{t("cancel")}</button></div>
+          </form></section>
+          {importPreview && <section className="panel import-preview"><h2>{t("importPreview")}</h2><p>{importFileName} · {importPreview.platform || "—"} · {importPreview.repo || "—"} · {importPreview.runtime || "—"}</p>{importPreview.store_root && <p className="muted">{t("stateRoot")}: {importPreview.store_root}</p>}<p className="muted">{t("importUnchanged")}</p>{importPreview.issues.length ? <ul>{importPreview.issues.map((issue, index) => <li key={`${issue}-${index}`}>{issue}</li>)}</ul> : <button className="primary" onClick={() => void importProject()}>{t("importProject")}</button>}</section>}
         </>}
 
         {page === "projectDetails" && selectedProject && <>

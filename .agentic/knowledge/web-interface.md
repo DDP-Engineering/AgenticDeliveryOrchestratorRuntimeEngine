@@ -95,6 +95,9 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
   The clone path refers to an existing Git clone on the ADORE host. Editable
   image suggestions are examples, not a local-image inventory. Success opens
   project details; Back and Cancel return to Projects without a mutation.
+  Import project is also a separate administrator page. It previews a selected
+  config file before importing the exact revision, clears browser-held file
+  contents and preview when leaving, and opens details after successful import.
   Pending and completed human handoffs have localized lifecycle labels and
   filters. Cancel is unavailable during and after human ownership transfer.
 - The React session switch clears private caches and increments a generation
