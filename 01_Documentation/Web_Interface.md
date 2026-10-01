@@ -120,8 +120,12 @@ number from that project's repository: enter a positive integer such as `42`
 for `/issues/42`, without `#` or the URL. Switching projects clears the ticket
 draft. Archived projects remain selectable for history; Start job is available
 on unarchived projects and still applies ready, hold and exclude rules.
-The top bar names the current page and contains the project selector on scoped
-pages outside Overview, Projects, Add project, Import project and Jobs. On a
+Metrics places its project selector with the common reporting period controls;
+it scopes the selected-project statistics, usage and project CSV exports.
+Changing projects retains the reporting period and category tab. Administrator
+global totals and all-project exports retain their global scope.
+The top bar names the current page and provides common actions. Project details
+and account/administration views also show a project selector there. On a
 phone, these controls wrap above the page content; use Menu to switch pages.
 Jobs and tables with more than ten rows offer 10, 25, 50 and All row choices.
 Previous/Next moves between pages when a finite size is selected. All returns

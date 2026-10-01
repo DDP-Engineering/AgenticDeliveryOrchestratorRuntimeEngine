@@ -227,11 +227,12 @@ an explicit service error if measurement fails, without exposing host paths.
 The React About dialog makes the surrounding shell inert, keeps keyboard focus
 on its Close button, and restores focus to About when closed. Narrow layouts
 expose Sign out in the top bar while the sidebar account row is hidden.
-The top bar supplies the sole page title and the project selector on scoped
-pages outside Overview and Projects; responsive rows
+The top bar supplies the sole page title, common actions and the project selector
+on project-detail/account/administration views; responsive rows
 keep these controls visible while content begins with page data. Metric hints,
 usage actions and account rows wrap on narrow screens.
-Metrics keeps the common reporting range, timezone, grouping and CSV menu above
+Metrics keeps its authorized project selector with the common reporting range,
+timezone, grouping and CSV menu above
 keyboard-operable Summary, Usage, Quality, Trends and administrator-only Projects
 tabs. Developer export choices remain project-scoped and omit money; usage
 exports also carry the Usage tab's executor/model filters. Compact layouts put

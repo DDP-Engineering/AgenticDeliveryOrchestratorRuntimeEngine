@@ -24,8 +24,9 @@ Tables with more than ten rows offer 10, 25, 50 and All choices with
 Previous/Next for finite pages. Audit fetches the full authorized history;
 Jobs delegates the page size and filtering to the scoped API. Other tables
 paginate their rendered rows and reset to the first page when size changes.
-The top bar is the single page title and holds the project selector outside
-Overview, Projects and Add project. On Overview, four expandable summary cards replace that selector:
+The top bar supplies the single page title and common actions. Project details
+and account/administration views use its project selector; Jobs and Metrics
+keep their project selectors in page content. On Overview, four expandable summary cards select the scope:
 Projects opens a table of authorized projects where a row selects the project,
 and Active jobs, Awaiting review and Failed jobs open paged run tables for the
 selected project. Closing a card restores Recent jobs. Opening a run navigates
@@ -113,13 +114,15 @@ and estimated USD values, displays unpriced-event coverage, groups project
 totals by non-empty repository label, shows global reported/estimated daily
 amounts separately, adds a combined daily view for the selected repository,
 and links to administrator global CSV.
-The Metrics page keeps its inclusive date range, IANA reporting timezone,
+The Metrics page keeps its authorized project selector, inclusive date range, IANA reporting timezone,
 day/week/month grouping and CSV export menu above five category tabs: Summary,
 Usage, Quality, Trends and administrator-only Projects. Export choices are
 selected-project metrics/usage and administrator all-project metrics/usage;
 the latter never appear for developers. Arrow keys, Home and End switch tabs,
 and the shared controls retain their values when categories change. On compact
-screens the four reporting controls use two rows.
+screens project selection spans a full row above the four period controls in
+two rows. Switching projects retains the category and reporting parameters;
+selected-project metric/usage requests and CSV links use the new project ID.
 The filters are shared by project and global tables and CSV links.
 It displays period totals separately from
 all-time headline totals; period sums use dated journal events and may omit

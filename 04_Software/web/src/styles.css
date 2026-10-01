@@ -270,6 +270,7 @@ td.strong { font-weight: 800; }
   .usage-heading h2 { flex: 1 0 100%; }
   .metrics-period .job-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
   .metrics-period .job-filters label { width: auto; min-width: 0; }
+  .metrics-period .job-filters .metrics-project-filter { grid-column: 1 / -1; max-width: none; }
   .metrics-period input, .metrics-period select { min-width: 0; padding-inline: 7px; }
   .metrics-tabs { gap: 6px; }
   .metrics-tabs button { padding: 8px 11px; }
