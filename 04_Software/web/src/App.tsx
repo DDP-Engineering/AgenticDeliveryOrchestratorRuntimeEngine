@@ -8,8 +8,10 @@ import { Children, cloneElement, isValidElement, useCallback, useEffect, useRef,
 import { aggregateMetrics, aggregateUsage, type Metrics, type Usage } from "./metrics";
 import { messages, type Locale, type MessageKey } from "./i18n";
 import { auditPolicyPayload } from "./auditPolicy";
+import { PROJECT_NAME_PATTERN } from "./projectName";
+import { ApiError, describeError } from "./errors";
 
-type User = { id: number; username: string; role: "admin" | "developer"; disabled: boolean; projects?: string[] };
+type User = { id: number; username: string; role: "admin" | "developer"; disabled: boolean; password_change_required?: boolean; projects?: string[] };
 type Session = { user: User; csrf: string };
 type Preferences = { language: Locale | null; theme: "light" | "dark" | "system" | null };
 type Project = { id: string; name: string; description: string; platform: string; repo: string; runtime: string; executor: string; readiness: string; last_activity: string | null; paused: boolean; archived: boolean; runs: number; invalid_runs: string[] };
@@ -56,17 +58,24 @@ const initialLocale = (): Locale => {
 };
 
 async function request<T>(path: string, method = "GET", body?: unknown, csrf?: string): Promise<T> {
-  const response = await fetch(`/api/v1${path}`, {
-    method, credentials: "same-origin", cache: "no-store",
-    headers: { ...(body ? { "Content-Type": "application/json" } : {}), ...(csrf ? { "X-CSRF-Token": csrf } : {}) },
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  let response: Response;
+  try {
+    response = await fetch(`/api/v1${path}`, {
+      method, credentials: "same-origin", cache: "no-store",
+      headers: { ...(body ? { "Content-Type": "application/json" } : {}), ...(csrf ? { "X-CSRF-Token": csrf } : {}) },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch (cause) {
+    throw new ApiError("network_error", String((cause as Error)?.message ?? cause));
+  }
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
-    throw new Error(payload?.detail?.code || payload?.detail || `HTTP ${response.status}`);
+    const detail = payload?.detail;
+    if (typeof detail?.code === "string") throw new ApiError(detail.code, typeof detail.message === "string" ? detail.message : "");
+    throw new ApiError("request_failed", `HTTP ${response.status}`);
   }
   if (!response.headers.get("content-type")?.includes("application/json")) {
-    throw new Error(`${path}: unexpected response (${response.status})`);
+    throw new ApiError("unexpected_response", `${path} (HTTP ${response.status})`);
   }
   return response.json() as Promise<T>;
 }
@@ -138,7 +147,8 @@ export default function App() {
   const [projectReadiness, setProjectReadiness] = useState<ProjectReadiness | null>(null);
   const [details, setDetails] = useState<{ run: Run; events: Array<Record<string, unknown>> } | null>(null);
   const [about, setAbout] = useState<{ name: string; version: string; license: string; license_text: string; third_party_notices: string } | null>(null);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<unknown>("");
+  const [passwordSession, setPasswordSession] = useState<Session | null>(null);
   const [notice, setNotice] = useState("");
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const [ticket, setTicket] = useState("");
@@ -286,8 +296,9 @@ export default function App() {
   useEffect(() => {
     request<Session>("/me").then(async current => {
       try { applyPreferences(await request<Preferences>("/me/preferences")); }
-      catch (cause) { setError((cause as Error).message); }
-      setSession(current);
+      catch (cause) { setError(cause); }
+      if (current.user.password_change_required) setPasswordSession(current);
+      else setSession(current);
     }).catch(() => setSession(null)).finally(() => setLoading(false));
   }, []);
 
@@ -295,15 +306,16 @@ export default function App() {
     const previous = key === "language" ? locale : theme;
     if (key === "language") setLocale(value as Locale);
     else setTheme(value);
-    if (!session) return;
+    const account = session ?? passwordSession;
+    if (!account) return;
     const generation = viewGeneration.current;
     const revision = ++preferenceRequest.current[key];
-    void request<Preferences>("/me/preferences", "PATCH", { [key]: value }, session.csrf)
+    void request<Preferences>("/me/preferences", "PATCH", { [key]: value }, account.csrf)
       .catch(cause => {
         if (generation !== viewGeneration.current || revision !== preferenceRequest.current[key]) return;
         if (key === "language") setLocale(previous as Locale);
         else setTheme(previous);
-        setError((cause as Error).message);
+        setError(cause);
       });
   };
 
@@ -318,7 +330,7 @@ export default function App() {
 
   useEffect(() => {
     if (!session) return;
-    refreshProjects().catch(cause => setError(String(cause.message)));
+    refreshProjects().catch(cause => setError(cause));
     const timer = window.setInterval(() => refreshProjects().catch(() => {}), 15000);
     return () => window.clearInterval(timer);
   }, [session, refreshProjects]);
@@ -342,7 +354,7 @@ export default function App() {
           if (generation === viewGeneration.current && revision === usageRequest.current) setAllUsage(global);
         }
       } catch (cause) {
-        if (generation === viewGeneration.current && revision === usageRequest.current) setError((cause as Error).message);
+        if (generation === viewGeneration.current && revision === usageRequest.current) setError(cause);
       }
     };
     void refresh();
@@ -365,7 +377,7 @@ export default function App() {
       setMetrics(metricData); setMetricsScope(selected);
       setLastRefresh(new Date());
     } catch (cause) {
-      if (generation === viewGeneration.current && revision === selectedMetricsRequest.current) setError((cause as Error).message);
+      if (generation === viewGeneration.current && revision === selectedMetricsRequest.current) setError(cause);
     }
   }, [selected, session, metricSuffix]);
 
@@ -388,7 +400,7 @@ export default function App() {
         const result = await request<RunPage>(`/projects/${encodeURIComponent(selected)}/runs-page?limit=all`);
         if (active && generation === viewGeneration.current) setOverviewRuns(result.items);
       } catch (cause) {
-        if (active && generation === viewGeneration.current) setError((cause as Error).message);
+        if (active && generation === viewGeneration.current) setError(cause);
       }
     };
     void refresh();
@@ -411,7 +423,7 @@ export default function App() {
       const result = await request<RunPage>(`/projects/${encodeURIComponent(selected)}/runs-page?${query}`);
       if (revision === jobRequest.current && generation === viewGeneration.current) setJobPage(result);
     } catch (cause) {
-      if (revision === jobRequest.current && generation === viewGeneration.current) setError((cause as Error).message);
+      if (revision === jobRequest.current && generation === viewGeneration.current) setError(cause);
     }
   }, [selected, session, page, jobOffset, jobPageSize, jobLifecycle, jobStage, jobExecutor, jobUpdatedFrom, jobUpdatedTo, jobOutcome]);
 
@@ -427,21 +439,21 @@ export default function App() {
   useEffect(() => {
     if (page === "adminUsers" && isAdmin) {
       const generation = viewGeneration.current;
-      request<User[]>("/users").then(value => { if (generation === viewGeneration.current) setUsers(value); }).catch(cause => setError(cause.message));
+      request<User[]>("/users").then(value => { if (generation === viewGeneration.current) setUsers(value); }).catch(cause => setError(cause));
     }
     if (page === "adminAudit" && isAdmin) {
       const generation = viewGeneration.current;
-      request<AuditRow[]>("/audit?limit=all").then(value => { if (generation === viewGeneration.current) setAuditRows(value); }).catch(cause => setError(cause.message));
-      request<AuditPolicy>("/audit-policy").then(value => { if (generation === viewGeneration.current) setAuditPolicy(value); }).catch(cause => setError(cause.message));
+      request<AuditRow[]>("/audit?limit=all").then(value => { if (generation === viewGeneration.current) setAuditRows(value); }).catch(cause => setError(cause));
+      request<AuditPolicy>("/audit-policy").then(value => { if (generation === viewGeneration.current) setAuditPolicy(value); }).catch(cause => setError(cause));
     }
     if (page === "projectDetails" && selected) {
       const generation = viewGeneration.current;
       const revision = ++configRequest.current;
       setConfig(null); setConfigScope(""); setPendingConfig(null); setPendingConfigScope(""); setPrices([]); setPricesScope("");
-      request<Config>(`/projects/${encodeURIComponent(selected)}/config`).then(value => { if (generation === viewGeneration.current && revision === configRequest.current) { setConfig(value); setConfigScope(selected); } }).catch(cause => { if (generation === viewGeneration.current && revision === configRequest.current) setError(cause.message); });
+      request<Config>(`/projects/${encodeURIComponent(selected)}/config`).then(value => { if (generation === viewGeneration.current && revision === configRequest.current) { setConfig(value); setConfigScope(selected); } }).catch(cause => { if (generation === viewGeneration.current && revision === configRequest.current) setError(cause); });
       if (isAdmin) {
-        request<PendingConfig | null>(`/projects/${encodeURIComponent(selected)}/config/pending`).then(value => { if (generation === viewGeneration.current && revision === configRequest.current) { setPendingConfig(value); setPendingConfigScope(selected); } }).catch(cause => { if (generation === viewGeneration.current && revision === configRequest.current) setError(cause.message); });
-        request<Price[]>(`/projects/${encodeURIComponent(selected)}/prices`).then(value => { if (generation === viewGeneration.current && revision === configRequest.current) { setPrices(value); setPricesScope(selected); } }).catch(cause => { if (generation === viewGeneration.current && revision === configRequest.current) setError(cause.message); });
+        request<PendingConfig | null>(`/projects/${encodeURIComponent(selected)}/config/pending`).then(value => { if (generation === viewGeneration.current && revision === configRequest.current) { setPendingConfig(value); setPendingConfigScope(selected); } }).catch(cause => { if (generation === viewGeneration.current && revision === configRequest.current) setError(cause); });
+        request<Price[]>(`/projects/${encodeURIComponent(selected)}/prices`).then(value => { if (generation === viewGeneration.current && revision === configRequest.current) { setPrices(value); setPricesScope(selected); } }).catch(cause => { if (generation === viewGeneration.current && revision === configRequest.current) setError(cause); });
       }
     }
   }, [page, isAdmin, selected]);
@@ -488,7 +500,7 @@ export default function App() {
       const generation = viewGeneration.current;
       return request<Record<string, Metrics>>(`/metrics${metricSuffix}`).then(value => {
         if (generation === viewGeneration.current && revision === globalMetricsRequest.current) setAllMetrics(value);
-      }).catch(cause => { if (generation === viewGeneration.current && revision === globalMetricsRequest.current) setError(cause.message); });
+      }).catch(cause => { if (generation === viewGeneration.current && revision === globalMetricsRequest.current) setError(cause); });
     };
     void refresh();
     const timer = window.setInterval(() => void refresh(), 30000);
@@ -509,7 +521,7 @@ export default function App() {
           await refreshJobPage();
         }
       } catch (cause) {
-        if (generation === viewGeneration.current) setError((cause as Error).message);
+        if (generation === viewGeneration.current) setError(cause);
       }
     }, 2000);
     return () => window.clearInterval(timer);
@@ -525,6 +537,8 @@ export default function App() {
   useEffect(() => {
     if (page !== "importProject") clearImportDraft();
   }, [page]);
+
+  useEffect(() => { setError(""); }, [page]);
 
   const clearPrivateView = () => {
     viewGeneration.current += 1;
@@ -558,17 +572,18 @@ export default function App() {
       const authenticated = await request<Session>("/session", "POST", Object.fromEntries(fields));
       let saved: Preferences | null = null;
       try { saved = await request<Preferences>("/me/preferences"); }
-      catch (cause) { setError((cause as Error).message); }
+      catch (cause) { setError(cause); }
       clearPrivateView();
       if (saved) applyPreferences(saved);
-      setSession(authenticated);
+      if (authenticated.user.password_change_required) setPasswordSession(authenticated);
+      else setSession(authenticated);
     }
-    catch (cause) { setError((cause as Error).message); }
+    catch (cause) { setError(cause); }
   };
 
   const signOut = async () => {
-    try { await request("/session", "DELETE", undefined, session?.csrf); }
-    finally { setSession(null); clearPrivateView(); }
+    try { await request("/session", "DELETE", undefined, (session ?? passwordSession)?.csrf); }
+    finally { setSession(null); setPasswordSession(null); clearPrivateView(); }
   };
 
   const operate = async (action: "start" | "retry" | "cancel" | "pause" | "resume", target = "", projectId = selected) => {
@@ -585,10 +600,11 @@ export default function App() {
       setNotice(`${t("operationQueued")} · #${op.id}`);
       setTicket("");
       await refreshSelected();
-    } catch (cause) { setError((cause as Error).message); }
+    } catch (cause) { setError(cause); }
   };
 
   const openRun = async (runId: string) => {
+    setError("");
     const generation = viewGeneration.current;
     try {
       const result = await request<{ run: Run; events: Array<Record<string, unknown>> }>(
@@ -596,16 +612,16 @@ export default function App() {
       );
       if (generation === viewGeneration.current) setDetails(result);
     } catch (cause) {
-      if (generation === viewGeneration.current) setError((cause as Error).message);
+      if (generation === viewGeneration.current) setError(cause);
     }
   };
 
   const createProject = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+    event.preventDefault(); setError("");
     try {
       const created = await request<Project>("/projects", "POST", Object.fromEntries(new FormData(event.currentTarget)), session?.csrf);
       await refreshProjects(); setSelected(created.id); setPage("projectDetails");
-    } catch (cause) { setError((cause as Error).message); }
+    } catch (cause) { setError(cause); }
   };
 
   const previewProjectImport = async (event: FormEvent<HTMLFormElement>) => {
@@ -617,7 +633,7 @@ export default function App() {
       const preview = await request<ImportPreview>("/projects/import-preview", "POST",
         { name: importName, description: importDescription, config_text: importText }, session?.csrf);
       if (generation === viewGeneration.current && currentRequest === importPreviewRequest.current) setImportPreview(preview);
-    } catch (cause) { if (generation === viewGeneration.current && currentRequest === importPreviewRequest.current) setError((cause as Error).message); }
+    } catch (cause) { if (generation === viewGeneration.current && currentRequest === importPreviewRequest.current) setError(cause); }
   };
 
   const importProject = async () => {
@@ -633,7 +649,7 @@ export default function App() {
       clearImportDraft();
       await refreshProjects(); setSelected(created.id); setPage("projectDetails");
       setNotice(t("projectImported"));
-    } catch (cause) { if (generation === viewGeneration.current) setError((cause as Error).message); }
+    } catch (cause) { if (generation === viewGeneration.current) setError(cause); }
   };
 
   const setProjectArchive = async (archive: boolean, projectId = selected) => {
@@ -644,20 +660,20 @@ export default function App() {
         "POST", undefined, session.csrf);
       await refreshProjects();
       setNotice(t(archive ? "projectArchived" : "projectRestored"));
-    } catch (cause) { setError((cause as Error).message); }
+    } catch (cause) { setError(cause); }
   };
 
   const createUser = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+    event.preventDefault(); setError("");
     const form = event.currentTarget;
     try {
       await request("/users", "POST", Object.fromEntries(new FormData(form)), session?.csrf);
       setUsers(await request<User[]>("/users")); form.reset();
-    } catch (cause) { setError((cause as Error).message); }
+    } catch (cause) { setError(cause); }
   };
 
   const saveAuditPolicy = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+    event.preventDefault(); setError("");
     const form = event.currentTarget;
     const values = new FormData(form);
     const days = String(values.get("retention_days") || "").trim();
@@ -668,65 +684,67 @@ export default function App() {
       form.reset();
       setAuditRows(await request<AuditRow[]>("/audit?limit=all"));
       setNotice(t("auditPolicySaved"));
-    } catch (cause) { setError(cause instanceof RangeError ? t("auditInvalidLimit") : (cause as Error).message); }
+    } catch (cause) { setError(cause instanceof RangeError ? t("auditInvalidLimit") : cause); }
   };
 
   const assignProjects = async (event: FormEvent<HTMLFormElement>, userId: number) => {
-    event.preventDefault();
+    event.preventDefault(); setError("");
     try {
       const projects = new FormData(event.currentTarget).getAll("projects").map(String);
       await request(`/users/${userId}/projects`, "PUT", { projects }, session?.csrf);
       setUsers(await request<User[]>("/users")); setNotice(t("assign"));
-    } catch (cause) { setError((cause as Error).message); }
+    } catch (cause) { setError(cause); }
   };
 
   const setAccountEnabled = async (userId: number, enabled: boolean) => {
+    setError("");
     try {
       await request(`/users/${userId}/${enabled ? "enable" : "disable"}`, "POST", {}, session?.csrf);
       setUsers(await request<User[]>("/users"));
-    } catch (cause) { setError((cause as Error).message); }
+    } catch (cause) { setError(cause); }
   };
 
   const resetUserPassword = async (event: FormEvent<HTMLFormElement>, userId: number) => {
-    event.preventDefault();
+    event.preventDefault(); setError("");
     const form = event.currentTarget;
     const replacement = String(new FormData(form).get("replacement") || "");
     try {
       await request(`/users/${userId}/reset-password`, "POST", { replacement }, session?.csrf);
       form.reset(); setResetTarget(null); setNotice(t("passwordResetDone"));
-    } catch (cause) { setError((cause as Error).message); }
+    } catch (cause) { setError(cause); }
   };
 
   const changePassword = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+    event.preventDefault(); setError("");
     try {
-      await request("/me/password", "POST", Object.fromEntries(new FormData(event.currentTarget)), session?.csrf);
-      setNotice(t("changePassword")); setSession(null);
-    } catch (cause) { setError((cause as Error).message); }
+      await request("/me/password", "POST", Object.fromEntries(new FormData(event.currentTarget)), (session ?? passwordSession)?.csrf);
+      clearPrivateView(); setSession(null); setPasswordSession(null); setNotice(t("passwordChanged"));
+    } catch (cause) { setError(cause); }
   };
 
   const editConfig = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+    event.preventDefault(); setError("");
     if (!config || !selected) return;
     const form = event.currentTarget;
     const fields = Object.fromEntries(new FormData(form));
     try {
       const staged = await request<PendingConfig>(`/projects/${encodeURIComponent(selected)}/config/pending`, "POST", { ...fields, revision: config.revision }, session?.csrf);
       setPendingConfig(staged); setPendingConfigScope(selected); setNotice(t("changeStaged")); form.reset();
-    } catch (cause) { setError((cause as Error).message); }
+    } catch (cause) { setError(cause); }
   };
 
   const rebuildUsage = async () => {
+    setError("");
     try {
       const result = await request<{ projects: number; runs: number; usage_events: number }>(
         "/usage/rebuild", "POST", {}, session?.csrf);
       setNotice(`${t("usageRebuilt")}: ${formatNumber(result.usage_events)}`);
       setUsageRefresh(current => current + 1);
-    } catch (cause) { setError((cause as Error).message); }
+    } catch (cause) { setError(cause); }
   };
 
   const saveEndpoint = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+    event.preventDefault(); setError("");
     if (!config || !selected) return;
     const fields = Object.fromEntries(new FormData(event.currentTarget));
     try {
@@ -738,10 +756,11 @@ export default function App() {
         revision: config.revision,
       }, session?.csrf);
       setPendingConfig(staged); setPendingConfigScope(selected); setNotice(t("changeStaged"));
-    } catch (cause) { setError((cause as Error).message); }
+    } catch (cause) { setError(cause); }
   };
 
   const applyPendingConfig = async () => {
+    setError("");
     if (!selected || !pendingConfig) return;
     try {
       await request(`/projects/${encodeURIComponent(selected)}/config/apply`, "POST", {
@@ -750,18 +769,20 @@ export default function App() {
       setConfig(await request<Config>(`/projects/${encodeURIComponent(selected)}/config`)); setConfigScope(selected);
       setPendingConfig(null); setNotice(t("changeApplied"));
       await refreshProjects();
-    } catch (cause) { setError((cause as Error).message); }
+    } catch (cause) { setError(cause); }
   };
 
   const discardPendingConfig = async () => {
+    setError("");
     if (!selected || !pendingConfig) return;
     try {
       await request(`/projects/${encodeURIComponent(selected)}/config/pending`, "DELETE", undefined, session?.csrf);
       setPendingConfig(null); setNotice(t("changeDiscarded"));
-    } catch (cause) { setError((cause as Error).message); }
+    } catch (cause) { setError(cause); }
   };
 
   const checkProjectReadiness = async () => {
+    setError("");
     if (!selected || !isAdmin) return;
     const revision = ++readinessRequest.current;
     const generation = viewGeneration.current;
@@ -770,12 +791,12 @@ export default function App() {
       const result = await request<ProjectReadiness>(`/projects/${encodeURIComponent(selected)}/readiness-check`, "POST", {}, session?.csrf);
       if (generation === viewGeneration.current && revision === readinessRequest.current) setProjectReadiness(result);
     } catch (cause) {
-      if (generation === viewGeneration.current && revision === readinessRequest.current) setError((cause as Error).message);
+      if (generation === viewGeneration.current && revision === readinessRequest.current) setError(cause);
     }
   };
 
   const savePrice = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+    event.preventDefault(); setError("");
     if (!selected) return;
     const form = event.currentTarget;
     try {
@@ -783,21 +804,38 @@ export default function App() {
         Object.fromEntries(new FormData(form)), session?.csrf);
       setPrices(await request<Price[]>(`/projects/${encodeURIComponent(selected)}/prices`)); setPricesScope(selected);
       setNotice(t("priceSaved")); form.reset();
-    } catch (cause) { setError((cause as Error).message); }
+    } catch (cause) { setError(cause); }
   };
 
   if (loading) return <main className="splash" aria-busy="true">ADORE</main>;
 
+  const loginPreferences = <div className="login-preferences"><label>{t("language")}<select value={locale} onChange={event => updatePreference("language", event.target.value)}>{Object.entries(localeNames).map(([key, value]) => <option key={key} value={key}>{value}</option>)}</select></label><label>{t("theme")}<select value={theme} onChange={event => updatePreference("theme", event.target.value)}><option value="system">{t("system")}</option><option value="light">{t("light")}</option><option value="dark">{t("dark")}</option></select></label></div>;
+
+  if (passwordSession) return <main className="login-page">
+    <section className="login-card">
+      <div className="brand-mark">A</div><p className="eyebrow">ADORE</p><h1>{t("passwordRequiredTitle")}</h1><p className="muted">{t("passwordRequiredReason")}</p>
+      {error ? <p className="alert" role="alert">{describeError(locale, error)}</p> : null}
+      <form onSubmit={changePassword} className="form-stack">
+        <label>{t("currentPassword")}<input name="current" type="password" autoComplete="current-password" required autoFocus /></label>
+        <label>{t("newPassword")}<input name="replacement" type="password" autoComplete="new-password" minLength={8} required /></label>
+        <button className="primary" type="submit">{t("changePassword")}</button>
+        <button className="ghost" type="button" onClick={signOut}>{t("logout")}</button>
+      </form>
+      {loginPreferences}
+    </section>
+  </main>;
+
   if (!session) return <main className="login-page">
     <section className="login-card">
       <div className="brand-mark">A</div><p className="eyebrow">ADORE</p><h1>{t("login")}</h1><p className="muted">{t("subtitle")}</p>
-      {error && <p className="alert" role="alert">{error}</p>}
+      {notice ? <p className="notice" role="status">{notice}</p> : null}
+      {error ? <p className="alert" role="alert">{describeError(locale, error)}</p> : null}
       <form onSubmit={signIn} className="form-stack">
         <label>{t("username")}<input name="username" autoComplete="username" required autoFocus /></label>
         <label>{t("password")}<input name="password" type="password" autoComplete="current-password" required /></label>
         <button className="primary" type="submit">{t("login")}</button>
       </form>
-      <div className="login-preferences"><label>{t("language")}<select value={locale} onChange={event => updatePreference("language", event.target.value)}>{Object.entries(localeNames).map(([key, value]) => <option key={key} value={key}>{value}</option>)}</select></label><label>{t("theme")}<select value={theme} onChange={event => updatePreference("theme", event.target.value)}><option value="system">{t("system")}</option><option value="light">{t("light")}</option><option value="dark">{t("dark")}</option></select></label></div>
+      {loginPreferences}
     </section>
   </main>;
 
@@ -825,12 +863,12 @@ export default function App() {
         <div className="top-actions">
         <span className="refresh-stamp">{lastRefresh && `${t("lastRefresh")}: ${formatDate(lastRefresh.toISOString())}`}</span>
         <button className="ghost" onClick={() => { void refreshProjects(); void refreshSelected(); void refreshJobPage(); setUsageRefresh(value => value + 1); }}>{t("refresh")}</button>
-        <button className="ghost" ref={aboutTrigger} onClick={() => request<typeof about>("/about").then(setAbout).catch(cause => setError(cause.message))}>{t("about")}</button>
+        <button className="ghost" ref={aboutTrigger} onClick={() => request<typeof about>("/about").then(setAbout).catch(cause => setError(cause))}>{t("about")}</button>
         <button className="ghost mobile-signout" onClick={signOut}>{t("logout")}</button>
       </div></header>
 
       <main className="content">
-        {error && <div className="alert" role="alert">{error}<button onClick={() => setError("")} aria-label={t("close")}>×</button></div>}
+        {error ? <div className="alert" role="alert">{describeError(locale, error)}<button onClick={() => setError("")} aria-label={t("close")}>×</button></div> : null}
         {notice && <div className="notice" role="status">{notice}<button onClick={() => setNotice("")} aria-label={t("close")}>×</button></div>}
         {operation && <div className="notice" role="status">{t("operationStatus")}: #{operation.id} · {operation.status}{operation.result ? ` · ${operation.result}` : ""}</div>}
         {page === "overview" && <>
@@ -870,7 +908,7 @@ export default function App() {
         {page === "createProject" && isAdmin && <>
           <div className="section-actions"><button className="ghost" type="button" onClick={() => { setError(""); setPage("projects"); }}>{t("backToProjects")}</button></div>
           <section className="panel"><form className="form-grid project-create-form" onSubmit={createProject}>
-            <GuidedField id="new-project-name" label={t("name")} help={t("createHelpName")} helpLabel={t("settingHelp")}><input id="new-project-name" name="name" pattern="[a-z0-9][a-z0-9._-]{0,63}" maxLength={64} required /></GuidedField>
+            <GuidedField id="new-project-name" label={t("name")} help={t("createHelpName")} helpLabel={t("settingHelp")}><input id="new-project-name" name="name" pattern={PROJECT_NAME_PATTERN} maxLength={64} required /></GuidedField>
             <GuidedField id="new-project-description" label={t("description")} help={t("createHelpDescription")} helpLabel={t("settingHelp")}><input id="new-project-description" name="description" /></GuidedField>
             <GuidedField id="new-project-forge" label={t("forge")} help={t("settingHelpForge")} helpLabel={t("settingHelp")}><select id="new-project-forge" name="kind"><option value="gitlab">GitLab</option><option value="github">GitHub</option><option value="gitea">Gitea</option></select></GuidedField>
             <GuidedField id="new-project-repo" label={t("repository")} help={t("settingHelpRepository")} helpLabel={t("settingHelp")}><input id="new-project-repo" name="repo" placeholder="owner/repository" required /></GuidedField>
@@ -889,9 +927,9 @@ export default function App() {
         {page === "importProject" && isAdmin && <>
           <div className="section-actions"><button className="ghost" type="button" onClick={() => { setError(""); setPage("projects"); }}>{t("backToProjects")}</button></div>
           <section className="panel"><p className="muted">{t("importHelp")}</p><form className="form-grid project-create-form" onSubmit={previewProjectImport}>
-            <GuidedField id="import-project-name" label={t("name")} help={t("createHelpName")} helpLabel={t("settingHelp")}><input id="import-project-name" value={importName} onChange={event => { importPreviewRequest.current += 1; setImportName(event.target.value); setImportPreview(null); }} pattern="[a-z0-9][a-z0-9._-]{0,63}" maxLength={64} required /></GuidedField>
+            <GuidedField id="import-project-name" label={t("name")} help={t("createHelpName")} helpLabel={t("settingHelp")}><input id="import-project-name" value={importName} onChange={event => { importPreviewRequest.current += 1; setImportName(event.target.value); setImportPreview(null); }} pattern={PROJECT_NAME_PATTERN} maxLength={64} required /></GuidedField>
             <GuidedField id="import-project-description" label={t("description")} help={t("createHelpDescription")} helpLabel={t("settingHelp")}><input id="import-project-description" value={importDescription} onChange={event => { importPreviewRequest.current += 1; setImportDescription(event.target.value); setImportPreview(null); }} /></GuidedField>
-            <GuidedField id="import-project-file" label={t("configFile")} help={t("importConfigHelp")} helpLabel={t("settingHelp")}><input id="import-project-file" type="file" accept=".toml,.txt" onChange={event => { const file = event.target.files?.[0]; const read = ++importFileRead.current; importPreviewRequest.current += 1; setImportPreview(null); setImportText(""); setImportFileName(file?.name || ""); if (file) void file.text().then(value => { if (read === importFileRead.current) setImportText(value); }).catch(cause => { if (read === importFileRead.current) setError(String(cause)); }); }} required /></GuidedField>
+            <GuidedField id="import-project-file" label={t("configFile")} help={t("importConfigHelp")} helpLabel={t("settingHelp")}><input id="import-project-file" type="file" accept=".toml,.txt" onChange={event => { const file = event.target.files?.[0]; const read = ++importFileRead.current; importPreviewRequest.current += 1; setImportPreview(null); setImportText(""); setImportFileName(file?.name || ""); if (file) void file.text().then(value => { if (read === importFileRead.current) setImportText(value); }).catch(cause => { if (read === importFileRead.current) setError(cause); }); }} required /></GuidedField>
             <div className="project-create-actions"><button className="primary" type="submit" disabled={!importText}>{t("previewImport")}</button><button className="ghost" type="button" onClick={() => { setError(""); setPage("projects"); }}>{t("cancel")}</button></div>
           </form></section>
           {importPreview && <section className="panel import-preview"><h2>{t("importPreview")}</h2><p>{importFileName} · {importPreview.platform || "—"} · {importPreview.repo || "—"} · {importPreview.runtime || "—"}</p>{importPreview.store_root && <p className="muted">{t("stateRoot")}: {importPreview.store_root}</p>}<p className="muted">{t("importUnchanged")}</p>{importPreview.issues.length ? <ul>{importPreview.issues.map((issue, index) => <li key={`${issue}-${index}`}>{issue}</li>)}</ul> : <button className="primary" onClick={() => void importProject()}>{t("importProject")}</button>}</section>}
@@ -1070,7 +1108,7 @@ export default function App() {
 
         {page === "adminAudit" && isAdmin && <div className="two-column">
           <section className="panel wide-panel"><h2>{t("auditRetention")}</h2><p className="muted">{t("auditRetentionHelp")}</p>{auditPolicy && <form key={`${auditPolicy.retention_days}-${auditPolicy.max_bytes}`} className="inline-form audit-policy-form" onSubmit={saveAuditPolicy}><label>{t("auditDays")}<input name="retention_days" type="number" min="0" max="36500" step="1" defaultValue={auditPolicy.retention_days ?? 0} /></label><label>{t("auditMib")}<input name="max_mib" type="number" min="0" max="1024" step="any" defaultValue={auditPolicy.max_bytes == null ? 0 : auditPolicy.max_bytes / 1024**2} /></label><button className="primary" type="submit">{t("save")}</button></form>}</section>
-          <section className="panel wide-panel"><div className="panel-heading"><h2>{t("auditTrail")}</h2><button className="ghost" onClick={() => request<AuditRow[]>("/audit?limit=all").then(setAuditRows).catch(cause => setError(cause.message))}>{t("refresh")}</button></div>
+          <section className="panel wide-panel"><div className="panel-heading"><h2>{t("auditTrail")}</h2><button className="ghost" onClick={() => request<AuditRow[]>("/audit?limit=all").then(setAuditRows).catch(cause => setError(cause))}>{t("refresh")}</button></div>
             {auditRows.length ? <PagedTable t={t}><table><thead><tr><th>{t("date")}</th><th>{t("actor")}</th><th>{t("action")}</th><th>{t("project")}</th><th>{t("detail")}</th></tr></thead><tbody>{auditRows.map(row => <tr key={row.id}><td>{formatDate(row.created_at)}</td><td>{row.actor || "—"}</td><td>{row.action}</td><td>{row.project || "—"}</td><td>{row.detail || "—"}</td></tr>)}</tbody></table></PagedTable> : <Empty label={t("empty")} />}
           </section>
         </div>}

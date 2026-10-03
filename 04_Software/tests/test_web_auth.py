@@ -18,7 +18,9 @@ import sqlite3
 
 from adore.profiles import ProfileStore
 from adore.state import RunState, StateStore
+from adore.web.app import create_app
 from adore.web.store import WebStore, WebStoreError
+from fastapi.testclient import TestClient
 import pytest
 
 
@@ -193,7 +195,7 @@ def test_schema_nine_upgrade_adds_projection_without_resetting_admin(tmp_path):
     assert upgraded.authenticate("admin", "replacement-long-password")
     assert upgraded.authenticate("admin", "admin") is None
     with sqlite3.connect(path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 12
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 13
         assert connection.execute("SELECT COUNT(*) FROM usage_projection").fetchone()[0] == 0
         assert connection.execute("SELECT COUNT(*) FROM usage_cursor").fetchone()[0] == 0
 
@@ -208,7 +210,7 @@ def test_schema_ten_upgrade_adds_coverage_cursor(tmp_path):
         connection.execute("PRAGMA user_version=10")
     WebStore(path)
     with sqlite3.connect(path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 12
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 13
         assert connection.execute("SELECT COUNT(*) FROM usage_projection").fetchone()[0] == 0
         assert connection.execute(
             "SELECT COUNT(*) FROM usage_observation_projection"
@@ -325,3 +327,107 @@ def test_admin_password_reset_revokes_sessions(tmp_path):
         store.reset_password(user["id"], "short")
     with pytest.raises(WebStoreError, match="user not found"):
         store.reset_password(999, "new-long-password")
+
+
+def test_reset_password_requires_own_change_until_it_succeeds(tmp_path):
+    """@brief An administrator reset marks the account until its own change."""
+    path = tmp_path / "web.db"
+    store = WebStore(path)
+    user = store.create_user("dev", "longer-password", "developer")
+    assert store.authenticate("dev", "longer-password")["password_change_required"] is False
+    store.reset_password(user["id"], "recovery-password")
+    marked = WebStore(path).authenticate("dev", "recovery-password")
+    assert marked["password_change_required"] is True
+    token, _csrf = store.create_session(user["id"])
+    assert store.session_user(token)["password_change_required"] is True
+    with pytest.raises(WebStoreError, match="incorrect"):
+        store.change_password(user["id"], "wrong-password", "chosen-password")
+    with pytest.raises(WebStoreError, match="8 characters"):
+        store.change_password(user["id"], "recovery-password", "short")
+    assert store.authenticate("dev", "recovery-password")["password_change_required"] is True
+    store.change_password(user["id"], "recovery-password", "chosen-password")
+    assert WebStore(path).authenticate("dev", "chosen-password")[
+        "password_change_required"] is False
+
+
+def test_bootstrap_admin_and_schema_twelve_accounts_start_unmarked(tmp_path):
+    """@brief The fresh admin and upgraded accounts keep working unchanged."""
+    path = tmp_path / "web.db"
+    store = WebStore(path)
+    assert store.authenticate("admin", "admin")["password_change_required"] is False
+    store.create_user("dev", "longer-password", "developer")
+    with sqlite3.connect(path) as connection:
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 13
+        connection.execute("ALTER TABLE users DROP COLUMN password_change_required")
+        connection.execute("PRAGMA user_version=12")
+    upgraded = WebStore(path)
+    with sqlite3.connect(path) as connection:
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 13
+    assert upgraded.authenticate("admin", "admin")["password_change_required"] is False
+    assert upgraded.authenticate("dev", "longer-password")[
+        "password_change_required"] is False
+
+
+def test_schema_thirteen_missing_password_policy_fails_closed(tmp_path):
+    """@brief A current store without the reset marker cannot start."""
+    path = tmp_path / "web.db"
+    WebStore(path)
+    with sqlite3.connect(path) as connection:
+        connection.execute("ALTER TABLE users DROP COLUMN password_change_required")
+    with pytest.raises(WebStoreError, match="password policy"):
+        WebStore(path)
+
+
+def test_password_change_required_limits_api_to_account_routes(tmp_path):
+    """@brief A reset account reaches only its own account routes until it changes."""
+    app = create_app(tmp_path / "home")
+    web = app.state.web_store
+    dev = web.create_user("dev", "longer-password", "developer")
+    web.reset_password(dev["id"], "recovery-password")
+    with TestClient(app) as client:
+        assert client.get("/api/v1/projects").json()["detail"]["code"] == (
+            "authentication_required")
+        login = client.post("/api/v1/session", json={
+            "username": "dev", "password": "recovery-password"})
+        assert login.status_code == 200
+        assert login.json()["user"]["password_change_required"] is True
+        csrf = login.json()["csrf"]
+        headers = {"X-CSRF-Token": csrf}
+        for blocked in (client.get("/api/v1/projects"),
+                        client.get("/api/v1/metrics"),
+                        client.post("/api/v1/projects/alpha/operations/pause",
+                                    headers=headers, json={"idempotency_key": "k1"})):
+            assert blocked.status_code == 403
+            assert blocked.json()["detail"]["code"] == "password_change_required"
+        assert client.get("/api/v1/me").json()["user"]["password_change_required"] is True
+        assert client.get("/api/v1/me/preferences").status_code == 200
+        assert client.patch("/api/v1/me/preferences", json={
+            "theme": "dark"}).json()["detail"]["code"] == "csrf_required"
+        assert client.patch("/api/v1/me/preferences", headers=headers,
+                            json={"theme": "dark"}).status_code == 200
+        assert client.post("/api/v1/me/password", headers=headers, json={
+            "current": "wrong-password", "replacement": "chosen-password"}).status_code == 400
+        assert client.get("/api/v1/projects").status_code == 403
+        assert client.post("/api/v1/me/password", headers=headers, json={
+            "current": "recovery-password", "replacement": "chosen-password"}).status_code == 200
+        assert client.get("/api/v1/me").status_code == 401
+        relogin = client.post("/api/v1/session", json={
+            "username": "dev", "password": "chosen-password"})
+        assert relogin.json()["user"]["password_change_required"] is False
+        assert client.get("/api/v1/projects").status_code == 200
+        assert client.delete("/api/v1/session", headers={
+            "X-CSRF-Token": relogin.json()["csrf"]}).status_code == 200
+
+
+def test_password_change_required_session_can_sign_out(tmp_path):
+    """@brief Signing out remains available while a new password is required."""
+    app = create_app(tmp_path / "home")
+    web = app.state.web_store
+    dev = web.create_user("dev", "longer-password", "developer")
+    web.reset_password(dev["id"], "recovery-password")
+    with TestClient(app) as client:
+        login = client.post("/api/v1/session", json={
+            "username": "dev", "password": "recovery-password"})
+        assert client.delete("/api/v1/session", headers={
+            "X-CSRF-Token": login.json()["csrf"]}).status_code == 200
+        assert client.get("/api/v1/me").status_code == 401

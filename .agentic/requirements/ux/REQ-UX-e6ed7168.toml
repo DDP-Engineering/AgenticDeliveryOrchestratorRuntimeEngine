@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-e6ed7168"
+
+title = "Display localized web error messages"
+
+status = "active"
+
+requirement = """
+When a web request fails, the web interface shall display the message for the returned error code in the selected language, followed by any diagnostic detail, and if the code has no message it shall display a localized generic failure message that names the code.
+"""
+
+verification = "Automated: a frontend test asserts that every error code the API source can emit has a non-empty message in English, French, German and Romanian, and that an unknown code yields the localized generic message containing the code. Manual: create a project named My Project via the API-backed form with browser validation bypassed, and confirm the banner shows the localized sentence instead of invalid_project_name in each locale."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/errors.ts", "04_Software/web/tests/", "04_Software/adore/web/static/"]
+
+linked_tests = ["04_Software/web/tests/errors.test.mjs"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-03
+updated = 2026-10-03

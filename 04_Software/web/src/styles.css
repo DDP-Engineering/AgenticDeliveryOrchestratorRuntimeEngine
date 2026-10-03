@@ -18,6 +18,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
   --accent: #15715c;
   --accent-deep: #0a5746;
   --accent-soft: #e6f4ed;
+  --on-accent: #ffffff;
   --danger: #b23b3b;
   --danger-soft: #fff0ed;
   --shadow: 0 3px 16px rgba(25, 48, 37, .045);
@@ -28,7 +29,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
     color-scheme: dark;
     --bg: #111c1b; --surface: #1b2826; --surface-alt: #20312e;
     --text: #e9f1ec; --muted: #bac9c0; --border: #32423e;
-    --accent: #67c9a5; --accent-deep: #9adfbe; --accent-soft: #183e32;
+    --accent: #67c9a5; --accent-deep: #9adfbe; --accent-soft: #183e32; --on-accent: #09251b;
     --danger: #f29b92; --danger-soft: #4c2827; --shadow: none;
   }
 }
@@ -37,7 +38,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
   color-scheme: dark;
   --bg: #111c1b; --surface: #1b2826; --surface-alt: #20312e;
   --text: #e9f1ec; --muted: #bac9c0; --border: #32423e;
-  --accent: #67c9a5; --accent-deep: #9adfbe; --accent-soft: #183e32;
+  --accent: #67c9a5; --accent-deep: #9adfbe; --accent-soft: #183e32; --on-accent: #09251b;
   --danger: #f29b92; --danger-soft: #4c2827; --shadow: none;
 }
 
@@ -58,8 +59,7 @@ h3 { font-size: .95rem; margin: 20px 0 8px; }
 p.muted { line-height: 1.5; }
 .eyebrow { text-transform: uppercase; letter-spacing: .16em; font-size: .68rem; font-weight: 800; color: var(--accent); margin-bottom: 12px; }
 .primary, .ghost, .danger, .link-button { border-radius: 9px; padding: 10px 15px; font-size: .88rem; font-weight: 700; min-height: 42px; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
-.primary { background: var(--accent); color: #fff; }
-:root[data-theme="dark"] .primary { color: #09251b; }
+.primary { background: var(--accent); color: var(--on-accent); }
 .ghost { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
 .danger { background: var(--danger-soft); color: var(--danger); }
 .text-button { color: var(--accent-deep); background: transparent; font-weight: 750; padding: 5px 2px; }

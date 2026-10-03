@@ -59,7 +59,17 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
   unprovable legacy pending work uncertain. Renames retain grants and queued
   targets, while a reused name cannot inherit either.
 - Mutations require CSRF; sessions are opaque, expiring and revocable.
-- Administrator password reset revokes target sessions. Config reads omit
+- Administrator password reset revokes target sessions and sets the schema-13
+  reset marker; until the account changes its own password, only `/me`,
+  `/me/preferences`, `/me/password` and sign-out answer, and other
+  authenticated routes return 403 `password_change_required`. The bootstrap
+  `admin` and upgraded accounts start unmarked.
+- Every API error body is `{"detail": {"code", "message"?}}` with a stable
+  snake_case code; store sentences map to fixed codes, unknown text becomes
+  `request_rejected`, validation is 422 `invalid_request`, and unknown
+  `/api/...` paths return 404 `not_found`. `web/src/errors.ts` holds an
+  EN/FR/DE/RO sentence for every code `app.py` can emit.
+- Config reads omit
   credential-looking fields; journal views use a role-aware field allowlist.
 - Web config edits use a SHA-256 revision and the same per-directory process
   lock as CLI `config set`; direct host file changes do not use that lock.
@@ -178,6 +188,7 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 | API permissions/config/metrics | `adore/web/app.py` | `test_web_rbac.py`, `test_web_config.py`, `test_web_pending_config.py`, `test_web_readiness.py`, `test_web_metrics.py` |
 | Worker execution | `adore/web/commands.py` | `test_web_commands.py` |
 | Language, theme, views | `web/src/App.tsx`, `web/src/i18n.ts` | `npm run build`, browser check |
+| Error codes and messages | `adore/web/app.py` (`_error`, `_STORE_ERROR_CODES`), `web/src/errors.ts` | `test_web_errors.py`, `npm test` (`errors.test.mjs`) |
 | Offline media | `02_Tools/*web*.py` | `test_web_package.py`, installed HTTP smoke |
 
 ## Key behaviors
@@ -188,6 +199,12 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 - `REQ-FUNC-f9946b6b` - durable selected-ticket operations and admin pickup.
 - `REQ-FUNC-448cbde7` - observed usage, reported/estimated costs and coverage.
 - `REQ-UX-749d37c8` - four locales, themes and responsive UI.
+- `REQ-SEC-676d284c` / `REQ-UX-309a6b3f` - administrator reset requires a new
+  password; the browser shows only the change-password card meanwhile.
+- `REQ-FUNC-9c1f728e` / `REQ-UX-e6ed7168` - stable API error codes and their
+  localized banner text.
+- `REQ-UX-359f8cbf` - browser-side project-name validation.
+- `REQ-UX-94dc4e69` - error banners reflect only the latest user action.
 - `REQ-UX-66e6f3f5` - project details presents collapsible, guided settings with administrator editing.
 - `REQ-SEC-c2298428` - redacted project configuration reads follow grants; edits remain administrator-only.
 - `REQ-PLAT-a1b60ff9` - host-specific offline installation.
@@ -261,13 +278,22 @@ the shared reporting controls in two rows.
 Session clearing also returns the shell to Overview, preventing a blank
 administrator-only page after a developer signs in. Successful asynchronous
 user creation and config staging reset their forms without a false error.
+A signed-in account with a pending required password change is held outside
+the shell session, so only the change-password card renders and no dashboard
+polling starts. The error banner stores the raw failure; `web/src/errors.ts`
+renders it in the active locale, and each user action or view change clears
+it. `web/src/projectName.ts` supplies the `v`-flag-safe project-name pattern
+for Add and Import project. Primary buttons take their text colour from the
+`--on-accent` theme token.
 
 ## Files
 
 - `04_Software/adore/web/{app,store,commands,server}.py` - API, SQLite store,
   worker and listener.
 - `04_Software/adore/web/static/` - bundled local UI and license.
-- `04_Software/web/` - React source and build configuration.
+- `04_Software/web/` - React source and build configuration;
+  `web/src/errors.ts` (error localization) and `web/src/projectName.ts`
+  (shared name pattern) are pure modules tested by `web/tests/*.test.mjs`.
 - `02_Tools/{package_web_offline,install_web_offline,launch_web,stamp_web_assets}.py`
   - offline media and static asset preparation.
 - `04_Software/tests/test_web_*.py` - focused API, pricing, worker and packaging tests.

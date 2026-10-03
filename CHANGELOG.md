@@ -14,6 +14,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- An administrator password reset now requires the account to choose a new password at its next sign-in; until then the web interface shows only a change-password screen and the API returns `password_change_required`. The identity database moves to schema 13; existing accounts, including `admin`, are not affected.
+- Web API errors now always carry a stable snake_case `detail.code` with optional `detail.message` diagnostics, including request validation (`invalid_request`), account and price failures, and unknown API paths (404 `not_found`).
 - Ticket timelines show the latest recorded events first; subsequent pages move toward older history.
 - Selected-ticket timelines on Jobs now use a table with 10/25/50/All row choices and page navigation.
 - Project details uses the opened project context with a common-controls-only header and clearer spacing between metadata and actions.
@@ -34,6 +36,9 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Web error banners now show a sentence in the selected language instead of raw error codes, and clear after a later successful action or a view change.
+- Add project and Import project now reject invalid project names in the browser; the name pattern had been ignored by browsers that compile patterns with the `v` flag.
+- Primary buttons keep readable dark text on the accent colour when the theme follows a dark system setting.
 - Improved faint project details text with stronger theme contrast, larger metadata/settings guidance and wrapping for long values.
 
 - The web runtime now reads DCP checkpoint-bearing run state, preserves guarded

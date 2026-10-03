@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-94dc4e69"
+
+title = "Show only the latest action's error"
+
+status = "active"
+
+requirement = """
+When a user action succeeds or the user opens another view, the web interface shall remove any error message left by an earlier action.
+"""
+
+verification = "Manual: submit Add project with a name the server rejects, observe the error, then create a valid project and confirm the project page shows no error; trigger an error on Users, open Overview from the sidebar and confirm no error is shown; trigger an error and confirm a later failure replaces rather than accumulates it."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/adore/web/static/"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-03
+updated = 2026-10-03

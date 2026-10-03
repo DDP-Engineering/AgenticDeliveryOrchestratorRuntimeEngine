@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-FUNC-9c1f728e"
+
+title = "Return stable web API error codes"
+
+status = "active"
+
+requirement = """
+When the ADORE web API rejects a request, it shall respond with a JSON body whose detail.code is a stable lowercase snake_case identifier and whose optional detail.message carries diagnostic text, including for request-validation, account, price, operation and project-creation failures.
+"""
+
+verification = "Automated: trigger request validation (short reset password), account failures (duplicate username, short password, wrong current password, last administrator, unknown user), a duplicate price, an invalid project creation answer and an unknown API route; assert each status code is unchanged and detail.code matches ^[a-z][a-z0-9_]{0,63}$ with the specified code, and that project-creation diagnostics appear in detail.message. Boundary: an unmapped store failure returns request_rejected with its text in detail.message."
+
+affected_paths = ["04_Software/adore/web/app.py"]
+
+linked_tests = ["04_Software/tests/test_web_errors.py::test_account_failures_return_stable_codes", "04_Software/tests/test_web_errors.py::test_request_validation_returns_invalid_request_with_field_reasons", "04_Software/tests/test_web_errors.py::test_unknown_api_routes_return_coded_errors", "04_Software/tests/test_web_errors.py::test_price_and_operation_conflicts_return_stable_codes", "04_Software/tests/test_web_errors.py::test_project_setup_failure_keeps_diagnostic_in_message", "04_Software/tests/test_web_errors.py::test_unmapped_store_failure_returns_request_rejected"]
+
+
+spec = "specs/REQ-FUNC-9c1f728e.md"
+
+priority = "normal"   # low | normal | high
+rationale = "Clients localize and test against stable identifiers rather than English sentences."        # why this behavior exists, if not obvious
+
+created = 2026-10-03
+updated = 2026-10-03

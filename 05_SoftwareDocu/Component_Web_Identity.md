@@ -16,7 +16,8 @@ state and uses one SQLite database in `ADORE_HOME/web.db`.
 ## 2. Responsibilities
 
 It bootstraps `admin` / `admin` exactly once, stores Argon2id password hashes,
-checks and revokes opaque sessions, supports administrator password reset,
+checks and revokes opaque sessions, supports administrator password reset that
+requires the account to choose a new password before further use,
 protects the last active admin, limits
 failed logins, and claims queued commands transactionally. A sidecar marker
 prevents recreating the default login after the identity database is deleted.
@@ -26,7 +27,11 @@ both check current membership.
 ## 3. Implementation Overview
 
 Each method opens a short-lived SQLite connection with foreign keys and a ten
-second busy timeout. Schema 12 adds an audit-policy singleton; upgrades leave
+second busy timeout. Schema 13 adds `users.password_change_required`: an
+administrator reset sets it, a successful own password change clears it, and
+the bootstrap `admin` plus accounts upgraded from earlier schemas start
+unmarked. A schema-13 store without the column fails closed.
+Schema 12 adds an audit-policy singleton; upgrades leave
 existing users and audit rows intact. Its two nullable bounds default to
 unlimited and pruning runs transactionally on policy changes, audit writes and
 audit reads. Events older than the day bound or beyond the stored UTF-8 text

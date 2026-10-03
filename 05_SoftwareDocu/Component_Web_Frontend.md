@@ -227,6 +227,20 @@ Before login those browser values are the fallback. After login, saved account
 preferences load before the authenticated shell appears; Settings writes a
 changed language or theme to that account. A failed save restores the previous
 choice. The login screen offers both language and theme controls.
+An account whose password an administrator reset signs in to a dedicated
+change-password card with the reason, language, theme and Sign out controls;
+the dashboard and its polling stay inactive until the change succeeds, after
+which the sign-in card confirms the change.
+`errors.ts` turns API error codes into EN/FR/DE/RO sentences, appending any
+diagnostic `message`; an unknown code shows a localized generic sentence that
+names it, and network failures have their own message. The banner keeps the
+raw failure and localizes it when rendered, so a language switch updates it.
+Each user action and each view change clears the previous error banner;
+background refreshes do not. `projectName.ts` holds the project-name pattern
+shared by Add project and Import project; its escaped hyphen keeps it valid
+under the `v` flag browsers use for `pattern`, so invalid names are rejected
+before a request is sent. Primary buttons use the `--on-accent` token, which
+is dark text on the light accent in both system-dark and explicit Dark themes.
 
 ## 4. Dependencies
 
@@ -254,8 +268,11 @@ cost and account/config screens.
 
 ## 9. Validation And Tests
 
-`npm run build` performs TypeScript and Vite checks. Backend tests prove RBAC
-and cost omission. Chrome checks covered 360px and 1920px layouts, all four
+`npm run build` performs TypeScript and Vite checks. `npm test` runs the Node
+unit tests, including `errors.test.mjs`, which requires a message in every
+locale for each code `adore/web/app.py` can return, and
+`projectName.test.mjs`, which compiles the shared pattern with the `v` flag.
+Backend tests prove RBAC and cost omission. Chrome checks covered 360px and 1920px layouts, all four
 language controls, dark/system themes and the About dialog's keyboard close.
 At 360px, browser QA verified Tab/Shift-Tab remain on the dialog's Close button,
 Escape restores focus to About, the background is inert, the mobile Sign out

@@ -40,8 +40,10 @@ from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from adore import __version__, doctor, metrics
 from adore.cli import _SECRET_KEY_RE, _set_toml_scalar
@@ -59,6 +61,27 @@ from adore.wizard import ScriptedAsker, WizardError, run_wizard
 _PROFILE_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
 _STATIC = Path(__file__).with_name("static")
 _COOKIE = "adore_session"
+_STORE_ERROR_CODES = {
+    "password must contain at least 8 characters": "password_too_short",
+    "current password is incorrect": "current_password_incorrect",
+    "username already exists": "username_exists",
+    "invalid username": "invalid_username",
+    "invalid role": "invalid_role",
+    "user not found": "user_not_found",
+    "cannot disable the last administrator": "last_administrator",
+    "project not found": "project_not_found",
+    "project does not exist": "project_not_found",
+    "price version already exists or actor is invalid": "price_exists",
+    "invalid price": "invalid_price",
+    "invalid price identity": "invalid_price",
+    "price exceeds limit": "invalid_price",
+    "invalid effective date": "invalid_effective_date",
+    "idempotency key belongs to another operation": "idempotency_conflict",
+    "invalid operation": "invalid_operation",
+}
+_HTTP_ERROR_CODES = {404: "not_found", 405: "method_not_allowed"}
+_HTTP_FALLBACK_CODE = "request_failed"
+_REQUEST_PARTS = ("body", "query", "path", "header", "cookie")
 _LOW_STORAGE_BYTES = 1024**3
 _TERMINAL_RUN_LIFECYCLES = ("done", "failed", "cancelled", "handed-off")
 _TERMINAL_JOURNAL_EVENTS = {
@@ -183,8 +206,38 @@ class OperationInput(BaseModel):
 
 
 # HELPER FUNCTIONS
-def _error(status: int, code: str) -> HTTPException:
-    return HTTPException(status_code=status, detail={"code": code})
+def _error(status: int, code: str, message: str | None = None) -> HTTPException:
+    """
+    @brief Build a client error with a stable code and optional diagnostic text.
+    @param[in] status HTTP status code.
+    @param[in] code Lowercase snake_case identifier the browser localizes.
+    @param[in] message Optional English diagnostic shown after the localized text.
+    @return Exception for FastAPI to render as {"detail": {...}}.
+    """
+    detail = {"code": code}
+    if message:
+        detail["message"] = message
+    return HTTPException(status_code=status, detail=detail)
+
+
+def _store_error(status: int, exc: Exception) -> HTTPException:
+    """@brief Translate a store sentence into its stable code, keeping unknown text."""
+    text = str(exc)
+    code = _STORE_ERROR_CODES.get(text)
+    return _error(status, code) if code else _error(status, "request_rejected", text)
+
+
+def _validation_message(exc: RequestValidationError) -> str:
+    """@brief Summarize failing request fields without echoing submitted values."""
+    reasons = []
+    for item in exc.errors():
+        location = [str(part) for part in item.get("loc", ())]
+        if location and location[0] in _REQUEST_PARTS:
+            location = location[1:]
+        field = ".".join(location)
+        reason = str(item.get("msg", "invalid value"))
+        reasons.append(f"{field}: {reason}" if field else reason)
+    return "; ".join(reasons)
 
 
 def _profile_name(name: str) -> str:
@@ -1209,17 +1262,48 @@ def create_app(home: str | Path | None = None,
         return JSONResponse(status_code=503,
                             content={"detail": {"code": "web_store_corrupt"}})
 
-    def principal(request: Request) -> dict:
+    @app.exception_handler(RequestValidationError)
+    async def invalid_request(_request: Request, exc: RequestValidationError) -> JSONResponse:
+        """@brief Report schema failures with one code and field-level reasons."""
+        return JSONResponse(status_code=422, content={"detail": {
+            "code": "invalid_request", "message": _validation_message(exc)}})
+
+    @app.exception_handler(StarletteHTTPException)
+    async def coded_http_error(_request: Request, exc: StarletteHTTPException) -> JSONResponse:
+        """@brief Keep coded errors and give framework text errors a stable code."""
+        detail = exc.detail
+        if not (isinstance(detail, dict) and isinstance(detail.get("code"), str)):
+            detail = {"code": _HTTP_ERROR_CODES.get(exc.status_code, _HTTP_FALLBACK_CODE),
+                      "message": str(detail)}
+        return JSONResponse(status_code=exc.status_code, content={"detail": detail},
+                            headers=getattr(exc, "headers", None))
+
+    def account_principal(request: Request) -> dict:
+        """@brief Resolve the session for routes that manage the account itself."""
         user = web.session_user(request.cookies.get(_COOKIE, ""))
         if user is None:
             raise _error(401, "authentication_required")
         return user
 
-    def mutation(request: Request, user: Annotated[dict, Depends(principal)]) -> dict:
+    def principal(user: Annotated[dict, Depends(account_principal)]) -> dict:
+        """@brief Admit an account that has no outstanding required password change."""
+        if user["password_change_required"]:
+            raise _error(403, "password_change_required")
+        return user
+
+    def _require_csrf(request: Request, user: dict) -> dict:
         csrf = request.headers.get("x-csrf-token", "")
         if not csrf or not secrets.compare_digest(csrf, user["csrf"]):
             raise _error(403, "csrf_required")
         return user
+
+    def account_mutation(request: Request,
+                         user: Annotated[dict, Depends(account_principal)]) -> dict:
+        """@brief CSRF-protected change to the signed-in account itself."""
+        return _require_csrf(request, user)
+
+    def mutation(request: Request, user: Annotated[dict, Depends(principal)]) -> dict:
+        return _require_csrf(request, user)
 
     def administrator(user: Annotated[dict, Depends(principal)]) -> dict:
         if user["role"] != "admin":
@@ -1350,12 +1434,12 @@ def create_app(home: str | Path | None = None,
         return {"user": user, "csrf": csrf}
 
     @app.get("/api/v1/me")
-    def me(user: Annotated[dict, Depends(principal)]) -> dict:
+    def me(user: Annotated[dict, Depends(account_principal)]) -> dict:
         return {"user": {key: value for key, value in user.items() if key != "csrf"},
                 "csrf": user["csrf"]}
 
     @app.get("/api/v1/me/preferences")
-    def get_preferences(user: Annotated[dict, Depends(principal)]) -> dict:
+    def get_preferences(user: Annotated[dict, Depends(account_principal)]) -> dict:
         """@brief Return saved preferences for the authenticated account."""
         try:
             return web.preferences(user["id"])
@@ -1364,7 +1448,7 @@ def create_app(home: str | Path | None = None,
 
     @app.patch("/api/v1/me/preferences")
     def update_preferences(body: PreferenceInput,
-                           user: Annotated[dict, Depends(mutation)]) -> dict:
+                           user: Annotated[dict, Depends(account_mutation)]) -> dict:
         """@brief Save a validated language or theme for the current account."""
         try:
             return web.set_preferences(user["id"], body.model_dump(exclude_unset=True))
@@ -1375,7 +1459,7 @@ def create_app(home: str | Path | None = None,
 
     @app.delete("/api/v1/session")
     def logout(request: Request, response: Response,
-               user: Annotated[dict, Depends(mutation)]) -> dict:
+               user: Annotated[dict, Depends(account_mutation)]) -> dict:
         web.revoke_session(request.cookies.get(_COOKIE, ""))
         response.delete_cookie(_COOKIE, path="/")
         web.audit(user["id"], "logout")
@@ -1383,11 +1467,11 @@ def create_app(home: str | Path | None = None,
 
     @app.post("/api/v1/me/password")
     def change_password(body: PasswordChange,
-                        user: Annotated[dict, Depends(mutation)]) -> dict:
+                        user: Annotated[dict, Depends(account_mutation)]) -> dict:
         try:
             web.change_password(user["id"], body.current, body.replacement)
         except WebStoreError as exc:
-            raise _error(400, str(exc)) from exc
+            raise _store_error(400, exc) from exc
         web.audit(user["id"], "password-changed")
         return {"ok": True}
 
@@ -1424,7 +1508,7 @@ def create_app(home: str | Path | None = None,
         try:
             created = web.create_user(body.username, body.password, body.role)
         except WebStoreError as exc:
-            raise _error(400, str(exc)) from exc
+            raise _store_error(400, exc) from exc
         web.audit(user["id"], "user-created", detail=body.username)
         return created
 
@@ -1440,7 +1524,7 @@ def create_app(home: str | Path | None = None,
         try:
             web.set_memberships(user_id, body.projects)
         except WebStoreError as exc:
-            raise _error(404, str(exc)) from exc
+            raise _store_error(404, exc) from exc
         web.audit(user["id"], "membership-changed", detail=str(user_id))
         return {"projects": sorted(set(body.projects))}
 
@@ -1449,7 +1533,7 @@ def create_app(home: str | Path | None = None,
         try:
             web.disable_user(user_id)
         except WebStoreError as exc:
-            raise _error(409, str(exc)) from exc
+            raise _store_error(409, exc) from exc
         web.audit(user["id"], "user-disabled", detail=str(user_id))
         return {"ok": True}
 
@@ -1458,7 +1542,7 @@ def create_app(home: str | Path | None = None,
         try:
             web.enable_user(user_id)
         except WebStoreError as exc:
-            raise _error(404, str(exc)) from exc
+            raise _store_error(404, exc) from exc
         web.audit(user["id"], "user-enabled", detail=str(user_id))
         return {"ok": True}
 
@@ -1468,7 +1552,7 @@ def create_app(home: str | Path | None = None,
         try:
             web.reset_password(user_id, body.replacement)
         except WebStoreError as exc:
-            raise _error(404 if "not found" in str(exc) else 400, str(exc)) from exc
+            raise _store_error(404 if "not found" in str(exc) else 400, exc) from exc
         web.audit(user["id"], "password-reset", detail=str(user_id))
         return {"ok": True}
 
@@ -1520,7 +1604,7 @@ def create_app(home: str | Path | None = None,
                 name=body.name, out=lambda _message: None,
             )
         except (WizardError, ProfileError) as exc:
-            raise _error(400, str(exc)) from exc
+            raise _error(400, "project_setup_invalid", str(exc)) from exc
         web.audit(user["id"], "project-created", created.name)
         return _profile_view(profiles, created)
 
@@ -2112,7 +2196,7 @@ def create_app(home: str | Path | None = None,
             )
         except WebStoreError as exc:
             status = 409 if "already exists" in str(exc) else 400
-            raise _error(status, str(exc)) from exc
+            raise _store_error(status, exc) from exc
         web.audit(user["id"], "price-created", item.name,
                   f'{body.executor}:{body.model}:{body.effective_from}')
         return created
@@ -2292,7 +2376,7 @@ def create_app(home: str | Path | None = None,
             operation = web.enqueue(user["id"], item.name, action,
                                     target, body.idempotency_key)
         except WebStoreError as exc:
-            raise _error(409, str(exc)) from exc
+            raise _store_error(409, exc) from exc
         web.audit(user["id"], "operation-submitted", item.name,
                   f"{action}:{target}")
         return {"id": operation["id"], "status": operation["status"]}
@@ -2311,6 +2395,8 @@ def create_app(home: str | Path | None = None,
 
     @app.get("/{path:path}", include_in_schema=False)
     def frontend(path: str) -> Response:
+        if path == "api" or path.startswith("api/"):
+            raise _error(404, "not_found", "Not Found")
         if not _STATIC.is_dir():
             raise _error(503, "frontend_not_built")
         target = (_STATIC / path).resolve()

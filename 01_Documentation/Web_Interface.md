@@ -79,8 +79,11 @@ progress commits fetchable before approval; draft MR/PR creation still waits
 for a fresh candidate-bound human approval. The default is false.
 Disabling a user revokes sessions; the last
 active administrator cannot be disabled. Administrators can reset an account's
-password in Administration; this revokes all of that account's sessions. There
-is no email password recovery.
+password in Administration; this revokes all of that account's sessions, and
+at its next sign-in the account sees only a change-password screen until it
+chooses a new password of at least 8 characters. Until then the API answers
+other routes with 403 `password_change_required`. There is no email password
+recovery.
 Administration has separate System status, Users, Audit and Settings submenus.
 Administrators create and manage accounts in Users and inspect account, project
 and operation events in Audit. Developers cannot open these submenus; their
@@ -159,7 +162,13 @@ After upgrading a web identity database from schema 1-3, administrators must
 reassign developer project access. Older grants were tied only to profile names;
 schema 4 clears them so a replacement profile cannot inherit access.
 Schema 6 adds account presentation preferences without changing passwords,
-sessions, memberships or prices.
+sessions, memberships or prices. Schema 13 adds the reset marker; upgraded
+accounts, including `admin`, keep signing in normally.
+
+Error banners show a sentence in the selected language for the API's error
+code, followed by any server detail. API error bodies always have the form
+`{"detail": {"code": "...", "message": "..."}}`, with `message` optional; see
+`05_SoftwareDocu/Component_Web_API.md` for the code contract.
 
 `GET /api/v1/health` reports API process liveness. `GET /api/v1/ready` returns
 200 only while the separate control worker has refreshed its heartbeat within

@@ -41,7 +41,8 @@ _SCHEMA = """
 CREATE TABLE users (
     id INTEGER PRIMARY KEY, username TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL, role TEXT NOT NULL CHECK(role IN ('admin','developer')),
-    disabled INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL
+    disabled INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL,
+    password_change_required INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE memberships (
     user_id INTEGER NOT NULL REFERENCES users(id),
@@ -145,6 +146,7 @@ def _user(row: sqlite3.Row) -> dict[str, Any]:
     return {
         "id": row["id"], "username": row["username"],
         "role": row["role"], "disabled": bool(row["disabled"]),
+        "password_change_required": bool(row["password_change_required"]),
     }
 
 
@@ -236,7 +238,7 @@ class WebStore:
                         "VALUES (?,?,?,?)",
                         ("admin", _HASHER.hash("admin"), "admin", _now()),
                     )
-                    connection.execute("PRAGMA user_version=12")
+                    connection.execute("PRAGMA user_version=13")
                 elif version == 1:
                     connection.execute(
                         "CREATE TABLE login_failures (identity_hash TEXT PRIMARY KEY, "
@@ -245,7 +247,7 @@ class WebStore:
                     connection.execute(_PRICE_SCHEMA)
                 elif version == 2:
                     connection.execute(_PRICE_SCHEMA)
-                elif version not in (3, 4, 5, 6, 7, 8, 9, 10, 11, 12):
+                elif version not in (3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13):
                     raise WebStoreError("unsupported or corrupt web database schema")
                 if version in (1, 2, 3):
                     columns = {row[1] for row in connection.execute(
@@ -381,6 +383,23 @@ class WebStore:
                         "VALUES (1,NULL,NULL)"
                     )
                     connection.execute("PRAGMA user_version=12")
+                if version in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12):
+                    if "password_change_required" not in {
+                        row[1] for row in connection.execute(
+                            "PRAGMA table_info(users)"
+                        ).fetchall()
+                    }:
+                        connection.execute(
+                            "ALTER TABLE users ADD COLUMN "
+                            "password_change_required INTEGER NOT NULL DEFAULT 0"
+                        )
+                    connection.execute("PRAGMA user_version=13")
+                if "password_change_required" not in {
+                    row[1] for row in connection.execute(
+                        "PRAGMA table_info(users)"
+                    ).fetchall()
+                }:
+                    raise WebStoreError("web database missing password policy")
                 if "profile_created_at" not in {
                     row[1] for row in connection.execute(
                         "PRAGMA table_info(memberships)"
@@ -738,7 +757,7 @@ class WebStore:
                 raise WebStoreError("user not found")
 
     def change_password(self, user_id: int, old: str, new: str) -> None:
-        """@brief Change own password and revoke existing sessions."""
+        """@brief Change own password, satisfy any reset marker and revoke sessions."""
         if len(new) < 8:
             raise WebStoreError("password must contain at least 8 characters")
         with self._connect() as connection:
@@ -752,17 +771,18 @@ class WebStore:
             if not valid:
                 raise WebStoreError("current password is incorrect")
             connection.execute(
-                "UPDATE users SET password_hash=? WHERE id=?", (_HASHER.hash(new), user_id)
+                "UPDATE users SET password_hash=?, password_change_required=0 WHERE id=?",
+                (_HASHER.hash(new), user_id),
             )
             connection.execute("DELETE FROM sessions WHERE user_id=?", (user_id,))
 
     def reset_password(self, user_id: int, replacement: str) -> None:
-        """@brief Set a recovery password and revoke every target session."""
+        """@brief Set a recovery password the target must replace; revoke its sessions."""
         if len(replacement) < 8:
             raise WebStoreError("password must contain at least 8 characters")
         with self._connect() as connection:
             cursor = connection.execute(
-                "UPDATE users SET password_hash=? WHERE id=?",
+                "UPDATE users SET password_hash=?, password_change_required=1 WHERE id=?",
                 (_HASHER.hash(replacement), user_id),
             )
             if cursor.rowcount != 1:

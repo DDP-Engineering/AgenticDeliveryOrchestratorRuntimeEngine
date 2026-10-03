@@ -83,7 +83,23 @@ include profiles, config, state, wizard, metrics and `WebStore`.
 
 Inputs are JSON requests and the existing profile/run files. Outputs are
 versioned JSON, an HttpOnly session cookie, audit rows, queued operations and
-bundled local static files. `/api/v1/about` reports the running version and
+bundled local static files. Every rejected `/api/v1` request returns
+`{"detail": {"code": ..., "message"?: ...}}` with its route status: `code` is a
+stable lowercase snake_case identifier the browser localizes, and the optional
+`message` carries English diagnostics. Request validation returns 422
+`invalid_request` naming failing fields without echoing their values; account,
+membership, price and queue store failures map to fixed codes such as
+`password_too_short`, `username_exists`, `last_administrator` and
+`idempotency_conflict`, with unrecognized store text returned as
+`request_rejected` plus `message`. Project creation failures return
+`project_setup_invalid` with the wizard diagnostic in `message`. Unknown
+`/api/...` paths return 404 `not_found` rather than the browser shell.
+An account marked by an administrator password reset can call only
+`GET /api/v1/me`, `GET`/`PATCH /api/v1/me/preferences`,
+`POST /api/v1/me/password` and `DELETE /api/v1/session`; every other
+authenticated route returns 403 `password_change_required` after the 401
+session check and before CSRF and role checks. Account objects include
+`password_change_required`. `/api/v1/about` reports the running version and
 full bundled license text.
 It also returns the bundled third-party component notices, compiled from the
 locked web dependencies. About remains available before login.
