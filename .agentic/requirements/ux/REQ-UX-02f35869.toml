@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-02f35869"
+
+title = "Mark required fields and state password rules"
+
+status = "active"
+
+requirement = """
+The web interface shall mark every required form field with a visible required indicator explained by a localized legend on that form, and every field that sets a password shall state and enforce the 8-character minimum before submission.
+"""
+
+verification = "Manual: in each locale open Add project, Import project, Users (add user and reset password), My account and the required-password-change card; confirm each required field carries the indicator and the form shows the legend; enter a 7-character new password and confirm the browser blocks submission with the stated rule visible."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/styles.css", "04_Software/web/src/i18n.ts", "04_Software/adore/web/static/"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-03
+updated = 2026-10-03

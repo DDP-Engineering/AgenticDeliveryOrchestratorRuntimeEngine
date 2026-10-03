@@ -14,7 +14,7 @@ title = "Project details show guided configuration to assigned developers"
 status = "active"
 
 requirement = """
-When a user opens an assigned project's details, the web interface shall show its effective redacted configuration in collapsible sections with each field's value, type and contextual help. Administrators shall find project configuration, endpoint and estimated-price editing on the same page; developers shall see no editing controls.
+When a user opens an assigned project's details, the web interface shall show its effective redacted configuration in collapsible sections with each field's value, type and contextual help. Administrators shall find project configuration, endpoint and estimated-price editing within Project details; developers shall see no editing controls.
 """
 
 verification = "Manual: Inspect DCP Project details as administrator for grouped values, help and edit controls; inspect role-guarded rendering for the developer read-only view, and confirm the scoped API with test_web_config.py."
@@ -30,4 +30,4 @@ priority = "normal"   # low | normal | high
 rationale = ""        # why this behavior exists, if not obvious
 
 created = 2026-10-01
-updated = 2026-10-01
+updated = 2026-10-03

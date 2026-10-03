@@ -25,8 +25,9 @@ dashboard. Vite compiles it into `adore/web/static` for same-origin serving.
 It provides login, project and job views, role-appropriate metrics,
 administrator project/account setup, settings, four language catalogs,
 an administrator audit trail, light/dark/system themes and an About dialog.
-Administration expands into System status, Users, Audit and Settings in the
-sidebar. Developers see My account for their own preferences and password.
+Administration expands into System status, Users and Audit in the sidebar.
+Both roles see a top-level My account entry for their own preferences and
+password.
 Audit has administrator day and MiB retention controls populated from saved policy.
 Unlimited limits display zero; zero or blank saves as null in the API. Days are
 whole numbers through 36500, sizes are finite MiB through 1024 and round to
@@ -108,8 +109,11 @@ Assigned developers can inspect the redacted effective configuration in
 collapsible sections. Each field shows its type and contextual help; common
 settings also describe their valid domain. Administrators can stage and apply
 project configuration, local endpoint and estimated-price changes there, while
-membership management remains under Users. Administration/Settings holds
-account appearance and password controls.
+membership management remains under Users. My account holds account
+appearance and password controls. Project details groups this content into
+Overview (host prerequisites, recent jobs), Configuration (read-only settings
+and administrator editors) and administrator-only Prices tabs with keyboard
+tab navigation; Jobs, Metrics and Manage access are real links.
 Administrators can explicitly run a host-prerequisite check there. The view
 labels model-endpoint and WSL runtime results as unverified when they cannot
 be established from the API host, and never treats static config validity as
@@ -227,6 +231,20 @@ Before login those browser values are the fallback. After login, saved account
 preferences load before the authenticated shell appears; Settings writes a
 changed language or theme to that account. A failed save restores the previous
 choice. The login screen offers both language and theme controls.
+`routes.ts` maps every view to a path URL and back (see the URL table in
+`01_Documentation/Web_Interface.md`). The app keeps its view state and
+synchronizes it with the address bar: a new path adds a history entry, a
+changed project or job in the same view replaces it, `popstate` re-applies the
+URL, and role or unknown-path fallbacks replace the entry. A routed project ID
+is checked against the authorized project list before any project is chosen
+automatically. `polling.ts` runs every periodic refresh only while the page is
+visible and refreshes immediately when it becomes visible. `ServerPager`
+drives the Jobs, Audit and Overview job tables, requesting one bounded page
+(`limit`/`offset`) per view and every row only for All. Example placeholders
+use the `--placeholder` token (at least 4.5:1 in each theme) with a localized
+"e.g." prefix; `Field`/`GuidedField` add a required marker and each form with
+a required control shows a localized legend. `.table-scroll` uses CSS scroll
+shadows, and the Jobs filters collapse behind a counted toggle below 760px.
 An account whose password an administrator reset signs in to a dedicated
 change-password card with the reason, language, theme and Sign out controls;
 the dashboard and its polling stay inactive until the change succeeds, after
@@ -271,7 +289,9 @@ cost and account/config screens.
 `npm run build` performs TypeScript and Vite checks. `npm test` runs the Node
 unit tests, including `errors.test.mjs`, which requires a message in every
 locale for each code `adore/web/app.py` can return, and
-`projectName.test.mjs`, which compiles the shared pattern with the `v` flag.
+`projectName.test.mjs`, which compiles the shared pattern with the `v` flag,
+`routes.test.mjs` for the URL scheme and `polling.test.mjs` for hidden-page
+polling.
 Backend tests prove RBAC and cost omission. Chrome checks covered 360px and 1920px layouts, all four
 language controls, dark/system themes and the About dialog's keyboard close.
 At 360px, browser QA verified Tab/Shift-Tab remain on the dialog's Close button,

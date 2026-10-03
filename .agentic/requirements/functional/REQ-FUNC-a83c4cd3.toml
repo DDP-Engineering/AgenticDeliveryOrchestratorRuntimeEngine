@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-FUNC-a83c4cd3"
+
+title = "Serve audit and job history one page at a time"
+
+status = "active"
+
+requirement = """
+When an administrator requests audit history by page, the ADORE web API shall return the requested slice of the newest-first audit trail with its total count, and when a user requests a project's job page with several lifecycle values, it shall return runs matching any of them, keeping existing authorization, bounds and error codes.
+"""
+
+verification = "Automated: create more audit rows than one page and assert /api/v1/audit-page returns the requested limit/offset slice newest first with total; assert All returns every row, invalid limits or offsets return 422, and developers receive 403; request runs-page with lifecycle=awaiting-approval&lifecycle=in-review and assert only those runs, the matching total and an unchanged single-value behaviour."
+
+affected_paths = ["04_Software/adore/web/app.py", "04_Software/adore/web/store.py"]
+
+linked_tests = ["04_Software/tests/test_web_paging.py::test_audit_page_returns_newest_first_slice_with_total", "04_Software/tests/test_web_paging.py::test_audit_page_rejects_bad_bounds_and_non_administrators", "04_Software/tests/test_web_paging.py::test_run_page_accepts_several_lifecycles"]
+
+
+spec = "specs/REQ-FUNC-a83c4cd3.md"
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-03
+updated = 2026-10-03

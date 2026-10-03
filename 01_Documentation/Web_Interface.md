@@ -84,10 +84,21 @@ at its next sign-in the account sees only a change-password screen until it
 chooses a new password of at least 8 characters. Until then the API answers
 other routes with 403 `password_change_required`. There is no email password
 recovery.
-Administration has separate System status, Users, Audit and Settings submenus.
+Administration has separate System status, Users and Audit submenus.
 Administrators create and manage accounts in Users and inspect account, project
-and operation events in Audit. Developers cannot open these submenus; their
-personal preferences and password remain under My account.
+and operation events in Audit, one page at a time. Developers cannot open these
+submenus. Every user's language, theme and password are under My account, a
+top-level sidebar entry.
+
+Every view has its own address, so links can be bookmarked or shared and the
+browser's reload, Back and Forward keep your place. Examples:
+`/projects/<project-id>/configuration`, `/jobs?project=<project-id>&run=<run-id>`,
+`/metrics?project=<project-id>&tab=usage`, `/admin/users` and `/account`. Opening
+an address while signed out shows sign-in and then that view. An unknown address
+opens Overview; an administrator address opened by a developer opens Overview;
+a project you cannot access opens Projects with a "not found" message.
+Pages stop refreshing in the background while the browser tab is hidden and
+refresh immediately when you return.
 
 For a single-host Ubuntu installation with a preinstalled Nginx, this example
 keeps the API private and replaces any client-supplied forwarding headers. Put
@@ -135,11 +146,19 @@ Selecting one project applies to every category and export, including project
 and repository comparison tables. Opening Metrics from project details selects
 that project. Developers choose only their assigned projects.
 The top bar names the current page and provides common actions. Project details
-retains the project opened from Projects; its Jobs, Metrics and Settings actions
-use that identity. Metadata rows have breathing room, with a clear gap before
-actions. System status, Users, Audit and Settings operate
-at platform or account scope, with project membership managed on Users. On a
-phone, these controls wrap above the page content; use Menu to switch pages.
+retains the project opened from Projects. Its Overview, Configuration and, for
+administrators, Prices tabs switch content within the page; Jobs, Metrics and,
+for administrators, Manage access are links to those pages for the project.
+Metadata rows have breathing room, with a clear gap before the links. System
+status, Users and Audit operate at platform scope and My account at account
+scope, with project membership managed on Users. On a phone, wide tables show
+an edge shadow where more columns can be scrolled into view, and Jobs collapses
+its history filters behind a Filters button that shows how many are active;
+use Menu to switch pages.
+
+Forms mark required fields with `*` and a legend, example placeholders start
+with "e.g." (or the selected language's equivalent), and every field that sets
+a password states and enforces the 8-character minimum.
 Jobs and tables with more than ten rows offer 10, 25, 50 and All row choices.
 Opening a ticket's details shows its timeline as a Date, Event and Stage table.
 It starts with ten events per page and offers the same row choices and
@@ -278,7 +297,7 @@ An administrator can create a profile in Projects, edit validated scalar
 configuration keys in Project details, and use the CLI for other complex settings.
 Assigned developers can inspect that project's effective settings in the same
 view, with redacted secrets, field types and help. They cannot stage or apply
-changes. Administration/Settings contains account preferences and password.
+changes. My account contains account preferences and password.
 Web-created profiles place worktrees under an absolute, project-specific path
 inside ADORE home. For Pi authenticated through an existing ChatGPT
 subscription, mount the Pi agent credential directory into the container at

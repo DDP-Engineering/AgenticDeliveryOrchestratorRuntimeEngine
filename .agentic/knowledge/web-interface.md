@@ -188,6 +188,8 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 | API permissions/config/metrics | `adore/web/app.py` | `test_web_rbac.py`, `test_web_config.py`, `test_web_pending_config.py`, `test_web_readiness.py`, `test_web_metrics.py` |
 | Worker execution | `adore/web/commands.py` | `test_web_commands.py` |
 | Language, theme, views | `web/src/App.tsx`, `web/src/i18n.ts` | `npm run build`, browser check |
+| URLs, tabs, navigation | `web/src/routes.ts`, `web/src/App.tsx` | `npm test` (`routes.test.mjs`), browser check |
+| Background refresh and paging | `web/src/polling.ts`, `ServerPager` in `App.tsx`, `/api/v1/audit-page` | `npm test` (`polling.test.mjs`), `test_web_paging.py` |
 | Error codes and messages | `adore/web/app.py` (`_error`, `_STORE_ERROR_CODES`), `web/src/errors.ts` | `test_web_errors.py`, `npm test` (`errors.test.mjs`) |
 | Offline media | `02_Tools/*web*.py` | `test_web_package.py`, installed HTTP smoke |
 
@@ -205,6 +207,14 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
   localized banner text.
 - `REQ-UX-359f8cbf` - browser-side project-name validation.
 - `REQ-UX-94dc4e69` - error banners reflect only the latest user action.
+- `REQ-UX-4200375b` - every view has a stable path URL with history support.
+- `REQ-UX-d88d3d7f` - project details tabs and project links.
+- `REQ-UX-3dda4965` / `REQ-UX-02f35869` - example placeholders, required
+  markers and the stated password rule.
+- `REQ-UX-5b0fa167` / `REQ-UX-48d6a55d` - phone table scroll cue and Jobs
+  filter toggle.
+- `REQ-NFR-da638732` / `REQ-NFR-46c98d6c` / `REQ-FUNC-a83c4cd3` - no polling
+  while hidden and server-paged Audit/Overview tables.
 - `REQ-UX-66e6f3f5` - project details presents collapsible, guided settings with administrator editing.
 - `REQ-SEC-c2298428` - redacted project configuration reads follow grants; edits remain administrator-only.
 - `REQ-PLAT-a1b60ff9` - host-specific offline installation.
@@ -235,8 +245,10 @@ initial work remains in run totals and developers receive no financial rows.
 API liveness at `/api/v1/health` is separate from readiness at `/api/v1/ready`.
 The worker refreshes a schema-5 SQLite heartbeat even while an engine command
 blocks; a stopped, stale or corrupt heartbeat does not claim readiness.
-Administration expands into System status, Users, Audit and Settings sidebar
-pages; developers keep a My account page. Project details shows effective
+Administration expands into System status, Users and Audit sidebar pages;
+both roles reach a top-level My account page. Every view has a path URL
+(`web/src/routes.ts`) kept in sync with view state; project details uses
+Overview/Configuration/Prices tabs and Jobs/Metrics/Manage access links. Project details shows effective
 configuration in compact sections with field type, domain and purpose help;
 administrators stage configuration, endpoint and price changes there. The
 settings response is scoped to the current project identity so switching
@@ -292,8 +304,10 @@ for Add and Import project. Primary buttons take their text colour from the
   worker and listener.
 - `04_Software/adore/web/static/` - bundled local UI and license.
 - `04_Software/web/` - React source and build configuration;
-  `web/src/errors.ts` (error localization) and `web/src/projectName.ts`
-  (shared name pattern) are pure modules tested by `web/tests/*.test.mjs`.
+  `web/src/errors.ts` (error localization), `web/src/projectName.ts`
+  (shared name pattern), `web/src/routes.ts` (URL scheme) and
+  `web/src/polling.ts` (visibility-aware refresh) are pure modules tested by
+  `web/tests/*.test.mjs`.
 - `02_Tools/{package_web_offline,install_web_offline,launch_web,stamp_web_assets}.py`
   - offline media and static asset preparation.
 - `04_Software/tests/test_web_*.py` - focused API, pricing, worker and packaging tests.

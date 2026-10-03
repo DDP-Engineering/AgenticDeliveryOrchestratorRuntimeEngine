@@ -116,7 +116,13 @@ or corrupt project metadata returns a typed 503 rather than a healthy result.
 Administrator-only `GET /api/v1/audit-policy` returns nullable day and UTF-8
 audit-text byte limits; CSRF-protected `PUT` replaces both limits and prunes
 existing older rows. Invalid or unknown policy fields return 422. Corrupt
-persisted policy or event timestamps return 503. `GET /api/v1/audit` accepts
+persisted policy or event timestamps return 503. Administrator-only
+`GET /api/v1/audit-page?limit=<1-100|all>&offset=<n>` returns
+`{"items", "total", "limit", "offset"}` for one newest-first slice of the
+retained audit trail (`limit` is null for All); bad limits return 422
+`invalid_audit_limit` and negative offsets 422 `invalid_request`. The project
+runs page accepts `lifecycle` more than once and returns runs in any listed
+lifecycle. `GET /api/v1/audit` accepts
 a numeric limit of 1–500 or `all`, with the same administrator guard.
 Authenticated `GET /api/v1/me/preferences` returns the current account's
 nullable language and theme. CSRF-protected `PATCH` updates only the supplied

@@ -1117,12 +1117,28 @@ class WebStore:
         """@brief Return bounded recent audit rows for administrator review."""
         if limit is not None and (type(limit) is not int or not 1 <= limit <= 500):
             raise WebStoreError("invalid audit limit")
+        return self.audit_page(limit, 0)[0]
+
+    def audit_page(self, limit: int | None, offset: int) -> tuple[list[dict[str, Any]], int]:
+        """
+        @brief Return one newest-first slice of retained audit rows and their total.
+        @param[in] limit Rows to return (1-500), or None for every row after offset.
+        @param[in] offset Rows to skip from the newest.
+        @return (rows, total retained rows).
+        @exception WebStoreError Invalid bounds or a corrupt audit row.
+        """
+        if limit is not None and (type(limit) is not int or not 1 <= limit <= 500):
+            raise WebStoreError("invalid audit limit")
+        if type(offset) is not int or offset < 0:
+            raise WebStoreError("invalid audit offset")
         with self._connect() as connection:
             self._prune_audit(connection)
+            total = connection.execute("SELECT COUNT(*) FROM audit").fetchone()[0]
             rows = connection.execute(
                 "SELECT a.id,u.username AS actor,a.action,a.project,a.detail,"
                 "a.created_at FROM audit a LEFT JOIN users u ON u.id=a.actor_id "
-                "ORDER BY a.id DESC LIMIT ?", (limit if limit is not None else -1,)
+                "ORDER BY a.id DESC LIMIT ? OFFSET ?",
+                (limit if limit is not None else -1, offset),
             ).fetchall()
         for row in rows:
             try:
@@ -1131,7 +1147,7 @@ class WebStore:
                     raise ValueError("audit timestamp lacks timezone")
             except (TypeError, ValueError) as exc:
                 raise WebStoreError("audit row is corrupt") from exc
-        return [dict(row) for row in rows]
+        return [dict(row) for row in rows], total
 
     def add_price(self, project: str, executor: str, model: str,
                   effective_from: str, input_rate: str, output_rate: str,

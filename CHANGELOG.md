@@ -14,6 +14,12 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Every web view now has its own address (for example `/projects/<id>/configuration`, `/jobs?project=<id>`, `/admin/users`, `/account`), so reload, browser Back/Forward and shared links keep the view.
+- Project details now uses Overview, Configuration and Prices (administrators) tabs, with Jobs, Metrics and Manage access as links.
+- My account is a top-level sidebar entry for every user; Administration lists System status, Users and Audit.
+- Audit and Overview job tables load one page at a time from the server (new `/api/v1/audit-page`; job pages accept several lifecycles), and background refresh pauses while the browser tab is hidden.
+- Forms mark required fields, example placeholders are styled and prefixed as examples, and password fields state the 8-character minimum.
+- On phones, wide tables show a scroll shadow and Jobs filters collapse behind a counted Filters button.
 - An administrator password reset now requires the account to choose a new password at its next sign-in; until then the web interface shows only a change-password screen and the API returns `password_change_required`. The identity database moves to schema 13; existing accounts, including `admin`, are not affected.
 - Web API errors now always carry a stable snake_case `detail.code` with optional `detail.message` diagnostics, including request validation (`invalid_request`), account and price failures, and unknown API paths (404 `not_found`).
 - Ticket timelines show the latest recorded events first; subsequent pages move toward older history.

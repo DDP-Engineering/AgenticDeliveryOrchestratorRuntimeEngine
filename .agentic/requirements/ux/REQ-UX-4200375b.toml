@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-4200375b"
+
+title = "Address every web view by a stable URL"
+
+status = "active"
+
+requirement = """
+While a signed-in user moves between ADORE web views, the interface shall keep the address bar on a path URL that identifies the view and its project, tab or selected job, so that reloading the URL, opening it in a new tab after sign-in, or using browser Back and Forward shows the same view; unknown or unauthorized paths shall open Overview or the project list instead of a blank page.
+"""
+
+verification = "Automated: unit tests of the pure route module parse and format every route in the spec, including query parameters, unknown paths and role fallbacks. Manual: in Chrome, open each route directly, reload it, follow a chain of views and step back and forward; open a project URL while signed out and confirm sign-in returns to it; open an admin URL as a developer and an unknown path, and confirm the fallback view."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/styles.css", "04_Software/web/src/i18n.ts", "04_Software/adore/web/static/", "04_Software/web/src/routes.ts", "04_Software/web/tests/"]
+
+linked_tests = ["04_Software/web/tests/routes.test.mjs"]
+
+
+spec = "specs/REQ-UX-4200375b.md"
+
+priority = "normal"   # low | normal | high
+rationale = "Links can be shared and refresh or Back no longer lose the user's place."        # why this behavior exists, if not obvious
+
+created = 2026-10-03
+updated = 2026-10-03

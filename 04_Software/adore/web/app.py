@@ -1490,6 +1490,21 @@ def create_app(home: str | Path | None = None,
             raise _error(422, "invalid_audit_limit")
         return web.recent_audit(int(limit))
 
+    @app.get("/api/v1/audit-page")
+    def audit_page(_user: Annotated[dict, Depends(administrator)],
+                   limit: str = "25",
+                   offset: Annotated[int, Query(ge=0)] = 0) -> dict:
+        """@brief Return one newest-first audit slice with the retained total."""
+        if limit == "all":
+            size = None
+        elif (len(limit) > 3 or not limit.isascii() or not limit.isdecimal()
+              or not 1 <= int(limit) <= 100):
+            raise _error(422, "invalid_audit_limit")
+        else:
+            size = int(limit)
+        items, total = web.audit_page(size, offset)
+        return {"items": items, "total": total, "limit": size, "offset": offset}
+
     @app.get("/api/v1/audit-policy")
     def get_audit_policy(_user: Annotated[dict, Depends(administrator)]) -> dict:
         """@brief Return persisted audit limits; null means unlimited."""
@@ -2033,11 +2048,11 @@ def create_app(home: str | Path | None = None,
         user: Annotated[dict, Depends(principal)],
         limit: str = "25",
         offset: Annotated[int, Query(ge=0)] = 0,
-        lifecycle: Literal[
+        lifecycle: Annotated[list[Literal[
             "working", "publishing", "awaiting-approval", "parked-clarification",
             "in-review", "done", "failed", "cancelled",
             "handoff-pending", "handed-off",
-        ] | None = None,
+        ]] | None, Query()] = None,
         stage: Literal["frame", "specify", "design", "build", "validate", "deliver"] | None = None,
         updated_from: date | None = None,
         updated_to: date | None = None,
@@ -2066,7 +2081,7 @@ def create_app(home: str | Path | None = None,
                 raise _error(503, "run_state_corrupt")
             counts[run.lifecycle] = counts.get(run.lifecycle, 0) + 1
         matched = [run for run in all_runs
-                   if (lifecycle is None or run.lifecycle == lifecycle)
+                   if (not lifecycle or run.lifecycle in lifecycle)
                    and (stage is None or run.stage == stage)
                    and (outcome_filter is None
                         or outcome_filter in run.outcome.casefold())]

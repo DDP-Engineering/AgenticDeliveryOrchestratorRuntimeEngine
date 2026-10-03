@@ -19,6 +19,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
   --accent-deep: #0a5746;
   --accent-soft: #e6f4ed;
   --on-accent: #ffffff;
+  --placeholder: #617169;
+  --scroll-shadow: rgba(24, 41, 38, .22);
   --danger: #b23b3b;
   --danger-soft: #fff0ed;
   --shadow: 0 3px 16px rgba(25, 48, 37, .045);
@@ -30,6 +32,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
     --bg: #111c1b; --surface: #1b2826; --surface-alt: #20312e;
     --text: #e9f1ec; --muted: #bac9c0; --border: #32423e;
     --accent: #67c9a5; --accent-deep: #9adfbe; --accent-soft: #183e32; --on-accent: #09251b;
+    --placeholder: #8fa197; --scroll-shadow: rgba(0, 0, 0, .55);
     --danger: #f29b92; --danger-soft: #4c2827; --shadow: none;
   }
 }
@@ -39,6 +42,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
   --bg: #111c1b; --surface: #1b2826; --surface-alt: #20312e;
   --text: #e9f1ec; --muted: #bac9c0; --border: #32423e;
   --accent: #67c9a5; --accent-deep: #9adfbe; --accent-soft: #183e32; --on-accent: #09251b;
+  --placeholder: #8fa197; --scroll-shadow: rgba(0, 0, 0, .55);
   --danger: #f29b92; --danger-soft: #4c2827; --shadow: none;
 }
 
@@ -48,7 +52,7 @@ button, input, select { font: inherit; }
 button { cursor: pointer; }
 button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 input, select { min-height: 42px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--text); padding: 9px 12px; width: 100%; }
-input::placeholder { color: var(--muted); }
+input::placeholder { color: var(--placeholder); font-style: italic; opacity: 1; }
 label { display: flex; flex-direction: column; gap: 7px; font-size: .86rem; font-weight: 650; }
 button { border: 0; }
 h1, h2, h3, p { margin-top: 0; }
@@ -63,6 +67,18 @@ p.muted { line-height: 1.5; }
 .ghost { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
 .danger { background: var(--danger-soft); color: var(--danger); }
 .text-button { color: var(--accent-deep); background: transparent; font-weight: 750; padding: 5px 2px; }
+a.text-button { display: inline-flex; text-decoration: none; }
+a.text-button:hover { text-decoration: underline; }
+.required-mark { color: var(--danger); font-weight: 750; }
+.form-legend { grid-column: 1 / -1; margin: 0; font-size: .8rem; color: var(--muted); }
+.field-hint { display: block; margin-top: 4px; font-size: .8rem; font-weight: 400; color: var(--muted); }
+.project-links { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.project-tabs { margin-top: 18px; }
+.filters-toggle { display: none; }
+@media (max-width: 759px) {
+  .filters-toggle { display: inline-flex; margin-bottom: 12px; }
+  .job-filter-fields:not(.open) { display: none; }
+}
 .icon-button { background: transparent; color: var(--muted); font-size: 1.3rem; padding: 8px; }
 .button-row, .section-actions { display: flex; gap: 9px; flex-wrap: wrap; }
 .section-actions { margin-bottom: 15px; }
@@ -141,7 +157,15 @@ p.muted { line-height: 1.5; }
 .page-controls label { flex-direction: row; align-items: center; gap: 8px; }
 .page-controls select { width: auto; min-width: 75px; min-height: 36px; }
 .audit-policy-form label { flex: 1 1 180px; max-width: 240px; }
-.table-scroll { overflow-x: auto; }
+/* Scroll shadows: the local cover layers hide each edge shadow once that edge is reached. */
+.table-scroll {
+  overflow-x: auto;
+  background:
+    linear-gradient(to right, var(--surface) 30%, transparent) left center / 40px 100% no-repeat local,
+    linear-gradient(to left, var(--surface) 30%, transparent) right center / 40px 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, var(--scroll-shadow), transparent) left center / 14px 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, var(--scroll-shadow), transparent) right center / 14px 100% no-repeat scroll;
+}
 table { width: 100%; border-collapse: collapse; text-align: left; font-size: .86rem; }
 th { color: var(--muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .09em; font-weight: 750; padding: 12px 14px; background: var(--surface-alt); }
 td { padding: 15px 14px; border-top: 1px solid var(--border); white-space: nowrap; }
