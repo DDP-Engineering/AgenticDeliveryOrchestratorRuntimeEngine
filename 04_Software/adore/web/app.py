@@ -46,7 +46,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from adore import __version__, doctor, metrics
-from adore.cli import _SECRET_KEY_RE, _set_toml_scalar
+from adore.cli import _SECRET_KEY_RE, _newline, _set_toml_scalar
 from adore.config import default_config, load_config, validate_config
 from adore.config_edit import ConfigEditLockedError, config_edit_lock
 from adore.isolation import ContainerManager, IsolationError
@@ -324,7 +324,7 @@ def _set_endpoint(text: str, value: str, model: str,
         )
         return (_set_toml_scalar(changed, "container.runtime_env.NODE_EXTRA_CA_CERTS",
                                  ca_file) if ca_file is not None else changed)
-    lines = text.splitlines()
+    lines = text.split("\n")  # LF only: lines keep their CR (see _set_toml_scalar)
     inside_container = False
     inline_index = None
     for index, line in enumerate(lines):
@@ -345,12 +345,21 @@ def _set_endpoint(text: str, value: str, model: str,
         return (_set_toml_scalar(changed, "container.runtime_env.NODE_EXTRA_CA_CERTS",
                                  ca_file) if ca_file is not None else changed)
     runtime_env["OPENAI_BASE_URL"] = value
+    removed_last = inline_index == len(lines) - 1
     del lines[inline_index]
-    section = "\n[container.runtime_env]\n" + "".join(
-        f"{name} = {json.dumps(item, ensure_ascii=False)}\n"
+    newline = _newline(text)
+    section = f"{newline}[container.runtime_env]{newline}" + "".join(
+        f"{name} = {json.dumps(item, ensure_ascii=False)}{newline}"
         for name, item in sorted(runtime_env.items())
     )
-    changed = "\n".join(lines).rstrip() + "\n" + section
+    kept = "\n".join(lines)  # every other line byte for byte
+    if removed_last:
+        # The removed line was the unterminated last one: give back the LF it
+        # took from the line before it, so that line keeps its own ending.
+        kept += "\n"
+    elif kept and not kept.endswith("\n"):
+        kept += newline  # the file had no final newline
+    changed = kept + section
     changed = _set_toml_scalar(
         changed, "container.runtime_env.OPENCODE_CONFIG_CONTENT",
         json.dumps(inline, separators=(",", ":")),
@@ -514,7 +523,7 @@ def _candidate_config_edit(path: Path, body: ConfigEdit) -> tuple[bytes, str]:
             raise _error(413, "config_too_large")
         with tempfile.TemporaryDirectory(prefix="config.web-", dir=path.parent) as temp:
             candidate = Path(temp) / "candidate.toml"
-            candidate.write_text(changed, encoding="utf-8")
+            candidate.write_bytes(changed.encode("utf-8"))  # bytes: keep line endings
             if validate_config(load_config(candidate)):
                 raise _error(400, "invalid_config")
     except (UnicodeError, OSError, ValueError, TypeError, KeyError,
@@ -2020,7 +2029,7 @@ def create_app(home: str | Path | None = None,
                 )
                 os.close(descriptor)
                 candidate = Path(candidate_name)
-                candidate.write_text(changed, encoding="utf-8")
+                candidate.write_bytes(changed.encode("utf-8"))  # bytes: keep line endings
                 parsed = load_config(candidate)
                 issues = validate_config(parsed)
                 if issues:

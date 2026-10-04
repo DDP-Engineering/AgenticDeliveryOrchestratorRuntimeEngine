@@ -44,7 +44,9 @@ Explicit `-c`, named profile, active profile and local `config.toml` define
 configuration precedence. Invalid config returns nonzero. Engine mutations
 respect the conductor lock; force is required for destructive state changes.
 `config set` shares a per-directory edit lock with the web API; contention
-returns a nonzero result without changing the config file.
+returns a nonzero result without changing the config file. It reads and
+writes the file as bytes and keeps its CR LF or LF line endings; added lines
+take the file's ending.
 `handoff` queues a validated request when a conductor holds the lock and
 completes the transfer under the lock when idle. The terminal state preserves
 the worktree for human ownership and grants no publication approval.
@@ -72,6 +74,7 @@ state only: they do not edit AEGIS journals or cause a merge.
 - `REQ-FUNC-3557ecdf` - profile resolution, use tracking, and visible corrupt run state.
 - `REQ-FUNC-f9946b6b` - selected-ticket web operations retain CLI boundaries.
 - `REQ-REL-94e653aa` - operator handoff uses the conductor's safe boundary.
+- `REQ-PLAT-722173c8` - configuration edits keep the file's line endings on every OS.
 
 ## Architecture
 

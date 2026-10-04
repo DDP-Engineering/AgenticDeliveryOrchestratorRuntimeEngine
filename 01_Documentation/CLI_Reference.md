@@ -61,7 +61,7 @@ unless `ADORE_HOME` overrides the location.
 | --- | --- |
 | `adore [selector] config show` | Print the resolved configuration as JSON. |
 | `adore [selector] config validate` | Validate the resolved configuration and report any issues. |
-| `adore [selector] config set <section.key> <value>` | Set one scalar key in the resolved config file (e.g. `budgets.max_iterations 12`). Comments are preserved and the value type is inferred; the write is refused unless the whole resulting config still validates. Secret-looking keys are rejected - put secrets in `.env`. CLI and web edits share a local process lock; a concurrent edit is refused. |
+| `adore [selector] config set <section.key> <value>` | Set one scalar key in the resolved config file (e.g. `budgets.max_iterations 12`). Comments and the file's line endings (CR LF or LF) are preserved and the value type is inferred; the write is refused unless the whole resulting config still validates. Secret-looking keys are rejected - put secrets in `.env`. CLI and web edits share a local process lock; a concurrent edit is refused. |
 
 In this table, `[selector]` means `-c <config.toml>` or `--profile
 <profile-name>` where appropriate.

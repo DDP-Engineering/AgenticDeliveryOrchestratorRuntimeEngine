@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-PLAT-722173c8"
+
+title = "Keep a configuration file's line endings when editing it"
+
+status = "active"
+
+requirement = """
+When an administrator changes a project setting through the web interface (staging and applying an edit, a direct edit, or the OpenCode local endpoint edit) or an operator runs `adore config set`, and the project's config.toml uses CR LF or LF line endings, ADORE shall accept the edit on any operating system and write the file so that every line it adds ends with the line ending the file already uses (CR LF when the file contains a CR LF, otherwise LF), a line it rewrites keeps its own line ending, and every other line stays byte-identical.
+"""
+
+verification = "Automated, with config.toml written as explicit bytes so the check fails on every OS before the fix: for a CR LF file, staging and applying a key whose table is absent, a direct edit of an existing key, the OpenCode endpoint edit and `adore config set` each succeed, and the resulting bytes contain no LF without a preceding CR and no CR CR LF, with untouched lines byte-identical; for an LF file the same edits leave the file without any CR."
+
+affected_paths = ["04_Software/adore/cli.py", "04_Software/adore/web/app.py", "04_Software/tests/test_config_line_endings.py"]
+
+linked_tests = ["04_Software/tests/test_config_line_endings.py"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = "Configuration files are edited on Windows and Linux hosts. Text-mode reads and writes translated line endings, so CR LF files staged on Windows gained CR CR LF and were refused as invalid TOML, and `adore config set` rewrote every line ending of the file."
+
+created = 2026-10-04
+updated = 2026-10-04

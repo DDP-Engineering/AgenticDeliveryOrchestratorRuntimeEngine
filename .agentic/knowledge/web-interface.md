@@ -75,6 +75,8 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
   credential-looking fields; journal views use a role-aware field allowlist.
 - Web config edits use a SHA-256 revision and the same per-directory process
   lock as CLI `config set`; direct host file changes do not use that lock.
+  Staged, applied, direct and OpenCode endpoint edits write bytes and keep the
+  file's CR LF or LF line endings (`REQ-PLAT-722173c8`).
 - The administrator UI stages one validated config candidate per project,
   reviews its revision and applies it only with no active run, conductor or
   queued operation. Identity/runtime edits require paused pickup. Retrying an

@@ -288,6 +288,11 @@ def _inline_comment(line: str) -> str:
     return ""
 
 
+def _newline(text: str) -> str:
+    """@brief A config text's line ending: CR LF when it has one, else LF."""
+    return "\r\n" if "\r\n" in text else "\n"
+
+
 def _set_toml_scalar(text: str, dotted_key: str, value: str) -> str:
     """
     @brief      Set one scalar key in TOML text, preserving comments/other lines.
@@ -297,7 +302,9 @@ def _set_toml_scalar(text: str, dotted_key: str, value: str) -> str:
                 kept); a key absent from an existing table is inserted just
                 after the table header; an absent table is appended at the end.
                 Everything else - comments, blank lines, other keys - is left
-                untouched. Only scalars are supported.
+                untouched, byte for byte. A replaced line keeps its own line
+                ending and an added line takes the text's (see _newline). Only
+                scalars are supported.
     @param[in]  text Current config file text.
     @param[in]  dotted_key Dotted table+key path.
     @param[in]  value Raw value (type inferred by _toml_scalar_literal).
@@ -313,15 +320,17 @@ def _set_toml_scalar(text: str, dotted_key: str, value: str) -> str:
     *table_parts, key = parts
     header = "[" + ".".join(table_parts) + "]"
     new_line = f"{key} = {_toml_scalar_literal(value)}"
-    trailing = "\n" if text.endswith("\n") else ""
-    lines = text.splitlines()
+    newline = _newline(text)
+    # Split on LF only: each line keeps its own CR, so joining with LF gives
+    # every untouched line back byte for byte.
+    lines = text.split("\n")
 
     header_idx = next(
         (i for i, line in enumerate(lines) if line.strip() == header), None
     )
     if header_idx is None:
-        prefix = "" if text == "" or text.endswith("\n") else "\n"
-        return f"{text}{prefix}\n{header}\n{new_line}\n"
+        prefix = "" if text == "" or text.endswith("\n") else newline
+        return f"{text}{prefix}{newline}{header}{newline}{new_line}{newline}"
 
     block_end = len(lines)
     for j in range(header_idx + 1, len(lines)):
@@ -331,14 +340,19 @@ def _set_toml_scalar(text: str, dotted_key: str, value: str) -> str:
             break
     key_re = re.compile(rf"^(\s*){re.escape(key)}\s*=")
     for k in range(header_idx + 1, block_end):
-        match = key_re.match(lines[k])
+        body = lines[k].removesuffix("\r")
+        match = key_re.match(body)
         if match:
-            comment = _inline_comment(lines[k])
+            comment = _inline_comment(body)
             suffix = f"  {comment}" if comment else ""
-            lines[k] = f"{match.group(1)}{new_line}{suffix}"
-            return "\n".join(lines) + trailing
-    lines.insert(header_idx + 1, new_line)
-    return "\n".join(lines) + trailing
+            lines[k] = f"{match.group(1)}{new_line}{suffix}{lines[k][len(body):]}"
+            return "\n".join(lines)
+    if header_idx == len(lines) - 1:  # unterminated header: the new line ends the file
+        lines[header_idx] += newline.removesuffix("\n")
+        lines.append(new_line)
+    else:
+        lines.insert(header_idx + 1, new_line + newline.removesuffix("\n"))
+    return "\n".join(lines)
 
 
 def _config_set(args: argparse.Namespace) -> int:
@@ -379,7 +393,7 @@ def _config_set_locked(args: argparse.Namespace, path: Path) -> int:
     """@brief Validate and atomically write one scalar under the edit lock."""
     args.config = str(path)
     try:
-        original = path.read_text(encoding="utf-8")
+        original = path.read_bytes().decode("utf-8")  # bytes: keep line endings
     except FileNotFoundError:
         print(f"error: config file not found: {path}")
         return EXIT_ERROR
@@ -395,7 +409,7 @@ def _config_set_locked(args: argparse.Namespace, path: Path) -> int:
     # real config when it still parses AND validates. tmp + replace is atomic.
     tmp = path.with_name(path.name + ".tmp")
     try:
-        tmp.write_text(updated, encoding="utf-8")
+        tmp.write_bytes(updated.encode("utf-8"))
     except OSError as exc:
         print(f"error: cannot write {tmp}: {exc}")
         return EXIT_ERROR

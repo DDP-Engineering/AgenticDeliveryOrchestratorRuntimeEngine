@@ -52,6 +52,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Configuration edits from the web interface and `adore config set` keep the file's CR LF or LF line endings on every OS; staging a new table in a CR LF file on Windows no longer fails as invalid configuration, and `config set` no longer rewrites every line ending.
 - In `allowlist-proxy` egress mode every run gets its own proxy container and egress network: long names end in a short digest of the executor name instead of being cut to a shared value, so a run no longer starts behind another run's proxy or loses it when that run ends. Upgrade note: finish, cancel or re-provision parked long-named `allowlist-proxy` runs from an earlier release first (see Recovery and Maintenance).
 - `adore cleanup` works only on the selected project's runs: on a host where projects share the agent slug, egress network prefix or worktree root it no longer removes another project's containers, proxies, networks or worktrees, nor a proxy or network another existing executor still uses, and runs with corrupt state keep their worktree and containers.
 - Required-field markers now sit on the same line as their label instead of below it.
