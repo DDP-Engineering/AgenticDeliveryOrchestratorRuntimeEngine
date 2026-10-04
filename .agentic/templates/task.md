@@ -18,8 +18,9 @@ the block, no comments between the lines — so it stays machine-readable.
                 (adoption journals: survey | components | close | done)
   type          feature | fix | change | adopt
   path          full | quick
-  interaction   checkpoint | autopilot; copied from aegis.toml when created
-                and updated when an explicit user instruction overrides it
+  interaction   checkpoint | autopilot; copied from .agentic/aegis.toml
+                when created and updated when an explicit user instruction
+                overrides it
   requirements  comma-separated requirement IDs, empty until specify
   parent        optional top-level TASK-id; blank for an ordinary task
   branch        the branch this task is delivered on
@@ -131,6 +132,17 @@ must_read:
 blockers:
 
 ## Stage report
+
+<!-- AEGIS:TEMPLATE
+One replaceable snapshot. Plain `key: value`, one per line, no fences, no
+bullets - `summary` and `check` both reject anything else.
+result: in_progress | completed | paused | blocked | skipped
+spec_compliance: approved | changes_required | disabled
+implementation_quality: approved | changes_required | disabled
+review_round: 1 through 6, or blank when review is disabled
+stage is the reported stage; current must match the journal header after any
+transition. Leave unknown fields blank; summary prints not recorded.
+-->
 
 stage:
 result:

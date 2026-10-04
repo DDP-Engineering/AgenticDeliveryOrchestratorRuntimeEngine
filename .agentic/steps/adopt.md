@@ -159,7 +159,8 @@ ones are not.
       agreed outcome delivered (PR where there is a remote)
 - [ ] close-out: `stage: done` set and committed only after that
 
-**Skip when:** The repo is already adopted — go straight to `1_frame.md`.
+**Skip when:** The repo is already adopted — go straight to
+`.agentic/steps/1_frame.md`.
 Partial adoption is normal and expected: adopt only the components you
 actively work on, and let `check` warn you when a task touches an
 un-adopted area.

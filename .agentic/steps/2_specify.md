@@ -107,10 +107,12 @@ deviation notice. Reuse unchanged instructions already read in this session.
     adding behavior. Run `python .agentic/aegis.py check` and fix
     every format error.
 14. In checkpoint mode, present the `specify` Stage-boundary choices from
-    `AGENTS.md`, refresh the waiting Handoff and paused Stage report, then stop
+    `.agentic/AGENTS.md`, refresh the waiting Handoff and paused Stage report, then stop
     before transition. After the user chooses to continue, or immediately in
     autopilot, tick the checklist, set `stage: design`, and replace
-    `## Done checklist` with the design stage's Done when list.
+    `## Done checklist` with the design stage's Done when list. Before design
+    work, read `.agentic/steps/3_design.md`. If the user instead returns to
+    Frame, read `.agentic/steps/1_frame.md` before Frame work.
 
 **Retiring a requirement.** When a behavior is deliberately removed, do
 not delete its file: set `status = "retired"` and append one line to the

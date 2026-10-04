@@ -42,7 +42,7 @@ Handoff `must_read` files. Required full journal reads still apply. Optional
 one-level child tasks are child-side links visible only in this checkout; the
 parent validates the integrated candidate.
 
-Read `.agentic/context/project.md` and relevant `context/environment.md`
+Read `.agentic/context/project.md` and relevant `.agentic/context/environment.md`
 sections when present. Keep project and component context current and positive;
 task records carry proposals and history. Preserve established behavior contracts.
 

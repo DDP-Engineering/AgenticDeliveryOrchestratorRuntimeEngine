@@ -114,14 +114,15 @@ Path and reason:
     and scope, exclusions, examples, and path agree. Copy the Done checklist.
 12. Checkpoint mode: present the Frame card, chosen path, proposed behaviors,
     assumptions, decision-blocking questions and the `frame` Stage-boundary
-    choices from `AGENTS.md`; refresh the waiting Handoff and paused Stage
+    choices from `.agentic/AGENTS.md`; refresh the waiting Handoff and paused Stage
     report, then stop. Describe the requested decision as scope acceptance, not implementation.
     Autopilot records the same concise frame outcome and
     continues without the intermediate menu.
 13. After the user chooses to continue, or immediately in autopilot, record
     scope acceptance, set `stage: specify` (full path) or `stage: build`
     (quick path), and replace `## Done checklist` with the next stage's Done
-    when list.
+    when list. Before work in that stage, read `.agentic/steps/2_specify.md`
+    for the full path or `.agentic/steps/4_build.md` for the quick path.
 
 **Outputs:**
 

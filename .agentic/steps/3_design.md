@@ -22,7 +22,7 @@ decisions remain explicit, and a reviewer can see why the shape was chosen.
   `.agentic/knowledge/<component>.md`. Use `## Change map` for the relevant
   edit-and-test seam when present, then check the named exact source and tests.
   For a legacy page without Routing, use its available sections only as
-  provisional orientation and leave migration to validation.
+  provisional orientation and leave migration to validate.
 
 **Reporting and resume:** Follow `.agentic/AGENTS.md` sections "Resume a task",
 "Rulings and handoffs", and "Stage reporting". At transitions and pauses,
@@ -73,9 +73,9 @@ deviation notice. Reuse unchanged instructions already read in this session.
 8. When component structure will change, add a compact `### Proposed
    architecture - TASK-<id>` diagram to this task's Design. Use searchable
    code names and directional edges. During design, do not replace the current diagram
-   in `.agentic/knowledge/<component>.md`; validate reconciles that canonical
-   current-state page after the built code matches. Behavior-only changes may
-   state that no architecture drawing is owed.
+   in `.agentic/knowledge/<component>.md`; validate updates that canonical
+   current-state page against the reviewed implementation. Behavior-only
+   changes may state that no architecture drawing is owed.
 9. Keep requirement-specific format, protocol, algorithm, or edge behavior in
    the linked spec rather than duplicating it in the task design.
 10. **Audit** traceability, feasibility, interfaces, state ownership, failure
@@ -83,17 +83,20 @@ deviation notice. Reuse unchanged instructions already read in this session.
     Run `python .agentic/aegis.py check` and fix format errors.
 11. Append one concise `design` outcome line pointing to `## Design` and any
     linked spec; do not copy decisions into the Log. In checkpoint mode,
-    present the `design` Stage-boundary choices from `AGENTS.md`, refresh the
+    present the `design` Stage-boundary choices from `.agentic/AGENTS.md`, refresh the
     waiting Handoff and paused Stage report, then stop before transition. After
     the user chooses to continue, or immediately in autopilot, tick the
     checklist, set `stage: build`, and replace `## Done checklist` with the
-    build stage's Done when list.
+    build stage's Done when list. Before build work, read
+    `.agentic/steps/4_build.md`. If the user instead returns to Specify, read
+    `.agentic/steps/2_specify.md` before Specify work.
 
 **Outputs:**
 
 - `## Design` section in the task journal.
 - Proposed architecture in the task journal where component structure changes;
-  canonical current-state knowledge remains unchanged until validate.
+  canonical current-state knowledge remains unchanged during design and is
+  reconciled with the reviewed implementation in validate.
 - Updated `affected_paths` on the linked requirements.
 - Updated spec sections where the detail belongs to the behavior.
 
@@ -107,7 +110,7 @@ deviation notice. Reuse unchanged instructions already read in this session.
 - [ ] meaningful alternatives, risks, and open decisions recorded
 - [ ] `affected_paths` match the expected file list
 - [ ] proposed architecture is in the task when structure changes; current
-      component knowledge remains true until validate
+      component knowledge remains true during design
 - [ ] `stage: build`
 
 **Skip when:** The quick path; or the work is a single-file change with no

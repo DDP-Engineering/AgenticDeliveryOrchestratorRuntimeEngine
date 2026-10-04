@@ -37,12 +37,13 @@ import secrets
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from pathlib import Path
 
 import tomllib
 
-VERSION = "0.13.0"
+VERSION = "0.14.0"
 SCHEMA = 1
 
 AGENTIC = Path(__file__).resolve().parent
@@ -170,6 +171,19 @@ ignore = []
 strict_promote = []
 # run = ["test", "lint"]   # restrict what `check --run` executes; without
 #                          # this, side-effect-looking names are skipped
+
+[codegraph]
+# The optional knowledge graph of source symbols, answered by the CodeGraph
+# plugin in .agentic/plugins/codegraph/. While it is off, the know_graph
+# commands start nothing and write nothing. The defaults are shown; the
+# indexing-scope keys are described in the plugin's README.md.
+enabled = false
+# database = ".agentic/knowledge/codegraph/codegraph.sqlite"
+# max_results = 20              # records per answer, 1 through 200
+# max_output_bytes = 8192       # bytes per answer, 512 through 32768
+# timeout_seconds = 5           # seconds allowed for one query
+# check_timeout_seconds = 30    # seconds allowed for know_graph_check
+# index_timeout_seconds = 0     # seconds allowed for know_graph_index; 0 = no limit
 """
 
 POINTER_DIGEST = """\
@@ -196,7 +210,7 @@ Handoff `must_read` files. Required full journal reads still apply. Optional
 one-level child tasks are child-side links visible only in this checkout; the
 parent validates the integrated candidate.
 
-Read `.agentic/context/project.md` and relevant `context/environment.md`
+Read `.agentic/context/project.md` and relevant `.agentic/context/environment.md`
 sections when present. Keep project and component context current and positive;
 task records carry proposals and history. Preserve established behavior contracts.
 
@@ -315,11 +329,64 @@ def template(name: str) -> str:
     return read_text(path)
 
 
+#: resolved program locations, keyed by name, PATH and repository root
+_PROGRAMS: dict[tuple[str, str, str], str | None] = {}
+
+
+def system_program(name: str) -> str | None:
+    """
+    @brief Absolute path of a program found on PATH outside the repository.
+    @return None when no such location exists - the program counts as missing.
+    @details Windows searches the working directory before PATH unless
+             `NoDefaultCurrentDirectoryInExePath` is set, and AEGIS runs from
+             the repository root, so a program committed there would run in
+             place of the real one; `shutil.which` searches it too. This walk
+             skips empty and relative PATH entries and anything inside the
+             repository, including a link that points into it.
+    """
+    path_value = os.environ.get("PATH", "")
+    key = (name, path_value, str(ROOT))
+    if key not in _PROGRAMS:
+        root = ROOT.resolve()
+        # Windows: `.exe` only, as a bare-name launch would; a `.cmd` or `.bat`
+        # runs through cmd.exe, which re-parses arguments such as file names
+        names = [name + ".exe"] if sys.platform == "win32" and not Path(name).suffix else [name]
+        found = None
+        for entry in path_value.split(os.pathsep):
+            entry = entry.strip().strip('"')
+            if not entry or not os.path.isabs(entry):
+                continue
+            try:
+                folder = Path(entry).resolve()
+            except (OSError, ValueError):
+                continue
+            if folder.is_relative_to(root):
+                continue   # a repository folder on PATH is never searched
+            for candidate in names:
+                path = folder / candidate
+                # os.path.isfile reports an unreadable folder as False instead of raising
+                if not os.path.isfile(path) or (sys.platform != "win32"
+                                                and not os.access(path, os.X_OK)):
+                    continue
+                try:
+                    resolved = path.resolve()
+                except (OSError, ValueError):
+                    break
+                if not resolved.is_relative_to(root):
+                    found = str(resolved)
+                break   # this folder's match decides it; a link into the repository is skipped
+            if found:
+                break
+        _PROGRAMS[key] = found
+    return _PROGRAMS[key]
+
+
 def run_git(*args: str) -> tuple[int, str] | None:
     """
     @brief Run git in the repo root with captured output.
-    @details Returns (returncode, stdout), or None when the git binary is
-             missing or the call itself failed - callers degrade, never crash.
+    @details Returns (returncode, stdout), or None when no git program is
+             found outside the repository (`system_program`) or the call
+             itself failed - callers degrade, never crash.
     @details Output is held in memory: a very large diff (generated or
              vendored trees) costs proportional memory for the duration of
              the call. There is no in-tool mitigation - `[check] ignore`
@@ -327,9 +394,12 @@ def run_git(*args: str) -> tuple[int, str] | None:
              does not reduce this. Keep generated trees out of the diff
              (`.gitignore`, a vendor submodule) if it matters here.
     """
+    git = system_program("git")
+    if git is None:
+        return None
     try:
         out = subprocess.run(
-            ["git", *args],
+            [git, *args],
             check=False,          # the caller reads returncode; git failing is data
             cwd=str(ROOT),
             capture_output=True,
@@ -1082,10 +1152,10 @@ def cmd_init(args: argparse.Namespace) -> int:
     config = AGENTIC / "aegis.toml"
     if config.is_file():
         schema = load_config().get("schema", "?")
-        print(f"  {'aegis.toml':<16} kept (yours; schema {schema})")
+        print(f"  {'.agentic/aegis.toml':<24} kept (yours; schema {schema})")
     else:
         write_text(config, DEFAULT_CONFIG)
-        print(f"  {'aegis.toml':<16} created")
+        print(f"  {'.agentic/aegis.toml':<24} created")
 
     for name in POINTER_FILES:
         print(f"  {name:<16} {write_pointer(name)}")
@@ -1136,7 +1206,7 @@ def scaffold_template(name: str) -> str:
 
 
 def cmd_task(args: argparse.Namespace) -> int:
-    """@brief Scaffold a task journal from templates/task.md."""
+    """@brief Scaffold a task journal from .agentic/templates/task.md."""
     title = args.title.strip()
     if not title:
         raise UserError("task title must not be empty")
@@ -1471,7 +1541,7 @@ def parse_handoff(text: str) -> dict[str, str]:
             raise UserError("Handoff requires one 'key: value' per line")
         key, value = match.group(1).lower(), match.group(2).strip()
         if key not in HANDOFF_FIELDS:
-            raise UserError("unknown Handoff field; see templates/task.md")
+            raise UserError("unknown Handoff field; see .agentic/templates/task.md")
         if key in fields:
             raise UserError(f"duplicate Handoff field: {key}")
         if key == "current" and value and value not in KNOWN_STAGES:
@@ -1538,7 +1608,7 @@ def parse_stage_report(text: str) -> dict[str, str]:
             raise UserError("Stage report requires one 'key: value' per line")
         key, value = match.group(1).lower(), match.group(2).strip()
         if key not in STAGE_REPORT_FIELDS:
-            raise UserError("unknown Stage report field; see templates/task.md")
+            raise UserError("unknown Stage report field; see .agentic/templates/task.md")
         if key in fields:
             raise UserError(f"duplicate Stage report field: {key}")
         allowed = (KNOWN_STAGES if key in {"stage", "current"} else
@@ -1745,7 +1815,7 @@ CHECKS: tuple[tuple[str, str], ...] = (
     ("repo-evolution", "a scoped task has a completed anchor/evolution pair"),
     ("fingerprints-tracked",
      "anchor/evolution sidecars are committed only when [records] commit_fingerprints is true"),
-    ("config", "aegis.toml keys have the documented shapes"),
+    ("config", ".agentic/aegis.toml keys have the documented shapes"),
     ("command-failed", "a --run command ran to completion and succeeded"),
     ("command-timeout", "no --run command was stopped by its time limit"),
     ("nothing-ran", "--run actually executed at least one command"),
@@ -1786,6 +1856,9 @@ CONFIG_SHAPE: dict[str, dict[str, type]] = {
     "interaction": {"autopilot": bool},
     "review": {"enabled": bool, "max_fix_cycles": int},
     "records": {"commit_fingerprints": bool},
+    "codegraph": {"enabled": bool, "database": str, "max_results": int,
+                  "max_output_bytes": int, "timeout_seconds": int,
+                  "check_timeout_seconds": int, "index_timeout_seconds": int},
 }
 
 
@@ -1811,6 +1884,17 @@ def check_config(add, cfg: dict) -> None:
             and not 0 <= cycles <= MAX_FIX_CYCLES_LIMIT):
         add("WARN", "config", name,
             f"[review] max_fix_cycles should be 0 through {MAX_FIX_CYCLES_LIMIT}")
+    for key, (_default, low, high) in CODEGRAPH_LIMITS.items():
+        value = cfg_table(cfg, "codegraph").get(key)
+        if (isinstance(value, int) and not isinstance(value, bool)
+                and not low <= value <= (high or value)):
+            add("WARN", "config", name, f"[codegraph] {key} should be {limit_words(low, high)}")
+    database = cfg_table(cfg, "codegraph").get("database")
+    if isinstance(database, str):
+        try:
+            codegraph_database(database)
+        except UserError as exc:
+            add("WARN", "config", name, str(exc))
     for key, value in cfg_table(cfg, "commands").items():
         if key != "timeout" and not isinstance(value, str):
             add("WARN", "config", name, f"[commands] {key} should be a string")
@@ -2725,11 +2809,13 @@ def kill_tree(proc: subprocess.Popen) -> bool:
     """
     if sys.platform == "win32":
         killed = False
+        taskkill = system_program("taskkill")   # never a copy inside the repository
         try:
-            result = subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)],
-                                    check=False,   # a failed kill is reported, not raised
-                                    capture_output=True, timeout=20)
-            killed = result.returncode == 0
+            if taskkill is not None:
+                result = subprocess.run([taskkill, "/F", "/T", "/PID", str(proc.pid)],
+                                        check=False,   # a failed kill is reported, not raised
+                                        capture_output=True, timeout=20)
+                killed = result.returncode == 0
         except (OSError, subprocess.SubprocessError):
             killed = False  # taskkill missing, denied, or itself hung
         proc.kill()  # the shell itself, regardless of taskkill's outcome
@@ -2824,6 +2910,67 @@ SIDE_EFFECT_NAME_RE = re.compile(r"deploy|migrat|publish|release|push|upload",
                                  re.IGNORECASE)
 
 
+def plan_configured_commands(cfg: dict) -> list[tuple[str, str, str, str]]:
+    """
+    @brief Decide what `check --run` would execute, without executing it.
+    @details Returns one `(name, command, decision, reason)` per configured
+             entry, where `decision` is `run` or `skipped`. Both the preview
+             and the real run read this single function, so a `--dry-run`
+             plan can never promise a different set than `--run` delivers.
+    """
+    allowed = str_list(cfg_table(cfg, "check").get("run"))
+    plan: list[tuple[str, str, str, str]] = []
+    for name, command in runnable_commands(cfg):
+        if allowed and name not in allowed:
+            plan.append((name, command, "skipped", "not listed in [check] run"))
+        elif not allowed and SIDE_EFFECT_NAME_RE.search(name):
+            plan.append((name, command, "skipped",
+                         ("name suggests side effects - list it in "
+                          "[check] run to include it")))
+        else:
+            plan.append((name, command, "run", ""))
+    return plan
+
+
+def preview_configured_commands(cfg: dict, stream=None) -> list[dict]:
+    """
+    @brief Print what `check --run` would execute, and run nothing.
+    @details `--run` already prints `run: <name> started` before each command,
+             but that reaches a human watching a live terminal - an agent
+             calling the command through a shell tool receives all output only
+             once the command has returned, by which time an hour-long suite
+             has already been spent. A caller that must decide *whether* it can
+             afford this proof needs the answer beforehand, so this prints the
+             plan and the per-command limit, and returns.
+
+             The limit is the honest duration signal available without running
+             anything: `no limit` says the repository believes the command may
+             legitimately take as long as it takes.
+    """
+    out = stream if stream is not None else sys.stdout
+    plan = plan_configured_commands(cfg)
+    will_run = [entry for entry in plan if entry[2] == "run"]
+    print(f"dry-run: check --run would execute {len(will_run)} of {len(plan)} "
+          f"[commands] entries; workdir={command_workdir(cfg)}", file=out)
+
+    records: list[dict] = []
+    for name, command, decision, reason in plan:
+        if decision == "skipped":
+            print(f"run: {name} skipped ({reason})", file=out)
+            records.append({"name": name, "status": "skipped", "reason": reason})
+            continue
+        limit = command_timeout(cfg, name)
+        print(f"run: {name} would run "
+              f"({'no limit' if limit is None else f'limit {limit}s'})", file=out)
+        print(f"  $ {command}", file=out)
+        records.append({"name": name, "status": "planned", "command": command,
+                        "timeout": limit})
+    # Same closing sentence as `test --dry-run`, and for the same reason: a
+    # preview must never be mistaken for the proof the validate stage requires.
+    print("dry-run: no command run; no verification result recorded", file=out)
+    return records
+
+
 def run_configured_commands(cfg: dict, findings: list,
                             stream=None) -> list[dict]:
     """
@@ -2843,8 +2990,7 @@ def run_configured_commands(cfg: dict, findings: list,
              `--json`, so stdout stays one parseable document). Returns one
              record per configured command for the JSON envelope.
     """
-    entries = runnable_commands(cfg)
-    allowed = str_list(cfg_table(cfg, "check").get("run"))
+    entries = plan_configured_commands(cfg)
     out = stream if stream is not None else sys.stdout
     results: list[dict] = []
     workdir = command_workdir(cfg)
@@ -2853,17 +2999,11 @@ def run_configured_commands(cfg: dict, findings: list,
     def say(text: str) -> None:
         print(text, file=out, flush=True)  # live: each command lands visibly
 
-    for name, command in entries:
-        if allowed and name not in allowed:
-            say(f"run: {name} skipped (not listed in [check] run)")
+    for name, command, decision, reason in entries:
+        if decision == "skipped":
+            say(f"run: {name} skipped ({reason})")
             results.append({"name": name, "status": "skipped",
-                            "reason": "not listed in [check] run"})
-            continue
-        if not allowed and SIDE_EFFECT_NAME_RE.search(name):
-            say(f"run: {name} skipped (name suggests side effects - "
-                "list it in [check] run to include it)")
-            results.append({"name": name, "status": "skipped",
-                            "reason": "name suggests side effects"})
+                            "reason": reason})
             continue
         say(f"run: {name} started")  # a 20-minute suite must not look hung
         limit = command_timeout(cfg, name)
@@ -2916,9 +3056,16 @@ def cmd_check(args: argparse.Namespace) -> int:
     findings = run_checks(cfg, args.task)
     # under --json stdout must stay one parseable document, so live progress
     # goes to stderr instead of being lost.
-    runs = (run_configured_commands(cfg, findings,
-                                    sys.stderr if args.json else None)
-            if args.run else [])
+    progress = sys.stderr if args.json else None
+    if args.dry_run:
+        # The preview never appends `nothing-ran`: that ERROR exists because
+        # `--run` promised verification and delivered none. `--dry-run`
+        # promised a plan, and delivering one is not a failed proof.
+        runs = preview_configured_commands(cfg, progress)
+    elif args.run:
+        runs = run_configured_commands(cfg, findings, progress)
+    else:
+        runs = []
 
     counts = {"ERROR": 0, "WARN": 0, "NOTE": 0}
     promoted = set(str_list(cfg_table(cfg, "check").get("strict_promote")))
@@ -2941,6 +3088,8 @@ def cmd_check(args: argparse.Namespace) -> int:
                         "notes": counts["NOTE"]},
             "result": worst or "ok",
             "run": runs,
+            # explicit, so a consumer can never read a plan as a proof
+            "dry_run": bool(args.dry_run),
             "strict": {"enabled": bool(args.strict),
                        "promoted_warnings": promoted_warns,
                        "passed": not failed} if args.strict else None,
@@ -3151,14 +3300,14 @@ def cmd_test(args: argparse.Namespace) -> int:
     if (args.name in RESERVED_COMMAND_KEYS or not isinstance(command, str)
             or not command.strip() or "{" in command):
         raise UserError(
-            f"no runnable [commands] entry named '{args.name}' in aegis.toml")
+            f"no runnable [commands] entry named '{args.name}' in .agentic/aegis.toml")
 
     label = args.name
     fallback = ""
     if args.impacted:
         template_cmd = commands.get("test_impacted")
         if not isinstance(template_cmd, str) or "{tests}" not in template_cmd:
-            fallback = "no test_impacted template in aegis.toml"
+            fallback = "no test_impacted template in .agentic/aegis.toml"
         else:
             tests, reason = impacted_tests(cfg, getattr(args, "base", "") or "")
             substituted, tests, reason = fit_impacted(template_cmd, tests, reason)
@@ -3916,6 +4065,255 @@ def cmd_report(args: argparse.Namespace) -> int:
     return 0
 
 
+# knowledge graph: the know_graph commands hand each request to the CodeGraph
+# plugin, an isolated child process; the core owns its limits and its contract
+
+
+CODEGRAPH_ENTRY = AGENTIC / "plugins" / "codegraph" / "codegraph.py"
+CODEGRAPH_STORAGE = ".agentic/knowledge/codegraph"
+CODEGRAPH_PROTOCOL = 1
+#: bytes of plugin output read before the plugin is stopped: a 32 KiB answer
+#: plus its envelope and JSON escaping fits with room to spare
+CODEGRAPH_OUTPUT_CAP = 65536
+#: bytes of a query's standard error kept for a failure message
+CODEGRAPH_STDERR_CAP = 4096
+#: share of a limit the plugin is given as its own deadline, so its answer
+#: (for example freshness `unknown`) arrives before the core has to kill it
+CODEGRAPH_DEADLINE_SHARE = 0.8
+CODEGRAPH_STATUSES = ("ok", "ambiguous", "not_found", "expired", "unavailable",
+                      "disabled", "error")
+#: [codegraph] integer key -> (default, lowest, highest or None)
+CODEGRAPH_LIMITS: dict[str, tuple[int, int, int | None]] = {
+    "max_results": (20, 1, 200), "max_output_bytes": (8192, 512, 32768),
+    "timeout_seconds": (5, 1, None), "check_timeout_seconds": (30, 1, None),
+    "index_timeout_seconds": (0, 0, None),
+}
+#: AEGIS command -> (plugin operation, positional target, help line)
+KNOW_GRAPH_COMMANDS: dict[str, tuple[str, str | None, str]] = {
+    "know_graph": ("status", None, "show the knowledge graph's state"),
+    "know_graph_check": ("check", None, "compare the knowledge graph with the sources"),
+    "know_graph_find": ("find", "name", "find symbols by name"),
+    "know_graph_file": ("file", "path", "list the symbols of one source file"),
+    "know_graph_symbol": ("symbol", "id", "show one symbol by ID or ID prefix"),
+    "know_graph_callers": ("callers", "id", "list the callers of one symbol"),
+    "know_graph_refs": ("refs", "id", "list the references to one symbol"),
+    "know_graph_index": ("index", None, "build or update the knowledge graph"),
+}
+#: operations whose answers page through records, and those with record budgets
+KNOW_GRAPH_PAGED = ("find", "file", "callers", "refs")
+KNOW_GRAPH_BOUNDED = (*KNOW_GRAPH_PAGED, "symbol")
+
+
+def limit_words(low: int, high: int | None) -> str:
+    """@brief A range rule as config-check wording."""
+    return f"{low} through {high}" if high is not None else f"at least {low}"
+
+
+def codegraph_database(value: str) -> Path:
+    """
+    @brief Resolve `[codegraph] database`, which must stay in its own folder.
+    @raises UserError unless it resolves to NAME.sqlite directly inside the
+            storage folder. Links are followed on every existing component,
+            so a link that moves the folder or the file elsewhere fails too.
+    """
+    path = Path(value)
+    resolved = (path if path.is_absolute() else ROOT / path).resolve()
+    if (resolved.parent != ROOT.resolve() / CODEGRAPH_STORAGE
+            or not re.fullmatch(r"[A-Za-z0-9_-]+\.sqlite", resolved.name)):
+        raise UserError("[codegraph] database must be a NAME.sqlite file directly"
+                        f" inside {CODEGRAPH_STORAGE}/")
+    return resolved
+
+
+def codegraph_settings(table: dict) -> dict:
+    """@brief The core-owned `[codegraph]` values; a bad one is a UserError."""
+    settings: dict = {}
+    for key, (default, low, high) in CODEGRAPH_LIMITS.items():
+        value = table.get(key, default)
+        if (isinstance(value, bool) or not isinstance(value, int)
+                or not low <= value <= (high or value)):
+            raise UserError(f"[codegraph] {key} should be {limit_words(low, high)}")
+        settings[key] = value
+    database = table.get("database", f"{CODEGRAPH_STORAGE}/codegraph.sqlite")
+    if not isinstance(database, str):
+        raise UserError("[codegraph] database should be str")
+    settings["database"] = codegraph_database(database)
+    return settings
+
+
+def codegraph_answer(operation: str, status: str, reason: str, message: str,
+                     as_json: bool) -> int:
+    """@brief Print a core-produced response; the plugin never ran."""
+    if as_json:
+        emit_json({"provider": "codegraph", "protocol": CODEGRAPH_PROTOCOL,
+                   "plugin_version": None, "action": operation, "status": status,
+                   "reason": reason, "message": message, "index": None,
+                   "freshness": None, "indexing_supported": None,
+                   "python_support": None, "snapshot": None, "generation": None,
+                   "indexed_at": None, "results": [], "details": {},
+                   "has_more": False, "next_page": None})
+    else:
+        print(f"CodeGraph | {operation} | {status} | {reason}\n{message}")
+    return 0
+
+
+def codegraph_run(argv: list[str], operation: str, limit: float | None) -> tuple[bytes, str]:
+    """
+    @brief Run the plugin with bounded time and output.
+    @return (standard output, standard error tail).
+    @raises UserError when the limit expires, the output cap is reached or the
+            plugin cannot start; the plugin's process tree is killed first.
+    @details `index` keeps an unwritten standard-input pipe open for as long
+             as this process lives, so the plugin sees end-of-file and stops
+             when AEGIS is killed; its standard error is inherited so
+             progress reaches the operator.
+    """
+    index = operation == "index"
+    kwargs: dict = {"cwd": str(ROOT), "stdout": subprocess.PIPE,
+                    "stdin": subprocess.PIPE if index else subprocess.DEVNULL,
+                    "stderr": None if index else subprocess.PIPE}
+    if sys.platform != "win32":
+        kwargs["start_new_session"] = True   # what lets kill_tree reach descendants
+    try:
+        proc = subprocess.Popen(argv, **kwargs)
+    except OSError as exc:
+        raise UserError(f"CodeGraph could not start: {exc}") from None
+    out: list[bytes] = []
+    err = bytearray()
+    overflow = threading.Event()
+
+    def read_out() -> None:
+        size = 0
+        while block := proc.stdout.read1(65536):
+            size += len(block)
+            if size > CODEGRAPH_OUTPUT_CAP:
+                overflow.set()
+                return
+            out.append(block)
+
+    def read_err() -> None:
+        while block := proc.stderr.read1(4096):
+            err.extend(block[:max(0, CODEGRAPH_STDERR_CAP - len(err))])
+
+    readers = [threading.Thread(target=read_out, daemon=True)]
+    if not index:
+        readers.append(threading.Thread(target=read_err, daemon=True))
+    for reader in readers:
+        reader.start()
+    started = time.monotonic()
+    failure = None
+    readers[0].join(limit)
+    if overflow.is_set():
+        failure = f"CodeGraph output exceeded {CODEGRAPH_OUTPUT_CAP} bytes"
+    else:
+        try:
+            if readers[0].is_alive():
+                raise subprocess.TimeoutExpired(argv, limit or 0)
+            proc.wait(None if limit is None else max(0.0, limit - (time.monotonic() - started)))
+        except subprocess.TimeoutExpired:
+            failure = f"CodeGraph {operation} stopped after {limit:g}s time limit"
+    # kill before any wait: once the plugin is reaped, POSIX can no longer
+    # look up its process group, and a child holding the output would live on
+    killed = kill_tree(proc) if failure else True
+    try:
+        proc.wait(10)
+    except subprocess.TimeoutExpired:
+        failure = failure or f"CodeGraph {operation} did not exit"
+    for reader in readers:
+        reader.join(1)
+    # survivors: a refused kill left the plugin running, or something still holds its output
+    if failure and not killed and (proc.poll() is None or readers[0].is_alive()):
+        failure += "; some of its child processes may have survived"
+    # a reader still blocked on a pipe that a surviving descendant holds open
+    # would block close() as well; that stream is left to process exit
+    pipes = [(proc.stdout, readers[0])] + ([(proc.stderr, readers[1])] if not index else [])
+    for stream, reader in pipes:
+        if not reader.is_alive():
+            stream.close()
+    if proc.stdin:
+        proc.stdin.close()
+    if failure:
+        raise UserError(failure)
+    return b"".join(out), err.decode("utf-8", "replace")
+
+
+def codegraph_validate(raw: bytes, operation: str, as_json: bool, err: str) -> dict:
+    """@brief Parse and check the plugin's one envelope; any defect is a UserError."""
+    said = err.strip().splitlines()[-1][:200] if err.strip() else ""
+    if not raw.strip():
+        raise UserError("CodeGraph failed without an answer" + (f": {said}" if said else ""))
+
+    def fail(what: str) -> None:
+        raise UserError(f"CodeGraph protocol failure: {what}"
+                        + (f"; plugin said: {said}" if said else ""))
+    try:
+        env = json.loads(raw.decode("utf-8"))
+    except UnicodeDecodeError:
+        fail("output is not UTF-8")
+    except json.JSONDecodeError as exc:
+        fail(f"output is not one JSON document ({exc.msg})")
+    if not isinstance(env, dict):
+        fail("output is not a JSON object")
+    for key, want in (("schema", 1), ("provider", "codegraph"),
+                      ("protocol", CODEGRAPH_PROTOCOL), ("action", operation)):
+        if isinstance(env.get(key), bool) or env.get(key) != want:
+            fail(f"{key} is {env.get(key)!r}, expected {want!r}")
+    if env.get("status") not in CODEGRAPH_STATUSES:
+        fail(f"status {env.get('status')!r} is not in the protocol")
+    if not as_json and not isinstance(env.get("text"), str):
+        fail("the text view is missing")
+    return env
+
+
+def cmd_know_graph(args: argparse.Namespace) -> int:
+    """
+    @brief Answer one knowledge-graph command through the CodeGraph plugin.
+    @details Disabled or uninstalled answers come from the core and start
+             nothing. Otherwise the plugin runs under the same interpreter,
+             isolated (-I -B -X utf8), with absolute paths; its response is
+             validated before anything of it is printed. Only status `error`
+             exits 1.
+    """
+    operation, target, _help = KNOW_GRAPH_COMMANDS[args.command]
+    table = cfg_table(load_config(), "codegraph")
+    if table.get("enabled") is not True:
+        return codegraph_answer(operation, "disabled", "not_enabled",
+                                "CodeGraph is off; set [codegraph] enabled = true"
+                                " in .agentic/aegis.toml to use it.", args.json)
+    settings = codegraph_settings(table)
+    if not CODEGRAPH_ENTRY.is_file():
+        return codegraph_answer(operation, "unavailable", "plugin_missing",
+                                "CodeGraph is enabled but not installed in"
+                                " .agentic/plugins/codegraph/; read the sources.",
+                                args.json)
+    argv = [sys.executable, "-I", "-B", "-X", "utf8", str(CODEGRAPH_ENTRY), operation,
+            "--root", str(ROOT), "--config", str(AGENTIC / "aegis.toml"),
+            "--database", str(settings["database"]),
+            "--protocol", str(CODEGRAPH_PROTOCOL),
+            "--json" if args.json else "--text-envelope"]
+    for option in ("limit", "max_bytes", "page"):
+        if getattr(args, option, None) is not None:
+            argv += ["--" + option.replace("_", "-"), str(getattr(args, option))]
+    if getattr(args, "rebuild", False):
+        argv.append("--rebuild")
+    key = {"check": "check_timeout_seconds",
+           "index": "index_timeout_seconds"}.get(operation, "timeout_seconds")
+    limit = settings[key] or None
+    if operation == "index":
+        argv.append("--watch-stdin")
+    if operation in ("check", "index") and limit:
+        argv += ["--deadline", f"{limit * CODEGRAPH_DEADLINE_SHARE:g}"]
+    if target:
+        argv += ["--", repo_path_arg(args.target) if target == "path" else args.target]
+    raw, err = codegraph_run(argv, operation, limit)
+    env = codegraph_validate(raw, operation, args.json, err)
+    if args.json:
+        print(raw.decode("utf-8").rstrip("\n"))
+    else:
+        print(env["text"].rstrip("\n"))
+    return 1 if env["status"] == "error" else 0
+
+
 # entry point
 
 
@@ -3970,7 +4368,10 @@ def build_parser() -> argparse.ArgumentParser:
     check.add_argument("--strict", action="store_true",
                        help="CI mode: exit 1 on errors and promoted warnings")
     check.add_argument("--run", action="store_true",
-                       help="also execute the [commands] entries from aegis.toml")
+                       help="also execute the [commands] entries from .agentic/aegis.toml")
+    check.add_argument("--dry-run", action="store_true",
+                       help="list what --run would execute, with each command's"
+                            " limit, and run none of it")
     check.add_argument("--full", action="store_true",
                        help=f"print every finding (default caps at {FINDING_CAP};"
                             " --strict implies --full)")
@@ -4042,6 +4443,23 @@ def build_parser() -> argparse.ArgumentParser:
     status.add_argument("--json", action="store_true",
                         help="emit one JSON document on stdout (always complete)")
     status.set_defaults(func=cmd_status)
+
+    for command, (operation, target, summary) in KNOW_GRAPH_COMMANDS.items():
+        graph = subs.add_parser(command, help=f"{summary} (CodeGraph plugin)")
+        if target:
+            graph.add_argument("target", help=f"the {target}; put it after -- when it"
+                                              " starts with -")
+        graph.add_argument("--json", action="store_true",
+                           help="print the plugin's JSON envelope")
+        if operation == "index":
+            graph.add_argument("--rebuild", action="store_true",
+                               help="build a fresh database instead of updating")
+        if operation in KNOW_GRAPH_BOUNDED:
+            graph.add_argument("--limit", type=int, help="records per answer")
+            graph.add_argument("--max-bytes", type=int, help="bytes per answer")
+        if operation in KNOW_GRAPH_PAGED:
+            graph.add_argument("--page", help="page token from a previous answer")
+        graph.set_defaults(func=cmd_know_graph)
     return parser
 
 

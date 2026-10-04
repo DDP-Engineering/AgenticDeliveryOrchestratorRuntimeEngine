@@ -18,7 +18,8 @@ links current for optional impacted selection.
 - Every requirement on its `requirements:` line, and their specs.
 - The existing tests for the files you are about to touch.
 - Relevant `.agentic/context/environment.md` sections and their canonical setup
-  references, when present. Use `aegis.toml` for configured commands and paths.
+  references, when present. Use `.agentic/aegis.toml` for configured commands
+  and paths.
 
 **Reporting and resume:** Follow `.agentic/AGENTS.md` sections "Resume a task",
 "Rulings and handoffs", and "Stage reporting". At transitions and pauses,
@@ -45,10 +46,13 @@ another. Diagnose a missing prerequisite directly; do not repeatedly launch
 whole suites to discover it. Setup never grants permission for host changes,
 network downloads, or installation beyond existing authorization.
 
-When a behavior or environment change becomes real, update affected project
-context and component documentation to describe the current candidate directly.
-Keep run outcomes and unresolved setup problems in the journal, not the shared
-environment guide. Validate reconciles these current-state descriptions.
+Update directly affected docstrings, usage examples, and setup instructions
+with the implementation. Keep material discoveries and design changes in the
+task journal; run outcomes and unresolved setup problems also belong there.
+Validate owns comprehensive component knowledge updates, architecture
+reconciliation, and migration of touched legacy pages. If another agent needs
+current component facts before validate, update the relevant sections before
+the handoff.
 
 1. Pick one requirement. Work it to green before starting the next - do
    not open several at once.
@@ -113,22 +117,26 @@ environment guide. Validate reconciles these current-state descriptions.
     modified, and removed path, then run `python .agentic/aegis.py check`.
    Fix what it flags, or record in one log line which warning remains and why;
    state it as a deviation notice only when accepting that finding materially
-   limits the candidate or its verification, per `AGENTS.md`; unrelated or
+   limits the candidate or its verification, per `.agentic/AGENTS.md`; unrelated or
    corrected findings are ordinary evidence. Reconcile an unexpected
    `evolution` report.
    It becomes a deviation only if you accept candidate files or omissions that
    materially depart from the agreed scope or design.
 11. In checkpoint mode, present the `build` Stage-boundary choices from
-    `AGENTS.md`, refresh the waiting Handoff and paused Stage report, then stop
+    `.agentic/AGENTS.md`, refresh the waiting Handoff and paused Stage report, then stop
     before transition. After the user chooses to continue, or immediately in
     autopilot, tick the checklist, set `stage: validate`, and **replace
-    `## Done checklist`** with the validate stage's "Done when" list from
-    `5_validate.md` - the checklist always shows the current stage's items.
+    `## Done checklist`** with the validate stage's "Done when" list - the
+    checklist always shows the current stage's items. Before validation work,
+    read `.agentic/steps/5_validate.md`. If the user instead returns to Design
+    or Specify, read `.agentic/steps/3_design.md` or
+    `.agentic/steps/2_specify.md`, respectively, before work there.
 
 **Outputs:**
 
 - New and changed tests, and the implementation that satisfies them.
 - Updated `affected_paths`, `linked_tests`, `status` on each requirement.
+- Updated docstrings, usage examples, and setup instructions where affected.
 - Journal log lines: one reproducible red result and one final focused green
   result per meaningful behavior increment, a consolidated manual observation
   where applicable, plus material accepted warnings.
@@ -143,6 +151,7 @@ environment guide. Validate reconciles these current-state descriptions.
 - [ ] implementation makes those tests pass
 - [ ] focused project tests green, with their actual scope recorded
 - [ ] `affected_paths` and `linked_tests` updated on every requirement
+- [ ] directly affected docstrings, usage examples, and setup instructions updated
 - [ ] `status = "active"` on every requirement this task delivers — or
       `"retired"`, with the reason in its prose, where this task
       deliberately removed the behavior

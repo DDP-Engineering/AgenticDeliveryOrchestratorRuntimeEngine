@@ -1,0 +1,26 @@
+# Pinned Tree-sitter wheels vendored into vendor/. Hashes are PyPI SHA-256.
+# Refresh only deliberately; see README.md, "Vendored parsers".
+
+# tree_sitter-0.26.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (664758 bytes)
+# tree_sitter-0.26.0-cp311-cp311-win_amd64.whl (129496 bytes)
+# tree_sitter-0.26.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (667487 bytes)
+# tree_sitter-0.26.0-cp312-cp312-win_amd64.whl (129619 bytes)
+# tree_sitter-0.26.0-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (668102 bytes)
+# tree_sitter-0.26.0-cp313-cp313-win_amd64.whl (129615 bytes)
+# tree_sitter-0.26.0-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (668300 bytes)
+# tree_sitter-0.26.0-cp314-cp314-win_amd64.whl (132688 bytes)
+tree-sitter==0.26.0 \
+    --hash=sha256:335294ce0504fcefde5245dff596778ffaf820205b98ae0b549c72e48855f1d8 \
+    --hash=sha256:0f8793fd18ad7eec276ed4b51c097b4bf2002b357259b66b0d75db1f3f41c754 \
+    --hash=sha256:5a6b333b0282d8bb0af741f9b018bd2523d4eecb2686bf6717066a625fecfaa4 \
+    --hash=sha256:ca89e361a276dbc934b28a43dd881199e25d34ff5493ee0ce45f3c52a6124a37 \
+    --hash=sha256:7075ef857ef86f327dbb72d1e2574dda78db5754b3a1fca6506acd7fe5d561a7 \
+    --hash=sha256:93e220cab7e6a823efeb2046c49171427de92ef71c7c681c01820d14d8d3721f \
+    --hash=sha256:f665510f0fcf4636fb9696f1f7853bed7a3bd764b7bb0cb8494e619c14ed5a0c \
+    --hash=sha256:a4033fecc8f606c7f2e8b8014d0057b74668a7f0152763606f7bc25c5f9ec64c
+
+# tree_sitter_python-0.25.0-cp310-abi3-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl (108133 bytes)
+# tree_sitter_python-0.25.0-cp310-abi3-win_amd64.whl (76073 bytes)
+tree-sitter-python==0.25.0 \
+    --hash=sha256:86f118e5eecad616ecdb81d171a36dde9bef5a0b21ed71ea9c3e390813c3baf5 \
+    --hash=sha256:9bcde33f18792de54ee579b00e1b4fe186b7926825444766f849bf7181793a76

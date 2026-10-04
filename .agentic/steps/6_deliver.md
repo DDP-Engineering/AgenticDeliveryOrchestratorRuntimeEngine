@@ -22,7 +22,10 @@ changing what was proved.
 update the current checklist, minimal Handoff and Stage report, then show
 `summary TASK-<id>`. Read required durable evidence; missing or shortened
 context requires review. This adds no approval stop and never defers a material
-deviation notice. Reuse unchanged instructions already read in this session.
+deviation notice. Reuse unchanged instructions already read in this session -
+**except this step file.** If you read it before `validate` began, read it again
+now. Delivery is the one stage that publishes, and it is reached with the least
+context left; its rules are not safe to work from memory.
 
 **Steps:**
 
@@ -30,7 +33,8 @@ deviation notice. Reuse unchanged instructions already read in this session.
    the diff and status before publishing. If source, tests, requirements,
    specs, or knowledge changed after the recorded proof—or must change now—
    return to `validate`: set `stage: validate`, replace the checklist with
-   `5_validate.md`'s "Done when" list, log why, and stop for revalidation.
+   Validate's "Done when" list, log why, and stop for revalidation. On
+   resuming validation, read `.agentic/steps/5_validate.md`.
 2. When explicit review is enabled, confirm both current bound verdicts are
    `approved` for this unchanged candidate. Blank, malformed, stale,
    `disabled`, or `changes_required` evidence returns to validate. When
@@ -42,7 +46,7 @@ deviation notice. Reuse unchanged instructions already read in this session.
    results, accepted warnings and pre-existing failures, the exact diff
    summary, child status and integrated parent evidence when children are
    visible, what will be committed, exclusions, and the intended outcome.
-    Present the `deliver` Stage-boundary choices from `AGENTS.md`, refresh the
+    Present the `deliver` Stage-boundary choices from `.agentic/AGENTS.md`, refresh the
     waiting Handoff and paused Stage report, and wait for the human's choice.
     Any deviation notices you gave along the
    way were notifications, not approvals: notices supplement this
