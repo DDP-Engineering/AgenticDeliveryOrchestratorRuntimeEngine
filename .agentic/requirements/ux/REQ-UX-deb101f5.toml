@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-deb101f5"
+
+title = "Explain the number on each Overview card"
+
+status = "active"
+
+requirement = """
+The Overview summary cards shall explain their numbers in the selected language: the Projects card shall say the count covers projects the user can access, and each job card shall name the project its count belongs to.
+"""
+
+verification = "Manual: in each locale open Overview with a selected project and confirm the Projects card hint reads as projects you can access and the Active jobs, Awaiting review and Failed jobs hints read Project: <name>; with no projects confirm a dash instead of an empty project name."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/styles.css", "04_Software/web/src/i18n.ts", "04_Software/adore/web/static/"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-03
+updated = 2026-10-03

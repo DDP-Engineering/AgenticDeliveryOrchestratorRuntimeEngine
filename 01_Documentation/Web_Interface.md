@@ -156,6 +156,11 @@ an edge shadow where more columns can be scrolled into view, and Jobs collapses
 its history filters behind a Filters button that shows how many are active;
 use Menu to switch pages.
 
+Project names and job ticket numbers are links, so a job opens in Jobs from
+any table. When the selected Metrics scope has no jobs yet, Summary, Quality
+and Trends show a short message instead of empty cards. Estimated prices start
+with the project's own executor selected.
+
 Forms mark required fields with `*` and a legend, example placeholders start
 with "e.g." (or the selected language's equivalent), and every field that sets
 a password states and enforces the 8-character minimum.

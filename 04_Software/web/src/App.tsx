@@ -275,6 +275,7 @@ export default function App() {
     selectedMetrics && metricsScope === selected && selectedProject ? [[selectedProject.name, selectedMetrics] as [string, Metrics]] : [];
   const metrics = allProjectScope ? (allMetrics ? aggregateMetrics(Object.values(allMetrics), metricTimezone, metricFrom, metricTo) : null) :
     metricsScope === selected ? selectedMetrics : null;
+  const metricsEmpty = metrics !== null && !((metrics.totals.runs || 0) > 0);
   const usage = allProjectScope ? (allUsage ? aggregateUsage(Object.values(allUsage)) : null) : usageScope === selected ? selectedUsage : null;
   const scopedUsageRows = allProjectScope ? Object.entries(allUsage || {}) : selectedUsage && selectedProject ? [[selectedProject.name, selectedUsage] as [string, Usage]] : [];
   const globalTokensIn = globalRows.reduce((sum, [, item]) => sum + (item.totals.tokens_in || 0), 0);
@@ -586,6 +587,8 @@ export default function App() {
     if (preserveError.current) { preserveError.current = false; return; }
     setError("");
   }, [page]);
+
+  const openJob = (runId: string) => { void openRun(runId); setPage("jobs"); };
 
   const openProject = (id: string) => {
     setSelected(id); setProjectTab("overview"); setDetails(null); setPage("projectDetails");
@@ -964,12 +967,12 @@ export default function App() {
       <button className="mobile-menu ghost" type="button" aria-controls="primary-navigation" aria-expanded={menuOpen} onClick={() => setMenuOpen(open => !open)}>☰ {t("menu")}</button>
       <nav id="primary-navigation" aria-label="Primary" className={menuOpen ? "nav-open" : ""}>
         {nav.map(item => <button key={item} className={page === item || (item === "projects" && (page === "createProject" || page === "importProject")) ? "nav-item active" : "nav-item"} onClick={() => { setPage(item); setDetails(null); setMenuOpen(false); }}>{t(item)}</button>)}
-        {isAdmin ? <><button className={`nav-item nav-parent${adminPages.includes(page) ? " admin-active" : ""}`} aria-expanded={adminMenuOpen} aria-controls="admin-navigation" onClick={() => setAdminMenuOpen(open => !open)}>{t("administration")} <span aria-hidden="true">{adminMenuOpen ? "⌄" : "›"}</span></button>
+        {isAdmin ? <><button className={`nav-item nav-parent${adminPages.includes(page) ? " admin-active" : ""}`} aria-expanded={adminMenuOpen} aria-controls="admin-navigation" onClick={() => setAdminMenuOpen(open => !open)}>{t("administration")} <Icon name="chevron" flipped={adminMenuOpen} /></button>
           {adminMenuOpen && <div id="admin-navigation" className="nav-submenu">{adminPages.map(item => <button key={item} className={page === item ? "nav-item active" : "nav-item"} onClick={() => { setPage(item); setDetails(null); setMenuOpen(false); }}>{t(item === "administration" ? "systemStatus" : item)}</button>)}</div>}</>
           : null}
         <button className={page === "settings" ? "nav-item active" : "nav-item"} onClick={() => { setPage("settings"); setDetails(null); setMenuOpen(false); }}>{t("myAccount")}</button>
       </nav>
-      <div className="sidebar-bottom"><span className="user-avatar">{session.user.username.charAt(0).toUpperCase()}</span><div><strong>{session.user.username}</strong><small>{t(session.user.role)}</small></div><button className="icon-button" onClick={signOut} title={t("logout")}>↗</button></div>
+      <div className="sidebar-bottom"><span className="user-avatar">{session.user.username.charAt(0).toUpperCase()}</span><div><strong>{session.user.username}</strong><small>{t(session.user.role)}</small></div><button className="icon-button" onClick={signOut} title={t("logout")} aria-label={t("logout")}><Icon name="signOut" /></button></div>
     </aside>
 
     <div className="workspace" inert={!!about}>
@@ -987,13 +990,13 @@ export default function App() {
         {operation && <div className="notice" role="status">{t("operationStatus")}: #{operation.id} · {operation.status}{operation.result ? ` · ${operation.result}` : ""}</div>}
         {page === "overview" && <>
           <div className="stats-grid">
-            <OverviewCard label={t("allProjects")} value={formatNumber(projects.length)} hint={t("projects")} selected={overviewSection === "projects"} onClick={() => setOverviewSection(section => section === "projects" ? null : "projects")} />
-            <OverviewCard label={t("activeJobs")} value={formatNumber(activeJobs)} hint={selectedProject?.name || "—"} selected={overviewSection === "active"} onClick={() => setOverviewSection(section => section === "active" ? null : "active")} />
-            <OverviewCard label={t("needsReview")} value={formatNumber(reviewJobs)} hint={selectedProject?.name || "—"} selected={overviewSection === "review"} onClick={() => setOverviewSection(section => section === "review" ? null : "review")} />
-            <OverviewCard label={t("failedJobs")} value={formatNumber(failedJobs)} hint={selectedProject?.name || "—"} selected={overviewSection === "failed"} onClick={() => setOverviewSection(section => section === "failed" ? null : "failed")} />
+            <OverviewCard label={t("allProjects")} value={formatNumber(projects.length)} hint={t("projectsYouCanAccess")} selected={overviewSection === "projects"} onClick={() => setOverviewSection(section => section === "projects" ? null : "projects")} />
+            <OverviewCard label={t("activeJobs")} value={formatNumber(activeJobs)} hint={selectedProject ? t("projectHint").replace("{project}", selectedProject.name) : "—"} selected={overviewSection === "active"} onClick={() => setOverviewSection(section => section === "active" ? null : "active")} />
+            <OverviewCard label={t("needsReview")} value={formatNumber(reviewJobs)} hint={selectedProject ? t("projectHint").replace("{project}", selectedProject.name) : "—"} selected={overviewSection === "review"} onClick={() => setOverviewSection(section => section === "review" ? null : "review")} />
+            <OverviewCard label={t("failedJobs")} value={formatNumber(failedJobs)} hint={selectedProject ? t("projectHint").replace("{project}", selectedProject.name) : "—"} selected={overviewSection === "failed"} onClick={() => setOverviewSection(section => section === "failed" ? null : "failed")} />
           </div>
           <section className="panel" id="overview-detail"><div className="panel-heading"><h2>{t(overviewSection === "projects" ? "allProjects" : overviewSection === "active" ? "activeJobs" : overviewSection === "review" ? "needsReview" : overviewSection === "failed" ? "failedJobs" : "recentJobs")}{overviewSection && overviewSection !== "projects" && selectedProject ? ` · ${selectedProject.name}` : ""}</h2>{overviewSection !== "projects" && <button className="text-button" onClick={() => setPage("jobs")}>{t("view")} →</button>}</div>
-            {overviewSection === "projects" ? projects.length ? <PagedTable t={t}><table><thead><tr><th>{t("project")}</th><th>{t("repository")}</th><th>{t("status")}</th><th>{t("jobs")}</th><th>{t("actions")}</th></tr></thead><tbody>{projects.map(item => <tr key={item.id} className={item.id === selected ? "overview-project-selected" : ""}><td className="strong"><button className="text-button" aria-current={item.id === selected ? "true" : undefined} onClick={() => setSelected(item.id)}>{item.name}</button></td><td>{item.repo}</td><td>{t(item.readiness === "configured" ? "configured" : item.readiness === "needs-config" ? "needsConfig" : item.readiness === "invalid-state" ? "invalidState" : item.readiness === "archived" ? "archived" : "paused")}</td><td>{item.runs}</td><td><button className="text-button" onClick={() => openProject(item.id)}>{t("view")} →</button></td></tr>)}</tbody></table></PagedTable> : <Empty label={t("noProjects")} /> : <><RunTable runs={overviewSection ? overviewRuns : runs.slice(0, 7)} t={t} formatDate={formatDate} onOpen={runId => { void openRun(runId); setPage("jobs"); }} />{overviewSection && <ServerPager t={t} total={overviewTotal} size={overviewPageSize} offset={overviewOffset} onSize={setOverviewPageSize} onOffset={setOverviewOffset} />}</>}
+            {overviewSection === "projects" ? projects.length ? <PagedTable t={t}><table><thead><tr><th>{t("project")}</th><th>{t("repository")}</th><th>{t("status")}</th><th>{t("jobs")}</th><th>{t("actions")}</th></tr></thead><tbody>{projects.map(item => <tr key={item.id} className={item.id === selected ? "overview-project-selected" : ""}><td className="strong"><button className="text-button" aria-current={item.id === selected ? "true" : undefined} onClick={() => setSelected(item.id)}>{item.name}</button></td><td>{item.repo}</td><td>{t(item.readiness === "configured" ? "configured" : item.readiness === "needs-config" ? "needsConfig" : item.readiness === "invalid-state" ? "invalidState" : item.readiness === "archived" ? "archived" : "paused")}</td><td>{item.runs}</td><td><button className="text-button" onClick={() => openProject(item.id)}>{t("view")} →</button></td></tr>)}</tbody></table></PagedTable> : <Empty label={t("noProjects")} /> : <><RunTable runs={overviewSection ? overviewRuns : runs.slice(0, 7)} t={t} formatDate={formatDate} project={selected} onOpen={openJob} />{overviewSection && <ServerPager t={t} total={overviewTotal} size={overviewPageSize} offset={overviewOffset} onSize={setOverviewPageSize} onOffset={setOverviewOffset} />}</>}
           </section>
         </>}
 
@@ -1008,7 +1011,7 @@ export default function App() {
               <SortHeader label={t("lastActivity")} sortKey="last_activity" activeKey={projectSortKey} descending={projectSortDescending} onSort={changeProjectSort} />
               <th>{t("actions")}</th>
             </tr></thead><tbody>{sortedProjects.map(item => <tr key={item.id}>
-              <td className="strong">{item.name}</td><td>{item.repo}</td>
+              <td className="strong"><RouteLink to={formatRoute({ view: "projectDetails", project: item.id, tab: "overview" })} onNavigate={() => openProject(item.id)}>{item.name}</RouteLink></td><td>{item.repo}</td>
               <td><span className={`status status-${item.readiness}`}>{projectStatusLabel(item)}</span></td>
               <td>{item.runs}</td><td>{item.last_activity ? formatDate(item.last_activity) : "\u2014"}</td>
               <td><div className="project-row-actions"><button className="text-button" onClick={() => openProject(item.id)}>{t("view")}</button>
@@ -1057,7 +1060,7 @@ export default function App() {
           <div id="project-tab-panel" role="tabpanel" aria-labelledby={`project-tab-${projectTab}`}>
           {projectTab === "overview" && <>
           {isAdmin && <section className="panel"><div className="panel-heading"><h2>{t("hostReadiness")}</h2><button className="ghost" onClick={() => void checkProjectReadiness()}>{t("runReadinessCheck")}</button></div><p className="muted">{t("hostReadinessHelp")}</p>{projectReadiness && <><p className="muted">{t("checkedAt")}: {formatDate(projectReadiness.checked_at)}</p><div className="detail-grid">{Object.entries(projectReadiness.checks).map(([key, value]) => <span key={key}>{t(({ git: "gitTool", forge_cli: "forgeCli", forge_auth: "forgeAuth", container_runtime: "containerRuntime", executor_cli: "executorCli", aegis_files: "aegisPayload", model_endpoint: "modelEndpoint" } as Record<string, MessageKey>)[key])}: <strong>{value === true ? t("checkPassed") : value === false ? t("checkMissing") : t("checkUnverified")}</strong></span>)}</div>{projectReadiness.model_probe && <p className="muted">{t("modelEndpoint")}: {modelReason(projectReadiness.model_probe.reason)}{projectReadiness.model_probe.model ? ` (${projectReadiness.model_probe.model})` : ""}</p>}</>}</section>}
-          <section className="panel"><div className="panel-heading"><h2>{t("recentJobs")}</h2><button className="text-button" onClick={() => setPage("jobs")}>{t("view")} →</button></div><RunTable runs={runs} t={t} formatDate={formatDate} onOpen={openRun} /></section>
+          <section className="panel"><div className="panel-heading"><h2>{t("recentJobs")}</h2><button className="text-button" onClick={() => setPage("jobs")}>{t("view")} →</button></div><RunTable runs={runs} t={t} formatDate={formatDate} project={selected} onOpen={openJob} /></section>
           </>}
           {projectTab === "configuration" && <>
           {projectConfig && <ProjectConfigReadOnly config={projectConfig.config} t={t} />}
@@ -1066,7 +1069,7 @@ export default function App() {
           </>}
           {projectTab === "prices" && isAdmin && <>
           {isAdmin && selected && <section className="panel wide-panel"><h2>{t("estimatedPrices")}</h2><p className="muted">{t("priceHelp")}</p>
-            <form className="form-grid" onSubmit={savePrice}><FormLegend t={t} /><label>{t("executor")}<select name="executor"><option value="codex">codex</option><option value="opencode">opencode</option><option value="pi">pi</option><option value="qwen">qwen</option></select></label><Field name="model" label={t("model")} required /><label>{t("effectiveFrom")}<RequiredMark /><input name="effective_from" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required /></label><label>{t("inputRate")}<RequiredMark /><input name="input_usd_per_million" type="number" min="0" max="1000000" step="0.000001" required /></label><label>{t("outputRate")}<RequiredMark /><input name="output_usd_per_million" type="number" min="0" max="1000000" step="0.000001" required /></label><button className="primary form-submit" type="submit">{t("save")}</button></form>
+            <form key={selected} className="form-grid" onSubmit={savePrice}><FormLegend t={t} /><label>{t("executor")}<select name="executor" defaultValue={["codex", "opencode", "pi", "qwen"].includes(selectedProject?.executor || "") ? selectedProject?.executor : "codex"}><option value="codex">codex</option><option value="opencode">opencode</option><option value="pi">pi</option><option value="qwen">qwen</option></select></label><Field name="model" label={t("model")} required /><label>{t("effectiveFrom")}<RequiredMark /><input name="effective_from" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required /></label><label>{t("inputRate")}<RequiredMark /><input name="input_usd_per_million" type="number" min="0" max="1000000" step="0.000001" required /></label><label>{t("outputRate")}<RequiredMark /><input name="output_usd_per_million" type="number" min="0" max="1000000" step="0.000001" required /></label><button className="primary form-submit" type="submit">{t("save")}</button></form>
             {projectPrices.length > 0 && <PagedTable t={t}><table><thead><tr><th>{t("executor")}</th><th>{t("model")}</th><th>{t("effectiveFrom")}</th><th>{t("inputRate")}</th><th>{t("outputRate")}</th></tr></thead><tbody>{projectPrices.map(price => <tr key={price.id}><td>{price.executor}</td><td>{price.model}</td><td>{price.effective_from}</td><td>{price.input_usd_per_million}</td><td>{price.output_usd_per_million}</td></tr>)}</tbody></table></PagedTable>}
           </section>}
           </>}
@@ -1087,7 +1090,7 @@ export default function App() {
               <GuidedField id="jobs-outcome-filter" label={t("outcomeContains")} help={t("outcomeContainsHelp")} helpLabel={t("settingHelp")}><input id="jobs-outcome-filter" type="search" maxLength={80} placeholder={example("EXECUTOR_TIMEOUT")} value={jobOutcome} onChange={event => setJobOutcome(event.target.value)} /></GuidedField>
             </div>
             </div>
-            <RunTable runs={jobPage.items} t={t} formatDate={formatDate} onOpen={openRun} emptyLabel={jobLifecycle || jobStage || jobExecutor.trim() || jobUpdatedFrom || jobUpdatedTo || jobOutcome.trim() ? t("noMatchingJobs") : t("noJobs")} />
+            <RunTable runs={jobPage.items} t={t} formatDate={formatDate} project={selected} onOpen={openRun} emptyLabel={jobLifecycle || jobStage || jobExecutor.trim() || jobUpdatedFrom || jobUpdatedTo || jobOutcome.trim() ? t("noMatchingJobs") : t("noJobs")} />
             <ServerPager t={t} total={jobPage.total} size={jobPageSize} offset={jobOffset} onSize={setJobPageSize} onOffset={setJobOffset} />
           </section>
           {details && <section className="panel detail-panel"><div className="panel-heading"><h2>{t("ticket")} #{details.run.ticket_iid}</h2><button className="ghost" onClick={() => setDetails(null)}>{t("close")}</button></div>
@@ -1112,7 +1115,7 @@ export default function App() {
           {usage?.daily.length ? <PagedTable t={t}><table><thead><tr><th>{t("date")}</th><th>{t("executor")}</th><th>{t("model")}</th><th>{t("usageEvents")}</th><th>{t("tokensIn")}</th><th>{t("tokensOut")}</th><th>{t("cacheRead")}</th><th>{t("cacheWrite")}</th>{isAdmin && <th>{t("cost")}</th>}{isAdmin && <th>{t("estimatedCost")}</th>}</tr></thead><tbody>{usage.daily.map((row, index) => <tr key={`${row.date}-${row.executor}-${row.model}-${index}`}><td>{row.date}</td><td>{row.executor || "—"}</td><td>{row.model || "—"}</td><td>{formatNumber(row.events)}</td><td>{formatNumber(row.tokens_in)}</td><td>{formatNumber(row.tokens_out)}</td><td>{row.cache_read_tokens == null ? "\u2014" : formatNumber(row.cache_read_tokens)}</td><td>{row.cache_write_tokens == null ? "\u2014" : formatNumber(row.cache_write_tokens)}</td>{isAdmin && <td>{formatMoney(row.reported_cost_usd)}</td>}{isAdmin && <td>{formatMoney(row.estimated_cost_usd)}</td>}</tr>)}</tbody></table></PagedTable> : <Empty label={t("noMatchingMetrics")} />}
           {allProjectScope && allUsage && <><h3>{t("allProjects")}</h3><PagedTable t={t}><table><thead><tr><th>{t("project")}</th><th>{t("usageEvents")}</th><th>{t("tokensIn")}</th><th>{t("tokensOut")}</th><th>{t("cost")}</th><th>{t("estimatedCost")}</th></tr></thead><tbody>{scopedUsageRows.map(([name, item]) => <tr key={name}><td>{name}</td><td>{formatNumber(item.totals.events)}</td><td>{formatNumber(item.totals.tokens_in)}</td><td>{formatNumber(item.totals.tokens_out)}</td><td>{formatMoney(item.totals.reported_cost_usd)}</td><td>{formatMoney(item.totals.estimated_cost_usd)}</td></tr>)}</tbody></table></PagedTable></>}
         </section></>}
-        {metricsTab === "summary" && <>
+        {metricsTab === "summary" && metricsEmpty && <section className="panel"><Empty label={t("metricsNoJobs")} /></section>}{metricsTab === "summary" && !metricsEmpty && <>
         <p className="muted">{scopeLabel} · {t("allTimeTotals")}</p><div className="stats-grid">
           <Stat label={t("runs")} value={formatNumber(metrics?.totals.runs || 0)} hint={scopeLabel} />
           <Stat label={t("tokensIn")} value={formatNumber(metrics?.totals.tokens_in || 0)} hint={t("coverage")} />
@@ -1153,7 +1156,7 @@ export default function App() {
           </div>
         </section>}
         </>}
-        {metricsTab === "quality" && <>
+        {metricsTab === "quality" && metricsEmpty && <section className="panel"><Empty label={t("metricsNoJobs")} /></section>}{metricsTab === "quality" && !metricsEmpty && <>
         <section className="panel"><div className="panel-heading"><h2>{t("deliveryQuality")}</h2><span className="muted">{t("allTimeTotals")}</span></div>
           <p className="muted">{t("qualityHelp")}</p><div className="stats-grid">
             <Stat label={t("reviewReworkRate")} value={formatPercent(metrics?.quality.review_rework_rate)} hint={`${formatNumber(metrics?.quality.reworked_jobs || 0)} / ${formatNumber(metrics?.quality.reviewed_jobs || 0)} ${t("reviewedJobs")}`} />
@@ -1197,7 +1200,7 @@ export default function App() {
             {repositoryRows.map(([repo, row]) => <tr key={repo}><td>{repo}</td><td>{formatNumber(row.projects)}</td><td>{formatNumber(row.jobs)}</td><td>{formatNumber(row.tokensIn)}</td><td>{formatNumber(row.tokensOut)}</td><td>{formatMoney(row.hasReported ? row.reported : null)}</td><td>{formatMoney(row.hasEstimated ? row.estimated : null)}</td></tr>)}
           </tbody></table></PagedTable></section>}
         </>}
-        {metricsTab === "trends" && <>
+        {metricsTab === "trends" && metricsEmpty && <section className="panel"><Empty label={t("metricsNoJobs")} /></section>}{metricsTab === "trends" && !metricsEmpty && <>
         <section className="panel"><div className="panel-heading"><h2>{trendTitle}</h2><span className="muted">{metricTimezone}</span></div>
           {metrics?.daily.length ? <PagedTable t={t}><table><thead><tr><th>{t("date")}</th><th>{t("jobsStarted")}</th><th>{t("completed")}</th><th>{t("tokensIn")}</th><th>{t("tokensOut")}</th>{isAdmin && <th>{t("cost")}</th>}</tr></thead><tbody>{metrics.daily.map(day => <tr key={day.date}><td>{day.date}</td><td>{formatNumber(day.started)}</td><td>{formatNumber(day.completed)}</td><td>{formatNumber(day.tokens_in)}</td><td>{formatNumber(day.tokens_out)}</td>{isAdmin && <td>{day.cost_usd == null ? "—" : new Intl.NumberFormat(locale, { style: "currency", currency: "USD" }).format(day.cost_usd)}</td>}</tr>)}</tbody></table></PagedTable> : <Empty label={metricFrom || metricTo ? t("noMatchingMetrics") : t("noMetrics")} />}
           <p className="muted coverage-note">{t("coverage")}: {formatNumber(metrics?.coverage.runs_with_usage || 0)} / {formatNumber(metrics?.totals.runs || 0)} {t("jobs")}</p>
@@ -1255,7 +1258,7 @@ function Stat({ label, value, hint }: { label: string; value: string; hint: stri
 }
 
 function OverviewCard({ label, value, hint, selected, onClick }: { label: string; value: string; hint: string; selected: boolean; onClick: () => void }) {
-  return <button type="button" className={`stat-card overview-card${selected ? " selected" : ""}`} aria-expanded={selected} aria-controls="overview-detail" onClick={onClick}><span>{label}</span><strong>{value}</strong><small>{hint}</small><span className="overview-chevron" aria-hidden="true">{selected ? "⌃" : "⌄"}</span></button>;
+  return <button type="button" className={`stat-card overview-card${selected ? " selected" : ""}`} aria-expanded={selected} aria-controls="overview-detail" onClick={onClick}><span>{label}</span><strong>{value}</strong><small>{hint}</small><span className="overview-chevron" aria-hidden="true"><Icon name="chevron" flipped={selected} /></span></button>;
 }
 
 function SortHeader({ label, sortKey, activeKey, descending, onSort }: { label: string; sortKey: ProjectSortKey; activeKey: ProjectSortKey; descending: boolean; onSort: (key: ProjectSortKey) => void }) {
@@ -1276,6 +1279,12 @@ function PagedTable({ t, children }: { t: (key: MessageKey) => string; children:
   const visible = size === "all" ? rows : rows.slice(page * size, (page + 1) * size);
   const table = body ? cloneElement(children, undefined, ...sections.map(section => section === body ? cloneElement(body, undefined, ...visible) : section)) : children;
   return <><div className="table-scroll">{table}</div>{rows.length > 10 && <div className="page-controls"><label>{t("rowsPerPage")}<select value={size} onChange={event => { setSize(event.target.value === "all" ? "all" : Number(event.target.value) as 10 | 25 | 50); setRequestedPage(0); }}><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="all">{t("all")}</option></select></label>{size !== "all" && <><button className="ghost" disabled={page === 0} onClick={() => setRequestedPage(page - 1)}>{t("previous")}</button><span>{page * size + 1}–{Math.min((page + 1) * size, rows.length)} / {rows.length}</span><button className="ghost" disabled={page + 1 >= pageCount} onClick={() => setRequestedPage(page + 1)}>{t("next")}</button></>}</div>}</>;
+}
+
+function Icon({ name, flipped = false }: { name: "chevron" | "signOut"; flipped?: boolean }) {
+  return <svg className={flipped ? "icon flip" : "icon"} viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    {name === "chevron" ? <path d="M6 9l6 6 6-6" /> : <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="M16 17l5-5-5-5" /><path d="M21 12H9" /></>}
+  </svg>;
 }
 
 function RouteLink({ to, onNavigate, children }: { to: string; onNavigate: () => void; children: ReactNode }) {
@@ -1362,8 +1371,8 @@ function ServerPager({ t, total, size, offset, onSize, onOffset }: { t: (key: Me
   return <div className="page-controls"><label>{t("rowsPerPage")}<select value={size} onChange={event => { onOffset(0); onSize(event.target.value === "all" ? "all" : Number(event.target.value) as 10 | 25 | 50); }}><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="all">{t("all")}</option></select></label>{size !== "all" && <><button className="ghost" disabled={offset === 0} onClick={() => onOffset(Math.max(0, offset - size))}>{t("previous")}</button><span>{offset + 1}–{Math.min(offset + size, total)} / {total}</span><button className="ghost" disabled={offset + size >= total} onClick={() => onOffset(offset + size)}>{t("next")}</button></>}</div>;
 }
 
-function RunTable({ runs, t, formatDate, onOpen, emptyLabel }: { runs: Run[]; t: (key: MessageKey) => string; formatDate: (value: string) => string; onOpen: (id: string) => void; emptyLabel?: string }) {
+function RunTable({ runs, t, formatDate, onOpen, emptyLabel, project }: { runs: Run[]; t: (key: MessageKey) => string; formatDate: (value: string) => string; onOpen: (id: string) => void; emptyLabel?: string; project: string }) {
   if (!runs.length) return <Empty label={emptyLabel || t("noJobs")} />;
-  const table = <table><thead><tr><th>{t("ticket")}</th><th>{t("status")}</th><th>{t("stage")}</th><th>{t("updated")}</th><th>{t("actions")}</th></tr></thead><tbody>{runs.map(run => <tr key={run.run_id}><td className="strong">#{run.ticket_iid}</td><td><span className={`status status-${run.lifecycle}`}>{displayCode(run.lifecycle, lifecycleLabels, t)}</span></td><td>{displayCode(run.stage, stageLabels, t)}</td><td>{formatDate(run.updated_at)}</td><td><button className="text-button" onClick={() => onOpen(run.run_id)}>{t("view")} →</button></td></tr>)}</tbody></table>;
+  const table = <table><thead><tr><th>{t("ticket")}</th><th>{t("status")}</th><th>{t("stage")}</th><th>{t("updated")}</th><th>{t("actions")}</th></tr></thead><tbody>{runs.map(run => <tr key={run.run_id}><td className="strong"><RouteLink to={formatRoute({ view: "jobs", project, run: run.run_id })} onNavigate={() => onOpen(run.run_id)}>#{run.ticket_iid}</RouteLink></td><td><span className={`status status-${run.lifecycle}`}>{displayCode(run.lifecycle, lifecycleLabels, t)}</span></td><td>{displayCode(run.stage, stageLabels, t)}</td><td>{formatDate(run.updated_at)}</td><td><button className="text-button" onClick={() => onOpen(run.run_id)}>{t("view")} →</button></td></tr>)}</tbody></table>;
   return <div className="table-scroll">{table}</div>;
 }

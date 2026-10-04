@@ -58,6 +58,9 @@ button { border: 0; }
 h1, h2, h3, p { margin-top: 0; }
 h1 { font-size: clamp(1.65rem, 2.4vw, 2.4rem); letter-spacing: -.035em; line-height: 1.1; margin-bottom: 9px; }
 h2 { font-size: 1.08rem; letter-spacing: -.01em; margin: 0; }
+.panel > h2 { margin-bottom: 14px; }
+.icon { width: 1.1em; height: 1.1em; flex: none; vertical-align: -0.2em; transition: transform .15s ease; }
+.icon.flip { transform: rotate(180deg); }
 h3 { font-size: .95rem; margin: 20px 0 8px; }
 .muted, small { color: var(--muted); }
 p.muted { line-height: 1.5; }
@@ -255,7 +258,7 @@ td.strong { font-weight: 800; }
 .login-card .brand-mark { margin-bottom: 27px; }
 .login-card .muted { margin-bottom: 26px; }
 .login-card .primary { width: 100%; margin-top: 6px; }
-.login-preferences { margin-top: 25px; border-top: 1px solid var(--border); padding-top: 19px; }
+.login-preferences { margin-top: 25px; border-top: 1px solid var(--border); padding-top: 19px; display: grid; gap: 12px; }
 
 @media (max-width: 1100px) { .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .refresh-stamp { display: none; } .job-basic-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 760px) {

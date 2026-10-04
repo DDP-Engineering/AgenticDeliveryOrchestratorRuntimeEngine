@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-48fb199d"
+
+title = "Use icons that match their action"
+
+status = "active"
+
+requirement = """
+The web interface shall draw expand and collapse indicators as chevron icons that point in the direction of the next state and shall show sign-out as a dedicated exit icon with an accessible Sign out name, never reusing the external-link arrow.
+"""
+
+verification = "Inspection: in light and dark themes compare the Overview card and Administration indicators collapsed and expanded, confirming drawn chevron icons that flip with the state; confirm the sidebar sign-out control shows an exit icon, has the accessible name Sign out in each locale, and that the external-link arrow appears only on links that open external pages."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/styles.css", "04_Software/web/src/i18n.ts", "04_Software/adore/web/static/"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-03
+updated = 2026-10-03

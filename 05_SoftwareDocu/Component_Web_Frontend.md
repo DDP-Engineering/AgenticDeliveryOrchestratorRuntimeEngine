@@ -245,6 +245,13 @@ use the `--placeholder` token (at least 4.5:1 in each theme) with a localized
 "e.g." prefix; `Field`/`GuidedField` add a required marker and each form with
 a required control shows a localized legend. `.table-scroll` uses CSS scroll
 shadows, and the Jobs filters collapse behind a counted toggle below 760px.
+Project names in the Projects table and ticket numbers in every job table are
+links; a job's ticket or View opens it in Jobs. Overview card hints state the
+scope ("Projects you can access", "Project: <name>"). Expand/collapse
+indicators and sign-out use inline SVG icons (`Icon`) drawn in `currentColor`.
+The Prices form preselects the project's configured executor and remounts per
+project. When the Metrics scope has no jobs, Summary, Quality and Trends show
+one localized message instead of zero-valued cards.
 An account whose password an administrator reset signs in to a dedicated
 change-password card with the reason, language, theme and Sign out controls;
 the dashboard and its polling stay inactive until the change succeeds, after

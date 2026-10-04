@@ -213,6 +213,10 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
   markers and the stated password rule.
 - `REQ-UX-5b0fa167` / `REQ-UX-48d6a55d` - phone table scroll cue and Jobs
   filter toggle.
+- `REQ-UX-205e5379` / `REQ-UX-deb101f5` / `REQ-UX-48fb199d` /
+  `REQ-UX-0c03fc93` / `REQ-UX-d93fab0f` / `REQ-UX-7fdffe77` - name and ticket
+  links, scoped card hints, SVG icons, heading spacing, project-executor price
+  default and the empty-metrics message.
 - `REQ-NFR-da638732` / `REQ-NFR-46c98d6c` / `REQ-FUNC-a83c4cd3` - no polling
   while hidden and server-paged Audit/Overview tables.
 - `REQ-UX-66e6f3f5` - project details presents collapsible, guided settings with administrator editing.

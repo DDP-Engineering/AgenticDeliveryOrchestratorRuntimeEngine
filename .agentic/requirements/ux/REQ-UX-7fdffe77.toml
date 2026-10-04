@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-7fdffe77"
+
+title = "Show one message when metrics have no jobs"
+
+status = "active"
+
+requirement = """
+While the selected Metrics scope has no jobs, the Summary, Quality and Trends tabs shall each show one localized message explaining that metrics appear after the first job instead of zero-valued cards, while the reporting controls, Usage tab and Projects tab remain available.
+"""
+
+verification = "Manual: with a project that has no jobs open Metrics and confirm Summary, Quality and Trends each show the single message and no zero cards, and the reporting controls and other tabs remain; select a project with jobs and confirm the usual cards return; confirm unknown values in a project with jobs still show a dash rather than the message."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/styles.css", "04_Software/web/src/i18n.ts", "04_Software/adore/web/static/"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-03
+updated = 2026-10-03

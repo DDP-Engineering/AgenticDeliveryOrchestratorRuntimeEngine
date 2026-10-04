@@ -14,6 +14,10 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Project names and job ticket numbers are links; a job's View or ticket opens it in Jobs from every table, including Project details Recent jobs.
+- Overview card hints say what each number covers, chevrons and sign-out use drawn icons, headings no longer touch the first field, and the Prices form preselects the project's executor.
+- Metrics shows one message instead of zero-valued cards when the selected scope has no jobs.
+- French, German and Romanian job-related error messages use the same job terms as the rest of the interface.
 - Every web view now has its own address (for example `/projects/<id>/configuration`, `/jobs?project=<id>`, `/admin/users`, `/account`), so reload, browser Back/Forward and shared links keep the view.
 - Project details now uses Overview, Configuration and Prices (administrators) tabs, with Jobs, Metrics and Manage access as links.
 - My account is a top-level sidebar entry for every user; Administration lists System status, Users and Audit.

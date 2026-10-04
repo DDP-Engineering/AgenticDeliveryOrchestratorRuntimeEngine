@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-d93fab0f"
+
+title = "Default the price executor to the project's executor"
+
+status = "active"
+
+requirement = """
+When an administrator opens a project's Prices tab, the estimated-price form shall preselect the executor configured for that project and shall reset to the newly opened project's executor when the project changes.
+"""
+
+verification = "Manual: open Prices for a project using opencode and confirm opencode is preselected; open Prices for a project using codex and confirm codex; for a project without a recorded executor confirm the first executor option is selected."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/styles.css", "04_Software/web/src/i18n.ts", "04_Software/adore/web/static/"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-03
+updated = 2026-10-03
