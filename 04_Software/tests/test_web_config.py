@@ -353,18 +353,23 @@ def test_config_view_reports_each_settings_source_and_editability(tmp_path):
         assert set(settings) == set(_leaves(body["config"]))
         assert settings["platform.repo"] == {
             "key": "platform.repo", "edit_key": "platform.repo",
-            "source": "project", "editable": True, "restart": True}
+            "source": "project", "editable": True, "restart": True, "default": ""}
         assert settings["budgets.max_iterations"]["source"] == "project"  # equals default
+        assert settings["budgets.max_iterations"]["default"] == 20
         assert settings["budgets.max_wall_clock_seconds"] == {
             "key": "budgets.max_wall_clock_seconds",
             "edit_key": "budgets.max_wall_clock_seconds",
-            "source": "default", "editable": True, "restart": False}
+            "source": "default", "editable": True, "restart": False, "default": 3600}
         assert settings["delivery.draft"] == {
             "key": "delivery.draft", "edit_key": "delivery.draft",
-            "source": "default", "editable": True, "restart": False}  # boolean
+            "source": "default", "editable": True, "restart": False,
+            "default": True}  # boolean
+        assert settings["metrics.db_path"]["default"] == ".adore/metrics.db"  # derived
+        assert settings["agent.slug"]["default"] == "adore"
         model = settings["executor.commands.opencode.model"]
         assert model["edit_key"] == "executor.opencode.model"
         assert model["source"] == "project" and model["editable"] and model["restart"]
+        assert model["default"] is None  # no command table in the default configuration
         assert settings["executor.commands.opencode.command"]["source"] == "project"
         not_editable = ["executor.commands.opencode.command", "delivery.reviewers",
                         "container.egress.allowlist", "container.runtime_env.UV_LINK_MODE",
@@ -396,3 +401,27 @@ def test_config_view_reports_each_settings_source_and_editability(tmp_path):
         client.post("/api/v1/session", json={"username": "dev", "password": "longer-password"})
         seen = client.get("/api/v1/projects/alpha/config").json()["settings"]
         assert seen == body["settings"]
+
+
+def test_config_view_default_of_an_emptied_map_is_the_built_in_map(tmp_path):
+    """
+    @brief   A project that empties a map setting sees ADORE's built-in map as
+             that row's default, not "none".
+    """
+    profiles = ProfileStore(tmp_path / "home")
+    profiles.create("alpha")
+    emptied = _PARTIAL_CONFIG.replace(
+        'runtime_env = { UV_LINK_MODE = "copy", API_KEY = "private-value" }',
+        "runtime_env = {}") + "[workflow]\nkind_labels = {}\n"
+    profiles.config_path("alpha").write_bytes(emptied.encode("utf-8"))
+    app = create_app(profiles.home)
+    with TestClient(app) as client:
+        client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
+        body = client.get("/api/v1/projects/alpha/config").json()
+        settings = {item["key"]: item for item in body["settings"]}
+
+        assert settings["workflow.kind_labels"]["source"] == "project"
+        assert settings["workflow.kind_labels"]["default"] == {
+            "bug": "fix", "fix": "fix", "change": "change"}
+        assert settings["container.runtime_env"]["default"] == {"UV_LINK_MODE": "copy"}
+        assert settings["workflow.stage_timeout_overrides"]["default"] == {}

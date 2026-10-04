@@ -47,7 +47,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from adore import __version__, doctor, metrics
 from adore.cli import _SECRET_KEY_RE, _set_toml_scalar
-from adore.config import load_config, validate_config
+from adore.config import default_config, load_config, validate_config
 from adore.config_edit import ConfigEditLockedError, config_edit_lock
 from adore.isolation import ContainerManager, IsolationError
 from adore.profiles import ProfileError, ProfileStore
@@ -622,6 +622,21 @@ def _toml_leaves(value, prefix: str = "") -> list[tuple[str, object]]:
     return [(prefix, value)]
 
 
+def _value_at(tree: dict, key: str):
+    """
+    @brief      Value at a dotted key of a nested mapping, leaf or sub-table.
+    @param[in]  tree Nested mapping.
+    @param[in]  key Dotted path.
+    @return     The value, or None when the path does not exist.
+    """
+    node = tree
+    for part in key.split("."):
+        if not isinstance(node, dict) or part not in node:
+            return None
+        node = node[part]
+    return node
+
+
 def _setting_metadata(config: dict, raw: bytes) -> list[dict]:
     """
     @brief      Source, editability and restart need of every effective setting.
@@ -631,13 +646,18 @@ def _setting_metadata(config: dict, raw: bytes) -> list[dict]:
                 nests it under `executor.commands`. A setting is from the
                 project when its file key is a leaf of the file, whatever its
                 value; it is editable when the shared key rule accepts the file
-                key and its value is a single string, number or boolean.
+                key and its value is a single string, number or boolean. Its
+                default is the value at the same key in ADORE's built-in
+                configuration (names derived, redacted) - the whole built-in
+                map for a map the project emptied - or None when that
+                configuration has no such key.
     @param[in]  config Redacted effective configuration mapping.
     @param[in]  raw Project configuration file bytes.
     @return     One entry per setting, sorted by key.
     @exception  tomllib.TOMLDecodeError When the file is not valid TOML.
     """
     in_file = {key for key, _ in _toml_leaves(tomllib.loads(raw.decode("utf-8")))}
+    defaults = _redact_config(default_config().to_dict())
     settings = []
     for key, value in _toml_leaves(config):
         edit_key = ("executor." + key.removeprefix("executor.commands.")
@@ -649,6 +669,7 @@ def _setting_metadata(config: dict, raw: bytes) -> list[dict]:
             "editable": (_editable_setting_key(edit_key)
                          and isinstance(value, str | int | float)),
             "restart": _restart_required(edit_key),
+            "default": _value_at(defaults, key),
         })
     return sorted(settings, key=lambda item: item["key"])
 

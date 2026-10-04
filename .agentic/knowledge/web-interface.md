@@ -194,6 +194,7 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 | Background refresh and paging | `web/src/polling.ts`, `ServerPager` in `App.tsx`, `/api/v1/audit-page` | `npm test` (`polling.test.mjs`), `test_web_paging.py` |
 | Error codes and messages | `adore/web/app.py` (`_error`, `_STORE_ERROR_CODES`), `web/src/errors.ts` | `test_web_errors.py`, `npm test` (`errors.test.mjs`) |
 | Project settings list and row editing | `_setting_metadata` in `adore/web/app.py`, `web/src/settings.ts`, `SettingsList` in `App.tsx` | `test_web_config.py`, `npm test` (`settings.test.mjs`), browser check |
+| Setting help texts and catalog | `web/src/settingHelp.ts`, `web/src/settingKeys.json`, `default_config()` in `adore/config.py` | `test_web_setting_catalog.py`, `npm test` (`settingHelp.test.mjs`), browser check |
 | Offline media | `02_Tools/*web*.py` | `test_web_package.py`, installed HTTP smoke |
 
 ## Key behaviors
@@ -228,6 +229,8 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 - `REQ-UX-66e6f3f5` - project details presents collapsible, guided settings with administrator editing.
 - `REQ-FUNC-49b766fe` / `REQ-UX-9a625fc5` / `REQ-UX-a62e69a9` - per-setting source, editability and
   restart metadata; Set for this project / Default badges, row editing and the project-set filter.
+- `REQ-UX-b0e9a434` / `REQ-FUNC-c6c71dbd` - every setting's help text in EN/FR/DE/RO and
+  its ADORE default; the catalog test keeps texts in step with the configuration keys.
 - `REQ-SEC-c2298428` - redacted project configuration reads follow grants; edits remain administrator-only.
 - `REQ-PLAT-a1b60ff9` - host-specific offline installation.
 - `REQ-REL-94e653aa` - checkpoint-bearing state and handoff lifecycles remain
@@ -321,7 +324,8 @@ for Add and Import project. Primary buttons take their text colour from the
   `web/src/errors.ts` (error localization), `web/src/projectName.ts`
   (shared name pattern), `web/src/routes.ts` (URL scheme) and
   `web/src/polling.ts` (visibility-aware refresh) and `web/src/settings.ts`
-  (configuration rows and grouping) are pure modules tested by
+  (configuration rows and grouping) and `web/src/settingHelp.ts` (per-setting
+  help texts for the `web/src/settingKeys.json` catalog) are pure modules tested by
   `web/tests/*.test.mjs`.
 - `02_Tools/{package_web_offline,install_web_offline,launch_web,stamp_web_assets}.py`
   - offline media and static asset preparation.

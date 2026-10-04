@@ -13,6 +13,8 @@ export type SettingMeta = {
   source: "project" | "default";
   editable: boolean;
   restart: boolean;
+  /** ADORE's value when the project's file does not set the key; null when there is none. */
+  default?: unknown;
 };
 
 /** How a row's value is edited in the browser; `none` means not editable here. */
@@ -20,18 +22,18 @@ export type InputKind = "boolean" | "number" | "choice" | "text" | "none";
 
 type CommonKind = "text" | "positive" | "forge" | "runtime" | "executor";
 
-/** The settings most projects tune, shown first with their own help text. */
-export const COMMON_SETTINGS: Array<{ key: string; label: MessageKey; help: MessageKey; kind: CommonKind }> = [
-  { key: "platform.repo", label: "repository", help: "settingHelpRepository", kind: "text" },
-  { key: "platform.kind", label: "forge", help: "settingHelpForge", kind: "forge" },
-  { key: "container.runtime", label: "runtime", help: "settingHelpRuntime", kind: "runtime" },
-  { key: "container.image", label: "image", help: "settingHelpImage", kind: "text" },
-  { key: "executor.default", label: "executor", help: "settingHelpExecutor", kind: "executor" },
-  { key: "polling.poll_interval_seconds", label: "pollInterval", help: "settingHelpPollInterval", kind: "positive" },
-  { key: "polling.max_concurrent_runs", label: "concurrentJobs", help: "settingHelpConcurrent", kind: "positive" },
-  { key: "budgets.max_iterations", label: "maxIterations", help: "settingHelpIterations", kind: "positive" },
-  { key: "budgets.max_wall_clock_seconds", label: "maxWallClock", help: "settingHelpWallClock", kind: "positive" },
-  { key: "budgets.max_files_touched", label: "maxFilesTouched", help: "settingHelpFiles", kind: "positive" },
+/** The settings most projects tune, shown first under their own labels. */
+export const COMMON_SETTINGS: Array<{ key: string; label: MessageKey; kind: CommonKind }> = [
+  { key: "platform.repo", label: "repository", kind: "text" },
+  { key: "platform.kind", label: "forge", kind: "forge" },
+  { key: "container.runtime", label: "runtime", kind: "runtime" },
+  { key: "container.image", label: "image", kind: "text" },
+  { key: "executor.default", label: "executor", kind: "executor" },
+  { key: "polling.poll_interval_seconds", label: "pollInterval", kind: "positive" },
+  { key: "polling.max_concurrent_runs", label: "concurrentJobs", kind: "positive" },
+  { key: "budgets.max_iterations", label: "maxIterations", kind: "positive" },
+  { key: "budgets.max_wall_clock_seconds", label: "maxWallClock", kind: "positive" },
+  { key: "budgets.max_files_touched", label: "maxFilesTouched", kind: "positive" },
 ];
 
 const CHOICES: Partial<Record<CommonKind, string[]>> = {
@@ -52,8 +54,9 @@ export type SettingRow = {
   choices: string[];
   common: boolean;
   label?: MessageKey;
-  help?: MessageKey;
   hint?: "positive" | "runtime";
+  /** ADORE's default for the setting; null when there is none. */
+  defaultValue: unknown;
   /** Number input step: whole numbers for positive settings, any otherwise. */
   step?: "1" | "any";
 };
@@ -94,7 +97,7 @@ export function settingRows(config: Record<string, unknown>, settings: SettingMe
       choices: (common && CHOICES[common.kind]) || [],
       common: !!common,
       label: common?.label,
-      help: common?.help,
+      defaultValue: item.default ?? null,
       hint: common?.kind === "positive" || common?.kind === "runtime" ? common.kind : undefined,
       step: typeof value === "number" && item.editable ? (common?.kind === "positive" ? "1" : "any") : undefined,
     };
@@ -126,4 +129,11 @@ export function settingGroups(rows: SettingRow[], projectOnly: boolean): Setting
 /** The text an editor starts from for a setting's current value. */
 export function editValue(value: unknown): string {
   return value === null || value === undefined ? "" : String(value);
+}
+
+/** Whether a setting's ADORE default is worth showing: missing, empty text, an empty list or an empty map read as none. */
+export function hasDefault(value: unknown): boolean {
+  if (value === null || value === undefined || value === "") return false;
+  if (Array.isArray(value)) return value.length > 0;
+  return typeof value !== "object" || Object.keys(value).length > 0;
 }

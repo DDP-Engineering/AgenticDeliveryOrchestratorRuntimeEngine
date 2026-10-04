@@ -6,7 +6,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { COMMON_SETTINGS, editValue, settingGroups, settingRows } from "../src/settings.ts";
+import { COMMON_SETTINGS, editValue, hasDefault, settingGroups, settingRows } from "../src/settings.ts";
 
 const config = {
   platform: { kind: "gitlab", repo: "group/project" },
@@ -16,7 +16,7 @@ const config = {
   container: { egress: { allowlist: [] } },
 };
 const meta = (key, source, editable, restart = false, edit_key = key) =>
-  ({ key, edit_key, source, editable, restart });
+  ({ key, edit_key, source, editable, restart, default: key === "budgets.max_iterations" ? 20 : null });
 const settings = [
   meta("budgets.max_cost_usd", "default", true),
   meta("budgets.max_iterations", "project", true),
@@ -44,6 +44,8 @@ test("rows carry value, source, edit key, restart and an input kind", () => {
   assert.deepEqual(rows.get("executor.default").choices, ["opencode", "pi", "codex", "qwen"]);
   assert.equal(rows.get("budgets.max_iterations").input, "number");
   assert.equal(rows.get("budgets.max_iterations").step, "1");  // whole number, at least 1
+  assert.equal(rows.get("budgets.max_iterations").defaultValue, 20);
+  assert.equal(rows.get("budgets.max_cost_usd").defaultValue, null);
   assert.equal(rows.get("budgets.max_cost_usd").step, "any");
   assert.equal(rows.get("executor.commands.opencode.model").step, undefined);
   for (const key of ["delivery.reviewers", "executor.commands.opencode.command", "container.egress.allowlist"]) {
@@ -57,7 +59,7 @@ test("common settings come first, in their defined order, and only once", () => 
   assert.equal(groups[0].name, "common");
   assert.deepEqual(groups[0].rows.map(row => row.key),
     COMMON_SETTINGS.map(item => item.key).filter(key => present.has(key)));
-  assert.ok(groups[0].rows.every(row => row.common && row.label && row.help));
+  assert.ok(groups[0].rows.every(row => row.common && row.label));
   const common = new Set(groups[0].rows.map(row => row.key));
   assert.ok(groups.slice(1).every(group => group.rows.every(row => !common.has(row.key))));
   assert.deepEqual(groups.slice(1).map(group => group.name), ["executor", "budgets", "delivery", "container"]);
@@ -77,4 +79,9 @@ test("edit values start from the current value", () => {
   assert.equal(editValue(5.5), "5.5");
   assert.equal(editValue(null), "");
   assert.equal(editValue("x"), "x");
+});
+
+test("a default is shown unless it is missing or empty", () => {
+  for (const value of [null, undefined, "", [], {}]) assert.equal(hasDefault(value), false, JSON.stringify(value));
+  for (const value of [0, false, "adore", ["a"], { bug: "fix" }]) assert.equal(hasDefault(value), true, JSON.stringify(value));
 });

@@ -182,7 +182,10 @@ Its `settings` list holds, per effective setting sorted by key, `key`,
 `executor.commands.<name>.<field>`), `source` (`project` when the project's
 TOML file contains the edit key, else `default`), `editable` (the same key rule
 the edit routes enforce, and a single string, number or boolean value) and
-`restart` (applying needs paused pickup and no active work).
+`restart` (applying needs paused pickup and no active work) and `default`
+(the value at that key in `default_config()` - ADORE's built-in
+configuration with slug-derived names - after redaction, a whole built-in map
+for a map the project emptied, or null when it has no such key).
 `GET/POST/DELETE /api/v1/projects/{name}/config/pending` read, stage and
 discard the single candidate. `POST /api/v1/projects/{name}/config/apply`
 requires its candidate SHA-256 revision. All four routes are administrator-only;

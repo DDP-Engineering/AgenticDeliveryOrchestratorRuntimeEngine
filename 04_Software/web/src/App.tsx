@@ -12,7 +12,8 @@ import { PROJECT_NAME_PATTERN } from "./projectName";
 import { ApiError, describeError } from "./errors";
 import { startVisiblePolling } from "./polling";
 import { formatRoute, normalizeRoute, parseRoute, type ProjectTab, type Route } from "./routes";
-import { editValue, settingGroups, settingRows, type SettingMeta, type SettingRow } from "./settings";
+import { editValue, hasDefault, settingGroups, settingRows, type SettingMeta, type SettingRow } from "./settings";
+import { settingHelp } from "./settingHelp";
 
 type User = { id: number; username: string; role: "admin" | "developer"; disabled: boolean; password_change_required?: boolean; projects?: string[] };
 type Session = { user: User; csrf: string };
@@ -1075,7 +1076,7 @@ export default function App() {
           <section className="panel"><div className="panel-heading"><h2>{t("recentJobs")}</h2><button className="text-button" onClick={() => setPage("jobs")}>{t("view")} →</button></div><RunTable runs={runs} t={t} formatDate={formatDate} project={selected} onOpen={openJob} /></section>
           </>}
           {projectTab === "configuration" && <>
-          {projectConfig && <SettingsList key={`${selected}-${projectConfig.revision}`} config={projectConfig.config} settings={projectConfig.settings || []} t={t} canEdit={isAdmin} disabled={!!projectPendingConfig} onStage={stageSetting} />}
+          {projectConfig && <SettingsList key={`${selected}-${projectConfig.revision}`} config={projectConfig.config} settings={projectConfig.settings || []} t={t} locale={locale} canEdit={isAdmin} disabled={!!projectPendingConfig} onStage={stageSetting} />}
           {isAdmin && selected && projectConfig && (projectConfig.config.executor as { default?: string } | undefined)?.default === "opencode" && <section className="panel wide-panel"><h2>{t("localEndpoint")}</h2><p className="muted">{t("localEndpointHelp")}</p><p className="muted">{t("localProviderHelp")}</p>{(projectConfig.config.executor as { default?: string } | undefined)?.default === "opencode" && <form key={`${selected}-${projectConfig.revision}`} className="inline-form config-form" onSubmit={saveEndpoint}><FormLegend t={t} /><Field name="model" label={t("model")} defaultValue={(projectConfig.config.executor as { commands?: { opencode?: { model?: string } } }).commands?.opencode?.model || ""} required /><Field name="endpoint" label={t("localEndpoint")} type="url" defaultValue={(projectConfig.config.container as { runtime_env?: { OPENAI_BASE_URL?: string } } | undefined)?.runtime_env?.OPENAI_BASE_URL || ""} required /><label>{t("endpointAuth")}<select name="auth_env"><option value="">{t("none")}</option><option value="OPENAI_API_KEY">OPENAI_API_KEY</option></select></label><label>{t("endpointProtocol")}<select name="protocol"><option value="openai-chat-completions">OpenAI chat completions</option></select></label><Field name="timeout_seconds" label={t("endpointTimeout")} type="number" defaultValue={String(projectConfig.local_endpoint_timeout_seconds || 300)} required /><Field name="ca_file" label={t("endpointCa")} defaultValue={(projectConfig.config.container as { runtime_env?: { NODE_EXTRA_CA_CERTS?: string } } | undefined)?.runtime_env?.NODE_EXTRA_CA_CERTS || ""} /><button className="primary" disabled={!!projectPendingConfig}>{t("stageChange")}</button></form>}</section>}
           {isAdmin && selected && <section className="panel wide-panel" id="project-config-editor"><h2>{t("config")}</h2>{projectConfig ? <><p className="muted">{t("revision")}: {projectConfig.revision.slice(0, 12)}</p>{projectConfig.issues.length > 0 && <div className="alert">{projectConfig.issues.join(" · ")}</div>}{!projectPendingConfig && <p className="muted">{t("configEditHint")}</p>}{projectPendingConfig &&<div className="import-preview" role="status"><h3>{t("pendingChange")}</h3><p>{projectPendingConfig.key}: {projectPendingConfig.value}</p>{projectPendingConfig.endpoint && <div className="detail-grid"><span>{t("endpointProtocol")}: {projectPendingConfig.endpoint.protocol}</span><span>{t("model")}: {projectPendingConfig.endpoint.model}</span><span>{t("endpointTimeout")}: {projectPendingConfig.endpoint.timeout_seconds ?? "—"}</span><span>{t("endpointAuth")}: {projectPendingConfig.endpoint.auth_env || "—"}</span><span>{t("endpointCa")}: {projectPendingConfig.endpoint.ca_file || "—"}</span></div>}<p className="muted">{t("revision")}: {projectPendingConfig.candidate_revision.slice(0, 12)}</p><p className="muted">{projectPendingConfig.restart_required ? t("pendingRestartHelp") : t("pendingApplyHelp")}</p><div className="button-row"><button className="primary" onClick={() => void applyPendingConfig()}>{t("apply")}</button><button className="ghost" onClick={() => void discardPendingConfig()}>{t("discardChange")}</button></div></div>}<details><summary>{t("rawConfig")}</summary><pre className="config-preview">{JSON.stringify(projectConfig.config, null, 2)}</pre></details></> : <Empty label={t("empty")} />}</section>}
           </>}
@@ -1324,7 +1325,7 @@ function GuidedField({ id, label, help, helpLabel, children }: { id: string; lab
   return <div className="guided-field"><div className="guided-label"><label htmlFor={id}>{label}{required && <RequiredMark />}</label><details className="guided-help"><summary>{helpLabel}</summary><p>{help}</p></details></div>{children}</div>;
 }
 
-function SettingsList({ config, settings, t, canEdit, disabled, onStage }: { config: Record<string, unknown>; settings: SettingMeta[]; t: (key: MessageKey) => string; canEdit: boolean; disabled: boolean; onStage: (key: string, value: string) => Promise<boolean> }) {
+function SettingsList({ config, settings, t, locale, canEdit, disabled, onStage }: { config: Record<string, unknown>; settings: SettingMeta[]; t: (key: MessageKey) => string; locale: Locale; canEdit: boolean; disabled: boolean; onStage: (key: string, value: string) => Promise<boolean> }) {
   const [projectOnly, setProjectOnly] = useState(false);
   const [editing, setEditing] = useState("");
   const [draft, setDraft] = useState("");
@@ -1366,7 +1367,8 @@ function SettingsList({ config, settings, t, canEdit, disabled, onStage }: { con
           {canEdit && row.input !== "none" && editing !== row.key && <button type="button" className="text-button" disabled={disabled} aria-label={`${t("editSetting")} ${row.key}`} onClick={() => { setEditing(row.key); setDraft(editValue(row.value)); }}>{t("editSetting")}</button>}
           <details><summary aria-label={`${t("settingHelp")} ${row.key}`}>{t("settingHelp")}</summary>
             <p>{typeOf(row)}{row.hint === "positive" ? ` · ${t("settingPositive")}` : row.choices.length ? ` · ${row.choices.join(", ")}` : row.hint === "runtime" ? ` · ${t("settingRuntimeDomain")}` : ""}</p>
-            <p>{row.help ? t(row.help) : t("settingGeneralHelp")}</p>
+            <p>{settingHelp(row.key, locale) ?? t("settingGeneralHelp")}</p>
+            <p className="muted">{t("settingDefaultValue")}: {hasDefault(row.defaultValue) ? shown(row.defaultValue) : t("settingNoDefault")}</p>
             {canEdit && row.input === "none" && <p>{t("settingNotEditableNote")}</p>}
           </details>
         </div>

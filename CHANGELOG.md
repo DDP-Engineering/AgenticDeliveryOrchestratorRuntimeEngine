@@ -18,6 +18,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Every project setting's Help now explains, in English, French, German or Romanian, what the setting controls, its unit or allowed values and the effect of changing it (or that it is reserved), and shows ADORE's default value; a test keeps the texts in step with the configuration keys.
 - Project details > Configuration marks every setting as set for this project or default, can show only the project's own settings, and lets administrators edit a setting on its row; common settings come first, rows say when applying needs paused pickup and which settings must be changed in config.toml. The separate common-setting and advanced key/value forms are gone.
 - Project names and job ticket numbers are links; a job's View or ticket opens it in Jobs from every table, including Project details Recent jobs.
 - Overview card hints say what each number covers, chevrons and sign-out use drawn icons, headings no longer touch the first field, and the Prices form preselects the project's executor.

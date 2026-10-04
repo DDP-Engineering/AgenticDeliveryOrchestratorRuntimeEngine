@@ -304,8 +304,12 @@ Every project setting lives in that project's own `config.toml`; Project details
 > Configuration lists the effective value of each setting and marks it **Set
 for this project** (written in the file) or **Default** (ADORE's built-in
 value, used because the file does not set it). **Only settings set for this
-project** hides the defaults. Assigned developers see the same list, with
-redacted secrets, field types and help, but cannot stage or apply changes. My account contains account preferences and password.
+project** hides the defaults. Each row's **Help** explains, in the selected
+language, what the setting controls, its unit or allowed values and the effect
+of changing it (or that it is reserved and not used yet), and shows **ADORE
+default** - the value used when the project's file does not set it. Assigned
+developers see the same list, with redacted secrets, field types and help, but
+cannot stage or apply changes. My account contains account preferences and password.
 Web-created profiles place worktrees under an absolute, project-specific path
 inside ADORE home. For Pi authenticated through an existing ChatGPT
 subscription, mount the Pi agent credential directory into the container at

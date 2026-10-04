@@ -110,7 +110,9 @@ collapsible sections, with the common settings first. Each row shows its value,
 a Set for this project / Default badge, its type and contextual help; common
 settings also describe their valid domain. A checkbox limits the list to
 settings set for the project (`web/src/settings.ts` builds and groups the
-rows). Administrators can stage and apply
+rows). Each row's Help shows the setting's own text in the selected language
+from `web/src/settingHelp.ts` (keyed by the catalog `web/src/settingKeys.json`,
+with `*` for project-chosen names) and its ADORE default. Administrators can stage and apply
 project configuration, local endpoint and estimated-price changes there, while
 membership management remains under Users. My account holds account
 appearance and password controls. Project details groups this content into

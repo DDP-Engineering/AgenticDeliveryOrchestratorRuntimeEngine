@@ -709,6 +709,18 @@ def _derive_names(config: Config) -> None:
 # PUBLIC API
 
 
+def default_config() -> Config:
+    """
+    @brief   ADORE's built-in configuration, as a file that sets nothing gets it.
+    @details Name-derived defaults are resolved from the default agent name
+             (slug `adore`, `.adore` state root and the paths under it).
+    @return  A new default configuration.
+    """
+    config = Config()
+    _derive_names(config)
+    return config
+
+
 def load_config(path: str | Path) -> Config:
     """
     @brief      Load configuration from a TOML file into typed sections.
