@@ -300,15 +300,19 @@ are not supported.
 
 An administrator can create a profile in Projects, edit validated scalar
 configuration keys in Project details, and use the CLI for other complex settings.
-Assigned developers can inspect that project's effective settings in the same
-view, with redacted secrets, field types and help. They cannot stage or apply
-changes. My account contains account preferences and password.
+Every project setting lives in that project's own `config.toml`; Project details
+> Configuration lists the effective value of each setting and marks it **Set
+for this project** (written in the file) or **Default** (ADORE's built-in
+value, used because the file does not set it). **Only settings set for this
+project** hides the defaults. Assigned developers see the same list, with
+redacted secrets, field types and help, but cannot stage or apply changes. My account contains account preferences and password.
 Web-created profiles place worktrees under an absolute, project-specific path
 inside ADORE home. For Pi authenticated through an existing ChatGPT
 subscription, mount the Pi agent credential directory into the container at
 `/home/adore/.pi/agent` using `[container] run_args`, and leave
-`[executor] stage_host_auth = false`. Protect the host directory as a secret;
-the guided form does not configure this mount. An administrator can edit the
+`[executor] stage_host_auth = false`. Protect the host directory as a secret.
+`run_args` is a list, so Project details shows it as **Not editable here**; set
+the mount in the project's `config.toml`. An administrator can edit the
 profile TOML while pickup is paused or import an existing profile with
 absolute paths, then validate and resume it.
 Pi's completed JSON turns supply token counts, including cached input tokens.
@@ -395,9 +399,13 @@ to finish, then apply and resume pickup. A host-side TOML edit made after
 staging invalidates the candidate; discard it and stage a new edit. The
 existing direct API edit follows the same safety rules. This workflow does not
 interrupt a running job or update its effective configuration mid-run.
-The common-setting selector shows current values for repository, forge,
-runtime, executor, polling and run limits. Expand **Advanced setting key** for
-other scalar settings from the configuration reference.
+Administrators edit a setting on its own row: **Edit** opens the current value
+(a drop-down for choices and true/false), **Stage change** stages it, and the
+Configuration panel below applies or discards it. Common settings - repository,
+forge, runtime, image, executor, polling and run limits - come first. A row
+notes when applying needs paused pickup and no active jobs. Lists, tables,
+executor commands, state and clarification settings show **Not editable here**:
+change them in the project's `config.toml` on the ADORE host.
 
 The existing Codex host-auth executor remains suitable for the owner's
 ChatGPT-subscription testing where that CLI supports it. A ChatGPT subscription

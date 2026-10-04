@@ -106,8 +106,11 @@ Selecting a project opens a scoped detail view with status, repository,
 runtime, executor, last activity and recent jobs. Its actions open the Jobs and
 Metrics views for that selection, and jump to project settings on the same page.
 Assigned developers can inspect the redacted effective configuration in
-collapsible sections. Each field shows its type and contextual help; common
-settings also describe their valid domain. Administrators can stage and apply
+collapsible sections, with the common settings first. Each row shows its value,
+a Set for this project / Default badge, its type and contextual help; common
+settings also describe their valid domain. A checkbox limits the list to
+settings set for the project (`web/src/settings.ts` builds and groups the
+rows). Administrators can stage and apply
 project configuration, local endpoint and estimated-price changes there, while
 membership management remains under Users. My account holds account
 appearance and password controls. Project details groups this content into
@@ -199,9 +202,12 @@ Settings stages scalar and local-endpoint changes for administrator review.
 The panel shows the changed value, candidate revision and pause guidance for
 identity/runtime edits. Apply commits the candidate at a quiescent boundary;
 Discard removes it. The UI reloads the live revision after either action.
-The guided form offers labelled repository, forge, runtime, executor, polling
-and run-limit settings with their current values. An expandable advanced form
-accepts other validated scalar keys.
+Administrators edit an editable setting on its row (select for choices and
+booleans, number or text input) and stage it into that panel; rows note when
+applying needs paused pickup, and non-editable rows say to change the
+project's config.toml on the ADORE host. The whole-number common settings use a
+step and minimum of 1; other number rows accept any number and the server
+validates the value.
 Metrics also shows reviewer-requested MR/PR revisions and automatic pipeline
 repairs as distinct counts; unknown revision triggers appear in coverage.
 The Delivery quality panel shows reviewer-rework, first-validation, and

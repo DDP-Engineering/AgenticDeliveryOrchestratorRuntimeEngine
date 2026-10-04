@@ -177,6 +177,12 @@ the command runner and never invoke external tools.
 to administrators and developers assigned to that project. Other project
 identities return 404. The read response excludes credential-looking keys and
 inline provider JSON; every configuration mutation remains administrator-only.
+Its `settings` list holds, per effective setting sorted by key, `key`,
+`edit_key` (the file key; `executor.<name>.<field>` for
+`executor.commands.<name>.<field>`), `source` (`project` when the project's
+TOML file contains the edit key, else `default`), `editable` (the same key rule
+the edit routes enforce, and a single string, number or boolean value) and
+`restart` (applying needs paused pickup and no active work).
 `GET/POST/DELETE /api/v1/projects/{name}/config/pending` read, stage and
 discard the single candidate. `POST /api/v1/projects/{name}/config/apply`
 requires its candidate SHA-256 revision. All four routes are administrator-only;
@@ -311,8 +317,8 @@ viewer requests; it is a functional scope check, not a throughput guarantee.
 
 ## 10. Limitations And Future Work
 
-The web editor covers guided scalar settings and the compatible OpenCode
-endpoint; administrators can also import a TOML profile. Direct host file
+The web editor covers single-value settings, edited on their rows, and the
+compatible OpenCode endpoint; administrators can also import a TOML profile. Direct host file
 edits outside ADORE do not use the shared lock, but revision checks reject a
 stale browser edit. Multi-host API deployment and a shell-style log viewer are
 not provided.

@@ -49,7 +49,9 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
   null values use the browser fallback and corrupt rows fail closed.
 - Developer routes check membership before reading a project and omit all
   financial fields. Project configuration reads return redacted effective
-  settings to assigned developers; other project identities return 404.
+  settings to assigned developers, with per-setting source, editability (the
+  same rule as edits) and restart metadata; other project identities return
+  404.
   Configuration mutations, account management and global metrics require admin.
 - Schema 7 binds grants to immutable profile IDs. Older creation-stamped grants
   migrate only while they still match the original profile; name-only grants
@@ -191,6 +193,7 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 | URLs, tabs, navigation | `web/src/routes.ts`, `web/src/App.tsx` | `npm test` (`routes.test.mjs`), browser check |
 | Background refresh and paging | `web/src/polling.ts`, `ServerPager` in `App.tsx`, `/api/v1/audit-page` | `npm test` (`polling.test.mjs`), `test_web_paging.py` |
 | Error codes and messages | `adore/web/app.py` (`_error`, `_STORE_ERROR_CODES`), `web/src/errors.ts` | `test_web_errors.py`, `npm test` (`errors.test.mjs`) |
+| Project settings list and row editing | `_setting_metadata` in `adore/web/app.py`, `web/src/settings.ts`, `SettingsList` in `App.tsx` | `test_web_config.py`, `npm test` (`settings.test.mjs`), browser check |
 | Offline media | `02_Tools/*web*.py` | `test_web_package.py`, installed HTTP smoke |
 
 ## Key behaviors
@@ -223,6 +226,8 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 - `REQ-NFR-da638732` / `REQ-NFR-46c98d6c` / `REQ-FUNC-a83c4cd3` - no polling
   while hidden and server-paged Audit/Overview tables.
 - `REQ-UX-66e6f3f5` - project details presents collapsible, guided settings with administrator editing.
+- `REQ-FUNC-49b766fe` / `REQ-UX-9a625fc5` / `REQ-UX-a62e69a9` - per-setting source, editability and
+  restart metadata; Set for this project / Default badges, row editing and the project-set filter.
 - `REQ-SEC-c2298428` - redacted project configuration reads follow grants; edits remain administrator-only.
 - `REQ-PLAT-a1b60ff9` - host-specific offline installation.
 - `REQ-REL-94e653aa` - checkpoint-bearing state and handoff lifecycles remain
@@ -256,8 +261,10 @@ Administration expands into System status, Users and Audit sidebar pages;
 both roles reach a top-level My account page. Every view has a path URL
 (`web/src/routes.ts`) kept in sync with view state; project details uses
 Overview/Configuration/Prices tabs and Jobs/Metrics/Manage access links. Project details shows effective
-configuration in compact sections with field type, domain and purpose help;
-administrators stage configuration, endpoint and price changes there. The
+configuration in compact sections, common settings first, with a Set for this
+project / Default badge, field type, domain and purpose help and a filter for
+project-set settings; administrators edit settings on their rows and stage
+endpoint and price changes there. The
 settings response is scoped to the current project identity so switching
 projects cannot briefly show another project's values. Audit policy defaults to unlimited
 and its form displays saved day/MiB limits, representing unlimited as zero.
@@ -313,7 +320,8 @@ for Add and Import project. Primary buttons take their text colour from the
 - `04_Software/web/` - React source and build configuration;
   `web/src/errors.ts` (error localization), `web/src/projectName.ts`
   (shared name pattern), `web/src/routes.ts` (URL scheme) and
-  `web/src/polling.ts` (visibility-aware refresh) are pure modules tested by
+  `web/src/polling.ts` (visibility-aware refresh) and `web/src/settings.ts`
+  (configuration rows and grouping) are pure modules tested by
   `web/tests/*.test.mjs`.
 - `02_Tools/{package_web_offline,install_web_offline,launch_web,stamp_web_assets}.py`
   - offline media and static asset preparation.

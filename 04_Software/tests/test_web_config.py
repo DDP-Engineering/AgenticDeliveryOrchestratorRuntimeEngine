@@ -297,3 +297,102 @@ def test_config_view_redacts_accidental_secret_values(tmp_path):
         response = client.get("/api/v1/projects/alpha/config")
         assert response.status_code == 200
         assert "private-value" not in response.text
+
+
+_PARTIAL_CONFIG = """
+[platform]
+kind = "gitlab"
+repo = "group/project"
+
+[worktree]
+repo_path = "../runtime-project"
+
+[executor.opencode]
+command = "opencode run --dir {worktree} -m {model} {prompt}"
+model   = "openai/gpt-5.4-fast"
+
+[delivery]
+reviewers = ["dan.pasare"]
+
+[budgets]
+max_iterations = 20
+
+[container]
+runtime_env = { UV_LINK_MODE = "copy", API_KEY = "private-value" }
+"""
+
+
+def _leaves(value, prefix=""):
+    """@brief Dotted keys of the leaves of a nested mapping (non-empty mappings are walked)."""
+    if isinstance(value, dict) and value:
+        return [leaf for key, child in value.items()
+                for leaf in _leaves(child, f"{prefix}.{key}" if prefix else key)]
+    return [prefix]
+
+
+def test_config_view_reports_each_settings_source_and_editability(tmp_path):
+    """
+    @brief   Every effective setting says whether the project's file sets it,
+             whether the browser can edit it (by the same rule the staging
+             endpoint applies), its file key, and whether a change restarts.
+    """
+    profiles = ProfileStore(tmp_path / "home")
+    profiles.create("alpha")
+    profiles.config_path("alpha").write_bytes(_PARTIAL_CONFIG.encode("utf-8"))  # LF, as on the host
+    app = create_app(profiles.home)
+    web = app.state.web_store
+    developer = web.create_user("dev", "longer-password", "developer")
+    web.set_memberships(developer["id"], ["alpha"])
+    with TestClient(app) as client:
+        login = client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
+        csrf = {"X-CSRF-Token": login.json()["csrf"]}
+        body = client.get("/api/v1/projects/alpha/config").json()
+        settings = {item["key"]: item for item in body["settings"]}
+
+        assert [item["key"] for item in body["settings"]] == sorted(settings)
+        assert set(settings) == set(_leaves(body["config"]))
+        assert settings["platform.repo"] == {
+            "key": "platform.repo", "edit_key": "platform.repo",
+            "source": "project", "editable": True, "restart": True}
+        assert settings["budgets.max_iterations"]["source"] == "project"  # equals default
+        assert settings["budgets.max_wall_clock_seconds"] == {
+            "key": "budgets.max_wall_clock_seconds",
+            "edit_key": "budgets.max_wall_clock_seconds",
+            "source": "default", "editable": True, "restart": False}
+        assert settings["delivery.draft"] == {
+            "key": "delivery.draft", "edit_key": "delivery.draft",
+            "source": "default", "editable": True, "restart": False}  # boolean
+        model = settings["executor.commands.opencode.model"]
+        assert model["edit_key"] == "executor.opencode.model"
+        assert model["source"] == "project" and model["editable"] and model["restart"]
+        assert settings["executor.commands.opencode.command"]["source"] == "project"
+        not_editable = ["executor.commands.opencode.command", "delivery.reviewers",
+                        "container.egress.allowlist", "container.runtime_env.UV_LINK_MODE",
+                        "state.store_root", "clarification.max_rounds"]
+        for key in not_editable:
+            assert settings[key]["editable"] is False, key
+        assert "container.runtime_env.API_KEY" not in settings  # redacted, never listed
+        assert settings["delivery.reviewers"]["source"] == "project"
+        assert settings["container.egress.allowlist"]["source"] == "default"
+        assert all(not item["editable"] for key, item in settings.items()
+                   if key.startswith(("state.", "clarification.")))
+
+        revision = body["revision"]
+        target = "/api/v1/projects/alpha/config/pending"
+        for key, value in (("budgets.max_wall_clock_seconds", "7200"),
+                           ("executor.opencode.model", "openai/gpt-5.4"),
+                           ("polling.poll_interval_seconds", "60")):
+            staged = client.post(target, json={"key": key, "value": value,
+                                               "revision": revision}, headers=csrf)
+            assert staged.status_code == 200, (key, staged.text)
+            assert client.delete(target, headers=csrf).status_code == 200
+        for key in ("executor.opencode.command", "state.store_root",
+                    "clarification.max_rounds", "container.runtime_env.api_key"):
+            refused = client.post(target, json={"key": key, "value": "x",
+                                                "revision": revision}, headers=csrf)
+            assert refused.status_code == 400, key
+            assert refused.json()["detail"]["code"] == "setting_not_editable"
+
+        client.post("/api/v1/session", json={"username": "dev", "password": "longer-password"})
+        seen = client.get("/api/v1/projects/alpha/config").json()["settings"]
+        assert seen == body["settings"]

@@ -12,6 +12,7 @@ import { PROJECT_NAME_PATTERN } from "./projectName";
 import { ApiError, describeError } from "./errors";
 import { startVisiblePolling } from "./polling";
 import { formatRoute, normalizeRoute, parseRoute, type ProjectTab, type Route } from "./routes";
+import { editValue, settingGroups, settingRows, type SettingMeta, type SettingRow } from "./settings";
 
 type User = { id: number; username: string; role: "admin" | "developer"; disabled: boolean; password_change_required?: boolean; projects?: string[] };
 type Session = { user: User; csrf: string };
@@ -22,7 +23,7 @@ type ImportPreview = { name: string; revision: string; issues: string[]; platfor
 type PendingConfig = { base_revision: string; candidate_revision: string; key: string; value: string; created_at: string; restart_required: boolean; endpoint?: { protocol: string; model: string; auth_env: string | null; timeout_seconds: number | null; ca_file: string | null } };
 type Run = { run_id: string; ticket_iid: number; stage: string; lifecycle: string; outcome: string; stage_failures: number; review_rounds: number; mr_url: string; updated_at: string };
 type RunPage = { items: Run[]; total: number; counts: Record<string, number>; limit: number; offset: number };
-type Config = { config: Record<string, unknown>; revision: string; issues: string[]; local_endpoint_timeout_seconds?: number | null };
+type Config = { config: Record<string, unknown>; revision: string; issues: string[]; local_endpoint_timeout_seconds?: number | null; settings?: SettingMeta[] };
 type Operation = { id: number; status: string; result?: string; action?: string };
 type AuditRow = { id: number; actor: string | null; action: string; project: string; detail: string; created_at: string };
 type Price = { id: number; executor: string; model: string; effective_from: string; input_usd_per_million: string; output_usd_per_million: string };
@@ -38,19 +39,6 @@ type WorkerStatus = "checking" | "ready" | "unavailable" | "error";
 type StorageStatus = { threshold_bytes: number; low: boolean; volumes: Array<{ scope: "home" | "project"; project: string | null; free_bytes: number; total_bytes: number; low: boolean }> };
 type AuditPolicy = { retention_days: number | null; max_bytes: number | null };
 type ProjectReadiness = { context: string; checked_at: string; checks: Record<string, boolean | null | string>; model_probe?: { context: string; ready: boolean; model: string; reason: string } };
-
-const commonSettings: Array<{ key: string; label: MessageKey; help: MessageKey; kind: "text" | "positive" | "forge" | "runtime" | "executor" }> = [
-  { key: "platform.repo", label: "repository", help: "settingHelpRepository", kind: "text" },
-  { key: "platform.kind", label: "forge", help: "settingHelpForge", kind: "forge" },
-  { key: "container.runtime", label: "runtime", help: "settingHelpRuntime", kind: "runtime" },
-  { key: "container.image", label: "image", help: "settingHelpImage", kind: "text" },
-  { key: "executor.default", label: "executor", help: "settingHelpExecutor", kind: "executor" },
-  { key: "polling.poll_interval_seconds", label: "pollInterval", help: "settingHelpPollInterval", kind: "positive" },
-  { key: "polling.max_concurrent_runs", label: "concurrentJobs", help: "settingHelpConcurrent", kind: "positive" },
-  { key: "budgets.max_iterations", label: "maxIterations", help: "settingHelpIterations", kind: "positive" },
-  { key: "budgets.max_wall_clock_seconds", label: "maxWallClock", help: "settingHelpWallClock", kind: "positive" },
-  { key: "budgets.max_files_touched", label: "maxFilesTouched", help: "settingHelpFiles", kind: "positive" },
-];
 
 const localeNames: Record<Locale, string> = { en: "English", fr: "Français", de: "Deutsch", ro: "Română" };
 const initialLocale = (): Locale => {
@@ -853,15 +841,14 @@ export default function App() {
     } catch (cause) { setError(cause); }
   };
 
-  const editConfig = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault(); setError("");
-    if (!config || !selected) return;
-    const form = event.currentTarget;
-    const fields = Object.fromEntries(new FormData(form));
+  const stageSetting = async (key: string, value: string): Promise<boolean> => {
+    setError("");
+    if (!config || !selected) return false;
     try {
-      const staged = await request<PendingConfig>(`/projects/${encodeURIComponent(selected)}/config/pending`, "POST", { ...fields, revision: config.revision }, session?.csrf);
-      setPendingConfig(staged); setPendingConfigScope(selected); setNotice(t("changeStaged")); form.reset();
-    } catch (cause) { setError(cause); }
+      const staged = await request<PendingConfig>(`/projects/${encodeURIComponent(selected)}/config/pending`, "POST", { key, value, revision: config.revision }, session?.csrf);
+      setPendingConfig(staged); setPendingConfigScope(selected); setNotice(t("changeStaged"));
+      return true;
+    } catch (cause) { setError(cause); return false; }
   };
 
   const rebuildUsage = async () => {
@@ -1088,9 +1075,9 @@ export default function App() {
           <section className="panel"><div className="panel-heading"><h2>{t("recentJobs")}</h2><button className="text-button" onClick={() => setPage("jobs")}>{t("view")} →</button></div><RunTable runs={runs} t={t} formatDate={formatDate} project={selected} onOpen={openJob} /></section>
           </>}
           {projectTab === "configuration" && <>
-          {projectConfig && <ProjectConfigReadOnly config={projectConfig.config} t={t} />}
+          {projectConfig && <SettingsList key={`${selected}-${projectConfig.revision}`} config={projectConfig.config} settings={projectConfig.settings || []} t={t} canEdit={isAdmin} disabled={!!projectPendingConfig} onStage={stageSetting} />}
           {isAdmin && selected && projectConfig && (projectConfig.config.executor as { default?: string } | undefined)?.default === "opencode" && <section className="panel wide-panel"><h2>{t("localEndpoint")}</h2><p className="muted">{t("localEndpointHelp")}</p><p className="muted">{t("localProviderHelp")}</p>{(projectConfig.config.executor as { default?: string } | undefined)?.default === "opencode" && <form key={`${selected}-${projectConfig.revision}`} className="inline-form config-form" onSubmit={saveEndpoint}><FormLegend t={t} /><Field name="model" label={t("model")} defaultValue={(projectConfig.config.executor as { commands?: { opencode?: { model?: string } } }).commands?.opencode?.model || ""} required /><Field name="endpoint" label={t("localEndpoint")} type="url" defaultValue={(projectConfig.config.container as { runtime_env?: { OPENAI_BASE_URL?: string } } | undefined)?.runtime_env?.OPENAI_BASE_URL || ""} required /><label>{t("endpointAuth")}<select name="auth_env"><option value="">{t("none")}</option><option value="OPENAI_API_KEY">OPENAI_API_KEY</option></select></label><label>{t("endpointProtocol")}<select name="protocol"><option value="openai-chat-completions">OpenAI chat completions</option></select></label><Field name="timeout_seconds" label={t("endpointTimeout")} type="number" defaultValue={String(projectConfig.local_endpoint_timeout_seconds || 300)} required /><Field name="ca_file" label={t("endpointCa")} defaultValue={(projectConfig.config.container as { runtime_env?: { NODE_EXTRA_CA_CERTS?: string } } | undefined)?.runtime_env?.NODE_EXTRA_CA_CERTS || ""} /><button className="primary" disabled={!!projectPendingConfig}>{t("stageChange")}</button></form>}</section>}
-          {isAdmin && selected && <section className="panel wide-panel" id="project-config-editor"><h2>{t("config")}</h2>{projectConfig ? <><p className="muted">{t("revision")}: {projectConfig.revision.slice(0, 12)}</p>{projectConfig.issues.length > 0 && <div className="alert">{projectConfig.issues.join(" · ")}</div>}<GuidedConfigForm key={`${selected}-${projectConfig.revision}`} config={projectConfig.config} t={t} onSubmit={editConfig} disabled={!!projectPendingConfig} /><details><summary>{t("advancedConfig")}</summary><form className="inline-form config-form" onSubmit={editConfig}><FormLegend t={t} /><Field name="key" label={t("configKey")} required /><Field name="value" label={t("configValue")} required /><button className="primary" disabled={!!projectPendingConfig}>{t("stageChange")}</button></form></details>{projectPendingConfig && <div className="import-preview" role="status"><h3>{t("pendingChange")}</h3><p>{projectPendingConfig.key}: {projectPendingConfig.value}</p>{projectPendingConfig.endpoint && <div className="detail-grid"><span>{t("endpointProtocol")}: {projectPendingConfig.endpoint.protocol}</span><span>{t("model")}: {projectPendingConfig.endpoint.model}</span><span>{t("endpointTimeout")}: {projectPendingConfig.endpoint.timeout_seconds ?? "—"}</span><span>{t("endpointAuth")}: {projectPendingConfig.endpoint.auth_env || "—"}</span><span>{t("endpointCa")}: {projectPendingConfig.endpoint.ca_file || "—"}</span></div>}<p className="muted">{t("revision")}: {projectPendingConfig.candidate_revision.slice(0, 12)}</p><p className="muted">{projectPendingConfig.restart_required ? t("pendingRestartHelp") : t("pendingApplyHelp")}</p><div className="button-row"><button className="primary" onClick={() => void applyPendingConfig()}>{t("apply")}</button><button className="ghost" onClick={() => void discardPendingConfig()}>{t("discardChange")}</button></div></div>}<details><summary>{t("rawConfig")}</summary><pre className="config-preview">{JSON.stringify(projectConfig.config, null, 2)}</pre></details></> : <Empty label={t("empty")} />}</section>}
+          {isAdmin && selected && <section className="panel wide-panel" id="project-config-editor"><h2>{t("config")}</h2>{projectConfig ? <><p className="muted">{t("revision")}: {projectConfig.revision.slice(0, 12)}</p>{projectConfig.issues.length > 0 && <div className="alert">{projectConfig.issues.join(" · ")}</div>}{!projectPendingConfig && <p className="muted">{t("configEditHint")}</p>}{projectPendingConfig &&<div className="import-preview" role="status"><h3>{t("pendingChange")}</h3><p>{projectPendingConfig.key}: {projectPendingConfig.value}</p>{projectPendingConfig.endpoint && <div className="detail-grid"><span>{t("endpointProtocol")}: {projectPendingConfig.endpoint.protocol}</span><span>{t("model")}: {projectPendingConfig.endpoint.model}</span><span>{t("endpointTimeout")}: {projectPendingConfig.endpoint.timeout_seconds ?? "—"}</span><span>{t("endpointAuth")}: {projectPendingConfig.endpoint.auth_env || "—"}</span><span>{t("endpointCa")}: {projectPendingConfig.endpoint.ca_file || "—"}</span></div>}<p className="muted">{t("revision")}: {projectPendingConfig.candidate_revision.slice(0, 12)}</p><p className="muted">{projectPendingConfig.restart_required ? t("pendingRestartHelp") : t("pendingApplyHelp")}</p><div className="button-row"><button className="primary" onClick={() => void applyPendingConfig()}>{t("apply")}</button><button className="ghost" onClick={() => void discardPendingConfig()}>{t("discardChange")}</button></div></div>}<details><summary>{t("rawConfig")}</summary><pre className="config-preview">{JSON.stringify(projectConfig.config, null, 2)}</pre></details></> : <Empty label={t("empty")} />}</section>}
           </>}
           {projectTab === "prices" && isAdmin && <>
           {isAdmin && selected && <section className="panel wide-panel"><h2>{t("estimatedPrices")}</h2><p className="muted">{t("priceHelp")}</p>
@@ -1337,58 +1324,55 @@ function GuidedField({ id, label, help, helpLabel, children }: { id: string; lab
   return <div className="guided-field"><div className="guided-label"><label htmlFor={id}>{label}{required && <RequiredMark />}</label><details className="guided-help"><summary>{helpLabel}</summary><p>{help}</p></details></div>{children}</div>;
 }
 
-function ProjectConfigReadOnly({ config, t }: { config: Record<string, unknown>; t: (key: MessageKey) => string }) {
-  const flatten = (value: unknown, prefix: string): Array<[string, unknown]> => {
-    if (value && typeof value === "object" && !Array.isArray(value)) {
-      return Object.entries(value as Record<string, unknown>).flatMap(([key, child]) => flatten(child, prefix ? `${prefix}.${key}` : key));
-    }
-    return [[prefix, value]];
-  };
-  const sections = Object.entries(config).map(([section, value]) => [section, flatten(value, section)] as const);
-  const typeOf = (key: string, value: unknown) => {
-    if (commonSettings.some(item => item.key === key && (item.kind === "forge" || item.kind === "executor"))) return t("settingEnum");
-    if (Array.isArray(value)) return t("settingList");
-    if (typeof value === "boolean") return t("settingBoolean");
-    if (typeof value === "number") return Number.isInteger(value) ? t("settingInteger") : t("settingNumber");
-    if (/(?:^|\.)(?:repo_path|root|store_root|db_path|export_jsonl|html_out|ca_file)$/.test(key)) return t("settingPath");
+function SettingsList({ config, settings, t, canEdit, disabled, onStage }: { config: Record<string, unknown>; settings: SettingMeta[]; t: (key: MessageKey) => string; canEdit: boolean; disabled: boolean; onStage: (key: string, value: string) => Promise<boolean> }) {
+  const [projectOnly, setProjectOnly] = useState(false);
+  const [editing, setEditing] = useState("");
+  const [draft, setDraft] = useState("");
+  const groups = settingGroups(settingRows(config, settings), projectOnly);
+  const typeOf = (row: SettingRow) => {
+    if (row.input === "choice") return t("settingEnum");
+    if (Array.isArray(row.value)) return t("settingList");
+    if (typeof row.value === "boolean") return t("settingBoolean");
+    if (typeof row.value === "number") return Number.isInteger(row.value) ? t("settingInteger") : t("settingNumber");
+    if (/(?:^|\.)(?:repo_path|root|store_root|db_path|export_jsonl|html_out|ca_file)$/.test(row.key)) return t("settingPath");
     return t("settingText");
   };
   const shown = (value: unknown) => value == null || value === "" ? "—" :
     Array.isArray(value) || typeof value === "object" ? JSON.stringify(value) : String(value);
-  return <section className="panel" id="project-settings">
-    <h2>{t("projectSettings")}</h2><p className="muted">{t("projectSettingsHelp")}</p>
-    <div className="setting-groups">{sections.map(([section, rows]) => <details key={section}>
-      <summary>{section} <span className="muted">({rows.length})</span></summary>
-      <div className="setting-list">{rows.map(([key, value]) => {
-        const known = commonSettings.find(item => item.key === key);
-        return <div className="setting-row" key={key}>
-          <div><strong>{known ? t(known.label) : key.slice(section.length + 1).replaceAll("_", " ")}</strong><small>{key}</small></div>
-          <code>{shown(value)}</code>
-          <details><summary aria-label={`${t("settingHelp")} ${key}`}>{t("settingHelp")}</summary>
-            <p>{typeOf(key, value)}{known?.kind === "positive" ? ` · ${t("settingPositive")}` : known?.kind === "forge" ? " · gitlab, github, gitea" : known?.kind === "executor" ? " · opencode, pi, codex, qwen" : known?.kind === "runtime" ? ` · ${t("settingRuntimeDomain")}` : ""}</p>
-            <p>{known ? t(known.help) : t("settingGeneralHelp")}</p>
-          </details>
-        </div>;
-      })}</div>
-    </details>)}</div>
-  </section>;
-}
-
-function GuidedConfigForm({ config, t, onSubmit, disabled }: { config: Record<string, unknown>; t: (key: MessageKey) => string; onSubmit: (event: FormEvent<HTMLFormElement>) => void; disabled: boolean }) {
-  const read = (key: string) => {
-    const value = key.split(".").reduce<unknown>((current, part) =>
-      current && typeof current === "object" ? (current as Record<string, unknown>)[part] : undefined, config);
-    return value === undefined || value === null ? "" : String(value);
+  const label = (row: SettingRow) => row.label ? t(row.label) : row.key.slice(row.group.length + 1).replaceAll("_", " ");
+  const submit = async (event: FormEvent<HTMLFormElement>, row: SettingRow) => {
+    event.preventDefault();
+    if (await onStage(row.editKey, draft)) setEditing("");
   };
-  const [key, setKey] = useState(commonSettings[0].key);
-  const [value, setValue] = useState(read(commonSettings[0].key));
-  const chosen = commonSettings.find(item => item.key === key) || commonSettings[0];
-  return <form className="inline-form config-form" onSubmit={onSubmit}><FormLegend t={t} />
-    <label>{t("commonSetting")}<select name="key" value={key} onChange={event => { setKey(event.target.value); setValue(read(event.target.value)); }}>{commonSettings.map(item => <option key={item.key} value={item.key}>{t(item.label)}</option>)}</select></label>
-    <label>{t("configValue")}{chosen.kind === "forge" || chosen.kind === "executor" ? <select name="value" value={value} onChange={event => setValue(event.target.value)}>{(chosen.kind === "forge" ? ["gitlab", "github", "gitea"] : ["opencode", "pi", "codex", "qwen"]).map(item => <option key={item} value={item}>{item}</option>)}</select> : <input name="value" type={chosen.kind === "positive" ? "number" : "text"} min={chosen.kind === "positive" ? "1" : undefined} step={chosen.kind === "positive" ? "1" : undefined} value={value} onChange={event => setValue(event.target.value)} required />}</label>
-    <p className="setting-editor-help">{t(chosen.help)} <span className="muted">{chosen.kind === "positive" ? t("settingPositive") : chosen.kind === "runtime" ? t("settingRuntimeDomain") : ""}</span></p>
-    <button className="primary" disabled={disabled}>{t("stageChange")}</button>
-  </form>;
+  return <section className="panel" id="project-settings">
+    <div className="panel-heading"><h2>{t("projectSettings")}</h2><label className="check-inline"><input type="checkbox" checked={projectOnly} onChange={event => setProjectOnly(event.target.checked)} />{t("settingsProjectOnly")}</label></div>
+    <p className="muted">{t("projectSettingsHelp")}</p>
+    {groups.length === 0 ? <Empty label={t("settingsNoneSet")} /> : <div className="setting-groups">{groups.map(group => <details key={group.name} className={group.name === "common" ? "common" : undefined} open={group.name === "common" || projectOnly}>
+      <summary>{group.name === "common" ? t("commonSettings") : group.name} <span className="muted">({group.rows.length})</span></summary>
+      <div className="setting-list">{group.rows.map(row => <div className="setting-row" key={row.key}>
+        <div>
+          <strong>{label(row)}</strong><small>{row.key}</small>
+          <span className={row.source === "project" ? "setting-badge set" : "setting-badge"}>{t(row.source === "project" ? "settingSetForProject" : "settingDefault")}</span>
+          {canEdit && row.input !== "none" && row.restart && <small className="setting-note">{t("settingRestartShort")}</small>}
+          {canEdit && row.input === "none" && <small className="setting-note">{t("settingNotEditableShort")}</small>}
+        </div>
+        {editing === row.key ? <form className="setting-editor" onSubmit={event => void submit(event, row)}>
+          {row.input === "boolean" || row.input === "choice"
+            ? <select aria-label={label(row)} value={draft} onChange={event => setDraft(event.target.value)}>{(row.input === "boolean" ? ["true", "false"] : row.choices).map(option => <option key={option} value={option}>{option}</option>)}</select>
+            : <input aria-label={label(row)} type={row.input === "number" ? "number" : "text"} step={row.step} min={row.hint === "positive" ? "1" : undefined} value={draft} onChange={event => setDraft(event.target.value)} required={row.input === "number"} />}
+          <div className="button-row"><button className="primary" disabled={disabled}>{t("stageChange")}</button><button type="button" className="ghost" onClick={() => setEditing("")}>{t("cancel")}</button></div>
+        </form> : <code>{shown(row.value)}</code>}
+        <div className="setting-actions">
+          {canEdit && row.input !== "none" && editing !== row.key && <button type="button" className="text-button" disabled={disabled} aria-label={`${t("editSetting")} ${row.key}`} onClick={() => { setEditing(row.key); setDraft(editValue(row.value)); }}>{t("editSetting")}</button>}
+          <details><summary aria-label={`${t("settingHelp")} ${row.key}`}>{t("settingHelp")}</summary>
+            <p>{typeOf(row)}{row.hint === "positive" ? ` · ${t("settingPositive")}` : row.choices.length ? ` · ${row.choices.join(", ")}` : row.hint === "runtime" ? ` · ${t("settingRuntimeDomain")}` : ""}</p>
+            <p>{row.help ? t(row.help) : t("settingGeneralHelp")}</p>
+            {canEdit && row.input === "none" && <p>{t("settingNotEditableNote")}</p>}
+          </details>
+        </div>
+      </div>)}</div>
+    </details>)}</div>}
+  </section>;
 }
 
 function ServerPager({ t, total, size, offset, onSize, onOffset }: { t: (key: MessageKey) => string; total: number; size: PageSize; offset: number; onSize: (size: PageSize) => void; onOffset: (offset: number) => void }) {

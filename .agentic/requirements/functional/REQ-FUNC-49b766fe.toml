@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-FUNC-49b766fe"
+
+title = "Report each project setting's source, editability and restart need"
+
+status = "active"
+
+requirement = """
+When a signed-in user opens an authorized project's configuration, the web API shall return for every effective setting whether the project's configuration file sets it or ADORE's default applies, whether the browser can edit it, the file key that edits it and whether applying a change needs a restart, using the same key rule that accepts web configuration edits.
+"""
+
+verification = "Automated web API tests read the configuration of a project whose file sets some keys and check the source of a set and a default key, that a boolean is editable, the executor command key mapping, that lists, command entries, environment keys and keys outside the editable sections are not editable, the restart flag and developer access, and that staging accepts sampled editable keys and refuses command entries, lowercase secret-like keys and keys outside the editable sections with setting_not_editable."
+
+affected_paths = ["04_Software/adore/web/app.py"]
+
+linked_tests = ["04_Software/tests/test_web_config.py::test_config_view_reports_each_settings_source_and_editability"]
+
+
+spec = "specs/REQ-FUNC-49b766fe.md"
+
+priority = "normal"
+rationale = "Operators must see which settings a project chose and which it inherits, and what they can change where."
+
+created = 2026-10-04
+updated = 2026-10-04

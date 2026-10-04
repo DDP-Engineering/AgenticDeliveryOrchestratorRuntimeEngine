@@ -18,6 +18,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Project details > Configuration marks every setting as set for this project or default, can show only the project's own settings, and lets administrators edit a setting on its row; common settings come first, rows say when applying needs paused pickup and which settings must be changed in config.toml. The separate common-setting and advanced key/value forms are gone.
 - Project names and job ticket numbers are links; a job's View or ticket opens it in Jobs from every table, including Project details Recent jobs.
 - Overview card hints say what each number covers, chevrons and sign-out use drawn icons, headings no longer touch the first field, and the Prices form preselects the project's executor.
 - Metrics shows one message instead of zero-valued cards when the selected scope has no jobs.
@@ -133,8 +134,8 @@ This project follows Keep a Changelog and Semantic Versioning.
   launcher and an operator-configurable restart limit.
 - Administrator staged configuration review and safe apply/discard, with
   conductor and active-work checks and paused pickup for runtime changes.
-- Guided administrator controls for common project settings, with the
-  validated key editor retained for advanced settings.
+- Administrator editing of single-value project settings, with the common
+  settings first.
 - Project detail view linking scoped status and recent jobs to jobs, metrics,
   settings and membership management.
 - Exact observed-executor filter for project job pages, with corrupt journal

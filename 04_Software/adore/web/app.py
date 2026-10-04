@@ -59,6 +59,13 @@ from adore.wizard import ScriptedAsker, WizardError, run_wizard
 
 # CONSTANTS
 _PROFILE_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
+_SETTING_KEY_RE = re.compile(r"[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+")
+# Configuration sections whose single values the web may edit.
+_EDITABLE_SECTIONS = frozenset({
+    "agent", "platform", "polling", "readiness", "executor",
+    "container", "worktree", "workflow", "recovery", "budgets",
+    "delivery", "review", "reconcile", "metrics", "labels",
+})
 _STATIC = Path(__file__).with_name("static")
 _COOKIE = "adore_session"
 _STORE_ERROR_CODES = {
@@ -459,15 +466,7 @@ def _candidate_config_edit(path: Path, body: ConfigEdit) -> tuple[bytes, str]:
             or body.protocol is not None or body.timeout_seconds is not None
             or body.ca_file is not None) and not endpoint_key:
         raise _error(400, "model_requires_endpoint")
-    if (_SECRET_KEY_RE.search(body.key)
-            or not re.fullmatch(r"[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+", body.key)
-            and not endpoint_key
-            or body.key.split(".")[0] not in {
-                "agent", "platform", "polling", "readiness", "executor",
-                "container", "worktree", "workflow", "recovery", "budgets",
-                "delivery", "review", "reconcile", "metrics", "labels",
-            }
-            or body.key.endswith(".command")):
+    if not _editable_setting_key(body.key, endpoint=endpoint_key):
         raise _error(400, "setting_not_editable")
     if endpoint_key:
         if (body.ca_file and (not body.value.startswith("https://")
@@ -588,6 +587,70 @@ def _restart_required(key: str) -> bool:
     """@brief Classify edits that change project identity or runtime wiring."""
     return key.startswith(("agent.", "platform.", "worktree.",
                            "container.", "executor."))
+
+
+def _editable_setting_key(key: str, *, endpoint: bool = False) -> bool:
+    """
+    @brief      The one rule for which configuration keys the web may edit.
+    @details    Used by the edit endpoints and by the per-setting metadata the
+                configuration view returns, so the two always agree.
+    @param[in]  key Dotted TOML key.
+    @param[in]  endpoint True for the OpenAI-compatible endpoint key, which is
+                edited through its own validated form.
+    @return     True when the key may be staged from the browser.
+    """
+    return not (
+        _SECRET_KEY_RE.search(key)
+        or (not endpoint and not _SETTING_KEY_RE.fullmatch(key))
+        or key.split(".")[0] not in _EDITABLE_SECTIONS
+        or key.endswith(".command")
+    )
+
+
+def _toml_leaves(value, prefix: str = "") -> list[tuple[str, object]]:
+    """
+    @brief      Dotted keys and values of the leaves of a nested mapping.
+    @details    A non-empty mapping is walked; an empty mapping, a list or a
+                scalar is a leaf.
+    @param[in]  value Mapping (or leaf value).
+    @param[in]  prefix Dotted path of `value`.
+    @return     (dotted key, value) pairs in mapping order.
+    """
+    if isinstance(value, dict) and value:
+        return [leaf for key, child in value.items()
+                for leaf in _toml_leaves(child, f"{prefix}.{key}" if prefix else key)]
+    return [(prefix, value)]
+
+
+def _setting_metadata(config: dict, raw: bytes) -> list[dict]:
+    """
+    @brief      Source, editability and restart need of every effective setting.
+    @details    `config` is the redacted effective configuration; `raw` the
+                project's TOML file. The file key of an executor command field
+                is `executor.<name>.<field>`, while the effective configuration
+                nests it under `executor.commands`. A setting is from the
+                project when its file key is a leaf of the file, whatever its
+                value; it is editable when the shared key rule accepts the file
+                key and its value is a single string, number or boolean.
+    @param[in]  config Redacted effective configuration mapping.
+    @param[in]  raw Project configuration file bytes.
+    @return     One entry per setting, sorted by key.
+    @exception  tomllib.TOMLDecodeError When the file is not valid TOML.
+    """
+    in_file = {key for key, _ in _toml_leaves(tomllib.loads(raw.decode("utf-8")))}
+    settings = []
+    for key, value in _toml_leaves(config):
+        edit_key = ("executor." + key.removeprefix("executor.commands.")
+                    if key.startswith("executor.commands.") else key)
+        settings.append({
+            "key": key,
+            "edit_key": edit_key,
+            "source": "project" if edit_key in in_file else "default",
+            "editable": (_editable_setting_key(edit_key)
+                         and isinstance(value, str | int | float)),
+            "restart": _restart_required(edit_key),
+        })
+    return sorted(settings, key=lambda item: item["key"])
 
 
 def _sync_profile_config_identity(profiles: ProfileStore, item, path: Path) -> None:
@@ -1857,9 +1920,14 @@ def create_app(home: str | Path | None = None,
                 timeout_seconds = milliseconds // 1000
         except (KeyError, TypeError, ValueError):
             pass
+        try:
+            settings = _setting_metadata(data, raw)
+        except (UnicodeDecodeError, tomllib.TOMLDecodeError) as exc:
+            raise _error(503, "config_corrupt") from exc
         return {"config": data, "revision": sha256(raw).hexdigest(),
                 "issues": validate_config(config),
-                "local_endpoint_timeout_seconds": timeout_seconds}
+                "local_endpoint_timeout_seconds": timeout_seconds,
+                "settings": settings}
 
     @app.put("/api/v1/projects/{name}/config")
     def config_update(name: str, body: ConfigEdit,
@@ -1870,15 +1938,7 @@ def create_app(home: str | Path | None = None,
                 or body.protocol is not None or body.timeout_seconds is not None
                 or body.ca_file is not None) and not endpoint_key:
             raise _error(400, "model_requires_endpoint")
-        if (_SECRET_KEY_RE.search(body.key)
-                or not re.fullmatch(r"[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+", body.key)
-                and not endpoint_key
-                or body.key.split(".")[0] not in {
-                    "agent", "platform", "polling", "readiness", "executor",
-                    "container", "worktree", "workflow", "recovery", "budgets",
-                    "delivery", "review", "reconcile", "metrics", "labels",
-                }
-                or body.key.endswith(".command")):
+        if not _editable_setting_key(body.key, endpoint=endpoint_key):
             raise _error(400, "setting_not_editable")
         if endpoint_key:
             if (body.ca_file and (not body.value.startswith("https://")
