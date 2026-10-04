@@ -50,7 +50,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
-- `adore cleanup` works only on the selected project's runs: on a host where projects share the agent slug, egress network prefix or worktree root it no longer removes another project's containers, proxies, networks or worktrees (apart from proxy and network names that truncation makes identical), and runs with corrupt state keep their worktree and containers.
+- In `allowlist-proxy` egress mode every run gets its own proxy container and egress network: long names end in a short digest of the executor name instead of being cut to a shared value, so a run no longer starts behind another run's proxy or loses it when that run ends. Upgrade note: finish, cancel or re-provision parked long-named `allowlist-proxy` runs from an earlier release first (see Recovery and Maintenance).
+- `adore cleanup` works only on the selected project's runs: on a host where projects share the agent slug, egress network prefix or worktree root it no longer removes another project's containers, proxies, networks or worktrees, nor a proxy or network another existing executor still uses, and runs with corrupt state keep their worktree and containers.
 - Required-field markers now sit on the same line as their label instead of below it.
 - Web error banners now show a sentence in the selected language instead of raw error codes, and clear after a later successful action or a view change.
 - Add project and Import project now reject invalid project names in the browser; the name pattern had been ignored by browsers that compile patterns with the `v` flag.

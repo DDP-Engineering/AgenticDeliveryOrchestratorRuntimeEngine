@@ -64,9 +64,8 @@ the `adore` package. An optional web API also exposes selected controls.
     kept and reported);
   - `adore cleanup` - reclaims a provably stale local instance lock and removes
     the selected project's finished and orphaned containers, proxies, networks
-    and worktree directories and leaves other projects' resources in place
-    (apart from proxy or network names shortened to the same value); prints a
-    JSON report.
+    and worktree directories and leaves other projects' resources in place;
+    prints a JSON report.
     Corrupt runs are reported and keep their state and resources (deleting them
     is `adore delete <run-id> --force`'s explicit job).
 - Wire assisted-config + profiles:

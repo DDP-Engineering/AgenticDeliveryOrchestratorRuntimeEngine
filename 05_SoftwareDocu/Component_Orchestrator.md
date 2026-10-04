@@ -49,8 +49,9 @@ publication human-approved and draft-only.
 - garbage-collect only this project's resources: those of done, cancelled,
   stale and state-less runs of its run-ID form, including allowlist proxy
   containers and egress networks, while active, failed, human-owned and corrupt
-  runs and other projects' resources stay (apart from a proxy or network whose
-  shortened name another project's run shares).
+  runs, other projects' resources, and any proxy or network another existing
+  executor still uses stay; without the executor listing no proxy or network
+  is removed.
 
 The component never edits AEGIS journals, gives forge credentials to an
 executor, or merges.

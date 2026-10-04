@@ -19,6 +19,7 @@
 from __future__ import annotations
 
 # IMPORTS
+import hashlib
 import os
 from pathlib import Path
 
@@ -112,6 +113,50 @@ def _manager(runner: FakeRunner) -> ContainerManager:
     """
     return ContainerManager("docker", "adore-executor-base:1.0.0", "uv-cache",
                             "npm-cache", runner)
+
+
+def _bounded(name: str, limit: int) -> str:
+    """
+    @brief      Expected per-run name part for a runtime-safe executor name.
+    @param[in]  name Executor container name (already runtime-safe).
+    @param[in]  limit Maximum length of the part.
+    @return     The name itself when it fits, else its start plus a 10-hex
+                SHA-256 suffix of the full name.
+    """
+    if len(name) <= limit:
+        return name
+    digest = hashlib.sha256(name.encode("utf-8")).hexdigest()[:10]
+    return f"{name[:limit - 11].rstrip('-._')}-{digest}"
+
+
+def _provisioned_egress(tmp_path: Path, name: str) -> tuple[str, str]:
+    """
+    @brief      Provision one allowlist-proxy run on a fresh fake runtime.
+    @param[in]  tmp_path pytest tmp dir.
+    @param[in]  name Executor container name.
+    @return     (egress network, proxy container) names the runtime was given;
+                the executor joins that network and the proxy is connected to it.
+    """
+    runner = FakeRunner(
+        _fail(f"No such container: {name}"),
+        _ok("network"),
+        _fail("No such container: proxy"),
+        _ok("proxy"),
+        _ok(),
+        _ok("cid"),
+    )
+    manager = ContainerManager(
+        "docker", "adore-executor-base:1.0.0", "uv-cache", "npm-cache", runner,
+        egress=ContainerEgressConfig(mode="allowlist-proxy", allowlist=["example.com"]),
+    )
+    manager.provision(name, tmp_path / "repo", tmp_path / "wt", tmp_path / "io",
+                      {"HOME": "/home/adore"})
+    network = runner.calls[1][-1]
+    proxy = runner.calls[3][4]
+    executor_run = runner.calls[5]
+    assert executor_run[executor_run.index("--network") + 1] == network
+    assert runner.calls[4][-2:] == [network, proxy]
+    return network, proxy
 
 
 def _fake_worktree(tmp_path: Path, run_id: str, gitdir: str) -> WorktreeManager:
@@ -648,10 +693,12 @@ def test_cleanup_container_sweeps_remove_only_exact_targets() -> None:
     retained = {"adore-run-active"}
 
     executors = manager.cleanup_orphan_containers("adore-run-", targets, retained)
-    proxies = manager.cleanup_egress_proxies("adore-run-", targets, retained)
+    proxies = manager.cleanup_egress_proxies(targets, retained)
 
     assert executors == ["adore-run-orphan"]
     assert proxies == ["adore-run-orphan-egress-proxy"]
+    assert runner.calls[2] == ["docker", "ps", "--all", "--filter", "name=-egress-proxy",
+                               "--format", "{{.Names}}"]
     assert runner.calls[1] == ["docker", "rm", "--force", "adore-run-orphan"]
     assert runner.calls[3] == [
         "docker", "rm", "--force", "adore-run-orphan-egress-proxy",
@@ -700,22 +747,99 @@ def test_cleanup_network_sweep_survives_allowlist_mode_change() -> None:
 
 def test_cleanup_egress_sweeps_keep_names_shared_with_retained_runs() -> None:
     """
-    @brief   Truncated proxy/network names shared by a finished and a retained
-             run of one long-named project are kept.
+    @brief   Old cut proxy/network names shared by a finished and a retained
+             run of one long-named project are kept; the finished run's own
+             per-run names go.
     """
     stem = "adore-run-gitea-dpasare-2026_Networked_Intelligent_Lab_Orchestrator-"
-    proxy = "adore-run-gitea-dpasare-2026_Networked_Intelligent-egress-proxy"
-    network = "adore-egress-adore-run-gitea-dpasare-2026_Networked_Intellige"
-    runner = FakeRunner(_ok(proxy), _ok(network))
+    done, kept = stem + "26", stem + "27"
+    old_proxy = "adore-run-gitea-dpasare-2026_Networked_Intelligent-egress-proxy"
+    old_network = "adore-egress-adore-run-gitea-dpasare-2026_Networked_Intellige"
+    proxies_listed = [old_proxy] + [f"{_bounded(n, 50)}-egress-proxy" for n in (done, kept)]
+    networks_listed = [old_network] + [f"adore-egress-{_bounded(n, 48)}" for n in (done, kept)]
+    runner = FakeRunner(_ok("\n".join(proxies_listed)), _ok(),
+                        _ok("\n".join(networks_listed)), _ok())
     manager = _manager(runner)
 
-    proxies = manager.cleanup_egress_proxies(
-        "adore-run-", {stem + "26"}, {stem + "27"}
-    )
-    networks = manager.cleanup_egress_networks({stem + "26"}, {stem + "27"})
+    proxies = manager.cleanup_egress_proxies({done}, {kept})
+    networks = manager.cleanup_egress_networks({done}, {kept})
 
-    assert proxies == [] and networks == []
-    assert len(runner.calls) == 2
+    assert proxies == [proxies_listed[1]]
+    assert networks == [networks_listed[1]]
+    assert len(runner.calls) == 4
+
+
+def test_cleanup_egress_sweeps_remove_unshared_old_cut_names() -> None:
+    """@brief A finished run's old cut proxy and network go when nothing else derives them."""
+    done = "adore-run-gitea-dpasare-2026_Networked_Intelligent_Lab_Orchestrator-26"
+    old_proxy = "adore-run-gitea-dpasare-2026_Networked_Intelligent-egress-proxy"
+    old_network = "adore-egress-adore-run-gitea-dpasare-2026_Networked_Intellige"
+    runner = FakeRunner(_ok(old_proxy), _ok(), _ok(old_network), _ok())
+    manager = _manager(runner)
+
+    assert manager.cleanup_egress_proxies({done}, set()) == [old_proxy]
+    assert manager.cleanup_egress_networks({done}, set()) == [old_network]
+
+
+def test_cleanup_egress_proxy_sweep_finds_proxies_of_long_slugs() -> None:
+    """
+    @brief   A per-run proxy whose bounded name no longer starts with a long
+             slug's executor prefix is still found and removed.
+    """
+    executor = "examplex-digital-delivery-agent-prod-run-gitea-dpasare-alpha-9"
+    proxy = "examplex-digital-delivery-agent-prod-ru-1cb1a4a1e2-egress-proxy"
+    assert not proxy.startswith("examplex-digital-delivery-agent-prod-run-")
+    runner = FakeRunner(_ok(f"unrelated-egress-proxy\n{proxy}"), _ok())
+
+    assert _manager(runner).cleanup_egress_proxies({executor}, set()) == [proxy]
+    assert runner.calls[1] == ["docker", "rm", "--force", proxy]
+
+
+def test_allowlist_egress_names_are_unique_per_run(tmp_path: Path) -> None:
+    """
+    @brief   Long executor names that share their first characters (two runs of
+             one project, another project) get their own bounded proxy and
+             network names; a short name keeps today's names.
+    """
+    stem = "adore-run-gitea-dpasare-2026_Networked_Intelligent_Lab_"
+    names = [stem + "Orchestrator-26", stem + "Orchestrator-27", stem + "Other-26"]
+
+    derived = [_provisioned_egress(tmp_path / str(index), name)
+               for index, name in enumerate(names)]
+
+    assert len({network for network, _ in derived}) == 3
+    assert len({proxy for _, proxy in derived}) == 3
+    for name, (network, proxy) in zip(names, derived, strict=True):
+        assert proxy == f"{_bounded(name, 50)}-egress-proxy" and len(proxy) <= 63
+        assert network == f"adore-egress-{_bounded(name, 48)}"
+        assert len(network) - len("adore-egress-") <= 48
+    assert derived[0] == (
+        "adore-egress-adore-run-gitea-dpasare-2026_Networke-bdeedb3462",
+        "adore-run-gitea-dpasare-2026_Networked-bdeedb3462-egress-proxy",
+    )
+    assert _provisioned_egress(tmp_path / "short", "adore-run-x") == (
+        "adore-egress-adore-run-x", "adore-run-x-egress-proxy",
+    )
+
+
+def test_remove_egress_removes_only_the_runs_own_proxy_and_network(tmp_path: Path) -> None:
+    """@brief Reaping one long-named run leaves another run's proxy and network alone."""
+    stem = "adore-run-gitea-dpasare-2026_Networked_Intelligent_Lab_Orchestrator-"
+    network26, proxy26 = _provisioned_egress(tmp_path / "26", stem + "26")
+    network27, proxy27 = _provisioned_egress(tmp_path / "27", stem + "27")
+    runner = FakeRunner(_ok(), _ok())
+    manager = ContainerManager(
+        "docker", "adore-executor-base:1.0.0", "uv-cache", "npm-cache", runner,
+        egress=ContainerEgressConfig(mode="allowlist-proxy", allowlist=["example.com"]),
+    )
+
+    manager.remove_egress(stem + "26")
+
+    assert runner.calls == [
+        ["docker", "rm", "--force", proxy26],
+        ["docker", "network", "rm", network26],
+    ]
+    assert proxy27 != proxy26 and network27 != network26
 
 
 def test_cleanup_container_sweep_continues_after_one_remove_failure() -> None:

@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-SEC-553ebd62"
+
+title = "Give each run its own egress proxy and network"
+
+status = "active"
+
+requirement = """
+When the runtime provisions, removes or cleans up allowlist-proxy egress for a run, it shall use a proxy container name and an egress network name derived from that run's full executor container name, distinct for every distinct executor container name and no longer than 63 characters for the proxy and 48 characters after the network prefix.
+"""
+
+verification = "Automated isolation tests derive names for a short executor name and for long ones (two runs of one long-named project, two projects sharing a long name prefix, a 36-character slug): the short names are unchanged, the long names are distinct, within the limits and match the spec's literal example; provisioning a second long-named run creates its own network and proxy instead of reusing the first run's, reaping one run removes only its own proxy and network, and the cleanup sweeps remove a finished run's per-run proxy and network, including a long-slug proxy that does not start with the executor prefix."
+
+affected_paths = ["04_Software/adore/isolation.py"]
+
+linked_tests = ["04_Software/tests/test_isolation.py::test_allowlist_egress_names_are_unique_per_run", "04_Software/tests/test_isolation.py::test_remove_egress_removes_only_the_runs_own_proxy_and_network", "04_Software/tests/test_isolation.py::test_container_provision_allowlist_proxy_lifecycle", "04_Software/tests/test_isolation.py::test_cleanup_egress_sweeps_keep_names_shared_with_retained_runs", "04_Software/tests/test_isolation.py::test_cleanup_egress_proxy_sweep_finds_proxies_of_long_slugs"]
+
+
+spec = "specs/REQ-SEC-553ebd62.md"
+
+priority = "high"
+rationale = "Runs must not share an egress proxy: a shared proxy enforces another run's allowlist and is removed when that other run ends."
+
+created = 2026-10-04
+updated = 2026-10-04

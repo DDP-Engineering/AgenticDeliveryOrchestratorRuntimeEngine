@@ -258,11 +258,14 @@ class FakeContainers:
     def list_containers(self, prefix):
         return []
 
+    def list_executors(self, prefix):
+        return []
+
     def cleanup_orphan_containers(self, prefix, targets, retained):
         self.cleanup_calls.append((set(targets), set(retained)))
         return list(self.cleanup_containers)
 
-    def cleanup_egress_proxies(self, prefix, targets, retained):
+    def cleanup_egress_proxies(self, targets, retained):
         self.cleanup_calls.append((set(targets), set(retained)))
         return list(self.cleanup_proxies)
 
@@ -2505,10 +2508,12 @@ def test_cleanup_removes_this_projects_finished_and_stateless_run_resources(
     engine.store.save(RunState(run_id="github-owner-repo-15", ticket_iid=15,
                                lifecycle="cancelled", container=renamed))
     kept = [f"github-owner-repo-{iid}" for iid in (6, 7, 10, 11)]
-    gone = [f"github-owner-repo-{iid}" for iid in (5, 8, 9, 12)]  # 9: no state
+    with_dirs = [f"github-owner-repo-{iid}" for iid in (5, 8, 9, 12)]  # 9: no state
+    container_only = "github-owner-repo-16"  # no state, no worktree directory
+    gone = [*with_dirs, container_only]
     root, runtime = _shared_host(
         tmp_path, engine, worktrees, run_ids=[*kept, *gone], mode="open",
-        dirs=[*kept, *gone, "github-owner-repo-13", "legacy-done"],
+        dirs=[*kept, *with_dirs, "github-owner-repo-13", "legacy-done"],
     )
     runtime.containers |= {renamed, f"{renamed}-egress-proxy"}
     runtime.networks.add(f"adore-egress-{renamed}")
@@ -2519,7 +2524,9 @@ def test_cleanup_removes_this_projects_finished_and_stateless_run_resources(
     assert report["containers_removed"] == executors
     assert report["proxy_containers_removed"] == [f"{name}-egress-proxy" for name in executors]
     assert report["egress_networks_removed"] == [f"adore-egress-{name}" for name in executors]
-    assert report["worktrees_removed"] == sorted([*gone, "github-owner-repo-13", "legacy-done"])
+    assert report["worktrees_removed"] == sorted(
+        [*with_dirs, "github-owner-repo-13", "legacy-done"]
+    )
     assert sorted(path.name for path in root.iterdir()) == sorted(kept)
     for run_id in kept:
         executor = f"adore-run-{run_id}"
@@ -2554,9 +2561,9 @@ def test_cleanup_keeps_truncated_egress_names_shared_with_a_protected_run(
     tmp_path: Path,
 ) -> None:
     """
-    @brief   A long repository path truncates proxy and network names, so a done
-             and a handed-off run share them; the done run's executor and
-             worktree go, the shared proxy and network stay.
+    @brief   A done and a handed-off run of a long-named project created before
+             per-run names share old cut proxy and network names; the done
+             run's executor and worktree go, the shared proxy and network stay.
     """
     engine, _, worktrees, _, _ = make_engine(tmp_path)
     engine.config.platform.kind = "gitea"
@@ -2598,7 +2605,7 @@ def test_cleanup_continues_when_the_container_runtime_fails(tmp_path: Path) -> N
     def unavailable(*args):
         raise IsolationError("container runtime unavailable")
 
-    for method in ("list_containers", "cleanup_orphan_containers",
+    for method in ("list_containers", "list_executors", "cleanup_orphan_containers",
                    "cleanup_egress_proxies", "cleanup_egress_networks"):
         setattr(containers, method, unavailable)
 
@@ -2628,3 +2635,95 @@ def test_cleanup_reports_only_worktrees_it_removed(
 
     assert stuck.is_dir()
     assert report["worktrees_removed"] == []
+
+
+def test_cleanup_keeps_old_cut_names_another_projects_executor_uses(tmp_path: Path) -> None:
+    """
+    @brief   A done run's old cut proxy and network that another project's
+             existing executor also derives stay; the done run's executor and
+             worktree go.
+    """
+    engine, _, worktrees, _, _ = make_engine(tmp_path)
+    engine.config.platform.kind = "gitea"
+    engine.config.platform.repo = "dpasare/2026_Networked_Intelligent_Lab_Orchestrator"
+    done = "gitea-dpasare-2026_Networked_Intelligent_Lab_Orchestrator-26"
+    engine.store.save(RunState(run_id=done, ticket_iid=26, lifecycle="done"))
+    root, runtime = _shared_host(tmp_path, engine, worktrees, dirs=[done])
+    other = "adore-run-gitea-dpasare-2026_Networked_Intelligent_Lab_Other-3"
+    proxy = "adore-run-gitea-dpasare-2026_Networked_Intelligent-egress-proxy"
+    network = "adore-egress-adore-run-gitea-dpasare-2026_Networked_Intellige"
+    runtime.containers |= {f"adore-run-{done}", other, proxy}
+    runtime.networks.add(network)
+
+    report = engine.cleanup()
+
+    assert report["containers_removed"] == [f"adore-run-{done}"]
+    assert report["proxy_containers_removed"] == []
+    assert report["egress_networks_removed"] == []
+    assert runtime.containers == {other, proxy}
+    assert runtime.networks == {network}
+    assert not (root / done).exists()
+
+
+def test_cleanup_removes_no_proxy_or_network_when_executor_listing_fails(
+    tmp_path: Path,
+) -> None:
+    """
+    @brief   Without the executor listing, cleanup cannot tell which proxies and
+             networks other runs still use, so it removes none; executor and
+             worktree removal continue.
+    """
+    engine, _, worktrees, containers, _ = make_engine(tmp_path)
+    run_id = "github-owner-repo-5"
+    engine.store.save(RunState(run_id=run_id, ticket_iid=5, lifecycle="done"))
+    root = tmp_path / "worktrees"
+    (root / run_id).mkdir(parents=True)
+    worktrees.path_for = lambda candidate: root / candidate
+    worktrees.dirs = [root / run_id]
+    calls: list[str] = []
+
+    def unavailable(prefix):
+        raise IsolationError("container listing unavailable")
+
+    def sweep(kind):
+        def record(*args):
+            calls.append(kind)
+            return []
+        return record
+
+    containers.list_executors = unavailable
+    containers.list_containers = unavailable
+    containers.cleanup_orphan_containers = sweep("executors")
+    containers.cleanup_egress_proxies = sweep("proxies")
+    containers.cleanup_egress_networks = sweep("networks")
+
+    report = engine.cleanup()
+
+    assert calls == ["executors"]
+    assert report["worktrees_removed"] == [run_id]
+
+
+def test_cleanup_removes_unshared_old_cut_names_of_a_finished_run(tmp_path: Path) -> None:
+    """
+    @brief   A done long-named run's old cut proxy and network go when no other
+             executor exists: a proxy never counts as an executor that still
+             uses (and would so retain) its own old cut name.
+    """
+    engine, _, worktrees, _, _ = make_engine(tmp_path)
+    engine.config.platform.kind = "gitea"
+    engine.config.platform.repo = "dpasare/2026_Networked_Intelligent_Lab_Orchestrator"
+    done = "gitea-dpasare-2026_Networked_Intelligent_Lab_Orchestrator-26"
+    engine.store.save(RunState(run_id=done, ticket_iid=26, lifecycle="done"))
+    root, runtime = _shared_host(tmp_path, engine, worktrees, dirs=[done])
+    proxy = "adore-run-gitea-dpasare-2026_Networked_Intelligent-egress-proxy"
+    network = "adore-egress-adore-run-gitea-dpasare-2026_Networked_Intellige"
+    runtime.containers |= {f"adore-run-{done}", proxy}
+    runtime.networks.add(network)
+
+    report = engine.cleanup()
+
+    assert report["containers_removed"] == [f"adore-run-{done}"]
+    assert report["proxy_containers_removed"] == [proxy]
+    assert report["egress_networks_removed"] == [network]
+    assert runtime.containers == set() and runtime.networks == set()
+    assert not (root / done).exists()

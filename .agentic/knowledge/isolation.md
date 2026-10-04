@@ -37,10 +37,12 @@ host-side checkpoint commits, so a new clone needs no local Git identity.
 - Mounts the repository, worktree and bounded IO exchange. Explicit configured
   mounts may also provide executor credentials; forge credentials remain on
   the host.
-- Cleanup removes only listed names derived from the target executors the
-  orchestrator passes and keeps any name also derived from a retained one; it
-  never deletes by prefix alone. Proxy and network names are cut to 50 and 48
-  characters, so another project's run can share, and lose, such a name.
+- Every allowlist-proxy run has its own proxy and network name: a long name
+  keeps its start and ends in a 10-hex SHA-256 digest of the executor name,
+  within 63 characters for the proxy and 48 after the network prefix.
+- Cleanup removes only listed names derived (per-run or old cut form) from the
+  target executors the orchestrator passes and keeps any name also derived
+  from a retained one; it never deletes by prefix alone.
 - Git identity is applied only to ADORE checkpoint commits; it does not
   reconfigure the operator's clone.
 

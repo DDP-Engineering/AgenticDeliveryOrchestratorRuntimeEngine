@@ -55,13 +55,16 @@ guardrails, not a sandbox.
   (running -> no-op, stopped -> start, absent -> create), `start` / `stop`
   (park) / `interrupt` (bounded cancellation stop) / `remove` (reap),
   `status`, `list_containers(prefix)` (all
-  containers in any state whose name starts with `<slug>-run-`; `adore
-  cleanup` reads it to find the project's run IDs), `list_egress_networks(prefix)`,
+  containers in any state whose name starts with `<slug>-run-`),
+  `list_executors(prefix)` (the same without egress proxy containers; `adore
+  cleanup` reads it to find the project's run IDs and the executors still
+  using a proxy or network), `list_egress_networks(prefix)`,
   `remove_egress(name)`, the best-effort
   `cleanup_orphan_containers(prefix, targets, retained)`,
-  `cleanup_egress_proxies(prefix, targets, retained)`, and
-  `cleanup_egress_networks(targets, retained)` methods (each removes only listed
-  names derived from the `targets` executor names and not from `retained`),
+  `cleanup_egress_proxies(targets, retained)` (lists proxies by their
+  `-egress-proxy` suffix), and `cleanup_egress_networks(targets, retained)`
+  methods (each removes only listed names derived, in per-run or old cut form,
+  from the `targets` executor names and not from `retained`),
   `verify_required_tools` (project-image checks run inside the provisioned
   container), and `exec` (the seam the executor launcher runs commands through).
 - `build_container_env(git_dir_name, git_name, git_email)` - the git
@@ -226,12 +229,16 @@ side keeps working normally with its absolute paths. The admin dir name is
   starts.
 - `[container.egress] allowlist-proxy` writes generated Squid config under the
   run IO directory, uses one proxy container named
-  `<executor-container>-egress-proxy`, and one network named
-  `<network_prefix>-<safe-executor-container-name>`. Cleanup removes executor,
-  proxy container, and network; `adore cleanup` also removes the listed
-  executors, proxies, and networks derived from the target executor names the
-  orchestrator passes, keeping any name also derived from a retained executor
-  (truncated proxy and network names can be shared). The network sweep checks the
+  `<bounded executor name, at most 50>-egress-proxy` (at most 63 characters),
+  and one network named `<network_prefix>-<bounded executor name, at most 48>`.
+  A runtime-safe executor name that fits is used as is; a longer one keeps its
+  start and ends in `-` plus 10 hex characters of the SHA-256 of the full
+  executor name, so every run has its own proxy and network. Reaping removes
+  executor, proxy container, and network; `adore cleanup` also removes the
+  listed executors, proxies, and networks derived from the target executor
+  names the orchestrator passes, in per-run form and in the old cut form of
+  releases that simply cut long names, keeping any name also derived from a
+  retained executor (old cut names can be shared). The network sweep checks the
   canonical `adore-egress` prefix even after the current profile changes mode,
   plus the current configured prefix; it never guesses arbitrary historical
   names.

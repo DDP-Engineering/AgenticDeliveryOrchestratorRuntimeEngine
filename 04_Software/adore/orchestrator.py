@@ -421,7 +421,10 @@ class Orchestrator:
                  `_cleanup_run_ids`), so containers, proxies, networks and
                  worktrees of other projects stay even when they share the
                  slug, egress network prefix or worktree root. Active, failed,
-                 human-owned and corrupt runs keep their resources.
+                 human-owned and corrupt runs keep their resources, and a
+                 proxy or network any other existing executor still derives
+                 (an old cut name can be shared) stays. Without the executor
+                 listing no proxy or network is removed.
         @return  Lock outcome, removed resources (sorted) and corrupt run IDs.
         """
         corrupt = self.store.invalid_runs()
@@ -441,7 +444,12 @@ class Orchestrator:
             if lock is not None:
                 report["lock_held_by"] = lock.get("pid", "unknown")
         prefix = f"{self.identity.slug}-run-"
-        eligible, protected, runs = self._cleanup_run_ids(prefix, set(corrupt))
+        listed: set[str] | None = None
+        with contextlib.suppress(IsolationError):
+            listed = set(self.containers.list_executors(prefix))
+        eligible, protected, runs = self._cleanup_run_ids(
+            prefix, set(corrupt), listed or set()
+        )
 
         def executors(run_ids: set[str]) -> set[str]:
             names = {self.identity.container_name(run_id) for run_id in run_ids}
@@ -456,14 +464,16 @@ class Orchestrator:
             report["containers_removed"] = sorted(
                 self.containers.cleanup_orphan_containers(prefix, targets, retained)
             )
-        with contextlib.suppress(IsolationError):
-            report["proxy_containers_removed"] = sorted(
-                self.containers.cleanup_egress_proxies(prefix, targets, retained)
-            )
-        with contextlib.suppress(IsolationError):
-            report["egress_networks_removed"] = sorted(
-                self.containers.cleanup_egress_networks(targets, retained)
-            )
+        if listed is not None:
+            in_use = retained | (listed - targets)
+            with contextlib.suppress(IsolationError):
+                report["proxy_containers_removed"] = sorted(
+                    self.containers.cleanup_egress_proxies(targets, in_use)
+                )
+            with contextlib.suppress(IsolationError):
+                report["egress_networks_removed"] = sorted(
+                    self.containers.cleanup_egress_networks(targets, in_use)
+                )
         for run_id in sorted(eligible):
             path = self.worktrees.path_for(run_id)
             if not path.is_dir():
@@ -479,6 +489,7 @@ class Orchestrator:
         self,
         prefix: str,
         corrupt: set[str],
+        executors: set[str],
     ) -> tuple[set[str], set[str], dict[str, RunState]]:
         """
         @brief      Split this project's run IDs into removable and kept ones.
@@ -490,6 +501,7 @@ class Orchestrator:
                     runs; every other owned run ID is eligible.
         @param[in]  prefix Executor-container prefix ("<slug>-run-").
         @param[in]  corrupt Run IDs whose persisted state fails to load.
+        @param[in]  executors Listed executor container names under `prefix`.
         @return     (eligible run IDs, protected run IDs, loadable runs by ID).
         """
         runs = {run.run_id: run for run in self.store.list_runs()}
@@ -502,12 +514,10 @@ class Orchestrator:
         owned = set(runs) | corrupt | {
             path.name for path in self.worktrees.list_dirs()
             if own_form.fullmatch(path.name)
+        } | {
+            name[len(prefix):] for name in executors
+            if own_form.fullmatch(name[len(prefix):])
         }
-        with contextlib.suppress(IsolationError):
-            owned |= {
-                name[len(prefix):] for name in self.containers.list_containers(prefix)
-                if own_form.fullmatch(name[len(prefix):])
-            }
         return owned - protected, protected, runs
 
     def purge_resources(self) -> dict[str, Any]:
