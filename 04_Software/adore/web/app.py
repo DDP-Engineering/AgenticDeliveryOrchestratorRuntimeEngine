@@ -75,6 +75,7 @@ _STORE_ERROR_CODES = {
     "invalid username": "invalid_username",
     "invalid role": "invalid_role",
     "user not found": "user_not_found",
+    "project changed during the update": "project_changed",
     "cannot disable the last administrator": "last_administrator",
     "project not found": "project_not_found",
     "project does not exist": "project_not_found",
@@ -139,6 +140,12 @@ class Memberships(BaseModel):
     """@brief Replacement project assignments."""
 
     projects: list[str]
+
+
+class AccessChange(BaseModel):
+    """@brief Grant or remove one developer's access to one project."""
+
+    granted: bool
 
 
 class AuditPolicyInput(BaseModel):
@@ -1657,6 +1664,39 @@ def create_app(home: str | Path | None = None,
             raise _store_error(404, exc) from exc
         web.audit(user["id"], "membership-changed", detail=str(user_id))
         return {"projects": sorted(set(body.projects))}
+
+    @app.get("/api/v1/projects/{name}/access")
+    def project_access(name: str, user: Annotated[dict, Depends(administrator)]) -> dict:
+        """@brief Every developer account and whether it can access the project."""
+        item = project(name, user)
+        try:
+            members = web.project_members(item.name)
+        except WebStoreError as exc:
+            raise _store_error(404, exc) from exc
+        return {"developers": [
+            {"id": account["id"], "username": account["username"],
+             "disabled": account["disabled"], "granted": account["id"] in members}
+            for account in web.list_users() if account["role"] == "developer"
+        ]}
+
+    @app.put("/api/v1/projects/{name}/access/{user_id}")
+    def change_project_access(name: str, user_id: int, body: AccessChange,
+                              user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+        """@brief Grant or remove one developer's access to this project only."""
+        item = project(name, user)
+        account = web.user_by_id(user_id)
+        if account is None:
+            raise _error(404, "user_not_found")
+        if account["role"] != "developer":
+            raise _error(400, "user_not_developer")
+        try:
+            web.set_membership(user_id, item.name, body.granted)
+        except WebStoreError as exc:
+            raise _store_error(409 if str(exc) == "project changed during the update" else 404,
+                               exc) from exc
+        web.audit(user["id"], "membership-changed", item.name,
+                  f"user {user_id} {'granted' if body.granted else 'removed'}")
+        return {"id": user_id, "granted": body.granted}
 
     @app.post("/api/v1/users/{user_id}/disable")
     def disable(user_id: int, user: Annotated[dict, Depends(admin_mutation)]) -> dict:

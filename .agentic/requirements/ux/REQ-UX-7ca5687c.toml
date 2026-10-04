@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-7ca5687c"
+
+title = "Manage project access from an Access tab"
+
+status = "active"
+
+requirement = """
+When an administrator opens Project details, the web interface shall offer an Access tab that lists every developer account with whether it can access the project and a control to grant or remove that access, states that administrators always have access, and points to Administration > Users when there are no developer accounts; developers shall see no Access tab, and Project details shall offer no link to the Users page.
+"""
+
+verification = "Automated: the routes test shows the access tab is an administrator-only project tab (a developer's access route falls back to overview). Manual browser check: an administrator grants and removes a developer's access on the Access tab and the developer's Projects list follows; a developer sees no Access tab; Project details shows no Manage access link; the texts appear in each language."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/routes.ts", "04_Software/web/src/i18n.ts", "04_Software/web/src/errors.ts", "04_Software/web/src/styles.css", "04_Software/web/tests/routes.test.mjs", "04_Software/adore/web/static/"]
+
+linked_tests = ["04_Software/web/tests/routes.test.mjs"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = "Administrators asked why Project details offered only a link to the global Users page; access to a project is managed where the project is shown."
+
+created = 2026-10-04
+updated = 2026-10-04

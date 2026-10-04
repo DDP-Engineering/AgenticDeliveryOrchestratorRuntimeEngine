@@ -114,11 +114,16 @@ rows). Each row's Help shows the setting's own text in the selected language
 from `web/src/settingHelp.ts` (keyed by the catalog `web/src/settingKeys.json`,
 with `*` for project-chosen names) and its ADORE default. Administrators can stage and apply
 project configuration, local endpoint and estimated-price changes there, while
-membership management remains under Users. My account holds account
+a developer's projects are edited together under Users, and one project's
+developers on its Access tab. My account holds account
 appearance and password controls. Project details groups this content into
 Overview (host prerequisites, recent jobs), Configuration (read-only settings
-and administrator editors) and administrator-only Prices tabs with keyboard
-tab navigation; Jobs, Metrics and Manage access are real links.
+and administrator editors) and administrator-only Prices and Access tabs with
+keyboard tab navigation; Jobs and Metrics are real links. Access
+(`ProjectAccess` in `App.tsx`) lists the project's developers from
+`GET /projects/{name}/access` and grants or removes one with
+`PUT /projects/{name}/access/{user_id}`; a developer's `/access` route falls
+back to Overview.
 Administrators can explicitly run a host-prerequisite check there. The view
 labels model-endpoint and WSL runtime results as unverified when they cannot
 be established from the API host, and never treats static config validity as

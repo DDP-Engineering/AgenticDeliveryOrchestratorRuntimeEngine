@@ -20,6 +20,7 @@ const table = [
   [`/projects/${ID}`, { view: "projectDetails", project: ID, tab: "overview" }],
   [`/projects/${ID}/configuration`, { view: "projectDetails", project: ID, tab: "configuration" }],
   [`/projects/${ID}/prices`, { view: "projectDetails", project: ID, tab: "prices" }],
+  [`/projects/${ID}/access`, { view: "projectDetails", project: ID, tab: "access" }],
   ["/jobs", { view: "jobs" }],
   [`/jobs?project=${ID}`, { view: "jobs", project: ID }],
   [`/jobs?project=${ID}&run=run-26`, { view: "jobs", project: ID, run: "run-26" }],
@@ -59,6 +60,9 @@ test("normalization replaces unknown and role-restricted routes", () => {
   }
   assert.deepEqual(
     normalizeRoute({ view: "projectDetails", project: ID, tab: "prices" }, { isAdmin: false }),
+    { route: { view: "projectDetails", project: ID, tab: "overview" }, replaced: true });
+  assert.deepEqual(
+    normalizeRoute({ view: "projectDetails", project: ID, tab: "access" }, { isAdmin: false }),
     { route: { view: "projectDetails", project: ID, tab: "overview" }, replaced: true });
   assert.deepEqual(
     normalizeRoute({ view: "metrics", tab: "projects" }, { isAdmin: false }),

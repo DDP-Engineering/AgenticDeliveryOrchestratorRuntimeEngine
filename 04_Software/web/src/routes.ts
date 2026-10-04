@@ -4,7 +4,7 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
-export type ProjectTab = "overview" | "configuration" | "prices";
+export type ProjectTab = "overview" | "configuration" | "prices" | "access";
 export type MetricsTabRoute = "summary" | "usage" | "quality" | "trends" | "projects";
 type PlainView = "projects" | "createProject" | "importProject" | "administration" | "adminUsers" | "adminAudit" | "settings";
 export type Route =
@@ -21,7 +21,8 @@ const PLAIN: Record<string, PlainView> = {
 };
 const PLAIN_PATHS = Object.fromEntries(Object.entries(PLAIN).map(([path, view]) => [view, path])) as Record<PlainView, string>;
 const ADMIN_ONLY = new Set<string>(["createProject", "importProject", "administration", "adminUsers", "adminAudit"]);
-const PROJECT_TABS: ProjectTab[] = ["overview", "configuration", "prices"];
+const PROJECT_TABS: ProjectTab[] = ["overview", "configuration", "prices", "access"];
+const ADMIN_PROJECT_TABS = new Set<ProjectTab>(["prices", "access"]);
 const METRICS_TABS: MetricsTabRoute[] = ["summary", "usage", "quality", "trends", "projects"];
 const IDENTIFIER = /^[A-Za-z0-9._-]{1,160}$/;
 
@@ -77,7 +78,7 @@ export function normalizeRoute(route: Route | null, context: { isAdmin: boolean 
   if (route === null) return { route: { view: "overview" }, replaced: true };
   if (context.isAdmin) return { route, replaced: false };
   if (ADMIN_ONLY.has(route.view)) return { route: { view: "overview" }, replaced: true };
-  if (route.view === "projectDetails" && route.tab === "prices") return { route: { ...route, tab: "overview" }, replaced: true };
+  if (route.view === "projectDetails" && ADMIN_PROJECT_TABS.has(route.tab)) return { route: { ...route, tab: "overview" }, replaced: true };
   if (route.view === "metrics" && route.tab === "projects") return { route: { ...route, tab: "summary" }, replaced: true };
   return { route, replaced: false };
 }

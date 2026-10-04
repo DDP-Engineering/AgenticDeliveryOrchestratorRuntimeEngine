@@ -205,7 +205,7 @@ export default function App() {
     setMetricsTab(metricsTabs[next]);
     document.getElementById(`metrics-tab-${metricsTabs[next]}`)?.focus();
   };
-  const projectTabs: ProjectTab[] = isAdmin ? ["overview", "configuration", "prices"] : ["overview", "configuration"];
+  const projectTabs: ProjectTab[] = isAdmin ? ["overview", "configuration", "prices", "access"] : ["overview", "configuration"];
   const onProjectTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, tab: ProjectTab) => {
     const current = projectTabs.indexOf(tab);
     const next = event.key === "ArrowRight" ? (current + 1) % projectTabs.length :
@@ -1066,9 +1066,9 @@ export default function App() {
         </>}
 
         {page === "projectDetails" && selectedProject && <>
-          <section className="panel"><div className="panel-heading"><h2>{selectedProject.name}</h2><span className={`status status-${selectedProject.readiness}`}>{t(selectedProject.readiness === "configured" ? "configured" : selectedProject.readiness === "needs-config" ? "needsConfig" : selectedProject.readiness === "invalid-state" ? "invalidState" : selectedProject.readiness === "archived" ? "archived" : "paused")}</span></div><p>{selectedProject.description || selectedProject.repo}</p><div className="project-metadata"><div className="project-meta">{t("forge")}: {selectedProject.platform} · {t("repository")}: {selectedProject.repo}</div><div className="project-meta">{t("runtime")}: {selectedProject.runtime} · {t("executor")}: {selectedProject.executor || "—"}</div><div className="project-meta">{t("lastActivity")}: {selectedProject.last_activity ? formatDate(selectedProject.last_activity) : "—"}</div></div><nav className="project-links" aria-label={t("projectLinks")}><RouteLink to={formatRoute({ view: "jobs", project: selectedProject.id })} onNavigate={() => { setDetails(null); setPage("jobs"); }}>{t("jobs")} →</RouteLink><RouteLink to={formatRoute({ view: "metrics", project: selectedProject.id })} onNavigate={() => { setMetricAllProjects(false); setPage("metrics"); }}>{t("metrics")} →</RouteLink>{isAdmin && <RouteLink to={formatRoute({ view: "adminUsers" })} onNavigate={() => setPage("adminUsers")}>{t("manageAccess")} →</RouteLink>}</nav></section>
+          <section className="panel"><div className="panel-heading"><h2>{selectedProject.name}</h2><span className={`status status-${selectedProject.readiness}`}>{t(selectedProject.readiness === "configured" ? "configured" : selectedProject.readiness === "needs-config" ? "needsConfig" : selectedProject.readiness === "invalid-state" ? "invalidState" : selectedProject.readiness === "archived" ? "archived" : "paused")}</span></div><p>{selectedProject.description || selectedProject.repo}</p><div className="project-metadata"><div className="project-meta">{t("forge")}: {selectedProject.platform} · {t("repository")}: {selectedProject.repo}</div><div className="project-meta">{t("runtime")}: {selectedProject.runtime} · {t("executor")}: {selectedProject.executor || "—"}</div><div className="project-meta">{t("lastActivity")}: {selectedProject.last_activity ? formatDate(selectedProject.last_activity) : "—"}</div></div><nav className="project-links" aria-label={t("projectLinks")}><RouteLink to={formatRoute({ view: "jobs", project: selectedProject.id })} onNavigate={() => { setDetails(null); setPage("jobs"); }}>{t("jobs")} →</RouteLink><RouteLink to={formatRoute({ view: "metrics", project: selectedProject.id })} onNavigate={() => { setMetricAllProjects(false); setPage("metrics"); }}>{t("metrics")} →</RouteLink></nav></section>
           <div className="metrics-tabs project-tabs" role="tablist" aria-label={t("projectSections")}>
-            {projectTabs.map(tab => <button key={tab} id={`project-tab-${tab}`} type="button" role="tab" aria-controls="project-tab-panel" aria-selected={projectTab === tab} tabIndex={projectTab === tab ? 0 : -1} onClick={() => setProjectTab(tab)} onKeyDown={event => onProjectTabKeyDown(event, tab)}>{t(tab === "overview" ? "projectOverviewTab" : tab === "configuration" ? "config" : "prices")}</button>)}
+            {projectTabs.map(tab => <button key={tab} id={`project-tab-${tab}`} type="button" role="tab" aria-controls="project-tab-panel" aria-selected={projectTab === tab} tabIndex={projectTab === tab ? 0 : -1} onClick={() => setProjectTab(tab)} onKeyDown={event => onProjectTabKeyDown(event, tab)}>{t(tab === "overview" ? "projectOverviewTab" : tab === "configuration" ? "config" : tab === "prices" ? "prices" : "projectAccessTab")}</button>)}
           </div>
           <div id="project-tab-panel" role="tabpanel" aria-labelledby={`project-tab-${projectTab}`}>
           {projectTab === "overview" && <>
@@ -1080,6 +1080,7 @@ export default function App() {
           {isAdmin && selected && projectConfig && (projectConfig.config.executor as { default?: string } | undefined)?.default === "opencode" && <section className="panel wide-panel"><h2>{t("localEndpoint")}</h2><p className="muted">{t("localEndpointHelp")}</p><p className="muted">{t("localProviderHelp")}</p>{(projectConfig.config.executor as { default?: string } | undefined)?.default === "opencode" && <form key={`${selected}-${projectConfig.revision}`} className="inline-form config-form" onSubmit={saveEndpoint}><FormLegend t={t} /><Field name="model" label={t("model")} defaultValue={(projectConfig.config.executor as { commands?: { opencode?: { model?: string } } }).commands?.opencode?.model || ""} required /><Field name="endpoint" label={t("localEndpoint")} type="url" defaultValue={(projectConfig.config.container as { runtime_env?: { OPENAI_BASE_URL?: string } } | undefined)?.runtime_env?.OPENAI_BASE_URL || ""} required /><label>{t("endpointAuth")}<select name="auth_env"><option value="">{t("none")}</option><option value="OPENAI_API_KEY">OPENAI_API_KEY</option></select></label><label>{t("endpointProtocol")}<select name="protocol"><option value="openai-chat-completions">OpenAI chat completions</option></select></label><Field name="timeout_seconds" label={t("endpointTimeout")} type="number" defaultValue={String(projectConfig.local_endpoint_timeout_seconds || 300)} required /><Field name="ca_file" label={t("endpointCa")} defaultValue={(projectConfig.config.container as { runtime_env?: { NODE_EXTRA_CA_CERTS?: string } } | undefined)?.runtime_env?.NODE_EXTRA_CA_CERTS || ""} /><button className="primary" disabled={!!projectPendingConfig}>{t("stageChange")}</button></form>}</section>}
           {isAdmin && selected && <section className="panel wide-panel" id="project-config-editor"><h2>{t("config")}</h2>{projectConfig ? <><p className="muted">{t("revision")}: {projectConfig.revision.slice(0, 12)}</p>{projectConfig.issues.length > 0 && <div className="alert">{projectConfig.issues.join(" · ")}</div>}{!projectPendingConfig && <p className="muted">{t("configEditHint")}</p>}{projectPendingConfig &&<div className="import-preview" role="status"><h3>{t("pendingChange")}</h3><p>{projectPendingConfig.key}: {projectPendingConfig.value}</p>{projectPendingConfig.endpoint && <div className="detail-grid"><span>{t("endpointProtocol")}: {projectPendingConfig.endpoint.protocol}</span><span>{t("model")}: {projectPendingConfig.endpoint.model}</span><span>{t("endpointTimeout")}: {projectPendingConfig.endpoint.timeout_seconds ?? "—"}</span><span>{t("endpointAuth")}: {projectPendingConfig.endpoint.auth_env || "—"}</span><span>{t("endpointCa")}: {projectPendingConfig.endpoint.ca_file || "—"}</span></div>}<p className="muted">{t("revision")}: {projectPendingConfig.candidate_revision.slice(0, 12)}</p><p className="muted">{projectPendingConfig.restart_required ? t("pendingRestartHelp") : t("pendingApplyHelp")}</p><div className="button-row"><button className="primary" onClick={() => void applyPendingConfig()}>{t("apply")}</button><button className="ghost" onClick={() => void discardPendingConfig()}>{t("discardChange")}</button></div></div>}<details><summary>{t("rawConfig")}</summary><pre className="config-preview">{JSON.stringify(projectConfig.config, null, 2)}</pre></details></> : <Empty label={t("empty")} />}</section>}
           </>}
+          {projectTab === "access" && isAdmin && selected && <ProjectAccess key={selected} project={selected} csrf={session?.csrf} t={t} onError={setError} onNotice={setNotice} />}
           {projectTab === "prices" && isAdmin && <>
           {isAdmin && selected && <section className="panel wide-panel"><h2>{t("estimatedPrices")}</h2><p className="muted">{t("priceHelp")}</p>
             <form key={selected} className="form-grid" onSubmit={savePrice}><FormLegend t={t} /><label>{t("executor")}<select name="executor" defaultValue={["codex", "opencode", "pi", "qwen"].includes(selectedProject?.executor || "") ? selectedProject?.executor : "codex"}><option value="codex">codex</option><option value="opencode">opencode</option><option value="pi">pi</option><option value="qwen">qwen</option></select></label><Field name="model" label={t("model")} required /><label><span>{t("effectiveFrom")}<RequiredMark /></span><input name="effective_from" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required /></label><label><span>{t("inputRate")}<RequiredMark /></span><input name="input_usd_per_million" type="number" min="0" max="1000000" step="0.000001" required /></label><label><span>{t("outputRate")}<RequiredMark /></span><input name="output_usd_per_million" type="number" min="0" max="1000000" step="0.000001" required /></label><button className="primary form-submit" type="submit">{t("save")}</button></form>
@@ -1323,6 +1324,44 @@ function Field({ name, label, type = "text", required = false, defaultValue, hin
 function GuidedField({ id, label, help, helpLabel, children }: { id: string; label: string; help: string; helpLabel: string; children: ReactNode }) {
   const required = Children.toArray(children).some(child => isValidElement<{ required?: boolean }>(child) && !!child.props.required);
   return <div className="guided-field"><div className="guided-label"><label htmlFor={id}>{label}{required && <RequiredMark />}</label><details className="guided-help"><summary>{helpLabel}</summary><p>{help}</p></details></div>{children}</div>;
+}
+
+type ProjectDeveloper = { id: number; username: string; disabled: boolean; granted: boolean };
+
+/** Administrator view of one project's developers, granting or removing access one at a time. */
+function ProjectAccess({ project, csrf, t, onError, onNotice }: { project: string; csrf?: string; t: (key: MessageKey) => string; onError: (cause: unknown) => void; onNotice: (text: string) => void }) {
+  const [developers, setDevelopers] = useState<ProjectDeveloper[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const mounted = useRef(true);
+  const path = `/projects/${encodeURIComponent(project)}/access`;
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  useEffect(() => {
+    let live = true;
+    setDevelopers(null); setFailed(false);
+    request<{ developers: ProjectDeveloper[] }>(path).then(value => { if (live) setDevelopers(value.developers); }).catch(cause => { if (live) { setFailed(true); onError(cause); } });
+    return () => { live = false; };
+  }, [path]);
+  const change = async (developer: ProjectDeveloper) => {
+    setBusy(true); onError("");
+    try {
+      await request(`${path}/${developer.id}`, "PUT", { granted: !developer.granted }, csrf);
+      if (!mounted.current) return;  // another project is shown now; say nothing about this one
+      setDevelopers(current => current && current.map(row => row.id === developer.id ? { ...row, granted: !developer.granted } : row));
+      onNotice(t(developer.granted ? "accessRemoved" : "accessGranted"));
+      const value = await request<{ developers: ProjectDeveloper[] }>(path);
+      if (mounted.current) setDevelopers(value.developers);
+    } catch (cause) { if (mounted.current) onError(cause); } finally { if (mounted.current) setBusy(false); }
+  };
+  return <section className="panel wide-panel"><h2>{t("projectAccessTab")}</h2><p className="muted">{t("projectAccessHelp")}</p>
+    {developers === null ? (failed ? <p className="empty">{t("empty")}</p> : <p className="muted">{t("loadingDevelopers")}</p>) : (developers.length === 0 ? <p className="empty">{t("noDevelopers")}</p> : <div className="user-list">{developers.map(developer =>
+      <div className="user-row" key={developer.id}>
+        <span className="user-avatar">{developer.username.charAt(0).toUpperCase()}</span>
+        <div><strong>{developer.username}</strong><small>{t("developer")}{developer.disabled ? ` · ${t("accountDisabled")}` : ""}</small></div>
+        <span className={developer.granted ? "status status-working" : "status"}>{t(developer.granted ? "hasAccess" : "noAccess")}</span>
+        <button type="button" className="ghost" disabled={busy} aria-label={`${t(developer.granted ? "removeAccess" : "grantAccess")}: ${developer.username}`} onClick={() => void change(developer)}>{t(developer.granted ? "removeAccess" : "grantAccess")}</button>
+      </div>)}</div>)}
+  </section>;
 }
 
 function SettingsList({ config, settings, t, locale, canEdit, disabled, onStage }: { config: Record<string, unknown>; settings: SettingMeta[]; t: (key: MessageKey) => string; locale: Locale; canEdit: boolean; disabled: boolean; onStage: (key: string, value: string) => Promise<boolean> }) {

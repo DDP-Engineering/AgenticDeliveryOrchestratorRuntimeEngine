@@ -85,6 +85,16 @@ probes a configured local model from the runtime container context.
 The optional `web` extra provides FastAPI and Uvicorn. Internal dependencies
 include profiles, config, state, wizard, metrics and `WebStore`.
 
+Administrator-only `GET /api/v1/projects/{name}/access` returns
+`{"developers": [{"id", "username", "disabled", "granted"}]}` for every
+developer account, sorted by username; `granted` counts only grants carrying
+the project's current identity. `PUT /api/v1/projects/{name}/access/{user_id}`
+with `{"granted": true|false}` (CSRF) grants or removes that one developer's
+access to that one project, leaving every other grant unchanged, audits
+`membership-changed`, and returns `{"id", "granted"}`; an unknown project or
+account returns 404, an administrator account 400 `user_not_developer`, and a
+rename landing during the update 409 `project_changed` with nothing changed.
+
 ## 5. Inputs And Outputs
 
 Inputs are JSON requests and the existing profile/run files. Outputs are

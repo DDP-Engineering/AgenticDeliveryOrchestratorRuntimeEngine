@@ -147,11 +147,15 @@ and repository comparison tables. Opening Metrics from project details selects
 that project. Developers choose only their assigned projects.
 The top bar names the current page and provides common actions. Project details
 retains the project opened from Projects. Its Overview, Configuration and, for
-administrators, Prices tabs switch content within the page; Jobs, Metrics and,
-for administrators, Manage access are links to those pages for the project.
+administrators, Prices and Access tabs switch content within the page; Jobs
+and Metrics are links to those pages for the project. Access lists every
+developer account with whether it can access the project, and an
+administrator grants or removes one developer's access with a button; the
+change applies at once, leaves the developer's other projects alone and is
+audited. Administrators always have access.
 Metadata rows have breathing room, with a clear gap before the links. System
 status, Users and Audit operate at platform scope and My account at account
-scope, with project membership managed on Users. On a phone, wide tables show
+scope; a developer's projects can also be managed together on Users. On a phone, wide tables show
 an edge shadow where more columns can be scrolled into view, and Jobs collapses
 its history filters behind a Filters button that shows how many are active;
 use Menu to switch pages.

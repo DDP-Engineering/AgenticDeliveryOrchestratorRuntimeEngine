@@ -312,6 +312,7 @@ td.strong { font-weight: 800; }
   .metrics-tabs button { padding: 8px 11px; }
   .user-row { display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: center; }
   .user-row > div { grid-column: 2; }
+  .user-row > .status { grid-column: 2; justify-self: start; }
   .user-row > .membership-editor, .user-row > button, .user-row > form { grid-column: 1 / -1; min-width: 0; }
 }
 @media (max-width: 260px) {

@@ -14,6 +14,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Added
 
+- Project details has an administrator-only Access tab listing the project's developers; Grant access and Remove access change one developer's access to that project at once, leaving their other projects alone. It replaces the Manage access link to the Users page.
 - Administrators can delete an archived, idle project from the Projects page after typing its name; the web worker runs the new `adore profile delete <name> --force --remove-resources`, which also removes the project's containers and worktrees while keeping human-owned worktrees, external state and the audit trail.
 
 ### Changed

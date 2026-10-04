@@ -198,6 +198,7 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 | URLs, tabs, navigation | `web/src/routes.ts`, `web/src/App.tsx` | `npm test` (`routes.test.mjs`), browser check |
 | Background refresh and paging | `web/src/polling.ts`, `ServerPager` in `App.tsx`, `/api/v1/audit-page` | `npm test` (`polling.test.mjs`), `test_web_paging.py` |
 | Error codes and messages | `adore/web/app.py` (`_error`, `_STORE_ERROR_CODES`), `web/src/errors.ts` | `test_web_errors.py`, `npm test` (`errors.test.mjs`) |
+| Project developer access | `/api/v1/projects/{name}/access` routes in `adore/web/app.py`, `project_members` and `set_membership` in `adore/web/store.py`, `ProjectAccess` in `App.tsx`, `web/src/routes.ts` | `test_web_project_access.py`, `npm test` (`routes.test.mjs`), browser check |
 | Project settings list and row editing | `_setting_metadata` in `adore/web/app.py`, `web/src/settings.ts`, `SettingsList` in `App.tsx` | `test_web_config.py`, `npm test` (`settings.test.mjs`), browser check |
 | Setting help texts and catalog | `web/src/settingHelp.ts`, `web/src/settingKeys.json`, `default_config()` in `adore/config.py` | `test_web_setting_catalog.py`, `npm test` (`settingHelp.test.mjs`), browser check |
 | Offline media | `02_Tools/*web*.py` | `test_web_package.py`, installed HTTP smoke |
@@ -236,6 +237,8 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
   restart metadata; Set for this project / Default badges, row editing and the project-set filter.
 - `REQ-UX-b0e9a434` / `REQ-FUNC-c6c71dbd` - every setting's help text in EN/FR/DE/RO and
   its ADORE default; the catalog test keeps texts in step with the configuration keys.
+- `REQ-SEC-3ce206e4` / `REQ-UX-7ca5687c` - administrators grant or remove one developer's access to one
+  project from its Access tab; other grants stay; developers see no tab.
 - `REQ-SEC-c2298428` - redacted project configuration reads follow grants; edits remain administrator-only.
 - `REQ-PLAT-a1b60ff9` - host-specific offline installation.
 - `REQ-REL-94e653aa` - checkpoint-bearing state and handoff lifecycles remain
@@ -268,7 +271,7 @@ blocks; a stopped, stale or corrupt heartbeat does not claim readiness.
 Administration expands into System status, Users and Audit sidebar pages;
 both roles reach a top-level My account page. Every view has a path URL
 (`web/src/routes.ts`) kept in sync with view state; project details uses
-Overview/Configuration/Prices tabs and Jobs/Metrics/Manage access links. Project details shows effective
+Overview/Configuration/Prices/Access tabs and Jobs/Metrics links. Project details shows effective
 configuration in compact sections, common settings first, with a Set for this
 project / Default badge, field type, domain and purpose help and a filter for
 project-set settings; administrators edit settings on their rows and stage

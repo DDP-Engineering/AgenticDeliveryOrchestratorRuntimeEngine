@@ -881,6 +881,70 @@ class WebStore:
                 "VALUES (?,?,?,?)", grants,
             )
 
+    def project_members(self, project: str) -> set[int]:
+        """
+        @brief      IDs of the accounts granted a project.
+        @details    Only grants that carry the project's current identity count,
+                    as in `memberships`, so rows left by a deleted project of the
+                    same name do not.
+        @param[in]  project Profile name.
+        @return     Granted account IDs.
+        @exception  WebStoreError When the project does not exist.
+        """
+        identity = _profile_identity(self.path.parent, project)
+        if identity is None:
+            raise WebStoreError("project not found")
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT user_id FROM memberships WHERE project_id=? AND profile_created_at=?",
+                identity,
+            ).fetchall()
+        return {row["user_id"] for row in rows}
+
+    def set_membership(self, user_id: int, project: str, granted: bool) -> None:
+        """
+        @brief      Grant or remove one account's access to one project.
+        @details    Grants are matched by the project's immutable identity, so a
+                    grant made before a rename is found. In one write transaction
+                    the account's other grants are rewritten under their
+                    projects' current names, as `set_memberships` stores them, so a
+                    reused name never takes another project's grant; rows of
+                    deleted projects, which grant nothing, are dropped. Other
+                    accounts' grants are not touched.
+        @param[in]  user_id Account ID.
+        @param[in]  project Profile name.
+        @param[in]  granted True to grant, False to remove.
+        @exception  WebStoreError When the project or account does not exist,
+                    project or membership metadata is corrupt, or a rename
+                    lands during the update (nothing is changed then).
+        """
+        identity = _profile_identity(self.path.parent, project)
+        if identity is None:
+            raise WebStoreError("project not found")
+        by_id = self._projects_by_id()
+        try:
+            with self._connect() as connection:
+                connection.execute("BEGIN IMMEDIATE")
+                if connection.execute("SELECT 1 FROM users WHERE id=?",
+                                      (user_id,)).fetchone() is None:
+                    raise WebStoreError("user not found")
+                rows = connection.execute(
+                    "SELECT project,profile_created_at,project_id FROM memberships WHERE user_id=?",
+                    (user_id,),
+                ).fetchall()
+                grants = [(user_id, profile.name, profile.created_at, profile.project_id)
+                          for profile in self._granted_projects(rows, by_id)
+                          if profile.project_id != identity[0]]
+                if granted:
+                    grants.append((user_id, project, identity[1], identity[0]))
+                connection.execute("DELETE FROM memberships WHERE user_id=?", (user_id,))
+                connection.executemany(
+                    "INSERT INTO memberships(user_id,project,profile_created_at,project_id) "
+                    "VALUES (?,?,?,?)", grants,
+                )
+        except sqlite3.IntegrityError as exc:  # a rename landed after the project snapshot
+            raise WebStoreError("project changed during the update") from exc
+
     def memberships(self, user_id: int) -> set[str]:
         """@brief Get assigned profile names for the current request."""
         with self._connect() as connection:
@@ -889,6 +953,10 @@ class WebStore:
                 "FROM memberships WHERE user_id=?",
                 (user_id,)
             ).fetchall()
+        return {profile.name for profile in self._granted_projects(rows, self._projects_by_id())}
+
+    def _projects_by_id(self) -> dict[str, Any]:
+        """@brief Live projects by immutable ID, failing closed on corrupt metadata."""
         profiles = ProfileStore(self.path.parent)
         if profiles.invalid_profiles():
             raise WebStoreError("project metadata is corrupt")
@@ -897,7 +965,12 @@ class WebStore:
             if profile.project_id in by_id:
                 raise WebStoreError("duplicate project identity")
             by_id[profile.project_id] = profile
-        visible = set()
+        return by_id
+
+    @staticmethod
+    def _granted_projects(rows: list[sqlite3.Row], by_id: dict[str, Any]) -> list[Any]:
+        """@brief Live projects named by grant rows; a deleted project's row grants nothing."""
+        granted = []
         for row in rows:
             if (not isinstance(row["project"], str)
                     or not re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,63}", row["project"])
@@ -908,8 +981,8 @@ class WebStore:
                 raise WebStoreError("membership identity is corrupt")
             profile = by_id.get(row["project_id"])
             if profile is not None and profile.created_at == row["profile_created_at"]:
-                visible.add(profile.name)
-        return visible
+                granted.append(profile)
+        return granted
 
     def _operation_with_current_project(self, row: sqlite3.Row) -> dict[str, Any]:
         """@brief Resolve a queued command's immutable target to its current label."""
