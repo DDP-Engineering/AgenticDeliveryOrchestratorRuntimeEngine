@@ -406,20 +406,27 @@ on_pipeline_failure = "revise"
 review_reminder_after = "48h"
 
 # ----- Reconciliation ------------------------------------------------------------
-# Reactions when the outside world changes under an active/parked run, so a
-# deleted or closed ticket never leaves a zombie run or orphaned container.
+# Reactions when the outside world changes under a waiting run, so a deleted
+# or closed ticket never leaves a zombie run or orphaned container.
 #
 # STATUS (review finding ADORE-ARCH-005): on_ticket_deleted / on_ticket_closed
 # are validated but their configured VALUES are not consulted - reconciliation
-# applies hardcoded behavior matching the defaults below, and only to PARKED
-# runs. on_trigger_removed is NOT IMPLEMENTED AT ALL: adding the hold label
-# mid-run does NOT stop an active `working` run. Use `adore cancel <run-id>`.
+# applies the fixed behavior described below, and only to runs waiting for
+# approval, a clarification answer or review. A run in review checks its MR/PR
+# first: a merged MR/PR completes it, a closed one fails it (MR_CLOSED) and one
+# that stays missing fails it (MR_DELETED), whatever the ticket's state.
+# on_trigger_removed is NOT IMPLEMENTED AT ALL: adding the hold label mid-run
+# does NOT stop an active `working` run. Use `adore cancel <run-id>`.
 [reconcile]
 # Ticket deleted: "abort-cleanup" (stop + remove container/worktree) | "ignore".
-# NOT ENFORCED - parked runs are always orphaned regardless of this value.
+# NOT ENFORCED - whatever this value, a waiting run whose ticket is deleted
+# fails visibly (TICKET_DELETED): its container stops and its worktree and
+# evidence stay.
 on_ticket_deleted = "abort-cleanup"
 # Ticket closed by a human mid-run: "cancel" (graceful stop + comment) | "ignore".
-# NOT ENFORCED - parked runs are always cancelled regardless of this value.
+# NOT ENFORCED - whatever this value, a waiting run whose ticket is closed is
+# cancelled: its container, worktree and local branch are removed and its
+# state history stays.
 on_ticket_closed = "cancel"
 # Trigger label removed / hold added mid-run: "pause" | "abort" | "ignore".
 # NOT IMPLEMENTED - this key has no effect; use `adore cancel <run-id>`.

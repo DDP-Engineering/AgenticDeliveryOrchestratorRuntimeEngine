@@ -190,6 +190,10 @@ the pipeline read. All three obey `max_review_rounds`, which bounds repairs and
 human-requested revisions together. Only a changed verdict is a signal, and an
 unreadable verdict is silent.
 
+`remove_source_branch` asks GitLab to delete the run's branch once a person
+merges the merge request. GitHub and Gitea ignore it; there, deleting merged
+branches is a repository setting.
+
 `draft=false` is invalid. ADORE removes `approval_label` before presenting a
 candidate and accepts only a fresh re-add after presentation. Approval is
 bound to candidate fingerprint and target commit. Every revision creates a
@@ -202,10 +206,17 @@ close, deletion, or source-ticket closure.
 
 ## Reconciliation and Metrics
 
-The `[reconcile]` values remain reserved. Current schema-1 behavior is fixed:
-deleted/closed resources fail visibly, stale `working` runs become loud
-failures, pending notifications replay without consuming a slot, and terminal
-runs retain state evidence.
+The `[reconcile]` values remain reserved. Current schema-1 behavior is fixed.
+For a run waiting for approval, a clarification answer or review, a deleted
+source ticket fails the run visibly (`TICKET_DELETED`; the container stops and
+the worktree and evidence stay), and a closed source ticket cancels it with
+outcome `ticket closed`, removing its container, worktree and local branch
+while its state history stays. A run in review checks its MR/PR first: a
+merged MR/PR completes the run and a closed-unmerged MR/PR fails it
+(`MR_CLOSED`), whatever the ticket's state, and an MR/PR that stays missing
+for `recovery.max_transient_retries` polls fails it (`MR_DELETED`). Stale
+`working` runs become loud failures, pending notifications replay without
+consuming a slot, and terminal runs retain state evidence.
 
 `[metrics]` controls SQLite/JSONL/static HTML summaries. Metrics are
 best-effort and can never change governance outcomes. `capture_resource` is
