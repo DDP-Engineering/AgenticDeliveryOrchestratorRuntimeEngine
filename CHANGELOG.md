@@ -12,6 +12,10 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+### Added
+
+- Administrators can delete an archived, idle project from the Projects page after typing its name; the web worker runs the new `adore profile delete <name> --force --remove-resources`, which also removes the project's containers and worktrees while keeping human-owned worktrees, external state and the audit trail.
+
 ### Changed
 
 - Project names and job ticket numbers are links; a job's View or ticket opens it in Jobs from every table, including Project details Recent jobs.
@@ -46,6 +50,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Required-field markers now sit on the same line as their label instead of below it.
 - Web error banners now show a sentence in the selected language instead of raw error codes, and clear after a later successful action or a view change.
 - Add project and Import project now reject invalid project names in the browser; the name pattern had been ignored by browsers that compile patterns with the `v` flag.
 - Primary buttons keep readable dark text on the accent colour when the theme follows a dark system setting.

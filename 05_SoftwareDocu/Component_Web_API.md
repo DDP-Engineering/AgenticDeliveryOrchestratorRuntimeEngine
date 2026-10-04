@@ -29,7 +29,13 @@ It supplies an absolute, project-specific worktree root under the web home;
 the worker can then run from any process working directory without changing
 the path used by a retry.
 Administrators can archive or restore projects without deleting their profiles,
-run state, metrics, prices or audit history.
+run state, metrics, prices or audit history. `POST /api/v1/projects/{name}/delete`
+(administrator, CSRF, `{"confirm_name", "idempotency_key"}`) queues a worker
+`delete` operation only for an archived project whose exact name is confirmed
+and that has no queued, running or unfinished work; otherwise it returns
+409 `project_not_archived`, 422 `delete_confirmation_mismatch`, 409
+`project_has_active_work` or 503 `run_state_corrupt`. Administrators can read a finished delete
+operation's status after its project is gone.
 Administrators can also preview and import an existing TOML configuration
 without rewriting comments or unknown keys. The imported project starts with
 ticket pickup paused.

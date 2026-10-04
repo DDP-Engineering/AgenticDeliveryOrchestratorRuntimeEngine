@@ -86,7 +86,11 @@ is reconciled before the source ticket state.
 `max_stage_failures` counts attempts for the current stage. The default third
 failure posts a terminal comment, stops the container and preserves the
 worktree. Routine cleanup protects failed worktrees, container companions and
-evidence until explicit retry, cancel or delete. Multiple AEGIS findings in
+evidence until explicit retry, cancel or delete. `purge_resources()` serves
+project deletion: it releases only the containers and worktrees recorded for
+this project's own runs, keeps human-owned (handed-off and handoff-pending)
+runs' resources and reports their worktrees as retained, and never sweeps by
+name prefix or worktree root, which other projects may share. Multiple AEGIS findings in
 one invocation count once. A successful
 stage transition resets the counter. Questions do not consume it.
 The active wall-clock budget restarts when clarification resumes, a review

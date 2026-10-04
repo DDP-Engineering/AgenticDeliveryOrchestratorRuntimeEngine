@@ -73,6 +73,10 @@ p.muted { line-height: 1.5; }
 a.text-button { display: inline-flex; text-decoration: none; }
 a.text-button:hover { text-decoration: underline; }
 .required-mark { color: var(--danger); font-weight: 750; }
+.text-button.danger-text { color: var(--danger); }
+.delete-confirm { border: 1px solid var(--danger); }
+.delete-confirm p { margin: 0 0 10px; }
+.danger:disabled { opacity: .55; cursor: not-allowed; }
 .form-legend { grid-column: 1 / -1; margin: 0; font-size: .8rem; color: var(--muted); }
 .field-hint { display: block; margin-top: 4px; font-size: .8rem; font-weight: 400; color: var(--muted); }
 .project-links { display: flex; flex-wrap: wrap; gap: 6px 18px; }

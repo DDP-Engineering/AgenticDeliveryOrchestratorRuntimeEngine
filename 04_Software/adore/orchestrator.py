@@ -455,6 +455,45 @@ class Orchestrator:
             report["worktrees_removed"].append(path.name)
         return report
 
+    def purge_resources(self) -> dict[str, Any]:
+        """
+        @brief  Release this project's own run resources before profile deletion.
+        @details Touches only resources recorded for runs in this project's
+                state store - never a name prefix or the shared worktree root,
+                which other projects on the host may use. Human-owned
+                (handed-off, handoff-pending) runs keep their container and
+                worktree. The caller holds the conductor lock and has checked
+                that no run is unfinished.
+        @return Report with `containers_removed` (executor containers, each
+                with its egress proxy and network), `worktrees_removed` and
+                `worktrees_retained`.
+        """
+        report: dict[str, list[str]] = {
+            "containers_removed": [], "worktrees_removed": [], "worktrees_retained": [],
+        }
+        for run in self.store.list_runs():
+            path = self.worktrees.path_for(run.run_id)
+            if run.lifecycle in {"handed-off", "handoff-pending"}:
+                if path.is_dir():
+                    report["worktrees_retained"].append(run.run_id)
+                continue
+            names = {self.identity.container_name(run.run_id)}
+            if run.container:
+                names.add(run.container)
+            for name in sorted(names):
+                try:
+                    self.containers.remove(name)
+                except IsolationError:
+                    continue
+                report["containers_removed"].append(name)
+            if path.is_dir():
+                with contextlib.suppress(IsolationError):
+                    self.worktrees.remove(run.run_id)
+                force_rmtree(path)
+                report["worktrees_removed"].append(run.run_id)
+        report["worktrees_retained"].sort()
+        return report
+
     def handoff(self, run_id: str) -> bool:
         """
         @brief Stop at an operator-owned safe boundary and preserve human-owned work.

@@ -49,6 +49,7 @@ responsibility of the host `gh`, `glab`, or `tea` CLI.
 | `adore profile use <profile-name>` | Make a profile the interactive default. |
 | `adore profile rename <old-name> <new-name>` | Rename a profile and update the active pointer when necessary. |
 | `adore profile delete <profile-name> --force` | Irreversibly delete a profile and its state. |
+| `adore profile delete <profile-name> --force --remove-resources` | Also remove the project's executor containers, egress proxies/networks and worktrees, keeping those of handed-off or handoff-pending runs and any state folder outside ADORE home; refuses unfinished runs, a held lock or an invalid configuration; prints a JSON report. |
 | `adore profile path [<profile-name>]` | Print the profile's `config.toml` path; without a name, use the active profile. |
 
 Profile homes are `%APPDATA%\adore` on Windows and `~/.config/adore` on Linux,

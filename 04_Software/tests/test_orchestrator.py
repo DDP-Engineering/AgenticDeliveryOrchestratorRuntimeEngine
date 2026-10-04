@@ -2361,3 +2361,36 @@ def test_reported_cost_cap_controls_validation_resume_without_erasing_usage(tmp_
     assert bool(executor.prompts) == (cap == 0)
     if cap > 0:
         assert "cost budget reached ($6.22)" in run.outcome
+
+
+def test_purge_resources_touches_only_this_projects_non_human_runs(tmp_path: Path) -> None:
+    """
+    @brief   Project deletion releases the containers and worktrees recorded for
+             this project's runs, keeps human-owned work, and never sweeps by
+             name prefix or shared worktree root (other projects share both).
+    """
+    engine, _, worktrees, containers, _ = make_engine(tmp_path)
+    root = tmp_path / "worktrees"
+    worktrees.path_for = lambda run_id: root / run_id
+    failed = make_run(engine)
+    failed.lifecycle = "failed"
+    engine.store.save(failed)
+    engine.store.save(RunState(run_id="done-run", ticket_iid=9, lifecycle="done"))
+    engine.store.save(RunState(run_id="cancelled-run", ticket_iid=11, lifecycle="cancelled"))
+    engine.store.save(RunState(run_id="human-run", ticket_iid=8, lifecycle="handed-off",
+                               container="adore-run-human-run"))
+    engine.store.save(RunState(run_id="pending-run", ticket_iid=10, lifecycle="handoff-pending"))
+    for name in (failed.run_id, "done-run", "human-run", "pending-run", "other-project-run"):
+        (root / name).mkdir(parents=True)
+
+    report = engine.purge_resources()
+
+    assert not (root / failed.run_id).exists() and not (root / "done-run").exists()
+    for kept in ("human-run", "pending-run", "other-project-run"):
+        assert (root / kept).is_dir(), kept
+    assert sorted(report["worktrees_removed"]) == sorted([failed.run_id, "done-run"])
+    assert "adore-run-cancelled-run" in containers.removed
+    assert report["worktrees_retained"] == ["human-run", "pending-run"]
+    assert sorted(containers.removed) == sorted([
+        failed.container, "adore-run-done-run", "adore-run-cancelled-run"])
+    assert containers.cleanup_protected == []  # no prefix sweeps

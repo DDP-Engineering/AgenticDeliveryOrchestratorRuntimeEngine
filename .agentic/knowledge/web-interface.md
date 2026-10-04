@@ -213,6 +213,9 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
   markers and the stated password rule.
 - `REQ-UX-5b0fa167` / `REQ-UX-48d6a55d` - phone table scroll cue and Jobs
   filter toggle.
+- `REQ-SEC-a514d0b2` / `REQ-UX-772cb418` / `REQ-FUNC-bcaf01be` - delete
+  an archived, idle project after typed-name confirmation; the worker runs the
+  resource-removing CLI delete and human-owned worktrees are kept.
 - `REQ-UX-205e5379` / `REQ-UX-deb101f5` / `REQ-UX-48fb199d` /
   `REQ-UX-0c03fc93` / `REQ-UX-d93fab0f` / `REQ-UX-7fdffe77` - name and ticket
   links, scoped card hints, SVG icons, heading spacing, project-executor price

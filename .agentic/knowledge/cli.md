@@ -57,7 +57,10 @@ a late corrupt run cannot partially refresh the projection.
 
 Invalid/missing configuration produces a clear nonzero result rather than a
 traceback. Destructive state operations require `--force`; mutations acquire
-the single-conductor lock; cleanup removes only a provably stale local lock and
+the single-conductor lock; `profile delete --remove-resources` releases the
+containers and worktrees recorded for the project's own runs, except human-owned
+ones, before deleting the profile;
+cleanup removes only a provably stale local lock and
 reports corrupt state without deleting it. `run` additionally tees output to
 the rotating ADORE process log. All intervention commands change ADORE-owned
 state only: they do not edit AEGIS journals or cause a merge.

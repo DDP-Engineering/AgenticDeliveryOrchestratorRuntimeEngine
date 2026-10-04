@@ -931,7 +931,7 @@ class WebStore:
     def enqueue(self, actor_id: int, project: str, action: str,
                 run_id: str, key: str) -> dict[str, Any]:
         """@brief Persist an idempotent operation request."""
-        if (action not in ("start", "retry", "cancel", "pause", "resume")
+        if (action not in ("start", "retry", "cancel", "pause", "resume", "delete")
                 or not key or len(key) > 128):
             raise WebStoreError("invalid operation")
         identity = _profile_identity(self.path.parent, project)

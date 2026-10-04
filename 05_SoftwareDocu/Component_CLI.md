@@ -56,6 +56,12 @@ the `adore` package. An optional web API also exposes selected controls.
     without `--force` (resetting may repeat orchestration work: executor cost,
     ticket churn), then tells the operator to `adore retry`. It moves only
     ADORE's pointer; AEGIS still owns the governed stage;
+  - `adore profile delete <name> --force --remove-resources` - under the
+    conductor lock, refuses unfinished or corrupt runs, removes the containers,
+    egress resources and worktrees recorded for the project's own runs except
+    human-owned ones, then
+    deletes the profile and prints a JSON report (an external state root is
+    kept and reported);
   - `adore cleanup` - reclaims a provably stale local instance lock and sweeps
     orphaned containers and orphaned/husk worktree directories; prints a JSON
     report. Corrupt

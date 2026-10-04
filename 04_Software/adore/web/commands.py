@@ -82,7 +82,12 @@ class CommandWorker:
             if profile.project_id != operation["project_id"]:
                 self.web.finish(operation["id"], "failed", "project identity changed")
                 return 1
-            if profile.archived:
+            if operation["action"] == "delete":
+                if actor["role"] != "admin" or not profile.archived:
+                    self.web.finish(operation["id"], "failed",
+                                    "delete requires an administrator and an archived project")
+                    return 1
+            elif profile.archived:
                 self.web.finish(operation["id"], "failed", "project archived")
                 return 1
         except ProfileError:
@@ -109,7 +114,10 @@ class CommandWorker:
             if run.lifecycle in ("done", "failed", "handoff-pending", "handed-off"):
                 self.web.finish(operation["id"], "failed", "run already finished")
                 return 1
-        if action == "start" and target.isdigit() and int(target) > 0:
+        if action == "delete" and not target:
+            argv = [sys.executable, "-m", "adore", "profile", "delete", project,
+                    "--force", "--remove-resources"]
+        elif action == "start" and target.isdigit() and int(target) > 0:
             argv.extend(["run", "--once", "--ticket", target])
         elif action in ("retry", "cancel") and target:
             argv.extend([action, target])
@@ -131,6 +139,8 @@ class CommandWorker:
         self.web.finish(operation["id"], status, result)
         self.web.audit(actor["id"], "operation-finished", project,
                        f"{action}:{status}")
+        if action == "delete" and status == "succeeded":
+            self.web.audit(actor["id"], "project-deleted", project)
         return 1
 
     def _signal_pending_cancels(self) -> None:

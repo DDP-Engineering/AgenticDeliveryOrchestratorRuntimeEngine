@@ -141,6 +141,9 @@ def _build_parser() -> argparse.ArgumentParser:
     p_delete = prof_sub.add_parser("delete", help="Delete a profile and its state")
     p_delete.add_argument("name")
     p_delete.add_argument("--force", action="store_true")
+    p_delete.add_argument("--remove-resources", action="store_true",
+                          help="Also remove the project's containers and worktrees, "
+                               "keeping human-owned ones")
     p_path = prof_sub.add_parser("path", help="Print a profile's config.toml path")
     p_path.add_argument("name", nargs="?", help="Defaults to the active profile")
 
@@ -208,6 +211,9 @@ def _env_file_for_config(config_path: str | Path) -> Path:
     beside_config = Path(config_path).expanduser().resolve().parent / ".env"
     cwd_fallback = Path.cwd() / ".env"
     return beside_config if beside_config.is_file() else cwd_fallback
+
+
+_DELETABLE_RUN_LIFECYCLES = {"done", "failed", "cancelled", "handed-off", "handoff-pending"}
 
 
 @contextlib.contextmanager
@@ -811,6 +817,8 @@ def _cmd_profile(args: argparse.Namespace) -> int:
             print("delete removes the profile and its state irrecoverably; "
                   "re-run with --force")
             return EXIT_ERROR
+        if getattr(args, "remove_resources", False):
+            return _delete_profile_with_resources(store, args)
         store.delete(args.name)
         print(f"deleted profile {args.name}")
         return EXIT_OK
@@ -823,6 +831,51 @@ def _cmd_profile(args: argparse.Namespace) -> int:
         print(f"no such profile: {name}")
         return EXIT_ERROR
     print(store.config_path(name))
+    return EXIT_OK
+
+
+def _delete_profile_with_resources(store: ProfileStore, args: argparse.Namespace) -> int:
+    """
+    @brief      Remove a project's ADORE resources, then delete its profile.
+    @details    Human-owned worktrees/containers and a state folder outside the
+                profile directory are kept and reported. Nothing is deleted when
+                the configuration is invalid, the conductor lock is held, run
+                state is corrupt or any run is unfinished.
+    @param[in]  store Profile store holding the profile.
+    @param[in]  args Parsed `profile delete` arguments.
+    @return     Process exit code.
+    """
+    engine_args = argparse.Namespace(**{**vars(args), "config": None, "profile": args.name})
+    built = _engine(engine_args)
+    if built is None:
+        return EXIT_ERROR
+    _config, engine = built
+    try:
+        with _operator_lock(engine.store):
+            if engine.store.invalid_runs():
+                print("error: corrupt run state; inspect it before deleting the project")
+                return EXIT_ERROR
+            unfinished = [run.run_id for run in engine.store.list_runs()
+                          if run.lifecycle not in _DELETABLE_RUN_LIFECYCLES]
+            if unfinished:
+                print(f"error: unfinished runs block deletion: {', '.join(sorted(unfinished))}")
+                return EXIT_ERROR
+            report = engine.purge_resources()
+    except LockHeldError as exc:
+        print(f"error: {exc}")
+        return EXIT_ERROR
+    profile_dir = store.profile_dir(args.name).resolve()
+    state_root = Path(engine.store.root).resolve()
+    retained = None if state_root.is_relative_to(profile_dir) else str(state_root)
+    try:
+        store.delete(args.name)
+    except OSError as exc:
+        print(json.dumps({"deleted": None, **report, "state_retained": retained,
+                          "error": f"profile removal failed: {exc}"},
+                         indent=2, ensure_ascii=False))
+        return EXIT_ERROR
+    print(json.dumps({"deleted": args.name, **report, "state_retained": retained},
+                     indent=2, ensure_ascii=False))
     return EXIT_OK
 
 

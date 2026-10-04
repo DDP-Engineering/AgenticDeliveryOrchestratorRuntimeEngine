@@ -23,7 +23,7 @@ type PendingConfig = { base_revision: string; candidate_revision: string; key: s
 type Run = { run_id: string; ticket_iid: number; stage: string; lifecycle: string; outcome: string; stage_failures: number; review_rounds: number; mr_url: string; updated_at: string };
 type RunPage = { items: Run[]; total: number; counts: Record<string, number>; limit: number; offset: number };
 type Config = { config: Record<string, unknown>; revision: string; issues: string[]; local_endpoint_timeout_seconds?: number | null };
-type Operation = { id: number; status: string; result?: string };
+type Operation = { id: number; status: string; result?: string; action?: string };
 type AuditRow = { id: number; actor: string | null; action: string; project: string; detail: string; created_at: string };
 type Price = { id: number; executor: string; model: string; effective_from: string; input_usd_per_million: string; output_usd_per_million: string };
 type Page = "overview" | "projects" | "createProject" | "importProject" | "projectDetails" | "jobs" | "metrics" | "administration" | "adminUsers" | "adminAudit" | "settings";
@@ -161,6 +161,8 @@ export default function App() {
   const [error, setError] = useState<unknown>("");
   const [passwordSession, setPasswordSession] = useState<Session | null>(null);
   const [projectTab, setProjectTab] = useState<ProjectTab>("overview");
+  const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
+  const [deleteName, setDeleteName] = useState("");
   const [projectsLoaded, setProjectsLoaded] = useState(false);
   const [routeReady, setRouteReady] = useState(false);
   const routedProject = useRef<string | null>(null);
@@ -561,9 +563,8 @@ export default function App() {
         if (generation !== viewGeneration.current) return;
         setOperation(current);
         if (!["pending", "running"].includes(current.status)) {
-          await refreshSelected();
-          await refreshProjects();
-          await refreshJobPage();
+          if (current.action === "delete") await refreshProjects();
+          else { await refreshSelected(); await refreshProjects(); await refreshJobPage(); }
         }
       } catch (cause) {
         if (generation === viewGeneration.current) setError(cause);
@@ -768,6 +769,20 @@ export default function App() {
     } catch (cause) { if (generation === viewGeneration.current) setError(cause); }
   };
 
+  const deleteProject = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault(); setError(""); setNotice("");
+    if (!deleteTarget || !session) return;
+    try {
+      const op = await request<Operation>(`/projects/${encodeURIComponent(deleteTarget.id)}/delete`, "POST",
+        { confirm_name: deleteName, idempotency_key: crypto.randomUUID() }, session.csrf);
+      setOperation(op);
+      setNotice(`${t("projectDeletionQueued")} · #${op.id}`);
+      setDeleteTarget(null); setDeleteName("");
+    } catch (cause) { setError(cause); }
+  };
+
+  useEffect(() => { setDeleteTarget(null); setDeleteName(""); }, [page]);
+
   const setProjectArchive = async (archive: boolean, projectId = selected) => {
     if (!projectId || !session || !isAdmin) return;
     setError(""); setNotice("");
@@ -932,8 +947,8 @@ export default function App() {
       <div className="brand-mark">A</div><p className="eyebrow">ADORE</p><h1>{t("passwordRequiredTitle")}</h1><p className="muted">{t("passwordRequiredReason")}</p>
       {error ? <p className="alert" role="alert">{describeError(locale, error)}</p> : null}
       <form onSubmit={changePassword} className="form-stack"><FormLegend t={t} />
-        <label>{t("currentPassword")}<RequiredMark /><input name="current" type="password" autoComplete="current-password" required autoFocus /></label>
-        <label>{t("newPassword")}<RequiredMark /><input name="replacement" type="password" autoComplete="new-password" minLength={8} required /><small className="field-hint">{t("passwordRule")}</small></label>
+        <label><span>{t("currentPassword")}<RequiredMark /></span><input name="current" type="password" autoComplete="current-password" required autoFocus /></label>
+        <label><span>{t("newPassword")}<RequiredMark /></span><input name="replacement" type="password" autoComplete="new-password" minLength={8} required /><small className="field-hint">{t("passwordRule")}</small></label>
         <button className="primary" type="submit">{t("changePassword")}</button>
         <button className="ghost" type="button" onClick={signOut}>{t("logout")}</button>
       </form>
@@ -947,8 +962,8 @@ export default function App() {
       {notice ? <p className="notice" role="status">{notice}</p> : null}
       {error ? <p className="alert" role="alert">{describeError(locale, error)}</p> : null}
       <form onSubmit={signIn} className="form-stack"><FormLegend t={t} />
-        <label>{t("username")}<RequiredMark /><input name="username" autoComplete="username" required autoFocus /></label>
-        <label>{t("password")}<RequiredMark /><input name="password" type="password" autoComplete="current-password" required /></label>
+        <label><span>{t("username")}<RequiredMark /></span><input name="username" autoComplete="username" required autoFocus /></label>
+        <label><span>{t("password")}<RequiredMark /></span><input name="password" type="password" autoComplete="current-password" required /></label>
         <button className="primary" type="submit">{t("login")}</button>
       </form>
       {loginPreferences}
@@ -1002,6 +1017,15 @@ export default function App() {
 
         {page === "projects" && <>
           <div className="section-actions">{isAdmin && <><button className="primary" onClick={() => { setError(""); setPage("createProject"); }}>{t("createProject")}</button><button className="ghost" onClick={() => { setError(""); setPage("importProject"); }}>{t("importProject")}</button></>}</div>
+          {deleteTarget && <section className="panel delete-confirm" aria-labelledby="delete-project-title">
+            <h2 id="delete-project-title">{t("deleteProjectTitle").replace("{project}", deleteTarget.name)}</h2>
+            <p>{t("deleteProjectRemoves")}</p>
+            <p className="muted">{t("deleteProjectKeeps")}</p>
+            <form className="form-stack" onSubmit={deleteProject}><FormLegend t={t} />
+              <label><span>{t("deleteProjectConfirm").replace("{project}", deleteTarget.name)}<RequiredMark /></span><input value={deleteName} onChange={event => setDeleteName(event.target.value)} autoComplete="off" spellCheck={false} required autoFocus /></label>
+              <div className="button-row"><button className="danger" type="submit" disabled={deleteName !== deleteTarget.name}>{t("deleteProject")}</button><button className="ghost" type="button" onClick={() => setDeleteTarget(null)}>{t("cancel")}</button></div>
+            </form>
+          </section>}
           <section className="panel">
             {projects.length ? <PagedTable key={`${projectSortKey}-${projectSortDescending}`} t={t}><table className="projects-table"><thead><tr>
               <SortHeader label={t("project")} sortKey="name" activeKey={projectSortKey} descending={projectSortDescending} onSort={changeProjectSort} />
@@ -1016,7 +1040,8 @@ export default function App() {
               <td>{item.runs}</td><td>{item.last_activity ? formatDate(item.last_activity) : "\u2014"}</td>
               <td><div className="project-row-actions"><button className="text-button" onClick={() => openProject(item.id)}>{t("view")}</button>
                 {isAdmin && <>{!item.archived && <button className="text-button" onClick={() => void operate(item.paused ? "resume" : "pause", "", item.id)}>{t(item.paused ? "resume" : "pause")}</button>}
-                  <button className="text-button" onClick={() => void setProjectArchive(!item.archived, item.id)}>{t(item.archived ? "restoreProject" : "archiveProject")}</button></>}
+                  <button className="text-button" onClick={() => void setProjectArchive(!item.archived, item.id)}>{t(item.archived ? "restoreProject" : "archiveProject")}</button>
+                  {item.archived && <button className="text-button danger-text" onClick={() => { setError(""); setDeleteName(""); setDeleteTarget(item); }}>{t("deleteProject")}</button>}</>}
               </div></td>
             </tr>)}</tbody></table></PagedTable> : <Empty label={t("noProjects")} />}
           </section>
@@ -1069,7 +1094,7 @@ export default function App() {
           </>}
           {projectTab === "prices" && isAdmin && <>
           {isAdmin && selected && <section className="panel wide-panel"><h2>{t("estimatedPrices")}</h2><p className="muted">{t("priceHelp")}</p>
-            <form key={selected} className="form-grid" onSubmit={savePrice}><FormLegend t={t} /><label>{t("executor")}<select name="executor" defaultValue={["codex", "opencode", "pi", "qwen"].includes(selectedProject?.executor || "") ? selectedProject?.executor : "codex"}><option value="codex">codex</option><option value="opencode">opencode</option><option value="pi">pi</option><option value="qwen">qwen</option></select></label><Field name="model" label={t("model")} required /><label>{t("effectiveFrom")}<RequiredMark /><input name="effective_from" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required /></label><label>{t("inputRate")}<RequiredMark /><input name="input_usd_per_million" type="number" min="0" max="1000000" step="0.000001" required /></label><label>{t("outputRate")}<RequiredMark /><input name="output_usd_per_million" type="number" min="0" max="1000000" step="0.000001" required /></label><button className="primary form-submit" type="submit">{t("save")}</button></form>
+            <form key={selected} className="form-grid" onSubmit={savePrice}><FormLegend t={t} /><label>{t("executor")}<select name="executor" defaultValue={["codex", "opencode", "pi", "qwen"].includes(selectedProject?.executor || "") ? selectedProject?.executor : "codex"}><option value="codex">codex</option><option value="opencode">opencode</option><option value="pi">pi</option><option value="qwen">qwen</option></select></label><Field name="model" label={t("model")} required /><label><span>{t("effectiveFrom")}<RequiredMark /></span><input name="effective_from" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required /></label><label><span>{t("inputRate")}<RequiredMark /></span><input name="input_usd_per_million" type="number" min="0" max="1000000" step="0.000001" required /></label><label><span>{t("outputRate")}<RequiredMark /></span><input name="output_usd_per_million" type="number" min="0" max="1000000" step="0.000001" required /></label><button className="primary form-submit" type="submit">{t("save")}</button></form>
             {projectPrices.length > 0 && <PagedTable t={t}><table><thead><tr><th>{t("executor")}</th><th>{t("model")}</th><th>{t("effectiveFrom")}</th><th>{t("inputRate")}</th><th>{t("outputRate")}</th></tr></thead><tbody>{projectPrices.map(price => <tr key={price.id}><td>{price.executor}</td><td>{price.model}</td><td>{price.effective_from}</td><td>{price.input_usd_per_million}</td><td>{price.output_usd_per_million}</td></tr>)}</tbody></table></PagedTable>}
           </section>}
           </>}
@@ -1304,7 +1329,7 @@ function FormLegend({ t }: { t: (key: MessageKey) => string }) {
 }
 
 function Field({ name, label, type = "text", required = false, defaultValue, hint, minLength }: { name: string; label: string; type?: string; required?: boolean; defaultValue?: string; hint?: string; minLength?: number }) {
-  return <label>{label}{required && <RequiredMark />}<input name={name} type={type} required={required} defaultValue={defaultValue} minLength={minLength} />{hint && <small className="field-hint">{hint}</small>}</label>;
+  return <label><span>{label}{required && <RequiredMark />}</span><input name={name} type={type} required={required} defaultValue={defaultValue} minLength={minLength} />{hint && <small className="field-hint">{hint}</small>}</label>;
 }
 
 function GuidedField({ id, label, help, helpLabel, children }: { id: string; label: string; help: string; helpLabel: string; children: ReactNode }) {

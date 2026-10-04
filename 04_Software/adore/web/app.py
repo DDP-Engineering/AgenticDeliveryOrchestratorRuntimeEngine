@@ -84,6 +84,7 @@ _HTTP_FALLBACK_CODE = "request_failed"
 _REQUEST_PARTS = ("body", "query", "path", "header", "cookie")
 _LOW_STORAGE_BYTES = 1024**3
 _TERMINAL_RUN_LIFECYCLES = ("done", "failed", "cancelled", "handed-off")
+_DELETABLE_RUN_LIFECYCLES = (*_TERMINAL_RUN_LIFECYCLES, "handoff-pending")
 _TERMINAL_JOURNAL_EVENTS = {
     "done": {"done"},
     "failed": {"failed", "immediate-failure", "stage-failed", "notification-blocked"},
@@ -195,6 +196,13 @@ class PriceInput(BaseModel):
     effective_from: str
     input_usd_per_million: str
     output_usd_per_million: str
+
+
+class ProjectDeleteInput(BaseModel):
+    """@brief Typed-name confirmation for deleting an archived project."""
+
+    confirm_name: str = Field(min_length=1, max_length=64)
+    idempotency_key: str = Field(min_length=8, max_length=128)
 
 
 class OperationInput(BaseModel):
@@ -1799,6 +1807,34 @@ def create_app(home: str | Path | None = None,
                 web.audit(user["id"], "project-restored", item.name)
             return _profile_view(profiles, item)
 
+    @app.post("/api/v1/projects/{name}/delete")
+    def delete_project(name: str, body: ProjectDeleteInput,
+                       user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+        """
+        @brief Queue deletion of a confirmed, archived and idle project.
+        @details The command worker rechecks role, archive state and identity,
+                 then runs `adore profile delete <name> --force --remove-resources`.
+        """
+        item = project(name, user)
+        if not item.archived:
+            raise _error(409, "project_not_archived")
+        if body.confirm_name != item.name:
+            raise _error(422, "delete_confirmation_mismatch")
+        if web.has_unfinished_operations(item.name):
+            raise _error(409, "project_has_active_work")
+        state = _store_for(profiles, item)
+        if state.invalid_runs():
+            raise _error(503, "run_state_corrupt")
+        if any(run.lifecycle not in _DELETABLE_RUN_LIFECYCLES for run in state.list_runs()):
+            raise _error(409, "project_has_active_work")
+        try:
+            operation = web.enqueue(user["id"], item.name, "delete", "",
+                                    body.idempotency_key)
+        except WebStoreError as exc:
+            raise _store_error(409, exc) from exc
+        web.audit(user["id"], "project-delete-requested", item.name)
+        return {"id": operation["id"], "status": operation["status"]}
+
     @app.get("/api/v1/projects/{name}/config")
     def config_view(name: str, user: Annotated[dict, Depends(principal)]) -> dict:
         """@brief Return redacted effective settings for an authorized project."""
@@ -2404,7 +2440,14 @@ def create_app(home: str | Path | None = None,
             raise _error(404, "operation_not_found")
         if not operation["project_id"]:
             raise _error(404, "operation_not_found")
-        project(operation["project_id"], user)
+        try:
+            project(operation["project_id"], user)
+        except HTTPException as exc:
+            # A finished delete outlives its project; administrators keep its outcome.
+            gone = (exc.status_code == 404 and operation["action"] == "delete"
+                    and user["role"] == "admin")
+            if not gone:
+                raise
         return {key: operation[key] for key in
                 ("id", "project", "action", "status", "result", "created_at", "updated_at")}
 

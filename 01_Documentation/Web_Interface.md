@@ -344,6 +344,13 @@ remain readable to assigned users, but the web worker and named/active-profile
 CLI pickup stop new work; job controls return after an administrator restores
 the project. Archive rejects active or corrupt run state. A standalone CLI
 invocation with an explicit `-c` file is outside profile archive control.
+An administrator can then delete an archived project from its Projects row:
+the confirmation states what is removed and kept and requires typing the
+project name. The web worker runs `adore profile delete <name> --force
+--remove-resources`, which removes the project's ADORE settings, job history,
+metrics, containers and worktrees. The repository and its branches, worktrees
+of jobs handed to a person, a state folder outside ADORE home and the audit
+trail are kept. Deletion is refused while work is queued or unfinished.
 The Projects page lists authorized projects in a sortable table with
 10, 25, 50 and All row choices when needed. Administrators can pause or resume
 pickup and archive or restore a project directly from its row; all authorized
