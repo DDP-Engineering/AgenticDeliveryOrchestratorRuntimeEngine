@@ -27,7 +27,8 @@ the `adore` package. An optional web API also exposes selected controls.
   - `adore config validate` - all validation issues, exit 1 when any;
   - `adore config set <section.key> <value>` - edit one scalar in the resolved
     config file (comments preserved, type inferred), refusing secret-looking
-    keys and writing only when the whole result still validates (atomic);
+    keys (except ADORE's own non-secret boolean `metrics.capture_tokens`) and writing
+    only when the whole result still validates (atomic);
   - `adore status` - config health, store root, pause flag, lock holder, run
     counts by lifecycle, corrupt-run warning;
   - `adore runs` - table of persisted runs (corrupt ones shown as `CORRUPT`);

@@ -1236,6 +1236,10 @@ def validate_config(config: Config) -> list[str]:
         f"{config.reconcile.on_trigger_removed!r}",
     )
 
+    check(
+        type(config.metrics.capture_tokens) is bool,
+        "[metrics] capture_tokens must be a boolean",
+    )
     if config.metrics.enabled:
         check(bool(config.metrics.db_path.strip()), "[metrics] db_path is required when enabled")
 

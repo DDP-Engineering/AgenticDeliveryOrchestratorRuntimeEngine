@@ -75,6 +75,7 @@ state only: they do not edit AEGIS journals or cause a merge.
 - `REQ-FUNC-f9946b6b` - selected-ticket web operations retain CLI boundaries.
 - `REQ-REL-94e653aa` - operator handoff uses the conductor's safe boundary.
 - `REQ-PLAT-722173c8` - configuration edits keep the file's line endings on every OS.
+- `REQ-SEC-63767e17` - `config set` refuses secret-looking keys except ADORE's own `metrics.capture_tokens`.
 
 ## Architecture
 

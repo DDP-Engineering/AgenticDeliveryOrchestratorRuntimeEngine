@@ -73,6 +73,9 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
   EN/FR/DE/RO sentence for every code `app.py` can emit.
 - Config reads omit
   credential-looking fields; journal views use a role-aware field allowlist.
+  The same name rule (`_is_secret_key` in `adore/cli.py`) also refuses web edits
+  and CLI `config set`; ADORE's own boolean `metrics.capture_tokens` is exempt
+  while its value is a boolean (`REQ-SEC-63767e17`).
 - Web config edits use a SHA-256 revision and the same per-directory process
   lock as CLI `config set`; direct host file changes do not use that lock.
   Staged, applied, direct and OpenCode endpoint edits write bytes and keep the

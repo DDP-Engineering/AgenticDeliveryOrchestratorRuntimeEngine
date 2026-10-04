@@ -175,7 +175,8 @@ a syntactically valid but invalid configuration returns 409. Unit tests inject
 the command runner and never invoke external tools.
 `GET /api/v1/projects/{name}/config` returns redacted effective configuration
 to administrators and developers assigned to that project. Other project
-identities return 404. The read response excludes credential-looking keys and
+identities return 404. The read response excludes credential-looking keys
+(except ADORE's own non-secret `metrics.capture_tokens` while it holds a boolean) and
 inline provider JSON; every configuration mutation remains administrator-only.
 Its `settings` list holds, per effective setting sorted by key, `key`,
 `edit_key` (the file key; `executor.<name>.<field>` for

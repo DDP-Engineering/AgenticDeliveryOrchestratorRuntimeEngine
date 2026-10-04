@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-SEC-63767e17"
+
+title = "Treat only secret-looking names outside ADORE's non-secret list as secrets"
+
+status = "active"
+
+requirement = """
+When ADORE decides whether a configuration key names a secret - to leave it out of a project's configuration view, to refuse a web edit of it, or to refuse `adore config set` for it - it shall treat a key whose name looks like a credential (token, secret, password, API key, credential or private key) as a secret unless the key is on ADORE's list of its own boolean settings that hold no secret, which contains `metrics.capture_tokens`, and shall keep such a listed key hidden whenever its value is not a boolean, which configuration validation also refuses.
+"""
+
+verification = "Automated: the configuration view lists `metrics.capture_tokens` with its value, default and editability, an administrator edit of it to false succeeds, and `adore config set metrics.capture_tokens false` succeeds; for the same project a `container.runtime_env.GITHUB_TOKEN` entry is not listed and its value is absent from the response, its web edit is refused as not editable, and `adore config set` for it is refused; a string value for `metrics.capture_tokens` is refused by the web edit and by `adore config set`, and a string written there by hand is not shown."
+
+affected_paths = ["04_Software/adore/cli.py", "04_Software/adore/config.py", "04_Software/adore/web/app.py", "04_Software/tests/test_secret_setting_names.py"]
+
+linked_tests = ["04_Software/tests/test_secret_setting_names.py"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = "The name pattern is a fail-closed net for names a project chooses; one ADORE boolean, metrics.capture_tokens, matched it only because its name contains tokens, so it could be neither seen nor changed."
+
+created = 2026-10-04
+updated = 2026-10-04

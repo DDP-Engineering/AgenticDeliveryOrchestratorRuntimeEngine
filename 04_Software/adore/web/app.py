@@ -46,7 +46,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from adore import __version__, doctor, metrics
-from adore.cli import _SECRET_KEY_RE, _newline, _set_toml_scalar
+from adore.cli import _NOT_SECRET_KEYS, _SECRET_KEY_RE, _is_secret_key, _newline, _set_toml_scalar
 from adore.config import default_config, load_config, validate_config
 from adore.config_edit import ConfigEditLockedError, config_edit_lock
 from adore.isolation import ContainerManager, IsolationError
@@ -373,14 +373,28 @@ def _store_for(profiles: ProfileStore, profile) -> StateStore:
     return StateStore(root)
 
 
-def _redact_config(value):
-    """@brief Drop credential-looking values before rendering host config."""
+def _redact_config(value, prefix: str = ""):
+    """
+    @brief      Drop credential-looking values before rendering host config.
+    @details    Expects `Config.to_dict()` output. Each key is judged by its
+                full dotted name (_is_secret_key); an exempt name stays hidden
+                unless its value is a boolean, so a secret pasted there by hand
+                never shows.
+    @param[in]  value Configuration mapping (or a value inside it).
+    @param[in]  prefix Dotted path of `value`.
+    @return     The mapping without secret-named keys.
+    """
     if isinstance(value, dict):
-        return {key: _redact_config(item) for key, item in value.items()
-                if not _SECRET_KEY_RE.search(key)
-                and key != "OPENCODE_CONFIG_CONTENT"}
+        shown = {}
+        for key, item in value.items():
+            path = f"{prefix}.{key}" if prefix else key
+            if (_is_secret_key(path) or key == "OPENCODE_CONFIG_CONTENT"
+                    or (path in _NOT_SECRET_KEYS and type(item) is not bool)):
+                continue
+            shown[key] = _redact_config(item, path)
+        return shown
     if isinstance(value, list):
-        return [_redact_config(item) for item in value]
+        return [_redact_config(item, prefix) for item in value]
     return value
 
 
@@ -609,7 +623,7 @@ def _editable_setting_key(key: str, *, endpoint: bool = False) -> bool:
     @return     True when the key may be staged from the browser.
     """
     return not (
-        _SECRET_KEY_RE.search(key)
+        _is_secret_key(key)
         or (not endpoint and not _SETTING_KEY_RE.fullmatch(key))
         or key.split(".")[0] not in _EDITABLE_SECTIONS
         or key.endswith(".command")

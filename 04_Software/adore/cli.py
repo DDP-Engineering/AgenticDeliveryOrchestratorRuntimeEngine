@@ -56,6 +56,13 @@ _SECRET_KEY_RE = re.compile(
     r"|private[_-]?key)s?(?:$|[._-])",
     re.IGNORECASE,
 )
+# ADORE's own settings whose names look like credentials but hold no secret.
+_NOT_SECRET_KEYS = frozenset({"metrics.capture_tokens"})
+
+
+def _is_secret_key(dotted_key: str) -> bool:
+    """@brief Whether a dotted config key names a secret (see _SECRET_KEY_RE)."""
+    return dotted_key not in _NOT_SECRET_KEYS and bool(_SECRET_KEY_RE.search(dotted_key))
 
 
 # HELPER FUNCTIONS
@@ -369,7 +376,7 @@ def _config_set(args: argparse.Namespace) -> int:
     if not args.key or args.value is None:
         print("usage: adore config set <section.key> <value>")
         return EXIT_ERROR
-    if _SECRET_KEY_RE.search(args.key):
+    if _is_secret_key(args.key):
         print("error: secrets never go in config.toml; put the value in .env and "
               "reference its NAME via [executor] env_keys")
         return EXIT_ERROR
