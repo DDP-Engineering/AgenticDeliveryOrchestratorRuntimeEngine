@@ -627,26 +627,28 @@ def test_container_remove_allowlist_proxy_removes_proxy_and_network() -> None:
     ]
 
 
-def test_cleanup_container_sweeps_preserve_protected_exact_names() -> None:
+def test_cleanup_container_sweeps_remove_only_exact_targets() -> None:
     """
-    @brief   Cleanup removes only exact-prefix executor/proxy orphans while
-             retaining active/failed companions and ignoring filter overmatch.
+    @brief   Executor/proxy sweeps remove only listed names derived from the
+             targets: retained companions, untargeted names under the same
+             prefix, absent targets and filter overmatch are left alone.
     """
     listing = "\n".join([
         "not-adore-run-x",
         "adore-run-active",
-        "adore-run-failed",
         "adore-run-orphan",
+        "adore-run-other",
         "adore-run-active-egress-proxy",
-        "adore-run-failed-egress-proxy",
         "adore-run-orphan-egress-proxy",
+        "adore-run-other-egress-proxy",
     ])
-    protected = {"adore-run-active", "adore-run-failed"}
     runner = FakeRunner(_ok(listing), _ok(), _ok(listing), _ok())
     manager = _manager(runner)
+    targets = {"adore-run-orphan", "adore-run-gone"}
+    retained = {"adore-run-active"}
 
-    executors = manager.cleanup_orphan_containers("adore-run-", protected)
-    proxies = manager.cleanup_egress_proxies("adore-run-", protected)
+    executors = manager.cleanup_orphan_containers("adore-run-", targets, retained)
+    proxies = manager.cleanup_egress_proxies("adore-run-", targets, retained)
 
     assert executors == ["adore-run-orphan"]
     assert proxies == ["adore-run-orphan-egress-proxy"]
@@ -654,37 +656,66 @@ def test_cleanup_container_sweeps_preserve_protected_exact_names() -> None:
     assert runner.calls[3] == [
         "docker", "rm", "--force", "adore-run-orphan-egress-proxy",
     ]
+    assert len(runner.calls) == 4
 
 
 def test_cleanup_network_sweep_survives_allowlist_mode_change() -> None:
     """
-    @brief   Open-mode cleanup still reclaims canonical allowlist networks and
-             preserves the exact active/failed network companions.
+    @brief   Open-mode cleanup still reclaims a target's networks under the
+             canonical and configured prefixes and leaves every other network.
     """
-    listing = "\n".join([
+    canonical = "\n".join([
         "other-adore-egress-unowned",
         "adore-egress-adore-run-active",
-        "adore-egress-adore-run-failed",
         "adore-egress-adore-run-orphan",
+        "adore-egress-adore-run-other",
     ])
-    runner = FakeRunner(_ok(listing), _ok())
+    configured = "\n".join([
+        "team-egress-adore-run-orphan",
+        "team-egress-adore-run-other",
+    ])
+    runner = FakeRunner(_ok(canonical), _ok(), _ok(configured), _ok())
     manager = ContainerManager(
         "docker",
         "adore-executor-base:1.0.0",
         "uv-cache",
         "npm-cache",
         runner,
-        egress=ContainerEgressConfig(mode="open"),
+        egress=ContainerEgressConfig(mode="open", network_prefix="team-egress"),
     )
 
     removed = manager.cleanup_egress_networks(
-        {"adore-run-active", "adore-run-failed"}
+        {"adore-run-orphan"}, {"adore-run-active"}
     )
 
-    assert removed == ["adore-egress-adore-run-orphan"]
+    assert removed == ["adore-egress-adore-run-orphan", "team-egress-adore-run-orphan"]
     assert runner.calls[1] == [
         "docker", "network", "rm", "adore-egress-adore-run-orphan",
     ]
+    assert runner.calls[3] == [
+        "docker", "network", "rm", "team-egress-adore-run-orphan",
+    ]
+    assert len(runner.calls) == 4
+
+
+def test_cleanup_egress_sweeps_keep_names_shared_with_retained_runs() -> None:
+    """
+    @brief   Truncated proxy/network names shared by a finished and a retained
+             run of one long-named project are kept.
+    """
+    stem = "adore-run-gitea-dpasare-2026_Networked_Intelligent_Lab_Orchestrator-"
+    proxy = "adore-run-gitea-dpasare-2026_Networked_Intelligent-egress-proxy"
+    network = "adore-egress-adore-run-gitea-dpasare-2026_Networked_Intellige"
+    runner = FakeRunner(_ok(proxy), _ok(network))
+    manager = _manager(runner)
+
+    proxies = manager.cleanup_egress_proxies(
+        "adore-run-", {stem + "26"}, {stem + "27"}
+    )
+    networks = manager.cleanup_egress_networks({stem + "26"}, {stem + "27"})
+
+    assert proxies == [] and networks == []
+    assert len(runner.calls) == 2
 
 
 def test_cleanup_container_sweep_continues_after_one_remove_failure() -> None:
@@ -696,7 +727,9 @@ def test_cleanup_container_sweep_continues_after_one_remove_failure() -> None:
         _ok(),
     )
 
-    removed = _manager(runner).cleanup_orphan_containers("adore-run-", set())
+    removed = _manager(runner).cleanup_orphan_containers(
+        "adore-run-", {"adore-run-stuck", "adore-run-removable"}, set()
+    )
 
     assert removed == ["adore-run-removable"]
 

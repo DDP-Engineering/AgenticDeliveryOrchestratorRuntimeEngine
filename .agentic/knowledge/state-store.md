@@ -22,9 +22,11 @@ notification outbox records, pause state, and the single-conductor lock.
 
 ## Public interface
 
-`StateStore` creates, loads, updates, lists, and deletes explicitly selected
-runs; appends durable journal events; queues/replays notifications; reads the
-global pause flag; and acquires the instance lock. `StateError` and lock errors
+`derive_run_id` builds a ticket's stable run ID and `run_id_pattern` matches
+exactly one project's run IDs. `StateStore` creates, loads, updates, lists, and
+deletes explicitly selected runs; appends durable journal events;
+queues/replays notifications; reads the global pause flag; and acquires the
+instance lock. `StateError` and lock errors
 make invalid state/ownership visible to CLI and orchestrator recovery paths.
 
 ## Invariants

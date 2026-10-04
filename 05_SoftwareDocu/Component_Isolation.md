@@ -47,17 +47,21 @@ guardrails, not a sandbox.
   executor gate; `product_diff_fingerprint` detects product mutation while allowing
   expected `.agentic/` delivery bookkeeping; and `list_dirs` (every directory under the
   worktrees root, including husks deregistered but not deleted after the WSL
-  bind-mount teardown race - the input `adore cleanup` sweeps).
+  bind-mount teardown race - which `adore cleanup` reads to find the project's
+  state-less run IDs).
 - `ContainerManager(runtime, image, uv_cache_volume, npm_cache_volume,
   run_args=..., egress=..., selinux_relabel=..., pull_never=...)` -
   container lifecycle: `ensure_volumes`, idempotent `provision`
   (running -> no-op, stopped -> start, absent -> create), `start` / `stop`
   (park) / `interrupt` (bounded cancellation stop) / `remove` (reap),
   `status`, `list_containers(prefix)` (all
-  containers in any state whose name starts with `<slug>-run-`; feeds
-  `adore cleanup`'s orphan sweep), `list_egress_networks(prefix)`,
-  `remove_egress(name)`, the best-effort `cleanup_orphan_containers`,
-  `cleanup_egress_proxies`, and `cleanup_egress_networks` methods,
+  containers in any state whose name starts with `<slug>-run-`; `adore
+  cleanup` reads it to find the project's run IDs), `list_egress_networks(prefix)`,
+  `remove_egress(name)`, the best-effort
+  `cleanup_orphan_containers(prefix, targets, retained)`,
+  `cleanup_egress_proxies(prefix, targets, retained)`, and
+  `cleanup_egress_networks(targets, retained)` methods (each removes only listed
+  names derived from the `targets` executor names and not from `retained`),
   `verify_required_tools` (project-image checks run inside the provisioned
   container), and `exec` (the seam the executor launcher runs commands through).
 - `build_container_env(git_dir_name, git_name, git_email)` - the git
@@ -224,9 +228,10 @@ side keeps working normally with its absolute paths. The admin dir name is
   run IO directory, uses one proxy container named
   `<executor-container>-egress-proxy`, and one network named
   `<network_prefix>-<safe-executor-container-name>`. Cleanup removes executor,
-  proxy container, and network; `adore cleanup` also sweeps exact-prefix orphan
-  executors, proxies, and networks while retaining companions computed from
-  active and failed persisted container names. The network sweep checks the
+  proxy container, and network; `adore cleanup` also removes the listed
+  executors, proxies, and networks derived from the target executor names the
+  orchestrator passes, keeping any name also derived from a retained executor
+  (truncated proxy and network names can be shared). The network sweep checks the
   canonical `adore-egress` prefix even after the current profile changes mode,
   plus the current configured prefix; it never guesses arbitrary historical
   names.

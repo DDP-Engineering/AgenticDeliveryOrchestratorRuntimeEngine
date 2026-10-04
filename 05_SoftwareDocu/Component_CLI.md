@@ -62,11 +62,13 @@ the `adore` package. An optional web API also exposes selected controls.
     human-owned ones, then
     deletes the profile and prints a JSON report (an external state root is
     kept and reported);
-  - `adore cleanup` - reclaims a provably stale local instance lock and sweeps
-    orphaned containers and orphaned/husk worktree directories; prints a JSON
-    report. Corrupt
-    run state is reported but never auto-deleted (that is `adore delete
-    <run-id> --force`'s explicit job).
+  - `adore cleanup` - reclaims a provably stale local instance lock and removes
+    the selected project's finished and orphaned containers, proxies, networks
+    and worktree directories and leaves other projects' resources in place
+    (apart from proxy or network names shortened to the same value); prints a
+    JSON report.
+    Corrupt runs are reported and keep their state and resources (deleting them
+    is `adore delete <run-id> --force`'s explicit job).
 - Wire assisted-config + profiles:
   - `adore init [name] [--force] [--answers FILE]` - the setup wizard
     (delegates to `adore.wizard`); writes a validated runtime-project profile.
@@ -191,8 +193,9 @@ adore --profile <profile-name> run --dry-run   # any command against a profile
   advice to `LockHeldError` rather than unrelated runtime failures.
 - `tests/test_orchestrator.py` covers the engine side of `reset` (stage set +
   journaled, invalid stage/run refused, retry continues from the reset
-  stage) and `cleanup` (stale lock cleared, orphans swept, active runs and
-  failed runs protected, corrupt state reported).
+  stage) and `cleanup` (stale lock cleared, this project's orphans removed,
+  other projects' resources kept, active, failed, human-owned and corrupt runs
+  protected).
 - Minimum validation after a change: `uv run --group dev pytest tests/test_smoke.py`
   and `uv run adore -c config.example.toml config validate`.
 

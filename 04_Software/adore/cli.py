@@ -87,7 +87,7 @@ def _build_parser() -> argparse.ArgumentParser:
     sub.add_parser("runs", help="List schema-1 working/parked/approval/review runs")
     sub.add_parser("pause", help="Stop picking new tickets")
     sub.add_parser("resume", help="Allow picking new tickets")
-    sub.add_parser("cleanup", help="Garbage-collect orphaned worktrees/containers/state")
+    sub.add_parser("cleanup", help="Remove this project's finished and orphaned run resources")
 
     for name in ("retry", "cancel", "logs", "handoff"):
         p = sub.add_parser(name, help=f"{name} a run")
@@ -985,10 +985,13 @@ def _cmd_reset(args: argparse.Namespace) -> int:
 
 def _cmd_cleanup(args: argparse.Namespace) -> int:
     """
-    @brief      Handle `adore cleanup`: sweep stale lock + orphaned resources.
-    @details    Preserves active and failed runs for resume/retry. Cancelled,
-                completed and unknown resources are eligible; corrupt run
-                state is reported, never deleted.
+    @brief      Handle `adore cleanup`: stale lock + this project's run resources.
+    @details    Works only on the selected project's runs. Active and failed
+                runs stay for resume/retry, human-owned runs stay with their
+                owner, and corrupt runs keep their resources and are reported,
+                never deleted. Done, cancelled, stale and state-less runs of
+                this project lose their containers, proxies, networks and
+                worktrees.
     @param[in]  args Parsed arguments.
     @return     Process exit code.
     """

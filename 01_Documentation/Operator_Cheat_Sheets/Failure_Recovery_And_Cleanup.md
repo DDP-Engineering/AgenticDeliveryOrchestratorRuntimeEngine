@@ -36,8 +36,10 @@ Reach for reset rather than retry after `FORBIDDEN_STAGE_TRANSITION`. That
 failure means the journal reports a stage ADORE cannot legally reach from the
 one it recorded, with no Log entry for the stages in between, so retry replays
 the identical refusal. Read the journal, pick the stage the work genuinely
-reached, `reset --to` it, then retry. The terminal comment names the command. Cleanup reports corrupt
-state, sweeps orphan executor/proxy/network resources and worktree husks, and
-never auto-deletes state. Failed runs are protected for retry; release one
+reached, `reset --to` it, then retry. The terminal comment names the command. Cleanup
+works only on the selected project: it removes the containers, proxies,
+networks and worktrees of its done, cancelled, stale and state-less runs, and
+reports corrupt runs while keeping their state and resources. Failed runs are
+protected for retry; release one
 with `cancel <run-id>` (retain audit state) or irreversible `delete <run-id>
 --force`.

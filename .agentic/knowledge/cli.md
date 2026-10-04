@@ -60,8 +60,9 @@ traceback. Destructive state operations require `--force`; mutations acquire
 the single-conductor lock; `profile delete --remove-resources` releases the
 containers and worktrees recorded for the project's own runs, except human-owned
 ones, before deleting the profile;
-cleanup removes only a provably stale local lock and
-reports corrupt state without deleting it. `run` additionally tees output to
+cleanup removes only a provably stale local lock and the selected project's
+own finished and orphaned run resources, and reports corrupt runs while keeping
+their resources. `run` additionally tees output to
 the rotating ADORE process log. All intervention commands change ADORE-owned
 state only: they do not edit AEGIS journals or cause a merge.
 

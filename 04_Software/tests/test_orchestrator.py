@@ -32,10 +32,10 @@ from adore.aegis import (
     AegisTaskError,
     AegisTimeoutError,
 )
-from adore.config import Config, ExecutorCommand
+from adore.config import Config, ContainerEgressConfig, ExecutorCommand
 from adore.executor.base import GateRun
 from adore.forge import Comment, Forge, ForgeError, MergeRequest, Ticket
-from adore.isolation import IsolationError
+from adore.isolation import ContainerManager, IsolationError
 from adore.metrics import aggregate, load_summaries, profile_stats
 import adore.orchestrator as orchestrator_module
 from adore.orchestrator import Orchestrator
@@ -231,7 +231,7 @@ class FakeContainers:
         self.cleanup_containers: list[str] = []
         self.cleanup_proxies: list[str] = []
         self.cleanup_networks: list[str] = []
-        self.cleanup_protected: list[set[str]] = []
+        self.cleanup_calls: list[tuple[set[str], set[str]]] = []
 
     def ensure_volumes(self):
         return None
@@ -258,17 +258,44 @@ class FakeContainers:
     def list_containers(self, prefix):
         return []
 
-    def cleanup_orphan_containers(self, prefix, protected):
-        self.cleanup_protected.append(set(protected))
+    def cleanup_orphan_containers(self, prefix, targets, retained):
+        self.cleanup_calls.append((set(targets), set(retained)))
         return list(self.cleanup_containers)
 
-    def cleanup_egress_proxies(self, prefix, protected):
-        self.cleanup_protected.append(set(protected))
+    def cleanup_egress_proxies(self, prefix, targets, retained):
+        self.cleanup_calls.append((set(targets), set(retained)))
         return list(self.cleanup_proxies)
 
-    def cleanup_egress_networks(self, protected):
-        self.cleanup_protected.append(set(protected))
+    def cleanup_egress_networks(self, targets, retained):
+        self.cleanup_calls.append((set(targets), set(retained)))
         return list(self.cleanup_networks)
+
+
+class FakeRuntime:
+    """
+    @brief   Stateful container-runtime double for cleanup: lists containers and
+             networks with docker's substring name filter and removes exact
+             names, so tests observe which resources survive.
+    """
+
+    def __init__(self, containers=(), networks=()) -> None:
+        self.containers = set(containers)
+        self.networks = set(networks)
+
+    def __call__(self, argv, **kwargs):
+        args = list(argv[1:])
+        if args[:2] in (["ps", "--all"], ["network", "ls"]):
+            needle = args[args.index("--filter") + 1].split("=", 1)[1]
+            pool = self.containers if args[0] == "ps" else self.networks
+            listing = "\n".join(sorted(name for name in pool if needle in name))
+            return CommandResult(argv=list(argv), stdout=listing)
+        if args[:2] == ["rm", "--force"]:
+            self.containers.discard(args[2])
+            return CommandResult(argv=list(argv))
+        if args[:2] == ["network", "rm"]:
+            self.networks.discard(args[2])
+            return CommandResult(argv=list(argv))
+        raise AssertionError(f"unexpected runtime call: {argv}")
 
 
 class FakeExecutor:
@@ -2045,37 +2072,40 @@ def test_cleanup_preserves_failed_run_resources_and_reports_egress_gc(
 ) -> None:
     """
     @brief   Failed worktrees/containers/proxy/networks remain retryable while
-             unrelated executor and egress resources are reported as removed.
+             this project's state-less run resources are reported as removed.
     """
     engine, _, worktrees, containers, _ = make_engine(tmp_path)
     failed = make_run(engine)
     failed.lifecycle = "failed"
     engine.store.save(failed)
-    failed_path = tmp_path / "worktrees" / failed.run_id
-    orphan_path = tmp_path / "worktrees" / "orphan-run"
+    root = tmp_path / "worktrees"
+    worktrees.path_for = lambda run_id: root / run_id
+    failed_path = root / failed.run_id
+    orphan_path = root / "github-owner-repo-99"
     failed_path.mkdir(parents=True)
     orphan_path.mkdir(parents=True)
     worktrees.dirs = [failed_path, orphan_path]
-    containers.cleanup_containers = ["adore-run-orphan"]
-    containers.cleanup_proxies = ["adore-run-orphan-egress-proxy"]
-    containers.cleanup_networks = ["adore-egress-adore-run-orphan"]
+    containers.cleanup_containers = ["adore-run-github-owner-repo-99"]
+    containers.cleanup_proxies = ["adore-run-github-owner-repo-99-egress-proxy"]
+    containers.cleanup_networks = ["adore-egress-adore-run-github-owner-repo-99"]
 
     report = engine.cleanup()
 
     assert failed_path.is_dir()
     assert not orphan_path.exists()
     assert failed.run_id not in worktrees.removed
-    assert report["worktrees_removed"] == ["orphan-run"]
-    assert report["containers_removed"] == ["adore-run-orphan"]
+    assert report["worktrees_removed"] == ["github-owner-repo-99"]
+    assert report["containers_removed"] == ["adore-run-github-owner-repo-99"]
     assert report["proxy_containers_removed"] == [
-        "adore-run-orphan-egress-proxy",
+        "adore-run-github-owner-repo-99-egress-proxy",
     ]
     assert report["egress_networks_removed"] == [
-        "adore-egress-adore-run-orphan",
+        "adore-egress-adore-run-github-owner-repo-99",
     ]
-    assert all(
-        failed.container in protected for protected in containers.cleanup_protected
-    )
+    assert len(containers.cleanup_calls) == 3
+    for targets, retained in containers.cleanup_calls:
+        assert failed.container in retained and failed.container not in targets
+        assert "adore-run-github-owner-repo-99" in targets
 
 
 @pytest.mark.parametrize(
@@ -2393,4 +2423,208 @@ def test_purge_resources_touches_only_this_projects_non_human_runs(tmp_path: Pat
     assert report["worktrees_retained"] == ["human-run", "pending-run"]
     assert sorted(containers.removed) == sorted([
         failed.container, "adore-run-done-run", "adore-run-cancelled-run"])
-    assert containers.cleanup_protected == []  # no prefix sweeps
+    assert containers.cleanup_calls == []  # no prefix sweeps
+
+
+def _shared_host(tmp_path: Path, engine: Orchestrator, worktrees: FakeWorktrees, *,
+                 run_ids=(), dirs=(), mode: str = "allowlist-proxy"):
+    """
+    @brief      Put the engine on a host whose slug, worktree root and egress
+                network prefix every project shares.
+    @param[in]  run_ids Run IDs that get an executor, proxy and network.
+    @param[in]  dirs Directory names created under the shared worktree root.
+    @param[in]  mode Egress mode of the real ContainerManager under test.
+    @return     (worktree root, FakeRuntime).
+    """
+    root = tmp_path / "shared-worktrees"
+    root.mkdir()
+    for name in dirs:
+        (root / name).mkdir()
+    worktrees.path_for = lambda run_id: root / run_id
+    worktrees.list_dirs = lambda: sorted(p for p in root.iterdir() if p.is_dir())
+    runtime = FakeRuntime()
+    for run_id in run_ids:
+        executor = f"adore-run-{run_id}"
+        runtime.containers |= {executor, f"{executor}-egress-proxy"}
+        runtime.networks.add(f"adore-egress-{executor}")
+    engine.containers = ContainerManager(
+        "docker", "adore-executor-base:1.0.0", "uv-cache", "npm-cache", runtime,
+        egress=ContainerEgressConfig(mode=mode),
+    )
+    return root, runtime
+
+
+def test_cleanup_leaves_other_projects_resources_on_a_shared_host(tmp_path: Path) -> None:
+    """
+    @brief   Cleanup for owner/repo removes only its own cancelled run: another
+             project's runs (whatever their lifecycle, since that project's
+             state is never read here), a look-alike owner/repo-tools run and
+             an unrelated folder keep every container, proxy, network and
+             directory.
+    """
+    engine, _, worktrees, _, _ = make_engine(tmp_path)
+    own_run = "github-owner-repo-5"
+    engine.store.save(RunState(run_id=own_run, ticket_iid=5, lifecycle="cancelled"))
+    foreign = ["github-owner-other-1", "github-owner-other-2", "github-owner-other-3",
+               "github-owner-repo-tools-4"]
+    root, runtime = _shared_host(tmp_path, engine, worktrees, run_ids=[*foreign, own_run],
+                                 dirs=[*foreign, own_run, "notes"])
+    containers_before, networks_before = set(runtime.containers), set(runtime.networks)
+
+    report = engine.cleanup()
+
+    own = f"adore-run-{own_run}"
+    assert runtime.containers == containers_before - {own, f"{own}-egress-proxy"}
+    assert runtime.networks == networks_before - {f"adore-egress-{own}"}
+    assert sorted(path.name for path in root.iterdir()) == sorted([*foreign, "notes"])
+    assert report["containers_removed"] == [own]
+    assert report["proxy_containers_removed"] == [f"{own}-egress-proxy"]
+    assert report["egress_networks_removed"] == [f"adore-egress-{own}"]
+    assert report["worktrees_removed"] == [own_run]
+
+
+def test_cleanup_removes_this_projects_finished_and_stateless_run_resources(
+    tmp_path: Path,
+) -> None:
+    """
+    @brief   Done, cancelled and stale runs (also under a recorded ID outside
+             the run-ID form or a recorded container name of another form),
+             and this project's run IDs without state (found by container or
+             by worktree directory), lose executor, proxy, networks and
+             worktree in any egress mode; working, failed and human-owned runs
+             keep theirs.
+    """
+    engine, _, worktrees, _, _ = make_engine(tmp_path)
+    make_run(engine)  # github-owner-repo-7, working
+    for iid, lifecycle in ((5, "cancelled"), (8, "done"), (12, "stale"), (6, "failed"),
+                           (10, "handed-off"), (11, "handoff-pending")):
+        engine.store.save(RunState(run_id=f"github-owner-repo-{iid}", ticket_iid=iid,
+                                   lifecycle=lifecycle))
+    engine.store.save(RunState(run_id="legacy-done", ticket_iid=4, lifecycle="done"))
+    renamed = "adore-run-renamed-15"
+    engine.store.save(RunState(run_id="github-owner-repo-15", ticket_iid=15,
+                               lifecycle="cancelled", container=renamed))
+    kept = [f"github-owner-repo-{iid}" for iid in (6, 7, 10, 11)]
+    gone = [f"github-owner-repo-{iid}" for iid in (5, 8, 9, 12)]  # 9: no state
+    root, runtime = _shared_host(
+        tmp_path, engine, worktrees, run_ids=[*kept, *gone], mode="open",
+        dirs=[*kept, *gone, "github-owner-repo-13", "legacy-done"],
+    )
+    runtime.containers |= {renamed, f"{renamed}-egress-proxy"}
+    runtime.networks.add(f"adore-egress-{renamed}")
+
+    report = engine.cleanup()
+
+    executors = sorted([*(f"adore-run-{run_id}" for run_id in gone), renamed])
+    assert report["containers_removed"] == executors
+    assert report["proxy_containers_removed"] == [f"{name}-egress-proxy" for name in executors]
+    assert report["egress_networks_removed"] == [f"adore-egress-{name}" for name in executors]
+    assert report["worktrees_removed"] == sorted([*gone, "github-owner-repo-13", "legacy-done"])
+    assert sorted(path.name for path in root.iterdir()) == sorted(kept)
+    for run_id in kept:
+        executor = f"adore-run-{run_id}"
+        assert {executor, f"{executor}-egress-proxy"} <= runtime.containers
+        assert f"adore-egress-{executor}" in runtime.networks
+
+
+def test_cleanup_keeps_resources_of_runs_with_corrupt_state(tmp_path: Path) -> None:
+    """
+    @brief   A run whose state file is unreadable keeps its worktree, executor,
+             proxy and network and is reported under corrupt_runs.
+    """
+    engine, _, worktrees, _, _ = make_engine(tmp_path)
+    run_id = "github-owner-repo-14"
+    broken = engine.store.run_dir(run_id)
+    broken.mkdir(parents=True, exist_ok=True)
+    (broken / "state.json").write_text("{not json", encoding="utf-8")
+    root, runtime = _shared_host(tmp_path, engine, worktrees, run_ids=[run_id], dirs=[run_id])
+    before = (set(runtime.containers), set(runtime.networks))
+
+    report = engine.cleanup()
+
+    assert report["corrupt_runs"] == [run_id]
+    assert (root / run_id).is_dir()
+    assert (runtime.containers, runtime.networks) == before
+    for key in ("containers_removed", "proxy_containers_removed",
+                "egress_networks_removed", "worktrees_removed"):
+        assert report[key] == [], key
+
+
+def test_cleanup_keeps_truncated_egress_names_shared_with_a_protected_run(
+    tmp_path: Path,
+) -> None:
+    """
+    @brief   A long repository path truncates proxy and network names, so a done
+             and a handed-off run share them; the done run's executor and
+             worktree go, the shared proxy and network stay.
+    """
+    engine, _, worktrees, _, _ = make_engine(tmp_path)
+    engine.config.platform.kind = "gitea"
+    engine.config.platform.repo = "dpasare/2026_Networked_Intelligent_Lab_Orchestrator"
+    done, human = (f"gitea-dpasare-2026_Networked_Intelligent_Lab_Orchestrator-{iid}"
+                   for iid in (26, 27))
+    engine.store.save(RunState(run_id=done, ticket_iid=26, lifecycle="done"))
+    engine.store.save(RunState(run_id=human, ticket_iid=27, lifecycle="handed-off"))
+    root, runtime = _shared_host(tmp_path, engine, worktrees, dirs=[done, human])
+    proxy = "adore-run-gitea-dpasare-2026_Networked_Intelligent-egress-proxy"
+    network = "adore-egress-adore-run-gitea-dpasare-2026_Networked_Intellige"
+    runtime.containers |= {f"adore-run-{done}", f"adore-run-{human}", proxy}
+    runtime.networks.add(network)
+
+    report = engine.cleanup()
+
+    assert report["containers_removed"] == [f"adore-run-{done}"]
+    assert report["proxy_containers_removed"] == []
+    assert report["egress_networks_removed"] == []
+    assert report["worktrees_removed"] == [done]
+    assert runtime.containers == {f"adore-run-{human}", proxy}
+    assert runtime.networks == {network}
+    assert (root / human).is_dir() and not (root / done).exists()
+
+
+def test_cleanup_continues_when_the_container_runtime_fails(tmp_path: Path) -> None:
+    """
+    @brief   Failed runtime listings and sweeps are skipped: cleanup still
+             removes the eligible worktree and returns its report.
+    """
+    engine, _, worktrees, containers, _ = make_engine(tmp_path)
+    run_id = "github-owner-repo-5"
+    engine.store.save(RunState(run_id=run_id, ticket_iid=5, lifecycle="done"))
+    root = tmp_path / "worktrees"
+    (root / run_id).mkdir(parents=True)
+    worktrees.path_for = lambda candidate: root / candidate
+    worktrees.dirs = [root / run_id]
+
+    def unavailable(*args):
+        raise IsolationError("container runtime unavailable")
+
+    for method in ("list_containers", "cleanup_orphan_containers",
+                   "cleanup_egress_proxies", "cleanup_egress_networks"):
+        setattr(containers, method, unavailable)
+
+    report = engine.cleanup()
+
+    assert report["worktrees_removed"] == [run_id]
+    assert not (root / run_id).exists()
+    for key in ("containers_removed", "proxy_containers_removed", "egress_networks_removed"):
+        assert report[key] == [], key
+
+
+def test_cleanup_reports_only_worktrees_it_removed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """@brief A worktree directory that survives removal is not reported as removed."""
+    engine, _, worktrees, _, _ = make_engine(tmp_path)
+    run_id = "github-owner-repo-5"
+    engine.store.save(RunState(run_id=run_id, ticket_iid=5, lifecycle="done"))
+    stuck = tmp_path / "worktrees" / run_id
+    stuck.mkdir(parents=True)
+    worktrees.path_for = lambda candidate: stuck.parent / candidate
+    worktrees.dirs = [stuck]
+    monkeypatch.setattr(orchestrator_module, "force_rmtree", lambda path: None)
+
+    report = engine.cleanup()
+
+    assert stuck.is_dir()
+    assert report["worktrees_removed"] == []

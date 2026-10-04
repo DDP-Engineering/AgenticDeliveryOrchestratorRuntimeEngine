@@ -37,7 +37,8 @@ MR/PR publication. One AEGIS task is pinned to each run. Strict verification
 and fresh candidate-bound approval precede delivery push or draft creation;
 optional guarded progress checkpoints stay on the owned ticket branch and do
 not open an MR/PR. Drift forces re-conduction. Failed and handed-off resources
-remain available for recovery. Selected-ticket
+remain available for recovery. Cleanup works only on this project's run IDs and
+keeps active, failed, human-owned and corrupt runs' resources. Selected-ticket
 requests retain readiness, hold and exclude checks.
 Worker-authorized cancellation markers interrupt a working executor gate;
 the conductor alone finalizes cancellation and clears the marker.

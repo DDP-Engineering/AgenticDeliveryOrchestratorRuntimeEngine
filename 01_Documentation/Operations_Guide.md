@@ -158,9 +158,13 @@ queued without changing its terminal lifecycle or outcome.
 their worktree, container companions, and local evidence for explicit retry;
 routine `cleanup` protects them along with active valid runs. To release a
 failed run, use `cancel <run-id>` (keep audit state) or `delete <run-id>
---force` (irreversible state removal). Cleanup sweeps orphan executor/proxy
-containers, egress networks, and worktree husks, and reports corrupt state
-without deleting it. It reclaims only a provably stale local lock; a
-live/unknown holder is reported and left in place. Stop the service poller
+--force` (irreversible state removal). Cleanup removes the selected
+project's orphaned executor/proxy containers, egress networks and worktree
+directories (those of its done, cancelled, stale and state-less runs) and
+leaves other projects' resources in place, apart from an egress proxy or
+network whose shortened name is identical for both projects. It reports
+corrupt runs while keeping their state and resources. It reclaims only a
+provably stale local lock; a live/unknown holder is reported and left in
+place. Stop the service poller
 before retry/cancel/reset/delete because those mutations use the same
 single-conductor lock.

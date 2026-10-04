@@ -46,8 +46,11 @@ publication human-approved and draft-only.
 - adopt an existing open branch MR/PR before attempting draft creation;
 - create a new AEGIS task before consuming each bounded review request;
 - reconcile parked, approval, review, stale-working and outbox states;
-- garbage-collect only resources not owned by active or failed runs, including
-  orphan allowlist proxy containers and egress networks.
+- garbage-collect only this project's resources: those of done, cancelled,
+  stale and state-less runs of its run-ID form, including allowlist proxy
+  containers and egress networks, while active, failed, human-owned and corrupt
+  runs and other projects' resources stay (apart from a proxy or network whose
+  shortened name another project's run shares).
 
 The component never edits AEGIS journals, gives forge credentials to an
 executor, or merges.
@@ -85,8 +88,11 @@ is reconciled before the source ticket state.
 
 `max_stage_failures` counts attempts for the current stage. The default third
 failure posts a terminal comment, stops the container and preserves the
-worktree. Routine cleanup protects failed worktrees, container companions and
-evidence until explicit retry, cancel or delete. `purge_resources()` serves
+worktree. Routine cleanup works only on this project's run IDs (runs in its
+state store, corrupt run directories, and worktree directories or executor
+containers named in its `<platform>-<repo>-<ticket>` form) and protects failed
+worktrees, container companions and evidence until explicit retry, cancel or
+delete. `purge_resources()` serves
 project deletion: it releases only the containers and worktrees recorded for
 this project's own runs, keeps human-owned (handed-off and handoff-pending)
 runs' resources and reports their worktrees as retained, and never sweeps by

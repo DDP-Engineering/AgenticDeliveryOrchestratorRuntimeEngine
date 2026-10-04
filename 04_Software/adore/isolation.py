@@ -382,7 +382,8 @@ class WorktreeManager:
         """
         @brief   Directories currently under the worktrees root.
         @details Includes husks (deregistered but not deleted, e.g. after the
-                 WSL bind-mount race) - exactly what `adore cleanup` sweeps.
+                 WSL bind-mount race). `adore cleanup` reads it to find the
+                 project's run IDs that have no state.
         @return  Child directories, sorted.
         """
         if not self.root.is_dir():
@@ -906,21 +907,27 @@ class ContainerManager:
     def cleanup_orphan_containers(
         self,
         prefix: str,
-        protected: set[str],
+        targets: set[str],
+        retained: set[str],
     ) -> list[str]:
         """
-        @brief      Best-effort removal of unprotected executor containers.
-        @details    The runtime filter supplies candidates only. Exact prefix
-                    filtering happens in `list_containers`, and egress proxies
-                    are handled separately so cleanup can report them after a
+        @brief      Best-effort removal of listed target executor containers.
+        @details    Removes a listed executor only when its exact name is one
+                    of `targets` and not one of `retained`, so containers of
+                    other projects under a shared prefix are never touched.
+                    The runtime filter supplies candidates only; exact prefix
+                    filtering happens in `list_containers`. Egress proxies are
+                    handled separately so cleanup can report them after a
                     profile changes egress mode.
         @param[in]  prefix Deterministic executor-container prefix.
-        @param[in]  protected Exact persisted container names to retain.
+        @param[in]  targets Exact executor names cleanup may remove.
+        @param[in]  retained Exact executor names to keep.
         @return     Executor container names successfully removed.
         """
+        wanted = targets - retained
         removed: list[str] = []
         for name in self.list_containers(prefix):
-            if name.endswith(_PROXY_SUFFIX) or name in protected:
+            if name not in wanted:
                 continue
             try:
                 self._remove_container(name)
@@ -932,18 +939,26 @@ class ContainerManager:
     def cleanup_egress_proxies(
         self,
         prefix: str,
-        protected: set[str],
+        targets: set[str],
+        retained: set[str],
     ) -> list[str]:
         """
-        @brief      Best-effort removal of unprotected ADORE proxy containers.
+        @brief      Best-effort removal of the target executors' proxy containers.
+        @details    Proxy names are cut to a runtime-safe length, so several
+                    executors can share one; a name also derived from a
+                    retained executor is kept.
         @param[in]  prefix Deterministic executor-container prefix.
-        @param[in]  protected Exact persisted executor names to retain.
+        @param[in]  targets Exact executor names whose proxies may go.
+        @param[in]  retained Exact executor names whose proxies stay.
         @return     Proxy container names successfully removed.
         """
-        retained = {self._proxy_name(name) for name in protected}
+        wanted = (
+            {self._proxy_name(name) for name in targets}
+            - {self._proxy_name(name) for name in retained}
+        )
         removed: list[str] = []
         for name in self.list_containers(prefix):
-            if not name.endswith(_PROXY_SUFFIX) or name in retained:
+            if name not in wanted:
                 continue
             try:
                 self._remove_container(name)
@@ -952,27 +967,37 @@ class ContainerManager:
             removed.append(name)
         return removed
 
-    def cleanup_egress_networks(self, protected: set[str]) -> list[str]:
+    def cleanup_egress_networks(
+        self,
+        targets: set[str],
+        retained: set[str],
+    ) -> list[str]:
         """
-        @brief      Best-effort removal of unprotected ADORE egress networks.
-        @details    Sweeps both the canonical ADORE prefix and the current
+        @brief      Best-effort removal of the target executors' egress networks.
+        @details    Covers both the canonical ADORE prefix and the current
                     configured prefix even when the current mode is not
                     allowlist-proxy. Arbitrary historical prefixes are never
-                    guessed.
-        @param[in]  protected Exact persisted executor names to retain.
+                    guessed. Network names are cut to a runtime-safe length, so
+                    a name also derived from a retained executor is kept.
+        @param[in]  targets Exact executor names whose networks may go.
+        @param[in]  retained Exact executor names whose networks stay.
         @return     Egress network names successfully removed.
         """
         prefixes = {EGRESS_NETWORK_PREFIX, self.egress.network_prefix}
-        retained = {
-            self._egress_network_name(name, prefix=prefix)
-            for prefix in prefixes
-            for name in protected
-        }
+
+        def networks(executors: set[str]) -> set[str]:
+            return {
+                self._egress_network_name(name, prefix=prefix)
+                for prefix in prefixes
+                for name in executors
+            }
+
+        wanted = networks(targets) - networks(retained)
         removed: list[str] = []
         seen: set[str] = set()
         for prefix in sorted(prefixes):
             for name in self.list_egress_networks(prefix):
-                if name in seen or name in retained:
+                if name in seen or name not in wanted:
                     continue
                 seen.add(name)
                 try:

@@ -20,6 +20,7 @@ import os
 from pathlib import Path
 import socket
 
+import adore.state as state_module
 from adore.state import (
     STATE_SCHEMA_VERSION,
     RunState,
@@ -53,6 +54,26 @@ def test_derive_run_id_is_stable_and_safe() -> None:
     b = derive_run_id("gitlab", "group/sub/runtime-project", 14)
     assert a == b == "gitlab-group-sub-runtime-project-14"
     assert "/" not in a
+
+
+def test_run_id_pattern_matches_only_one_projects_run_ids() -> None:
+    """
+    @brief   The run-ID pattern accepts exactly the run IDs derived for one
+             project: a look-alike repository, another platform, a non-numeric
+             ticket part or an unrelated name never matches.
+    """
+    pattern = state_module.run_id_pattern("gitea", "dpasare/alpha")
+    assert pattern.fullmatch(derive_run_id("gitea", "dpasare/alpha", 9))
+    for other in ("gitea-dpasare-alpha-tools-4", "gitea-dpasare-alpha-",
+                  "gitea-dpasare-alpha-9x", "gitlab-dpasare-alpha-9",
+                  "gitea-dpasare-beta-3", "notes"):
+        assert not pattern.fullmatch(other), other
+    dotted = state_module.run_id_pattern("github", "owner/a.b")
+    assert dotted.fullmatch(derive_run_id("github", "owner/a.b", 2))
+    assert not dotted.fullmatch("github-owner-aXb-2")
+    spaced = state_module.run_id_pattern("gitlab", "group/My Project")
+    assert spaced.fullmatch(derive_run_id("gitlab", "group/My Project", 3))
+    assert pattern.match("gitea-dpasare-alpha-9abc") is None  # anchored on its own
 
 
 def test_content_hash_detects_drift() -> None:

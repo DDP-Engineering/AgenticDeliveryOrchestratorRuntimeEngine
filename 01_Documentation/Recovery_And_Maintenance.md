@@ -125,14 +125,23 @@ journal transition. Use it only after understanding the mismatch, then run
 `retry`.
 
 `cleanup` clears only a readable local lock whose recorded PID is provably gone,
-then removes orphan executor/proxy containers, egress networks and worktree
-husks. Active and failed runs are protected: a failed run's container
+then removes the selected project's orphaned executor/proxy containers,
+egress networks and worktree directories: those of its done, cancelled and
+stale runs and of its run IDs (`<platform>-<repo>-<ticket>`) that have no
+state. Other projects on the host keep their resources even when they share
+the slug, egress network prefix or worktree root, apart from an egress proxy
+or network whose name, cut to 50 or 48 characters, is identical for both
+projects. A proxy or network whose run has no state, worktree or executor
+container left stays too. Remove such leftovers, and those of a project that no
+longer has a profile, by hand after checking their owner. Active, failed
+and human-owned runs are protected: a failed run's container
 companions, worktree and evidence remain available for `retry`. Release those
 resources explicitly with `cancel <run-id>` while retaining audit state, or
 with irreversible `delete <run-id> --force` after separately preserving any
 required evidence. A live, different-host, unreadable, or otherwise unknown
 lock remains present and is reported as `lock_held_by`; never remove it until
-ownership is verified. Cleanup reports corrupt state and never auto-deletes it.
+ownership is verified. Cleanup reports corrupt runs and keeps their state,
+worktree and containers.
 
 Stop the service poller before `retry`, `cancel`, `delete`, or `reset`; these
 commands acquire the same single-conductor lock and refuse a live/unknown

@@ -21,6 +21,9 @@ audit log. The closed run-state schema is `1`.
 - own validated `handoff-request.json` markers for operator ownership transfer;
 - expose fail-closed stale-lock reclamation for cleanup: only a readable local
   lock whose PID is provably gone may be removed;
+- derive stable run IDs (`derive_run_id`: `<platform>-<repo with / as ->-<ticket>`)
+  and match exactly one project's run IDs (`run_id_pattern`, digits-only ticket
+  part) so cleanup can tell its own resources from other projects';
 - preserve active/historical task ids, stage/path/type, counters, incidents,
   outbox, validation evidence, candidate fingerprint, approval and MR state;
 - report corrupt runs without silently reinitializing them.

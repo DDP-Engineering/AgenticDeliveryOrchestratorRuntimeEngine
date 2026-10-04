@@ -69,7 +69,14 @@ from adore.isolation import (
     WorktreeManager,
     build_container_env,
 )
-from adore.state import RunState, StateError, StateStore, content_hash, derive_run_id
+from adore.state import (
+    RunState,
+    StateError,
+    StateStore,
+    content_hash,
+    derive_run_id,
+    run_id_pattern,
+)
 from adore.util import (
     CommandResult,
     force_rmtree,
@@ -408,7 +415,16 @@ class Orchestrator:
         return True
 
     def cleanup(self) -> dict[str, Any]:
-        """@brief Remove resources not owned by an active or failed run."""
+        """
+        @brief   Remove this project's resources that no kept run still needs.
+        @details Works only on run IDs this project owns (see
+                 `_cleanup_run_ids`), so containers, proxies, networks and
+                 worktrees of other projects stay even when they share the
+                 slug, egress network prefix or worktree root. Active, failed,
+                 human-owned and corrupt runs keep their resources.
+        @return  Lock outcome, removed resources (sorted) and corrupt run IDs.
+        """
+        corrupt = self.store.invalid_runs()
         report: dict[str, Any] = {
             "lock_cleared": False,
             "lock_held_by": None,
@@ -416,7 +432,7 @@ class Orchestrator:
             "proxy_containers_removed": [],
             "egress_networks_removed": [],
             "worktrees_removed": [],
-            "corrupt_runs": self.store.invalid_runs(),
+            "corrupt_runs": corrupt,
         }
         if self.store.reclaim_stale_lock():
             report["lock_cleared"] = True
@@ -424,36 +440,75 @@ class Orchestrator:
             lock = self.store.lock_info()
             if lock is not None:
                 report["lock_held_by"] = lock.get("pid", "unknown")
-        protected_runs = [
-            run for run in self.store.list_runs()
-            if run.lifecycle in ACTIVE_LIFECYCLES
-            or run.lifecycle in {"failed", "handed-off", "handoff-pending"}
-        ]
-        protected_ids = {run.run_id for run in protected_runs}
-        protected_containers = {
-            self.identity.container_name(run.run_id) for run in protected_runs
-        } | {run.container for run in protected_runs if run.container}
         prefix = f"{self.identity.slug}-run-"
+        eligible, protected, runs = self._cleanup_run_ids(prefix, set(corrupt))
+
+        def executors(run_ids: set[str]) -> set[str]:
+            names = {self.identity.container_name(run_id) for run_id in run_ids}
+            return names | {
+                runs[run_id].container
+                for run_id in run_ids
+                if run_id in runs and runs[run_id].container
+            }
+
+        targets, retained = executors(eligible), executors(protected)
         with contextlib.suppress(IsolationError):
-            report["containers_removed"] = self.containers.cleanup_orphan_containers(
-                prefix, protected_containers
+            report["containers_removed"] = sorted(
+                self.containers.cleanup_orphan_containers(prefix, targets, retained)
             )
         with contextlib.suppress(IsolationError):
-            report["proxy_containers_removed"] = self.containers.cleanup_egress_proxies(
-                prefix, protected_containers
+            report["proxy_containers_removed"] = sorted(
+                self.containers.cleanup_egress_proxies(prefix, targets, retained)
             )
         with contextlib.suppress(IsolationError):
-            report["egress_networks_removed"] = self.containers.cleanup_egress_networks(
-                protected_containers
+            report["egress_networks_removed"] = sorted(
+                self.containers.cleanup_egress_networks(targets, retained)
             )
-        for path in self.worktrees.list_dirs():
-            if path.name in protected_ids:
+        for run_id in sorted(eligible):
+            path = self.worktrees.path_for(run_id)
+            if not path.is_dir():
                 continue
             with contextlib.suppress(IsolationError):
-                self.worktrees.remove(path.name)
+                self.worktrees.remove(run_id)
             force_rmtree(path)
-            report["worktrees_removed"].append(path.name)
+            if not path.exists():
+                report["worktrees_removed"].append(run_id)
         return report
+
+    def _cleanup_run_ids(
+        self,
+        prefix: str,
+        corrupt: set[str],
+    ) -> tuple[set[str], set[str], dict[str, RunState]]:
+        """
+        @brief      Split this project's run IDs into removable and kept ones.
+        @details    Owned run IDs are the runs in this project's state store,
+                    its corrupt run directories, and names of this project's
+                    run-ID form (`run_id_pattern`) found as worktree-root
+                    directories or executor containers. Protected ones are
+                    active, failed, handed-off, handoff-pending and corrupt
+                    runs; every other owned run ID is eligible.
+        @param[in]  prefix Executor-container prefix ("<slug>-run-").
+        @param[in]  corrupt Run IDs whose persisted state fails to load.
+        @return     (eligible run IDs, protected run IDs, loadable runs by ID).
+        """
+        runs = {run.run_id: run for run in self.store.list_runs()}
+        protected = corrupt | {
+            run_id for run_id, run in runs.items()
+            if run.lifecycle in ACTIVE_LIFECYCLES
+            or run.lifecycle in {"failed", "handed-off", "handoff-pending"}
+        }
+        own_form = run_id_pattern(self.config.platform.kind, self.config.platform.repo)
+        owned = set(runs) | corrupt | {
+            path.name for path in self.worktrees.list_dirs()
+            if own_form.fullmatch(path.name)
+        }
+        with contextlib.suppress(IsolationError):
+            owned |= {
+                name[len(prefix):] for name in self.containers.list_containers(prefix)
+                if own_form.fullmatch(name[len(prefix):])
+            }
+        return owned - protected, protected, runs
 
     def purge_resources(self) -> dict[str, Any]:
         """

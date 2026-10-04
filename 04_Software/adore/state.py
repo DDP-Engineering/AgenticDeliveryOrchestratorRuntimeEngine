@@ -217,6 +217,20 @@ class RunState:
         return state
 
 
+# HELPER FUNCTIONS
+
+
+def _run_id_stem(platform: str, project: str) -> str:
+    """
+    @brief      The ticket-independent start of every run-id of one project.
+    @param[in]  platform Git-platform kind (for example "gitlab").
+    @param[in]  project  Project slug/path.
+    @return     "<platform>-<project with / as - and spaces removed>-".
+    """
+    safe_project = project.replace("/", "-").replace(" ", "")
+    return f"{platform}-{safe_project}-"
+
+
 # PUBLIC API
 
 
@@ -231,8 +245,21 @@ def derive_run_id(platform: str, project: str, ticket_iid: int) -> str:
     @param[in]  ticket_iid Ticket internal id.
     @return     A stable run-id reused across restart and resume.
     """
-    safe_project = project.replace("/", "-").replace(" ", "")
-    return f"{platform}-{safe_project}-{ticket_iid}"
+    return f"{_run_id_stem(platform, project)}{ticket_iid}"
+
+
+def run_id_pattern(platform: str, project: str) -> re.Pattern[str]:
+    """
+    @brief      Match exactly the run-ids `derive_run_id` makes for one project.
+    @details    The ticket part must be digits only, so a project whose path
+                merely extends this one ("owner/repo-tools" for "owner/repo")
+                never matches. The pattern is anchored at the end, so `match`
+                and `fullmatch` agree.
+    @param[in]  platform Git-platform kind (for example "gitlab").
+    @param[in]  project  Project slug/path.
+    @return     Compiled pattern for this project's run-ids.
+    """
+    return re.compile(re.escape(_run_id_stem(platform, project)) + r"[0-9]+\Z")
 
 
 def content_hash(title: str, description: str) -> str:
