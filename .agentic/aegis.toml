@@ -43,6 +43,26 @@ docs = [
   "04_Software/docker/README.md", "07_Delivery/README.md",
 ]
 
+[interaction]
+# false stops at every completed stage and presents the next choices.
+# true flows between stages, but never bypasses publication approval.
+autopilot = false
+
+[review]
+# Explicit verdicts are on: validate records an independent
+# spec-compliance verdict and an independent implementation-quality verdict
+# for the current candidate, and may run up to `max_fix_cycles` bounded
+# fix-and-re-review rounds. This never replaces ordinary validation.
+enabled = true
+max_fix_cycles = 4
+
+[records]
+# Anchor and evolution sidecars under .agentic/tasks/ are local evidence.
+# false keeps them out of git through a managed block in .gitignore that
+# init maintains; true removes that block so they are committed with the
+# journal. The journal log line is the durable record either way.
+commit_fingerprints = false
+
 [zones]
 # What each stage may write besides `.agentic/`, which every stage may
 # always write. Values name the globs above: "source", "tests". A stage
