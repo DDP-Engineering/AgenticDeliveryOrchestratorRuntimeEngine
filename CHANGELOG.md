@@ -14,12 +14,17 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Added
 
+- Accessible shared dashboard shell with the approved transparent DDP Engineering logo, real primary/account navigation links, explicit project context, content skip link and a localized delivery glossary.
+
 - Published the Web UX implementation reference bundle, English brief, approved branding, preserved design history and integrity manifests for the existing web baseline.
 - Offline Chromium browser regression tooling for the web interface: `npm run validate` runs Node tests, TypeScript checks, an isolated Vite build and Playwright journeys against a temporary API/worker home with simulated external commands. Failed browser checks retain screenshots and traces.
 - Project details has an administrator-only Access tab listing the project's developers; Grant access and Remove access change one developer's access to that project at once, leaving their other projects alone. It replaces the Manage access link to the Users page.
 - Administrators can delete an archived, idle project from the Projects page after typing its name; the web worker runs the new `adore profile delete <name> --force --remove-resources`, which also removes the project's containers and worktrees while keeping human-owned worktrees, external state and the audit trail.
 
 ### Changed
+
+- Dashboard navigation uses Statistics and Change history while preserving established URLs and supported actions. Guided fields show essential instructions visibly; status badges combine symbols and text.
+- Loading, empty access and failed requests have separate presentations; failed dashboard reads withhold totals and delayed job-detail responses cannot refill another project's view.
 
 - Every project setting's Help now explains, in English, French, German or Romanian, what the setting controls, its unit or allowed values and the effect of changing it (or that it is reserved), and shows ADORE's default value; a test keeps the texts in step with the configuration keys.
 - Project details > Configuration marks every setting as set for this project or default, can show only the project's own settings, and lets administrators edit a setting on its row; common settings come first, rows say when applying needs paused pickup and which settings must be changed in config.toml. The separate common-setting and advanced key/value forms are gone.

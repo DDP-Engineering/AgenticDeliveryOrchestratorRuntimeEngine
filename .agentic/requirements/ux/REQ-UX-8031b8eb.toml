@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-8031b8eb"
+title = "Explain delivery vocabulary in every supported locale"
+status = "active"
+requirement = "When an operator opens the dashboard, the interface shall explain job, enrolled project, pickup stopped, waiting for clarification, waiting for approval and draft review in a progressively disclosed glossary and localized status copy in English, French, German and Romanian, keeping approval on the forge and merge a human decision."
+verification = "Offline Node: glossary completeness in all four locales and English terminology. Offline Chromium: expand glossary, inspect status labels and visible field instructions; no unsupported merge/approval/clone/job-pause controls."
+affected_paths = ["04_Software/web/e2e/shell.spec.ts", "04_Software/web/src/Presentation.tsx", "04_Software/web/src/i18n.ts", "04_Software/web/src/App.tsx", "04_Software/adore/web/static/"]
+linked_tests = ["04_Software/web/e2e/shell.spec.ts", "04_Software/web/tests/shell.test.mjs"]
+priority = "high"
+created = 2026-10-05
+updated = 2026-10-05

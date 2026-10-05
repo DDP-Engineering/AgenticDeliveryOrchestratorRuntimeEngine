@@ -39,7 +39,9 @@ OpenCode, Pi, Codex and Qwen Code.
 - The optional `adore/web/` API, SQLite identity/operation store and worker
   serve a bundled React dashboard from `04_Software/web/`. The worker uses
   existing CLI/conductor commands; browser roles are admin and project-scoped
-  developer, with cost data reserved for admins.
+  developer, with cost data reserved for admins. Its shared accessible shell
+  keeps authorized project context explicit and distinguishes pending, empty
+  and failed reads in the supported locales and themes.
 
 `python .agentic/aegis.py components` lists the knowledge page that routes
 each component to its source and tests.

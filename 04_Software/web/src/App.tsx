@@ -14,6 +14,8 @@ import { startVisiblePolling } from "./polling";
 import { formatRoute, normalizeRoute, parseRoute, type ProjectTab, type Route } from "./routes";
 import { editValue, hasDefault, settingGroups, settingRows, type SettingMeta, type SettingRow } from "./settings";
 import { settingHelp } from "./settingHelp";
+import { DashboardShell, NavigationLink, type ShellLink } from "./DashboardShell";
+import { DataFeedback, ProjectEmpty, StatusBadge, DeliveryGlossary, type DataState, type ScopedState } from "./Presentation";
 
 type User = { id: number; username: string; role: "admin" | "developer"; disabled: boolean; password_change_required?: boolean; projects?: string[] };
 type Session = { user: User; csrf: string };
@@ -100,6 +102,7 @@ export default function App() {
   const [auditPageSize, setAuditPageSize] = useState<PageSize>(10);
   const [auditOffset, setAuditOffset] = useState(0);
   const [auditRefresh, setAuditRefresh] = useState(0);
+  const [viewRefresh, setViewRefresh] = useState(0);
   const [jobFiltersOpen, setJobFiltersOpen] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectSortKey, setProjectSortKey] = useState<ProjectSortKey>("name");
@@ -153,6 +156,18 @@ export default function App() {
   const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
   const [deleteName, setDeleteName] = useState("");
   const [projectsLoaded, setProjectsLoaded] = useState(false);
+  const [configState, setConfigState] = useState<ScopedState>({ key: "", state: "loading" });
+  const [usersState, setUsersState] = useState<DataState>("loading");
+  const [auditState, setAuditState] = useState<DataState>("loading");
+  const [requestedRun, setRequestedRun] = useState("");
+  const [detailState, setDetailState] = useState<DataState>("loading");
+  const [projectsState, setProjectsState] = useState<DataState>("loading");
+  const [selectedState, setSelectedState] = useState<ScopedState>({ key: "", state: "loading" });
+  const [globalState, setGlobalState] = useState<ScopedState>({ key: "", state: "loading" });
+  const [usageState, setUsageState] = useState<ScopedState>({ key: "", state: "loading" });
+  const [globalUsageState, setGlobalUsageState] = useState<ScopedState>({ key: "", state: "loading" });
+  const [jobsState, setJobsState] = useState<ScopedState>({ key: "", state: "loading" });
+  const [overviewState, setOverviewState] = useState<ScopedState>({ key: "", state: "loading" });
   const [routeReady, setRouteReady] = useState(false);
   const routedProject = useRef<string | null>(null);
   const pendingRun = useRef<string | null>(null);
@@ -172,7 +187,11 @@ export default function App() {
   const aboutTrigger = useRef<HTMLButtonElement>(null);
   const aboutClose = useRef<HTMLButtonElement>(null);
   const jobRequest = useRef(0);
+  const detailRequest = useRef(0);
+  const selectedIdentity = useRef(selected);
+  selectedIdentity.current = selected;
   const selectedMetricsRequest = useRef(0);
+  const projectsRequest = useRef(0);
   const globalMetricsRequest = useRef(0);
   const usageRequest = useRef(0);
   const configRequest = useRef(0);
@@ -232,6 +251,7 @@ export default function App() {
   };
   const selectedProject = projects.find(item => item.id === selected);
   const projectConfig = configScope === selected ? config : null;
+  const configDataState = configState.key === selected ? configState.state : "loading";
   const projectPendingConfig = pendingConfigScope === selected ? pendingConfig : null;
   const projectPrices = pricesScope === selected ? prices : [];
   const modelReason = (reason: string): string => {
@@ -264,6 +284,15 @@ export default function App() {
   const scopeProjects = allProjectScope ? projects : projects.filter(project => project.id === selected);
   const globalRows = allProjectScope ? Object.entries(allMetrics || {}) :
     selectedMetrics && metricsScope === selected && selectedProject ? [[selectedProject.name, selectedMetrics] as [string, Metrics]] : [];
+  const selectedKey = JSON.stringify([selected, metricSuffix]);
+  const jobKey = JSON.stringify([selected, jobOffset, jobPageSize, jobLifecycle, jobStage, jobExecutor, jobUpdatedFrom, jobUpdatedTo, jobOutcome]);
+  const overviewKey = JSON.stringify([selected, overviewSection, overviewPageSize, overviewOffset]);
+  const scopedUsageKey = JSON.stringify([selected, usageSuffix]);
+  const selectedDataState = selectedState.key === selectedKey ? selectedState.state : "loading";
+  const metricDataState = allProjectScope ? globalState.key === metricSuffix ? globalState.state : "loading" : selectedDataState;
+  const usageDataState = allProjectScope ? globalUsageState.key === usageSuffix ? globalUsageState.state : "loading" : usageState.key === scopedUsageKey ? usageState.state : "loading";
+  const jobDataState = jobsState.key === jobKey ? jobsState.state : "loading";
+  const overviewDataState = overviewState.key === overviewKey ? overviewState.state : "loading";
   const metrics = allProjectScope ? (allMetrics ? aggregateMetrics(Object.values(allMetrics), metricTimezone, metricFrom, metricTo) : null) :
     metricsScope === selected ? selectedMetrics : null;
   const metricsEmpty = metrics !== null && !((metrics.totals.runs || 0) > 0);
@@ -342,18 +371,27 @@ export default function App() {
 
   const refreshProjects = useCallback(async () => {
     const generation = viewGeneration.current;
-    const items = await request<Project[]>("/projects");
-    if (generation !== viewGeneration.current) return;
-    setProjects(items);
-    setSelected(current => items.some(item => item.id === current) || routedProject.current ? current : (items[0]?.id || ""));
-    setProjectsLoaded(true);
-    setLastRefresh(new Date());
-  }, []);
+    const revision = ++projectsRequest.current;
+    if (!projectsLoaded) setProjectsState("loading");
+    try {
+      const items = await request<Project[]>("/projects");
+      if (generation !== viewGeneration.current || revision !== projectsRequest.current) return;
+      if (!Array.isArray(items) || items.some(item => !item || typeof item.id !== "string" || typeof item.name !== "string" ||
+        typeof item.repo !== "string" || typeof item.readiness !== "string" || !Number.isSafeInteger(item.runs) || item.runs < 0)) throw new ApiError("unexpected_response");
+      setProjects(items);
+      setSelected(current => items.some(item => item.id === current) || routedProject.current ? current : (items[0]?.id || ""));
+      setProjectsLoaded(true); setProjectsState("ready"); setLastRefresh(new Date());
+    } catch (cause) {
+      if (generation === viewGeneration.current && revision === projectsRequest.current) {
+        setProjectsState("error"); setError(cause);
+      }
+    }
+  }, [projectsLoaded]);
 
   useEffect(() => {
     if (!session) return;
-    refreshProjects().catch(cause => setError(cause));
-    const stopPolling = startVisiblePolling(() => refreshProjects().catch(() => {}), 15000);
+    void refreshProjects();
+    const stopPolling = startVisiblePolling(() => refreshProjects(), 15000);
     return () => stopPolling();
   }, [session, refreshProjects]);
 
@@ -367,17 +405,27 @@ export default function App() {
     if (!session || !selected || page !== "metrics") return;
     const revision = ++usageRequest.current;
     const generation = viewGeneration.current;
+    const key = JSON.stringify([selected, usageSuffix]);
+    const current = () => generation === viewGeneration.current && revision === usageRequest.current;
     const refresh = async () => {
-      try {
-        const scoped = await request<Usage>(`/projects/${encodeURIComponent(selected)}/usage${usageSuffix}`);
-        if (generation === viewGeneration.current && revision === usageRequest.current) { setUsage(scoped); setUsageScope(selected); }
-        if (isAdmin) {
-          const global = await request<Record<string, Usage>>(`/usage${usageSuffix}`);
-          if (generation === viewGeneration.current && revision === usageRequest.current) setAllUsage(global);
-        }
-      } catch (cause) {
-        if (generation === viewGeneration.current && revision === usageRequest.current) setError(cause);
-      }
+      setUsageState({ key, state: "loading" });
+      if (isAdmin) setGlobalUsageState({ key: usageSuffix, state: "loading" });
+      const scoped = async () => {
+        try {
+          const value = await request<Usage>("/projects/" + encodeURIComponent(selected) + "/usage" + usageSuffix);
+          aggregateUsage([value]);
+          if (current()) { setUsage(value); setUsageScope(selected); setUsageState({ key, state: "ready" }); }
+        } catch (cause) { if (current()) { setUsage(null); setUsageState({ key, state: "error" }); setError(cause); } }
+      };
+      const global = async () => {
+        try {
+          const value = await request<Record<string, Usage>>("/usage" + usageSuffix);
+          if (!value || Array.isArray(value)) throw new ApiError("unexpected_response");
+          aggregateUsage(Object.values(value));
+          if (current()) { setAllUsage(value); setGlobalUsageState({ key: usageSuffix, state: "ready" }); }
+        } catch (cause) { if (current()) { setAllUsage(null); setGlobalUsageState({ key: usageSuffix, state: "error" }); setError(cause); } }
+      };
+      await Promise.all([scoped(), ...(isAdmin ? [global()] : [])]);
     };
     void refresh();
     const stopPolling = startVisiblePolling(() => void refresh(), 30000);
@@ -388,25 +436,32 @@ export default function App() {
     const revision = ++selectedMetricsRequest.current;
     if (!selected || !session) { setRuns([]); setRunCounts({}); setMetrics(null); return; }
     const generation = viewGeneration.current;
+    const key = JSON.stringify([selected, metricSuffix]);
+    setSelectedState({ key, state: "loading" });
     try {
       const [runData, metricData] = await Promise.all([
         request<RunPage>(`/projects/${encodeURIComponent(selected)}/runs-page?limit=7`),
         request<Metrics>(`/projects/${encodeURIComponent(selected)}/metrics${metricSuffix}`),
       ]);
       if (generation !== viewGeneration.current || revision !== selectedMetricsRequest.current) return;
+      if (!Array.isArray(runData.items) || !runData.counts || Object.values(runData.counts).some(count => !Number.isSafeInteger(count) || count < 0)) throw new ApiError("unexpected_response");
+      aggregateMetrics([metricData], metricTimezone, metricFrom, metricTo);
+      setSelectedState({ key, state: "ready" });
       setRuns(runData.items);
       setRunCounts(runData.counts);
       setMetrics(metricData); setMetricsScope(selected);
       setLastRefresh(new Date());
     } catch (cause) {
-      if (generation === viewGeneration.current && revision === selectedMetricsRequest.current) setError(cause);
+      if (generation === viewGeneration.current && revision === selectedMetricsRequest.current) {
+        setSelectedState({ key, state: "error" }); setMetrics(null); setRuns([]); setRunCounts({}); setError(cause);
+      }
     }
   }, [selected, session, metricSuffix]);
 
   useEffect(() => {
     void refreshSelected();
     const stopPolling = startVisiblePolling(() => void refreshSelected(), 15000);
-    return () => stopPolling();
+    return () => { selectedMetricsRequest.current += 1; stopPolling(); };
   }, [refreshSelected]);
 
   useEffect(() => {
@@ -417,14 +472,17 @@ export default function App() {
     const generation = viewGeneration.current;
     let active = true;
     setOverviewRuns([]);
+    const key = JSON.stringify([selected, overviewSection, overviewPageSize, overviewOffset]);
+    setOverviewState({ key, state: "loading" });
     const query = new URLSearchParams({ limit: String(overviewPageSize), offset: String(overviewOffset) });
     for (const lifecycle of overviewSection === "active" ? ["working"] : overviewSection === "review" ? ["awaiting-approval", "in-review"] : ["failed"]) query.append("lifecycle", lifecycle);
     const refresh = async () => {
       try {
         const result = await request<RunPage>(`/projects/${encodeURIComponent(selected)}/runs-page?${query}`);
-        if (active && generation === viewGeneration.current) { setOverviewRuns(result.items); setOverviewTotal(result.total); }
+        if (!Array.isArray(result.items) || !Number.isSafeInteger(result.total) || result.total < 0) throw new ApiError("unexpected_response");
+        if (active && generation === viewGeneration.current) { setOverviewRuns(result.items); setOverviewTotal(result.total); setOverviewState({ key, state: "ready" }); }
       } catch (cause) {
-        if (active && generation === viewGeneration.current) setError(cause);
+        if (active && generation === viewGeneration.current) { setOverviewState({ key, state: "error" }); setError(cause); }
       }
     };
     void refresh();
@@ -436,11 +494,17 @@ export default function App() {
 
   useEffect(() => {
     if (page !== "adminAudit" || !isAdmin) return;
+    let active = true;
+    setAuditState("loading");
     const generation = viewGeneration.current;
     const query = new URLSearchParams({ limit: String(auditPageSize), offset: String(auditOffset) });
     request<{ items: AuditRow[]; total: number }>(`/audit-page?${query}`)
-      .then(value => { if (generation === viewGeneration.current) { setAuditRows(value.items); setAuditTotal(value.total); } })
-      .catch(cause => { if (generation === viewGeneration.current) setError(cause); });
+            .then(value => {
+        if (!Array.isArray(value.items) || !Number.isSafeInteger(value.total) || value.total < 0) throw new ApiError("unexpected_response");
+        if (active && generation === viewGeneration.current) { setAuditRows(value.items); setAuditTotal(value.total); setAuditState("ready"); }
+      })
+      .catch(cause => { if (active && generation === viewGeneration.current) { setAuditState("error"); setError(cause); } });
+    return () => { active = false; };
   }, [page, isAdmin, auditPageSize, auditOffset, auditRefresh]);
 
   useEffect(() => { setAuditOffset(0); }, [auditPageSize]);
@@ -449,6 +513,8 @@ export default function App() {
     if (!selected || !session || page !== "jobs") return;
     const revision = ++jobRequest.current;
     const generation = viewGeneration.current;
+    const key = JSON.stringify([selected, jobOffset, jobPageSize, jobLifecycle, jobStage, jobExecutor, jobUpdatedFrom, jobUpdatedTo, jobOutcome]);
+    setJobsState({ key, state: "loading" });
     const query = new URLSearchParams({ limit: String(jobPageSize), offset: String(jobOffset) });
     if (jobLifecycle) query.set("lifecycle", jobLifecycle);
     if (jobStage) query.set("stage", jobStage);
@@ -458,9 +524,10 @@ export default function App() {
     if (jobOutcome.trim()) query.set("outcome", jobOutcome.trim());
     try {
       const result = await request<RunPage>(`/projects/${encodeURIComponent(selected)}/runs-page?${query}`);
-      if (revision === jobRequest.current && generation === viewGeneration.current) setJobPage(result);
+      if (!Array.isArray(result.items) || !Number.isSafeInteger(result.total) || result.total < 0) throw new ApiError("unexpected_response");
+      if (revision === jobRequest.current && generation === viewGeneration.current) { setJobPage(result); setJobsState({ key, state: "ready" }); }
     } catch (cause) {
-      if (revision === jobRequest.current && generation === viewGeneration.current) setError(cause);
+      if (revision === jobRequest.current && generation === viewGeneration.current) { setJobsState({ key, state: "error" }); setError(cause); }
     }
   }, [selected, session, page, jobOffset, jobPageSize, jobLifecycle, jobStage, jobExecutor, jobUpdatedFrom, jobUpdatedTo, jobOutcome]);
 
@@ -470,13 +537,19 @@ export default function App() {
     void refreshJobPage();
     if (page !== "jobs") return;
     const stopPolling = startVisiblePolling(() => void refreshJobPage(), 15000);
-    return () => stopPolling();
+    return () => { jobRequest.current += 1; stopPolling(); };
   }, [page, refreshJobPage]);
 
   useEffect(() => {
     if (page === "adminUsers" && isAdmin) {
       const generation = viewGeneration.current;
-      request<User[]>("/users").then(value => { if (generation === viewGeneration.current) setUsers(value); }).catch(cause => setError(cause));
+      let active = true;
+      setUsersState("loading");
+      request<User[]>("/users").then(value => {
+        if (!Array.isArray(value) || value.some(item => !item || typeof item.username !== "string" || !["admin", "developer"].includes(item.role))) throw new ApiError("unexpected_response");
+        if (active && generation === viewGeneration.current) { setUsers(value); setUsersState("ready"); }
+      }).catch(cause => { if (active && generation === viewGeneration.current) { setUsersState("error"); setError(cause); } });
+      return () => { active = false; };
     }
     if (page === "adminAudit" && isAdmin) {
       const generation = viewGeneration.current;
@@ -485,14 +558,18 @@ export default function App() {
     if (page === "projectDetails" && selected) {
       const generation = viewGeneration.current;
       const revision = ++configRequest.current;
+      setConfigState({ key: selected, state: "loading" });
       setConfig(null); setConfigScope(""); setPendingConfig(null); setPendingConfigScope(""); setPrices([]); setPricesScope("");
-      request<Config>(`/projects/${encodeURIComponent(selected)}/config`).then(value => { if (generation === viewGeneration.current && revision === configRequest.current) { setConfig(value); setConfigScope(selected); } }).catch(cause => { if (generation === viewGeneration.current && revision === configRequest.current) setError(cause); });
+      request<Config>("/projects/" + encodeURIComponent(selected) + "/config").then(value => {
+        if (!value || !value.config || typeof value.revision !== "string" || !Array.isArray(value.issues)) throw new ApiError("unexpected_response");
+        if (generation === viewGeneration.current && revision === configRequest.current) { setConfig(value); setConfigScope(selected); setConfigState({ key: selected, state: "ready" }); }
+      }).catch(cause => { if (generation === viewGeneration.current && revision === configRequest.current) { setConfigState({ key: selected, state: "error" }); setError(cause); } });
       if (isAdmin) {
         request<PendingConfig | null>(`/projects/${encodeURIComponent(selected)}/config/pending`).then(value => { if (generation === viewGeneration.current && revision === configRequest.current) { setPendingConfig(value); setPendingConfigScope(selected); } }).catch(cause => { if (generation === viewGeneration.current && revision === configRequest.current) setError(cause); });
         request<Price[]>(`/projects/${encodeURIComponent(selected)}/prices`).then(value => { if (generation === viewGeneration.current && revision === configRequest.current) { setPrices(value); setPricesScope(selected); } }).catch(cause => { if (generation === viewGeneration.current && revision === configRequest.current) setError(cause); });
       }
     }
-  }, [page, isAdmin, selected]);
+  }, [page, isAdmin, selected, viewRefresh]);
 
   useEffect(() => {
     if (page !== "administration" || !isAdmin) return;
@@ -534,13 +611,16 @@ export default function App() {
     const refresh = () => {
       const revision = ++globalMetricsRequest.current;
       const generation = viewGeneration.current;
+      setGlobalState({ key: metricSuffix, state: "loading" });
       return request<Record<string, Metrics>>(`/metrics${metricSuffix}`).then(value => {
-        if (generation === viewGeneration.current && revision === globalMetricsRequest.current) setAllMetrics(value);
-      }).catch(cause => { if (generation === viewGeneration.current && revision === globalMetricsRequest.current) setError(cause); });
+        if (!value || Array.isArray(value)) throw new ApiError("unexpected_response");
+        aggregateMetrics(Object.values(value), metricTimezone, metricFrom, metricTo);
+        if (generation === viewGeneration.current && revision === globalMetricsRequest.current) { setAllMetrics(value); setGlobalState({ key: metricSuffix, state: "ready" }); }
+      }).catch(cause => { if (generation === viewGeneration.current && revision === globalMetricsRequest.current) { setAllMetrics(null); setGlobalState({ key: metricSuffix, state: "error" }); setError(cause); } });
     };
     void refresh();
     const stopPolling = startVisiblePolling(() => void refresh(), 30000);
-    return () => stopPolling();
+    return () => { globalMetricsRequest.current += 1; stopPolling(); };
   }, [page, isAdmin, metricSuffix, usageRefresh]);
 
   useEffect(() => {
@@ -581,6 +661,7 @@ export default function App() {
   const openJob = (runId: string) => { void openRun(runId); setPage("jobs"); };
 
   const openProject = (id: string) => {
+    detailRequest.current += 1; setRequestedRun("");
     setSelected(id); setProjectTab("overview"); setDetails(null); setPage("projectDetails");
   };
 
@@ -588,13 +669,14 @@ export default function App() {
     switch (page) {
       case "overview": return selected ? { view: "overview", project: selected } : { view: "overview" };
       case "projectDetails": return selected ? { view: "projectDetails", project: selected, tab: projectTab } : { view: "projects" };
-      case "jobs": return { view: "jobs", ...(selected ? { project: selected } : {}), ...(selected && details ? { run: details.run.run_id } : {}) };
+      case "jobs": return { view: "jobs", ...(selected ? { project: selected } : {}), ...(selected && requestedRun ? { run: requestedRun } : {}) };
       case "metrics": return { view: "metrics", ...(selected && !(isAdmin && metricAllProjects) ? { project: selected } : {}), ...(metricsTab !== "summary" ? { tab: metricsTab } : {}) };
       default: return { view: page };
     }
   };
 
   const applyRoute = (route: Route) => {
+    detailRequest.current += 1; setRequestedRun(route.view === "jobs" ? route.run || "" : "");
     setPage(route.view); setDetails(null); setMenuOpen(false);
     if ("project" in route && route.project) { routedProject.current = route.project; setSelected(route.project); }
     if (route.view === "projectDetails") setProjectTab(route.tab);
@@ -624,7 +706,7 @@ export default function App() {
     if (target === here) return;
     if (target.split("?")[0] === window.location.pathname) window.history.replaceState(null, "", target);
     else window.history.pushState(null, "", target);
-  }, [session, routeReady, page, selected, projectTab, metricsTab, metricAllProjects, details, isAdmin]);
+  }, [session, routeReady, page, selected, projectTab, metricsTab, metricAllProjects, details, requestedRun, isAdmin]);
 
   useEffect(() => {
     const wanted = routedProject.current;
@@ -640,7 +722,7 @@ export default function App() {
 
   useEffect(() => {
     const run = pendingRun.current;
-    if (!run || page !== "jobs" || !selected || !projectsLoaded || routedProject.current) return;
+    if (!run || page !== "jobs" || !selected || !projectsLoaded || routedProject.current || !projects.some(item => item.id === selected)) return;
     pendingRun.current = null;
     void openRun(run, true);
   }, [page, selected, projectsLoaded]);
@@ -656,6 +738,12 @@ export default function App() {
     preferenceRequest.current.language += 1;
     preferenceRequest.current.theme += 1;
     setProjects([]); setSelected(""); setRuns([]); setRunCounts({});
+    detailRequest.current += 1; setRequestedRun(""); setDetailState("loading");
+    setUsersState("loading"); setAuditState("loading"); setConfigState({ key: "", state: "loading" });
+    projectsRequest.current += 1;
+    setProjectsState("loading"); setSelectedState({ key: "", state: "loading" }); setGlobalState({ key: "", state: "loading" });
+    setUsageState({ key: "", state: "loading" }); setGlobalUsageState({ key: "", state: "loading" });
+    setJobsState({ key: "", state: "loading" }); setOverviewState({ key: "", state: "loading" });
     setProjectsLoaded(false); setProjectTab("overview"); routedProject.current = null; pendingRun.current = null;
     setProjectSortKey("name"); setProjectSortDescending(false);
     setJobPage({ items: [], total: 0, counts: {}, limit: 25, offset: 0 });
@@ -710,15 +798,20 @@ export default function App() {
   };
 
   const openRun = async (runId: string, quiet = false) => {
-    setError("");
+    setError(""); setDetails(null); setRequestedRun(runId); setDetailState("loading");
     const generation = viewGeneration.current;
+    const project = selected;
+    const revision = ++detailRequest.current;
     try {
       const result = await request<{ run: Run; events: Array<Record<string, unknown>> }>(
         `/projects/${encodeURIComponent(selected)}/runs/${encodeURIComponent(runId)}`,
       );
-      if (generation === viewGeneration.current) setDetails(result);
+      if (!result?.run || result.run.run_id !== runId || !Array.isArray(result.events)) throw new ApiError("unexpected_response");
+      if (generation === viewGeneration.current && project === selectedIdentity.current && revision === detailRequest.current) { setDetails(result); setDetailState("ready"); }
     } catch (cause) {
-      if (generation === viewGeneration.current && !quiet) setError(cause);
+      if (generation === viewGeneration.current && project === selectedIdentity.current && revision === detailRequest.current) {
+        setDetailState("error"); if (!quiet) setError(cause);
+      }
     }
   };
 
@@ -928,7 +1021,7 @@ export default function App() {
 
   if (loading) return <main className="splash" aria-busy="true">ADORE</main>;
 
-  const loginPreferences = <div className="login-preferences"><label>{t("language")}<select value={locale} onChange={event => updatePreference("language", event.target.value)}>{Object.entries(localeNames).map(([key, value]) => <option key={key} value={key}>{value}</option>)}</select></label><label>{t("theme")}<select value={theme} onChange={event => updatePreference("theme", event.target.value)}><option value="system">{t("system")}</option><option value="light">{t("light")}</option><option value="dark">{t("dark")}</option></select></label></div>;
+  const loginPreferences = <div className="login-preferences"><label>{t("language")}<select aria-label={t("language")} value={locale} onChange={event => updatePreference("language", event.target.value)}>{Object.entries(localeNames).map(([key, value]) => <option key={key} value={key}>{value}</option>)}</select></label><label>{t("theme")}<select aria-label={t("theme")} value={theme} onChange={event => updatePreference("theme", event.target.value)}><option value="system">{t("system")}</option><option value="light">{t("light")}</option><option value="dark">{t("dark")}</option></select></label></div>;
 
   if (passwordSession) return <main className="login-page">
     <section className="login-card">
@@ -964,34 +1057,48 @@ export default function App() {
   const nav: Page[] = ["overview", "projects", "jobs", "metrics"];
   const adminPages: Page[] = ["administration", "adminUsers", "adminAudit"];
 
-  return <div className="shell">
-    <aside className="sidebar" inert={!!about}>
-      <div className="brand"><span className="brand-mark">A</span><div><strong>ADORE</strong><small>{t("subtitle")}</small></div></div>
-      <button className="mobile-menu ghost" type="button" aria-controls="primary-navigation" aria-expanded={menuOpen} onClick={() => setMenuOpen(open => !open)}>☰ {t("menu")}</button>
-      <nav id="primary-navigation" aria-label="Primary" className={menuOpen ? "nav-open" : ""}>
-        {nav.map(item => <button key={item} className={page === item || (item === "projects" && (page === "createProject" || page === "importProject")) ? "nav-item active" : "nav-item"} onClick={() => { setPage(item); setDetails(null); setMenuOpen(false); }}>{t(item)}</button>)}
-        {isAdmin ? <><button className={`nav-item nav-parent${adminPages.includes(page) ? " admin-active" : ""}`} aria-expanded={adminMenuOpen} aria-controls="admin-navigation" onClick={() => setAdminMenuOpen(open => !open)}>{t("administration")} <Icon name="chevron" flipped={adminMenuOpen} /></button>
-          {adminMenuOpen && <div id="admin-navigation" className="nav-submenu">{adminPages.map(item => <button key={item} className={page === item ? "nav-item active" : "nav-item"} onClick={() => { setPage(item); setDetails(null); setMenuOpen(false); }}>{t(item === "administration" ? "systemStatus" : item)}</button>)}</div>}</>
-          : null}
-        <button className={page === "settings" ? "nav-item active" : "nav-item"} onClick={() => { setPage("settings"); setDetails(null); setMenuOpen(false); }}>{t("myAccount")}</button>
+
+  const navigatePage = (target: Page) => {
+    detailRequest.current += 1; setRequestedRun("");
+    setPage(target); setDetails(null); setMenuOpen(false);
+    if (target === "metrics") setMetricAllProjects(false);
+  };
+  const shellLink = (target: Page): ShellLink => ({
+    id: target, label: t(target === "settings" ? "myAccount" : target === "administration" ? "systemStatus" : target),
+    href: formatRoute(target === "overview" || target === "jobs" || target === "metrics" ?
+      { view: target, ...(selectedProject ? { project: selectedProject.id } : {}) } : { view: target as Exclude<Page, "overview" | "jobs" | "metrics" | "projectDetails"> }),
+    active: target === page || (target === "projects" && ["createProject", "importProject", "projectDetails"].includes(page)),
+    onNavigate: () => navigatePage(target),
+  });
+  const pageTitle = isAdmin && adminPages.includes(page) ? t(page === "administration" ? "systemStatus" : page) : t(page === "settings" ? "myAccount" : page);
+  const contextual = ["overview", "projectDetails", "jobs", "metrics"].includes(page);
+  const projectContext = projectsState === "ready" && contextual && selectedProject && !(page === "metrics" && allProjectScope) ?
+    <section className="project-context" aria-label={t("projectContext")}>
+      <div><span className="eyebrow">{t("projectContext")}</span><strong>{selectedProject.name}</strong><small>{selectedProject.repo}</small></div>
+      {page === "overview" && <label htmlFor="overview-project">{t("project")}<select id="overview-project" value={selected} onChange={event => { setDetails(null); setSelected(event.target.value); }}>{projects.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}
+      <nav aria-label={t("projectLinks")}>
+        <NavigationLink item={{ id: "project", label: t("projectDetails"), href: formatRoute({ view: "projectDetails", project: selectedProject.id, tab: "overview" }), active: page === "projectDetails", onNavigate: () => openProject(selectedProject.id) }} />
+        <NavigationLink item={shellLink("jobs")} /><NavigationLink item={shellLink("metrics")} />
       </nav>
-      <div className="sidebar-bottom"><span className="user-avatar">{session.user.username.charAt(0).toUpperCase()}</span><div><strong>{session.user.username}</strong><small>{t(session.user.role)}</small></div><button className="icon-button" onClick={signOut} title={t("logout")} aria-label={t("logout")}><Icon name="signOut" /></button></div>
-    </aside>
+    </section> : page === "metrics" && allProjectScope ? <p className="scope-note">{t("metricsAllProjects")} · {t("globalScopeHelp")}</p> : null;
 
-    <div className="workspace" inert={!!about}>
-      <header className="topbar"><h1 className="topbar-title" aria-label={isAdmin && adminPages.includes(page) ? `${t("administration")} / ${t(page === "administration" ? "systemStatus" : page)}` : t(page === "settings" ? "myAccount" : page)}><span className="topbar-brand">ADORE</span><span aria-hidden="true">/</span>{isAdmin && adminPages.includes(page) ? `${t("administration")} / ${t(page === "administration" ? "systemStatus" : page)}` : t(page === "settings" ? "myAccount" : page)}</h1>
-        <div className="top-actions">
-        <span className="refresh-stamp">{lastRefresh && `${t("lastRefresh")}: ${formatDate(lastRefresh.toISOString())}`}</span>
-        <button className="ghost" onClick={() => { void refreshProjects(); void refreshSelected(); void refreshJobPage(); setUsageRefresh(value => value + 1); }}>{t("refresh")}</button>
-        <button className="ghost" ref={aboutTrigger} onClick={() => request<typeof about>("/about").then(setAbout).catch(cause => setError(cause))}>{t("about")}</button>
-        <button className="ghost mobile-signout" onClick={signOut}>{t("logout")}</button>
-      </div></header>
+  return <DashboardShell t={t} title={pageTitle} links={nav.map(shellLink)} adminLinks={isAdmin ? adminPages.map(shellLink) : []}
+    account={shellLink("settings")} username={session.user.username} role={t(session.user.role)}
+    menuOpen={menuOpen} onMenu={() => setMenuOpen(open => !open)} adminOpen={adminMenuOpen} onAdmin={() => setAdminMenuOpen(open => !open)}
+    onSignOut={signOut} context={projectContext}
+    actions={<><span className="refresh-stamp">{lastRefresh && t("lastRefresh") + ": " + formatDate(lastRefresh.toISOString())}</span>
+      <button className="ghost" onClick={() => { void refreshProjects().catch(setError); void refreshSelected(); void refreshJobPage(); setUsageRefresh(value => value + 1); setViewRefresh(value => value + 1); setAuditRefresh(value => value + 1); if (page === "jobs" && requestedRun) void openRun(requestedRun); }}>{t("refresh")}</button>
+      <button className="ghost" ref={aboutTrigger} onClick={() => request<typeof about>("/about").then(setAbout).catch(cause => setError(cause))}>{t("about")}</button></>}
+    modal={about && <div className="modal-backdrop" onClick={closeAbout}><section role="dialog" aria-modal="true" aria-labelledby="adore-about-heading" className="modal" onClick={event => event.stopPropagation()} onKeyDown={event => { if (event.key === "Escape") closeAbout(); if (event.key === "Tab") { event.preventDefault(); aboutClose.current?.focus(); } }}><button className="ghost modal-close" ref={aboutClose} autoFocus onClick={closeAbout}>{t("close")}</button><div className="brand-mark">A</div><h2 id="adore-about-heading">{t("about")} ADORE</h2><p>{t("version")}: {about.version}</p><p>{t("license")}: {about.license}</p><pre className="license-text">{about.license_text}</pre><h3>{t("thirdPartyNotices")}</h3><pre className="license-text">{about.third_party_notices}</pre></section></div>}>
 
-      <main className="content">
         {error ? <div className="alert" role="alert">{describeError(locale, error)}<button onClick={() => setError("")} aria-label={t("close")}>×</button></div> : null}
         {notice && <div className="notice" role="status">{notice}<button onClick={() => setNotice("")} aria-label={t("close")}>×</button></div>}
         {operation && <div className="notice" role="status">{t("operationStatus")}: #{operation.id} · {operation.status}{operation.result ? ` · ${operation.result}` : ""}</div>}
-        {page === "overview" && <>
+        {["overview", "projects", "projectDetails", "jobs", "metrics"].includes(page) && projectsState !== "ready" && <DataFeedback state={projectsState} t={t} />}
+        {["overview", "projects", "projectDetails", "jobs", "metrics"].includes(page) && projectsState === "ready" && projects.length === 0 && <ProjectEmpty isAdmin={isAdmin} t={t} />}
+        {page === "overview" && projectsState === "ready" && projects.length > 0 && <>
+          <p className="scope-note">{t("overviewScopeHelp")}</p>
+          {selectedDataState !== "ready" ? <DataFeedback state={selectedDataState} t={t} /> : <>
           <div className="stats-grid">
             <OverviewCard label={t("allProjects")} value={formatNumber(projects.length)} hint={t("projectsYouCanAccess")} selected={overviewSection === "projects"} onClick={() => setOverviewSection(section => section === "projects" ? null : "projects")} />
             <OverviewCard label={t("activeJobs")} value={formatNumber(activeJobs)} hint={selectedProject ? t("projectHint").replace("{project}", selectedProject.name) : "—"} selected={overviewSection === "active"} onClick={() => setOverviewSection(section => section === "active" ? null : "active")} />
@@ -999,11 +1106,12 @@ export default function App() {
             <OverviewCard label={t("failedJobs")} value={formatNumber(failedJobs)} hint={selectedProject ? t("projectHint").replace("{project}", selectedProject.name) : "—"} selected={overviewSection === "failed"} onClick={() => setOverviewSection(section => section === "failed" ? null : "failed")} />
           </div>
           <section className="panel" id="overview-detail"><div className="panel-heading"><h2>{t(overviewSection === "projects" ? "allProjects" : overviewSection === "active" ? "activeJobs" : overviewSection === "review" ? "needsReview" : overviewSection === "failed" ? "failedJobs" : "recentJobs")}{overviewSection && overviewSection !== "projects" && selectedProject ? ` · ${selectedProject.name}` : ""}</h2>{overviewSection !== "projects" && <button className="text-button" onClick={() => setPage("jobs")}>{t("view")} →</button>}</div>
-            {overviewSection === "projects" ? projects.length ? <PagedTable t={t}><table><thead><tr><th>{t("project")}</th><th>{t("repository")}</th><th>{t("status")}</th><th>{t("jobs")}</th><th>{t("actions")}</th></tr></thead><tbody>{projects.map(item => <tr key={item.id} className={item.id === selected ? "overview-project-selected" : ""}><td className="strong"><button className="text-button" aria-current={item.id === selected ? "true" : undefined} onClick={() => setSelected(item.id)}>{item.name}</button></td><td>{item.repo}</td><td>{t(item.readiness === "configured" ? "configured" : item.readiness === "needs-config" ? "needsConfig" : item.readiness === "invalid-state" ? "invalidState" : item.readiness === "archived" ? "archived" : "paused")}</td><td>{item.runs}</td><td><button className="text-button" onClick={() => openProject(item.id)}>{t("view")} →</button></td></tr>)}</tbody></table></PagedTable> : <Empty label={t("noProjects")} /> : <><RunTable runs={overviewSection ? overviewRuns : runs.slice(0, 7)} t={t} formatDate={formatDate} project={selected} onOpen={openJob} />{overviewSection && <ServerPager t={t} total={overviewTotal} size={overviewPageSize} offset={overviewOffset} onSize={setOverviewPageSize} onOffset={setOverviewOffset} />}</>}
+            {overviewSection === "projects" ? projects.length ? <PagedTable t={t}><table><thead><tr><th>{t("project")}</th><th>{t("repository")}</th><th>{t("status")}</th><th>{t("jobs")}</th><th>{t("actions")}</th></tr></thead><tbody>{projects.map(item => <tr key={item.id} className={item.id === selected ? "overview-project-selected" : ""}><td className="strong"><button className="text-button" aria-current={item.id === selected ? "true" : undefined} onClick={() => setSelected(item.id)}>{item.name}</button></td><td>{item.repo}</td><td>{t(item.readiness === "configured" ? "configured" : item.readiness === "needs-config" ? "needsConfig" : item.readiness === "invalid-state" ? "invalidState" : item.readiness === "archived" ? "archived" : "paused")}</td><td>{item.runs}</td><td><button className="text-button" onClick={() => openProject(item.id)}>{t("view")} →</button></td></tr>)}</tbody></table></PagedTable> : <Empty label={t("noProjects")} /> : <>{overviewSection && overviewDataState !== "ready" ? <DataFeedback state={overviewDataState} t={t} /> : <><RunTable runs={overviewSection ? overviewRuns : runs.slice(0, 7)} t={t} formatDate={formatDate} project={selected} onOpen={openJob} />{overviewSection && <ServerPager t={t} total={overviewTotal} size={overviewPageSize} offset={overviewOffset} onSize={setOverviewPageSize} onOffset={setOverviewOffset} />}</>}</>}
           </section>
+          </>}
         </>}
 
-        {page === "projects" && <>
+        {page === "projects" && projectsState === "ready" && <>
           <div className="section-actions">{isAdmin && <><button className="primary" onClick={() => { setError(""); setPage("createProject"); }}>{t("createProject")}</button><button className="ghost" onClick={() => { setError(""); setPage("importProject"); }}>{t("importProject")}</button></>}</div>
           {deleteTarget && <section className="panel delete-confirm" aria-labelledby="delete-project-title">
             <h2 id="delete-project-title">{t("deleteProjectTitle").replace("{project}", deleteTarget.name)}</h2>
@@ -1024,14 +1132,14 @@ export default function App() {
               <th>{t("actions")}</th>
             </tr></thead><tbody>{sortedProjects.map(item => <tr key={item.id}>
               <td className="strong"><RouteLink to={formatRoute({ view: "projectDetails", project: item.id, tab: "overview" })} onNavigate={() => openProject(item.id)}>{item.name}</RouteLink></td><td>{item.repo}</td>
-              <td><span className={`status status-${item.readiness}`}>{projectStatusLabel(item)}</span></td>
+              <td><StatusBadge code={item.readiness}>{projectStatusLabel(item)}</StatusBadge></td>
               <td>{item.runs}</td><td>{item.last_activity ? formatDate(item.last_activity) : "\u2014"}</td>
               <td><div className="project-row-actions"><button className="text-button" onClick={() => openProject(item.id)}>{t("view")}</button>
                 {isAdmin && <>{!item.archived && <button className="text-button" onClick={() => void operate(item.paused ? "resume" : "pause", "", item.id)}>{t(item.paused ? "resume" : "pause")}</button>}
                   <button className="text-button" onClick={() => void setProjectArchive(!item.archived, item.id)}>{t(item.archived ? "restoreProject" : "archiveProject")}</button>
                   {item.archived && <button className="text-button danger-text" onClick={() => { setError(""); setDeleteName(""); setDeleteTarget(item); }}>{t("deleteProject")}</button>}</>}
               </div></td>
-            </tr>)}</tbody></table></PagedTable> : <Empty label={t("noProjects")} />}
+            </tr>)}</tbody></table></PagedTable> : null}
           </section>
         </>}
 
@@ -1065,22 +1173,23 @@ export default function App() {
           {importPreview && <section className="panel import-preview"><h2>{t("importPreview")}</h2><p>{importFileName} · {importPreview.platform || "—"} · {importPreview.repo || "—"} · {importPreview.runtime || "—"}</p>{importPreview.store_root && <p className="muted">{t("stateRoot")}: {importPreview.store_root}</p>}<p className="muted">{t("importUnchanged")}</p>{importPreview.issues.length ? <ul>{importPreview.issues.map((issue, index) => <li key={`${issue}-${index}`}>{issue}</li>)}</ul> : <button className="primary" onClick={() => void importProject()}>{t("importProject")}</button>}</section>}
         </>}
 
-        {page === "projectDetails" && selectedProject && <>
-          <section className="panel"><div className="panel-heading"><h2>{selectedProject.name}</h2><span className={`status status-${selectedProject.readiness}`}>{t(selectedProject.readiness === "configured" ? "configured" : selectedProject.readiness === "needs-config" ? "needsConfig" : selectedProject.readiness === "invalid-state" ? "invalidState" : selectedProject.readiness === "archived" ? "archived" : "paused")}</span></div><p>{selectedProject.description || selectedProject.repo}</p><div className="project-metadata"><div className="project-meta">{t("forge")}: {selectedProject.platform} · {t("repository")}: {selectedProject.repo}</div><div className="project-meta">{t("runtime")}: {selectedProject.runtime} · {t("executor")}: {selectedProject.executor || "—"}</div><div className="project-meta">{t("lastActivity")}: {selectedProject.last_activity ? formatDate(selectedProject.last_activity) : "—"}</div></div><nav className="project-links" aria-label={t("projectLinks")}><RouteLink to={formatRoute({ view: "jobs", project: selectedProject.id })} onNavigate={() => { setDetails(null); setPage("jobs"); }}>{t("jobs")} →</RouteLink><RouteLink to={formatRoute({ view: "metrics", project: selectedProject.id })} onNavigate={() => { setMetricAllProjects(false); setPage("metrics"); }}>{t("metrics")} →</RouteLink></nav></section>
+        {page === "projectDetails" && projectsState === "ready" && selectedProject && <>
+          <section className="panel"><div className="panel-heading"><h2>{selectedProject.name}</h2><StatusBadge code={selectedProject.readiness}>{t(selectedProject.readiness === "configured" ? "configured" : selectedProject.readiness === "needs-config" ? "needsConfig" : selectedProject.readiness === "invalid-state" ? "invalidState" : selectedProject.readiness === "archived" ? "archived" : "paused")}</StatusBadge></div><p>{selectedProject.description || selectedProject.repo}</p><div className="project-metadata"><div className="project-meta">{t("forge")}: {selectedProject.platform} · {t("repository")}: {selectedProject.repo}</div><div className="project-meta">{t("runtime")}: {selectedProject.runtime} · {t("executor")}: {selectedProject.executor || "—"}</div><div className="project-meta">{t("lastActivity")}: {selectedProject.last_activity ? formatDate(selectedProject.last_activity) : "—"}</div></div><nav className="project-links" aria-label={t("projectLinks")}><RouteLink to={formatRoute({ view: "jobs", project: selectedProject.id })} onNavigate={() => { setDetails(null); setPage("jobs"); }}>{t("jobs")} →</RouteLink><RouteLink to={formatRoute({ view: "metrics", project: selectedProject.id })} onNavigate={() => { setMetricAllProjects(false); setPage("metrics"); }}>{t("metrics")} →</RouteLink></nav></section>
           <div className="metrics-tabs project-tabs" role="tablist" aria-label={t("projectSections")}>
             {projectTabs.map(tab => <button key={tab} id={`project-tab-${tab}`} type="button" role="tab" aria-controls="project-tab-panel" aria-selected={projectTab === tab} tabIndex={projectTab === tab ? 0 : -1} onClick={() => setProjectTab(tab)} onKeyDown={event => onProjectTabKeyDown(event, tab)}>{t(tab === "overview" ? "projectOverviewTab" : tab === "configuration" ? "config" : tab === "prices" ? "prices" : "projectAccessTab")}</button>)}
           </div>
           <div id="project-tab-panel" role="tabpanel" aria-labelledby={`project-tab-${projectTab}`}>
           {projectTab === "overview" && <>
           {isAdmin && <section className="panel"><div className="panel-heading"><h2>{t("hostReadiness")}</h2><button className="ghost" onClick={() => void checkProjectReadiness()}>{t("runReadinessCheck")}</button></div><p className="muted">{t("hostReadinessHelp")}</p>{projectReadiness && <><p className="muted">{t("checkedAt")}: {formatDate(projectReadiness.checked_at)}</p><div className="detail-grid">{Object.entries(projectReadiness.checks).map(([key, value]) => <span key={key}>{t(({ git: "gitTool", forge_cli: "forgeCli", forge_auth: "forgeAuth", container_runtime: "containerRuntime", executor_cli: "executorCli", aegis_files: "aegisPayload", model_endpoint: "modelEndpoint" } as Record<string, MessageKey>)[key])}: <strong>{value === true ? t("checkPassed") : value === false ? t("checkMissing") : t("checkUnverified")}</strong></span>)}</div>{projectReadiness.model_probe && <p className="muted">{t("modelEndpoint")}: {modelReason(projectReadiness.model_probe.reason)}{projectReadiness.model_probe.model ? ` (${projectReadiness.model_probe.model})` : ""}</p>}</>}</section>}
-          <section className="panel"><div className="panel-heading"><h2>{t("recentJobs")}</h2><button className="text-button" onClick={() => setPage("jobs")}>{t("view")} →</button></div><RunTable runs={runs} t={t} formatDate={formatDate} project={selected} onOpen={openJob} /></section>
+          <section className="panel"><div className="panel-heading"><h2>{t("recentJobs")}</h2><button className="text-button" onClick={() => setPage("jobs")}>{t("view")} →</button></div>{selectedDataState === "ready" ? <RunTable runs={runs} t={t} formatDate={formatDate} project={selected} onOpen={openJob} /> : <DataFeedback state={selectedDataState} t={t} />}</section>
           </>}
           {projectTab === "configuration" && <>
+          {configDataState !== "ready" && <DataFeedback state={configDataState} t={t} />}
           {projectConfig && <SettingsList key={`${selected}-${projectConfig.revision}`} config={projectConfig.config} settings={projectConfig.settings || []} t={t} locale={locale} canEdit={isAdmin} disabled={!!projectPendingConfig} onStage={stageSetting} />}
           {isAdmin && selected && projectConfig && (projectConfig.config.executor as { default?: string } | undefined)?.default === "opencode" && <section className="panel wide-panel"><h2>{t("localEndpoint")}</h2><p className="muted">{t("localEndpointHelp")}</p><p className="muted">{t("localProviderHelp")}</p>{(projectConfig.config.executor as { default?: string } | undefined)?.default === "opencode" && <form key={`${selected}-${projectConfig.revision}`} className="inline-form config-form" onSubmit={saveEndpoint}><FormLegend t={t} /><Field name="model" label={t("model")} defaultValue={(projectConfig.config.executor as { commands?: { opencode?: { model?: string } } }).commands?.opencode?.model || ""} required /><Field name="endpoint" label={t("localEndpoint")} type="url" defaultValue={(projectConfig.config.container as { runtime_env?: { OPENAI_BASE_URL?: string } } | undefined)?.runtime_env?.OPENAI_BASE_URL || ""} required /><label>{t("endpointAuth")}<select name="auth_env"><option value="">{t("none")}</option><option value="OPENAI_API_KEY">OPENAI_API_KEY</option></select></label><label>{t("endpointProtocol")}<select name="protocol"><option value="openai-chat-completions">OpenAI chat completions</option></select></label><Field name="timeout_seconds" label={t("endpointTimeout")} type="number" defaultValue={String(projectConfig.local_endpoint_timeout_seconds || 300)} required /><Field name="ca_file" label={t("endpointCa")} defaultValue={(projectConfig.config.container as { runtime_env?: { NODE_EXTRA_CA_CERTS?: string } } | undefined)?.runtime_env?.NODE_EXTRA_CA_CERTS || ""} /><button className="primary" disabled={!!projectPendingConfig}>{t("stageChange")}</button></form>}</section>}
-          {isAdmin && selected && <section className="panel wide-panel" id="project-config-editor"><h2>{t("config")}</h2>{projectConfig ? <><p className="muted">{t("revision")}: {projectConfig.revision.slice(0, 12)}</p>{projectConfig.issues.length > 0 && <div className="alert">{projectConfig.issues.join(" · ")}</div>}{!projectPendingConfig && <p className="muted">{t("configEditHint")}</p>}{projectPendingConfig &&<div className="import-preview" role="status"><h3>{t("pendingChange")}</h3><p>{projectPendingConfig.key}: {projectPendingConfig.value}</p>{projectPendingConfig.endpoint && <div className="detail-grid"><span>{t("endpointProtocol")}: {projectPendingConfig.endpoint.protocol}</span><span>{t("model")}: {projectPendingConfig.endpoint.model}</span><span>{t("endpointTimeout")}: {projectPendingConfig.endpoint.timeout_seconds ?? "—"}</span><span>{t("endpointAuth")}: {projectPendingConfig.endpoint.auth_env || "—"}</span><span>{t("endpointCa")}: {projectPendingConfig.endpoint.ca_file || "—"}</span></div>}<p className="muted">{t("revision")}: {projectPendingConfig.candidate_revision.slice(0, 12)}</p><p className="muted">{projectPendingConfig.restart_required ? t("pendingRestartHelp") : t("pendingApplyHelp")}</p><div className="button-row"><button className="primary" onClick={() => void applyPendingConfig()}>{t("apply")}</button><button className="ghost" onClick={() => void discardPendingConfig()}>{t("discardChange")}</button></div></div>}<details><summary>{t("rawConfig")}</summary><pre className="config-preview">{JSON.stringify(projectConfig.config, null, 2)}</pre></details></> : <Empty label={t("empty")} />}</section>}
+          {isAdmin && selected && <section className="panel wide-panel" id="project-config-editor"><h2>{t("config")}</h2>{projectConfig ? <><p className="muted">{t("revision")}: {projectConfig.revision.slice(0, 12)}</p>{projectConfig.issues.length > 0 && <div className="alert">{projectConfig.issues.join(" · ")}</div>}{!projectPendingConfig && <p className="muted">{t("configEditHint")}</p>}{projectPendingConfig &&<div className="import-preview" role="status"><h3>{t("pendingChange")}</h3><p>{projectPendingConfig.key}: {projectPendingConfig.value}</p>{projectPendingConfig.endpoint && <div className="detail-grid"><span>{t("endpointProtocol")}: {projectPendingConfig.endpoint.protocol}</span><span>{t("model")}: {projectPendingConfig.endpoint.model}</span><span>{t("endpointTimeout")}: {projectPendingConfig.endpoint.timeout_seconds ?? "—"}</span><span>{t("endpointAuth")}: {projectPendingConfig.endpoint.auth_env || "—"}</span><span>{t("endpointCa")}: {projectPendingConfig.endpoint.ca_file || "—"}</span></div>}<p className="muted">{t("revision")}: {projectPendingConfig.candidate_revision.slice(0, 12)}</p><p className="muted">{projectPendingConfig.restart_required ? t("pendingRestartHelp") : t("pendingApplyHelp")}</p><div className="button-row"><button className="primary" onClick={() => void applyPendingConfig()}>{t("apply")}</button><button className="ghost" onClick={() => void discardPendingConfig()}>{t("discardChange")}</button></div></div>}<details><summary>{t("rawConfig")}</summary><pre className="config-preview">{JSON.stringify(projectConfig.config, null, 2)}</pre></details></> : null}</section>}
           </>}
-          {projectTab === "access" && isAdmin && selected && <ProjectAccess key={selected} project={selected} csrf={session?.csrf} t={t} onError={setError} onNotice={setNotice} />}
+          {projectTab === "access" && isAdmin && selected && <ProjectAccess key={selected + ":" + viewRefresh} project={selected} csrf={session?.csrf} t={t} onError={setError} onNotice={setNotice} />}
           {projectTab === "prices" && isAdmin && <>
           {isAdmin && selected && <section className="panel wide-panel"><h2>{t("estimatedPrices")}</h2><p className="muted">{t("priceHelp")}</p>
             <form key={selected} className="form-grid" onSubmit={savePrice}><FormLegend t={t} /><label>{t("executor")}<select name="executor" defaultValue={["codex", "opencode", "pi", "qwen"].includes(selectedProject?.executor || "") ? selectedProject?.executor : "codex"}><option value="codex">codex</option><option value="opencode">opencode</option><option value="pi">pi</option><option value="qwen">qwen</option></select></label><Field name="model" label={t("model")} required /><label><span>{t("effectiveFrom")}<RequiredMark /></span><input name="effective_from" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required /></label><label><span>{t("inputRate")}<RequiredMark /></span><input name="input_usd_per_million" type="number" min="0" max="1000000" step="0.000001" required /></label><label><span>{t("outputRate")}<RequiredMark /></span><input name="output_usd_per_million" type="number" min="0" max="1000000" step="0.000001" required /></label><button className="primary form-submit" type="submit">{t("save")}</button></form>
@@ -1090,9 +1199,10 @@ export default function App() {
           </div>
         </>}
 
-        {page === "jobs" && <>
+        {page === "jobs" && projectsState === "ready" && selectedProject && <>
+          <p className="scope-note">{t("jobsScopeHelp")}</p>
           {projects.length > 0 && <section className="panel compact"><form className="inline-form job-start-form" onSubmit={event => { event.preventDefault(); if (selectedProject && !selectedProject.archived) void operate("start", ticket); }}><FormLegend t={t} />
-            <label htmlFor="jobs-project">{t("project")}<select id="jobs-project" value={selected} onChange={event => { setTicket(""); setDetails(null); setSelected(event.target.value); }}>{projects.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+            <label htmlFor="jobs-project">{t("project")}<select id="jobs-project" value={selected} onChange={event => { detailRequest.current += 1; setRequestedRun(""); setTicket(""); setDetails(null); setSelected(event.target.value); }}>{projects.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
             {selectedProject && !selectedProject.archived && <><GuidedField id="job-ticket-number" label={t("ticketNumber")} help={t("ticketNumberHelp")} helpLabel={t("settingHelp")}><input id="job-ticket-number" type="number" min="1" step="1" placeholder={example("42")} value={ticket} onChange={event => setTicket(event.target.value)} required /></GuidedField><button className="primary" type="submit">{t("start")}</button></>}
           </form></section>}
           <section className="panel">
@@ -1104,10 +1214,12 @@ export default function App() {
               <GuidedField id="jobs-outcome-filter" label={t("outcomeContains")} help={t("outcomeContainsHelp")} helpLabel={t("settingHelp")}><input id="jobs-outcome-filter" type="search" maxLength={80} placeholder={example("EXECUTOR_TIMEOUT")} value={jobOutcome} onChange={event => setJobOutcome(event.target.value)} /></GuidedField>
             </div>
             </div>
+            {jobDataState !== "ready" ? <DataFeedback state={jobDataState} t={t} /> : <>
             <RunTable runs={jobPage.items} t={t} formatDate={formatDate} project={selected} onOpen={openRun} emptyLabel={jobLifecycle || jobStage || jobExecutor.trim() || jobUpdatedFrom || jobUpdatedTo || jobOutcome.trim() ? t("noMatchingJobs") : t("noJobs")} />
-            <ServerPager t={t} total={jobPage.total} size={jobPageSize} offset={jobOffset} onSize={setJobPageSize} onOffset={setJobOffset} />
+            <ServerPager t={t} total={jobPage.total} size={jobPageSize} offset={jobOffset} onSize={setJobPageSize} onOffset={setJobOffset} /></>}
           </section>
-          {details && <section className="panel detail-panel"><div className="panel-heading"><h2>{t("ticket")} #{details.run.ticket_iid}</h2><button className="ghost" onClick={() => setDetails(null)}>{t("close")}</button></div>
+          {requestedRun && detailState !== "ready" && <DataFeedback state={detailState} t={t} />}
+          {details && <section className="panel detail-panel"><div className="panel-heading"><h2>{t("ticket")} #{details.run.ticket_iid}</h2><button className="ghost" onClick={() => { detailRequest.current += 1; setRequestedRun(""); setDetails(null); }}>{t("close")}</button></div>
             <div className="detail-grid"><span>{t("status")}: <strong>{displayCode(details.run.lifecycle, lifecycleLabels, t)}</strong></span><span>{t("stage")}: <strong>{displayCode(details.run.stage, stageLabels, t)}</strong></span><span>{t("reviewRounds")}: <strong>{details.run.review_rounds}</strong></span><span>{t("attempts")}: <strong>{details.run.stage_failures}</strong></span></div>
             <div className="button-row">{!projects.find(project => project.id === selected)?.archived && details.run.lifecycle === "failed" && <button className="ghost" onClick={() => operate("retry", details.run.run_id)}>{t("retry")}</button>}{!projects.find(project => project.id === selected)?.archived && !["done", "failed", "cancelled", "handoff-pending", "handed-off"].includes(details.run.lifecycle) && <button className="danger" onClick={() => operate("cancel", details.run.run_id)}>{t("cancel")}</button>}{details.run.mr_url && <a className="ghost link-button" href={details.run.mr_url} target="_blank" rel="noreferrer">{t("draft")} ↗</a>}</div>
             <h3>{t("timeline")}</h3>
@@ -1115,12 +1227,13 @@ export default function App() {
           </section>}
         </>}
 
-        {page === "metrics" && <>
+        {page === "metrics" && projectsState === "ready" && projects.length > 0 && <>
         <section className="panel compact metrics-period"><div className="panel-heading"><h2>{t("reportingPeriod")}</h2>{(selected || isAdmin) && <details className="metrics-export"><summary className="ghost metrics-export-trigger">{t("exportCsv")}</summary><div className="metrics-export-links">{!allProjectScope && selected && <><a href={`/api/v1/projects/${encodeURIComponent(selected)}/metrics.csv${metricSuffix}`}>{t("projectMetricsExport")}</a><a href={`/api/v1/projects/${encodeURIComponent(selected)}/usage.csv${usageSuffix}`}>{t("projectUsageExport")}</a></>}{allProjectScope && <><a href={`/api/v1/metrics.csv${metricSuffix}`}>{t("allMetricsExport")}</a><a href={`/api/v1/usage.csv${usageSuffix}`}>{t("allUsageExport")}</a></>}</div></details>}</div><div className="job-filters">{projects.length > 0 && <label className="metrics-project-filter" htmlFor="metrics-project">{t("project")}<select id="metrics-project" value={allProjectScope ? "" : selected} onChange={event => { setMetricAllProjects(event.target.value === ""); if (event.target.value) setSelected(event.target.value); }}>{isAdmin && <option value="">{t("metricsAllProjects")}</option>}{projects.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}<label>{t("dateFromLocal")}<input type="date" value={metricFrom} max={metricTo || undefined} onChange={event => setMetricFrom(event.target.value)} /></label><label>{t("dateToLocal")}<input type="date" value={metricTo} min={metricFrom || undefined} onChange={event => setMetricTo(event.target.value)} /></label><label>{t("reportingTimezone")}<select value={metricTimezone} onChange={event => setMetricTimezone(event.target.value)}><option value="UTC">UTC</option><option value="Europe/Bucharest">Europe/Bucharest</option><option value="Europe/Paris">Europe/Paris</option><option value="Europe/Berlin">Europe/Berlin</option><option value="America/New_York">America/New_York</option></select></label><label>{t("trendGranularity")}<select value={metricGranularity} onChange={event => setMetricGranularity(event.target.value as "day" | "week" | "month")}><option value="day">{t("byDay")}</option><option value="week">{t("byWeek")}</option><option value="month">{t("byMonth")}</option></select></label></div><p className="muted">{t("metricsScopeHelp")} {t("reportingScopeHelp")}</p></section>
         <div className="metrics-tabs" role="tablist" aria-label={t("metrics")}>
           {metricsTabs.map(tab => <button key={tab} id={`metrics-tab-${tab}`} type="button" role="tab" aria-controls="metrics-tab-panel" aria-selected={metricsTab === tab} tabIndex={metricsTab === tab ? 0 : -1} onClick={() => setMetricsTab(tab)} onKeyDown={event => onMetricsTabKeyDown(event, tab)}>{t(metricsTabLabels[tab])}</button>)}
         </div>
         <div id="metrics-tab-panel" role="tabpanel" aria-labelledby={`metrics-tab-${metricsTab}`} tabIndex={0}>
+        {(metricsTab === "usage" ? usageDataState : metricDataState) !== "ready" ? <DataFeedback state={metricsTab === "usage" ? usageDataState : metricDataState} t={t} /> : <>
         {metricsTab === "usage" && <>
         <section className="panel"><div className="panel-heading usage-heading"><h2>{t("attributedUsage")}</h2>{isAdmin && <button className="ghost" onClick={() => void rebuildUsage()}>{t("rebuildUsage")}</button>}</div>
           <div className="job-filters"><label>{t("executor")}<input type="search" maxLength={200} value={usageExecutor} onChange={event => setUsageExecutor(event.target.value)} /></label><label>{t("model")}<input type="search" maxLength={200} value={usageModel} onChange={event => setUsageModel(event.target.value)} /></label></div>
@@ -1225,6 +1338,7 @@ export default function App() {
           <h3>{scopeLabel} {trendTitle}</h3>
           <PagedTable t={t}><table><thead><tr><th>{t("date")}</th><th>{t("estimatedCost")}</th></tr></thead><tbody>{metrics?.daily.map(day => <tr key={day.date}><td>{day.date}</td><td>{formatMoney(day.estimated_cost_usd)}</td></tr>)}</tbody></table></PagedTable>
         </section>}</>}
+        </>}
         </div></>}
 
         {page === "administration" && isAdmin && <div className="two-column">
@@ -1234,7 +1348,7 @@ export default function App() {
 
         {page === "adminUsers" && isAdmin && <div className="two-column">
           <section className="panel"><h2>{t("createUser")}</h2><form className="form-stack" onSubmit={createUser}><FormLegend t={t} /><Field name="username" label={t("username")} required /><Field name="password" label={t("password")} type="password" required minLength={8} hint={t("passwordRule")} /><label>{t("role")}<select name="role"><option value="developer">{t("developer")}</option><option value="admin">{t("admin")}</option></select></label><button className="primary">{t("createUser")}</button></form></section>
-          <section className="panel"><h2>{t("userAccounts")}</h2><div className="user-list">{users.map(item =>
+          <section className="panel"><h2>{t("userAccounts")}</h2>{usersState !== "ready" ? <DataFeedback state={usersState} t={t} /> : users.length === 0 ? <Empty label={t("empty")} /> : <div className="user-list">{users.map(item =>
             <div className="user-row" key={item.id}>
               <span className="user-avatar">{item.username.charAt(0).toUpperCase()}</span>
               <div><strong>{item.username}</strong><small>{t(item.role)}{item.disabled ? ` · ${t("disable")}` : ""}</small></div>
@@ -1248,23 +1362,20 @@ export default function App() {
               <button type="button" className="ghost" onClick={() => setResetTarget(resetTarget === item.id ? null : item.id)}>{t("resetPassword")}</button>
               {resetTarget === item.id && <form className="inline-form" onSubmit={event => resetUserPassword(event, item.id)}><FormLegend t={t} /><Field name="replacement" label={t("newPassword")} type="password" required minLength={8} hint={t("passwordRule")} /><button className="primary">{t("save")}</button></form>}
             </div>
-          )}</div></section>
+          )}</div>}</section>
         </div>}
 
         {page === "adminAudit" && isAdmin && <div className="two-column">
           <section className="panel wide-panel"><h2>{t("auditRetention")}</h2><p className="muted">{t("auditRetentionHelp")}</p>{auditPolicy && <form key={`${auditPolicy.retention_days}-${auditPolicy.max_bytes}`} className="inline-form audit-policy-form" onSubmit={saveAuditPolicy}><label>{t("auditDays")}<input name="retention_days" type="number" min="0" max="36500" step="1" defaultValue={auditPolicy.retention_days ?? 0} /></label><label>{t("auditMib")}<input name="max_mib" type="number" min="0" max="1024" step="any" defaultValue={auditPolicy.max_bytes == null ? 0 : auditPolicy.max_bytes / 1024**2} /></label><button className="primary" type="submit">{t("save")}</button></form>}</section>
           <section className="panel wide-panel"><div className="panel-heading"><h2>{t("auditTrail")}</h2><button className="ghost" onClick={() => setAuditRefresh(current => current + 1)}>{t("refresh")}</button></div>
-            {auditRows.length ? <><div className="table-scroll"><table><thead><tr><th>{t("date")}</th><th>{t("actor")}</th><th>{t("action")}</th><th>{t("project")}</th><th>{t("detail")}</th></tr></thead><tbody>{auditRows.map(row => <tr key={row.id}><td>{formatDate(row.created_at)}</td><td>{row.actor || "—"}</td><td>{row.action}</td><td>{row.project || "—"}</td><td>{row.detail || "—"}</td></tr>)}</tbody></table></div><ServerPager t={t} total={auditTotal} size={auditPageSize} offset={auditOffset} onSize={setAuditPageSize} onOffset={setAuditOffset} /></> : <Empty label={t("empty")} />}
+            {auditState !== "ready" ? <DataFeedback state={auditState} t={t} /> : auditRows.length ? <><div className="table-scroll"><table><thead><tr><th>{t("date")}</th><th>{t("actor")}</th><th>{t("action")}</th><th>{t("project")}</th><th>{t("detail")}</th></tr></thead><tbody>{auditRows.map(row => <tr key={row.id}><td>{formatDate(row.created_at)}</td><td>{row.actor || "—"}</td><td>{row.action}</td><td>{row.project || "—"}</td><td>{row.detail || "—"}</td></tr>)}</tbody></table></div><ServerPager t={t} total={auditTotal} size={auditPageSize} offset={auditOffset} onSize={setAuditPageSize} onOffset={setAuditOffset} /></> : <Empty label={t("empty")} />}
           </section>
         </div>}
 
-        {page === "settings" && <div className="two-column"><section className="panel"><h2>{t("appearance")}</h2><div className="form-stack"><label>{t("language")}<select value={locale} onChange={event => updatePreference("language", event.target.value)}>{Object.entries(localeNames).map(([key, value]) => <option key={key} value={key}>{value}</option>)}</select></label><label>{t("theme")}<select value={theme} onChange={event => updatePreference("theme", event.target.value)}><option value="system">{t("system")}</option><option value="light">{t("light")}</option><option value="dark">{t("dark")}</option></select></label></div></section><section className="panel"><h2>{t("changePassword")}</h2><form className="form-stack" onSubmit={changePassword}><FormLegend t={t} /><Field name="current" label={t("currentPassword")} type="password" required /><Field name="replacement" label={t("newPassword")} type="password" required minLength={8} hint={t("passwordRule")} /><button className="primary">{t("save")}</button></form></section>
+        {page === "settings" && <div className="two-column"><section className="panel"><h2>{t("appearance")}</h2><div className="form-stack"><label>{t("language")}<select aria-label={t("language")} value={locale} onChange={event => updatePreference("language", event.target.value)}>{Object.entries(localeNames).map(([key, value]) => <option key={key} value={key}>{value}</option>)}</select></label><label>{t("theme")}<select aria-label={t("theme")} value={theme} onChange={event => updatePreference("theme", event.target.value)}><option value="system">{t("system")}</option><option value="light">{t("light")}</option><option value="dark">{t("dark")}</option></select></label></div></section><section className="panel"><h2>{t("changePassword")}</h2><form className="form-stack" onSubmit={changePassword}><FormLegend t={t} /><Field name="current" label={t("currentPassword")} type="password" required /><Field name="replacement" label={t("newPassword")} type="password" required minLength={8} hint={t("passwordRule")} /><button className="primary">{t("save")}</button></form></section>
         </div>}
-      </main>
-    </div>
-
-    {about && <div className="modal-backdrop" onClick={closeAbout}><section role="dialog" aria-modal="true" aria-labelledby="adore-about-heading" className="modal" onClick={event => event.stopPropagation()} onKeyDown={event => { if (event.key === "Escape") closeAbout(); if (event.key === "Tab") { event.preventDefault(); aboutClose.current?.focus(); } }}><button className="ghost modal-close" ref={aboutClose} autoFocus onClick={closeAbout}>{t("close")}</button><div className="brand-mark">A</div><h2 id="adore-about-heading">{t("about")} ADORE</h2><p>{t("version")}: {about.version}</p><p>{t("license")}: {about.license}</p><pre className="license-text">{about.license_text}</pre><h3>{t("thirdPartyNotices")}</h3><pre className="license-text">{about.third_party_notices}</pre></section></div>}
-  </div>;
+    <DeliveryGlossary t={t} />
+  </DashboardShell>;
 }
 
 function Stat({ label, value, hint }: { label: string; value: string; hint: string }) {
@@ -1321,9 +1432,9 @@ function Field({ name, label, type = "text", required = false, defaultValue, hin
   return <label><span>{label}{required && <RequiredMark />}</span><input name={name} type={type} required={required} defaultValue={defaultValue} minLength={minLength} />{hint && <small className="field-hint">{hint}</small>}</label>;
 }
 
-function GuidedField({ id, label, help, helpLabel, children }: { id: string; label: string; help: string; helpLabel: string; children: ReactNode }) {
+function GuidedField({ id, label, help, children }: { id: string; label: string; help: string; helpLabel: string; children: ReactNode }) {
   const required = Children.toArray(children).some(child => isValidElement<{ required?: boolean }>(child) && !!child.props.required);
-  return <div className="guided-field"><div className="guided-label"><label htmlFor={id}>{label}{required && <RequiredMark />}</label><details className="guided-help"><summary>{helpLabel}</summary><p>{help}</p></details></div>{children}</div>;
+  return <div className="guided-field"><div className="guided-label"><label htmlFor={id}>{label}{required && <RequiredMark />}</label></div>{Children.map(children, child => isValidElement<{ id?: string; "aria-describedby"?: string }>(child) && child.props.id === id ? cloneElement(child, { "aria-describedby": [child.props["aria-describedby"], id + "-help"].filter(Boolean).join(" ") }) : child)}<p id={id + "-help"} className="field-hint">{help}</p></div>;
 }
 
 type ProjectDeveloper = { id: number; username: string; disabled: boolean; granted: boolean };
@@ -1354,7 +1465,7 @@ function ProjectAccess({ project, csrf, t, onError, onNotice }: { project: strin
     } catch (cause) { if (mounted.current) onError(cause); } finally { if (mounted.current) setBusy(false); }
   };
   return <section className="panel wide-panel"><h2>{t("projectAccessTab")}</h2><p className="muted">{t("projectAccessHelp")}</p>
-    {developers === null ? (failed ? <p className="empty">{t("empty")}</p> : <p className="muted">{t("loadingDevelopers")}</p>) : (developers.length === 0 ? <p className="empty">{t("noDevelopers")}</p> : <div className="user-list">{developers.map(developer =>
+    {developers === null ? <DataFeedback state={failed ? "error" : "loading"} t={t} /> : (developers.length === 0 ? <p className="empty">{t("noDevelopers")}</p> : <div className="user-list">{developers.map(developer =>
       <div className="user-row" key={developer.id}>
         <span className="user-avatar">{developer.username.charAt(0).toUpperCase()}</span>
         <div><strong>{developer.username}</strong><small>{t("developer")}{developer.disabled ? ` · ${t("accountDisabled")}` : ""}</small></div>
@@ -1423,6 +1534,6 @@ function ServerPager({ t, total, size, offset, onSize, onOffset }: { t: (key: Me
 
 function RunTable({ runs, t, formatDate, onOpen, emptyLabel, project }: { runs: Run[]; t: (key: MessageKey) => string; formatDate: (value: string) => string; onOpen: (id: string) => void; emptyLabel?: string; project: string }) {
   if (!runs.length) return <Empty label={emptyLabel || t("noJobs")} />;
-  const table = <table><thead><tr><th>{t("ticket")}</th><th>{t("status")}</th><th>{t("stage")}</th><th>{t("updated")}</th><th>{t("actions")}</th></tr></thead><tbody>{runs.map(run => <tr key={run.run_id}><td className="strong"><RouteLink to={formatRoute({ view: "jobs", project, run: run.run_id })} onNavigate={() => onOpen(run.run_id)}>#{run.ticket_iid}</RouteLink></td><td><span className={`status status-${run.lifecycle}`}>{displayCode(run.lifecycle, lifecycleLabels, t)}</span></td><td>{displayCode(run.stage, stageLabels, t)}</td><td>{formatDate(run.updated_at)}</td><td><button className="text-button" onClick={() => onOpen(run.run_id)}>{t("view")} →</button></td></tr>)}</tbody></table>;
+  const table = <table><thead><tr><th>{t("ticket")}</th><th>{t("status")}</th><th>{t("stage")}</th><th>{t("updated")}</th><th>{t("actions")}</th></tr></thead><tbody>{runs.map(run => <tr key={run.run_id}><td className="strong"><RouteLink to={formatRoute({ view: "jobs", project, run: run.run_id })} onNavigate={() => onOpen(run.run_id)}>#{run.ticket_iid}</RouteLink></td><td><StatusBadge code={run.lifecycle}>{displayCode(run.lifecycle, lifecycleLabels, t)}</StatusBadge></td><td>{displayCode(run.stage, stageLabels, t)}</td><td>{formatDate(run.updated_at)}</td><td><button className="text-button" onClick={() => onOpen(run.run_id)}>{t("view")} →</button></td></tr>)}</tbody></table>;
   return <div className="table-scroll">{table}</div>;
 }

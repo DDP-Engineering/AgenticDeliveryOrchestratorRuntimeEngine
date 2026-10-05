@@ -126,7 +126,7 @@ at its next sign-in the account sees only a change-password screen until it
 chooses a new password of at least 8 characters. Until then the API answers
 other routes with 403 `password_change_required`. There is no email password
 recovery.
-Administration has separate System status, Users and Audit submenus.
+Administration has separate System status, Users and Change history submenus.
 Administrators create and manage accounts in Users and inspect account, project
 and operation events in Audit, one page at a time. Developers cannot open these
 submenus. Every user's language, theme and password are under My account, a
@@ -181,16 +181,16 @@ number from that project's repository: enter a positive integer such as `42`
 for `/issues/42`, without `#` or the URL. Switching projects clears the ticket
 draft. Archived projects remain selectable for history; Start job is available
 on unarchived projects and still applies ready, hold and exclude rules.
-Metrics places its scope selector with the common reporting period controls.
+Statistics places its scope selector with the common reporting period controls.
 Changing projects retains the reporting period and category tab. Administrators
 start with **All projects**, showing overall Summary totals and a project table.
 Selecting one project applies to every category and export, including project
-and repository comparison tables. Opening Metrics from project details selects
+and repository comparison tables. Opening Statistics from project details selects
 that project. Developers choose only their assigned projects.
 The top bar names the current page and provides common actions. Project details
 retains the project opened from Projects. Its Overview, Configuration and, for
 administrators, Prices and Access tabs switch content within the page; Jobs
-and Metrics are links to those pages for the project. Access lists every
+and Statistics are links to those pages for the project. Access lists every
 developer account with whether it can access the project, and an
 administrator grants or removes one developer's access with a button; the
 change applies at once, leaves the developer's other projects alone and is
@@ -203,7 +203,7 @@ its history filters behind a Filters button that shows how many are active;
 use Menu to switch pages.
 
 Project names and job ticket numbers are links, so a job opens in Jobs from
-any table. When the selected Metrics scope has no jobs yet, Summary, Quality
+any table. When the selected Statistics scope has no jobs yet, Summary, Quality
 and Trends show a short message instead of empty cards. Estimated prices start
 with the project's own executor selected.
 
@@ -413,7 +413,7 @@ run activity. "Config
 valid" means the TOML passed static validation; it does not establish that
 forge credentials, containers or the model endpoint are reachable.
 Select a project's Details action to see its status and recent jobs, then open that
-project's Jobs or Metrics view. Administrators can also jump to Settings and
+project's Jobs or Statistics view. Administrators can also jump to Settings and
 membership management from the project details.
 Administrators can use **Check now** on project details to test the API host's
 Git, forge CLI/sign-in, executor CLI inside the project image, AEGIS file
@@ -490,7 +490,7 @@ test reachability or add cloud fallback. An acceptance probe using OpenCode
 OpenAI-compatible server on an internal Docker network with no Internet route.
 Your deployment still needs a URL reachable from its own executor container.
 Other executors and protocols require their own configuration and image preparation.
-On Metrics, an administrator can select **Rebuild usage history** to reconcile
+On Statistics, an administrator can select **Rebuild usage history** to reconcile
 retained journal usage and launch coverage into the local SQLite projection.
 The per-run cursor records the ingested journal length and digest. Repeating
 the action does not add duplicate events or alter jobs; changed or missing journal
@@ -499,6 +499,42 @@ When creating a project, ADORE-managed host-auth staging is available only for
 OpenCode and Codex. Select the non-staged option for Pi or Qwen. Pi can use the
 protected credential mount described above with `stage_host_auth = false`;
 ADORE does not copy Pi credentials from the host automatically.
+
+## Navigation and project scope
+
+The primary menu contains **Overview**, **Projects**, **Jobs** and
+**Statistics**. **My account** holds language, theme and password preferences.
+Administrators also see **System status**, **Users** and **Change history**.
+Dev users see only projects granted by an administrator. A Dev with no grants
+can use My account and receives guidance to request project access.
+
+The dark navigation panel displays the transparent DDP Engineering company
+mark; ADORE is the product name. Use the keyboard **Skip to content** link to
+reach page content. On compact screens, **Menu** opens navigation and choosing
+a destination closes it.
+
+The project context shows the selected project's name and repository. Its
+links open that project's details, Jobs or Statistics. Overview's enrolled
+project count covers all accessible projects, while its job counts cover the
+selected project. Jobs always shows the selected project's existing history.
+Administrators can select **All projects** within Statistics; the page explains
+that scope. Statistics retains its `/metrics` URL and existing deep links,
+including its project and category parameters. Jobs retains selected-job deep links.
+
+Use **How ADORE works** for delivery vocabulary:
+
+- A **job** is work and verification for one repository issue.
+- An **enrolled project** is an existing repository configured on the ADORE host.
+- **Pickup stopped** prevents new issues from starting; active jobs continue.
+- **Waiting for clarification** needs an answer in the repository issue.
+- **Waiting for approval** requires candidate-bound publication approval on the forge.
+- **Draft review** makes a draft MR/PR available for people to review; people decide merge.
+
+Guided fields display essential instructions beside the control.
+Loading, an empty result and a failed request have distinct presentations.
+Failed requests withhold totals; use **Refresh** to retry. Missing measurements
+remain unavailable. A successful empty Projects result provides enrollment or
+access guidance according to your role.
 
 ## Status and metrics
 
@@ -521,7 +557,7 @@ Daily completed-job trends use the run's terminal journal event. Later recovery
 checkpoints do not make an older failed job appear newly completed.
 The administrator project table also shows each project's measured-job count
 and average elapsed time; its total row sums counts but leaves average blank.
-On Metrics, the reporting period, timezone and day/week/month grouping sit above
+On Statistics, the reporting period, timezone and day/week/month grouping sit above
 the Summary, Usage, Quality, Trends and Projects tabs. The Projects tab is
 administrator-only. The **Export CSV** menu in the same area offers metrics and
 usage files for the selected scope: one project or administrator **All projects**. These
@@ -585,7 +621,7 @@ stored but do not contribute estimates until the administrator re-enters them.
 Missing cost telemetry is shown as unavailable, not zero. Project headline
 token and reported-cost totals include live journal events; legacy terminal
 summaries supply token totals when their journal has no usable usage event.
-Metrics use existing terminal run summaries and journal usage events. Executor output may omit
+Statistics use existing terminal run summaries and journal usage events. Executor output may omit
 tokens or cost, and historical runs may lack model identity. Daily charts use
 journal event dates; terminal summaries cover completed runs. The current
 release has no billing reconciliation.

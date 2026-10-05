@@ -42,6 +42,18 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 
 ## Invariants
 
+- `DashboardShell` renders authorized semantic links, approved transparent
+  DDP Engineering branding at its original aspect ratio on dark navigation,
+  a skip link and visible keyboard focus. Main views are Overview, Projects,
+  Jobs and Statistics; stable URL paths remain owned by `routes.ts`.
+- `Presentation` supplies localized text/icon statuses, delivery definitions,
+  distinct pending/error feedback and role-specific empty project guidance.
+  Essential field instructions remain visible and associated with controls.
+- App keys data by project/filter and guards completions by request/session
+  identity. Numeric totals render from successful reads; failed reads hide
+  stale totals. Refresh retries current-view reads. Closing a job clears its
+  URL identity. Jobs explicitly covers the selected authorized project.
+
 - Fresh identity stores bootstrap `admin` / `admin` once with an Argon2id hash.
   A corrupt or deleted initialized store does not recreate the default login.
 - Schema 6 stores optional per-account language and theme. Authenticated
@@ -104,7 +116,7 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
   commits, even when the fresh clone has no local Git identity.
 - The audit trail is available only on the administrator API and page.
 - Jobs keeps authorized project selection beside ticket/start controls in page
-  content. Localized ticket Help describes an existing repository issue number
+  content. Visible localized ticket instructions describe an existing repository issue number
   and positive integer syntax. Switching projects clears the ticket draft;
   archived profiles expose history selection with job-start controls hidden.
   Observed executor and Outcome contains use aligned wider fields with localized
@@ -195,6 +207,7 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 | API permissions/config/metrics | `adore/web/app.py` | `test_web_rbac.py`, `test_web_config.py`, `test_web_pending_config.py`, `test_web_readiness.py`, `test_web_metrics.py` |
 | Worker execution | `adore/web/commands.py` | `test_web_commands.py` |
 | Language, theme, views | `web/src/App.tsx`, `web/src/i18n.ts` | `npm run validate`, isolated Chromium journeys |
+| Shell, branding, scope, request feedback | `web/src/DashboardShell.tsx`, `web/src/Presentation.tsx`, `web/src/App.tsx` | `web/e2e/shell.spec.ts`, `web/tests/shell.test.mjs` |
 | URLs, tabs, navigation | `web/src/routes.ts`, `web/src/App.tsx` | `npm test` (`routes.test.mjs`), browser check |
 | Background refresh and paging | `web/src/polling.ts`, `ServerPager` in `App.tsx`, `/api/v1/audit-page` | `npm test` (`polling.test.mjs`), `test_web_paging.py` |
 | Error codes and messages | `adore/web/app.py` (`_error`, `_STORE_ERROR_CODES`), `web/src/errors.ts` | `test_web_errors.py`, `npm test` (`errors.test.mjs`) |
@@ -204,6 +217,10 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 | Offline media | `02_Tools/*web*.py` | `test_web_package.py`, installed HTTP smoke |
 
 ## Key behaviors
+
+- `REQ-UX-955615bd` / `REQ-UX-aa5e358e` - authorized accessible shell and approved branding.
+- `REQ-UX-8031b8eb` / `REQ-UX-0713852d` - localized delivery vocabulary and explicit project context.
+- `REQ-UX-257ab3f0` / `REQ-UX-9a8b409d` - scoped request feedback and role-specific empty access guidance.
 
 - `REQ-SEC-9ee171c9` - local accounts and durable, fail-closed sessions.
 - `REQ-SEC-59d97c68` - project scope and developer financial privacy.
@@ -248,7 +265,14 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 
 ```mermaid
 flowchart LR
-    browser([Browser]) --> api[create_app]
+    browser([Browser]) --> App[App session routes scoped requests]
+    App --> DashboardShell[DashboardShell links branding focus]
+    App --> Presentation[Presentation feedback glossary status]
+    DashboardShell --> routes[routes.ts]
+    DashboardShell --> logo[Approved transparent logo]
+    App --> i18n[i18n catalogs]
+    Presentation --> i18n
+    App --> api[create_app]
     api --> identity[(web.db)]
     api --> profiles[(ProfileStore)]
     api --> state[(StateStore)]
@@ -268,10 +292,10 @@ initial work remains in run totals and developers receive no financial rows.
 API liveness at `/api/v1/health` is separate from readiness at `/api/v1/ready`.
 The worker refreshes a schema-5 SQLite heartbeat even while an engine command
 blocks; a stopped, stale or corrupt heartbeat does not claim readiness.
-Administration expands into System status, Users and Audit sidebar pages;
+Administration expands into System status, Users and Change history sidebar pages;
 both roles reach a top-level My account page. Every view has a path URL
 (`web/src/routes.ts`) kept in sync with view state; project details uses
-Overview/Configuration/Prices/Access tabs and Jobs/Metrics links. Project details shows effective
+Overview/Configuration/Prices/Access tabs and Jobs/Statistics links. Project details shows effective
 configuration in compact sections, common settings first, with a Set for this
 project / Default badge, field type, domain and purpose help and a filter for
 project-set settings; administrators edit settings on their rows and stage
@@ -300,7 +324,7 @@ Its metadata rows use 4px gaps and 18px separation before actions. Platform
 administration/account pages use their own controls. Responsive rows
 keep these controls visible while content begins with page data. Metric hints,
 usage actions and account rows wrap on narrow screens.
-Metrics keeps its authorized project selector with the common reporting range,
+Statistics keeps its authorized project selector with the common reporting range,
 timezone, grouping and CSV menu above keyboard-operable Summary, Usage, Quality,
 Trends and administrator-only Projects tabs. Administrators use All projects
 scope for pooled totals and comparisons.
@@ -328,6 +352,9 @@ for Add and Import project. Primary buttons take their text colour from the
 - `04_Software/adore/web/{app,store,commands,server}.py` - API, SQLite store,
   worker and listener.
 - `04_Software/adore/web/static/` - bundled local UI and license.
+- `04_Software/web/src/{DashboardShell,Presentation}.tsx` - shared authenticated
+  frame and localized request/status/glossary presentation; approved logo in `src/assets/`.
+- `04_Software/web/e2e/shell.spec.ts` - offline role, scope, error, branding and responsive journeys.
 - `04_Software/web/` - React source and build configuration;
   `web/src/errors.ts` (error localization), `web/src/projectName.ts`
   (shared name pattern), `web/src/routes.ts` (URL scheme) and

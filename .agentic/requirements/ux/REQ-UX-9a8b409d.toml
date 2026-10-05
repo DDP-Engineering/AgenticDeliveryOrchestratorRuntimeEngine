@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-9a8b409d"
+title = "Explain project access when no projects are authorized"
+status = "active"
+requirement = "When the authorized project list succeeds with no records, the dashboard shall explain how an administrator enrolls a project or how a developer requests project access, while retaining account preferences and withholding project actions."
+verification = "Offline Chromium: Dev without grants gets guidance across main views and account access without job/admin actions; project API denies access; failed project-list request differs from successful empty."
+affected_paths = ["04_Software/web/e2e/shell.spec.ts", "04_Software/web/src/Presentation.tsx", "04_Software/web/src/App.tsx", "04_Software/web/src/i18n.ts", "04_Software/adore/web/static/"]
+linked_tests = ["04_Software/web/e2e/shell.spec.ts"]
+priority = "high"
+created = 2026-10-05
+updated = 2026-10-05

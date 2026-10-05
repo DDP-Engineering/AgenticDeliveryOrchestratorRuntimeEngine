@@ -21,7 +21,7 @@ async function signIn(page: Page, username = "admin", password = "admin") {
 }
 
 async function openConfiguration(page: Page, name = "alpha") {
-  await page.getByRole("navigation").getByRole("button", { name: "Projects", exact: true }).click();
+  await page.getByRole("navigation", { name: "Primary navigation", exact: true }).getByRole("link", { name: "Projects", exact: true }).click();
   await page.getByRole("link", { name, exact: true }).click();
   await page.getByRole("tab", { name: "Configuration", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Project settings", exact: true })).toBeVisible();
@@ -50,7 +50,7 @@ test("anonymous and incorrect credentials cannot expose projects", async ({ page
 
 test("developer scope protects projects, configuration writes and admin routes", async ({ page }) => {
   await signIn(page, "developer", "test-password");
-  await page.getByRole("navigation").getByRole("button", { name: "Projects", exact: true }).click();
+  await page.getByRole("navigation", { name: "Primary navigation", exact: true }).getByRole("link", { name: "Projects", exact: true }).click();
   await expect(page.getByRole("link", { name: "alpha", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "beta", exact: true })).toHaveCount(0);
   expect((await page.request.get("/api/v1/projects/beta")).status()).toBe(404);
@@ -129,7 +129,7 @@ test("project tab route survives reload and browser back", async ({ page }) => {
   await page.reload();
   await expect(page.getByRole("tab", { name: "Configuration", exact: true })).toHaveAttribute("aria-selected", "true");
   await expect(page).toHaveURL(route);
-  await page.getByRole("navigation").getByRole("button", { name: "Jobs", exact: true }).click();
+  await page.getByRole("navigation", { name: "Primary navigation", exact: true }).getByRole("link", { name: "Jobs", exact: true }).click();
   await expect(page).toHaveURL(/\/jobs/);
   await page.goBack();
   await expect(page).toHaveURL(route);
@@ -154,7 +154,7 @@ test("narrow viewport menu and configuration editor remain usable", async ({ pag
 
 test("worker processes queued requests and preserves a rejected engine exit", async ({ page }) => {
   await signIn(page, "developer", "test-password");
-  await page.getByRole("navigation").getByRole("button", { name: "Jobs", exact: true }).click();
+  await page.getByRole("navigation", { name: "Primary navigation", exact: true }).getByRole("link", { name: "Jobs", exact: true }).click();
   await page.getByRole("spinbutton", { name: "Ticket number", exact: true }).fill("42");
   const submitted = page.waitForResponse(response => response.url().endsWith("/operations/start") &&
     response.request().method() === "POST");

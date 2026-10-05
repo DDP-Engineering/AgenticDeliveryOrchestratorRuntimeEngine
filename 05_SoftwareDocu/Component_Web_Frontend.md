@@ -22,10 +22,42 @@ dashboard. Vite compiles it into `adore/web/static` for same-origin serving.
 
 ## 2. Responsibilities
 
+The shared shell presents Overview, Projects, Jobs and Statistics as semantic
+links, with My account for each authenticated user and administrator-only
+System status, Users and Change history. The approved DDP Engineering sage
+PNG is displayed on the dark navigation panel at its original 630:300 ratio,
+separately from ADORE. Source SHA-256:
+`4957da4edf9aebf02dcb0e24823ff5f8d5ee524622773f4285c9e2261903c481`.
+The binary inherits the provenance documented in the published design bundle.
+
+Project context shows the authorized project's name and repository with links
+to its details, jobs and statistics. Overview also offers a project selector
+and distinguishes the all-authorized-project count from selected-project job
+counts. Jobs reads the selected project's existing endpoint. Administrator
+all-project Statistics labels that scope explicitly. The Statistics page keeps
+the established `/metrics` route, exports and query parameters.
+
+Loading and failed requests have separate status/error panels. Numeric
+cards and data tables render after successful scoped responses. A failed
+refresh withholds prior totals; Refresh retries current reads. A successful
+empty project list explains enrollment for administrators and access requests
+for Dev users, while My account remains available. Pending detail responses
+are checked against both project identity and request revision. Session
+generation guards prevent the previous account from refilling data.
+
+The keyboard skip link focuses content. Primary links mark the current page;
+navigation and disclosure controls have visible focus. Route changes move
+focus to content. A localized How ADORE works disclosure defines job, enrolled
+project, pickup stopped, waiting for clarification, waiting for approval and
+draft review. Stopping pickup affects new issues; active jobs continue.
+Publication approval occurs on the forge; merge remains a human decision.
+Essential guided-field instructions stay visible and are associated through
+`aria-describedby`; settings and the glossary retain progressive disclosure.
+
 It provides login, project and job views, role-appropriate metrics,
 administrator project/account setup, settings, four language catalogs,
 an administrator audit trail, light/dark/system themes and an About dialog.
-Administration expands into System status, Users and Audit in the sidebar.
+Administration expands into System status, Users and Change history in the sidebar.
 Both roles see a top-level My account entry for their own preferences and
 password.
 Audit has administrator day and MiB retention controls populated from saved policy.
@@ -47,7 +79,7 @@ for longer histories, and resets on project/run identity changes. Empty history
 uses the standard empty state; event text remains escaped by React.
 The top bar supplies the single page title and common actions on every page.
 Project details uses the identity opened from Projects; platform administration and account settings
-use their own status, membership and preference controls. Jobs and Metrics
+use their own status, membership and preference controls. Jobs and Statistics
 keep their project selectors in page content. On Overview, four expandable summary cards select the scope:
 Projects opens a table of authorized projects where a row selects the project,
 and Active jobs, Awaiting review and Failed jobs open paged run tables for the
@@ -57,15 +89,15 @@ starts directly with the page's controls and data; at narrow widths the title
 and actions wrap into separate rows. Statistic hints and user rows wrap
 instead of clipping or colliding on small screens.
 Jobs places its authorized project selector in page content beside the ticket
-and Start job controls. Ticket Help explains the existing repository issue
+and Start job controls. Visible ticket instructions explain the existing repository issue
 number, positive integer format, example and eligibility checks in each locale.
 Switching that selector clears the ticket draft. Archived projects retain the
 selector for history while hiding ticket and Start controls. The form wraps at
 narrow widths; the header contains the page title and common actions.
 Administration's account section is labelled Users in every locale.
 Jobs aligns Observed executor and Outcome contains in two equal-width fields
-below the basic filters, stacking them at narrow widths. Each has localized
-Help and an example placeholder. Executor matches the exact case-sensitive
+below the basic filters, stacking them at narrow widths. Each has visible localized
+instructions and an example placeholder. Executor matches the exact case-sensitive
 name recorded in the ADORE job journal; jobs with no recorded name are excluded
 by that filter. Outcome matches a case-insensitive fragment of ADORE's saved
 result or error explanation, which may contain AEGIS error details. These
@@ -75,7 +107,7 @@ blank values omit that filter.
 The About dialog constrains its width and height to the viewport, with internal
 scrolling for the license and notice content and an accessible Close button.
 Add project opens a separate administrator page from Projects. The form gives
-each field a localized Help disclosure with expected values and purpose. The
+each field visible localized instructions with expected values and purpose. The
 clone path hint identifies the ADORE host and requires an existing local clone.
 The executor image field accepts either a suggested image tag or a custom tag;
 suggestions are examples, not an inventory of installed images. The image must
@@ -88,7 +120,7 @@ Projects show archived state and let administrators archive or restore a
 quiescent project. Archived jobs and metrics stay visible, while job and pickup
 controls are hidden until restore.
 Import project opens a separate administrator page from Projects. Its name,
-description and file fields have localized Help disclosures. An administrator
+description and file fields have visible localized instructions. An administrator
 selects an existing `config.toml`, reviews its validated identity, state path
 and issues, then imports that exact revision. The form explains that paths
 must be absolute on the ADORE host, the file remains unchanged and pickup
@@ -104,7 +136,7 @@ mutating actions. A valid configuration is labelled as such, not as a live
 forge or model readiness check.
 Selecting a project opens a scoped detail view with status, repository,
 runtime, executor, last activity and recent jobs. Its actions open the Jobs and
-Metrics views for that selection, and jump to project settings on the same page.
+Statistics views for that selection, and jump to project settings on the same page.
 Assigned developers can inspect the redacted effective configuration in
 collapsible sections, with the common settings first. Each row shows its value,
 a Set for this project / Default badge, its type and contextual help; common
@@ -119,7 +151,7 @@ developers on its Access tab. My account holds account
 appearance and password controls. Project details groups this content into
 Overview (host prerequisites, recent jobs), Configuration (read-only settings
 and administrator editors) and administrator-only Prices and Access tabs with
-keyboard tab navigation; Jobs and Metrics are real links. Access
+keyboard tab navigation; Jobs and Statistics are real links. Access
 (`ProjectAccess` in `App.tsx`) lists the project's developers from
 `GET /projects/{name}/access` and grants or removes one with
 `PUT /projects/{name}/access/{user_id}`; a developer's `/access` route falls
@@ -144,17 +176,17 @@ close. A compact top-bar Sign out control remains available when the sidebar
 account controls are hidden on narrow screens.
 Project selection and project API routes use the immutable profile ID, so a
 profile rename preserves the selected project and does not retarget actions to
-a different profile that later uses the old name. Settings also presents administrator price versions; Metrics separates reported
+a different profile that later uses the old name. Settings also presents administrator price versions; Statistics separates reported
 and estimated USD values, displays unpriced-event coverage, groups project
 totals by non-empty repository label, shows global reported/estimated daily
 amounts separately, adds a combined daily view for the selected repository,
 and links to administrator global CSV.
-The Metrics page keeps its authorized project selector, inclusive date range, IANA reporting timezone,
+The Statistics page keeps its authorized project selector, inclusive date range, IANA reporting timezone,
 day/week/month grouping and CSV export menu above five category tabs: Summary,
 Usage, Quality, Trends and administrator-only Projects. Administrators initially
 see All projects, with pooled headline totals and a paginated project breakdown
 in Summary. Selecting one project scopes every category, project/repository
-comparison and export to that project. Project details opens Metrics for that
+comparison and export to that project. Project details opens Statistics for that
 project. Developers select assigned projects and receive operational data only.
 The export menu offers metrics and usage CSV files for the current scope;
 global choices appear only in administrator All projects scope. Arrow keys, Home and End switch tabs,
@@ -170,7 +202,7 @@ The all-time launch coverage panel counts reported-token, unavailable-token,
 and disabled-capture launches from versioned observations; cost-status counts
 are visible only to administrators. It explains that older launches have no
 classification and unavailable does not mean zero.
-Metrics shows terminal job elapsed-time sample count, average and median. The
+Statistics shows terminal job elapsed-time sample count, average and median. The
 selected local-date range also scopes a separate duration sample by completion day.
 Missing timestamp evidence appears as unavailable rather than a zero-second
 average; the explanation notes that elapsed time includes human waiting.
@@ -196,7 +228,7 @@ Signing out and signing in as another role returns to Overview, so an
 administrator-only view cannot remain selected for a developer. Asynchronous
 user creation and config staging keep their form reference until the request
 completes, allowing the form to reset after a successful response.
-Administrators can trigger a replay of retained usage journals from Metrics;
+Administrators can trigger a replay of retained usage journals from Statistics;
 the button reports the reconciled event count and refreshes attributed views.
 The local endpoint form is shown for OpenCode profiles. It saves model ID and
 URL in one request and explains the required provider package in the executor
@@ -215,7 +247,7 @@ applying needs paused pickup, and non-editable rows say to change the
 project's config.toml on the ADORE host. The whole-number common settings use a
 step and minimum of 1; other number rows accept any number and the server
 validates the value.
-Metrics also shows reviewer-requested MR/PR revisions and automatic pipeline
+Statistics also shows reviewer-requested MR/PR revisions and automatic pipeline
 repairs as distinct counts; unknown revision triggers appear in coverage.
 The Delivery quality panel shows reviewer-rework, first-validation, and
 first-pass human-merge rates with visible numerators and denominators, plus a
@@ -235,6 +267,14 @@ rows and details. Requests started under the previous session cannot refill
 those views after the switch.
 
 ## 3. Implementation Overview
+
+`DashboardShell.tsx` owns the authenticated frame, real navigation links,
+branding, responsive menu, header and content focus. `Presentation.tsx` owns
+`DataFeedback`, `ProjectEmpty`, `StatusBadge` and `DeliveryGlossary`.
+`App.tsx` owns session, supported mutations, existing route/history flow and
+scoped request states. Request completion retains session-generation guards
+and selected-project/request-revision checks; malformed data at the changed
+presentation seams is converted into explicit feedback.
 
 `App.tsx` manages session, selection and requests. `i18n.ts` contains EN/FR/DE/RO
 strings. `styles.css` defines responsive layouts and themes. Session cookies
@@ -263,7 +303,7 @@ links; a job's ticket or View opens it in Jobs. Overview card hints state the
 scope ("Projects you can access", "Project: <name>"). Expand/collapse
 indicators and sign-out use inline SVG icons (`Icon`) drawn in `currentColor`.
 The Prices form preselects the project's configured executor and remounts per
-project. When the Metrics scope has no jobs, Summary, Quality and Trends show
+project. When the Statistics scope has no jobs, Summary, Quality and Trends show
 one localized message instead of zero-valued cards.
 An account whose password an administrator reset signs in to a dedicated
 change-password card with the reason, language, theme and Sign out controls;
@@ -308,6 +348,15 @@ cost and account/config screens.
 
 ## 9. Validation And Tests
 
+`tests/shell.test.mjs` checks glossary/catalog parity across EN/FR/DE/RO
+and exact approved logo bytes, dimensions and PNG alpha format.
+`e2e/shell.spec.ts` exercises semantic/keyboard navigation, deep links,
+Back/reload, scope, Admin/Dev/no-grants access, light/dark at 1440px and 390px,
+visible guidance, pending/empty/HTTP/corrupt-data feedback, recovery and stale
+project-detail response rejection. It records representative screenshots;
+automated journeys establish neither full WCAG conformance nor novice-user
+acceptance. API and external command boundaries remain simulated offline.
+
 `npm run validate` runs the Node helper suite, UI/E2E TypeScript checks,
 an isolated Vite build in `.e2e-dist` and the Playwright Chromium journeys.
 `playwright.config.ts` owns browser timeouts, one-worker execution, failure
@@ -338,7 +387,7 @@ Browser QA also observed the Administration status change from unavailable to
 ready and back as the test-home worker heartbeat was set and cleared.
 The compact navigation is a labeled collapsible menu below 760px; choosing a
 page closes it. A 360px Chrome run exercised this interaction and verified no
-document-level horizontal overflow on Metrics at 360, 768, 1024, 1366, 1920,
+document-level horizontal overflow on Statistics at 360, 768, 1024, 1366, 1920,
 and 2560px. A 180px effective-width check, representing 200% zoom on a 360px
 display, also remained within the document width. French, German and Romanian
 Settings views retained document language and had no 360px overflow.
