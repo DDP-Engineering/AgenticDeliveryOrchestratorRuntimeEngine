@@ -24,6 +24,10 @@ The implemented tools are the release checker and the runtime-bundle packager:
 - `create_portable_zip.py` - shared standard-library ZIP writer used by both
   packagers; rejects links/unsafe placement and always writes POSIX member
   names so Windows-built ZIPs extract to the documented tree on Linux.
+- `stamp_web_assets.py` - stamps built JS/CSS with the project license and
+  copies license/third-party notices. Its default is `adore/web/static`;
+  `--output <directory>` selects an existing isolated build containing
+  `index.html`, as used by the offline Playwright verification route.
 
 The runtime bundle contains the runnable contents of `04_Software/` needed on a
 deployment host: `adore/`, `deploy/`, `docker/`, package metadata, lockfile,

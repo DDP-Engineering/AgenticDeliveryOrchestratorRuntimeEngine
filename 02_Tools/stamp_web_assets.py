@@ -8,18 +8,31 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # -----------------------------------------------------------------------------
 """
-@file stamp_web_assets.py
-@brief Add the project license to generated JS/CSS and bundle the license text.
-@details Runs after Vite builds the deployable static assets.
+@file       stamp_web_assets.py
+@brief      Add the project license to built JS/CSS and bundle the license text.
+@details    Stamps deployable or isolated Vite build outputs.
 """
 
+# IMPORTS
+import argparse
 from pathlib import Path
 
 
-def main() -> int:
-    """@brief Stamp each generated text asset once."""
+# PUBLIC API
+def main(argv: list[str] | None = None) -> int:
+    """@brief Stamp an existing web build and copy its legal notices.
+
+    @param[in] argv Optional CLI arguments; --output selects an isolated build.
+    @return Zero after stamping the requested build.
+    @exception SystemExit The destination has no built index.html.
+    """
     repo = Path(__file__).resolve().parents[1]
-    static = repo / "04_Software" / "adore" / "web" / "static"
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output", type=Path,
+                        default=repo / "04_Software" / "adore" / "web" / "static")
+    static = parser.parse_args(argv).output.resolve()
+    if not (static / "index.html").is_file():
+        parser.error("output must contain a built index.html")
     banner = (
         "/*\nCopyright (c) 2026 DDP Engineering\n"
         "This software is licensed under the PolyForm Noncommercial License 1.0.0.\n"

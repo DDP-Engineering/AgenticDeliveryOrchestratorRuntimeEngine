@@ -14,6 +14,26 @@ These instructions apply to the repository rooted at:
 
 A deeper `AGENTS.md` overrides this file for its subtree.
 
+## AEGIS applicability (repository rule)
+
+AEGIS applies exclusively to software implementation: creating or changing
+ADORE product code, including tests and validation of that implementation.
+
+Repository operations and documentation work do not use the AEGIS workflow.
+This includes repository inspection and maintenance, Git administration,
+agent instructions such as this file, standalone documentation creation or
+updates, development environment and tool setup, dependency provisioning,
+and packaging, release and delivery operations. Perform these tasks directly
+under the repository rules; do not create AEGIS task journals, run AEGIS
+stages, or require AEGIS checkpoints for them.
+
+Documentation required by a software implementation change is updated in the
+same change, as required below; it does not start a separate AEGIS workflow.
+For mixed requests, apply AEGIS only to the software implementation portion.
+
+This project-owned scope rule takes precedence over broader applicability
+wording in the managed AEGIS digest below or in `.agentic/AGENTS.md`.
+
 ## Repository Rules
 
 - Treat this repository as independent.

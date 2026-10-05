@@ -38,6 +38,13 @@ publishing are not owned by this component.
 
 ## 3. Implementation Overview
 
+`02_Tools/stamp_web_assets.py` adds the project legal banner to each built
+JS/CSS file once and copies `LICENSE.txt` and web `THIRD_PARTY_NOTICES.md`.
+The default output is `04_Software/adore/web/static`; `--output <directory>`
+selects an isolated build such as `web/.e2e-dist`. An absent built `index.html`
+is rejected before writing, and repeated stamping is idempotent. Offline CLI
+tests in `04_Software/tests/test_web_asset_stamp.py` cover these contracts.
+
 The PowerShell and Bash scripts stage the same bundle shape:
 
 ```text

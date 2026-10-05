@@ -14,6 +14,13 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 
+# Frontend dependencies, isolated verification build and browser diagnostics
+node_modules/
+*.tsbuildinfo
+04_Software/web/.e2e-dist/
+04_Software/web/playwright-report/
+04_Software/web/test-results/
+
 # OS / editor
 .DS_Store
 Thumbs.db

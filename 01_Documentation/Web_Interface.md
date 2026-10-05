@@ -50,6 +50,48 @@ uv run --extra web adore-web --home <ADORE_HOME>
 uv run --extra web adore-web-worker --home <ADORE_HOME>
 ```
 
+### Development verification
+
+After `uv sync --extra web --group dev` in `04_Software` and `npm ci` in
+`04_Software/web`, provision the test browser once from the web directory:
+
+```text
+npx playwright install chromium
+npm run validate
+```
+
+`npm run validate` runs the Node helper tests, type-checks the UI and browser
+tests, builds into `.e2e-dist`, and runs the Chromium E2E suite. The isolated
+build carries the project license and bundled notices; it leaves the deployed
+`adore/web/static` build intact. `npm run test:e2e` runs the build and browser
+portion, and `npm run typecheck` checks TypeScript alone. Run
+`npm --prefix 04_Software/web run validate` from the repository root for the
+same frontend validation. The configured implementation verification command
+uses this route too; running it directly requires no AEGIS task or stages.
+
+The browser suite starts its own API on `127.0.0.1:18765`, refuses to reuse an
+existing listener, and creates a temporary `ADORE_HOME`, projects and accounts.
+It exercises the real HTTP API and queue worker with injected command runners.
+Ticket 42 simulates success and ticket 43 simulates an engine failure; these
+requests do not run executors, Git, forge CLIs or containers. Browser requests
+outside the test origin are blocked. Dependency and browser downloads are
+setup operations; verification then runs offline.
+
+The suite covers sign-in/out, incorrect credentials, admin/developer and
+project access, CSRF, configuration staging/applying and stale revisions,
+route reload/Back, a 390px viewport and worker success/failure/idempotency.
+It uses one worker, no retries, a 30-second per-test timeout and a three-minute
+browser-suite limit. The test server has a fixture-only shutdown route so
+normal teardown also removes its temporary home on Windows. Forced termination
+can leave an `adore-e2e-*` directory in the system temporary directory.
+
+Failures retain screenshots and traces under `web/test-results/`. The HTML
+report is under `web/playwright-report/`; from the web directory, inspect it
+with `npx playwright show-report`. These outputs, `.e2e-dist`, dependency
+directories and TypeScript build metadata are ignored by Git. Chromium is the
+initial automated browser target; live forge/container acceptance and
+accessibility audits are separate checks.
+
 The API binds to `127.0.0.1:8765` by default. Access it at
 `http://127.0.0.1:8765`. A new identity store creates `admin` / `admin` once.
 Change that password immediately in Settings. Passwords are stored as Argon2id

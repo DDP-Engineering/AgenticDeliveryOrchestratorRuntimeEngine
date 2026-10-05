@@ -8,7 +8,7 @@ schema = 1
 test = ".\\.venv\\Scripts\\python.exe -m pytest -q"
 # test_impacted = "pytest -q {tests}"   # {tests} = the focused regression set
 lint = ".\\.venv\\Scripts\\ruff.exe check adore tests"
-frontend = "node --test web/tests/*.test.mjs"
+frontend = "npm --prefix web run validate"
 # timeout = 0                           # seconds allowed per command; 0 or
 #                                       # absent means no limit at all
 workdir = "04_Software"                # run commands here, not at the root

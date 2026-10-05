@@ -284,6 +284,8 @@ is dark text on the light accent in both system-dark and explicit Dark themes.
 
 React is bundled locally. Node.js and npm are build-time only; the deployed
 browser assets do not fetch fonts, scripts or translations from a CDN.
+Playwright Test and Node type declarations are development dependencies for
+the isolated Chromium verification suite; they are not bundled in the runtime.
 
 ## 5. Inputs And Outputs
 
@@ -305,6 +307,18 @@ have localized status labels; neither shows Cancel. Only administrators see
 cost and account/config screens.
 
 ## 9. Validation And Tests
+
+`npm run validate` runs the Node helper suite, UI/E2E TypeScript checks,
+an isolated Vite build in `.e2e-dist` and the Playwright Chromium journeys.
+`playwright.config.ts` owns browser timeouts, one-worker execution, failure
+screenshots/traces and the private fixture server. `e2e/server.py` creates
+temporary profiles, identity/state stores and a real API/worker with simulated
+external command boundaries. Browser traffic stays on its loopback origin.
+It covers authentication, role/project scope, CSRF, Stage/Apply and stale
+revisions, reload/Back, the 390px menu/editor, and worker outcomes/idempotency.
+`e2e/teardown.ts` shuts the fixture down normally on Windows and Linux.
+Provision Chromium with `npx playwright install chromium` before offline runs.
+See `01_Documentation/Web_Interface.md` for commands and retained diagnostics.
 
 `npm run build` performs TypeScript and Vite checks. `npm test` runs the Node
 unit tests, including `errors.test.mjs`, which requires a message in every
@@ -331,4 +345,5 @@ Settings views retained document language and had no 360px overflow.
 
 ## 10. Limitations And Future Work
 
-There is no dedicated frontend automated journey suite or live log streaming.
+The initial automated journey suite uses Chromium. Additional browser engines,
+automated accessibility audits and live log streaming are future work.

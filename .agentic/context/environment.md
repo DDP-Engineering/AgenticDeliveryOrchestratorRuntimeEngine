@@ -27,8 +27,14 @@ the `dev` group and installs the `adore` command in editable mode. Operator
 installation on a host follows `01_Documentation/Getting_Started.md`;
 unattended installation follows `04_Software/deploy/README.md`.
 Frontend calculation tests use Node.js 22.18 or later for native TypeScript loading.
-For web development use `uv sync --extra web --group dev`, then `npm ci`, `npm test` and
-`npm run build` in `04_Software/web`.
+For web development use `uv sync --extra web --group dev` from `04_Software`,
+then `npm ci` and `npx playwright install chromium` in `04_Software/web`.
+`npm run validate` runs helper tests, UI/E2E TypeScript checks, an isolated
+Vite build and offline Chromium journeys with a temporary API/worker home and
+simulated external commands. The build uses `.e2e-dist`; failure screenshots,
+traces and the HTML report are Git-ignored. `npm run build` produces the
+deployable build. See `01_Documentation/Web_Interface.md` for test isolation,
+timeouts and diagnostic commands. Direct validation requires no AEGIS task.
 
 ## Configuration and services
 
