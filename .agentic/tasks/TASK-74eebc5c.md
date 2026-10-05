@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # TASK-74eebc5c - Issue 8 exact server TOML enrollment
 
-stage: deliver
+stage: done
 type: feature
 path: full
 interaction: autopilot
@@ -25,8 +25,8 @@ opened: 2026-10-05
 - [x] validation evidence, diff, exclusions, and outcome presented
 - [x] coordinator verification and delivery instructions received under standing human authority
 - [x] journal and report included in the delivery commit
-- [ ] agreed scoped commit/normal push and issue 8 closure delivered; epic remains open
-- [ ] journal-only close-out committed after the outcome succeeded
+- [x] agreed scoped commit/normal push and issue 8 closure delivered; epic remains open
+- [x] journal-only close-out committed after the outcome succeeded
 
 ## Frame
 
@@ -111,6 +111,8 @@ Open decisions: none. Rejected alternative: guided-answer reconstruction would r
 
 - 2026-10-05 deliver authorization: coordinator thread 01a10aec-6ac2-79f3-ada3-741950212fb8 reports completed full journal/review/ownership/acceptance/API/whitespace inspection and verifies all 25 stable paths/hashes/deletions plus strict evidence. Under standing human authority it instructs scoped #8 commit/normal push, remote verification, acceptance/closure readback, epic-open English evidence and post-success journal-only closeout; no new issue/PR/merge/release/live acceptance. Primary agent independently reconfirmed unchanged inventory, matching local/remote baseline and empty index before publication.
 
+- 2026-10-05 deliver outcome succeeded: scoped implementation commit `d159ba221c9a0a38650418e5913e3e27d1876fb5` normally pushed to task/adore-web-interface; remote Git ref and authenticated Gitea commit API match. Issue #8 publication comment 2043 read back, all seven acceptance items checked and closed-state/closed_at/body/title/labels authenticated readback verified; epic #3 English publication comment 2046 read back and epic remains open. No PR/merge/tag/version/release/deployment/live acceptance or next issue. Post-success journal-only closeout follows.
+
 ## Rulings
 
 - RULING-001 | date=2026-10-05 | decision=Autopilot through final validation; scoped commit/normal push/closure only after coordinator verifies stable candidate and instructs delivery | reason=Standing human delegation and follow-up direct-AEGIS clarification | source=user | supersedes=none
@@ -119,21 +121,21 @@ Open decisions: none. Rejected alternative: guided-answer reconstruction would r
 
 ## Handoff
 
-current: deliver
+current: done
 status: ready
-next: Commit and normally push scoped issue 8 candidate, then verify and close issue
+next: No further issue work; journal-only closeout records the successful delivered outcome
 must_read: .agentic/steps/6_deliver.md, .agentic/tasks/ISSUE-8-final-ownership.md, .agentic/tasks/ISSUE-8-review.md, .agentic/tasks/ISSUE-8-final-validation.json
 blockers: none
 
 ## Stage report
 
 stage: deliver
-result: in_progress
-current: deliver
+result: completed
+current: done
 changed: 12 authored product/doc paths, 5 generated assets, 8 stable workflow paths plus lifecycle evidence
-evidence: strict exit 0; Python 865 passed/1 skipped; frontend 45 passed; Ruff/typecheck/production build passed
+evidence: strict passed; Python 865 passed/1 skip; frontend 45 passed; implementation d159ba2 pushed/verified; issue 8 closed/7 checked; epic open
 issues: 3 historical catalog warnings; 2 scan gaps manually completed; live novice/server acceptance excluded
-next: Commit and normally push scoped issue 8 candidate, then verify and close issue
+next: No further issue work; journal-only closeout records the successful delivered outcome
 needs_user: no
 spec_compliance: approved
 implementation_quality: approved
