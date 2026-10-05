@@ -234,6 +234,14 @@ def _journal(raw: bytes | None) -> list[dict]:
         for key in ("questions", "stage"):
             if key in event:
                 _text(event[key], "run_journal_corrupt")
+        if "stage" in event and event["stage"] not in {
+            "frame", "specify", "design", "build", "validate", "deliver", "done", "publishing",
+        }:
+            raise JobReadError("run_journal_corrupt")
+        if "executor" in event and (not isinstance(event["executor"], str)
+                                    or not event["executor"].strip()
+                                    or len(event["executor"]) > 200):
+            raise JobReadError("run_journal_corrupt")
         events.append(event)
     return events
 
@@ -345,6 +353,11 @@ def _view(item: Profile, run_id: str, sources: dict) -> dict:
         "waiting": _waiting(run, events, ticket_url, mr_url, item.platform),
         "evidence_url": detail_url,
         "consumption": {"availability": "unknown"},
+        "observed_executors": sorted({event["executor"] for event in events
+                                      if "executor" in event}),
+        "timeline": [{"ts": _stamp(event.get("ts", ""), "run_journal_corrupt"),
+                      "event": _text(event["event"], "run_journal_corrupt"),
+                      "stage": event.get("stage")} for event in events],
         "coverage": {"ticket": "missing" if raw_ticket is None else "present",
                      "journal": "missing" if raw_journal is None else "present",
                      "title": "unknown" if title is None else "observed",

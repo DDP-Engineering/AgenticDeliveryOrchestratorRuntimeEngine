@@ -14,6 +14,11 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Added
 
+- Action-oriented Overview and complete authorized global Jobs with safe observed
+  detail timelines, project History, scoped search/advanced filters and explicit
+  asynchronous command results; EN/FR/DE/RO and offline boundary/browser checks (#12).
+
+
 - Authorized global/project job read API with composite identities, complete
   paging/search/status groups and optimistic source revisions. Persisted titles,
   activity and waiting evidence retain honest legacy/usage unknowns; strict local
@@ -42,6 +47,12 @@ This project follows Keep a Changelog and Semantic Versioning.
 - Administrators can delete an archived, idle project from the Projects page after typing its name; the web worker runs the new `adore profile delete <name> --force --remove-resources`, which also removes the project's containers and worktrees while keeping human-owned worktrees, external state and the audit trail.
 
 ### Changed
+
+- Project hubs separate pickup from revision/time-bound verification and expose
+  Summary, Settings and History alongside existing Admin Prices/Access and
+  Jobs/Statistics links. Missing legacy activity remains unknown; unsafe or corrupt
+  job evidence hides data, and changed page sources require explicit restart (#12).
+
 
 - Exact enrollment binds reviewed bytes, identity, server ownership and terminal
   state; locked reinspection rejects concurrent mutations. Memory-only corrections

@@ -9,10 +9,11 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 The optional web installation serves the React interface and a same-origin
 FastAPI API. It uses the same project profiles and run state as the CLI. The
-Overview cards expand to show authorized projects or the selected project's
-active, awaiting-review and failed jobs. Select a project from the expanded
-Projects table; closing a card returns to Recent jobs. Open another project
-from Projects to view its details.
+Overview opens **Needs attention** across all projects your account can access,
+including archived history. Use **Job scope** for one project. Clarification,
+publication approval, draft review, failed/stale jobs and pending handoffs appear
+before the current-state counts. Those counts describe the selected scope.
+Open a ticket to read what is happening, who acts, where and what follows.
 
 Administrators open Add project from Projects to enroll an existing server clone
 through six steps: method, repository/identity, working environment,
@@ -205,13 +206,22 @@ with Uvicorn's SSL certificate and key arguments and `proxy_headers=False`.
 Bind only a trusted LAN/VPN address, restrict its firewall port to those
 networks, and verify the HTTPS login cookie is `Secure`. The host supplies and
 rotates its certificate and key; the offline bundle does not fetch them.
-On Jobs, select a project beside the ticket field within the page, then filter
-by lifecycle, AEGIS stage, inclusive last-update dates in UTC, or text contained
-in the job outcome (ignoring case). Ticket Help explains the existing issue
-number from that project's repository: enter a positive integer such as `42`
-for `/issues/42`, without `#` or the URL. Switching projects clears the ticket
-draft. Archived projects remain selectable for history; Start job is available
-on unarchived projects and still applies ready, hold and exclude rules.
+On Jobs, search complete authorized retained history by saved ticket title or
+number, project, job ID, lifecycle, stage or outcome. **Job scope** selects one
+project; status groups remain visible, while **Advanced filters** offers exact
+lifecycle/stage/executor, outcome text and inclusive UTC last-update dates.
+Executor matches a case-sensitive saved identity; missing identities do not match.
+A changed page revision hides previous results and offers **Reload first page**.
+
+To start an existing ticket, first select its current project. Enter a positive
+integer such as `42` for `/issues/42`, without `#` or a URL. The worker applies
+existing readiness, ready/hold/exclude and approval gates. Switching scope clears
+the ticket draft; archived projects retain history with start hidden.
+Retry and Cancel explain their effects and appear only for supported current
+states. A queued command is waiting for the worker. Its actual operation result
+then shows completed, failed or uncertain; unreadable status leaves completion
+unknown. A completed command alone does not establish a successful job or merge.
+
 Statistics places its scope selector with the common reporting period controls.
 Changing projects retains the reporting period and category tab. Administrators
 start with **All projects**, showing overall Summary totals and a project table.
@@ -219,7 +229,7 @@ Selecting one project applies to every category and export, including project
 and repository comparison tables. Opening Statistics from project details selects
 that project. Developers choose only their assigned projects.
 The top bar names the current page and provides common actions. Project details
-retains the project opened from Projects. Its Overview, Configuration and, for
+retains the project opened from Projects. Its Summary, Settings, History and, for
 administrators, Prices and Access tabs switch content within the page; Jobs
 and Statistics are links to those pages for the project. Access lists every
 developer account with whether it can access the project, and an
@@ -229,8 +239,8 @@ audited. Administrators always have access.
 Metadata rows have breathing room, with a clear gap before the links. System
 status, Users and Audit operate at platform scope and My account at account
 scope; a developer's projects can also be managed together on Users. On a phone, wide tables show
-an edge shadow where more columns can be scrolled into view, and Jobs collapses
-its history filters behind a Filters button that shows how many are active;
+an edge shadow where more columns can be scrolled into view. Jobs keeps search
+and status visible, with additional controls under Advanced filters;
 use Menu to switch pages.
 
 Project names and job ticket numbers are links, so a job opens in Jobs from
@@ -247,11 +257,11 @@ It starts with ten events per page and offers the same row choices and
 Previous/Next navigation for longer histories. The latest recorded events appear
 first, and Next moves toward older events. Saved journals retain append order;
 opening another ticket starts at the first page. Empty histories show the
-empty-state message.
+explicit unknown-evidence message.
 Previous/Next moves between pages when a finite size is selected. All returns
 every matching run after project authorization and filtering.
-The overview shows its seven
-most recently updated runs and counts all lifecycle states for that project.
+Overview and Jobs start at ten rows and support complete server-side pagination;
+continuations use the returned source revision.
 Signing out clears cached project, job, account and financial views before a
 different user signs in on the same browser tab. The new session starts at
 Overview, including when the previous user was on an administrator page.
@@ -566,13 +576,29 @@ mark; ADORE is the product name. Use the keyboard **Skip to content** link to
 reach page content. On compact screens, **Menu** opens navigation and choosing
 a destination closes it.
 
-The project context shows the selected project's name and repository. Its
-links open that project's details, Jobs or Statistics. Overview's enrolled
-project count covers all accessible projects, while its job counts cover the
-selected project. Jobs always shows the selected project's existing history.
-Administrators can select **All projects** within Statistics; the page explains
-that scope. Statistics retains its `/metrics` URL and existing deep links,
-including its project and category parameters. Jobs retains selected-job deep links.
+The project context shows the scoped project's display name and repository.
+Its links open that project's hub, Jobs or Statistics. Overview and Jobs default
+to **All authorized projects**; Statistics keeps its independent scope and
+`/metrics` URLs. A selected job URL includes both immutable project and run IDs,
+so colliding run IDs remain distinct after reload. Closing detail clears its ID.
+
+Projects and hub Summary display **Pickup** separately from **Environment
+verification**. Stopped pickup prevents new work and allows active jobs to
+continue. Verification is explicit and tied to saved configuration revision and
+check time: unverified, stale, failed, partial or verified. Invalid configuration
+is separate. Summary includes Jobs/Statistics links; Settings remains redacted
+read-only for Dev and editable through existing Admin controls. Prices/Access
+are Admin-only; History shows terminal project jobs. Existing `/configuration`
+and `/prices` addresses remain valid.
+
+Detail leads with exact lifecycle and saved stage, the observed reason and action
+location. Saved question/candidate/draft references open the forge. Publication
+approval stays candidate-bound and conditional; people decide merge. Completed
+means the job completed, even if its saved outcome is arbitrary text. Named
+actors, per-job duration and consumption stay unknown in this evidence contract.
+The timeline shows only saved events, including stages actually visited on a
+quick path. Old recorded activity does not prove executor failure; the separately
+shown heartbeat describes the control worker only.
 
 Use **How ADORE works** for delivery vocabulary:
 
@@ -597,10 +623,11 @@ receive only assigned projects. Add `project_id=<immutable project ID>` to read
 one authorized project. Search `q` matches actual project labels, run/ticket IDs,
 saved ticket titles, lifecycle, exact stage and outcome. `status_group` accepts
 `active`, `waiting`, `review` or `terminal`; exact lifecycle/stage filters are
-also available. `limit` is 1–100 or `all` (default 25); `offset` starts at zero.
+also available. Attention, exact observed executor, outcome fragment and inclusive
+UTC stored-update date filters are supported. `limit` is 1–100 or `all` (default 25); `offset` starts at zero.
 
 The server validates all selected history before reporting complete results.
-Counts/groups cover searched jobs before lifecycle/stage/group selection;
+Counts/groups cover searched jobs before secondary filters;
 `total` covers the final filtered set. Order uses the latest persisted state or
 journal activity in UTC, missing activity last, then immutable project/run IDs.
 Rows retain both IDs, so identical run IDs in different projects remain distinct.
@@ -617,9 +644,8 @@ unknown. Actual comment/candidate/MR evidence supports the reported next action;
 the API never invents a reviewer, question or completed outcome. Corrupt retained
 state/ticket/journal evidence returns a typed 503, with no partial totals.
 Job reads use local retained snapshots and execute no forge/container/executor
-commands. Existing project run API routes remain compatible. The current
-dashboard continues its project-scoped job view; global UI integration has its
-own implementation scope. See
+commands. Composite detail additionally carries only saved redacted event/date/stage
+fields for the observed timeline. Existing project run API routes remain compatible. See
 [the job component contract](../05_SoftwareDocu/Component_Web_Jobs.md) for field
 coverage, strict URL validation and source-change semantics.
 

@@ -46,6 +46,17 @@ archive checks. Human-owned worktrees remain protected by conductor cleanup.
 
 ## 3. Implementation Overview
 
+The action workspace uses complete authorized `/jobs-page` and composite
+`/jobs/{project_id}/{run_id}` reads. Global search and bounded attention,
+lifecycle/stage/executor/outcome/UTC date selection precede pagination. Counts
+cover searched scope before secondary filters; snapshot continuations detect
+source/access changes. Strict captured JSONL provides the safe observed detail
+timeline. See `Component_Web_Jobs.md` for exact trust boundaries and fields.
+Project list summaries preserve absent legacy update times as unknown so valid
+jobs remain navigable; a nonempty malformed timestamp still returns a typed error.
+Existing run endpoints and queued mutation contracts retain their behavior.
+
+
 Every project route validates the profile name then loads it through
 `ProfileStore`. Developer memberships are checked before state is read. Run
 events are allowlisted for both roles, with reported money fields restricted

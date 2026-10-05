@@ -16,9 +16,10 @@ On narrow screens, setting labels, values and help stack vertically.
 ## Routing
 
 Use this page for `adore-web`, `adore-web-worker`, `/api/v1`, web login/RBAC,
-React views, the web queue, or offline web media. Start at
+React action workspaces/project hubs, the web queue, or offline web media. Start at
 `04_Software/adore/web/app.py` for API behavior and
-`04_Software/web/src/App.tsx` for UI behavior. Focused tests are
+`04_Software/web/src/App.tsx` for shell/project behavior and `JobWorkspace.tsx`
+for attention/global jobs/details; `web/e2e/jobs.spec.ts` verifies those views. Focused tests are
 `04_Software/tests/test_web_*.py`. Engine internals belong to `orchestrator.md`.
 
 ## Purpose and boundaries
@@ -31,7 +32,7 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 ## Public interface
 
 - `/api/v1/jobs-page` provides complete globally ordered authorized current and
-  archived job history, optional project/search/status filters and optimistic
+  archived job history, optional project/search/attention/status/executor/outcome/UTC date filters and optimistic
   content revisions. `/api/v1/jobs/{project_id}/{run_id}` uses composite identity.
   `adore/web/jobs.py` strictly validates schema-1 state, saved ticket metadata and
   JSONL bytes without altering operational journal recovery. See
@@ -95,7 +96,10 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 - App keys data by project/filter and guards completions by request/session
   identity. Numeric totals render from successful reads; failed reads hide
   stale totals. Refresh retries current-view reads. Closing a job clears its
-  URL identity. Jobs explicitly covers the selected authorized project.
+  URL identity. Jobs/Overview default to complete all-authorized current/archived
+  history or an explicit selected project. JobWorkspace guards render keys and
+  composite detail identity; changed continuations hide totals/detail and require
+  explicit restart. Validated jobModel checks safe links, counts/groups and stages.
 
 - Fresh identity stores bootstrap `admin` / `admin` once with an Argon2id hash.
   A corrupt or deleted initialized store does not recreate the default login.
@@ -158,30 +162,28 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
   ADORE home. ADORE uses the configured agent identity for host-side checkpoint
   commits, even when the fresh clone has no local Git identity.
 - The audit trail is available only on the administrator API and page.
-- Jobs keeps authorized project selection beside ticket/start controls in page
-  content. Visible localized ticket instructions describe an existing repository issue number
-  and positive integer syntax. Switching projects clears the ticket draft;
-  archived profiles expose history selection with job-start controls hidden.
-  Observed executor and Outcome contains use aligned wider fields with localized
-  Help and examples. Executor is exact and case-sensitive against recorded
-  journal identity; outcome is a case-insensitive fragment of the saved ADORE
-  result/error explanation. These filters retain their bounds and do not search
-  full AEGIS or executor logs. Text fields stack on narrow screens.
-- The Jobs UI uses `/projects/{name}/runs-page` with an initial ten-item response and
-  exact lifecycle/stage/observed-executor, inclusive UTC last-update date, and bounded outcome
-  text filters; grants and corrupt-state checks precede data. Malformed or reversed date inputs fail;
-  corrupt persisted update timestamps fail closed when date filtering is used.
-  The overview requests seven recent runs plus unfiltered lifecycle counts.
-  Selected-ticket history displays Date, Event and Stage in a locally paged
-  table, showing latest entries first by reversing a copy of the journal array.
-  Saved journal order and escaped event text are preserved. It starts with ten
-  rows and offers 10/25/50/All for longer history. Project/run changes reset
-  its paging, and empty history uses the standard empty state.
-  Its summary cards expand into a project table or a selected-project job table;
-  expanded job tables request authorized full run history and paginate locally.
-  The project selector is inside the Projects expansion on Overview. The
-  Projects page itself uses sortable, paged authorized rows and per-row
-  administrator pickup/archive actions with scoped details for all roles.
+- JobWorkspace reads `/jobs-page` for complete authorized attention/jobs/history
+  and composite `/jobs/{project_id}/{run_id}` for detail. Overview leads with
+  human-action/failure/handoff attention and follows with scoped current counts.
+  Jobs keeps search/project/status group visible and advanced exact filters
+  disclosed. Ten-row server pages carry source revisions on continuation.
+  Detail leads with lifecycle, actual stage, reason, role/location and conditional
+  following action. Missing names/duration/consumption remain unknown. Old saved
+  activity and the separately polled control-worker heartbeat express different
+  evidence. Timeline contains only redacted saved events, locally reverse-paged
+  at 10/25/50/All without inferring unvisited stages.
+- Manual start requires a current authorized selected project and visible effect
+  guidance. Retry/cancel mirror conservative existing lifecycle guards, excluding
+  pending/completed handoff cancellation. A ref lock prevents repeated submission;
+  the existing queue is polled for pending/running/succeeded/failed/uncertain.
+  Unreadable status leaves completion unknown; server/worker authority remains
+  decisive. Scope changes discard ticket drafts and superseded command results.
+- Projects show display labels, independent pickup and explicit revision/time-bound
+  verification, counts/activity and scoped actions. Summary includes the same
+  evidence and Jobs/Statistics links; Settings stays read-only for Dev, Prices and
+  Access are Admin-only, and History selects terminal jobs. Legacy configuration
+  and prices routes remain valid. Missing legacy update times remain unknown in
+  project summaries; nonempty corrupt timestamps fail closed.
   Administrators open Add project as a six-step guided page with visible localized
   instructions. Clone paths identify existing Git clones on the ADORE host;
   executor/model/runtime/image values describe actual operator setup. Back retains
@@ -258,10 +260,11 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 | Accounts, sessions, queue | `adore/web/store.py` | `test_web_auth.py`, `test_web_commands.py` |
 | API permissions/config/metrics | `adore/web/app.py` | `test_web_rbac.py`, `test_web_config.py`, `test_web_pending_config.py`, `test_web_readiness.py`, `test_web_metrics.py` |
 | Worker execution | `adore/web/commands.py` | `test_web_commands.py` |
+| Action workspace, next action and observed history | `web/src/JobWorkspace.tsx`, `jobModel.ts`, `jobCopy.ts` | `web/tests/jobs.test.mjs`, `web/e2e/jobs.spec.ts`, `test_web_jobs.py` |
 | Language, theme, views | `web/src/App.tsx`, `web/src/i18n.ts` | `npm run validate`, isolated Chromium journeys |
 | Shell, branding, scope, request feedback | `web/src/DashboardShell.tsx`, `web/src/Presentation.tsx`, `web/src/App.tsx` | `web/e2e/shell.spec.ts`, `web/tests/shell.test.mjs` |
 | URLs, tabs, navigation | `web/src/routes.ts`, `web/src/App.tsx` | `npm test` (`routes.test.mjs`), browser check |
-| Background refresh and paging | `web/src/polling.ts`, `ServerPager` in `App.tsx`, `/api/v1/audit-page` | `npm test` (`polling.test.mjs`), `test_web_paging.py` |
+| Background refresh and paging | `web/src/polling.ts`, `JobWorkspace`, `ServerPager` in `App.tsx`, `/api/v1/audit-page` | `npm test` (`polling.test.mjs`), `test_web_paging.py` |
 | Error codes and messages | `adore/web/app.py` (`_error`, `_STORE_ERROR_CODES`), `web/src/errors.ts` | `test_web_errors.py`, `npm test` (`errors.test.mjs`) |
 | Project developer access | `/api/v1/projects/{name}/access` routes in `adore/web/app.py`, `project_members` and `set_membership` in `adore/web/store.py`, `ProjectAccess` in `App.tsx`, `web/src/routes.ts` | `test_web_project_access.py`, `npm test` (`routes.test.mjs`), browser check |
 | Project settings list and row editing | `_setting_metadata` in `adore/web/app.py`, `web/src/settings.ts`, `SettingsList` in `App.tsx` | `test_web_config.py`, `npm test` (`settings.test.mjs`), browser check |
@@ -269,6 +272,11 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 | Offline media | `02_Tools/*web*.py` | `test_web_package.py`, installed HTTP smoke |
 
 ## Key behaviors
+
+- `REQ-UX-b758d2b7`, `REQ-UX-78923e00`, `REQ-UX-a7969a9d`,
+  `REQ-FUNC-25dc0271` — complete authorized action workspace, pickup/verification
+  project hubs, observed safe timeline/advanced filters and actual queued outcomes.
+
 
 - `REQ-FUNC-e8455ab6`, `REQ-DATA-0ba9e469`, `REQ-SEC-5d0f86e7` — complete
   authorized job pages, actual persisted evidence/unknowns and strict trusted sources.
@@ -332,6 +340,10 @@ flowchart LR
     browser([Browser]) --> App[App session routes scoped requests]
     App --> DashboardShell[DashboardShell links branding focus]
     App --> Presentation[Presentation feedback glossary status]
+    App --> JobWorkspace[JobWorkspace attention jobs detail commands]
+    JobWorkspace --> jobModel[jobModel evidence validation]
+    JobWorkspace --> jobCopy[jobCopy four locale guidance]
+    JobWorkspace --> api
     App --> ImportWizard[ImportWizard exact memory draft]
     ImportWizard --> importCopy[importCopy localized source effects]
     ImportWizard --> api
@@ -373,7 +385,7 @@ blocks; a stopped, stale or corrupt heartbeat does not claim readiness.
 Administration expands into System status, Users and Change history sidebar pages;
 both roles reach a top-level My account page. Every view has a path URL
 (`web/src/routes.ts`) kept in sync with view state; project details uses
-Overview/Configuration/Prices/Access tabs and Jobs/Statistics links. Project details shows effective
+Summary/Settings/Prices/Access/History tabs and Jobs/Statistics links. Project details shows effective
 configuration in compact sections, common settings first, with a Set for this
 project / Default badge, field type, domain and purpose help and a filter for
 project-set settings; administrators edit settings on their rows and stage
@@ -386,7 +398,7 @@ through `04_Software/web/src/auditPolicy.ts`, covered by offline Node tests.
 Administrators can set day and stored-text byte limits. Schema 12
 prunes oldest events transactionally when configured while preserving other
 history. Audit and other long tables provide 10/25/50/All paging; Jobs uses
-the scoped run-page API for the same choices. API fetches bypass browser cache
+the complete revision-bound global API for the same choices. API fetches bypass browser cache
 so a newly deployed endpoint cannot be masked by stale HTML.
 The Administration System status page polls readiness every five seconds and labels worker
 status separately from forge, executor and model reachability.
@@ -426,6 +438,13 @@ for Add and Import project. Primary buttons take their text colour from the
 `--on-accent` theme token.
 
 ## Files
+
+- `04_Software/web/src/JobWorkspace.tsx` — scoped attention/jobs/detail, observed
+  paging and queued command feedback; `jobModel.ts` validates transport evidence,
+  `jobCopy.ts` localizes conditional actions.
+- `04_Software/web/tests/jobs.test.mjs`, `04_Software/web/e2e/jobs.spec.ts` — public
+  evidence/route boundaries and offline real API/worker/browser journeys.
+
 
 - `04_Software/adore/web/jobs.py`
 - `04_Software/tests/test_web_jobs.py`

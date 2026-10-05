@@ -844,6 +844,8 @@ def _profile_view(profiles: ProfileStore, profile) -> dict:
     runs = store.list_runs()
     last_activity: datetime | None = None
     for run in runs:
+        if run.updated_at == "":
+            continue
         try:
             changed = datetime.fromisoformat(run.updated_at)
             if changed.tzinfo is None or changed.utcoffset() is None:
@@ -2816,6 +2818,11 @@ def create_app(home: str | Path | None = None,
                            "handoff-pending", "handed-off"] | None = None,
         stage: Literal["frame", "specify", "design", "build", "validate", "deliver", "done",
                        "publishing"] | None = None,
+        executor: Annotated[str | None, Query(min_length=1, max_length=200)] = None,
+        outcome: Annotated[str | None, Query(min_length=1, max_length=80)] = None,
+        updated_from: date | None = None,
+        updated_to: date | None = None,
+        attention: bool = False,
         limit: str = "25",
         offset: Annotated[int, Query(ge=0)] = 0,
         snapshot: Annotated[str | None, Query(pattern=r"^[0-9a-f]{64}$")] = None,
@@ -2828,6 +2835,11 @@ def create_app(home: str | Path | None = None,
         @param[in] status_group Optional lifecycle group.
         @param[in] lifecycle Optional exact lifecycle.
         @param[in] stage Optional exact persisted AEGIS stage.
+        @param[in] executor Optional exact observed executor identity.
+        @param[in] outcome Optional case-insensitive saved outcome fragment.
+        @param[in] updated_from Inclusive stored-update UTC day lower bound.
+        @param[in] updated_to Inclusive stored-update UTC day upper bound.
+        @param[in] attention Select jobs awaiting intervention or recovery.
         @param[in] limit Bounded page size or all.
         @param[in] offset Nonnegative matched-row offset.
         @param[in] snapshot Optional expected source-content revision.
@@ -2839,6 +2851,13 @@ def create_app(home: str | Path | None = None,
         needle = q.strip().casefold() if q is not None else None
         if needle == "":
             raise _error(422, "invalid_job_search")
+        outcome_filter = outcome.strip().casefold() if outcome is not None else None
+        if outcome_filter == "":
+            raise _error(422, "invalid_outcome_filter")
+        if executor is not None and not executor.strip():
+            raise _error(422, "invalid_executor_filter")
+        if updated_from and updated_to and updated_from > updated_to:
+            raise _error(422, "invalid_date_range")
         rows, revision = job_snapshot(user, project_id)
         if snapshot is not None and snapshot != revision:
             raise JobReadError("job_snapshot_changed", 409)
@@ -2853,10 +2872,24 @@ def create_app(home: str | Path | None = None,
             groups[row["status_group"]] += 1
         matched = [row for row in searched
                    if (status_group is None or row["status_group"] == status_group)
+                   and (not attention or row["lifecycle"] in {
+                       "parked-clarification", "awaiting-approval", "in-review", "failed",
+                       "stale", "handoff-pending",
+                   })
                    and (lifecycle is None or row["lifecycle"] == lifecycle)
-                   and (stage is None or row["stage"] == stage)]
+                   and (stage is None or row["stage"] == stage)
+                   and (executor is None or executor in row["observed_executors"])
+                   and (outcome_filter is None or outcome_filter in row["outcome"].casefold())
+                   and (not (updated_from or updated_to) or row["updated_at"] is not None
+                        and (updated_from is None
+                             or datetime.fromisoformat(row["updated_at"]).date() >= updated_from)
+                        and (updated_to is None
+                             or datetime.fromisoformat(row["updated_at"]).date() <= updated_to))]
         page_limit = len(matched) if limit == "all" else int(limit)
-        return {"items": matched[offset:offset + page_limit], "total": len(matched),
+        visible = [{key: value for key, value in row.items()
+                    if key not in {"timeline", "observed_executors"}}
+                   for row in matched[offset:offset + page_limit]]
+        return {"items": visible, "total": len(matched),
                 "counts": counts, "groups": groups, "limit": page_limit, "offset": offset,
                 "complete": True, "snapshot": revision,
                 "snapshot_semantics": "optimistic-source-revision"}
@@ -2877,7 +2910,8 @@ def create_app(home: str | Path | None = None,
         row = next((row for row in rows if row["run_id"] == run_id), None)
         if row is None:
             raise _error(404, "run_not_found")
-        return {"job": row, "complete": True, "snapshot": revision}
+        return {"job": {key: value for key, value in row.items()
+                        if key != "observed_executors"}, "complete": True, "snapshot": revision}
 
     @app.get("/api/v1/projects/{name}/runs")
     def runs(name: str, user: Annotated[dict, Depends(principal)]) -> list[dict]:

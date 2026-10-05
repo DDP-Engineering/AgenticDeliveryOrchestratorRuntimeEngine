@@ -15,6 +15,8 @@ import { editValue, hasDefault, settingGroups, settingRows, type SettingMeta, ty
 import { settingHelp } from "./settingHelp";
 import { ImportWizard } from "./ImportWizard";
 import { EnrollmentWizard } from "./EnrollmentWizard";
+import { JobWorkspace } from "./JobWorkspace";
+import { jobCopy } from "./jobCopy";
 import { DashboardShell, NavigationLink, type ShellLink } from "./DashboardShell";
 import { DataFeedback, ProjectEmpty, StatusBadge, DeliveryGlossary, type DataState, type ScopedState } from "./Presentation";
 
@@ -22,17 +24,14 @@ type User = { id: number; username: string; role: "admin" | "developer"; disable
 type Session = { user: User; csrf: string };
 type PageSize = 10 | 25 | 50 | "all";
 type Preferences = { language: Locale | null; theme: "light" | "dark" | "system" | null };
-type Project = { id: string; name: string; description: string; platform: string; repo: string; runtime: string; executor: string; readiness: string; last_activity: string | null; paused: boolean; archived: boolean; runs: number; invalid_runs: string[] };
+type Project = { display_name: string; pickup_state: string; verification: { status: string; checked_at?: string | null; revision?: string | null }; validation: { structural_valid: boolean }; id: string; name: string; description: string; platform: string; repo: string; runtime: string; executor: string; readiness: string; last_activity: string | null; paused: boolean; archived: boolean; runs: number; invalid_runs: string[] };
 type PendingConfig = { base_revision: string; candidate_revision: string; key: string; value: string; created_at: string; restart_required: boolean; endpoint?: { protocol: string; model: string; auth_env: string | null; timeout_seconds: number | null; ca_file: string | null } };
-type Run = { run_id: string; ticket_iid: number; stage: string; lifecycle: string; outcome: string; stage_failures: number; review_rounds: number; mr_url: string; updated_at: string };
-type RunPage = { items: Run[]; total: number; counts: Record<string, number>; limit: number; offset: number };
 type Config = { config: Record<string, unknown>; revision: string; issues: string[]; local_endpoint_timeout_seconds?: number | null; settings?: SettingMeta[] };
 type Operation = { id: number; status: string; result?: string; action?: string };
 type AuditRow = { id: number; actor: string | null; action: string; project: string; detail: string; created_at: string };
 type Price = { id: number; executor: string; model: string; effective_from: string; input_usd_per_million: string; output_usd_per_million: string };
 type Page = "overview" | "projects" | "createProject" | "importProject" | "projectDetails" | "jobs" | "metrics" | "administration" | "adminUsers" | "adminAudit" | "settings";
 type MetricsTab = "summary" | "usage" | "quality" | "trends" | "projects";
-type OverviewSection = "projects" | "active" | "review" | "failed" | null;
 type ProjectSortKey = "name" | "repo" | "readiness" | "runs" | "last_activity";
 const metricsTabLabels: Record<MetricsTab, MessageKey> = {
   summary: "metricsTabSummary", usage: "metricsTabUsage", quality: "metricsTabQuality",
@@ -74,18 +73,6 @@ async function request<T>(path: string, method = "GET", body?: unknown, csrf?: s
   return response.json() as Promise<T>;
 }
 
-const lifecycleLabels: Record<string, MessageKey> = {
-  working: "working", publishing: "publishingStatus", "awaiting-approval": "awaitingApprovalStatus",
-  "parked-clarification": "parkedClarificationStatus", "in-review": "inReviewStatus",
-  "handoff-pending": "handoffPendingStatus", "handed-off": "handedOffStatus",
-  done: "done", failed: "failed", cancelled: "cancelled",
-};
-const stageLabels: Record<string, MessageKey> = {
-  frame: "frameStage", specify: "specifyStage", design: "designStage",
-  build: "buildStage", validate: "validateStage", deliver: "deliverStage",
-};
-const displayCode = (value: string, labels: Record<string, MessageKey>, t: (key: MessageKey) => string) =>
-  labels[value] ? t(labels[value]) : value;
 
 export default function App() {
   const [locale, setLocale] = useState<Locale>(initialLocale);
@@ -93,32 +80,15 @@ export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState<Page>("overview");
-  const [overviewSection, setOverviewSection] = useState<OverviewSection>(null);
-  const [overviewRuns, setOverviewRuns] = useState<Run[]>([]);
-  const [overviewTotal, setOverviewTotal] = useState(0);
-  const [overviewPageSize, setOverviewPageSize] = useState<PageSize>(10);
-  const [overviewOffset, setOverviewOffset] = useState(0);
   const [auditTotal, setAuditTotal] = useState(0);
   const [auditPageSize, setAuditPageSize] = useState<PageSize>(10);
   const [auditOffset, setAuditOffset] = useState(0);
   const [auditRefresh, setAuditRefresh] = useState(0);
   const [viewRefresh, setViewRefresh] = useState(0);
-  const [jobFiltersOpen, setJobFiltersOpen] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectSortKey, setProjectSortKey] = useState<ProjectSortKey>("name");
   const [projectSortDescending, setProjectSortDescending] = useState(false);
   const [selected, setSelected] = useState("");
-  const [runs, setRuns] = useState<Run[]>([]);
-  const [runCounts, setRunCounts] = useState<Record<string, number>>({});
-  const [jobPage, setJobPage] = useState<RunPage>({ items: [], total: 0, counts: {}, limit: 25, offset: 0 });
-  const [jobOffset, setJobOffset] = useState(0);
-  const [jobPageSize, setJobPageSize] = useState<10 | 25 | 50 | "all">(10);
-  const [jobLifecycle, setJobLifecycle] = useState("");
-  const [jobStage, setJobStage] = useState("");
-  const [jobExecutor, setJobExecutor] = useState("");
-  const [jobUpdatedFrom, setJobUpdatedFrom] = useState("");
-  const [jobUpdatedTo, setJobUpdatedTo] = useState("");
-  const [jobOutcome, setJobOutcome] = useState("");
   const [selectedMetrics, setMetrics] = useState<Metrics | null>(null);
   const [allMetrics, setAllMetrics] = useState<Record<string, Metrics> | null>(null);
   const [metricFrom, setMetricFrom] = useState("");
@@ -148,7 +118,6 @@ export default function App() {
   const [storageStatus, setStorageStatus] = useState<StorageStatus | null>(null);
   const [storageError, setStorageError] = useState(false);
   const [projectReadiness, setProjectReadiness] = useState<ProjectReadiness | null>(null);
-  const [details, setDetails] = useState<{ run: Run; events: Array<Record<string, unknown>> } | null>(null);
   const [about, setAbout] = useState<{ name: string; version: string; license: string; license_text: string; third_party_notices: string } | null>(null);
   const [error, setError] = useState<unknown>("");
   const [passwordSession, setPasswordSession] = useState<Session | null>(null);
@@ -159,32 +128,24 @@ export default function App() {
   const [configState, setConfigState] = useState<ScopedState>({ key: "", state: "loading" });
   const [usersState, setUsersState] = useState<DataState>("loading");
   const [auditState, setAuditState] = useState<DataState>("loading");
+  const [jobScope, setJobScope] = useState("");
   const [requestedRun, setRequestedRun] = useState("");
-  const [detailState, setDetailState] = useState<DataState>("loading");
   const [projectsState, setProjectsState] = useState<DataState>("loading");
   const [selectedState, setSelectedState] = useState<ScopedState>({ key: "", state: "loading" });
   const [globalState, setGlobalState] = useState<ScopedState>({ key: "", state: "loading" });
   const [usageState, setUsageState] = useState<ScopedState>({ key: "", state: "loading" });
   const [globalUsageState, setGlobalUsageState] = useState<ScopedState>({ key: "", state: "loading" });
-  const [jobsState, setJobsState] = useState<ScopedState>({ key: "", state: "loading" });
-  const [overviewState, setOverviewState] = useState<ScopedState>({ key: "", state: "loading" });
   const [routeReady, setRouteReady] = useState(false);
   const routedProject = useRef<string | null>(null);
-  const pendingRun = useRef<string | null>(null);
   const preserveError = useRef(false);
   const [notice, setNotice] = useState("");
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
-  const [ticket, setTicket] = useState("");
   const [operation, setOperation] = useState<Operation | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const enrollmentGuard = useRef<(() => boolean) | null>(null);
   const [resetTarget, setResetTarget] = useState<number | null>(null);
   const aboutTrigger = useRef<HTMLButtonElement>(null);
   const aboutClose = useRef<HTMLButtonElement>(null);
-  const jobRequest = useRef(0);
-  const detailRequest = useRef(0);
-  const selectedIdentity = useRef(selected);
-  selectedIdentity.current = selected;
   const selectedMetricsRequest = useRef(0);
   const projectsRequest = useRef(0);
   const globalMetricsRequest = useRef(0);
@@ -200,7 +161,8 @@ export default function App() {
   };
 
   const t = (key: MessageKey) => messages[locale][key];
-  const example = (text: string) => `${t("examplePrefix")} ${text}`;
+  const jc = jobCopy[locale];
+  const verificationLabel = (item: Project) => !item.validation.structural_valid ? jc.invalid : ({ verified: jc.passed, partial: jc.partial, failed: jc.checkFailed, stale: jc.stale, invalid: jc.invalid, unverified: jc.unverified }[item.verification.status] || jc.unverified);
   const applyPreferences = (saved: Preferences) => {
     if (saved.language) setLocale(saved.language);
     if (saved.theme) setTheme(saved.theme);
@@ -217,7 +179,7 @@ export default function App() {
     setMetricsTab(metricsTabs[next]);
     document.getElementById(`metrics-tab-${metricsTabs[next]}`)?.focus();
   };
-  const projectTabs: ProjectTab[] = isAdmin ? ["overview", "configuration", "prices", "access"] : ["overview", "configuration"];
+  const projectTabs: ProjectTab[] = isAdmin ? ["overview", "configuration", "prices", "access", "history"] : ["overview", "configuration", "history"];
   const onProjectTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, tab: ProjectTab) => {
     const current = projectTabs.indexOf(tab);
     const next = event.key === "ArrowRight" ? (current + 1) % projectTabs.length :
@@ -278,14 +240,10 @@ export default function App() {
   const globalRows = allProjectScope ? Object.entries(allMetrics || {}) :
     selectedMetrics && metricsScope === selected && selectedProject ? [[selectedProject.name, selectedMetrics] as [string, Metrics]] : [];
   const selectedKey = JSON.stringify([selected, metricSuffix]);
-  const jobKey = JSON.stringify([selected, jobOffset, jobPageSize, jobLifecycle, jobStage, jobExecutor, jobUpdatedFrom, jobUpdatedTo, jobOutcome]);
-  const overviewKey = JSON.stringify([selected, overviewSection, overviewPageSize, overviewOffset]);
   const scopedUsageKey = JSON.stringify([selected, usageSuffix]);
   const selectedDataState = selectedState.key === selectedKey ? selectedState.state : "loading";
   const metricDataState = allProjectScope ? globalState.key === metricSuffix ? globalState.state : "loading" : selectedDataState;
   const usageDataState = allProjectScope ? globalUsageState.key === usageSuffix ? globalUsageState.state : "loading" : usageState.key === scopedUsageKey ? usageState.state : "loading";
-  const jobDataState = jobsState.key === jobKey ? jobsState.state : "loading";
-  const overviewDataState = overviewState.key === overviewKey ? overviewState.state : "loading";
   const metrics = allProjectScope ? (allMetrics ? aggregateMetrics(Object.values(allMetrics), metricTimezone, metricFrom, metricTo) : null) :
     metricsScope === selected ? selectedMetrics : null;
   const metricsEmpty = metrics !== null && !((metrics.totals.runs || 0) > 0);
@@ -370,7 +328,14 @@ export default function App() {
       const items = await request<Project[]>("/projects");
       if (generation !== viewGeneration.current || revision !== projectsRequest.current) return;
       if (!Array.isArray(items) || items.some(item => !item || typeof item.id !== "string" || typeof item.name !== "string" ||
-        typeof item.repo !== "string" || typeof item.readiness !== "string" || !Number.isSafeInteger(item.runs) || item.runs < 0)) throw new ApiError("unexpected_response");
+        typeof item.repo !== "string" || typeof item.display_name !== "string" || !/^[a-f0-9]{32}$/.test(item.id) ||
+        typeof item.readiness !== "string" || typeof item.paused !== "boolean" || typeof item.archived !== "boolean" ||
+        !item.verification || !["unverified", "stale", "failed", "partial", "verified"].includes(item.verification.status) ||
+        !item.validation || typeof item.validation.structural_valid !== "boolean" ||
+        item.verification.checked_at != null && (typeof item.verification.checked_at !== "string" || !Number.isFinite(Date.parse(item.verification.checked_at))) ||
+        item.verification.revision != null && (typeof item.verification.revision !== "string" || !/^[a-f0-9]{64}$/.test(item.verification.revision)) ||
+        item.last_activity !== null && (typeof item.last_activity !== "string" || !Number.isFinite(Date.parse(item.last_activity))) ||
+        !Number.isSafeInteger(item.runs) || item.runs < 0)) throw new ApiError("unexpected_response");
       setProjects(items);
       setSelected(current => items.some(item => item.id === current) || routedProject.current ? current : (items[0]?.id || ""));
       setProjectsLoaded(true); setProjectsState("ready"); setLastRefresh(new Date());
@@ -427,63 +392,29 @@ export default function App() {
 
   const refreshSelected = useCallback(async () => {
     const revision = ++selectedMetricsRequest.current;
-    if (!selected || !session) { setRuns([]); setRunCounts({}); setMetrics(null); return; }
+    if (!selected || !session || page !== "metrics") { setMetrics(null); return; }
     const generation = viewGeneration.current;
     const key = JSON.stringify([selected, metricSuffix]);
     setSelectedState({ key, state: "loading" });
     try {
-      const [runData, metricData] = await Promise.all([
-        request<RunPage>(`/projects/${encodeURIComponent(selected)}/runs-page?limit=7`),
-        request<Metrics>(`/projects/${encodeURIComponent(selected)}/metrics${metricSuffix}`),
-      ]);
+      const metricData = await request<Metrics>(`/projects/${encodeURIComponent(selected)}/metrics${metricSuffix}`);
       if (generation !== viewGeneration.current || revision !== selectedMetricsRequest.current) return;
-      if (!Array.isArray(runData.items) || !runData.counts || Object.values(runData.counts).some(count => !Number.isSafeInteger(count) || count < 0)) throw new ApiError("unexpected_response");
       aggregateMetrics([metricData], metricTimezone, metricFrom, metricTo);
       setSelectedState({ key, state: "ready" });
-      setRuns(runData.items);
-      setRunCounts(runData.counts);
       setMetrics(metricData); setMetricsScope(selected);
       setLastRefresh(new Date());
     } catch (cause) {
       if (generation === viewGeneration.current && revision === selectedMetricsRequest.current) {
-        setSelectedState({ key, state: "error" }); setMetrics(null); setRuns([]); setRunCounts({}); setError(cause);
+        setSelectedState({ key, state: "error" }); setMetrics(null); setError(cause);
       }
     }
-  }, [selected, session, metricSuffix]);
+  }, [selected, session, metricSuffix, page]);
 
   useEffect(() => {
     void refreshSelected();
     const stopPolling = startVisiblePolling(() => void refreshSelected(), 15000);
     return () => { selectedMetricsRequest.current += 1; stopPolling(); };
   }, [refreshSelected]);
-
-  useEffect(() => {
-    if (page !== "overview" || !selected || !session || !overviewSection || overviewSection === "projects") {
-      setOverviewRuns([]);
-      return;
-    }
-    const generation = viewGeneration.current;
-    let active = true;
-    setOverviewRuns([]);
-    const key = JSON.stringify([selected, overviewSection, overviewPageSize, overviewOffset]);
-    setOverviewState({ key, state: "loading" });
-    const query = new URLSearchParams({ limit: String(overviewPageSize), offset: String(overviewOffset) });
-    for (const lifecycle of overviewSection === "active" ? ["working"] : overviewSection === "review" ? ["awaiting-approval", "in-review"] : ["failed"]) query.append("lifecycle", lifecycle);
-    const refresh = async () => {
-      try {
-        const result = await request<RunPage>(`/projects/${encodeURIComponent(selected)}/runs-page?${query}`);
-        if (!Array.isArray(result.items) || !Number.isSafeInteger(result.total) || result.total < 0) throw new ApiError("unexpected_response");
-        if (active && generation === viewGeneration.current) { setOverviewRuns(result.items); setOverviewTotal(result.total); setOverviewState({ key, state: "ready" }); }
-      } catch (cause) {
-        if (active && generation === viewGeneration.current) { setOverviewState({ key, state: "error" }); setError(cause); }
-      }
-    };
-    void refresh();
-    const stopPolling = startVisiblePolling(() => void refresh(), 15000);
-    return () => { active = false; stopPolling(); };
-  }, [page, selected, session, overviewSection, overviewPageSize, overviewOffset]);
-
-  useEffect(() => { setOverviewOffset(0); }, [selected, overviewSection, overviewPageSize]);
 
   useEffect(() => {
     if (page !== "adminAudit" || !isAdmin) return;
@@ -501,37 +432,6 @@ export default function App() {
   }, [page, isAdmin, auditPageSize, auditOffset, auditRefresh]);
 
   useEffect(() => { setAuditOffset(0); }, [auditPageSize]);
-
-  const refreshJobPage = useCallback(async () => {
-    if (!selected || !session || page !== "jobs") return;
-    const revision = ++jobRequest.current;
-    const generation = viewGeneration.current;
-    const key = JSON.stringify([selected, jobOffset, jobPageSize, jobLifecycle, jobStage, jobExecutor, jobUpdatedFrom, jobUpdatedTo, jobOutcome]);
-    setJobsState({ key, state: "loading" });
-    const query = new URLSearchParams({ limit: String(jobPageSize), offset: String(jobOffset) });
-    if (jobLifecycle) query.set("lifecycle", jobLifecycle);
-    if (jobStage) query.set("stage", jobStage);
-    if (jobExecutor.trim()) query.set("executor", jobExecutor.trim());
-    if (jobUpdatedFrom) query.set("updated_from", jobUpdatedFrom);
-    if (jobUpdatedTo) query.set("updated_to", jobUpdatedTo);
-    if (jobOutcome.trim()) query.set("outcome", jobOutcome.trim());
-    try {
-      const result = await request<RunPage>(`/projects/${encodeURIComponent(selected)}/runs-page?${query}`);
-      if (!Array.isArray(result.items) || !Number.isSafeInteger(result.total) || result.total < 0) throw new ApiError("unexpected_response");
-      if (revision === jobRequest.current && generation === viewGeneration.current) { setJobPage(result); setJobsState({ key, state: "ready" }); }
-    } catch (cause) {
-      if (revision === jobRequest.current && generation === viewGeneration.current) { setJobsState({ key, state: "error" }); setError(cause); }
-    }
-  }, [selected, session, page, jobOffset, jobPageSize, jobLifecycle, jobStage, jobExecutor, jobUpdatedFrom, jobUpdatedTo, jobOutcome]);
-
-  useEffect(() => { setJobOffset(0); }, [selected, jobPageSize, jobLifecycle, jobStage, jobExecutor, jobUpdatedFrom, jobUpdatedTo, jobOutcome]);
-
-  useEffect(() => {
-    void refreshJobPage();
-    if (page !== "jobs") return;
-    const stopPolling = startVisiblePolling(() => void refreshJobPage(), 15000);
-    return () => { jobRequest.current += 1; stopPolling(); };
-  }, [page, refreshJobPage]);
 
   useEffect(() => {
     if (page === "adminUsers" && isAdmin) {
@@ -626,44 +526,43 @@ export default function App() {
         setOperation(current);
         if (!["pending", "running"].includes(current.status)) {
           if (current.action === "delete") await refreshProjects();
-          else { await refreshSelected(); await refreshProjects(); await refreshJobPage(); }
+          else { await refreshSelected(); await refreshProjects(); setViewRefresh(value => value + 1); }
         }
       } catch (cause) {
         if (generation === viewGeneration.current) setError(cause);
       }
     }, 2000);
     return () => stopPolling();
-  }, [operation?.id, operation?.status, refreshSelected, refreshProjects, refreshJobPage]);
+  }, [operation?.id, operation?.status, refreshSelected, refreshProjects]);
 
   useEffect(() => {
     if (preserveError.current) { preserveError.current = false; return; }
     setError("");
   }, [page]);
 
-  const openJob = (runId: string) => { void openRun(runId); setPage("jobs"); };
 
   const openProject = (id: string) => {
-    detailRequest.current += 1; setRequestedRun("");
-    setSelected(id); setProjectTab("overview"); setDetails(null); setPage("projectDetails");
+    setRequestedRun("");
+    setSelected(id); setProjectTab("overview"); setPage("projectDetails");
   };
 
   const currentRoute = (): Route => {
     switch (page) {
-      case "overview": return selected ? { view: "overview", project: selected } : { view: "overview" };
+      case "overview": return jobScope ? { view: "overview", project: jobScope } : { view: "overview" };
       case "projectDetails": return selected ? { view: "projectDetails", project: selected, tab: projectTab } : { view: "projects" };
-      case "jobs": return { view: "jobs", ...(selected ? { project: selected } : {}), ...(selected && requestedRun ? { run: requestedRun } : {}) };
+      case "jobs": return { view: "jobs", ...(jobScope ? { project: jobScope } : {}), ...(jobScope && requestedRun ? { run: requestedRun } : {}) };
       case "metrics": return { view: "metrics", ...(selected && !(isAdmin && metricAllProjects) ? { project: selected } : {}), ...(metricsTab !== "summary" ? { tab: metricsTab } : {}) };
       default: return { view: page };
     }
   };
 
   const applyRoute = (route: Route) => {
-    detailRequest.current += 1; setRequestedRun(route.view === "jobs" ? route.run || "" : "");
-    setPage(route.view); setDetails(null); setMenuOpen(false);
+    setRequestedRun(route.view === "jobs" ? route.run || "" : "");
+    setPage(route.view); setMenuOpen(false);
+    if (route.view === "jobs" || route.view === "overview") setJobScope(route.project || "");
     if ("project" in route && route.project) { routedProject.current = route.project; setSelected(route.project); }
     if (route.view === "projectDetails") setProjectTab(route.tab);
     if (route.view === "metrics") { setMetricsTab(route.tab ?? "summary"); setMetricAllProjects(!route.project); }
-    pendingRun.current = route.view === "jobs" && route.run ? route.run : null;
   };
 
   const applyLocation = () => {
@@ -694,54 +593,41 @@ export default function App() {
     if (target === here) return;
     if (target.split("?")[0] === window.location.pathname) window.history.replaceState(null, "", target);
     else window.history.pushState(null, "", target);
-  }, [session, routeReady, page, selected, projectTab, metricsTab, metricAllProjects, details, requestedRun, isAdmin]);
+  }, [session, routeReady, page, selected, projectTab, metricsTab, metricAllProjects, requestedRun, jobScope, isAdmin]);
 
   useEffect(() => {
     const wanted = routedProject.current;
     if (!wanted || !projectsLoaded) return;
     routedProject.current = null;
     const match = projects.find(item => item.id === wanted || item.name === wanted);
-    if (match) { setSelected(match.id); return; }
-    preserveError.current = page === "projectDetails";
+    if (match) { setSelected(match.id); if (page === "jobs" || page === "overview") setJobScope(match.id); return; }
+    preserveError.current = ["projectDetails", "jobs", "overview"].includes(page);
+    setRequestedRun(""); setJobScope("");
     setSelected(projects[0]?.id || "");
     if (page === "projectDetails") { setPage("projects"); window.history.replaceState(null, "", "/projects"); }
     setError(new ApiError("project_not_found"));
   }, [projects, projectsLoaded]);
 
-  useEffect(() => {
-    const run = pendingRun.current;
-    if (!run || page !== "jobs" || !selected || !projectsLoaded || routedProject.current || !projects.some(item => item.id === selected)) return;
-    pendingRun.current = null;
-    void openRun(run, true);
-  }, [page, selected, projectsLoaded]);
-
   const clearPrivateView = () => {
     viewGeneration.current += 1;
-    setPage("overview"); setMenuOpen(false);
-    jobRequest.current += 1;
+    setPage("overview"); setJobScope(""); setMenuOpen(false);
     selectedMetricsRequest.current += 1;
     globalMetricsRequest.current += 1;
     usageRequest.current += 1;
     configRequest.current += 1;
     preferenceRequest.current.language += 1;
     preferenceRequest.current.theme += 1;
-    setProjects([]); setSelected(""); setRuns([]); setRunCounts({});
-    detailRequest.current += 1; setRequestedRun(""); setDetailState("loading");
-    setUsersState("loading"); setAuditState("loading"); setConfigState({ key: "", state: "loading" });
+    setProjects([]); setSelected(""); setRequestedRun(""); setUsersState("loading"); setAuditState("loading"); setConfigState({ key: "", state: "loading" });
     projectsRequest.current += 1;
     setProjectsState("loading"); setSelectedState({ key: "", state: "loading" }); setGlobalState({ key: "", state: "loading" });
     setUsageState({ key: "", state: "loading" }); setGlobalUsageState({ key: "", state: "loading" });
-    setJobsState({ key: "", state: "loading" }); setOverviewState({ key: "", state: "loading" });
-    setProjectsLoaded(false); setProjectTab("overview"); routedProject.current = null; pendingRun.current = null;
+    setProjectsLoaded(false); setProjectTab("overview"); routedProject.current = null;
     setProjectSortKey("name"); setProjectSortDescending(false);
-    setJobPage({ items: [], total: 0, counts: {}, limit: 25, offset: 0 });
-    setJobOffset(0); setJobLifecycle(""); setJobStage("");
-    setJobUpdatedFrom(""); setJobUpdatedTo(""); setJobOutcome("");
     setMetrics(null); setAllMetrics(null); setMetricFrom(""); setMetricTo("");
     setMetricAllProjects(true); setMetricsScope(""); setMetricTimezone("UTC"); setMetricGranularity("day"); setMetricsTab("summary");
     setUsage(null); setUsageScope(""); setAllUsage(null); setUsageExecutor(""); setUsageModel("");
     setConfig(null); setPendingConfig(null); setPrices([]);
-    setUsers([]); setAuditRows([]); setAuditPolicy(null); setDetails(null); setOperation(null);
+    setUsers([]); setAuditRows([]); setAuditPolicy(null); setOperation(null);
     setWorkerStatus("checking");
     setNotice(""); setLastRefresh(null);
   };
@@ -780,27 +666,8 @@ export default function App() {
       );
       setOperation(op);
       setNotice(`${t("operationQueued")} · #${op.id}`);
-      setTicket("");
       await refreshSelected();
     } catch (cause) { setError(cause); }
-  };
-
-  const openRun = async (runId: string, quiet = false) => {
-    setError(""); setDetails(null); setRequestedRun(runId); setDetailState("loading");
-    const generation = viewGeneration.current;
-    const project = selected;
-    const revision = ++detailRequest.current;
-    try {
-      const result = await request<{ run: Run; events: Array<Record<string, unknown>> }>(
-        `/projects/${encodeURIComponent(selected)}/runs/${encodeURIComponent(runId)}`,
-      );
-      if (!result?.run || result.run.run_id !== runId || !Array.isArray(result.events)) throw new ApiError("unexpected_response");
-      if (generation === viewGeneration.current && project === selectedIdentity.current && revision === detailRequest.current) { setDetails(result); setDetailState("ready"); }
-    } catch (cause) {
-      if (generation === viewGeneration.current && project === selectedIdentity.current && revision === detailRequest.current) {
-        setDetailState("error"); if (!quiet) setError(cause);
-      }
-    }
   };
 
   const deleteProject = async (event: FormEvent<HTMLFormElement>) => {
@@ -1003,32 +870,33 @@ export default function App() {
     </section>
   </main>;
 
-  const activeJobs = runCounts.working || 0;
-  const reviewJobs = (runCounts["awaiting-approval"] || 0) + (runCounts["in-review"] || 0);
-  const failedJobs = runCounts.failed || 0;
+  const workspaceProps = { locale, projects, scope: jobScope, csrf: session.csrf, request, t, refresh: viewRefresh,
+    onScope: (id: string) => { setJobScope(id); if (id) setSelected(id); setRequestedRun(""); },
+    onOpen: (id: string, runId: string) => { setSelected(id); setJobScope(id); setRequestedRun(runId); setPage("jobs"); },
+    onClose: () => setRequestedRun("") };
   const nav: Page[] = ["overview", "projects", "jobs", "metrics"];
   const adminPages: Page[] = ["administration", "adminUsers", "adminAudit"];
 
 
   const navigatePage = (target: Page) => {
     if (target !== page && enrollmentGuard.current && !enrollmentGuard.current()) return;
-    detailRequest.current += 1; setRequestedRun("");
-    setPage(target); setDetails(null); setMenuOpen(false);
+    setRequestedRun("");
+    if (["jobs", "overview"].includes(target) && ["projectDetails", "metrics"].includes(page)) setJobScope(selected);
+    setPage(target); setMenuOpen(false);
     if (target === "metrics") setMetricAllProjects(false);
   };
   const shellLink = (target: Page): ShellLink => ({
     id: target, label: t(target === "settings" ? "myAccount" : target === "administration" ? "systemStatus" : target),
     href: formatRoute(target === "overview" || target === "jobs" || target === "metrics" ?
-      { view: target, ...(selectedProject ? { project: selectedProject.id } : {}) } : { view: target as Exclude<Page, "overview" | "jobs" | "metrics" | "projectDetails"> }),
+      { view: target, ...((target === "jobs" || target === "overview") ? (jobScope ? { project: jobScope } : ["projectDetails", "metrics"].includes(page) && selectedProject ? { project: selectedProject.id } : {}) : selectedProject ? { project: selectedProject.id } : {}) } : { view: target as Exclude<Page, "overview" | "jobs" | "metrics" | "projectDetails"> }),
     active: target === page || (target === "projects" && ["createProject", "importProject", "projectDetails"].includes(page)),
     onNavigate: () => navigatePage(target),
   });
   const pageTitle = isAdmin && adminPages.includes(page) ? t(page === "administration" ? "systemStatus" : page) : t(page === "settings" ? "myAccount" : page);
-  const contextual = ["overview", "projectDetails", "jobs", "metrics"].includes(page);
+  const contextual = ["projectDetails", "metrics"].includes(page) || ["jobs", "overview"].includes(page) && !!jobScope;
   const projectContext = projectsState === "ready" && contextual && selectedProject && !(page === "metrics" && allProjectScope) ?
     <section className="project-context" aria-label={t("projectContext")}>
-      <div><span className="eyebrow">{t("projectContext")}</span><strong>{selectedProject.name}</strong><small>{selectedProject.repo}</small></div>
-      {page === "overview" && <label htmlFor="overview-project">{t("project")}<select id="overview-project" value={selected} onChange={event => { setDetails(null); setSelected(event.target.value); }}>{projects.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}
+      <div><span className="eyebrow">{t("projectContext")}</span><strong>{selectedProject.display_name}</strong><small>{selectedProject.repo}</small></div>
       <nav aria-label={t("projectLinks")}>
         <NavigationLink item={{ id: "project", label: t("projectDetails"), href: formatRoute({ view: "projectDetails", project: selectedProject.id, tab: "overview" }), active: page === "projectDetails", onNavigate: () => openProject(selectedProject.id) }} />
         <NavigationLink item={shellLink("jobs")} /><NavigationLink item={shellLink("metrics")} />
@@ -1040,7 +908,7 @@ export default function App() {
     menuOpen={menuOpen} onMenu={() => setMenuOpen(open => !open)} adminOpen={adminMenuOpen} onAdmin={() => setAdminMenuOpen(open => !open)}
     onSignOut={signOut} context={projectContext}
     actions={<><span className="refresh-stamp">{lastRefresh && t("lastRefresh") + ": " + formatDate(lastRefresh.toISOString())}</span>
-      <button className="ghost" onClick={() => { void refreshProjects().catch(setError); void refreshSelected(); void refreshJobPage(); setUsageRefresh(value => value + 1); setViewRefresh(value => value + 1); setAuditRefresh(value => value + 1); if (page === "jobs" && requestedRun) void openRun(requestedRun); }}>{t("refresh")}</button>
+      <button className="ghost" onClick={() => { void refreshProjects().catch(setError); void refreshSelected();  setUsageRefresh(value => value + 1); setViewRefresh(value => value + 1); setAuditRefresh(value => value + 1); }}>{t("refresh")}</button>
       <button className="ghost" ref={aboutTrigger} onClick={() => request<typeof about>("/about").then(setAbout).catch(cause => setError(cause))}>{t("about")}</button></>}
     modal={about && <div className="modal-backdrop" onClick={closeAbout}><section role="dialog" aria-modal="true" aria-labelledby="adore-about-heading" className="modal" onClick={event => event.stopPropagation()} onKeyDown={event => { if (event.key === "Escape") closeAbout(); if (event.key === "Tab") { event.preventDefault(); aboutClose.current?.focus(); } }}><button className="ghost modal-close" ref={aboutClose} autoFocus onClick={closeAbout}>{t("close")}</button><div className="brand-mark">A</div><h2 id="adore-about-heading">{t("about")} ADORE</h2><p>{t("version")}: {about.version}</p><p>{t("license")}: {about.license}</p><pre className="license-text">{about.license_text}</pre><h3>{t("thirdPartyNotices")}</h3><pre className="license-text">{about.third_party_notices}</pre></section></div>}>
 
@@ -1049,20 +917,7 @@ export default function App() {
         {operation && <div className="notice" role="status">{t("operationStatus")}: #{operation.id} · {operation.status}{operation.result ? ` · ${operation.result}` : ""}</div>}
         {["overview", "projects", "projectDetails", "jobs", "metrics"].includes(page) && projectsState !== "ready" && <DataFeedback state={projectsState} t={t} />}
         {["overview", "projects", "projectDetails", "jobs", "metrics"].includes(page) && projectsState === "ready" && projects.length === 0 && <ProjectEmpty isAdmin={isAdmin} t={t} />}
-        {page === "overview" && projectsState === "ready" && projects.length > 0 && <>
-          <p className="scope-note">{t("overviewScopeHelp")}</p>
-          {selectedDataState !== "ready" ? <DataFeedback state={selectedDataState} t={t} /> : <>
-          <div className="stats-grid">
-            <OverviewCard label={t("allProjects")} value={formatNumber(projects.length)} hint={t("projectsYouCanAccess")} selected={overviewSection === "projects"} onClick={() => setOverviewSection(section => section === "projects" ? null : "projects")} />
-            <OverviewCard label={t("activeJobs")} value={formatNumber(activeJobs)} hint={selectedProject ? t("projectHint").replace("{project}", selectedProject.name) : "—"} selected={overviewSection === "active"} onClick={() => setOverviewSection(section => section === "active" ? null : "active")} />
-            <OverviewCard label={t("needsReview")} value={formatNumber(reviewJobs)} hint={selectedProject ? t("projectHint").replace("{project}", selectedProject.name) : "—"} selected={overviewSection === "review"} onClick={() => setOverviewSection(section => section === "review" ? null : "review")} />
-            <OverviewCard label={t("failedJobs")} value={formatNumber(failedJobs)} hint={selectedProject ? t("projectHint").replace("{project}", selectedProject.name) : "—"} selected={overviewSection === "failed"} onClick={() => setOverviewSection(section => section === "failed" ? null : "failed")} />
-          </div>
-          <section className="panel" id="overview-detail"><div className="panel-heading"><h2>{t(overviewSection === "projects" ? "allProjects" : overviewSection === "active" ? "activeJobs" : overviewSection === "review" ? "needsReview" : overviewSection === "failed" ? "failedJobs" : "recentJobs")}{overviewSection && overviewSection !== "projects" && selectedProject ? ` · ${selectedProject.name}` : ""}</h2>{overviewSection !== "projects" && <button className="text-button" onClick={() => setPage("jobs")}>{t("view")} →</button>}</div>
-            {overviewSection === "projects" ? projects.length ? <PagedTable t={t}><table><thead><tr><th>{t("project")}</th><th>{t("repository")}</th><th>{t("status")}</th><th>{t("jobs")}</th><th>{t("actions")}</th></tr></thead><tbody>{projects.map(item => <tr key={item.id} className={item.id === selected ? "overview-project-selected" : ""}><td className="strong"><button className="text-button" aria-current={item.id === selected ? "true" : undefined} onClick={() => setSelected(item.id)}>{item.name}</button></td><td>{item.repo}</td><td>{t(item.readiness === "configured" ? "configured" : item.readiness === "needs-config" ? "needsConfig" : item.readiness === "invalid-state" ? "invalidState" : item.readiness === "archived" ? "archived" : "paused")}</td><td>{item.runs}</td><td><button className="text-button" onClick={() => openProject(item.id)}>{t("view")} →</button></td></tr>)}</tbody></table></PagedTable> : <Empty label={t("noProjects")} /> : <>{overviewSection && overviewDataState !== "ready" ? <DataFeedback state={overviewDataState} t={t} /> : <><RunTable runs={overviewSection ? overviewRuns : runs.slice(0, 7)} t={t} formatDate={formatDate} project={selected} onOpen={openJob} />{overviewSection && <ServerPager t={t} total={overviewTotal} size={overviewPageSize} offset={overviewOffset} onSize={setOverviewPageSize} onOffset={setOverviewOffset} />}</>}</>}
-          </section>
-          </>}
-        </>}
+        {page === "overview" && projectsState === "ready" && projects.length > 0 && <JobWorkspace {...workspaceProps} mode="overview" />}
 
         {page === "projects" && projectsState === "ready" && <>
           <div className="section-actions">{isAdmin && <><button className="primary" onClick={() => { setError(""); setPage("createProject"); }}>{t("createProject")}</button><button className="ghost" onClick={() => { setError(""); setPage("importProject"); }}>{t("importProject")}</button></>}</div>
@@ -1079,16 +934,16 @@ export default function App() {
             {projects.length ? <PagedTable key={`${projectSortKey}-${projectSortDescending}`} t={t}><table className="projects-table"><thead><tr>
               <SortHeader label={t("project")} sortKey="name" activeKey={projectSortKey} descending={projectSortDescending} onSort={changeProjectSort} />
               <SortHeader label={t("repository")} sortKey="repo" activeKey={projectSortKey} descending={projectSortDescending} onSort={changeProjectSort} />
-              <SortHeader label={t("status")} sortKey="readiness" activeKey={projectSortKey} descending={projectSortDescending} onSort={changeProjectSort} />
+              <th>{jc.pickup}</th><th>{jc.verification}</th>
               <SortHeader label={t("jobs")} sortKey="runs" activeKey={projectSortKey} descending={projectSortDescending} onSort={changeProjectSort} />
               <SortHeader label={t("lastActivity")} sortKey="last_activity" activeKey={projectSortKey} descending={projectSortDescending} onSort={changeProjectSort} />
               <th>{t("actions")}</th>
             </tr></thead><tbody>{sortedProjects.map(item => <tr key={item.id}>
-              <td className="strong"><RouteLink to={formatRoute({ view: "projectDetails", project: item.id, tab: "overview" })} onNavigate={() => openProject(item.id)}>{item.name}</RouteLink></td><td>{item.repo}</td>
-              <td><StatusBadge code={item.readiness}>{projectStatusLabel(item)}</StatusBadge></td>
+              <td className="strong"><RouteLink to={formatRoute({ view: "projectDetails", project: item.id, tab: "overview" })} onNavigate={() => openProject(item.id)}>{item.display_name}</RouteLink></td><td>{item.repo}</td>
+              <td><StatusBadge code={item.paused ? "paused" : item.archived ? "archived" : "working"}>{item.archived ? t("archived") : item.paused ? jc.pickupStopped : jc.pickupActive}</StatusBadge>{item.paused && <small className="field-hint">{jc.pickupHelp}</small>}</td><td>{verificationLabel(item)}{item.verification.checked_at && <small className="field-hint">{t("checkedAt")}: {formatDate(item.verification.checked_at)}</small>}</td>
               <td>{item.runs}</td><td>{item.last_activity ? formatDate(item.last_activity) : "\u2014"}</td>
               <td><div className="project-row-actions"><button className="text-button" onClick={() => openProject(item.id)}>{t("view")}</button>
-                {isAdmin && <>{!item.archived && <button className="text-button" onClick={() => void operate(item.paused ? "resume" : "pause", "", item.id)}>{t(item.paused ? "resume" : "pause")}</button>}
+                {isAdmin && <>{!item.archived && <button className="text-button" onClick={() => void operate(item.paused ? "resume" : "pause", "", item.id)}>{item.paused ? jc.startPickup : jc.stopPickup}</button>}
                   <button className="text-button" onClick={() => void setProjectArchive(!item.archived, item.id)}>{t(item.archived ? "restoreProject" : "archiveProject")}</button>
                   {item.archived && <button className="text-button danger-text" onClick={() => { setError(""); setDeleteName(""); setDeleteTarget(item); }}>{t("deleteProject")}</button>}</>}
               </div></td>
@@ -1107,15 +962,16 @@ export default function App() {
           onCreated={() => { void refreshProjects(); }} onOpen={id => openProject(id)} />}
 
         {page === "projectDetails" && projectsState === "ready" && selectedProject && <>
-          <section className="panel"><div className="panel-heading"><h2>{selectedProject.name}</h2><StatusBadge code={selectedProject.readiness}>{t(selectedProject.readiness === "configured" ? "configured" : selectedProject.readiness === "needs-config" ? "needsConfig" : selectedProject.readiness === "invalid-state" ? "invalidState" : selectedProject.readiness === "archived" ? "archived" : "paused")}</StatusBadge></div><p>{selectedProject.description || selectedProject.repo}</p><div className="project-metadata"><div className="project-meta">{t("forge")}: {selectedProject.platform} · {t("repository")}: {selectedProject.repo}</div><div className="project-meta">{t("runtime")}: {selectedProject.runtime} · {t("executor")}: {selectedProject.executor || "—"}</div><div className="project-meta">{t("lastActivity")}: {selectedProject.last_activity ? formatDate(selectedProject.last_activity) : "—"}</div></div><nav className="project-links" aria-label={t("projectLinks")}><RouteLink to={formatRoute({ view: "jobs", project: selectedProject.id })} onNavigate={() => { setDetails(null); setPage("jobs"); }}>{t("jobs")} →</RouteLink><RouteLink to={formatRoute({ view: "metrics", project: selectedProject.id })} onNavigate={() => { setMetricAllProjects(false); setPage("metrics"); }}>{t("metrics")} →</RouteLink></nav></section>
+          <section className="panel"><div className="panel-heading"><h2>{selectedProject.display_name}</h2><StatusBadge code={selectedProject.readiness}>{t(selectedProject.readiness === "configured" ? "configured" : selectedProject.readiness === "needs-config" ? "needsConfig" : selectedProject.readiness === "invalid-state" ? "invalidState" : selectedProject.readiness === "archived" ? "archived" : "paused")}</StatusBadge></div><p>{selectedProject.description || selectedProject.repo}</p><p>{jc.pickup}: {selectedProject.archived ? t("archived") : selectedProject.paused ? jc.pickupStopped : jc.pickupActive} · {jc.verification}: {verificationLabel(selectedProject)}</p><p className="muted">{jc.pickupHelp}</p><p className="muted">{jc.verificationHelp}</p>{(selectedProject.verification.checked_at || selectedProject.verification.revision) && <p className="muted project-verification-evidence">{t("checkedAt")}: {selectedProject.verification.checked_at ? formatDate(selectedProject.verification.checked_at) : jc.unknown} · {t("revision")}: {selectedProject.verification.revision?.slice(0, 12) || jc.unknown}</p>}<div className="project-metadata"><div className="project-meta">{t("forge")}: {selectedProject.platform} · {t("repository")}: {selectedProject.repo}</div><div className="project-meta">{t("runtime")}: {selectedProject.runtime} · {t("executor")}: {selectedProject.executor || "—"}</div><div className="project-meta">{t("lastActivity")}: {selectedProject.last_activity ? formatDate(selectedProject.last_activity) : "—"}</div></div><nav className="project-links" aria-label={t("projectLinks")}><RouteLink to={formatRoute({ view: "jobs", project: selectedProject.id })} onNavigate={() => { setJobScope(selected); setRequestedRun(""); setPage("jobs"); }}>{t("jobs")} →</RouteLink><RouteLink to={formatRoute({ view: "metrics", project: selectedProject.id })} onNavigate={() => { setMetricAllProjects(false); setPage("metrics"); }}>{t("metrics")} →</RouteLink></nav></section>
           <div className="metrics-tabs project-tabs" role="tablist" aria-label={t("projectSections")}>
-            {projectTabs.map(tab => <button key={tab} id={`project-tab-${tab}`} type="button" role="tab" aria-controls="project-tab-panel" aria-selected={projectTab === tab} tabIndex={projectTab === tab ? 0 : -1} onClick={() => setProjectTab(tab)} onKeyDown={event => onProjectTabKeyDown(event, tab)}>{t(tab === "overview" ? "projectOverviewTab" : tab === "configuration" ? "config" : tab === "prices" ? "prices" : "projectAccessTab")}</button>)}
+            {projectTabs.map(tab => <button key={tab} id={`project-tab-${tab}`} type="button" role="tab" aria-controls="project-tab-panel" aria-selected={projectTab === tab} tabIndex={projectTab === tab ? 0 : -1} onClick={() => setProjectTab(tab)} onKeyDown={event => onProjectTabKeyDown(event, tab)}>{tab === "overview" ? jc.summary : tab === "configuration" ? jc.settings : tab === "history" ? jc.history : t(tab === "prices" ? "prices" : "projectAccessTab")}</button>)}
           </div>
           <div id="project-tab-panel" role="tabpanel" aria-labelledby={`project-tab-${projectTab}`}>
           {projectTab === "overview" && <>
           {isAdmin && <section className="panel"><div className="panel-heading"><h2>{t("hostReadiness")}</h2><button className="ghost" onClick={() => void checkProjectReadiness()}>{t("runReadinessCheck")}</button></div><p className="muted">{t("hostReadinessHelp")}</p>{projectReadiness && <><p className="muted">{t("checkedAt")}: {formatDate(projectReadiness.checked_at)}</p><div className="detail-grid">{Object.entries(projectReadiness.checks).map(([key, value]) => <span key={key}>{t(({ git: "gitTool", forge_cli: "forgeCli", forge_auth: "forgeAuth", container_runtime: "containerRuntime", executor_cli: "executorCli", aegis_files: "aegisPayload", model_endpoint: "modelEndpoint" } as Record<string, MessageKey>)[key])}: <strong>{value === true ? t("checkPassed") : value === false ? t("checkMissing") : t("checkUnverified")}</strong></span>)}</div>{projectReadiness.model_probe && <p className="muted">{t("modelEndpoint")}: {modelReason(projectReadiness.model_probe.reason)}{projectReadiness.model_probe.model ? ` (${projectReadiness.model_probe.model})` : ""}</p>}</>}</section>}
-          <section className="panel"><div className="panel-heading"><h2>{t("recentJobs")}</h2><button className="text-button" onClick={() => setPage("jobs")}>{t("view")} →</button></div>{selectedDataState === "ready" ? <RunTable runs={runs} t={t} formatDate={formatDate} project={selected} onOpen={openJob} /> : <DataFeedback state={selectedDataState} t={t} />}</section>
+          <JobWorkspace {...workspaceProps} mode="overview" scope={selected} fixedScope />
           </>}
+          {projectTab === "history" && <JobWorkspace {...workspaceProps} mode="history" scope={selected} fixedScope />}
           {projectTab === "configuration" && <>
           {configDataState !== "ready" && <DataFeedback state={configDataState} t={t} />}
           {projectConfig && <SettingsList key={`${selected}-${projectConfig.revision}`} config={projectConfig.config} settings={projectConfig.settings || []} t={t} locale={locale} canEdit={isAdmin} disabled={!!projectPendingConfig} onStage={stageSetting} />}
@@ -1132,33 +988,7 @@ export default function App() {
           </div>
         </>}
 
-        {page === "jobs" && projectsState === "ready" && selectedProject && <>
-          <p className="scope-note">{t("jobsScopeHelp")}</p>
-          {projects.length > 0 && <section className="panel compact"><form className="inline-form job-start-form" onSubmit={event => { event.preventDefault(); if (selectedProject && !selectedProject.archived) void operate("start", ticket); }}><FormLegend t={t} />
-            <label htmlFor="jobs-project">{t("project")}<select id="jobs-project" value={selected} onChange={event => { detailRequest.current += 1; setRequestedRun(""); setTicket(""); setDetails(null); setSelected(event.target.value); }}>{projects.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-            {selectedProject && !selectedProject.archived && <><GuidedField id="job-ticket-number" label={t("ticketNumber")} help={t("ticketNumberHelp")} helpLabel={t("settingHelp")}><input id="job-ticket-number" type="number" min="1" step="1" placeholder={example("42")} value={ticket} onChange={event => setTicket(event.target.value)} required /></GuidedField><button className="primary" type="submit">{t("start")}</button></>}
-          </form></section>}
-          <section className="panel">
-            <button type="button" className="ghost filters-toggle" aria-expanded={jobFiltersOpen} aria-controls="job-filter-fields" onClick={() => setJobFiltersOpen(open => !open)}>{t("filters")} ({[jobLifecycle, jobStage, jobUpdatedFrom, jobUpdatedTo, jobExecutor.trim(), jobOutcome.trim()].filter(Boolean).length})</button>
-            <div id="job-filter-fields" className={jobFiltersOpen ? "job-filter-fields open" : "job-filter-fields"}>
-            <div className="job-filters job-basic-filters"><label>{t("status")}<select value={jobLifecycle} onChange={event => setJobLifecycle(event.target.value)}><option value="">{t("all")}</option>{Object.keys(lifecycleLabels).map(value => <option key={value} value={value}>{displayCode(value, lifecycleLabels, t)}</option>)}</select></label><label>{t("stage")}<select value={jobStage} onChange={event => setJobStage(event.target.value)}><option value="">{t("all")}</option>{Object.keys(stageLabels).map(value => <option key={value} value={value}>{displayCode(value, stageLabels, t)}</option>)}</select></label><label>{t("updatedFrom")}<input type="date" value={jobUpdatedFrom} max={jobUpdatedTo || undefined} onChange={event => setJobUpdatedFrom(event.target.value)} /></label><label>{t("updatedTo")}<input type="date" value={jobUpdatedTo} min={jobUpdatedFrom || undefined} onChange={event => setJobUpdatedTo(event.target.value)} /></label></div>
-            <div className="job-filters job-text-filters">
-              <GuidedField id="jobs-executor-filter" label={t("observedExecutor")} help={t("observedExecutorHelp")} helpLabel={t("settingHelp")}><input id="jobs-executor-filter" type="search" maxLength={200} placeholder={example("pi")} value={jobExecutor} onChange={event => setJobExecutor(event.target.value)} /></GuidedField>
-              <GuidedField id="jobs-outcome-filter" label={t("outcomeContains")} help={t("outcomeContainsHelp")} helpLabel={t("settingHelp")}><input id="jobs-outcome-filter" type="search" maxLength={80} placeholder={example("EXECUTOR_TIMEOUT")} value={jobOutcome} onChange={event => setJobOutcome(event.target.value)} /></GuidedField>
-            </div>
-            </div>
-            {jobDataState !== "ready" ? <DataFeedback state={jobDataState} t={t} /> : <>
-            <RunTable runs={jobPage.items} t={t} formatDate={formatDate} project={selected} onOpen={openRun} emptyLabel={jobLifecycle || jobStage || jobExecutor.trim() || jobUpdatedFrom || jobUpdatedTo || jobOutcome.trim() ? t("noMatchingJobs") : t("noJobs")} />
-            <ServerPager t={t} total={jobPage.total} size={jobPageSize} offset={jobOffset} onSize={setJobPageSize} onOffset={setJobOffset} /></>}
-          </section>
-          {requestedRun && detailState !== "ready" && <DataFeedback state={detailState} t={t} />}
-          {details && <section className="panel detail-panel"><div className="panel-heading"><h2>{t("ticket")} #{details.run.ticket_iid}</h2><button className="ghost" onClick={() => { detailRequest.current += 1; setRequestedRun(""); setDetails(null); }}>{t("close")}</button></div>
-            <div className="detail-grid"><span>{t("status")}: <strong>{displayCode(details.run.lifecycle, lifecycleLabels, t)}</strong></span><span>{t("stage")}: <strong>{displayCode(details.run.stage, stageLabels, t)}</strong></span><span>{t("reviewRounds")}: <strong>{details.run.review_rounds}</strong></span><span>{t("attempts")}: <strong>{details.run.stage_failures}</strong></span></div>
-            <div className="button-row">{!projects.find(project => project.id === selected)?.archived && details.run.lifecycle === "failed" && <button className="ghost" onClick={() => operate("retry", details.run.run_id)}>{t("retry")}</button>}{!projects.find(project => project.id === selected)?.archived && !["done", "failed", "cancelled", "handoff-pending", "handed-off"].includes(details.run.lifecycle) && <button className="danger" onClick={() => operate("cancel", details.run.run_id)}>{t("cancel")}</button>}{details.run.mr_url && <a className="ghost link-button" href={details.run.mr_url} target="_blank" rel="noreferrer">{t("draft")} ↗</a>}</div>
-            <h3>{t("timeline")}</h3>
-            {details.events.length ? <PagedTable key={`${selected}-${details.run.run_id}`} t={t}><table className="timeline-table" aria-label={t("timeline")}><thead><tr><th>{t("date")}</th><th>{t("timelineEvent")}</th><th>{t("stage")}</th></tr></thead><tbody>{details.events.slice().reverse().map((event, index) => <tr key={index}><td><time>{formatDate(String(event.ts || ""))}</time></td><td className="strong">{String(event.event || "")}</td><td>{event.stage ? displayCode(String(event.stage), stageLabels, t) : "—"}</td></tr>)}</tbody></table></PagedTable> : <Empty label={t("empty")} />}
-          </section>}
-        </>}
+        {page === "jobs" && projectsState === "ready" && projects.length > 0 && <JobWorkspace {...workspaceProps} mode="jobs" run={requestedRun} />}
 
         {page === "metrics" && projectsState === "ready" && projects.length > 0 && <>
         <section className="panel compact metrics-period"><div className="panel-heading"><h2>{t("reportingPeriod")}</h2>{(selected || isAdmin) && <details className="metrics-export"><summary className="ghost metrics-export-trigger">{t("exportCsv")}</summary><div className="metrics-export-links">{!allProjectScope && selected && <><a href={`/api/v1/projects/${encodeURIComponent(selected)}/metrics.csv${metricSuffix}`}>{t("projectMetricsExport")}</a><a href={`/api/v1/projects/${encodeURIComponent(selected)}/usage.csv${usageSuffix}`}>{t("projectUsageExport")}</a></>}{allProjectScope && <><a href={`/api/v1/metrics.csv${metricSuffix}`}>{t("allMetricsExport")}</a><a href={`/api/v1/usage.csv${usageSuffix}`}>{t("allUsageExport")}</a></>}</div></details>}</div><div className="job-filters">{projects.length > 0 && <label className="metrics-project-filter" htmlFor="metrics-project">{t("project")}<select id="metrics-project" value={allProjectScope ? "" : selected} onChange={event => { setMetricAllProjects(event.target.value === ""); if (event.target.value) setSelected(event.target.value); }}>{isAdmin && <option value="">{t("metricsAllProjects")}</option>}{projects.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}<label>{t("dateFromLocal")}<input type="date" value={metricFrom} max={metricTo || undefined} onChange={event => setMetricFrom(event.target.value)} /></label><label>{t("dateToLocal")}<input type="date" value={metricTo} min={metricFrom || undefined} onChange={event => setMetricTo(event.target.value)} /></label><label>{t("reportingTimezone")}<select value={metricTimezone} onChange={event => setMetricTimezone(event.target.value)}><option value="UTC">UTC</option><option value="Europe/Bucharest">Europe/Bucharest</option><option value="Europe/Paris">Europe/Paris</option><option value="Europe/Berlin">Europe/Berlin</option><option value="America/New_York">America/New_York</option></select></label><label>{t("trendGranularity")}<select value={metricGranularity} onChange={event => setMetricGranularity(event.target.value as "day" | "week" | "month")}><option value="day">{t("byDay")}</option><option value="week">{t("byWeek")}</option><option value="month">{t("byMonth")}</option></select></label></div><p className="muted">{t("metricsScopeHelp")} {t("reportingScopeHelp")}</p></section>
@@ -1315,9 +1145,6 @@ function Stat({ label, value, hint }: { label: string; value: string; hint: stri
   return <div className="stat-card"><span>{label}</span><strong>{value}</strong><small>{hint}</small></div>;
 }
 
-function OverviewCard({ label, value, hint, selected, onClick }: { label: string; value: string; hint: string; selected: boolean; onClick: () => void }) {
-  return <button type="button" className={`stat-card overview-card${selected ? " selected" : ""}`} aria-expanded={selected} aria-controls="overview-detail" onClick={onClick}><span>{label}</span><strong>{value}</strong><small>{hint}</small><span className="overview-chevron" aria-hidden="true"><Icon name="chevron" flipped={selected} /></span></button>;
-}
 
 function SortHeader({ label, sortKey, activeKey, descending, onSort }: { label: string; sortKey: ProjectSortKey; activeKey: ProjectSortKey; descending: boolean; onSort: (key: ProjectSortKey) => void }) {
   const active = sortKey === activeKey;
@@ -1339,11 +1166,6 @@ function PagedTable({ t, children }: { t: (key: MessageKey) => string; children:
   return <><div className="table-scroll">{table}</div>{rows.length > 10 && <div className="page-controls"><label>{t("rowsPerPage")}<select value={size} onChange={event => { setSize(event.target.value === "all" ? "all" : Number(event.target.value) as 10 | 25 | 50); setRequestedPage(0); }}><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="all">{t("all")}</option></select></label>{size !== "all" && <><button className="ghost" disabled={page === 0} onClick={() => setRequestedPage(page - 1)}>{t("previous")}</button><span>{page * size + 1}–{Math.min((page + 1) * size, rows.length)} / {rows.length}</span><button className="ghost" disabled={page + 1 >= pageCount} onClick={() => setRequestedPage(page + 1)}>{t("next")}</button></>}</div>}</>;
 }
 
-function Icon({ name, flipped = false }: { name: "chevron" | "signOut"; flipped?: boolean }) {
-  return <svg className={flipped ? "icon flip" : "icon"} viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    {name === "chevron" ? <path d="M6 9l6 6 6-6" /> : <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="M16 17l5-5-5-5" /><path d="M21 12H9" /></>}
-  </svg>;
-}
 
 function RouteLink({ to, onNavigate, children }: { to: string; onNavigate: () => void; children: ReactNode }) {
   return <a className="text-button" href={to} onClick={event => {
@@ -1365,14 +1187,10 @@ function Field({ name, label, type = "text", required = false, defaultValue, hin
   return <label><span>{label}{required && <RequiredMark />}</span><input name={name} type={type} required={required} defaultValue={defaultValue} minLength={minLength} />{hint && <small className="field-hint">{hint}</small>}</label>;
 }
 
-function GuidedField({ id, label, help, children }: { id: string; label: string; help: string; helpLabel: string; children: ReactNode }) {
-  const required = Children.toArray(children).some(child => isValidElement<{ required?: boolean }>(child) && !!child.props.required);
-  return <div className="guided-field"><div className="guided-label"><label htmlFor={id}>{label}{required && <RequiredMark />}</label></div>{Children.map(children, child => isValidElement<{ id?: string; "aria-describedby"?: string }>(child) && child.props.id === id ? cloneElement(child, { "aria-describedby": [child.props["aria-describedby"], id + "-help"].filter(Boolean).join(" ") }) : child)}<p id={id + "-help"} className="field-hint">{help}</p></div>;
-}
 
 type ProjectDeveloper = { id: number; username: string; disabled: boolean; granted: boolean };
 
-/** Administrator view of one project's developers, granting or removing access one at a time. */
+/** Administrator view of one project’s developers, granting or removing access one at a time. */
 function ProjectAccess({ project, csrf, t, onError, onNotice }: { project: string; csrf?: string; t: (key: MessageKey) => string; onError: (cause: unknown) => void; onNotice: (text: string) => void }) {
   const [developers, setDevelopers] = useState<ProjectDeveloper[] | null>(null);
   const [failed, setFailed] = useState(false);
@@ -1463,10 +1281,4 @@ function SettingsList({ config, settings, t, locale, canEdit, disabled, onStage 
 function ServerPager({ t, total, size, offset, onSize, onOffset }: { t: (key: MessageKey) => string; total: number; size: PageSize; offset: number; onSize: (size: PageSize) => void; onOffset: (offset: number) => void }) {
   if (total <= 10) return null;
   return <div className="page-controls"><label>{t("rowsPerPage")}<select value={size} onChange={event => { onOffset(0); onSize(event.target.value === "all" ? "all" : Number(event.target.value) as 10 | 25 | 50); }}><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="all">{t("all")}</option></select></label>{size !== "all" && <><button className="ghost" disabled={offset === 0} onClick={() => onOffset(Math.max(0, offset - size))}>{t("previous")}</button><span>{offset + 1}–{Math.min(offset + size, total)} / {total}</span><button className="ghost" disabled={offset + size >= total} onClick={() => onOffset(offset + size)}>{t("next")}</button></>}</div>;
-}
-
-function RunTable({ runs, t, formatDate, onOpen, emptyLabel, project }: { runs: Run[]; t: (key: MessageKey) => string; formatDate: (value: string) => string; onOpen: (id: string) => void; emptyLabel?: string; project: string }) {
-  if (!runs.length) return <Empty label={emptyLabel || t("noJobs")} />;
-  const table = <table><thead><tr><th>{t("ticket")}</th><th>{t("status")}</th><th>{t("stage")}</th><th>{t("updated")}</th><th>{t("actions")}</th></tr></thead><tbody>{runs.map(run => <tr key={run.run_id}><td className="strong"><RouteLink to={formatRoute({ view: "jobs", project, run: run.run_id })} onNavigate={() => onOpen(run.run_id)}>#{run.ticket_iid}</RouteLink></td><td><StatusBadge code={run.lifecycle}>{displayCode(run.lifecycle, lifecycleLabels, t)}</StatusBadge></td><td>{displayCode(run.stage, stageLabels, t)}</td><td>{formatDate(run.updated_at)}</td><td><button className="text-button" onClick={() => onOpen(run.run_id)}>{t("view")} →</button></td></tr>)}</tbody></table>;
-  return <div className="table-scroll">{table}</div>;
 }

@@ -357,6 +357,36 @@ td.strong { font-weight: 800; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; } }
 .enrollment { max-width: 1050px; }
+.workspace-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; }
+.workspace-controls label { min-width: min(260px, 100%); }
+.worker-evidence { color: var(--muted); font-size: .875rem; }
+.job-workspace { min-width: 0; }
+.job-workspace > .panel { margin-block: 18px; }
+.job-workspace .job-filters label { min-width: 0; }
+.job-workspace p, .job-workspace dd, .job-workspace td { overflow-wrap: anywhere; }
+.job-workspace .table-scroll { width: 100%; max-width: 100%; overflow-x: auto; }
+.action-jobs-table { min-width: 820px; table-layout: fixed; }
+.action-jobs-table td { white-space: normal; vertical-align: top; min-width: 140px; max-width: 330px; }
+.action-jobs-table td:first-child { min-width: 220px; }
+.action-jobs-table td p { margin-block: 8px; }
+.next-action-panel { border-left: 4px solid var(--accent); background: var(--bg); padding: 18px; border-radius: 8px; margin-block: 20px; }
+.action-explanation { margin-block: 20px; }
+.action-explanation > div { display: grid; grid-template-columns: minmax(130px, 1fr) minmax(0, 4fr); gap: 12px; margin-block: 14px; }
+.action-explanation dt { font-weight: 600; }
+.action-explanation dd { margin: 0; min-width: 0; }
+.table-pagination { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; margin-top: 18px; }
+.table-pagination label { display: flex; flex-direction: row; align-items: center; gap: 8px; }
+.table-pagination select { width: auto; }
+.command-result { display: block; }
+.command-failed, .command-uncertain { border-left: 4px solid var(--danger); }
+.job-workspace .job-start-form .field-hint { flex-basis: 100%; margin: 0; }
+@media (max-width: 760px) {
+  .workspace-controls { align-items: stretch; flex-direction: column; }
+  .workspace-controls label, .job-workspace .job-filters label { width: 100%; }
+  .action-explanation > div { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .job-workspace .button-row > div { width: 100%; }
+  .job-workspace button, .job-workspace a { white-space: normal; overflow-wrap: anywhere; }
+}
 .enrollment-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; list-style: none; padding: 0; }
 .enrollment-steps li { padding: 10px; border: 1px solid var(--border); border-radius: 8px; overflow-wrap: anywhere; }
 .enrollment-steps [aria-current="step"] { border: 2px solid var(--accent); font-weight: 700; }

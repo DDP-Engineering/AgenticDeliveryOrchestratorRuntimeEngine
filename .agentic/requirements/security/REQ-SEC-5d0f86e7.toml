@@ -19,7 +19,7 @@ If any authorized job source is malformed, unsafe or unreadable, the job service
 
 verification = "Corrupt state, ticket, journal, timestamps and URLs independently; public reads return 503 codes without sensitive source values or totals; compare original bytes and verify unauthorized corrupt run sources are never read."
 
-affected_paths = ["04_Software/adore/web/jobs.py", "04_Software/adore/web/app.py", "04_Software/web/src/errors.ts", "04_Software/adore/web/static/assets/index-D_D_Ccbj.js", "04_Software/adore/web/static/index.html"]
+affected_paths = ["04_Software/adore/web/jobs.py", "04_Software/adore/web/app.py", "04_Software/web/src/errors.ts", "04_Software/adore/web/static/assets/index-B7q0gYmM.js", "04_Software/adore/web/static/index.html"]
 
 linked_tests = [
     "04_Software/tests/test_web_jobs.py::test_corrupt_profile_decoding_is_typed_on_global_project_and_direct_reads",

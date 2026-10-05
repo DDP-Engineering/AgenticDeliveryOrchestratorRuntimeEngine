@@ -16,10 +16,13 @@
 
 # IMPORTS
 from contextlib import asynccontextmanager
+import json
 import os
 from pathlib import Path
+import shutil
 from tempfile import TemporaryDirectory
 from threading import Event, Thread
+from time import sleep
 
 from adore.profiles import ProfileStore
 from adore.state import RunState, StateStore
@@ -61,6 +64,8 @@ def simulated_command(argv: list[str], _env: dict[str, str]) -> int:
             return 0
         if argv[-1] == "43":
             return 7
+    if argv[-2] in {"retry", "cancel"} and argv[-1].startswith("ux-"):
+        return 7 if argv[-2] == "retry" else 0
     raise ValueError("unsupported offline test command")
 
 
@@ -77,7 +82,7 @@ def main() -> None:
         profiles = ProfileStore(home)
         for name in ("alpha", "beta"):
             root = home / "state" / name
-            profiles.create(name, repo=f"offline/{name}", store_root=str(root))
+            profiles.create(name, repo=f"offline/{name}", store_root=str(root), platform="gitlab")
             text = (SOFTWARE / "config.example.toml").read_text(encoding="utf-8")
             text = text.replace('store_root = ".adore"',
                                 f'store_root = "{root.as_posix()}"')
@@ -106,6 +111,95 @@ def main() -> None:
                 127 if probe_mode["mode"] == "failed" else 0), stdout="fixture-1.0")
 
         app = web_app.create_app(home, probe_runner=fixture_probe)
+
+        @app.post("/__e2e__/jobs")
+        def jobs_fixture(request: Request, mode: str = "seed") -> dict:
+            """
+            @brief Persist realistic offline lifecycle evidence in the disposable profiles.
+            @param[in] request Test-control header, never present in the shipped API.
+            @param[in] mode Seed, reset, mutate or corrupt an owned fixture source.
+            @return Composite identities for the browser assertions.
+            @exception HTTPException For missing authorization or unsupported fixture mode.
+            """
+            if request.headers.get("X-ADORE-E2E") != "local-test" or mode not in {
+                "seed", "reset", "mutate", "corrupt",
+            }:
+                raise HTTPException(403, "test runner header and supported mode required")
+            roots = [StateStore(home / "state" / name) for name in ("alpha", "beta")]
+            if mode in {"mutate", "corrupt"}:
+                path = roots[0].run_dir("ux-working") / "state.json"
+                if mode == "corrupt":
+                    path.write_text("BROKEN_FIXTURE_SECRET", encoding="utf-8")
+                else:
+                    value = json.loads(path.read_text(encoding="utf-8"))
+                    value["outcome"] = "Actual source changed"
+                    path.write_text(json.dumps(value), encoding="utf-8")
+                return {"mode": mode}
+            for state in roots:
+                for directory in state.runs_root.glob("ux-*"):
+                    if directory.is_dir():
+                        # Browser/worker reads may briefly hold Windows file handles.
+                        for attempt in range(10):
+                            try:
+                                shutil.rmtree(directory)
+                                break
+                            except PermissionError:
+                                if attempt == 9:
+                                    raise
+                                sleep(0.025)
+            ids = {name: profiles.load(name).project_id for name in ("alpha", "beta")}
+            if mode == "reset":
+                return ids
+            stamp = "2026-10-05T01:00:00Z"
+            cases = {"working": "build", "publishing": "deliver", "parked-clarification": "build",
+                     "awaiting-approval": "deliver", "in-review": "done",
+                     "handoff-pending": "build",
+                     "handed-off": "build", "done": "done", "failed": "build",
+                     "cancelled": "build", "stale": "build"}
+            for lifecycle, stage in cases.items():
+                short = {"parked-clarification": "clarification", "awaiting-approval": "approval",
+                         "in-review": "review"}.get(lifecycle, lifecycle)
+                run_id = "ux-" + short
+                run = RunState(run_id=run_id, ticket_iid=42, lifecycle=lifecycle, stage=stage,
+                               created_at=stamp, updated_at=stamp)
+                if lifecycle == "parked-clarification":
+                    run.parked_at = stamp
+                    run.question_comment_id = 7
+                if lifecycle == "awaiting-approval":
+                    run.approval_comment_id = 8
+                    run.approval_presented_at = stamp
+                    run.candidate_fingerprint = "a" * 64
+                    run.candidate_base_ref = "b" * 40
+                if lifecycle == "in-review":
+                    run.mr_url = "https://forge.example/offline/alpha/pulls/3"
+                if lifecycle == "done":
+                    run.outcome = "done without merge evidence"
+                roots[0].save(run)
+                path = roots[0].run_dir(run_id) / "state.json"
+                value = json.loads(path.read_text(encoding="utf-8"))
+                value["updated_at"] = stamp
+                path.write_text(json.dumps(value), encoding="utf-8")
+                roots[0].save_ticket(run_id, {"iid": 42, "title": f"Actual {short} ticket",
+                                            "web_url": "https://forge.example/offline/alpha/issues/42"})
+                if lifecycle == "parked-clarification":
+                    roots[0].journal(run_id, "parked", stage=stage, ts=stamp,
+                                     questions="Which export format? token=fixture-secret")
+                elif lifecycle == "awaiting-approval":
+                    for observed in ("frame", "build", "validate"):
+                        roots[0].journal(run_id, "gate-passed", stage=observed, ts=stamp)
+                else:
+                    roots[0].journal(run_id, "gate-started", stage=stage, executor="pi", ts=stamp)
+            # Cross-project collision and real absent legacy ticket/journal/activity.
+            roots[1].save(RunState(run_id="ux-working", ticket_iid=42, lifecycle="working",
+                                   stage="build", updated_at=stamp))
+            roots[1].save_ticket("ux-working", {"iid": 42, "title": "Actual beta collision",
+                                              "web_url": "https://forge.example/offline/beta/issues/42"})
+            roots[0].save(RunState(run_id="ux-missing", ticket_iid=99, stage="build"))
+            missing = roots[0].run_dir("ux-missing") / "state.json"
+            value = json.loads(missing.read_text(encoding="utf-8"))
+            value.update(created_at="", updated_at="")
+            missing.write_text(json.dumps(value), encoding="utf-8")
+            return ids
 
         @app.post("/__e2e__/enrollment")
         def enrollment_fixture(request: Request, mode: str = "failed") -> dict:

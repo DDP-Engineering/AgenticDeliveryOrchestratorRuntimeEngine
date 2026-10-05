@@ -156,7 +156,7 @@ test("Dev without grants sees helpful empty state, never a failed-request substi
 
 test("pending and failed data hide false totals and refresh recovers", async ({ page }) => {
   let failing = true;
-  await page.route("**/api/v1/projects/*/metrics?*", async route => {
+  await page.route("**/api/v1/jobs-page?*", async route => {
     if (failing) await route.fulfill({ status: 503, contentType: "application/json", body: '{"detail":{"code":"request_failed"}}' });
     else await route.continue();
   });
@@ -212,14 +212,14 @@ test("pending job details cannot refill another project's view", async ({ page }
   let started!: () => void;
   const pending = new Promise<void>(resolve => { release = resolve; });
   const observed = new Promise<void>(resolve => { started = resolve; });
-  await page.route("**/api/v1/projects/*/runs/historical-job", async route => {
+  await page.route("**/api/v1/jobs/*/historical-job", async route => {
     const response = await route.fetch();
     started(); await pending; await route.fulfill({ response });
   });
   await page.goto("/jobs?project=alpha&run=historical-job");
   await observed;
   await page.locator("#jobs-project").selectOption(projects.find((item: { name: string }) => item.name === "beta").id);
-  const completed = page.waitForResponse(response => response.url().includes("/runs/historical-job"));
+  const completed = page.waitForResponse(response => response.url().includes("/historical-job"));
   release(); await completed;
   await expect(page.getByRole("region", { name: "Project context" })).toContainText("beta");
   await expect(page.locator(".detail-panel")).toHaveCount(0);
@@ -258,8 +258,10 @@ test("localized shell and assigned Dev remain usable in both themes and widths",
       if (width === 390) await page.getByRole("button", { name: /Menu/ }).click();
       await nav(page).getByRole("link", { name: "Jobs", exact: true }).click();
       expect(await page.evaluate(() => scrollY)).toBe(0);
+      const assigned = await (await page.request.get("/api/v1/projects")).json();
+      await page.locator("#jobs-project").selectOption(assigned[0].id);
       await expect(page.getByRole("region", { name: "Project context" })).toContainText("alpha");
-      await expect(page.locator("#jobs-project option")).toHaveCount(1);
+      await expect(page.locator("#jobs-project option")).toHaveCount(2);
       await expect(page.locator("#job-ticket-number-help")).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
       await page.screenshot({ path: info.outputPath(`dev-jobs-${theme}-${width}.png`), fullPage: true });

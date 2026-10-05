@@ -40,18 +40,24 @@ provided by `app.py`. There is no new runtime dependency or persisted schema.
 ## 5. Inputs And Outputs
 
 `GET /api/v1/jobs-page` accepts `project_id`, `q`, `status_group`, `lifecycle`,
-`stage`, `limit`, `offset` and `snapshot`. `project_id` is an immutable 32-hex
+`stage`, `attention`, `executor`, `outcome`, `updated_from`, `updated_to`,
+`limit`, `offset` and `snapshot`. `project_id` is an immutable 32-hex
 identity. `q` is a trimmed case-insensitive substring of 1–80 characters;
 search covers project name/display name, run ID, ticket number/actual title,
 lifecycle, stage and outcome. `limit` is 1–100 or `all`, default 25; offset
 is nonnegative. Lifecycle and stage filters accept exact persisted vocabulary,
 including `stale`, `done` and the legacy `publishing` stage.
+`attention=true` selects clarification, approval, in-review, failed, stale and
+handoff-pending. Executor is an exact case-sensitive journal identity (1–200
+characters); outcome is a trimmed case-insensitive fragment (1–80).
+Update dates are inclusive UTC stored-update days; missing timestamps do not
+match. Reversed dates or whitespace-only text filters return 422.
 
 The response contains `items`, matching `total`, `counts`, `groups`, `limit`,
 `offset`, `complete: true`, `snapshot` and
 `snapshot_semantics: "optimistic-source-revision"`. Counts and groups describe
 the authorized, project-filtered, searched population before lifecycle/stage/group
-selection. Archived jobs are included and each row carries `project_archived`.
+selection and before attention/executor/outcome/date filters. Archived jobs are included and each row carries `project_archived`.
 
 `GET /api/v1/jobs/{project_id}/{run_id}` returns
 `{job, complete: true, snapshot}` for the composite identity. Its strict read
@@ -62,7 +68,7 @@ to serve existing clients.
 
 ## 6. Data Contracts
 
-Each job exposes `project_id`, project labels/archive flag, `run_id`, ticket
+Each list job exposes `project_id`, project labels/archive flag, `run_id`, ticket
 number/actual title/URL, MR URL, exact `lifecycle`, `stage`, `outcome`,
 stage/review counters, `created_at`, `updated_at`, `last_activity_at`, `waiting`,
 `evidence_url`, `coverage` and `consumption`. Empty outcomes remain empty.
@@ -91,7 +97,14 @@ title and last activity. Empty titles are unknown. Consumption is
 `{availability: "unknown"}`; absence is never a zero measurement. The composite
 API detail URL locates the safe local evidence view without disclosing host paths.
 
-HTTP(S) links require valid host/port and exclude credentials, query/fragment,
+Strict composite detail additionally exposes `timeline`: saved events in append
+order with only normalized UTC `ts` (or null), redacted `event`, and validated
+persisted `stage` (or null). Missing stages remain unknown. Internal observed
+executor identities are used only for matching; neither those identities nor
+the timeline are added to list rows. Malformed recorded stage/executor identities
+fail closed before any filter, including an unrelated filter.
+
+HTTP(S) source links require valid host/port and exclude credentials, query/fragment,
 controls and backslashes, including percent-decoded forms. Free text redacts
 common token/password/secret/API-key/authorization assignments and Basic/Bearer
 credentials. Descriptions, authors, arbitrary journal values, financial payloads,
@@ -132,6 +145,9 @@ Use `project_id=<immutable ID>` for the same model within a single authorized pr
 direct routes, colliding run IDs, timezone ties, source/grant mutations,
 archived/missing metadata, wait evidence, forge anchors, unsafe URLs, corrupt
 state/tickets/journals, secret filtering, IO failures and zero subprocess calls.
+Advanced-filter/timeline tests prove matching, bounds, corruption/redaction and
+attention selection. The project-summary regression treats absent legacy update
+times as unknown while rejecting malformed nonempty times.
 `test_web_paging.py`, `test_web_rbac.py` and `test_state.py` preserve adjacent
 API and recovery contracts. Final verification uses repository strict validation.
 
@@ -142,5 +158,5 @@ a multi-file transaction. A host write after final reinspection appears on the
 next read. Each request scans all authorized selected history twice; memory and
 IO scale with retained sources. Read-time file absence cannot recover deleted
 history. Named responsibility and usage remain unknown until actual persisted
-contracts supply that evidence. The job projection supplies API data; dashboard
-integration is a separate component change.
+contracts supply that evidence. The action workspace consumes this projection; Statistics supplies separate
+measured duration and usage contracts.

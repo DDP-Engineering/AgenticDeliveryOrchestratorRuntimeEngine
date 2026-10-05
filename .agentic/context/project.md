@@ -102,6 +102,9 @@ protects the worktree from routine cleanup and further autonomous execution.
 
 - `04_Software/adore/` is the package; `04_Software/tests/` is the fully
   offline pytest suite, one file per component.
+- The web action workspace presents complete authorized attention/history and
+  observed next actions; project hubs distinguish pickup from revision-bound
+  environment verification. The durable queue owns actual command outcomes.
 - `04_Software/web/` is the build-time React source; the packaged static build
   lives in `04_Software/adore/web/static/`.
 - `04_Software/deploy/` holds the host installers and systemd unit;

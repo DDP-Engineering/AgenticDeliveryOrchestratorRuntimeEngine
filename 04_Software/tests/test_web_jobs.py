@@ -69,6 +69,63 @@ def _get(client, query=""):
 
 
 # PUBLIC CONTRACT TESTS
+def test_global_advanced_filters_and_safe_observed_timeline(tmp_path):
+    """@brief Global filtering retains exact saved identities and safe event evidence."""
+    _, items, stores, app = _fixture(tmp_path)
+    stores[1].journal("same", "gate-started", stage="build", executor="pi",
+                           model="SECRET_MODEL", password="SECRET_PASSWORD")
+    stores[1].journal("same", "gate-passed", stage="validate")
+    with TestClient(app) as client:
+        _login(client)
+        page = _get(client, "?executor=pi&stage=build&updated_from=2026-10-05"
+                    "&updated_to=2026-10-05")
+        assert page["total"] == 1
+        assert page["items"][0]["project_id"] == items[1].project_id
+        assert "timeline" not in page["items"][0]
+        assert "observed_executors" not in page["items"][0]
+        assert _get(client, "?executor=PI")["total"] == 0
+        assert _get(client, "?outcome=MERGED")["total"] == 2
+        assert _get(client, "?attention=true")["total"] == 0
+        assert _get(client, "?updated_to=2026-10-04")["total"] == 0
+        detail = client.get(f"/api/v1/jobs/{items[1].project_id}/same").json()["job"]
+        assert [row["stage"] for row in detail["timeline"]] == ["build", "validate"]
+        assert all(set(row) == {"ts", "event", "stage"} for row in detail["timeline"])
+        assert "SECRET_" not in str(detail)
+        assert "observed_executors" not in detail
+        for query in ("?executor=%20", "?outcome=%20", "?outcome=" + "x" * 81,
+                      "?executor=" + "x" * 201, "?updated_from=wrong",
+                      "?updated_from=2026-10-06&updated_to=2026-10-05"):
+            assert client.get("/api/v1/jobs-page" + query).status_code == 422
+
+
+@pytest.mark.parametrize("field,value", [("executor", 12), ("executor", ""),
+                                         ("stage", "unknown-stage")])
+def test_global_projected_timeline_corruption_fails_closed(tmp_path, field, value):
+    """@brief Invalid observed filter/timeline evidence never yields partial totals."""
+    _, _, stores, app = _fixture(tmp_path)
+    stores[0].journal("same", "gate-started", **{field: value})
+    with TestClient(app) as client:
+        _login(client)
+        response = client.get("/api/v1/jobs-page?executor=other")
+        assert response.status_code == 503
+        assert response.json() == {"detail": {"code": "run_journal_corrupt"}}
+
+
+def test_project_summary_preserves_legacy_missing_activity(tmp_path):
+    """@brief Legacy absent activity remains unknown so strict jobs stay reachable."""
+    _, _, stores, app = _fixture(tmp_path)
+    for run_id in ("same", "old"):
+        _state(stores[0], run_id, updated_at="")
+    with TestClient(app) as client:
+        _login(client)
+        response = client.get("/api/v1/projects")
+        assert response.status_code == 200
+        alpha = next(item for item in response.json() if item["name"] == "alpha")
+        assert alpha["last_activity"] is None
+        _state(stores[0], "same", updated_at="malformed")
+        assert client.get("/api/v1/projects").status_code == 503
+
+
 def test_global_pages_search_groups_and_collision_identity(tmp_path):
     """@brief Full global ordering precedes slicing and retains colliding IDs."""
     _, items, _, app = _fixture(tmp_path)

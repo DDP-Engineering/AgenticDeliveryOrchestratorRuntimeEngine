@@ -23,7 +23,7 @@ async function signIn(page: Page, username = "admin", password = "admin") {
 async function openConfiguration(page: Page, name = "alpha") {
   await page.getByRole("navigation", { name: "Primary navigation", exact: true }).getByRole("link", { name: "Projects", exact: true }).click();
   await page.getByRole("link", { name, exact: true }).click();
-  await page.getByRole("tab", { name: "Configuration", exact: true }).click();
+  await page.getByRole("tab", { name: "Settings", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Project settings", exact: true })).toBeVisible();
 }
 
@@ -56,7 +56,7 @@ test("developer scope protects projects, configuration writes and admin routes",
   expect((await page.request.get("/api/v1/projects/beta")).status()).toBe(404);
   expect((await page.request.get("/api/v1/users")).status()).toBe(403);
   await page.getByRole("link", { name: "alpha", exact: true }).click();
-  await page.getByRole("tab", { name: "Configuration", exact: true }).click();
+  await page.getByRole("tab", { name: "Settings", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Project settings", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: /^Edit / })).toHaveCount(0);
   await expect(page.getByRole("tab", { name: "Access", exact: true })).toHaveCount(0);
@@ -127,13 +127,13 @@ test("project tab route survives reload and browser back", async ({ page }) => {
   await expect(page).toHaveURL(/\/projects\/[a-f0-9]+\/configuration$/);
   const route = page.url();
   await page.reload();
-  await expect(page.getByRole("tab", { name: "Configuration", exact: true })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tab", { name: "Settings", exact: true })).toHaveAttribute("aria-selected", "true");
   await expect(page).toHaveURL(route);
   await page.getByRole("navigation", { name: "Primary navigation", exact: true }).getByRole("link", { name: "Jobs", exact: true }).click();
   await expect(page).toHaveURL(/\/jobs/);
   await page.goBack();
   await expect(page).toHaveURL(route);
-  await expect(page.getByRole("tab", { name: "Configuration", exact: true })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tab", { name: "Settings", exact: true })).toHaveAttribute("aria-selected", "true");
 });
 
 test("narrow viewport menu and configuration editor remain usable", async ({ page }) => {
@@ -155,6 +155,8 @@ test("narrow viewport menu and configuration editor remain usable", async ({ pag
 test("worker processes queued requests and preserves a rejected engine exit", async ({ page }) => {
   await signIn(page, "developer", "test-password");
   await page.getByRole("navigation", { name: "Primary navigation", exact: true }).getByRole("link", { name: "Jobs", exact: true }).click();
+  const assigned = await (await page.request.get("/api/v1/projects")).json();
+  await page.locator("#jobs-project").selectOption(assigned[0].id);
   await page.getByRole("spinbutton", { name: "Ticket number", exact: true }).fill("42");
   const submitted = page.waitForResponse(response => response.url().endsWith("/operations/start") &&
     response.request().method() === "POST");

@@ -1,0 +1,19 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+id = "REQ-UX-a7969a9d"
+title = "explain the permitted command effect"
+status = "active"
+requirement = "When an authorized operator requests manual start, retry or cancel, the dashboard shall explain the permitted command effect and distinguish queue acceptance from the actual asynchronous completion, failure or uncertain result."
+verification = "Offline browser journeys submit real API starts against fake worker commands, observe pending and final success/failure, prevent duplicate submits and invalid/human-owned/archive actions, and reject CSRF/revoked grants through existing API tests."
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobModel.ts", "04_Software/web/src/jobCopy.ts", "04_Software/web/src/styles.css", "04_Software/web/src/routes.ts", "04_Software/web/e2e/jobs.spec.ts", "04_Software/web/tests/jobs.test.mjs"]
+linked_tests = ["04_Software/web/e2e/jobs.spec.ts", "04_Software/web/tests/jobs.test.mjs"]
+spec = "specs/REQ-UX-b758d2b7.md"
+priority = "high"
+created = 2026-10-05
+updated = 2026-10-05

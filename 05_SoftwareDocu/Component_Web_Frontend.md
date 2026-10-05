@@ -30,12 +30,12 @@ separately from ADORE. Source SHA-256:
 `4957da4edf9aebf02dcb0e24823ff5f8d5ee524622773f4285c9e2261903c481`.
 The binary inherits the provenance documented in the published design bundle.
 
-Project context shows the authorized project's name and repository with links
-to its details, jobs and statistics. Overview also offers a project selector
-and distinguishes the all-authorized-project count from selected-project job
-counts. Jobs reads the selected project's existing endpoint. Administrator
-all-project Statistics labels that scope explicitly. The Statistics page keeps
-the established `/metrics` route, exports and query parameters.
+Project context shows the authorized project's display name and repository with
+links to its hub, jobs and statistics. Overview and Jobs default to all authorized
+current and archived projects and offer an explicit project selector.
+`JobWorkspace` reads the complete global jobs API; scope and composite job identity
+remain independent of the Statistics selector. Statistics retains `/metrics`,
+existing exports and query parameters.
 
 Loading and failed requests have separate status/error panels. Numeric
 cards and data tables render after successful scoped responses. A failed
@@ -70,34 +70,44 @@ restore the canonical saved/default display, including zero for unlimited.
 covers saved/default values and rejected input.
 Tables with more than ten rows offer 10, 25, 50 and All choices with
 Previous/Next for finite pages. Audit fetches the full authorized history;
-Jobs delegates the page size and filtering to the scoped API. Other tables
+Jobs delegates page size, complete filtering and source-revision checks to the global API. Other tables
 paginate their rendered rows and reset to the first page when size changes.
 Selected-ticket history uses the shared paged table with Date, Event and Stage
 columns in reverse journal order, with latest events first. A reversed copy
 preserves the received event array. It starts at ten events per page, offers 10/25/50/All
 for longer histories, and resets on project/run identity changes. Empty history
-uses the standard empty state; event text remains escaped by React.
+shows an explicit unknown-evidence message; event text remains escaped by React.
 The top bar supplies the single page title and common actions on every page.
 Project details uses the identity opened from Projects; platform administration and account settings
 use their own status, membership and preference controls. Jobs and Statistics
-keep their project selectors in page content. On Overview, four expandable summary cards select the scope:
-Projects opens a table of authorized projects where a row selects the project,
-and Active jobs, Awaiting review and Failed jobs open paged run tables for the
-selected project. Closing a card restores Recent jobs. Opening a run navigates
-to its Jobs detail; opening a project navigates to Project details. Content
-starts directly with the page's controls and data; at narrow widths the title
-and actions wrap into separate rows. Statistic hints and user rows wrap
-instead of clipping or colliding on small screens.
-Jobs places its authorized project selector in page content beside the ticket
-and Start job controls. Visible ticket instructions explain the existing repository issue
-number, positive integer format, example and eligibility checks in each locale.
-Switching that selector clears the ticket draft. Archived projects retain the
-selector for history while hiding ticket and Start controls. The form wraps at
-narrow widths; the header contains the page title and common actions.
+keep their project selectors in page content. Overview leads with Needs attention:
+clarification, candidate approval, draft review, failed, stale and pending handoff
+jobs. Current-state cards follow and label the same scope. Source errors or
+incomplete responses hide rows and totals; a changed continuation offers explicit
+Reload first page. Search/project/status group remain visible in Jobs; exact
+lifecycle, stage, observed executor, outcome and UTC dates are in Advanced filters.
+Selected detail precedes the job list and explains current lifecycle, exact saved
+stage, observed reason, who acts, where and what conditionally follows. Safe saved
+question/candidate/MR links locate the action; named people, duration and consumption
+remain unknown when the projection does not provide them. Old recorded activity is
+separate from the control worker heartbeat. Completed never implies human merge.
+The observed timeline marks only actual events, including quick paths.
+
+Manual start requires one selected current project. Visible instructions explain
+existing ticket numbers and the worker's selection/readiness/approval gates.
+Changing scope clears the ticket draft. Archived projects retain history and hide
+start. Retry is available for failed current jobs; cancel excludes terminal and
+pending/completed human handoffs. Effects stay visible beside each control.
+An immediate submission lock prevents duplicate commands; existing operation
+status polling distinguishes queued/running/completed/failed/uncertain results.
+An unavailable operation read explicitly leaves completion unknown. The API and
+worker recheck authority and lifecycle; the browser does not claim job success
+from command acceptance.
+
 Administration's account section is labelled Users in every locale.
 Jobs aligns Observed executor and Outcome contains in two equal-width fields
 below the basic filters, stacking them at narrow widths. Each has visible localized
-instructions and an example placeholder. Executor matches the exact case-sensitive
+instructions. Executor matches the exact case-sensitive
 name recorded in the ADORE job journal; jobs with no recorded name are excluded
 by that filter. Outcome matches a case-insensitive fragment of ADORE's saved
 result or error explanation, which may contain AEGIS error details. These
@@ -157,14 +167,14 @@ failure invalidates review and never displays completion. Success clears file
 contents, confirms stopped pickup and offers Open project. Activation is separate.
 Long page titles wrap in the shared top bar, including at 390px.
 The Projects directory lists authorized projects in a sortable, paged table
-with project, repository, static config status, job
-count and last activity columns. Administrators can pause/resume pickup and
-archive/restore directly on each row; developers can open details but see no
-mutating actions. A valid configuration is labelled as such, not as a live
-forge or model readiness check.
-Selecting a project opens a scoped detail view with status, repository,
-runtime, executor, last activity and recent jobs. Its actions open the Jobs and
-Statistics views for that selection, and jump to project settings on the same page.
+with project, repository, independent Pickup and Environment verification,
+job count and saved last activity columns. Pickup stopped explains that active
+jobs continue. Verification displays structural invalidity or persisted
+unverified/stale/failed/partial/verified evidence, its check time and configuration
+revision. Static configuration validity does not establish live readiness.
+Administrators can operate pickup and archive/restore; Dev users open their granted
+projects. Summary retains the selected identity and shows runtime, executor,
+verification and project job history with direct Jobs/Statistics links.
 Assigned developers can inspect the redacted effective configuration in
 collapsible sections, with the common settings first. Each row shows its value,
 a Set for this project / Default badge, its type and contextual help; common
@@ -177,8 +187,8 @@ project configuration, local endpoint and estimated-price changes there, while
 a developer's projects are edited together under Users, and one project's
 developers on its Access tab. My account holds account
 appearance and password controls. Project details groups this content into
-Overview (host prerequisites, recent jobs), Configuration (read-only settings
-and administrator editors) and administrator-only Prices and Access tabs with
+Summary (pickup, host verification and project jobs), Settings (read-only settings
+and administrator editors), History (terminal jobs), and administrator-only Prices and Access tabs with
 keyboard tab navigation; Jobs and Statistics are real links. Access
 (`ProjectAccess` in `App.tsx`) lists the project's developers from
 `GET /projects/{name}/access` and grants or removes one with
@@ -194,11 +204,11 @@ keeps forge, executor and model readiness separate.
 It polls the administrator-only storage check every 30 seconds and shows free
 space for ADORE home and project state roots. Less than 1 GiB is marked low;
 a failed measurement is shown as an error.
-The Jobs view retrieves ten runs initially for the selected project, with
-lifecycle, AEGIS-stage, UTC last-update date and outcome-text filters. The overview retrieves seven recent runs
-and full lifecycle counts. Status and stage labels use the selected language.
-An observed-executor filter further narrows the Jobs page using recorded run
-evidence; older runs without that identity do not match it.
+The Jobs view starts at ten rows from complete authorized history. Search and
+secondary filters run before slicing; counts/groups retain the searched scope
+before secondary selection. Continuations pass the returned optimistic snapshot.
+Scope/filter/session generations suppress superseded responses. Status and stage
+labels and all action guidance are available in EN/FR/DE/RO.
 The About dialog traps keyboard focus and returns it to the opening button on
 close. A compact top-bar Sign out control remains available when the sidebar
 account controls are hidden on narrow screens.
@@ -299,8 +309,10 @@ those views after the switch.
 `DashboardShell.tsx` owns the authenticated frame, real navigation links,
 branding, responsive menu, header and content focus. `Presentation.tsx` owns
 `DataFeedback`, `ProjectEmpty`, `StatusBadge` and `DeliveryGlossary`.
-`App.tsx` owns session, supported mutations, existing route/history flow and
-scoped request states. Request completion retains session-generation guards
+`App.tsx` owns session, project hubs, configuration/statistics mutations and route/history flow.
+`JobWorkspace.tsx` owns scoped jobs/attention/detail, visible polling and command
+feedback. `jobModel.ts` validates complete counts, composite identity, saved
+links and observed events; `jobCopy.ts` supplies four-locale action guidance. Request completion retains session-generation guards
 and selected-project/request-revision checks; malformed data at the changed
 presentation seams is converted into explicit feedback.
 
@@ -319,17 +331,13 @@ changed project or job in the same view replaces it, `popstate` re-applies the
 URL, and role or unknown-path fallbacks replace the entry. A routed project ID
 is checked against the authorized project list before any project is chosen
 automatically. `polling.ts` runs every periodic refresh only while the page is
-visible and refreshes immediately when it becomes visible. `ServerPager`
-drives the Jobs, Audit and Overview job tables, requesting one bounded page
-(`limit`/`offset`) per view and every row only for All. Example placeholders
-use the `--placeholder` token (at least 4.5:1 in each theme) with a localized
-"e.g." prefix; `Field`/`GuidedField` add a required marker and each form with
-a required control shows a localized legend. `.table-scroll` uses CSS scroll
-shadows, and the Jobs filters collapse behind a counted toggle below 760px.
-Project names in the Projects table and ticket numbers in every job table are
-links; a job's ticket or View opens it in Jobs. Overview card hints state the
-scope ("Projects you can access", "Project: <name>"). Expand/collapse
-indicators and sign-out use inline SVG icons (`Icon`) drawn in `currentColor`.
+visible and refreshes immediately when it becomes visible. `JobWorkspace` owns
+revision-bound server paging and locally paged observed timelines; `ServerPager`
+continues to serve Audit. Common guided forms keep required markers and localized
+examples. `.table-scroll` keeps wide data within its own scroll container.
+Project names and ticket numbers are semantic links with owning-project URLs.
+Project tabs support arrow keys, Home and End; `/configuration` and `/prices`
+remain valid, while `/history` selects terminal jobs in the same authorized hub.
 The Prices form preselects the project's configured executor and remounts per
 project. When the Statistics scope has no jobs, Summary, Quality and Trends show
 one localized message instead of zero-valued cards.
@@ -374,6 +382,16 @@ have localized status labels; neither shows Cancel. Only administrators see
 cost and account/config screens.
 
 ## 9. Validation And Tests
+
+`tests/jobs.test.mjs` validates complete/unknown evidence, malformed or contradictory
+counts/groups, unauthorized/composite identity, unsafe URLs, command guards and
+route compatibility. `e2e/jobs.spec.ts` uses real local state/API plus a fake worker
+for every lifecycle, actual question/candidate/draft references, missing/stale
+metadata, complete global filters, source changes, collisions, role/CSRF denial,
+queued and failed commands, observed timeline paging, unsafe action URLs and
+keyboard/390px/both themes/four locales. Retained screenshots support bounded
+visual inspection. These checks do not establish live or novice acceptance.
+
 
 `e2e/import.spec.ts` covers explanatory exact enrollment, full safe review,
 stopped success, duplicate-submit protection, invalid file/encoding/response,

@@ -1,0 +1,388 @@
+{
+  "schema": 1,
+  "artifact_type": "delivery_candidate_inventory",
+  "task": "TASK-60c83db1",
+  "issue": 12,
+  "scope": "Only #12 action-oriented project hubs, attention queues, global authorized jobs and observed job detail with compatible supporting backend/tests/docs.",
+  "base": "e48be8dc0264e2e066481d4ed24fbb504b378102",
+  "local_head": "e48be8dc0264e2e066481d4ed24fbb504b378102",
+  "remote_head": "e48be8dc0264e2e066481d4ed24fbb504b378102",
+  "branch": "task/adore-web-interface",
+  "publication": "Not attempted; coordinator must verify exact unchanged inventory and provide delivery instruction under standing human authority.",
+  "authorized_conditional_outcome": [
+    "scoped commit with requirement IDs",
+    "normal push to existing task/adore-web-interface",
+    "close only Gitea issue #12 after successful delivery"
+  ],
+  "excluded": [
+    "other issues including #13",
+    "PR/MR creation",
+    "merge",
+    "release/tag/version change",
+    "deployment",
+    "live forge/container/credential acceptance",
+    "planning changes",
+    "dependency/schema migration"
+  ],
+  "children": [],
+  "limits": {
+    "wall_clock_hours": 4,
+    "corrective_review_cycles_max": 3,
+    "corrective_review_cycles_used": 1,
+    "authored_files_max": 20,
+    "authored_files_used": 19,
+    "external_executors": 0,
+    "subagents": 0,
+    "additional_executor_api_cost": 0
+  },
+  "requirements": [
+    "REQ-UX-b758d2b7",
+    "REQ-UX-78923e00",
+    "REQ-FUNC-25dc0271",
+    "REQ-UX-a7969a9d"
+  ],
+  "evidence_matrix": [
+    {
+      "criterion": "Attention and overview",
+      "behavior": "Needs attention precedes current cards; complete authorized scope; worker heartbeat independent",
+      "browser_evidence": "overview foregrounds complete authorized attention before current cards",
+      "test_file": "04_Software/web/e2e/jobs.spec.ts"
+    },
+    {
+      "criterion": "Project hubs",
+      "behavior": "Independent pickup and revision/time-bound verification; Summary/Settings/History and authorized Jobs/Statistics links",
+      "browser_evidence": "hub separates pickup and verification and keeps role-appropriate navigation; project hub exposes verification revision and time and rejects corrupt stamps",
+      "test_file": "04_Software/web/e2e/jobs.spec.ts"
+    },
+    {
+      "criterion": "Global jobs",
+      "behavior": "Complete authorized search, advanced filters, pagination and explicit snapshot-conflict restart",
+      "browser_evidence": "global complete search paging advanced filters and source revision conflicts",
+      "test_file": "04_Software/web/e2e/jobs.spec.ts"
+    },
+    {
+      "criterion": "Job detail and next action",
+      "behavior": "Exact lifecycle/stage, actual saved clarification/candidate/draft locations, protected handoffs and observed quick path",
+      "browser_evidence": "all real lifecycle groups explain exact stage evidence and protected handoffs; clarification candidate and draft actions open actual saved locations and quick path",
+      "test_file": "04_Software/web/e2e/jobs.spec.ts"
+    },
+    {
+      "criterion": "Honest evidence",
+      "behavior": "Missing named actor/duration/consumption explicit; old activity does not imply failure; only actual timeline events",
+      "browser_evidence": "missing evidence and stale worker activity do not fabricate telemetry or actions; observed timeline retains paging and rejects unsafe action locations",
+      "test_file": "04_Software/web/e2e/jobs.spec.ts"
+    },
+    {
+      "criterion": "Commands",
+      "behavior": "Contextual permitted start/retry/cancel with effect explanation and actual pending/succeeded/failed/uncertain queue results",
+      "browser_evidence": "manual start explains queue effect and reports asynchronous worker failure; queued pending and final successful commands do not predict job outcome",
+      "test_file": "04_Software/web/e2e/jobs.spec.ts"
+    },
+    {
+      "criterion": "Authorization and read failures",
+      "behavior": "Composite project/run identity, Dev grants and CSRF; malformed/incomplete/error reads hide stale detail and totals",
+      "browser_evidence": "composite colliding IDs and reload preserve the owning project; incomplete corrupt and failed job reads hide totals and stale details; developer search counts navigation direct routes and command CSRF exclude other projects",
+      "test_file": "04_Software/web/e2e/jobs.spec.ts"
+    },
+    {
+      "criterion": "Usability and compatibility",
+      "behavior": "Keyboard/390px, both themes, EN/FR/DE/RO; existing shell/settings/statistics and legacy deep links retained",
+      "browser_evidence": "keyboard 390px both themes and localized evidence remain usable; full existing dashboard/shell/settings/authorization browser suite",
+      "test_file": "04_Software/web/e2e/jobs.spec.ts"
+    }
+  ],
+  "backend_boundary_evidence": {
+    "file": "04_Software/tests/test_web_jobs.py",
+    "cases": [
+      "test_global_advanced_filters_and_safe_observed_timeline",
+      "test_global_projected_timeline_corruption_fails_closed",
+      "test_project_summary_preserves_legacy_missing_activity"
+    ],
+    "focused_result": "126 jobs/readiness/RBAC/paging/commands passed"
+  },
+  "validation": {
+    "command": "python .agentic/aegis.py check --task TASK-60c83db1 --strict --run --json",
+    "exit": 0,
+    "strict_passed": true,
+    "python": "942 passed, 1 existing Windows symlink privilege skip, 1 existing Starlette/httpx deprecation warning",
+    "chromium": "59 passed",
+    "frontend": "38 Node helpers, UI/E2E typecheck and isolated Vite build passed within configured frontend gate",
+    "supplemental": [
+      "production npm run build passed",
+      "uv run ruff check . passed",
+      "light/dark 390px and dark desktop visual inspection",
+      "full generated-asset secret pattern/provenance scan classified benign React/form locale password matches"
+    ],
+    "proof": ".agentic/tasks/TASK-60c83db1.validation-final.json",
+    "failed_attempt_retained": ".agentic/tasks/TASK-60c83db1.validation-attempt1.json",
+    "failed_attempt_correction": "Drain test route handlers before disposal; identify alpha explicitly. No product change; no weakened assertions/timeouts or ignored handler errors."
+  },
+  "reviews": {
+    "round": 2,
+    "specification_compliance": "approved",
+    "implementation_quality": "approved",
+    "reviewer": "Primary agent performed separate reviews; explicit no-delegation instruction honored",
+    "semantic_candidate_sha256": "7081b4505b61c756b3cc9fb0a58c60f55da1e910aa227bafcc78b656a3ca7ced"
+  },
+  "accepted_advisories": {
+    "final_proof_warnings": 6,
+    "delivery_record_advisory_warnings": 7,
+    "errors": 0,
+    "classification": [
+      "historical tracked fingerprint sidecars",
+      "two unrelated malformed legacy task records",
+      "generated JavaScript catalog-size scan limit supplemented by full inspection",
+      "two synthetic offline password literals",
+      "delivery-only expected unticked publication/close-out items"
+    ],
+    "other_notes": 30,
+    "nonfatal_tool_warnings": [
+      "existing Vite bundle >500kB",
+      "existing Node color-setting warning",
+      "existing Starlette/httpx deprecation"
+    ],
+    "acceptance_limits": "Offline proof and representative visual checks; no live host acceptance or full accessibility/novice study."
+  },
+  "deviation": "DEVIATION build: minimal compatible project summary correction accepts absent legacy activity as unknown, while malformed nonempty timestamps still fail closed; necessary to expose #11 honest missing evidence through #12 navigation.",
+  "stage_boundary_choices": [
+    "proceed with stated conditional delivery after coordinator exact-inventory verification",
+    "change delivery outcome",
+    "return to validate",
+    "pause workflow"
+  ],
+  "needs_new_human_permission": false,
+  "counts_including_this_inventory": {
+    "authored": 19,
+    "generated": 5,
+    "workflow": 14,
+    "total_path_actions": 38
+  },
+  "inventory_self_path": ".agentic/tasks/TASK-60c83db1.candidate.json",
+  "inventory_self_hash": "Excluded to avoid self-reference; calculate SHA-256 from file bytes externally.",
+  "aggregate_sha256_excluding_inventory_self": "1e0350bc10fc1c746df105da10b502687c65ff402f101161065c04bd75f7a2a6",
+  "digest_algorithm": "Sort paths lexicographically. UTF-8 JSON compact encoding of [[path, sha256_or_DELETED], ...], separators=(comma,colon), then SHA-256. Aggregate includes mutable journal/proof records sealed here; inventory itself excluded. Semantic digest excludes all .agentic/tasks/ delivery evidence.",
+  "files": [
+    {
+      "path": ".agentic/context/project.md",
+      "status": " M",
+      "ownership": "workflow",
+      "sha256": "cd5fa3334495c74c8c2684747c72f32ace5c9c24220060a70b61b7df033fe32d"
+    },
+    {
+      "path": ".agentic/knowledge/web-interface.md",
+      "status": " M",
+      "ownership": "workflow",
+      "sha256": "3d16baff026edc8ec78727d9211127af8b142ea38f52df2e80c833eb0090ec8a"
+    },
+    {
+      "path": ".agentic/requirements/functional/REQ-FUNC-25dc0271.toml",
+      "status": "??",
+      "ownership": "workflow",
+      "sha256": "0b89c2a14d01e0cd8d90de18dfe3f1be48d256ccb0c942f9bbfb3ea5ebd803c4"
+    },
+    {
+      "path": ".agentic/requirements/security/REQ-SEC-5d0f86e7.toml",
+      "status": " M",
+      "ownership": "workflow",
+      "sha256": "5285e6c7734fde6d714118419c8636744ee54427b403ede7610e49d1542bd2f9"
+    },
+    {
+      "path": ".agentic/requirements/ux/REQ-UX-072cf049.toml",
+      "status": " M",
+      "ownership": "workflow",
+      "sha256": "a66f05bafc8d097ecad8641687d2afa31823cea1943567eefb86397a7ecb680a"
+    },
+    {
+      "path": ".agentic/requirements/ux/REQ-UX-3b5b2257.toml",
+      "status": " M",
+      "ownership": "workflow",
+      "sha256": "54c6049c1119845617cb12278db8cbc1532a33e4c480043c424a6ec924b0b6b5"
+    },
+    {
+      "path": ".agentic/requirements/ux/REQ-UX-78923e00.toml",
+      "status": "??",
+      "ownership": "workflow",
+      "sha256": "01b7f123c1ab49d8b47f402faf17853b56aa9033e446b80e865ea75ecf2d9efa"
+    },
+    {
+      "path": ".agentic/requirements/ux/REQ-UX-a7969a9d.toml",
+      "status": "??",
+      "ownership": "workflow",
+      "sha256": "294af3d7d52628e1bb6868fe036fe5f55e5ea932249baa08fb84382fd1dbf43a"
+    },
+    {
+      "path": ".agentic/requirements/ux/REQ-UX-b758d2b7.toml",
+      "status": "??",
+      "ownership": "workflow",
+      "sha256": "4c59f4a092122163df0cc02c65dd60a40b95de7d523954ad6540a0f0d6f3265b"
+    },
+    {
+      "path": ".agentic/specs/REQ-UX-b758d2b7.md",
+      "status": "??",
+      "ownership": "workflow",
+      "sha256": "1dfcda3a1500ad2e44c9b6fbc74ca7d3263daa28c5c836289e71a9c1cd793847"
+    },
+    {
+      "path": ".agentic/tasks/TASK-60c83db1.md",
+      "status": "??",
+      "ownership": "workflow",
+      "sha256": "431f0745325ef3baf7eb27ba70cb751f81b51c027814306592d52db02afe6a17"
+    },
+    {
+      "path": ".agentic/tasks/TASK-60c83db1.validation-attempt1.json",
+      "status": "??",
+      "ownership": "workflow",
+      "sha256": "a466b21862d9f171192c1650f97d5e6a65852e8baac70ab3c1bbab5e1e227d07"
+    },
+    {
+      "path": ".agentic/tasks/TASK-60c83db1.validation-final.json",
+      "status": "??",
+      "ownership": "workflow",
+      "sha256": "742bef42c62fa3f459ae9f9d59279c7e5394692f62077db43352d0a60705c2a2"
+    },
+    {
+      "path": "01_Documentation/Web_Interface.md",
+      "status": " M",
+      "ownership": "authored",
+      "sha256": "20559d16aa61ba556633387646e8ed67301661ea802668acf7230e50b6fc518a"
+    },
+    {
+      "path": "04_Software/adore/web/app.py",
+      "status": " M",
+      "ownership": "authored",
+      "sha256": "9746e3188fdc01512d1c2bac58b6c596cd4be3f71bb1017522ff5913bb049598"
+    },
+    {
+      "path": "04_Software/adore/web/jobs.py",
+      "status": " M",
+      "ownership": "authored",
+      "sha256": "ba49c29a878a18bf40141714cddcbd3819980ff015fe69136f4b72f62920a730"
+    },
+    {
+      "path": "04_Software/adore/web/static/assets/index-B7q0gYmM.js",
+      "status": "??",
+      "ownership": "generated",
+      "sha256": "c4c3d14f9b93e944989517468a4e77e87802c79b19cbb07032e559b4c5c11f17"
+    },
+    {
+      "path": "04_Software/adore/web/static/assets/index-BbLcvP-E.css",
+      "status": " D",
+      "ownership": "generated",
+      "sha256": "DELETED"
+    },
+    {
+      "path": "04_Software/adore/web/static/assets/index-DQ8xaP1S.css",
+      "status": "??",
+      "ownership": "generated",
+      "sha256": "f36b99d30d4508e5729699f0cfb0d815f297776555c8b4cc2a1daf44bdbfbb94"
+    },
+    {
+      "path": "04_Software/adore/web/static/assets/index-D_D_Ccbj.js",
+      "status": " D",
+      "ownership": "generated",
+      "sha256": "DELETED"
+    },
+    {
+      "path": "04_Software/adore/web/static/index.html",
+      "status": " M",
+      "ownership": "generated",
+      "sha256": "9f28ee562614000b1cc37eeb5b67f57a71597a3ebbb38be151f890cec7bd88c6"
+    },
+    {
+      "path": "04_Software/tests/test_web_jobs.py",
+      "status": " M",
+      "ownership": "authored",
+      "sha256": "c7424bc327845ac4f125c5796ae25cb15a1fa0e719717afbbd10346422769a4e"
+    },
+    {
+      "path": "04_Software/web/e2e/dashboard.spec.ts",
+      "status": " M",
+      "ownership": "authored",
+      "sha256": "ab101d1a2482c83c78684935a728da0c5e18b3ee5524f789e92b157d64403321"
+    },
+    {
+      "path": "04_Software/web/e2e/jobs.spec.ts",
+      "status": "??",
+      "ownership": "authored",
+      "sha256": "ac3910e748b94cb9a1a4f42b074ed0186c1101295b2f66ffb4b194020cbe9326"
+    },
+    {
+      "path": "04_Software/web/e2e/server.py",
+      "status": " M",
+      "ownership": "authored",
+      "sha256": "e0b0867628992911e138110395f21c1d20d0cd658d654618ca063cd3963de4fe"
+    },
+    {
+      "path": "04_Software/web/e2e/shell.spec.ts",
+      "status": " M",
+      "ownership": "authored",
+      "sha256": "16dfcdac5d99fd0c692ad3a79f9968cd60a60568a7e89dfd2867e1dcc1010b4f"
+    },
+    {
+      "path": "04_Software/web/src/App.tsx",
+      "status": " M",
+      "ownership": "authored",
+      "sha256": "1595c498dd67d4f17044f95d4fd3ab7e7811fabbd9272ca77f99e6e043c86b69"
+    },
+    {
+      "path": "04_Software/web/src/JobWorkspace.tsx",
+      "status": "??",
+      "ownership": "authored",
+      "sha256": "0dd04af67dac30d3723d9563d91710bf0ef623c260b8e853ddb2cb031787fbe9"
+    },
+    {
+      "path": "04_Software/web/src/jobCopy.ts",
+      "status": "??",
+      "ownership": "authored",
+      "sha256": "6e0d599d4eabc5f74cec6aa19f4ef134cfc866fd89fc9a968b95a39a19cfffa9"
+    },
+    {
+      "path": "04_Software/web/src/jobModel.ts",
+      "status": "??",
+      "ownership": "authored",
+      "sha256": "070e8f26c54e600406de8abc5c41c2f62df0e6bc2dfa4c26254647187d84adde"
+    },
+    {
+      "path": "04_Software/web/src/routes.ts",
+      "status": " M",
+      "ownership": "authored",
+      "sha256": "d24acf9ba37cd89b5d165ea5360ad2298dbe103cc3c583f3c30b64d906b9c6c3"
+    },
+    {
+      "path": "04_Software/web/src/styles.css",
+      "status": " M",
+      "ownership": "authored",
+      "sha256": "c9b55312a98f36f704b5d602ef3a9f55a05ff33e2968483105c3464b4ab9dbf9"
+    },
+    {
+      "path": "04_Software/web/tests/jobs.test.mjs",
+      "status": "??",
+      "ownership": "authored",
+      "sha256": "f4a19fd299b02c4ef909eb70550caca3f0b648a1b13a99f60060f9e4118c463d"
+    },
+    {
+      "path": "05_SoftwareDocu/Component_Web_API.md",
+      "status": " M",
+      "ownership": "authored",
+      "sha256": "8a9a53e234452b7b6ce21348b1ffc298ddcaa5c9930241393aab8f99118833ac"
+    },
+    {
+      "path": "05_SoftwareDocu/Component_Web_Frontend.md",
+      "status": " M",
+      "ownership": "authored",
+      "sha256": "cab22ff6100fbfd75709e49f341bb540000821a68b587005197975fa9ec72807"
+    },
+    {
+      "path": "05_SoftwareDocu/Component_Web_Jobs.md",
+      "status": " M",
+      "ownership": "authored",
+      "sha256": "ebb51ac85d5d015ff88b75299222336641e25062332b938016e62cc779a62e03"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "status": " M",
+      "ownership": "authored",
+      "sha256": "4cb1f798588bd6931332ffeb838dfdf3060d9e0bea0368f617aed23a9b5e44f3"
+    }
+  ]
+}
