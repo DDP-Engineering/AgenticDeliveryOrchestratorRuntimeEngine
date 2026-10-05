@@ -38,7 +38,13 @@ def _code(response, status: int, code: str) -> dict:
     detail = response.json()["detail"]
     assert isinstance(detail, dict) and _CODE.fullmatch(detail["code"])
     assert detail["code"] == code
-    assert set(detail) <= {"code", "message"}
+    assert set(detail) <= ({"code", "message", "issues"}
+                           if code == "project_setup_invalid" else {"code", "message"})
+    if "issues" in detail:
+        assert detail["issues"]
+        assert all(set(issue) == {"code", "field", "remediation"}
+                   and all(isinstance(value, str) and value for value in issue.values())
+                   for issue in detail["issues"])
     return detail
 
 

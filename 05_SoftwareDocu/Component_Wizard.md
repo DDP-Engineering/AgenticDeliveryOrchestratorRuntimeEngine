@@ -172,3 +172,13 @@ adore init <profile-name> --force   # overwrite an existing profile
   the wizard reports presence via `doctor`, not versions.
 - The executor command template is fixed per known CLI (opencode proven);
   exotic executors get a generic `{prompt}` template to edit by hand.
+
+## Offline candidate preparation
+
+`run_wizard(..., prepare_only=True)` returns `WizardSetup(name, document,
+metadata)` after the same answer/config validation. It skips doctor, AEGIS and
+runtime-detection probes, writes no profile, and uses the explicit runtime or
+Docker default. `WizardError.field` identifies the rejected answer. The web API
+maps it to a value-free structured finding; CLI diagnostics retain their existing
+behavior. Without this option the wizard still probes and saves a `Profile`.
+`test_web_enrollment.py` proves both modes with an injected offline runner.

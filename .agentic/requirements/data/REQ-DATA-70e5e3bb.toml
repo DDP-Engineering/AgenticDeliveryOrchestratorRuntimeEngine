@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-DATA-70e5e3bb"
+title = "Bind explicit readiness evidence to configuration revisions"
+status = "active"
+requirement = "When an administrator explicitly verifies project readiness, the backend shall persist redacted evidence bound to immutable project identity, configuration SHA-256 revision and UTC check time, distinguishing unverified and stale evidence from structural invalidity and rejecting corrupt evidence and mid-probe configuration changes."
+verification = "Fake all commands; observe current evidence then stale after config edit, distinct invalid/unverified states, concurrent mutation conflict, corrupt persisted schema/time/revision and unauthorized probe rejection."
+affected_paths = ["04_Software/adore/web/app.py"]
+linked_tests = ["04_Software/tests/test_web_enrollment.py"]
+spec = "specs/REQ-REL-c598b075.md"
+created = 2026-10-05
+updated = 2026-10-05

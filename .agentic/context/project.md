@@ -41,7 +41,9 @@ OpenCode, Pi, Codex and Qwen Code.
   existing CLI/conductor commands; browser roles are admin and project-scoped
   developer, with cost data reserved for admins. Its shared accessible shell
   keeps authorized project context explicit and distinguishes pending, empty
-  and failed reads in the supported locales and themes.
+  and failed reads in the supported locales and themes. Web enrollment publishes
+  complete profiles with pickup stopped, keeps human labels separate from stable
+  identity, validates setup offline and records explicit revision-bound readiness.
 
 `python .agentic/aegis.py components` lists the knowledge page that routes
 each component to its source and tests.

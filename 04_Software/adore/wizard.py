@@ -76,9 +76,22 @@ _RECOMMENDED_BUDGETS = {
 
 class WizardError(RuntimeError):
     """
-    @brief   Raised when the wizard cannot complete (aborted, or a required
-             non-interactive answer is missing/invalid).
+    @brief Raised when a required setup answer or assembled config is invalid.
     """
+
+    def __init__(self, message: str, *, field: str = "config"):
+        """@brief Keep setup findings addressable without exposing answer values."""
+        super().__init__(message)
+        self.field = field
+
+
+@dataclass
+class WizardSetup:
+    """@brief Validated local setup candidate, without publication or host probes."""
+
+    name: str
+    document: str
+    metadata: dict[str, object]
 
 
 @dataclass
@@ -289,7 +302,7 @@ def ask(spec: FieldSpec, asker: ConsoleAsker | ScriptedAsker, out: Callable[[str
         if error is None:
             return value
         if not asker.interactive:
-            raise WizardError(f"{spec.key}: {error} (got {value!r})")
+            raise WizardError(f"{spec.key}: {error} (got {value!r})", field=spec.key)
         out(f"  ! {error}")
 
 
@@ -373,7 +386,8 @@ def run_wizard(
     os_key: str | None = None,
     name: str | None = None,
     force: bool = False,
-) -> Profile:
+    prepare_only: bool = False,
+) -> Profile | WizardSetup:
     """
     @brief      Run the assisted-config flow and save a validated profile.
     @details    Phases A-I from the plan. Detection is informational (prints
@@ -389,7 +403,8 @@ def run_wizard(
     @param[in]  os_key Host OS key (defaults to doctor.detect_os()).
     @param[in]  name Profile name (asked when None).
     @param[in]  force Overwrite an existing profile.
-    @return     The saved Profile.
+    @param[in]  prepare_only Return a validated candidate without writes or probes.
+    @return     The saved Profile, or WizardSetup when preparation is requested.
     @exception  WizardError On abort, an existing profile without --force, or a
                 config that fails validation.
     """
@@ -427,7 +442,8 @@ def run_wizard(
     ), asker, out)
 
     # Phase A guidance is informational and platform-aware; print it now.
-    _report_environment(out, runner, key, kind)
+    if not prepare_only:
+        _report_environment(out, runner, key, kind)
 
     login = ""
     if kind == "gitea":
@@ -455,7 +471,8 @@ def run_wizard(
     ), asker, out)
     if not (Path(repo_path).expanduser() / ".git").exists():
         out("  note: that path has no .git - make sure it is the clone root.")
-    _report_aegis(out, runner, repo_path, key)
+    if not prepare_only:
+        _report_aegis(out, runner, repo_path, key)
     worktree_root = ask(FieldSpec(
         "worktree_root", "Worktree root (host dir holding per-run worktrees):",
         "relative to the run, or an absolute path", "worktrees", default="worktrees",
@@ -502,8 +519,10 @@ def run_wizard(
     ), asker, out)
 
     # -- Phase F (runtime & executor) ---------------------------------------------
-    runtimes = doctor.detect_runtimes(runner, os_key=key)
-    suggested = _suggest_runtime(key, runtimes)
+    suggested = "docker"
+    if not prepare_only:
+        runtimes = doctor.detect_runtimes(runner, os_key=key)
+        suggested = _suggest_runtime(key, runtimes)
     runtime = ask(FieldSpec(
         "runtime", "Container runtime:",
         "docker/podman, optionally wrapped for Docker/podman inside WSL2",
@@ -667,6 +686,13 @@ def run_wizard(
     stamp = store._now()
     document = _emit_config_toml(sections, name, stamp)
     _validate_or_raise(document, out)
+
+    if prepare_only:
+        return WizardSetup(name, document, {
+            "description": description, "platform": kind, "repo": repo,
+            "runtime": runtime, "host_os": key,
+            "config_path": str(store.config_path(name)), "store_root": store_root,
+        })
 
     config_path = store.config_path(name)
     config_path.parent.mkdir(parents=True, exist_ok=True)

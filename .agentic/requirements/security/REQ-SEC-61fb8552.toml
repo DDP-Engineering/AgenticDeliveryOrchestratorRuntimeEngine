@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-SEC-61fb8552"
+title = "Guard enrollment and identity mutations and reject secret literals"
+status = "active"
+requirement = "When web enrollment, setup preview or identity mutation is requested, the API shall require administrator authorization and CSRF for mutations and reject embedded secret literals in favor of supported credential references without echoing secret input."
+verification = "Direct anonymous/Dev/missing-CSRF calls fail; literal secrets in unknown JSON/TOML/provider JSON, credential URLs and runtime_env fail; approved environment references pass with redacted responses and no secret audit content."
+affected_paths = ["04_Software/adore/web/app.py"]
+linked_tests = ["04_Software/tests/test_web_enrollment.py", "04_Software/tests/test_web_errors.py"]
+spec = "specs/REQ-REL-c598b075.md"
+created = 2026-10-05
+updated = 2026-10-05

@@ -36,7 +36,7 @@ from threading import Lock
 from time import monotonic
 import tomllib
 from typing import Annotated, Literal
-from urllib.parse import urlsplit
+from urllib.parse import parse_qsl, urlsplit
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
@@ -50,12 +50,12 @@ from adore.cli import _NOT_SECRET_KEYS, _SECRET_KEY_RE, _is_secret_key, _newline
 from adore.config import default_config, load_config, validate_config
 from adore.config_edit import ConfigEditLockedError, config_edit_lock
 from adore.isolation import ContainerManager, IsolationError
-from adore.profiles import ProfileError, ProfileStore
+from adore.profiles import ProfileError, ProfileStore, validate_display_name, validate_profile_id
 from adore.state import RunState, StateError, StateStore
-from adore.util import CommandRunner, run_command
+from adore.util import CommandRunner, force_rmtree, run_command
 from adore.web.endpoint_probe import probe_endpoint
 from adore.web.store import WebStore, WebStoreError
-from adore.wizard import ScriptedAsker, WizardError, run_wizard
+from adore.wizard import ScriptedAsker, WizardError, WizardSetup, run_wizard
 
 # CONSTANTS
 _PROFILE_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
@@ -89,6 +89,21 @@ _STORE_ERROR_CODES = {
 }
 _HTTP_ERROR_CODES = {404: "not_found", 405: "method_not_allowed"}
 _HTTP_FALLBACK_CODE = "request_failed"
+_PROFILE_ERROR_CODES = {
+    "invalid_project_name": "invalid_project_name",
+    "reserved_project_name": "invalid_project_name",
+    "invalid_display_name": "invalid_request",
+    "project_corrupt": "project_corrupt",
+}
+_SETUP_ERROR_CODES = {
+    "project_creation_failed": "project_setup_invalid",
+    "project_rollback_failed": "project_setup_invalid",
+    "project_setup_unavailable": "project_setup_invalid",
+    "state_root_already_owned": "project_import_conflict",
+    "readiness_corrupt": "readiness_probe_failed",
+    "readiness_store_failed": "readiness_probe_failed",
+    "identity_update_failed": "project_corrupt",
+}
 _REQUEST_PARTS = ("body", "query", "path", "header", "cookie")
 _LOW_STORAGE_BYTES = 1024**3
 _TERMINAL_RUN_LIFECYCLES = ("done", "failed", "cancelled", "handed-off")
@@ -159,7 +174,9 @@ class AuditPolicyInput(BaseModel):
 class ProjectInput(BaseModel):
     """@brief Guided project setup input."""
 
+    model_config = ConfigDict(extra="forbid")
     name: str
+    display_name: str | None = None
     kind: str
     repo: str
     repo_path: str
@@ -171,6 +188,21 @@ class ProjectInput(BaseModel):
     target_branch: str = "main"
     auth_mode: str = "host-auth"
     description: str = ""
+    login: str = ""
+
+
+class ProfileIDInput(BaseModel):
+    """@brief Administrator advisory ID availability input."""
+
+    model_config = ConfigDict(extra="forbid")
+    name: str
+
+
+class DisplayIdentityInput(BaseModel):
+    """@brief Human display identity only; operational IDs remain unchanged."""
+
+    model_config = ConfigDict(extra="forbid")
+    display_name: str
 
 
 class ProjectImportInput(BaseModel):
@@ -178,6 +210,7 @@ class ProjectImportInput(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
     name: str = Field(min_length=1, max_length=64)
+    display_name: str | None = None
     description: str = Field(default="", max_length=500)
     config_text: str = Field(min_length=1, max_length=524288)
     revision: str = ""
@@ -266,6 +299,220 @@ def _profile_name(name: str) -> str:
     if not _PROFILE_RE.fullmatch(name) or name in (".", ".."):
         raise _error(404, "project_not_found")
     return name
+
+
+def _finding(code: str, field: str, remediation: str) -> dict:
+    """@brief Construct a stable actionable finding without external values."""
+    return {"code": code, "field": field, "remediation": remediation}
+
+
+def _contract_rejection(code: str, field: str, remediation: str) -> HTTPException:
+    """@brief Keep localized HTTP codes while exposing an exact backend finding."""
+    return HTTPException(status_code=409 if code == "state_root_already_owned" else 503,
+                         detail={"code": _SETUP_ERROR_CODES[code], "message": remediation,
+                                 "issues": [_finding(code, field, remediation)]})
+
+
+def _identity_error(exc: ProfileError) -> HTTPException:
+    """@brief Map identity rejection to a value-free public contract."""
+    issue = _finding(exc.code, exc.field,
+                     "Choose an available portable ID." if exc.field == "name" else
+                     "Use 1-120 trimmed printable characters for the display name.")
+    return HTTPException(status_code=503 if exc.code == "project_corrupt" else 400,
+                         detail={"code": _PROFILE_ERROR_CODES.get(exc.code, "project_corrupt"),
+                                 "issues": [issue], "message": issue["remediation"]})
+
+
+def _config_from_bytes(raw: bytes):
+    """@brief Parse the exact configuration snapshot, independent of later edits."""
+    with tempfile.TemporaryDirectory(prefix="adore-config-snapshot-") as temporary:
+        path = Path(temporary) / "config.toml"
+        path.write_bytes(raw)
+        return load_config(path)
+
+
+def _config_findings(config) -> list[dict]:
+    """@brief Return field-addressable structural issues without config values."""
+    secrets_found = _secret_config_keys(config.raw)
+    if secrets_found:
+        return [_finding("secret_value", key,
+                         "Use a supported environment reference; supply credentials outside setup.")
+                for key in secrets_found]
+    findings = []
+    for message in validate_config(config):
+        match = re.match(r"\[([a-z][a-z0-9_.-]*)\]\s+([a-z][a-z0-9_]*)", message)
+        field = ".".join(match.groups()) if match else "config"
+        findings.append(_finding("config_invalid", field,
+                                 "Correct this setting using the configuration reference."))
+    return findings
+
+
+def _verification_view(profiles: ProfileStore, profile, revision: str | None) -> dict:
+    """@brief Strictly load revision-bound evidence; absent and stale remain distinct."""
+    path = profiles.profile_dir(profile.name) / "readiness.json"
+    if not path.exists():
+        return {"status": "unverified", "revision": None, "checked_at": None}
+    try:
+        if path.stat().st_size > 16384:
+            raise ValueError("oversized readiness")
+        value = json.loads(path.read_text(encoding="utf-8"))
+        keys = {"schema", "project_id", "revision", "checked_at", "context", "checks",
+                "model_probe"}
+        if (not isinstance(value, dict) or set(value) != keys
+                or type(value["schema"]) is not int or value["schema"] != 1
+                or value["project_id"] != profile.project_id
+                or not isinstance(value["revision"], str)
+                or not re.fullmatch(r"[0-9a-f]{64}", value["revision"])
+                or value["context"] != "api-host"
+                or not isinstance(value["checked_at"], str)):
+            raise ValueError("invalid readiness identity")
+        stamp = datetime.fromisoformat(value["checked_at"])
+        if (stamp.tzinfo is None or stamp.utcoffset() != timedelta(0)
+                or stamp > datetime.now(UTC) + timedelta(seconds=5)):
+            raise ValueError("invalid readiness time")
+        checks = value["checks"]
+        check_keys = {"git", "forge_cli", "forge_auth", "container_runtime", "executor_cli",
+                      "aegis_files", "model_endpoint"}
+        if not isinstance(checks, dict) or set(checks) != check_keys:
+            raise ValueError("invalid readiness checks")
+        for key, result in checks.items():
+            if type(result) is not bool and not (
+                key == "container_runtime" and result is None
+                or key == "model_endpoint" and result == "not-checked"
+            ):
+                raise ValueError("invalid readiness check value")
+        probe = value["model_probe"]
+        reasons = {"ready", "credential-missing", "tool-stream-incompatible",
+                   "redirect-rejected", "http-error", "endpoint-unreachable-or-incompatible",
+                   "probe-failed", "not-configured", "unsupported-executor", "invalid-endpoint",
+                   "invalid-provider-config", "invalid-credential-reference", "image-missing",
+                   "timeout", "runtime-error"}
+        if (not isinstance(probe, dict) or set(probe) != {"context", "ready", "model", "reason"}
+                or probe["context"] != "executor-container" or type(probe["ready"]) is not bool
+                or not isinstance(probe["model"], str) or len(probe["model"]) > 200
+                or not isinstance(probe["reason"], str)
+                or not (probe["reason"] in reasons
+                        or re.fullmatch(r"http-[45]\d\d", probe["reason"]))
+                or probe["model"] and not re.fullmatch(
+                    r"[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}", probe["model"])):
+            raise ValueError("invalid readiness model evidence")
+    except (OSError, UnicodeError, ValueError, TypeError, KeyError) as exc:
+        raise _contract_rejection("readiness_corrupt", "readiness",
+                              "Inspect the stored readiness record on the ADORE host.") from exc
+    status = ("stale" if revision != value["revision"] else
+              "failed" if any(result is False for result in checks.values()) else
+              "partial" if checks["container_runtime"] is None else "verified")
+    return {**{key: item for key, item in value.items() if key != "schema"}, "status": status}
+
+
+def _setup_display(body: ProjectInput | ProjectImportInput) -> str:
+    """@brief Distinguish omitted legacy-compatible input from explicit invalid null."""
+    return validate_display_name(body.display_name if "display_name" in body.model_fields_set
+                                 else body.name)
+
+
+def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, WizardSetup | None]:
+    """@brief Validate explicit web answers without persistence or live probes."""
+    try:
+        available = profiles.id_availability(body.name)
+        display = _setup_display(body)
+    except ProfileError as exc:
+        raise _identity_error(exc) from exc
+    issues = [] if available else [
+        _finding("project_exists", "name", "Choose another available ID.")]
+    answers = body.model_dump(exclude={"name", "display_name"})
+    for key in ("model", "image"):
+        if not answers[key]:
+            del answers[key]
+    answers["confirm"] = "yes"
+    answers["worktree_root"] = str((profiles.home / "worktrees" / body.name).resolve())
+    candidate = None
+    if not issues:
+        try:
+            candidate = run_wizard(profiles, asker=ScriptedAsker(answers, interactive=False),
+                                   name=body.name, out=lambda _message: None, prepare_only=True)
+            if not isinstance(candidate, WizardSetup):
+                raise WizardError("invalid setup candidate")
+            candidate.metadata["display_name"] = display
+            issues.extend(_config_findings(_config_from_bytes(candidate.document.encode("utf-8"))))
+        except WizardError as exc:
+            issues.append(_finding("setup_field_invalid", exc.field,
+                                   "Supply a supported value for this setup field."))
+        except (OSError, UnicodeError, ValueError, TypeError) as exc:
+            raise _contract_rejection("project_setup_unavailable", "config",
+                                  "Check local setup storage and configuration access.") from exc
+    return {"name": body.name, "display_name": display, "structural_valid": not issues,
+            "issues": issues, "pickup": "stopped-on-create",
+            "verification": {"status": "unverified"}}, candidate
+
+
+def _publish_paused(profiles: ProfileStore, web: WebStore, actor: int, name: str,
+                    raw: bytes, metadata: dict, *, imported: bool = False) -> dict:
+    """@brief Keep lock, filesystem and parsing failures typed at the enrollment boundary."""
+    try:
+        return _publish_paused_locked(profiles, web, actor, name, raw, metadata,
+                                      imported=imported)
+    except (OSError, StateError, ProfileError, UnicodeError, ValueError, TypeError) as exc:
+        raise _contract_rejection("project_creation_failed", "config",
+                              "Check local enrollment storage before retrying.") from exc
+
+
+def _publish_paused_locked(profiles: ProfileStore, web: WebStore, actor: int, name: str,
+                           raw: bytes, metadata: dict, *, imported: bool = False) -> dict:
+    """@brief Publish metadata after pause, holding ownership and conductor locks."""
+    with _web_config_edit_lock(profiles.home / "web-enrollment" / "config.toml"):
+        try:
+            if not profiles.id_availability(name):
+                raise _error(409, "project_exists")
+        except ProfileError as exc:
+            raise _identity_error(exc) from exc
+        config = _config_from_bytes(raw)
+        root = Path(config.state.store_root).resolve()
+        for other in profiles.list_profiles():
+            other_root = Path(other.store_root or profiles.default_store_root(other.name)).resolve()
+            if (root == other_root or root.is_relative_to(other_root)
+                    or other_root.is_relative_to(root)):
+                raise _contract_rejection("state_root_already_owned", "state.store_root",
+                                      "Choose an absolute state root owned only by this project.")
+        directory = profiles.profile_dir(name)
+        try:
+            directory.mkdir(parents=True, exist_ok=False)
+        except FileExistsError as exc:
+            raise _error(409, "project_exists") from exc
+        state = StateStore(root, config.agent.slug)
+        locked, previously_paused = False, False
+        try:
+            locked = state.acquire_lock()
+            if not locked:
+                raise _error(409, "project_has_active_work")
+            previously_paused = state.is_paused()
+            if (state.invalid_runs() or any(run.lifecycle not in _TERMINAL_RUN_LIFECYCLES
+                                           for run in state.list_runs())):
+                raise _error(409, "project_has_active_work")
+            profiles.config_path(name).write_bytes(raw)
+            state.pause()
+            item = profiles.create(name, **metadata)
+            web.audit(actor, "project-imported" if imported else "project-created", name)
+            return _profile_view(profiles, item)
+        except Exception as exc:
+            # Metadata is the visibility boundary. Remove it before unlock/resume.
+            try:
+                (directory / "profile.json").unlink(missing_ok=True)
+                if imported and locked and not previously_paused:
+                    state.resume()
+                force_rmtree(directory)
+            except OSError as rollback_exc:
+                failure = _contract_rejection(
+                    "project_rollback_failed", "config",
+                    "Inspect incomplete enrollment on the host before retrying.")
+                raise failure from rollback_exc
+            if isinstance(exc, HTTPException):
+                raise
+            raise _contract_rejection("project_creation_failed", "config",
+                                  "Check local enrollment storage before retrying.") from exc
+        finally:
+            if locked:
+                state.release_lock()
 
 
 @contextmanager
@@ -441,7 +688,7 @@ def _csv_text(value: str) -> str:
 def _profile_view(profiles: ProfileStore, profile) -> dict:
     if any(not isinstance(value, str) for value in (
         profile.name, profile.description, profile.platform, profile.repo,
-        profile.runtime,
+        profile.runtime, profile.display_name,
     )):
         raise _error(503, "project_corrupt")
     store = _store_for(profiles, profile)
@@ -458,12 +705,19 @@ def _profile_view(profiles: ProfileStore, profile) -> dict:
         changed = changed.astimezone(UTC)
         if last_activity is None or changed > last_activity:
             last_activity = changed
+    raw = None
     try:
-        config = load_config(profiles.config_path(profile.name))
-        config_valid = not validate_config(config)
-    except (OSError, TypeError, ValueError, tomllib.TOMLDecodeError):
+        raw = profiles.config_path(profile.name).read_bytes()
+        revision = sha256(raw).hexdigest()
+        config = _config_from_bytes(raw)
+        findings = _config_findings(config)
+        config_valid = not findings
+    except (OSError, AttributeError, TypeError, ValueError, tomllib.TOMLDecodeError):
         config_valid = False
         config = None
+        revision = sha256(raw).hexdigest() if raw is not None else None
+        findings = [_finding("config_invalid", "config",
+                             "Supply a valid project TOML configuration.")]
     paused = store.is_paused()
     readiness = (
         "archived" if profile.archived else
@@ -474,6 +728,10 @@ def _profile_view(profiles: ProfileStore, profile) -> dict:
     return {
         "id": profile.project_id,
         "name": profile.name,
+        "display_name": profile.display_name,
+        "validation": {"structural_valid": config_valid, "issues": findings},
+        "pickup_state": "archived" if profile.archived else "stopped" if paused else "active",
+        "verification": _verification_view(profiles, profile, revision),
         "description": profile.description,
         "platform": config.platform.kind if config_valid and config else profile.platform,
         "repo": config.platform.repo if config_valid and config else profile.repo,
@@ -707,6 +965,7 @@ def _setting_metadata(config: dict, raw: bytes) -> list[dict]:
 def _sync_profile_config_identity(profiles: ProfileStore, item, path: Path) -> None:
     """@brief Keep profile directory labels aligned with the committed TOML."""
     config = load_config(path)
+    item = profiles.load(item.name)
     item.platform = config.platform.kind
     item.repo = config.platform.repo
     item.runtime = config.container.runtime
@@ -727,17 +986,40 @@ def _write_pending_config(path: Path, value: dict) -> None:
         candidate.unlink(missing_ok=True)
 
 
-def _secret_config_keys(value: object, prefix: str = "") -> list[str]:
+def _secret_config_keys(value: object, prefix: str = "", *, provider: bool = False) -> list[str]:
     """@brief Find embedded secret values without returning their contents."""
+    if isinstance(value, list):
+        return [key for child in value
+                for key in _secret_config_keys(child, prefix, provider=provider)]
     if not isinstance(value, dict):
         return []
     found = []
     for key, child in value.items():
         name = f"{prefix}.{key}" if prefix else key
-        if _SECRET_KEY_RE.search(key) and isinstance(child, str) and child:
-            found.append(name)
+        if name in _NOT_SECRET_KEYS and type(child) is bool:
+            continue
+        if key == "OPENCODE_CONFIG_CONTENT":
+            try:
+                inline = json.loads(child)
+                if not isinstance(inline, dict):
+                    raise ValueError("invalid provider config")
+                found.extend(_secret_config_keys(inline, name, provider=True))
+            except (ValueError, TypeError):
+                found.append(name)
+        elif _SECRET_KEY_RE.search(key) and child:
+            if not (provider and key == "apiKey" and isinstance(child, str)
+                    and re.fullmatch(r"\{env:[A-Z][A-Z0-9_]{0,63}\}", child)):
+                found.append(name)
+        elif isinstance(child, str) and child.startswith(("https://", "http://")):
+            try:
+                url = urlsplit(child)
+                if url.username or url.password or any(_SECRET_KEY_RE.search(query_key)
+                                                       for query_key, _ in parse_qsl(url.query)):
+                    found.append(name)
+            except ValueError:
+                found.append(name)
         else:
-            found.extend(_secret_config_keys(child, name))
+            found.extend(_secret_config_keys(child, name, provider=provider))
     return found
 
 
@@ -745,7 +1027,12 @@ def _inspect_project_import(
     profiles: ProfileStore, body: ProjectImportInput,
 ) -> tuple[dict, object]:
     """@brief Validate an exact TOML import without creating a profile."""
-    name = _profile_name(body.name)
+    try:
+        name = validate_profile_id(body.name)
+        display = _setup_display(body)
+        available = profiles.id_availability(name)
+    except ProfileError as exc:
+        raise _identity_error(exc) from exc
     raw = body.config_text.encode("utf-8")
     if len(raw) > 524288:
         raise _error(413, "config_too_large")
@@ -753,25 +1040,31 @@ def _inspect_project_import(
     if profiles.invalid_profiles():
         raise _error(503, "project_corrupt")
     issues = []
-    if profiles.profile_dir(name).exists():
+    if not available:
         issues.append("project_exists")
     try:
         with tempfile.TemporaryDirectory(prefix="adore-import-") as temporary:
             candidate = Path(temporary) / "config.toml"
             candidate.write_bytes(raw)
             config = load_config(candidate)
-    except (OSError, ValueError, tomllib.TOMLDecodeError):
-        return {"name": name, "revision": revision, "issues": ["config_invalid"]}, None
-    issues.extend(validate_config(config))
-    issues.extend(f"secret_value:{key}" for key in _secret_config_keys(config.raw))
-    paths = {
-        "state.store_root": config.state.store_root,
-        "worktree.repo_path": config.worktree.repo_path,
-        "worktree.root": config.worktree.root,
-        "metrics.db_path": config.metrics.db_path,
-        "metrics.export_jsonl": config.metrics.export_jsonl,
-        "metrics.html_out": config.metrics.html_out,
-    }
+        structured = _config_findings(config)
+        paths = {
+            "state.store_root": config.state.store_root,
+            "worktree.repo_path": config.worktree.repo_path,
+            "worktree.root": config.worktree.root,
+            "metrics.db_path": config.metrics.db_path,
+            "metrics.export_jsonl": config.metrics.export_jsonl,
+            "metrics.html_out": config.metrics.html_out,
+        }
+        if not all(isinstance(value, str) for value in paths.values()):
+            raise TypeError("invalid path type")
+    except (OSError, AttributeError, TypeError, ValueError, tomllib.TOMLDecodeError):
+        findings = [_finding("config_invalid", "config", "Supply a valid UTF-8 TOML document.")]
+        return {"name": name, "display_name": display, "revision": revision,
+                "issues": ["config_invalid"],
+                "validation": {"structural_valid": False, "issues": findings},
+                "verification": {"status": "unverified"}}, None
+    issues.extend(f'{item["code"]}:{item["field"]}' for item in structured)
     issues.extend(f"absolute_path_required:{key}" for key, value in paths.items()
                   if not Path(value).is_absolute())
     root = Path(config.state.store_root).resolve()
@@ -783,11 +1076,20 @@ def _inspect_project_import(
             issues.append("state_root_already_owned")
             break
     preview = {
-        "name": name, "revision": revision, "issues": issues,
+        "name": name, "display_name": display, "revision": revision, "issues": issues,
         "platform": config.platform.kind, "repo": config.platform.repo,
         "runtime": config.container.runtime,
         "store_root": config.state.store_root,
         "unchanged": True, "paused_on_import": True,
+        "validation": {"structural_valid": not issues,
+                       "issues": structured + [
+                           _finding(item.split(":")[0],
+                                    item.split(":")[-1] if ":" in item else "config",
+                                    "Correct the configuration or choose an unowned absolute path.")
+                           for item in issues if item not in {
+                               f'{finding["code"]}:{finding["field"]}' for finding in structured
+                           }]},
+        "verification": {"status": "unverified"},
     }
     return preview, config
 
@@ -1387,8 +1689,17 @@ def create_app(home: str | Path | None = None,
     @app.exception_handler(RequestValidationError)
     async def invalid_request(_request: Request, exc: RequestValidationError) -> JSONResponse:
         """@brief Report schema failures with one code and field-level reasons."""
-        return JSONResponse(status_code=422, content={"detail": {
-            "code": "invalid_request", "message": _validation_message(exc)}})
+        issues = [_finding("invalid_request_field",
+                           ".".join(str(part) for part in item.get("loc", ())[1:]),
+                           "Supply this field using its documented type and allowed values.")
+                  for item in exc.errors()]
+        detail = {"code": "invalid_request", "message": _validation_message(exc)}
+        setup_paths = {"/api/v1/projects", "/api/v1/projects/setup-preview",
+                       "/api/v1/projects/id-availability", "/api/v1/projects/import-preview",
+                       "/api/v1/projects/import"}
+        if _request.url.path in setup_paths or _request.url.path.endswith("/identity"):
+            detail["issues"] = issues
+        return JSONResponse(status_code=422, content={"detail": detail})
 
     @app.exception_handler(StarletteHTTPException)
     async def coded_http_error(_request: Request, exc: StarletteHTTPException) -> JSONResponse:
@@ -1756,27 +2067,38 @@ def create_app(home: str | Path | None = None,
             visible.append(view)
         return visible
 
+    @app.post("/api/v1/projects/id-availability")
+    def id_availability(body: ProfileIDInput,
+                        _user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+        """@brief Check a portable ID without reserving or creating a project."""
+        try:
+            available = profiles.id_availability(body.name)
+        except ProfileError as exc:
+            raise _identity_error(exc) from exc
+        return {"name": body.name, "available": available,
+                "issues": [] if available else [
+                    _finding("project_exists", "name", "Choose another available ID.")]}
+
+    @app.post("/api/v1/projects/setup-preview")
+    def preview_project_setup(body: ProjectInput,
+                              _user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+        """@brief Validate setup locally without commands or profile publication."""
+        preview, _candidate = _prepare_project(profiles, body)
+        return preview
+
     @app.post("/api/v1/projects")
     def add_project(body: ProjectInput,
                     user: Annotated[dict, Depends(admin_mutation)]) -> dict:
-        if not _PROFILE_RE.fullmatch(body.name) or body.name in (".", ".."):
-            raise _error(400, "invalid_project_name")
-        if profiles.exists(body.name):
-            raise _error(409, "project_exists")
-        answers = body.model_dump(exclude={"name"})
-        answers["confirm"] = "yes"
-        answers["worktree_root"] = str(
-            (profiles.home / "worktrees" / body.name).resolve()
-        )
-        try:
-            created = run_wizard(
-                profiles, asker=ScriptedAsker(answers, interactive=False),
-                name=body.name, out=lambda _message: None,
-            )
-        except (WizardError, ProfileError) as exc:
-            raise _error(400, "project_setup_invalid", str(exc)) from exc
-        web.audit(user["id"], "project-created", created.name)
-        return _profile_view(profiles, created)
+        preview, candidate = _prepare_project(profiles, body)
+        if not preview["structural_valid"] or candidate is None:
+            duplicate = any(issue["code"] == "project_exists" for issue in preview["issues"])
+            code = "project_exists" if duplicate else "project_setup_invalid"
+            raise HTTPException(status_code=409 if code == "project_exists" else 400,
+                                detail={"code": code, "issues": preview["issues"],
+                                        "message": "; ".join(issue["remediation"]
+                                                             for issue in preview["issues"])})
+        return _publish_paused(profiles, web, user["id"], body.name,
+                               candidate.document.encode("utf-8"), candidate.metadata)
 
     @app.post("/api/v1/projects/import-preview")
     def preview_project_import(
@@ -1793,48 +2115,39 @@ def create_app(home: str | Path | None = None,
         user: Annotated[dict, Depends(admin_mutation)],
     ) -> dict:
         """@brief Import reviewed TOML with pickup paused and history intact."""
-        with config_lock:
-            preview, config = _inspect_project_import(profiles, body)
-            if body.revision != preview["revision"]:
-                raise _error(409, "stale_import_preview")
-            if preview["issues"] or config is None:
-                raise _error(400, "config_invalid")
-            state = StateStore(config.state.store_root, config.agent.slug)
-            if not state.acquire_lock():
-                raise _error(409, "project_has_active_work")
-            try:
-                checked, _config = _inspect_project_import(profiles, body)
-                if checked["issues"]:
-                    raise _error(409, "project_import_conflict")
-                if (state.invalid_runs()
-                        or any(run.lifecycle not in _TERMINAL_RUN_LIFECYCLES
-                               for run in state.list_runs())):
-                    raise _error(409, "project_has_active_work")
-                directory = profiles.profile_dir(body.name)
-                try:
-                    directory.mkdir(parents=True, exist_ok=False)
-                except FileExistsError as exc:
-                    raise _error(409, "project_exists") from exc
-                previously_paused = state.is_paused()
-                try:
-                    profiles.config_path(body.name).write_bytes(body.config_text.encode("utf-8"))
-                    item = profiles.create(
-                        body.name, description=body.description,
-                        platform=config.platform.kind, repo=config.platform.repo,
-                        runtime=config.container.runtime,
-                        config_path=str(profiles.config_path(body.name)),
-                        store_root=config.state.store_root,
-                    )
-                    state.pause()
-                    web.audit(user["id"], "project-imported", body.name)
-                except Exception:
-                    if not previously_paused:
-                        state.resume()
-                    profiles.delete(body.name)
-                    raise
-            finally:
-                state.release_lock()
-        return _profile_view(profiles, item)
+        preview, config = _inspect_project_import(profiles, body)
+        if body.revision != preview["revision"]:
+            raise _error(409, "stale_import_preview")
+        if preview["issues"] or config is None:
+            raise HTTPException(status_code=400, detail={"code": "config_invalid",
+                                                        "issues": preview["validation"]["issues"]})
+        return _publish_paused(profiles, web, user["id"], body.name,
+                               body.config_text.encode("utf-8"), {
+                                   "display_name": preview["display_name"],
+                                   "description": body.description,
+                                   "platform": config.platform.kind, "repo": config.platform.repo,
+                                   "runtime": config.container.runtime,
+                                   "config_path": str(profiles.config_path(body.name)),
+                                   "store_root": config.state.store_root,
+                               }, imported=True)
+
+    @app.put("/api/v1/projects/{name}/identity")
+    def update_identity(name: str, body: DisplayIdentityInput,
+                        user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+        """@brief Change only the human label while retaining every operational identity."""
+        item = project(name, user)
+        try:
+            display = validate_display_name(body.display_name)
+        except ProfileError as exc:
+            raise _identity_error(exc) from exc
+        with _web_config_edit_lock(profiles.config_path(item.name)):
+            current = project(name, user)
+            if current.project_id != item.project_id:
+                raise _error(409, "project_changed")
+            current.display_name = display
+            profiles.save(current)
+            web.audit(user["id"], "project-display-name-changed", current.name)
+            return _profile_view(profiles, current)
 
     @app.get("/api/v1/projects/{name}")
     def project_detail(name: str, user: Annotated[dict, Depends(principal)]) -> dict:
@@ -1846,10 +2159,12 @@ def create_app(home: str | Path | None = None,
         """@brief Probe selected host prerequisites on explicit admin request."""
         item = project(name, user)
         try:
-            config = load_config(profiles.config_path(item.name))
-            if validate_config(config):
+            raw = profiles.config_path(item.name).read_bytes()
+            revision = sha256(raw).hexdigest()
+            config = _config_from_bytes(raw)
+            if _config_findings(config):
                 raise _error(409, "invalid_config")
-        except (OSError, UnicodeError, TypeError, ValueError,
+        except (OSError, AttributeError, UnicodeError, TypeError, ValueError,
                 tomllib.TOMLDecodeError) as exc:
             raise _error(503, "config_corrupt") from exc
         deadline = monotonic() + 30
@@ -1915,9 +2230,21 @@ def create_app(home: str | Path | None = None,
                                       else "runtime-error")}
         if model_probe["reason"] not in ("not-configured", "unsupported-executor"):
             checks["model_endpoint"] = model_probe["ready"]
-        web.audit(user["id"], "readiness-checked", item.name)
-        return {"context": "api-host", "checked_at": datetime.now(UTC).isoformat(),
-                "checks": checks, "model_probe": model_probe}
+        value = {"schema": 1, "project_id": item.project_id, "revision": revision,
+                 "context": "api-host", "checked_at": datetime.now(UTC).isoformat(),
+                 "checks": checks, "model_probe": model_probe}
+        try:
+            with _web_config_edit_lock(profiles.config_path(item.name)):
+                current = project(name, user)
+                current_revision = sha256(profiles.config_path(item.name).read_bytes()).hexdigest()
+                if current.project_id != item.project_id or current_revision != revision:
+                    raise _error(409, "stale_config_revision")
+                _write_pending_config(profiles.profile_dir(item.name) / "readiness.json", value)
+                web.audit(user["id"], "readiness-checked", item.name)
+                return _verification_view(profiles, current, revision)
+        except OSError as exc:
+            raise _contract_rejection("readiness_store_failed", "readiness",
+                                      "Check local evidence storage before retrying.") from exc
 
     @app.post("/api/v1/projects/{name}/archive")
     def archive_project(name: str,

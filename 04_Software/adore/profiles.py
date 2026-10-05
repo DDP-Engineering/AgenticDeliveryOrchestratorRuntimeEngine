@@ -32,6 +32,7 @@ import json
 import os
 from pathlib import Path
 import re
+import unicodedata
 from uuid import NAMESPACE_URL, uuid4, uuid5
 
 from adore import __version__
@@ -62,6 +63,12 @@ class ProfileError(RuntimeError):
              recreates a profile.
     """
 
+    def __init__(self, message: str, *, code: str = "profile_error", field: str = "name"):
+        """@brief Carry a stable non-secret contract code alongside CLI diagnostics."""
+        super().__init__(message)
+        self.code = code
+        self.field = field
+
 
 @dataclass
 class Profile:
@@ -90,12 +97,46 @@ class Profile:
     config_path: str = ""
     store_root: str = ""
     archived: bool = False
+    display_name: str = ""
 
 
 # HELPER FUNCTIONS
 
 
 _PROFILE_FIELDS = frozenset(f.name for f in fields(Profile))
+
+
+def validate_display_name(value: object) -> str:
+    """
+    @brief Validate a bounded human label without silently normalizing it.
+    @param[in] value Explicit display name.
+    @return The unchanged validated name.
+    @exception ProfileError On empty, untrimmed, unsafe or malformed input.
+    """
+    if (not isinstance(value, str) or not 1 <= len(value) <= 120
+            or value != value.strip()
+            or any(unicodedata.category(char).startswith("C") for char in value)):
+        raise ProfileError("invalid display name", code="invalid_display_name",
+                           field="display_name")
+    return value
+
+
+def validate_profile_id(name: object) -> str:
+    """
+    @brief Validate portable web profile IDs and immutable-ID ambiguity.
+    @param[in] name Requested directory identity.
+    @return The unchanged validated ID.
+    @exception ProfileError On malformed or reserved input.
+    """
+    if not isinstance(name, str) or not re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,63}", name):
+        raise ProfileError("invalid profile ID", code="invalid_project_name")
+    stem = name.split(".")[0]
+    if (name.endswith(".") or stem in {"con", "prn", "aux", "nul"}
+            or re.fullmatch(r"(?:com|lpt)[1-9]", stem)
+            or re.fullmatch(r"[0-9a-f]{32}", name)
+            or name in {"import", "import-preview", "setup-preview", "id-availability"}):
+        raise ProfileError("reserved profile ID", code="reserved_project_name")
+    return name
 
 
 def _profile_from_dict(data: dict, name: str) -> Profile:
@@ -123,6 +164,7 @@ def _profile_from_dict(data: dict, name: str) -> Profile:
             or not re.fullmatch(r"[0-9a-f]{32}", known["project_id"])):
         raise ProfileError(f"corrupt profile.json for {name!r}: invalid project ID")
     known["name"] = name
+    known["display_name"] = validate_display_name(known.get("display_name", name))
     if type(known.get("archived", False)) is not bool:
         raise ProfileError(f"corrupt profile.json for {name!r}: invalid archived flag")
     return Profile(**known)
@@ -275,6 +317,26 @@ class ProfileStore:
         """
         return self._metadata_path(name).is_file()
 
+    def id_availability(self, name: str) -> bool:
+        """
+        @brief Check an advisory web ID against complete and incomplete ownership.
+        @param[in] name Portable profile ID.
+        @return True only when no case-folded directory or immutable ID collides.
+        @exception ProfileError On malformed IDs or corrupt metadata.
+        @note Creation must recheck while holding an enrollment lock.
+        """
+        validate_profile_id(name)
+        if self.invalid_profiles():
+            raise ProfileError("project metadata is corrupt", code="project_corrupt")
+        projects = self.list_profiles()
+        if len({item.project_id for item in projects}) != len(projects):
+            raise ProfileError("duplicate project identity", code="project_corrupt")
+        if self.profiles_dir.exists() and any(
+            entry.name.casefold() == name.casefold() for entry in self.profiles_dir.iterdir()
+        ):
+            return False
+        return not any(item.project_id == name for item in projects)
+
     def create(self, name: str, *, overwrite: bool = False, **fields_: object) -> Profile:
         """
         @brief      Create and persist a new profile's metadata.
@@ -286,11 +348,15 @@ class ProfileStore:
         """
         if self.exists(name) and not overwrite:
             raise ProfileError(f"profile already exists: {name!r}")
+        if "display_name" in fields_:
+            validate_display_name(fields_["display_name"])
         allowed = {key: value for key, value in fields_.items()
                    if key in _PROFILE_FIELDS and key != "project_id"}
         now = self._now()
         profile = Profile(name=name, project_id=uuid4().hex,
                           adore_version=__version__, created_at=now, **allowed)
+        if "display_name" not in fields_:
+            profile.display_name = name
         self.save(profile)
         return profile
 
@@ -299,6 +365,9 @@ class ProfileStore:
         @brief      Persist a profile's metadata atomically, stamping updated_at.
         @param[in]  profile The Profile to write.
         """
+        validate_display_name(profile.display_name or profile.name)
+        # An absent value on a manually constructed legacy Profile uses its ID.
+        profile.display_name = profile.display_name or profile.name
         if not profile.created_at:
             profile.created_at = self._now()
         if not profile.project_id:

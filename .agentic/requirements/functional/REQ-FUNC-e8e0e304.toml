@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-e8e0e304"
+title = "Validate project ID availability deterministically"
+status = "active"
+requirement = "When an administrator checks or submits a web profile ID, the backend shall deterministically validate its portable syntax and reserved-name policy and recheck filesystem and identity collisions at creation, returning typed errors for rejected IDs."
+verification = "Check available, duplicate, reserved, malformed and case-insensitive filesystem collisions; race two separate API instances and assert one paused winner and one typed conflict."
+affected_paths = ["04_Software/adore/profiles.py", "04_Software/adore/web/app.py"]
+linked_tests = ["04_Software/tests/test_web_enrollment.py"]
+spec = "specs/REQ-REL-c598b075.md"
+created = 2026-10-05
+updated = 2026-10-05

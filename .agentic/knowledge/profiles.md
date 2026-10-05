@@ -23,7 +23,10 @@ metrics.
 
 ## Public interface
 
-`adore_home()` resolves the cross-platform home. `ProfileStore` owns profile
+`adore_home()` resolves the cross-platform home. `validate_display_name()` and `validate_profile_id()` provide typed web identity
+validation. `ProfileStore.id_availability()` is advisory and rejects corrupt or
+duplicate identities and case-folded complete/incomplete filesystem ownership.
+`ProfileStore` owns profile
 creation, load/save/list, touch, rename/delete, and active-profile operations.
 `resolve_config_path()` has one stable precedence: explicit `-c` path, named
 profile, active profile, then `./config.toml`. `ProfileError` distinguishes a
@@ -41,7 +44,15 @@ Each profile has an immutable 32-hex `project_id` distinct from its directory
 label. Legacy sidecars derive a stable ID from their stored name and creation
 timestamp; a rename persists that ID, while a malformed ID fails closed.
 
+`display_name` is a validated 1–120 character trimmed Unicode human label, with
+no control/format characters. Only an absent legacy key falls back to `name`.
+Display edits retain directory, immutable ID, paths and web ownership. Web IDs
+use portable lowercase ASCII syntax with route/device/32-hex aliases reserved.
+
 ## Key behaviors
+
+- `REQ-DATA-d893df33` - display labels retain stable operational identity.
+- `REQ-FUNC-e8e0e304` - typed portable advisory ID checks.
 
 - `REQ-FUNC-db248962` - deterministic config-path precedence and corrupt-profile rejection.
 - `REQ-FUNC-41265a32` - atomic profile metadata and active-pointer consistency.
@@ -65,3 +76,6 @@ This standard-library component uses `adore.util` and the package version.
 `04_Software/tests/test_profiles.py` covers home resolution, CRUD, active
 pointer consistency, resolution precedence, corrupt metadata, and unknown-key
 tolerance offline.
+
+Public display/ID boundary coverage also lives in `test_web_enrollment.py`
+(`REQ-DATA-d893df33`, `REQ-FUNC-e8e0e304`).

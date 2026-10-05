@@ -42,6 +42,17 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 
 ## Invariants
 
+- Web enrollment publishes metadata only after config and stopped pickup, under
+  enrollment/conductor locks; failure removes visibility before rollback/unlock.
+  Imported history is retained. Display edits preserve all operational identity.
+- Local setup preview and ID availability never probe tools or publish profiles.
+  Findings carry safe code/field/remediation; exact backend detail codes appear
+  under existing localized HTTP error categories. Secret literals fail closed.
+- Read models distinguish structural validation, pickup and explicit verification.
+  Profile-owned readiness.json validates identity/digest/UTC time/schema/redacted
+  checks; absent evidence is unverified and changed config is stale. Mid-probe
+  config changes cannot publish current evidence. See Component_Web_API.md.
+
 - `DashboardShell` renders authorized semantic links, approved transparent
   DDP Engineering branding at its original aspect ratio on dark navigation,
   a skip link and visible keyboard focus. Main views are Overview, Projects,
@@ -78,7 +89,7 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
   `/me/preferences`, `/me/password` and sign-out answer, and other
   authenticated routes return 403 `password_change_required`. The bootstrap
   `admin` and upgraded accounts start unmarked.
-- Every API error body is `{"detail": {"code", "message"?}}` with a stable
+- Every API error body is `{"detail": {"code", "message"?, "issues"?}}` with a stable
   snake_case code; store sentences map to fixed codes, unknown text becomes
   `request_rejected`, validation is 422 `invalid_request`, and unknown
   `/api/...` paths return 404 `not_found`. `web/src/errors.ts` holds an
@@ -97,7 +108,7 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
   queued operation. Identity/runtime edits require paused pickup. Retrying an
   interrupted apply reconciles exact candidate bytes and profile labels.
 - Explicit administrator readiness checks use bounded doctor probes from the
-  API host and return booleans only. AEGIS file presence is checked without
+  API host and persist typed revision/time-bound evidence. AEGIS file presence is checked without
   executing repository code. A configured local OpenCode model is tested from
   a disposable executor container with the project egress policy and a
   redacted reason. WSL runtime detection remains unverified; CLI output and
@@ -203,6 +214,7 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 
 | Change requested | Start with | Focused verification |
 |---|---|---|
+| Enrollment, display identity, readiness evidence | `adore/profiles.py`, `adore/wizard.py`, `adore/web/app.py` | `test_web_enrollment.py`, `test_web_errors.py` |
 | Accounts, sessions, queue | `adore/web/store.py` | `test_web_auth.py`, `test_web_commands.py` |
 | API permissions/config/metrics | `adore/web/app.py` | `test_web_rbac.py`, `test_web_config.py`, `test_web_pending_config.py`, `test_web_readiness.py`, `test_web_metrics.py` |
 | Worker execution | `adore/web/commands.py` | `test_web_commands.py` |
@@ -217,6 +229,10 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 | Offline media | `02_Tools/*web*.py` | `test_web_package.py`, installed HTTP smoke |
 
 ## Key behaviors
+
+- `REQ-DATA-d893df33`, `REQ-FUNC-e8e0e304` - stable display identity and portable advisory ID checks.
+- `REQ-REL-c598b075`, `REQ-FUNC-3d8f6f5e` - metadata-last stopped enrollment and offline findings.
+- `REQ-DATA-70e5e3bb`, `REQ-SEC-61fb8552` - revision-bound evidence and guarded secret-free setup.
 
 - `REQ-UX-955615bd` / `REQ-UX-aa5e358e` - authorized accessible shell and approved branding.
 - `REQ-UX-8031b8eb` / `REQ-UX-0713852d` - localized delivery vocabulary and explicit project context.
@@ -274,7 +290,11 @@ flowchart LR
     Presentation --> i18n
     App --> api[create_app]
     api --> identity[(web.db)]
-    api --> profiles[(ProfileStore)]
+    api --> preparation[Offline WizardSetup]
+    preparation --> publication[Enrollment and conductor locks]
+    publication --> profiles[(Config then pause then metadata)]
+    api --> profiles
+    api --> verification[(Revision-bound readiness.json)]
     api --> state[(StateStore)]
     api --> assets[(Bundled React assets)]
     worker[CommandWorker] --> identity

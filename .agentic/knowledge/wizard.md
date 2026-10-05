@@ -27,7 +27,9 @@ TOML section.
 `run_wizard()` drives the setup flow. `FieldSpec` and `ask()` provide the
 validated prompt primitive; `ConsoleAsker` is interactive and `ScriptedAsker`
 drives `--answers FILE` and offline tests. The result is a profile config and
-metadata created through `ProfileStore`.
+metadata created through `ProfileStore`. With `prepare_only=True`, it returns
+`WizardSetup(name, document, metadata)` without probes or profile writes; bad
+answers carry `WizardError.field` for safe API findings.
 
 ## Invariants
 
@@ -43,7 +45,13 @@ unsupported Pi/Qwen staging answer fails before the profile is written.
 The reported-cost prompt accepts finite nonnegative USD input; zero disables
 that cap for a subscription/local model while other run limits remain.
 
+Prepare-only mode validates the same candidate offline, with Docker as the
+unprovided runtime default. CLI mode retains probes and persistence.
+
 ## Key behaviors
+
+- `REQ-FUNC-3d8f6f5e` - offline preparation and field-specific safe findings;
+  `test_web_enrollment.py` proves preparation and preserved default CLI mode.
 
 - `REQ-FUNC-5771eecc` - generated configuration validates before it is saved.
 - `REQ-FUNC-6c82ad42` - invalid/unconfirmed answers cannot create or overwrite a profile.
@@ -56,9 +64,10 @@ that cap for a subscription/local model while other run limits remain.
 ```mermaid
 flowchart LR
     answers([Console or scripted answers]) --> wizard[run_wizard]
-    wizard --> probes[Doctor probes]
+    wizard -->|default mode| probes[Doctor probes]
     wizard --> validate[load_config and validate_config]
-    validate --> profiles[(ProfileStore)]
+    validate -->|default mode| profiles[(ProfileStore)]
+    validate -->|prepare only| candidate[WizardSetup to web publication]
 ```
 
 The wizard generates a candidate and saves it only after validation succeeds.

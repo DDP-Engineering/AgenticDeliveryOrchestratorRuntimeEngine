@@ -100,7 +100,7 @@ rename landing during the update 409 `project_changed` with nothing changed.
 Inputs are JSON requests and the existing profile/run files. Outputs are
 versioned JSON, an HttpOnly session cookie, audit rows, queued operations and
 bundled local static files. Every rejected `/api/v1` request returns
-`{"detail": {"code": ..., "message"?: ...}}` with its route status: `code` is a
+`{"detail": {"code": ..., "message"?: ..., "issues"?: [...]}}` with its route status: `code` is a
 stable lowercase snake_case identifier the browser localizes, and the optional
 `message` carries English diagnostics. Request validation returns 422
 `invalid_request` naming failing fields without echoing their values; account,
@@ -108,7 +108,8 @@ membership, price and queue store failures map to fixed codes such as
 `password_too_short`, `username_exists`, `last_administrator` and
 `idempotency_conflict`, with unrecognized store text returned as
 `request_rejected` plus `message`. Project creation failures return
-`project_setup_invalid` with the wizard diagnostic in `message`. Unknown
+`project_setup_invalid` with value-free remediation in `message` and structured
+findings in `issues`. Unknown
 `/api/...` paths return 404 `not_found` rather than the browser shell.
 An account marked by an administrator password reset can call only
 `GET /api/v1/me`, `GET`/`PATCH /api/v1/me/preferences`,
@@ -336,3 +337,61 @@ compatible OpenCode endpoint; administrators can also import a TOML profile. Dir
 edits outside ADORE do not use the shared lock, but revision checks reject a
 stale browser edit. Multi-host API deployment and a shell-style log viewer are
 not provided.
+
+## Stable identity and paused enrollment contracts
+
+All routes below require administrator authorization and mutation CSRF:
+
+| Route | Input | Result |
+| --- | --- | --- |
+| `POST /api/v1/projects/id-availability` | `name` | Advisory `available` plus structured `issues`; never reserves an ID |
+| `POST /api/v1/projects/setup-preview` | Existing guided fields, optional `display_name` | Local `structural_valid`, findings, `pickup: stopped-on-create`, unverified environment; no writes/probes |
+| `POST /api/v1/projects` | Same guided fields | Complete profile with pickup already stopped |
+| `POST /api/v1/projects/import-preview` | Exact TOML and identity | SHA-256 preview, legacy issue strings and structured `validation` |
+| `POST /api/v1/projects/import` | Exact TOML plus preview revision | Paused complete profile; retained imported history |
+| `PUT /api/v1/projects/{name}/identity` | Only `display_name` | Updated label, unchanged directory, config/state paths, immutable ID, grants and queued operation ownership |
+
+An omitted display label defaults to `name`; explicit null/empty/untrimmed/control
+labels fail. Guided input forbids unknown fields. Imports reject literal secrets
+recursively, including runtime environment/provider JSON and URL credentials.
+Supported provider `{env:UPPERCASE_NAME}` references and environment-name lists
+remain accepted. Findings have exactly `code`, `field`, `remediation`; they never
+include rejected values. HTTP category codes retain existing browser localization;
+precise reserved-ID, label, rollback and readiness findings live in `detail.issues`.
+
+Publication holds a home-wide enrollment guard, rechecks ID/state ownership,
+creates the final directory exclusively, locks the conductor, writes config,
+pauses pickup, then publishes `profile.json`. Discovery therefore sees either no
+profile or a complete stopped profile. Audit/response remain within the lock.
+Failure removes metadata before unlocking, removes only the new directory, and
+restores a previously unpaused external import root without deleting its history.
+Failed rollback is a typed `project_rollback_failed` finding requiring host repair.
+Availability does not guarantee a subsequent create succeeds. Stopped pickup does
+not interrupt an existing job; start/resume remain explicit operator actions.
+
+Project reads add `display_name`, `validation` (structural validity and findings),
+`pickup_state` (`active`, `stopped`, `archived`) and independent `verification`.
+Existing identity/status/paused fields remain. No read or setup preview probes tools.
+
+### Revision-bound explicit readiness
+
+`POST /api/v1/projects/{name}/readiness-check` retains bounded explicit probes and
+atomically writes profile-owned `readiness.json`, independent of runtime schema.
+Schema 1 contains immutable `project_id`, exact config-byte SHA-256 `revision`, UTC
+`checked_at`, API-host context, typed prerequisite checks and redacted model probe.
+Checks cover git, forge CLI/auth, runtime, executor CLI, AEGIS files and model endpoint.
+The model probe records executor-container context, readiness, model and an allowed
+reason. Commands/output/credentials are never persisted. Schema, keys, types,
+identity, digest, time and redacted values are validated on read; corrupt evidence
+fails closed with `readiness_corrupt` (HTTP category `readiness_probe_failed`).
+
+Absent evidence is `unverified`; differing config bytes are `stale`; matching evidence
+is `failed` if any check fails, `partial` for undetected WSL runtime, otherwise
+`verified`. Freshness is revision-based, not age-based. Display edits do not stale
+verification. Invalid configuration is separate from stale/absent evidence. A config
+change during probes returns `stale_config_revision` without replacing evidence.
+Storage failures return a safe `readiness_store_failed` finding.
+
+Offline contract proof is in `test_web_enrollment.py` and `test_web_errors.py`,
+including concurrency, worker discovery, rollback, legacy identity, secret handling,
+RBAC/CSRF, revision races and corrupt persisted evidence.

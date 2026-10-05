@@ -642,3 +642,29 @@ and a page choice closes it; Sign out remains in the top bar. The worker queue
 is durable and idempotent per actor/key;
 operations interrupted during a worker stop become `uncertain` for operator
 reconciliation rather than being blindly replayed.
+
+## Backend project enrollment and verification
+
+The project API separates the portable profile ID (`name`), immutable identity
+(`id`) and human label (`display_name`). Administrators may change only the human
+label through `/api/v1/projects/{name}/identity`; paths, access grants, queued
+operations and running jobs keep their identity. Existing profiles display their
+profile name until a label is saved.
+
+`id-availability` and `setup-preview` are administrator/CSRF-protected POST routes.
+They validate locally without probing forge, runtime or models. Availability is
+advisory. Preview findings expose `code`, `field` and `remediation`, with no secret
+values. Guided creation and exact TOML import publish only after pickup is stopped;
+review setup and explicitly verify readiness before the separate start/resume action.
+This API contract does not add the later enrollment wizard UI.
+
+Project reads report structural `validation`, `pickup_state` and `verification`
+independently. Explicit `readiness-check` stores revision/time-bound evidence:
+`unverified` means no evidence, `stale` means config bytes changed, `failed` means a
+check failed, `partial` includes undetected WSL runtime, and `verified` means the
+recorded checks succeeded for that revision. Age alone does not stale evidence;
+repeat verification when operational circumstances change. It does not grant approval
+or restart jobs. Corrupt readiness evidence fails closed: inspect the host sidecar,
+repair/remove invalid evidence and explicitly rerun verification. Keep credentials
+in supported environment references or protected mounts; inline secret values,
+provider JSON secrets and URL credentials are rejected without echoing them.

@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-REL-c598b075"
+title = "Publish web enrollment with pickup stopped atomically"
+status = "active"
+requirement = "When valid web enrollment is published, the backend shall make the complete profile discoverable only after its state is pickup-stopped and roll back failed enrollment without exposing a runnable orphan, preserving existing state and unrelated CLI behavior."
+verification = "Observe ProfileStore discovery and invoke CommandWorker during blocked publication; verify pause at first visibility, rollback on pause/metadata/audit/write failure, retained imported history and unchanged existing running profiles."
+affected_paths = ["04_Software/adore/web/app.py", "04_Software/adore/wizard.py"]
+linked_tests = ["04_Software/tests/test_web_enrollment.py"]
+spec = "specs/REQ-REL-c598b075.md"
+created = 2026-10-05
+updated = 2026-10-05

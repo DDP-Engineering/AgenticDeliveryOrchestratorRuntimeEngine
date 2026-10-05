@@ -14,6 +14,11 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Added
 
+- Stable project display labels, portable ID availability and offline structured
+  setup preview contracts for web enrollment (#6).
+- Atomic pickup-stopped web creation/import and persisted revision-bound explicit
+  readiness evidence, with rollback, secret guards and offline boundary tests (#6).
+
 - Accessible shared dashboard shell with the approved transparent DDP Engineering logo, real primary/account navigation links, explicit project context, content skip link and a localized delivery glossary.
 
 - Published the Web UX implementation reference bundle, English brief, approved branding, preserved design history and integrity manifests for the existing web baseline.

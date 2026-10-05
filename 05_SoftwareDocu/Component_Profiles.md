@@ -123,6 +123,26 @@ store.touch("<profile-name>")               # record a use (use_count, last_used
 
 - The wizard, `adore profile` CLI, `--profile` global flag, and per-profile
   statistics are implemented in their respective components.
-- No cross-process locking on the profile store itself (profiles are edited by a
-  single operator, unlike the per-run state lock); revisit if concurrent setup
-  ever matters.
+- ProfileStore provides atomic metadata replacement. Web enrollment serializes
+  creation with its home-wide enrollment lock; display edits use the shared
+  config edit lock. Direct host/CLI writes must respect their operator ownership.
+
+## Web display identity and ID availability
+
+`Profile.display_name` is a human label independent of directory `name` and the
+immutable `project_id`. An absent legacy key falls back to the profile name;
+an explicit invalid value makes metadata corrupt. Labels contain 1–120 Unicode
+characters, are trimmed, and contain no Unicode control/format characters.
+`validate_display_name()` raises `ProfileError` with `invalid_display_name` and
+field `display_name`, without including input values.
+
+`validate_profile_id()` validates web IDs: lowercase ASCII letters/digits first,
+then letters/digits/dot/underscore/hyphen, at most 64 characters. Trailing dots,
+Windows device stems (including extensions), 32-hex identity aliases and reserved
+route names are rejected. `ProfileStore.id_availability()` checks complete and
+incomplete filesystem entries case-insensitively, immutable IDs and corrupt or
+duplicate metadata. Availability is advisory; the web publication lock rechecks
+it before creating a directory. CLI rename retains its separate behavior.
+
+Public contract coverage: `test_web_enrollment.py` exercises legacy fallback,
+corrupt labels, portable IDs, incomplete ownership and preserved grants/operations.

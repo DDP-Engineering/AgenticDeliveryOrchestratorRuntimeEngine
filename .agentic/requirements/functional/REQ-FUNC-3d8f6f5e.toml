@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-3d8f6f5e"
+title = "Return actionable offline setup validation"
+status = "active"
+requirement = "When an administrator previews or submits web setup, the backend shall validate locally and return findings with stable code, field/path and remediation separately from pickup and explicit environment verification, without automatic external probes."
+verification = "Preview valid guided and exact TOML input without writing profiles or launching runners; reject bad fields/config and inspect structured findings without values."
+affected_paths = ["04_Software/adore/web/app.py", "04_Software/adore/wizard.py"]
+linked_tests = ["04_Software/tests/test_web_enrollment.py", "04_Software/tests/test_web_errors.py"]
+spec = "specs/REQ-REL-c598b075.md"
+created = 2026-10-05
+updated = 2026-10-05
