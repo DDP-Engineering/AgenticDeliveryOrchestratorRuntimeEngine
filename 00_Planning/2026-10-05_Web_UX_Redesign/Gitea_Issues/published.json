@@ -1,0 +1,417 @@
+{
+  "license": "<!--\nCopyright (c) 2026 DDP Engineering\nThis software is licensed under the PolyForm Noncommercial License 1.0.0.\nCommercial use requires a separate commercial license.\nSee the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0\n-->",
+  "repository": "dpasare/AgenticDeliveryOrchestratorRuntimeEngine",
+  "issues": {
+    "EPIC": {
+      "number": 3,
+      "url": "http://192.168.1.15:3001/dpasare/AgenticDeliveryOrchestratorRuntimeEngine/issues/3",
+      "title": "[Web UX] Deliver a self-explanatory ADORE operator interface",
+      "priority": "P1",
+      "kind": "epic",
+      "dependencies": [
+        "BASE",
+        "W01",
+        "W02",
+        "W03",
+        "W04",
+        "W05",
+        "W06",
+        "W07",
+        "W08",
+        "W09",
+        "W10",
+        "W11",
+        "W12",
+        "W13",
+        "W14",
+        "W15",
+        "W16"
+      ],
+      "labels": [
+        "P1",
+        "web-ux",
+        "area:web",
+        "no-agent",
+        "type:epic"
+      ],
+      "verified": true,
+      "body_sha256": "920bd120b4e81fe20c42c498ff443b7457b9a4de743253619c89a6e7a0e9885a"
+    },
+    "BASE": {
+      "number": 4,
+      "url": "http://192.168.1.15:3001/dpasare/AgenticDeliveryOrchestratorRuntimeEngine/issues/4",
+      "title": "[Web UX] Publish the implementation baseline and approved design assets",
+      "priority": "P1",
+      "kind": "repository",
+      "dependencies": [],
+      "labels": [
+        "P1",
+        "web-ux",
+        "area:web",
+        "no-agent",
+        "type:repository"
+      ],
+      "verified": true,
+      "body_sha256": "e218006e744e55de7c86d8c33e82b904728233555ddff3c5438a1067bd45c453"
+    },
+    "W01": {
+      "number": 5,
+      "url": "http://192.168.1.15:3001/dpasare/AgenticDeliveryOrchestratorRuntimeEngine/issues/5",
+      "title": "[Web UX] Introduce the accessible dashboard shell, branding and plain-language vocabulary",
+      "priority": "P1",
+      "kind": "implementation",
+      "dependencies": [
+        "BASE"
+      ],
+      "labels": [
+        "P1",
+        "web-ux",
+        "area:web",
+        "feature",
+        "agent-hold"
+      ],
+      "verified": true,
+      "body_sha256": "d620efcbfee067aaf35d2ed76519bcf766fc35f9c7d92ae7a9c407d862fb4a77"
+    },
+    "W02": {
+      "number": 6,
+      "url": "http://192.168.1.15:3001/dpasare/AgenticDeliveryOrchestratorRuntimeEngine/issues/6",
+      "title": "[Web UX] Add stable display identity and safe paused-enrollment backend contracts",
+      "priority": "P1",
+      "kind": "implementation",
+      "dependencies": [
+        "BASE"
+      ],
+      "labels": [
+        "P1",
+        "web-ux",
+        "area:web",
+        "feature",
+        "agent-hold",
+        "area:profiles"
+      ],
+      "verified": true,
+      "body_sha256": "6dbfedd9a995da5403008920faddf9c0899cd68e5c33c94a06919a81b5ca63bc"
+    },
+    "W03": {
+      "number": 7,
+      "url": "http://192.168.1.15:3001/dpasare/AgenticDeliveryOrchestratorRuntimeEngine/issues/7",
+      "title": "[Web UX] Build guided project enrollment with explicit verification and review",
+      "priority": "P1",
+      "kind": "implementation",
+      "dependencies": [
+        "W01",
+        "W02"
+      ],
+      "labels": [
+        "P1",
+        "web-ux",
+        "area:web",
+        "feature",
+        "agent-hold",
+        "area:profiles"
+      ],
+      "verified": true,
+      "body_sha256": "740e82d05b5f4a9d3e60eb78a9f858a50683a890c84a5f107a9f7a2cfc50345c"
+    },
+    "W04": {
+      "number": 8,
+      "url": "http://192.168.1.15:3001/dpasare/AgenticDeliveryOrchestratorRuntimeEngine/issues/8",
+      "title": "[Web UX] Make exact host-specific TOML enrollment understandable and revision-safe",
+      "priority": "P1",
+      "kind": "implementation",
+      "dependencies": [
+        "W03"
+      ],
+      "labels": [
+        "P1",
+        "web-ux",
+        "area:web",
+        "feature",
+        "agent-hold",
+        "area:profiles"
+      ],
+      "verified": true,
+      "body_sha256": "8d5013848817e1e983c0db91f0ababcefd7fc3ce729cab78105dab28550a8be2"
+    },
+    "W05": {
+      "number": 9,
+      "url": "http://192.168.1.15:3001/dpasare/AgenticDeliveryOrchestratorRuntimeEngine/issues/9",
+      "title": "[Web UX] Define and export a versioned portable project-settings package",
+      "priority": "P2",
+      "kind": "implementation",
+      "dependencies": [
+        "W02"
+      ],
+      "labels": [
+        "P2",
+        "web-ux",
+        "area:web",
+        "feature",
+        "agent-hold",
+        "area:profiles"
+      ],
+      "verified": true,
+      "body_sha256": "eb66cd9160eded9014e22fd29429846b9487ec9ce69ebe5618ac38d702065eda"
+    },
+    "W06": {
+      "number": 10,
+      "url": "http://192.168.1.15:3001/dpasare/AgenticDeliveryOrchestratorRuntimeEngine/issues/10",
+      "title": "[Web UX] Implement portable settings import and settings-based project cloning",
+      "priority": "P2",
+      "kind": "implementation",
+      "dependencies": [
+        "W03",
+        "W05"
+      ],
+      "labels": [
+        "P2",
+        "web-ux",
+        "area:web",
+        "feature",
+        "agent-hold",
+        "area:profiles"
+      ],
+      "verified": true,
+      "body_sha256": "0715d155c69d9dd2d475acbd590a8c55e81aa3220f499ebc985152a145b60adb"
+    },
+    "W07": {
+      "number": 11,
+      "url": "http://192.168.1.15:3001/dpasare/AgenticDeliveryOrchestratorRuntimeEngine/issues/11",
+      "title": "[Web UX] Expose an authorized global job read model with actionable evidence",
+      "priority": "P1",
+      "kind": "implementation",
+      "dependencies": [
+        "BASE"
+      ],
+      "labels": [
+        "P1",
+        "web-ux",
+        "area:web",
+        "feature",
+        "agent-hold"
+      ],
+      "verified": true,
+      "body_sha256": "18c22e81c6ca1e67b6d67e51ccc4b6381f97d22456f298b0c71a216bf898e24c"
+    },
+    "W08": {
+      "number": 12,
+      "url": "http://192.168.1.15:3001/dpasare/AgenticDeliveryOrchestratorRuntimeEngine/issues/12",
+      "title": "[Web UX] Rework project hubs, attention queues and job details around the next action",
+      "priority": "P1",
+      "kind": "implementation",
+      "dependencies": [
+        "W01",
+        "W07"
+      ],
+      "labels": [
+        "P1",
+        "web-ux",
+        "area:web",
+        "feature",
+        "agent-hold"
+      ],
+      "verified": true,
+      "body_sha256": "ff0303ff771ae5f98b7c88a702acb38d4c0303494932354503e6ea64ba21594e"
+    },
+    "W09": {
+      "number": 13,
+      "url": "http://192.168.1.15:3001/dpasare/AgenticDeliveryOrchestratorRuntimeEngine/issues/13",
+      "title": "[Web UX] Organize project settings by purpose and review candidate changes before applying",
+      "priority": "P1",
+      "kind": "implementation",
+      "dependencies": [
+        "W01"
+      ],
+      "labels": [
+        "P1",
+        "web-ux",
+        "area:web",
+        "feature",
+        "agent-hold"
+      ],
+      "verified": true,
+      "body_sha256": "e57e2c008b97154c0f8f872d560e7cedabff841078c7e6207b8c1babb41da100"
+    },
+    "W10": {
+      "number": 14,
+      "url": "http://192.168.1.15:3001/dpasare/AgenticDeliveryOrchestratorRuntimeEngine/issues/14",
+      "title": "[Web UX] Make statistics scope, per-job usage and measurement coverage consistent",
+      "priority": "P2",
+      "kind": "implementation",
+      "dependencies": [
+        "BASE"
+      ],
+      "labels": [
+        "P2",
+        "web-ux",
+        "area:web",
+        "feature",
+        "agent-hold",
+        "area:metrics"
+      ],
+      "verified": true,
+      "body_sha256": "f2c303de56b9edea3347d7b62269c5430119acf6d0db89b23fa5a9e52db204f9"
+    },
+    "W11": {
+      "number": 15,
+      "url": "http://192.168.1.15:3001/dpasare/AgenticDeliveryOrchestratorRuntimeEngine/issues/15",
+      "title": "[Web UX] Present scoped statistics and per-job consumption with honest coverage",
+      "priority": "P2",
+      "kind": "implementation",
+      "dependencies": [
+        "W01",
+        "W07",
+        "W10"
+      ],
+      "labels": [
+        "P2",
+        "web-ux",
+        "area:web",
+        "feature",
+        "agent-hold",
+        "area:metrics"
+      ],
+      "verified": true,
+      "body_sha256": "76a9c5e9c76512932779ace51c5f38fb1f880f7e86519ae7712e2ef0a2dd8a75"
+    },
+    "W12": {
+      "number": 16,
+      "url": "http://192.168.1.15:3001/dpasare/AgenticDeliveryOrchestratorRuntimeEngine/issues/16",
+      "title": "[Web UX] Specify message-count semantics and executor/forge source capabilities",
+      "priority": "P2",
+      "kind": "planning",
+      "dependencies": [
+        "BASE"
+      ],
+      "labels": [
+        "P2",
+        "web-ux",
+        "area:web",
+        "no-agent",
+        "type:planning",
+        "agent-hold",
+        "area:metrics"
+      ],
+      "verified": true,
+      "body_sha256": "611ddfcfc79ff70bbbcfe7fdbf0e3bb930a6a71ba534e61e0a93bdd59fdfb5cd"
+    },
+    "W13": {
+      "number": 17,
+      "url": "http://192.168.1.15:3001/dpasare/AgenticDeliveryOrchestratorRuntimeEngine/issues/17",
+      "title": "[Web UX] Collect and expose message counts from approved real evidence sources",
+      "priority": "P2",
+      "kind": "implementation",
+      "dependencies": [
+        "W12",
+        "W10"
+      ],
+      "labels": [
+        "P2",
+        "web-ux",
+        "area:web",
+        "feature",
+        "agent-hold",
+        "area:metrics"
+      ],
+      "verified": true,
+      "body_sha256": "911500193bec84ff505eb121274fc88da7416ae540a407ec559ffb24ae47c933"
+    },
+    "W14": {
+      "number": 18,
+      "url": "http://192.168.1.15:3001/dpasare/AgenticDeliveryOrchestratorRuntimeEngine/issues/18",
+      "title": "[Web UX] Create users with explicit role and project access in one reviewed operation",
+      "priority": "P2",
+      "kind": "implementation",
+      "dependencies": [
+        "W01",
+        "W02"
+      ],
+      "labels": [
+        "P2",
+        "web-ux",
+        "area:web",
+        "feature",
+        "agent-hold",
+        "area:identity"
+      ],
+      "verified": true,
+      "body_sha256": "38d9b1297d6ed39238dc1483dcb2b4dc6ae204563117aa647cbbf2c69647fce5"
+    },
+    "W15": {
+      "number": 19,
+      "url": "http://192.168.1.15:3001/dpasare/AgenticDeliveryOrchestratorRuntimeEngine/issues/19",
+      "title": "[Web UX] Record structured redacted change evidence and build useful audit history",
+      "priority": "P2",
+      "kind": "implementation",
+      "dependencies": [
+        "W02",
+        "W06",
+        "W09",
+        "W14"
+      ],
+      "labels": [
+        "P2",
+        "web-ux",
+        "area:web",
+        "feature",
+        "agent-hold",
+        "area:identity"
+      ],
+      "verified": true,
+      "body_sha256": "7ee9d84ee10c465cce24fe5aa11e05eb58b36ffb1bbc6f5650b59ffacc9c65df"
+    },
+    "W16": {
+      "number": 20,
+      "url": "http://192.168.1.15:3001/dpasare/AgenticDeliveryOrchestratorRuntimeEngine/issues/20",
+      "title": "[Web UX] Verify the integrated redesign with offline regression and novice-user acceptance",
+      "priority": "P1",
+      "kind": "implementation",
+      "dependencies": [
+        "W04",
+        "W06",
+        "W08",
+        "W09",
+        "W11",
+        "W13",
+        "W14",
+        "W15"
+      ],
+      "labels": [
+        "P1",
+        "web-ux",
+        "area:web",
+        "feature",
+        "agent-hold"
+      ],
+      "verified": true,
+      "body_sha256": "c3f55dff48edd3e2fc518fbd0b468d5dad2301a092451ddbe1a8ee6a2d9589b8"
+    }
+  },
+  "attachments": [
+    {
+      "id": 22,
+      "name": "ADORE_Web_UX_Reference.zip",
+      "url": "http://192.168.1.15:3001/attachments/a3006796-ce57-452a-8497-c1e38b102a09",
+      "size": 699340,
+      "sha256": "fd42635af2b704be1627c13477594fffe8d31c8f5c23ea1e2a644783400fafe2",
+      "download_verified": true
+    },
+    {
+      "id": 23,
+      "name": "DDP_Engineering_logo_dark.png",
+      "url": "http://192.168.1.15:3001/attachments/79f13809-2d28-47da-9870-6bd8007776f2",
+      "size": 52899,
+      "sha256": "4957da4edf9aebf02dcb0e24823ff5f8d5ee524622773f4285c9e2261903c481",
+      "download_verified": true
+    },
+    {
+      "id": 24,
+      "name": "proposal-overview-dark-logo.png",
+      "url": "http://192.168.1.15:3001/attachments/e9f32c44-3369-4589-b95f-1197b86a195a",
+      "size": 57807,
+      "sha256": "c0702d2cabcc3555e38155e3a8f75bdb4f07af706fe98aa2533e01fd20a04dac",
+      "download_verified": true
+    }
+  ]
+}
