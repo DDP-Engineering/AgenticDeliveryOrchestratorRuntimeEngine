@@ -51,6 +51,7 @@ from adore.cli import _NOT_SECRET_KEYS, _SECRET_KEY_RE, _is_secret_key, _newline
 from adore.config import SELINUX_RELABEL_MODES, default_config, load_config, validate_config
 from adore.config_edit import ConfigEditLockedError, config_edit_lock
 from adore.isolation import ContainerManager, IsolationError
+from adore.portable_settings import MAX_SOURCE_BYTES, PortableSettingsError, export_settings
 from adore.profiles import ProfileError, ProfileStore, validate_display_name, validate_profile_id
 from adore.state import RunState, StateError, StateStore
 from adore.util import CommandRunner, force_rmtree, run_command
@@ -2578,6 +2579,34 @@ def create_app(home: str | Path | None = None,
             profiles.save(current)
             web.audit(user["id"], "project-display-name-changed", current.name)
             return _profile_view(profiles, current)
+
+    @app.get("/api/v1/projects/{name}/config/portable-settings")
+    def portable_settings(name: str, user: Annotated[dict, Depends(administrator)],
+                          download: bool = False, checksum: str | None = None) -> Response:
+        """
+        @brief      Export validated active portable rules after Admin authorization.
+        @param[in]  name Current project name or immutable ID.
+        @param[in]  user Administrator resolved before project/config access.
+        @param[in]  download Add the fixed attachment filename.
+        @param[in]  checksum Optional portable preview binding.
+        @return     Canonical JSON bytes, never pending or redacted read data.
+        @exception  HTTPException Invalid source or changed preview fails closed.
+        """
+        item = project(name, user)
+        try:
+            with profiles.config_path(item.name).open("rb") as source:
+                encoded = export_settings(source.read(MAX_SOURCE_BYTES + 1))
+        except (OSError, PortableSettingsError) as exc:
+            raise _error(503, "portable_settings_invalid") from exc
+        if project(name, user).project_id != item.project_id:
+            raise _error(409, "project_changed")
+        if checksum is not None and (re.fullmatch(r"[0-9a-f]{64}", checksum) is None
+                or not secrets.compare_digest(checksum, json.loads(encoded)["checksum"])):
+            raise _error(409, "portable_settings_changed")
+        headers = {"Cache-Control": "no-store"}
+        if download:
+            headers["Content-Disposition"] = 'attachment; filename="adore-project-settings.json"'
+        return Response(content=encoded, media_type="application/json", headers=headers)
 
     @app.get("/api/v1/projects/{name}")
     def project_detail(name: str, user: Annotated[dict, Depends(principal)]) -> dict:

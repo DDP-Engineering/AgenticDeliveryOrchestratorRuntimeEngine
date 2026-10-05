@@ -44,7 +44,11 @@ OpenCode, Pi, Codex and Qwen Code.
   and failed reads in the supported locales and themes. Settings uses seven purpose
   categories, visible catalog guidance and exact single-candidate active/proposed
   review with explicit base/candidate binding, idle/lock/pause safety and Dev
-  financial/secret redaction. Web enrollment publishes
+  financial/secret redaction. Admin portable export validates active configuration
+  and transfers only complete polling/readiness/recovery/budget defaults with exact
+  package-version compatibility and a change-detection checksum. Strict parsing
+  writes no project state; localized preview/download explains exclusions and
+  separate target-host setup. Web enrollment publishes
   complete profiles with pickup stopped, keeps human labels separate from stable
   identity, validates setup offline and records explicit revision-bound readiness.
   Guided enrollment presents six localized steps, keeps corrections only in browser

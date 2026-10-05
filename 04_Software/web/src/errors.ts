@@ -21,6 +21,8 @@ export class ApiError extends Error {
 /** Localized sentences for every API and client error code. */
 export const errorMessages: Record<Locale, Record<string, string>> = {
   en: {
+    portable_settings_invalid: "The active configuration cannot be exported safely. Correct it on the ADORE host, then preview again.",
+    portable_settings_changed: "The portable rules changed. Preview the active settings again before downloading.",
     invalid_job_search: "Enter job search text.",
     job_evidence_corrupt: "The saved job evidence cannot be trusted. Check it on the ADORE host.",
     job_snapshot_changed: "Job data changed. Reload the first page.",
@@ -108,6 +110,8 @@ export const errorMessages: Record<Locale, Record<string, string>> = {
     unexpected_response: "The server sent an unexpected response.",
   },
   fr: {
+    portable_settings_invalid: "La configuration active ne peut pas être exportée en sécurité. Corrigez-la sur l’hôte ADORE puis relancez l’aperçu.",
+    portable_settings_changed: "Les règles portables ont changé. Relancez l’aperçu avant de télécharger.",
     invalid_job_search: "Saisissez un texte de recherche de tâches.",
     job_evidence_corrupt: "Les preuves enregistrées de la tâche sont invalides. Vérifiez-les sur l’hôte ADORE.",
     job_snapshot_changed: "Les données des tâches ont changé. Rechargez la première page.",
@@ -195,6 +199,8 @@ export const errorMessages: Record<Locale, Record<string, string>> = {
     unexpected_response: "Le serveur a envoyé une réponse inattendue.",
   },
   de: {
+    portable_settings_invalid: "Die aktive Konfiguration kann nicht sicher exportiert werden. Auf dem ADORE-Host korrigieren und erneut ansehen.",
+    portable_settings_changed: "Die portablen Regeln haben sich geändert. Vor dem Download erneut ansehen.",
     invalid_job_search: "Geben Sie einen Suchtext für Aufträge ein.",
     job_evidence_corrupt: "Die gespeicherten Auftragsnachweise sind ungültig. Prüfen Sie sie auf dem ADORE-Host.",
     job_snapshot_changed: "Die Auftragsdaten haben sich geändert. Laden Sie die erste Seite neu.",
@@ -282,6 +288,8 @@ export const errorMessages: Record<Locale, Record<string, string>> = {
     unexpected_response: "Der Server hat eine unerwartete Antwort gesendet.",
   },
   ro: {
+    portable_settings_invalid: "Configurația activă nu poate fi exportată în siguranță. Corecteaz-o pe gazda ADORE și previzualizează din nou.",
+    portable_settings_changed: "Regulile portabile s-au schimbat. Previzualizează din nou înainte de descărcare.",
     invalid_job_search: "Introduceți text pentru căutarea lucrărilor.",
     job_evidence_corrupt: "Dovezile salvate ale lucrării nu sunt valide. Verificați-le pe gazda ADORE.",
     job_snapshot_changed: "Datele lucrărilor s-au schimbat. Reîncărcați prima pagină.",

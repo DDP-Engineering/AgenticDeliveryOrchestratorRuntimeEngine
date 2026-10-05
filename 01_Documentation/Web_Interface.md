@@ -383,6 +383,19 @@ delete the `.initialized` marker to trigger bootstrap. After an upgrade,
 restore the matching package alongside its backup; reverse database migrations
 are not supported.
 
+## Portable working rules
+
+Administrators can open a project's Settings, read **Export portable settings**,
+preview validated active working rules and download a versioned JSON package.
+Pending changes and host/identity/access/secrets are excluded; all credential and
+endpoint references are omitted. Exact installed source-version compatibility
+is required. The checksum detects changes without establishing authenticity.
+The parser supplies defaults for new projects; this panel provides export and
+has no portable import/copy enrollment workflow. See
+[Portable project settings](Portable_Project_Settings.md) for the enumerated
+allowlist, source/parser rejection rules, target-host limitations and API.
+Exact server TOML enrollment and statistics CSV remain separate formats.
+
 ## Project and model setup
 
 An administrator can create a profile in Projects, edit validated scalar

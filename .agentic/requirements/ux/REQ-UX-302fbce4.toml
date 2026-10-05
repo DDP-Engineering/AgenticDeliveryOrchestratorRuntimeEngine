@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-302fbce4"
+title = "Preview and download portable active project rules"
+status = "active"
+requirement = "When an Admin opens project Settings, the interface shall explain portable active-rule export and its exclusions in the selected locale, require an explicit successful preview before downloading validated server bytes, and show recoverable failure feedback while invalidating late results after scope changes."
+verification = "Offline browser preview/download and unchanged active/pending checks; malformed/empty/error/stale/late responses deny downloads; Dev controls absent; four locales, keyboard and 390px themes with representative screenshot inspection."
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/PortableSettings.tsx", "04_Software/web/src/portable.ts", "04_Software/web/src/errors.ts", "04_Software/web/src/styles.css", "04_Software/web/e2e/portable.spec.ts", "04_Software/web/tests/portable.test.mjs", "04_Software/adore/web/static/"]
+linked_tests = ["04_Software/web/tests/portable.test.mjs", "04_Software/web/e2e/portable.spec.ts"]
+spec = "specs/REQ-DATA-9528fad6.md"
+priority = "normal"
+created = 2026-10-06
+updated = 2026-10-06

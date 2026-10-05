@@ -320,6 +320,22 @@ those views after the switch.
 
 ## 3. Implementation Overview
 
+`PortableSettings.tsx` owns the Admin-only active-rule export panel and its
+EN/FR/DE/RO copy. Visible purpose, included/excluded data, exact source-version
+compatibility, checksum limits and unavailable import/copy workflow precede
+explicit preview/download. `portable.ts` checks complete transport keys, types,
+bounds, duplicates and the checksum of canonical server bytes. Download fetches
+again with preview checksum and saves the validated bytes without reserialization.
+A failed/empty/corrupt/changed read clears preview and disables download; retry is
+explicit. App keys the panel by authorized session/project/config revision;
+unmount aborts requests, ignores late completions and an immediate ref lock
+prevents duplicate submission. This memory-only read flow writes no profile or
+pending configuration. Checksum text wraps at narrow widths; buttons retain
+visible keyboard focus in both themes. `tests/portable.test.mjs` and
+`e2e/portable.spec.ts` cover these public boundaries and exact downloads;
+representative 390px captures support bounded visual inspection.
+
+
 `DashboardShell.tsx` owns the authenticated frame, real navigation links,
 branding, responsive menu, header and content focus. `Presentation.tsx` owns
 `DataFeedback`, `ProjectEmpty`, `StatusBadge` and `DeliveryGlossary`.

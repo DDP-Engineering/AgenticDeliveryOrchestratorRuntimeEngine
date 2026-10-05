@@ -252,6 +252,9 @@ td.strong { font-weight: 800; }
 .two-column { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 17px; }
 .two-column .panel { margin-bottom: 0; }
 .wide-panel { grid-column: 1 / -1; }
+.portable-settings { min-width: 0; }
+.portable-settings .project-verification-evidence { overflow-wrap: anywhere; }
+.portable-settings .inline-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .user-list { margin-top: 20px; }
 .user-row { display: flex; align-items: center; flex-wrap: wrap; gap: 11px; padding: 12px 0; border-top: 1px solid var(--border); }
 .user-row div { flex: 1; min-width: 0; }

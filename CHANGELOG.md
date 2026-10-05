@@ -14,6 +14,13 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Added
 
+- Administrator-only portable project working-rule preview/download with strict
+  `adore-project-settings` schema-1 allowlist, deterministic checksum, exact package
+  source-version compatibility and public roundtrip parser. Excludes credentials,
+  endpoints, identity, host paths, access and history; localized export explains
+  target-host setup and separate TOML/CSV formats (#9).
+
+
 - Purpose-based project settings with visible catalog guidance, distinct active/
   default/proposed values and exact single-candidate review, safe copy and explicit
   apply/discard. Server metadata supplies domains; stale/idle/pause protections and

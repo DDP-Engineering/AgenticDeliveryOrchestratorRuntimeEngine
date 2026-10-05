@@ -31,6 +31,19 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 
 ## Public interface
 
+- Admin-only `/projects/{name}/config/portable-settings` validates a bounded
+  active snapshot through `portable-settings.md`; canonical no-store JSON and
+  optional fixed attachment omit pending/identity/host/access/credential data.
+  Authorization precedes lookup, invalid sources return value-free 503, and
+  optional preview checksum conflicts return 409. Project ownership is rechecked
+  after snapshot export; changed identity rejects. Exact TOML/CSV contracts retain
+  their behavior. `PortableSettings.tsx` owns four-locale explicit preview and
+  exact-byte download, strict `portable.ts` response validation and unmount/ref
+  guards. Failed reads empty the preview and require retry. Tests are
+  `test_web_portable_settings.py`, `web/tests/portable.test.mjs` and
+  `web/e2e/portable.spec.ts`.
+
+
 - `/api/v1/jobs-page` provides complete globally ordered authorized current and
   archived job history, optional project/search/attention/status/executor/outcome/UTC date filters and optimistic
   content revisions. `/api/v1/jobs/{project_id}/{run_id}` uses composite identity.
@@ -276,6 +289,9 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 
 ## Key behaviors
 
+- `REQ-SEC-f96d80d4` / `REQ-UX-302fbce4`: Admin-only authoritative portable
+  rule preview/download with strict scoped transport and no enrollment writes.
+
 - `REQ-UX-b758d2b7`, `REQ-UX-78923e00`, `REQ-UX-a7969a9d`,
   `REQ-FUNC-25dc0271` — complete authorized action workspace, pickup/verification
   project hubs, observed safe timeline/advanced filters and actual queued outcomes.
@@ -365,6 +381,10 @@ flowchart LR
     PendingReview --> settings
     SettingsList --> settingsCopy[settingsCopy.ts localized guidance]
     PendingReview --> settingsCopy
+    App --> PortableSettings[PortableSettings scoped preview/download]
+    PortableSettings --> portable[portable.ts strict response]
+    PortableSettings --> api
+    api --> portableSource[portable_settings validated active rules]
     App --> i18n[i18n catalogs]
     Presentation --> i18n
     App --> api[create_app]

@@ -108,6 +108,24 @@ rename landing during the update 409 `project_changed` with nothing changed.
 
 ## 5. Inputs And Outputs
 
+Administrator-only `GET /api/v1/projects/{name}/config/portable-settings` validates
+one bounded active TOML snapshot through `adore.portable_settings` and returns
+canonical `adore-project-settings` schema-1 JSON. Authentication/Admin checks
+precede project/config lookup; Dev gets 403 without existence metadata.
+`download=true` adds fixed `adore-project-settings.json` attachment; optional
+portable `checksum` binding conflicts with 409 `portable_settings_changed` when
+included rules/source differ. Invalid/unreadable/unknown-field source returns
+value-free 503 `portable_settings_invalid`. Project ownership is rechecked after
+export; changed identity returns typed conflict instead of a stale project result.
+Responses are no-store. Pending,
+state, metrics and readiness records are not read and no probe/write occurs.
+All credential/endpoint references and identity/host/access data are omitted.
+Exact version compatibility and the complete allowlist are defined in
+[Portable settings](Component_Portable_Settings.md). Exact TOML enrollment and
+metrics CSV retain their distinct existing contracts. Tests:
+`test_web_portable_settings.py` and `test_portable_settings.py`.
+
+
 Global persisted job reads use `/api/v1/jobs-page` and composite
 `/api/v1/jobs/{project_id}/{run_id}`. Grants are resolved before reading run
 sources; all selected projects must validate for complete totals. Current and

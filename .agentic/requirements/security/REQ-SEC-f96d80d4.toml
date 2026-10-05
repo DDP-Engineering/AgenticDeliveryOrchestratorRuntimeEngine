@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-SEC-f96d80d4"
+title = "Restrict portable settings export to administrators"
+status = "active"
+requirement = "When portable active settings are requested, the web API shall authenticate and require Admin before project lookup, return only the validated portable envelope, and reject invalid sources or changed preview checksums without exposing project metadata or configuration values."
+verification = "Authenticated Admin preview/download succeeds; Dev with and without grants, anonymous/revoked sessions and unknown projects cannot disclose metadata; malformed authoritative TOML and changed previews return safe typed errors."
+affected_paths = ["04_Software/adore/web/app.py"]
+linked_tests = ["04_Software/tests/test_web_portable_settings.py"]
+spec = "specs/REQ-DATA-9528fad6.md"
+priority = "normal"
+created = 2026-10-06
+updated = 2026-10-06
