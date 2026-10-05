@@ -54,6 +54,7 @@ from adore.profiles import ProfileError, ProfileStore, validate_display_name, va
 from adore.state import RunState, StateError, StateStore
 from adore.util import CommandRunner, force_rmtree, run_command
 from adore.web.endpoint_probe import probe_endpoint
+from adore.web.jobs import JobReadError, read_jobs
 from adore.web.store import WebStore, WebStoreError
 from adore.wizard import ScriptedAsker, WizardError, WizardSetup, run_wizard
 
@@ -1900,6 +1901,11 @@ def create_app(home: str | Path | None = None,
         return JSONResponse(status_code=503,
                             content={"detail": {"code": "web_store_corrupt"}})
 
+    @app.exception_handler(JobReadError)
+    async def job_read_failure(_request: Request, exc: JobReadError) -> JSONResponse:
+        """@brief Return typed job failures without exposing source values or partial totals."""
+        return JSONResponse(status_code=exc.status, content={"detail": {"code": exc.code}})
+
     @app.exception_handler(RequestValidationError)
     async def invalid_request(_request: Request, exc: RequestValidationError) -> JSONResponse:
         """@brief Report schema failures with one code and field-level reasons."""
@@ -2764,6 +2770,114 @@ def create_app(home: str | Path | None = None,
             pending_path.unlink()
         web.audit(user["id"], "config-discarded", item.name)
         return {"ok": True}
+
+    def job_projects(user: dict, project_id: str | None = None) -> list:
+        """
+        @brief Select authorized history profiles before accessing run evidence.
+        @param[in] user Current authenticated principal.
+        @param[in] project_id Optional immutable single-project selector.
+        @return All authorized selected current and archived profiles.
+        """
+        try:
+            if project_id is not None:
+                if not re.fullmatch(r"[0-9a-f]{32}", project_id):
+                    raise _error(404, "project_not_found")
+                return [project(project_id, user)]
+            if user["role"] == "admin":
+                if profiles.invalid_profiles():
+                    raise JobReadError("project_corrupt")
+                return profiles.list_profiles()
+            return [profiles.load(name) for name in sorted(web.memberships(user["id"]))]
+        except (ProfileError, OSError, UnicodeError, RecursionError) as exc:
+            raise JobReadError("project_corrupt") from exc
+
+    def job_snapshot(user: dict, project_id: str | None = None) -> tuple[list, str]:
+        """
+        @brief Recheck authorization/profile identity after the complete local read.
+        @param[in] user Current authenticated principal.
+        @param[in] project_id Optional immutable single-project selector.
+        @return Complete authorized rows and optimistic source revision.
+        @exception JobReadError For corrupt or changed authorized source evidence.
+        """
+        selected = job_projects(user, project_id)
+        rows, revision = read_jobs(profiles, selected)
+        if selected != job_projects(user, project_id):
+            raise JobReadError("job_snapshot_changed", 409)
+        return rows, revision
+
+    @app.get("/api/v1/jobs-page")
+    def jobs_page(
+        user: Annotated[dict, Depends(principal)],
+        project_id: str | None = None,
+        q: Annotated[str | None, Query(min_length=1, max_length=80)] = None,
+        status_group: Literal["active", "waiting", "review", "terminal"] | None = None,
+        lifecycle: Literal["working", "publishing", "awaiting-approval", "parked-clarification",
+                           "in-review", "done", "failed", "cancelled", "stale",
+                           "handoff-pending", "handed-off"] | None = None,
+        stage: Literal["frame", "specify", "design", "build", "validate", "deliver", "done",
+                       "publishing"] | None = None,
+        limit: str = "25",
+        offset: Annotated[int, Query(ge=0)] = 0,
+        snapshot: Annotated[str | None, Query(pattern=r"^[0-9a-f]{64}$")] = None,
+    ) -> dict:
+        """
+        @brief Globally search/order/page complete authorized local job evidence.
+        @param[in] user Current authenticated principal.
+        @param[in] project_id Optional immutable authorized project scope.
+        @param[in] q Optional bounded case-insensitive search text.
+        @param[in] status_group Optional lifecycle group.
+        @param[in] lifecycle Optional exact lifecycle.
+        @param[in] stage Optional exact persisted AEGIS stage.
+        @param[in] limit Bounded page size or all.
+        @param[in] offset Nonnegative matched-row offset.
+        @param[in] snapshot Optional expected source-content revision.
+        @return Complete matched page, scoped counts and source revision.
+        """
+        if limit != "all" and (len(limit) > 3 or not limit.isascii() or not limit.isdecimal()
+                               or not 1 <= int(limit) <= 100):
+            raise _error(422, "invalid_run_limit")
+        needle = q.strip().casefold() if q is not None else None
+        if needle == "":
+            raise _error(422, "invalid_job_search")
+        rows, revision = job_snapshot(user, project_id)
+        if snapshot is not None and snapshot != revision:
+            raise JobReadError("job_snapshot_changed", 409)
+        searched = [row for row in rows if needle is None or any(
+            needle in str(row[key] or "").casefold()
+            for key in ("project_name", "project_display_name", "run_id", "ticket_iid",
+                        "ticket_title", "lifecycle", "stage", "outcome"))]
+        counts: dict[str, int] = {}
+        groups = dict.fromkeys(("active", "waiting", "review", "terminal"), 0)
+        for row in searched:
+            counts[row["lifecycle"]] = counts.get(row["lifecycle"], 0) + 1
+            groups[row["status_group"]] += 1
+        matched = [row for row in searched
+                   if (status_group is None or row["status_group"] == status_group)
+                   and (lifecycle is None or row["lifecycle"] == lifecycle)
+                   and (stage is None or row["stage"] == stage)]
+        page_limit = len(matched) if limit == "all" else int(limit)
+        return {"items": matched[offset:offset + page_limit], "total": len(matched),
+                "counts": counts, "groups": groups, "limit": page_limit, "offset": offset,
+                "complete": True, "snapshot": revision,
+                "snapshot_semantics": "optimistic-source-revision"}
+
+    @app.get("/api/v1/jobs/{project_id}/{run_id}")
+    def job_detail(project_id: str, run_id: str,
+                   user: Annotated[dict, Depends(principal)]) -> dict:
+        """
+        @brief Resolve composite job identity with authorization before source reads.
+        @param[in] project_id Immutable owning project identity.
+        @param[in] run_id Safe run identity within that project.
+        @param[in] user Current authenticated principal.
+        @return One strict safe evidence model and selected-project revision.
+        """
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,159}", run_id):
+            raise _error(404, "run_not_found")
+        rows, revision = job_snapshot(user, project_id)
+        row = next((row for row in rows if row["run_id"] == run_id), None)
+        if row is None:
+            raise _error(404, "run_not_found")
+        return {"job": row, "complete": True, "snapshot": revision}
 
     @app.get("/api/v1/projects/{name}/runs")
     def runs(name: str, user: Annotated[dict, Depends(principal)]) -> list[dict]:

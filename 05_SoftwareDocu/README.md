@@ -18,6 +18,9 @@ responsibilities, dependencies, or workflow integration. These documents are
 implementation companions to the code and tests; user manuals and operator
 guides belong in `01_Documentation/`.
 
+- [Persisted Web Job Reads](Component_Web_Jobs.md) — complete authorized global
+  pages, composite identity and strict local evidence (`adore/web/jobs.py`).
+
 ## Component documentation (phase 1 - base services)
 
 - `Component_Branding.md` - canonical ADORE product, package, filesystem,

@@ -30,6 +30,13 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 
 ## Public interface
 
+- `/api/v1/jobs-page` provides complete globally ordered authorized current and
+  archived job history, optional project/search/status filters and optimistic
+  content revisions. `/api/v1/jobs/{project_id}/{run_id}` uses composite identity.
+  `adore/web/jobs.py` strictly validates schema-1 state, saved ticket metadata and
+  JSONL bytes without altering operational journal recovery. See
+  `05_SoftwareDocu/Component_Web_Jobs.md` for exact fields and source semantics.
+
 - Exact Admin/CSRF import-preview returns config/candidate revisions, structured
   local findings and allowlisted review. import-check reuses bounded probes with
   ephemeral revision/time-bound status; import confirms unchanged bytes after
@@ -57,6 +64,15 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
   `install_web_offline.py` installs from local wheels only.
 
 ## Invariants
+
+- Global job reads authorize selected profiles before state IO and recheck
+  grants/profile metadata after complete source validation. Failed authorized
+  reads return typed errors without partial totals. Source revisions reject
+  changed continuations; ordering uses UTC activity then composite identity.
+  Actual persisted questions/comment/candidate/MR references support actions;
+  missing titles, timestamps, named responsibility and usage stay unknown.
+  Strict links and selected redacted fields protect source secrets; reads
+  execute no external commands and write no state.
 
 - Web enrollment publishes metadata only after config and stopped pickup, under
   enrollment/conductor locks; failure removes visibility before rollback/unlock.
@@ -235,6 +251,7 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 
 | Change requested | Start with | Focused verification |
 |---|---|---|
+| Authorized global job evidence, paging, revisions | `adore/web/jobs.py`, `jobs_page` and `job_detail` in `app.py` | `test_web_jobs.py`, `test_web_paging.py`, `test_web_rbac.py` |
 | Enrollment, display identity, readiness evidence | `adore/profiles.py`, `adore/wizard.py`, `adore/web/app.py` | `test_web_enrollment.py`, `test_web_errors.py` |
 | Exact TOML enrollment, safe review and probe | `web/src/ImportWizard.tsx`, `importCopy.ts`, `_inspect_project_import` | `test_web_import.py`, `web/e2e/import.spec.ts` |
 | Guided enrollment steps, correction, draft loss and review | `web/src/EnrollmentWizard.tsx`, `web/src/enrollmentCopy.ts`, `App.tsx` | `web/e2e/enrollment.spec.ts` |
@@ -252,6 +269,9 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 | Offline media | `02_Tools/*web*.py` | `test_web_package.py`, installed HTTP smoke |
 
 ## Key behaviors
+
+- `REQ-FUNC-e8455ab6`, `REQ-DATA-0ba9e469`, `REQ-SEC-5d0f86e7` — complete
+  authorized job pages, actual persisted evidence/unknowns and strict trusted sources.
 
 - `REQ-UX-3b5b2257`, `REQ-FUNC-c987bc4a`, `REQ-REL-39c1b197`, `REQ-DATA-71853fbc` - explanatory exact enrollment, explicit ephemeral checks, locked candidate publication and memory correction/loss guards.
 
@@ -331,6 +351,9 @@ flowchart LR
     api --> profiles
     api --> verification[(Revision-bound readiness.json)]
     api --> state[(StateStore)]
+    api --> jobs[Strict authorized job projection]
+    jobs --> sources[(State ticket journal bytes)]
+    jobs --> profiles
     api --> assets[(Bundled React assets)]
     worker[CommandWorker] --> identity
     worker --> cli([ADORE CLI])
@@ -403,6 +426,10 @@ for Add and Import project. Primary buttons take their text colour from the
 `--on-accent` theme token.
 
 ## Files
+
+- `04_Software/adore/web/jobs.py`
+- `04_Software/tests/test_web_jobs.py`
+- `05_SoftwareDocu/Component_Web_Jobs.md`
 
 - `04_Software/web/src/ImportWizard.tsx`, `importCopy.ts` and `web/e2e/import.spec.ts` - exact enrollment flow, localized guidance and offline browser boundaries.
 

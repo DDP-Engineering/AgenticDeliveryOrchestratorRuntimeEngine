@@ -1,0 +1,41 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-SEC-5d0f86e7"
+
+title = "Fail closed on corrupt job read evidence"
+
+status = "active"
+
+requirement = """
+If any authorized job source is malformed, unsafe or unreadable, the job service shall reject the read with a typed secret-free error and no partial totals, while keeping persisted state and existing operational journal recovery unchanged.
+"""
+
+verification = "Corrupt state, ticket, journal, timestamps and URLs independently; public reads return 503 codes without sensitive source values or totals; compare original bytes and verify unauthorized corrupt run sources are never read."
+
+affected_paths = ["04_Software/adore/web/jobs.py", "04_Software/adore/web/app.py", "04_Software/web/src/errors.ts", "04_Software/adore/web/static/assets/index-D_D_Ccbj.js", "04_Software/adore/web/static/index.html"]
+
+linked_tests = [
+    "04_Software/tests/test_web_jobs.py::test_corrupt_profile_decoding_is_typed_on_global_project_and_direct_reads",
+    "04_Software/tests/test_web_jobs.py::test_free_text_masks_entire_quoted_and_authorization_credentials",
+    "04_Software/tests/test_web_jobs.py::test_broken_runs_root_symlink_fails_closed",
+    "04_Software/tests/test_web_jobs.py::test_corrupt_authorized_evidence_has_no_partial_totals_or_secrets",
+    "04_Software/tests/test_web_jobs.py::test_bad_state_metadata_is_typed",
+    "04_Software/tests/test_web_jobs.py::test_unsafe_urls_fail_closed_without_exposure",
+    "04_Software/tests/test_web_jobs.py::test_unreadable_source_and_orphan_run_are_not_empty_success",
+]
+
+
+spec = "specs/REQ-FUNC-e8455ab6.md"
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-05
+updated = 2026-10-05

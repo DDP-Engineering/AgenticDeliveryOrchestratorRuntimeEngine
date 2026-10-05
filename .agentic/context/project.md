@@ -53,6 +53,10 @@ OpenCode, Pi, Codex and Qwen Code.
   through ephemeral bounded probes. Publication binds unchanged file bytes,
   declared identity and inspected ownership/state with locked reinspection;
   existing terminal history comes from the declared server state location.
+  Its additive global job API scans complete authorized current/archived history,
+  uses composite project/run identities and optimistic content revisions, and
+  exposes actual persisted waiting evidence with explicit legacy/usage unknowns.
+  Strict read validation preserves the engine's schema-1 recovery contracts.
 
 `python .agentic/aegis.py components` lists the knowledge page that routes
 each component to its source and tests.

@@ -591,6 +591,38 @@ access guidance according to your role.
 
 ## Status and metrics
 
+Authenticated API clients can read global jobs through `GET /api/v1/jobs-page`.
+Administrators receive all current and archived project history; developers
+receive only assigned projects. Add `project_id=<immutable project ID>` to read
+one authorized project. Search `q` matches actual project labels, run/ticket IDs,
+saved ticket titles, lifecycle, exact stage and outcome. `status_group` accepts
+`active`, `waiting`, `review` or `terminal`; exact lifecycle/stage filters are
+also available. `limit` is 1–100 or `all` (default 25); `offset` starts at zero.
+
+The server validates all selected history before reporting complete results.
+Counts/groups cover searched jobs before lifecycle/stage/group selection;
+`total` covers the final filtered set. Order uses the latest persisted state or
+journal activity in UTC, missing activity last, then immutable project/run IDs.
+Rows retain both IDs, so identical run IDs in different projects remain distinct.
+Pass the returned `snapshot` on each subsequent page. A 409
+`job_snapshot_changed` means sources or access changed; restart at offset zero.
+This revision detects changes optimistically, rather than retaining a frozen
+server snapshot. Host writes after final reinspection appear on the next read.
+
+`GET /api/v1/jobs/{project_id}/{run_id}` returns the same safe evidence model.
+Saved ticket titles, ticket/MR links, questions and approval references appear
+only when available. Stage and lifecycle remain separate. Missing legacy
+metadata, timestamps, named responsibility and consumption remain explicitly
+unknown. Actual comment/candidate/MR evidence supports the reported next action;
+the API never invents a reviewer, question or completed outcome. Corrupt retained
+state/ticket/journal evidence returns a typed 503, with no partial totals.
+Job reads use local retained snapshots and execute no forge/container/executor
+commands. Existing project run API routes remain compatible. The current
+dashboard continues its project-scoped job view; global UI integration has its
+own implementation scope. See
+[the job component contract](../05_SoftwareDocu/Component_Web_Jobs.md) for field
+coverage, strict URL validation and source-change semantics.
+
 The dashboard shows projects, run status and timeline, token counts, time-zone-aware
 activity, and review rounds. Administrators additionally see per-project and
 global reported and estimated USD costs and period totals, plus repository-grouped token,

@@ -14,6 +14,11 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Added
 
+- Authorized global/project job read API with composite identities, complete
+  paging/search/status groups and optimistic source revisions. Persisted titles,
+  activity and waiting evidence retain honest legacy/usage unknowns; strict local
+  source/URL validation fails closed without external refresh commands (#11).
+
 - Guided exact server TOML enrollment with localized source/effect explanations,
   complete safe location/runtime review, explicit bounded import checks and
   pickup-stopped completion (#8).

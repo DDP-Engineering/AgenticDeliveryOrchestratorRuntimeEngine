@@ -21,6 +21,9 @@ export class ApiError extends Error {
 /** Localized sentences for every API and client error code. */
 export const errorMessages: Record<Locale, Record<string, string>> = {
   en: {
+    invalid_job_search: "Enter job search text.",
+    job_evidence_corrupt: "The saved job evidence cannot be trusted. Check it on the ADORE host.",
+    job_snapshot_changed: "Job data changed. Reload the first page.",
     admin_required: "This action requires an administrator.",
     authentication_required: "Your session has ended. Sign in again.",
     config_corrupt: "The project configuration file cannot be read. Check it on the ADORE host.",
@@ -105,6 +108,9 @@ export const errorMessages: Record<Locale, Record<string, string>> = {
     unexpected_response: "The server sent an unexpected response.",
   },
   fr: {
+    invalid_job_search: "Saisissez un texte de recherche de tâches.",
+    job_evidence_corrupt: "Les preuves enregistrées de la tâche sont invalides. Vérifiez-les sur l’hôte ADORE.",
+    job_snapshot_changed: "Les données des tâches ont changé. Rechargez la première page.",
     admin_required: "Cette action nécessite un administrateur.",
     authentication_required: "Votre session a expiré. Reconnectez-vous.",
     config_corrupt: "Le fichier de configuration du projet est illisible. Vérifiez-le sur l’hôte ADORE.",
@@ -189,6 +195,9 @@ export const errorMessages: Record<Locale, Record<string, string>> = {
     unexpected_response: "Le serveur a envoyé une réponse inattendue.",
   },
   de: {
+    invalid_job_search: "Geben Sie einen Suchtext für Aufträge ein.",
+    job_evidence_corrupt: "Die gespeicherten Auftragsnachweise sind ungültig. Prüfen Sie sie auf dem ADORE-Host.",
+    job_snapshot_changed: "Die Auftragsdaten haben sich geändert. Laden Sie die erste Seite neu.",
     admin_required: "Diese Aktion erfordert einen Administrator.",
     authentication_required: "Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an.",
     config_corrupt: "Die Projektkonfigurationsdatei ist nicht lesbar. Prüfen Sie sie auf dem ADORE-Host.",
@@ -273,6 +282,9 @@ export const errorMessages: Record<Locale, Record<string, string>> = {
     unexpected_response: "Der Server hat eine unerwartete Antwort gesendet.",
   },
   ro: {
+    invalid_job_search: "Introduceți text pentru căutarea lucrărilor.",
+    job_evidence_corrupt: "Dovezile salvate ale lucrării nu sunt valide. Verificați-le pe gazda ADORE.",
+    job_snapshot_changed: "Datele lucrărilor s-au schimbat. Reîncărcați prima pagină.",
     admin_required: "Această acțiune necesită un administrator.",
     authentication_required: "Sesiunea a expirat. Autentificați-vă din nou.",
     config_corrupt: "Fișierul de configurare al proiectului nu poate fi citit. Verificați-l pe gazda ADORE.",

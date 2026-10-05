@@ -97,6 +97,15 @@ rename landing during the update 409 `project_changed` with nothing changed.
 
 ## 5. Inputs And Outputs
 
+Global persisted job reads use `/api/v1/jobs-page` and composite
+`/api/v1/jobs/{project_id}/{run_id}`. Grants are resolved before reading run
+sources; all selected projects must validate for complete totals. Current and
+archived projects share deterministic global pagination/search and lifecycle
+groups. Source revisions reject changed continuations with 409. Existing
+project run clients retain their contracts. See
+[Persisted Web Job Reads](Component_Web_Jobs.md) for the exact evidence,
+unknown, strict-source and optimistic snapshot contracts.
+
 Inputs are JSON requests and the existing profile/run files. Outputs are
 versioned JSON, an HttpOnly session cookie, audit rows, queued operations and
 bundled local static files. Every rejected `/api/v1` request returns
