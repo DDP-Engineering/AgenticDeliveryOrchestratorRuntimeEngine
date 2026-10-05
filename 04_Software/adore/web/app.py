@@ -189,6 +189,19 @@ class ProjectInput(BaseModel):
     auth_mode: str = "host-auth"
     description: str = ""
     login: str = ""
+    env_keys: list[str] | None = None
+    ready_label: str = Field(default="agent-ready", min_length=1, max_length=120)
+    approval_label: str = Field(default="agent-approved", min_length=1, max_length=120)
+    max_iterations: int = Field(default=12, ge=1, le=10000, strict=True)
+    max_wall_clock_seconds: int = Field(default=5400, ge=1, le=31536000, strict=True)
+    max_cost_usd: float = Field(default=5.0, ge=0, le=1000000, allow_inf_nan=False)
+    max_files_touched: int = Field(default=120, ge=1, le=1000000, strict=True)
+
+
+class ReviewedProjectInput(ProjectInput):
+    """@brief Exact reviewed draft revision for explicit probe or guarded creation."""
+
+    revision: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
 class ProfileIDInput(BaseModel):
@@ -411,6 +424,82 @@ def _setup_display(body: ProjectInput | ProjectImportInput) -> str:
                                  else body.name)
 
 
+def _probe_setup(config, probe_runner: CommandRunner) -> dict:
+    """@brief Run bounded redacted prerequisites for an explicit config snapshot.
+
+    @param[in] config Validated configuration snapshot.
+    @param[in] probe_runner Injectable external command boundary.
+    @return Typed prerequisite checks and redacted model evidence.
+    @exception HTTPException A prerequisite command fails to produce usable evidence.
+    """
+    deadline = monotonic() + 30
+
+    def bounded_runner(argv, *, cwd=None, timeout=None, env=None):
+        """@brief Keep a doctor subprocess below one request's probe bound."""
+        remaining = deadline - monotonic()
+        if remaining <= 0:
+            raise TimeoutError("host readiness deadline")
+        if argv[:2] == ["tea", "whoami"] and config.platform.login:
+            argv = [*argv, "--login", config.platform.login]
+        return probe_runner(argv, cwd=cwd,
+                            timeout=min(timeout if timeout is not None else 8,
+                                        8, remaining),
+                            env=env)
+
+    try:
+        git = doctor.detect_git(bounded_runner)
+        forge = doctor.detect_platform_cli(config.platform.kind, bounded_runner)
+        auth = doctor.auth_status(config.platform.kind, bounded_runner)
+        runtimes = doctor.detect_runtimes(bounded_runner)
+    except (OSError, UnicodeError, TypeError, ValueError,
+            KeyError, TimeoutError) as exc:
+        raise _error(503, "readiness_probe_failed") from exc
+    try:
+        image_runtime = ContainerManager(
+            config.container.runtime, config.container.image,
+            config.container.uv_cache_volume, config.container.npm_cache_volume,
+            bounded_runner, run_args=config.container.run_args, pull_never=True,
+            egress=config.container.egress,
+            selinux_relabel=config.container.selinux_relabel,
+        )
+        executor = bounded_runner([
+            *image_runtime.runtime_argv, "run", "--rm", "--pull=never",
+            "--network", "none", "--entrypoint", "python",
+            config.container.image, "-c",
+            "import shutil,sys; sys.exit(0 if shutil.which(sys.argv[1]) else 1)",
+            config.executor.default,
+        ], timeout=8).ok
+    except (IsolationError, OSError, TimeoutError, ValueError):
+        executor = False
+    runtime_name = config.container.runtime.strip()
+    runtime = (runtimes.docker if runtime_name == "docker" else
+               runtimes.podman if runtime_name == "podman" else None)
+    aegis_root = Path(config.worktree.repo_path) / ".agentic"
+    checks = {
+        "git": git.present and not git.detail,
+        "forge_cli": forge.present and not forge.detail,
+        "forge_auth": auth.authenticated,
+        "container_runtime": (runtime.present and not runtime.detail
+                              if runtime is not None else None),
+        "executor_cli": executor,
+        "aegis_files": ((aegis_root / "aegis.py").is_file()
+                        and (aegis_root / "aegis.toml").is_file()),
+        "model_endpoint": "not-checked",
+    }
+    try:
+        model_probe = probe_endpoint(config, bounded_runner)
+    except (IsolationError, OSError, TimeoutError, ValueError) as exc:
+        model_probe = {"context": "executor-container", "ready": False,
+                       "model": config.executor.commands.get(
+                           config.executor.default).model if config.executor.default
+                           in config.executor.commands else "",
+                       "reason": ("timeout" if isinstance(exc, TimeoutError)
+                                  else "runtime-error")}
+    if model_probe["reason"] not in ("not-configured", "unsupported-executor"):
+        checks["model_endpoint"] = model_probe["ready"]
+    return {"checks": checks, "model_probe": model_probe}
+
+
 def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, WizardSetup | None]:
     """@brief Validate explicit web answers without persistence or live probes."""
     try:
@@ -420,7 +509,27 @@ def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, 
         raise _identity_error(exc) from exc
     issues = [] if available else [
         _finding("project_exists", "name", "Choose another available ID.")]
-    answers = body.model_dump(exclude={"name", "display_name"})
+    answers = body.model_dump(exclude={"name", "display_name", "env_keys", "revision"})
+    answers["budgets_choice"] = "custom"
+    for field in ("ready_label", "approval_label", "kind", "repo", "repo_path",
+                  "reviewers", "runtime", "target_branch", "auth_mode", "executor_cli"):
+        if not str(answers[field]).strip():
+            issues.append(_finding("setup_field_invalid", field,
+                                   "Supply a non-empty supported value."))
+    for field in ("model", "image"):
+        if field in body.model_fields_set and not str(answers[field]).strip():
+            issues.append(_finding("setup_field_invalid", field,
+                                   "Supply an explicit supported value."))
+    clone = Path(body.repo_path).expanduser()
+    if not clone.is_absolute() or not (clone / ".git").exists():
+        issues.append(_finding("setup_field_invalid", "repo_path",
+                               "Use an absolute existing repository clone on the ADORE server."))
+    if body.env_keys is not None and (not body.env_keys and body.auth_mode == "api-key"
+            or len(body.env_keys) > 32 or len(set(body.env_keys)) != len(body.env_keys)
+            or any(not re.fullmatch(r"[A-Z][A-Z0-9_]{0,63}", key) for key in body.env_keys)
+            or body.auth_mode == "host-auth" and body.env_keys):
+        issues.append(_finding("setup_field_invalid", "env_keys",
+                               "Use unique uppercase environment names outside host-auth mode."))
     for key in ("model", "image"):
         if not answers[key]:
             del answers[key]
@@ -434,6 +543,17 @@ def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, 
             if not isinstance(candidate, WizardSetup):
                 raise WizardError("invalid setup candidate")
             candidate.metadata["display_name"] = display
+            candidate.document = re.sub(
+                r"(?m)^# Generated by .*?$",
+                "# Generated by ADORE web guided enrollment.", candidate.document)
+            if body.env_keys is not None:
+                env_line = "env_keys = " + json.dumps(body.env_keys)
+                if re.search(r"(?m)^env_keys = ", candidate.document):
+                    candidate.document = re.sub(r"(?m)^env_keys = .*?$",
+                                                env_line, candidate.document)
+                else:
+                    candidate.document = candidate.document.replace(
+                        "[executor]\n", "[executor]\n" + env_line + "\n", 1)
             issues.extend(_config_findings(_config_from_bytes(candidate.document.encode("utf-8"))))
         except WizardError as exc:
             issues.append(_finding("setup_field_invalid", exc.field,
@@ -441,9 +561,30 @@ def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, 
         except (OSError, UnicodeError, ValueError, TypeError) as exc:
             raise _contract_rejection("project_setup_unavailable", "config",
                                   "Check local setup storage and configuration access.") from exc
-    return {"name": body.name, "display_name": display, "structural_valid": not issues,
-            "issues": issues, "pickup": "stopped-on-create",
-            "verification": {"status": "unverified"}}, candidate
+    preview = {"name": body.name, "display_name": display, "structural_valid": not issues,
+               "issues": issues, "pickup": "stopped-on-create",
+               "verification": {"status": "unverified"}, "revision": None,
+               "config_revision": None, "review": None}
+    if candidate is not None and not issues:
+        config = _config_from_bytes(candidate.document.encode("utf-8"))
+        snapshot = {"document": candidate.document, "name": body.name,
+                    "display_name": display, "description": body.description}
+        preview["revision"] = sha256(json.dumps(snapshot, sort_keys=True,
+                                               ensure_ascii=False).encode("utf-8")).hexdigest()
+        preview["config_revision"] = sha256(candidate.document.encode("utf-8")).hexdigest()
+        preview["review"] = {
+            **body.model_dump(exclude={"revision", "env_keys"}),
+            "display_name": display,
+            "model": config.executor.commands[config.executor.default].model,
+            "image": config.container.image, "env_keys": config.executor.env_keys,
+            "hold_label": config.labels.control.hold,
+            "exclude_label": config.labels.control.exclude,
+            "egress_mode": config.container.egress.mode,
+            "branch_template": config.worktree.branch_template,
+            "config_path": str(profiles.config_path(body.name).resolve()),
+            "store_root": config.state.store_root, "worktree_root": config.worktree.root,
+        }
+    return preview, candidate
 
 
 def _publish_paused(profiles: ProfileStore, web: WebStore, actor: int, name: str,
@@ -1696,7 +1837,8 @@ def create_app(home: str | Path | None = None,
         detail = {"code": "invalid_request", "message": _validation_message(exc)}
         setup_paths = {"/api/v1/projects", "/api/v1/projects/setup-preview",
                        "/api/v1/projects/id-availability", "/api/v1/projects/import-preview",
-                       "/api/v1/projects/import"}
+                       "/api/v1/projects/import", "/api/v1/projects/setup-check",
+                       "/api/v1/projects/setup-create"}
         if _request.url.path in setup_paths or _request.url.path.endswith("/identity"):
             detail["issues"] = issues
         return JSONResponse(status_code=422, content={"detail": detail})
@@ -2086,6 +2228,59 @@ def create_app(home: str | Path | None = None,
         preview, _candidate = _prepare_project(profiles, body)
         return preview
 
+    def reviewed_setup(body: ReviewedProjectInput):
+        """@brief Rebuild and compare an exact memory draft before acting on it.
+
+        @param[in] body Secret-free reviewed answers and candidate revision.
+        @return Structurally valid preview and exact wizard candidate.
+        @exception HTTPException Invalid, duplicate or stale setup fails closed.
+        """
+        preview, candidate = _prepare_project(profiles, body)
+        if not preview["structural_valid"] or candidate is None:
+            duplicate = any(issue["code"] == "project_exists" for issue in preview["issues"])
+            raise HTTPException(status_code=409 if duplicate else 400,
+                                detail={"code": ("project_exists" if duplicate else
+                                                 "project_setup_invalid"),
+                                        "issues": preview["issues"]})
+        if not secrets.compare_digest(body.revision, preview["revision"]):
+            raise _error(409, "stale_config_revision")
+        return preview, candidate
+
+    @app.post("/api/v1/projects/setup-check")
+    def check_project_setup(body: ReviewedProjectInput,
+                            _user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+        """@brief Explicitly probe a reviewed draft without storing or publishing it.
+
+        @param[in] body Reviewed answers and candidate revision.
+        @param[in] _user Authorized administrator after CSRF validation.
+        @return Redacted checks, status, time and exact draft/config revisions.
+        @exception HTTPException Setup or probe failure is returned deterministically.
+        """
+        preview, candidate = reviewed_setup(body)
+        config = _config_from_bytes(candidate.document.encode("utf-8"))
+        evidence = _probe_setup(config, probe_runner)
+        checks = evidence["checks"]
+        status = ("failed" if any(value is False for value in checks.values()) else
+                  "partial" if any(type(value) is not bool for value in checks.values())
+                  else "verified")
+        return {**evidence, "status": status, "revision": preview["config_revision"],
+                "draft_revision": preview["revision"], "context": "api-host",
+                "checked_at": datetime.now(UTC).isoformat()}
+
+    @app.post("/api/v1/projects/setup-create")
+    def create_reviewed_project(body: ReviewedProjectInput,
+                                user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+        """@brief Publish only the exact reviewed configuration with pickup stopped.
+
+        @param[in] body Reviewed answers and candidate revision.
+        @param[in] user Authorized administrator recorded in the audit.
+        @return Complete project whose pickup is already stopped.
+        @exception HTTPException Invalid, stale or conflicting setup is rejected.
+        """
+        _preview, candidate = reviewed_setup(body)
+        return _publish_paused(profiles, web, user["id"], body.name,
+                               candidate.document.encode("utf-8"), candidate.metadata)
+
     @app.post("/api/v1/projects")
     def add_project(body: ProjectInput,
                     user: Annotated[dict, Depends(admin_mutation)]) -> dict:
@@ -2167,69 +2362,8 @@ def create_app(home: str | Path | None = None,
         except (OSError, AttributeError, UnicodeError, TypeError, ValueError,
                 tomllib.TOMLDecodeError) as exc:
             raise _error(503, "config_corrupt") from exc
-        deadline = monotonic() + 30
-
-        def bounded_runner(argv, *, cwd=None, timeout=None, env=None):
-            """@brief Keep a doctor subprocess below one request's probe bound."""
-            remaining = deadline - monotonic()
-            if remaining <= 0:
-                raise TimeoutError("host readiness deadline")
-            return probe_runner(argv, cwd=cwd,
-                                timeout=min(timeout if timeout is not None else 8,
-                                            8, remaining),
-                                env=env)
-
-        try:
-            git = doctor.detect_git(bounded_runner)
-            forge = doctor.detect_platform_cli(config.platform.kind, bounded_runner)
-            auth = doctor.auth_status(config.platform.kind, bounded_runner)
-            runtimes = doctor.detect_runtimes(bounded_runner)
-        except (OSError, UnicodeError, TypeError, ValueError,
-                KeyError, TimeoutError) as exc:
-            raise _error(503, "readiness_probe_failed") from exc
-        try:
-            image_runtime = ContainerManager(
-                config.container.runtime, config.container.image,
-                config.container.uv_cache_volume, config.container.npm_cache_volume,
-                bounded_runner, run_args=config.container.run_args, pull_never=True,
-                egress=config.container.egress,
-                selinux_relabel=config.container.selinux_relabel,
-            )
-            executor = bounded_runner([
-                *image_runtime.runtime_argv, "run", "--rm", "--pull=never",
-                "--network", "none", "--entrypoint", "python",
-                config.container.image, "-c",
-                "import shutil,sys; sys.exit(0 if shutil.which(sys.argv[1]) else 1)",
-                config.executor.default,
-            ], timeout=8).ok
-        except (IsolationError, OSError, TimeoutError, ValueError):
-            executor = False
-        runtime_name = config.container.runtime.strip()
-        runtime = (runtimes.docker if runtime_name == "docker" else
-                   runtimes.podman if runtime_name == "podman" else None)
-        aegis_root = Path(config.worktree.repo_path) / ".agentic"
-        checks = {
-            "git": git.present and not git.detail,
-            "forge_cli": forge.present and not forge.detail,
-            "forge_auth": auth.authenticated,
-            "container_runtime": (runtime.present and not runtime.detail
-                                  if runtime is not None else None),
-            "executor_cli": executor,
-            "aegis_files": ((aegis_root / "aegis.py").is_file()
-                            and (aegis_root / "aegis.toml").is_file()),
-            "model_endpoint": "not-checked",
-        }
-        try:
-            model_probe = probe_endpoint(config, bounded_runner)
-        except (IsolationError, OSError, TimeoutError, ValueError) as exc:
-            model_probe = {"context": "executor-container", "ready": False,
-                           "model": config.executor.commands.get(
-                               config.executor.default).model if config.executor.default
-                               in config.executor.commands else "",
-                           "reason": ("timeout" if isinstance(exc, TimeoutError)
-                                      else "runtime-error")}
-        if model_probe["reason"] not in ("not-configured", "unsupported-executor"):
-            checks["model_endpoint"] = model_probe["ready"]
+        evidence = _probe_setup(config, probe_runner)
+        checks, model_probe = evidence["checks"], evidence["model_probe"]
         value = {"schema": 1, "project_id": item.project_id, "revision": revision,
                  "context": "api-host", "checked_at": datetime.now(UTC).isoformat(),
                  "checks": checks, "model_probe": model_probe}

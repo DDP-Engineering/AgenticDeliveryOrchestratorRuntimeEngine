@@ -198,9 +198,11 @@ test("glossary defines supported human actions with essential field help visible
   await expect(page.getByText(/Merge remains a human decision/)).toBeVisible();
   await nav(page).getByRole("link", { name: "Projects", exact: true }).click();
   await page.getByRole("button", { name: "Add project", exact: true }).click();
-  await expect(page.locator("#new-project-repo-help")).toBeVisible();
-  await expect(page.locator("#new-project-path-help")).toBeVisible();
-  await expect(page.locator("#new-project-path")).toHaveAttribute("aria-describedby", "new-project-path-help");
+  await expect(page.getByRole("heading", { name: "Enrollment method", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(page.locator("#enrollment-help-forge")).toBeVisible();
+  await expect(page.locator("#enrollment-help-clone")).toBeVisible();
+  await expect(page.getByLabel("Local clone path", { exact: false })).toHaveAttribute("aria-describedby", "enrollment-help-clone");
 });
 
 test("pending job details cannot refill another project's view", async ({ page }) => {

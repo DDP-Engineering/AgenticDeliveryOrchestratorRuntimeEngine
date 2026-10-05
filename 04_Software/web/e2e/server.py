@@ -88,7 +88,40 @@ def main() -> None:
 
         web_app._STATIC = SOFTWARE / "web" / ".e2e-dist"
         web_app.run_wizard = offline_wizard
-        app = web_app.create_app(home, probe_runner=offline_probe)
+        clone = home / "fixture-clone"
+        (clone / ".git").mkdir(parents=True)
+        (clone / ".agentic").mkdir()
+        for filename in ("aegis.py", "aegis.toml"):
+            (clone / ".agentic" / filename).write_text(
+                "# Copyright (c) 2026 DDP Engineering\n"
+                "# This software is licensed under the PolyForm Noncommercial License 1.0.0.\n"
+                "# Commercial use requires a separate commercial license.\n"
+                "# See LICENSE.txt. SPDX-License-Identifier: "
+                "LicenseRef-PolyForm-Noncommercial-1.0.0\n", encoding="utf-8")
+        probe_mode = {"mode": "failed"}
+
+        def fixture_probe(argv, **_kwargs):
+            """@brief Simulate explicit readiness without any external services."""
+            return CommandResult(argv=argv, exit_code=(
+                127 if probe_mode["mode"] == "failed" else 0), stdout="fixture-1.0")
+
+        app = web_app.create_app(home, probe_runner=fixture_probe)
+
+        @app.post("/__e2e__/enrollment")
+        def enrollment_fixture(request: Request, mode: str = "failed") -> dict:
+            """@brief Return disposable server clone and select a fake probe outcome.
+
+            @param[in] request Local test-control authorization.
+            @param[in] mode Failed or partial offline evidence.
+            @return Temporary clone path owned by this fixture.
+            @exception HTTPException An unauthorized or unknown mode is rejected.
+            """
+            if request.headers.get("X-ADORE-E2E") != "local-test" or mode not in {
+                "failed", "partial",
+            }:
+                raise HTTPException(403, "test runner header and supported mode required")
+            probe_mode["mode"] = mode
+            return {"clone": str(clone)}
         store = app.state.web_store
         developer = store.create_user("developer", "test-password", "developer")
         store.set_memberships(developer["id"], ["alpha"])

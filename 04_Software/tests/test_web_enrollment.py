@@ -15,6 +15,7 @@
 
 # IMPORTS
 from concurrent.futures import ThreadPoolExecutor
+from hashlib import sha256
 import json
 from pathlib import Path
 from threading import Event
@@ -89,6 +90,152 @@ def _import_body(tmp_path):
 
 
 # PUBLIC API / TESTS
+def test_guided_candidate_review_binds_complete_setup_without_probes(tmp_path, monkeypatch):
+    """@brief Explicit setup produces canonical paths, rules and revision offline."""
+    app = create_app(tmp_path / "home", probe_runner=_no_probe)
+    body = _body(tmp_path, ready_label="human-ready", max_iterations=7,
+                 max_wall_clock_seconds=600, max_cost_usd=2.5, max_files_touched=20,
+                 env_keys=["LOCAL_API_KEY"])
+    with TestClient(app) as client:
+        headers = _login(client)
+        response = client.post("/api/v1/projects/setup-preview", json=body, headers=headers)
+        assert response.status_code == 200, response.text
+        preview = response.json()
+        assert preview["structural_valid"], preview
+        assert len(preview["revision"]) == 64
+        assert preview["review"]["env_keys"] == ["LOCAL_API_KEY"]
+        assert preview["review"]["ready_label"] == "human-ready"
+        assert preview["review"]["max_iterations"] == 7
+        assert Path(preview["review"]["config_path"]).is_absolute()
+        assert not app.state.profiles.profile_dir("alpha").exists()
+        monkeypatch.setattr(app.state.profiles, "_now", lambda: "2099-01-01T00:00:00Z")
+        changed = client.post("/api/v1/projects/setup-create", json={
+            **body, "display_name": "Changed label", "revision": preview["revision"]},
+            headers=headers)
+        assert changed.status_code == 409, changed.text
+        created = client.post("/api/v1/projects/setup-create", json={
+            **body, "revision": preview["revision"]}, headers=headers)
+        assert created.status_code == 200, created.text
+        assert created.json()["pickup_state"] == "stopped"
+        assert created.json()["verification"]["status"] == "unverified"
+        assert sha256(app.state.profiles.config_path("alpha").read_bytes()).hexdigest() == (
+            preview["config_revision"])
+        config = load_config(app.state.profiles.config_path("alpha"))
+        assert config.executor.env_keys == ["LOCAL_API_KEY"]
+        assert config.budgets.max_iterations == 7
+        assert config.labels.lifecycle.ready == "human-ready"
+        assert client.post("/api/v1/projects/setup-create", json={
+            **body, "revision": preview["revision"]}, headers=headers).status_code == 409
+
+
+def test_draft_verification_is_explicit_ephemeral_and_revision_bound(tmp_path):
+    """@brief Draft probe returns honest failed checks; stale draft never probes."""
+    calls = []
+
+    def fake(argv, **_kwargs):
+        calls.append(argv)
+        return CommandResult(argv=argv, exit_code=127)
+
+    app = create_app(tmp_path / "home", probe_runner=fake)
+    body = _body(tmp_path)
+    with TestClient(app) as client:
+        headers = _login(client)
+        preview = client.post("/api/v1/projects/setup-preview", json=body, headers=headers)
+        assert preview.status_code == 200
+        assert calls == []
+        revision = preview.json()["revision"]
+        stale = client.post("/api/v1/projects/setup-check", json={
+            **body, "revision": "0" * 64}, headers=headers)
+        assert stale.status_code == 409 and calls == []
+        result = client.post("/api/v1/projects/setup-check", json={
+            **body, "revision": revision}, headers=headers)
+        assert result.status_code == 200, result.text
+        assert result.json()["status"] == "failed"
+        assert result.json()["draft_revision"] == revision
+        assert result.json()["revision"] == preview.json()["config_revision"]
+        assert result.json()["checked_at"] and calls
+        assert not app.state.profiles.profile_dir("alpha").exists()
+        assert not list((tmp_path / "home").glob("**/readiness.json"))
+
+
+def test_draft_probe_reports_partial_and_honors_selected_gitea_login(tmp_path):
+    """@brief Successful host checks retain honest unprobed model evidence."""
+    calls = []
+
+    def fake(argv, **kwargs):
+        calls.append(argv)
+        assert 0 < kwargs["timeout"] <= 8
+        return CommandResult(argv=argv, exit_code=0, stdout="fixture-1.0")
+
+    body = _body(tmp_path)
+    aegis = Path(body["repo_path"]) / ".agentic"
+    aegis.mkdir()
+    for name in ("aegis.py", "aegis.toml"):
+        (aegis / name).touch()
+    app = create_app(tmp_path / "home", probe_runner=fake)
+    with TestClient(app) as client:
+        headers = _login(client)
+        preview = client.post("/api/v1/projects/setup-preview", json=body, headers=headers).json()
+        result = client.post("/api/v1/projects/setup-check", json={
+            **body, "revision": preview["revision"]}, headers=headers)
+        assert result.status_code == 200, result.text
+        assert result.json()["status"] == "partial"
+        assert result.json()["checks"]["git"]
+        assert result.json()["checks"]["model_endpoint"] == "not-checked"
+        assert ["tea", "whoami", "--login", "ddp"] in calls
+        assert not app.state.profiles.profile_dir("alpha").exists()
+
+
+def test_reviewed_host_auth_uses_no_api_key_references(tmp_path):
+    """@brief Explicit host session mode preserves an empty credential allowlist."""
+    app = create_app(tmp_path / "home", probe_runner=_no_probe)
+    body = _body(tmp_path, auth_mode="host-auth", env_keys=[])
+    with TestClient(app) as client:
+        headers = _login(client)
+        preview = client.post("/api/v1/projects/setup-preview", json=body, headers=headers).json()
+        assert preview["structural_valid"]
+        assert preview["review"]["env_keys"] == []
+        result = client.post("/api/v1/projects/setup-create", json={
+            **body, "revision": preview["revision"]}, headers=headers)
+        assert result.status_code == 200, result.text
+    config = load_config(app.state.profiles.config_path("alpha"))
+    assert config.executor.stage_host_auth and config.executor.env_keys == []
+
+
+@pytest.mark.parametrize("route", ["setup-preview", "setup-check", "setup-create"])
+def test_guided_draft_routes_require_admin_csrf(tmp_path, route):
+    """@brief Every draft boundary rejects Dev and missing mutation CSRF."""
+    app = create_app(tmp_path / "home", probe_runner=_no_probe)
+    app.state.web_store.create_user("dev", "test-password", "developer")
+    with TestClient(app) as client:
+        body = _body(tmp_path, revision="0" * 64) if route != "setup-preview" else _body(tmp_path)
+        assert client.post(f"/api/v1/projects/{route}", json=body).status_code == 401
+        headers = _login(client)
+        assert client.post(f"/api/v1/projects/{route}", json=body).status_code == 403
+        headers = _login(client, "dev", "test-password")
+        response = client.post(f"/api/v1/projects/{route}", json=body, headers=headers)
+        assert response.status_code == 403
+
+
+@pytest.mark.parametrize("changes", [
+    {"env_keys": ["literal-sensitive-value"]}, {"max_iterations": 0},
+    {"max_cost_usd": -1}, {"repo_path": "/no-such-fixture-clone"},
+    {"runtime": "untrusted-runtime"}, {"ready_label": ""},
+])
+def test_guided_invalid_explicit_fields_fail_closed(tmp_path, changes):
+    """@brief Invalid setup rejects with no probes or runnable profile."""
+    app = create_app(tmp_path / "home", probe_runner=_no_probe)
+    with TestClient(app) as client:
+        result = client.post("/api/v1/projects/setup-preview", json=_body(tmp_path, **changes),
+                             headers=_login(client))
+        assert result.status_code in (200, 422)
+        if result.status_code == 200:
+            assert not result.json()["structural_valid"]
+            assert result.json()["issues"]
+        assert "literal-sensitive-value" not in result.text
+    assert not app.state.profiles.profile_dir("alpha").exists()
+
+
 def test_offline_preview_and_enrollment_publish_separate_states(tmp_path):
     """@brief Preview writes nothing; successful creation is already paused."""
     app = create_app(tmp_path / "home", probe_runner=_no_probe)
@@ -168,7 +315,8 @@ def test_display_input_and_corrupt_metadata_fail_closed(tmp_path, value):
 
 
 @pytest.mark.parametrize("name", ["../escape", "Upper", "con", "con.txt", "lpt1", "trail.",
-                                  "setup-preview", "import", "a" * 32, "x" * 65])
+                                  "setup-preview", "setup-check", "setup-create",
+                                  "import", "a" * 32, "x" * 65])
 def test_id_policy_rejects_malformed_reserved_and_ambiguous_ids(tmp_path, name):
     """@brief Portable IDs cannot address devices, paths or immutable-ID aliases."""
     app = create_app(tmp_path / "home", probe_runner=_no_probe)

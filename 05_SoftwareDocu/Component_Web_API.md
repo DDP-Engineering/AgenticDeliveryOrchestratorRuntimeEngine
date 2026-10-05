@@ -373,7 +373,41 @@ Project reads add `display_name`, `validation` (structural validity and findings
 `pickup_state` (`active`, `stopped`, `archived`) and independent `verification`.
 Existing identity/status/paused fields remain. No read or setup preview probes tools.
 
-### Revision-bound explicit readiness
+### Guided draft preview, verification and creation
+
+`ProjectInput` adds typed bounded run budgets, ready/approval labels and optional
+credential environment names while preserving legacy defaults. Unknown fields are
+forbidden; malformed/duplicate/empty API-key names and host-auth references are rejected
+with value-free findings. Server clones are absolute existing Git roots.
+Preparation uses the existing wizard in prepare-only mode and its configuration validator.
+The generated comment is deterministic for web setup, so identical drafts yield identical
+config bytes across requests. No external commands or profile writes occur during preview.
+
+`setup-preview` returns `revision`, `config_revision` and canonical `review` for a valid
+candidate. The draft SHA-256 binds exact config bytes, profile name, display name and
+description. Review includes complete setup, resolved env-key names and absolute config,
+state and worktree paths. Invalid candidates keep null review/digests and structured findings.
+
+`ReviewedProjectInput` requires a 64-hex revision for the additive Admin/CSRF routes:
+
+- `POST /api/v1/projects/setup-check`: rebuild, compare draft revision, run shared
+  bounded `_probe_setup`, return redacted checks/model evidence with both revisions,
+  UTC time and status. Failed checks yield failed; unprobed model or WSL yields partial.
+  Gitea auth uses the selected tea login. No draft, readiness record or profile persists.
+- `POST /api/v1/projects/setup-create`: rebuild, compare revision, publish the exact
+  candidate using the existing locked stopped-pickup boundary. Duplicate IDs are
+  rechecked under its lock; stale drafts return 409 before publication.
+
+Existing `POST projects` and exact TOML import retain their request/publication contracts.
+Newly created profiles have absent persisted readiness evidence, even if their memory
+draft was probed. The shared probe helper also serves the persisted project readiness
+route, whose storage/schema and mid-probe revision protection remain intact.
+`test_web_enrollment.py` covers canonical fields/bytes across clock changes, stale and
+duplicate publication, explicit ephemeral failed/partial checks, selected Gitea login,
+secret-reference redaction and Admin/Dev/CSRF rejection; `test_web_readiness.py` covers
+the persisted route regression.
+
+### Persisted project readiness
 
 `POST /api/v1/projects/{name}/readiness-check` retains bounded explicit probes and
 atomically writes profile-owned `readiness.json`, independent of runtime schema.

@@ -48,6 +48,7 @@ timestamp; a rename persists that ID, while a malformed ID fails closed.
 no control/format characters. Only an absent legacy key falls back to `name`.
 Display edits retain directory, immutable ID, paths and web ownership. Web IDs
 use portable lowercase ASCII syntax with route/device/32-hex aliases reserved.
+Guided `setup-check` and `setup-create` names belong to the reserved route set.
 
 ## Key behaviors
 

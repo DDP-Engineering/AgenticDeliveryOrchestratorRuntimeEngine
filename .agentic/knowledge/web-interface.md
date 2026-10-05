@@ -32,6 +32,17 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 
 - `create_app(home, probe_runner=...)` mounts `/api/v1` and bundled static
   assets. The runner is injectable for explicit host-readiness probes.
+- Guided `setup-preview` returns canonical secret-free setup/paths and a digest
+  binding exact deterministic config, ID, display and description. Additive
+  `setup-check` returns ephemeral revision/time-bound evidence; `setup-create`
+  compares the reviewed revision before existing atomic stopped publication.
+  All require Admin/CSRF. Setup includes supported labels, run limits and credential
+  environment names. Gitea probes honor the selected tea login.
+- `EnrollmentWizard` owns six-step memory state, localized visible guidance,
+  corrective findings/focus, generation invalidation, loss guards and frozen review.
+  The immediate creation ref lock prevents double submit. Completion explains
+  stopped pickup and separate activation; persistent project readiness is checked
+  separately. `enrollmentCopy.ts` preserves EN/FR/DE/RO and existing themes/branding.
 - `adore-web --home ...` binds loopback; remote traffic uses a TLS proxy.
   Uvicorn accepts forwarded context only from loopback proxy peers, and HTTPS
   login emits a Secure session cookie.
@@ -150,10 +161,11 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
   The project selector is inside the Projects expansion on Overview. The
   Projects page itself uses sortable, paged authorized rows and per-row
   administrator pickup/archive actions with scoped details for all roles.
-  Administrators open Add project as a separate page with localized field help.
-  The clone path refers to an existing Git clone on the ADORE host. Editable
-  image suggestions are examples, not a local-image inventory. Success opens
-  project details; Back and Cancel return to Projects without a mutation.
+  Administrators open Add project as a six-step guided page with visible localized
+  instructions. Clone paths identify existing Git clones on the ADORE host;
+  executor/model/runtime/image values describe actual operator setup. Back retains
+  the memory draft, Cancel warns about loss, and completion confirms stopped pickup
+  before the explicit Open project action.
   Import project is also a separate administrator page. It previews a selected
   config file before importing the exact revision, clears browser-held file
   contents and preview when leaving, and opens details after successful import.
@@ -215,6 +227,7 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 | Change requested | Start with | Focused verification |
 |---|---|---|
 | Enrollment, display identity, readiness evidence | `adore/profiles.py`, `adore/wizard.py`, `adore/web/app.py` | `test_web_enrollment.py`, `test_web_errors.py` |
+| Guided enrollment steps, correction, draft loss and review | `web/src/EnrollmentWizard.tsx`, `web/src/enrollmentCopy.ts`, `App.tsx` | `web/e2e/enrollment.spec.ts` |
 | Accounts, sessions, queue | `adore/web/store.py` | `test_web_auth.py`, `test_web_commands.py` |
 | API permissions/config/metrics | `adore/web/app.py` | `test_web_rbac.py`, `test_web_config.py`, `test_web_pending_config.py`, `test_web_readiness.py`, `test_web_metrics.py` |
 | Worker execution | `adore/web/commands.py` | `test_web_commands.py` |
@@ -229,6 +242,9 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 | Offline media | `02_Tools/*web*.py` | `test_web_package.py`, installed HTTP smoke |
 
 ## Key behaviors
+
+- `REQ-UX-072cf049`, `REQ-UX-3609c9ed`, `REQ-UX-002cbd25`, `REQ-UX-7f8fde2c` - guided supported steps, memory correction/loss protection, field focus and stopped completion.
+- `REQ-FUNC-702b0fce`, `REQ-FUNC-49e89542`, `REQ-DATA-e1eaf583`, `REQ-SEC-dc4bd0c3` - complete canonical preview, explicit ephemeral probe, exact guarded creation and reference-only Admin/CSRF draft boundaries.
 
 - `REQ-DATA-d893df33`, `REQ-FUNC-e8e0e304` - stable display identity and portable advisory ID checks.
 - `REQ-REL-c598b075`, `REQ-FUNC-3d8f6f5e` - metadata-last stopped enrollment and offline findings.
@@ -284,6 +300,10 @@ flowchart LR
     browser([Browser]) --> App[App session routes scoped requests]
     App --> DashboardShell[DashboardShell links branding focus]
     App --> Presentation[Presentation feedback glossary status]
+    App --> EnrollmentWizard[EnrollmentWizard memory draft focus guards]
+    EnrollmentWizard --> enrollmentCopy[enrollmentCopy localized guidance]
+    EnrollmentWizard --> api
+    api --> draftProbe[Shared bounded draft and project probe]
     DashboardShell --> routes[routes.ts]
     DashboardShell --> logo[Approved transparent logo]
     App --> i18n[i18n catalogs]
@@ -368,6 +388,10 @@ for Add and Import project. Primary buttons take their text colour from the
 `--on-accent` theme token.
 
 ## Files
+
+- `04_Software/web/src/EnrollmentWizard.tsx` and `enrollmentCopy.ts` - memory-only
+  guided setup and supported locale copy; `web/e2e/enrollment.spec.ts` - real API
+  offline success/failure/roles/draft/focus/locales/390px journeys.
 
 - `04_Software/adore/web/{app,store,commands,server}.py` - API, SQLite store,
   worker and listener.

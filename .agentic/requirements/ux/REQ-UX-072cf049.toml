@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-072cf049"
+title = "Six-step supported enrollment guidance"
+status = "active"
+requirement = "When an administrator opens guided enrollment, the frontend shall present six ordered steps with visible mandatory-concept guidance, actual supported explicit choices and server-clone ownership, preserving existing routes, locales, themes and branding."
+verification = "Complete supported six-step enrollment; inspect essential instructions, absence of invented presets, keyboard operation and screenshots at 390px and desktop in both themes."
+affected_paths = ["04_Software/web/src/EnrollmentWizard.tsx","04_Software/web/src/enrollmentCopy.ts","04_Software/web/src/App.tsx","04_Software/web/src/styles.css","04_Software/web/e2e/enrollment.spec.ts","04_Software/web/e2e/server.py","04_Software/web/e2e/shell.spec.ts","04_Software/adore/web/static/index.html","04_Software/adore/web/static/assets/index-CQD1LwPw.css","04_Software/adore/web/static/assets/index-GGhT67iS.js"]
+linked_tests = ["04_Software/web/e2e/enrollment.spec.ts","04_Software/web/e2e/shell.spec.ts"]
+spec = "specs/REQ-DATA-e1eaf583.md"
+created = 2026-10-05
+updated = 2026-10-05

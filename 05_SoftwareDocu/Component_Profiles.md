@@ -139,8 +139,9 @@ field `display_name`, without including input values.
 `validate_profile_id()` validates web IDs: lowercase ASCII letters/digits first,
 then letters/digits/dot/underscore/hyphen, at most 64 characters. Trailing dots,
 Windows device stems (including extensions), 32-hex identity aliases and reserved
-route names are rejected. `ProfileStore.id_availability()` checks complete and
-incomplete filesystem entries case-insensitively, immutable IDs and corrupt or
+route names (including `setup-check` and `setup-create`) are rejected.
+`ProfileStore.id_availability()` checks complete and incomplete filesystem
+entries case-insensitively, immutable IDs and corrupt or
 duplicate metadata. Availability is advisory; the web publication lock rechecks
 it before creating a directory. CLI rename retains its separate behavior.
 

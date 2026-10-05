@@ -106,15 +106,35 @@ Inputs retain the 200-character executor and 80-character outcome bounds;
 blank values omit that filter.
 The About dialog constrains its width and height to the viewport, with internal
 scrolling for the license and notice content and an accessible Close button.
-Add project opens a separate administrator page from Projects. The form gives
-each field visible localized instructions with expected values and purpose. The
-clone path hint identifies the ADORE host and requires an existing local clone.
-The executor image field accepts either a suggested image tag or a custom tag;
-suggestions are examples, not an inventory of installed images. The image must
-already be present on the host. The form offers host-auth only for OpenCode and
-Codex; selecting Pi or Qwen limits authentication to API-key mode, matching
-server validation. Successful creation opens the new project's details; a
-Back to projects or Cancel action returns without creating a project.
+Add project opens the administrator-only `EnrollmentWizard` from Projects.
+It presents six ordered steps with shared visible, associated guidance for method,
+repository/identity, environment, eligibility/reviewers/limits, verification and
+review/create. `enrollmentCopy.ts` supplies complete EN/FR/DE/RO catalogs.
+The local clone belongs to the ADORE server and already contains Git/AEGIS.
+Actual provider/model and local image values are entered explicitly; host-auth
+is supported for OpenCode/Codex, while Pi/Qwen require API-key references.
+The separate human display name and stable profile ID are reviewed with forge
+identity, target branch, selected Gitea tea login, credential environment names,
+ready/approval labels, reviewers, four run limits and canonical server paths.
+
+Wizard state lives in the mounted component. Back and Change retain values;
+each changed answer invalidates preview, verification and frozen review and
+increments a generation guard. Late responses cannot refill a changed/unmounted
+draft. Dirty shell/context/history/cancel/sign-out navigation confirms loss;
+beforeunload uses the browser warning. Only existing language/theme storage remains.
+Local validation and server findings produce an alert summary with corrective-step
+buttons. The alert, matching input or step heading receives keyboard focus.
+Required guidance is associated with controls through aria-describedby.
+
+setup-preview is structural and never probes. Explicit setup-check explains effects
+first and displays revision/time-bound failed/partial/unverified/current evidence
+with prerequisite-specific remediation. The model endpoint and undetected WSL
+checks remain explicitly unverified. Review is the canonical response paired with
+the unchanged draft. setup-create submits its frozen revision and uses an immediate
+ref lock to prevent double clicks; failure requires a deliberate new review.
+Completion displays stopped pickup and separate activation guidance, then offers
+Open project. Draft probe evidence is ephemeral; persisted project readiness
+starts unverified and is checked separately.
 About displays the project license text and the bundled third-party notices.
 Projects show archived state and let administrators archive or restore a
 quiescent project. Archived jobs and metrics stay visible, while job and pickup
@@ -350,6 +370,15 @@ cost and account/config screens.
 
 `tests/shell.test.mjs` checks glossary/catalog parity across EN/FR/DE/RO
 and exact approved logo bytes, dimensions and PNG alpha format.
+
+`e2e/enrollment.spec.ts` covers guided success and exact submitted draft, duplicate
+clicks, malformed fields, ID collisions, invalid server clone/runtime, stale/failed/
+corrupt checks, retained Back/review corrections, pending-response invalidation,
+Dev denial, refresh/history/shell loss, failed creation, supported locale guidance,
+keyboard focus and both themes at 390px. It retains representative screenshots;
+external commands use the injected fixture runner. Automated evidence establishes
+neither novice-user acceptance nor full WCAG conformance.
+
 `e2e/shell.spec.ts` exercises semantic/keyboard navigation, deep links,
 Back/reload, scope, Admin/Dev/no-grants access, light/dark at 1440px and 390px,
 visible guidance, pending/empty/HTTP/corrupt-data feedback, recovery and stale

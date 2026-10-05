@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-3609c9ed"
+title = "Memory draft correction and navigation protection"
+status = "active"
+requirement = "While an enrollment draft is edited, the frontend shall retain entries across Back and review correction in memory, invalidate dependent preview/verification/review on changes and warn before navigation or refresh discards them."
+verification = "Fill then go Back and Change, edit upstream fields during pending responses, cancel/accept navigation and refresh warnings, observe retained or discarded values and stale-response rejection."
+affected_paths = ["04_Software/web/src/EnrollmentWizard.tsx","04_Software/web/src/enrollmentCopy.ts","04_Software/web/src/App.tsx","04_Software/web/src/styles.css"]
+linked_tests = ["04_Software/web/e2e/enrollment.spec.ts"]
+spec = "specs/REQ-DATA-e1eaf583.md"
+created = 2026-10-05
+updated = 2026-10-05

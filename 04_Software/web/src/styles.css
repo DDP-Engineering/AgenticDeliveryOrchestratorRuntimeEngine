@@ -356,3 +356,26 @@ td.strong { font-weight: 800; }
   .panel-heading { flex-wrap: wrap; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; } }
+.enrollment { max-width: 1050px; }
+.enrollment-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; list-style: none; padding: 0; }
+.enrollment-steps li { padding: 10px; border: 1px solid var(--border); border-radius: 8px; overflow-wrap: anywhere; }
+.enrollment-steps [aria-current="step"] { border: 2px solid var(--accent); font-weight: 700; }
+.enrollment-fields { border: 0; margin: 0; padding: 0; min-width: 0; }
+.enrollment-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.enrollment-field { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.enrollment-field label { display: block; font-weight: 600; }
+.enrollment-field input, .enrollment-field select { width: 100%; min-width: 0; }
+.enrollment p, .enrollment dd { overflow-wrap: anywhere; }
+.enrollment-field [aria-invalid="true"] { border: 2px solid var(--danger); }
+.enrollment-errors { border: 2px solid var(--danger); border-radius: 8px; padding: 12px; margin-bottom: 20px; }
+.enrollment-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+.enrollment-review { border-top: 1px solid var(--border); padding-block: 16px; }
+.enrollment-review dl > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 12px; margin-block: 8px; }
+.enrollment-review dt { font-weight: 600; }
+.enrollment-review dd { margin: 0; }
+.enrollment-digest { font-family: monospace; overflow-wrap: anywhere; }
+@media (max-width: 760px) {
+  .enrollment-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .enrollment-grid, .enrollment-review dl > div { grid-template-columns: minmax(0, 1fr); }
+  .enrollment button { white-space: normal; overflow-wrap: anywhere; }
+}

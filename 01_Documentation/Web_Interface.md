@@ -14,13 +14,44 @@ active, awaiting-review and failed jobs. Select a project from the expanded
 Projects table; closing a card returns to Recent jobs. Open another project
 from Projects to view its details.
 
-Administrators open Add project from the Projects directory as a separate
-page. Every field has a Help disclosure. Local clone path means an absolute
-path to an existing Git clone on the ADORE server, not on the browser computer.
-Executor image accepts a suggested tag or a custom local tag. Suggestions are
-examples, not a live inventory; build or load the image on the server before
-running jobs. Save opens the new project's details; Back to projects and Cancel
-return to the directory without creating a project.
+Administrators open Add project from Projects to enroll an existing server clone
+through six steps: method, repository/identity, working environment,
+eligibility/reviewers/limits, verification, review/create. AEGIS is the repository's
+workflow for framing, building, testing and reviewing changes; ADORE conducts that
+workflow for eligible issues and publishes only draft MR/PRs for human review.
+The clone must already exist at an absolute path on the ADORE server with Git
+metadata and its installed AEGIS workflow. Enter the forge's owner/repository
+identifier and existing target branch; Gitea can select an existing tea login.
+Choose the actual executor, provider/model, installed runtime and local image.
+Image/provider choices are explicit values, not an installed-software inventory.
+In API-key mode, enter uppercase credential environment names separated by commas;
+put their values in the protected server environment or profile .env. Host-auth is
+available for OpenCode/Codex only and uses an existing server session.
+
+Choose a human display name separately from the stable profile ID. Ready and
+approval labels, forge reviewer usernames and four run limits are reviewed before
+creation. Cost limit zero disables that cap and does not imply free execution.
+Visible guidance explains units, eligibility and approval. Existing hold/exclude
+rules remain applicable.
+
+Validate setup performs local structural validation without external probes.
+Check environment is a separate explicit action after its effects are explained:
+bounded host tool/auth checks, a disposable container using the existing local image,
+and a supported configured local-model probe under the project's egress policy.
+AEGIS files are inspected without execution. Failed, partial and unverified
+evidence stays explicit with correction and recheck controls. Stopped enrollment
+can be created with incomplete verification; check prerequisites before activation.
+The review includes exact setup, server configuration/state/worktree paths and
+verification status. Confirm submits only the reviewed candidate revision.
+Completion states that pickup is stopped; Open project leads to its details.
+Activation is a separate administrator action and guarantees no particular issue starts.
+
+Back and review Change retain values. Edits invalidate validation, verification
+and review. The draft lives only in browser memory. Leaving via shell, history,
+Cancel or sign-out warns about loss; refresh/close uses the browser's own warning.
+After refresh the draft is empty. No durable draft endpoint or browser-storage
+draft exists. A failed creation is not automatically retried; check Projects for
+the chosen ID if its response could not be confirmed, then deliberately review again.
 
 The web worker is the scheduler and executes queued operations through the existing
 ADORE CLI. Run one web worker per ADORE home, and do not run a separate
@@ -656,7 +687,21 @@ They validate locally without probing forge, runtime or models. Availability is
 advisory. Preview findings expose `code`, `field` and `remediation`, with no secret
 values. Guided creation and exact TOML import publish only after pickup is stopped;
 review setup and explicitly verify readiness before the separate start/resume action.
-This API contract does not add the later enrollment wizard UI.
+The guided wizard consumes the canonical preview and its additive guarded routes.
+
+The preview exposes a SHA-256 draft revision binding exact generated configuration,
+profile ID, display label and description, plus the config-byte revision and canonical
+review. Its generated header is deterministic across previews. Supported setup fields
+include ready/approval labels, four run budgets and credential environment names.
+`POST /api/v1/projects/setup-check` requires the reviewed draft/revision and returns
+response-only verification with UTC time, exact config and draft revisions, typed
+checks and a redacted model reason. No profile or draft is stored. A changed revision
+returns 409 before probing. Gitea authentication uses the selected tea login.
+`POST /api/v1/projects/setup-create` rebuilds and compares the reviewed revision,
+then uses the existing atomic stopped-publication boundary. Duplicate IDs fail closed.
+Both routes require administrator mutation CSRF. Existing guided and TOML API callers
+retain their contracts. Draft verification is ephemeral: newly published profiles
+still have unverified persisted readiness until their explicit project check.
 
 Project reads report structural `validation`, `pickup_state` and `verification`
 independently. Explicit `readiness-check` stores revision/time-bound evidence:

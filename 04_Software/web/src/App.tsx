@@ -14,6 +14,7 @@ import { startVisiblePolling } from "./polling";
 import { formatRoute, normalizeRoute, parseRoute, type ProjectTab, type Route } from "./routes";
 import { editValue, hasDefault, settingGroups, settingRows, type SettingMeta, type SettingRow } from "./settings";
 import { settingHelp } from "./settingHelp";
+import { EnrollmentWizard } from "./EnrollmentWizard";
 import { DashboardShell, NavigationLink, type ShellLink } from "./DashboardShell";
 import { DataFeedback, ProjectEmpty, StatusBadge, DeliveryGlossary, type DataState, type ScopedState } from "./Presentation";
 
@@ -177,7 +178,7 @@ export default function App() {
   const [ticket, setTicket] = useState("");
   const [operation, setOperation] = useState<Operation | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [projectExecutor, setProjectExecutor] = useState("opencode");
+  const enrollmentGuard = useRef<(() => boolean) | null>(null);
   const [importName, setImportName] = useState("");
   const [importDescription, setImportDescription] = useState("");
   const [importText, setImportText] = useState("");
@@ -694,7 +695,13 @@ export default function App() {
     if (!session) { setRouteReady(false); return; }
     applyLocation();
     setRouteReady(true);
-    const onPop = () => applyLocation();
+    const onPop = () => {
+      if (enrollmentGuard.current && !enrollmentGuard.current()) {
+        window.history.pushState(null, "", formatRoute({ view: "createProject" }));
+        return;
+      }
+      applyLocation();
+    };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, [session?.user.id]);
@@ -776,6 +783,7 @@ export default function App() {
   };
 
   const signOut = async () => {
+    if (enrollmentGuard.current && !enrollmentGuard.current()) return;
     try { await request("/session", "DELETE", undefined, (session ?? passwordSession)?.csrf); }
     finally { setSession(null); setPasswordSession(null); clearPrivateView(); window.history.pushState(null, "", "/"); }
   };
@@ -813,14 +821,6 @@ export default function App() {
         setDetailState("error"); if (!quiet) setError(cause);
       }
     }
-  };
-
-  const createProject = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault(); setError("");
-    try {
-      const created = await request<Project>("/projects", "POST", Object.fromEntries(new FormData(event.currentTarget)), session?.csrf);
-      await refreshProjects(); openProject(created.id);
-    } catch (cause) { setError(cause); }
   };
 
   const previewProjectImport = async (event: FormEvent<HTMLFormElement>) => {
@@ -1059,6 +1059,7 @@ export default function App() {
 
 
   const navigatePage = (target: Page) => {
+    if (target !== page && enrollmentGuard.current && !enrollmentGuard.current()) return;
     detailRequest.current += 1; setRequestedRun("");
     setPage(target); setDetails(null); setMenuOpen(false);
     if (target === "metrics") setMetricAllProjects(false);
@@ -1143,24 +1144,10 @@ export default function App() {
           </section>
         </>}
 
-        {page === "createProject" && isAdmin && <>
-          <div className="section-actions"><button className="ghost" type="button" onClick={() => { setError(""); setPage("projects"); }}>{t("backToProjects")}</button></div>
-          <section className="panel"><form className="form-grid project-create-form" onSubmit={createProject}><FormLegend t={t} />
-            <GuidedField id="new-project-name" label={t("name")} help={t("createHelpName")} helpLabel={t("settingHelp")}><input id="new-project-name" name="name" pattern={PROJECT_NAME_PATTERN} maxLength={64} required /></GuidedField>
-            <GuidedField id="new-project-description" label={t("description")} help={t("createHelpDescription")} helpLabel={t("settingHelp")}><input id="new-project-description" name="description" /></GuidedField>
-            <GuidedField id="new-project-forge" label={t("forge")} help={t("settingHelpForge")} helpLabel={t("settingHelp")}><select id="new-project-forge" name="kind"><option value="gitlab">GitLab</option><option value="github">GitHub</option><option value="gitea">Gitea</option></select></GuidedField>
-            <GuidedField id="new-project-repo" label={t("repository")} help={t("settingHelpRepository")} helpLabel={t("settingHelp")}><input id="new-project-repo" name="repo" placeholder={example("owner/repository")} required /></GuidedField>
-            <GuidedField id="new-project-path" label={t("clonePath")} help={t("createHelpClonePath")} helpLabel={t("settingHelp")}><input id="new-project-path" name="repo_path" placeholder={example("/home/adore/projects/example")} required /><small className="field-hint">{t("createCloneHint")}</small></GuidedField>
-            <GuidedField id="new-project-reviewers" label={t("reviewers")} help={t("createHelpReviewers")} helpLabel={t("settingHelp")}><input id="new-project-reviewers" name="reviewers" placeholder={example("reviewer.one, reviewer.two")} required /></GuidedField>
-            <GuidedField id="new-project-executor" label={t("executor")} help={t("settingHelpExecutor")} helpLabel={t("settingHelp")}><select id="new-project-executor" name="executor_cli" value={projectExecutor} onChange={event => setProjectExecutor(event.target.value)}><option>opencode</option><option>codex</option><option>pi</option><option>qwen</option></select></GuidedField>
-            <GuidedField id="new-project-model" label={t("model")} help={t("createHelpModel")} helpLabel={t("settingHelp")}><input id="new-project-model" name="model" placeholder={example("provider/model")} required /></GuidedField>
-            <GuidedField id="new-project-runtime" label={t("runtime")} help={t("createHelpRuntime")} helpLabel={t("settingHelp")}><input id="new-project-runtime" name="runtime" list="container-runtime-suggestions" defaultValue="docker" required /><datalist id="container-runtime-suggestions"><option value="docker" /><option value="podman" /></datalist></GuidedField>
-            <GuidedField id="new-project-image" label={t("image")} help={t("createHelpImage")} helpLabel={t("settingHelp")}><input id="new-project-image" name="image" list="executor-image-suggestions" defaultValue="adore-executor-base:1.0.0" required /><datalist id="executor-image-suggestions"><option value="adore-executor-base:1.0.0" /><option value="adore-executor-project:latest" /></datalist><small className="field-hint">{t("createImageHint")}</small></GuidedField>
-            <GuidedField id="new-project-branch" label={t("targetBranch")} help={t("createHelpBranch")} helpLabel={t("settingHelp")}><input id="new-project-branch" name="target_branch" defaultValue="main" required /></GuidedField>
-            <GuidedField id="new-project-auth" label={t("authMode")} help={t("createHelpAuthMode")} helpLabel={t("settingHelp")}><select id="new-project-auth" name="auth_mode" key={projectExecutor}>{["opencode", "codex"].includes(projectExecutor) && <option value="host-auth">host-auth</option>}<option value="api-key">api-key</option></select></GuidedField>
-            <div className="project-create-actions"><button className="primary" type="submit">{t("save")}</button><button className="ghost" type="button" onClick={() => { setError(""); setPage("projects"); }}>{t("cancel")}</button></div>
-          </form></section>
-        </>}
+        {page === "createProject" && isAdmin && <EnrollmentWizard locale={locale} csrf={session.csrf} t={t}
+          registerGuard={guard => { enrollmentGuard.current = guard; }}
+          onCancel={() => { setError(""); setPage("projects"); }}
+          onCreated={() => { void refreshProjects(); }} onOpen={id => openProject(id)} />}
 
         {page === "importProject" && isAdmin && <>
           <div className="section-actions"><button className="ghost" type="button" onClick={() => { setError(""); setPage("projects"); }}>{t("backToProjects")}</button></div>

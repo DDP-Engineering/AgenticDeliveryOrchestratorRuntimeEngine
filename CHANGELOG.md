@@ -14,6 +14,12 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Added
 
+- Six-step guided enrollment with memory-only corrections, navigation-loss warnings,
+  accessible findings/focus, explicit environment checks and exact candidate review
+  before creating a project with pickup stopped (#7).
+- Compatible secret-reference-only setup preview, draft verification and guarded
+  revision-bound creation with complete server paths, eligibility labels and run limits.
+
 - Stable project display labels, portable ID availability and offline structured
   setup preview contracts for web enrollment (#6).
 - Atomic pickup-stopped web creation/import and persisted revision-bound explicit

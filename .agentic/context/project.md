@@ -44,6 +44,10 @@ OpenCode, Pi, Codex and Qwen Code.
   and failed reads in the supported locales and themes. Web enrollment publishes
   complete profiles with pickup stopped, keeps human labels separate from stable
   identity, validates setup offline and records explicit revision-bound readiness.
+  Guided enrollment presents six localized steps, keeps corrections only in browser
+  memory, returns canonical revision-bound review and runs explicit ephemeral draft
+  checks. Guarded creation publishes the exact reviewed configuration with pickup
+  stopped; activation and persisted project verification are separate actions.
 
 `python .agentic/aegis.py components` lists the knowledge page that routes
 each component to its source and tests.
