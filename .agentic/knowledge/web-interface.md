@@ -30,6 +30,11 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 
 ## Public interface
 
+- Exact Admin/CSRF import-preview returns config/candidate revisions, structured
+  local findings and allowlisted review. import-check reuses bounded probes with
+  ephemeral revision/time-bound status; import confirms unchanged bytes after
+  full identity/ownership/state reinspection within enrollment/conductor locks.
+
 - `create_app(home, probe_runner=...)` mounts `/api/v1` and bundled static
   assets. The runner is injectable for explicit host-readiness probes.
 - Guided `setup-preview` returns canonical secret-free setup/paths and a digest
@@ -55,7 +60,7 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 
 - Web enrollment publishes metadata only after config and stopped pickup, under
   enrollment/conductor locks; failure removes visibility before rollback/unlock.
-  Imported history is retained. Display edits preserve all operational identity.
+  Existing completed server history is retained at its declared state location. Display edits preserve all operational identity.
 - Local setup preview and ID availability never probe tools or publish profiles.
   Findings carry safe code/field/remediation; exact backend detail codes appear
   under existing localized HTTP error categories. Secret literals fail closed.
@@ -166,9 +171,13 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
   executor/model/runtime/image values describe actual operator setup. Back retains
   the memory draft, Cancel warns about loss, and completion confirms stopped pickup
   before the explicit Open project action.
-  Import project is also a separate administrator page. It previews a selected
-  config file before importing the exact revision, clears browser-held file
-  contents and preview when leaving, and opens details after successful import.
+  Exact configuration enrollment mounts ImportWizard with four-locale visible file
+  source, unchanged-copy and server-history guidance. Six ordered steps show all
+  consequential locations and recognized settings; internal Back/Change retains
+  memory drafts and invalidates old checks/review. File requests reread fatal UTF-8
+  bytes, changed disk files fail closed, leaving warns and unmount clears drafts.
+  Frozen confirmation uses a ref lock; failures preserve corrections and success
+  confirms stopped pickup with a separate Open project action.
   Pending and completed human handoffs have localized lifecycle labels and
   filters. Cancel is unavailable during and after human ownership transfer.
 - The React session switch clears private caches and increments a generation
@@ -227,6 +236,7 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 | Change requested | Start with | Focused verification |
 |---|---|---|
 | Enrollment, display identity, readiness evidence | `adore/profiles.py`, `adore/wizard.py`, `adore/web/app.py` | `test_web_enrollment.py`, `test_web_errors.py` |
+| Exact TOML enrollment, safe review and probe | `web/src/ImportWizard.tsx`, `importCopy.ts`, `_inspect_project_import` | `test_web_import.py`, `web/e2e/import.spec.ts` |
 | Guided enrollment steps, correction, draft loss and review | `web/src/EnrollmentWizard.tsx`, `web/src/enrollmentCopy.ts`, `App.tsx` | `web/e2e/enrollment.spec.ts` |
 | Accounts, sessions, queue | `adore/web/store.py` | `test_web_auth.py`, `test_web_commands.py` |
 | API permissions/config/metrics | `adore/web/app.py` | `test_web_rbac.py`, `test_web_config.py`, `test_web_pending_config.py`, `test_web_readiness.py`, `test_web_metrics.py` |
@@ -242,6 +252,8 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 | Offline media | `02_Tools/*web*.py` | `test_web_package.py`, installed HTTP smoke |
 
 ## Key behaviors
+
+- `REQ-UX-3b5b2257`, `REQ-FUNC-c987bc4a`, `REQ-REL-39c1b197`, `REQ-DATA-71853fbc` - explanatory exact enrollment, explicit ephemeral checks, locked candidate publication and memory correction/loss guards.
 
 - `REQ-UX-072cf049`, `REQ-UX-3609c9ed`, `REQ-UX-002cbd25`, `REQ-UX-7f8fde2c` - guided supported steps, memory correction/loss protection, field focus and stopped completion.
 - `REQ-FUNC-702b0fce`, `REQ-FUNC-49e89542`, `REQ-DATA-e1eaf583`, `REQ-SEC-dc4bd0c3` - complete canonical preview, explicit ephemeral probe, exact guarded creation and reference-only Admin/CSRF draft boundaries.
@@ -300,6 +312,9 @@ flowchart LR
     browser([Browser]) --> App[App session routes scoped requests]
     App --> DashboardShell[DashboardShell links branding focus]
     App --> Presentation[Presentation feedback glossary status]
+    App --> ImportWizard[ImportWizard exact memory draft]
+    ImportWizard --> importCopy[importCopy localized source effects]
+    ImportWizard --> api
     App --> EnrollmentWizard[EnrollmentWizard memory draft focus guards]
     EnrollmentWizard --> enrollmentCopy[enrollmentCopy localized guidance]
     EnrollmentWizard --> api
@@ -388,6 +403,8 @@ for Add and Import project. Primary buttons take their text colour from the
 `--on-accent` theme token.
 
 ## Files
+
+- `04_Software/web/src/ImportWizard.tsx`, `importCopy.ts` and `web/e2e/import.spec.ts` - exact enrollment flow, localized guidance and offline browser boundaries.
 
 - `04_Software/web/src/EnrollmentWizard.tsx` and `enrollmentCopy.ts` - memory-only
   guided setup and supported locale copy; `web/e2e/enrollment.spec.ts` - real API

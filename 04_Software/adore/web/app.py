@@ -588,18 +588,20 @@ def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, 
 
 
 def _publish_paused(profiles: ProfileStore, web: WebStore, actor: int, name: str,
-                    raw: bytes, metadata: dict, *, imported: bool = False) -> dict:
+                    raw: bytes, metadata: dict, *, imported: bool = False,
+                    import_body: ProjectImportInput | None = None) -> dict:
     """@brief Keep lock, filesystem and parsing failures typed at the enrollment boundary."""
     try:
         return _publish_paused_locked(profiles, web, actor, name, raw, metadata,
-                                      imported=imported)
+                                      imported=imported, import_body=import_body)
     except (OSError, StateError, ProfileError, UnicodeError, ValueError, TypeError) as exc:
         raise _contract_rejection("project_creation_failed", "config",
                               "Check local enrollment storage before retrying.") from exc
 
 
 def _publish_paused_locked(profiles: ProfileStore, web: WebStore, actor: int, name: str,
-                           raw: bytes, metadata: dict, *, imported: bool = False) -> dict:
+                           raw: bytes, metadata: dict, *, imported: bool = False,
+                           import_body: ProjectImportInput | None = None) -> dict:
     """@brief Publish metadata after pause, holding ownership and conductor locks."""
     with _web_config_edit_lock(profiles.home / "web-enrollment" / "config.toml"):
         try:
@@ -615,6 +617,8 @@ def _publish_paused_locked(profiles: ProfileStore, web: WebStore, actor: int, na
                     or other_root.is_relative_to(root)):
                 raise _contract_rejection("state_root_already_owned", "state.store_root",
                                       "Choose an absolute state root owned only by this project.")
+        if import_body is not None:
+            _reviewed_import(profiles, import_body)
         directory = profiles.profile_dir(name)
         try:
             directory.mkdir(parents=True, exist_ok=False)
@@ -630,6 +634,8 @@ def _publish_paused_locked(profiles: ProfileStore, web: WebStore, actor: int, na
             if (state.invalid_runs() or any(run.lifecycle not in _TERMINAL_RUN_LIFECYCLES
                                            for run in state.list_runs())):
                 raise _error(409, "project_has_active_work")
+            if import_body is not None:
+                _reviewed_import(profiles, import_body, own_state_lock=True)
             profiles.config_path(name).write_bytes(raw)
             state.pause()
             item = profiles.create(name, **metadata)
@@ -1165,73 +1171,140 @@ def _secret_config_keys(value: object, prefix: str = "", *, provider: bool = Fal
 
 
 def _inspect_project_import(
-    profiles: ProfileStore, body: ProjectImportInput,
+    profiles: ProfileStore, body: ProjectImportInput, *, own_state_lock: bool = False,
 ) -> tuple[dict, object]:
-    """@brief Validate an exact TOML import without creating a profile."""
+    """@brief Inspect exact TOML, safe review and current ownership/state evidence.
+
+    @param[in] profiles Server profile ownership store.
+    @param[in] body Exact UTF-8 text and declared display identity.
+    @param[in] own_state_lock Publication already owns this candidate conductor lock.
+    @return Field-addressable findings, bound revisions and safe review/config.
+    @exception HTTPException Corrupt ownership or inaccessible inspection fails closed.
+    """
     try:
         name = validate_profile_id(body.name)
         display = _setup_display(body)
-        available = profiles.id_availability(name)
+        available = own_state_lock or profiles.id_availability(name)
+        if profiles.invalid_profiles():
+            raise _error(503, "project_corrupt")
     except ProfileError as exc:
         raise _identity_error(exc) from exc
-    raw = body.config_text.encode("utf-8")
+    except OSError as exc:
+        raise _contract_rejection("project_creation_failed", "config",
+                                  "Check server profile storage.") from exc
+    try:
+        raw = body.config_text.encode("utf-8")
+    except UnicodeError as exc:
+        raise _error(400, "config_invalid") from exc
     if len(raw) > 524288:
         raise _error(413, "config_too_large")
-    revision = sha256(raw).hexdigest()
-    if profiles.invalid_profiles():
-        raise _error(503, "project_corrupt")
-    issues = []
-    if not available:
-        issues.append("project_exists")
+    config_revision = sha256(raw).hexdigest()
+    findings = [] if available else [_finding("project_exists", "name", "Choose another ID.")]
+    config, review, ownership, state_evidence = None, None, [], []
+    resolved_paths = {}
     try:
-        with tempfile.TemporaryDirectory(prefix="adore-import-") as temporary:
-            candidate = Path(temporary) / "config.toml"
-            candidate.write_bytes(raw)
-            config = load_config(candidate)
-        structured = _config_findings(config)
-        paths = {
-            "state.store_root": config.state.store_root,
-            "worktree.repo_path": config.worktree.repo_path,
-            "worktree.root": config.worktree.root,
-            "metrics.db_path": config.metrics.db_path,
-            "metrics.export_jsonl": config.metrics.export_jsonl,
-            "metrics.html_out": config.metrics.html_out,
-        }
-        if not all(isinstance(value, str) for value in paths.values()):
-            raise TypeError("invalid path type")
-    except (OSError, AttributeError, TypeError, ValueError, tomllib.TOMLDecodeError):
+        config = _config_from_bytes(raw)
+        findings.extend(_config_findings(config))
+        paths = {"state.store_root": config.state.store_root,
+                 "worktree.repo_path": config.worktree.repo_path,
+                 "worktree.root": config.worktree.root,
+                 "metrics.db_path": config.metrics.db_path,
+                 "metrics.export_jsonl": config.metrics.export_jsonl,
+                 "metrics.html_out": config.metrics.html_out}
+        for key, value in paths.items():
+            if not isinstance(value, str) or not Path(value).is_absolute():
+                findings.append(_finding("absolute_path_required", key,
+                                         "Set an absolute location on this ADORE server."))
+            elif Path(value).resolve() == Path(Path(value).resolve().anchor):
+                findings.append(_finding("path_must_not_be_volume_root", key,
+                                         "Choose a project location below the volume root."))
+        if not findings:
+            resolved_paths = {key: str(Path(value).resolve()) for key, value in paths.items()}
+            root = Path(config.state.store_root).resolve()
+            for other in profiles.list_profiles():
+                other_root = Path(other.store_root or
+                                  profiles.default_store_root(other.name)).resolve()
+                ownership.append([other.project_id, str(other_root)])
+                if (root == other_root or root.is_relative_to(other_root)
+                        or other_root.is_relative_to(root)):
+                    findings.append(_finding("state_root_already_owned", "state.store_root",
+                                             "Set an unowned state location in the source file."))
+            state = StateStore(root, config.agent.slug)
+            if not own_state_lock and state.lock_path.exists():
+                findings.append(_finding("project_has_active_work", "state.store_root",
+                                         "Finish work and release its conductor lock."))
+            if state.invalid_runs():
+                findings.append(_finding("run_state_corrupt", "state.store_root",
+                                         "Repair corrupt server run state before enrollment."))
+            runs = state.list_runs()
+            state_evidence = sorted([run.run_id, run.lifecycle, run.updated_at] for run in runs)
+            if any(run.lifecycle not in _TERMINAL_RUN_LIFECYCLES for run in runs):
+                findings.append(_finding("project_has_active_work", "state.store_root",
+                                         "Finish existing server jobs before enrollment."))
+        if not findings:
+            review = {"name": name, "display_name": display, "description": body.description,
+                      "config_path": str(profiles.config_path(name).resolve()), "paths": paths,
+                      "resolved_paths": resolved_paths,
+                      "platform": {"kind": config.platform.kind, "repo": config.platform.repo,
+                                   "login": config.platform.login},
+                      "target_branch": config.delivery.target_branch,
+                      "agent": {"name": config.agent.name, "slug": config.agent.slug,
+                                "email": config.agent.email},
+                      "executor": {"default": config.executor.default,
+                                   "model": config.executor.commands[config.executor.default].model,
+                                   "env_keys": config.executor.env_keys,
+                                   "stage_host_auth": config.executor.stage_host_auth},
+                      "container": {"runtime": config.container.runtime,
+                                    "image": config.container.image,
+                                    "egress": config.container.egress.mode}}
+    except (AttributeError, TypeError, ValueError, tomllib.TOMLDecodeError):
         findings = [_finding("config_invalid", "config", "Supply a valid UTF-8 TOML document.")]
-        return {"name": name, "display_name": display, "revision": revision,
-                "issues": ["config_invalid"],
-                "validation": {"structural_valid": False, "issues": findings},
-                "verification": {"status": "unverified"}}, None
-    issues.extend(f'{item["code"]}:{item["field"]}' for item in structured)
-    issues.extend(f"absolute_path_required:{key}" for key, value in paths.items()
-                  if not Path(value).is_absolute())
-    root = Path(config.state.store_root).resolve()
-    if root == Path(root.anchor):
-        issues.append("state_root_must_not_be_volume_root")
-    for other in profiles.list_profiles():
-        other_root = Path(other.store_root or profiles.default_store_root(other.name)).resolve()
-        if root == other_root or root.is_relative_to(other_root) or other_root.is_relative_to(root):
-            issues.append("state_root_already_owned")
-            break
-    preview = {
-        "name": name, "display_name": display, "revision": revision, "issues": issues,
-        "platform": config.platform.kind, "repo": config.platform.repo,
-        "runtime": config.container.runtime,
-        "store_root": config.state.store_root,
-        "unchanged": True, "paused_on_import": True,
-        "validation": {"structural_valid": not issues,
-                       "issues": structured + [
-                           _finding(item.split(":")[0],
-                                    item.split(":")[-1] if ":" in item else "config",
-                                    "Correct the configuration or choose an unowned absolute path.")
-                           for item in issues if item not in {
-                               f'{finding["code"]}:{finding["field"]}' for finding in structured
-                           }]},
-        "verification": {"status": "unverified"},
-    }
+        config, review = None, None
+    except (OSError, StateError, ProfileError) as exc:
+        raise _contract_rejection("project_creation_failed", "config",
+                                  "Check server configuration and state storage.") from exc
+    revision = sha256(json.dumps({"config_revision": config_revision, "name": name,
+                                 "display_name": display, "description": body.description,
+                                 "resolved_paths": resolved_paths,
+                                 "ownership": sorted(ownership), "state": state_evidence},
+                                sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()
+    return {"name": name, "display_name": display, "revision": revision,
+            "config_revision": config_revision,
+            "issues": [item["code"] if item["field"] == "config" or item["code"] in {
+                "project_exists", "state_root_already_owned"} else
+                "state_root_must_not_be_volume_root" if item["code"] ==
+                "path_must_not_be_volume_root" and item["field"] == "state.store_root" else
+                f'{item["code"]}:{item["field"]}' for item in findings],
+            "validation": {"structural_valid": not findings, "issues": findings},
+            "review": review, "unchanged": True, "paused_on_import": True,
+            "platform": config.platform.kind if review else None,
+            "repo": config.platform.repo if review else None,
+            "runtime": config.container.runtime if review else None,
+            "store_root": config.state.store_root if review else None,
+            "verification": {"status": "unverified"}}, config
+
+
+def _reviewed_import(profiles: ProfileStore, body: ProjectImportInput,
+                     *, own_state_lock: bool = False) -> tuple[dict, object]:
+    """@brief Reject a stale or invalid import at each publication/probe boundary.
+
+    @param[in] profiles Current ownership store.
+    @param[in] body Reviewed candidate and revision.
+    @param[in] own_state_lock Ignore only the publication's own conductor lock.
+    @return Current valid preview/config.
+    @exception HTTPException Stale revision or invalid candidate is rejected.
+    """
+    preview, config = _inspect_project_import(profiles, body, own_state_lock=own_state_lock)
+    if (not re.fullmatch(r"[0-9a-f]{64}", body.revision)
+            or not secrets.compare_digest(body.revision, preview["revision"])):
+        raise _error(409, "stale_import_preview")
+    if preview["issues"] or config is None:
+        conflicts = {"project_has_active_work", "run_state_corrupt",
+                     "state_root_already_owned", "project_exists"}
+        status = (409 if any(item["code"] in conflicts
+                             for item in preview["validation"]["issues"]) else 400)
+        raise HTTPException(status_code=status, detail={"code": "config_invalid",
+                                                       "issues": preview["validation"]["issues"]})
     return preview, config
 
 
@@ -1837,7 +1910,8 @@ def create_app(home: str | Path | None = None,
         detail = {"code": "invalid_request", "message": _validation_message(exc)}
         setup_paths = {"/api/v1/projects", "/api/v1/projects/setup-preview",
                        "/api/v1/projects/id-availability", "/api/v1/projects/import-preview",
-                       "/api/v1/projects/import", "/api/v1/projects/setup-check",
+                       "/api/v1/projects/import", "/api/v1/projects/import-check",
+                       "/api/v1/projects/setup-check",
                        "/api/v1/projects/setup-create"}
         if _request.url.path in setup_paths or _request.url.path.endswith("/identity"):
             detail["issues"] = issues
@@ -2304,18 +2378,34 @@ def create_app(home: str | Path | None = None,
         preview, _config = _inspect_project_import(profiles, body)
         return preview
 
+    @app.post("/api/v1/projects/import-check")
+    def check_project_import(body: ProjectImportInput,
+                             _user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+        """@brief Explicitly probe the exact reviewed import without publishing.
+
+        @param[in] body Exact reviewed TOML, identity and revision.
+        @param[in] _user Administrator authenticated after CSRF validation.
+        @return Ephemeral redacted revision/time-bound prerequisite evidence.
+        @exception HTTPException Invalid/stale input or unusable probe fails closed.
+        """
+        preview, config = _reviewed_import(profiles, body)
+        evidence = _probe_setup(config, probe_runner)
+        _reviewed_import(profiles, body)
+        checks = evidence["checks"]
+        status = ("failed" if any(value is False for value in checks.values()) else
+                  "partial" if any(type(value) is not bool for value in checks.values())
+                  else "verified")
+        return {**evidence, "status": status, "revision": preview["revision"],
+                "config_revision": preview["config_revision"], "context": "api-host",
+                "checked_at": datetime.now(UTC).isoformat()}
+
     @app.post("/api/v1/projects/import")
     def import_project(
         body: ProjectImportInput,
         user: Annotated[dict, Depends(admin_mutation)],
     ) -> dict:
         """@brief Import reviewed TOML with pickup paused and history intact."""
-        preview, config = _inspect_project_import(profiles, body)
-        if body.revision != preview["revision"]:
-            raise _error(409, "stale_import_preview")
-        if preview["issues"] or config is None:
-            raise HTTPException(status_code=400, detail={"code": "config_invalid",
-                                                        "issues": preview["validation"]["issues"]})
+        preview, config = _reviewed_import(profiles, body)
         return _publish_paused(profiles, web, user["id"], body.name,
                                body.config_text.encode("utf-8"), {
                                    "display_name": preview["display_name"],
@@ -2324,7 +2414,7 @@ def create_app(home: str | Path | None = None,
                                    "runtime": config.container.runtime,
                                    "config_path": str(profiles.config_path(body.name)),
                                    "store_root": config.state.store_root,
-                               }, imported=True)
+                               }, imported=True, import_body=body)
 
     @app.put("/api/v1/projects/{name}/identity")
     def update_identity(name: str, body: DisplayIdentityInput,

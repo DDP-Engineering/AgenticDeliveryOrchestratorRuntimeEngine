@@ -13,15 +13,13 @@ title = "Clear import draft when leaving the page"
 
 status = "active"
 
-requirement = """
-When the user leaves Import project through Back, Cancel or another page, the web interface shall clear the pending name, description, selected file contents and preview, invalidate an in-flight file read or preview response, and return to a blank import draft on reopening.
-"""
+requirement = """When an administrator navigates Back or corrects an exact enrollment step, the interface shall retain its memory draft while invalidating obsolete preview/probe/review; leaving the wizard warns about draft loss, clears file contents and ignores in-flight reads on unmount/session change, reopening a blank draft."""
 
-verification = "Manual: Enter a disposable name, description and config file, request a preview, navigate away and reopen Import project. Check that all fields and the preview are blank and that an earlier preview response cannot reappear."
+verification = "Offline browser tests retain identity/file on internal Back/Change, invalidate preview after edits or Back from review, reject late responses and changed files, warn on navigation/refresh, and reopen blank after leaving."
 
-affected_paths = ["04_Software/web/src/App.tsx"]
+affected_paths = ["04_Software/web/src/ImportWizard.tsx", "04_Software/web/src/App.tsx"]
 
-linked_tests = []
+linked_tests = ["04_Software/web/e2e/import.spec.ts"]
 
 
 spec = ""
@@ -30,4 +28,4 @@ priority = "normal"   # low | normal | high
 rationale = "Discard browser-held configuration text and prevent stale preview confirmation after navigation."
 
 created = 2026-10-01
-updated = 2026-10-01
+updated = 2026-10-05

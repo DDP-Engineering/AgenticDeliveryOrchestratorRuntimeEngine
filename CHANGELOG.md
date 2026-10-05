@@ -14,6 +14,10 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Added
 
+- Guided exact server TOML enrollment with localized source/effect explanations,
+  complete safe location/runtime review, explicit bounded import checks and
+  pickup-stopped completion (#8).
+
 - Six-step guided enrollment with memory-only corrections, navigation-loss warnings,
   accessible findings/focus, explicit environment checks and exact candidate review
   before creating a project with pickup stopped (#7).
@@ -33,6 +37,11 @@ This project follows Keep a Changelog and Semantic Versioning.
 - Administrators can delete an archived, idle project from the Projects page after typing its name; the web worker runs the new `adore profile delete <name> --force --remove-resources`, which also removes the project's containers and worktrees while keeping human-owned worktrees, external state and the audit trail.
 
 ### Changed
+
+- Exact enrollment binds reviewed bytes, identity, server ownership and terminal
+  state; locked reinspection rejects concurrent mutations. Memory-only corrections
+  invalidate prior checks/review and changed disk files require reselection (#8).
+- Long dashboard page titles wrap within narrow viewports.
 
 - Dashboard navigation uses Statistics and Change history while preserving established URLs and supported actions. Guided fields show essential instructions visibly; status badges combine symbols and text.
 - Loading, empty access and failed requests have separate presentations; failed dashboard reads withhold totals and delayed job-detail responses cannot refill another project's view.

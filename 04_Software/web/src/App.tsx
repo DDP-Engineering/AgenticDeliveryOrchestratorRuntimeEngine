@@ -8,12 +8,12 @@ import { Children, cloneElement, isValidElement, useCallback, useEffect, useRef,
 import { aggregateMetrics, aggregateUsage, type Metrics, type Usage } from "./metrics";
 import { messages, type Locale, type MessageKey } from "./i18n";
 import { auditPolicyPayload } from "./auditPolicy";
-import { PROJECT_NAME_PATTERN } from "./projectName";
 import { ApiError, describeError } from "./errors";
 import { startVisiblePolling } from "./polling";
 import { formatRoute, normalizeRoute, parseRoute, type ProjectTab, type Route } from "./routes";
 import { editValue, hasDefault, settingGroups, settingRows, type SettingMeta, type SettingRow } from "./settings";
 import { settingHelp } from "./settingHelp";
+import { ImportWizard } from "./ImportWizard";
 import { EnrollmentWizard } from "./EnrollmentWizard";
 import { DashboardShell, NavigationLink, type ShellLink } from "./DashboardShell";
 import { DataFeedback, ProjectEmpty, StatusBadge, DeliveryGlossary, type DataState, type ScopedState } from "./Presentation";
@@ -23,7 +23,6 @@ type Session = { user: User; csrf: string };
 type PageSize = 10 | 25 | 50 | "all";
 type Preferences = { language: Locale | null; theme: "light" | "dark" | "system" | null };
 type Project = { id: string; name: string; description: string; platform: string; repo: string; runtime: string; executor: string; readiness: string; last_activity: string | null; paused: boolean; archived: boolean; runs: number; invalid_runs: string[] };
-type ImportPreview = { name: string; revision: string; issues: string[]; platform?: string; repo?: string; runtime?: string; store_root?: string; unchanged?: boolean; paused_on_import?: boolean };
 type PendingConfig = { base_revision: string; candidate_revision: string; key: string; value: string; created_at: string; restart_required: boolean; endpoint?: { protocol: string; model: string; auth_env: string | null; timeout_seconds: number | null; ca_file: string | null } };
 type Run = { run_id: string; ticket_iid: number; stage: string; lifecycle: string; outcome: string; stage_failures: number; review_rounds: number; mr_url: string; updated_at: string };
 type RunPage = { items: Run[]; total: number; counts: Record<string, number>; limit: number; offset: number };
@@ -179,11 +178,6 @@ export default function App() {
   const [operation, setOperation] = useState<Operation | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const enrollmentGuard = useRef<(() => boolean) | null>(null);
-  const [importName, setImportName] = useState("");
-  const [importDescription, setImportDescription] = useState("");
-  const [importText, setImportText] = useState("");
-  const [importFileName, setImportFileName] = useState("");
-  const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
   const [resetTarget, setResetTarget] = useState<number | null>(null);
   const aboutTrigger = useRef<HTMLButtonElement>(null);
   const aboutClose = useRef<HTMLButtonElement>(null);
@@ -198,8 +192,6 @@ export default function App() {
   const configRequest = useRef(0);
   const readinessRequest = useRef(0);
   const preferenceRequest = useRef({ language: 0, theme: 0 });
-  const importFileRead = useRef(0);
-  const importPreviewRequest = useRef(0);
   const viewGeneration = useRef(0);
 
   const closeAbout = () => {
@@ -643,17 +635,6 @@ export default function App() {
     return () => stopPolling();
   }, [operation?.id, operation?.status, refreshSelected, refreshProjects, refreshJobPage]);
 
-  const clearImportDraft = () => {
-    importFileRead.current += 1;
-    importPreviewRequest.current += 1;
-    setImportName(""); setImportDescription(""); setImportText("");
-    setImportFileName(""); setImportPreview(null);
-  };
-
-  useEffect(() => {
-    if (page !== "importProject") clearImportDraft();
-  }, [page]);
-
   useEffect(() => {
     if (preserveError.current) { preserveError.current = false; return; }
     setError("");
@@ -761,7 +742,6 @@ export default function App() {
     setUsage(null); setUsageScope(""); setAllUsage(null); setUsageExecutor(""); setUsageModel("");
     setConfig(null); setPendingConfig(null); setPrices([]);
     setUsers([]); setAuditRows([]); setAuditPolicy(null); setDetails(null); setOperation(null);
-    clearImportDraft();
     setWorkerStatus("checking");
     setNotice(""); setLastRefresh(null);
   };
@@ -821,34 +801,6 @@ export default function App() {
         setDetailState("error"); if (!quiet) setError(cause);
       }
     }
-  };
-
-  const previewProjectImport = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setError(""); setImportPreview(null);
-    const generation = viewGeneration.current;
-    const currentRequest = ++importPreviewRequest.current;
-    try {
-      const preview = await request<ImportPreview>("/projects/import-preview", "POST",
-        { name: importName, description: importDescription, config_text: importText }, session?.csrf);
-      if (generation === viewGeneration.current && currentRequest === importPreviewRequest.current) setImportPreview(preview);
-    } catch (cause) { if (generation === viewGeneration.current && currentRequest === importPreviewRequest.current) setError(cause); }
-  };
-
-  const importProject = async () => {
-    if (!importPreview || importPreview.issues.length) return;
-    setError("");
-    const generation = viewGeneration.current;
-    try {
-      const created = await request<Project>("/projects/import", "POST", {
-        name: importName, description: importDescription, config_text: importText,
-        revision: importPreview.revision,
-      }, session?.csrf);
-      if (generation !== viewGeneration.current) return;
-      clearImportDraft();
-      await refreshProjects(); openProject(created.id);
-      setNotice(t("projectImported"));
-    } catch (cause) { if (generation === viewGeneration.current) setError(cause); }
   };
 
   const deleteProject = async (event: FormEvent<HTMLFormElement>) => {
@@ -1149,16 +1101,10 @@ export default function App() {
           onCancel={() => { setError(""); setPage("projects"); }}
           onCreated={() => { void refreshProjects(); }} onOpen={id => openProject(id)} />}
 
-        {page === "importProject" && isAdmin && <>
-          <div className="section-actions"><button className="ghost" type="button" onClick={() => { setError(""); setPage("projects"); }}>{t("backToProjects")}</button></div>
-          <section className="panel"><p className="muted">{t("importHelp")}</p><form className="form-grid project-create-form" onSubmit={previewProjectImport}><FormLegend t={t} />
-            <GuidedField id="import-project-name" label={t("name")} help={t("createHelpName")} helpLabel={t("settingHelp")}><input id="import-project-name" value={importName} onChange={event => { importPreviewRequest.current += 1; setImportName(event.target.value); setImportPreview(null); }} pattern={PROJECT_NAME_PATTERN} maxLength={64} required /></GuidedField>
-            <GuidedField id="import-project-description" label={t("description")} help={t("createHelpDescription")} helpLabel={t("settingHelp")}><input id="import-project-description" value={importDescription} onChange={event => { importPreviewRequest.current += 1; setImportDescription(event.target.value); setImportPreview(null); }} /></GuidedField>
-            <GuidedField id="import-project-file" label={t("configFile")} help={t("importConfigHelp")} helpLabel={t("settingHelp")}><input id="import-project-file" type="file" accept=".toml,.txt" onChange={event => { const file = event.target.files?.[0]; const read = ++importFileRead.current; importPreviewRequest.current += 1; setImportPreview(null); setImportText(""); setImportFileName(file?.name || ""); if (file) void file.text().then(value => { if (read === importFileRead.current) setImportText(value); }).catch(cause => { if (read === importFileRead.current) setError(cause); }); }} required /></GuidedField>
-            <div className="project-create-actions"><button className="primary" type="submit" disabled={!importText}>{t("previewImport")}</button><button className="ghost" type="button" onClick={() => { setError(""); setPage("projects"); }}>{t("cancel")}</button></div>
-          </form></section>
-          {importPreview && <section className="panel import-preview"><h2>{t("importPreview")}</h2><p>{importFileName} · {importPreview.platform || "—"} · {importPreview.repo || "—"} · {importPreview.runtime || "—"}</p>{importPreview.store_root && <p className="muted">{t("stateRoot")}: {importPreview.store_root}</p>}<p className="muted">{t("importUnchanged")}</p>{importPreview.issues.length ? <ul>{importPreview.issues.map((issue, index) => <li key={`${issue}-${index}`}>{issue}</li>)}</ul> : <button className="primary" onClick={() => void importProject()}>{t("importProject")}</button>}</section>}
-        </>}
+        {page === "importProject" && isAdmin && <ImportWizard locale={locale} csrf={session.csrf} t={t}
+          registerGuard={guard => { enrollmentGuard.current = guard; }}
+          onCancel={() => { setError(""); setPage("projects"); }}
+          onCreated={() => { void refreshProjects(); }} onOpen={id => openProject(id)} />}
 
         {page === "projectDetails" && projectsState === "ready" && selectedProject && <>
           <section className="panel"><div className="panel-heading"><h2>{selectedProject.name}</h2><StatusBadge code={selectedProject.readiness}>{t(selectedProject.readiness === "configured" ? "configured" : selectedProject.readiness === "needs-config" ? "needsConfig" : selectedProject.readiness === "invalid-state" ? "invalidState" : selectedProject.readiness === "archived" ? "archived" : "paused")}</StatusBadge></div><p>{selectedProject.description || selectedProject.repo}</p><div className="project-metadata"><div className="project-meta">{t("forge")}: {selectedProject.platform} · {t("repository")}: {selectedProject.repo}</div><div className="project-meta">{t("runtime")}: {selectedProject.runtime} · {t("executor")}: {selectedProject.executor || "—"}</div><div className="project-meta">{t("lastActivity")}: {selectedProject.last_activity ? formatDate(selectedProject.last_activity) : "—"}</div></div><nav className="project-links" aria-label={t("projectLinks")}><RouteLink to={formatRoute({ view: "jobs", project: selectedProject.id })} onNavigate={() => { setDetails(null); setPage("jobs"); }}>{t("jobs")} →</RouteLink><RouteLink to={formatRoute({ view: "metrics", project: selectedProject.id })} onNavigate={() => { setMetricAllProjects(false); setPage("metrics"); }}>{t("metrics")} →</RouteLink></nav></section>

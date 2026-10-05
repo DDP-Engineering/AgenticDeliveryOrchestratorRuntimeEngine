@@ -139,15 +139,23 @@ About displays the project license text and the bundled third-party notices.
 Projects show archived state and let administrators archive or restore a
 quiescent project. Archived jobs and metrics stay visible, while job and pickup
 controls are hidden until restore.
-Import project opens a separate administrator page from Projects. Its name,
-description and file fields have visible localized instructions. An administrator
-selects an existing `config.toml`, reviews its validated identity, state path
-and issues, then imports that exact revision. The form explains that paths
-must be absolute on the ADORE host, the file remains unchanged and pickup
-starts paused. The file text stays in browser memory for the two requests;
-it is not displayed in the preview and is cleared on leaving the page.
-Successful import opens the new project's details; Back to projects and Cancel
-return to the Projects directory without importing.
+Enroll an existing configuration for this ADORE server opens the administrator
+`ImportWizard` from Projects. `importCopy.ts` supplies EN/FR/DE/RO source,
+unchanged-copy, server-path and existing-data-only history guidance. Ordered steps
+cover file, declared identity/paths, structural validation, explicit environment
+checks, canonical review/enrollment and stopped completion. Recognized settings
+and all consequential declared/resolved server paths are reviewed without raw TOML or secrets.
+The selected File and draft stay in memory. Fatal UTF-8 decoding preserves bytes
+and rejects empty/oversized/invalid encoding. Each request rereads the File;
+changed or unreadable disk bytes require reselection. Internal Back/Change retains
+values but invalidates preview/probe/review; leaving or refreshing warns about
+loss, and unmount/session change discards the draft and ignores late responses.
+Structured findings point to form fields or source keys/server locations and move
+focus to correction. Failed/partial/unverified probe results remain explicit in
+review. Confirmation submits a frozen candidate with an immediate ref lock;
+failure invalidates review and never displays completion. Success clears file
+contents, confirms stopped pickup and offers Open project. Activation is separate.
+Long page titles wrap in the shared top bar, including at 390px.
 The Projects directory lists authorized projects in a sortable, paged table
 with project, repository, static config status, job
 count and last activity columns. Administrators can pause/resume pickup and
@@ -334,10 +342,9 @@ diagnostic `message`; an unknown code shows a localized generic sentence that
 names it, and network failures have their own message. The banner keeps the
 raw failure and localizes it when rendered, so a language switch updates it.
 Each user action and each view change clears the previous error banner;
-background refreshes do not. `projectName.ts` holds the project-name pattern
-shared by Add project and Import project; its escaped hyphen keeps it valid
-under the `v` flag browsers use for `pattern`, so invalid names are rejected
-before a request is sent. Primary buttons use the `--on-accent` token, which
+background refreshes do not. EnrollmentWizard and ImportWizard validate stable lowercase
+profile IDs before sending requests; the server remains authoritative for reserved
+IDs and ownership conflicts. Primary buttons use the `--on-accent` token, which
 is dark text on the light accent in both system-dark and explicit Dark themes.
 
 ## 4. Dependencies
@@ -367,6 +374,13 @@ have localized status labels; neither shows Cancel. Only administrators see
 cost and account/config screens.
 
 ## 9. Validation And Tests
+
+`e2e/import.spec.ts` covers explanatory exact enrollment, full safe review,
+stopped success, duplicate-submit protection, invalid file/encoding/response,
+failed/stale verification, source disk mutation, correction/invalidation,
+late responses, loss/navigation/refresh, Dev denial, four locales and keyboard
+focus. Desktop/390px screenshots cover both themes; this is bounded visual
+inspection, with novice/live acceptance and full accessibility audits separate.
 
 `tests/shell.test.mjs` checks glossary/catalog parity across EN/FR/DE/RO
 and exact approved logo bytes, dimensions and PNG alpha format.

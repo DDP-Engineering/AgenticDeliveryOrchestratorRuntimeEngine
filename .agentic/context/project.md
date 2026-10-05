@@ -48,6 +48,11 @@ OpenCode, Pi, Codex and Qwen Code.
   memory, returns canonical revision-bound review and runs explicit ephemeral draft
   checks. Guarded creation publishes the exact reviewed configuration with pickup
   stopped; activation and persisted project verification are separate actions.
+  Exact server TOML enrollment reviews all declared locations and recognized
+  agent/runtime settings, keeps corrected drafts in memory and verifies explicitly
+  through ephemeral bounded probes. Publication binds unchanged file bytes,
+  declared identity and inspected ownership/state with locked reinspection;
+  existing terminal history comes from the declared server state location.
 
 `python .agentic/aegis.py components` lists the knowledge page that routes
 each component to its source and tests.

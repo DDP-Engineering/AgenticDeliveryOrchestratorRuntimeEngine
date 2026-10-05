@@ -13,15 +13,22 @@
 @details Preview and save preserve source bytes and start with pickup paused.
 """
 
+# IMPORTS
+from hashlib import sha256
 from pathlib import Path
+import re
 
+from adore.config_edit import config_edit_lock
 from adore.profiles import ProfileStore
 from adore.state import RunState, StateStore
+from adore.util import CommandResult
 from adore.web.app import create_app
 from adore.web.store import WebStore
 from fastapi.testclient import TestClient
+import pytest
 
 
+# LOCAL HELPERS
 def _document(tmp_path):
     """@brief Adapt the sample config to unambiguous absolute local paths."""
     example = Path(__file__).resolve().parents[1] / "config.example.toml"
@@ -49,6 +56,246 @@ def _csrf(client):
         "username": "admin", "password": "admin"}).json()["csrf"]
 
 
+# PUBLIC API / CONTRACT TESTS
+@pytest.mark.parametrize("revision", ["é", "", "0" * 65])
+def test_import_confirmation_rejects_malformed_revision_as_typed_conflict(tmp_path, revision):
+    """@brief Unicode and malformed untrusted revisions produce a safe conflict."""
+    with TestClient(create_app(tmp_path / "home")) as client:
+        headers = {"X-CSRF-Token": _csrf(client)}
+        body = {"name": "alpha", "config_text": _document(tmp_path), "revision": revision}
+        for route in ("import", "import-check"):
+            response = client.post("/api/v1/projects/" + route, json=body, headers=headers)
+            assert response.status_code == 409, response.text
+            assert response.json()["detail"]["code"] == "stale_import_preview"
+
+
+def test_exact_import_rejects_invalid_utf8_description_without_server_error(tmp_path):
+    """@brief Malformed JSON identity text fails closed before digest/probe/publication."""
+    import json
+    with TestClient(create_app(tmp_path / "home")) as client:
+        headers = {"X-CSRF-Token": _csrf(client), "Content-Type": "application/json"}
+        body = {"name": "alpha", "description": "\ud800", "config_text": _document(tmp_path),
+                "revision": "0" * 64}
+        for route in ("import-preview", "import-check", "import"):
+            response = client.post("/api/v1/projects/" + route, content=json.dumps(body),
+                                   headers=headers)
+            assert response.status_code == 422, response.text
+            assert response.json()["detail"]["code"] == "invalid_request"
+            assert response.json()["detail"]["issues"][0]["field"] == "description"
+
+
+@pytest.mark.parametrize("route", ["import-preview", "import-check", "import"])
+def test_exact_routes_enforce_admin_and_csrf_before_input_or_probes(tmp_path, route):
+    """@brief Direct routes reject anonymous/Dev/missing/invalid CSRF consistently."""
+    def runner(argv, **kwargs):
+        """@brief Unauthorized callers must never reach an external command."""
+        raise AssertionError("unexpected command")
+
+    app = create_app(tmp_path / "home", probe_runner=runner)
+    app.state.web_store.create_user("dev", "longer-password", "developer")
+    body = {"name": "alpha", "config_text": _document(tmp_path), "revision": "0" * 64}
+    with TestClient(app) as client:
+        path = "/api/v1/projects/" + route
+        assert client.post(path, json=body).status_code == 401
+        headers = {"X-CSRF-Token": _csrf(client)}
+        assert client.post(path, json=body).status_code == 403
+        assert client.post(path, json=body, headers={"X-CSRF-Token": "bad"}).status_code == 403
+        client.delete("/api/v1/session", headers=headers)
+        csrf = client.post("/api/v1/session", json={
+            "username": "dev", "password": "longer-password"}).json()["csrf"]
+        assert client.post(path, json=body, headers={"X-CSRF-Token": csrf}).status_code == 403
+        assert app.state.profiles.list_profiles() == []
+
+
+@pytest.mark.parametrize("condition", ["corrupt", "active", "lock", "duplicate", "equal",
+                                      "ancestor", "descendant", "corrupt-profile"])
+def test_exact_import_rejects_state_and_ownership_boundaries(tmp_path, condition):
+    """@brief Source inspection and confirmation fail closed on unsafe persisted data."""
+    profiles = ProfileStore(tmp_path / "home")
+    state = StateStore(tmp_path / "state")
+    if condition == "corrupt":
+        state.run_dir("bad").mkdir(parents=True)
+        (state.run_dir("bad") / "state.json").write_text("{broken", encoding="utf-8")
+    elif condition == "active":
+        state.save(RunState(run_id="working", ticket_iid=1, lifecycle="working"))
+    elif condition == "lock":
+        state.root.mkdir()
+        state.lock_path.write_text("{}", encoding="utf-8")
+    elif condition == "duplicate":
+        profiles.create("alpha", store_root=str(tmp_path / "other"))
+    else:
+        root = {"equal": state.root, "ancestor": tmp_path,
+                "descendant": state.root / "child"}.get(condition, tmp_path / "other")
+        profiles.create("other", store_root=str(root))
+        if condition == "corrupt-profile":
+            (profiles.profile_dir("other") / "profile.json").write_text("{bad", encoding="utf-8")
+    with TestClient(create_app(profiles.home)) as client:
+        headers = {"X-CSRF-Token": _csrf(client)}
+        body = {"name": "alpha", "config_text": _document(tmp_path)}
+        preview = client.post("/api/v1/projects/import-preview", json=body, headers=headers)
+        if condition == "corrupt-profile":
+            assert preview.status_code == 503
+        else:
+            assert preview.status_code == 200, preview.text
+            assert preview.json()["validation"]["issues"]
+            assert preview.json()["review"] is None
+            assert client.post("/api/v1/projects/import", json={
+                **body, "revision": preview.json()["revision"]}, headers=headers).status_code == 409
+        if condition != "duplicate":
+            assert not profiles.exists("alpha")
+
+
+@pytest.mark.parametrize("mutation", ["owner", "run", "config-lock", "conductor-lock"])
+def test_exact_confirmation_reinspects_mutations_at_publication_lock(
+    tmp_path, monkeypatch, mutation,
+):
+    """@brief Changes between route inspection and locked publication cannot enroll."""
+    profiles = ProfileStore(tmp_path / "home")
+    body = {"name": "alpha", "config_text": _document(tmp_path)}
+    acquire = StateStore.acquire_lock
+    changed = False
+
+    def changed_acquire(state):
+        """@brief Simulate an external mutation at the conductor lock boundary."""
+        nonlocal changed
+        if not changed and state.root == tmp_path / "state":
+            changed = True
+            if mutation == "owner":
+                profiles.create("concurrent", store_root=str(state.root / "child"))
+            elif mutation == "run":
+                state.save(RunState(run_id="late", ticket_iid=1, lifecycle="working"))
+        return acquire(state)
+
+    with TestClient(create_app(profiles.home)) as client:
+        headers = {"X-CSRF-Token": _csrf(client)}
+        revision = client.post("/api/v1/projects/import-preview", json=body,
+                               headers=headers).json()["revision"]
+        payload = {**body, "revision": revision}
+        if mutation == "config-lock":
+            with config_edit_lock(profiles.home / "web-enrollment" / "config.toml"):
+                response = client.post("/api/v1/projects/import", json=payload, headers=headers)
+        elif mutation == "conductor-lock":
+            state = StateStore(tmp_path / "state")
+            assert state.acquire_lock()
+            try:
+                response = client.post("/api/v1/projects/import", json=payload, headers=headers)
+            finally:
+                state.release_lock()
+        else:
+            monkeypatch.setattr(StateStore, "acquire_lock", changed_acquire)
+            response = client.post("/api/v1/projects/import", json=payload, headers=headers)
+        assert response.status_code == 409, response.text
+        assert not profiles.exists("alpha")
+        assert not StateStore(tmp_path / "state").is_paused()
+
+
+def test_changed_physical_server_location_rejects_unchanged_text(tmp_path, monkeypatch):
+    """@brief Simulated symlink resolution changes invalidate the public review digest."""
+    body = {"name": "alpha", "config_text": _document(tmp_path)}
+    original = Path.resolve
+    changed = False
+
+    def resolve(path, *args, **kwargs):
+        """@brief Simulate a changed external path target without platform symlink privileges."""
+        if changed and path == tmp_path / "state":
+            return tmp_path / "new-state"
+        return original(path, *args, **kwargs)
+
+    with TestClient(create_app(tmp_path / "home")) as client:
+        headers = {"X-CSRF-Token": _csrf(client)}
+        preview = client.post("/api/v1/projects/import-preview", json=body,
+                              headers=headers).json()
+        monkeypatch.setattr(Path, "resolve", resolve)
+        changed = True
+        response = client.post("/api/v1/projects/import", json={
+            **body, "revision": preview["revision"]}, headers=headers)
+        assert response.status_code == 409
+        assert response.json()["detail"]["code"] == "stale_import_preview"
+
+
+@pytest.mark.parametrize("bad", ["malformed", "secret", "url", "inline", "oversize", "surrogate"])
+def test_exact_inspection_never_echoes_secret_or_invalid_input(tmp_path, bad):
+    """@brief Bad encoding, sizes, secret keys and secret URLs have no review or echo."""
+    private = "fixture-private-value"
+    document = _document(tmp_path)
+    if bad == "malformed":
+        document += "\n[broken\n"
+    elif bad == "secret":
+        document += '\n[unsafe]\napi_key = "' + private + '"\n'
+    elif bad == "url":
+        document += '\n[unsafe]\nendpoint = "https://user:' + private + '@example.test"\n'
+    elif bad == "inline":
+        document += ('\n[container.runtime_env]\nOPENCODE_CONFIG_CONTENT = '
+                     '\'{"apiKey":"' + private + '"}\'\n')
+    elif bad == "surrogate":
+        document = "\ud800"
+    else:
+        document = "#" + "é" * 270000
+    with TestClient(create_app(tmp_path / "home")) as client:
+        headers = {"X-CSRF-Token": _csrf(client)}
+        body = {"name": "alpha", "config_text": document}
+        if bad == "surrogate":
+            import json
+            preview = client.post("/api/v1/projects/import-preview", content=json.dumps(body),
+                                  headers={**headers, "Content-Type": "application/json"})
+        else:
+            preview = client.post("/api/v1/projects/import-preview", json=body, headers=headers)
+        assert private not in preview.text
+        if bad in {"oversize", "surrogate"}:
+            assert preview.status_code in (400, 413, 422)
+        else:
+            assert preview.json()["review"] is None
+            assert preview.json()["validation"]["issues"]
+            checked = client.post("/api/v1/projects/import-check", json={
+                **body, "revision": preview.json()["revision"]}, headers=headers)
+            assert checked.status_code == 400
+            assert private not in checked.text
+
+
+@pytest.mark.parametrize("mode", ["partial", "verified", "exception", "mutation"])
+def test_explicit_import_probe_outcomes_reinspect_and_redact(tmp_path, monkeypatch, mode):
+    """@brief Partial/error evidence and concurrent mutations cannot claim success."""
+    profiles = ProfileStore(tmp_path / "home")
+    document = _document(tmp_path)
+    called = False
+
+    def runner(argv, **kwargs):
+        """@brief Simulate commands and an ownership change during an explicit probe."""
+        nonlocal called
+        if mode == "exception":
+            raise TimeoutError("fixture-private-value")
+        if mode == "mutation" and not called:
+            profiles.create("late", store_root=str(tmp_path / "state"))
+            called = True
+        return CommandResult(argv=argv, exit_code=0, stdout="fixture-private-value")
+
+    if mode in {"partial", "verified"}:
+        clone = tmp_path / "repo" / ".agentic"
+        clone.mkdir(parents=True)
+        (clone / "aegis.py").touch()
+        (clone / "aegis.toml").touch()
+    if mode == "verified":
+        import adore.web.app as web_app
+        monkeypatch.setattr(web_app, "probe_endpoint", lambda config, runner: {
+            "context": "executor-container", "ready": True,
+            "model": "fixture/model", "reason": "ready"})
+    with TestClient(create_app(profiles.home, probe_runner=runner)) as client:
+        headers = {"X-CSRF-Token": _csrf(client)}
+        body = {"name": "alpha", "config_text": document}
+        preview = client.post("/api/v1/projects/import-preview", json=body,
+                              headers=headers).json()
+        checked = client.post("/api/v1/projects/import-check", json={
+            **body, "revision": preview["revision"]}, headers=headers)
+        assert checked.status_code == {"partial": 200, "verified": 200,
+                                       "exception": 503, "mutation": 409}[mode]
+        assert "fixture-private-value" not in checked.text
+        if mode == "partial":
+            assert checked.json()["status"] == "partial"
+        if mode == "verified":
+            assert checked.json()["status"] == "verified"
+        assert not profiles.exists("alpha")
+
+
 def test_admin_previews_then_imports_exact_config_paused(tmp_path):
     """@brief Import copies validated TOML and retains external state path."""
     profiles = ProfileStore(tmp_path / "home")
@@ -64,6 +311,7 @@ def test_admin_previews_then_imports_exact_config_paused(tmp_path):
         assert preview.json()["issues"] == []
         assert preview.json()["repo"] == "group/subgroup/project"
         assert not profiles.exists("alpha")
+
         response = client.post("/api/v1/projects/import", json={
             **body, "revision": preview.json()["revision"]}, headers=headers)
         assert response.status_code == 200, response.text
@@ -73,6 +321,91 @@ def test_admin_previews_then_imports_exact_config_paused(tmp_path):
         assert StateStore(tmp_path / "state").is_paused()
         assert client.get("/api/v1/projects/alpha/runs").json()[0]["run_id"] == "old-run"
         assert client.get("/api/v1/projects/alpha/config").status_code == 200
+
+
+def test_import_reviews_all_locations_and_binds_declared_identity(tmp_path):
+    """@brief Review exact bytes and consequential safe settings, bind identity too."""
+    profiles = ProfileStore(tmp_path / "home")
+    document = _document(tmp_path).replace("\n", "\r\n") + "# café\r\n"
+    body = {"name": "alpha", "display_name": "Service", "description": "Exact",
+            "config_text": document}
+    with TestClient(create_app(profiles.home)) as client:
+        headers = {"X-CSRF-Token": _csrf(client)}
+        preview = client.post("/api/v1/projects/import-preview", json=body,
+                              headers=headers).json()
+        assert preview["config_revision"] == sha256(document.encode()).hexdigest()
+        review = preview["review"]
+        assert set(review["paths"]) == {"worktree.repo_path", "worktree.root",
+            "state.store_root", "metrics.db_path", "metrics.export_jsonl", "metrics.html_out"}
+        assert review["resolved_paths"]["state.store_root"] == str((tmp_path / "state").resolve())
+        assert review["config_path"] == str(profiles.config_path("alpha").resolve())
+        assert "agent" in review and "executor" in review and "container" in review
+        for mutation in ({"display_name": "Changed"}, {"description": "Changed"},
+                         {"name": "beta"}, {"config_text": document + "# changed\n"}):
+            response = client.post("/api/v1/projects/import", json={
+                **body, **mutation, "revision": preview["revision"]}, headers=headers)
+            assert response.status_code == 409, response.text
+        response = client.post("/api/v1/projects/import", json={
+            **body, "revision": preview["revision"]}, headers=headers)
+        assert response.status_code == 200, response.text
+        assert profiles.config_path("alpha").read_bytes() == document.encode()
+        assert response.json()["pickup_state"] == "stopped"
+
+
+def test_import_explicit_check_is_ephemeral_failed_and_revision_bound(tmp_path):
+    """@brief Fake probes preserve failed evidence and reject stale before commands."""
+    calls = []
+
+    def runner(argv, **kwargs):
+        """@brief Simulate unavailable tools within the existing deadline."""
+        calls.append((argv, kwargs))
+        return CommandResult(argv=argv, exit_code=127, stdout="", stderr="offline")
+
+    profiles = ProfileStore(tmp_path / "home")
+    body = {"name": "alpha", "config_text": _document(tmp_path)}
+    with TestClient(create_app(profiles.home, probe_runner=runner)) as client:
+        headers = {"X-CSRF-Token": _csrf(client)}
+        preview = client.post("/api/v1/projects/import-preview", json=body,
+                              headers=headers).json()
+        assert not calls
+        response = client.post("/api/v1/projects/import-check", json={
+            **body, "revision": preview["revision"]}, headers=headers)
+        assert response.status_code == 200, response.text
+        evidence = response.json()
+        assert evidence["status"] == "failed" and evidence["revision"] == preview["revision"]
+        assert evidence["config_revision"] == preview["config_revision"]
+        assert evidence["checked_at"] and evidence["context"] == "api-host"
+        assert calls and all(call[1]["timeout"] <= 8 for call in calls)
+        assert not profiles.exists("alpha")
+        calls.clear()
+        assert client.post("/api/v1/projects/import-check", json={
+            **body, "description": "changed", "revision": preview["revision"]},
+            headers=headers).status_code == 409
+        assert not calls
+
+
+@pytest.mark.parametrize("path", ["state.store_root", "worktree.repo_path", "worktree.root",
+                                  "metrics.db_path", "metrics.export_jsonl", "metrics.html_out"])
+def test_import_rejects_each_relative_or_volume_root_location(tmp_path, path):
+    """@brief Every consequential host location has an absolute non-root boundary."""
+    profiles = ProfileStore(tmp_path / "home")
+    document = _document(tmp_path)
+    section, key = path.split(".")
+    pattern = rf"(?ms)(\[{section}\].*?^{key} = )\"[^\"]*\""
+    with TestClient(create_app(profiles.home)) as client:
+        headers = {"X-CSRF-Token": _csrf(client)}
+        for invalid in ("relative/place", Path(tmp_path.anchor).as_posix()):
+            changed = re.sub(pattern, lambda match, value=invalid: match[1] + '"' + value + '"',
+                             document)
+            assert changed != document
+            body = {"name": "alpha", "config_text": changed}
+            preview = client.post("/api/v1/projects/import-preview", json=body,
+                                  headers=headers).json()
+            assert preview["validation"]["structural_valid"] is False
+            assert any(item["field"] == path for item in preview["validation"]["issues"])
+            assert client.post("/api/v1/projects/import", json={
+                **body, "revision": preview["revision"]}, headers=headers).status_code == 400
+        assert not profiles.exists("alpha")
 
 
 def test_import_rejects_invalid_secret_relative_and_stale_input(tmp_path):
@@ -152,3 +485,6 @@ def test_import_rejects_active_state_and_conductor_lock(tmp_path):
         finally:
             state.release_lock()
         assert not profiles.exists("alpha")
+
+
+# END OF FILE

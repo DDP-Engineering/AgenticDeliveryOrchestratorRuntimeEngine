@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-c987bc4a"
+title = "Inspect and probe an exact import candidate"
+status = "active"
+requirement = "When an administrator explicitly checks a structurally valid reviewed TOML import candidate with valid CSRF, the API shall reuse bounded host probes and return ephemeral revision/time-bound redacted verified, partial or failed evidence without publishing a project; invalid, stale or unauthorized candidates are rejected before any probe."
+verification = "Use fake command runner to prove valid bound evidence and no profile publication, failed and partial outcomes, timeout/error, stale identity/file, invalid/secret input and Admin/CSRF rejection."
+affected_paths = ["04_Software/adore/web/app.py"]
+linked_tests = ["04_Software/tests/test_web_import.py"]
+spec = "specs/REQ-REL-39c1b197.md"
+created = 2026-10-05
+updated = 2026-10-05

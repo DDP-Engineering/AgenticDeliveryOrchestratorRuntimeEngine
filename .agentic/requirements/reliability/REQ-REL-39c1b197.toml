@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-REL-39c1b197"
+title = "Bind exact enrollment to reviewed identity and safe ownership"
+status = "active"
+requirement = "When an administrator confirms an exact TOML import, the API shall publish unchanged UTF-8 bytes with pickup stopped only for the reviewed file, identity and available state ownership rechecked under enrollment and conductor locks; malformed/secret/path-root/relative/duplicate/overlapping/active/corrupt/locked or stale candidates fail closed with corrective findings and retained completed history comes only from underlying server data."
+verification = "Offline API tests compare exact CRLF/UTF-8 bytes and terminal history, reject every listed input/state/authorization boundary, identity/file mutations and ownership races at locked publication; confirm failure leaves no visible profile."
+affected_paths = ["04_Software/adore/web/app.py"]
+linked_tests = ["04_Software/tests/test_web_import.py"]
+spec = "specs/REQ-REL-39c1b197.md"
+created = 2026-10-05
+updated = 2026-10-05

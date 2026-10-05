@@ -401,18 +401,40 @@ Its CLI cost number is an estimate and is not presented as billed cost;
 administrator price rules can provide a separate estimate. A subscription
 therefore still needs iteration and wall-clock limits because a monetary
 budget cannot be enforced from a provider charge that is not reported.
-To bring an existing ADORE `config.toml` into the dashboard, open **Import
-project** from Projects. It opens a dedicated page with Help for each field.
-Choose the file, provide a new project name, review the
-forge/repository, runtime, state directory and validation issues, then import.
-The copied TOML is byte-for-byte unchanged, including comments and unknown
-keys. State, repository, worktree and metrics paths must be absolute, and no
-other profile may own the state directory. Existing completed jobs at that
-state path remain visible. Import rejects active or corrupt jobs and an active
-conductor lock. Pickup starts paused; an administrator resumes it after checking
-the imported configuration and supplying credentials. Secret values in TOML
-are rejected; `.env` is not imported. Back and Cancel discard the browser's
-selected file and preview. After a successful import, Project details opens.
+To enroll an existing configuration, open **Enroll an existing configuration for
+this ADORE server** from Projects. This advanced exact mode uses `config.toml`
+from an existing ADORE profile or an operator-prepared `config.example.toml`.
+Prepare it for this server before selecting the UTF-8 file (maximum 512 KiB).
+
+1. Select the file. The browser keeps it in memory and preserves its exact bytes,
+   including line endings, comments and unknown keys.
+2. Declare a stable lowercase project ID and separate display name/description.
+   Read declared locations to inspect the server paths; correct paths in the source
+   file and select it again. Repository clones already exist on this server.
+3. Validate structure and local ownership/state. Every repository, worktree,
+   state and metrics path must be absolute, below a volume root; state roots are
+   unowned, with no active/corrupt runs or conductor lock.
+4. Optionally select Check environment after reading its effects. The server runs
+   bounded Git/forge/authentication and disposable local-image container checks;
+   a configured model probe may contact its endpoint under the egress policy.
+   Repository AEGIS files are inspected. Nothing is published or activated.
+   Failed, partial and unverified evidence stays visible; Recheck is explicit.
+5. Review identity, config destination, repository/worktree/state/metrics paths,
+   resolved physical paths, agent and executor/model/runtime/image/egress plus credential reference names.
+   Enroll with pickup stopped confirms that exact candidate. Stale file/identity,
+   state/ownership or concurrent lock changes reject confirmation.
+6. Completion confirms stopped pickup and offers Open project. Activation is a
+   separate administrator action after credentials and environment are ready.
+
+The file alone transfers no historical jobs: completed history is visible only
+where underlying data already exists at the declared state location on this
+server. Secret values in TOML are rejected; provide values through protected
+server environment/profile stores. Corrections show configuration keys and
+server locations. Internal Back/Change keeps the draft and invalidates old
+checks; changing the disk file requires reselection/revalidation/review.
+Cancel, leaving or refresh warns before losing the memory-only draft. Failure
+keeps correction available and never displays a successful enrollment.
+
 Config edits include a SHA-256 revision so stale browser pages receive a
 conflict. CLI `config set` and web edits also share a local process lock;
 concurrent ADORE edits receive a conflict instead of overwriting each other.

@@ -153,14 +153,28 @@ poll also blocks archive.
 `POST /api/v1/projects/{name}/restore` re-enables pickup. Both return the project
 view, including `archived`; archived projects remain in project, job and metrics
 reads. New job and pickup operations return 409 while archived.
-`POST /api/v1/projects/import-preview` accepts a bounded UTF-8 `config_text`,
-name and optional description, returning a SHA-256 revision, non-secret project
-identity and validation issues. `POST /api/v1/projects/import` requires the
-same document and reviewed revision. It preserves the source bytes and
-absolute state/metrics paths, rejects embedded secret values and shared state
-ownership, and uses the conductor lock to exclude active work before creating
-the profile. Both routes require administrator CSRF. The source `.env` is not
-uploaded or copied; operators supply credentials separately.
+`POST /api/v1/projects/import-preview` accepts bounded UTF-8 `config_text`,
+profile ID, display name and description. It returns separate `config_revision`
+(raw-byte SHA-256), opaque `revision` binding file/identity/current ownership and
+terminal state, structured `validation`, unverified status and an allowlisted
+`review`. Review includes config destination, declared and resolved repository/worktree/state and all
+metrics paths, forge/repository/branch, agent name/slug/email, executor/model,
+credential reference names and runtime/image/egress. Invalid candidates have null
+review; secret literals and raw environment/command values are never echoed.
+Every consequential location is absolute and below a volume root. State roots
+exclude equal, ancestor and descendant ownership; active/corrupt runs or a
+conductor lock yield corrective state-location findings.
+`POST /api/v1/projects/import-check` requires that revision and explicitly
+reuses bounded `_probe_setup`; its ephemeral response includes both revisions,
+UTC time, context, checks and failed/partial/verified status. It reinspects after
+the probe and persists no profile/readiness record. Unknown model/WSL evidence
+stays partial. Command output and credential values remain redacted.
+`POST /api/v1/projects/import` confirms the exact reviewed input, reinspecting
+under the shared enrollment/config and conductor locks before copying bytes,
+stopping pickup and publishing metadata. File/identity/ownership/state changes
+reject with a conflict; completed history stays at its existing server location.
+All three routes require Admin and valid CSRF. The browser uploads TOML only;
+operators supply credential values through protected server stores.
 The project list accepts a bounded `q` search over name, description and
 repository plus an exact `state` filter. Both apply after project grants.
 Project views include static config validity, executor selection, UTC last run
@@ -323,6 +337,11 @@ creation follows existing publication policy; a human merges.
 
 ## 9. Validation And Tests
 
+`test_web_import.py` proves exact UTF-8/CRLF byte copy, retained terminal history,
+all consequential path boundaries, safe review, full candidate binding, explicit
+fake probe statuses/errors, input/secret/size/encoding rejection, Admin/CSRF,
+state corruption, duplicate/overlapping ownership and publication-lock races.
+
 `test_web_rbac.py`, `test_web_config.py`, `test_web_pending_config.py`,
 `test_web_metrics.py`, `test_web_pricing.py`, and
 `test_web_commands.py` exercise
@@ -347,8 +366,8 @@ All routes below require administrator authorization and mutation CSRF:
 | `POST /api/v1/projects/id-availability` | `name` | Advisory `available` plus structured `issues`; never reserves an ID |
 | `POST /api/v1/projects/setup-preview` | Existing guided fields, optional `display_name` | Local `structural_valid`, findings, `pickup: stopped-on-create`, unverified environment; no writes/probes |
 | `POST /api/v1/projects` | Same guided fields | Complete profile with pickup already stopped |
-| `POST /api/v1/projects/import-preview` | Exact TOML and identity | SHA-256 preview, legacy issue strings and structured `validation` |
-| `POST /api/v1/projects/import` | Exact TOML plus preview revision | Paused complete profile; retained imported history |
+| `POST /api/v1/projects/import-preview` | Exact TOML and identity | Full candidate revision, config digest, structured validation and safe review |
+| `POST /api/v1/projects/import` | Exact TOML plus preview revision | Stopped complete profile; existing server history retained |
 | `PUT /api/v1/projects/{name}/identity` | Only `display_name` | Updated label, unchanged directory, config/state paths, immutable ID, grants and queued operation ownership |
 
 An omitted display label defaults to `name`; explicit null/empty/untrimmed/control
@@ -398,7 +417,7 @@ state and worktree paths. Invalid candidates keep null review/digests and struct
   candidate using the existing locked stopped-pickup boundary. Duplicate IDs are
   rechecked under its lock; stale drafts return 409 before publication.
 
-Existing `POST projects` and exact TOML import retain their request/publication contracts.
+Existing `POST projects` retains its request/publication contract; exact import revisions bind complete identity and inspected ownership/state.
 Newly created profiles have absent persisted readiness evidence, even if their memory
 draft was probed. The shared probe helper also serves the persisted project readiness
 route, whose storage/schema and mid-probe revision protection remain intact.
