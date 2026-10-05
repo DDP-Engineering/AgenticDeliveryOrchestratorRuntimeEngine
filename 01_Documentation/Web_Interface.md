@@ -391,12 +391,12 @@ Every project setting lives in that project's own `config.toml`; Project details
 > Configuration lists the effective value of each setting and marks it **Set
 for this project** (written in the file) or **Default** (ADORE's built-in
 value, used because the file does not set it). **Only settings set for this
-project** hides the defaults. Each row's **Help** explains, in the selected
+project** hides the defaults. Each row's visible guidance explains, in the selected
 language, what the setting controls, its unit or allowed values and the effect
 of changing it (or that it is reserved and not used yet), and shows **ADORE
 default** - the value used when the project's file does not set it. Assigned
-developers see the same list, with redacted secrets, field types and help, but
-cannot stage or apply changes. My account contains account preferences and password.
+developers see read-only purpose categories with financial settings and secrets
+omitted, plus field types and help. My account contains account preferences and password.
 Web-created profiles place worktrees under an absolute, project-specific path
 inside ADORE home. For Pi authenticated through an existing ChatGPT
 subscription, mount the Pi agent credential directory into the container at
@@ -503,22 +503,37 @@ ignoring case (up to 80 characters): examples include `EXECUTOR_TIMEOUT`,
 details; the filter does not search the full AEGIS or executor log. Leave
 either field empty to remove that filter.
 
-In Project details, administrator configuration changes are staged for review before
-they are applied. Staging leaves the live TOML unchanged. Review the displayed
-key, value and revision, then choose Apply or Discard. Apply rejects a stale
-revision, active job, conductor lock or unfinished web operation. For project
-identity and runtime settings, pause project pickup first, wait for active work
-to finish, then apply and resume pickup. A host-side TOML edit made after
-staging invalidates the candidate; discard it and stage a new edit. The
-existing direct API edit follows the same safety rules. This workflow does not
-interrupt a running job or update its effective configuration mid-run.
-Administrators edit a setting on its own row: **Edit** opens the current value
-(a drop-down for choices and true/false), **Stage change** stages it, and the
-Configuration panel below applies or discards it. Common settings - repository,
-forge, runtime, image, executor, polling and run limits - come first. A row
-notes when applying needs paused pickup and no active jobs. Lists, tables,
-executor commands, state and clarification settings show **Not editable here**:
-change them in the project's `config.toml` on the ADORE host.
+In Project details > Settings, administrators prepare **one setting at a time**.
+The seven collapsible categories are Repository and tickets; Agent and model;
+Isolated environment; Rules and approvals; Limits and recovery; Measurement and
+notifications; Advanced. Frequent settings appear first within their category.
+Each row gives an understandable label, visible purpose/units/consequence guidance,
+its **Active value**, **ADORE default**, and **Set for this project** or **Default**
+source. **Help** retains the technical key, type, numeric bounds and choices from
+server catalog metadata. Lists, tables, launch commands and unsupported sections
+are read-only here and are edited in the host's project TOML.
+
+Choose **Edit**, correct the value and choose **Prepare candidate**. This writes
+only the pending candidate. Review the affected project, **Active value** and
+**Proposed value**, effect, actual preparation time and full base/candidate
+revisions under Technical details. The actor is shown as not recorded because
+saved candidate records contain no actor. The supported OpenCode endpoint form
+prepares its URL/model/connection options together as the existing single edit.
+**Copy safe review** copies only the displayed safe values and revision identifiers.
+Credential values, inline provider JSON and credential-bearing URLs are redacted.
+
+Choose **Apply change** explicitly to submit both reviewed revisions. The server
+checks the exact candidate and stored base, configuration/conductor locks,
+nonterminal or corrupt job state and unfinished web operations. Identity/runtime
+changes also require pickup stopped. Stop pickup, wait for active work to finish,
+then apply; stopping pickup does not interrupt an existing job. A blocked apply
+keeps the candidate and explains recovery. Invalid types/ranges or endpoint
+credentials/protocol fail closed; correct the edit and prepare again. If active
+TOML changed, discard the candidate, refresh and prepare against the new revision.
+A failed candidate read disables edits and Apply; refresh or explicitly discard it.
+**Discard change** removes only the candidate and preserves the active configuration.
+The workflow supports one pending setting per project and keeps existing jobs on
+their original configuration. The existing direct API retains its safety checks.
 
 The existing Codex host-auth executor remains suitable for the owner's
 ChatGPT-subscription testing where that CLI supports it. A ChatGPT subscription

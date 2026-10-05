@@ -14,6 +14,11 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Added
 
+- Purpose-based project settings with visible catalog guidance, distinct active/
+  default/proposed values and exact single-candidate review, safe copy and explicit
+  apply/discard. Server metadata supplies domains; stale/idle/pause protections and
+  four-locale responsive guidance remain enforced (#13).
+
 - Action-oriented Overview and complete authorized global Jobs with safe observed
   detail timelines, project History, scoped search/advanced filters and explicit
   asynchronous command results; EN/FR/DE/RO and offline boundary/browser checks (#12).
@@ -95,6 +100,10 @@ This project follows Keep a Changelog and Semantic Versioning.
 - Overview summary cards now expand into project or scoped job tables, with project selection in the Projects expansion.
 
 ### Fixed
+
+- Pending web edits reject incompatible scalar types and bind the browser's
+  reviewed base; corrupted restored endpoint metadata fails closed. Dev settings
+  omit financial caps and credential-bearing URLs remain redacted (#13).
 
 - `metrics.capture_tokens` now appears in a project's Configuration and can be changed there and with `adore config set`; it was hidden and refused as a secret because its name contains "tokens". It must be true or false; any other value is refused and never shown, and other secret-looking names stay hidden and refused.
 - The configuration reference and the example configuration now say that a closed source ticket cancels a waiting run (a deleted ticket or a closed-unmerged MR/PR fails it, and a run in review follows its MR/PR first), and that `remove_source_branch` takes effect only on GitLab.

@@ -46,8 +46,9 @@ from pydantic import BaseModel, ConfigDict, Field
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from adore import __version__, doctor, metrics
+from adore.aegis import RUN_KINDS
 from adore.cli import _NOT_SECRET_KEYS, _SECRET_KEY_RE, _is_secret_key, _newline, _set_toml_scalar
-from adore.config import default_config, load_config, validate_config
+from adore.config import SELINUX_RELABEL_MODES, default_config, load_config, validate_config
 from adore.config_edit import ConfigEditLockedError, config_edit_lock
 from adore.isolation import ContainerManager, IsolationError
 from adore.profiles import ProfileError, ProfileStore, validate_display_name, validate_profile_id
@@ -247,6 +248,8 @@ class ConfigApply(BaseModel):
     """@brief Exact pending candidate the administrator reviewed."""
 
     candidate_revision: str = Field(min_length=64, max_length=64)
+    base_revision: str | None = Field(default=None, min_length=64, max_length=64,
+                                      pattern=r"^[0-9a-f]{64}$")
 
 
 class PriceInput(BaseModel):
@@ -797,6 +800,14 @@ def _redact_config(value, prefix: str = ""):
         return shown
     if isinstance(value, list):
         return [_redact_config(item, prefix) for item in value]
+    if isinstance(value, str) and value.lower().startswith(("https://", "http://")):
+        try:
+            url = urlsplit(value)
+            if (url.username or url.password
+                    or any(_SECRET_KEY_RE.search(key) for key, _ in parse_qsl(url.query))):
+                return "[redacted]"
+        except ValueError:
+            return "[redacted]"
     return value
 
 
@@ -897,6 +908,28 @@ def _profile_view(profiles: ProfileStore, profile) -> dict:
     }
 
 
+def _valid_candidate_scalar(key: str, proposed: object) -> bool:
+    """
+    @brief Enforce the configuration model's scalar type for pending edits.
+    @param[in] key TOML file key of the single candidate edit.
+    @param[in] proposed Parsed candidate value.
+    @return True for the declared scalar type, including finite numeric values.
+    """
+    expected = _value_at(default_config().to_dict(), key)
+    if (re.fullmatch(r"executor\.[^.]+\.model", key)
+            or key == "container.runtime_env.OPENAI_BASE_URL"):
+        expected = ""
+    if type(expected) is float:
+        return type(proposed) in (int, float) and math.isfinite(proposed)
+    if isinstance(expected, str | int | bool):
+        return type(proposed) is type(expected)
+    if key.startswith("workflow.kind_labels."):
+        return isinstance(proposed, str) and proposed in RUN_KINDS
+    if key.startswith("workflow.stage_timeout_overrides."):
+        return type(proposed) is int and proposed > 0
+    return False
+
+
 def _candidate_config_edit(path: Path, body: ConfigEdit) -> tuple[bytes, str]:
     """@brief Produce one validated scalar edit without changing live TOML."""
     endpoint_key = body.key == "container.runtime_env.OPENAI_BASE_URL"
@@ -948,6 +981,11 @@ def _candidate_config_edit(path: Path, body: ConfigEdit) -> tuple[bytes, str]:
                                     body.timeout_seconds, body.ca_file)
         else:
             changed = _set_toml_scalar(current, body.key, body.value)
+        parsed_change = tomllib.loads(changed)
+        if not _valid_candidate_scalar(body.key, _value_at(parsed_change, body.key)):
+            raise _error(400, "invalid_config")
+        if _secret_config_keys({"setting": _value_at(parsed_change, body.key)}):
+            raise _error(400, "invalid_config")
         if len(changed.encode("utf-8")) > 1048576:
             raise _error(413, "config_too_large")
         with tempfile.TemporaryDirectory(prefix="config.web-", dir=path.parent) as temp:
@@ -978,6 +1016,7 @@ def _read_pending_config(path: Path) -> dict | None:
                 or re.fullmatch(r"[0-9a-f]{64}", value["base_revision"]) is None
                 or re.fullmatch(r"[0-9a-f]{64}", value["candidate_revision"]) is None
                 or type(value.get("restart_required")) is not bool
+                or value["restart_required"] != _restart_required(value["key"])
                 or len(value["candidate_text"].encode("utf-8")) > 1048576
                 or sha256(value["candidate_text"].encode("utf-8")).hexdigest()
                 != value["candidate_revision"]):
@@ -996,24 +1035,60 @@ def _public_pending_config(value: dict) -> dict:
         "base_revision", "candidate_revision", "key", "value", "created_at",
         "restart_required",
     )}
-    if value["key"] == "container.runtime_env.OPENAI_BASE_URL":
+    try:
+        candidate = tomllib.loads(value["candidate_text"])
+        endpoint_key = value["key"] == "container.runtime_env.OPENAI_BASE_URL"
+        if not _editable_setting_key(value["key"], endpoint=endpoint_key):
+            raise ValueError("unreviewable setting")
+        proposed = _value_at(candidate, value["key"])
+        if not _valid_candidate_scalar(value["key"], proposed):
+            raise ValueError("invalid proposed value")
+        if _secret_config_keys({"setting": proposed}):
+            raise ValueError("unsafe proposed value")
+        claimed = _value_at(tomllib.loads(_set_toml_scalar(
+            "", value["key"], value["value"])), value["key"])
+        if type(claimed) is not type(proposed) or claimed != proposed:
+            raise ValueError("candidate review metadata differs from its value")
+        public["proposed_value"] = proposed
+        public["value"] = str(proposed).lower() if type(proposed) is bool else str(proposed)
+    except (KeyError, TypeError, ValueError, tomllib.TOMLDecodeError) as exc:
+        raise _error(503, "pending_config_corrupt") from exc
+    if endpoint_key:
         try:
-            candidate = tomllib.loads(value["candidate_text"])
             model = candidate["executor"]["opencode"]["model"]
+            if not isinstance(model, str) or not model.strip():
+                raise ValueError("invalid endpoint model")
             provider = model.partition("/")[0]
             runtime_env = candidate["container"]["runtime_env"]
             options = json.loads(runtime_env[
                 "OPENCODE_CONFIG_CONTENT"])["provider"][provider]["options"]
             auth_ref = options.get("apiKey", "")
-            if (auth_ref and not re.fullmatch(
-                    r"\{env:[A-Z][A-Z0-9_]{0,63}\}", auth_ref)):
+            if (auth_ref and (not re.fullmatch(
+                    r"\{env:[A-Z][A-Z0-9_]{0,63}\}", auth_ref)
+                    or auth_ref[5:-1] not in candidate["executor"]["env_keys"])):
                 raise ValueError("invalid auth reference")
+            if (candidate["executor"]["default"] != "opencode"
+                    or json.loads(runtime_env["OPENCODE_CONFIG_CONTENT"])["provider"][provider]
+                    .get("npm") != "@ai-sdk/openai-compatible"
+                    or options.get("baseURL") != proposed
+                    or options.get("timeout") is not None and (
+                        type(options["timeout"]) is not int
+                        or not 1000 <= options["timeout"] <= 600000
+                        or options["timeout"] % 1000)):
+
+                raise ValueError("invalid endpoint profile")
+            ca_file = runtime_env.get("NODE_EXTRA_CA_CERTS")
+            if (ca_file is not None and not isinstance(ca_file, str)
+                    or ca_file and (not proposed.startswith("https://")
+                        or not ca_file.startswith("/") or ".." in Path(ca_file).parts
+                        or any(ord(char) < 32 for char in ca_file) or len(ca_file) > 256)):
+                raise ValueError("invalid endpoint CA path")
             public["endpoint"] = {
                 "protocol": "openai-chat-completions", "model": model,
                 "auth_env": auth_ref[5:-1] if auth_ref else None,
                 "timeout_seconds": (options["timeout"] // 1000
                                     if type(options.get("timeout")) is int else None),
-                "ca_file": runtime_env.get("NODE_EXTRA_CA_CERTS") or None,
+                "ca_file": ca_file or None,
             }
         except (KeyError, TypeError, ValueError, tomllib.TOMLDecodeError,
                 json.JSONDecodeError) as exc:
@@ -1075,6 +1150,67 @@ def _value_at(tree: dict, key: str):
     return node
 
 
+def _setting_domain(key: str, value: object, config: dict, declared: object) -> dict:
+    """
+    @brief Project the current configuration validation domain for a setting.
+    @param[in] key Effective dotted configuration key.
+    @param[in] value Redacted effective value; establishes scalar/list/map type.
+    @param[in] config Redacted configuration; configured executor names are choices.
+    @param[in] declared Built-in model default supplying the declared type.
+    @return Type, allowed choices and inclusive numeric bounds for browser guidance.
+    @note Full configuration validation remains authoritative for dependent rules.
+    """
+    expected = declared
+    if key.startswith("executor.commands.") and key.endswith((".model", ".command")):
+        expected = ""
+    if key.startswith("workflow.stage_timeout_overrides."):
+        expected = 1
+    if key.startswith("workflow.kind_labels.") or key.startswith("container.runtime_env."):
+        expected = ""
+    if expected is not None:
+        numeric = type(expected) is float and type(value) in (int, float) and math.isfinite(value)
+        if (type(expected) is float and not numeric
+                or type(expected) is not float and type(value) is not type(expected)):
+            raise ValueError("configuration scalar type differs from its model")
+    model_value = expected if expected is not None else value
+    choices = {
+        "platform.kind": ["gitlab", "github", "gitea"],
+        "state.channel": ["comments", "labels", "both"],
+        "polling.mode": ["loop", "once"],
+        "executor.mode": ["thick", "headless"],
+        "executor.default": list(config.get("executor", {}).get("commands", {})),
+        "clarification.timeout_state": ["failed", "stale"],
+        "container.selinux_relabel": list(SELINUX_RELABEL_MODES),
+        "container.parked_ttl_mode": ["seconds", "polls"],
+        "container.egress.mode": ["open", "allowlist-proxy", "none"],
+        "delivery.draft": [True],
+        "review.trigger": ["label"],
+        "review.on_pipeline_failure": ["revise", "notify", "ignore"],
+        "workflow.default_kind": list(RUN_KINDS),
+        "reconcile.on_ticket_deleted": ["abort-cleanup", "ignore"],
+        "reconcile.on_ticket_closed": ["cancel", "ignore"],
+        "reconcile.on_trigger_removed": ["pause", "abort", "ignore"],
+    }.get(key, [])
+    if key.startswith("workflow.kind_labels."):
+        choices = list(RUN_KINDS)
+    positive = {
+        "polling.poll_interval_seconds", "polling.max_concurrent_runs",
+        "clarification.max_rounds", "recovery.max_stage_failures",
+        "recovery.max_transient_retries", "budgets.max_iterations",
+        "budgets.max_wall_clock_seconds", "budgets.per_gate_timeout_seconds",
+        "budgets.max_files_touched", "review.max_review_rounds",
+        "container.egress.proxy_port",
+    }
+    minimum = (1 if key in positive or key.startswith("workflow.stage_timeout_overrides.")
+               else 0 if key in {"polling.poll_jitter_seconds", "budgets.max_cost_usd"}
+               else None)
+    kind = ("boolean" if type(model_value) is bool else "integer" if type(model_value) is int
+            else "number" if type(model_value) is float else "list" if isinstance(model_value, list)
+            else "map" if isinstance(model_value, dict) else "text")
+    return {"type": kind, "choices": choices, "minimum": minimum,
+            "maximum": 65535 if key == "container.egress.proxy_port" else None}
+
+
 def _setting_metadata(config: dict, raw: bytes) -> list[dict]:
     """
     @brief      Source, editability and restart need of every effective setting.
@@ -1108,6 +1244,7 @@ def _setting_metadata(config: dict, raw: bytes) -> list[dict]:
                          and isinstance(value, str | int | float)),
             "restart": _restart_required(edit_key),
             "default": _value_at(defaults, key),
+            **_setting_domain(key, value, config, _value_at(defaults, key)),
         })
     return sorted(settings, key=lambda item: item["key"])
 
@@ -1160,7 +1297,7 @@ def _secret_config_keys(value: object, prefix: str = "", *, provider: bool = Fal
             if not (provider and key == "apiKey" and isinstance(child, str)
                     and re.fullmatch(r"\{env:[A-Z][A-Z0-9_]{0,63}\}", child)):
                 found.append(name)
-        elif isinstance(child, str) and child.startswith(("https://", "http://")):
+        elif isinstance(child, str) and child.lower().startswith(("https://", "http://")):
             try:
                 url = urlsplit(child)
                 if url.username or url.password or any(_SECRET_KEY_RE.search(query_key)
@@ -2553,23 +2690,34 @@ def create_app(home: str | Path | None = None,
             raise _error(503, "config_corrupt") from exc
         data = _redact_config(config.to_dict())
         data.pop("raw", None)
+        if user["role"] != "admin":
+            data.get("budgets", {}).pop("max_cost_usd", None)
         timeout_seconds = None
+        endpoint_profile = None
         try:
             inline = json.loads(config.container.runtime_env.get(
                 "OPENCODE_CONFIG_CONTENT", "{}"))
             provider = config.executor.commands["opencode"].model.partition("/")[0]
-            milliseconds = inline["provider"][provider]["options"].get("timeout")
+            options = inline["provider"][provider]["options"]
+            auth_ref = options.get("apiKey", "")
+            if auth_ref and not re.fullmatch(r"\{env:[A-Z][A-Z0-9_]{0,63}\}", auth_ref):
+                raise ValueError("unsafe credential reference")
+            if inline["provider"][provider].get("npm") == "@ai-sdk/openai-compatible":
+                endpoint_profile = {"protocol": "openai-chat-completions",
+                                    "auth_env": auth_ref[5:-1] if auth_ref else None}
+            milliseconds = options.get("timeout")
             if type(milliseconds) is int and milliseconds % 1000 == 0:
                 timeout_seconds = milliseconds // 1000
         except (KeyError, TypeError, ValueError):
             pass
         try:
             settings = _setting_metadata(data, raw)
-        except (UnicodeDecodeError, tomllib.TOMLDecodeError) as exc:
+        except (UnicodeError, ValueError, TypeError, tomllib.TOMLDecodeError) as exc:
             raise _error(503, "config_corrupt") from exc
         return {"config": data, "revision": sha256(raw).hexdigest(),
                 "issues": validate_config(config),
                 "local_endpoint_timeout_seconds": timeout_seconds,
+                "local_endpoint": endpoint_profile,
                 "settings": settings}
 
     @app.put("/api/v1/projects/{name}/config")
@@ -2690,9 +2838,10 @@ def create_app(home: str | Path | None = None,
                 "created_at": datetime.now(UTC).isoformat(),
                 "restart_required": _restart_required(body.key),
             }
+            public = _public_pending_config(value)
             _write_pending_config(pending_path, value)
         web.audit(user["id"], "config-staged", item.name, body.key)
-        return _public_pending_config(value)
+        return public
 
     @app.post("/api/v1/projects/{name}/config/apply")
     def apply_config(name: str, body: ConfigApply,
@@ -2705,6 +2854,10 @@ def create_app(home: str | Path | None = None,
             pending = _read_pending_config(pending_path)
             if pending is None:
                 raise _error(404, "pending_config_not_found")
+            _public_pending_config(pending)
+            if (body.base_revision is not None
+                    and not secrets.compare_digest(body.base_revision, pending["base_revision"])):
+                raise _error(409, "stale_config_revision")
             if not secrets.compare_digest(body.candidate_revision,
                                           pending["candidate_revision"]):
                 raise _error(409, "stale_pending_revision")

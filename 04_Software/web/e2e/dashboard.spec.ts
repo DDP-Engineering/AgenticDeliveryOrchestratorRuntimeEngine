@@ -75,20 +75,23 @@ test("admin stages and applies a budget change without changing live config duri
   await openConfiguration(page);
   const before = await (await page.request.get("/api/v1/projects/alpha/config")).json();
   const value = before.config.budgets.max_iterations + 1;
-  await page.getByRole("button", { name: "Edit budgets.max_iterations", exact: true }).click();
+  await page.getByRole("button", { name: "Edit Maximum iterations per job", exact: true }).click();
   const editor = page.locator(".setting-editor");
   await editor.getByRole("spinbutton").fill(String(value));
-  await editor.getByRole("button", { name: "Stage change", exact: true }).click();
+  await editor.getByRole("button", { name: "Prepare candidate", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Pending configuration", exact: true })).toBeVisible();
   const staged = await (await page.request.get("/api/v1/projects/alpha/config")).json();
   expect(staged.revision).toBe(before.revision);
   expect(staged.config.budgets.max_iterations).toBe(before.config.budgets.max_iterations);
   await page.getByRole("button", { name: "Apply change", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Pending configuration", exact: true })).toHaveCount(0);
-  await expect(page.getByRole("status")).toContainText("Configuration applied");
+  await expect(page.locator(".notice[role=status]")).toContainText("Configuration applied");
   const applied = await (await page.request.get("/api/v1/projects/alpha/config")).json();
   expect(applied.config.budgets.max_iterations).toBe(value);
   expect(applied.revision).not.toBe(before.revision);
+  const row = page.locator(".setting-row").filter({ has: page.getByText("Maximum iterations per job", { exact: true }) });
+  await expect(row.locator(".setting-badge")).toHaveText("Set for this project");
+  await expect(row.locator("code").first()).toHaveText(String(value));
 });
 
 test("CSRF and expired candidate revisions fail closed", async ({ page }) => {
@@ -144,7 +147,7 @@ test("narrow viewport menu and configuration editor remain usable", async ({ pag
   await expect(menu).toHaveAttribute("aria-expanded", "true");
   await openConfiguration(page);
   await expect(menu).toHaveAttribute("aria-expanded", "false");
-  await page.getByRole("button", { name: "Edit budgets.max_iterations", exact: true }).click();
+  await page.getByRole("button", { name: "Edit Maximum iterations per job", exact: true }).click();
   await expect(page.locator(".setting-editor").getByRole("spinbutton")).toBeVisible();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(1);

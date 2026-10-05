@@ -353,17 +353,20 @@ def test_config_view_reports_each_settings_source_and_editability(tmp_path):
         assert set(settings) == set(_leaves(body["config"]))
         assert settings["platform.repo"] == {
             "key": "platform.repo", "edit_key": "platform.repo",
-            "source": "project", "editable": True, "restart": True, "default": ""}
+            "source": "project", "editable": True, "restart": True, "default": "",
+            "type": "text", "choices": [], "minimum": None, "maximum": None}
         assert settings["budgets.max_iterations"]["source"] == "project"  # equals default
         assert settings["budgets.max_iterations"]["default"] == 20
         assert settings["budgets.max_wall_clock_seconds"] == {
             "key": "budgets.max_wall_clock_seconds",
             "edit_key": "budgets.max_wall_clock_seconds",
-            "source": "default", "editable": True, "restart": False, "default": 3600}
+            "source": "default", "editable": True, "restart": False, "default": 3600,
+            "type": "integer", "choices": [], "minimum": 1, "maximum": None}
         assert settings["delivery.draft"] == {
             "key": "delivery.draft", "edit_key": "delivery.draft",
             "source": "default", "editable": True, "restart": False,
-            "default": True}  # boolean
+            "default": True, "type": "boolean", "choices": [True],
+            "minimum": None, "maximum": None}  # boolean
         assert settings["metrics.db_path"]["default"] == ".adore/metrics.db"  # derived
         assert settings["agent.slug"]["default"] == "adore"
         model = settings["executor.commands.opencode.model"]
@@ -400,7 +403,8 @@ def test_config_view_reports_each_settings_source_and_editability(tmp_path):
 
         client.post("/api/v1/session", json={"username": "dev", "password": "longer-password"})
         seen = client.get("/api/v1/projects/alpha/config").json()["settings"]
-        assert seen == body["settings"]
+        assert seen == [item for item in body["settings"]
+                        if item["key"] != "budgets.max_cost_usd"]
 
 
 def test_config_view_default_of_an_emptied_map_is_the_built_in_map(tmp_path):

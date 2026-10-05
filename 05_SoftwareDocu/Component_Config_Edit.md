@@ -40,3 +40,13 @@ before changing a configuration file outside ADORE.
 
 `tests/test_web_config.py` holds the lock in one process and verifies both CLI
 and web edits fail closed, leave the file unchanged, and succeed after release.
+
+## 7. Workflow Integration
+
+Web preparation, apply and discard use this same configuration-directory lock.
+Preparation saves a single pending candidate with active TOML unchanged. Apply
+checks its candidate revision, optional explicit reviewed base, current bytes and
+conductor idle/paused conditions before replacement. Discard removes only pending
+state. Contention returns typed `config_edit_locked` recovery feedback to the
+settings review; the API owns revision/candidate validation and StateStore owns
+conductor safety. See `Component_Web_API.md` for the complete endpoint contract.

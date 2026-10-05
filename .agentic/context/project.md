@@ -41,7 +41,10 @@ OpenCode, Pi, Codex and Qwen Code.
   existing CLI/conductor commands; browser roles are admin and project-scoped
   developer, with cost data reserved for admins. Its shared accessible shell
   keeps authorized project context explicit and distinguishes pending, empty
-  and failed reads in the supported locales and themes. Web enrollment publishes
+  and failed reads in the supported locales and themes. Settings uses seven purpose
+  categories, visible catalog guidance and exact single-candidate active/proposed
+  review with explicit base/candidate binding, idle/lock/pause safety and Dev
+  financial/secret redaction. Web enrollment publishes
   complete profiles with pickup stopped, keeps human labels separate from stable
   identity, validates setup offline and records explicit revision-bound readiness.
   Guided enrollment presents six localized steps, keeps corrections only in browser

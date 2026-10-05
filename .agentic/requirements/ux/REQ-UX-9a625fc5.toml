@@ -14,10 +14,10 @@ title = "Mark and edit each project setting on its row"
 status = "active"
 
 requirement = """
-On a project's Configuration, the web interface shall label every setting as set for this project or default and give administrators an edit control on each browser-editable setting's own row that stages the change through the pending change flow, with the common settings first and, for administrators, the restart need and the way to change non-editable settings stated on the row.
+On a project's Configuration, the web interface shall label every setting as set for this project or default and give administrators an edit control on each browser-editable setting's own row that stages the change through the pending change flow, and, for administrators, the restart need and the way to change non-editable settings stated on the row.
 """
 
-verification = "Automated frontend tests check that rows carry the source, edit key, input kind, number step and restart flag, that common settings come first, and that only editable rows get an edit kind; Manual: in a browser, as administrator, edit a setting on its row, stage, apply and see its badge show set for this project; confirm a list shows the non-editable note; as developer, see the badges without edit controls or notes."
+verification = "Automated frontend tests check that rows carry the source, edit key, input kind, number step and restart flag, that purpose grouping retains each row once, and that only editable rows get an edit kind; Manual: in a browser, as administrator, edit a setting on its row, stage, apply and see its badge show set for this project; confirm a list shows the non-editable note; as developer, see the badges without edit controls or notes."
 
 affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/settings.ts", "04_Software/web/src/i18n.ts", "04_Software/web/src/styles.css", "04_Software/adore/web/static/", "04_Software/web/tests/"]
 
@@ -30,4 +30,4 @@ priority = "normal"
 rationale = "Editing a setting where it is shown avoids a separate key/value form and shows the effect of each change."
 
 created = 2026-10-04
-updated = 2026-10-04
+updated = 2026-10-05

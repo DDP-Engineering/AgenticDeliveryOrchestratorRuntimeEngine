@@ -13,6 +13,10 @@ export type SettingMeta = {
   source: "project" | "default";
   editable: boolean;
   restart: boolean;
+  type?: "boolean" | "integer" | "number" | "text" | "list" | "map";
+  choices?: Array<string | boolean>;
+  minimum?: number | null;
+  maximum?: number | null;
   /** ADORE's value when the project's file does not set the key; null when there is none. */
   default?: unknown;
 };
@@ -36,11 +40,6 @@ export const COMMON_SETTINGS: Array<{ key: string; label: MessageKey; kind: Comm
   { key: "budgets.max_files_touched", label: "maxFilesTouched", kind: "positive" },
 ];
 
-const CHOICES: Partial<Record<CommonKind, string[]>> = {
-  forge: ["gitlab", "github", "gitea"],
-  executor: ["opencode", "pi", "codex", "qwen"],
-};
-
 export type SettingRow = {
   key: string;
   group: string;
@@ -59,21 +58,37 @@ export type SettingRow = {
   defaultValue: unknown;
   /** Number input step: whole numbers for positive settings, any otherwise. */
   step?: "1" | "any";
+  minimum?: number | null;
+  maximum?: number | null;
+  type?: SettingMeta["type"];
 };
 
 export type SettingGroup = { name: string; rows: SettingRow[] };
 
-const lookup = (config: Record<string, unknown>, key: string): unknown =>
+export const settingValue = (config: Record<string, unknown>, key: string): unknown =>
   key.split(".").reduce<unknown>((current, part) =>
     current && typeof current === "object" ? (current as Record<string, unknown>)[part] : undefined, config);
 
-const inputKind = (value: unknown, editable: boolean, kind?: CommonKind): InputKind => {
-  if (!editable) return "none";
-  if (kind && CHOICES[kind]) return "choice";
-  if (typeof value === "boolean") return "boolean";
-  if (typeof value === "number") return "number";
+const inputKind = (item: SettingMeta): InputKind => {
+  if (!item.editable || !["boolean", "integer", "number", "text"].includes(item.type || "")) return "none";
+  if (item.choices?.length) return "choice";
+  if (item.type === "boolean") return "boolean";
+  if (item.type === "integer" || item.type === "number") return "number";
   return "text";
 };
+
+export const PURPOSE_GROUPS = ["repository", "agent", "isolation", "rules", "limits", "measurement", "advanced"] as const;
+
+/** Purpose ownership of catalog settings, including dynamic entries. */
+export function settingPurpose(key: string): string {
+  if (key.startsWith("labels.selection.") || key.startsWith("platform.") || key.startsWith("polling.")) return "repository";
+  if (key.startsWith("executor.")) return "agent";
+  if (key.startsWith("container.") || key.startsWith("worktree.")) return "isolation";
+  if (["delivery", "readiness", "workflow", "review", "labels"].includes(key.split(".")[0])) return "rules";
+  if (["budgets", "recovery", "clarification", "reconcile"].includes(key.split(".")[0])) return "limits";
+  if (key.startsWith("metrics.")) return "measurement";
+  return "advanced";
+}
 
 /**
  * One row per setting the server described, in the server's key order, with
@@ -83,7 +98,7 @@ export function settingRows(config: Record<string, unknown>, settings: SettingMe
   const sections = Object.keys(config);
   return settings.map(item => {
     const common = COMMON_SETTINGS.find(entry => entry.key === item.key);
-    const value = lookup(config, item.key);
+    const value = settingValue(config, item.key);
     const group = item.key.split(".")[0];
     return {
       key: item.key,
@@ -93,37 +108,32 @@ export function settingRows(config: Record<string, unknown>, settings: SettingMe
       source: item.source,
       editKey: item.edit_key,
       restart: item.restart,
-      input: inputKind(value, item.editable, common?.kind),
-      choices: (common && CHOICES[common.kind]) || [],
+      input: inputKind(item),
+      choices: (item.choices || []).map(String),
       common: !!common,
       label: common?.label,
       defaultValue: item.default ?? null,
       hint: common?.kind === "positive" || common?.kind === "runtime" ? common.kind : undefined,
-      step: typeof value === "number" && item.editable ? (common?.kind === "positive" ? "1" : "any") : undefined,
+      step: item.type === "integer" ? "1" : item.type === "number" ? "any" : undefined,
+      minimum: item.minimum, maximum: item.maximum, type: item.type,
     };
   });
 }
 
 /**
- * Groups rows for display: the common settings first in their defined order,
- * then one group per configuration section in configuration order. With
+ * Groups rows by purpose in the seven agreed categories. With
  * `projectOnly`, only settings the project's file sets remain, and groups
  * left empty are dropped.
  */
 export function settingGroups(rows: SettingRow[], projectOnly: boolean): SettingGroup[] {
   const shown = projectOnly ? rows.filter(row => row.source === "project") : rows;
-  const common = COMMON_SETTINGS
-    .map(entry => shown.find(row => row.key === entry.key))
-    .filter((row): row is SettingRow => !!row);
-  const sections: SettingGroup[] = [];
-  for (const row of shown) {
-    if (row.common) continue;
-    let group = sections.find(item => item.name === row.group);
-    if (!group) { group = { name: row.group, rows: [] }; sections.push(group); }
-    group.rows.push(row);
-  }
-  sections.sort((left, right) => left.rows[0].groupIndex - right.rows[0].groupIndex);
-  return [{ name: "common", rows: common }, ...sections].filter(group => group.rows.length > 0);
+  const rank = (row: SettingRow) => {
+    const position = COMMON_SETTINGS.findIndex(item => item.key === row.key);
+    return position < 0 ? COMMON_SETTINGS.length : position;
+  };
+  return PURPOSE_GROUPS.map(name => ({ name, rows: shown.filter(row => settingPurpose(row.key) === name)
+    .sort((left, right) => rank(left) - rank(right)) }))
+    .filter(group => group.rows.length > 0);
 }
 
 /** The text an editor starts from for a setting's current value. */
@@ -136,4 +146,42 @@ export function hasDefault(value: unknown): boolean {
   if (value === null || value === undefined || value === "") return false;
   if (Array.isArray(value)) return value.length > 0;
   return typeof value !== "object" || Object.keys(value).length > 0;
+}
+
+
+/** Reject malformed settings transport before a browser can edit it. */
+export function validSettingCatalog(settings: unknown): settings is SettingMeta[] {
+  if (!Array.isArray(settings)) return false;
+  const keys = new Set<string>();
+  return settings.every(item => {
+    if (!item || typeof item.key !== "string" || keys.has(item.key)) return false;
+    keys.add(item.key);
+    return typeof item.edit_key === "string" && ["project", "default"].includes(item.source)
+      && typeof item.editable === "boolean" && typeof item.restart === "boolean"
+      && ["boolean", "integer", "number", "text", "list", "map"].includes(item.type)
+      && Array.isArray(item.choices) && item.choices.every((choice: unknown) => typeof choice === "string" || typeof choice === "boolean")
+      && [item.minimum, item.maximum].every(bound => bound === null || typeof bound === "number" && Number.isFinite(bound));
+  });
+}
+
+export type PendingConfig = { base_revision: string; candidate_revision: string; key: string; value: string; proposed_value: string | number | boolean; created_at: string; restart_required: boolean; endpoint?: { protocol: string; model: string; auth_env: string | null; timeout_seconds: number | null; ca_file: string | null } };
+
+/** A malformed or unbound server candidate never enables Apply. */
+export function validPendingConfig(value: unknown): value is PendingConfig | null {
+  if (value === null) return true;
+  if (!value || typeof value !== "object") return false;
+  const item = value as PendingConfig;
+  const digest = (part: unknown) => typeof part === "string" && /^[a-f0-9]{64}$/.test(part);
+  return digest(item.base_revision) && digest(item.candidate_revision)
+    && typeof item.key === "string" && item.key.length > 0 && typeof item.value === "string"
+    && item.value === (typeof item.proposed_value === "boolean" ? String(item.proposed_value).toLowerCase() : String(item.proposed_value))
+    && ["string", "number", "boolean"].includes(typeof item.proposed_value)
+    && (typeof item.proposed_value !== "number" || Number.isFinite(item.proposed_value))
+    && typeof item.restart_required === "boolean"
+    && typeof item.created_at === "string" && /(?:Z|[+-]\d{2}:\d{2})$/.test(item.created_at) && Number.isFinite(Date.parse(item.created_at))
+    && (item.key !== "container.runtime_env.OPENAI_BASE_URL" || !!item.endpoint)
+    && (!item.endpoint || item.key === "container.runtime_env.OPENAI_BASE_URL" && item.endpoint.protocol === "openai-chat-completions" && typeof item.endpoint.model === "string"
+      && (item.endpoint.auth_env === null || /^[A-Z][A-Z0-9_]{0,63}$/.test(item.endpoint.auth_env))
+      && (item.endpoint.timeout_seconds === null || Number.isInteger(item.endpoint.timeout_seconds) && item.endpoint.timeout_seconds >= 1 && item.endpoint.timeout_seconds <= 600)
+      && (item.endpoint.ca_file === null || typeof item.endpoint.ca_file === "string"));
 }

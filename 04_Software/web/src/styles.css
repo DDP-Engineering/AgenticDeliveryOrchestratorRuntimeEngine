@@ -409,3 +409,14 @@ td.strong { font-weight: 800; }
   .enrollment-grid, .enrollment-review dl > div { grid-template-columns: minmax(0, 1fr); }
   .enrollment button { white-space: normal; overflow-wrap: anywhere; }
 }
+
+.setting-essential { font-size: .875rem; line-height: 1.5; margin: .4rem 0; overflow-wrap: anywhere; }
+.endpoint-fields { display: contents; border: 0; padding: 0; margin: 0; }
+.candidate-review code, .candidate-review dd { overflow-wrap: anywhere; white-space: pre-wrap; }
+.candidate-values { display: grid; gap: .75rem; }
+.candidate-values section { border: 1px solid var(--border); padding: .75rem; border-radius: .5rem; min-width: 0; }
+.candidate-values h4 { margin: 0 0 .5rem; }
+.candidate-values dl { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 0; }
+.candidate-values dt { font-weight: 700; }
+.candidate-values dd { margin: .3rem 0 0; }
+@media (max-width: 640px) { .candidate-values dl { grid-template-columns: 1fr; } }

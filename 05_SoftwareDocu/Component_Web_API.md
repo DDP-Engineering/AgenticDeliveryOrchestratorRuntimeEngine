@@ -232,14 +232,34 @@ the edit routes enforce, and a single string, number or boolean value) and
 (the value at that key in `default_config()` - ADORE's built-in
 configuration with slug-derived names - after redaction, a whole built-in map
 for a map the project emptied, or null when it has no such key).
+Catalog rows additionally supply `type` (boolean/integer/number/text/list/map),
+`choices`, inclusive `minimum` and `maximum` (null when unbounded). Types derive
+from built-in configuration model defaults; configured executor entries supply
+agent choices and scalar domains project the existing validator. Whole-config
+validation remains decisive for dependent rules. Corrupt declared scalar types
+return 503 `config_corrupt`. Dev configuration omits `budgets.max_cost_usd` before
+row/default generation. Credential-bearing URLs are redacted in effective reads.
+
 `GET/POST/DELETE /api/v1/projects/{name}/config/pending` read, stage and
 discard the single candidate. `POST /api/v1/projects/{name}/config/apply`
-requires its candidate SHA-256 revision. All four routes are administrator-only;
+requires its candidate SHA-256 revision and accepts an optional reviewed
+`base_revision`; supplied bases must match the saved base or return 409
+`stale_config_revision`. The dashboard supplies both revisions. Legacy
+candidate-only callers retain exact stored-base/current-byte checks. All four routes are administrator-only;
 mutations require CSRF. Apply and direct PUT reject nonterminal or corrupt run
 state, a live conductor lock, and unfinished web operations. High-impact
 `agent`, `platform`, `worktree`, `container` and `executor` edits require
 paused pickup; the profile directory's repository/platform/runtime labels are
 updated after commit. Host edits to TOML invalidate the staged base revision.
+Pending review adds `proposed_value`, parsed and type-checked from candidate TOML.
+The compatibility `value` string is canonicalized from that value. Review exposes
+saved UTC `created_at` and no invented actor. Safe current endpoint protocol/auth
+variable metadata is returned only when observed in the compatible provider
+configuration; missing metadata remains null. Stored endpoint protocol/credential
+corruption returns 503 `pending_config_corrupt` before review or apply. Preparation
+rejects incompatible scalar types and unsafe edited URL credentials with 400
+`invalid_config`; preparing and discarding leave active TOML bytes unchanged.
+
 `/api/v1/projects/{name}/runs-page` returns runs ordered by last update, with
 `limit` (1-100 or `all`, default 25), nonnegative `offset`, optional exact `lifecycle`
 and `stage` filters, an exact observed `executor` filter, inclusive
@@ -468,3 +488,5 @@ Storage failures return a safe `readiness_store_failed` finding.
 Offline contract proof is in `test_web_enrollment.py` and `test_web_errors.py`,
 including concurrency, worker discovery, rollback, legacy identity, secret handling,
 RBAC/CSRF, revision races and corrupt persisted evidence.
+
+Restored endpoint CA paths are revalidated before review/apply against the same HTTPS, absolute executor path, bounded length and no traversal/control-character domain as preparation; malformed paths return `pending_config_corrupt`.

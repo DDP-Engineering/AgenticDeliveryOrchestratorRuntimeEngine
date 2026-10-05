@@ -109,7 +109,9 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 - Developer routes check membership before reading a project and omit all
   financial fields. Project configuration reads return redacted effective
   settings to assigned developers, with per-setting source, editability (the
-  same rule as edits) and restart metadata; other project identities return
+  same rule as edits), declared type/domain/default and restart metadata.
+  Dev reads omit the financial cap; credential-bearing URLs are redacted before
+  row/default/review generation. Other project identities return
   404.
   Configuration mutations, account management and global metrics require admin.
 - Schema 7 binds grants to immutable profile IDs. Older creation-stamped grants
@@ -139,8 +141,9 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
   lock as CLI `config set`; direct host file changes do not use that lock.
   Staged, applied, direct and OpenCode endpoint edits write bytes and keep the
   file's CR LF or LF line endings (`REQ-PLAT-722173c8`).
-- The administrator UI stages one validated config candidate per project,
-  reviews its revision and applies it only with no active run, conductor or
+- The administrator UI prepares one validated config candidate per project,
+  reviews safe active/proposed values, effect, affected project, observed time and
+  unrecorded actor, with both full base/candidate revisions and applies it only with no active run, conductor or
   queued operation. Identity/runtime edits require paused pickup. Retrying an
   interrupted apply reconciles exact candidate bytes and profile labels.
 - Explicit administrator readiness checks use bounded doctor probes from the
@@ -321,6 +324,9 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
   default and the empty-metrics message.
 - `REQ-NFR-da638732` / `REQ-NFR-46c98d6c` / `REQ-FUNC-a83c4cd3` - no polling
   while hidden and server-paged Audit/Overview tables.
+- `REQ-UX-2bea4ff1` / `REQ-UX-84025a2c` - purpose categories, visible setting
+  guidance, catalog control domains and exact single-candidate safe review, with
+  explicit apply/discard, recorded evidence fallbacks and scoped request guards.
 - `REQ-UX-66e6f3f5` - project details presents collapsible, guided settings with administrator editing.
 - `REQ-FUNC-49b766fe` / `REQ-UX-9a625fc5` / `REQ-UX-a62e69a9` - per-setting source, editability and
   restart metadata; Set for this project / Default badges, row editing and the project-set filter.
@@ -353,6 +359,12 @@ flowchart LR
     api --> draftProbe[Shared bounded draft and project probe]
     DashboardShell --> routes[routes.ts]
     DashboardShell --> logo[Approved transparent logo]
+    App --> SettingsList[SettingsList catalog guidance]
+    App --> PendingReview[PendingReview safe single candidate]
+    SettingsList --> settings[settings.ts domains grouping]
+    PendingReview --> settings
+    SettingsList --> settingsCopy[settingsCopy.ts localized guidance]
+    PendingReview --> settingsCopy
     App --> i18n[i18n catalogs]
     Presentation --> i18n
     App --> api[create_app]
@@ -386,7 +398,8 @@ Administration expands into System status, Users and Change history sidebar page
 both roles reach a top-level My account page. Every view has a path URL
 (`web/src/routes.ts`) kept in sync with view state; project details uses
 Summary/Settings/Prices/Access/History tabs and Jobs/Statistics links. Project details shows effective
-configuration in compact sections, common settings first, with a Set for this
+configuration in seven purpose categories with frequent settings first within each,
+with a Set for this
 project / Default badge, field type, domain and purpose help and a filter for
 project-set settings; administrators edit settings on their rows and stage
 endpoint and price changes there. The
@@ -472,3 +485,19 @@ for Add and Import project. Primary buttons take their text colour from the
 - `02_Tools/{package_web_offline,install_web_offline,launch_web,stamp_web_assets}.py`
   - offline media and static asset preparation.
 - `04_Software/tests/test_web_*.py` - focused API, pricing, worker and packaging tests.
+
+### Settings edit and review seam
+
+Start at `App.tsx` SettingsList/PendingReview and `settings.ts` for grouped controls
+and strict transport; `settingsCopy.ts` and the existing settingHelp catalog supply
+four-locale guidance. Server `_setting_metadata`, `_public_pending_config` and
+pending routes own safe domains and candidate values; the browser supplies both
+reviewed revisions. Focused proof: `tests/test_web_pending_config.py`,
+`tests/test_web_config.py`, `web/tests/settings.test.mjs`, `web/e2e/settings.spec.ts`.
+Malformed reads disable actions; ref locking and captured session/view/request
+identity prevent duplicate or stale completion. The existing configuration/conductor
+locks remain the final authority for every apply.
+
+Restored endpoint CA paths are revalidated before review/apply against the same HTTPS, absolute executor path, bounded length and no traversal/control-character domain as preparation; malformed paths return `pending_config_corrupt`.
+
+Discard focus restoration runs in a post-render effect after the mutation busy guard clears, with the original captured scope checked before focusing the enabled edit control.

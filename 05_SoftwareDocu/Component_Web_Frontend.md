@@ -176,11 +176,11 @@ Administrators can operate pickup and archive/restore; Dev users open their gran
 projects. Summary retains the selected identity and shows runtime, executor,
 verification and project job history with direct Jobs/Statistics links.
 Assigned developers can inspect the redacted effective configuration in
-collapsible sections, with the common settings first. Each row shows its value,
+collapsible purpose categories, with frequent settings first within each. Each row shows its value,
 a Set for this project / Default badge, its type and contextual help; common
 settings also describe their valid domain. A checkbox limits the list to
 settings set for the project (`web/src/settings.ts` builds and groups the
-rows). Each row's Help shows the setting's own text in the selected language
+rows). Each row's visible guidance shows the setting's own text in the selected language
 from `web/src/settingHelp.ts` (keyed by the catalog `web/src/settingKeys.json`,
 with `*` for project-chosen names) and its ADORE default. Administrators can stage and apply
 project configuration, local endpoint and estimated-price changes there, while
@@ -275,16 +275,30 @@ key without collecting its value in the browser. The form exposes the supported
 chat-completions protocol, bounded request timeout, and HTTPS custom-CA file
 path inside the executor image. Its pending-change panel shows the resulting
 endpoint fields before Apply.
-Settings stages scalar and local-endpoint changes for administrator review.
-The panel shows the changed value, candidate revision and pause guidance for
-identity/runtime edits. Apply commits the candidate at a quiescent boundary;
-Discard removes it. The UI reloads the live revision after either action.
-Administrators edit an editable setting on its row (select for choices and
-booleans, number or text input) and stage it into that panel; rows note when
-applying needs paused pickup, and non-editable rows say to change the
-project's config.toml on the ADORE host. The whole-number common settings use a
-step and minimum of 1; other number rows accept any number and the server
-validates the value.
+Settings presents seven purpose categories with frequent rows first in each,
+source badges, visible localized purpose/units/consequence help, Active value and
+ADORE default. Technical keys and server catalog type/choices/numeric bounds live
+under Help. Browser controls use server metadata; malformed catalog/candidate
+transport fails closed. English labels clarify catalog keys; other locales retain
+localized common labels and localized setting guidance for remaining headings.
+`settingsCopy.ts` supplies four-locale category, effect and recovery copy.
+
+`PendingReview` compares safe active values to typed server-derived proposed values,
+names the affected display project and shows actual saved time with an honest
+unrecorded actor. Preparation focuses the review heading; discard returns keyboard
+focus to the edited row or endpoint field. Endpoint review includes URL, model, protocol, credential variable,
+timeout and CA; unobserved active connection fields stay unknown. Safe clipboard
+copy uses only review values and full revisions. A single mutation ref lock and
+captured session/request/view identities suppress duplicate submission and late
+cross-project completions. Editing waits for the pending read and freezes while a
+candidate exists. The endpoint fields share those guards.
+
+Apply sends both candidate/base revisions; stale base or required unpaused pickup
+disables the browser action. Server idle/lock/pause checks remain decisive and a
+blocked result retains review. Discard removes only the candidate. A failed pending
+read offers explicit refresh/discard and prevents edits or Apply. Assigned Dev sees
+read-only groups with financial/secret fields omitted. Existing jobs retain their
+configuration; the UI explicitly describes the one-setting candidate contract.
 Statistics also shows reviewer-requested MR/PR revisions and automatic pipeline
 repairs as distinct counts; unknown revision triggers appear in coverage.
 The Delivery quality panel shows reviewer-rework, first-validation, and
@@ -309,7 +323,9 @@ those views after the switch.
 `DashboardShell.tsx` owns the authenticated frame, real navigation links,
 branding, responsive menu, header and content focus. `Presentation.tsx` owns
 `DataFeedback`, `ProjectEmpty`, `StatusBadge` and `DeliveryGlossary`.
-`App.tsx` owns session, project hubs, configuration/statistics mutations and route/history flow.
+`App.tsx` owns session, project hubs, SettingsList/PendingReview, configuration/statistics mutations and route/history flow.
+`settings.ts` owns purpose grouping and strict catalog/candidate transport validation;
+`settingsCopy.ts` owns clear labels and localized single-candidate guidance.
 `JobWorkspace.tsx` owns scoped jobs/attention/detail, visible polling and command
 feedback. `jobModel.ts` validates complete counts, composite identity, saved
 links and observed events; `jobCopy.ts` supplies four-locale action guidance. Request completion retains session-generation guards
@@ -457,3 +473,15 @@ Settings views retained document language and had no 360px overflow.
 
 The initial automated journey suite uses Chromium. Additional browser engines,
 automated accessibility audits and live log streaming are future work.
+
+### Settings validation
+
+`web/tests/settings.test.mjs` verifies complete grouping, server control domains,
+read-only malformed metadata, labels and strict candidate transport. Offline
+`web/e2e/settings.spec.ts` covers correction, safe before/after/copy, unchanged
+active revision, exact apply payload, blocked/pause/stale/malformed review, discard,
+duplicate/late requests, endpoint connection review, four locales and keyboard/
+390px/light/dark views. Screenshot inspection complements automated checks; live
+infrastructure, full accessibility and participant acceptance remain human work.
+
+Discard focus restoration runs in a post-render effect after the mutation busy guard clears, with the original captured scope checked before focusing the enabled edit control.

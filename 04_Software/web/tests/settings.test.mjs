@@ -6,7 +6,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { COMMON_SETTINGS, editValue, hasDefault, settingGroups, settingRows } from "../src/settings.ts";
+import { editValue, hasDefault, settingGroups, settingRows, validSettingCatalog, validPendingConfig } from "../src/settings.ts";
 
 const config = {
   platform: { kind: "gitlab", repo: "group/project" },
@@ -16,7 +16,9 @@ const config = {
   container: { egress: { allowlist: [] } },
 };
 const meta = (key, source, editable, restart = false, edit_key = key) =>
-  ({ key, edit_key, source, editable, restart, default: key === "budgets.max_iterations" ? 20 : null });
+  ({ key, edit_key, source, editable, restart, default: key === "budgets.max_iterations" ? 20 : null,
+    type: key === "budgets.max_iterations" ? "integer" : key === "budgets.max_cost_usd" ? "number" : key === "delivery.draft" ? "boolean" : "text",
+    choices: key === "platform.kind" ? ["gitlab", "github", "gitea"] : key === "executor.default" ? ["opencode", "pi", "codex", "qwen"] : [], minimum: null, maximum: null });
 const settings = [
   meta("budgets.max_cost_usd", "default", true),
   meta("budgets.max_iterations", "project", true),
@@ -53,24 +55,21 @@ test("rows carry value, source, edit key, restart and an input kind", () => {
   }
 });
 
-test("common settings come first, in their defined order, and only once", () => {
+test("purpose groups retain every row once in catalog order", () => {
   const groups = settingGroups(settingRows(config, settings), false);
-  const present = new Set(settings.map(item => item.key));
-  assert.equal(groups[0].name, "common");
-  assert.deepEqual(groups[0].rows.map(row => row.key),
-    COMMON_SETTINGS.map(item => item.key).filter(key => present.has(key)));
-  assert.ok(groups[0].rows.every(row => row.common && row.label));
-  const common = new Set(groups[0].rows.map(row => row.key));
-  assert.ok(groups.slice(1).every(group => group.rows.every(row => !common.has(row.key))));
-  assert.deepEqual(groups.slice(1).map(group => group.name), ["executor", "budgets", "delivery", "container"]);
+  assert.deepEqual(groups.map(group => group.name), ["repository", "agent", "isolation", "rules", "limits"]);
+  const keys = groups.flatMap(group => group.rows.map(row => row.key));
+  assert.equal(new Set(keys).size, settings.length);
+  assert.deepEqual([...keys].sort(), settings.map(item => item.key).sort());
 });
 
 test("the project-set filter keeps project rows and drops empty groups", () => {
   const groups = settingGroups(settingRows(config, settings), true);
   assert.deepEqual(groups.map(group => [group.name, group.rows.map(row => row.key)]), [
-    ["common", ["platform.repo", "platform.kind", "budgets.max_iterations"]],
-    ["executor", ["executor.commands.opencode.command", "executor.commands.opencode.model"]],
-    ["delivery", ["delivery.reviewers"]],
+    ["repository", ["platform.repo", "platform.kind"]],
+    ["agent", ["executor.commands.opencode.command", "executor.commands.opencode.model"]],
+    ["rules", ["delivery.reviewers"]],
+    ["limits", ["budgets.max_iterations"]],
   ]);
 });
 
@@ -84,4 +83,40 @@ test("edit values start from the current value", () => {
 test("a default is shown unless it is missing or empty", () => {
   for (const value of [null, undefined, "", [], {}]) assert.equal(hasDefault(value), false, JSON.stringify(value));
   for (const value of [0, false, "adore", ["a"], { bug: "fix" }]) assert.equal(hasDefault(value), true, JSON.stringify(value));
+});
+
+
+test("purpose groups and server choices replace inferred browser domains", () => {
+  const rows = settingRows(config, settings.map(item => ({ ...item, type: item.key === "budgets.max_iterations" ? "integer" : "text", choices: item.key === "platform.kind" ? ["gitea"] : [], minimum: item.key === "budgets.max_iterations" ? 1 : null, maximum: null })));
+  assert.deepEqual(rows.find(row => row.key === "platform.kind").choices, ["gitea"]);
+  assert.equal(rows.find(row => row.key === "budgets.max_iterations").minimum, 1);
+  assert.deepEqual(settingGroups(rows, false).map(group => group.name), ["repository", "agent", "isolation", "rules", "limits"]);
+  const unknown = settingRows(config, [{ ...settings[0], type: "unknown" }]);
+  assert.equal(unknown[0].input, "none");
+});
+
+
+test("catalog and candidate transport reject malformed or missing authority", () => {
+  assert.equal(validSettingCatalog(settings), true);
+  for (const bad of [null, {}, [{ ...settings[0], choices: null }], [{ ...settings[0], minimum: Infinity }], [settings[0], settings[0]], [{ ...settings[0], type: "unknown" }]]) assert.equal(validSettingCatalog(bad), false);
+  const candidate = { base_revision: "a".repeat(64), candidate_revision: "b".repeat(64), key: "budgets.max_iterations", value: "12", proposed_value: 12, created_at: "2026-10-05T12:00:00Z", restart_required: false };
+  assert.equal(validPendingConfig(candidate), true);
+  assert.equal(validPendingConfig(null), true);
+  for (const bad of [{}, { ...candidate, proposed_value: {} }, { ...candidate, base_revision: "stale" }, { ...candidate, created_at: "2026-10-05T12:00:00" }, { ...candidate, endpoint: { protocol: "anthropic" } }]) assert.equal(validPendingConfig(bad), false);
+});
+
+
+test("every catalog key has an understandable English label and purpose", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { settingLabel, settingsCopy } = await import("../src/settingsCopy.ts");
+  const { settingPurpose } = await import("../src/settings.ts");
+  const catalog = JSON.parse(readFileSync(new URL("../src/settingKeys.json", import.meta.url), "utf8"));
+  for (const key of catalog) {
+    const label = settingLabel(key);
+    assert.ok(label.length > 3 && !label.includes("_"), key);
+    assert.ok(settingsCopy.en[settingPurpose(key)], key);
+  }
+  assert.deepEqual(Object.keys(settingsCopy.fr).sort(), Object.keys(settingsCopy.en).sort());
+  assert.deepEqual(Object.keys(settingsCopy.de).sort(), Object.keys(settingsCopy.en).sort());
+  assert.deepEqual(Object.keys(settingsCopy.ro).sort(), Object.keys(settingsCopy.en).sort());
 });

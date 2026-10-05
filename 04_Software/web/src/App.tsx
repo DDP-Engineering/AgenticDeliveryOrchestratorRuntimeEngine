@@ -11,8 +11,9 @@ import { auditPolicyPayload } from "./auditPolicy";
 import { ApiError, describeError } from "./errors";
 import { startVisiblePolling } from "./polling";
 import { formatRoute, normalizeRoute, parseRoute, type ProjectTab, type Route } from "./routes";
-import { editValue, hasDefault, settingGroups, settingRows, type SettingMeta, type SettingRow } from "./settings";
+import { editValue, hasDefault, settingGroups, settingRows, type SettingMeta, type SettingRow, settingValue, validSettingCatalog, validPendingConfig, type PendingConfig } from "./settings";
 import { settingHelp } from "./settingHelp";
+import { settingsCopy, settingLabel } from "./settingsCopy";
 import { ImportWizard } from "./ImportWizard";
 import { EnrollmentWizard } from "./EnrollmentWizard";
 import { JobWorkspace } from "./JobWorkspace";
@@ -25,8 +26,7 @@ type Session = { user: User; csrf: string };
 type PageSize = 10 | 25 | 50 | "all";
 type Preferences = { language: Locale | null; theme: "light" | "dark" | "system" | null };
 type Project = { display_name: string; pickup_state: string; verification: { status: string; checked_at?: string | null; revision?: string | null }; validation: { structural_valid: boolean }; id: string; name: string; description: string; platform: string; repo: string; runtime: string; executor: string; readiness: string; last_activity: string | null; paused: boolean; archived: boolean; runs: number; invalid_runs: string[] };
-type PendingConfig = { base_revision: string; candidate_revision: string; key: string; value: string; created_at: string; restart_required: boolean; endpoint?: { protocol: string; model: string; auth_env: string | null; timeout_seconds: number | null; ca_file: string | null } };
-type Config = { config: Record<string, unknown>; revision: string; issues: string[]; local_endpoint_timeout_seconds?: number | null; settings?: SettingMeta[] };
+type Config = { config: Record<string, unknown>; revision: string; issues: string[]; local_endpoint_timeout_seconds?: number | null; local_endpoint?: { protocol: string; auth_env: string | null } | null; settings?: SettingMeta[] };
 type Operation = { id: number; status: string; result?: string; action?: string };
 type AuditRow = { id: number; actor: string | null; action: string; project: string; detail: string; created_at: string };
 type Price = { id: number; executor: string; model: string; effective_from: string; input_usd_per_million: string; output_usd_per_million: string };
@@ -151,6 +151,16 @@ export default function App() {
   const globalMetricsRequest = useRef(0);
   const usageRequest = useRef(0);
   const configRequest = useRef(0);
+  const configMutation = useRef(false);
+  const configView = useRef("");
+  configView.current = `${page}:${selected}`;
+  const [configBusy, setConfigBusy] = useState(false);
+  const configDiscardFocus = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    if (!configBusy) { configDiscardFocus.current?.(); configDiscardFocus.current = null; }
+  }, [configBusy]);
+  const [pendingReady, setPendingReady] = useState(false);
+  const [pendingReadFailed, setPendingReadFailed] = useState(false);
   const readinessRequest = useRef(0);
   const preferenceRequest = useRef({ language: 0, theme: 0 });
   const viewGeneration = useRef(0);
@@ -452,13 +462,14 @@ export default function App() {
       const generation = viewGeneration.current;
       const revision = ++configRequest.current;
       setConfigState({ key: selected, state: "loading" });
+      setPendingReadFailed(false); setPendingReady(false);
       setConfig(null); setConfigScope(""); setPendingConfig(null); setPendingConfigScope(""); setPrices([]); setPricesScope("");
       request<Config>("/projects/" + encodeURIComponent(selected) + "/config").then(value => {
-        if (!value || !value.config || typeof value.revision !== "string" || !Array.isArray(value.issues)) throw new ApiError("unexpected_response");
+        if (!value || !value.config || typeof value.revision !== "string" || !Array.isArray(value.issues) || !validSettingCatalog(value.settings)) throw new ApiError("unexpected_response");
         if (generation === viewGeneration.current && revision === configRequest.current) { setConfig(value); setConfigScope(selected); setConfigState({ key: selected, state: "ready" }); }
       }).catch(cause => { if (generation === viewGeneration.current && revision === configRequest.current) { setConfigState({ key: selected, state: "error" }); setError(cause); } });
       if (isAdmin) {
-        request<PendingConfig | null>(`/projects/${encodeURIComponent(selected)}/config/pending`).then(value => { if (generation === viewGeneration.current && revision === configRequest.current) { setPendingConfig(value); setPendingConfigScope(selected); } }).catch(cause => { if (generation === viewGeneration.current && revision === configRequest.current) setError(cause); });
+        request<PendingConfig | null>(`/projects/${encodeURIComponent(selected)}/config/pending`).then(value => { if (!validPendingConfig(value)) throw new ApiError("unexpected_response"); if (generation === viewGeneration.current && revision === configRequest.current) { setPendingConfig(value); setPendingConfigScope(selected); setPendingReady(true); } }).catch(cause => { if (generation === viewGeneration.current && revision === configRequest.current) { setPendingConfig(null); setPendingReadFailed(true); setError(cause); } });
         request<Price[]>(`/projects/${encodeURIComponent(selected)}/prices`).then(value => { if (generation === viewGeneration.current && revision === configRequest.current) { setPrices(value); setPricesScope(selected); } }).catch(cause => { if (generation === viewGeneration.current && revision === configRequest.current) setError(cause); });
       }
     }
@@ -755,13 +766,18 @@ export default function App() {
   };
 
   const stageSetting = async (key: string, value: string): Promise<boolean> => {
-    setError("");
-    if (!config || !selected) return false;
+    if (!projectConfig || !selected || configMutation.current || projectPendingConfig || pendingReadFailed || !pendingReady) return false;
+    const target = selected, generation = viewGeneration.current, revision = configRequest.current, scope = configView.current;
+    const current = () => generation === viewGeneration.current && revision === configRequest.current && scope === configView.current;
+    configMutation.current = true; setConfigBusy(true); setError("");
     try {
-      const staged = await request<PendingConfig>(`/projects/${encodeURIComponent(selected)}/config/pending`, "POST", { key, value, revision: config.revision }, session?.csrf);
-      setPendingConfig(staged); setPendingConfigScope(selected); setNotice(t("changeStaged"));
+      const staged = await request<PendingConfig>(`/projects/${encodeURIComponent(target)}/config/pending`, "POST", { key, value, revision: projectConfig.revision }, session?.csrf);
+      if (!validPendingConfig(staged) || !staged || staged.base_revision !== projectConfig.revision || staged.key !== key) throw new ApiError("unexpected_response");
+      if (!current()) return false;
+      setPendingConfig(staged); setPendingConfigScope(target); setNotice(t("changeStaged"));
       return true;
-    } catch (cause) { setError(cause); return false; }
+    } catch (cause) { if (current()) { setError(cause); if (cause instanceof ApiError && ["unexpected_response", "network_error", "pending_config_exists"].includes(cause.code)) setPendingReadFailed(true); } return false; }
+    finally { configMutation.current = false; setConfigBusy(false); }
   };
 
   const rebuildUsage = async () => {
@@ -775,41 +791,55 @@ export default function App() {
   };
 
   const saveEndpoint = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault(); setError("");
-    if (!config || !selected) return;
+    event.preventDefault();
+    if (!projectConfig || !selected || configMutation.current || projectPendingConfig || pendingReadFailed || !pendingReady) return;
     const fields = Object.fromEntries(new FormData(event.currentTarget));
+    const target = selected, generation = viewGeneration.current, revision = configRequest.current, scope = configView.current;
+    const current = () => generation === viewGeneration.current && revision === configRequest.current && scope === configView.current;
+    configMutation.current = true; setConfigBusy(true); setError("");
     try {
-      const staged = await request<PendingConfig>(`/projects/${encodeURIComponent(selected)}/config/pending`, "POST", {
+      const staged = await request<PendingConfig>(`/projects/${encodeURIComponent(target)}/config/pending`, "POST", {
         key: "container.runtime_env.OPENAI_BASE_URL", value: fields.endpoint,
         model: fields.model, auth_env: fields.auth_env || undefined,
-        protocol: fields.protocol, timeout_seconds: Number(fields.timeout_seconds),
-        ca_file: fields.ca_file,
-        revision: config.revision,
+        protocol: fields.protocol, timeout_seconds: Number(fields.timeout_seconds), ca_file: fields.ca_file,
+        revision: projectConfig.revision,
       }, session?.csrf);
-      setPendingConfig(staged); setPendingConfigScope(selected); setNotice(t("changeStaged"));
-    } catch (cause) { setError(cause); }
+      if (!validPendingConfig(staged) || !staged || !staged.endpoint || staged.base_revision !== projectConfig.revision || staged.key !== "container.runtime_env.OPENAI_BASE_URL") throw new ApiError("unexpected_response");
+      if (current()) { setPendingConfig(staged); setPendingConfigScope(target); setNotice(t("changeStaged")); }
+    } catch (cause) { if (current()) { setError(cause); if (cause instanceof ApiError && ["unexpected_response", "network_error", "pending_config_exists"].includes(cause.code)) setPendingReadFailed(true); } }
+    finally { configMutation.current = false; setConfigBusy(false); }
   };
 
   const applyPendingConfig = async () => {
-    setError("");
-    if (!selected || !pendingConfig) return;
+    if (!selected || !projectPendingConfig || !projectConfig || configMutation.current || pendingReadFailed || projectPendingConfig.base_revision !== projectConfig.revision) return;
+    const target = selected, candidate = projectPendingConfig, generation = viewGeneration.current, revision = configRequest.current, scope = configView.current;
+    const current = () => generation === viewGeneration.current && revision === configRequest.current && scope === configView.current;
+    configMutation.current = true; setConfigBusy(true); setError("");
     try {
-      await request(`/projects/${encodeURIComponent(selected)}/config/apply`, "POST", {
-        candidate_revision: pendingConfig.candidate_revision,
-      }, session?.csrf);
-      setConfig(await request<Config>(`/projects/${encodeURIComponent(selected)}/config`)); setConfigScope(selected);
-      setPendingConfig(null); setNotice(t("changeApplied"));
+      await request(`/projects/${encodeURIComponent(target)}/config/apply`, "POST", { candidate_revision: candidate.candidate_revision, base_revision: candidate.base_revision }, session?.csrf);
+      if (!current()) return;
+      setPendingConfig(null); setNotice(t("changeApplied")); setViewRefresh(value => value + 1);
       await refreshProjects();
-    } catch (cause) { setError(cause); }
+    } catch (cause) { if (current()) setError(cause); }
+    finally { configMutation.current = false; setConfigBusy(false); }
   };
 
   const discardPendingConfig = async () => {
-    setError("");
-    if (!selected || !pendingConfig) return;
+    if (!selected || (!projectPendingConfig && !pendingReadFailed) || configMutation.current) return;
+    const target = selected, key = projectPendingConfig?.key, generation = viewGeneration.current, revision = configRequest.current, scope = configView.current;
+    const current = () => generation === viewGeneration.current && revision === configRequest.current && scope === configView.current;
+    configMutation.current = true; setConfigBusy(true); setError("");
     try {
-      await request(`/projects/${encodeURIComponent(selected)}/config/pending`, "DELETE", undefined, session?.csrf);
-      setPendingConfig(null); setNotice(t("changeDiscarded"));
-    } catch (cause) { setError(cause); }
+      await request(`/projects/${encodeURIComponent(target)}/config/pending`, "DELETE", undefined, session?.csrf);
+      if (current()) { setPendingConfig(null); setPendingReadFailed(false); setPendingReady(true); setNotice(t("changeDiscarded"));
+        configDiscardFocus.current = () => {
+          if (!current()) return;
+          const button = Array.from(document.querySelectorAll<HTMLButtonElement>("button[data-edit-key]")).find(item => item.dataset.editKey === key);
+          (button || document.querySelector<HTMLInputElement>(".config-form [name='endpoint']"))?.focus();
+        };
+      }
+    } catch (cause) { if (current()) setError(cause); }
+    finally { configMutation.current = false; setConfigBusy(false); }
   };
 
   const checkProjectReadiness = async () => {
@@ -974,9 +1004,15 @@ export default function App() {
           {projectTab === "history" && <JobWorkspace {...workspaceProps} mode="history" scope={selected} fixedScope />}
           {projectTab === "configuration" && <>
           {configDataState !== "ready" && <DataFeedback state={configDataState} t={t} />}
-          {projectConfig && <SettingsList key={`${selected}-${projectConfig.revision}`} config={projectConfig.config} settings={projectConfig.settings || []} t={t} locale={locale} canEdit={isAdmin} disabled={!!projectPendingConfig} onStage={stageSetting} />}
-          {isAdmin && selected && projectConfig && (projectConfig.config.executor as { default?: string } | undefined)?.default === "opencode" && <section className="panel wide-panel"><h2>{t("localEndpoint")}</h2><p className="muted">{t("localEndpointHelp")}</p><p className="muted">{t("localProviderHelp")}</p>{(projectConfig.config.executor as { default?: string } | undefined)?.default === "opencode" && <form key={`${selected}-${projectConfig.revision}`} className="inline-form config-form" onSubmit={saveEndpoint}><FormLegend t={t} /><Field name="model" label={t("model")} defaultValue={(projectConfig.config.executor as { commands?: { opencode?: { model?: string } } }).commands?.opencode?.model || ""} required /><Field name="endpoint" label={t("localEndpoint")} type="url" defaultValue={(projectConfig.config.container as { runtime_env?: { OPENAI_BASE_URL?: string } } | undefined)?.runtime_env?.OPENAI_BASE_URL || ""} required /><label>{t("endpointAuth")}<select name="auth_env"><option value="">{t("none")}</option><option value="OPENAI_API_KEY">OPENAI_API_KEY</option></select></label><label>{t("endpointProtocol")}<select name="protocol"><option value="openai-chat-completions">OpenAI chat completions</option></select></label><Field name="timeout_seconds" label={t("endpointTimeout")} type="number" defaultValue={String(projectConfig.local_endpoint_timeout_seconds || 300)} required /><Field name="ca_file" label={t("endpointCa")} defaultValue={(projectConfig.config.container as { runtime_env?: { NODE_EXTRA_CA_CERTS?: string } } | undefined)?.runtime_env?.NODE_EXTRA_CA_CERTS || ""} /><button className="primary" disabled={!!projectPendingConfig}>{t("stageChange")}</button></form>}</section>}
-          {isAdmin && selected && <section className="panel wide-panel" id="project-config-editor"><h2>{t("config")}</h2>{projectConfig ? <><p className="muted">{t("revision")}: {projectConfig.revision.slice(0, 12)}</p>{projectConfig.issues.length > 0 && <div className="alert">{projectConfig.issues.join(" · ")}</div>}{!projectPendingConfig && <p className="muted">{t("configEditHint")}</p>}{projectPendingConfig &&<div className="import-preview" role="status"><h3>{t("pendingChange")}</h3><p>{projectPendingConfig.key}: {projectPendingConfig.value}</p>{projectPendingConfig.endpoint && <div className="detail-grid"><span>{t("endpointProtocol")}: {projectPendingConfig.endpoint.protocol}</span><span>{t("model")}: {projectPendingConfig.endpoint.model}</span><span>{t("endpointTimeout")}: {projectPendingConfig.endpoint.timeout_seconds ?? "—"}</span><span>{t("endpointAuth")}: {projectPendingConfig.endpoint.auth_env || "—"}</span><span>{t("endpointCa")}: {projectPendingConfig.endpoint.ca_file || "—"}</span></div>}<p className="muted">{t("revision")}: {projectPendingConfig.candidate_revision.slice(0, 12)}</p><p className="muted">{projectPendingConfig.restart_required ? t("pendingRestartHelp") : t("pendingApplyHelp")}</p><div className="button-row"><button className="primary" onClick={() => void applyPendingConfig()}>{t("apply")}</button><button className="ghost" onClick={() => void discardPendingConfig()}>{t("discardChange")}</button></div></div>}<details><summary>{t("rawConfig")}</summary><pre className="config-preview">{JSON.stringify(projectConfig.config, null, 2)}</pre></details></> : null}</section>}
+          {projectConfig && <SettingsList key={`${selected}-${projectConfig.revision}`} config={projectConfig.config} settings={projectConfig.settings || []} t={t} locale={locale} canEdit={isAdmin} disabled={!!projectPendingConfig || configBusy || pendingReadFailed || isAdmin && !pendingReady} onStage={stageSetting} />}
+          {isAdmin && selected && projectConfig && (projectConfig.config.executor as { default?: string } | undefined)?.default === "opencode" && <section className="panel wide-panel"><h2>{t("localEndpoint")}</h2><p className="muted">{t("localEndpointHelp")}</p><p className="muted">{t("localProviderHelp")}</p>{(projectConfig.config.executor as { default?: string } | undefined)?.default === "opencode" && <form key={`${selected}-${projectConfig.revision}`} className="inline-form config-form" onSubmit={saveEndpoint}><fieldset className="endpoint-fields" disabled={!!projectPendingConfig || configBusy || pendingReadFailed || isAdmin && !pendingReady}><FormLegend t={t} /><Field name="model" label={t("model")} defaultValue={(projectConfig.config.executor as { commands?: { opencode?: { model?: string } } }).commands?.opencode?.model || ""} required /><Field name="endpoint" label={t("localEndpoint")} type="url" defaultValue={(projectConfig.config.container as { runtime_env?: { OPENAI_BASE_URL?: string } } | undefined)?.runtime_env?.OPENAI_BASE_URL || ""} required /><label>{t("endpointAuth")}<select name="auth_env"><option value="">{t("none")}</option><option value="OPENAI_API_KEY">OPENAI_API_KEY</option></select></label><label>{t("endpointProtocol")}<select name="protocol"><option value="openai-chat-completions">OpenAI chat completions</option></select></label><Field name="timeout_seconds" label={t("endpointTimeout")} type="number" defaultValue={String(projectConfig.local_endpoint_timeout_seconds || 300)} required /><Field name="ca_file" label={t("endpointCa")} defaultValue={(projectConfig.config.container as { runtime_env?: { NODE_EXTRA_CA_CERTS?: string } } | undefined)?.runtime_env?.NODE_EXTRA_CA_CERTS || ""} /><button className="primary" disabled={!!projectPendingConfig || configBusy || pendingReadFailed || isAdmin && !pendingReady}>{settingsCopy[locale].prepare}</button></fieldset></form>}</section>}
+          {isAdmin && selected && <section className="panel wide-panel" id="project-config-editor"><h2>{t("config")}</h2>{projectConfig && <>
+            <p className="muted">{settingsCopy[locale].single}</p>
+            {projectConfig.issues.length > 0 && <div className="alert">{projectConfig.issues.join(" · ")}</div>}
+            {projectPendingConfig && <PendingReview config={projectConfig} candidate={projectPendingConfig} project={selectedProject?.display_name || selected} paused={selectedProject?.paused === true} busy={configBusy} locale={locale} t={t} onApply={applyPendingConfig} onDiscard={discardPendingConfig} />}
+            {pendingReadFailed && <div className="alert"><p>{settingsCopy[locale].readFailed}</p><p>{settingsCopy[locale].discard}</p><button className="ghost" disabled={configBusy} onClick={() => void discardPendingConfig()}>{t("discardChange")}</button></div>}
+            <details><summary>{t("rawConfig")}</summary><pre className="config-preview">{JSON.stringify(projectConfig.config, null, 2)}</pre></details>
+          </>}</section>}
           </>}
           {projectTab === "access" && isAdmin && selected && <ProjectAccess key={selected + ":" + viewRefresh} project={selected} csrf={session?.csrf} t={t} onError={setError} onNotice={setNotice} />}
           {projectTab === "prices" && isAdmin && <>
@@ -1226,11 +1262,42 @@ function ProjectAccess({ project, csrf, t, onError, onNotice }: { project: strin
   </section>;
 }
 
+function PendingReview({ config, candidate, project, paused, busy, locale, t, onApply, onDiscard }: { config: Config; candidate: PendingConfig; project: string; paused: boolean; busy: boolean; locale: Locale; t: (key: MessageKey) => string; onApply: () => Promise<void>; onDiscard: () => Promise<void> }) {
+  const copy = settingsCopy[locale];
+  const heading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => { heading.current?.focus(); }, [candidate.candidate_revision]);
+  const [copied, setCopied] = useState(false);
+  const meta = config.settings?.find(item => item.edit_key === candidate.key);
+  const active = settingValue(config.config, meta?.key || candidate.key);
+  const show = (value: unknown) => value == null ? copy.unknown : value === "" ? t("settingNoDefault") : typeof value === "object" ? JSON.stringify(value) : String(value);
+  const rows: Array<{ label: string; active: unknown; proposed: unknown }> = [{ label: locale === "en" ? settingLabel(meta?.key || candidate.key) : t("config"), active, proposed: candidate.proposed_value }];
+  if (candidate.endpoint) {
+    rows.push({ label: t("model"), active: settingValue(config.config, "executor.commands.opencode.model"), proposed: candidate.endpoint.model });
+    rows.push({ label: t("endpointProtocol"), active: config.local_endpoint?.protocol, proposed: candidate.endpoint.protocol });
+    rows.push({ label: t("endpointAuth"), active: config.local_endpoint ? config.local_endpoint.auth_env ?? t("settingNoDefault") : undefined, proposed: candidate.endpoint.auth_env ?? t("settingNoDefault") });
+    rows.push({ label: t("endpointTimeout"), active: config.local_endpoint_timeout_seconds, proposed: candidate.endpoint.timeout_seconds });
+    rows.push({ label: t("endpointCa"), active: settingValue(config.config, "container.runtime_env.NODE_EXTRA_CA_CERTS"), proposed: candidate.endpoint.ca_file ?? t("settingNoDefault") });
+  }
+  const stale = candidate.base_revision !== config.revision;
+  const blocked = stale || candidate.restart_required && !paused;
+  const reviewText = [copy.project + ": " + project, ...rows.map(row => `${row.label}: ${copy.active}: ${show(row.active)} → ${copy.proposed}: ${show(row.proposed)}`), copy.base + ": " + candidate.base_revision, copy.candidate + ": " + candidate.candidate_revision].join("\n");
+  return <div className="import-preview candidate-review"><h3 ref={heading} tabIndex={-1}>{t("pendingChange")}</h3>
+    <p><strong>{copy.project}:</strong> {project}</p><p>{copy.single}</p>
+    <div className="candidate-values">{rows.map(row => <section key={row.label}><h4>{row.label}</h4><dl><div><dt>{copy.active}</dt><dd>{show(row.active)}</dd></div><div><dt>{copy.proposed}</dt><dd>{show(row.proposed)}</dd></div></dl></section>)}</div>
+    <h4>{copy.effect}</h4><p>{candidate.endpoint ? copy.endpoint : settingHelp(meta?.key || candidate.key, locale)}</p><p>{copy.future}</p>
+    <p>{copy.prepared}: <time dateTime={candidate.created_at}>{new Date(candidate.created_at).toLocaleString(locale)}</time></p><p>{copy.actor}</p>
+    <p>{copy.idle}</p>{candidate.restart_required && <p className={!paused ? "alert" : "muted"}>{copy.pause}</p>}{stale && <p className="alert">{copy.stale}</p>}
+    <details><summary>{copy.details}</summary><p><code>{candidate.key}</code></p><p>{copy.base}: <code>{candidate.base_revision}</code></p><p>{copy.candidate}: <code>{candidate.candidate_revision}</code></p></details>
+    <p>{copy.discard}</p><div className="button-row"><button className="primary" disabled={busy || blocked} onClick={() => void onApply()}>{t("apply")}</button><button className="ghost" disabled={busy} onClick={() => void onDiscard()}>{t("discardChange")}</button><button className="ghost" onClick={() => void navigator.clipboard.writeText(reviewText).then(() => setCopied(true)).catch(() => setCopied(false))}>{copy.copy}</button>{copied && <span role="status">{copy.copied}</span>}</div>
+  </div>;
+}
+
 function SettingsList({ config, settings, t, locale, canEdit, disabled, onStage }: { config: Record<string, unknown>; settings: SettingMeta[]; t: (key: MessageKey) => string; locale: Locale; canEdit: boolean; disabled: boolean; onStage: (key: string, value: string) => Promise<boolean> }) {
   const [projectOnly, setProjectOnly] = useState(false);
   const [editing, setEditing] = useState("");
   const [draft, setDraft] = useState("");
   const groups = settingGroups(settingRows(config, settings), projectOnly);
+  const copy = settingsCopy[locale];
   const typeOf = (row: SettingRow) => {
     if (row.input === "choice") return t("settingEnum");
     if (Array.isArray(row.value)) return t("settingList");
@@ -1241,34 +1308,33 @@ function SettingsList({ config, settings, t, locale, canEdit, disabled, onStage 
   };
   const shown = (value: unknown) => value == null || value === "" ? "—" :
     Array.isArray(value) || typeof value === "object" ? JSON.stringify(value) : String(value);
-  const label = (row: SettingRow) => row.label ? t(row.label) : row.key.slice(row.group.length + 1).replaceAll("_", " ");
+  const label = (row: SettingRow) => locale === "en" ? settingLabel(row.key) : row.label ? t(row.label) : (settingHelp(row.key, locale)?.split(". ")[0] || settingLabel(row.key));
   const submit = async (event: FormEvent<HTMLFormElement>, row: SettingRow) => {
     event.preventDefault();
     if (await onStage(row.editKey, draft)) setEditing("");
   };
   return <section className="panel" id="project-settings">
     <div className="panel-heading"><h2>{t("projectSettings")}</h2><label className="check-inline"><input type="checkbox" checked={projectOnly} onChange={event => setProjectOnly(event.target.checked)} />{t("settingsProjectOnly")}</label></div>
-    <p className="muted">{t("projectSettingsHelp")}</p>
-    {groups.length === 0 ? <Empty label={t("settingsNoneSet")} /> : <div className="setting-groups">{groups.map(group => <details key={group.name} className={group.name === "common" ? "common" : undefined} open={group.name === "common" || projectOnly}>
-      <summary>{group.name === "common" ? t("commonSettings") : group.name} <span className="muted">({group.rows.length})</span></summary>
+    <p className="muted">{canEdit ? copy.single : copy.readOnly}</p>
+    {groups.length === 0 ? <Empty label={t("settingsNoneSet")} /> : <div className="setting-groups">{groups.map(group => <details key={group.name} open={true}>
+      <summary>{copy[group.name as keyof typeof copy]} <span className="muted">({group.rows.length})</span></summary>
       <div className="setting-list">{group.rows.map(row => <div className="setting-row" key={row.key}>
         <div>
-          <strong>{label(row)}</strong><small>{row.key}</small>
+          <strong>{label(row)}</strong><p className="setting-essential" id={`help-${row.key}`}>{settingHelp(row.key, locale) ?? t("settingGeneralHelp")}</p>
           <span className={row.source === "project" ? "setting-badge set" : "setting-badge"}>{t(row.source === "project" ? "settingSetForProject" : "settingDefault")}</span>
           {canEdit && row.input !== "none" && row.restart && <small className="setting-note">{t("settingRestartShort")}</small>}
           {canEdit && row.input === "none" && <small className="setting-note">{t("settingNotEditableShort")}</small>}
         </div>
         {editing === row.key ? <form className="setting-editor" onSubmit={event => void submit(event, row)}>
           {row.input === "boolean" || row.input === "choice"
-            ? <select aria-label={label(row)} value={draft} onChange={event => setDraft(event.target.value)}>{(row.input === "boolean" ? ["true", "false"] : row.choices).map(option => <option key={option} value={option}>{option}</option>)}</select>
-            : <input aria-label={label(row)} type={row.input === "number" ? "number" : "text"} step={row.step} min={row.hint === "positive" ? "1" : undefined} value={draft} onChange={event => setDraft(event.target.value)} required={row.input === "number"} />}
-          <div className="button-row"><button className="primary" disabled={disabled}>{t("stageChange")}</button><button type="button" className="ghost" onClick={() => setEditing("")}>{t("cancel")}</button></div>
-        </form> : <code>{shown(row.value)}</code>}
+            ? <select aria-label={label(row)} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)}>{(row.input === "boolean" ? ["true", "false"] : row.choices).map(option => <option key={option} value={option}>{option}</option>)}</select>
+            : <input aria-label={label(row)} type={row.input === "number" ? "number" : "text"} step={row.step} min={row.minimum ?? undefined} max={row.maximum ?? undefined} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)} required={row.input === "number"} />}
+          <div className="button-row"><button className="primary" disabled={disabled}>{copy.prepare}</button><button type="button" className="ghost" onClick={() => setEditing("")}>{t("cancel")}</button></div>
+        </form> : <div><small>{copy.active}</small><code>{shown(row.value)}</code><small>{t("settingDefaultValue")}: {hasDefault(row.defaultValue) ? shown(row.defaultValue) : t("settingNoDefault")}</small></div>}
         <div className="setting-actions">
-          {canEdit && row.input !== "none" && editing !== row.key && <button type="button" className="text-button" disabled={disabled} aria-label={`${t("editSetting")} ${row.key}`} onClick={() => { setEditing(row.key); setDraft(editValue(row.value)); }}>{t("editSetting")}</button>}
+          {canEdit && row.input !== "none" && editing !== row.key && <button type="button" className="text-button" disabled={disabled} aria-label={`${t("editSetting")} ${label(row)}`} data-edit-key={row.editKey} onClick={() => { setEditing(row.key); setDraft(editValue(row.value)); }}>{t("editSetting")}</button>}
           <details><summary aria-label={`${t("settingHelp")} ${row.key}`}>{t("settingHelp")}</summary>
-            <p>{typeOf(row)}{row.hint === "positive" ? ` · ${t("settingPositive")}` : row.choices.length ? ` · ${row.choices.join(", ")}` : row.hint === "runtime" ? ` · ${t("settingRuntimeDomain")}` : ""}</p>
-            <p>{settingHelp(row.key, locale) ?? t("settingGeneralHelp")}</p>
+            <code>{row.key}</code><p>{typeOf(row)}{row.choices.length ? ` · ${row.choices.join(", ")}` : ""}{row.minimum != null ? ` · ${copy.minimum}: ${row.minimum}` : ""}{row.maximum != null ? ` · ${copy.maximum}: ${row.maximum}` : ""}</p>
             <p className="muted">{t("settingDefaultValue")}: {hasDefault(row.defaultValue) ? shown(row.defaultValue) : t("settingNoDefault")}</p>
             {canEdit && row.input === "none" && <p>{t("settingNotEditableNote")}</p>}
           </details>
