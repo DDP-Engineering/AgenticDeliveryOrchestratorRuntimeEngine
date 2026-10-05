@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # TASK-7546e6dc - Issue 5: accessible dashboard shell, branding and plain-language vocabulary
 
-stage: deliver
+stage: done
 type: feature
 path: full
 interaction: autopilot
@@ -24,9 +24,9 @@ opened: 2026-10-05
 - [x] validated candidate confirmed unchanged; otherwise returned to validate
 - [x] validation evidence, diff, exclusions, and outcome presented
 - [x] delivery confirmed by the human
-- [ ] journal and report included in the delivery commit
-- [ ] agreed outcome delivered, normally a PR
-- [ ] close-out committed after the outcome succeeded, or carried by the
+- [x] journal and report included in the delivery commit
+- [x] agreed outcome delivered, normally a PR
+- [x] close-out committed after the outcome succeeded, or carried by the
       delivery commit where nothing could fail after it
 
 ## Frame
@@ -158,6 +158,9 @@ flowchart LR
 - 2026-10-05 deliver approval: trusted source-thread readback confirms the human message "commit / push #5" in 01a10aec-6ac2-79f3-ada3-741950212fb8. Authorized outcome is scoped commit and normal push on task/adore-web-interface only; no PR, merge, tag, version change or other task publication.
 - 2026-10-05 deliver ownership audit: all 27 issue-5 path hashes match issue-6 initial ownership inventory; all 17 final evolution entries match validated bytes/deletions. Index initially empty; local and fresh remote HEAD both 705e248ad24787e8f573aca477f36fdd4c6fd09f. Concurrent issue 6 has only ISSUE-6-initial-ownership.md and TASK-8265e125.md, excluded. No candidate mutation or new verification concern warrants rerunning unchanged final proof. Explicitly stage issue-5 inventory only.
 
+- 2026-10-05 deliver outcome: implementation commit 9da9747b92cb29cae63d5a6e706a9d4fc8ecc4c3 includes exactly 27 issue-5 paths (1287 insertions/176 deletions); normal push succeeded and fresh ls-remote matches. Report-time workspace diff included 29 paths due to the two uncommitted issue-6 records; those are excluded from the actual scoped commit and preserved. The report-time advisory snapshot is not replacement validation.
+- 2026-10-05 deliver acceptance/closure: trusted source-thread user message "seteaza ticketul close, dupa finalizare" verified. Issue-5 seven acceptance criteria checked; English evidence comment 1986 records exact implementation commit/branch/proof. PATCH closure authenticated readback confirms closed and all seven checked, labels identical. Epic comment 1989 published and epic-3 readback remains open. No PR/merge/tag/version change. Approved commit/push outcome fulfilled; journal-only close-out follows on the same branch, excluding issue-6 records.
+
 ## Rulings
 
 - RULING-001 | date=2026-10-05 | decision=Start only issue #5 directly on task/adore-web-interface; preserve ready/hold labels and other tickets | reason=Explicit operator authorization in delegated request | source=user | supersedes=none
@@ -170,22 +173,22 @@ flowchart LR
 
 ## Handoff
 
-current: deliver
+current: done
 status: ready
-next: Commit and normally push the scoped issue-5 candidate
-must_read: .agentic/tasks/TASK-7546e6dc.md, .agentic/steps/6_deliver.md
-blockers: none; issue 6 records excluded from delivery
+next: No issue-5 work remaining
+must_read: .agentic/tasks/TASK-7546e6dc.md
+blockers: none; issue 6 records preserved separately
 
 ## Stage report
 
-stage: validate
+stage: deliver
 result: completed
-current: deliver
-changed: Accessible shell, branding, vocabulary, scope and error recovery; docs and static build
-evidence: Strict full proof exit 0; 756 Python passed, 1 platform skip; 20 browser passed; Ruff/typecheck/build passed
-issues: Eight classified advisories; dependency/bundle warnings; publication pending
-next: Approve Git delivery or request revisions
-needs_user: yes
+current: done
+changed: Scoped issue-5 commit/push delivered; acceptance checked and issue closed
+evidence: Remote implementation commit 9da9747 verified; 756 Python passed/1 skip; 20 browser passed; issue closure read back
+issues: Classified validation advisories retained; issue 6 excluded; epic 3 open
+next: No issue-5 work remaining
+needs_user: no
 spec_compliance: approved
 implementation_quality: approved
 review_round: 2
