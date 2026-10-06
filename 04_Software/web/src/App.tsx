@@ -1275,19 +1275,10 @@ function PendingReview({ config, candidate, project, paused, busy, locale, t, on
 }
 
 function SettingsList({ config, settings, t, locale, canEdit, disabled, onStage }: { config: Record<string, unknown>; settings: SettingMeta[]; t: (key: MessageKey) => string; locale: Locale; canEdit: boolean; disabled: boolean; onStage: (key: string, value: string) => Promise<boolean> }) {
-  const [projectOnly, setProjectOnly] = useState(false);
   const [editing, setEditing] = useState("");
   const [draft, setDraft] = useState("");
-  const groups = settingGroups(settingRows(config, settings), projectOnly);
+  const groups = settingGroups(settingRows(config, settings), false);
   const copy = settingsCopy[locale];
-  const typeOf = (row: SettingRow) => {
-    if (row.input === "choice") return t("settingEnum");
-    if (Array.isArray(row.value)) return t("settingList");
-    if (typeof row.value === "boolean") return t("settingBoolean");
-    if (typeof row.value === "number") return Number.isInteger(row.value) ? t("settingInteger") : t("settingNumber");
-    if (/(?:^|\.)(?:repo_path|root|store_root|db_path|export_jsonl|html_out|ca_file)$/.test(row.key)) return t("settingPath");
-    return t("settingText");
-  };
   const shown = (value: unknown) => value == null || value === "" ? "—" :
     Array.isArray(value) || typeof value === "object" ? JSON.stringify(value) : String(value);
   const label = (row: SettingRow) => locale === "en" ? settingLabel(row.key) : row.label ? t(row.label) : (settingHelp(row.key, locale)?.split(". ")[0] || settingLabel(row.key));
@@ -1296,7 +1287,7 @@ function SettingsList({ config, settings, t, locale, canEdit, disabled, onStage 
     if (await onStage(row.editKey, draft)) setEditing("");
   };
   return <section className="panel" id="project-settings">
-    <div className="panel-heading"><h2>{t("projectSettings")}</h2><label className="check-inline"><input type="checkbox" checked={projectOnly} onChange={event => setProjectOnly(event.target.checked)} />{t("settingsProjectOnly")}</label></div>
+    <div className="panel-heading"><h2>{t("projectSettings")}</h2></div>
     <p className="muted">{canEdit ? copy.single : copy.readOnly}</p>
     {groups.length === 0 ? <Empty label={t("settingsNoneSet")} /> : <div className="setting-groups">{groups.map(group => <details key={group.name} open={true}>
       <summary>{copy[group.name as keyof typeof copy]} <span className="muted">({group.rows.length})</span></summary>
@@ -1315,11 +1306,6 @@ function SettingsList({ config, settings, t, locale, canEdit, disabled, onStage 
         </form> : <div><small>{copy.active}</small><code>{shown(row.value)}</code><small>{t("settingDefaultValue")}: {hasDefault(row.defaultValue) ? shown(row.defaultValue) : t("settingNoDefault")}</small></div>}
         <div className="setting-actions">
           {canEdit && row.input !== "none" && editing !== row.key && <button type="button" className="text-button" disabled={disabled} aria-label={`${t("editSetting")} ${label(row)}`} data-edit-key={row.editKey} onClick={() => { setEditing(row.key); setDraft(editValue(row.value)); }}>{t("editSetting")}</button>}
-          <details><summary aria-label={`${t("settingHelp")} ${row.key}`}>{t("settingHelp")}</summary>
-            <code>{row.key}</code><p>{typeOf(row)}{row.choices.length ? ` · ${row.choices.join(", ")}` : ""}{row.minimum != null ? ` · ${copy.minimum}: ${row.minimum}` : ""}{row.maximum != null ? ` · ${copy.maximum}: ${row.maximum}` : ""}</p>
-            <p className="muted">{t("settingDefaultValue")}: {hasDefault(row.defaultValue) ? shown(row.defaultValue) : t("settingNoDefault")}</p>
-            {canEdit && row.input === "none" && <p>{t("settingNotEditableNote")}</p>}
-          </details>
         </div>
       </div>)}</div>
     </details>)}</div>}

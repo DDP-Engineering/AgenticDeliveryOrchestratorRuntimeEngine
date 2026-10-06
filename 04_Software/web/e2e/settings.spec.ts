@@ -216,3 +216,25 @@ test("stale base and malformed restored candidate cannot enable Apply", async ({
   await page.getByRole("button", { name: "Discard change", exact: true }).click();
   await expect(page.getByRole("button", { name: "Edit Maximum iterations per job", exact: true })).toBeEnabled();
 });
+
+
+for (const user of ["admin", "developer"]) {
+ test(`project settings keep defaults and single guidance for ${user}`, async ({ page }) => {
+  await openSettings(page, "alpha", user);
+  const panel = page.locator("#project-settings");
+  const projects = await (await page.request.get("/api/v1/projects")).json();
+  const identity = projects.find((item: {name:string}) => item.name === "alpha").id;
+  const configuration = await (await page.request.get(`/api/v1/projects/${identity}/config`)).json();
+  await expect(panel.locator(".setting-row")).toHaveCount(configuration.settings.length);
+  await expect(panel.locator(".setting-actions details")).toHaveCount(0);
+  await expect(panel.getByRole("checkbox")).toHaveCount(0);
+  await expect(panel.locator(".setting-essential")).toHaveCount(configuration.settings.length);
+  await expect(panel.locator(".setting-badge").filter({hasText:"Default"}).first()).toBeVisible();
+  await expect(panel.getByRole("heading", {name:"Audit retention",exact:true})).toHaveCount(0);
+  if (user === "developer") await expect(panel.getByRole("button")).toHaveCount(0);
+  else {
+   await page.goto("/admin/status");
+   await expect(page.locator(".audit-policy-form")).toBeVisible();
+  }
+ });
+}

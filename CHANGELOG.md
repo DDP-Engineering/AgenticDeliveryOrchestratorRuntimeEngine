@@ -109,6 +109,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Project Settings keeps all project values/defaults with one permanent description, without duplicate Help or override-only filtering; global policies remain in Administration.
+
 - Consolidated project Summary into information/action tiles and compact job lists; integrated explicit host checks and accessible modal project deletion.
 
 - Simplified Projects to a read-only directory with a Repo forge column; consolidated project identity and navigation, with lifecycle actions on dedicated Summary.

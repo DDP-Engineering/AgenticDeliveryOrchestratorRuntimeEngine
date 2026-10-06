@@ -458,7 +458,7 @@ Python/Ruff and frontend validation. CLI summary/export semantics are preserved.
   explicit apply/discard, recorded evidence fallbacks and scoped request guards.
 - `REQ-UX-66e6f3f5` - project details presents collapsible, guided settings with administrator editing.
 - `REQ-FUNC-49b766fe` / `REQ-UX-9a625fc5` / `REQ-UX-a62e69a9` - per-setting source, editability and
-  restart metadata; Set for this project / Default badges, row editing and the project-set filter.
+  restart metadata; Set for this project / Default badges, row editing and permanent per-row descriptions.
 - `REQ-UX-b0e9a434` / `REQ-FUNC-c6c71dbd` - every setting's help text in EN/FR/DE/RO and
   its ADORE default; the catalog test keeps texts in step with the configuration keys.
 - `REQ-SEC-3ce206e4` / `REQ-UX-7ca5687c` - administrators grant or remove one developer's access to one
@@ -757,3 +757,10 @@ HTTP and a valid unique JSON login. CLI exit zero alone does not authenticate.
 Administrators use **Summary → Test AI connection** for the configured OpenCode, Pi, Codex or Qwen model. Each explicit click sends one short request in a temporary container and may incur provider charges. The project must be idle with valid saved settings and no pending configuration/operations; its installed image must contain Python and the agent.
 
 Only a valid completed challenge response reports connected. Failures provide redacted guidance for credentials, model availability, image, CLI version or network. The action reuses executor credentials and egress; it starts no job and proves no tool capability. Evidence is separate from host readiness and bound to current project/model/configuration. Host-check time/version are internally validated and hidden from Summary/check details. See Component_Model_Connection.md.
+
+
+## Project setting scope and guidance
+
+Project Settings displays every setting from the selected project's configuration catalog, including inherited defaults. Descriptions remain permanently below each label and provide the editor's accessible description. There is no per-row Help disclosure or override-only filter. The default/source marker describes value origin, not ADORE-wide scope. Polling intervals, per-project concurrency, executor, isolation and recovery settings remain per-project. Global capacity and audit retention belong to Administration. No project setting is promoted into a global policy by this presentation.
+
+Proof: web/e2e/settings.spec.ts project settings keep defaults and single guidance (administrator/developer), plus existing candidate edit/discard journey.

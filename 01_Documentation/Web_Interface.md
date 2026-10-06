@@ -607,8 +607,7 @@ Isolated environment; Rules and approvals; Limits and recovery; Measurement and
 notifications; Advanced. Frequent settings appear first within their category.
 Each row gives an understandable label, visible purpose/units/consequence guidance,
 its **Active value**, **ADORE default**, and **Set for this project** or **Default**
-source. **Help** retains the technical key, type, numeric bounds and choices from
-server catalog metadata. Lists, tables, launch commands and unsupported sections
+source. Permanent guidance below the label explains each setting; server catalog metadata still constrains edit types, choices and numeric bounds. Lists, tables, launch commands and unsupported sections
 are read-only here and are edited in the host's project TOML.
 
 Choose **Edit**, correct the value and choose **Prepare candidate**. This writes
@@ -983,3 +982,10 @@ narrow/dark layout, token clearing and wrong-scope rejection.
 Administrators use **Summary → Test AI connection** for the configured OpenCode, Pi, Codex or Qwen model. Each explicit click sends one short request in a temporary container and may incur provider charges. The project must be idle with valid saved settings and no pending configuration/operations; its installed image must contain Python and the agent.
 
 Only a valid completed challenge response reports connected. Failures provide redacted guidance for credentials, model availability, image, CLI version or network. The action reuses executor credentials and egress; it starts no job and proves no tool capability. Evidence is separate from host readiness and bound to current project/model/configuration. Host-check time/version are internally validated and hidden from Summary/check details. See Component_Model_Connection.md.
+
+
+## Project setting scope and guidance
+
+Project Settings displays every setting from the selected project's configuration catalog, including inherited defaults. Descriptions remain permanently below each label and provide the editor's accessible description. There is no per-row Help disclosure or override-only filter. The default/source marker describes value origin, not ADORE-wide scope. Polling intervals, per-project concurrency, executor, isolation and recovery settings remain per-project. Global capacity and audit retention belong to Administration. No project setting is promoted into a global policy by this presentation.
+
+Proof: web/e2e/settings.spec.ts project settings keep defaults and single guidance (administrator/developer), plus existing candidate edit/discard journey.
