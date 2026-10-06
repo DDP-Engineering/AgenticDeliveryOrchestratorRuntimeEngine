@@ -14,6 +14,9 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Make host-check details collapsible with a persistent verdict, clarify the checked
+  configuration version and explain external repository sign-in under the service account.
+
 - Explain project host-prerequisite checks with clear verdicts, purposes and corrective
   actions, one checked-at/revision line, honest unavailable model checks, and
   validated project-bound browser evidence.

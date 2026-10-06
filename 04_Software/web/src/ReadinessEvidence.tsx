@@ -4,11 +4,12 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
-import type { Locale } from "./i18n";
+import { messages, type Locale } from "./i18n";
 import { readinessKeys, readinessVerdict, type ProjectReadiness } from "./readiness";
 
 const copy = {
   en: {
+    details: "Check details", externalSignIn: "Repository sign-in is configured outside this interface, on the ADORE server, under the account running its services. Signing in to the browser does not configure repository access.",
     passed: "Performed checks passed", failed: "Attention required", partial: "Verification incomplete",
     coverage: "This checks prerequisites on the ADORE server and in the configured image. It does not test a complete job or confirm Git push permission.",
     ok: "✓ Passed", error: "! Action needed", unknown: "? Could not verify", skipped: "○ Not checked",
@@ -25,6 +26,7 @@ const copy = {
     ],
   },
   ro: {
+    details: "Detaliile verificării", externalSignIn: "Autentificarea la repository se configurează în afara acestei interfețe, pe serverul ADORE, sub contul care rulează serviciile. Autentificarea în browser nu configurează accesul la repository.",
     passed: "Verificările efectuate au reușit", failed: "Necesită intervenție", partial: "Verificare incompletă",
     coverage: "Verifică cerințele pe serverul ADORE și în imaginea configurată. Nu testează un job complet și nu confirmă permisiunea Git de publicare.",
     ok: "✓ Reușit", error: "! Necesită intervenție", unknown: "? Nu s-a putut verifica", skipped: "○ Neverificat",
@@ -41,6 +43,7 @@ const copy = {
     ],
   },
   fr: {
+    details: "Détails du contrôle", externalSignIn: "La connexion au dépôt se configure hors de cette interface, sur le serveur ADORE, avec le compte qui exécute ses services. La connexion au navigateur ne configure pas cet accès.",
     passed: "Les contrôles effectués ont réussi", failed: "Intervention nécessaire", partial: "Vérification incomplète",
     coverage: "Vérifie les prérequis sur le serveur ADORE et dans l’image configurée. Ne teste pas une tâche complète ni l’autorisation de publication Git.",
     ok: "✓ Réussi", error: "! Intervention nécessaire", unknown: "? Impossible à vérifier", skipped: "○ Non vérifié",
@@ -57,6 +60,7 @@ const copy = {
     ],
   },
   de: {
+    details: "Prüfungsdetails", externalSignIn: "Die Repository-Anmeldung wird außerhalb dieser Oberfläche auf dem ADORE-Server unter dem Dienstkonto eingerichtet. Die Browser-Anmeldung richtet diesen Zugriff nicht ein.",
     passed: "Durchgeführte Prüfungen bestanden", failed: "Handlung erforderlich", partial: "Prüfung unvollständig",
     coverage: "Prüft Voraussetzungen auf dem ADORE-Server und im konfigurierten Image. Testet keinen vollständigen Job und bestätigt keine Git-Push-Berechtigung.",
     ok: "✓ Bestanden", error: "! Handlung erforderlich", unknown: "? Nicht feststellbar", skipped: "○ Nicht geprüft",
@@ -80,6 +84,7 @@ export function ReadinessEvidence({ evidence, locale, modelReason }: { evidence:
   const verdict = readinessVerdict(evidence);
   return <div className="readiness-evidence">
     <div className={`readiness-verdict ${verdict}`} role="status"><h3>{c[verdict === "verified" ? "passed" : verdict === "failed" ? "failed" : "partial"]}</h3><p>{c.coverage}</p></div>
+    <details className="readiness-details" open><summary>{c.details}</summary><p className="muted readiness-configuration-help">{messages[locale].configurationVersionHelp}</p>
     <div className="readiness-checks">{readinessKeys.map((key, index) => {
       const value = evidence.checks[key];
       const status = value === true ? "passed" : value === false ? "failed" : value === null ? "unknown" : "skipped";
@@ -88,11 +93,12 @@ export function ReadinessEvidence({ evidence, locale, modelReason }: { evidence:
       return <div className={`readiness-check ${status}`} key={key}>
         <div><strong>{label}</strong><p>{purpose}</p>
           {value === false && <p className="readiness-remediation">{fix}</p>}
+          {key === "forge_auth" && value === false && <p>{c.externalSignIn}</p>}
           {value === null && <p className="readiness-remediation">{fix}</p>}
           {key === "model_endpoint" && <p>{reason === "unsupported-executor" ? c.unsupported : reason === "not-configured" ? c.unconfigured : modelReason}{evidence.model_probe.model ? ` (${evidence.model_probe.model})` : ""}</p>}
         </div>
         <strong className="readiness-result">{c[status === "passed" ? "ok" : status === "failed" ? "error" : status === "unknown" ? "unknown" : "skipped"]}</strong>
       </div>;
-    })}</div>
+    })}</div></details>
   </div>;
 }

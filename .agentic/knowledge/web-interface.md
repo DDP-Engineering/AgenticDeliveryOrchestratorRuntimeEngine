@@ -699,6 +699,11 @@ scoped response validation and performed-check classification. Focused proof is
 `web/tests/readiness.test.mjs` and `web/e2e/jobs.spec.ts` readiness journeys.
 Explicit host checks show one local-machine timestamp and configuration revision,
 a visible performed-check verdict, and seven explained results with text/symbol status.
+Check details open after a fresh result and collapse through native pointer/keyboard
+controls while the overall verdict remains visible. Configuration version identifies
+the saved configuration fingerprint used by the check; configuration changes require
+fresh evidence. Repository sign-in is configured externally on the ADORE server under
+the service account; browser sign-in configures only web access.
 Git supplies isolated working copies; the repository command tool reads issues and
 publishes draft reviews; repository sign-in tests configured host authentication.
 The container engine starts isolation; agent availability proves executable presence

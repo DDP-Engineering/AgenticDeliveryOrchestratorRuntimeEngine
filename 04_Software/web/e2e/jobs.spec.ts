@@ -597,3 +597,28 @@ test("host prerequisite explanation accepts the real offline API contract", asyn
   await expect(page.locator(".readiness-metadata")).toHaveCount(1);
   await expect(page.locator(".summary-fact").filter({ hasText: "Environment verification" })).toContainText("Verification failed");
 });
+
+test("host check details collapse by keyboard and reopen after a fresh check", async ({ page }) => {
+  await signIn(page); await page.goto("/projects/alpha");
+  const check = page.getByRole("button", { name: "Check host prerequisites", exact: true });
+  await check.click();
+  const details = page.locator("details.readiness-details");
+  const summary = details.locator("summary");
+  const verdict = page.locator(".readiness-verdict");
+  await expect(details).toHaveAttribute("open", "");
+  await expect(page.locator(".readiness-metadata")).toContainText("Configuration version:");
+  await expect(details).toContainText("Identifies the saved project configuration");
+  await expect(details).toContainText("configured outside this interface");
+  await summary.click();
+  await expect(details).not.toHaveAttribute("open", "");
+  await expect(page.locator(".readiness-check").first()).not.toBeVisible();
+  await expect(verdict).toContainText("Attention required");
+  await summary.focus(); await page.keyboard.press("Enter");
+  await expect(page.locator(".readiness-check").first()).toBeVisible();
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".readiness-check").first()).not.toBeVisible();
+  await check.click();
+  await expect(details).toHaveAttribute("open", "");
+  await expect(page.locator(".readiness-check").first()).toBeVisible();
+  await expect(page.locator(".readiness-metadata")).toHaveCount(1);
+});
