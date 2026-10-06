@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # TASK-1156ea0b - Fix scoped repository readiness and connection disclosure
 
-stage: deliver
+stage: done
 type: fix
 path: quick
 interaction: autopilot
@@ -26,8 +26,8 @@ opened: 2026-10-06
 - [x] distinct current compliance/quality reviews approve
 - [x] targeted final proof and strict catalog recorded
 - [x] candidate and delivery authority presented
-- [ ] scoped product committed/pushed/deployed
-- [ ] close-out after delivery
+- [x] scoped product committed/pushed/deployed
+- [x] close-out after delivery
 
 ## Frame
 
@@ -72,21 +72,21 @@ Existing bounded readiness runner translates tea whoami to supported API user co
 
 ## Handoff
 
-current: deliver
+current: done
 status: ready
-next: Commit/push/deploy unchanged candidate.
+next: Human GUI recheck with saved token.
 must_read: 04_Software/adore/web/app.py
 blockers: none
 
 ## Stage report
 
-stage: validate
+stage: deliver
 result: completed
-current: deliver
+current: done
 changed: Supported Gitea sign-in probe and adjacent closable connection modal.
-evidence: Python51/browser4 passed; lint/typecheck/build exit0; strict catalog exit0/0errors6warnings25notes.
-issues: Full suite deferred; real provider acceptance pending.
-next: Commit/push/deploy.
+evidence: Python51/browser4 passed; lint/typecheck/build and strict catalog exit0; 7f5ceb4 deployed, live saved Gitea sign-in true; services active/HTTPS smoke passed.
+issues: Full suite deferred; real GitHub/GitLab acceptance pending.
+next: Human GUI recheck; deferred final full suite.
 needs_user: no
 spec_compliance: approved
 implementation_quality: approved
@@ -104,3 +104,9 @@ review_round: 1
 - diff vs task base 7a58519: 19 file(s) changed, 259 line(s) added; 1 file(s) not content-scanned
 - checks: errors=0 warnings=7 notes=25
 - checklist: 5/7 done; open: scoped product committed/pushed/deployed; close-out after delivery
+
+## Delivery close-out (2026-10-06)
+
+- Product 7f5ceb465e1eb6bd54c3c5f69e7dec17b8e6e73c normally pushed and remote head verified. Archive SHA256 409f263d4a6677dc975117748f9a0d4792bfc1cd88fe2d20289dde2953aad9f9 matched remotely before extraction. Deployment succeeded to /home/dpasare/apps/adore/web-ux-7f5ceb4, backup /home/dpasare/apps/adore/backups/web-ux-7f5ceb4-20261006195630.
+- Served JS/CSS byte-identical; API/worker active with candidate PYTHONPATH; schema14 integrity ok/audit65. HTTPS root/health/readiness200, protected projects401. Actual saved aegis Gitea token and named login passed the deployed readiness authentication path (only tea API ran live; other prerequisites faked for isolated diagnostic). No credentials changed or printed, no executor/jobs launched. GUI full host-check refresh remains human action; GitHub/GitLab real credentials and final full suite remain pending.
+- Delivery report advisory snapshot seven warnings includes open delivery checklist, now completed; legacy sidecars/journal and generated scanning advisory remain. Journal-only close-out follows successful push/deployment.
