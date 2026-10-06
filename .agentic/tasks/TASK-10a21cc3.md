@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # TASK-10a21cc3 - Concise project directory and unified project hub
 
-stage: deliver
+stage: done
 type: change
 path: full
 interaction: autopilot
@@ -24,9 +24,9 @@ opened: 2026-10-06
 - [x] Validated candidate unchanged and both reviews approved
 - [x] Evidence, diff, exclusions and delivery outcome presented
 - [x] Standing human commit/push/deploy authority recorded
-- [ ] Journal/report committed and scoped branch pushed
-- [ ] Existing DCP deployment and smoke succeed
-- [ ] Close-out committed after outcome
+- [x] Journal/report committed and scoped branch pushed
+- [x] Existing DCP deployment and smoke succeed
+- [x] Close-out committed after outcome
 
 ## Frame
 
@@ -83,27 +83,29 @@ Expected authored files: App.tsx, styles.css, e2e/jobs.spec.ts, Web_Interface.md
 - 2026-10-06 final reviews/proof: both separate same-agent verdicts approved/round1 for reconciled candidate SHA256 612d9ff244c4acc78fc0c89a3a656c118debccebc74a62728a9769182c78cf30. Eleven authored paths plus journal; generated five-path asset replacement separate. `git diff --check` exit0; final browser5passed51.9s, typecheck/build exit0 unchanged. Catalog-only `check --task TASK-10a21cc3 --strict --json` exit0/0errors7warnings25notes/strictpassed/run[]. Accepted baseline tracked fingerprints and four legacy journal warnings, configured test globs omitting e2e (five real journeys explicitly run), large generated JS scan gap supplemented by exact source review. Full suite deferred per stated deviation.
 - 2026-10-06 deliver: concrete candidate and5test/build results presented; standing human authority covers normal commit/push and existing DCP deployment. No PR/version/epic continuation/live project acceptance.
 
+- 2026-10-06 delivered: product af377de962adba5d02411fd755d5f02f478765bd normally pushed/remote ref verified; deployed /home/dpasare/apps/adore/web-ux-af377de, archive SHA25675988dfe8e40c3f957b4b5341e0b9a63340df3d5e7bbf7896d3f1629238094cb. Backup /home/dpasare/apps/adore/backups/web-ux-af377de-20261006135936. Both service PYTHONPATHs point to exact new release; served JS/CSS bytes match. Database schema14/integrityok/audit49 retained. After completed deploy: root200newindex, health200alive, ready200workerready, projects401authentication_required. No live project lifecycle/probe/executor mutations performed. Human visual acceptance/fullsuite deferred; epic remains paused.
+
 ## Rulings
 
 - RULING-001 | date=2026-10-06 | decision=Scoped implementation through validation, normal commit/push and existing DCP deployment with targeted checks | reason=Direct request plus standing iteration authority; human expressly defers full suite | source=user | supersedes=none
 
 ## Handoff
 
-current: deliver
+current: done
 status: ready
-next: commit/push then backed-up DCP deployment
+next: human live visual testing
 must_read: 04_Software/web/src/App.tsx, 04_Software/web/e2e/jobs.spec.ts
 blockers: none
 
 ## Stage report
 
-stage: validate
+stage: done
 result: completed
-current: deliver
+current: done
 changed: concise directory, unified hub and scoped Summary lifecycle actions
-evidence: typecheck/isolated/production builds exit0;5browser journeys passed51.9s
+evidence: typecheck/build exit0;5focused journeys passed; exact product pushed/deployed; services/assets/HTTP smoke verified
 issues: full suite deferred by human; existing bundle-size advisory
-next: authorized commit/push and DCP deployment
+next: human live visual testing
 needs_user: no
 spec_compliance: approved
 implementation_quality: approved
