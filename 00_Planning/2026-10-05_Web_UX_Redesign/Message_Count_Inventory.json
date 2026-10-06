@@ -1,0 +1,35 @@
+{
+  "legal": [
+    "Copyright (c) 2026 DDP Engineering",
+    "This software is licensed under the PolyForm Noncommercial License 1.0.0.",
+    "Commercial use requires a separate commercial license.",
+    "See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0"
+  ],
+  "schema": 1,
+  "issue": 16,
+  "status": "documentation candidate; owner approval pending; publication not authorized by coordinator yet",
+  "branch": "task/adore-web-interface",
+  "base_head": "3167322753c859c8b97ac7df6c38c42e9eeba19e",
+  "files": [
+    {
+      "path": "00_Planning/2026-10-05_Web_UX_Redesign/Message_Count_Contract.md",
+      "operation": "add",
+      "bytes": 24877,
+      "sha256": "4ac0bb117c30b31ff624fb5926b4d300480e73028b627aadfcbe984b2a27abdf"
+    },
+    {
+      "path": "00_Planning/2026-10-05_Web_UX_Redesign/Message_Count_Evidence.md",
+      "operation": "add",
+      "bytes": 9212,
+      "sha256": "fea09388e473658eea69652217f7e561becb1733caaca22cdb2bd944ca76c187"
+    }
+  ],
+  "deletions": [],
+  "self_excluded": "00_Planning/2026-10-05_Web_UX_Redesign/Message_Count_Inventory.json",
+  "exclusions": [
+    "unchanged tracked files",
+    "existing ignored files",
+    "runtime state",
+    "historical evidence"
+  ]
+}
