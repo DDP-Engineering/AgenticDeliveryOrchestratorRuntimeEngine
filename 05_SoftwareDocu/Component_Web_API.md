@@ -106,6 +106,29 @@ access to that one project, leaving every other grant unchanged, audits
 account returns 404, an administrator account 400 `user_not_developer`, and a
 rename landing during the update 409 `project_changed` with nothing changed.
 
+
+### Reviewed user creation
+
+Admin/CSRF `POST /api/v1/users/with-access` requires `username`, `password`,
+explicit `role` (`admin` or `developer`) and distinct immutable `project_ids`.
+Optional strict boolean `allow_no_projects` defaults to false. Extra fields,
+coercible types, invalid/duplicate usernames, passwords outside 8–1024 characters,
+invalid roles/IDs and implicit empty Dev access reject before persistence.
+Admin submits an empty grant list and receives all-project/system access by role;
+Dev receives exactly the selected current, visible, unarchived projects.
+
+The store commits account/grants and the existing secret-free success audit in
+one SQLite transaction. The API serializes archive changes with `config_lock`;
+selected metadata is rechecked before commit, with 409 `project_changed` for
+observed lifecycle races. Invalid grants return 400 `invalid_request`, archived
+projects 400 `project_archived`, corrupt metadata 503 `project_corrupt` and
+storage faults 503 `request_rejected`. Existing coded username/role/password
+failures and Admin/session/CSRF denial remain supported. Errors omit input values.
+Responses contain public account fields and `project_ids`, never password/hash.
+`GET /users` adds live `project_ids` alongside compatible name-based `projects`.
+`POST /users` and supported authentication/reset/assignment APIs retain their
+contracts. `test_web_user_creation.py` and existing auth/access/RBAC tests own proof.
+
 ## 5. Inputs And Outputs
 
 ### Portable new-project transfer

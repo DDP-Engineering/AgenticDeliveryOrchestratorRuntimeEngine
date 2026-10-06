@@ -130,6 +130,15 @@ class NewUser(Credentials):
     role: str = "developer"
 
 
+class UserWithAccess(Credentials):
+    """@brief Explicit reviewed account and immutable project grants."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+    role: Literal["admin", "developer"]
+    project_ids: list[str] = Field(max_length=1000)
+    allow_no_projects: bool = False
+
+
 class PasswordChange(BaseModel):
     """@brief Authenticated own-password change input."""
 
@@ -1957,7 +1966,8 @@ def create_app(home: str | Path | None = None,
 
     @app.get("/api/v1/users")
     def users(_user: Annotated[dict, Depends(administrator)]) -> list[dict]:
-        return [{**account, "projects": sorted(web.memberships(account["id"]))}
+        return [{**account, "projects": sorted(web.memberships(account["id"])),
+                 "project_ids": web.membership_ids(account["id"])}
                 for account in web.list_users()]
 
     @app.get("/api/v1/audit")
@@ -1997,6 +2007,34 @@ def create_app(home: str | Path | None = None,
         result = web.set_audit_policy(body.retention_days, body.max_bytes)
         web.audit(user["id"], "audit-policy-changed")
         return result
+
+    @app.post("/api/v1/users/with-access")
+    def add_user_with_access(body: UserWithAccess,
+                             user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+        """@brief Create exactly the reviewed account/grants in one transaction."""
+        with config_lock:
+            try:
+                return web.create_user_with_access(
+                    body.username, body.password, body.role, body.project_ids,
+                    body.allow_no_projects, user["id"],
+                )
+            except WebStoreError as exc:
+                codes = {
+                    "invalid grants": (400, "invalid_request"),
+                    "project archived": (400, "project_archived"),
+                    "project changed during the update": (409, "project_changed"),
+                    "administrator required": (403, "admin_required"),
+                    "project metadata is corrupt": (503, "project_corrupt"),
+                    "duplicate project identity": (503, "project_corrupt"),
+                    "user creation storage failed": (503, "request_rejected"),
+                    "audit policy is corrupt": (503, "web_store_corrupt"),
+                    "audit policy is missing": (503, "web_store_corrupt"),
+                    "audit row is corrupt": (503, "web_store_corrupt"),
+                }
+                if str(exc) in codes:
+                    status, code = codes[str(exc)]
+                    raise _error(status, code) from exc
+                raise _store_error(400, exc) from exc
 
     @app.post("/api/v1/users")
     def add_user(body: NewUser, user: Annotated[dict, Depends(admin_mutation)]) -> dict:

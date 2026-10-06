@@ -279,9 +279,10 @@ server scope. Invalid numeric/duration/scope evidence raises `RangeError`.
 `web/tests/metrics.test.mjs` proves these contracts offline.
 
 Signing out and signing in as another role returns to Overview, so an
-administrator-only view cannot remain selected for a developer. Asynchronous
-user creation and config staging keep their form reference until the request
-completes, allowing the form to reset after a successful response.
+administrator-only view cannot remain selected for a developer. Config staging
+keeps its form reference until the request completes, allowing the form to reset
+after a successful response. User creation owns its staged
+transient draft and clears credentials after confirmed creation.
 Administrators can trigger a replay of retained usage journals from Statistics;
 the button reports the reconciled event count and refreshes attributed views.
 The local endpoint form is shown for OpenCode profiles. It saves model ID and
@@ -428,6 +429,31 @@ background refreshes do not. EnrollmentWizard and ImportWizard validate stable l
 profile IDs before sending requests; the server remains authoritative for reserved
 IDs and ownership conflicts. Primary buttons use the `--on-accent` token, which
 is dark text on the light accent in both system-dark and explicit Dark themes.
+
+
+### Reviewed account and project access
+
+`UserCreation.tsx` and `userCopy.ts` provide four-locale identity/credentials,
+role/projects and review stages. Admin explicitly receives all current/future
+projects, system and cost access; Dev selects immutable IDs and receives project
+access only. A deliberate checkbox confirms Dev without grants. Review shows
+username, role and display labels plus stable IDs, with correction controls and
+focused stage headings. The password remains in transient credential state and
+is absent from the review model/render, browser storage and result. Unmount and
+successful creation clear the draft; failed creation retains correction.
+A synchronous ref guard permits one submission. Strict result parsing checks
+identity/role and exact reviewed grants before showing actual success; account
+refresh runs separately from the successful mutation.
+
+`AccountAccessEditor` reviews whole-account grants before compatible name-based
+assignment, resolving selected IDs through current loaded project records.
+`ProjectAccess` reviews one developer's current/proposed project grant before
+its existing mutation. Both show actual response results, retain correction on
+failure and guard duplicate/stale completion. Invalid project/account/developer
+reads withhold actions. The `.user-access` layout wraps IDs and action groups
+at narrow widths. `e2e/users.spec.ts` verifies review/correction, explicit roles
+and empty choice, secrets, duplicate submission, failures/malformed reads,
+late navigation, access edits, keyboard focus, themes and four-locale reflow.
 
 ## 4. Dependencies
 

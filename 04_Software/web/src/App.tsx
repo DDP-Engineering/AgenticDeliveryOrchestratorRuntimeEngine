@@ -22,10 +22,13 @@ import { StatisticsEvidence, TrendEvidence } from "./StatisticsEvidence";
 import { statisticsCopy } from "./statisticsCopy";
 import { JobWorkspace } from "./JobWorkspace";
 import { jobCopy } from "./jobCopy";
+import { UserCreation, AccountAccessEditor, AccessReview, validAccount, type Account } from "./UserCreation";
+import { userCopy } from "./userCopy";
 import { DashboardShell, NavigationLink, type ShellLink } from "./DashboardShell";
 import { DataFeedback, ProjectEmpty, StatusBadge, DeliveryGlossary, type DataState, type ScopedState } from "./Presentation";
 
 type User = { id: number; username: string; role: "admin" | "developer"; disabled: boolean; password_change_required?: boolean; projects?: string[] };
+type AccountUser = User & Account;
 type Session = { user: User; csrf: string };
 type PageSize = 10 | 25 | 50 | "all";
 type Preferences = { language: Locale | null; theme: "light" | "dark" | "system" | null };
@@ -114,7 +117,7 @@ export default function App() {
   const [pendingConfigScope, setPendingConfigScope] = useState("");
   const [prices, setPrices] = useState<Price[]>([]);
   const [pricesScope, setPricesScope] = useState("");
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<AccountUser[]>([]);
   const [auditRows, setAuditRows] = useState<AuditRow[]>([]);
   const [auditPolicy, setAuditPolicy] = useState<AuditPolicy | null>(null);
   const [adminMenuOpen, setAdminMenuOpen] = useState(true);
@@ -359,7 +362,7 @@ export default function App() {
         item.verification.checked_at != null && (typeof item.verification.checked_at !== "string" || !Number.isFinite(Date.parse(item.verification.checked_at))) ||
         item.verification.revision != null && (typeof item.verification.revision !== "string" || !/^[a-f0-9]{64}$/.test(item.verification.revision)) ||
         item.last_activity !== null && (typeof item.last_activity !== "string" || !Number.isFinite(Date.parse(item.last_activity))) ||
-        !Number.isSafeInteger(item.runs) || item.runs < 0)) throw new ApiError("unexpected_response");
+        !Number.isSafeInteger(item.runs) || item.runs < 0) || new Set(items.map(item => item.id)).size !== items.length) throw new ApiError("unexpected_response");
       setProjects(items);
       setSelected(current => items.some(item => item.id === current) || routedProject.current ? current : (items[0]?.id || ""));
       setProjectsLoaded(true); setProjectsState("ready"); setLastRefresh(new Date());
@@ -466,8 +469,8 @@ export default function App() {
       const generation = viewGeneration.current;
       let active = true;
       setUsersState("loading");
-      request<User[]>("/users").then(value => {
-        if (!Array.isArray(value) || value.some(item => !item || typeof item.username !== "string" || !["admin", "developer"].includes(item.role))) throw new ApiError("unexpected_response");
+      request<AccountUser[]>("/users").then(value => {
+        if (!Array.isArray(value) || value.some(item => !validAccount(item) || typeof item.disabled !== "boolean") || new Set(value.map(item => item.id)).size !== value.length) throw new ApiError("unexpected_response");
         if (active && generation === viewGeneration.current) { setUsers(value); setUsersState("ready"); }
       }).catch(cause => { if (active && generation === viewGeneration.current) { setUsersState("error"); setError(cause); } });
       return () => { active = false; };
@@ -730,15 +733,6 @@ export default function App() {
     } catch (cause) { setError(cause); }
   };
 
-  const createUser = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault(); setError("");
-    const form = event.currentTarget;
-    try {
-      await request("/users", "POST", Object.fromEntries(new FormData(form)), session?.csrf);
-      setUsers(await request<User[]>("/users")); form.reset();
-    } catch (cause) { setError(cause); }
-  };
-
   const saveAuditPolicy = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); setError("");
     const form = event.currentTarget;
@@ -754,20 +748,11 @@ export default function App() {
     } catch (cause) { setError(cause instanceof RangeError ? t("auditInvalidLimit") : cause); }
   };
 
-  const assignProjects = async (event: FormEvent<HTMLFormElement>, userId: number) => {
-    event.preventDefault(); setError("");
-    try {
-      const projects = new FormData(event.currentTarget).getAll("projects").map(String);
-      await request(`/users/${userId}/projects`, "PUT", { projects }, session?.csrf);
-      setUsers(await request<User[]>("/users")); setNotice(t("assign"));
-    } catch (cause) { setError(cause); }
-  };
-
   const setAccountEnabled = async (userId: number, enabled: boolean) => {
     setError("");
     try {
       await request(`/users/${userId}/${enabled ? "enable" : "disable"}`, "POST", {}, session?.csrf);
-      setUsers(await request<User[]>("/users"));
+      setViewRefresh(value => value + 1);
     } catch (cause) { setError(cause); }
   };
 
@@ -1040,7 +1025,7 @@ export default function App() {
             <details><summary>{t("rawConfig")}</summary><pre className="config-preview">{JSON.stringify(projectConfig.config, null, 2)}</pre></details>
           </>}</section>}
           </>}
-          {projectTab === "access" && isAdmin && selected && <ProjectAccess key={selected + ":" + viewRefresh} project={selected} csrf={session?.csrf} t={t} onError={setError} onNotice={setNotice} />}
+          {projectTab === "access" && isAdmin && selected && <ProjectAccess key={selected + ":" + viewRefresh} project={selected} csrf={session?.csrf} locale={locale} t={t} onError={setError} onNotice={setNotice} />}
           {projectTab === "prices" && isAdmin && <>
           {isAdmin && selected && <section className="panel wide-panel"><h2>{t("estimatedPrices")}</h2><p className="muted">{t("priceHelp")}</p>
             <form key={selected} className="form-grid" onSubmit={savePrice}><FormLegend t={t} /><label>{t("executor")}<select name="executor" defaultValue={["codex", "opencode", "pi", "qwen"].includes(selectedProject?.executor || "") ? selectedProject?.executor : "codex"}><option value="codex">codex</option><option value="opencode">opencode</option><option value="pi">pi</option><option value="qwen">qwen</option></select></label><Field name="model" label={t("model")} required /><label><span>{t("effectiveFrom")}<RequiredMark /></span><input name="effective_from" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required /></label><label><span>{t("inputRate")}<RequiredMark /></span><input name="input_usd_per_million" type="number" min="0" max="1000000" step="0.000001" required /></label><label><span>{t("outputRate")}<RequiredMark /></span><input name="output_usd_per_million" type="number" min="0" max="1000000" step="0.000001" required /></label><button className="primary form-submit" type="submit">{t("save")}</button></form>
@@ -1140,16 +1125,13 @@ export default function App() {
         </div>}
 
         {page === "adminUsers" && isAdmin && <div className="two-column">
-          <section className="panel"><h2>{t("createUser")}</h2><form className="form-stack" onSubmit={createUser}><FormLegend t={t} /><Field name="username" label={t("username")} required /><Field name="password" label={t("password")} type="password" required minLength={8} hint={t("passwordRule")} /><label>{t("role")}<select name="role"><option value="developer">{t("developer")}</option><option value="admin">{t("admin")}</option></select></label><button className="primary">{t("createUser")}</button></form></section>
+          <UserCreation key={session.user.id} projects={projects} ready={projectsState === "ready"} locale={locale} usernameLabel={t("username")} passwordLabel={t("password")} roleLabel={t("role")} createLabel={t("createUser")} requiredLegend={t("requiredLegend")} send={(path, method, body) => request(path, method, body, session.csrf)} onCreated={() => setViewRefresh(value => value + 1)} />
           <section className="panel"><h2>{t("userAccounts")}</h2>{usersState !== "ready" ? <DataFeedback state={usersState} t={t} /> : users.length === 0 ? <Empty label={t("empty")} /> : <div className="user-list">{users.map(item =>
             <div className="user-row" key={item.id}>
               <span className="user-avatar">{item.username.charAt(0).toUpperCase()}</span>
               <div><strong>{item.username}</strong><small>{t(item.role)}{item.disabled ? ` · ${t("disable")}` : ""}</small></div>
               {item.role === "developer" && <details className="membership-editor"><summary>{t("assignedProjects")}</summary>
-                <form onSubmit={event => assignProjects(event, item.id)}>
-                  {projects.map(project => <label key={project.name}><input type="checkbox" name="projects" value={project.name} defaultChecked={item.projects?.includes(project.name)} />{project.name}</label>)}
-                  <button className="ghost">{t("save")}</button>
-                </form>
+                <AccountAccessEditor key={item.id + ":" + item.project_ids.join()} account={item} projects={projects} ready={projectsState === "ready"} locale={locale} saveLabel={t("save")} send={(path, method, body) => request(path, method, body, session.csrf)} onError={setError} onApplied={result => { setNotice(result); setViewRefresh(value => value + 1); }} />
               </details>}
               {item.id !== session.user.id && <button type="button" className="ghost" onClick={() => setAccountEnabled(item.id, item.disabled)}>{t(item.disabled ? "enable" : "disable")}</button>}
               <button type="button" className="ghost" onClick={() => setResetTarget(resetTarget === item.id ? null : item.id)}>{t("resetPassword")}</button>
@@ -1219,31 +1201,39 @@ function Field({ name, label, type = "text", required = false, defaultValue, hin
 
 
 type ProjectDeveloper = { id: number; username: string; disabled: boolean; granted: boolean };
+const validDevelopers = (value: unknown): value is { developers: ProjectDeveloper[] } => !!value && typeof value === "object" && "developers" in value && Array.isArray(value.developers) && value.developers.every(row => row && Number.isSafeInteger(row.id) && row.id > 0 && typeof row.username === "string" && typeof row.disabled === "boolean" && typeof row.granted === "boolean") && new Set(value.developers.map(row => row.id)).size === value.developers.length;
 
 /** Administrator view of one project’s developers, granting or removing access one at a time. */
-function ProjectAccess({ project, csrf, t, onError, onNotice }: { project: string; csrf?: string; t: (key: MessageKey) => string; onError: (cause: unknown) => void; onNotice: (text: string) => void }) {
+function ProjectAccess({ project, csrf, locale, t, onError, onNotice }: { project: string; csrf?: string; locale: Locale; t: (key: MessageKey) => string; onError: (cause: unknown) => void; onNotice: (text: string) => void }) {
   const [developers, setDevelopers] = useState<ProjectDeveloper[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false);
   const mounted = useRef(true);
+  const changing = useRef(false);
+  const [review, setReview] = useState<ProjectDeveloper | null>(null);
+  const copy = userCopy[locale];
   const path = `/projects/${encodeURIComponent(project)}/access`;
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   useEffect(() => {
     let live = true;
     setDevelopers(null); setFailed(false);
-    request<{ developers: ProjectDeveloper[] }>(path).then(value => { if (live) setDevelopers(value.developers); }).catch(cause => { if (live) { setFailed(true); onError(cause); } });
+    request<{ developers: ProjectDeveloper[] }>(path).then(value => { if (!validDevelopers(value)) throw new ApiError("unexpected_response"); if (live) setDevelopers(value.developers); }).catch(cause => { if (live) { setFailed(true); onError(cause); } });
     return () => { live = false; };
   }, [path]);
   const change = async (developer: ProjectDeveloper) => {
-    setBusy(true); onError("");
+    if (changing.current) return;
+    changing.current = true; setBusy(true); onError("");
     try {
-      await request(`${path}/${developer.id}`, "PUT", { granted: !developer.granted }, csrf);
+      const result = await request<{ id: number; granted: boolean }>(`${path}/${developer.id}`, "PUT", { granted: !developer.granted }, csrf);
+      if (result.id !== developer.id || result.granted !== !developer.granted) throw new ApiError("unexpected_response");
       if (!mounted.current) return;  // another project is shown now; say nothing about this one
       setDevelopers(current => current && current.map(row => row.id === developer.id ? { ...row, granted: !developer.granted } : row));
-      onNotice(t(developer.granted ? "accessRemoved" : "accessGranted"));
+      setReview(null);
+      onNotice(`${copy.applied}: ${developer.username} · ${t(result.granted ? "hasAccess" : "noAccess")}`);
       const value = await request<{ developers: ProjectDeveloper[] }>(path);
+      if (!validDevelopers(value)) throw new ApiError("unexpected_response");
       if (mounted.current) setDevelopers(value.developers);
-    } catch (cause) { if (mounted.current) onError(cause); } finally { if (mounted.current) setBusy(false); }
+    } catch (cause) { if (mounted.current) onError(cause); } finally { if (mounted.current) { changing.current = false; setBusy(false); } }
   };
   return <section className="panel wide-panel"><h2>{t("projectAccessTab")}</h2><p className="muted">{t("projectAccessHelp")}</p>
     {developers === null ? <DataFeedback state={failed ? "error" : "loading"} t={t} /> : (developers.length === 0 ? <p className="empty">{t("noDevelopers")}</p> : <div className="user-list">{developers.map(developer =>
@@ -1251,8 +1241,9 @@ function ProjectAccess({ project, csrf, t, onError, onNotice }: { project: strin
         <span className="user-avatar">{developer.username.charAt(0).toUpperCase()}</span>
         <div><strong>{developer.username}</strong><small>{t("developer")}{developer.disabled ? ` · ${t("accountDisabled")}` : ""}</small></div>
         <span className={developer.granted ? "status status-working" : "status"}>{t(developer.granted ? "hasAccess" : "noAccess")}</span>
-        <button type="button" className="ghost" disabled={busy} aria-label={`${t(developer.granted ? "removeAccess" : "grantAccess")}: ${developer.username}`} onClick={() => void change(developer)}>{t(developer.granted ? "removeAccess" : "grantAccess")}</button>
+        <button type="button" className="ghost" disabled={busy || review !== null} aria-label={`${t(developer.granted ? "removeAccess" : "grantAccess")}: ${developer.username}`} onClick={() => setReview(developer)}>{t(developer.granted ? "removeAccess" : "grantAccess")}</button>
       </div>)}</div>)}
+    {review && <AccessReview subject={`${review.username} · ${project}`} before={t(review.granted ? "hasAccess" : "noAccess")} after={t(review.granted ? "noAccess" : "hasAccess")} copy={copy} busy={busy} correct={() => setReview(null)} apply={() => void change(review)} />}
   </section>;
 }
 

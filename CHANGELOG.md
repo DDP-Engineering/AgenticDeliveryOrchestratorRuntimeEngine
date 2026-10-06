@@ -14,6 +14,12 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Added
 
+- Reviewed web account creation with explicit Admin/global or Dev/stable-project
+  access, deliberate empty grants, one atomic account/grant/audit transaction,
+  lifecycle-race rollback and secret-free corrective review. Account/project
+  grant edits show before/after and applied results; offline negative, browser,
+  localization and responsive regression proof accompanies the contracts (#18).
+
 - Explanatory scoped Statistics with explicit all-time, separate active-now stock,
   honest zero/unavailable/partial coverage and cost provenance, server-sample
   durations, composite job lifetime/period consumption, and labeled trends with

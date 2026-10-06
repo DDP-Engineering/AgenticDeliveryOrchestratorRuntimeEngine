@@ -445,3 +445,13 @@ td.strong { font-weight: 800; }
   .statistics-evidence .stats-grid { grid-template-columns: 1fr; }
   .job-consumption { min-width: 0; }
 }
+
+/* Reviewed account/access choices preserve stable IDs at narrow widths. */
+.user-access { min-width: 0; }
+.user-access fieldset { min-width: 0; border: 1px solid var(--border); border-radius: 8px; }
+.user-access fieldset label { display: block; margin: .75rem 0; overflow-wrap: anywhere; }
+.user-access input[type="checkbox"] { width: auto; margin-right: .5rem; }
+.user-access code, .user-access dd, .user-access [role="status"] { overflow-wrap: anywhere; white-space: normal; }
+.user-access .actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.user-access dt { font-weight: 600; margin-top: .75rem; }
+.user-access dd { margin-left: 0; }

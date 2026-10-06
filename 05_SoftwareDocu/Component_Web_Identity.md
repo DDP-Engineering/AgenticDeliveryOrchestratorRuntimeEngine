@@ -71,6 +71,30 @@ watcher sees them during any blocking command or poll, and they are claimed
 ahead of other pending commands after that command returns. The watcher
 does not change operation status; the normal worker claim reconciles the result.
 
+
+### Reviewed account creation
+
+`create_user_with_access(username, password, role, project_ids,
+allow_no_projects, actor_id)` validates explicit Admin/Dev intent and current
+project IDs, then uses `BEGIN IMMEDIATE` for the active-Admin check, Argon2id
+account, complete grant set and existing `user-created` audit event. Final
+selected ID/name/creation/archive reinspection precedes commit. Invalid input,
+duplicate name, stale/deleted/replaced project, audit or storage failure rolls
+back the account and every grant. Success returns public account fields and
+sorted immutable `project_ids`; `membership_ids` reads live ID-bound grants.
+Admin receives global access by role with no explicit membership rows. Dev
+zero-project creation requires `allow_no_projects=true`. Existing `create_user`
+and name-based assignment methods retain their supported contracts.
+
+Profile metadata remains filesystem-owned. API-thread archive changes serialize
+with creation; external lifecycle changes are detected at final reinspection.
+A change after commit is a subsequent lifecycle event: identity/creation-bound
+grants cannot transfer to a replacement. This single-host operation uses no
+new database schema or distributed filesystem transaction. Public tests in
+`tests/test_web_user_creation.py` verify exact recipient access, input negatives,
+hash-time and post-write lifecycle races, transactional faults, durable rename/
+replacement binding, role/CSRF/disabled denial and existing API compatibility.
+
 ## 4. Dependencies
 
 Python SQLite and `argon2-cffi` are required by the optional `web` extra.

@@ -726,6 +726,93 @@ class WebStore:
             rows = connection.execute("SELECT * FROM users ORDER BY username").fetchall()
         return [_user(row) for row in rows]
 
+    def create_user_with_access(self, username: str, password: str, role: str,
+                                project_ids: list[str], allow_no_projects: bool,
+                                actor_id: int) -> dict[str, Any]:
+        """
+        @brief      Commit an explicit account intent, grants and audit atomically.
+        @param[in]  username Valid account identity.
+        @param[in]  password Transient credential, stored only as Argon2id hash.
+        @param[in]  role Explicit admin or developer role.
+        @param[in]  project_ids Distinct immutable visible project identities.
+        @param[in]  allow_no_projects Deliberate developer zero-project choice.
+        @param[in]  actor_id Active administrator committing this intent.
+        @return     Public account with exactly committed project IDs.
+        @exception  WebStoreError Invalid intent, stale project or failed storage.
+        @note       Profile lifecycle changes are rechecked before SQLite commit;
+                    later replacements cannot inherit immutable identity grants.
+        """
+        if (not isinstance(username, str) or not username or len(username) > 64
+                or not username.replace("_", "").isalnum()):
+            raise WebStoreError("invalid username")
+        if not isinstance(password, str) or not 8 <= len(password) <= 1024:
+            raise WebStoreError("password must contain at least 8 characters")
+        if role not in ("admin", "developer"):
+            raise WebStoreError("invalid role")
+        if (type(allow_no_projects) is not bool or not isinstance(project_ids, list)
+                or len(project_ids) > 1000
+                or any(not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{32}", value)
+                       for value in project_ids)
+                or len(set(project_ids)) != len(project_ids)
+                or role == "admin" and project_ids
+                or role == "developer" and not project_ids and not allow_no_projects):
+            raise WebStoreError("invalid grants")
+        projects = self._projects_by_id()
+        selected = []
+        for identity in sorted(project_ids):
+            profile = projects.get(identity)
+            if profile is None:
+                raise WebStoreError("project not found")
+            if profile.archived:
+                raise WebStoreError("project archived")
+            selected.append(profile)
+        try:
+            with self._connect() as connection:
+                connection.execute("BEGIN IMMEDIATE")
+                actor = connection.execute("SELECT * FROM users WHERE id=?", (actor_id,)).fetchone()
+                if (actor is None or actor["disabled"] or actor["role"] != "admin"
+                        or actor["password_change_required"]):
+                    raise WebStoreError("administrator required")
+                if connection.execute("SELECT 1 FROM users WHERE username=?",
+                                      (username,)).fetchone():
+                    raise WebStoreError("username already exists")
+                cursor = connection.execute(
+                    "INSERT INTO users(username,password_hash,role,created_at) VALUES (?,?,?,?)",
+                    (username, _HASHER.hash(password), role, _now()),
+                )
+                user_id = cursor.lastrowid
+                connection.executemany(
+                    "INSERT INTO memberships(user_id,project,profile_created_at,project_id) "
+                    "VALUES (?,?,?,?)",
+                    [(user_id, profile.name, profile.created_at, profile.project_id)
+                     for profile in selected],
+                )
+                connection.execute(
+                    "INSERT INTO audit(actor_id,action,detail,created_at) VALUES (?,?,?,?)",
+                    (actor_id, "user-created", username, _now()),
+                )
+                self._prune_audit(connection)
+                current = self._projects_by_id()
+                for profile in selected:
+                    live = current.get(profile.project_id)
+                    if (live is None or live.archived or live.name != profile.name
+                            or live.created_at != profile.created_at):
+                        raise WebStoreError("project changed during the update")
+                row = connection.execute("SELECT * FROM users WHERE id=?", (user_id,)).fetchone()
+            return {**_user(row), "project_ids": sorted(project_ids)}
+        except sqlite3.DatabaseError as exc:
+            raise WebStoreError("user creation storage failed") from exc
+
+    def membership_ids(self, user_id: int) -> list[str]:
+        """@brief Return current immutable grants alongside compatible name reads."""
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT project,profile_created_at,project_id FROM memberships WHERE user_id=?",
+                (user_id,),
+            ).fetchall()
+        return sorted(profile.project_id for profile in
+                      self._granted_projects(rows, self._projects_by_id()))
+
     def user_by_id(self, user_id: int) -> dict[str, Any] | None:
         """@brief Recheck the actor before worker execution."""
         with self._connect() as connection:

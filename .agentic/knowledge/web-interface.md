@@ -31,6 +31,18 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 
 ## Public interface
 
+- Admin/CSRF `/users/with-access` commits explicit role, immutable project IDs,
+  account and existing secret-free audit atomically through `create_user_with_access`.
+  Dev empty selection requires acknowledgement; Admin role grants global access.
+  Invalid intent, stale/archived/deleted projects and storage faults leave no
+  partial user/grants. Final metadata inspection detects concurrent lifecycle
+  change; replacements cannot inherit ID/creation-bound grants. `/users` adds
+  live `project_ids` beside compatible names. `UserCreation` owns four-locale
+  memory-only identity/access/secret-free review, corrections, focus and one-submit
+  guards; `AccountAccessEditor`/`ProjectAccess` review before/after and show actual
+  results. Tests: `test_web_user_creation.py`, existing auth/access/RBAC and
+  `web/e2e/users.spec.ts`; layout wraps stable IDs and controls at 390px.
+
 - Admin/CSRF `transfer-source/preview/check/create` create fresh stopped projects
   from strict portable files or immutable authorized source identities. Exact source
   bytes/ID and target revision are bound; source/session/ownership are rechecked
@@ -322,6 +334,7 @@ Python/Ruff and frontend validation. CLI summary/export semantics are preserved.
 
 | Change requested | Start with | Focused verification |
 |---|---|---|
+| Atomic reviewed accounts and access edits | `UserCreation.tsx`, `userCopy.ts`, `create_user_with_access`, `/users/with-access` | `test_web_user_creation.py`, auth/access/RBAC suites, `web/e2e/users.spec.ts` |
 | Authorized global job evidence, paging, revisions | `adore/web/jobs.py`, `jobs_page` and `job_detail` in `app.py` | `test_web_jobs.py`, `test_web_paging.py`, `test_web_rbac.py` |
 | Portable new-project file/copy, mapping and source revision | `TransferWizard.tsx`, `EnrollmentWizard.tsx`, `_prepare_transfer`, `transfer_source` | `test_web_transfer.py`, `web/e2e/transfer.spec.ts` |
 | Enrollment, display identity, readiness evidence | `adore/profiles.py`, `adore/wizard.py`, `adore/web/app.py` | `test_web_enrollment.py`, `test_web_errors.py` |
@@ -457,6 +470,12 @@ flowchart LR
     PortableSettings --> portable[portable.ts strict response]
     PortableSettings --> api
     api --> portableSource[portable_settings validated active rules]
+    App --> UserCreation[UserCreation memory credentials and secret-free review]
+    App --> AccessReview[AccountAccessEditor and ProjectAccess before after result]
+    UserCreation --> userCopy[userCopy four locale access guidance]
+    AccessReview --> userCopy
+    UserCreation --> api
+    AccessReview --> api
     App --> i18n[i18n catalogs]
     Presentation --> i18n
     App --> api[create_app]
@@ -533,7 +552,8 @@ exports also carry the Usage tab's executor/model filters. Compact layouts put
 the shared reporting controls in two rows.
 Session clearing also returns the shell to Overview, preventing a blank
 administrator-only page after a developer signs in. Successful asynchronous
-user creation and config staging reset their forms without a false error.
+config staging resets its form without a false error; UserCreation clears its
+transient credentials after confirmed creation.
 A signed-in account with a pending required password change is held outside
 the shell session, so only the change-password card renders and no dashboard
 polling starts. The error banner stores the raw failure; `web/src/errors.ts`
@@ -543,6 +563,9 @@ for Add and Import project. Primary buttons take their text colour from the
 `--on-accent` theme token.
 
 ## Files
+
+- `web/src/UserCreation.tsx`, `userCopy.ts`, `web/e2e/users.spec.ts` and
+  `tests/test_web_user_creation.py` own reviewed accounts/access and negative proof.
 
 - `04_Software/web/src/statistics.ts` - strict analytical scope/amount/job boundary.
 - `04_Software/web/src/StatisticsEvidence.tsx` - honest measures, consumption and trends.

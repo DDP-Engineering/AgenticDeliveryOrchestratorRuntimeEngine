@@ -140,6 +140,16 @@ protects the worktree from routine cleanup and further autonomous execution.
 - `05_SoftwareDocu/README.md` - component contract index.
 - `CHANGELOG.md` - release history, including each AEGIS re-verification.
 
+## Web account access
+
+Admin user creation guides identity/credentials, explicit role/stable project
+IDs and secret-free corrective review. One SQLite transaction commits account,
+grants and the existing success audit after selected profile reinspection.
+Dev zero grants require deliberate acknowledgement; Admin role grants global
+project/system/cost access. Compatible account/reset/assignment APIs remain
+supported. Account and project grant editors show before/after and actual result;
+credential drafts remain transient and clear on success or leaving the page.
+
 ## Web reporting scope
 
 Web analytics resolves inclusive local calendar controls to canonical half-open

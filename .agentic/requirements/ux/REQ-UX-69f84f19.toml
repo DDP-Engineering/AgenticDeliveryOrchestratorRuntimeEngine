@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-69f84f19"
+title = "Review access edits with before after and applied result"
+status = "active"
+requirement = "When an administrator edits a developer account or project grant in the browser, ADORE shall show current and proposed access for confirmation before applying and display the actual applied result, retaining correction after a rejected update."
+verification = "Automated: browser changes a whole-account selection and one project grant, observes before/after review and actual result; cancelled review sends no mutation, failed apply leaves the editor usable."
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/UserCreation.tsx", "04_Software/web/src/userCopy.ts"]
+linked_tests = ["04_Software/web/e2e/users.spec.ts"]
+spec = "specs/REQ-FUNC-97bcc67f.md"
+priority = "normal"
+created = 2026-10-06
+updated = 2026-10-06

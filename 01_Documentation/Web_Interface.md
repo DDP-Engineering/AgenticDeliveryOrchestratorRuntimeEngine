@@ -164,6 +164,30 @@ and operation events in Audit, one page at a time. Developers cannot open these
 submenus. Every user's language, theme and password are under My account, a
 top-level sidebar entry.
 
+
+### Create a user with reviewed access
+
+In **Users**, enter the username and password, then continue to role and project
+access. **Admin** explicitly grants all current and future projects, system
+administration and costs. **Dev** grants only the selected projects; labels help
+recognition while the displayed stable IDs identify grants. To create Dev with
+no project access, deliberately select **Create Dev without project access**.
+
+Review identity and exact access before **Create reviewed account**. The review
+omits the password. **Correct identity** and **Correct access** return to your
+choices. The draft lives only in this page's memory; navigating away or reloading
+clears it. Creation commits account and grants together; a duplicate username,
+invalid selection or changed/archived/deleted project rejects the operation
+without a partial account. Correct the choice and review again after a rejection.
+The result states the account and actual access. Existing password sign-in,
+administrator reset, required own-password replacement and disabled-session
+behavior continue to apply.
+
+Assigned-project editing under Users and the project's Access tab both show
+**Before** and **After** before **Apply reviewed access**, then the actual result.
+**Correct access** cancels that review without applying. These remain Admin-only;
+Dev direct routes and API calls retain project, administration and cost restrictions.
+
 Every view has its own address, so links can be bookmarked or shared and the
 browser's reload, Back and Forward keep your place. Examples:
 `/projects/<project-id>/configuration`, `/jobs?project=<project-id>&run=<run-id>`,
