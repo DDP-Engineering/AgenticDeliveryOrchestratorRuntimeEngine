@@ -90,6 +90,9 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Projects describes new-ticket pickup as Monitoring (Active/Paused) with
+  consistent pause/activate actions and concise project rows and summary.
+
 - Compact Overview attention and active tables with one project selector and Details;
   worker faults remain visible, while reporting dates, timezone, consumption and
   repeated scope explanations stay out of the overview.

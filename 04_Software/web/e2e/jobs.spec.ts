@@ -82,10 +82,12 @@ test("overview surfaces worker faults and withholds corrupt active evidence", as
 test("hub separates pickup and verification and keeps role-appropriate navigation", async ({ page }) => {
   await signIn(page);
   await nav(page).getByRole("link", { name: "Projects", exact: true }).click();
-  await expect(page.getByRole("columnheader", { name: "Pickup", exact: true })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Monitoring", exact: true })).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "Environment verification", exact: true })).toBeVisible();
+  await expect(page.getByText("Active jobs continue when pickup is stopped.", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Pause monitoring|Activate monitoring/ }).first()).toBeVisible();
   await page.getByRole("link", { name: "alpha", exact: true }).click();
-  await expect(page.getByText("Active jobs continue when pickup is stopped.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Active jobs continue when pickup is stopped.", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("tab", { name: "Summary", exact: true })).toBeVisible();
   await expect(page.locator(".overview-controls")).toHaveCount(0);
   await expect(page.getByRole("tab", { name: "Settings", exact: true })).toBeVisible();

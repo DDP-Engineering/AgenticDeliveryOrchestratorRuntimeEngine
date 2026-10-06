@@ -34,7 +34,7 @@ Details lead with current lifecycle explanation, exact stage, observed reason, r
 
 ## Commands and authorization
 
-Manual start is available only for a selected authorized current project; explain that worker runs existing ticket selection/readiness/approval gates. Retry appears only for failed current jobs; cancel only nonterminal jobs excluding handoff-pending. Effects remain visible, ref lock prevents duplicate submission. Queue acceptance is pending, not completion; poll existing operations and display succeeded/failed/uncertain with actual redacted result. Worker heartbeat states readiness only, not per-job execution or forge reachability. Pickup stop explains active jobs continue. Admin pickup buttons remain project operations.
+Manual start is available only for a selected authorized current project; explain that worker runs existing ticket selection/readiness/approval gates. Retry appears only for failed current jobs; cancel only nonterminal jobs excluding handoff-pending. Effects remain visible, ref lock prevents duplicate submission. Queue acceptance is pending, not completion; poll existing operations and display succeeded/failed/uncertain with actual redacted result. Worker heartbeat states readiness only, not per-job execution or forge reachability. Monitoring Active/Paused labels describe new-ticket pickup; the header help explains that active jobs continue after pause. Admin pickup buttons remain project operations.
 
 ## Verification
 

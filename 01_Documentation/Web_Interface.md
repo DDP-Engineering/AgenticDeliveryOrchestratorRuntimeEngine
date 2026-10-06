@@ -81,6 +81,15 @@ the localized delivery glossary. Activate it again, press Escape or click outsid
 to close it. Full job history is reached through the sidebar Jobs link; Overview
 keeps job-specific Details links.
 
+
+Projects labels new-ticket pickup as **Monitoring**, with Active/Paused states.
+Administrator row actions pause/activate monitoring and archive/restore projects;
+delete is available for an archived idle project after exact-name confirmation.
+Environment verification records explicit checks against the saved configuration
+revision; Unverified means no current evidence, not an observed failure. Use
+Project details → Summary → Run readiness check for the administrator check.
+Pause semantics are available in header help instead of repeated row guidance.
+
 ## Start from source
 
 On a development machine, install the optional web dependencies and build the

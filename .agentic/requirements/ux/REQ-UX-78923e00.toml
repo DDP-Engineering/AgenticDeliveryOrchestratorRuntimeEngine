@@ -7,13 +7,13 @@
 
 schema = 1
 id = "REQ-UX-78923e00"
-title = "distinguish pickup state from revision-bound environment verification"
+title = "distinguish new-ticket Monitoring Active/Paused state from revision-bound environment verification"
 status = "active"
-requirement = "When an operator opens Projects or an authorized project hub, the dashboard shall distinguish pickup state from revision-bound environment verification and offer role-permitted Summary, Jobs, Statistics, Settings, Access and job History navigation while retaining existing deep links."
-verification = "Offline browser journeys inspect stopped pickup/active-job guidance and verification independently, traverse hub and old URLs with Back/keyboard/390px/themes, and confirm developer-denied Access/direct project routes."
-affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobModel.ts", "04_Software/web/src/jobCopy.ts", "04_Software/web/src/styles.css", "04_Software/web/src/routes.ts", "04_Software/web/e2e/jobs.spec.ts", "04_Software/web/tests/jobs.test.mjs"]
+requirement = "When an operator opens Projects or an authorized project hub, the dashboard shall distinguish new-ticket Monitoring Active/Paused state from revision-bound environment verification and offer role-permitted Summary, Jobs, Statistics, Settings, Access and job History navigation while retaining existing deep links."
+verification = "Offline browser journeys inspect Monitoring labels and verification independently, confirm concise rows without repeated pause guidance and retained administrator monitoring actions, traverse hub and old URLs with Back/keyboard/390px/themes, and confirm developer-denied Access/direct project routes."
+affected_paths = ["04_Software/adore/web/static/", "04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobModel.ts", "04_Software/web/src/jobCopy.ts", "04_Software/web/src/styles.css", "04_Software/web/src/routes.ts", "04_Software/web/e2e/jobs.spec.ts", "04_Software/web/tests/jobs.test.mjs"]
 linked_tests = ["04_Software/web/e2e/jobs.spec.ts", "04_Software/web/tests/jobs.test.mjs"]
 spec = "specs/REQ-UX-b758d2b7.md"
 priority = "high"
 created = 2026-10-05
-updated = 2026-10-05
+updated = 2026-10-06
