@@ -27,7 +27,7 @@ for pause/activate monitoring and archive/restore;
 delete is available for an archived idle project after exact-name confirmation.
 Environment verification records explicit checks against the saved configuration
 revision; Unverified means no current evidence, not an observed failure. Use
-Project details → Summary → Run readiness check for the administrator check.
+Project details → Summary → Check host prerequisites for the administrator check.
 Pause semantics are available in header help instead of repeated row guidance.
 The dedicated header combines name/repository and Summary, Settings, Prices,
 Access, Jobs, Statistics, History; Prices/Access are Admin-only. Jobs/Statistics
@@ -683,3 +683,17 @@ Discard focus restoration runs in a post-render effect after the mutation busy g
 - `04_Software/tests/test_web_scoped_metrics.py` - scoped analytical boundary proof.
 
 Persisted audit project names, including legacy rows, reject unsafe names with a redacted typed storage error on initialization and public reads; empty names preserve global scope.
+
+
+Project Summary uses two panels beneath the shared project header. The first
+shows separated label/value tiles for Container type, Executor, Monitoring,
+environment verification and actual scoped Active jobs, Waiting, Draft review
+and Failed jobs counts. Unavailable/corrupt job evidence shows unknown counts
+and withholds job rows. The second groups compact Needs attention and Active
+jobs tables; Details opens the full scoped job view. Usage/reporting belongs
+to Jobs/Statistics. Worker faults stay visible.
+Administrator monitoring/archive/restore/delete and Check host prerequisites
+buttons live in the information panel. Explicit host-check results appear there.
+Deletion uses a native modal with exact-name confirmation, Escape/cancel,
+focus containment and trigger focus restoration; navigation clears intent.
+Deletion remains subject to archived/idle project preconditions.

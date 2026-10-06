@@ -89,7 +89,7 @@ for pause/activate monitoring and archive/restore;
 delete is available for an archived idle project after exact-name confirmation.
 Environment verification records explicit checks against the saved configuration
 revision; Unverified means no current evidence, not an observed failure. Use
-Project details → Summary → Run readiness check for the administrator check.
+Project details → Summary → Check host prerequisites for the administrator check.
 Pause semantics are available in header help instead of repeated row guidance.
 
 ## Start from source
@@ -915,3 +915,17 @@ or restart jobs. Corrupt readiness evidence fails closed: inspect the host sidec
 repair/remove invalid evidence and explicitly rerun verification. Keep credentials
 in supported environment references or protected mounts; inline secret values,
 provider JSON secrets and URL credentials are rejected without echoing them.
+
+
+Project Summary uses two panels beneath the shared project header. The first
+shows separated label/value tiles for Container type, Executor, Monitoring,
+environment verification and actual scoped Active jobs, Waiting, Draft review
+and Failed jobs counts. Unavailable/corrupt job evidence shows unknown counts
+and withholds job rows. The second groups compact Needs attention and Active
+jobs tables; Details opens the full scoped job view. Usage/reporting belongs
+to Jobs/Statistics. Worker faults stay visible.
+Administrator monitoring/archive/restore/delete and Check host prerequisites
+buttons live in the information panel. Explicit host-check results appear there.
+Deletion uses a native modal with exact-name confirmation, Escape/cancel,
+focus containment and trigger focus restoration; navigation clears intent.
+Deletion remains subject to archived/idle project preconditions.

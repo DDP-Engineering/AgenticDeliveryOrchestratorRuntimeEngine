@@ -616,3 +616,17 @@ duplicate/late requests, endpoint connection review, four locales and keyboard/
 infrastructure, full accessibility and participant acceptance remain human work.
 
 Discard focus restoration runs in a post-render effect after the mutation busy guard clears, with the original captured scope checked before focusing the enabled edit control.
+
+
+Project Summary uses two panels beneath the shared project header. The first
+shows separated label/value tiles for Container type, Executor, Monitoring,
+environment verification and actual scoped Active jobs, Waiting, Draft review
+and Failed jobs counts. Unavailable/corrupt job evidence shows unknown counts
+and withholds job rows. The second groups compact Needs attention and Active
+jobs tables; Details opens the full scoped job view. Usage/reporting belongs
+to Jobs/Statistics. Worker faults stay visible.
+Administrator monitoring/archive/restore/delete and Check host prerequisites
+buttons live in the information panel. Explicit host-check results appear there.
+Deletion uses a native modal with exact-name confirmation, Escape/cancel,
+focus containment and trigger focus restoration; navigation clears intent.
+Deletion remains subject to archived/idle project preconditions.

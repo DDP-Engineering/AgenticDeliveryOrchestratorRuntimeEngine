@@ -90,6 +90,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Consolidated project Summary into information/action tiles and compact job lists; integrated explicit host checks and accessible modal project deletion.
+
 - Simplified Projects to a read-only directory with a Repo forge column; consolidated project identity and navigation, with lifecycle actions on dedicated Summary.
 
 - Projects describes new-ticket pickup as Monitoring (Active/Paused) with

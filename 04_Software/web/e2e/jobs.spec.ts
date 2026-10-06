@@ -80,6 +80,11 @@ test("overview surfaces worker faults and withholds corrupt active evidence", as
 });
 
 test("hub separates pickup and verification and keeps role-appropriate navigation", async ({ page }, info) => {
+  let checks = 0;
+  await page.route("**/api/v1/projects/*/readiness-check", route => {
+    checks++; expect(route.request().headers()["x-csrf-token"]).toBeTruthy();
+    return route.fulfill({ status: 200, json: { checked_at: "2026-10-06T10:00:00Z", checks: { git: true, forge_auth: false } } });
+  });
   await signIn(page);
   await nav(page).getByRole("link", { name: "Projects", exact: true }).click();
   await expect(page.getByRole("columnheader", { name: "Monitoring", exact: true })).toBeVisible();
@@ -89,6 +94,13 @@ test("hub separates pickup and verification and keeps role-appropriate navigatio
   await expect(page.getByText("Active jobs continue when pickup is stopped.", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Pause monitoring|Activate monitoring/ })).toHaveCount(0);
   await page.getByRole("link", { name: "alpha", exact: true }).click();
+  await expect(page.locator(".project-summary-window > .panel")).toHaveCount(2);
+  const facts = page.locator(".project-summary");
+  await expect(facts.locator(".summary-fact").filter({ hasText: "Container type" })).toContainText("Docker");
+  await expect(facts.locator(".summary-fact").filter({ hasText: "Executor" })).toContainText("OpenCode");
+  await expect(facts.locator(".summary-fact").filter({ hasText: "Active jobs" })).toContainText("3");
+  await expect(page.locator(".statistics-job-scope, .job-workspace .scope-note")).toHaveCount(0);
+  await expect(page.locator(".project-summary-window .summary-job-window")).toContainText("Working");
   const hub = page.locator(".project-hub");
   await expect(hub.locator("strong")).toHaveText("alpha");
   await expect(hub.locator("button, a")).toHaveText(["Summary", "Settings", "Prices", "Access", "Jobs", "Statistics", "History"]);
@@ -105,6 +117,11 @@ test("hub separates pickup and verification and keeps role-appropriate navigatio
   await expect(page.locator(".overview-controls")).toHaveCount(0);
   await expect(page.getByRole("tab", { name: "Settings", exact: true })).toBeVisible();
   await expect(page.getByRole("tab", { name: "History", exact: true })).toBeVisible();
+  expect(checks).toBe(0);
+  await facts.getByRole("button", { name: "Check host prerequisites", exact: true }).click();
+  await expect(facts).toContainText("Git: Available");
+  expect(checks).toBe(1);
+  await expect(page.locator(".project-summary-window > .panel")).toHaveCount(2);
   await page.screenshot({ path: info.outputPath("project-hub-desktop.png"), fullPage: true });
   await hub.getByRole("link", { name: "Statistics", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/metrics\\?project=${project}`));
@@ -473,12 +490,18 @@ test("project hub lifecycle actions keep scoped CSRF and exact-name deletion", a
   await expect(page.getByRole("button", { name: "Delete project", exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Archive project", exact: true }).click();
   await page.getByRole("button", { name: "Delete project", exact: true }).click();
-  const confirm = page.locator(".delete-confirm");
+  const confirm = page.getByRole("dialog").filter({ has: page.locator(".delete-confirm") });
+  await expect(confirm).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(confirm).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Delete project", exact: true })).toBeFocused();
+  await page.getByRole("button", { name: "Delete project", exact: true }).click();
   await expect(confirm.getByRole("button", { name: "Delete project", exact: true })).toBeDisabled();
   await confirm.locator("input").fill("wrong-project");
   await expect(confirm.getByRole("button", { name: "Delete project", exact: true })).toBeDisabled();
   await confirm.locator("input").fill("alpha");
   await expect(confirm.getByRole("button", { name: "Delete project", exact: true })).toBeEnabled();
+  await page.keyboard.press("Escape");
   await nav(page).getByRole("link", { name: "Projects", exact: true }).click();
   await page.getByRole("link", { name: "beta", exact: true }).click();
   await expect(confirm).toHaveCount(0);
@@ -492,4 +515,13 @@ test("project hub lifecycle actions keep scoped CSRF and exact-name deletion", a
   expect(writes.map(write => write.path)).toEqual(["archive", "restore", "archive", "delete"].map(action => `/api/v1/projects/${id}/${action}`));
   expect(writes.every(write => !!write.csrf)).toBe(true);
   expect(writes.at(-1)?.data?.confirm_name).toBe("alpha");
+});
+
+
+test("summary with corrupt job evidence shows unknown counters and no fabricated jobs", async ({ page }) => {
+  await page.route("**/api/v1/jobs-page?*", route => route.fulfill({ status: 200, json: { complete: false } }));
+  await signIn(page); await page.goto("/projects/alpha");
+  await expect(page.getByRole("heading", { name: "Incomplete job response", exact: true })).toBeVisible();
+  await expect(page.locator(".project-summary .summary-fact").filter({ hasText: "Active jobs" }).locator("dd")).toHaveText("—");
+  await expect(page.locator(".summary-job-window table")).toHaveCount(0);
 });

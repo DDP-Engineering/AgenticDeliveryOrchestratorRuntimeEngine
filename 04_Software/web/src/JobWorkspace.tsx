@@ -4,7 +4,7 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { ApiError, describeError } from "./errors";
 import type { Locale, MessageKey } from "./i18n";
 import { jobCopy, lifecycleExplanation } from "./jobCopy";
@@ -24,6 +24,7 @@ type Props = {
   csrf: string; request: Request; t: (key: MessageKey) => string; refresh: number;
   onScope: (scope: string) => void; onOpen: (project: string, run: string) => void; onClose: () => void;
   fixedScope?: boolean;
+  summaryHeader?: (evidence: JobPage | null) => ReactNode;
   reporting: ReportingSelection; reportingQuery: string; admin: boolean;
 };
 type ReadState = "loading" | "ready" | "error" | "incomplete" | "changed";
@@ -50,7 +51,7 @@ const readOperation = (value: unknown): Operation => {
 export function JobWorkspace(props: Props) {
   const { mode, locale, projects, scope, run, csrf, request, t, refresh, onScope, onOpen, onClose, fixedScope } = props;
   const copy = jobCopy[locale];
-  const compactOverview = mode === "overview" && !fixedScope;
+  const compactOverview = mode === "overview";
   const [filters, setFilters] = useState<Filters>(() => initialFilters(mode));
   const [advanced, setAdvanced] = useState(false);
   const [page, setPage] = useState<JobPage | null>(null);
@@ -240,7 +241,8 @@ export function JobWorkspace(props: Props) {
   </tr>)}</tbody></table></div>;
   const pager = visible && <div className="table-pagination"><label>{t("rowsPerPage")}<select value={filters.size} onChange={event => change("size", event.target.value === "all" ? "all" : Number(event.target.value))}>{[10, 25, 50].map(size => <option key={size} value={size}>{size}</option>)}<option value="all">{t("all")}</option></select></label><span>{visible.total === 0 ? "0" : `${offset + 1}–${Math.min(offset + visible.items.length, visible.total)}`} / {visible.total}</span><div className="button-row"><button className="ghost" disabled={offset === 0} onClick={() => setFilters(current => ({ ...current, offset: Math.max(0, offset - visible.limit) }))}>{t("previous")}</button><button className="ghost" disabled={offset + visible.items.length >= visible.total || filters.size === "all"} onClick={() => setFilters(current => ({ ...current, offset: offset + visible.limit }))}>{t("next")}</button></div></div>;
 
-  return <div className={`job-workspace${compactOverview ? " overview-workspace" : ""}`}>
+  return <div className={`job-workspace${compactOverview ? " overview-workspace" : ""}${props.summaryHeader ? " project-summary-window" : ""}`}>
+    {props.summaryHeader?.(visible)}
     {compactOverview ? ["unavailable", "error"].includes(worker) && <div className="overview-controls"><span className="worker-evidence alert" role="status">{worker === "unavailable" ? copy.workerUnavailable : copy.workerError}</span></div> :
     <section className="panel compact"><div className="workspace-controls">{!fixedScope && <label htmlFor="jobs-project">{copy.scope}<select id="jobs-project" aria-label={copy.scope} value={scope} onChange={event => onScope(event.target.value)}><option value="">{copy.all}</option>{projects.map(item => <option key={item.id} value={item.id}>{item.display_name || item.name}</option>)}</select></label>}<span className="scope-note">{scope ? project?.display_name || project?.name : copy.all}</span>
       <span className="worker-evidence" role="status">{worker === "ready" ? copy.workerReady : worker === "checking" ? copy.workerChecking : worker === "unavailable" ? copy.workerUnavailable : copy.workerError}</span></div>
@@ -275,17 +277,15 @@ export function JobWorkspace(props: Props) {
       <h3>{copy.artifacts}</h3><div className="button-row">{visibleDetail.ticket_url && <a className="ghost link-button" href={visibleDetail.ticket_url} target="_blank" rel="noreferrer">{t("ticket")} ↗</a>}{visibleDetail.mr_url && <a className="ghost link-button" href={visibleDetail.mr_url} target="_blank" rel="noreferrer">{t("draft")} ↗</a>}</div>{!visibleDetail.ticket_url && !visibleDetail.mr_url && <p>{copy.unknown}</p>}
       <details><summary>{copy.technical}</summary><dl className="action-explanation"><div><dt>{t("project")}</dt><dd>{visibleDetail.project_id}</dd></div><div><dt>{t("jobTerm")}</dt><dd>{visibleDetail.run_id}</dd></div><div><dt>{t("reviewRounds")} / {t("attempts")}</dt><dd>{visibleDetail.review_rounds} / {visibleDetail.stage_failures}</dd></div><div><dt>{copy.consumption}</dt><dd>{consumptionView(visibleDetail)}</dd></div><div><dt>{t("coverage")}</dt><dd>{Object.entries(visibleDetail.coverage).filter(([key]) => ["ticket", "journal", "title", "last_activity"].includes(key)).map(([key, value]) => `${key}: ${value}`).join(" · ")}</dd></div></dl></details>
     </section>}
+    <div className={props.summaryHeader ? "panel summary-job-window" : undefined}>
     <section className="panel" aria-label={mode === "overview" ? copy.attention : mode === "history" ? copy.history : t("jobs")}>
       {mode !== "jobs" && <h2>{mode === "overview" ? copy.attention : copy.history}</h2>}
       {mode === "history" && <p className="muted">{copy.historyHelp}</p>}
       {!visible ? feedback(dataKey === renderKey ? state : "loading", failure) : <>{visible.items.length ? compactOverview ? compactTable(visible.items) : table(visible.items) : <div className="empty-state" role="status">{mode === "overview" ? copy.noAttention : Object.values(selection).some(value => typeof value === "string" && value) ? t("noMatchingJobs") : t("noJobs")}</div>}{(!compactOverview || visible.total > 10) && pager}</>}
     </section>
-    {mode === "overview" && !compactOverview && visible && <div className="stats-grid">
-      {[{ key: "active", text: t("activeJobs"), value: visible.groups.active }, { key: "waiting", text: copy.waiting, value: visible.groups.waiting }, { key: "in-review", text: t("inReviewStatus"), value: visible.counts["in-review"] || 0 }, { key: "failed", text: t("failedJobs"), value: visible.counts.failed || 0 }].map(card =>
-        <div className="stat-card overview-card" key={card.key}><span>{card.text}</span><strong>{new Intl.NumberFormat(locale).format(card.value)}</strong><small>{scope ? project?.display_name || project?.name : copy.all}</small></div>)}
-    </div>}
     {compactOverview && visible && activePage && <section className="panel" aria-label={t("activeJobs")}><h2>{t("activeJobs")}</h2>{activePage.items.length ? compactTable(activePage.items) : <div className="empty-state" role="status">{copy.noActive}</div>}</section>}
 
+    </div>
   </div>;
 }
 
