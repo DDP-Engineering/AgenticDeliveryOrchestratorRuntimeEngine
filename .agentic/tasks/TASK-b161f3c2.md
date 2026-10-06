@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # TASK-b161f3c2 - Single transient operation notification
 
-stage: deliver
+stage: done
 type: change
 path: full
 interaction: autopilot
@@ -25,8 +25,8 @@ opened: 2026-10-06
 - [x] Validation evidence, scoped diff, exclusions and deployment outcome presented.
 - [x] Standing human authorization confirms scoped delivery without repeated permission.
 - [x] Journal and report included in delivery commit.
-- [ ] Commit/push and deployed outcome verified.
-- [ ] Close-out committed after outcome succeeds.
+- [x] Commit/push and deployed outcome verified.
+- [x] Close-out recorded after outcome succeeds; journal-only commit follows.
 
 ## Frame
 
@@ -58,6 +58,9 @@ Separate notification visibility from durable operation state. Preserve pending/
 
 ## Log
 
+- 2026-10-06 delivery success: Commit c487efcd8f59f2f670e8dd6646625e7f9e2e6a8d normally pushed to task/adore-web-interface; remote ref exactly matched. Archive/script SHA256 matched uploads; served JS index-CbwjVnlT.js and CSS byte-match archived build. DCP API/worker active using /home/dpasare/apps/adore/web-ux-c487efc/04_Software. Protected backup /home/dpasare/apps/adore/backups/web-ux-c487efc-20261006215640; pending/running operation gate empty, DB schema14/integrity okay, audit77 retained. Real /api/v1/health alive and /api/v1/ready ready/worker ready; protected projects401. No live provider/forge/container test triggered. Outcome succeeded before journal-only close-out. Full suite remains deferred and heartbeat unchanged/stopped.
+- 2026-10-06 reporting clarification: Pre-delivery report had eleven advisories: ten classified historical/tool-scope warnings plus expected unticked-deliver. Closing completed outcome resolves delivery warning; no product change or additional testing required for this journal-only record.
+
 - 2026-10-06 deliver: Candidate unchanged after final proof; presentation completed with focused-test/full-suite substitution and inherited warnings. Standing direct human authority confirms commit/push and DCP deployment, no PR/release/epic implementation. Final strict advisory zero errors with ten inherited/tool-scope warnings; no own journal finding.
 
 - 2026-10-06 validate: Reviewed eight product/doc/generated paths plus scoped requirement/knowledge; five authored product/doc files, generated and workflow separately. Architecture stays App/worker polling; project/environment context unchanged and consistent. Requirement active with public browser proof. Two separate same-agent review lenses (not independent agents) approve specification compliance and implementation quality for candidate SHA256 9c48db3b101312b3e6689ff2c23cf71b0b9e00978c8e0e422ee5f82adbc6b8ed. No child tasks, source/security/backend contract expansion or unresolved finding.
@@ -75,22 +78,22 @@ Separate notification visibility from durable operation state. Preserve pending/
 ## Handoff
 
 
-current: deliver
+current: done
 status: ready
-next: Commit/push and deploy
+next: Human live GUI review
 must_read: .agentic/tasks/TASK-b161f3c2.md; .agentic/steps/5_validate.md
 blockers: none
 
 ## Stage report
 
 
-stage: deliver
+stage: done
 result: completed
-current: deliver
+current: done
 changed: One transient application notification with worker polling retained
-evidence: Five Chromium journeys passed (16.0s); typecheck, E2E and production builds passed; diff check passed
+evidence: Five Chromium passed; builds/typecheck passed; c487efc pushed and deployed; API/worker ready
 issues: Full regression deferred by direct user instruction
-next: Commit/push and deploy
+next: Human live GUI review
 needs_user: no
 spec_compliance: approved
 implementation_quality: approved
@@ -98,7 +101,7 @@ review_round: 1
 
 ## Delivery report (2026-10-06)
 
-- stage: deliver; type: change; path: full; branch: task/adore-web-interface
+- stage: done; type: change; path: full; branch: task/adore-web-interface
 - requirements:
   - REQ-UX-42f35d04 - Single transient operation notification
 - deviations: 1 recorded
