@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # TASK-ec36da10 - Project monitoring labels and concise rows
 
-stage: deliver
+stage: done
 type: change
 path: quick
 interaction: autopilot
@@ -23,7 +23,7 @@ opened: 2026-10-06
 
 - [x] Targeted red/green and docs
 - [x] Review and substituted final proof
-- [ ] Authorized publication/deploy/smoke
+- [x] Authorized publication/deploy/smoke
 
 ## Frame
 
@@ -59,27 +59,29 @@ Only change jobCopy display labels/action names and two App guidance render site
 - 2026-10-06 final proof: evolution8nonworkflow changes10:39:19Z (red tests already in anchor), catalog-only check --strict --json exit0/0errors7warnings27notes/strictpassed/run[]. Baseline fingerprint/legacyjournal warnings; configured tests glob excludes changed e2e; generated large JS scanning supplemented by source review. Existing Vite bundle size advisory accepted. DEVIATION validate: required full suite/check--run deferred by human; narrow proof does not establish complete regression coverage.
 - 2026-10-06 deliver: presented Monitoring Active/Paused labels and concise rows/summary, four-locale actions, docs/tests/assets; user questions answered from actual backend/source. Standing scoped authority covers normal commit/push and existing DCP deployment. No new functions/PR/version/epic work or live project mutations.
 
+- 2026-10-06 delivered: exact85438002e7bd3045cc933f3a498953c06794eb3c pushed and remote ref verified; deployed /home/dpasare/apps/adore/web-ux-8543800 with archiveSHA25693aa0c596b981f9f059f0ae7dc7628c9004ed7a773b4d698b45ed0faea07e04e. Backup /home/dpasare/apps/adore/backups/web-ux-8543800-20261006134134. API/worker active/exactPYTHONPATH; served JS/CSS byte-identical; root200newindex,health200alive,ready200workerready,projects401unauthenticated. schema14/integrityok/audit45 retained. No project pause/archive/delete/probe commands executed. Human visual acceptance/fullsuite deferred; epic remains paused.
+
 ## Rulings
 
 - RULING-001 | date=2026-10-06 | decision=Scoped copy implementation with targeted-only checks, normal commit/push and existing DCP deployment | reason=Direct user request and standing live-iteration authority; full suite explicitly deferred | source=user | supersedes=none
 
 ## Handoff
 
-current: deliver
+current: done
 status: ready
-next: scoped commit/push/existing DCP deploy
+next: human live visual testing
 must_read: .agentic/steps/4_build.md, .agentic/knowledge/web-interface.md
 blockers: none
 
 ## Stage report
 
-stage: deliver
+stage: done
 result: completed
-current: deliver
+current: done
 changed: monitoring copy and concise project rows
 evidence: production/typecheck build exit0;4focused browser journeys passed; catalog strict exit0 run[]
 issues: full suite deferred by human
-next: commit/push/deploy and smoke
+next: human live testing
 needs_user: no
 spec_compliance: approved
 implementation_quality: approved
