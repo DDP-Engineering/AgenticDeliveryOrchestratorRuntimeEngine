@@ -24,6 +24,21 @@ from fastapi.testclient import TestClient
 import pytest
 
 
+def _legacy_audit(connection):
+    """@brief Restore the actual pre14 audit shape in older-schema upgrade fixtures."""
+    connection.execute(
+        "CREATE TABLE audit_legacy (id INTEGER PRIMARY KEY, actor_id INTEGER, "
+        "action TEXT NOT NULL, project TEXT NOT NULL DEFAULT '', "
+        "detail TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL)"
+    )
+    connection.execute(
+        "INSERT INTO audit_legacy SELECT id,actor_id,action,project,detail,created_at FROM audit"
+    )
+    connection.execute("DROP TABLE audit")
+    connection.execute("ALTER TABLE audit_legacy RENAME TO audit")
+    connection.execute("DROP TABLE audit_attempts")
+
+
 def test_default_admin_is_hashed_and_preserved(tmp_path):
     """@brief A fresh install permits login and a restart preserves changes."""
     path = tmp_path / "web.db"
@@ -46,17 +61,20 @@ def test_account_preferences_follow_user_and_survive_upgrade(tmp_path):
     dev = store.create_user("dev", "longer-password", "developer")
     with sqlite3.connect(path) as connection:
         connection.execute("DROP TABLE IF EXISTS user_preferences")
+        _legacy_audit(connection)
         connection.execute("PRAGMA user_version=5")
     upgraded = WebStore(path)
     assert upgraded.preferences(admin["id"]) == {"language": None, "theme": None}
     assert upgraded.set_preferences(admin["id"], {"language": "ro"}) == {
-        "language": "ro", "theme": None}
+        "language": "ro",
+        "theme": None,
+    }
     assert upgraded.set_preferences(admin["id"], {"theme": "dark"}) == {
-        "language": "ro", "theme": "dark"}
-    assert WebStore(path).preferences(admin["id"]) == {
-        "language": "ro", "theme": "dark"}
-    assert WebStore(path).preferences(dev["id"]) == {
-        "language": None, "theme": None}
+        "language": "ro",
+        "theme": "dark",
+    }
+    assert WebStore(path).preferences(admin["id"]) == {"language": "ro", "theme": "dark"}
+    assert WebStore(path).preferences(dev["id"]) == {"language": None, "theme": None}
     assert WebStore(path).authenticate("admin", "admin")
 
 
@@ -84,6 +102,7 @@ def test_schema_one_upgrade_preserves_credentials(tmp_path):
     store.change_password(admin["id"], "admin", "replacement-long-password")
     with sqlite3.connect(path) as connection:
         connection.execute("DROP TABLE login_failures")
+        _legacy_audit(connection)
         connection.execute("PRAGMA user_version=1")
     upgraded = WebStore(path)
     assert upgraded.authenticate("admin", "replacement-long-password")
@@ -101,6 +120,7 @@ def test_schema_three_upgrade_requires_regrant_for_name_only_memberships(tmp_pat
     store.set_memberships(dev["id"], ["alpha"])
     with sqlite3.connect(path) as connection:
         connection.execute("ALTER TABLE memberships DROP COLUMN profile_created_at")
+        _legacy_audit(connection)
         connection.execute("PRAGMA user_version=3")
     upgraded = WebStore(path)
     assert upgraded.memberships(dev["id"]) == set()
@@ -140,6 +160,7 @@ def test_name_grant_migration_binds_matching_profile_and_quarantines_old_queue(t
     with sqlite3.connect(store.path) as connection:
         connection.execute("ALTER TABLE memberships DROP COLUMN project_id")
         connection.execute("ALTER TABLE operations DROP COLUMN project_id")
+        _legacy_audit(connection)
         connection.execute("PRAGMA user_version=6")
     migrated = WebStore(store.path)
     assert migrated.memberships(dev["id"]) == {"alpha"}
@@ -171,6 +192,7 @@ def test_schema_four_upgrade_adds_worker_readiness_without_resetting_admin(tmp_p
     store.change_password(admin["id"], "admin", "replacement-long-password")
     with sqlite3.connect(path) as connection:
         connection.execute("DROP TABLE worker_heartbeat")
+        _legacy_audit(connection)
         connection.execute("PRAGMA user_version=4")
     upgraded = WebStore(path)
     assert upgraded.authenticate("admin", "replacement-long-password")
@@ -190,12 +212,13 @@ def test_schema_nine_upgrade_adds_projection_without_resetting_admin(tmp_path):
         connection.execute("DROP TABLE usage_projection")
         connection.execute("DROP TABLE usage_observation_projection")
         connection.execute("DROP TABLE usage_cursor")
+        _legacy_audit(connection)
         connection.execute("PRAGMA user_version=9")
     upgraded = WebStore(path)
     assert upgraded.authenticate("admin", "replacement-long-password")
     assert upgraded.authenticate("admin", "admin") is None
     with sqlite3.connect(path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 13
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 14
         assert connection.execute("SELECT COUNT(*) FROM usage_projection").fetchone()[0] == 0
         assert connection.execute("SELECT COUNT(*) FROM usage_cursor").fetchone()[0] == 0
 
@@ -207,14 +230,16 @@ def test_schema_ten_upgrade_adds_coverage_cursor(tmp_path):
     with sqlite3.connect(path) as connection:
         connection.execute("DROP TABLE usage_observation_projection")
         connection.execute("DROP TABLE usage_cursor")
+        _legacy_audit(connection)
         connection.execute("PRAGMA user_version=10")
     WebStore(path)
     with sqlite3.connect(path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 13
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 14
         assert connection.execute("SELECT COUNT(*) FROM usage_projection").fetchone()[0] == 0
-        assert connection.execute(
-            "SELECT COUNT(*) FROM usage_observation_projection"
-        ).fetchone()[0] == 0
+        assert (
+            connection.execute("SELECT COUNT(*) FROM usage_observation_projection").fetchone()[0]
+            == 0
+        )
 
 
 def test_schema_eleven_upgrade_preserves_audit_and_changed_password(tmp_path):
@@ -226,6 +251,7 @@ def test_schema_eleven_upgrade_preserves_audit_and_changed_password(tmp_path):
     store.audit(admin["id"], "before-migration")
     with sqlite3.connect(path) as connection:
         connection.execute("DROP TABLE audit_policy")
+        _legacy_audit(connection)
         connection.execute("PRAGMA user_version=11")
     upgraded = WebStore(path)
     assert upgraded.authenticate("admin", "replacement-long-password")
@@ -357,15 +383,15 @@ def test_bootstrap_admin_and_schema_twelve_accounts_start_unmarked(tmp_path):
     assert store.authenticate("admin", "admin")["password_change_required"] is False
     store.create_user("dev", "longer-password", "developer")
     with sqlite3.connect(path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 13
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 14
         connection.execute("ALTER TABLE users DROP COLUMN password_change_required")
+        _legacy_audit(connection)
         connection.execute("PRAGMA user_version=12")
     upgraded = WebStore(path)
     with sqlite3.connect(path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 13
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 14
     assert upgraded.authenticate("admin", "admin")["password_change_required"] is False
-    assert upgraded.authenticate("dev", "longer-password")[
-        "password_change_required"] is False
+    assert upgraded.authenticate("dev", "longer-password")["password_change_required"] is False
 
 
 def test_schema_thirteen_missing_password_policy_fails_closed(tmp_path):

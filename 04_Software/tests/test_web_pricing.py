@@ -23,6 +23,8 @@ from adore.web.app import create_app
 from adore.web.store import WebStore
 from fastapi.testclient import TestClient
 
+from tests.test_web_auth import _legacy_audit
+
 
 def test_price_schema_upgrade_preserves_changed_admin(tmp_path):
     """@brief A schema-two upgrade never reboots admin/admin credentials."""
@@ -32,6 +34,7 @@ def test_price_schema_upgrade_preserves_changed_admin(tmp_path):
     store.change_password(admin["id"], "admin", "new-long-password")
     with sqlite3.connect(path) as connection:
         connection.execute("DROP TABLE prices")
+        _legacy_audit(connection)
         connection.execute("PRAGMA user_version=2")
     upgraded = WebStore(path)
     assert upgraded.authenticate("admin", "new-long-password")
@@ -72,6 +75,7 @@ def test_legacy_price_binding_rejects_older_recycled_name(tmp_path):
             "INSERT INTO prices VALUES(1,'alpha','codex','local-1',"
             "'2026-01-01','2','4',1,'2020-01-01T00:00:00+00:00')"
         )
+        _legacy_audit(connection)
         connection.execute("PRAGMA user_version=8")
     upgraded = WebStore(web.path)
     assert upgraded.list_prices("alpha") == []

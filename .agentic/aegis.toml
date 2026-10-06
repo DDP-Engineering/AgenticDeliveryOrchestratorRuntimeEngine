@@ -54,7 +54,7 @@ autopilot = false
 # for the current candidate, and may run up to `max_fix_cycles` bounded
 # fix-and-re-review rounds. This never replaces ordinary validation.
 enabled = true
-max_fix_cycles = 4
+max_fix_cycles = 5
 
 [records]
 # Anchor and evolution sidecars under .agentic/tasks/ are local evidence.

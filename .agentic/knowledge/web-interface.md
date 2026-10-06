@@ -31,6 +31,17 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 
 ## Public interface
 
+- `/audit-page` selects actor ID, stable project ID, exact action and half-open
+  UTC instants before counts/server paging. Actor IDs and offsets reject values
+  outside SQLite signed64-bit bounds. Admin global history includes closed
+  structured evidence; Dev sees only a currently assigned project and operational
+  actions, excluding admin/access/price/financial-config/name-only rows. `AuditHistory.tsx` renders
+  who/what/when/result and known redacted diff/revision/correlation; failed or
+  malformed reads hide data and counts. Project History retains job history and
+  adds this evidence. Retention editing lives under System status with separate
+  day/text-byte limits and actual deleted-event impact.
+
+
 - Admin/CSRF `/users/with-access` commits explicit role, immutable project IDs,
   account and existing secret-free audit atomically through `create_user_with_access`.
   Dev empty selection requires acknowledgement; Admin role grants global access.
@@ -479,7 +490,9 @@ flowchart LR
     App --> i18n[i18n catalogs]
     Presentation --> i18n
     App --> api[create_app]
-    api --> identity[(web.db)]
+    api --> audit[Closed audit.py evidence]
+    audit --> identity[(web.db audit and replay receipts)]
+    AuditHistory[AuditHistory who what when result] --> api
     api --> preparation[Offline WizardSetup]
     preparation --> publication[Enrollment and conductor locks]
     publication --> profiles[(Config then pause then metadata)]
@@ -516,12 +529,20 @@ project-set settings; administrators edit settings on their rows and stage
 endpoint and price changes there. The
 settings response is scoped to the current project identity so switching
 projects cannot briefly show another project's values. Audit policy defaults to unlimited
-and its form displays saved day/MiB limits, representing unlimited as zero.
+and its System status form displays saved day/MiB limits, representing unlimited as zero.
 Zero or blank maps to API null; bounded values convert to integer days/bytes
 through `04_Software/web/src/auditPolicy.ts`, covered by offline Node tests.
-Administrators can set day and stored-text byte limits. Schema 12
-prunes oldest events transactionally when configured while preserving other
-history. Audit and other long tables provide 10/25/50/All paging; Jobs uses
+Administrators can set day and stored-text byte limits. Schema 14 validates
+closed evidence, upgrades legacy unknowns atomically and prunes oldest visible
+events with structured JSON included in bytes. SQLite mutations and evidence
+share transactions. Filesystem mutations start uncertain and confirm after
+completion; pending config replay preserves original before and finalizes once.
+Separate receipts keep deduplication after audit retention removes visible rows;
+completed receipts clear value payloads. Interrupted commands remain uncertain,
+malformed exit codes cannot claim success and terminal replay creates no event.
+`audit.py` excludes nested credentials/environment/raw errors/arbitrary metadata.
+Browser-local correction/abandonment is not a persisted server mutation.
+Audit and other long tables provide 10/25/50/All paging; Jobs uses
 the complete revision-bound global API for the same choices. API fetches bypass browser cache
 so a newly deployed endpoint cannot be masked by stale HTML.
 The Administration System status page polls readiness every five seconds and labels worker
@@ -563,6 +584,10 @@ for Add and Import project. Primary buttons take their text colour from the
 `--on-accent` theme token.
 
 ## Files
+
+- `adore/web/audit.py`, `web/src/AuditHistory.tsx`, `auditCopy.ts`,
+  `tests/test_web_audit_evidence.py` and `web/e2e/audit.spec.ts` own closed structured
+  evidence, authorized reads and browser proof with storage/API/worker integration.
 
 - `web/src/UserCreation.tsx`, `userCopy.ts`, `web/e2e/users.spec.ts` and
   `tests/test_web_user_creation.py` own reviewed accounts/access and negative proof.
@@ -627,3 +652,5 @@ Discard focus restoration runs in a post-render effect after the mutation busy g
 
 - `04_Software/adore/web/analytics.py` - shared scope, strict sources and analytical reports.
 - `04_Software/tests/test_web_scoped_metrics.py` - scoped analytical boundary proof.
+
+Persisted audit project names, including legacy rows, reject unsafe names with a redacted typed storage error on initialization and public reads; empty names preserve global scope.

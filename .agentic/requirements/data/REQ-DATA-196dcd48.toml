@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-DATA-196dcd48"
+
+title = "Atomic audit schema upgrade and legacy readability"
+
+status = "active"
+
+requirement = """
+When opening supported web audit storage, the service shall atomically upgrade its audit format while preserving legacy unknown values and identity, and reject corrupt or unsupported storage without reinitialization.
+"""
+
+verification = "Upgrade a schema-13 fixture; inspect legacy unknowns and identities; corrupt schema/rows and verify typed failure and atomic rollback."
+
+affected_paths = ["04_Software/adore/web/audit.py", "04_Software/adore/web/store.py"]
+
+linked_tests = ["04_Software/tests/test_web_audit_evidence.py::test_corrupt_legacy_project_fails_closed_on_public_reads", "04_Software/tests/test_web_audit_evidence.py", "04_Software/tests/test_web_auth.py", "04_Software/tests/test_web_pricing.py"]
+
+
+spec = "specs/REQ-DATA-34ed1530.md"
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-06
+updated = 2026-10-06

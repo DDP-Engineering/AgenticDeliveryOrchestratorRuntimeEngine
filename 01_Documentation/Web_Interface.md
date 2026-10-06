@@ -165,6 +165,40 @@ submenus. Every user's language, theme and password are under My account, a
 top-level sidebar entry.
 
 
+### Change evidence and retention
+
+**Change history** shows who changed what, the recording time and the result.
+Filter by the actor ID displayed with the account name, a stable project, exact
+change-type action code and UTC period. Blank bounds search all retained time;
+**From** includes its instant and **Until** excludes it. Apply filters resets the
+page. Counts and 10/25/50/All choices cover the complete matched server history.
+**Evidence** expands known before/after values, operation correlation and revisions.
+A preparation shows a candidate, with **Prepared** rather than an applied result.
+Discard records removal of a durable pending configuration. **Uncertain** means
+the host could not confirm completion; inspect/reconcile the actual resource
+before attempting recovery. Legacy **Before value not recorded** is unknown,
+not an empty value or an inferred difference. Strings or sensitive settings can
+be explicitly redacted. Passwords/environment values and raw error text are omitted.
+
+Project **History** combines jobs with change evidence for that immutable project.
+Dev receives assigned-project operational changes; administrative account/access,
+price and policy events remain Admin-only. Legacy name-only events do not establish
+Dev visibility. Revoked or replaced grants cannot expose another project's events.
+An empty filter result explains that no changes match; failed reads hide data and
+can be retried with **Refresh**. There is no audit download/export action.
+
+In **System status**, administrators set **Audit retention**. Zero/blank means
+unlimited; age and stored-text MiB bounds apply independently and remove oldest
+visible events. Saving reports actual deletions. The text bound includes structured
+evidence and correlations and does not cap the database file on disk. Removing
+audit events preserves jobs, run journals, identities, queued operations and replay
+receipts. Completed filesystem receipts retain deduplication metadata rather than
+before/after values; unresolved attempts retain redacted evidence for host
+reconciliation. Retention policy editing requires Admin and CSRF authorization.
+Browser-local account/enrollment corrections and abandoned memory drafts do not
+change host state. Successful server previews are prepared evidence; publication,
+access changes and pickup completion have their own actual results.
+
 ### Create a user with reviewed access
 
 In **Users**, enter the username and password, then continue to role and project

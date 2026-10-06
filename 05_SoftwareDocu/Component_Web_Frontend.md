@@ -60,8 +60,23 @@ an administrator audit trail, light/dark/system themes and an About dialog.
 Administration expands into System status, Users and Change history in the sidebar.
 Both roles see a top-level My account entry for their own preferences and
 password.
-Audit has administrator day and MiB retention controls populated from saved policy.
-Unlimited limits display zero; zero or blank saves as null in the API. Days are
+System status contains administrative audit-retention settings with day and MiB
+controls populated from saved policy, a separate-bound/deletion impact summary
+and an actual deleted-event count after saving. Change history contains evidence
+and filters. Project History includes assigned-project change evidence alongside
+its job history. `AuditHistory.tsx` requests exact actor/project/action/half-open
+UTC filters, matched counts and 10/25/50/All pages from `/audit-page`. Filters reset
+the offset. The view shows Who/What/When/Result and expandable known before/after,
+operation correlation and revision evidence. Missing legacy values say Before
+value not recorded; candidate preparation and uncertain application attempts are
+labeled separately from applied results. `auditCopy.ts` supplies four locales.
+Strict transport/value checks withhold malformed, mismatched or failed evidence
+and counts. Principal/project keyed instances and cancelled requests suppress
+stale completion; the project reader mounts only after stable identity resolves.
+There is no audit export. Browser tests in `e2e/audit.spec.ts` own empty/error,
+filter/paging, privacy, role, locale/theme and 390px behavior.
+
+Unlimited retention limits display zero; zero or blank saves as null in the API. Days are
 whole numbers through 36500, sizes are finite MiB through 1024 and round to
 positive whole bytes. Fractional MiB preserves policies below one MiB. Invalid
 values are rejected before a request with localized guidance. Successful saves
@@ -69,7 +84,8 @@ restore the canonical saved/default display, including zero for unlimited.
 `src/auditPolicy.ts` owns conversion; offline `tests/auditPolicy.test.mjs`
 covers saved/default values and rejected input.
 Tables with more than ten rows offer 10, 25, 50 and All choices with
-Previous/Next for finite pages. Audit fetches the full authorized history;
+Previous/Next for finite pages. Audit counts and pages its complete filtered
+authorized retained history on the server;
 Jobs delegates page size, complete filtering and source-revision checks to the global API. Other tables
 paginate their rendered rows and reset to the first page when size changes.
 Selected-ticket history uses the shared paged table with Date, Event and Stage
@@ -527,7 +543,9 @@ acceptance. API and external command boundaries remain simulated offline.
 
 `npm run validate` runs the Node helper suite, UI/E2E TypeScript checks,
 an isolated Vite build in `.e2e-dist` and the Playwright Chromium journeys.
-`playwright.config.ts` owns browser timeouts, one-worker execution, failure
+`playwright.config.ts` bounds the complete browser suite to 480 seconds, with
+30-second test and 10-second assertion limits, one worker and no retries.
+It owns failure
 screenshots/traces and the private fixture server. `e2e/server.py` creates
 temporary profiles, identity/state stores and a real API/worker with simulated
 external command boundaries. Browser traffic stays on its loopback origin.

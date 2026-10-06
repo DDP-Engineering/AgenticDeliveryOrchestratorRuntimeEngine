@@ -108,8 +108,6 @@ class CommandWorker:
                 return 1
             if run.lifecycle == "cancelled":
                 self.web.finish(operation["id"], "succeeded", "run cancelled")
-                self.web.audit(actor["id"], "operation-finished", project,
-                               "cancel:succeeded")
                 return 1
             if run.lifecycle in ("done", "failed", "handoff-pending", "handed-off"):
                 self.web.finish(operation["id"], "failed", "run already finished")
@@ -131,14 +129,15 @@ class CommandWorker:
         except Exception:  # noqa: BLE001 - unexpected outcome needs reconciliation
             self.web.finish(operation["id"], "uncertain", "worker invocation failed")
             return 1
+        if type(code) is not int:
+            self.web.finish(operation["id"], "uncertain", "invalid engine outcome")
+            return 1
         status = "uncertain" if code == 124 else "succeeded" if code == 0 else "failed"
         result = (
             "completed" if code == 0 else
             "outcome uncertain" if code == 124 else "engine rejected operation"
         )
         self.web.finish(operation["id"], status, result)
-        self.web.audit(actor["id"], "operation-finished", project,
-                       f"{action}:{status}")
         if action == "delete" and status == "succeeded":
             self.web.audit(actor["id"], "project-deleted", project)
         return 1

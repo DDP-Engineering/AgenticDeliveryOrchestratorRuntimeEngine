@@ -14,6 +14,13 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Added
 
+- Structured redacted web change evidence with known before/after and revisions,
+  distinct preparation/application/discard results, atomic identity/access/queue
+  evidence, durable filesystem uncertainty and idempotent completion. Explicit
+  web schema-14 upgrade preserves legacy unknowns and rejects corruption.
+  Authorized server-filtered/paged history and project evidence accompany
+  separate administrative retention settings and deletion impact (#19).
+
 - Reviewed web account creation with explicit Admin/global or Dev/stable-project
   access, deliberate empty grants, one atomic account/grant/audit transaction,
   lifecycle-race rollback and secret-free corrective review. Account/project

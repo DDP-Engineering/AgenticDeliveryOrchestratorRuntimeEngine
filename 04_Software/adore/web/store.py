@@ -34,6 +34,7 @@ from argon2.exceptions import InvalidHashError, VerifyMismatchError
 
 from adore import metrics
 from adore.profiles import ProfileError, ProfileStore
+from adore.web import audit as audit_contract
 
 # CONSTANTS
 _HASHER = PasswordHasher()
@@ -66,7 +67,13 @@ CREATE TABLE operations (
 CREATE TABLE audit (
     id INTEGER PRIMARY KEY, actor_id INTEGER, action TEXT NOT NULL,
     project TEXT NOT NULL DEFAULT '', detail TEXT NOT NULL DEFAULT '',
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL, evidence TEXT, event_key TEXT
+);
+CREATE UNIQUE INDEX audit_event_key ON audit(event_key);
+CREATE TABLE audit_attempts (
+    event_key TEXT PRIMARY KEY, actor_id INTEGER NOT NULL, action TEXT NOT NULL,
+    project TEXT NOT NULL, created_at TEXT NOT NULL, evidence TEXT,
+    confirmed INTEGER NOT NULL DEFAULT 0 CHECK(confirmed IN (0,1))
 );
 CREATE TABLE audit_policy (
     singleton INTEGER PRIMARY KEY CHECK(singleton=1),
@@ -238,7 +245,7 @@ class WebStore:
                         "VALUES (?,?,?,?)",
                         ("admin", _HASHER.hash("admin"), "admin", _now()),
                     )
-                    connection.execute("PRAGMA user_version=13")
+                    connection.execute("PRAGMA user_version=14")
                 elif version == 1:
                     connection.execute(
                         "CREATE TABLE login_failures (identity_hash TEXT PRIMARY KEY, "
@@ -247,7 +254,7 @@ class WebStore:
                     connection.execute(_PRICE_SCHEMA)
                 elif version == 2:
                     connection.execute(_PRICE_SCHEMA)
-                elif version not in (3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13):
+                elif version not in (3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14):
                     raise WebStoreError("unsupported or corrupt web database schema")
                 if version in (1, 2, 3):
                     columns = {row[1] for row in connection.execute(
@@ -453,6 +460,25 @@ class WebStore:
                     ).fetchall()
                 }):
                     raise WebStoreError("web database missing audit policy")
+                # The audit upgrade shares initialization's BEGIN IMMEDIATE. Validate
+                # historic rows first; malformed input rolls back every schema change.
+                if version in range(1, 14):
+                    for row in connection.execute("SELECT * FROM audit").fetchall():
+                        self._audit_projection(row)
+                    connection.execute("ALTER TABLE audit ADD COLUMN evidence TEXT")
+                    connection.execute("ALTER TABLE audit ADD COLUMN event_key TEXT")
+                    connection.execute("CREATE UNIQUE INDEX audit_event_key ON audit(event_key)")
+                    connection.execute(
+                        "CREATE TABLE audit_attempts (event_key TEXT PRIMARY KEY, "
+                        "actor_id INTEGER NOT NULL, action TEXT NOT NULL, project TEXT NOT NULL, "
+                        "created_at TEXT NOT NULL, evidence TEXT, "
+                        "confirmed INTEGER NOT NULL DEFAULT 0 "
+                        "CHECK(confirmed IN (0,1)))"
+                    )
+                    connection.execute("PRAGMA user_version=14")
+                self._audit_storage(connection)
+                for row in connection.execute("SELECT * FROM audit").fetchall():
+                    self._audit_projection(row)
                 self._audit_policy_row(connection)
                 if connection.execute(
                     "SELECT COUNT(*) FROM users WHERE role='admin' AND disabled=0"
@@ -698,7 +724,9 @@ class WebStore:
             return None
         return _user(row)
 
-    def create_user(self, username: str, password: str, role: str) -> dict[str, Any]:
+    def create_user(
+        self, username: str, password: str, role: str, *, actor_id: int | None = None
+    ) -> dict[str, Any]:
         """@brief Create a validated account; duplicate names fail closed."""
         if not username or len(username) > 64 or not username.replace("_", "").isalnum():
             raise WebStoreError("invalid username")
@@ -709,13 +737,27 @@ class WebStore:
         try:
             with self._connect() as connection:
                 cursor = connection.execute(
-                    "INSERT INTO users(username,password_hash,role,created_at) "
-                    "VALUES (?,?,?,?)",
+                    "INSERT INTO users(username,password_hash,role,created_at) VALUES (?,?,?,?)",
                     (username, _HASHER.hash(password), role, _now()),
                 )
                 row = connection.execute(
                     "SELECT * FROM users WHERE id=?", (cursor.lastrowid,)
                 ).fetchone()
+                if actor_id is not None:
+                    self._write_audit(
+                        connection,
+                        actor_id,
+                        "user-created",
+                        detail=username,
+                        payload=self._evidence(
+                            connection,
+                            actor_id,
+                            resource_type="account",
+                            resource_id=str(row["id"]),
+                            before={"exists": False},
+                            after={"role": role, "project_ids": [], "disabled": False},
+                        ),
+                    )
             return _user(row)
         except sqlite3.IntegrityError as exc:
             raise WebStoreError("username already exists") from exc
@@ -726,9 +768,15 @@ class WebStore:
             rows = connection.execute("SELECT * FROM users ORDER BY username").fetchall()
         return [_user(row) for row in rows]
 
-    def create_user_with_access(self, username: str, password: str, role: str,
-                                project_ids: list[str], allow_no_projects: bool,
-                                actor_id: int) -> dict[str, Any]:
+    def create_user_with_access(
+        self,
+        username: str,
+        password: str,
+        role: str,
+        project_ids: list[str],
+        allow_no_projects: bool,
+        actor_id: int,
+    ) -> dict[str, Any]:
         """
         @brief      Commit an explicit account intent, grants and audit atomically.
         @param[in]  username Valid account identity.
@@ -742,20 +790,32 @@ class WebStore:
         @note       Profile lifecycle changes are rechecked before SQLite commit;
                     later replacements cannot inherit immutable identity grants.
         """
-        if (not isinstance(username, str) or not username or len(username) > 64
-                or not username.replace("_", "").isalnum()):
+        if (
+            not isinstance(username, str)
+            or not username
+            or len(username) > 64
+            or not username.replace("_", "").isalnum()
+        ):
             raise WebStoreError("invalid username")
         if not isinstance(password, str) or not 8 <= len(password) <= 1024:
             raise WebStoreError("password must contain at least 8 characters")
         if role not in ("admin", "developer"):
             raise WebStoreError("invalid role")
-        if (type(allow_no_projects) is not bool or not isinstance(project_ids, list)
-                or len(project_ids) > 1000
-                or any(not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{32}", value)
-                       for value in project_ids)
-                or len(set(project_ids)) != len(project_ids)
-                or role == "admin" and project_ids
-                or role == "developer" and not project_ids and not allow_no_projects):
+        if (
+            type(allow_no_projects) is not bool
+            or not isinstance(project_ids, list)
+            or len(project_ids) > 1000
+            or any(
+                not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{32}", value)
+                for value in project_ids
+            )
+            or len(set(project_ids)) != len(project_ids)
+            or role == "admin"
+            and project_ids
+            or role == "developer"
+            and not project_ids
+            and not allow_no_projects
+        ):
             raise WebStoreError("invalid grants")
         projects = self._projects_by_id()
         selected = []
@@ -770,11 +830,16 @@ class WebStore:
             with self._connect() as connection:
                 connection.execute("BEGIN IMMEDIATE")
                 actor = connection.execute("SELECT * FROM users WHERE id=?", (actor_id,)).fetchone()
-                if (actor is None or actor["disabled"] or actor["role"] != "admin"
-                        or actor["password_change_required"]):
+                if (
+                    actor is None
+                    or actor["disabled"]
+                    or actor["role"] != "admin"
+                    or actor["password_change_required"]
+                ):
                     raise WebStoreError("administrator required")
-                if connection.execute("SELECT 1 FROM users WHERE username=?",
-                                      (username,)).fetchone():
+                if connection.execute(
+                    "SELECT 1 FROM users WHERE username=?", (username,)
+                ).fetchone():
                     raise WebStoreError("username already exists")
                 cursor = connection.execute(
                     "INSERT INTO users(username,password_hash,role,created_at) VALUES (?,?,?,?)",
@@ -784,19 +849,34 @@ class WebStore:
                 connection.executemany(
                     "INSERT INTO memberships(user_id,project,profile_created_at,project_id) "
                     "VALUES (?,?,?,?)",
-                    [(user_id, profile.name, profile.created_at, profile.project_id)
-                     for profile in selected],
+                    [
+                        (user_id, profile.name, profile.created_at, profile.project_id)
+                        for profile in selected
+                    ],
                 )
-                connection.execute(
-                    "INSERT INTO audit(actor_id,action,detail,created_at) VALUES (?,?,?,?)",
-                    (actor_id, "user-created", username, _now()),
+                self._write_audit(
+                    connection,
+                    actor_id,
+                    "user-created",
+                    detail=username,
+                    payload=self._evidence(
+                        connection,
+                        actor_id,
+                        resource_type="account",
+                        resource_id=str(user_id),
+                        before={"exists": False},
+                        after={"role": role, "project_ids": sorted(project_ids), "disabled": False},
+                    ),
                 )
-                self._prune_audit(connection)
                 current = self._projects_by_id()
                 for profile in selected:
                     live = current.get(profile.project_id)
-                    if (live is None or live.archived or live.name != profile.name
-                            or live.created_at != profile.created_at):
+                    if (
+                        live is None
+                        or live.archived
+                        or live.name != profile.name
+                        or live.created_at != profile.created_at
+                    ):
                         raise WebStoreError("project changed during the update")
                 row = connection.execute("SELECT * FROM users WHERE id=?", (user_id,)).fetchone()
             return {**_user(row), "project_ids": sorted(project_ids)}
@@ -819,9 +899,13 @@ class WebStore:
             row = connection.execute("SELECT * FROM users WHERE id=?", (user_id,)).fetchone()
         return _user(row) if row is not None else None
 
-    def disable_user(self, user_id: int) -> None:
+    def disable_user(self, user_id: int, *, actor_id: int | None = None) -> None:
         """@brief Disable an account and revoke its sessions."""
         with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            before = connection.execute(
+                "SELECT disabled FROM users WHERE id=?", (user_id,)
+            ).fetchone()
             row = connection.execute("SELECT role FROM users WHERE id=?", (user_id,)).fetchone()
             if row is None:
                 raise WebStoreError("user not found")
@@ -833,21 +917,56 @@ class WebStore:
                     raise WebStoreError("cannot disable the last administrator")
             connection.execute("UPDATE users SET disabled=1 WHERE id=?", (user_id,))
             connection.execute("DELETE FROM sessions WHERE user_id=?", (user_id,))
+            if actor_id is not None:
+                self._write_audit(
+                    connection,
+                    actor_id,
+                    "user-disabled",
+                    detail=str(user_id),
+                    payload=self._evidence(
+                        connection,
+                        actor_id,
+                        resource_type="account",
+                        resource_id=str(user_id),
+                        before={"disabled": bool(before[0])},
+                        after={"disabled": True},
+                    ),
+                )
 
-    def enable_user(self, user_id: int) -> None:
+    def enable_user(self, user_id: int, *, actor_id: int | None = None) -> None:
         """@brief Re-enable an existing account without restoring old sessions."""
         with self._connect() as connection:
-            cursor = connection.execute(
-                "UPDATE users SET disabled=0 WHERE id=?", (user_id,)
-            )
+            connection.execute("BEGIN IMMEDIATE")
+            before = connection.execute(
+                "SELECT disabled FROM users WHERE id=?", (user_id,)
+            ).fetchone()
+            cursor = connection.execute("UPDATE users SET disabled=0 WHERE id=?", (user_id,))
             if cursor.rowcount != 1:
                 raise WebStoreError("user not found")
+            if actor_id is not None:
+                self._write_audit(
+                    connection,
+                    actor_id,
+                    "user-enabled",
+                    detail=str(user_id),
+                    payload=self._evidence(
+                        connection,
+                        actor_id,
+                        resource_type="account",
+                        resource_id=str(user_id),
+                        before={"disabled": bool(before[0])},
+                        after={"disabled": False},
+                    ),
+                )
 
-    def change_password(self, user_id: int, old: str, new: str) -> None:
+    def change_password(
+        self, user_id: int, old: str, new: str, *, actor_id: int | None = None
+    ) -> None:
         """@brief Change own password, satisfy any reset marker and revoke sessions."""
         if len(new) < 8:
             raise WebStoreError("password must contain at least 8 characters")
         with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
             row = connection.execute("SELECT * FROM users WHERE id=?", (user_id,)).fetchone()
             if row is None:
                 raise WebStoreError("user not found")
@@ -863,11 +982,25 @@ class WebStore:
             )
             connection.execute("DELETE FROM sessions WHERE user_id=?", (user_id,))
 
-    def reset_password(self, user_id: int, replacement: str) -> None:
+            if actor_id is not None:
+                self._write_audit(connection, actor_id, "password-changed",
+                                  payload=self._evidence(connection, actor_id,
+                                  resource_type="account", resource_id=str(user_id),
+                                  before={"password_change_required":
+                                          bool(row["password_change_required"])},
+                                  after={"password_change_required": False}))
+
+    def reset_password(
+        self, user_id: int, replacement: str, *, actor_id: int | None = None
+    ) -> None:
         """@brief Set a recovery password the target must replace; revoke its sessions."""
         if len(replacement) < 8:
             raise WebStoreError("password must contain at least 8 characters")
         with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            before = connection.execute(
+                "SELECT password_change_required FROM users WHERE id=?", (user_id,)
+            ).fetchone()
             cursor = connection.execute(
                 "UPDATE users SET password_hash=?, password_change_required=1 WHERE id=?",
                 (_HASHER.hash(replacement), user_id),
@@ -875,6 +1008,21 @@ class WebStore:
             if cursor.rowcount != 1:
                 raise WebStoreError("user not found")
             connection.execute("DELETE FROM sessions WHERE user_id=?", (user_id,))
+            if actor_id is not None:
+                self._write_audit(
+                    connection,
+                    actor_id,
+                    "password-reset",
+                    detail=str(user_id),
+                    payload=self._evidence(
+                        connection,
+                        actor_id,
+                        resource_type="account",
+                        resource_id=str(user_id),
+                        before={"password_change_required": bool(before[0])},
+                        after={"password_change_required": True},
+                    ),
+                )
 
     def create_session(self, user_id: int) -> tuple[str, str]:
         """@brief Create opaque session and CSRF tokens with an expiry."""
@@ -951,7 +1099,9 @@ class WebStore:
             raise WebStoreError("account preferences storage is corrupt") from exc
         return values
 
-    def set_memberships(self, user_id: int, projects: list[str]) -> None:
+    def set_memberships(
+        self, user_id: int, projects: list[str], *, actor_id: int | None = None
+    ) -> None:
         """@brief Replace a developer's project grants atomically."""
         grants = []
         for project in sorted(set(projects)):
@@ -960,13 +1110,40 @@ class WebStore:
                 raise WebStoreError("project not found")
             grants.append((user_id, project, identity[1], identity[0]))
         with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            before = [
+                profile.project_id
+                for profile in self._granted_projects(
+                    connection.execute(
+                        "SELECT * FROM memberships WHERE user_id=?", (user_id,)
+                    ).fetchall(),
+                    self._projects_by_id(),
+                )
+            ]
             if connection.execute("SELECT 1 FROM users WHERE id=?", (user_id,)).fetchone() is None:
                 raise WebStoreError("user not found")
             connection.execute("DELETE FROM memberships WHERE user_id=?", (user_id,))
             connection.executemany(
                 "INSERT INTO memberships(user_id,project,profile_created_at,project_id) "
-                "VALUES (?,?,?,?)", grants,
+                "VALUES (?,?,?,?)",
+                grants,
             )
+
+            if actor_id is not None:
+                self._write_audit(
+                    connection,
+                    actor_id,
+                    "membership-changed",
+                    detail=str(user_id),
+                    payload=self._evidence(
+                        connection,
+                        actor_id,
+                        resource_type="access",
+                        resource_id=str(user_id),
+                        before={"project_ids": sorted(before)},
+                        after={"project_ids": sorted(row[3] for row in grants)},
+                    ),
+                )
 
     def project_members(self, project: str) -> set[int]:
         """
@@ -988,7 +1165,9 @@ class WebStore:
             ).fetchall()
         return {row["user_id"] for row in rows}
 
-    def set_membership(self, user_id: int, project: str, granted: bool) -> None:
+    def set_membership(
+        self, user_id: int, project: str, granted: bool, *, actor_id: int | None = None
+    ) -> None:
         """
         @brief      Grant or remove one account's access to one project.
         @details    Grants are matched by the project's immutable identity, so a
@@ -1012,23 +1191,48 @@ class WebStore:
         try:
             with self._connect() as connection:
                 connection.execute("BEGIN IMMEDIATE")
-                if connection.execute("SELECT 1 FROM users WHERE id=?",
-                                      (user_id,)).fetchone() is None:
+                if (
+                    connection.execute("SELECT 1 FROM users WHERE id=?", (user_id,)).fetchone()
+                    is None
+                ):
                     raise WebStoreError("user not found")
                 rows = connection.execute(
                     "SELECT project,profile_created_at,project_id FROM memberships WHERE user_id=?",
                     (user_id,),
                 ).fetchall()
-                grants = [(user_id, profile.name, profile.created_at, profile.project_id)
-                          for profile in self._granted_projects(rows, by_id)
-                          if profile.project_id != identity[0]]
+                before = sorted(
+                    profile.project_id for profile in self._granted_projects(rows, by_id)
+                )
+                grants = [
+                    (user_id, profile.name, profile.created_at, profile.project_id)
+                    for profile in self._granted_projects(rows, by_id)
+                    if profile.project_id != identity[0]
+                ]
                 if granted:
                     grants.append((user_id, project, identity[1], identity[0]))
                 connection.execute("DELETE FROM memberships WHERE user_id=?", (user_id,))
                 connection.executemany(
                     "INSERT INTO memberships(user_id,project,profile_created_at,project_id) "
-                    "VALUES (?,?,?,?)", grants,
+                    "VALUES (?,?,?,?)",
+                    grants,
                 )
+                if actor_id is not None:
+                    self._write_audit(
+                        connection,
+                        actor_id,
+                        "membership-changed",
+                        project,
+                        f"user {user_id} {'granted' if granted else 'removed'}",
+                        payload=self._evidence(
+                            connection,
+                            actor_id,
+                            project_id=identity[0],
+                            resource_type="access",
+                            resource_id=str(user_id),
+                            before={"project_ids": before},
+                            after={"project_ids": sorted(row[3] for row in grants)},
+                        ),
+                    )
         except sqlite3.IntegrityError as exc:  # a rename landed after the project snapshot
             raise WebStoreError("project changed during the update") from exc
 
@@ -1088,31 +1292,57 @@ class WebStore:
             operation["project"] = profile.name
         return operation
 
-    def enqueue(self, actor_id: int, project: str, action: str,
-                run_id: str, key: str) -> dict[str, Any]:
+    def enqueue(
+        self, actor_id: int, project: str, action: str, run_id: str, key: str
+    ) -> dict[str, Any]:
         """@brief Persist an idempotent operation request."""
-        if (action not in ("start", "retry", "cancel", "pause", "resume", "delete")
-                or not key or len(key) > 128):
+        if (
+            action not in ("start", "retry", "cancel", "pause", "resume", "delete")
+            or not key
+            or len(key) > 128
+        ):
             raise WebStoreError("invalid operation")
         identity = _profile_identity(self.path.parent, project)
         if identity is None:
             raise WebStoreError("project not found")
         stamp = _now()
         with self._connect() as connection:
-            connection.execute(
+            connection.execute("BEGIN IMMEDIATE")
+            cursor = connection.execute(
                 "INSERT OR IGNORE INTO operations(actor_id,project,project_id,"
                 "action,run_id,status,created_at,updated_at,idempotency_key) "
                 "VALUES (?,?,?,?,?,?,?,?,?)",
-                (actor_id, project, identity[0], action, run_id,
-                 "pending", stamp, stamp, key),
+                (actor_id, project, identity[0], action, run_id, "pending", stamp, stamp, key),
             )
             row = connection.execute(
                 "SELECT * FROM operations WHERE actor_id=? AND idempotency_key=?",
                 (actor_id, key),
             ).fetchone()
-            if (row["project_id"] != identity[0] or row["action"] != action
-                    or row["run_id"] != run_id):
+            if (
+                row["project_id"] != identity[0]
+                or row["action"] != action
+                or row["run_id"] != run_id
+            ):
                 raise WebStoreError("idempotency key belongs to another operation")
+            if cursor.rowcount:
+                self._write_audit(
+                    connection,
+                    actor_id,
+                    "operation-submitted",
+                    project,
+                    f"{action}:{run_id}",
+                    payload=self._evidence(
+                        connection,
+                        actor_id,
+                        project_id=identity[0],
+                        resource_type="operation",
+                        resource_id=str(row["id"]),
+                        operation_id=row["id"],
+                        phase="prepare",
+                        result="prepared",
+                    ),
+                    event_key=_digest(f"operation:{row['id']}:submitted"),
+                )
         return self._operation_with_current_project(row)
 
     def operation(self, operation_id: int) -> dict[str, Any] | None:
@@ -1174,34 +1404,356 @@ class WebStore:
         return [self._operation_with_current_project(row) for row in rows]
 
     def recover_interrupted(self) -> int:
-        """@brief Mark pre-restart running operations uncertain, never replay them."""
+        """@brief Atomically mark interrupted attempts uncertain; never replay side effects."""
         with self._connect() as connection:
-            cursor = connection.execute(
-                "UPDATE operations SET status='uncertain', "
-                "result='worker stopped before outcome could be confirmed', "
-                "updated_at=? WHERE status='running'", (_now(),)
-            )
-        return cursor.rowcount
+            connection.execute("BEGIN IMMEDIATE")
+            rows = connection.execute("SELECT * FROM operations WHERE status='running'").fetchall()
+            for row in rows:
+                self._finish(
+                    connection, row, "uncertain", "worker stopped before outcome could be confirmed"
+                )
+        return len(rows)
 
     def finish(self, operation_id: int, status: str, result: str) -> None:
-        """@brief Record a bounded worker result."""
+        """@brief Commit terminal result/evidence together; exact replay is idempotent."""
         if status not in ("succeeded", "failed", "uncertain"):
             raise WebStoreError("invalid completion status")
-        with self._connect() as connection:
-            connection.execute(
-                "UPDATE operations SET status=?,result=?,updated_at=? WHERE id=?",
-                (status, result[:1000], _now(), operation_id),
-            )
+        try:
+            with self._connect() as connection:
+                connection.execute("BEGIN IMMEDIATE")
+                row = connection.execute(
+                    "SELECT * FROM operations WHERE id=?", (operation_id,)
+                ).fetchone()
+                if row is None:
+                    raise WebStoreError("operation not found")
+                if row["status"] in ("succeeded", "failed", "uncertain"):
+                    if row["status"] != status:
+                        raise WebStoreError("audit replay conflict")
+                    return
+                if row["status"] != "running":
+                    raise WebStoreError("operation was not claimed")
+                self._finish(connection, row, status, result)
+        except sqlite3.DatabaseError as exc:
+            raise WebStoreError("operation storage is corrupt") from exc
 
-    def audit(self, actor_id: int | None, action: str, project: str = "",
-              detail: str = "") -> None:
-        """@brief Append a compact non-secret audit event."""
-        with self._connect() as connection:
+    def _finish(self, connection, row, status, result):
+        """@brief Confirm only observed worker outcome; arbitrary error text is excluded."""
+        connection.execute(
+            "UPDATE operations SET status=?,result=?,updated_at=? WHERE id=?",
+            (status, result[:1000], _now(), row["id"]),
+        )
+        after = (
+            {"pickup": "stopped" if row["action"] == "pause" else "active"}
+            if status == "succeeded" and row["action"] in ("pause", "resume")
+            else None
+        )
+        self._write_audit(
+            connection,
+            row["actor_id"],
+            "operation-finished",
+            row["project"],
+            f"{row['action']}:{status}",
+            payload=self._evidence(
+                connection,
+                row["actor_id"],
+                project_id=row["project_id"] or None,
+                resource_type="operation",
+                resource_id=str(row["id"]),
+                operation_id=row["id"],
+                result={"succeeded": "applied", "failed": "rejected", "uncertain": "uncertain"}[
+                    status
+                ],
+                after=after,
+            ),
+            event_key=_digest(f"operation:{row['id']}:finished"),
+        )
+
+    def _write_audit(
+        self, connection, actor_id, action, project="", detail="", *, payload=None, event_key=None
+    ) -> None:
+        """@brief Persist evidence and enforce retention inside the owning transaction."""
+        if (
+            not isinstance(action, str)
+            or not re.fullmatch(r"[a-z][a-z0-9-]{0,79}", action)
+            or not isinstance(project, str)
+            or project
+            and not re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,63}", project)
+            or actor_id is not None
+            and (type(actor_id) is not int or actor_id < 1)
+        ):
+            raise WebStoreError("audit row is corrupt")
+        encoded = None
+        if payload is not None:
+            event_key = event_key or secrets.token_hex(32)
+            try:
+                audit_contract.validate(payload)
+                encoded = json.dumps(
+                    payload, sort_keys=True, separators=(",", ":"), allow_nan=False
+                )
+            except (ValueError, TypeError) as exc:
+                raise WebStoreError("audit row is corrupt") from exc
+        detail = self._safe_detail(action, detail, payload)
+        try:
             connection.execute(
-                "INSERT INTO audit(actor_id,action,project,detail,created_at) "
-                "VALUES (?,?,?,?,?)", (actor_id, action, project, detail[:256], _now())
+                "INSERT INTO audit(actor_id,action,project,detail,created_at,evidence,event_key) "
+                "VALUES (?,?,?,?,?,?,?)",
+                (actor_id, action, project, detail[:256], _now(), encoded, event_key),
             )
             self._prune_audit(connection)
+
+        except sqlite3.DatabaseError as exc:
+            raise WebStoreError("audit row is corrupt") from exc
+
+    @staticmethod
+    def _safe_detail(action, detail, payload=None):
+        """@brief Keep recognized compact metadata; redact arbitrary legacy/error text."""
+        if not detail:
+            return ""
+        if action in ("config-staged", "config-applied", "config-updated"):
+            return detail if payload and detail == payload["resource_id"] else "[redacted]"
+        if action == "membership-changed" and re.fullmatch(
+            r"(?:[0-9]+|user [0-9]+ (?:granted|removed))", detail
+        ):
+            return detail
+        if action in ("operation-submitted", "operation-finished") and re.fullmatch(
+            r"(?:start|retry|cancel|pause|resume|delete):(?:[A-Za-z0-9._-]{0,160})", detail
+        ):
+            return detail
+        if action in (
+            "user-created",
+            "user-disabled",
+            "user-enabled",
+            "password-reset",
+        ) and re.fullmatch(r"[A-Za-z0-9_]{1,64}", detail):
+            return detail
+        return "[redacted]"
+
+    @staticmethod
+    def _validate_attempt(row):
+        """@brief Validate durable replay receipt independently of retained history."""
+        try:
+            if (
+                not re.fullmatch(r"[0-9a-f]{64}", row["event_key"])
+                or type(row["actor_id"]) is not int
+                or row["actor_id"] < 1
+                or type(row["confirmed"]) is not int
+                or row["confirmed"] not in (0, 1)
+                or not re.fullmatch(r"[a-z][a-z0-9-]{0,79}", row["action"])
+                or row["project"]
+                and not re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,63}", row["project"])
+            ):
+                raise ValueError("invalid attempt")
+            audit_contract.instant(row["created_at"])
+            if row["confirmed"]:
+                if row["evidence"] is not None:
+                    raise ValueError("completed receipt retained values")
+            elif audit_contract.decode(row["evidence"])["result"] != "uncertain":
+                raise ValueError("invalid attempt")
+        except (ValueError, TypeError, KeyError) as exc:
+            raise WebStoreError("audit row is corrupt") from exc
+
+    def _evidence(self, connection, actor_id, **values):
+        """@brief Snapshot only the validated account name and supplied server evidence."""
+        row = connection.execute("SELECT username FROM users WHERE id=?", (actor_id,)).fetchone()
+        try:
+            return audit_contract.evidence(actor=row["username"] if row else None, **values)
+        except (ValueError, TypeError) as exc:
+            raise WebStoreError("audit row is corrupt") from exc
+
+    def audit(
+        self, actor_id: int | None, action: str, project: str = "", detail: str = "", **values
+    ) -> None:
+        """@brief Append server-owned structured evidence; values exclude request secrets."""
+        confirmation_key = values.pop("confirmation_key", None)
+        if confirmation_key is not None:
+            identity = _profile_identity(self.path.parent, project) if project else None
+            self.confirm_change(
+                confirmation_key,
+                after=values.get("after"),
+                project_id=identity[0] if identity else None,
+                detail=detail,
+            )
+            return
+        try:
+            with self._connect() as connection:
+                identity = _profile_identity(self.path.parent, project) if project else None
+                payload = self._evidence(
+                    connection, actor_id, project_id=identity[0] if identity else None, **values
+                )
+                self._write_audit(connection, actor_id, action, project, detail, payload=payload)
+        except sqlite3.DatabaseError as exc:
+            raise WebStoreError("audit row is corrupt") from exc
+
+    def begin_change(
+        self,
+        actor_id: int,
+        action: str,
+        project: str = "",
+        *,
+        correlation: str | None = None,
+        **values,
+    ) -> str:
+        """
+        @brief Persist an uncertain filesystem attempt before changing external storage.
+        @param[in] correlation Server-owned replay identity; stored only as SHA-256.
+        @return Opaque correlation for confirmation after the owning mutation.
+        @note Crash or exception keeps after unrecorded and result uncertain.
+        """
+        key = _digest(correlation) if correlation is not None else secrets.token_hex(32)
+        try:
+            with self._connect() as connection:
+                connection.execute("BEGIN IMMEDIATE")
+                self._prune_audit(connection)
+                old = connection.execute(
+                    "SELECT * FROM audit_attempts WHERE event_key=?", (key,)
+                ).fetchone()
+                if old:
+                    self._validate_attempt(old)
+                    if (old["actor_id"] != actor_id or old["action"] != action
+                            or old["project"] != project):
+                        raise WebStoreError("audit replay conflict")
+                    return key
+                identity = _profile_identity(self.path.parent, project) if project else None
+                payload = self._evidence(
+                    connection,
+                    actor_id,
+                    result="uncertain",
+                    project_id=identity[0] if identity else None,
+                    **values,
+                )
+                connection.execute(
+                    "INSERT INTO audit_attempts(event_key,actor_id,action,project,created_at,"
+                    "evidence) "
+                    "VALUES (?,?,?,?,?,?)",
+                    (key, actor_id, action, project, _now(), json.dumps(payload)),
+                )
+                self._write_audit(
+                    connection, actor_id, action, project, payload=payload, event_key=key
+                )
+        except sqlite3.DatabaseError as exc:
+            raise WebStoreError("audit row is corrupt") from exc
+        return key
+
+    def confirm_change(
+        self, key: str, *, after=None, project_id: str | None = None, detail: str = ""
+    ) -> None:
+        """@brief Atomically finalize one attempt and its retained evidence once."""
+        try:
+            with self._connect() as connection:
+                connection.execute("BEGIN IMMEDIATE")
+                self._prune_audit(connection)
+                row = connection.execute(
+                    "SELECT * FROM audit_attempts WHERE event_key=?", (key,)
+                ).fetchone()
+                if row is None:
+                    raise WebStoreError("audit attempt is unavailable")
+                self._validate_attempt(row)
+                if row["confirmed"]:
+                    return
+                payload = audit_contract.decode(row["evidence"])
+                payload["result"] = {
+                    "apply": "applied",
+                    "prepare": "prepared",
+                    "discard": "discarded",
+                }[payload["phase"]]
+                payload["after"] = audit_contract.redact(after)
+                project = row["project"]
+                if project_id is not None:
+                    payload["project_id"] = project_id
+                    item = ProfileStore(self.path.parent).find_by_id(project_id)
+                    project = item.name if item else project
+                    if payload["resource_type"] == "project":
+                        payload["resource_id"] = project_id
+                audit_contract.validate(payload)
+                cursor = connection.execute(
+                    "UPDATE audit SET evidence=?,detail=?,project=?,created_at=? WHERE event_key=?",
+                    (
+                        json.dumps(payload, sort_keys=True),
+                        self._safe_detail(row["action"], detail, payload),
+                        project,
+                        _now(),
+                        key,
+                    ),
+                )
+                if not cursor.rowcount:
+                    # Policy can remove the visible attempt before completion; confirmation
+                    # is still recorded and subjected to the same explicit bounds.
+                    self._write_audit(
+                        connection,
+                        row["actor_id"],
+                        row["action"],
+                        project,
+                        detail,
+                        payload=payload,
+                        event_key=key,
+                    )
+                connection.execute(
+                    "UPDATE audit_attempts SET confirmed=1,evidence=NULL WHERE event_key=?", (key,)
+                )
+                self._prune_audit(connection)
+        except (sqlite3.DatabaseError, ValueError, TypeError) as exc:
+            raise WebStoreError("audit row is corrupt") from exc
+
+    @staticmethod
+    def _audit_projection(row) -> dict:
+        """@brief Validate storage and project legacy unknowns without fabricated evidence."""
+        item = dict(row)
+        try:
+            audit_contract.instant(item["created_at"])
+            if (
+                not isinstance(item["action"], str)
+                or not re.fullmatch(r"[a-z][a-z0-9-]{0,79}", item["action"])
+                or not isinstance(item["detail"], str)
+                or not isinstance(item["project"], str)
+                or item["project"]
+                and not re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,63}", item["project"])
+                or type(item["id"]) is not int
+                or item["actor_id"] is not None
+                and type(item["actor_id"]) is not int
+            ):
+                raise ValueError("invalid row")
+            raw = item.pop("evidence", None)
+            key = item.pop("event_key", None)
+            if key is not None and (
+                not isinstance(key, str) or not re.fullmatch(r"[0-9a-f]{64}", key)
+            ):
+                raise ValueError("invalid correlation")
+            if raw is None:
+                item.update({field: None for field in audit_contract.FIELDS - {"schema", "actor"}})
+                item["actor"] = None  # Legacy identity name was never snapshotted.
+            else:
+                item.update(audit_contract.decode(raw))
+            item["correlation"] = key
+            item["detail"] = WebStore._safe_detail(
+                item["action"], item["detail"], item if raw else None
+            )
+            return item
+        except (ValueError, TypeError, KeyError) as exc:
+            raise WebStoreError("audit row is corrupt") from exc
+
+    @staticmethod
+    def _audit_storage(connection):
+        """@brief Reject unsupported/corrupt audit shapes on initialization and every read/write."""
+        if connection.execute("PRAGMA user_version").fetchone()[0] != 14:
+            raise WebStoreError("audit row is corrupt")
+        expected = {"id", "actor_id", "action", "project", "detail", "created_at",
+                    "evidence", "event_key"}
+        actual = {row["name"] for row in connection.execute("PRAGMA table_info(audit)")}
+        if not expected.issubset(actual):
+            raise WebStoreError("audit row is corrupt")
+        indexes = connection.execute("PRAGMA index_list(audit)").fetchall()
+        if not any(row["unique"] and [column["name"] for column in
+                   connection.execute(f"PRAGMA index_info('{row['name']}')")] == ["event_key"]
+                   for row in indexes):
+            raise WebStoreError("audit row is corrupt")
+        columns = connection.execute("PRAGMA table_info(audit_attempts)").fetchall()
+        required = {"event_key", "actor_id", "action", "project", "created_at",
+                    "evidence", "confirmed"}
+        if (not required.issubset({row["name"] for row in columns})
+                or not any(row["name"] == "event_key" and row["pk"] == 1 for row in columns)):
+            raise WebStoreError("audit row is corrupt")
+        for row in connection.execute("SELECT * FROM audit_attempts"):
+            WebStore._validate_attempt(row)
 
     @staticmethod
     def _audit_policy_row(connection: sqlite3.Connection) -> dict[str, int | None]:
@@ -1223,40 +1775,65 @@ class WebStore:
         with self._connect() as connection:
             return self._audit_policy_row(connection)
 
-    def set_audit_policy(self, retention_days: int | None,
-                         max_bytes: int | None) -> dict[str, int | None]:
+    def set_audit_policy(
+        self, retention_days: int | None, max_bytes: int | None, *, actor_id: int | None = None
+    ) -> dict[str, int | None]:
         """@brief Atomically set audit limits and prune existing oldest events."""
         for value, maximum in ((retention_days, 36500), (max_bytes, 1073741824)):
             if value is not None and (type(value) is not int or not 1 <= value <= maximum):
                 raise WebStoreError("invalid audit policy")
         with self._connect() as connection:
-            self._audit_policy_row(connection)
+            connection.execute("BEGIN IMMEDIATE")
+            before = self._audit_policy_row(connection)
+            count = connection.execute("SELECT COUNT(*) FROM audit").fetchone()[0]
             connection.execute(
                 "UPDATE audit_policy SET retention_days=?,max_bytes=? WHERE singleton=1",
                 (retention_days, max_bytes),
             )
-            self._prune_audit(connection)
-        return {"retention_days": retention_days, "max_bytes": max_bytes}
+            if actor_id is not None:
+                self._write_audit(
+                    connection,
+                    actor_id,
+                    "audit-policy-changed",
+                    payload=self._evidence(
+                        connection,
+                        actor_id,
+                        resource_type="policy",
+                        resource_id="audit",
+                        before=before,
+                        after={"retention_days": retention_days, "max_bytes": max_bytes},
+                    ),
+                )
+            else:
+                self._prune_audit(connection)
+            remaining = connection.execute("SELECT COUNT(*) FROM audit").fetchone()[0]
+        result = {"retention_days": retention_days, "max_bytes": max_bytes}
+        if actor_id is not None:
+            result["deleted_events"] = max(0, count + 1 - remaining)
+        return result
 
     def _prune_audit(self, connection: sqlite3.Connection) -> None:
         """@brief Enforce configured age and UTF-8 payload size within a transaction."""
+        self._audit_storage(connection)
         policy = self._audit_policy_row(connection)
         days, byte_limit = policy["retention_days"], policy["max_bytes"]
-        if days is None and byte_limit is None:
-            return
-        rows = connection.execute(
-            "SELECT id,action,project,detail,created_at FROM audit ORDER BY id"
-        ).fetchall()
+        rows = connection.execute("SELECT * FROM audit ORDER BY id").fetchall()
         cutoff = datetime.now(UTC) - timedelta(days=days) if days is not None else None
         sizes = []
         expired = []
         for row in rows:
+            self._audit_projection(row)
             try:
                 stamp = datetime.fromisoformat(row["created_at"])
                 if stamp.tzinfo is None:
                     raise ValueError("audit timestamp lacks timezone")
-                size = sum(len(row[key].encode("utf-8")) for key in
-                           ("action", "project", "detail", "created_at"))
+                size = sum(
+                    len(row[key].encode("utf-8"))
+                    for key in ("action", "project", "detail", "created_at")
+                )
+                size += sum(
+                    len((row[key] or "").encode("utf-8")) for key in ("evidence", "event_key")
+                )
             except (TypeError, ValueError, AttributeError) as exc:
                 raise WebStoreError("audit row is corrupt") from exc
             sizes.append((row["id"], size))
@@ -1279,35 +1856,86 @@ class WebStore:
             raise WebStoreError("invalid audit limit")
         return self.audit_page(limit, 0)[0]
 
-    def audit_page(self, limit: int | None, offset: int) -> tuple[list[dict[str, Any]], int]:
+    def audit_page(
+        self,
+        limit: int | None,
+        offset: int,
+        *,
+        actor_id: int | None = None,
+        project_id: str | None = None,
+        action: str | None = None,
+        from_time: str | None = None,
+        to_time: str | None = None,
+        project_reader: bool = False,
+    ) -> tuple[list[dict], int]:
         """
-        @brief Return one newest-first slice of retained audit rows and their total.
-        @param[in] limit Rows to return (1-500), or None for every row after offset.
-        @param[in] offset Rows to skip from the newest.
-        @return (rows, total retained rows).
-        @exception WebStoreError Invalid bounds or a corrupt audit row.
+        @brief Return filtered newest-first evidence and its count in one SQL snapshot.
+        @param[in] limit Page size 1-500 or None for all rows.
+        @param[in] offset Nonnegative number of matched rows to skip.
+        @return Redacted rows and filtered total.
+        @exception WebStoreError Invalid bounds/filter or corrupt persisted evidence.
         """
         if limit is not None and (type(limit) is not int or not 1 <= limit <= 500):
             raise WebStoreError("invalid audit limit")
-        if type(offset) is not int or offset < 0:
+        if type(offset) is not int or not 0 <= offset <= 2**63 - 1:
             raise WebStoreError("invalid audit offset")
-        with self._connect() as connection:
-            self._prune_audit(connection)
-            total = connection.execute("SELECT COUNT(*) FROM audit").fetchone()[0]
-            rows = connection.execute(
-                "SELECT a.id,u.username AS actor,a.action,a.project,a.detail,"
-                "a.created_at FROM audit a LEFT JOIN users u ON u.id=a.actor_id "
-                "ORDER BY a.id DESC LIMIT ? OFFSET ?",
-                (limit if limit is not None else -1, offset),
-            ).fetchall()
-        for row in rows:
-            try:
-                stamp = datetime.fromisoformat(row["created_at"])
-                if stamp.tzinfo is None:
-                    raise ValueError("audit timestamp lacks timezone")
-            except (TypeError, ValueError) as exc:
-                raise WebStoreError("audit row is corrupt") from exc
-        return [dict(row) for row in rows], total
+        if actor_id is not None and (type(actor_id) is not int or not 1 <= actor_id <= 2**63 - 1):
+            raise WebStoreError("invalid audit filter")
+        if project_id is not None and (
+            not isinstance(project_id, str) or not re.fullmatch(r"[0-9a-f]{32}", project_id)
+        ):
+            raise WebStoreError("invalid audit filter")
+        if action is not None and (
+            not isinstance(action, str) or not re.fullmatch(r"[a-z][a-z0-9-]{0,79}", action)
+        ):
+            raise WebStoreError("invalid audit filter")
+        try:
+            start = audit_contract.instant(from_time) if from_time is not None else None
+            end = audit_contract.instant(to_time) if to_time is not None else None
+            if start and end and start >= end:
+                raise ValueError("invalid period")
+        except ValueError as exc:
+            raise WebStoreError("invalid audit filter") from exc
+        where, args = [], []
+        for column, value in (
+            ("actor_id", actor_id),
+            ("json_extract(evidence,'$.project_id')", project_id),
+            ("action", action),
+        ):
+            if value is not None:
+                where.append(f"{column}=?")
+                args.append(value)
+        for operator, value in ((">=", start), ("<", end)):
+            if value is not None:
+                where.append(f"julianday(created_at){operator}julianday(?)")
+                args.append(value)
+        if project_reader:
+            # Match the configuration read boundary: financial values remain Admin-only.
+            where.append("(json_extract(evidence,'$.resource_type') != 'config' OR "
+                         "json_extract(evidence,'$.resource_id') != 'budgets.max_cost_usd')")
+            where.append("json_extract(evidence,'$.resource_type') "
+                         "IN ('config','project','operation')")
+            where.append("action IN ('config-updated','config-staged','config-applied',"
+                         "'config-discarded','project-created','project-imported','project-cloned',"
+                         "'settings-imported','project-display-name-changed','project-archived',"
+                         "'project-restored','readiness-checked','operation-submitted',"
+                         "'operation-finished','project-deleted')")
+        selection = " WHERE " + " AND ".join(where) if where else ""
+        try:
+            with self._connect() as connection:
+                connection.execute("BEGIN IMMEDIATE")
+                self._prune_audit(connection)
+                total = connection.execute(
+                    "SELECT COUNT(*) FROM audit" + selection, args
+                ).fetchone()[0]
+                rows = connection.execute(
+                    "SELECT * FROM audit" + selection + " ORDER BY id DESC LIMIT ? OFFSET ?",
+                    [*args, limit if limit is not None else -1, offset],
+                ).fetchall()
+                projected = [self._audit_projection(row) for row in rows]
+        except sqlite3.DatabaseError as exc:
+            raise WebStoreError("audit row is corrupt") from exc
+        return projected, total
 
     def add_price(self, project: str, executor: str, model: str,
                   effective_from: str, input_rate: str, output_rate: str,

@@ -1,0 +1,123 @@
+/*
+Copyright (c) 2026 DDP Engineering
+This software is licensed under the PolyForm Noncommercial License 1.0.0.
+Commercial use requires a separate commercial license.
+See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+*/
+import { auditCopy } from "../src/auditCopy";
+import type { Locale } from "../src/i18n";
+import { test, expect } from "@playwright/test";
+
+test.beforeEach(async ({ context, page }) => {
+  await context.route("**/*", route => new URL(route.request().url()).origin === "http://127.0.0.1:18765" ? route.continue() : route.abort("blockedbyclient"));
+  await page.goto("/");
+  await page.getByLabel("Username", { exact: false }).fill("admin");
+  await page.getByLabel("Password", { exact: false }).fill("admin");
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(page.getByRole("navigation", { name: "Primary navigation", exact: true })).toBeVisible();
+});
+
+test("change evidence is scannable, server filtered and retention stays in administration", async ({ page }) => {
+  await page.getByRole("navigation", { name: "Primary navigation", exact: true }).getByRole("link", { name: "Change history", exact: true }).click();
+  await expect(page.getByLabel("Actor ID", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Change type", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Audit retention" })).toHaveCount(0);
+  await expect(page.getByRole("columnheader", { name: "Result", exact: true })).toBeVisible();
+  await page.getByRole("cell").getByText("Evidence", { exact: true }).first().click();
+  await expect(page.getByText("Before value not recorded", { exact: true }).first()).toBeVisible();
+  await expect(page.locator(".audit-evidence dd").first()).toHaveCSS("white-space", "normal");
+  await page.screenshot({ path: test.info().outputPath("audit-desktop.png"), fullPage: true });
+  const request = page.waitForRequest(request => request.url().includes("/audit-page?") && request.url().includes("action=missing-event"));
+  await page.getByLabel("Change type", { exact: true }).fill("missing-event");
+  await page.getByRole("button", { name: "Apply filters", exact: true }).click();
+  await request;
+  await expect(page.getByText("No changes match these filters.", { exact: true })).toBeVisible();
+  await page.getByRole("navigation", { name: "Primary navigation", exact: true }).getByRole("link", { name: "System status", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Audit retention" })).toBeVisible();
+  await expect(page.getByText(/Deleting audit events does not delete jobs/)).toBeVisible();
+});
+
+test("malformed or failed projections hide evidence and retry recovers", async ({ page }) => {
+  await page.goto("/admin/audit");
+  await expect(page.getByRole("columnheader", { name: "Result", exact: true })).toBeVisible();
+  const good = await page.request.get("/api/v1/audit-page?limit=10&offset=0");
+  const malformed = await good.json();
+  malformed.items[0].before = { password: "injected-private-secret" };
+  await page.route("**/api/v1/audit-page?*", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(malformed) }));
+  await page.locator(".audit-evidence").getByRole("button", { name: "Refresh", exact: true }).click();
+  await expect(page.getByText("Could not load data", { exact: true })).toBeVisible();
+  await expect(page.locator(".audit-evidence table")).toHaveCount(0);
+  await expect(page.locator(".audit-evidence")).not.toContainText("injected-private-secret");
+  await page.unroute("**/api/v1/audit-page?*");
+  await page.route("**/api/v1/audit-page?*", route => route.fulfill({ status: 503, contentType: "application/json", body: '{"detail":{"code":"web_store_corrupt"}}' }));
+  await page.locator(".audit-evidence").getByRole("button", { name: "Refresh", exact: true }).click();
+  await expect(page.getByText("Could not load data", { exact: true })).toBeVisible();
+  await page.unroute("**/api/v1/audit-page?*");
+  await page.locator(".audit-evidence").getByRole("button", { name: "Refresh", exact: true }).click();
+  await expect(page.getByRole("columnheader", { name: "Result", exact: true })).toBeVisible();
+});
+
+test("server pages retain filters and show truthful account diffs", async ({ page }) => {
+  const me = await (await page.request.get("/api/v1/me")).json();
+  for (let index = 0; index < 12; index++) {
+    const created = await page.request.post("/api/v1/users/with-access", { headers: { "X-CSRF-Token": me.csrf }, data: {
+      username: `audit_fixture_${index}`, password: "audit-private-password", role: "developer", project_ids: [], allow_no_projects: true,
+    } });
+    expect(created.ok()).toBeTruthy();
+  }
+  await page.goto("/admin/audit");
+  await page.getByLabel("Change type", { exact: true }).fill("user-created");
+  await page.getByRole("button", { name: "Apply filters", exact: true }).click();
+  await expect(page.locator(".audit-evidence tbody tr")).toHaveCount(10);
+  await page.getByRole("cell").getByText("Evidence", { exact: true }).first().click();
+  await expect(page.locator(".audit-evidence")).toContainText('"exists":false');
+  await expect(page.locator(".audit-evidence")).not.toContainText("audit-private-password");
+  const continuation = page.waitForRequest(request => request.url().includes("/audit-page?") && request.url().includes("offset=10") && request.url().includes("action=user-created"));
+  await page.locator(".audit-evidence").getByRole("button", { name: "Next", exact: true }).click();
+  await continuation;
+  await expect(page.locator(".audit-evidence tbody tr")).toHaveCount(2);
+  await page.getByLabel("From (UTC)", { exact: true }).fill("2099-01-01T00:00");
+  await page.getByRole("button", { name: "Apply filters", exact: true }).click();
+  await expect(page.getByText("No changes match these filters.", { exact: true })).toBeVisible();
+});
+
+test("Dev reads only assigned project changes and cannot enter administrator history", async ({ page }) => {
+  const me = await (await page.request.get("/api/v1/me")).json();
+  await page.request.delete("/api/v1/session", { headers: { "X-CSRF-Token": me.csrf } });
+  await page.request.post("/api/v1/session", { data: { username: "developer", password: "test-password" } });
+  const projects = await (await page.request.get("/api/v1/projects")).json();
+  expect(projects.every((project: { name: string }) => project.name === "alpha")).toBeTruthy();
+  await page.goto(`/projects/${projects[0].id}/history`);
+  await expect(page.getByRole("region", { name: "Change evidence", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Change history", exact: true })).toHaveCount(0);
+  expect((await page.request.get("/api/v1/audit-page")).status()).toBe(403);
+  expect((await page.request.get(`/api/v1/audit-page?project_id=${"0".repeat(32)}`)).status()).toBe(403);
+  await expect(page.locator(".audit-evidence")).not.toContainText("audit_fixture_");
+});
+
+test("localized change evidence remains usable at 390px in both themes", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const me = await (await page.request.get("/api/v1/me")).json();
+  const originalPreferences = await (await page.request.get("/api/v1/me/preferences")).json();
+  try {
+    for (const locale of ["en", "fr", "de", "ro"] as Locale[]) {
+      for (const theme of ["light", "dark"]) {
+        const updated = await page.request.patch("/api/v1/me/preferences", { headers: { "X-CSRF-Token": me.csrf }, data: { language: locale, theme } });
+        expect(updated.ok()).toBeTruthy();
+        await page.goto("/admin/audit");
+        await expect(page.getByLabel(auditCopy[locale].actor, { exact: true })).toBeVisible();
+        await expect(page.getByRole("button", { name: auditCopy[locale].apply, exact: true })).toBeVisible();
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBeTruthy();
+      }
+    }
+    await page.screenshot({ path: test.info().outputPath("audit-mobile-ro-dark.png"), fullPage: true });
+  } finally {
+    const restored = await page.request.patch("/api/v1/me/preferences", {
+      headers: { "X-CSRF-Token": me.csrf }, data: {
+        language: originalPreferences.language ?? "en",
+        theme: originalPreferences.theme ?? "system",
+      },
+    });
+    expect(restored.ok()).toBeTruthy();
+  }
+});

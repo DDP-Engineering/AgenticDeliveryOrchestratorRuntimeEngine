@@ -27,14 +27,58 @@ both check current membership.
 ## 3. Implementation Overview
 
 Each method opens a short-lived SQLite connection with foreign keys and a ten
-second busy timeout. Schema 13 adds `users.password_change_required`: an
+second busy timeout. Schema 14 adds nullable schema-1 structured audit evidence,
+opaque unique event correlations and an `audit_attempts` receipt ledger. The
+explicit upgrade runs inside the initialization `BEGIN IMMEDIATE`, validates
+legacy rows before committing and preserves account/grant/operation identities.
+Unknown or damaged audit schemas, missing columns/uniqueness, invalid dates,
+ambiguous JSON and nonredacted persisted values raise `WebStoreError` on open
+and audit reads/writes. Runtime run-state schemas retain their separate contract.
+
+`adore.web.audit` owns the closed evidence schema and recursive value projection.
+Account/access/config/project/operation/policy resources record actor ID plus
+known snapshotted name, UTC recording time, known immutable project/resource IDs,
+phase/result, opaque correlation, operation ID and known SHA-256 revisions.
+Known `before`/`after` values include public account grants/flags, scalar numeric
+or boolean settings, pickup result and project existence. Arbitrary string or
+compound settings are redacted; credentials, environment values, raw exceptions
+and caller idempotency strings are excluded. Recognized compact detail remains
+compatible; arbitrary historical detail is projected as `[redacted]`.
+
+SQLite account creation, compatible account mutations, project access, password
+replacement, queue submission/completion/recovery and retention mutation record
+their evidence in the same owning transaction. Precondition rejection creates
+no successful event. A command submission is `prepare/prepared`; claimed work
+finishes as `apply/applied`, `apply/rejected` or `apply/uncertain`. Completion
+replay of the same terminal status creates no additional event; conflicting
+terminal status rejects. Malformed command exit values become uncertain.
+
+Filesystem-owned configuration/enrollment publishes a durable `uncertain`
+attempt before changing files, then confirms only after the owning mutation.
+Failure/crash leaves `after` unrecorded. Reviewed config replay identifies the
+same server project/staging-time/candidate receipt, preserves original `before`
+and confirms once before pending-file removal. Enrollment rolls back its visible
+profile on failure, retaining uncertain evidence rather than claiming application.
+Confirmation records its current UTC time. Completed receipts discard value
+payloads and retain only deduplication metadata. Unresolved receipts preserve
+redacted attempted evidence for host reconciliation. Receipts and durable
+operations are separate from visible audit retention; deleting visible events
+never permits completion duplication or prevents a valid operation from finishing.
+
+Legacy rows keep recorded IDs/action/time but expose null result/phase/project ID,
+revisions and `before`/`after`. Their actor name was not snapshotted. A mutable old
+project name grants no Dev access to those rows. The read projection describes
+absence explicitly and fabricates no historical differences.
+
+Schema 13 adds `users.password_change_required`: an
 administrator reset sets it, a successful own password change clears it, and
 the bootstrap `admin` plus accounts upgraded from earlier schemas start
 unmarked. A schema-13 store without the column fails closed.
 Schema 12 adds an audit-policy singleton; upgrades leave
 existing users and audit rows intact. Its two nullable bounds default to
 unlimited and pruning runs transactionally on policy changes, audit writes and
-audit reads. Events older than the day bound or beyond the stored UTF-8 text
+audit reads. The byte sum includes structured JSON and correlation text.
+The policy PUT reports the number of deleted visible events. Events older than the day bound or beyond the stored UTF-8 text
 byte bound are deleted oldest first. The byte bound does not cap SQLite file
 allocation. Corrupt policy values or timestamps fail closed. Schema 9 binds
 price versions to immutable profile IDs.
@@ -104,8 +148,16 @@ Python SQLite and `argon2-cffi` are required by the optional `web` extra.
 The inputs are credentials, user/project grants, session tokens and command
 metadata. The database, marker and audit rows are durable outputs. The session
 cookie contains an opaque random value; only its SHA-256 digest is stored.
-`recent_audit(limit)` returns up to 500 newest audit rows with actor names, or
-all rows when `limit=None`; the API exposes the latter for the All table choice.
+`recent_audit(limit)` returns up to 500 newest projected rows, or all rows when
+`limit=None`. `audit_page` selects actor ID, immutable project ID, exact action
+and half-open UTC instants before its count/LIMIT/OFFSET in one SQLite snapshot.
+Actor IDs and offsets reject values outside the SQLite signed 64-bit domain.
+Persisted audit project names use the same safe grammar as new writes, including
+legacy rows; an empty name denotes global scope. Corrupt names raise a redacted
+`WebStoreError` on initialization and public reads rather than exposing URLs.
+The API constrains Dev selection to one granted project and project-safe actions.
+`audit`, `begin_change` and `confirm_change` own committed and filesystem-attempt
+evidence; browser-local drafts do not create server mutations.
 `audit_policy` and `set_audit_policy` read and change administrator audit
 retention limits.
 `add_price` and `list_prices` store immutable-project/executor/model rate
@@ -134,6 +186,10 @@ invoking the CLI. With API and worker stopped, backups must include `web.db` and
 
 ## 9. Validation And Tests
 
+`tests/test_web_audit_evidence.py` covers structured account/access/config/import/
+clone/pickup evidence, nested secrets, transactional faults, filesystem crash/
+replay, legacy upgrade, corrupt schema/JSON, authorized filters/counts/pages,
+periods, administrative exclusions and retention/receipt separation.
 `tests/test_web_auth.py` covers bootstrap, hashing, restart, corruption,
 deletion, rate limit, password reset, session revocation, disablement, and
 manual stopped-service restore of the default home.

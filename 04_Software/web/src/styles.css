@@ -455,3 +455,11 @@ td.strong { font-weight: 800; }
 .user-access .actions { display: flex; flex-wrap: wrap; gap: .5rem; }
 .user-access dt { font-weight: 600; margin-top: .75rem; }
 .user-access dd { margin-left: 0; }
+
+.audit-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; align-items: end; margin-bottom: 18px; }
+.audit-filters label { display: flex; flex-direction: column; gap: 6px; }
+.audit-evidence td { vertical-align: top; white-space: normal; min-width: 8rem; }
+.audit-evidence td small { display: block; margin-top: 5px; overflow-wrap: anywhere; }
+.audit-evidence dd { margin: 5px 0 12px; overflow-wrap: anywhere; max-width: 28rem; }
+.audit-evidence summary { cursor: pointer; }
+@media (max-width: 600px) { .audit-filters { grid-template-columns: 1fr; } }

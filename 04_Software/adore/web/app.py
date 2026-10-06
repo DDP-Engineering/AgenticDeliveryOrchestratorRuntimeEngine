@@ -325,6 +325,8 @@ def _error(status: int, code: str, message: str | None = None) -> HTTPException:
 def _store_error(status: int, exc: Exception) -> HTTPException:
     """@brief Translate a store sentence into its stable code, keeping unknown text."""
     text = str(exc)
+    if text == "audit row is corrupt":
+        return _error(503, "web_store_corrupt")
     code = _STORE_ERROR_CODES.get(text)
     return _error(status, code) if code else _error(status, "request_rejected", text)
 
@@ -729,20 +731,33 @@ def _prepare_transfer(profiles: ProfileStore, body: TransferInput,
 def _publish_paused(profiles: ProfileStore, web: WebStore, actor: int, name: str,
                     raw: bytes, metadata: dict, *, imported: bool = False,
                     import_body: ProjectImportInput | None = None,
-                    recheck: Callable[[], None] | None = None) -> dict:
+                    recheck: Callable[[], None] | None = None,
+                    origin: str | None = None,
+                    base_revision: str | None = None) -> dict:
     """@brief Keep lock, filesystem and parsing failures typed at the enrollment boundary."""
     try:
         return _publish_paused_locked(profiles, web, actor, name, raw, metadata,
-                                      imported=imported, import_body=import_body, recheck=recheck)
+                                      imported=imported, import_body=import_body,
+                                      recheck=recheck, origin=origin, base_revision=base_revision)
     except (OSError, StateError, ProfileError, UnicodeError, ValueError, TypeError) as exc:
         raise _contract_rejection("project_creation_failed", "config",
                               "Check local enrollment storage before retrying.") from exc
 
 
-def _publish_paused_locked(profiles: ProfileStore, web: WebStore, actor: int, name: str,
-                           raw: bytes, metadata: dict, *, imported: bool = False,
-                           import_body: ProjectImportInput | None = None,
-                           recheck: Callable[[], None] | None = None) -> dict:
+def _publish_paused_locked(
+    profiles: ProfileStore,
+    web: WebStore,
+    actor: int,
+    name: str,
+    raw: bytes,
+    metadata: dict,
+    *,
+    imported: bool = False,
+    import_body: ProjectImportInput | None = None,
+    recheck: Callable[[], None] | None = None,
+    origin: str | None = None,
+    base_revision: str | None = None,
+) -> dict:
     """@brief Publish metadata after pause, holding ownership and conductor locks."""
     with _web_config_edit_lock(profiles.home / "web-enrollment" / "config.toml"):
         try:
@@ -754,14 +769,29 @@ def _publish_paused_locked(profiles: ProfileStore, web: WebStore, actor: int, na
         root = Path(config.state.store_root).resolve()
         for other in profiles.list_profiles():
             other_root = Path(other.store_root or profiles.default_store_root(other.name)).resolve()
-            if (root == other_root or root.is_relative_to(other_root)
-                    or other_root.is_relative_to(root)):
-                raise _contract_rejection("state_root_already_owned", "state.store_root",
-                                      "Choose an absolute state root owned only by this project.")
+            if (
+                root == other_root
+                or root.is_relative_to(other_root)
+                or other_root.is_relative_to(root)
+            ):
+                raise _contract_rejection(
+                    "state_root_already_owned",
+                    "state.store_root",
+                    "Choose an absolute state root owned only by this project.",
+                )
         if import_body is not None:
             _reviewed_import(profiles, import_body)
         if recheck is not None:
             recheck()
+        attempt = web.begin_change(
+            actor,
+            origin or ("project-imported" if imported else "project-created"),
+            resource_type="project",
+            resource_id=name,
+            candidate_revision=sha256(raw).hexdigest(),
+            base_revision=base_revision,
+            before={"exists": False},
+        )
         directory = profiles.profile_dir(name)
         try:
             directory.mkdir(parents=True, exist_ok=False)
@@ -774,8 +804,9 @@ def _publish_paused_locked(profiles: ProfileStore, web: WebStore, actor: int, na
             if not locked:
                 raise _error(409, "project_has_active_work")
             previously_paused = state.is_paused()
-            if (state.invalid_runs() or any(run.lifecycle not in _TERMINAL_RUN_LIFECYCLES
-                                           for run in state.list_runs())):
+            if state.invalid_runs() or any(
+                run.lifecycle not in _TERMINAL_RUN_LIFECYCLES for run in state.list_runs()
+            ):
                 raise _error(409, "project_has_active_work")
             if import_body is not None:
                 _reviewed_import(profiles, import_body, own_state_lock=True)
@@ -786,8 +817,15 @@ def _publish_paused_locked(profiles: ProfileStore, web: WebStore, actor: int, na
             item = profiles.create(name, **metadata)
             if recheck is not None:
                 recheck()
-            web.audit(actor, "project-imported" if imported else "project-created", name)
-            return _profile_view(profiles, item)
+            result = _profile_view(profiles, item)
+            web.audit(
+                actor,
+                "project-imported" if imported else "project-created",
+                name,
+                confirmation_key=attempt,
+                after={"exists": True, "pickup": "stopped"},
+            )
+            return result
         except Exception as exc:
             # Metadata is the visibility boundary. Remove it before unlock/resume.
             try:
@@ -797,13 +835,18 @@ def _publish_paused_locked(profiles: ProfileStore, web: WebStore, actor: int, na
                 force_rmtree(directory)
             except OSError as rollback_exc:
                 failure = _contract_rejection(
-                    "project_rollback_failed", "config",
-                    "Inspect incomplete enrollment on the host before retrying.")
+                    "project_rollback_failed",
+                    "config",
+                    "Inspect incomplete enrollment on the host before retrying.",
+                )
                 raise failure from rollback_exc
             if isinstance(exc, HTTPException):
                 raise
-            raise _contract_rejection("project_creation_failed", "config",
-                                  "Check local enrollment storage before retrying.") from exc
+            raise _contract_rejection(
+                "project_creation_failed",
+                "config",
+                "Check local enrollment storage before retrying.",
+            ) from exc
         finally:
             if locked:
                 state.release_lock()
@@ -1958,10 +2001,9 @@ def create_app(home: str | Path | None = None,
     def change_password(body: PasswordChange,
                         user: Annotated[dict, Depends(account_mutation)]) -> dict:
         try:
-            web.change_password(user["id"], body.current, body.replacement)
+            web.change_password(user["id"], body.current, body.replacement, actor_id=user["id"])
         except WebStoreError as exc:
             raise _store_error(400, exc) from exc
-        web.audit(user["id"], "password-changed")
         return {"ok": True}
 
     @app.get("/api/v1/users")
@@ -1981,18 +2023,49 @@ def create_app(home: str | Path | None = None,
         return web.recent_audit(int(limit))
 
     @app.get("/api/v1/audit-page")
-    def audit_page(_user: Annotated[dict, Depends(administrator)],
-                   limit: str = "25",
-                   offset: Annotated[int, Query(ge=0)] = 0) -> dict:
-        """@brief Return one newest-first audit slice with the retained total."""
+    def audit_page(
+        user: Annotated[dict, Depends(principal)],
+        limit: str = "25",
+        offset: Annotated[int, Query(ge=0, le=2**63 - 1)] = 0,
+        actor_id: Annotated[int | None, Query(ge=1, le=2**63 - 1)] = None,
+        project_id: str | None = None,
+        action: str | None = None,
+        from_time: Annotated[str | None, Query(alias="from")] = None,
+        to_time: Annotated[str | None, Query(alias="to")] = None,
+    ) -> dict:
+        """@brief Filter/count authorized stable-project evidence before SQL paging."""
+        if user["role"] != "admin":
+            if project_id is None:
+                raise _error(403, "admin_required")
+            # Return the same denial for malformed, missing or unassigned identity.
+            if project_id not in web.membership_ids(user["id"]):
+                raise _error(403, "project_not_found")
         if limit == "all":
             size = None
-        elif (len(limit) > 3 or not limit.isascii() or not limit.isdecimal()
-              or not 1 <= int(limit) <= 100):
+        elif (
+            len(limit) > 3
+            or not limit.isascii()
+            or not limit.isdecimal()
+            or not 1 <= int(limit) <= 100
+        ):
             raise _error(422, "invalid_audit_limit")
         else:
             size = int(limit)
-        items, total = web.audit_page(size, offset)
+        try:
+            items, total = web.audit_page(
+                size,
+                offset,
+                actor_id=actor_id,
+                project_id=project_id,
+                action=action,
+                from_time=from_time,
+                to_time=to_time,
+                project_reader=user["role"] != "admin",
+            )
+        except WebStoreError as exc:
+            if str(exc).startswith("invalid audit"):
+                raise _error(422, "invalid_request") from exc
+            raise
         return {"items": items, "total": total, "limit": size, "offset": offset}
 
     @app.get("/api/v1/audit-policy")
@@ -2001,11 +2074,11 @@ def create_app(home: str | Path | None = None,
         return web.audit_policy()
 
     @app.put("/api/v1/audit-policy")
-    def update_audit_policy(body: AuditPolicyInput,
-                            user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+    def update_audit_policy(
+        body: AuditPolicyInput, user: Annotated[dict, Depends(admin_mutation)]
+    ) -> dict:
         """@brief Apply administrator limits and record the policy change."""
-        result = web.set_audit_policy(body.retention_days, body.max_bytes)
-        web.audit(user["id"], "audit-policy-changed")
+        result = web.set_audit_policy(body.retention_days, body.max_bytes, actor_id=user["id"])
         return result
 
     @app.post("/api/v1/users/with-access")
@@ -2039,15 +2112,15 @@ def create_app(home: str | Path | None = None,
     @app.post("/api/v1/users")
     def add_user(body: NewUser, user: Annotated[dict, Depends(admin_mutation)]) -> dict:
         try:
-            created = web.create_user(body.username, body.password, body.role)
+            created = web.create_user(body.username, body.password, body.role, actor_id=user["id"])
         except WebStoreError as exc:
             raise _store_error(400, exc) from exc
-        web.audit(user["id"], "user-created", detail=body.username)
         return created
 
     @app.put("/api/v1/users/{user_id}/projects")
-    def assign(user_id: int, body: Memberships,
-               user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+    def assign(
+        user_id: int, body: Memberships, user: Annotated[dict, Depends(admin_mutation)]
+    ) -> dict:
         for name in body.projects:
             _profile_name(name)
             try:
@@ -2055,10 +2128,9 @@ def create_app(home: str | Path | None = None,
             except ProfileError as exc:
                 raise _error(404, "project_not_found") from exc
         try:
-            web.set_memberships(user_id, body.projects)
+            web.set_memberships(user_id, body.projects, actor_id=user["id"])
         except WebStoreError as exc:
             raise _store_error(404, exc) from exc
-        web.audit(user["id"], "membership-changed", detail=str(user_id))
         return {"projects": sorted(set(body.projects))}
 
     @app.get("/api/v1/projects/{name}/access")
@@ -2076,8 +2148,9 @@ def create_app(home: str | Path | None = None,
         ]}
 
     @app.put("/api/v1/projects/{name}/access/{user_id}")
-    def change_project_access(name: str, user_id: int, body: AccessChange,
-                              user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+    def change_project_access(
+        name: str, user_id: int, body: AccessChange, user: Annotated[dict, Depends(admin_mutation)]
+    ) -> dict:
         """@brief Grant or remove one developer's access to this project only."""
         item = project(name, user)
         account = web.user_by_id(user_id)
@@ -2086,40 +2159,37 @@ def create_app(home: str | Path | None = None,
         if account["role"] != "developer":
             raise _error(400, "user_not_developer")
         try:
-            web.set_membership(user_id, item.name, body.granted)
+            web.set_membership(user_id, item.name, body.granted, actor_id=user["id"])
         except WebStoreError as exc:
-            raise _store_error(409 if str(exc) == "project changed during the update" else 404,
-                               exc) from exc
-        web.audit(user["id"], "membership-changed", item.name,
-                  f"user {user_id} {'granted' if body.granted else 'removed'}")
+            raise _store_error(
+                409 if str(exc) == "project changed during the update" else 404, exc
+            ) from exc
         return {"id": user_id, "granted": body.granted}
 
     @app.post("/api/v1/users/{user_id}/disable")
     def disable(user_id: int, user: Annotated[dict, Depends(admin_mutation)]) -> dict:
         try:
-            web.disable_user(user_id)
+            web.disable_user(user_id, actor_id=user["id"])
         except WebStoreError as exc:
             raise _store_error(409, exc) from exc
-        web.audit(user["id"], "user-disabled", detail=str(user_id))
         return {"ok": True}
 
     @app.post("/api/v1/users/{user_id}/enable")
     def enable(user_id: int, user: Annotated[dict, Depends(admin_mutation)]) -> dict:
         try:
-            web.enable_user(user_id)
+            web.enable_user(user_id, actor_id=user["id"])
         except WebStoreError as exc:
             raise _store_error(404, exc) from exc
-        web.audit(user["id"], "user-enabled", detail=str(user_id))
         return {"ok": True}
 
     @app.post("/api/v1/users/{user_id}/reset-password")
-    def reset_password(user_id: int, body: PasswordReset,
-                       user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+    def reset_password(
+        user_id: int, body: PasswordReset, user: Annotated[dict, Depends(admin_mutation)]
+    ) -> dict:
         try:
-            web.reset_password(user_id, body.replacement)
+            web.reset_password(user_id, body.replacement, actor_id=user["id"])
         except WebStoreError as exc:
             raise _store_error(404 if "not found" in str(exc) else 400, exc) from exc
-        web.audit(user["id"], "password-reset", detail=str(user_id))
         return {"ok": True}
 
     @app.get("/api/v1/projects")
@@ -2165,10 +2235,20 @@ def create_app(home: str | Path | None = None,
                     _finding("project_exists", "name", "Choose another available ID.")]}
 
     @app.post("/api/v1/projects/setup-preview")
-    def preview_project_setup(body: ProjectInput,
-                              _user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+    def preview_project_setup(
+        body: ProjectInput, _user: Annotated[dict, Depends(admin_mutation)]
+    ) -> dict:
         """@brief Validate setup locally without commands or profile publication."""
         preview, _candidate = _prepare_project(profiles, body)
+        web.audit(
+            _user["id"],
+            "enrollment-prepared",
+            phase="prepare",
+            result="prepared",
+            resource_type="project",
+            resource_id=body.name,
+            candidate_revision=preview.get("config_revision"),
+        )
         return preview
 
     def transfer_source(body: TransferSourceInput, request: Request) -> dict:
@@ -2217,10 +2297,21 @@ def create_app(home: str | Path | None = None,
         return _prepare_transfer(profiles, body, source["settings"])
 
     @app.post("/api/v1/projects/transfer-preview")
-    def preview_transfer(body: TransferInput, request: Request,
-                         _user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+    def preview_transfer(
+        body: TransferInput, request: Request, _user: Annotated[dict, Depends(admin_mutation)]
+    ) -> dict:
         """@brief Return target rules/mapping and canonical validated review without writes."""
         preview, _candidate = prepare_transfer(body, request)
+        web.audit(
+            _user["id"],
+            "clone-prepared" if body.method == "project" else "settings-import-prepared",
+            phase="prepare",
+            result="prepared",
+            resource_type="project",
+            resource_id=body.target.name,
+            base_revision=body.source_revision,
+            candidate_revision=preview.get("config_revision"),
+        )
         return preview
 
     def reviewed_transfer(body: ReviewedTransferInput, request: Request):
@@ -2266,7 +2357,9 @@ def create_app(home: str | Path | None = None,
 
         def publish() -> dict:
             return _publish_paused(profiles, web, user["id"], body.target.name,
-                                   candidate.document.encode(), candidate.metadata, recheck=recheck)
+                                   candidate.document.encode(), candidate.metadata, recheck=recheck,
+                                   origin="project-cloned" if body.method == "project"
+                                   else "settings-imported", base_revision=body.source_revision)
 
         if body.method == "project":
             item = project(body.source_id, user)
@@ -2348,6 +2441,15 @@ def create_app(home: str | Path | None = None,
     ) -> dict:
         """@brief Review an unchanged TOML import before saving it."""
         preview, _config = _inspect_project_import(profiles, body)
+        web.audit(
+            _user["id"],
+            "toml-import-prepared",
+            phase="prepare",
+            result="prepared",
+            resource_type="project",
+            resource_id=body.name,
+            candidate_revision=preview.get("revision"),
+        )
         return preview
 
     @app.post("/api/v1/projects/import-check")
@@ -2576,22 +2678,29 @@ def create_app(home: str | Path | None = None,
                 "settings": settings}
 
     @app.put("/api/v1/projects/{name}/config")
-    def config_update(name: str, body: ConfigEdit,
-                      user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+    def config_update(
+        name: str, body: ConfigEdit, user: Annotated[dict, Depends(admin_mutation)]
+    ) -> dict:
         item = project(name, user)
         endpoint_key = body.key == "container.runtime_env.OPENAI_BASE_URL"
-        if (body.model is not None or body.auth_env is not None
-                or body.protocol is not None or body.timeout_seconds is not None
-                or body.ca_file is not None) and not endpoint_key:
+        if (
+            body.model is not None
+            or body.auth_env is not None
+            or body.protocol is not None
+            or body.timeout_seconds is not None
+            or body.ca_file is not None
+        ) and not endpoint_key:
             raise _error(400, "model_requires_endpoint")
         if not _editable_setting_key(body.key, endpoint=endpoint_key):
             raise _error(400, "setting_not_editable")
         if endpoint_key:
-            if (body.ca_file and (not body.value.startswith("https://")
-                    or not body.ca_file.startswith("/")
-                    or ".." in Path(body.ca_file).parts
-                    or any(ord(char) < 32 for char in body.ca_file)
-                    or len(body.ca_file) > 256)):
+            if body.ca_file and (
+                not body.value.startswith("https://")
+                or not body.ca_file.startswith("/")
+                or ".." in Path(body.ca_file).parts
+                or any(ord(char) < 32 for char in body.ca_file)
+                or len(body.ca_file) > 256
+            ):
                 raise _error(400, "invalid_endpoint_ca")
             try:
                 endpoint = urlsplit(body.value)
@@ -2608,8 +2717,14 @@ def create_app(home: str | Path | None = None,
             if not valid:
                 raise _error(400, "invalid_endpoint_url")
         path = profiles.config_path(item.name)
-        with config_lock, _web_config_edit_lock(path), guard_direct_config_apply(
-            item, path, body.key,
+        with (
+            config_lock,
+            _web_config_edit_lock(path),
+            guard_direct_config_apply(
+                item,
+                path,
+                body.key,
+            ),
         ):
             try:
                 raw = path.read_bytes()
@@ -2624,19 +2739,29 @@ def create_app(home: str | Path | None = None,
                     active = load_config(path)
                     if active.executor.default != "opencode":
                         raise _error(400, "unsupported_local_endpoint_executor")
-                    if (body.auth_env is not None
-                            and (not re.fullmatch(r"[A-Z][A-Z0-9_]{0,63}", body.auth_env)
-                                 or body.auth_env not in active.executor.env_keys)):
+                    if body.auth_env is not None and (
+                        not re.fullmatch(r"[A-Z][A-Z0-9_]{0,63}", body.auth_env)
+                        or body.auth_env not in active.executor.env_keys
+                    ):
                         raise _error(400, "invalid_endpoint_auth_reference")
-                    model = (body.model if body.model is not None
-                             else active.executor.commands["opencode"].model)
+                    model = (
+                        body.model
+                        if body.model is not None
+                        else active.executor.commands["opencode"].model
+                    )
                     if body.model is not None:
                         current = _set_toml_scalar(
-                            current, "executor.opencode.model", body.model,
+                            current,
+                            "executor.opencode.model",
+                            body.model,
                         )
                     changed = _set_endpoint(
-                        current, body.value, model, body.auth_env,
-                        body.timeout_seconds, body.ca_file,
+                        current,
+                        body.value,
+                        model,
+                        body.auth_env,
+                        body.timeout_seconds,
+                        body.ca_file,
                     )
                 else:
                     changed = _set_toml_scalar(current, body.key, body.value)
@@ -2652,14 +2777,29 @@ def create_app(home: str | Path | None = None,
                     raise _error(400, "invalid_config")
                 if sha256(path.read_bytes()).digest() != sha256(raw).digest():
                     raise _error(409, "stale_config_revision")
+                attempt = web.begin_change(
+                    user["id"],
+                    "config-updated",
+                    item.name,
+                    resource_type="config",
+                    resource_id=body.key,
+                    base_revision=sha256(raw).hexdigest(),
+                    candidate_revision=sha256(candidate.read_bytes()).hexdigest(),
+                    before={"value": _value_at(tomllib.loads(raw.decode()), body.key)},
+                )
                 candidate.replace(path)
                 _sync_profile_config_identity(profiles, item, path)
+                web.confirm_change(
+                    attempt,
+                    after={"value": _value_at(
+                        tomllib.loads(path.read_text(encoding="utf-8")), body.key)},
+                    detail=body.key,
+                )
             except (UnicodeError, OSError, ValueError, tomllib.TOMLDecodeError) as exc:
                 raise _error(400, "invalid_config") from exc
             finally:
                 if candidate is not None:
                     candidate.unlink(missing_ok=True)
-        web.audit(user["id"], "config-updated", item.name, body.key)
         return {"revision": sha256(path.read_bytes()).hexdigest()}
 
     @app.get("/api/v1/projects/{name}/config/pending")
@@ -2671,8 +2811,9 @@ def create_app(home: str | Path | None = None,
         return _public_pending_config(value) if value else None
 
     @app.post("/api/v1/projects/{name}/config/pending")
-    def stage_config(name: str, body: ConfigEdit,
-                     user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+    def stage_config(
+        name: str, body: ConfigEdit, user: Annotated[dict, Depends(admin_mutation)]
+    ) -> dict:
         """@brief Save a validated candidate revision while live config stays put."""
         item = project(name, user)
         path = profiles.config_path(item.name)
@@ -2694,13 +2835,29 @@ def create_app(home: str | Path | None = None,
                 "restart_required": _restart_required(body.key),
             }
             public = _public_pending_config(value)
+            attempt = web.begin_change(
+                user["id"],
+                "config-staged",
+                item.name,
+                resource_type="config",
+                resource_id=body.key,
+                phase="prepare",
+                base_revision=value["base_revision"],
+                candidate_revision=value["candidate_revision"],
+                before={"value": _value_at(tomllib.loads(raw.decode()), body.key)},
+            )
             _write_pending_config(pending_path, value)
-        web.audit(user["id"], "config-staged", item.name, body.key)
+            web.confirm_change(
+                attempt,
+                after={"value": _value_at(tomllib.loads(changed), body.key)},
+                detail=body.key,
+            )
         return public
 
     @app.post("/api/v1/projects/{name}/config/apply")
-    def apply_config(name: str, body: ConfigApply,
-                     user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+    def apply_config(
+        name: str, body: ConfigApply, user: Annotated[dict, Depends(admin_mutation)]
+    ) -> dict:
         """@brief Apply the reviewed candidate only at a quiescent boundary."""
         item = project(name, user)
         path = profiles.config_path(item.name)
@@ -2710,44 +2867,66 @@ def create_app(home: str | Path | None = None,
             if pending is None:
                 raise _error(404, "pending_config_not_found")
             _public_pending_config(pending)
-            if (body.base_revision is not None
-                    and not secrets.compare_digest(body.base_revision, pending["base_revision"])):
+            if body.base_revision is not None and not secrets.compare_digest(
+                body.base_revision, pending["base_revision"]
+            ):
                 raise _error(409, "stale_config_revision")
-            if not secrets.compare_digest(body.candidate_revision,
-                                          pending["candidate_revision"]):
+            if not secrets.compare_digest(body.candidate_revision, pending["candidate_revision"]):
                 raise _error(409, "stale_pending_revision")
             try:
                 raw = path.read_bytes()
                 current = load_config(path)
-            except (OSError, UnicodeError, ValueError, TypeError,
-                    tomllib.TOMLDecodeError) as exc:
+            except (OSError, UnicodeError, ValueError, TypeError, tomllib.TOMLDecodeError) as exc:
                 raise _error(503, "config_corrupt") from exc
             current_revision = sha256(raw).hexdigest()
             already_applied = current_revision == pending["candidate_revision"]
             if current_revision != pending["base_revision"] and not already_applied:
                 raise _error(409, "stale_config_revision")
-            if (not item.store_root or not Path(item.store_root).is_absolute()
-                    or Path(item.store_root).resolve()
-                    != Path(current.state.store_root).resolve()):
+            if (
+                not item.store_root
+                or not Path(item.store_root).is_absolute()
+                or Path(item.store_root).resolve() != Path(current.state.store_root).resolve()
+            ):
                 raise _error(409, "unmanaged_state_root")
             state = StateStore(item.store_root, current.agent.slug)
             if not state.acquire_lock():
                 raise _error(409, "project_has_active_work")
             try:
-                if (state.invalid_runs()
-                        or any(run.lifecycle not in _TERMINAL_RUN_LIFECYCLES
-                               for run in state.list_runs())
-                        or web.has_unfinished_operations(item.name)
-                        or pending.get("restart_required") and not state.is_paused()):
+                if (
+                    state.invalid_runs()
+                    or any(
+                        run.lifecycle not in _TERMINAL_RUN_LIFECYCLES for run in state.list_runs()
+                    )
+                    or web.has_unfinished_operations(item.name)
+                    or pending.get("restart_required")
+                    and not state.is_paused()
+                ):
                     raise _error(409, "project_has_active_work")
                 candidate: Path | None = None
+                attempt = web.begin_change(
+                    user["id"],
+                    "config-applied",
+                    item.name,
+                    correlation=f"config:{item.project_id}:{pending['created_at']}:{pending['candidate_revision']}",
+                    resource_type="config",
+                    resource_id=pending["key"],
+                    base_revision=pending["base_revision"],
+                    candidate_revision=pending["candidate_revision"],
+                    before=(
+                        {"value": _value_at(tomllib.loads(raw.decode()), pending["key"])}
+                        if not already_applied
+                        else None
+                    ),
+                )
                 try:
                     if already_applied:
                         if validate_config(current):
                             raise _error(503, "config_corrupt")
                     else:
                         descriptor, candidate_name = tempfile.mkstemp(
-                            prefix="config.apply-", suffix=".toml", dir=path.parent,
+                            prefix="config.apply-",
+                            suffix=".toml",
+                            dir=path.parent,
                         )
                         os.close(descriptor)
                         candidate = Path(candidate_name)
@@ -2758,18 +2937,25 @@ def create_app(home: str | Path | None = None,
                             raise _error(409, "stale_config_revision")
                         candidate.replace(path)
                     _sync_profile_config_identity(profiles, item, path)
+                    web.confirm_change(
+                        attempt,
+                        after={
+                            "value": _value_at(
+                                tomllib.loads(pending["candidate_text"]), pending["key"]
+                            )
+                        },
+                        detail=pending["key"],
+                    )
                     pending_path.unlink()
                 finally:
                     if candidate is not None:
                         candidate.unlink(missing_ok=True)
             finally:
                 state.release_lock()
-        web.audit(user["id"], "config-applied", item.name, pending["key"])
         return {"revision": sha256(path.read_bytes()).hexdigest()}
 
     @app.delete("/api/v1/projects/{name}/config/pending")
-    def discard_config(name: str,
-                       user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+    def discard_config(name: str, user: Annotated[dict, Depends(admin_mutation)]) -> dict:
         """@brief Explicitly discard a staged candidate, including corrupt ones."""
         item = project(name, user)
         path = profiles.config_path(item.name)
@@ -2777,8 +2963,18 @@ def create_app(home: str | Path | None = None,
         with config_lock, _web_config_edit_lock(path):
             if not pending_path.is_file():
                 raise _error(404, "pending_config_not_found")
+            # Corrupt candidates remain explicitly discardable; do not fabricate their diff.
+            attempt = web.begin_change(
+                user["id"],
+                "config-discarded",
+                item.name,
+                resource_type="config",
+                resource_id="pending",
+                phase="discard",
+                before={"exists": True},
+            )
             pending_path.unlink()
-        web.audit(user["id"], "config-discarded", item.name)
+            web.confirm_change(attempt, after={"exists": False})
         return {"ok": True}
 
     def job_projects(user: dict, project_id: str | None = None) -> list:
@@ -3282,8 +3478,6 @@ def create_app(home: str | Path | None = None,
                                     target, body.idempotency_key)
         except WebStoreError as exc:
             raise _store_error(409, exc) from exc
-        web.audit(user["id"], "operation-submitted", item.name,
-                  f"{action}:{target}")
         return {"id": operation["id"], "status": operation["status"]}
 
     @app.get("/api/v1/operations/{operation_id}")

@@ -46,8 +46,12 @@ def test_audit_page_returns_newest_first_slice_with_total(tmp_path):
         assert newest[0]["action"] == "login"
         # Newest first: the login is row 0, so offset 25 starts at event-35.
         assert [row["action"] for row in body["items"]][:2] == ["event-35", "event-34"]
-        assert set(body["items"][0]) == {"id", "actor", "action", "project", "detail",
-                                         "created_at"}
+        assert set(body["items"][0]) == {
+            "id", "actor_id", "actor", "action", "project", "detail", "created_at",
+            "schema", "project_id", "resource_type", "resource_id", "phase", "result",
+            "operation_id", "base_revision", "candidate_revision", "before", "after",
+            "correlation",
+        }
         everything = client.get("/api/v1/audit-page?limit=all").json()
         assert everything["limit"] is None and len(everything["items"]) == total
         past_end = client.get("/api/v1/audit-page?limit=10&offset=500").json()

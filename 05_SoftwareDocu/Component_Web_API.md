@@ -236,16 +236,51 @@ return host paths. Less than 1 GiB free raises a warning in Administration.
 The check is read-only and does not prune indefinite history. Disk measurement
 or corrupt project metadata returns a typed 503 rather than a healthy result.
 Administrator-only `GET /api/v1/audit-policy` returns nullable day and UTF-8
-audit-text byte limits; CSRF-protected `PUT` replaces both limits and prunes
-existing older rows. Invalid or unknown policy fields return 422. Corrupt
-persisted policy or event timestamps return 503. Administrator-only
+audit-text byte limits. Admin/CSRF `PUT` replaces both independently and returns
+`retention_days`, `max_bytes` and `deleted_events` from the owning atomic policy/
+evidence/pruning transaction. Limits keep the established 1–36500 day and
+1–1073741824 byte bounds; null means unlimited. Structured JSON and correlations
+count toward stored-text bytes; file allocation, job journals, identity,
+operations and filesystem replay receipts are separate.
+
 `GET /api/v1/audit-page?limit=<1-100|all>&offset=<n>` returns
-`{"items", "total", "limit", "offset"}` for one newest-first slice of the
-retained audit trail (`limit` is null for All); bad limits return 422
-`invalid_audit_limit` and negative offsets 422 `invalid_request`. The project
+`items`, `total`, canonical `limit` (null for All) and `offset`. Optional exact
+`actor_id`, immutable `project_id`, action-code `action`, inclusive UTC `from`
+and exclusive UTC `to` select all matched evidence before counts and paging.
+Actor IDs and offsets stay within SQLite signed 64-bit bounds.
+Invalid selectors/periods return 422 `invalid_request`, limits return
+`invalid_audit_limit`, and negative offsets retain `invalid_request`.
+Global history requires Admin. Dev must supply one currently granted immutable
+project ID and receives project-safe config/enrollment/lifecycle/operation rows;
+account/access/policy/price/usage/auth, financial configuration and name-only legacy history are excluded
+before count/paging. Missing, malformed or unassigned Dev scope returns 403.
+Revocation and replacement cannot inherit history visibility.
+
+Each row exposes recorded actor ID/name/time, action, known stable project and
+resource identity, phase/result, operation ID/opaque correlation, known revisions
+and closed redacted before/after. Legacy absence is null. The store rejects
+corrupt persisted evidence; errors omit sensitive values. `GET /api/v1/audit`
+retains its Admin-only recent/All contract with the same server projection.
+No audit export is exposed.
+
+Config staging records `prepare/prepared`; guarded apply records
+`apply/applied` only on confirmed completion and discard records
+`discard/discarded` for a removed pending resource. A corrupt pending candidate
+remains explicitly discardable without inventing its diff. Durable uncertain
+filesystem attempts preserve crash evidence; config replay uses the same receipt
+and original before value. Guided/TOML/portable/clone previews are prepared
+server events. Creation records the actual stable target, config revision and
+stopped pickup, with distinct import/clone actions. Browser-local account review,
+correction and abandoned memory drafts remain local; they neither apply server
+state nor manufacture persisted preparation/discard events. Account/grant and
+queue changes own their SQLite evidence transaction. Precondition rejection
+records no successful application; worker failure/timeout/restart records
+rejected or uncertain outcome. See `Component_Web_Identity.md` for receipt,
+redaction, schema upgrade and replay details.
+
+The project
 runs page accepts `lifecycle` more than once and returns runs in any listed
-lifecycle. `GET /api/v1/audit` accepts
-a numeric limit of 1–500 or `all`, with the same administrator guard.
+lifecycle.
 Authenticated `GET /api/v1/me/preferences` returns the current account's
 nullable language and theme. CSRF-protected `PATCH` updates only the supplied
 allowed values; malformed or unknown fields return 422, and corrupt persisted

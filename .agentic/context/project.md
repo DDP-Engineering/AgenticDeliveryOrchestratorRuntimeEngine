@@ -166,3 +166,15 @@ accessible tables. Job list/detail consumption uses immutable project/run
 identity and selected-period/lifetime/undated measurements. Reporting routes
 preserve calendar/timezone/group selections; stale, revoked and malformed reads
 hide evidence. Four locales and both themes share these responsibilities.
+
+## Web change evidence
+
+Web mutations record closed redacted actor/time, known stable identity and
+before/after/revision evidence. SQLite account/access/queue/policy mutations own
+atomic evidence; filesystem attempts retain uncertainty through crashes and use
+separate replay receipts for single confirmation. Schema-14 audit upgrade preserves
+historic unknown values and identity and rejects corrupt storage. Authorized
+actor/project/action/UTC filters precede server counts/paging; Dev project history
+excludes administrative and name-only legacy rows. Change history presents
+who/what/when/result; System status owns independent audit retention and deletion
+impact. Credentials, environment values and raw errors remain excluded.

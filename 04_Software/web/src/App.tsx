@@ -7,6 +7,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 import { Children, cloneElement, isValidElement, useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactElement, type ReactNode } from "react";
 import { aggregateMetrics, aggregateUsage, type Metrics, type Usage } from "./metrics";
 import { messages, type Locale, type MessageKey } from "./i18n";
+import { AuditHistory } from "./AuditHistory";
+import { auditCopy } from "./auditCopy";
 import { auditPolicyPayload } from "./auditPolicy";
 import { ApiError, describeError } from "./errors";
 import { startVisiblePolling } from "./polling";
@@ -30,12 +32,10 @@ import { DataFeedback, ProjectEmpty, StatusBadge, DeliveryGlossary, type DataSta
 type User = { id: number; username: string; role: "admin" | "developer"; disabled: boolean; password_change_required?: boolean; projects?: string[] };
 type AccountUser = User & Account;
 type Session = { user: User; csrf: string };
-type PageSize = 10 | 25 | 50 | "all";
 type Preferences = { language: Locale | null; theme: "light" | "dark" | "system" | null };
 type Project = { display_name: string; pickup_state: string; verification: { status: string; checked_at?: string | null; revision?: string | null }; validation: { structural_valid: boolean }; id: string; name: string; description: string; platform: string; repo: string; runtime: string; executor: string; readiness: string; last_activity: string | null; paused: boolean; archived: boolean; runs: number; invalid_runs: string[] };
 type Config = { config: Record<string, unknown>; revision: string; issues: string[]; local_endpoint_timeout_seconds?: number | null; local_endpoint?: { protocol: string; auth_env: string | null } | null; settings?: SettingMeta[] };
 type Operation = { id: number; status: string; result?: string; action?: string };
-type AuditRow = { id: number; actor: string | null; action: string; project: string; detail: string; created_at: string };
 type Price = { id: number; executor: string; model: string; effective_from: string; input_usd_per_million: string; output_usd_per_million: string };
 type Page = "overview" | "projects" | "createProject" | "importProject" | "projectDetails" | "jobs" | "metrics" | "administration" | "adminUsers" | "adminAudit" | "settings";
 type MetricsTab = "summary" | "usage" | "quality" | "trends" | "projects";
@@ -87,10 +87,6 @@ export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState<Page>("overview");
-  const [auditTotal, setAuditTotal] = useState(0);
-  const [auditPageSize, setAuditPageSize] = useState<PageSize>(10);
-  const [auditOffset, setAuditOffset] = useState(0);
-  const [auditRefresh, setAuditRefresh] = useState(0);
   const [viewRefresh, setViewRefresh] = useState(0);
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectSortKey, setProjectSortKey] = useState<ProjectSortKey>("name");
@@ -118,7 +114,6 @@ export default function App() {
   const [prices, setPrices] = useState<Price[]>([]);
   const [pricesScope, setPricesScope] = useState("");
   const [users, setUsers] = useState<AccountUser[]>([]);
-  const [auditRows, setAuditRows] = useState<AuditRow[]>([]);
   const [auditPolicy, setAuditPolicy] = useState<AuditPolicy | null>(null);
   const [adminMenuOpen, setAdminMenuOpen] = useState(true);
   const [workerStatus, setWorkerStatus] = useState<WorkerStatus>("checking");
@@ -134,7 +129,6 @@ export default function App() {
   const [projectsLoaded, setProjectsLoaded] = useState(false);
   const [configState, setConfigState] = useState<ScopedState>({ key: "", state: "loading" });
   const [usersState, setUsersState] = useState<DataState>("loading");
-  const [auditState, setAuditState] = useState<DataState>("loading");
   const [jobScope, setJobScope] = useState("");
   const [requestedRun, setRequestedRun] = useState("");
   const [projectsState, setProjectsState] = useState<DataState>("loading");
@@ -448,23 +442,6 @@ export default function App() {
   }, [refreshSelected]);
 
   useEffect(() => {
-    if (page !== "adminAudit" || !isAdmin) return;
-    let active = true;
-    setAuditState("loading");
-    const generation = viewGeneration.current;
-    const query = new URLSearchParams({ limit: String(auditPageSize), offset: String(auditOffset) });
-    request<{ items: AuditRow[]; total: number }>(`/audit-page?${query}`)
-            .then(value => {
-        if (!Array.isArray(value.items) || !Number.isSafeInteger(value.total) || value.total < 0) throw new ApiError("unexpected_response");
-        if (active && generation === viewGeneration.current) { setAuditRows(value.items); setAuditTotal(value.total); setAuditState("ready"); }
-      })
-      .catch(cause => { if (active && generation === viewGeneration.current) { setAuditState("error"); setError(cause); } });
-    return () => { active = false; };
-  }, [page, isAdmin, auditPageSize, auditOffset, auditRefresh]);
-
-  useEffect(() => { setAuditOffset(0); }, [auditPageSize]);
-
-  useEffect(() => {
     if (page === "adminUsers" && isAdmin) {
       const generation = viewGeneration.current;
       let active = true;
@@ -475,7 +452,7 @@ export default function App() {
       }).catch(cause => { if (active && generation === viewGeneration.current) { setUsersState("error"); setError(cause); } });
       return () => { active = false; };
     }
-    if (page === "adminAudit" && isAdmin) {
+    if (page === "administration" && isAdmin) {
       const generation = viewGeneration.current;
       request<AuditPolicy>("/audit-policy").then(value => { if (generation === viewGeneration.current) setAuditPolicy(value); }).catch(cause => setError(cause));
     }
@@ -655,7 +632,7 @@ export default function App() {
     configRequest.current += 1;
     preferenceRequest.current.language += 1;
     preferenceRequest.current.theme += 1;
-    setProjects([]); setSelected(""); setRequestedRun(""); setUsersState("loading"); setAuditState("loading"); setConfigState({ key: "", state: "loading" });
+    setProjects([]); setSelected(""); setRequestedRun(""); setUsersState("loading"); setConfigState({ key: "", state: "loading" });
     projectsRequest.current += 1;
     setProjectsState("loading"); setSelectedState({ key: "", state: "loading" }); setGlobalState({ key: "", state: "loading" });
     setUsageState({ key: "", state: "loading" }); setGlobalUsageState({ key: "", state: "loading" });
@@ -665,7 +642,7 @@ export default function App() {
     setMetricAllProjects(true); setMetricsScope(""); setMetricTimezone("UTC"); setMetricGranularity("day"); setMetricsTab("summary");
     setUsage(null); setUsageScope(""); setAllUsage(null); setUsageExecutor(""); setUsageModel("");
     setConfig(null); setPendingConfig(null); setPrices([]);
-    setUsers([]); setAuditRows([]); setAuditPolicy(null); setOperation(null);
+    setUsers([]); setAuditPolicy(null); setOperation(null);
     setWorkerStatus("checking");
     setNotice(""); setLastRefresh(null);
   };
@@ -743,8 +720,7 @@ export default function App() {
       const policy = await request<AuditPolicy>("/audit-policy", "PUT", auditPolicyPayload(days, mebibytes), session?.csrf);
       setAuditPolicy(policy);
       form.reset();
-      setAuditOffset(0); setAuditRefresh(current => current + 1);
-      setNotice(t("auditPolicySaved"));
+      setNotice(`${t("auditPolicySaved")} · ${"deleted_events" in policy ? String(policy.deleted_events) : "0"} ${locale === "ro" ? "evenimente șterse" : locale === "fr" ? "événements supprimés" : locale === "de" ? "Ereignisse gelöscht" : "events deleted"}`);
     } catch (cause) { setError(cause instanceof RangeError ? t("auditInvalidLimit") : cause); }
   };
 
@@ -947,7 +923,7 @@ export default function App() {
     menuOpen={menuOpen} onMenu={() => setMenuOpen(open => !open)} adminOpen={adminMenuOpen} onAdmin={() => setAdminMenuOpen(open => !open)}
     onSignOut={signOut} context={projectContext}
     actions={<><span className="refresh-stamp">{lastRefresh && t("lastRefresh") + ": " + formatDate(lastRefresh.toISOString())}</span>
-      <button className="ghost" onClick={() => { void refreshProjects().catch(setError); void refreshSelected();  setUsageRefresh(value => value + 1); setViewRefresh(value => value + 1); setAuditRefresh(value => value + 1); }}>{t("refresh")}</button>
+      <button className="ghost" onClick={() => { void refreshProjects().catch(setError); void refreshSelected();  setUsageRefresh(value => value + 1); setViewRefresh(value => value + 1); }}>{t("refresh")}</button>
       <button className="ghost" ref={aboutTrigger} onClick={() => request<typeof about>("/about").then(setAbout).catch(cause => setError(cause))}>{t("about")}</button></>}
     modal={about && <div className="modal-backdrop" onClick={closeAbout}><section role="dialog" aria-modal="true" aria-labelledby="adore-about-heading" className="modal" onClick={event => event.stopPropagation()} onKeyDown={event => { if (event.key === "Escape") closeAbout(); if (event.key === "Tab") { event.preventDefault(); aboutClose.current?.focus(); } }}><button className="ghost modal-close" ref={aboutClose} autoFocus onClick={closeAbout}>{t("close")}</button><div className="brand-mark">A</div><h2 id="adore-about-heading">{t("about")} ADORE</h2><p>{t("version")}: {about.version}</p><p>{t("license")}: {about.license}</p><pre className="license-text">{about.license_text}</pre><h3>{t("thirdPartyNotices")}</h3><pre className="license-text">{about.third_party_notices}</pre></section></div>}>
 
@@ -1011,6 +987,7 @@ export default function App() {
           {isAdmin && <section className="panel"><div className="panel-heading"><h2>{t("hostReadiness")}</h2><button className="ghost" onClick={() => void checkProjectReadiness()}>{t("runReadinessCheck")}</button></div><p className="muted">{t("hostReadinessHelp")}</p>{projectReadiness && <><p className="muted">{t("checkedAt")}: {formatDate(projectReadiness.checked_at)}</p><div className="detail-grid">{Object.entries(projectReadiness.checks).map(([key, value]) => <span key={key}>{t(({ git: "gitTool", forge_cli: "forgeCli", forge_auth: "forgeAuth", container_runtime: "containerRuntime", executor_cli: "executorCli", aegis_files: "aegisPayload", model_endpoint: "modelEndpoint" } as Record<string, MessageKey>)[key])}: <strong>{value === true ? t("checkPassed") : value === false ? t("checkMissing") : t("checkUnverified")}</strong></span>)}</div>{projectReadiness.model_probe && <p className="muted">{t("modelEndpoint")}: {modelReason(projectReadiness.model_probe.reason)}{projectReadiness.model_probe.model ? ` (${projectReadiness.model_probe.model})` : ""}</p>}</>}</section>}
           <JobWorkspace reporting={{ from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }} reportingQuery={metricSuffix} admin={isAdmin} {...workspaceProps} mode="overview" scope={selected} fixedScope />
           </>}
+          {projectTab === "history" && selectedProject?.id && <AuditHistory key={`${session.user.id}:${selected}`} locale={locale} projects={projects} fixedProject={selectedProject?.id} read={path => request(path)} />}
           {projectTab === "history" && <JobWorkspace reporting={{ from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }} reportingQuery={metricSuffix} admin={isAdmin} {...workspaceProps} mode="history" scope={selected} fixedScope />}
           {projectTab === "configuration" && <>
           {isAdmin && selected && <PortableSettings key={`${session?.user.id}-${selected}-${projectConfig?.revision || "unread"}`} project={selected} locale={locale} />}
@@ -1120,6 +1097,8 @@ export default function App() {
         </div></>}
 
         {page === "administration" && isAdmin && <div className="two-column">
+          <section className="panel wide-panel"><h2>{t("auditRetention")}</h2><p className="muted">{t("auditRetentionHelp")}</p><p>{auditCopy[locale].impact}</p>{auditPolicy && <form key={`${auditPolicy.retention_days}-${auditPolicy.max_bytes}`} className="inline-form audit-policy-form" onSubmit={saveAuditPolicy}><label>{t("auditDays")}<input name="retention_days" type="number" min="0" max="36500" step="1" defaultValue={auditPolicy.retention_days ?? 0} /></label><label>{t("auditMib")}<input name="max_mib" type="number" min="0" max="1024" step="any" defaultValue={auditPolicy.max_bytes == null ? 0 : auditPolicy.max_bytes / 1024**2} /></label><button className="primary" type="submit">{t("save")}</button></form>}</section>
+
           <section className="panel wide-panel" role="status" aria-live="polite"><div className="panel-heading"><h2>{t("workerReadiness")}</h2><strong className={`readiness readiness-${workerStatus}`}>{t(workerStatus === "ready" ? "workerReady" : workerStatus === "unavailable" ? "workerUnavailable" : workerStatus === "error" ? "workerCheckFailed" : "workerChecking")}</strong></div><p className="muted">{t("workerReadinessHelp")}</p></section>
           <section className="panel wide-panel" role="status" aria-live="polite"><div className="panel-heading"><h2>{t("storageStatus")}</h2><strong className={`readiness readiness-${storageError ? "error" : storageStatus?.low ? "unavailable" : storageStatus ? "ready" : "checking"}`}>{t(storageError ? "storageCheckFailed" : storageStatus?.low ? "storageLow" : storageStatus ? "storageHealthy" : "workerChecking")}</strong></div><p className="muted">{t("storageHelp")}</p>{storageStatus && <PagedTable t={t}><table><thead><tr><th>{t("storageVolume")}</th><th>{t("storageFree")}</th><th>{t("status")}</th></tr></thead><tbody>{storageStatus.volumes.map((volume, index) => <tr key={`${volume.scope}-${volume.project || index}`}><td>{volume.scope === "home" ? t("storageHome") : volume.project}</td><td>{new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(volume.free_bytes / 1024**3)} GiB</td><td>{t(volume.low ? "storageLow" : "storageHealthy")}</td></tr>)}</tbody></table></PagedTable>}</section>
         </div>}
@@ -1140,12 +1119,7 @@ export default function App() {
           )}</div>}</section>
         </div>}
 
-        {page === "adminAudit" && isAdmin && <div className="two-column">
-          <section className="panel wide-panel"><h2>{t("auditRetention")}</h2><p className="muted">{t("auditRetentionHelp")}</p>{auditPolicy && <form key={`${auditPolicy.retention_days}-${auditPolicy.max_bytes}`} className="inline-form audit-policy-form" onSubmit={saveAuditPolicy}><label>{t("auditDays")}<input name="retention_days" type="number" min="0" max="36500" step="1" defaultValue={auditPolicy.retention_days ?? 0} /></label><label>{t("auditMib")}<input name="max_mib" type="number" min="0" max="1024" step="any" defaultValue={auditPolicy.max_bytes == null ? 0 : auditPolicy.max_bytes / 1024**2} /></label><button className="primary" type="submit">{t("save")}</button></form>}</section>
-          <section className="panel wide-panel"><div className="panel-heading"><h2>{t("auditTrail")}</h2><button className="ghost" onClick={() => setAuditRefresh(current => current + 1)}>{t("refresh")}</button></div>
-            {auditState !== "ready" ? <DataFeedback state={auditState} t={t} /> : auditRows.length ? <><div className="table-scroll"><table><thead><tr><th>{t("date")}</th><th>{t("actor")}</th><th>{t("action")}</th><th>{t("project")}</th><th>{t("detail")}</th></tr></thead><tbody>{auditRows.map(row => <tr key={row.id}><td>{formatDate(row.created_at)}</td><td>{row.actor || "—"}</td><td>{row.action}</td><td>{row.project || "—"}</td><td>{row.detail || "—"}</td></tr>)}</tbody></table></div><ServerPager t={t} total={auditTotal} size={auditPageSize} offset={auditOffset} onSize={setAuditPageSize} onOffset={setAuditOffset} /></> : <Empty label={t("empty")} />}
-          </section>
-        </div>}
+        {page === "adminAudit" && isAdmin && <AuditHistory key={`${session.user.id}:${viewRefresh}`} locale={locale} projects={projects} read={path => request(path)} />}
 
         {page === "settings" && <div className="two-column"><section className="panel"><h2>{t("appearance")}</h2><div className="form-stack"><label>{t("language")}<select aria-label={t("language")} value={locale} onChange={event => updatePreference("language", event.target.value)}>{Object.entries(localeNames).map(([key, value]) => <option key={key} value={key}>{value}</option>)}</select></label><label>{t("theme")}<select aria-label={t("theme")} value={theme} onChange={event => updatePreference("theme", event.target.value)}><option value="system">{t("system")}</option><option value="light">{t("light")}</option><option value="dark">{t("dark")}</option></select></label></div></section><section className="panel"><h2>{t("changePassword")}</h2><form className="form-stack" onSubmit={changePassword}><FormLegend t={t} /><Field name="current" label={t("currentPassword")} type="password" required /><Field name="replacement" label={t("newPassword")} type="password" required minLength={8} hint={t("passwordRule")} /><button className="primary">{t("save")}</button></form></section>
         </div>}
@@ -1327,9 +1301,4 @@ function SettingsList({ config, settings, t, locale, canEdit, disabled, onStage 
       </div>)}</div>
     </details>)}</div>}
   </section>;
-}
-
-function ServerPager({ t, total, size, offset, onSize, onOffset }: { t: (key: MessageKey) => string; total: number; size: PageSize; offset: number; onSize: (size: PageSize) => void; onOffset: (offset: number) => void }) {
-  if (total <= 10) return null;
-  return <div className="page-controls"><label>{t("rowsPerPage")}<select value={size} onChange={event => { onOffset(0); onSize(event.target.value === "all" ? "all" : Number(event.target.value) as 10 | 25 | 50); }}><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="all">{t("all")}</option></select></label>{size !== "all" && <><button className="ghost" disabled={offset === 0} onClick={() => onOffset(Math.max(0, offset - size))}>{t("previous")}</button><span>{offset + 1}–{Math.min(offset + size, total)} / {total}</span><button className="ghost" disabled={offset + size >= total} onClick={() => onOffset(offset + size)}>{t("next")}</button></>}</div>;
 }

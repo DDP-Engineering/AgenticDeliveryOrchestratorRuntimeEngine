@@ -135,7 +135,7 @@ def test_unmapped_store_failure_returns_request_rejected(tmp_path, monkeypatch):
     """@brief An unexpected store sentence is never used as a code."""
     app = create_app(tmp_path / "home")
 
-    def odd_failure(_user_id: int) -> None:
+    def odd_failure(_user_id: int, *, actor_id: int | None = None) -> None:
         raise WebStoreError("odd store failure")
 
     monkeypatch.setattr(app.state.web_store, "enable_user", odd_failure)
