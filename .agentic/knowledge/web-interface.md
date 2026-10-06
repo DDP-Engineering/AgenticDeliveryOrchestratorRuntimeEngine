@@ -216,8 +216,12 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 - JobWorkspace reads `/jobs-page` for complete authorized attention/jobs/history
   and composite `/jobs/{project_id}/{run_id}` for detail. Overview leads with
   human-action/failure/handoff attention and actual working/publishing rows in
-  compact title/project/ticket, status and Details tables. One Project selector
-  scopes both. Strict complete active reads and scope/render guards withhold
+  compact title/project/ticket, status and Details tables. App supplies one header
+  Project selector through DashboardShell's optional controls slot, before selected
+  context and tables. Primary Overview href/action defaults all authorized projects;
+  explicit scoped reload/Back retain URL identity. Visible15s background polling
+  retains validated same-scope rows while pending and clears them on failed reads;
+  manual refresh shows loading. Overview's timestamp is omitted. Strict complete active reads and scope/render guards withhold
   invalid data; Overview performs no usage reads. Worker faults are visible and
   Details opens the existing composite Jobs route; browser-local dates and
   reporting/technical evidence belong to dedicated views.

@@ -483,3 +483,11 @@ td.strong { font-weight: 800; }
  .overview-jobs-table .link-button { padding:.6rem .4rem; }
  .overview-jobs-table td, .overview-jobs-table th { padding:.6rem .4rem; }
 }
+
+/* Overview scope precedes project context in the shared page header. */
+.overview-header-scope { flex-direction:row; align-items:center; gap:.75rem; min-width:0; max-width:100%; }
+.overview-header-scope select { width:18rem; min-width:0; max-width:100%; }
+@media (max-width:640px) {
+ .overview-header-scope { width:100%; }
+ .overview-header-scope select { flex:1; width:0; }
+}

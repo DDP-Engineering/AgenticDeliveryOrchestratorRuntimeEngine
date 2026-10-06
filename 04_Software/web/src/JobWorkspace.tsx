@@ -124,9 +124,10 @@ export function JobWorkspace(props: Props) {
   useEffect(() => {
     let active = true, sequence = 0;
     if (offset > 0 && revision.current.key !== baseKey) { setFilters(current => ({ ...current, offset: 0 })); return; }
-    const fetchPage = async () => {
+    const fetchPage = async (background = false) => {
       const current = ++sequence;
-      setState("loading"); setDataKey(renderKey); setFailure(null);
+      if (!compactOverview || !background) setState("loading");
+      setDataKey(renderKey); setFailure(null);
       const query = new URLSearchParams({ limit: String(filters.size), offset: String(offset) });
       if (scope) query.set("project_id", scope);
       if (mode === "overview") query.set("attention", "true");
@@ -155,7 +156,7 @@ export function JobWorkspace(props: Props) {
       }
     };
     void fetchPage();
-    const stop = startVisiblePolling(() => void fetchPage(), 15000);
+    const stop = startVisiblePolling(() => void fetchPage(true), 15000);
     return () => { active = false; stop(); };
   }, [renderKey, refresh, reload]);
 
@@ -240,9 +241,7 @@ export function JobWorkspace(props: Props) {
   const pager = visible && <div className="table-pagination"><label>{t("rowsPerPage")}<select value={filters.size} onChange={event => change("size", event.target.value === "all" ? "all" : Number(event.target.value))}>{[10, 25, 50].map(size => <option key={size} value={size}>{size}</option>)}<option value="all">{t("all")}</option></select></label><span>{visible.total === 0 ? "0" : `${offset + 1}–${Math.min(offset + visible.items.length, visible.total)}`} / {visible.total}</span><div className="button-row"><button className="ghost" disabled={offset === 0} onClick={() => setFilters(current => ({ ...current, offset: Math.max(0, offset - visible.limit) }))}>{t("previous")}</button><button className="ghost" disabled={offset + visible.items.length >= visible.total || filters.size === "all"} onClick={() => setFilters(current => ({ ...current, offset: offset + visible.limit }))}>{t("next")}</button></div></div>;
 
   return <div className={`job-workspace${compactOverview ? " overview-workspace" : ""}`}>
-    {compactOverview ? <div className="overview-controls"><label htmlFor="jobs-project">{t("project")}<select id="jobs-project" aria-label={t("project")} value={scope} onChange={event => onScope(event.target.value)}><option value="">{copy.allProjects}</option>{projects.map(item => <option key={item.id} value={item.id}>{item.display_name || item.name}</option>)}</select></label>
-      {["unavailable", "error"].includes(worker) && <span className="worker-evidence alert" role="status">{worker === "unavailable" ? copy.workerUnavailable : copy.workerError}</span>}
-    </div> :
+    {compactOverview ? ["unavailable", "error"].includes(worker) && <div className="overview-controls"><span className="worker-evidence alert" role="status">{worker === "unavailable" ? copy.workerUnavailable : copy.workerError}</span></div> :
     <section className="panel compact"><div className="workspace-controls">{!fixedScope && <label htmlFor="jobs-project">{copy.scope}<select id="jobs-project" aria-label={copy.scope} value={scope} onChange={event => onScope(event.target.value)}><option value="">{copy.all}</option>{projects.map(item => <option key={item.id} value={item.id}>{item.display_name || item.name}</option>)}</select></label>}<span className="scope-note">{scope ? project?.display_name || project?.name : copy.all}</span>
       <span className="worker-evidence" role="status">{worker === "ready" ? copy.workerReady : worker === "checking" ? copy.workerChecking : worker === "unavailable" ? copy.workerUnavailable : copy.workerError}</span></div>
       <p className="muted"><span>{scope ? copy.scopedHelp : copy.scopeHelp}</span> <span>{copy.workerHelp}</span></p>

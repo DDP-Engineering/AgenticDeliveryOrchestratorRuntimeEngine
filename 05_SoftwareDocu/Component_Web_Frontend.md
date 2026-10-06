@@ -100,9 +100,15 @@ keep their project selectors in page content. Overview leads with Needs attentio
 clarification, candidate approval, draft review, failed, stale and pending handoff
 jobs. A separate Active jobs table shows actual working/publishing rows from a
 complete authorized active response. Both compact tables show title/project/ticket,
-status and Details; one Project selector scopes both and View all jobs retains it.
+status and Details; App places one Project selector in DashboardShell's optional
+header-controls slot, before selected context and job tables. View all jobs retains
+scope; the primary Overview URL/action resets it to all authorized projects.
+Explicit scoped deep links remain supported. Overview's visible15s job polling
+retains validated same-render-key rows until a successful replacement; failures,
+incomplete evidence and scope/access changes still hide them. Its refresh timestamp
+is omitted; manual Refresh retains its loading feedback.
 Overview skips consumption reads and reporting/date/technical prose. Only worker
-faults appear beside the selector. Details retains the existing composite Jobs route
+faults appear above the job tables. Details retains the existing composite Jobs route
 and browser-local timestamp formatting. Source errors or
 incomplete responses hide rows and totals; a changed continuation offers explicit
 Reload first page. Search/project/status group remain visible in Jobs; exact

@@ -21,11 +21,11 @@ export function NavigationLink({ item }: { item: ShellLink }) {
 
 /** Shared authenticated frame; session, authorization, routing and operations remain owned by App. */
 export function DashboardShell({ t, title, links, adminLinks, account, username, role, menuOpen, onMenu,
-  adminOpen, onAdmin, onSignOut, actions, context, children, modal }: {
+  adminOpen, onAdmin, onSignOut, actions, controls, context, children, modal }: {
   t: (key: MessageKey) => string; title: string; links: ShellLink[]; adminLinks: ShellLink[];
   account: ShellLink; username: string; role: string; menuOpen: boolean; onMenu: () => void;
   adminOpen: boolean; onAdmin: () => void; onSignOut: () => void; actions: ReactNode;
-  context: ReactNode; children: ReactNode; modal: ReactNode;
+  controls?: ReactNode; context: ReactNode; children: ReactNode; modal: ReactNode;
 }) {
   const previousTitle = useRef(title);
   useEffect(() => {
@@ -57,6 +57,7 @@ export function DashboardShell({ t, title, links, adminLinks, account, username,
     </aside>
     <div className="workspace" inert={!!modal}>
       <header className="topbar"><h1 className="topbar-title" aria-label={title}><span className="topbar-brand">ADORE</span><span aria-hidden="true">/</span>{title}</h1>
+        {controls}
         <div className="top-actions">{actions}<button className="ghost mobile-signout" onClick={onSignOut}>{t("logout")}</button></div>
       </header>
       <main id="main-content" className="content" tabIndex={-1}>{context}{children}</main>

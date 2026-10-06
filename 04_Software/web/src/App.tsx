@@ -896,14 +896,15 @@ export default function App() {
   const navigatePage = (target: Page) => {
     if (target !== page && enrollmentGuard.current && !enrollmentGuard.current()) return;
     setRequestedRun("");
-    if (["jobs", "overview"].includes(target) && ["projectDetails", "metrics"].includes(page)) setJobScope(selected);
+    if (target === "overview") { routedProject.current = null; setJobScope(""); }
+    if (target === "jobs" && ["projectDetails", "metrics"].includes(page)) setJobScope(selected);
     setPage(target); setMenuOpen(false);
     if (target === "metrics") setMetricAllProjects(false);
   };
   const shellLink = (target: Page): ShellLink => ({
     id: target, label: t(target === "settings" ? "myAccount" : target === "administration" ? "systemStatus" : target),
-    href: formatRoute(target === "overview" || target === "jobs" || target === "metrics" ?
-      { view: target, ...((target === "jobs" || target === "overview") ? (jobScope ? { project: jobScope } : ["projectDetails", "metrics"].includes(page) && selectedProject ? { project: selectedProject.id } : {}) : selectedProject ? { project: selectedProject.id } : {}) } : { view: target as Exclude<Page, "overview" | "jobs" | "metrics" | "projectDetails"> }),
+    href: target === "overview" ? formatRoute({ view: "overview" }) : formatRoute(target === "jobs" || target === "metrics" ?
+      { view: target, ...(target === "jobs" ? (jobScope ? { project: jobScope } : ["projectDetails", "metrics"].includes(page) && selectedProject ? { project: selectedProject.id } : {}) : selectedProject ? { project: selectedProject.id } : {}) } : { view: target as Exclude<Page, "overview" | "jobs" | "metrics" | "projectDetails"> }),
     active: target === page || (target === "projects" && ["createProject", "importProject", "projectDetails"].includes(page)),
     onNavigate: () => navigatePage(target),
   });
@@ -922,7 +923,8 @@ export default function App() {
     account={shellLink("settings")} username={session.user.username} role={t(session.user.role)}
     menuOpen={menuOpen} onMenu={() => setMenuOpen(open => !open)} adminOpen={adminMenuOpen} onAdmin={() => setAdminMenuOpen(open => !open)}
     onSignOut={signOut} context={projectContext}
-    actions={<><span className="refresh-stamp">{lastRefresh && t("lastRefresh") + ": " + formatDate(lastRefresh.toISOString())}</span>
+    controls={page === "overview" && projectsState === "ready" && projects.length > 0 && <label className="overview-header-scope" htmlFor="overview-project">{t("project")}<select id="overview-project" aria-label={t("project")} value={jobScope} onChange={event => workspaceProps.onScope(event.target.value)}><option value="">{jc.allProjects}</option>{projects.map(item => <option key={item.id} value={item.id}>{item.display_name || item.name}</option>)}</select></label>}
+    actions={<>{page !== "overview" && <span className="refresh-stamp">{lastRefresh && t("lastRefresh") + ": " + formatDate(lastRefresh.toISOString())}</span>}
       <button className="ghost" onClick={() => { void refreshProjects().catch(setError); void refreshSelected();  setUsageRefresh(value => value + 1); setViewRefresh(value => value + 1); }}>{t("refresh")}</button>
       <button className="ghost" ref={aboutTrigger} onClick={() => request<typeof about>("/about").then(setAbout).catch(cause => setError(cause))}>{t("about")}</button></>}
     modal={about && <div className="modal-backdrop" onClick={closeAbout}><section role="dialog" aria-modal="true" aria-labelledby="adore-about-heading" className="modal" onClick={event => event.stopPropagation()} onKeyDown={event => { if (event.key === "Escape") closeAbout(); if (event.key === "Tab") { event.preventDefault(); aboutClose.current?.focus(); } }}><button className="ghost modal-close" ref={aboutClose} autoFocus onClick={closeAbout}>{t("close")}</button><div className="brand-mark">A</div><h2 id="adore-about-heading">{t("about")} ADORE</h2><p>{t("version")}: {about.version}</p><p>{t("license")}: {about.license}</p><pre className="license-text">{about.license_text}</pre><h3>{t("thirdPartyNotices")}</h3><pre className="license-text">{about.third_party_notices}</pre></section></div>}>

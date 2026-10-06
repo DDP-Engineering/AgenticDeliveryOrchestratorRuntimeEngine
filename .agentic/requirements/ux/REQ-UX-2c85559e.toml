@@ -14,10 +14,10 @@ title = "Keep platform administration independent of project selection"
 status = "active"
 
 requirement = """
-The header shall show the current page title and common actions on every page, while project scope is selected through the authorized Projects/Overview lists and page-local Jobs/Metrics controls. Project details actions retain the opened project identity; platform and account pages retain their own status, membership and preference/password controls.
+The header shall show the current page title and common actions on every page, while project scope is selected through the authorized Projects list, the Overview header selector and page-local Jobs/Metrics controls. Project details actions retain the opened project identity; platform and account pages retain their own status, membership and preference/password controls.
 """
 
-verification = "Manual: Open Project details at desktop and phone sizes and confirm no header project selector; open another project through Projects and verify Jobs/Metrics preserve the selected identity and page-local scope. Inspect header source for common-controls-only rendering; existing offline RBAC tests prove authorization."
+verification = "Manual: Open Project details at desktop and phone sizes and confirm no header project selector; open another project through Projects and verify Jobs/Metrics preserve the selected identity and page-local scope. Inspect header source for common actions and Overview-only authorized selector rendering; existing offline RBAC tests prove authorization."
 
 affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/styles.css"]
 
@@ -30,4 +30,4 @@ priority = "normal"   # low | normal | high
 rationale = ""        # why this behavior exists, if not obvious
 
 created = 2026-10-01
-updated = 2026-10-01
+updated = 2026-10-06

@@ -230,7 +230,7 @@ test("incomplete corrupt and failed job reads hide totals and stale details", as
 
 test("developer search counts navigation direct routes and command CSRF exclude other projects", async ({ page }) => {
   await signIn(page, "developer");
-  await expect(page.locator("#jobs-project option")).toHaveCount(2);
+  await expect(page.locator("#overview-project option")).toHaveCount(2);
   await expect(page.getByRole("region", { name: "Active jobs", exact: true })).not.toContainText("Actual beta collision");
   await page.goto("/jobs");
   await expect(page.locator("#jobs-project option")).toHaveCount(2);
@@ -297,7 +297,7 @@ test("keyboard 390px both themes and localized evidence remain usable", async ({
     await page.goto("/account"); await page.getByLabel(/Language|Langue|Sprache|Limbă/).selectOption(locale);
     await page.goto("/");
     await expect(page.locator(".overview-jobs-table").first()).toBeVisible();
-    await expect(page.locator(".overview-controls select")).toHaveValue("");
+    await expect(page.locator(".overview-header-scope select")).toHaveValue("");
     await page.goto("/jobs?project=alpha&run=ux-approval");
     await expect(page.locator(".detail-panel").getByRole("heading", { name: heading, exact: true })).toBeVisible();
   }
@@ -353,4 +353,54 @@ test("project hub exposes verification revision and time and rejects corrupt sta
   await expect(page.locator(".project-verification-evidence")).toHaveCount(0);
   // Drain in-flight rewrites before fixture teardown disposes their API responses.
   await page.unrouteAll({ behavior: "wait" });
+});
+
+
+test("overview header selector precedes context and navigation resets all projects", async ({ page }) => {
+  await signIn(page);
+  const selector = page.getByLabel("Project", { exact: true });
+  await expect(page.locator(".topbar").getByLabel("Project", { exact: true })).toBeVisible();
+  await expect(page.locator(".refresh-stamp")).toHaveCount(0);
+  const projects = await (await page.request.get("/api/v1/projects")).json();
+  const alpha = projects.find((row: { name: string }) => row.name === "alpha").id;
+  await selector.selectOption(alpha);
+  const context = page.getByRole("region", { name: "Project context", exact: true });
+  await expect(context).toContainText("alpha");
+  await expect(page.locator(".overview-jobs-table").first()).toBeVisible();
+  const bounds = await Promise.all([selector.boundingBox(), context.boundingBox(), page.locator(".overview-jobs-table").first().boundingBox()]);
+  expect(bounds[0]!.y + bounds[0]!.height).toBeLessThanOrEqual(bounds[1]!.y);
+  expect(bounds[1]!.y + bounds[1]!.height).toBeLessThanOrEqual(bounds[2]!.y);
+  await page.reload();
+  await expect(selector).toHaveValue(alpha);
+  const overview = nav(page).getByRole("link", { name: "Overview", exact: true });
+  await expect(overview).toHaveAttribute("href", "/");
+  await overview.click();
+  await expect(selector).toHaveValue("");
+  await expect(context).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Active jobs", exact: true })).toContainText("Actual beta collision");
+  await page.goto("/projects/alpha");
+  await nav(page).getByRole("link", { name: "Overview", exact: true }).click();
+  await expect(selector).toHaveValue("");
+});
+
+test("overview background poll stays visible while pending and fails closed", async ({ page }) => {
+  await page.clock.install();
+  await signIn(page);
+  const table = page.locator(".overview-jobs-table").first();
+  await expect(table).toBeVisible();
+  let release!: () => void;
+  const pending = new Promise<void>(resolve => { release = resolve; });
+  let requests = 0;
+  await page.route("**/api/v1/jobs-page?*", async route => { requests++; await pending; await route.continue(); });
+  await page.clock.fastForward(15000);
+  await expect.poll(() => requests).toBeGreaterThan(0);
+  try {
+    await expect(table).toBeVisible();
+    await expect(page.getByText("Loading data…", { exact: true })).toHaveCount(0);
+  } finally { release(); }
+  await page.unrouteAll({ behavior: "wait" });
+  await page.route("**/api/v1/jobs-page?*", route => route.fulfill({ status: 200, contentType: "application/json", body: '{"complete":false}' }));
+  await page.clock.fastForward(15000);
+  await expect(page.getByRole("heading", { name: "Incomplete job response", exact: true })).toBeVisible();
+  await expect(page.locator(".overview-jobs-table")).toHaveCount(0);
 });

@@ -11,7 +11,13 @@ The optional web installation serves the React interface and a same-origin
 FastAPI API. It uses the same project profiles and run state as the CLI. The
 Overview opens **Needs attention** across all projects your account can access,
 including archived history. One **Project** selector scopes both **Needs attention**
-and **Active jobs**. Compact rows show the job title, project/ticket, observed
+and **Active jobs** from the ADORE/Overview header. The selected-project context
+band appears below that header, followed by the job tables. Activating the primary
+**Overview** link resets to all authorized projects; a scoped URL/reload retains
+its explicit selection. Automatic job reads run every 15 seconds while visible,
+retaining validated current-scope rows while the background response is pending.
+A failed or malformed update hides the rows. Manual Refresh remains available;
+Overview displays no refresh timestamp. Compact rows show the job title, project/ticket, observed
 status and **Details**. Details opens Jobs with the owning project and run.
 **View all jobs** retains the selected scope. Worker faults are visible; a healthy
 worker needs no banner. Overview reads no consumption and displays no reporting

@@ -142,6 +142,11 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Overview project selection now precedes the selected-project context in the header;
+  the primary Overview link defaults to all authorized projects. Periodic job reads
+  update quietly without replacing valid tables with loading feedback; failed reads
+  still withhold stale evidence, and Overview omits the refresh timestamp.
+
 - Pending web edits reject incompatible scalar types and bind the browser's
   reviewed base; corrupted restored endpoint metadata fails closed. Dev settings
   omit financial caps and credential-bearing URLs remain redacted (#13).

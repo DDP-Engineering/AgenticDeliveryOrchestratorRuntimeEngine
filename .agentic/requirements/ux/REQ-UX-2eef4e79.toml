@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-2eef4e79"
+
+title = "Overview navigation defaults to all authorized projects"
+
+status = "active"
+
+requirement = """
+When a user activates the primary Overview link, the UI shall clear the selected Overview project and job and show all currently authorized projects; the link URL shall identify that default while explicit scoped deep links retain their scope.
+"""
+
+verification = "Offline jobs browser journeys check header/context geometry, navigation resets and scoped deep links, held background request visibility and malformed polling fail-closed behavior."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/DashboardShell.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/styles.css", "04_Software/web/e2e/jobs.spec.ts", "04_Software/adore/web/static/"]
+
+linked_tests = ["04_Software/web/e2e/jobs.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-06
+updated = 2026-10-06
