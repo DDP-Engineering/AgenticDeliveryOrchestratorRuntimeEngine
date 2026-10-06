@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # TASK-51cc42f9 - Connect project repository credentials from GUI
 
-stage: deliver
+stage: done
 type: feature
 path: full
 interaction: autopilot
@@ -24,8 +24,8 @@ opened: 2026-10-06
 - [x] validated candidate unchanged, distinct reviews approved
 - [x] candidate, targeted proof and full-suite deviation presented
 - [x] standing human scoped commit/push/deploy authority recorded
-- [ ] journal/report committed and scoped product delivered
-- [ ] close-out after successful delivery
+- [x] journal/report committed and scoped product delivered
+- [x] close-out after successful delivery
 
 ## Frame
 
@@ -101,21 +101,21 @@ Expected files: repository_auth.py, orchestrator.py, web/app.py, RepositoryConne
 ## Handoff
 
 
-current: deliver
+current: done
 status: ready
-next: Commit/push and deploy unchanged candidate.
+next: Human live token acceptance for each provider; full regression suite at the end of GUI iterations.
 must_read: .agentic/specs/REQ-FUNC-5de75419.md
 blockers: none
 
 ## Stage report
 
-stage: validate
+stage: deliver
 result: completed
-current: deliver
+current: done
 changed: GUI repository connection for Gitea/GitHub/GitLab and isolated worker/readiness credentials.
-evidence: Python47 and browser6 passed, targeted Ruff/typecheck/build passed; final evolution reviewed.
+evidence: Python47/browser6 passed; lint/typecheck/build passed; d346014 pushed and deployed, both services active, HTTPS health/readiness200 and protected projects401, served assets identical.
 issues: Full suite deferred by user; live token/Git transport acceptance pending.
-next: Commit/push/deploy under standing human authority.
+next: Human live token acceptance and deferred final full suite.
 needs_user: no
 spec_compliance: approved
 implementation_quality: approved
@@ -133,3 +133,9 @@ review_round: 1
 - diff vs task base d6d82a0: 31 file(s) changed, 1527 line(s) added; 1 file(s) not content-scanned
 - checks: errors=0 warnings=8 notes=25
 - checklist: 3/5 done; open: journal/report committed and scoped product delivered; close-out after successful delivery
+
+## Delivery close-out (2026-10-06)
+
+- Product commit d34601419348f55684381c13d126eaa0be0e148c normally pushed to task/adore-web-interface; remote head verified. Candidate archive SHA256 21ac33115824e41e4b5635887527389bc38b0ed4afb3754f668e946c020de876 verified before extraction.
+- Existing DCP instance deployed successfully from /home/dpasare/apps/adore/web-ux-d346014. Backup: /home/dpasare/apps/adore/backups/web-ux-d346014-20261006170726. Both API/worker services active with candidate PYTHONPATH; served JS/CSS byte-identical to candidate. SQLite schema14/integrity ok, audit58. HTTPS root/health/readiness200; protected projects401 authentication_required. No real-token verification or live job/executor acceptance performed.
+- Implementation/delivery complete; full suite deferred by user, real Gitea/GitHub/GitLab token and Git transport permissions remain human acceptance. Journal-only close-out committed separately after successful deployment.
