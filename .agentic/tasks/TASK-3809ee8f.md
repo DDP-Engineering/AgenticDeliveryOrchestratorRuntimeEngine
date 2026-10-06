@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # TASK-3809ee8f - Project executor configuration and durable model connectivity
 
-stage: deliver
+stage: done
 type: feature
 path: full
 interaction: autopilot
@@ -25,8 +25,8 @@ opened: 2026-10-06
 - [x] validation, diff, exclusions and outcome presented under standing human authority
 - [x] explicit direct human commit/push/deploy authority recorded
 - [x] journal and report included in delivery candidate
-- [ ] agreed normal push and DCP deployment completed
-- [ ] truthful close-out committed after deployment
+- [x] agreed normal push and DCP deployment completed
+- [x] truthful close-out recorded for this documentation-only followup commit
 
 ## Frame
 
@@ -86,6 +86,8 @@ Path and reason: full; new UI/interface and secret/evidence lifecycle. Quick cri
 - 2026-10-06 validate final proof: same candidate production build/typecheck exit0 (index-BZ4YgyAl.js), build:e2e/typecheck exit0 and scoped Chromium six tests exit0 (18.8s). Python targeted67 + config10 exit0; scoped Ruff exit0; diff --check exit0. Final evolution at18:17:17Z reviewed all23 non-workflow paths: twenty authored plus three generated asset/index changes; removed bundle replaced by deterministic build. Strict advisory without --run exit0: zero errors, nine unpromoted warnings,25 notes. Unrelated historical asset paths/two tracked sidecars/journal syntax retained; initial malformed ruling is append-only and clarified by valid RULING-002. Minified generated bundle unscannable by heuristic, source and offline fixtures reviewed; no real secrets. Existing Starlette deprecation, bundle size and terminal-color warnings accepted as out-of-scope tooling/presentation. No full suite or paid live acceptance claimed.
 - 2026-10-06 deliver presentation: new Executor configuration tab, current model access across Summary/host verification and protected project API credential lifecycle; twenty authored paths and generated UI assets plus workflow evidence will be committed. Excludes GUI subscription OAuth, fetched model lists, active-work changes, original epic continuation, release/PR/merge and real provider acceptance. Human directly authorized implementation and ongoing normal commit/push/DCP deployment; RULING-002 applies without repeated permission. DEVIATION validate repeated: full suite deferred by explicit user instruction; scoped proof above substitutes for this iterative deployment.
 
+- 2026-10-06 deliver completed: implementation commit f2c3e05b8d56202abe249a727dcf54ce2cff6cfb normally pushed and exact remote branch hash verified. DCP HTTPS18443 deployed from archived committed04_Software/LICENSE to /home/dpasare/apps/adore/web-ux-f2c3e05; backup=/home/dpasare/apps/adore/backups/web-ux-f2c3e05-20261006211958. Both services active, selected PYTHONPATH points to release; served JS/CSS match archived build byte-for-byte; DB schema14/integrity ok. Actual /api/v1/health JSON alive and /api/v1/ready JSON ready/worker-ready; root/assets200, unauthenticated projects401. Existing profiles/auth/jobs preserved. No automatic provider test or complete-job acceptance run. Closeout changes journal only; no second deployment required.
+
 ## Rulings
 
 - RULING-1 | 2026-10-06 | Human explicitly authorized implementation, routine checkpoints, validation, commit/push and deployment in this iterative session; user requests targeted verification only and full suite at end. Scope checkpoints continue unattended; validation is still required. Four-hour/three-fix-cycle/twenty-authored-file bound; no subagents.
@@ -96,22 +98,22 @@ Path and reason: full; new UI/interface and secret/evidence lifecycle. Quick cri
 ## Handoff
 
 
-current: deliver
+current: done
 status: ready
-next: normal commit/push and DCP deployment; then truthful closeout
+next: human refresh and explicit configured model connection test; full regression at end
 must_read: .agentic/tasks/TASK-3809ee8f.md, .agentic/steps/6_deliver.md
 blockers: none
 
 ## Stage report
 
 
-stage: deliver
-result: in_progress
-current: deliver
+stage: done
+result: completed
+current: done
 changed: twenty authored files; workflow and generated assets separately
-evidence: 67 targeted Python tests, 10 config tests, six Chromium journeys; Ruff and production build passed
+evidence: 77 targeted Python tests, six Chromium journeys, Ruff/build/advisory; pushed f2c3e05 and verified DCP services/assets/health/ready
 issues: full suite deferred by explicit user instruction; existing Starlette deprecation and bundle-size warning
-next: normal commit/push and DCP deployment
+next: human live model test; full regression at end
 needs_user: no
 spec_compliance: approved
 implementation_quality: approved
