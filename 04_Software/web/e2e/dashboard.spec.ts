@@ -189,3 +189,91 @@ test("worker processes queued requests and preserves a rejected engine exit", as
   });
   expect((await replay.json()).id).toBe(failedOperation.id);
 });
+
+for (const finalStatus of ["succeeded", "failed"]) {
+  test(`single transient operation notification: ${finalStatus}`, async ({ page }) => {
+    await signIn(page);
+    await page.goto("/projects/alpha");
+    const monitoring = page.getByRole("button", { name: /^(Activate|Pause) monitoring$/ });
+    await expect(monitoring).toBeVisible();
+    await page.clock.install();
+    let status = "pending";
+    await page.route("**/api/v1/projects/*/operations/*", route => route.fulfill({ json: { id: 7001, status: "pending" } }));
+    await page.route("**/api/v1/operations/7001", route => route.fulfill({ json: {
+      id: 7001, status, result: status === "failed" ? "engine rejected operation" : "completed",
+    } }));
+    await monitoring.click();
+    const notice = page.locator("main .notice[role=status]");
+    await expect(notice).toHaveCount(1);
+    await expect(notice).toContainText("pending");
+    await page.clock.fastForward(6000);
+    await expect(notice).toBeVisible();
+    status = finalStatus;
+    await page.clock.fastForward(2000);
+    await expect(notice).toContainText(finalStatus);
+    if (status === "failed") await expect(notice).toContainText("engine rejected operation");
+    await page.clock.fastForward(5000);
+    await expect(notice).toHaveCount(0);
+  });
+}
+
+test("single transient operation notification preserves polling and replacement", async ({ page }) => {
+  await signIn(page);
+  await page.goto("/projects/alpha");
+  const monitoring = page.getByRole("button", { name: /^(Activate|Pause) monitoring$/ });
+  await expect(monitoring).toBeVisible();
+  await page.clock.install();
+  let id = 7100;
+  let status = "pending";
+  let polls = 0;
+  await page.route("**/api/v1/projects/*/operations/*", route => route.fulfill({ json: { id: ++id, status: "pending" } }));
+  await page.route(/\/api\/v1\/operations\/710[123]$/, route => {
+    polls += 1;
+    return route.fulfill({ json: { id, status } });
+  });
+  await monitoring.click();
+  const notice = page.locator("main .notice[role=status]");
+  await expect(notice).toHaveCount(1);
+  await notice.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(notice).toHaveCount(0);
+  const before = polls;
+  status = "succeeded";
+  await page.clock.fastForward(2000);
+  await expect.poll(() => polls).toBeGreaterThan(before);
+  await expect(notice).toHaveCount(0);
+  status = "pending";
+  await monitoring.click();
+  await expect(notice).toContainText("7102");
+  await page.clock.fastForward(6000);
+  await expect(notice).toContainText("pending");
+  status = "succeeded";
+  await page.clock.fastForward(2000);
+  await expect(notice).toContainText("succeeded");
+  await page.clock.fastForward(4000);
+  status = "pending";
+  await monitoring.click();
+  await expect(notice).toContainText("7103");
+  await page.clock.fastForward(1000);
+  await expect(notice).toContainText("7103");
+});
+
+test("single transient ordinary notification replaces operation feedback", async ({ page }) => {
+  await signIn(page);
+  await page.goto("/projects/alpha");
+  const monitoring = page.getByRole("button", { name: /^(Activate|Pause) monitoring$/ });
+  await expect(monitoring).toBeVisible();
+  await page.clock.install();
+  await page.route("**/api/v1/projects/*/operations/*", route => route.fulfill({ json: { id: 7201, status: "succeeded" } }));
+  await page.route("**/api/v1/projects/*/archive", route => route.fulfill({ json: {} }));
+  await monitoring.click();
+  const notice = page.locator("main .notice[role=status]");
+  await expect(notice).toContainText("succeeded");
+  await page.clock.fastForward(4000);
+  await page.getByRole("button", { name: "Archive project", exact: true }).click();
+  await expect(notice).toHaveCount(1);
+  await expect(notice).toContainText("archived");
+  await page.clock.fastForward(1000);
+  await expect(notice).toContainText("archived");
+  await page.clock.fastForward(4000);
+  await expect(notice).toHaveCount(0);
+});

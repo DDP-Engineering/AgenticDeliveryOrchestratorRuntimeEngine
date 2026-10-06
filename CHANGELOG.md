@@ -14,6 +14,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Show one dismissible application notification, updating operation status and hiding final/ordinary feedback after five seconds while preserving worker polling.
+
 - Host-check AI access presentation uses a current successful explicit executor test instead of reporting it as untested; OpenCode tool compatibility remains separately identified.
 
 - Hide host-check time/configuration version and its explanation from project Summary.

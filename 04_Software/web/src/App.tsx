@@ -147,6 +147,7 @@ export default function App() {
   const [notice, setNotice] = useState("");
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const [operation, setOperation] = useState<Operation | null>(null);
+  const [operationVisible, setOperationVisible] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const enrollmentGuard = useRef<(() => boolean) | null>(null);
   const [resetTarget, setResetTarget] = useState<number | null>(null);
@@ -536,6 +537,20 @@ export default function App() {
     return () => { globalMetricsRequest.current += 1; stopPolling(); };
   }, [page, isAdmin, metricSuffix, usageRefresh, authorizedMetricsKey, projectsState]);
 
+  // Presentation expires independently of worker polling and persisted outcomes.
+  useEffect(() => {
+    if (!notice) return;
+    setOperationVisible(false);
+    const timer = window.setTimeout(() => setNotice(""), 5000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+
+  useEffect(() => {
+    if (!operationVisible || !operation || ["pending", "running"].includes(operation.status)) return;
+    const timer = window.setTimeout(() => setOperationVisible(false), 5000);
+    return () => window.clearTimeout(timer);
+  }, [operationVisible, operation?.id, operation?.status]);
+
   useEffect(() => {
     if (!operation || !["pending", "running"].includes(operation.status)) return;
     const stopPolling = startVisiblePolling(async () => {
@@ -652,7 +667,7 @@ export default function App() {
     setMetricAllProjects(true); setMetricsScope(""); setMetricTimezone("UTC"); setMetricGranularity("day"); setMetricsTab("summary");
     setUsage(null); setUsageScope(""); setAllUsage(null); setUsageExecutor(""); setUsageModel("");
     setConfig(null); setPendingConfig(null); setPrices([]);
-    setUsers([]); setAuditPolicy(null); setOperation(null);
+    setUsers([]); setAuditPolicy(null); setOperation(null); setOperationVisible(false);
     setWorkerStatus("checking");
     setNotice(""); setLastRefresh(null);
   };
@@ -690,7 +705,7 @@ export default function App() {
         { ...body, idempotency_key: crypto.randomUUID() }, session.csrf,
       );
       setOperation(op);
-      setNotice(`${t("operationQueued")} · #${op.id}`);
+      setOperationVisible(true);
       await refreshSelected();
     } catch (cause) { setError(cause); }
   };
@@ -702,7 +717,7 @@ export default function App() {
       const op = await request<Operation>(`/projects/${encodeURIComponent(deleteTarget.id)}/delete`, "POST",
         { confirm_name: deleteName, idempotency_key: crypto.randomUUID() }, session.csrf);
       setOperation(op);
-      setNotice(`${t("projectDeletionQueued")} · #${op.id}`);
+      setOperationVisible(true);
       setDeleteTarget(null); setDeleteName("");
     } catch (cause) { setError(cause); }
   };
@@ -948,8 +963,10 @@ export default function App() {
     modal={about && <div className="modal-backdrop" onClick={closeAbout}><section role="dialog" aria-modal="true" aria-labelledby="adore-about-heading" className="modal" onClick={event => event.stopPropagation()} onKeyDown={event => { if (event.key === "Escape") closeAbout(); if (event.key === "Tab") { event.preventDefault(); aboutClose.current?.focus(); } }}><button className="ghost modal-close" ref={aboutClose} autoFocus onClick={closeAbout}>{t("close")}</button><div className="brand-mark">A</div><h2 id="adore-about-heading">{t("about")} ADORE</h2><p>{t("version")}: {about.version}</p><p>{t("license")}: {about.license}</p><pre className="license-text">{about.license_text}</pre><h3>{t("thirdPartyNotices")}</h3><pre className="license-text">{about.third_party_notices}</pre></section></div>}>
 
         {error ? <div className="alert" role="alert">{describeError(locale, error)}<button onClick={() => setError("")} aria-label={t("close")}>×</button></div> : null}
-        {notice && <div className="notice" role="status">{notice}<button onClick={() => setNotice("")} aria-label={t("close")}>×</button></div>}
-        {operation && <div className="notice" role="status">{t("operationStatus")}: #{operation.id} · {operation.status}{operation.result ? ` · ${operation.result}` : ""}</div>}
+        {(notice || (operationVisible && operation)) && <div className="notice" role="status">
+          {notice || (operation && <>{t("operationStatus")}: #{operation.id} · {operation.status}{operation.result && operation.result !== "completed" ? ` · ${operation.result}` : ""}</>)}
+          <button onClick={() => { setNotice(""); setOperationVisible(false); }} aria-label={t("close")}>×</button>
+        </div>}
         {["overview", "projects", "projectDetails", "jobs", "metrics"].includes(page) && projectsState !== "ready" && <DataFeedback state={projectsState} t={t} />}
         {["overview", "projects", "projectDetails", "jobs", "metrics"].includes(page) && projectsState === "ready" && projects.length === 0 && <ProjectEmpty isAdmin={isAdmin} t={t} />}
         {page === "overview" && projectsState === "ready" && projects.length > 0 && <JobWorkspace reporting={{ from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }} reportingQuery={metricSuffix} admin={isAdmin} {...workspaceProps} mode="overview" />}
