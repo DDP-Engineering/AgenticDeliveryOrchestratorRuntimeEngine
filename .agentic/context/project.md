@@ -45,6 +45,8 @@ OpenCode, Pi, Codex and Qwen Code.
   authorized attention/active tables, one header Project selector and Details navigation;
   its primary link resets all-project scope and polling updates valid rows quietly;
   worker faults remain visible, with reporting/technical evidence in dedicated views.
+  Header help discloses localized delivery meanings beside Refresh/About; sidebar
+  Jobs supplies scoped full-history navigation.
   Settings uses seven purpose
   categories, visible catalog guidance and exact single-candidate active/proposed
   review with explicit base/candidate binding, idle/lock/pause safety and Dev

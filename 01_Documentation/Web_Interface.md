@@ -19,7 +19,7 @@ retaining validated current-scope rows while the background response is pending.
 A failed or malformed update hides the rows. Manual Refresh remains available;
 Overview displays no refresh timestamp. Compact rows show the job title, project/ticket, observed
 status and **Details**. Details opens Jobs with the owning project and run.
-**View all jobs** retains the selected scope. Worker faults are visible; a healthy
+The sidebar **Jobs** link retains the selected scope. Worker faults are visible; a healthy
 worker needs no banner. Overview reads no consumption and displays no reporting
 period, dates or timezone. Jobs holds technical evidence and Statistics owns
 reporting filters; displayed timestamps use the browser/device local timezone.
@@ -74,6 +74,12 @@ Secondary text uses contrasting light/dark theme colours. Project metadata,
 configuration values, type/domain hints and field help use 0.875rem text with
 1.5 line height; long identifiers and guidance wrap within their panels.
 On narrow screens, setting labels, values and help stack vertically.
+
+
+The header help button **How ADORE works**, beside Refresh and About, opens
+the localized delivery glossary. Activate it again, press Escape or click outside
+to close it. Full job history is reached through the sidebar Jobs link; Overview
+keeps job-specific Details links.
 
 ## Start from source
 

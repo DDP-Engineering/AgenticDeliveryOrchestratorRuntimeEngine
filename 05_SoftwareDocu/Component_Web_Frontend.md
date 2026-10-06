@@ -15,6 +15,12 @@ configuration values, type/domain hints and field help use 0.875rem text with
 1.5 line height; long identifiers and guidance wrap within their panels.
 On narrow screens, setting labels, values and help stack vertically.
 
+
+The header help button **How ADORE works**, beside Refresh and About, opens
+the localized delivery glossary. Activate it again, press Escape or click outside
+to close it. Full job history is reached through the sidebar Jobs link; Overview
+keeps job-specific Details links.
+
 ## 1. Purpose
 
 `04_Software/web` is the React/TypeScript source for the responsive ADORE
@@ -101,7 +107,7 @@ clarification, candidate approval, draft review, failed, stale and pending hando
 jobs. A separate Active jobs table shows actual working/publishing rows from a
 complete authorized active response. Both compact tables show title/project/ticket,
 status and Details; App places one Project selector in DashboardShell's optional
-header-controls slot, before selected context and job tables. View all jobs retains
+header-controls slot, before selected context and job tables. The sidebar Jobs link retains
 scope; the primary Overview URL/action resets it to all authorized projects.
 Explicit scoped deep links remain supported. Overview's visible15s job polling
 retains validated same-render-key rows until a successful replacement; failures,

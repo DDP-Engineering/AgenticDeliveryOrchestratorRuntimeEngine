@@ -142,6 +142,9 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- How ADORE works is now a header help button beside Refresh/About; Overview
+  uses sidebar Jobs navigation without a duplicated View all jobs footer link.
+
 - Overview project selection now precedes the selected-project context in the header;
   the primary Overview link defaults to all authorized projects. Periodic job reads
   update quietly without replacing valid tables with loading feedback; failed reads

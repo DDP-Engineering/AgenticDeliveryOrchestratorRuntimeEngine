@@ -13,6 +13,12 @@ configuration values, type/domain hints and field help use 0.875rem text with
 1.5 line height; long identifiers and guidance wrap within their panels.
 On narrow screens, setting labels, values and help stack vertically.
 
+
+The header help button **How ADORE works**, beside Refresh and About, opens
+the localized delivery glossary. Activate it again, press Escape or click outside
+to close it. Full job history is reached through the sidebar Jobs link; Overview
+keeps job-specific Details links.
+
 ## Routing
 
 Use this page for `adore-web`, `adore-web-worker`, `/api/v1`, web login/RBAC,
@@ -630,7 +636,7 @@ for Add and Import project. Primary buttons take their text colour from the
   worker and listener.
 - `04_Software/adore/web/static/` - bundled local UI and license.
 - `04_Software/web/src/{DashboardShell,Presentation}.tsx` - shared authenticated
-  frame and localized request/status/glossary presentation; approved logo in `src/assets/`.
+  frame and localized request/status/header help glossary presentation; approved logo in `src/assets/`.
 - `04_Software/web/e2e/shell.spec.ts` - offline role, scope, error, branding and responsive journeys.
 - `04_Software/web/` - React source and build configuration;
   `web/src/errors.ts` (error localization), `web/src/projectName.ts`

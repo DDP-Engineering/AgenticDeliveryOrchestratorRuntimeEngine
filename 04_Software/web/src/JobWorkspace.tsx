@@ -285,7 +285,6 @@ export function JobWorkspace(props: Props) {
         <div className="stat-card overview-card" key={card.key}><span>{card.text}</span><strong>{new Intl.NumberFormat(locale).format(card.value)}</strong><small>{scope ? project?.display_name || project?.name : copy.all}</small></div>)}
     </div>}
     {compactOverview && visible && activePage && <section className="panel" aria-label={t("activeJobs")}><h2>{t("activeJobs")}</h2>{activePage.items.length ? compactTable(activePage.items) : <div className="empty-state" role="status">{copy.noActive}</div>}</section>}
-    {compactOverview && <div className="overview-footer"><a href={formatRoute({ view: "jobs", ...(scope ? { project: scope } : {}) })}>{copy.allJobs}</a></div>}
 
   </div>;
 }
