@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # TASK-cf4358af - Compact Overview table and local presentation
 
-stage: deliver
+stage: done
 type: change
 path: full
 interaction: autopilot
@@ -24,9 +24,9 @@ opened: 2026-10-06
 - [x] Validated candidate confirmed unchanged
 - [x] Evidence, exact scope, exclusions and outcome presented under standing authority
 - [x] Human scoped commit/push/deploy authority recorded
-- [ ] Journal and report included in delivery commit
-- [ ] Agreed commit/push/deploy outcome delivered
-- [ ] Close-out committed after successful outcome
+- [x] Journal and report included in delivery commit
+- [x] Agreed commit/push/deploy outcome delivered
+- [x] Close-out committed after successful outcome
 
 ## Frame
 
@@ -81,6 +81,8 @@ REQ-UX-d030ae26: JobWorkspace retains Jobs/history presentation and all server c
 - 2026-10-06 final targeted proof: production build exit0, UI/E2E typecheck and isolated build exit0, final six targeted Chromium journeys passed28.4s. Exact round3 inventory hashes/deletions unchanged. Catalog-only strict exit0, errors0 and no promoted warnings; this is not full-suite proof. Accepted E2E path-layout heuristic despite actual two browser test changes, historical fingerprint/journal warnings, bounded scanner large generated JS warning supplemented by complete header/pattern/provenance inspection. Node colour/Vite size warnings are nonfatal. Full regression coverage remains deferred by explicit human instruction; no children.
 - 2026-10-06 deliver presentation and authority: exact inventory21 semantic path actions: JobWorkspace/jobCopy/styles, jobs/shell E2E, operator/component/changelog, context/knowledge, four reconciled legacy requirements plus new UX requirement/spec, generated index and two replaced asset pairs; mutable journal/inventory/verification evidence also included. Retired legacy card and deferred-full-suite deviations repeated in conversation. No API/state/security/timezone aggregation/dependency/version change; no epic pickup, PR/merge or human novice acceptance. Human implement/deploy request plus standing scoped commit/push authority authorizes this unchanged validated candidate; no repeated checkpoint permission. Deploy git archive to existing services with protected home/DB/unit backup and bounded rollback; authenticate no forge/container/executor acceptance.
 
+- 2026-10-06 delivery verified: Implementation commit16de80eca5714574344cee472781142b478fdc69 normally pushed to task/adore-web-interface; remote ref matches. Exact git archive4,014,080bytes uploaded and SHA256 verified. DCP existing API/worker services now use /home/dpasare/apps/adore/web-ux-16de80e/04_Software via additive99-zz-compact-16de80e dropins. Protected backup /home/dpasare/apps/adore/backups/web-ux-16de80e-20261006112135 includes entire home, web.db and existing service/dropins; bounded failure trap restores earlier service/DB configuration. Deployment exit0; pending/running operation gate empty, DB schema14/integrityok/audit45 retained. Served JSindex-dm3SKoVb.js/CSSindex-CIvJlDU7.css byte-match archive; HTTPS /, health and ready200, ready worker ready; protected projects endpoint401authentication_required. Both services active with exact release PYTHONPATH. No live executor/forge/container or novice acceptance fabricated. Full suites remain cancelled/deferred at human request; heartbeat paused. Outcome succeeded before this journal-only close-out commit.
+
 ## Rulings
 
 - RULING-001 | date=2026-10-06 | decision=Proceed unattended through validation and scoped commit/push/deploy of selected compact Overview. Heartbeat remains paused; do not resume epic implementation. | reason=Direct human implement/deploy request and standing scoped publication authority; no repeated checkpoint permission, never substitutes validation. | source=user | supersedes=none
@@ -92,9 +94,9 @@ REQ-UX-d030ae26: JobWorkspace retains Jobs/history presentation and all server c
 ## Handoff
 
 
-current: deliver
+current: done
 status: ready
-next: scoped commit, normal push and DCP deploy
+next: human Overview review; subsequent scoped UX iterations; full suites only at final iteration
 must_read: .agentic/steps/5_validate.md, .agentic/requirements/ux/REQ-UX-d030ae26.toml, .agentic/knowledge/web-interface.md
 blockers: none
 
@@ -103,11 +105,11 @@ blockers: none
 
 stage: deliver
 result: completed
-current: deliver
+current: done
 changed: UI, browser tests and related documentation
 evidence: final production build/typecheck exit0; six targeted browser journeys passed28.4s; catalog-only strict exit0; full suite cancelled/deferred
 issues: legacy card requirements retired by approved redesign
-next: scoped commit/push/deploy
+next: human live UI review and subsequent scoped iterations; final complete suites deferred
 needs_user: no
 spec_compliance: approved
 implementation_quality: approved
