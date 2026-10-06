@@ -1,0 +1,287 @@
+{
+  "schema": 1,
+  "task": "TASK-b93bf854",
+  "branch": "task/adore-web-interface",
+  "baseline": "5c739f1d57ab62ae004aac4f24b8a96909739d09",
+  "candidate_sha256": "d40727cd3c0f3fedd90775efb878daad94e4036984f5ea1a0441120f460bd3d3",
+  "counts": {
+    "authored": 15,
+    "generated": 3,
+    "workflow": 15
+  },
+  "reporting_exclusions": [
+    ".agentic/tasks/TASK-b93bf854.md",
+    ".agentic/tasks/TASK-b93bf854.check-build.json",
+    ".agentic/tasks/TASK-b93bf854.validation-final.json",
+    ".agentic/specs/transfer-candidate-inventory.json",
+    ".agentic/specs/transfer-candidate-review.md",
+    ".agentic/specs/transfer-verification.md",
+    ".agentic/tasks/TASK-b93bf854.validation-attempt1.json"
+  ],
+  "files": [
+    {
+      "path": ".agentic/context/project.md",
+      "status": "M",
+      "owner": "workflow",
+      "sha256": "3bcbe83c193fdd239a389d0cd12bc9f2e73278a7f96d4851204189690cb4232e",
+      "hash_kind": "working_bytes",
+      "bytes": 8655
+    },
+    {
+      "path": ".agentic/knowledge/profiles.md",
+      "status": "M",
+      "owner": "workflow",
+      "sha256": "1e50f59c48d7f2a08a37377baa8864a8055f4e4360f69087d66c818879835c4f",
+      "hash_kind": "working_bytes",
+      "bytes": 3773
+    },
+    {
+      "path": ".agentic/knowledge/web-interface.md",
+      "status": "M",
+      "owner": "workflow",
+      "sha256": "92b0b6e56082ee9c492b3ab1ec0b22684251d28b78a3338192e6c4ab15813be0",
+      "hash_kind": "working_bytes",
+      "bytes": 37971
+    },
+    {
+      "path": ".agentic/requirements/functional/REQ-FUNC-20010f79.toml",
+      "status": "??",
+      "owner": "workflow",
+      "sha256": "1c554b4c442bb5d4eac1a17bd71778cde153413b042a1008f0235ea861b6a05b",
+      "hash_kind": "working_bytes",
+      "bytes": 1798
+    },
+    {
+      "path": ".agentic/requirements/security/REQ-SEC-934b2dca.toml",
+      "status": "??",
+      "owner": "workflow",
+      "sha256": "5b59f418ea37150338df81762b453da513316f17d49390319c1c4aaa33692085",
+      "hash_kind": "working_bytes",
+      "bytes": 1809
+    },
+    {
+      "path": ".agentic/requirements/ux/REQ-UX-7d0b71c3.toml",
+      "status": "??",
+      "owner": "workflow",
+      "sha256": "0ece28dc12f9ef24b5a3a1d99eca463fa9174a04613f779e0ecfafd3824cbc7e",
+      "hash_kind": "working_bytes",
+      "bytes": 1594
+    },
+    {
+      "path": ".agentic/specs/REQ-FUNC-20010f79.md",
+      "status": "??",
+      "owner": "workflow",
+      "sha256": "a96374e91d4eb4cb742d26624501038e6defa2a0df64da393ae4377af3413952",
+      "hash_kind": "working_bytes",
+      "bytes": 4322
+    },
+    {
+      "path": ".agentic/specs/transfer-evidence/inspection-dark-bottom.png",
+      "status": "??",
+      "owner": "workflow",
+      "sha256": "c48263ad88e8c102d39813e6ce18b947e050acfb26ee666bb299c986ebed9e3e",
+      "hash_kind": "working_bytes",
+      "bytes": 25923
+    },
+    {
+      "path": ".agentic/specs/transfer-evidence/inspection-dark-top.png",
+      "status": "??",
+      "owner": "workflow",
+      "sha256": "0fcc2d349266c79fd41e99427188bdaabc33db917457c618fd3bb891b0c27c35",
+      "hash_kind": "working_bytes",
+      "bytes": 38356
+    },
+    {
+      "path": ".agentic/specs/transfer-evidence/inspection-light-bottom.png",
+      "status": "??",
+      "owner": "workflow",
+      "sha256": "c82bda15731372d7b3699c2dac7f35e72bbf802181e2164c24cafac04cf91d59",
+      "hash_kind": "working_bytes",
+      "bytes": 27556
+    },
+    {
+      "path": ".agentic/specs/transfer-evidence/inspection-light-top.png",
+      "status": "??",
+      "owner": "workflow",
+      "sha256": "1d465968c2698183cf2ef667f154c298b461f8807963d97dd8a7a5e1674e0cdd",
+      "hash_kind": "working_bytes",
+      "bytes": 39868
+    },
+    {
+      "path": ".agentic/specs/transfer-evidence/transfer-dark-390.png",
+      "status": "??",
+      "owner": "workflow",
+      "sha256": "7df151e8b31427101021bbaa678d49f29f1f3734c3ee05b2e9f25051d1b6bf86",
+      "hash_kind": "working_bytes",
+      "bytes": 115113
+    },
+    {
+      "path": ".agentic/specs/transfer-evidence/transfer-file-review.png",
+      "status": "??",
+      "owner": "workflow",
+      "sha256": "a3cc4d1e29c89815a755737141f7b4bb1b5443a09948b6737dcceba96ac5b66d",
+      "hash_kind": "working_bytes",
+      "bytes": 124362
+    },
+    {
+      "path": ".agentic/specs/transfer-evidence/transfer-light-390.png",
+      "status": "??",
+      "owner": "workflow",
+      "sha256": "dbb11ff1e4c56ba43f9e9b305d2785816a786058e12a6013e9545b19aea43691",
+      "hash_kind": "working_bytes",
+      "bytes": 117689
+    },
+    {
+      "path": ".agentic/specs/transfer-evidence/transfer-project-review.png",
+      "status": "??",
+      "owner": "workflow",
+      "sha256": "bce901352990f4f965bf3525c7c17ab21b1f2598e701e06f58008f48ddd27d08",
+      "hash_kind": "working_bytes",
+      "bytes": 125586
+    },
+    {
+      "path": "01_Documentation/Portable_Project_Settings.md",
+      "status": "M",
+      "owner": "authored",
+      "sha256": "094ff2b3e27a83e38b85db13974a55b3a154a1556018cd857944489465cefe28",
+      "hash_kind": "working_bytes",
+      "bytes": 7977
+    },
+    {
+      "path": "01_Documentation/Web_Interface.md",
+      "status": "M",
+      "owner": "authored",
+      "sha256": "c1a536a94baaae848da5bbe19774f2350ec0cba97d859d1e6b40816e39209641",
+      "hash_kind": "working_bytes",
+      "bytes": 54922
+    },
+    {
+      "path": "04_Software/adore/profiles.py",
+      "status": "M",
+      "owner": "authored",
+      "sha256": "43e0e6c8a823e4bbdb5b5061cb92e3a577376b32edc2c50e067e95a49cef468c",
+      "hash_kind": "working_bytes",
+      "bytes": 22965
+    },
+    {
+      "path": "04_Software/adore/web/app.py",
+      "status": "M",
+      "owner": "authored",
+      "sha256": "b0dbeabfc58eb2a0ff41626d29b4d4989a2019fd5540e54389fb4a0524ef8c2a",
+      "hash_kind": "working_bytes",
+      "bytes": 191396
+    },
+    {
+      "path": "04_Software/adore/web/static/assets/index-5ArCE1x7.js",
+      "status": "D",
+      "owner": "generated",
+      "sha256": "4e88d20e665513453c224092c06a0c5a12a0e3f2dbf83024ea7540e14338dd80",
+      "hash_kind": "deleted_baseline_blob",
+      "bytes": 635179
+    },
+    {
+      "path": "04_Software/adore/web/static/assets/index-DH2GbHeG.js",
+      "status": "??",
+      "owner": "generated",
+      "sha256": "d4171938743ef91ae6019d00dbdf7e0aa51a5251fef398934fa404a7fc108d60",
+      "hash_kind": "working_bytes",
+      "bytes": 652535
+    },
+    {
+      "path": "04_Software/adore/web/static/index.html",
+      "status": "M",
+      "owner": "generated",
+      "sha256": "837c8b9841d766efa211cda68a8ff14580854ca38ec794c4181bc32a8c086663",
+      "hash_kind": "working_bytes",
+      "bytes": 729
+    },
+    {
+      "path": "04_Software/tests/test_web_transfer.py",
+      "status": "??",
+      "owner": "authored",
+      "sha256": "956bf5a9f8b380c683e745feca57b0b3bd8171476c78061f9567a0a0a06b33b1",
+      "hash_kind": "working_bytes",
+      "bytes": 18977
+    },
+    {
+      "path": "04_Software/web/e2e/transfer.spec.ts",
+      "status": "??",
+      "owner": "authored",
+      "sha256": "f27e84db5c139765bdfe9755340bd39b0c9ed482edad011382cadb2fdc84a95f",
+      "hash_kind": "working_bytes",
+      "bytes": 15018
+    },
+    {
+      "path": "04_Software/web/src/App.tsx",
+      "status": "M",
+      "owner": "authored",
+      "sha256": "e088bac03cbc9d4967ed7a0a735b9d08d0573349c3ecb9b6414495dc4608a2d8",
+      "hash_kind": "working_bytes",
+      "bytes": 121780
+    },
+    {
+      "path": "04_Software/web/src/EnrollmentWizard.tsx",
+      "status": "M",
+      "owner": "authored",
+      "sha256": "98ab432016afe0f880c7b4e19918b9c02b2ff6856cda4682dd53e9fc99470402",
+      "hash_kind": "working_bytes",
+      "bytes": 27695
+    },
+    {
+      "path": "04_Software/web/src/TransferWizard.tsx",
+      "status": "??",
+      "owner": "authored",
+      "sha256": "2aa33c19ba90228c4a2bd91ae84162b5f2f1a1a6127b1aec6359cf01601405cb",
+      "hash_kind": "working_bytes",
+      "bytes": 9127
+    },
+    {
+      "path": "04_Software/web/src/errors.ts",
+      "status": "M",
+      "owner": "authored",
+      "sha256": "e04f68e28f291577d03577574801f57c208dbe7305589d3cb24b8d92080466f8",
+      "hash_kind": "working_bytes",
+      "bytes": 33120
+    },
+    {
+      "path": "04_Software/web/src/transferCopy.ts",
+      "status": "??",
+      "owner": "authored",
+      "sha256": "6b94233842a774f8309570c763d7a1517047c205a884462af6cf7a56ba9884ca",
+      "hash_kind": "working_bytes",
+      "bytes": 9856
+    },
+    {
+      "path": "05_SoftwareDocu/Component_Profiles.md",
+      "status": "M",
+      "owner": "authored",
+      "sha256": "a3a4c07a1428c9bd7215083ad88478c7b4f2aae96d7bad825a1fbcb7212b29d7",
+      "hash_kind": "working_bytes",
+      "bytes": 7951
+    },
+    {
+      "path": "05_SoftwareDocu/Component_Web_API.md",
+      "status": "M",
+      "owner": "authored",
+      "sha256": "a41ff748fb3d8b5bcdd409334f5d4ef37f89224b17936f1ae575331c2bca414f",
+      "hash_kind": "working_bytes",
+      "bytes": 37244
+    },
+    {
+      "path": "05_SoftwareDocu/Component_Web_Frontend.md",
+      "status": "M",
+      "owner": "authored",
+      "sha256": "4aeab165809a799320f62d5d919399a800a3811fd0f6d4e2d120771c70ec3d96",
+      "hash_kind": "working_bytes",
+      "bytes": 36437
+    },
+    {
+      "path": "CHANGELOG.md",
+      "status": "M",
+      "owner": "authored",
+      "sha256": "8ff0a6f93dd6dde353e6bedef3a1cc144a94b79703cbfc0607355e0ee5d6337d",
+      "hash_kind": "working_bytes",
+      "bytes": 53433
+    }
+  ]
+}

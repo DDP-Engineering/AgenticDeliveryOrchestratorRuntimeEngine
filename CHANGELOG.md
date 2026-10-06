@@ -14,6 +14,12 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Added
 
+- Portable file import and authorized source-project settings copy for new projects,
+  with complete rule/default/effect mapping, explicit target reference/environment
+  reconfirmation, independent stopped ownership, exact source/candidate binding,
+  collision/replay/rollback guards and localized responsive guidance (#10).
+
+
 - Administrator-only portable project working-rule preview/download with strict
   `adore-project-settings` schema-1 allowlist, deterministic checksum, exact package
   source-version compatibility and public roundtrip parser. Excludes credentials,

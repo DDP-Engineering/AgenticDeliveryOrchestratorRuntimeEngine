@@ -48,7 +48,12 @@ OpenCode, Pi, Codex and Qwen Code.
   and transfers only complete polling/readiness/recovery/budget defaults with exact
   package-version compatibility and a change-detection checksum. Strict parsing
   writes no project state; localized preview/download explains exclusions and
-  separate target-host setup. Web enrollment publishes
+  separate target-host setup. Admin portable file/copy enrollment binds exact
+  authorized source and target revisions, transfers the complete rule allowlist
+  into independently owned stopped profiles, and shows localized source/default/
+  effect mapping with explicit target reference/environment reconfirmation.
+  Source/target corruption, collisions, replay and publication faults fail closed.
+  Web enrollment publishes
   complete profiles with pickup stopped, keeps human labels separate from stable
   identity, validates setup offline and records explicit revision-bound readiness.
   Guided enrollment presents six localized steps, keeps corrections only in browser

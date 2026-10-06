@@ -320,9 +320,36 @@ those views after the switch.
 
 ## 3. Implementation Overview
 
+`TransferWizard.tsx` presents guided creation, portable file import, settings copy
+and the separately worded advanced unchanged server TOML copy. File/source selection
+reviews all 16 recognized rules and explicit exclusions before target setup.
+`EnrollmentWizard` receives optional memory-only source context and uses the same
+identity/repository/environment/eligibility/verification/review steps. Copied
+budget controls are read-only; canonical review shows every source rule, installed
+server default and effect, with independent allocated config/state/worktree/metrics
+paths. Target reference/environment reconfirmation is required and invalidated by
+identity/environment edits. Custom endpoints remain explicit separate target setup
+while pickup is stopped; source references never seed that setup.
+
+Target/source edits invalidate reviews and checks; ref/generation guards prevent
+repeated submits and superseded responses. Selected files are reread before review
+and every target operation; changed/unreadable bytes block action and expose source
+re-review. Back/Change retains target corrections; returning to source or switching
+method warns and resets the target draft. Sources/drafts stay in memory and are
+cleared on leaving. `transferCopy.ts` supplies EN/FR/DE/RO explanations. Completion
+confirms stopped pickup and separate activation. Existing exact TOML and export
+panel boundaries retain their distinct wording/behavior.
+
+`e2e/transfer.spec.ts` covers both real-API methods, required reconfirmation,
+visible mapping/exclusions/paths, stopped success/double click, correction/back,
+actual source/file changes, failed/late transport, role denial, four locales and
+keyboard/390px themes. External commands remain faked; participant/live/full-WCAG
+acceptance remains human work.
+
+
 `PortableSettings.tsx` owns the Admin-only active-rule export panel and its
 EN/FR/DE/RO copy. Visible purpose, included/excluded data, exact source-version
-compatibility, checksum limits and unavailable import/copy workflow precede
+compatibility, checksum limits and separate new-project import/copy guidance precede
 explicit preview/download. `portable.ts` checks complete transport keys, types,
 bounds, duplicates and the checksum of canonical server bytes. Download fetches
 again with preview checksum and saves the validated bytes without reserialization.

@@ -8,6 +8,8 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { Locale, MessageKey } from "./i18n";
 import { ApiError, describeError } from "./errors";
 import { enrollmentCopy } from "./enrollmentCopy";
+import { transferCopy, validTransferSettings, type TransferSource } from "./transferCopy";
+import { portableFields } from "./portable";
 
 type Draft = {
   name: string; display_name: string; description: string; kind: string; repo: string;
@@ -19,7 +21,8 @@ type Draft = {
 type FieldName = keyof Draft;
 type Finding = { code: string; field: string; remediation: string };
 type Preview = { structural_valid: boolean; issues: Finding[]; revision: string | null;
-  config_revision: string | null; review: Record<string, unknown> | null };
+  config_revision: string | null; review: Record<string, unknown> | null; source_revision?: string;
+  mapping?: { key: string; source_value: unknown; server_value: unknown; effect: string }[] };
 type Verification = { status: "failed" | "partial" | "verified"; draft_revision: string; revision: string;
   checked_at: string; checks: Record<string, boolean | null | "not-checked"> };
 type Created = { id: string; name: string; display_name: string; pickup_state: string; paused: boolean };
@@ -37,9 +40,12 @@ const numeric = ["max_iterations", "max_wall_clock_seconds", "max_cost_usd", "ma
 const digest = (value: unknown): value is string => typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
 const isFindings = (value: unknown): value is Finding[] => Array.isArray(value) && value.every(item =>
   item && typeof item.code === "string" && typeof item.field === "string" && typeof item.remediation === "string");
-const payload = (draft: Draft) => ({ ...draft, env_keys: draft.auth_mode === "host-auth" ? [] :
+const payload = (draft: Draft): Omit<Draft, typeof numeric[number] | "env_keys"> & {
+  env_keys: string[]; max_iterations: number; max_wall_clock_seconds: number; max_cost_usd: number; max_files_touched: number;
+} => ({ ...draft, env_keys: draft.auth_mode === "host-auth" ? [] :
   draft.env_keys.split(",").map(value => value.trim()).filter(Boolean),
-  ...Object.fromEntries(numeric.map(key => [key, Number(draft[key])])) });
+  max_iterations: Number(draft.max_iterations), max_wall_clock_seconds: Number(draft.max_wall_clock_seconds),
+  max_cost_usd: Number(draft.max_cost_usd), max_files_touched: Number(draft.max_files_touched) });
 const fieldFor = (path: string): FieldName | undefined => {
   const aliases: Record<string, FieldName> = { "executor.env_keys": "env_keys", "worktree.repo_path": "repo_path",
     "platform.repo": "repo", "container.runtime": "runtime", "container.image": "image",
@@ -50,14 +56,18 @@ const fieldFor = (path: string): FieldName | undefined => {
 };
 
 /** Mounted memory-only enrollment; server owns canonical setup and stopped publication. */
-export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated, registerGuard }: {
+export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated, registerGuard, transfer, onSourceReview, checkSource }: {
   locale: Locale; csrf: string; t: (key: MessageKey) => string; onCancel: () => void;
   onOpen: (id: string) => void; onCreated: () => void;
   registerGuard: (guard: (() => boolean) | null) => void;
+  transfer?: TransferSource; onSourceReview?: () => void; checkSource?: () => Promise<void>;
 }) {
   const c = enrollmentCopy[locale];
-  const [draft, setDraft] = useState<Draft>(initial);
-  const [step, setStep] = useState(0);
+  const tc = transferCopy[locale];
+  const [draft, setDraft] = useState<Draft>(() => ({ ...initial, ...(transfer ?
+    Object.fromEntries(numeric.map(key => [key, String(transfer.settings.budgets[key])])) : {}) }));
+  const [step, setStep] = useState(transfer ? 1 : 0);
+  const [referencesConfirmed, setReferencesConfirmed] = useState(false);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [verification, setVerification] = useState<Verification | null>(null);
   const [stale, setStale] = useState(false);
@@ -119,6 +129,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
     }
   };
   const correct = (finding: Finding) => {
+    if (finding.field === "references_confirmed") { move(2); return; }
     const field = fieldFor(finding.field);
     const target = field ? fields.findIndex(group => group.includes(field)) : 4;
     move(Math.max(0, target), field);
@@ -127,6 +138,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
     dirty.current = true; generation.current++;
     if (preview || verification || reviewed) setStale(true);
     setPreview(null); setVerification(null); setReviewed(null); setFindings([]); setFailure(null);
+    if (fields[1].includes(field) || fields[2].includes(field)) setReferencesConfirmed(false);
     operation.current = null; setBusy(null);
     setDraft(current => ({ ...current, [field]: value,
       ...(field === "executor_cli" && !["opencode", "codex"].includes(value) ? { auth_mode: "api-key" } : {}) }));
@@ -149,10 +161,13 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
       }
       if (!valid) errors.push({ code: "invalid_input", field: key, remediation: c.invalid });
     }
+    if (transfer && groups.includes(2) && !referencesConfirmed)
+      errors.push({ code: "invalid_input", field: "references_confirmed", remediation: tc.confirm });
     setFindings(errors); setFailure(null);
     return errors.length === 0;
   };
   const call = async (path: string, body: unknown): Promise<unknown> => {
+    if (transfer) await checkSource?.();
     let response: Response;
     try {
       response = await fetch("/api/v1/projects/" + path, { method: "POST", credentials: "same-origin",
@@ -165,6 +180,13 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
     }
     return value;
   };
+  const targetPayload = () => ({ ...payload(draft), ...(transfer ? {
+    max_iterations: 12, max_wall_clock_seconds: 5400, max_cost_usd: 5, max_files_touched: 120,
+  } : {}) });
+  const requestBody = (target: unknown, revision?: string) => transfer ? {
+    ...transfer.selection, source_revision: transfer.source_revision, target,
+    references_confirmed: referencesConfirmed, ...(revision ? { revision } : {}),
+  } : { ...(target as object), ...(revision ? { revision } : {}) };
   const reject = (cause: unknown) => {
     setFailure(cause);
     setFindings(cause instanceof SetupError ? cause.findings : []);
@@ -175,7 +197,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
     operation.current = "preview"; setBusy("preview"); setFailure(null); setReviewed(null);
     setPreview(null); setVerification(null);
     try {
-      const value = await call("setup-preview", payload(draft)) as Preview;
+      const value = await call(transfer ? "transfer-preview" : "setup-preview", requestBody(targetPayload())) as Preview;
       if (!alive.current || token !== generation.current) return;
       if (typeof value?.structural_valid !== "boolean" || !isFindings(value.issues) ||
         value.structural_valid !== (value.issues.length === 0) ||
@@ -183,6 +205,18 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
           !value.review || value.review.name !== draft.name || value.review.display_name !== draft.display_name ||
           ["config_path", "store_root", "worktree_root"].some(key => typeof value.review?.[key] !== "string")))
         throw new ApiError("unexpected_response");
+      if (transfer && value.structural_valid) {
+        const expected = Object.entries(portableFields).flatMap(([section, keys]) => keys.map(key => section + "." + key));
+        if (value.source_revision !== transfer.source_revision || !Array.isArray(value.mapping) || value.mapping.length !== 16 ||
+          expected.some(key => value.mapping!.filter(row => row.key === key).length !== 1) ||
+          value.mapping.some(row => row.effect !== "copy-rule" || !Object.hasOwn(row, "server_value") ||
+            JSON.stringify(row.source_value) !== JSON.stringify(transfer.settings[row.key.split(".")[0]][row.key.split(".")[1]])) ||
+          ["metrics_db", "metrics_jsonl", "metrics_html"].some(key => typeof value.review?.[key] !== "string"))
+          throw new ApiError("unexpected_response");
+        const server = Object.fromEntries(Object.entries(portableFields).map(([section, keys]) => [section,
+          Object.fromEntries(keys.map(key => [key, value.mapping!.find(row => row.key === section + "." + key)!.server_value]))]));
+        if (!validTransferSettings(server)) throw new ApiError("unexpected_response");
+      }
       setPreview(value); setFindings(value.issues); setStale(false);
     } catch (cause) { if (alive.current && token === generation.current) reject(cause); }
     finally { if (alive.current && token === generation.current) { operation.current = null; setBusy(null); } }
@@ -192,7 +226,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
     const token = generation.current;
     operation.current = "probe"; setBusy("probe"); setVerification(null); setFailure(null); setFindings([]);
     try {
-      const value = await call("setup-check", { ...payload(draft), revision: preview.revision }) as Verification;
+      const value = await call(transfer ? "transfer-check" : "setup-check", requestBody(targetPayload(), preview.revision)) as Verification;
       if (!alive.current || token !== generation.current) return;
       const expected = ["git", "forge_cli", "forge_auth", "container_runtime", "executor_cli", "aegis_files", "model_endpoint"];
       if (!value || !["failed", "partial", "verified"].includes(value.status) || value.draft_revision !== preview.revision ||
@@ -213,7 +247,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
     operation.current = "create"; setBusy("create"); setFailure(null); setFindings([]);
     const token = generation.current;
     try {
-      const value = await call("setup-create", { ...reviewed.draft, revision: reviewed.preview.revision }) as Created;
+      const value = await call(transfer ? "transfer-create" : "setup-create", requestBody(reviewed.draft, reviewed.preview.revision)) as Created;
       if (!alive.current || token !== generation.current) return;
       if (!value || !/^[0-9a-f]{32}$/.test(value.id) || value.name !== reviewed.draft.name ||
         value.display_name !== reviewed.draft.display_name || !value.paused || value.pickup_state !== "stopped")
@@ -246,7 +280,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
     return <div className="enrollment-field" key={key}>
       <label htmlFor={common.id}>{labels[key]}{!["description", "login"].includes(key) && <span aria-hidden="true"> *</span>}</label>
       {options[key] ? <select {...common}>{options[key]?.map(value => <option key={value}>{value}</option>)}</select> :
-        <input {...common} type={numeric.includes(key as typeof numeric[number]) ? "number" : "text"}
+        <input {...common} readOnly={!!transfer && numeric.includes(key as typeof numeric[number])} type={numeric.includes(key as typeof numeric[number]) ? "number" : "text"}
           step={key === "max_cost_usd" ? "any" : "1"} autoComplete="off"
           maxLength={key === "display_name" ? 120 : key === "name" ? 64 : 1024} />}
       {error && <p className="field-hint" id={"error-" + key}><strong>{c.invalid}</strong></p>}
@@ -272,7 +306,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
     {(failure || findings.length > 0) && <div ref={summary} tabIndex={-1} role="alert" className="enrollment-errors">
       <h3>{c.errorTitle}</h3>{!!failure && <p>{describeError(locale, failure)} {c.failed}</p>}
       <ul>{findings.map((item, index) => <li key={index}>
-        <button className="text-button" onClick={() => correct(item)}>{fieldFor(item.field) ?
+        <button className="text-button" onClick={() => correct(item)}>{item.field === "references_confirmed" ? tc.confirm : fieldFor(item.field) ?
           labels[fieldFor(item.field)!] : c.steps[4]} — {c.correction}</button>
         <p>{item.code === "project_exists" ? c.idExists :
           item.code === "reserved_project_name" ? c.idReserved :
@@ -282,6 +316,8 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
         <span> · {item.code}</span>
       </li>)}</ul>
       {!findings.length && <button className="text-button" onClick={() => move(4)}>{c.validate}</button>}
+      {transfer && <>{failure instanceof ApiError && failure.code === "portable_settings_changed" && <p>{tc.changed}</p>}
+        <button type="button" className="text-button" onClick={onSourceReview}>{tc.back}</button></>}
     </div>}
     <form onSubmit={submit} noValidate>
       <fieldset disabled={busy === "create"} className="enrollment-fields">
@@ -291,6 +327,10 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
             ["rules", "limits"]).map(key => <p id={"enrollment-help-" + key} key={key}>{c[key as
               "identity" | "forge" | "clone" | "login" | "environment" | "credentials" | "rules" | "limits"]}</p>)}
           <div className="enrollment-grid">{fields[step].map(control)}</div>
+          {transfer && step === 2 && <><p id="transfer-reference-help">{tc.references}</p><label><input id="transfer-references" aria-describedby="transfer-reference-help" type="checkbox" checked={referencesConfirmed}
+            onChange={event => { dirty.current = true; generation.current++; setReferencesConfirmed(event.target.checked);
+              setPreview(null); setVerification(null); setReviewed(null); setFindings([]); setFailure(null);
+              operation.current = null; setBusy(null); }} /> {tc.confirm}</label></>}
         </>}
         {step === 4 && <>
           <p>{c.effects}</p><p>{c.noSecrets}</p>
@@ -298,6 +338,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
           {preview?.structural_valid && <><p role="status">{c.valid}</p>
             <button type="button" className="ghost" disabled={!!busy} onClick={() => void runProbe()}>{verification ? c.recheck : c.check}</button>
           </>}
+          {transfer && preview?.structural_valid && <Mapping preview={preview} locale={locale} />}
           <p role="status">{status}</p>
           {verification && <><p>{c.checked}: {verification.checked_at}</p><ul>{Object.entries(verification.checks).map(([key, result]) =>
             <li key={key}><strong>{key}</strong>: {result === true ? "✓" : result === false ? "✕" : "?"} {result === true ? c.checkPassed : result === false ? c.checkFailed : c.notChecked}
@@ -306,11 +347,12 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
             </li>)}</ul></>}
           <button type="button" className="primary" disabled={!!busy || !preview?.structural_valid} onClick={() => {
             if (!preview?.structural_valid || !preview.revision) return;
-            setReviewed({ draft: structuredClone(payload(draft)), preview: structuredClone(preview) }); move(5);
+            setReviewed({ draft: structuredClone(targetPayload()), preview: structuredClone(preview) }); move(5);
           }}>{c.review}</button>
         </>}
         {step === 5 && reviewed && <>
           <p>{c.reviewHelp}</p><p>{c.status}: {status}</p>
+          {transfer && <><p>{tc.exclusions}</p><p>{tc.confirm}</p><Mapping preview={reviewed.preview} locale={locale} /></>}
           {fields.slice(1).map((group, index) => <section className="enrollment-review" key={index}>
             <h3>{c.steps[index + 1]}</h3><button type="button" className="text-button" onClick={() => move(index + 1)}>{c.change} — {c.steps[index + 1]}</button>
             <dl>{group.map(key => <div key={key}><dt>{labels[key]}</dt><dd>{Array.isArray(reviewed.preview.review?.[key]) ?
@@ -320,9 +362,9 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
                   <div key={key}><dt>{label}</dt><dd>{String(reviewed.preview.review?.[key] ?? "—")}</dd></div>)}
             </dl>
           </section>)}
-          <section className="enrollment-review"><h3>{c.paths}</h3><dl>{["config_path", "store_root", "worktree_root", "repo_path"].map(key =>
+          <section className="enrollment-review"><h3>{transfer ? tc.paths : c.paths}</h3><dl>{["config_path", "store_root", "worktree_root", "repo_path", ...(transfer ? ["metrics_db", "metrics_jsonl", "metrics_html"] : [])].map(key =>
             <div key={key}><dt>{{ config_path: c.configFile, store_root: c.jobState,
-              worktree_root: c.worktrees, repo_path: t("clonePath") }[key]}</dt>
+              worktree_root: c.worktrees, repo_path: t("clonePath"), metrics_db: "metrics.db", metrics_jsonl: "metrics JSONL", metrics_html: "metrics HTML" }[key]}</dt>
               <dd>{String(reviewed.preview.review?.[key] ?? "—")}</dd></div>)}</dl></section>
           <p className="enrollment-digest">{c.revision}: {reviewed.preview.revision}</p><p>{c.createEffect}</p>
           <button type="button" className="primary" onClick={() => void confirm()} disabled={!!busy}>{c.create}</button>
@@ -330,10 +372,23 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
       </fieldset>
       {busy && <p role="status">{c.busy} {c.checkingHelp}</p>}
       <div className="enrollment-actions">
-        {step > 0 && <button type="button" className="ghost" disabled={busy === "create"} onClick={() => move(step - 1)}>{c.back}</button>}
+        {step > 0 && <button type="button" className="ghost" disabled={busy === "create"} onClick={() => transfer && step === 1 ? onSourceReview?.() : move(step - 1)}>{c.back}</button>}
         {step < 4 && <button className="primary" type="submit">{c.continue}</button>}
         <button type="button" className="ghost" disabled={busy === "create"} onClick={() => { if (guard()) onCancel(); }}>{c.cancel}</button>
       </div>
     </form>
+  </section>;
+}
+
+/** Exact source/installed-default mapping; long values stack in the existing responsive review. */
+function Mapping({ preview, locale }: { preview: Preview; locale: Locale }) {
+  const c = transferCopy[locale];
+  return <section className="enrollment-review"><h3>{c.recognized}</h3><p>{c.defaults}</p>
+    <p className="enrollment-digest">{c.revision}: {preview.source_revision}</p>
+    {preview.mapping?.map(row => <div key={row.key}><h4>{row.key}</h4><dl>
+      <div><dt>{c.sourceValue}</dt><dd>{JSON.stringify(row.source_value)}</dd></div>
+      <div><dt>{c.serverValue}</dt><dd>{JSON.stringify(row.server_value)}</dd></div>
+      <div><dt>{c.effect}</dt><dd>{c.copied}</dd></div>
+    </dl></div>)}
   </section>;
 }

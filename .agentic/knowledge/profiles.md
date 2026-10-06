@@ -48,7 +48,9 @@ timestamp; a rename persists that ID, while a malformed ID fails closed.
 no control/format characters. Only an absent legacy key falls back to `name`.
 Display edits retain directory, immutable ID, paths and web ownership. Web IDs
 use portable lowercase ASCII syntax with route/device/32-hex aliases reserved.
-Guided `setup-check` and `setup-create` names belong to the reserved route set.
+Guided `setup-check` and `setup-create`, plus portable `transfer-source`,
+`transfer-preview`, `transfer-check` and `transfer-create`, belong to the reserved
+route set; `test_web_transfer.py` proves the portable route boundary.
 
 ## Key behaviors
 

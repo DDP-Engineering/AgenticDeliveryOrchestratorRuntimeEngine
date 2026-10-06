@@ -108,6 +108,50 @@ rename landing during the update 409 `project_changed` with nothing changed.
 
 ## 5. Inputs And Outputs
 
+### Portable new-project transfer
+
+Admin/CSRF `POST /api/v1/projects/transfer-source` accepts exactly one of
+`{method: "file", file_text}` or `{method: "project", source_id}`. Project source
+uses immutable identity; exact active config bytes are exported/parsed with the
+unchanged conservative portable contract. File bytes use the strict parser.
+The response contains only `source_revision` and complete `settings`.
+Source SHA-256 binds exact file bytes, or immutable ID plus exact config digest;
+a comment-only source edit invalidates confirmation.
+
+`transfer-preview` adds `target: ProjectInput`, `source_revision` and required
+`references_confirmed: true`; response includes canonical target review,
+config/candidate revisions and 16 `mapping` rows (`key`, `source_value`,
+`server_value`, `effect: "copy-rule"`). Server values are installed defaults.
+All portable rules override target defaults; target identity, repository, runtime,
+model, references, labels and reviewers are supplied afresh. Credential/endpoint
+references are excluded from sources. Standard provider setup uses target model
+and supported auth; custom target endpoints use separate stopped Settings setup.
+
+`transfer-check` and `transfer-create` add reviewed `revision`. Check uses the
+existing bounded explicit ephemeral probes and rechecks source afterwards.
+Creation holds the source config lock when copying, plus existing home enrollment
+and target conductor locks; authorization, exact source and target ownership are
+rechecked before writes and profile visibility, and again before audit/result.
+New random stable profile identity, state under its profile, worktrees under
+home/worktrees/ID and derived metrics are independent. Allocated paths are visible
+in review. Source identity/state/access/pending/secrets/history stay untouched.
+Exact TOML enrollment retains its byte-copy/state-location contract.
+
+Missing source is 404; invalid/incompatible package is typed 400; unreadable or
+corrupt source/ownership is 503; changed source/candidate is 409
+`portable_settings_changed` with re-review; occupied, aliased or overlapping
+repository/state/worktree/metrics ownership is 409 `project_import_conflict`.
+Reference confirmation and target findings block creation. Rollback removes new
+profile visibility and owned config/state; duplicate/replay rejects the existing
+identity without replacement. Direct unmanaged host edits must still respect
+operator ownership; rechecks detect observed races rather than creating a global
+filesystem transaction. No repository cloning or automatic activation occurs.
+
+Tests: `test_web_transfer.py` proves both complete roundtrips, exclusions,
+independent/stopped ownership, exact-source/target conflicts, parser/role/CSRF
+negatives, late ownership, ephemeral checks and rollback/replay.
+
+
 Administrator-only `GET /api/v1/projects/{name}/config/portable-settings` validates
 one bounded active TOML snapshot through `adore.portable_settings` and returns
 canonical `adore-project-settings` schema-1 JSON. Authentication/Admin checks

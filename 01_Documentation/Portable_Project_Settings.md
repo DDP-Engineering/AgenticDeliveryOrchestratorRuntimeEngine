@@ -16,11 +16,32 @@ Developers and invalid sessions cannot export or discover project metadata
 through this endpoint. No live forge, container or credential check runs.
 
 The package transfers working rules as defaults for a **new project** on a
-compatible ADORE installation. The public Python parser reproduces these values
-without writing profiles. This screen supports export; a portable import or
-copy-to-new-project enrollment workflow is not available. Target identity,
-repository, branches, host paths and credential/endpoint setup must be supplied
-and confirmed explicitly before any separately reviewed paused enrollment.
+compatible ADORE installation. In **Add project**, choose **Import portable
+settings** for a JSON file, or **Copy project settings** for an authorized source
+project. Review recognized rules and exclusions, then **Set up new target**.
+Supply a new display name/stable ID, repository identifier and existing server
+clone, runtime/image/model, reviewers/labels and target credential environment
+names or supported host authentication. Reconfirm the target environment,
+credential references and endpoint setup explicitly. Standard provider connections
+use the selected model; custom target endpoints are a separate Settings action
+while pickup remains stopped. All source references are excluded.
+
+Validate setup to see **Source value / This server value / Effect** for all 16
+rules. This server value is the installed default; the source rule becomes the
+new project's rule. Copied budget controls are read-only. Review includes
+independent allocated config/state/worktree/metrics locations. Confirm **Create
+project with pickup stopped**, then open the new project. Checks and activation
+remain explicit separate actions. No repository is cloned and no existing project
+is replaced. Jobs/history, access, audit, pending changes, secrets and source
+ownership stay at the source.
+
+Changing target answers invalidates review/checks; Back retains corrections.
+Source/file revision changes block confirmation with a typed conflict and
+**Review source again**. Selected files are reread before target operations.
+Returning to source or changing method discards target corrections after the loss
+warning. Missing/corrupt/incompatible sources, unresolved references, occupied or
+overlapping ownership and duplicate confirmation create no partial profile.
+SHA-256 revision binding detects changes and does not authenticate a file.
 
 ## Exact format and allowed values
 
@@ -60,7 +81,7 @@ No exported reference implies credentials or endpoints are valid on a target hos
 
 SHA-256 detects changes and **does not authenticate** an untrusted file: anybody
 can change content and recompute it. Treat the package as untrusted input and
-review its rules before any later enrollment. The digest covers the envelope
+review its rules before enrollment. The digest covers the envelope
 without `checksum`, encoded with sorted keys, ASCII JSON escapes, compact `,`/`:`
 separators, finite numbers and no newline. The completed envelope uses that same
 encoding followed by one LF. Equal effective values and source produce identical
@@ -87,6 +108,13 @@ binds a request to portable preview values; a mismatch returns HTTP 409
 `portable_settings_invalid`. Authentication/role denial occurs before lookup.
 The read rechecks project ownership after snapshot export and rejects a replaced
 identity. It performs no state mutation or runtime migration.
+
+Admin/CSRF `POST /api/v1/projects/transfer-source` returns strict rules and exact
+source revision. `transfer-preview` adds fresh target answers and mandatory
+reconfirmation; `transfer-check`/`transfer-create` bind the reviewed revision.
+Source role/session, immutable identity, exact configuration and current target
+ownership are rechecked during confirmation. See
+[Web API](../05_SoftwareDocu/Component_Web_API.md) for fields and typed errors.
 
 **Exact server TOML enrollment** retains host locations and its existing guarded
 byte-exact review/import contract. **Statistics CSV** contains measurement rows

@@ -31,6 +31,18 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 
 ## Public interface
 
+- Admin/CSRF `transfer-source/preview/check/create` create fresh stopped projects
+  from strict portable files or immutable authorized source identities. Exact source
+  bytes/ID and target revision are bound; source/session/ownership are rechecked
+  during existing locked atomic publication. All 16 rules transfer, while target
+  identity/repository/environment/references are supplied anew. Allocated state,
+  worktrees and derived metrics remain independent; corrupt/overlapping ownership,
+  stale sources, rollback and replay fail closed. `TransferWizard` reviews the
+  selected source; optional `EnrollmentWizard` mode shows complete source/default/
+  effect mapping, required reconfirmation and retained memory-only correction.
+  Selected files are reread at target boundaries. Tests: `test_web_transfer.py`
+  and `web/e2e/transfer.spec.ts`; exact TOML/export remain separate contracts.
+
 - Admin-only `/projects/{name}/config/portable-settings` validates a bounded
   active snapshot through `portable-settings.md`; canonical no-store JSON and
   optional fixed attachment omit pending/identity/host/access/credential data.
@@ -270,6 +282,7 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 | Change requested | Start with | Focused verification |
 |---|---|---|
 | Authorized global job evidence, paging, revisions | `adore/web/jobs.py`, `jobs_page` and `job_detail` in `app.py` | `test_web_jobs.py`, `test_web_paging.py`, `test_web_rbac.py` |
+| Portable new-project file/copy, mapping and source revision | `TransferWizard.tsx`, `EnrollmentWizard.tsx`, `_prepare_transfer`, `transfer_source` | `test_web_transfer.py`, `web/e2e/transfer.spec.ts` |
 | Enrollment, display identity, readiness evidence | `adore/profiles.py`, `adore/wizard.py`, `adore/web/app.py` | `test_web_enrollment.py`, `test_web_errors.py` |
 | Exact TOML enrollment, safe review and probe | `web/src/ImportWizard.tsx`, `importCopy.ts`, `_inspect_project_import` | `test_web_import.py`, `web/e2e/import.spec.ts` |
 | Guided enrollment steps, correction, draft loss and review | `web/src/EnrollmentWizard.tsx`, `web/src/enrollmentCopy.ts`, `App.tsx` | `web/e2e/enrollment.spec.ts` |
@@ -288,6 +301,8 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 | Offline media | `02_Tools/*web*.py` | `test_web_package.py`, installed HTTP smoke |
 
 ## Key behaviors
+
+- `REQ-FUNC-20010f79`, `REQ-SEC-934b2dca`, `REQ-UX-7d0b71c3`: isolated stopped portable enrollment, exact authorized source binding and explanatory mapping/reconfirmation.
 
 - `REQ-SEC-f96d80d4` / `REQ-UX-302fbce4`: Admin-only authoritative portable
   rule preview/download with strict scoped transport and no enrollment writes.
@@ -369,7 +384,12 @@ flowchart LR
     App --> ImportWizard[ImportWizard exact memory draft]
     ImportWizard --> importCopy[importCopy localized source effects]
     ImportWizard --> api
-    App --> EnrollmentWizard[EnrollmentWizard memory draft focus guards]
+    App --> TransferWizard[TransferWizard file or project source rules]
+    TransferWizard --> EnrollmentWizard[EnrollmentWizard memory draft focus guards]
+    TransferWizard --> transferSource[Strict portable source revision]
+    transferSource --> portableSource
+    EnrollmentWizard --> transferTarget[Source target binding independent ownership]
+    transferTarget --> publication
     EnrollmentWizard --> enrollmentCopy[enrollmentCopy localized guidance]
     EnrollmentWizard --> api
     api --> draftProbe[Shared bounded draft and project probe]
@@ -471,6 +491,8 @@ for Add and Import project. Primary buttons take their text colour from the
 `--on-accent` theme token.
 
 ## Files
+
+- `web/src/TransferWizard.tsx`, `transferCopy.ts`, optional `EnrollmentWizard` transfer mode and `tests/test_web_transfer.py`, `web/e2e/transfer.spec.ts` own portable new-project enrollment.
 
 - `04_Software/web/src/JobWorkspace.tsx` — scoped attention/jobs/detail, observed
   paging and queued command feedback; `jobModel.ts` validates transport evidence,

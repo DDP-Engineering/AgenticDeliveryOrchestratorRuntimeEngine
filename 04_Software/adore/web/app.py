@@ -15,6 +15,7 @@
 """
 
 # IMPORTS
+from collections.abc import Callable
 from contextlib import contextmanager
 import csv
 from dataclasses import asdict
@@ -51,7 +52,13 @@ from adore.cli import _NOT_SECRET_KEYS, _SECRET_KEY_RE, _is_secret_key, _newline
 from adore.config import SELINUX_RELABEL_MODES, default_config, load_config, validate_config
 from adore.config_edit import ConfigEditLockedError, config_edit_lock
 from adore.isolation import ContainerManager, IsolationError
-from adore.portable_settings import MAX_SOURCE_BYTES, PortableSettingsError, export_settings
+from adore.portable_settings import (
+    MAX_SOURCE_BYTES,
+    PORTABLE_FIELDS,
+    PortableSettingsError,
+    export_settings,
+    parse_settings,
+)
 from adore.profiles import ProfileError, ProfileStore, validate_display_name, validate_profile_id
 from adore.state import RunState, StateError, StateStore
 from adore.util import CommandRunner, force_rmtree, run_command
@@ -203,6 +210,29 @@ class ProjectInput(BaseModel):
 
 class ReviewedProjectInput(ProjectInput):
     """@brief Exact reviewed draft revision for explicit probe or guarded creation."""
+
+    revision: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class TransferSourceInput(BaseModel):
+    """@brief Exact portable bytes or an immutable source-project identity."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+    method: Literal["file", "project"]
+    file_text: str | None = Field(default=None, max_length=65536)
+    source_id: str | None = Field(default=None, pattern=r"^[0-9a-f]{32}$")
+
+
+class TransferInput(TransferSourceInput):
+    """@brief Source-bound fresh target answers and explicit reference reconfirmation."""
+
+    target: ProjectInput
+    source_revision: str = Field(pattern=r"^[0-9a-f]{64}$")
+    references_confirmed: bool
+
+
+class ReviewedTransferInput(TransferInput):
+    """@brief Exact reviewed portable target candidate for probe or publication."""
 
     revision: str = Field(pattern=r"^[0-9a-f]{64}$")
 
@@ -592,13 +622,119 @@ def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, 
     return preview, candidate
 
 
+def _transfer_paths(profiles: ProfileStore, config, name: str, *, own_target: bool = False) -> None:
+    """
+    @brief      Reject occupied, aliased or overlapping fresh target ownership.
+    @param[in]  profiles Authoritative profile/config store.
+    @param[in]  config Validated target snapshot with allocated absolute paths.
+    @param[in]  name Fresh target directory identity.
+    @param[in]  own_target Publication already owns its new directory/state lock.
+    @exception  HTTPException Ambiguous/corrupt ownership fails closed without values.
+    """
+    directory = profiles.profile_dir(name).absolute()
+    trees = Path(config.worktree.root).absolute()
+    clone = Path(config.worktree.repo_path).resolve()
+
+    def overlaps(first: Path, second: Path) -> bool:
+        return first == second or first.is_relative_to(second) or second.is_relative_to(first)
+
+    def conflict() -> None:
+        raise _error(409, "project_import_conflict")
+
+    try:
+        if (directory.resolve() != directory or trees.resolve() != trees
+                or trees.exists() or not own_target and directory.exists()
+                or overlaps(directory, trees) or overlaps(directory, clone)
+                or overlaps(trees, clone)):
+            conflict()
+        if profiles.invalid_profiles():
+            raise _error(503, "project_corrupt")
+        for other in profiles.list_profiles():
+            if own_target and other.name == name:
+                continue
+            with profiles.config_path(other.name).open("rb") as source:
+                raw = source.read(MAX_SOURCE_BYTES + 1)
+            export_settings(raw)  # Strict full source contract before ownership extraction.
+            owned = _config_from_bytes(raw)
+            if Path(other.store_root or profiles.default_store_root(other.name)).resolve() != (
+                    Path(owned.state.store_root).resolve()):
+                raise _error(503, "project_corrupt")
+            if (config.platform.kind == owned.platform.kind
+                    and config.platform.repo.casefold() == owned.platform.repo.casefold()):
+                conflict()
+            locations = [profiles.profile_dir(other.name), Path(owned.state.store_root),
+                         Path(owned.worktree.root), Path(owned.worktree.repo_path),
+                         Path(owned.metrics.db_path), Path(owned.metrics.export_jsonl),
+                         Path(owned.metrics.html_out)]
+            if any(overlaps(target, location.resolve()) for target in (directory, trees, clone)
+                   for location in locations):
+                conflict()
+    except (OSError, ProfileError, PortableSettingsError, ValueError, TypeError) as exc:
+        raise _error(503, "project_corrupt") from exc
+
+
+def _prepare_transfer(profiles: ProfileStore, body: TransferInput,
+                      settings: dict) -> tuple[dict, WizardSetup | None]:
+    """
+    @brief      Project complete portable rules onto an independently prepared target.
+    @param[in]  profiles Target host profile store.
+    @param[in]  body Explicit new target answers and reconfirmation.
+    @param[in]  settings Complete strict parser output.
+    @return     Canonical mapping/review and exact validated candidate or findings.
+    @exception  HTTPException Invalid/ambiguous storage or ownership fails closed.
+    """
+    # Guided limits need not constrain the already validated portable numeric domain.
+    # Prepare target nonportable fields with defaults, then project all portable fields.
+    answers = body.target.model_copy(update={
+        "max_iterations": 12, "max_wall_clock_seconds": 5400,
+        "max_cost_usd": 5.0, "max_files_touched": 120,
+    })
+    preview, candidate = _prepare_project(profiles, answers)
+    preview["source_revision"] = body.source_revision
+    defaults = default_config().to_dict()
+    preview["mapping"] = [{"key": f"{section}.{key}", "source_value": settings[section][key],
+                           "server_value": defaults[section][key], "effect": "copy-rule"}
+                          for section, keys in PORTABLE_FIELDS.items() for key in keys]
+    if not body.references_confirmed:
+        preview["issues"].append(_finding("setup_field_invalid", "references_confirmed",
+                                         "Reconfirm target environment and connection setup."))
+    if candidate is not None and not preview["issues"]:
+        document = candidate.document
+        for section, keys in PORTABLE_FIELDS.items():
+            document = re.sub(r"(?ms)^\[" + section + r"\]\s*\n.*?(?=^\[|\Z)", "", document)
+            document += "\n[" + section + "]\n" + "\n".join(
+                key + " = " + json.dumps(settings[section][key]) for key in keys) + "\n"
+        config = _config_from_bytes(document.encode("utf-8"))
+        preview["issues"].extend(_config_findings(config))
+        if not preview["issues"]:
+            _transfer_paths(profiles, config, body.target.name)
+            candidate.document = document
+            preview["config_revision"] = sha256(document.encode("utf-8")).hexdigest()
+            preview["revision"] = sha256(json.dumps({
+                "config_revision": preview["config_revision"],
+                "source_revision": body.source_revision,
+                "name": body.target.name, "display_name": preview["display_name"],
+                "description": body.target.description,
+            }, sort_keys=True).encode()).hexdigest()
+            preview["review"].update(settings["budgets"])
+            preview["review"].update({"metrics_db": config.metrics.db_path,
+                                      "metrics_jsonl": config.metrics.export_jsonl,
+                                      "metrics_html": config.metrics.html_out})
+    preview["structural_valid"] = not preview["issues"]
+    if preview["issues"]:
+        preview.update(revision=None, config_revision=None, review=None)
+        candidate = None
+    return preview, candidate
+
+
 def _publish_paused(profiles: ProfileStore, web: WebStore, actor: int, name: str,
                     raw: bytes, metadata: dict, *, imported: bool = False,
-                    import_body: ProjectImportInput | None = None) -> dict:
+                    import_body: ProjectImportInput | None = None,
+                    recheck: Callable[[], None] | None = None) -> dict:
     """@brief Keep lock, filesystem and parsing failures typed at the enrollment boundary."""
     try:
         return _publish_paused_locked(profiles, web, actor, name, raw, metadata,
-                                      imported=imported, import_body=import_body)
+                                      imported=imported, import_body=import_body, recheck=recheck)
     except (OSError, StateError, ProfileError, UnicodeError, ValueError, TypeError) as exc:
         raise _contract_rejection("project_creation_failed", "config",
                               "Check local enrollment storage before retrying.") from exc
@@ -606,7 +742,8 @@ def _publish_paused(profiles: ProfileStore, web: WebStore, actor: int, name: str
 
 def _publish_paused_locked(profiles: ProfileStore, web: WebStore, actor: int, name: str,
                            raw: bytes, metadata: dict, *, imported: bool = False,
-                           import_body: ProjectImportInput | None = None) -> dict:
+                           import_body: ProjectImportInput | None = None,
+                           recheck: Callable[[], None] | None = None) -> dict:
     """@brief Publish metadata after pause, holding ownership and conductor locks."""
     with _web_config_edit_lock(profiles.home / "web-enrollment" / "config.toml"):
         try:
@@ -624,6 +761,8 @@ def _publish_paused_locked(profiles: ProfileStore, web: WebStore, actor: int, na
                                       "Choose an absolute state root owned only by this project.")
         if import_body is not None:
             _reviewed_import(profiles, import_body)
+        if recheck is not None:
+            recheck()
         directory = profiles.profile_dir(name)
         try:
             directory.mkdir(parents=True, exist_ok=False)
@@ -641,9 +780,13 @@ def _publish_paused_locked(profiles: ProfileStore, web: WebStore, actor: int, na
                 raise _error(409, "project_has_active_work")
             if import_body is not None:
                 _reviewed_import(profiles, import_body, own_state_lock=True)
+            if recheck is not None:
+                recheck()
             profiles.config_path(name).write_bytes(raw)
             state.pause()
             item = profiles.create(name, **metadata)
+            if recheck is not None:
+                recheck()
             web.audit(actor, "project-imported" if imported else "project-created", name)
             return _profile_view(profiles, item)
         except Exception as exc:
@@ -2058,7 +2201,9 @@ def create_app(home: str | Path | None = None,
                        "/api/v1/projects/id-availability", "/api/v1/projects/import-preview",
                        "/api/v1/projects/import", "/api/v1/projects/import-check",
                        "/api/v1/projects/setup-check",
-                       "/api/v1/projects/setup-create"}
+                       "/api/v1/projects/setup-create", "/api/v1/projects/transfer-source",
+                       "/api/v1/projects/transfer-preview", "/api/v1/projects/transfer-check",
+                       "/api/v1/projects/transfer-create"}
         if _request.url.path in setup_paths or _request.url.path.endswith("/identity"):
             detail["issues"] = issues
         return JSONResponse(status_code=422, content={"detail": detail})
@@ -2447,6 +2592,109 @@ def create_app(home: str | Path | None = None,
         """@brief Validate setup locally without commands or profile publication."""
         preview, _candidate = _prepare_project(profiles, body)
         return preview
+
+    def transfer_source(body: TransferSourceInput, request: Request) -> dict:
+        """
+        @brief      Reauthorize and strictly read exact file or active project bytes.
+        @param[in]  body Closed source selection; project input uses immutable identity.
+        @param[in]  request Session/CSRF authority rechecked at every boundary.
+        @return     Allowlisted rules and exact source revision only.
+        @exception  HTTPException Missing, changed, incompatible or corrupt source.
+        """
+        user = admin_mutation(mutation(request, principal(account_principal(request))))
+        if ((body.method == "file" and (body.file_text is None or body.source_id is not None))
+                or (body.method == "project"
+                    and (body.source_id is None or body.file_text is not None))):
+            raise _error(400, "portable_settings_invalid")
+        try:
+            if body.method == "file":
+                raw = body.file_text.encode("utf-8")
+                settings = parse_settings(raw)
+                revision = sha256(raw).hexdigest()
+            else:
+                item = project(body.source_id, user)
+                with profiles.config_path(item.name).open("rb") as source:
+                    raw = source.read(MAX_SOURCE_BYTES + 1)
+                settings = parse_settings(export_settings(raw))
+                if project(body.source_id, user).project_id != item.project_id:
+                    raise _error(409, "portable_settings_changed")
+                revision = sha256((item.project_id + sha256(raw).hexdigest()).encode()).hexdigest()
+        except PortableSettingsError as exc:
+            raise _error(400, exc.code) from exc
+        except (OSError, UnicodeError) as exc:
+            raise _error(503, "portable_settings_invalid") from exc
+        return {"source_revision": revision, "settings": settings}
+
+    @app.post("/api/v1/projects/transfer-source")
+    def preview_transfer_source(body: TransferSourceInput, request: Request,
+                                _user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+        """@brief Review only recognized portable rules without target writes or probes."""
+        return transfer_source(body, request)
+
+    def prepare_transfer(body: TransferInput, request: Request):
+        """@brief Bind an exact source to freshly supplied independent target setup."""
+        source = transfer_source(body, request)
+        if not secrets.compare_digest(body.source_revision, source["source_revision"]):
+            raise _error(409, "portable_settings_changed")
+        return _prepare_transfer(profiles, body, source["settings"])
+
+    @app.post("/api/v1/projects/transfer-preview")
+    def preview_transfer(body: TransferInput, request: Request,
+                         _user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+        """@brief Return target rules/mapping and canonical validated review without writes."""
+        preview, _candidate = prepare_transfer(body, request)
+        return preview
+
+    def reviewed_transfer(body: ReviewedTransferInput, request: Request):
+        """@brief Reject invalid, duplicate or changed source/target confirmation."""
+        preview, candidate = prepare_transfer(body, request)
+        if not preview["structural_valid"] or candidate is None:
+            duplicate = any(issue["code"] == "project_exists" for issue in preview["issues"])
+            raise HTTPException(status_code=409 if duplicate else 400, detail={
+                "code": "project_exists" if duplicate else "project_setup_invalid",
+                "issues": preview["issues"]})
+        if not secrets.compare_digest(body.revision, preview["revision"]):
+            raise _error(409, "portable_settings_changed")
+        return preview, candidate
+
+    @app.post("/api/v1/projects/transfer-check")
+    def check_transfer(body: ReviewedTransferInput, request: Request,
+                       _user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+        """@brief Explicitly probe exact target; reread authorization/source after probes."""
+        preview, candidate = reviewed_transfer(body, request)
+        evidence = _probe_setup(_config_from_bytes(candidate.document.encode()), probe_runner)
+        reviewed_transfer(body, request)
+        checks = evidence["checks"]
+        status = ("failed" if any(value is False for value in checks.values()) else
+                  "partial" if any(type(value) is not bool for value in checks.values())
+                  else "verified")
+        return {**evidence, "status": status, "revision": preview["config_revision"],
+                "draft_revision": preview["revision"], "context": "api-host",
+                "checked_at": datetime.now(UTC).isoformat()}
+
+    @app.post("/api/v1/projects/transfer-create")
+    def create_transfer(body: ReviewedTransferInput, request: Request,
+                        user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+        """@brief Atomically publish fresh stopped target with source/role rechecks."""
+        _preview, candidate = reviewed_transfer(body, request)
+        config = _config_from_bytes(candidate.document.encode())
+
+        def recheck() -> None:
+            """@brief Reauthorize/reinspect source and independent ownership before visibility."""
+            source = transfer_source(body, request)
+            if not secrets.compare_digest(body.source_revision, source["source_revision"]):
+                raise _error(409, "portable_settings_changed")
+            _transfer_paths(profiles, config, body.target.name, own_target=True)
+
+        def publish() -> dict:
+            return _publish_paused(profiles, web, user["id"], body.target.name,
+                                   candidate.document.encode(), candidate.metadata, recheck=recheck)
+
+        if body.method == "project":
+            item = project(body.source_id, user)
+            with _web_config_edit_lock(profiles.config_path(item.name)):
+                return publish()
+        return publish()
 
     def reviewed_setup(body: ReviewedProjectInput):
         """@brief Rebuild and compare an exact memory draft before acting on it.

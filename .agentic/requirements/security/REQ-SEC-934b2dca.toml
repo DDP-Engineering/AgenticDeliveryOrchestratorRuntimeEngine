@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-SEC-934b2dca"
+title = "Authorize and bind portable enrollment sources"
+status = "active"
+requirement = "When portable enrollment reads or confirms a source, the API shall require a current Admin session and CSRF and bind the exact supported source file bytes or immutable source-project identity/configuration revision to the target candidate, returning typed conflicts for changed sources and rejecting incompatible/corrupt inputs before publication."
+verification = "Offline API tests verify Admin/CSRF happy requests and Dev/session/revocation denial; source missing/replaced/comment-only edits, exact file changes, duplicates/secrets/schema/version errors fail closed."
+affected_paths = ["04_Software/adore/web/app.py", "04_Software/adore/profiles.py", "04_Software/web/src/App.tsx", "04_Software/web/src/EnrollmentWizard.tsx", "04_Software/web/src/TransferWizard.tsx", "04_Software/web/src/transferCopy.ts", "04_Software/web/src/errors.ts", "04_Software/web/e2e/transfer.spec.ts", "04_Software/adore/web/static/"]
+linked_tests = ["04_Software/tests/test_web_transfer.py::test_transfer_roundtrip_independent_stopped_and_replay", "04_Software/tests/test_web_transfer.py::test_transfer_exact_source_and_target_binding", "04_Software/tests/test_web_transfer.py::test_transfer_target_boundaries", "04_Software/tests/test_web_transfer.py::test_transfer_admin_csrf_and_session_denial"]
+spec = "specs/REQ-FUNC-20010f79.md"
+priority = "normal"
+created = 2026-10-06
+updated = 2026-10-06

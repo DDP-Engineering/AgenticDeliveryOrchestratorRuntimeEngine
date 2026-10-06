@@ -135,7 +135,8 @@ def validate_profile_id(name: object) -> str:
             or re.fullmatch(r"(?:com|lpt)[1-9]", stem)
             or re.fullmatch(r"[0-9a-f]{32}", name)
             or name in {"import", "import-preview", "setup-preview", "setup-check",
-                        "setup-create", "id-availability"}):
+                        "setup-create", "id-availability", "transfer-source",
+                        "transfer-preview", "transfer-check", "transfer-create"}):
         raise ProfileError("reserved profile ID", code="reserved_project_name")
     return name
 

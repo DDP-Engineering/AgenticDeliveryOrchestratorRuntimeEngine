@@ -16,7 +16,7 @@ import { settingHelp } from "./settingHelp";
 import { settingsCopy, settingLabel } from "./settingsCopy";
 import { ImportWizard } from "./ImportWizard";
 import { PortableSettings } from "./PortableSettings";
-import { EnrollmentWizard } from "./EnrollmentWizard";
+import { TransferWizard } from "./TransferWizard";
 import { JobWorkspace } from "./JobWorkspace";
 import { jobCopy } from "./jobCopy";
 import { DashboardShell, NavigationLink, type ShellLink } from "./DashboardShell";
@@ -982,7 +982,8 @@ export default function App() {
           </section>
         </>}
 
-        {page === "createProject" && isAdmin && <EnrollmentWizard locale={locale} csrf={session.csrf} t={t}
+        {page === "createProject" && isAdmin && <TransferWizard locale={locale} csrf={session.csrf} t={t}
+          projects={projects} onExact={() => setPage("importProject")}
           registerGuard={guard => { enrollmentGuard.current = guard; }}
           onCancel={() => { setError(""); setPage("projects"); }}
           onCreated={() => { void refreshProjects(); }} onOpen={id => openProject(id)} />}

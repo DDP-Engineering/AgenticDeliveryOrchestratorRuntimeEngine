@@ -390,8 +390,9 @@ preview validated active working rules and download a versioned JSON package.
 Pending changes and host/identity/access/secrets are excluded; all credential and
 endpoint references are omitted. Exact installed source-version compatibility
 is required. The checksum detects changes without establishing authenticity.
-The parser supplies defaults for new projects; this panel provides export and
-has no portable import/copy enrollment workflow. See
+The parser supplies rules for new projects; this panel provides export.
+**Add project** offers portable import/copy, with recognized rules,
+independent target setup and mandatory reference reconfirmation. See
 [Portable project settings](Portable_Project_Settings.md) for the enumerated
 allowlist, source/parser rejection rules, target-host limitations and API.
 Exact server TOML enrollment and statistics CSV remain separate formats.
@@ -783,6 +784,17 @@ operations interrupted during a worker stop become `uncertain` for operator
 reconciliation rather than being blindly replayed.
 
 ## Backend project enrollment and verification
+
+**Add project** offers **Import portable settings** and **Copy project settings**.
+Sources supply only the strict 16-rule allowlist. The localized wizard requires
+fresh target identity/repository/environment/references, shows source/default/effect
+mapping and independently allocated locations, and confirms pickup-stopped
+creation. Exact source/candidate revisions, Admin/CSRF, current source authority,
+ownership collision checks and rollback/replay guards remain server-enforced.
+**Advanced: unchanged server TOML copy** retains host-specific exact-copy behavior.
+See [Portable project settings](Portable_Project_Settings.md) for the workflow,
+format, exclusions, error recovery and target endpoint setup.
+
 
 The project API separates the portable profile ID (`name`), immutable identity
 (`id`) and human label (`display_name`). Administrators may change only the human

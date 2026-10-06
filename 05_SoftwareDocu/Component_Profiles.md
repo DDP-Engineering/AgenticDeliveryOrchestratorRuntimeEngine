@@ -139,11 +139,13 @@ field `display_name`, without including input values.
 `validate_profile_id()` validates web IDs: lowercase ASCII letters/digits first,
 then letters/digits/dot/underscore/hyphen, at most 64 characters. Trailing dots,
 Windows device stems (including extensions), 32-hex identity aliases and reserved
-route names (including `setup-check` and `setup-create`) are rejected.
+route names (including `setup-check`, `setup-create`, `transfer-source`, `transfer-preview`,
+`transfer-check` and `transfer-create`) are rejected.
 `ProfileStore.id_availability()` checks complete and incomplete filesystem
 entries case-insensitively, immutable IDs and corrupt or
 duplicate metadata. Availability is advisory; the web publication lock rechecks
 it before creating a directory. CLI rename retains its separate behavior.
 
+Public transfer route-name coverage: `test_web_transfer.py`.
 Public contract coverage: `test_web_enrollment.py` exercises legacy fallback,
 corrupt labels, portable IDs, incomplete ownership and preserved grants/operations.
