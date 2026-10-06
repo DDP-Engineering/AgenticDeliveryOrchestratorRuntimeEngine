@@ -12,6 +12,10 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+### Changed
+
+- Simplified project Settings and added administrator preview/download of original TOML, including inline secrets, in place of the portable export panel.
+
 ### Fixed
 
 - Show one dismissible application notification, updating operation status and hiding final/ordinary feedback after five seconds while preserving worker polling.

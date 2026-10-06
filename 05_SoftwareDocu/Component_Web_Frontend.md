@@ -215,7 +215,7 @@ Verification shows structural invalidity or persisted unverified/stale/failed/
 partial/verified evidence; static validity does not establish live readiness.
 Assigned developers can inspect the redacted effective configuration in
 collapsible purpose categories, with frequent settings first within each. Each row shows its value,
-a Set for this project / Default badge, its type and contextual help; common
+a Default badge for inherited values, its type and contextual help; common
 settings also describe their valid domain. A checkbox limits the list to
 settings set for the project (`web/src/settings.ts` builds and groups the
 rows). Each row's visible guidance shows the setting's own text in the selected language
@@ -401,20 +401,9 @@ keyboard/390px themes. External commands remain faked; participant/live/full-WCA
 acceptance remains human work.
 
 
-`PortableSettings.tsx` owns the Admin-only active-rule export panel and its
-EN/FR/DE/RO copy. Visible purpose, included/excluded data, exact source-version
-compatibility, checksum limits and separate new-project import/copy guidance precede
-explicit preview/download. `portable.ts` checks complete transport keys, types,
-bounds, duplicates and the checksum of canonical server bytes. Download fetches
-again with preview checksum and saves the validated bytes without reserialization.
-A failed/empty/corrupt/changed read clears preview and disables download; retry is
-explicit. App keys the panel by authorized session/project/config revision;
-unmount aborts requests, ignores late completions and an immediate ref lock
-prevents duplicate submission. This memory-only read flow writes no profile or
-pending configuration. Checksum text wraps at narrow widths; buttons retain
-visible keyboard focus in both themes. `tests/portable.test.mjs` and
-`e2e/portable.spec.ts` cover these public boundaries and exact downloads;
-representative 390px captures support bounded visual inspection.
+`RawConfiguration.tsx` owns four-locale Admin raw actions, bounded fetch, exact-byte download and native dialog with Escape/Close/focus restoration. Abort and pending-ref guards discard late results on unmount. Errors use localized safe codes; TOML is escaped text and never stored in browser storage. `e2e/portable.spec.ts` covers bytes, failures, role denial, late responses and four locales at 390px.
+
+Administrators use **Preview raw configuration** or **Download raw configuration** beside Project settings. Preview opens a closable dialog; download preserves original saved `config.toml` bytes including comments, formatting and inline secrets. Pending changes, resolved defaults, separate `.env` files and external credentials are excluded. Preview is memory-only and cleared on dismissal or project/session change. Developers retain redacted read-only settings and cannot access raw configuration. Candidate review/apply/discard remains inside Settings.
 
 
 `DashboardShell.tsx` owns the authenticated frame, real navigation links,
@@ -670,7 +659,7 @@ The worker and GUI host check use the same isolated CLI binding. Protected
 repository-auth.json beside config binds immutable project identity and current
 provider/repository/login. Other projects/shared logins remain unchanged. Missing
 records preserve external auth; corrupt/stale records fail closed. Reconnect after
-provider/repository/login changes. Config/portable exports and audit exclude tokens;
+provider/repository/login changes. Structured config/portable exports and audit exclude tokens; raw TOML is an explicit Admin-only exception.
 executors receive none. POSIX files use 0600; Windows profile ACLs and server-home
 backups require service-account restrictions. See Component_Repository_Auth.md.
 

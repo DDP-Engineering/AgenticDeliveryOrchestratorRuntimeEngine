@@ -12,7 +12,9 @@ async function openSettings(page: Page, user = "admin") {
   await page.getByLabel("Username", { exact: false }).fill(user);
   await page.getByLabel("Password", { exact: false }).fill(user === "admin" ? "admin" : "test-password");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Overview", exact: true })).toBeVisible();
+  await expect(page.locator(".shell")).toBeVisible();
+  const session = await (await page.request.get("/api/v1/me")).json();
+  await page.request.patch("/api/v1/me/preferences", { headers: { "X-CSRF-Token": session.csrf }, data: { language: "en", theme: "light" } });
   const projects = await (await page.request.get("/api/v1/projects")).json();
   await page.goto(`/projects/${projects.find((item: { name: string }) => item.name === "alpha").id}/configuration`);
   await expect(page.getByRole("heading", { name: "Project settings", exact: true })).toBeVisible();
@@ -22,117 +24,105 @@ test.beforeEach(async ({ context }) => {
   await context.route("**/*", route => new URL(route.request().url()).origin === "http://127.0.0.1:18765" ? route.continue() : route.abort("blockedbyclient"));
 });
 
-test("explicit portable preview downloads exact active bytes with purpose and exclusions", async ({ page }) => {
-  await openSettings(page);
-  const panel = page.locator(".portable-settings");
-  const download = panel.getByRole("button", { name: "Download portable JSON", exact: true });
-  await expect(download).toBeDisabled();
-  await expect(panel).toContainText("pending changes are excluded");
-  await expect(panel).toContainText("all credential/endpoint references");
-  await expect(panel).toContainText("does not authenticate");
-  await expect(panel).toContainText("not available in this screen");
-  const active = await (await page.request.get("/api/v1/projects/alpha/config")).json();
-  const pending = await (await page.request.get("/api/v1/projects/alpha/config/pending")).text();
-  const expected = await (await page.request.get("/api/v1/projects/alpha/config/portable-settings")).text();
-  await panel.getByRole("button", { name: "Preview active rules", exact: true }).click();
-  await expect(panel.locator("pre")).toContainText('"max_iterations"');
-  const event = page.waitForEvent("download");
-  await download.click();
-  const file = await event;
-  expect(file.suggestedFilename()).toBe("adore-project-settings.json");
-  expect(await readFile((await file.path())!, "utf8")).toBe(expected);
-  expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).revision).toBe(active.revision);
-  expect(await (await page.request.get("/api/v1/projects/alpha/config/pending")).text()).toBe(pending);
+test.afterEach(async ({ page }) => {
+  const response = await page.request.get("/api/v1/me");
+  if (response.ok()) {
+    const session = await response.json();
+    await page.request.patch("/api/v1/me/preferences", { headers: { "X-CSRF-Token": session.csrf }, data: { language: "en", theme: "light" } });
+  }
 });
 
-test("failed empty malformed and changed reads clear preview and allow retry", async ({ page }) => {
+test("raw configuration preview and download are original and Settings stays compact", async ({ page }) => {
   await openSettings(page);
-  const panel = page.locator(".portable-settings");
-  const preview = panel.getByRole("button", { name: "Preview active rules", exact: true });
-  const download = panel.getByRole("button", { name: "Download portable JSON", exact: true });
-  for (const body of ["", "null", "{}", '{"kind":"adore-project-settings"}']) {
-    await page.route("**/config/portable-settings*", route => route.fulfill({ status: 200, contentType: "application/json", body }));
+  const panel = page.locator("#project-settings");
+  await expect(page.locator(".portable-settings, #project-config-editor")).toHaveCount(0);
+  await expect(panel.getByText("Set for this project", { exact: true })).toHaveCount(0);
+  await expect(panel.getByText(/Prepare one setting at a time/)).toHaveCount(0);
+  const original = await page.request.get("/api/v1/projects/alpha/config/raw");
+  expect(original.status()).toBe(200);
+  const expected = await original.body();
+  const download = page.waitForEvent("download");
+  await panel.getByRole("button", { name: "Download raw configuration", exact: true }).click();
+  const file = await download;
+  expect(file.suggestedFilename()).toBe("config.toml");
+  expect(await readFile((await file.path())!)).toEqual(expected);
+  const preview = panel.getByRole("button", { name: "Preview raw configuration", exact: true });
+  await preview.click();
+  const dialog = page.getByRole("dialog", { name: "Preview raw configuration", exact: true });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator("pre")).toHaveText(expected.toString("utf8"), { useInnerText: false });
+  await expect(dialog.getByRole("button", { name: "Close", exact: true })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(preview).toBeFocused();
+  await expect(page.locator(".raw-config-actions pre")).toHaveCount(0);
+});
+
+test("raw configuration failures and malformed transports expose no preview", async ({ page }) => {
+  await openSettings(page);
+  const preview = page.getByRole("button", { name: "Preview raw configuration", exact: true });
+  for (const response of [
+    { status: 503, contentType: "application/json", body: JSON.stringify({ detail: { code: "config_corrupt" } }) },
+    { status: 200, contentType: "text/html", body: "<script>window.rawInjected = true</script>" },
+    { status: 200, contentType: "text/plain", body: "" },
+  ]) {
+    await page.route("**/config/raw*", route => route.fulfill(response));
     await preview.click();
-    await expect(panel.getByRole("alert")).toBeVisible();
-    await expect(download).toBeDisabled();
-    await expect(panel.locator("pre")).toHaveCount(0);
-    await page.unroute("**/config/portable-settings*");
+    await expect(page.locator(".raw-config-actions [role=alert]")).toBeVisible();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await page.unroute("**/config/raw*");
   }
-  await preview.click(); await expect(download).toBeEnabled();
-  await page.route("**/config/portable-settings?*", route => route.fulfill({ status: 409, contentType: "application/json", body: JSON.stringify({ detail: { code: "portable_settings_changed" } }) }));
-  await download.click();
-  await expect(panel.getByRole("alert")).toContainText("Preview the active settings again");
-  await expect(download).toBeDisabled();
-  await expect(panel.locator("pre")).toHaveCount(0);
-  await page.unroute("**/config/portable-settings?*");
-  await preview.click(); await expect(download).toBeEnabled();
+  await preview.click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.keyboard.press("Escape");
 });
 
-test("corrupt source and network feedback never offer an export", async ({ page }) => {
+test("raw configuration inline secrets render as text and are cleared on scope change", async ({ page }) => {
   await openSettings(page);
-  const panel = page.locator(".portable-settings");
-  await page.route("**/config/portable-settings*", route => route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ detail: { code: "portable_settings_invalid" } }) }));
-  await panel.getByRole("button", { name: "Preview active rules" }).click();
-  await expect(panel.getByRole("alert")).toContainText("Correct it on the ADORE host");
-  await page.unroute("**/config/portable-settings*");
-  await page.route("**/config/portable-settings*", route => route.abort("failed"));
-  await panel.getByRole("button", { name: "Preview active rules" }).click();
-  await expect(panel.getByRole("alert")).toBeVisible();
-  await expect(panel.getByRole("button", { name: "Download portable JSON" })).toBeDisabled();
-});
-
-test("Dev cannot see export and direct requests reveal no project metadata", async ({ page }) => {
-  await openSettings(page, "developer");
-  await expect(page.locator(".portable-settings")).toHaveCount(0);
-  for (const project of ["alpha", "beta", "absent"]) {
-    const response = await page.request.get(`/api/v1/projects/${project}/config/portable-settings?download=true`);
-    expect(response.status()).toBe(403);
-    expect(await response.json()).toEqual({ detail: { code: "admin_required" } });
-  }
-});
-
-test("late preview is cancelled on project navigation and duplicate clicks issue one read", async ({ page }) => {
-  await openSettings(page);
+  const original = '# inline fixture\r\n[private]\r\nvalue="<script>window.rawInjected=true</script>"\r\n';
+  await page.route("**/config/raw*", route => route.fulfill({ contentType: "text/plain", body: original }));
+  await page.getByRole("button", { name: "Preview raw configuration", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  expect(await dialog.locator("pre").textContent()).toBe(original);
+  expect(await page.evaluate(() => "rawInjected" in window)).toBe(false);
+  await page.keyboard.press("Escape");
   let release!: () => void;
+  let captured!: () => void;
   const held = new Promise<void>(resolve => { release = resolve; });
-  let reads = 0;
-  await page.route("**/config/portable-settings*", async route => {
-    reads += 1; const response = await route.fetch(); await held;
-    await route.fulfill({ response }).catch(() => {});
-  });
-  const panel = page.locator(".portable-settings");
-  await panel.getByRole("button", { name: "Preview active rules" }).click();
-  await expect(panel.getByRole("button", { name: "Preview active rules" })).toBeDisabled();
-  const projects = await (await page.request.get("/api/v1/projects")).json();
-  await page.goto(`/projects/${projects.find((item: { name: string }) => item.name === "beta").id}/configuration`);
+  const started = new Promise<void>(resolve => { captured = resolve; });
+  await page.unroute("**/config/raw*");
+  await page.route("**/config/raw*", async route => { captured(); await held; await route.fulfill({ contentType: "text/plain", body: original }).catch(() => undefined); });
+  await page.getByRole("button", { name: "Preview raw configuration", exact: true }).click();
+  await started;
+  await page.getByRole("navigation", { name: "Primary navigation", exact: true }).getByRole("link", { name: "Overview", exact: true }).click();
   release();
-  await expect(page.locator(".portable-settings pre")).toHaveCount(0);
-  await expect(page.locator(".portable-settings").getByRole("button", { name: "Download portable JSON" })).toBeDisabled();
-  expect(reads).toBe(1);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  expect(await page.evaluate(() => Object.values(localStorage).some(value => value.includes("rawInjected")))).toBe(false);
 });
 
-test("keyboard 390px themes and four locales keep purpose and controls usable", async ({ page }, info) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await openSettings(page);
-  const session = await (await page.request.get("/api/v1/me")).json();
-  for (const theme of ["light", "dark"]) {
-    await page.request.patch("/api/v1/me/preferences", { headers: { "X-CSRF-Token": session.csrf }, data: { theme, language: "en" } });
-    await page.reload();
-    const panel = page.locator(".portable-settings");
-    const preview = panel.getByRole("button", { name: "Preview active rules" });
-    await preview.focus(); await page.keyboard.press("Enter");
-    await expect(panel.getByRole("button", { name: "Download portable JSON" })).toBeEnabled();
-    await page.keyboard.press("Tab");
-    await expect(panel.getByRole("button", { name: "Download portable JSON" })).toBeFocused();
-    await panel.scrollIntoViewIfNeeded();
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await panel.screenshot({ path: info.outputPath(`portable-${theme}-390.png`) });
+test("developer cannot view or download original unredacted configuration", async ({ page }) => {
+  await openSettings(page, "developer");
+  await expect(page.locator(".raw-config-actions")).toHaveCount(0);
+  for (const project of ["alpha", "beta"]) {
+    expect((await page.request.get(`/api/v1/projects/${project}/config/raw?download=true`)).status()).toBe(403);
   }
-  for (const [locale, title] of [["en", "Export portable settings"], ["fr", "Exporter les paramètres portables"], ["de", "Portable Einstellungen exportieren"], ["ro", "Exportă setările portabile"]]) {
-    await page.request.patch("/api/v1/me/preferences", { headers: { "X-CSRF-Token": session.csrf }, data: { language: locale } });
-    await page.reload();
-    await expect(page.locator(".portable-settings").getByRole("heading", { name: title })).toBeVisible();
-    await expect(page.locator(".portable-settings p").first()).not.toBeEmpty();
-  }
-  await page.request.patch("/api/v1/me/preferences", { headers: { "X-CSRF-Token": session.csrf }, data: { language: "en", theme: "light" } });
 });
+
+for (const [locale, preview] of [
+  ["en", "Preview raw configuration"], ["fr", "Voir la configuration brute"],
+  ["de", "Originalkonfiguration anzeigen"], ["ro", "Previzualizare configurație originală"],
+]) {
+  test(`raw configuration controls support ${locale} at 390px`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await openSettings(page);
+    const me = await (await page.request.get("/api/v1/me")).json();
+    await page.request.patch("/api/v1/me/preferences", { headers: { "X-CSRF-Token": me.csrf }, data: { language: locale, theme: "dark" } });
+    await page.reload();
+    await page.getByRole("button", { name: preview, exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: preview, exact: true });
+    await expect(dialog).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+  });
+}

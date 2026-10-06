@@ -53,8 +53,9 @@ OpenCode, Pi, Codex and Qwen Code.
   financial/secret redaction. Admin portable export validates active configuration
   and transfers only complete polling/readiness/recovery/budget defaults with exact
   package-version compatibility and a change-detection checksum. Strict parsing
-  writes no project state; localized preview/download explains exclusions and
-  separate target-host setup. Admin portable file/copy enrollment binds exact
+  writes no project state; transfer requires separate target-host setup. Admin raw
+  TOML preview/download preserves original inline secrets through a separate
+  administrator-only endpoint and memory-only dialog. Admin portable file/copy enrollment binds exact
   authorized source and target revisions, transfers the complete rule allowlist
   into independently owned stopped profiles, and shows localized source/default/
   effect mapping with explicit target reference/environment reconfirmation.

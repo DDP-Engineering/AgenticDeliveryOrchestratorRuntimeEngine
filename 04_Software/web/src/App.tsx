@@ -22,7 +22,7 @@ import { editValue, hasDefault, settingGroups, settingRows, type SettingMeta, ty
 import { settingHelp } from "./settingHelp";
 import { settingsCopy, settingLabel } from "./settingsCopy";
 import { ImportWizard } from "./ImportWizard";
-import { PortableSettings } from "./PortableSettings";
+import { RawConfiguration } from "./RawConfiguration";
 import { TransferWizard } from "./TransferWizard";
 import { readStatistics, readConsumption } from "./statistics";
 import { StatisticsEvidence, TrendEvidence } from "./StatisticsEvidence";
@@ -1046,17 +1046,14 @@ export default function App() {
           {projectTab === "history" && selectedProject?.id && <AuditHistory key={`${session.user.id}:${selected}`} locale={locale} projects={projects} fixedProject={selectedProject?.id} read={path => request(path)} />}
           {projectTab === "history" && <JobWorkspace reporting={{ from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }} reportingQuery={metricSuffix} admin={isAdmin} {...workspaceProps} mode="history" scope={selected} fixedScope />}
           {projectTab === "configuration" && <>
-          {isAdmin && selected && <PortableSettings key={`${session?.user.id}-${selected}-${projectConfig?.revision || "unread"}`} project={selected} locale={locale} />}
           {configDataState !== "ready" && <DataFeedback state={configDataState} t={t} />}
-          {projectConfig && <SettingsList key={`${selected}-${projectConfig.revision}`} config={projectConfig.config} settings={projectConfig.settings || []} t={t} locale={locale} canEdit={isAdmin} disabled={!!projectPendingConfig || configBusy || pendingReadFailed || isAdmin && !pendingReady} onStage={stageSetting} />}
-
-          {isAdmin && selected && <section className="panel wide-panel" id="project-config-editor"><h2>{t("config")}</h2>{projectConfig && <>
-            <p className="muted">{settingsCopy[locale].single}</p>
+          {projectConfig && <SettingsList key={`${selected}-${projectConfig.revision}`} config={projectConfig.config} settings={projectConfig.settings || []} t={t} locale={locale} canEdit={isAdmin} disabled={!!projectPendingConfig || configBusy || pendingReadFailed || isAdmin && !pendingReady} onStage={stageSetting} actions={isAdmin && <RawConfiguration key={`${session.user.id}:${selected}:${projectConfig.revision}`} project={selected} locale={locale} />}>
+            {isAdmin && <>
             {projectConfig.issues.length > 0 && <div className="alert">{projectConfig.issues.join(" · ")}</div>}
             {projectPendingConfig && <PendingReview config={projectConfig} candidate={projectPendingConfig} project={selectedProject?.display_name || selected} paused={selectedProject?.paused === true} busy={configBusy} locale={locale} t={t} onApply={applyPendingConfig} onDiscard={discardPendingConfig} />}
             {pendingReadFailed && <div className="alert"><p>{settingsCopy[locale].readFailed}</p><p>{settingsCopy[locale].discard}</p><button className="ghost" disabled={configBusy} onClick={() => void discardPendingConfig()}>{t("discardChange")}</button></div>}
-            <details><summary>{t("rawConfig")}</summary><pre className="config-preview">{JSON.stringify(projectConfig.config, null, 2)}</pre></details>
-          </>}</section>}
+            </>}
+          </SettingsList>}
           </>}
           {projectTab === "access" && isAdmin && selected && <ProjectAccess key={selected + ":" + viewRefresh} project={selected} csrf={session?.csrf} locale={locale} t={t} onError={setError} onNotice={setNotice} />}
           {projectTab === "prices" && isAdmin && <>
@@ -1306,7 +1303,7 @@ function PendingReview({ config, candidate, project, paused, busy, locale, t, on
   </div>;
 }
 
-function SettingsList({ executorOnly=false, config, settings, t, locale, canEdit, disabled, onStage }: { executorOnly?:boolean; config: Record<string, unknown>; settings: SettingMeta[]; t: (key: MessageKey) => string; locale: Locale; canEdit: boolean; disabled: boolean; onStage: (key: string, value: string) => Promise<boolean> }) {
+function SettingsList({ executorOnly=false, config, settings, t, locale, canEdit, disabled, onStage, actions, children }: { actions?: ReactNode; children?: ReactNode; executorOnly?:boolean; config: Record<string, unknown>; settings: SettingMeta[]; t: (key: MessageKey) => string; locale: Locale; canEdit: boolean; disabled: boolean; onStage: (key: string, value: string) => Promise<boolean> }) {
   const [editing, setEditing] = useState("");
   const [draft, setDraft] = useState("");
   const groups = settingGroups(settingRows(config, settings).filter(row=>isExecutorSetting(row.key)===executorOnly), false);
@@ -1319,14 +1316,14 @@ function SettingsList({ executorOnly=false, config, settings, t, locale, canEdit
     if (await onStage(row.editKey, draft)) setEditing("");
   };
   return <section className="panel" id="project-settings">
-    <div className="panel-heading"><h2>{executorOnly ? executorCopy[locale].tab : t("projectSettings")}</h2></div>
-    <p className="muted">{canEdit ? copy.single : copy.readOnly}</p>
+    <div className="panel-heading"><h2>{executorOnly ? executorCopy[locale].tab : t("projectSettings")}</h2>{actions}</div>
+    {(executorOnly || !canEdit) && <p className="muted">{canEdit ? copy.single : copy.readOnly}</p>}
     {groups.length === 0 ? <Empty label={t("settingsNoneSet")} /> : <div className="setting-groups">{groups.map(group => <details key={group.name} open={true}>
       <summary>{copy[group.name as keyof typeof copy]} <span className="muted">({group.rows.length})</span></summary>
       <div className="setting-list">{group.rows.map(row => <div className="setting-row" key={row.key}>
         <div>
           <strong>{label(row)}</strong><p className="setting-essential" id={`help-${row.key}`}>{settingHelp(row.key, locale) ?? t("settingGeneralHelp")}</p>
-          <span className={row.source === "project" ? "setting-badge set" : "setting-badge"}>{t(row.source === "project" ? "settingSetForProject" : "settingDefault")}</span>
+          {row.source !== "project" && <span className="setting-badge">{t("settingDefault")}</span>}
           {canEdit && row.input !== "none" && row.restart && <small className="setting-note">{t("settingRestartShort")}</small>}
           {canEdit && row.input === "none" && <small className="setting-note">{t("settingNotEditableShort")}</small>}
         </div>
@@ -1341,6 +1338,7 @@ function SettingsList({ executorOnly=false, config, settings, t, locale, canEdit
         </div>
       </div>)}</div>
     </details>)}</div>}
+    {children}
   </section>;
 }
 

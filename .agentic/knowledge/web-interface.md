@@ -92,11 +92,9 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
   Authorization precedes lookup, invalid sources return value-free 503, and
   optional preview checksum conflicts return 409. Project ownership is rechecked
   after snapshot export; changed identity rejects. Exact TOML/CSV contracts retain
-  their behavior. `PortableSettings.tsx` owns four-locale explicit preview and
-  exact-byte download, strict `portable.ts` response validation and unmount/ref
-  guards. Failed reads empty the preview and require retry. Tests are
-  `test_web_portable_settings.py`, `web/tests/portable.test.mjs` and
-  `web/e2e/portable.spec.ts`.
+  their behavior. Portable parser/API tests remain offline.
+- `GET /api/v1/projects/{name}/config/raw` is administrator-only. It returns original saved UTF-8 TOML bytes, including inline secrets, as `text/plain`, with `Cache-Control: no-store` and `X-Content-Type-Options: nosniff`. `?download=true` adds a fixed `config.toml` attachment. Authorization precedes lookup. Empty, malformed, unreadable, symlinked or oversized sources return value-free 503 `config_corrupt`; changed bytes or immutable project identity return 409 `stale_config_revision`. Reads are bounded to 524288 bytes; no environment resolution, `.env`, pending changes or mutation.
+- Administrators use **Preview raw configuration** or **Download raw configuration** beside Project settings. Preview opens a closable dialog; download preserves original saved `config.toml` bytes including comments, formatting and inline secrets. Pending changes, resolved defaults, separate `.env` files and external credentials are excluded. Preview is memory-only and cleared on dismissal or project/session change. Developers retain redacted read-only settings and cannot access raw configuration. Candidate review/apply/discard remains inside Settings.
 
 
 - `/api/v1/jobs-page` provides complete globally ordered authorized current and
@@ -402,8 +400,8 @@ Python/Ruff and frontend validation. CLI summary/export semantics are preserved.
 
 - `REQ-FUNC-20010f79`, `REQ-SEC-934b2dca`, `REQ-UX-7d0b71c3`: isolated stopped portable enrollment, exact authorized source binding and explanatory mapping/reconfirmation.
 
-- `REQ-SEC-f96d80d4` / `REQ-UX-302fbce4`: Admin-only authoritative portable
-  rule preview/download with strict scoped transport and no enrollment writes.
+- `REQ-SEC-f96d80d4`: authoritative portable transfer API with no enrollment writes.
+- `REQ-UX-34ca5d39` / `REQ-SEC-3cf6cde4`: compact Settings and Admin original TOML reads, memory-only preview and exact download.
 
 - `REQ-UX-b758d2b7`, `REQ-UX-78923e00`, `REQ-UX-a7969a9d`,
   `REQ-FUNC-25dc0271` — complete authorized action workspace, pickup/verification
@@ -458,7 +456,7 @@ Python/Ruff and frontend validation. CLI summary/export semantics are preserved.
   explicit apply/discard, recorded evidence fallbacks and scoped request guards.
 - `REQ-UX-66e6f3f5` - project details presents collapsible, guided settings with administrator editing.
 - `REQ-FUNC-49b766fe` / `REQ-UX-9a625fc5` / `REQ-UX-a62e69a9` - per-setting source, editability and
-  restart metadata; Set for this project / Default badges, row editing and permanent per-row descriptions.
+  restart metadata; Default badges for inherited values, row editing and permanent per-row descriptions.
 - `REQ-UX-b0e9a434` / `REQ-FUNC-c6c71dbd` - every setting's help text in EN/FR/DE/RO and
   its ADORE default; the catalog test keeps texts in step with the configuration keys.
 - `REQ-SEC-3ce206e4` / `REQ-UX-7ca5687c` - administrators grant or remove one developer's access to one
@@ -506,9 +504,8 @@ flowchart LR
     PendingReview --> settings
     SettingsList --> settingsCopy[settingsCopy.ts localized guidance]
     PendingReview --> settingsCopy
-    App --> PortableSettings[PortableSettings scoped preview/download]
-    PortableSettings --> portable[portable.ts strict response]
-    PortableSettings --> api
+    App --> RawConfiguration[RawConfiguration original TOML actions and dialog]
+    RawConfiguration --> api
     api --> portableSource[portable_settings validated active rules]
     App --> UserCreation[UserCreation memory credentials and secret-free review]
     App --> AccessReview[AccountAccessEditor and ProjectAccess before after result]
@@ -552,9 +549,7 @@ both roles reach a top-level My account page. Every view has a path URL
 (`web/src/routes.ts`) kept in sync with view state; project details uses
 Summary/Settings/Prices/Access/History tabs and Jobs/Statistics links. Project details shows effective
 configuration in seven purpose categories with frequent settings first within each,
-with a Set for this
-project / Default badge, field type, domain and purpose help and a filter for
-project-set settings; administrators edit settings on their rows and stage
+with a Default badge for inherited values, field type, domain and permanent purpose guidance; administrators edit settings on their rows and stage
 endpoint and price changes there. The
 settings response is scoped to the current project identity so switching
 projects cannot briefly show another project's values. Audit policy defaults to unlimited
@@ -742,7 +737,7 @@ The worker and GUI host check use the same isolated CLI binding. Protected
 repository-auth.json beside config binds immutable project identity and current
 provider/repository/login. Other projects/shared logins remain unchanged. Missing
 records preserve external auth; corrupt/stale records fail closed. Reconnect after
-provider/repository/login changes. Config/portable exports and audit exclude tokens;
+provider/repository/login changes. Structured config/portable exports and audit exclude tokens; raw TOML is an explicit Admin-only exception.
 executors receive none. POSIX files use 0600; Windows profile ACLs and server-home
 backups require service-account restrictions. See Component_Repository_Auth.md.
 

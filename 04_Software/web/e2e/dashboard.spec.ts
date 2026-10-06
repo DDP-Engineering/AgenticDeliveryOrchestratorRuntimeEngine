@@ -90,7 +90,7 @@ test("admin stages and applies a budget change without changing live config duri
   expect(applied.config.budgets.max_iterations).toBe(value);
   expect(applied.revision).not.toBe(before.revision);
   const row = page.locator(".setting-row").filter({ has: page.getByText("Maximum iterations per job", { exact: true }) });
-  await expect(row.locator(".setting-badge")).toHaveText("Set for this project");
+  await expect(row.locator(".setting-badge")).toHaveCount(0);
   await expect(row.locator("code").first()).toHaveText(String(value));
 });
 

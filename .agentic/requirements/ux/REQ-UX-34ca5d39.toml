@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-34ca5d39"
+
+title = "Compact project settings with raw actions"
+
+status = "active"
+
+requirement = """
+Project Settings shall show project rows with concise field descriptions and Admin original-configuration preview/download actions, omitting the single-setting instruction, project-source badges, portable-export prose and standalone Configuration panel while preserving candidate review/apply/discard.
+"""
+
+verification = "Offline browser tests: actions/modal/byte-exact download, missing UI clutter, developer denial, failed/late response withholding."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/RawConfiguration.tsx", "04_Software/web/e2e/portable.spec.ts", "04_Software/web/e2e/dashboard.spec.ts", "04_Software/adore/web/static/"]
+
+linked_tests = ["04_Software/web/e2e/portable.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-06
+updated = 2026-10-06

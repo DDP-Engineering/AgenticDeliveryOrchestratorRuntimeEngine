@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-SEC-3cf6cde4"
+
+title = "Administrator original configuration read"
+
+status = "active"
+
+requirement = """
+The raw configuration endpoint shall return saved original TOML bytes including inline secrets only after administrator and project authorization, with no-store/nosniff and optional fixed attachment, rejecting missing/corrupt/oversized or changed sources without payload disclosure.
+"""
+
+verification = "Offline HTTP: exact bytes including comments/CRLF/inline private fields, no mutations; anonymous/Dev/foreign project denied; corrupt/unreadable/oversized/changed source fails closed."
+
+affected_paths = ["04_Software/adore/web/app.py", "04_Software/tests/test_web_config_raw.py"]
+
+linked_tests = ["04_Software/tests/test_web_config_raw.py"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-06
+updated = 2026-10-06

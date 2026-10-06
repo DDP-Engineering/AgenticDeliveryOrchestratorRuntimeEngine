@@ -360,6 +360,8 @@ validation remains decisive for dependent rules. Corrupt declared scalar types
 return 503 `config_corrupt`. Dev configuration omits `budgets.max_cost_usd` before
 row/default generation. Credential-bearing URLs are redacted in effective reads.
 
+`GET /api/v1/projects/{name}/config/raw` is administrator-only. It returns original saved UTF-8 TOML bytes, including inline secrets, as `text/plain`, with `Cache-Control: no-store` and `X-Content-Type-Options: nosniff`. `?download=true` adds a fixed `config.toml` attachment. Authorization precedes lookup. Empty, malformed, unreadable, symlinked or oversized sources return value-free 503 `config_corrupt`; changed bytes or immutable project identity return 409 `stale_config_revision`. Reads are bounded to 524288 bytes; no environment resolution, `.env`, pending changes or mutation.
+
 `GET/POST/DELETE /api/v1/projects/{name}/config/pending` read, stage and
 discard the single candidate. `POST /api/v1/projects/{name}/config/apply`
 requires its candidate SHA-256 revision and accepts an optional reviewed

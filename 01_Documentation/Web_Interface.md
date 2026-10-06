@@ -469,12 +469,9 @@ are not supported.
 
 ## Portable working rules
 
-Administrators can open a project's Settings, read **Export portable settings**,
-preview validated active working rules and download a versioned JSON package.
-Pending changes and host/identity/access/secrets are excluded; all credential and
-endpoint references are omitted. Exact installed source-version compatibility
-is required. The checksum detects changes without establishing authenticity.
-The parser supplies rules for new projects; this panel provides export.
+Administrators use **Preview raw configuration** or **Download raw configuration** beside Project settings. Preview opens a closable dialog; download preserves original saved `config.toml` bytes including comments, formatting and inline secrets. Pending changes, resolved defaults, separate `.env` files and external credentials are excluded. Preview is memory-only and cleared on dismissal or project/session change. Developers retain redacted read-only settings and cannot access raw configuration. Candidate review/apply/discard remains inside Settings.
+
+Portable working rules remain available through the transfer API.
 **Add project** offers portable import/copy, with recognized rules,
 independent target setup and mandatory reference reconfirmation. See
 [Portable project settings](Portable_Project_Settings.md) for the enumerated
@@ -486,10 +483,7 @@ Exact server TOML enrollment and statistics CSV remain separate formats.
 An administrator can create a profile in Projects, edit validated scalar
 configuration keys in Project details, and use the CLI for other complex settings.
 Every project setting lives in that project's own `config.toml`; Project details
-> Configuration lists the effective value of each setting and marks it **Set
-for this project** (written in the file) or **Default** (ADORE's built-in
-value, used because the file does not set it). **Only settings set for this
-project** hides the defaults. Each row's visible guidance explains, in the selected
+Settings lists effective project values including defaults. Each row's visible guidance explains, in the selected
 language, what the setting controls, its unit or allowed values and the effect
 of changing it (or that it is reserved and not used yet), and shows **ADORE
 default** - the value used when the project's file does not set it. Assigned
@@ -606,8 +600,7 @@ The seven collapsible categories are Repository and tickets; Agent and model;
 Isolated environment; Rules and approvals; Limits and recovery; Measurement and
 notifications; Advanced. Frequent settings appear first within their category.
 Each row gives an understandable label, visible purpose/units/consequence guidance,
-its **Active value**, **ADORE default**, and **Set for this project** or **Default**
-source. Permanent guidance below the label explains each setting; server catalog metadata still constrains edit types, choices and numeric bounds. Lists, tables, launch commands and unsupported sections
+its **Active value** and **ADORE default**; inherited values carry a **Default** badge. Permanent guidance below the label explains each setting; server catalog metadata still constrains edit types, choices and numeric bounds. Lists, tables, launch commands and unsupported sections
 are read-only here and are edited in the host's project TOML.
 
 Choose **Edit**, correct the value and choose **Prepare candidate**. This writes
@@ -969,7 +962,7 @@ The worker and GUI host check use the same isolated CLI binding. Protected
 repository-auth.json beside config binds immutable project identity and current
 provider/repository/login. Other projects/shared logins remain unchanged. Missing
 records preserve external auth; corrupt/stale records fail closed. Reconnect after
-provider/repository/login changes. Config/portable exports and audit exclude tokens;
+provider/repository/login changes. Structured config/portable exports and audit exclude tokens; raw TOML is an explicit Admin-only exception.
 executors receive none. POSIX files use 0600; Windows profile ACLs and server-home
 backups require service-account restrictions. See Component_Repository_Auth.md.
 

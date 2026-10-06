@@ -2883,6 +2883,39 @@ def create_app(home: str | Path | None = None,
                 "local_endpoint": endpoint_profile,
                 "model_connection": connection, "settings": settings}
 
+    @app.get("/api/v1/projects/{name}/config/raw")
+    def raw_config(name: str, user: Annotated[dict, Depends(administrator)],
+                   download: bool = False) -> Response:
+        """
+        @brief      Read the administrator's original saved TOML without redaction.
+        @param[in]  name Authorized profile name or immutable project ID.
+        @param[in]  user Administrator resolved before any config read.
+        @param[in]  download Return the fixed config.toml attachment filename.
+        @return     Exact saved UTF-8 bytes, including comments and inline secrets.
+        @exception  HTTPException Corrupt, unreadable or changed source fails closed.
+        @note       External credential files and environment values are not read.
+        """
+        item = project(name, user)
+        path = profiles.config_path(item.name)
+        try:
+            if path.is_symlink():
+                raise ValueError("linked source")
+            with path.open("rb") as source:
+                raw = source.read(MAX_SOURCE_BYTES + 1)
+            if not raw or len(raw) > MAX_SOURCE_BYTES:
+                raise ValueError("invalid source size")
+            tomllib.loads(raw.decode("utf-8"))
+            with path.open("rb") as source:
+                unchanged = source.read(MAX_SOURCE_BYTES + 1) == raw
+        except (OSError, UnicodeError, ValueError, RecursionError) as exc:
+            raise _error(503, "config_corrupt") from exc
+        if not unchanged or project(name, user).project_id != item.project_id:
+            raise _error(409, "stale_config_revision")
+        headers = {"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"}
+        if download:
+            headers["Content-Disposition"] = 'attachment; filename="config.toml"'
+        return Response(content=raw, media_type="text/plain", headers=headers)
+
     @app.put("/api/v1/projects/{name}/config")
     def config_update(
         name: str, body: ConfigEdit, user: Annotated[dict, Depends(admin_mutation)]
