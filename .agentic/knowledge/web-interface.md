@@ -697,12 +697,10 @@ buttons live in the information panel. Explicit host-check results appear there.
 `ReadinessEvidence.tsx` owns four-locale explanatory rows; `readiness.ts` owns
 scoped response validation and performed-check classification. Focused proof is
 `web/tests/readiness.test.mjs` and `web/e2e/jobs.spec.ts` readiness journeys.
-Explicit host checks show one local-machine timestamp and configuration revision,
+Explicit host checks retain internally validated check time and configuration revision,
 a visible performed-check verdict, and seven explained results with text/symbol status.
 Check details open after a fresh result and collapse through native pointer/keyboard
-controls while the overall verdict remains visible. Configuration version identifies
-the saved configuration fingerprint used by the check; configuration changes require
-fresh evidence. An Admin can configure repository sign-in through Connect repository in Summary,
+controls while the overall verdict remains visible. Configuration/time metadata remains internal; configuration changes require fresh evidence. An Admin can configure repository sign-in through Connect repository in Summary,
 or externally under the ADORE service account. Browser sign-in is separate.
 Git supplies isolated working copies; the repository command tool reads issues and
 publishes draft reviews; repository sign-in tests configured host authentication.
@@ -752,3 +750,10 @@ narrow/dark layout, token clearing and wrong-scope rejection.
 
 Gitea readiness verifies configured-login tea API user evidence, requiring 2xx
 HTTP and a valid unique JSON login. CLI exit zero alone does not authenticate.
+
+
+## Explicit AI connection test
+
+Administrators use **Summary → Test AI connection** for the configured OpenCode, Pi, Codex or Qwen model. Each explicit click sends one short request in a temporary container and may incur provider charges. The project must be idle with valid saved settings and no pending configuration/operations; its installed image must contain Python and the agent.
+
+Only a valid completed challenge response reports connected. Failures provide redacted guidance for credentials, model availability, image, CLI version or network. The action reuses executor credentials and egress; it starts no job and proves no tool capability. Evidence is separate from host readiness and bound to current project/model/configuration. Host-check time/version are internally validated and hidden from Summary/check details. See Component_Model_Connection.md.

@@ -7,6 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 import { Children, cloneElement, isValidElement, useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactElement, type ReactNode } from "react";
 import { aggregateMetrics, aggregateUsage, type Metrics, type Usage } from "./metrics";
 import { messages, type Locale, type MessageKey } from "./i18n";
+import { ModelConnection } from "./ModelConnection";
 import { RepositoryConnection } from "./RepositoryConnection";
 import { ReadinessEvidence } from "./ReadinessEvidence";
 import { readReadiness, type ProjectReadiness } from "./readiness";
@@ -993,11 +994,11 @@ export default function App() {
               <button className="ghost" onClick={() => void setProjectArchive(!selectedProject.archived, selectedProject.id)}>{t(selectedProject.archived ? "restoreProject" : "archiveProject")}</button>
               {selectedProject.archived && <button className="danger" onClick={() => { setError(""); setDeleteName(""); setDeleteTarget(selectedProject); }}>{t("deleteProject")}</button>}
               <button className="ghost" onClick={() => void checkProjectReadiness()}>{t("checkHostPrerequisites")}</button>
+              {!selectedProject.archived && projectConfig && <ModelConnection key={`${session.user.id}:${selectedProject.id}:${projectConfig.revision}`} project={selectedProject.id} revision={projectConfig.revision} executor={selectedProject.executor} model={String(settingValue(projectConfig.config, `executor.commands.${selectedProject.executor}.model`))} locale={locale} test={() => request(`/projects/${encodeURIComponent(selectedProject.id)}/model-connection-test`, "POST", {}, session.csrf)} />}
             {!selectedProject.archived && <RepositoryConnection key={`${session.user.id}:${selectedProject.id}`} project={selectedProject.id} provider={selectedProject.platform} repository={selectedProject.repo} locale={locale}
               connect={body => request(`/projects/${encodeURIComponent(selectedProject.id)}/repository-connection`, "POST", body, session.csrf)}
               onConnected={() => { setProjectReadiness(null); setProjects(items => items.map(item => item.id === selectedProject.id ? { ...item, verification: { status: "unverified" } } : item)); }} />}
             </div>}
-            {(projectReadiness || selectedProject.verification.checked_at || selectedProject.verification.revision) && <p className="muted project-verification-evidence readiness-metadata">{t("checkedAt")}: {(projectReadiness?.checked_at || selectedProject.verification.checked_at) ? formatDate(projectReadiness?.checked_at || selectedProject.verification.checked_at || "") : jc.unknown} · <span title={t("configurationVersionHelp")}>{t("configurationVersion")}: {(projectReadiness?.revision || selectedProject.verification.revision)?.slice(0, 12) || jc.unknown}</span></p>}
             {projectReadiness && <ReadinessEvidence evidence={projectReadiness} locale={locale} modelReason={modelReason(projectReadiness.model_probe.reason)} />}
           </section>} />
           {isAdmin && deleteTarget?.id === selectedProject.id && <ProjectDeleteDialog onClose={() => setDeleteTarget(null)}><section className="delete-confirm">

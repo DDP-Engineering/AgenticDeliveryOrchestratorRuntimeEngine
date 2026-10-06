@@ -4,7 +4,7 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
-import { messages, type Locale } from "./i18n";
+import { type Locale } from "./i18n";
 import { readinessKeys, readinessVerdict, type ProjectReadiness } from "./readiness";
 
 const copy = {
@@ -13,7 +13,7 @@ const copy = {
     passed: "Performed checks passed", failed: "Attention required", partial: "Verification incomplete",
     coverage: "This checks prerequisites on the ADORE server and in the configured image. It does not test a complete job or confirm Git push permission.",
     ok: "✓ Passed", error: "! Action needed", unknown: "? Could not verify", skipped: "○ Not checked",
-    unsupported: "This executor has no automatic model connection check. Its model access remains unverified.",
+    unsupported: "Use Test AI connection in Summary to explicitly check the configured model through this executor.",
     unconfigured: "No compatible model endpoint is configured for this check. Model access remains unverified.",
     rows: [
       ["Git", "Creates isolated working copies and records code changes.", "Install Git on the ADORE server and check that the service can run it."],
@@ -84,7 +84,7 @@ export function ReadinessEvidence({ evidence, locale, modelReason }: { evidence:
   const verdict = readinessVerdict(evidence);
   return <div className="readiness-evidence">
     <div className={`readiness-verdict ${verdict}`} role="status"><h3>{c[verdict === "verified" ? "passed" : verdict === "failed" ? "failed" : "partial"]}</h3><p>{c.coverage}</p></div>
-    <details className="readiness-details" open><summary>{c.details}</summary><p className="muted readiness-configuration-help">{messages[locale].configurationVersionHelp}</p>
+    <details className="readiness-details" open><summary>{c.details}</summary>
     <div className="readiness-checks">{readinessKeys.map((key, index) => {
       const value = evidence.checks[key];
       const status = value === true ? "passed" : value === false ? "failed" : value === null ? "unknown" : "skipped";

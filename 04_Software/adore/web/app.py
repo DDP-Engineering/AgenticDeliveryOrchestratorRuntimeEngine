@@ -67,6 +67,7 @@ from adore.state import StateError, StateStore
 from adore.util import CommandRunner, force_rmtree, run_command
 from adore.web import analytics
 from adore.web.endpoint_probe import probe_endpoint
+from adore.web.model_connection import probe_model_connection
 from adore.web.jobs import JobReadError, read_jobs
 from adore.web.store import WebStore, WebStoreError
 from adore.wizard import ScriptedAsker, WizardError, WizardSetup, run_wizard
@@ -2619,6 +2620,35 @@ def create_app(home: str | Path | None = None,
                 raise _error(status, exc.code) from exc
             except (OSError, ValueError, TypeError, tomllib.TOMLDecodeError) as exc:
                 raise _error(503, "config_corrupt") from exc
+
+    @app.post("/api/v1/projects/{name}/model-connection-test")
+    def model_connection_test(name: str,
+                              user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+        """@brief Test the configured model explicitly without changing host readiness."""
+        with config_lock:
+            item = project(name, user)
+            if item.archived:
+                raise _error(409, "project_archived")
+            path = profiles.config_path(item.name)
+            try:
+                raw = path.read_bytes()
+                revision = sha256(raw).hexdigest()
+                config = _config_from_bytes(raw)
+                if _config_findings(config):
+                    raise _error(409, "invalid_config")
+                with (_web_config_edit_lock(path),
+                      guard_direct_config_apply(item, path, "model.connection-test")):
+                    if sha256(path.read_bytes()).hexdigest() != revision:
+                        raise _error(409, "stale_config_revision")
+                    result = probe_model_connection(
+                        config, probe_runner, profiles.profile_dir(item.name) / ".env")
+                    if (project(name, user).project_id != item.project_id
+                            or sha256(path.read_bytes()).hexdigest() != revision):
+                        raise _error(409, "stale_config_revision")
+                    return {**result, "project_id": item.project_id, "revision": revision,
+                            "checked_at": datetime.now(UTC).isoformat()}
+            except (OSError, ValueError, TypeError, IsolationError) as exc:
+                raise _error(503, "model_test_failed") from exc
 
     @app.post("/api/v1/projects/{name}/readiness-check")
     def readiness_check(name: str,

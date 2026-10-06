@@ -14,6 +14,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Hide host-check time/configuration version and its explanation from project Summary.
+
 - Gitea host sign-in checks use the supported named-login API after GUI connection. Repository connection opens a closable modal beside host checks, with an aligned HTTP consent checkbox.
 
 - Make host-check details collapsible with a persistent verdict, clarify the checked
@@ -24,6 +26,8 @@ This project follows Keep a Changelog and Semantic Versioning.
   validated project-bound browser evidence.
 
 ### Added
+
+- Explicit GUI model connection tests for OpenCode, Pi, Codex and Qwen, with bounded disposable containers and redacted project/configuration-bound results.
 
 - Project-scoped repository connection from the GUI for Gitea, GitHub and GitLab,
   with bounded account/repository verification, protected token storage, isolated

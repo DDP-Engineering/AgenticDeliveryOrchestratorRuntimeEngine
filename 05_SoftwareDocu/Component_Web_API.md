@@ -606,3 +606,10 @@ and tests/test_repository_connection.py.
 The Gitea host sign-in check uses bounded tea api GET user with the configured
 login. Authentication requires a successful HTTP status and a valid, unique JSON
 login identity. This supports tea versions whose whoami command has no login flag.
+
+
+## Explicit AI connection test
+
+Administrators use **Summary → Test AI connection** for the configured OpenCode, Pi, Codex or Qwen model. Each explicit click sends one short request in a temporary container and may incur provider charges. The project must be idle with valid saved settings and no pending configuration/operations; its installed image must contain Python and the agent.
+
+Only a valid completed challenge response reports connected. Failures provide redacted guidance for credentials, model availability, image, CLI version or network. The action reuses executor credentials and egress; it starts no job and proves no tool capability. Evidence is separate from host readiness and bound to current project/model/configuration. Host-check time/version are internally validated and hidden from Summary/check details. See Component_Model_Connection.md.

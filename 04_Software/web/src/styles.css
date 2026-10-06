@@ -540,3 +540,7 @@ td.strong { font-weight: 800; }
 .repository-connect-dialog::backdrop { background: rgb(0 0 0 / .45); }
 .repository-connection .repository-http { display: flex; flex-direction: row; align-items: center; gap: .6rem; }
 .repository-connection .repository-http input { width: 1.1rem; height: 1.1rem; min-height: 0; padding: 0; flex: 0 0 auto; margin: 0; }
+
+.model-connection { display: contents; }
+.model-test-help { flex-basis: 100%; margin: 0; font-size: .875rem; line-height: 1.5; order: 1; }
+.model-connection > [role] { flex-basis: 100%; order: 2; }

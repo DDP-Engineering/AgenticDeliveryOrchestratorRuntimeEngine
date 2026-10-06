@@ -563,7 +563,7 @@ for (const scenario of ["passed", "partial", "model-passed", "model-failed", "un
       const model = panel.locator(".readiness-check").filter({ hasText: "AI model connection" });
       await expect(model).toContainText(scenario === "unconfigured" ? "No compatible model endpoint" : scenario === "model-passed" ? "✓ Passed" : scenario === "model-failed" ? "! Action needed" : "This executor has no automatic model connection check");
       await expect(panel).toContainText("does not test a complete job");
-      await expect(page.locator(".readiness-metadata")).toHaveCount(1);
+      await expect(page.locator(".readiness-metadata")).toHaveCount(0);
       if (scenario === "partial") await expect(panel.locator(".readiness-check").filter({ hasText: "Container engine" })).toContainText("Could not verify");
       await page.setViewportSize({ width: 390, height: 844 });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
@@ -580,12 +580,12 @@ test("host prerequisite explanations support four locales and dark theme", async
     await page.goto("/account");
     await page.getByLabel(/Language|Langue|Sprache|Limbă/).selectOption(locale);
     await page.goto("/projects/alpha");
-    await page.locator(".summary-actions button").last().click();
+    await page.getByRole("button", { name: /Check host prerequisites|Vérifier les prérequis|Host-Voraussetzungen prüfen|Verifică cerințele gazdei/ }).click();
     await expect(page.locator(".readiness-evidence").getByRole("heading", { name: heading, exact: true })).toBeVisible();
-    await expect(page.locator(".readiness-metadata")).toHaveCount(1);
+    await expect(page.locator(".readiness-metadata")).toHaveCount(0);
   }
   await page.goto("/account"); await page.getByLabel("Theme", { exact: true }).selectOption("dark");
-  await page.goto("/projects/alpha"); await page.locator(".summary-actions button").last().click();
+  await page.goto("/projects/alpha"); await page.getByRole("button", { name: /Check host prerequisites|Vérifier les prérequis|Host-Voraussetzungen prüfen|Verifică cerințele gazdei/ }).click();
   await page.screenshot({ path: info.outputPath("readiness-dark.png"), fullPage: true });
 });
 
@@ -594,7 +594,7 @@ test("host prerequisite explanation accepts the real offline API contract", asyn
   await page.getByRole("button", { name: "Check host prerequisites", exact: true }).click();
   await expect(page.locator(".readiness-evidence").getByRole("heading", { name: "Attention required", exact: true })).toBeVisible();
   await expect(page.locator(".readiness-check")).toHaveCount(7);
-  await expect(page.locator(".readiness-metadata")).toHaveCount(1);
+  await expect(page.locator(".readiness-metadata")).toHaveCount(0);
   await expect(page.locator(".summary-fact").filter({ hasText: "Environment verification" })).toContainText("Verification failed");
 });
 
@@ -606,8 +606,8 @@ test("host check details collapse by keyboard and reopen after a fresh check", a
   const summary = details.locator("summary");
   const verdict = page.locator(".readiness-verdict");
   await expect(details).toHaveAttribute("open", "");
-  await expect(page.locator(".readiness-metadata")).toContainText("Configuration version:");
-  await expect(details).toContainText("Identifies the saved project configuration");
+  await expect(page.locator(".readiness-metadata")).toHaveCount(0);
+  await expect(details).not.toContainText("Identifies the saved project configuration");
   await expect(details).toContainText("Use Connect repository in Summary");
   await summary.click();
   await expect(details).not.toHaveAttribute("open", "");
@@ -620,7 +620,7 @@ test("host check details collapse by keyboard and reopen after a fresh check", a
   await check.click();
   await expect(details).toHaveAttribute("open", "");
   await expect(page.locator(".readiness-check").first()).toBeVisible();
-  await expect(page.locator(".readiness-metadata")).toHaveCount(1);
+  await expect(page.locator(".readiness-metadata")).toHaveCount(0);
 });
 
 

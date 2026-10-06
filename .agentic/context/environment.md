@@ -110,3 +110,5 @@ authentication. See repository-auth.md knowledge and Security_And_Credentials.md
 Protected per-profile tokens are used only by forge CLI commands and explicit
 web host checks, with external CLI auth as the missing-record default. Corrupt
 or mismatched scoped records fail closed.
+
+Explicit administrator model connectivity uses the selected OpenCode/Pi/Codex/Qwen CLI through a bounded disposable container; see knowledge/model-connection.md. Real provider acceptance is operator-triggered and may incur cost.
