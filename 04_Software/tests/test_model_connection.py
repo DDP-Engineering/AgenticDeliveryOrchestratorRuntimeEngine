@@ -62,7 +62,8 @@ def test_explicit_model_test_returns_scoped_evidence(tmp_path, monkeypatch, kind
         """@brief Fake one external model call without a paid provider."""
         assert config.executor.default == kind
         calls.append(env_file)
-        return {"ready": True, "reason": "ready", "executor": kind, "model": "test-model"}
+        return {"ready": True, "reason": "ready", "executor": kind,
+                "model": config.executor.commands[kind].model}
 
     monkeypatch.setattr(module, "probe_model_connection", probe, raising=False)
     with TestClient(module.create_app(profiles.home)) as client:
@@ -91,7 +92,8 @@ def test_model_test_rejects_trust_boundary(tmp_path, monkeypatch, mode):
         if mode == "stale":
             path = profiles.config_path("alpha")
             path.write_text(path.read_text() + "\n# changed\n")
-        return {"ready": True, "reason": "ready", "executor": "opencode", "model": "test"}
+        return {"ready": True, "reason": "ready", "executor": "opencode",
+                "model": config.executor.commands[config.executor.default].model}
 
     monkeypatch.setattr(module, "probe_model_connection", probe)
     app = module.create_app(profiles.home)

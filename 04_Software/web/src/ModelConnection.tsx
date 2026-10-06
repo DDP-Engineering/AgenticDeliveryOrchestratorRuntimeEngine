@@ -14,33 +14,38 @@ const copy = {
  fr: {title: "Tester la connexion IA", busy: "Test de connexion IA…", help: "Envoie une courte requête via l’agent configuré dans un conteneur temporaire. Des frais peuvent s’appliquer. Vérifie l’accès au modèle, pas une tâche complète ni ses outils.", passed: "Modèle IA connecté", failed: "Connexion IA non vérifiée", timeout: "Le modèle n’a pas répondu à temps.", image: "Installez l’image du conteneur localement.", cli: "L’agent sélectionné manque dans l’image.", auth: "Vérifiez les identifiants du modèle sur le serveur ADORE.", model: "Le modèle configuré est indisponible.", other: "Vérifiez le modèle, les identifiants, le réseau et la version de l’agent.", error: "Test interrompu. Vérifiez que le projet est inactif et sa configuration valide."},
  de: {title: "KI-Verbindung testen", busy: "KI-Verbindung wird getestet…", help: "Sendet eine kurze Anfrage über den konfigurierten Agenten in einem temporären Container. Anbietergebühren können anfallen. Prüft Modellzugriff, keinen vollständigen Job oder Werkzeuge.", passed: "KI-Modell verbunden", failed: "KI-Verbindung nicht bestätigt", timeout: "Das Modell hat nicht rechtzeitig geantwortet.", image: "Installieren Sie das konfigurierte Container-Image lokal.", cli: "Der gewählte Agent fehlt im Image.", auth: "Prüfen Sie die Modell-Zugangsdaten auf dem ADORE-Server.", model: "Das konfigurierte Modell ist nicht verfügbar.", other: "Prüfen Sie Modell, Zugangsdaten, Netzwerk und Agent-Version.", error: "Test fehlgeschlagen. Das Projekt muss inaktiv und gültig konfiguriert sein."},
 };
-type Evidence = {project_id: string; revision: string; checked_at: string; executor: string; model: string; ready: boolean; reason: string};
+export type ModelEvidence = {project_id: string; revision: string; checked_at: string; executor: string; model: string; ready: boolean; reason: string};
 const reasons = new Set(["ready", "timeout", "image-missing", "cli-missing", "credential-invalid", "model-unavailable", "connection-failed", "invalid-response", "runtime-error"]);
 
+/** Closed model evidence, bound to the current identity/model/configuration. */
+export function validModelEvidence(value: unknown, project:string, revision:string, executor:string, model:string):value is ModelEvidence {
+ const v=value as ModelEvidence;
+ return !!v && Object.keys(v).sort().join()==="checked_at,executor,model,project_id,ready,reason,revision" && v.project_id===project && v.revision===revision && /^[a-f0-9]{64}$/.test(v.revision) && v.executor===executor && v.model===model && typeof v.checked_at==="string" && Number.isFinite(Date.parse(v.checked_at)) && /Z$|[+]00:00$/.test(v.checked_at) && Date.parse(v.checked_at)<=Date.now()+60000 && typeof v.ready==="boolean" && reasons.has(v.reason) && v.ready===(v.reason==="ready");
+}
+
 /** Explicit billable model test; closed results remain bound to the selected project. */
-export function ModelConnection({project, revision, executor, model, locale, test}: {project: string; revision: string; executor: string; model: string; locale: Locale; test: () => Promise<unknown>}) {
+export function ModelConnection({project, revision, executor, model, locale, test, saved=null, onResult, readOnly=false}: {project: string; revision: string; executor: string; model: string; locale: Locale; test?: () => Promise<unknown>; saved?:ModelEvidence|null; onResult?:(value:ModelEvidence)=>void; readOnly?:boolean}) {
  const text = copy[locale];
  const [busy, setBusy] = useState(false);
- const [result, setResult] = useState<Evidence | null>(null);
+ const [result, setResult] = useState<ModelEvidence | null>(saved && validModelEvidence(saved,project,revision,executor,model) ? saved : null);
  const [error, setError] = useState(false);
  const active = useRef(true), pending = useRef(false);
  useEffect(() => {active.current = true; return () => {active.current = false;};}, []);
  const run = async () => {
-  if (pending.current) return;
+  if (pending.current || !test) return;
   pending.current = true; setBusy(true); setResult(null); setError(false);
   try {
-   const value = await test() as Evidence;
+   const value = await test() as ModelEvidence;
    if (!active.current) return;
-   if (!value || Object.keys(value).sort().join() !== "checked_at,executor,model,project_id,ready,reason,revision" || value.project_id !== project || value.executor !== executor || value.model !== model ||
-       value.revision !== revision || !/^[a-f0-9]{64}$/.test(value.revision) || !Number.isFinite(Date.parse(value.checked_at)) || !/Z$|[+]00:00$/.test(value.checked_at) || Date.parse(value.checked_at) > Date.now() + 60000 || typeof value.ready !== "boolean" || !reasons.has(value.reason) || value.ready !== (value.reason === "ready")) throw new ApiError("model_test_failed");
-   setResult(value);
+   if (!validModelEvidence(value,project,revision,executor,model)) throw new ApiError("model_test_failed");
+   setResult(value); onResult?.(value);
   } catch { if (active.current) setError(true); }
   finally { if (active.current) {pending.current = false; setBusy(false);} }
  };
  const guidance = result?.reason === "timeout" ? text.timeout : result?.reason === "image-missing" ? text.image : result?.reason === "cli-missing" ? text.cli : result?.reason === "credential-invalid" ? text.auth : result?.reason === "model-unavailable" ? text.model : text.other;
  return <div className="model-connection">
-  <button type="button" className="ghost" disabled={busy} title={text.help} onClick={() => void run()}>{busy ? text.busy : text.title}</button>
-  <p className="muted model-test-help">{text.help}</p>
+  {!readOnly && <button type="button" className="ghost" disabled={busy} title={text.help} onClick={() => void run()}>{busy ? text.busy : text.title}</button>}
+  {!readOnly && <p className="muted model-test-help">{text.help}</p>}
   {busy && <p role="status">{text.busy}</p>}
   {error && <p role="alert" className="alert">{text.error}</p>}
   {result && <div role="status" className={result.ready ? "success" : "alert"}><strong>{result.ready ? text.passed : text.failed}</strong><p>{result.executor} · {result.model}</p>{!result.ready && <p>{guidance}</p>}</div>}

@@ -33,7 +33,7 @@ API evidence adds project_id, SHA-256 revision and UTC checked_at. GUI accepts e
 
 ## 7. Workflow Integration
 
-Summary offers Test AI connection beside host/repository actions. Each explicit click can incur provider charges. Inference is capped at 45 seconds and combined output at 1 MiB; setup/inference share a 90-second deadline, followed by cleanup commands capped at 8 seconds each. Cleanup failures become API errors.
+Executor configuration offers Test AI connection; Summary presents the current saved result. Each explicit click can incur provider charges. Inference is capped at 45 seconds and combined output at 1 MiB; setup/inference share a 90-second deadline, followed by cleanup commands capped at 8 seconds each. Cleanup failures become API errors.
 
 ## 8. Usage
 
@@ -45,4 +45,4 @@ Save executor/model credentials as for normal execution, ensure its local image 
 
 ## 10. Limitations
 
-A model response proves no tool capability, Git push permission, AEGIS execution or complete job. Results are transient and reset on project/configuration changes. Full regression is deferred during iterative GUI work; real paid provider checks remain operator-triggered acceptance.
+A model response proves no tool capability, Git push permission, AEGIS execution or complete job. Current results are persisted in model-connection.json by executor_settings.py, validated against immutable identity/configuration/credential inputs, and reused by Summary and host-check access presentation. Stale results are suppressed and corrupt results rejected. See Component_Executor_Configuration.md for storage/auth contracts. Full regression is deferred during iterative GUI work; real paid provider checks remain operator-triggered acceptance.

@@ -14,6 +14,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Host-check AI access presentation uses a current successful explicit executor test instead of reporting it as untested; OpenCode tool compatibility remains separately identified.
+
 - Hide host-check time/configuration version and its explanation from project Summary.
 
 - Gitea host sign-in checks use the supported named-login API after GUI connection. Repository connection opens a closable modal beside host checks, with an aligned HTTP consent checkbox.
@@ -26,6 +28,9 @@ This project follows Keep a Changelog and Semantic Versioning.
   validated project-bound browser evidence.
 
 ### Added
+
+- Project Executor configuration tab with single-owned model/agent settings, applicable endpoint controls and protected scoped provider API key save/remove.
+- Durable explicit model connectivity evidence bound to immutable project, configuration and credential inputs, reused by Summary and host-check access display.
 
 - Explicit GUI model connection tests for OpenCode, Pi, Codex and Qwen, with bounded disposable containers and redacted project/configuration-bound results.
 

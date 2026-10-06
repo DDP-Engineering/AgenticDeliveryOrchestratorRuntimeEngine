@@ -225,10 +225,10 @@ for (const user of ["admin", "developer"]) {
   const projects = await (await page.request.get("/api/v1/projects")).json();
   const identity = projects.find((item: {name:string}) => item.name === "alpha").id;
   const configuration = await (await page.request.get(`/api/v1/projects/${identity}/config`)).json();
-  await expect(panel.locator(".setting-row")).toHaveCount(configuration.settings.length);
+  await expect(panel.locator(".setting-row")).toHaveCount(configuration.settings.filter((s:{key:string})=>!s.key.startsWith("executor.") && !["container.runtime_env.OPENAI_BASE_URL","container.runtime_env.NODE_EXTRA_CA_CERTS"].includes(s.key)).length);
   await expect(panel.locator(".setting-actions details")).toHaveCount(0);
   await expect(panel.getByRole("checkbox")).toHaveCount(0);
-  await expect(panel.locator(".setting-essential")).toHaveCount(configuration.settings.length);
+  await expect(panel.locator(".setting-essential")).toHaveCount(configuration.settings.filter((s:{key:string})=>!s.key.startsWith("executor.") && !["container.runtime_env.OPENAI_BASE_URL","container.runtime_env.NODE_EXTRA_CA_CERTS"].includes(s.key)).length);
   await expect(panel.locator(".setting-badge").filter({hasText:"Default"}).first()).toBeVisible();
   await expect(panel.getByRole("heading", {name:"Audit retention",exact:true})).toHaveCount(0);
   if (user === "developer") await expect(panel.getByRole("button")).toHaveCount(0);

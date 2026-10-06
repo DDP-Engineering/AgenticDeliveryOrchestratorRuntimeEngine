@@ -13,7 +13,7 @@ Test AI connection and executor model diagnostic start at `04_Software/adore/web
 
 ## Purpose and boundaries
 
-Explicit model access testing for all four executor CLIs. ContainerManager owns isolation; host readiness owns separate prerequisite evidence.
+Explicit model access testing for all four executor CLIs. ContainerManager owns isolation; executor-configuration.md owns private credential/evidence persistence; host readiness owns prerequisite and OpenCode tool-stream evidence.
 
 ## Public interface
 
@@ -26,7 +26,7 @@ Admin/CSRF and idle configuration/conductor locks precede execution. Saved model
 ## Key behaviors
 
 - REQ-FUNC-de028c15: OpenCode/Pi/Codex/Qwen explicit connectivity; 45-second inference/90-second setup deadline, 1 MiB capture, 8-second cleanup commands.
-- GUI cost notice, duplicate suppression and exact project/configuration binding.
+- Executor configuration cost notice, duplicate suppression and exact project/configuration binding; executor_settings.py durably saves and validates credential-bound evidence used in Summary/host access.
 
 ## Architecture
 

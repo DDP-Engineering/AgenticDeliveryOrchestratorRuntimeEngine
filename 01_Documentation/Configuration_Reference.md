@@ -221,3 +221,7 @@ consuming a slot, and terminal runs retain state evidence.
 `[metrics]` controls SQLite/JSONL/static HTML summaries. Metrics are
 best-effort and can never change governance outcomes. `capture_resource` is
 reserved; ADORE currently performs no resource-usage probing.
+
+## Web executor configuration
+
+Project → Executor configuration owns executor fields and the applicable OpenCode endpoint form. The saved default/model is edited through reviewed candidates; existing configured command tables determine choices. Model IDs use the installed CLI/provider syntax. API keys are stored through Provider credentials in the selected profile .env, limited to known names already in executor.env_keys. Subscription credentials retain the configured CLI login bridge/mount. New jobs use applied values; active jobs retain their durable configuration. Current explicit model evidence is invalidated by configuration/credential changes. See [Executor configuration](../05_SoftwareDocu/Component_Executor_Configuration.md).

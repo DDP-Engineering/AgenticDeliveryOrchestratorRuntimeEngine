@@ -67,8 +67,16 @@ from adore.state import StateError, StateStore
 from adore.util import CommandRunner, force_rmtree, run_command
 from adore.web import analytics
 from adore.web.endpoint_probe import probe_endpoint
-from adore.web.model_connection import probe_model_connection
+from adore.web.executor_settings import (
+    ExecutorSettingsError,
+    credential_binding,
+    credential_view,
+    model_evidence,
+    save_model_evidence,
+    update_credential,
+)
 from adore.web.jobs import JobReadError, read_jobs
+from adore.web.model_connection import probe_model_connection
 from adore.web.store import WebStore, WebStoreError
 from adore.wizard import ScriptedAsker, WizardError, WizardSetup, run_wizard
 
@@ -131,6 +139,14 @@ class Credentials(BaseModel):
 
     username: str = Field(min_length=1, max_length=64)
     password: str = Field(min_length=1, max_length=1024)
+
+
+class ExecutorCredentialInput(BaseModel):
+    """@brief Exact revision-bound private provider key request."""
+    model_config = ConfigDict(extra="forbid", strict=True)
+    revision: str = Field(pattern=r"^[0-9a-f]{64}$")
+    variable: str = Field(min_length=1, max_length=64)
+    token: str | None = Field(default=None, max_length=4096)
 
 
 class NewUser(Credentials):
@@ -2621,10 +2637,67 @@ def create_app(home: str | Path | None = None,
             except (OSError, ValueError, TypeError, tomllib.TOMLDecodeError) as exc:
                 raise _error(503, "config_corrupt") from exc
 
+    @app.get("/api/v1/projects/{name}/executor-credentials")
+    def executor_credentials_read(name: str, user: Annotated[dict, Depends(administrator)]) -> dict:
+        """@brief Expose private key source/presence without returning credential values."""
+        with config_lock:
+            item = project(name, user)
+            path = profiles.config_path(item.name)
+            try:
+                raw = path.read_bytes()
+                config = _config_from_bytes(raw)
+                if _config_findings(config):
+                    raise _error(409, "invalid_config")
+                return {"project_id": item.project_id, "revision": sha256(raw).hexdigest(),
+                        **credential_view(profiles.profile_dir(item.name), config)}
+            except (OSError, ValueError, TypeError) as exc:
+                raise _error(503, "executor_credentials_corrupt") from exc
+
+    @app.put("/api/v1/projects/{name}/executor-credentials")
+    @app.delete("/api/v1/projects/{name}/executor-credentials")
+    def executor_credentials_write(name: str, body: ExecutorCredentialInput, request: Request,
+                                   user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+        """@brief Atomically save/remove an approved key while the project is idle."""
+        deleting = request.method == "DELETE"
+        if (deleting and body.token is not None or not deleting and body.token is None):
+            raise _error(400, "executor_credential_invalid")
+        with config_lock:
+            item = project(name, user)
+            if item.archived:
+                raise _error(409, "project_archived")
+            path = profiles.config_path(item.name)
+            try:
+                with (_web_config_edit_lock(path),
+                      guard_direct_config_apply(item, path, "executor.credentials")):
+                    raw = path.read_bytes()
+                    revision = sha256(raw).hexdigest()
+                    if revision != body.revision:
+                        raise _error(409, "stale_config_revision")
+                    config = _config_from_bytes(raw)
+                    if _config_findings(config):
+                        raise _error(409, "invalid_config")
+                    directory = profiles.profile_dir(item.name)
+                    model_evidence(directory, config, item.project_id, revision)
+                    action = ("executor-credential-removed" if deleting
+                              else "executor-credential-saved")
+                    confirmation = web.begin_change(user["id"], action, item.name)
+                    update_credential(directory, config, body.variable, body.token)
+                    (directory / "model-connection.json").unlink(missing_ok=True)
+                    web.audit(user["id"], action, item.name, confirmation_key=confirmation)
+                    return {"project_id": item.project_id, "revision": revision,
+                            **credential_view(directory, config)}
+            except ExecutorSettingsError as exc:
+                code = str(exc)
+                status = (400 if code == "executor_credential_invalid" else
+                          409 if code == "executor_credential_external" else 503)
+                raise _error(status, code) from exc
+            except (OSError, ValueError, TypeError) as exc:
+                raise _error(503, "executor_credentials_corrupt") from exc
+
     @app.post("/api/v1/projects/{name}/model-connection-test")
     def model_connection_test(name: str,
                               user: Annotated[dict, Depends(admin_mutation)]) -> dict:
-        """@brief Test the configured model explicitly without changing host readiness."""
+        """@brief Test the configured model explicitly and persist scoped access evidence."""
         with config_lock:
             item = project(name, user)
             if item.archived:
@@ -2640,13 +2713,25 @@ def create_app(home: str | Path | None = None,
                       guard_direct_config_apply(item, path, "model.connection-test")):
                     if sha256(path.read_bytes()).hexdigest() != revision:
                         raise _error(409, "stale_config_revision")
+                    directory = profiles.profile_dir(item.name)
+                    binding = credential_binding(directory, config)
+                    model_evidence(directory, config, item.project_id, revision)
                     result = probe_model_connection(
                         config, probe_runner, profiles.profile_dir(item.name) / ".env")
                     if (project(name, user).project_id != item.project_id
                             or sha256(path.read_bytes()).hexdigest() != revision):
                         raise _error(409, "stale_config_revision")
-                    return {**result, "project_id": item.project_id, "revision": revision,
-                            "checked_at": datetime.now(UTC).isoformat()}
+                    if credential_binding(directory, config) != binding:
+                        raise _error(409, "stale_config_revision")
+                    if (result.get("executor") != config.executor.default
+                            or result.get("model") !=
+                            config.executor.commands[config.executor.default].model):
+                        raise ExecutorSettingsError("executor_evidence_corrupt")
+                    result = {**result, "project_id": item.project_id, "revision": revision,
+                              "checked_at": datetime.now(UTC).isoformat()}
+                    save_model_evidence(directory, result, binding)
+                    web.audit(user["id"], "model-connection-tested", item.name)
+                    return result
             except (OSError, ValueError, TypeError, IsolationError) as exc:
                 raise _error(503, "model_test_failed") from exc
 
@@ -2787,11 +2872,16 @@ def create_app(home: str | Path | None = None,
             settings = _setting_metadata(data, raw)
         except (UnicodeError, ValueError, TypeError, tomllib.TOMLDecodeError) as exc:
             raise _error(503, "config_corrupt") from exc
+        try:
+            connection = model_evidence(profiles.profile_dir(item.name), config,
+                                        item.project_id, sha256(raw).hexdigest())
+        except ExecutorSettingsError as exc:
+            raise _error(503, "executor_evidence_corrupt") from exc
         return {"config": data, "revision": sha256(raw).hexdigest(),
                 "issues": validate_config(config),
                 "local_endpoint_timeout_seconds": timeout_seconds,
                 "local_endpoint": endpoint_profile,
-                "settings": settings}
+                "model_connection": connection, "settings": settings}
 
     @app.put("/api/v1/projects/{name}/config")
     def config_update(

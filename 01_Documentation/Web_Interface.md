@@ -935,8 +935,7 @@ publishes draft reviews; repository sign-in tests configured host authentication
 The container engine starts isolation; agent availability proves executable presence
 in the local image; workflow availability checks the two configured AEGIS files.
 A compatible configured OpenCode endpoint receives a temporary-container streamed
-model/tool-call check. Other executors and unconfigured endpoints show Not checked
-with explicit model-access uncertainty. Unknown container detection is incomplete;
+model/tool-call check. Current saved explicit model-access evidence is shown for every executor. When no current result exists, model access remains untested. OpenCode endpoint/tool compatibility is identified separately when it was performed. Unknown container detection is incomplete;
 any failed check requires intervention with a targeted corrective instruction.
 These checks do not prove a complete job, Git push permission or AEGIS execution.
 Fresh browser evidence validates the API status contract, selected project identity, revision, UTC
@@ -979,13 +978,17 @@ narrow/dark layout, token clearing and wrong-scope rejection.
 
 ## Explicit AI connection test
 
-Administrators use **Summary → Test AI connection** for the configured OpenCode, Pi, Codex or Qwen model. Each explicit click sends one short request in a temporary container and may incur provider charges. The project must be idle with valid saved settings and no pending configuration/operations; its installed image must contain Python and the agent.
+Administrators use **Executor configuration → Test AI connection** for the configured OpenCode, Pi, Codex or Qwen model. Each explicit click sends one short request in a temporary container and may incur provider charges. The project must be idle with valid saved settings and no pending configuration/operations; its installed image must contain Python and the agent.
 
-Only a valid completed challenge response reports connected. Failures provide redacted guidance for credentials, model availability, image, CLI version or network. The action reuses executor credentials and egress; it starts no job and proves no tool capability. Evidence is separate from host readiness and bound to current project/model/configuration. Host-check time/version are internally validated and hidden from Summary/check details. See Component_Model_Connection.md.
+Only a valid completed challenge response reports connected. Failures provide redacted guidance for credentials, model availability, image, CLI version or network. The action reuses executor credentials and egress; it starts no job and proves no tool capability. Evidence is durably saved, bound to current project/model/configuration and credential inputs. Summary and host-check details reuse the current access result; endpoint/tool compatibility remains separate. Host-check time/version are internally validated and hidden from Summary/check details. See Component_Model_Connection.md.
 
 
 ## Project setting scope and guidance
 
-Project Settings displays every setting from the selected project's configuration catalog, including inherited defaults. Descriptions remain permanently below each label and provide the editor's accessible description. There is no per-row Help disclosure or override-only filter. The default/source marker describes value origin, not ADORE-wide scope. Polling intervals, per-project concurrency, executor, isolation and recovery settings remain per-project. Global capacity and audit retention belong to Administration. No project setting is promoted into a global policy by this presentation.
+Project Settings displays the selected project's operational settings, including inherited defaults. Executor/model/authentication settings and the applicable OpenCode endpoint form belong to Executor configuration. Descriptions remain permanently below each label and provide the editor's accessible description. There is no per-row Help disclosure or override-only filter. The default/source marker describes value origin, not ADORE-wide scope. Polling intervals, per-project concurrency, executor, isolation and recovery settings remain per-project across their dedicated tabs. Global capacity and audit retention belong to Administration. No project setting is promoted into a global policy by this presentation.
 
 Proof: web/e2e/settings.spec.ts project settings keep defaults and single guidance (administrator/developer), plus existing candidate edit/discard journey.
+
+## Project executor configuration
+
+The project header includes Executor configuration, the single owner of executor/model settings and the applicable endpoint editor. Configured command tables supply executor choices; model IDs are entered manually. Admin uses reviewed configuration candidates; Dev reads non-secret values. Provider credentials offers Save API key and Disconnect project API key for known variables in executor.env_keys, using the real project .env. Credential changes require paused monitoring and idle/pending-free state. An environment override is managed externally. Saving a key alone does not confirm connection; explicit model testing can incur provider charges. Subscription login retains the installed CLI's external service-account workflow and configured auth bridge/mount. See [Executor configuration](../05_SoftwareDocu/Component_Executor_Configuration.md) for exact API/storage contracts and limitations.
