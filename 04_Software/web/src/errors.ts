@@ -21,6 +21,7 @@ export class ApiError extends Error {
 /** Localized sentences for every API and client error code. */
 export const errorMessages: Record<Locale, Record<string, string>> = {
   en: {
+    readiness_corrupt: "The host check returned invalid or mismatched project evidence. Run the check again; if it persists, inspect the ADORE server.",
     portable_settings_incompatible: "This source is incompatible with the installed ADORE version or rules contract.",
     portable_settings_invalid: "The portable source is invalid or unreadable. Correct it on the ADORE host, or correct the source file, then review again.",
     portable_settings_changed: "The source or target changed. Preview the active settings again, or review the source and target before creating.",
@@ -111,6 +112,7 @@ export const errorMessages: Record<Locale, Record<string, string>> = {
     unexpected_response: "The server sent an unexpected response.",
   },
   fr: {
+    readiness_corrupt: "Le contrôle a renvoyé des résultats invalides ou pour un autre projet. Relancez le contrôle ; si cela persiste, inspectez le serveur ADORE.",
     portable_settings_incompatible: "Cette source est incompatible avec la version ADORE installée ou le contrat des règles.",
     portable_settings_invalid: "La source portable est invalide ou illisible. Corrigez le fichier ou la configuration puis revoyez les règles.",
     portable_settings_changed: "La source ou la cible a changé. Revoyez les règles avant le téléchargement ou la création.",
@@ -201,6 +203,7 @@ export const errorMessages: Record<Locale, Record<string, string>> = {
     unexpected_response: "Le serveur a envoyé une réponse inattendue.",
   },
   de: {
+    readiness_corrupt: "Die Prüfung lieferte ungültige Ergebnisse oder Ergebnisse für ein anderes Projekt. Prüfen Sie erneut; kontrollieren Sie andernfalls den ADORE-Server.",
     portable_settings_incompatible: "Diese Quelle ist mit der installierten ADORE-Version oder dem Regelvertrag inkompatibel.",
     portable_settings_invalid: "Die portable Quelle ist ungültig oder unlesbar. Datei oder Hostkonfiguration korrigieren und erneut prüfen.",
     portable_settings_changed: "Quelle oder Ziel geändert. Vor Download oder Erstellung erneut prüfen.",
@@ -291,6 +294,7 @@ export const errorMessages: Record<Locale, Record<string, string>> = {
     unexpected_response: "Der Server hat eine unerwartete Antwort gesendet.",
   },
   ro: {
+    readiness_corrupt: "Verificarea a returnat rezultate invalide sau pentru alt proiect. Repetă verificarea; dacă problema persistă, inspectează serverul ADORE.",
     portable_settings_incompatible: "Sursa este incompatibilă cu versiunea ADORE instalată sau contractul regulilor.",
     portable_settings_invalid: "Sursa portabilă este invalidă sau nu poate fi citită. Corectează fișierul sau configurația gazdei și revizuiește din nou.",
     portable_settings_changed: "Sursa sau ținta s-a schimbat. Revizuiește din nou înainte de descărcare sau creare.",

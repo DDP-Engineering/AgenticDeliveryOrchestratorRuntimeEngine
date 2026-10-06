@@ -83,7 +83,7 @@ test("hub separates pickup and verification and keeps role-appropriate navigatio
   let checks = 0;
   await page.route("**/api/v1/projects/*/readiness-check", route => {
     checks++; expect(route.request().headers()["x-csrf-token"]).toBeTruthy();
-    return route.fulfill({ status: 200, json: { checked_at: "2026-10-06T10:00:00Z", checks: { git: true, forge_auth: false } } });
+    return route.fulfill({ status: 200, json: readinessFixture(decodeURIComponent(new URL(route.request().url()).pathname.split("/")[4]), { forge_auth: false }) });
   });
   await signIn(page);
   await nav(page).getByRole("link", { name: "Projects", exact: true }).click();
@@ -119,7 +119,10 @@ test("hub separates pickup and verification and keeps role-appropriate navigatio
   await expect(page.getByRole("tab", { name: "History", exact: true })).toBeVisible();
   expect(checks).toBe(0);
   await facts.getByRole("button", { name: "Check host prerequisites", exact: true }).click();
-  await expect(facts).toContainText("Git: Available");
+  await expect(facts.getByRole("heading", { name: "Attention required", exact: true })).toBeVisible();
+  await expect(facts.locator(".readiness-check").filter({ hasText: "Repository sign-in" })).toContainText("Sign in on the ADORE server");
+  await expect(facts.locator(".readiness-check").filter({ hasText: /^GitCreates/ })).toContainText("Creates isolated working copies");
+  await expect(facts.locator(".readiness-metadata")).toHaveCount(1);
   expect(checks).toBe(1);
   await expect(page.locator(".project-summary-window > .panel")).toHaveCount(2);
   await page.screenshot({ path: info.outputPath("project-hub-desktop.png"), fullPage: true });
@@ -524,4 +527,73 @@ test("summary with corrupt job evidence shows unknown counters and no fabricated
   await expect(page.getByRole("heading", { name: "Incomplete job response", exact: true })).toBeVisible();
   await expect(page.locator(".project-summary .summary-fact").filter({ hasText: "Active jobs" }).locator("dd")).toHaveText("—");
   await expect(page.locator(".summary-job-window table")).toHaveCount(0);
+});
+
+function readinessFixture(project: string, changes: Record<string, unknown> = {}) {
+  return { status: Object.values(changes).includes(false) ? "failed" : changes.container_runtime === null ? "partial" : "verified", project_id: project, revision: "a".repeat(64), context: "api-host", checked_at: "2026-10-06T10:00:00Z",
+    checks: { git: true, forge_cli: true, forge_auth: true, container_runtime: true, executor_cli: true, aegis_files: true, model_endpoint: "not-checked" as boolean | "not-checked", ...changes },
+    model_probe: { context: "executor-container", ready: false, model: "", reason: "unsupported-executor" } };
+}
+
+for (const scenario of ["passed", "partial", "model-passed", "model-failed", "unconfigured", "malformed", "wrong-project"] as const) {
+  test(`host prerequisites explain ${scenario} evidence`, async ({ page }, info) => {
+    await page.route("**/api/v1/projects/*/readiness-check", route => {
+      const project = decodeURIComponent(new URL(route.request().url()).pathname.split("/")[4]);
+      const result = readinessFixture(scenario === "wrong-project" ? "another-project" : project,
+        scenario === "partial" ? { container_runtime: null } : scenario === "malformed" ? { git: "yes" } : {});
+      if (scenario === "model-passed" || scenario === "model-failed") {
+        result.checks.model_endpoint = scenario === "model-passed";
+        result.status = scenario === "model-passed" ? "verified" : "failed";
+        result.model_probe = { context: "executor-container", ready: scenario === "model-passed", model: "local/model", reason: scenario === "model-passed" ? "ready" : "http-401" };
+      }
+      if (scenario === "unconfigured") result.model_probe.reason = "not-configured";
+      return route.fulfill({ status: 200, json: result });
+    });
+    await signIn(page);
+    await nav(page).getByRole("link", { name: "Projects", exact: true }).click();
+    await page.getByRole("link", { name: "alpha", exact: true }).click();
+    await page.getByRole("button", { name: "Check host prerequisites", exact: true }).click();
+    if (scenario === "malformed" || scenario === "wrong-project") {
+      await expect(page.locator(".readiness-check")).toHaveCount(0);
+      await expect(page.getByRole("alert")).toBeVisible();
+    } else {
+      const panel = page.locator(".readiness-evidence");
+      await expect(panel.getByRole("heading", { name: scenario === "partial" ? "Verification incomplete" : scenario === "model-failed" ? "Attention required" : "Performed checks passed", exact: true })).toBeVisible();
+      await expect(panel.locator(".readiness-check")).toHaveCount(7);
+      const model = panel.locator(".readiness-check").filter({ hasText: "AI model connection" });
+      await expect(model).toContainText(scenario === "unconfigured" ? "No compatible model endpoint" : scenario === "model-passed" ? "✓ Passed" : scenario === "model-failed" ? "! Action needed" : "This executor has no automatic model connection check");
+      await expect(panel).toContainText("does not test a complete job");
+      await expect(page.locator(".readiness-metadata")).toHaveCount(1);
+      if (scenario === "partial") await expect(panel.locator(".readiness-check").filter({ hasText: "Container engine" })).toContainText("Could not verify");
+      await page.setViewportSize({ width: 390, height: 844 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      await page.screenshot({ path: info.outputPath(`readiness-${scenario}.png`), fullPage: true });
+    }
+  });
+}
+
+test("host prerequisite explanations support four locales and dark theme", async ({ page }, info) => {
+  await page.route("**/api/v1/projects/*/readiness-check", route => route.fulfill({ status: 200,
+    json: readinessFixture(decodeURIComponent(new URL(route.request().url()).pathname.split("/")[4]), { forge_auth: false }) }));
+  await signIn(page);
+  for (const [locale, heading] of [["fr", "Intervention nécessaire"], ["de", "Handlung erforderlich"], ["ro", "Necesită intervenție"], ["en", "Attention required"]]) {
+    await page.goto("/account");
+    await page.getByLabel(/Language|Langue|Sprache|Limbă/).selectOption(locale);
+    await page.goto("/projects/alpha");
+    await page.locator(".summary-actions button").last().click();
+    await expect(page.locator(".readiness-evidence").getByRole("heading", { name: heading, exact: true })).toBeVisible();
+    await expect(page.locator(".readiness-metadata")).toHaveCount(1);
+  }
+  await page.goto("/account"); await page.getByLabel("Theme", { exact: true }).selectOption("dark");
+  await page.goto("/projects/alpha"); await page.locator(".summary-actions button").last().click();
+  await page.screenshot({ path: info.outputPath("readiness-dark.png"), fullPage: true });
+});
+
+test("host prerequisite explanation accepts the real offline API contract", async ({ page }) => {
+  await signIn(page); await page.goto("/projects/alpha");
+  await page.getByRole("button", { name: "Check host prerequisites", exact: true }).click();
+  await expect(page.locator(".readiness-evidence").getByRole("heading", { name: "Attention required", exact: true })).toBeVisible();
+  await expect(page.locator(".readiness-check")).toHaveCount(7);
+  await expect(page.locator(".readiness-metadata")).toHaveCount(1);
+  await expect(page.locator(".summary-fact").filter({ hasText: "Environment verification" })).toContainText("Verification failed");
 });

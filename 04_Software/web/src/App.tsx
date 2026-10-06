@@ -7,6 +7,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 import { Children, cloneElement, isValidElement, useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactElement, type ReactNode } from "react";
 import { aggregateMetrics, aggregateUsage, type Metrics, type Usage } from "./metrics";
 import { messages, type Locale, type MessageKey } from "./i18n";
+import { ReadinessEvidence } from "./ReadinessEvidence";
+import { readReadiness, type ProjectReadiness } from "./readiness";
 import { AuditHistory } from "./AuditHistory";
 import { auditCopy } from "./auditCopy";
 import { auditPolicyPayload } from "./auditPolicy";
@@ -47,7 +49,6 @@ const metricsTabLabels: Record<MetricsTab, MessageKey> = {
 type WorkerStatus = "checking" | "ready" | "unavailable" | "error";
 type StorageStatus = { threshold_bytes: number; low: boolean; volumes: Array<{ scope: "home" | "project"; project: string | null; free_bytes: number; total_bytes: number; low: boolean }> };
 type AuditPolicy = { retention_days: number | null; max_bytes: number | null };
-type ProjectReadiness = { context: string; checked_at: string; checks: Record<string, boolean | null | string>; model_probe?: { context: string; ready: boolean; model: string; reason: string } };
 
 const localeNames: Record<Locale, string> = { en: "English", fr: "Français", de: "Deutsch", ro: "Română" };
 const initialLocale = (): Locale => {
@@ -216,6 +217,9 @@ export default function App() {
     else { setProjectSortKey(key); setProjectSortDescending(false); }
   };
   const selectedProject = projects.find(item => item.id === selected);
+  useEffect(() => {
+    if (selectedProject?.verification.status === "stale") setProjectReadiness(null);
+  }, [selectedProject?.verification.status]);
   const projectConfig = configScope === selected ? config : null;
   const configDataState = configState.key === selected ? configState.state : "loading";
   const projectPendingConfig = pendingConfigScope === selected ? pendingConfig : null;
@@ -834,8 +838,11 @@ export default function App() {
     const generation = viewGeneration.current;
     setProjectReadiness(null);
     try {
-      const result = await request<ProjectReadiness>(`/projects/${encodeURIComponent(selected)}/readiness-check`, "POST", {}, session?.csrf);
-      if (generation === viewGeneration.current && revision === readinessRequest.current) setProjectReadiness(result);
+      const result = readReadiness(await request<unknown>(`/projects/${encodeURIComponent(selected)}/readiness-check`, "POST", {}, session?.csrf), selected);
+      if (generation === viewGeneration.current && revision === readinessRequest.current) {
+        setProjectReadiness(result);
+        setProjects(items => items.map(item => item.id === selected ? { ...item, verification: { status: result.status, checked_at: result.checked_at, revision: result.revision } } : item));
+      }
     } catch (cause) {
       if (generation === viewGeneration.current && revision === readinessRequest.current) setError(cause);
     }
@@ -986,8 +993,8 @@ export default function App() {
               {selectedProject.archived && <button className="danger" onClick={() => { setError(""); setDeleteName(""); setDeleteTarget(selectedProject); }}>{t("deleteProject")}</button>}
               <button className="ghost" onClick={() => void checkProjectReadiness()}>{t("checkHostPrerequisites")}</button>
             </div>}
-            {(selectedProject.verification.checked_at || selectedProject.verification.revision) && <p className="muted project-verification-evidence">{t("checkedAt")}: {selectedProject.verification.checked_at ? formatDate(selectedProject.verification.checked_at) : jc.unknown} · {t("revision")}: {selectedProject.verification.revision?.slice(0, 12) || jc.unknown}</p>}
-            {projectReadiness && <><p className="muted">{t("checkedAt")}: {formatDate(projectReadiness.checked_at)}</p><div className="detail-grid">{Object.entries(projectReadiness.checks).map(([key, value]) => <span key={key}>{t(({ git: "gitTool", forge_cli: "forgeCli", forge_auth: "forgeAuth", container_runtime: "containerRuntime", executor_cli: "executorCli", aegis_files: "aegisPayload", model_endpoint: "modelEndpoint" } as Record<string, MessageKey>)[key])}: <strong>{value === true ? t("checkPassed") : value === false ? t("checkMissing") : t("checkUnverified")}</strong></span>)}</div>{projectReadiness.model_probe && <p className="muted">{t("modelEndpoint")}: {modelReason(projectReadiness.model_probe.reason)}{projectReadiness.model_probe.model ? ` (${projectReadiness.model_probe.model})` : ""}</p>}</>}
+            {(projectReadiness || selectedProject.verification.checked_at || selectedProject.verification.revision) && <p className="muted project-verification-evidence readiness-metadata">{t("checkedAt")}: {(projectReadiness?.checked_at || selectedProject.verification.checked_at) ? formatDate(projectReadiness?.checked_at || selectedProject.verification.checked_at || "") : jc.unknown} · {t("revision")}: {(projectReadiness?.revision || selectedProject.verification.revision)?.slice(0, 12) || jc.unknown}</p>}
+            {projectReadiness && <ReadinessEvidence evidence={projectReadiness} locale={locale} modelReason={modelReason(projectReadiness.model_probe.reason)} />}
           </section>} />
           {isAdmin && deleteTarget?.id === selectedProject.id && <ProjectDeleteDialog onClose={() => setDeleteTarget(null)}><section className="delete-confirm">
             <h2 id="delete-project-title">{t("deleteProjectTitle").replace("{project}", deleteTarget.name)}</h2>

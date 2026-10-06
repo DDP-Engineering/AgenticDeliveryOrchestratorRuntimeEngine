@@ -12,6 +12,12 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+### Fixed
+
+- Explain project host-prerequisite checks with clear verdicts, purposes and corrective
+  actions, one checked-at/revision line, honest unavailable model checks, and
+  validated project-bound browser evidence.
+
 ### Added
 
 - Structured redacted web change evidence with known before/after and revisions,

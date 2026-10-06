@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-8186eea1"
+title = "Explain scoped host prerequisites with honest severity"
+status = "active"
+requirement = "When an administrator explicitly checks a project's host prerequisites, Summary shall present validated project-bound evidence with one timestamp/revision line, an overall performed-check verdict and seven localized purpose/status/remediation rows, distinguishing failed checks, unknown runtime and unavailable model verification from successful checks and rejecting corrupt or wrong-project responses."
+verification = "Offline browser tests click the CSRF-protected check and inspect one timestamp, explained passed rows, failed repository sign-in and remediation, unknown runtime and unsupported/unconfigured model coverage; malformed and wrong-project payloads show no new readiness rows."
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/ReadinessEvidence.tsx", "04_Software/web/src/readiness.ts", "04_Software/web/src/errors.ts", "04_Software/web/src/styles.css", "04_Software/adore/web/static/", "04_Software/web/e2e/jobs.spec.ts", "04_Software/web/tests/readiness.test.mjs"]
+linked_tests = ["04_Software/web/e2e/jobs.spec.ts", "04_Software/web/tests/readiness.test.mjs"]
+priority = "high"
+created = 2026-10-06
+updated = 2026-10-06

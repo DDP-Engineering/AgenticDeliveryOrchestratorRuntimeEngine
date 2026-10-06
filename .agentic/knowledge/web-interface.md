@@ -694,6 +694,24 @@ jobs tables; Details opens the full scoped job view. Usage/reporting belongs
 to Jobs/Statistics. Worker faults stay visible.
 Administrator monitoring/archive/restore/delete and Check host prerequisites
 buttons live in the information panel. Explicit host-check results appear there.
+`ReadinessEvidence.tsx` owns four-locale explanatory rows; `readiness.ts` owns
+scoped response validation and performed-check classification. Focused proof is
+`web/tests/readiness.test.mjs` and `web/e2e/jobs.spec.ts` readiness journeys.
+Explicit host checks show one local-machine timestamp and configuration revision,
+a visible performed-check verdict, and seven explained results with text/symbol status.
+Git supplies isolated working copies; the repository command tool reads issues and
+publishes draft reviews; repository sign-in tests configured host authentication.
+The container engine starts isolation; agent availability proves executable presence
+in the local image; workflow availability checks the two configured AEGIS files.
+A compatible configured OpenCode endpoint receives a temporary-container streamed
+model/tool-call check. Other executors and unconfigured endpoints show Not checked
+with explicit model-access uncertainty. Unknown container detection is incomplete;
+any failed check requires intervention with a targeted corrective instruction.
+These checks do not prove a complete job, Git push permission or AEGIS execution.
+Fresh browser evidence validates the API status contract, selected project identity, revision, UTC
+check time, exact check keys/types and consistent model-probe results before display;
+invalid results produce a localized error and withhold the new check rows.
+
 Deletion uses a native modal with exact-name confirmation, Escape/cancel,
 focus containment and trigger focus restoration; navigation clears intent.
 Deletion remains subject to archived/idle project preconditions.
