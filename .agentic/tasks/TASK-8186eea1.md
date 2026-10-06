@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # TASK-8186eea1 - Explain host prerequisites with honest verdicts and one timestamp
 
-stage: deliver
+stage: done
 type: change
 path: full
 interaction: autopilot
@@ -21,13 +21,12 @@ opened: 2026-10-06
 
 ## Done checklist (current stage)
 
-- [x] diff reviewed against scope, requirements, design, errors and security
-- [x] component/operator/knowledge documentation reconciled
-- [x] project/environment and architecture boundaries remain accurate
-- [x] requirements and proof links checked
-- [x] focused proof substituted for full suite under user instruction
-- [x] final evolution and strict catalog recorded
-- [x] stage advanced to deliver
+- [x] validated candidate confirmed unchanged
+- [x] evidence, concrete diff, exclusions and deviation presented
+- [x] standing human delivery authority recorded
+- [x] journal/report committed and product pushed
+- [x] exact product deployed with backup and service/assets/HTTP verification
+- [x] close-out recorded after successful deployment
 
 ## Frame
 
@@ -78,27 +77,30 @@ App owns explicit Admin/CSRF request and stale-request suppression. A dedicated 
 - 2026-10-06 final catalog: evolution 15 nonworkflow changed paths reviewed; strict catalog exit0,0errors6warnings25notes,strictpassed,run[]. Baseline tracked sidecars and four legacy journal findings retained; generated large JS scan limitation supplemented by reviewed source; no current-task catalog warning. git diff --check exit0. Final candidate SHA256 e0789be0623a719437b74d3fcdf9e6666b1c3e44b75f63b31f00eeebf8c9cb7a excluding journal, 13 authored paths plus journal/generated assets separate. No children.
 - 2026-10-06 deliver: Concrete candidate, 10 browser/3 reader/typecheck/build evidence, exclusions and full-suite deviation presented. Standing human normal commit/push and existing DCP deployment authority applies. No PR/release/acceptance operations.
 
+- 2026-10-06 delivery: Product 60e63c3fc6069bf23f5120bf1f4747670ef96c4f pushed to task/adore-web-interface; ls-remote confirms exact SHA. Deployed release /home/dpasare/apps/adore/web-ux-60e63c3, archive SHA256431d284eb226d1acf7d3ed0e4031ef5ef9acef61776bf4ed5c86feaa4573e19c. Backup /home/dpasare/apps/adore/backups/web-ux-60e63c3-20261006144632. Both services active with exact release PYTHONPATH; served JS/CSS bytes match release. SQLite schema14/integrityok/audit51. Post-deploy root200newassets,health200alive,ready200workerready,projects401authentication_required. No live readiness/executor/project actions run by this task. Full suite and human visual acceptance remain deferred; epic implementation remains stopped.
+- 2026-10-06 close-out: Inventory clarification: twelve authored candidate paths plus one workflow journal, with five generated asset path changes counted separately (eighteen paths before Git rename presentation). Earlier thirteen-plus-journal wording overcounted authored inventory by one; scope is within the twenty-file bound.
+
 ## Rulings
 
 - RULING-001 | date=2026-10-06 | decision=Proceed through scoped implementation, targeted validation, normal commit/push and existing DCP deploy without repeated checkpoints | reason=User iterative delivery authority and explicit full-suite restriction; no agents | source=user | supersedes=none
 
 ## Handoff
 
-current: deliver
+current: done
 status: ready
-next: Commit, push and deploy validated candidate.
+next: Human live visual test.
 must_read: .agentic/requirements/ux/REQ-UX-8186eea1.toml
 blockers: none
 
 ## Stage report
 
-stage: validate
+stage: done
 result: completed
-current: deliver
+current: done
 changed: Clear host-check verdict, seven explained results, one timestamp and scoped response validation.
-evidence: 10 browser and 3 reader tests passed; typechecks/build exit0; strict catalog0errors; screenshots reviewed.
+evidence: 10 browser/3 reader tests passed; builds exit0; exact60e63c3 pushed/deployed; assets/services/HTTP smoke confirmed.
 issues: Full suite deferred by user.
-next: Commit/push/deploy under standing user authority.
+next: Human live visual test.
 needs_user: no
 spec_compliance: approved
 implementation_quality: approved
