@@ -200,14 +200,19 @@ failure invalidates review and never displays completion. Success clears file
 contents, confirms stopped pickup and offers Open project. Activation is separate.
 Long page titles wrap in the shared top bar, including at 390px.
 The Projects directory lists authorized projects in a sortable, paged table
-with project, repository, independent Monitoring and Environment verification,
-job count and saved last activity columns. Monitoring Active/Paused describes new-ticket
-pickup; pause semantics are explained in header help. Verification displays structural invalidity or persisted
-unverified/stale/failed/partial/verified evidence, its check time and configuration
-revision. Static configuration validity does not establish live readiness.
-Administrators can operate pickup and archive/restore; Dev users open their granted
-projects. Summary retains the selected identity and shows runtime, executor,
-verification and project job history with direct Jobs/Statistics links.
+with project, repository path, Repo forge provider (Gitea/GitHub/GitLab),
+Monitoring, job count and saved last activity. Project-name links open the hub.
+The dedicated hub has one identity/navigation band: name, repository path,
+Summary, Settings, Prices, Access, Jobs, Statistics, History. Prices and Access
+are Admin-only; Jobs/Statistics retain selected project scope.
+Summary holds Monitoring Active/Paused status, runtime/executor and explicit
+revision-bound verification evidence. Administrators use Summary to pause or
+activate monitoring, archive/restore, and delete archived idle projects using
+exact-name confirmation. Deletion intent clears on page or selected-ID changes;
+the submit handler checks current project, administrator and confirmation again.
+The API owns archived/idle preconditions, authorization and CSRF enforcement.
+Verification shows structural invalidity or persisted unverified/stale/failed/
+partial/verified evidence; static validity does not establish live readiness.
 Assigned developers can inspect the redacted effective configuration in
 collapsible purpose categories, with frequent settings first within each. Each row shows its value,
 a Set for this project / Default badge, its type and contextual help; common

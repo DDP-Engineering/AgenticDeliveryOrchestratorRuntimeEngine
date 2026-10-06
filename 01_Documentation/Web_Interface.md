@@ -83,7 +83,9 @@ keeps job-specific Details links.
 
 
 Projects labels new-ticket pickup as **Monitoring**, with Active/Paused states.
-Administrator row actions pause/activate monitoring and archive/restore projects;
+The directory shows project, repository path, Repo (Gitea/GitHub/GitLab),
+Monitoring, jobs and last activity. Open the project to use Summary actions
+for pause/activate monitoring and archive/restore;
 delete is available for an archived idle project after exact-name confirmation.
 Environment verification records explicit checks against the saved configuration
 revision; Unverified means no current evidence, not an observed failure. Use
@@ -693,11 +695,14 @@ to **All authorized projects**; Statistics keeps its independent scope and
 `/metrics` URLs. A selected job URL includes both immutable project and run IDs,
 so colliding run IDs remain distinct after reload. Closing detail clears its ID.
 
-Projects and hub Summary display **Pickup** separately from **Environment
-verification**. Stopped pickup prevents new work and allows active jobs to
-continue. Verification is explicit and tied to saved configuration revision and
-check time: unverified, stale, failed, partial or verified. Invalid configuration
-is separate. Summary includes Jobs/Statistics links; Settings remains redacted
+The dedicated project header displays its name and repository path beside
+Summary, Settings, Prices, Access, Jobs, Statistics and History navigation.
+Jobs and Statistics links preserve project scope; Prices/Access are Admin-only.
+Summary holds monitoring actions and revision-bound environment verification.
+Paused monitoring prevents new work and allows active jobs to continue.
+Verification is explicit and tied to saved configuration revision and check time:
+unverified, stale, failed, partial or verified. Invalid configuration is separate.
+Settings remains redacted
 read-only for Dev and editable through existing Admin controls. Prices/Access
 are Admin-only; History shows terminal project jobs. Existing `/configuration`
 and `/prices` addresses remain valid.

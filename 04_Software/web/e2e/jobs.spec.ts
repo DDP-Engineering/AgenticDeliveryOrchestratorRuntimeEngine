@@ -79,19 +79,40 @@ test("overview surfaces worker faults and withholds corrupt active evidence", as
   await expect(page.locator(".overview-jobs-table")).toHaveCount(0);
 });
 
-test("hub separates pickup and verification and keeps role-appropriate navigation", async ({ page }) => {
+test("hub separates pickup and verification and keeps role-appropriate navigation", async ({ page }, info) => {
   await signIn(page);
   await nav(page).getByRole("link", { name: "Projects", exact: true }).click();
   await expect(page.getByRole("columnheader", { name: "Monitoring", exact: true })).toBeVisible();
-  await expect(page.getByRole("columnheader", { name: "Environment verification", exact: true })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Environment verification", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("columnheader", { name: "Actions", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("columnheader", { name: "Repo", exact: true })).toBeVisible();
   await expect(page.getByText("Active jobs continue when pickup is stopped.", { exact: true })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: /Pause monitoring|Activate monitoring/ }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: /Pause monitoring|Activate monitoring/ })).toHaveCount(0);
   await page.getByRole("link", { name: "alpha", exact: true }).click();
+  const hub = page.locator(".project-hub");
+  await expect(hub.locator("strong")).toHaveText("alpha");
+  await expect(hub.locator("button, a")).toHaveText(["Summary", "Settings", "Prices", "Access", "Jobs", "Statistics", "History"]);
+  await expect(page.locator(".project-links")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "alpha", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Pause monitoring|Activate monitoring/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Archive project", exact: true })).toBeVisible();
+  const project = new URL(page.url()).pathname.split("/")[2];
+  await expect(hub.getByRole("link", { name: "Jobs", exact: true })).toHaveAttribute("href", `/jobs?project=${project}`);
+  await expect(hub.getByRole("link", { name: "Statistics", exact: true })).toHaveAttribute("href", `/metrics?project=${project}`);
+
   await expect(page.getByText("Active jobs continue when pickup is stopped.", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("tab", { name: "Summary", exact: true })).toBeVisible();
   await expect(page.locator(".overview-controls")).toHaveCount(0);
   await expect(page.getByRole("tab", { name: "Settings", exact: true })).toBeVisible();
   await expect(page.getByRole("tab", { name: "History", exact: true })).toBeVisible();
+  await page.screenshot({ path: info.outputPath("project-hub-desktop.png"), fullPage: true });
+  await hub.getByRole("link", { name: "Statistics", exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/metrics\\?project=${project}`));
+  await page.goBack();
+  await expect(hub).toBeVisible();
+  await page.getByRole("tab", { name: "Settings", exact: true }).click();
+  await expect(page.locator(".project-summary")).toHaveCount(0);
+  await expect(hub).toBeVisible();
 });
 
 test("manual start explains queue effect and reports asynchronous worker failure", async ({ page }) => {
@@ -263,6 +284,8 @@ test("developer search counts navigation direct routes and command CSRF exclude 
   await page.goto("/projects/alpha/access");
   await expect(page.getByRole("tab", { name: "Access", exact: true })).toHaveCount(0);
   await expect(page.getByRole("tab", { name: "Summary", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Pause monitoring|Activate monitoring|Archive project|Restore project|Delete project/ })).toHaveCount(0);
+  await expect(page.getByRole("tab", { name: "Prices", exact: true })).toHaveCount(0);
 });
 
 test("queued pending and final successful commands do not predict job outcome", async ({ page }) => {
@@ -301,6 +324,8 @@ test("keyboard 390px both themes and localized evidence remain usable", async ({
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
     await page.screenshot({ path: info.outputPath(`job-${theme}-390.png`), fullPage: true });
     await page.goto("/projects/alpha");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+    await page.screenshot({ path: info.outputPath(`project-hub-${theme}-390.png`), fullPage: true });
     const summary = page.getByRole("tab", { name: "Summary", exact: true }); await summary.focus(); await page.keyboard.press("End");
     await expect(page.getByRole("tab", { name: "History", exact: true })).toBeFocused();
     await expect(page.getByRole("tab", { name: "History", exact: true })).toHaveAttribute("aria-selected", "true");
@@ -416,4 +441,55 @@ test("overview background poll stays visible while pending and fails closed", as
   await page.clock.fastForward(15000);
   await expect(page.getByRole("heading", { name: "Incomplete job response", exact: true })).toBeVisible();
   await expect(page.locator(".overview-jobs-table")).toHaveCount(0);
+});
+
+
+test("project hub lifecycle actions keep scoped CSRF and exact-name deletion", async ({ page }) => {
+  let archived = false;
+  const writes: { path: string; csrf: string; data: Record<string, unknown> | null }[] = [];
+  await page.route("**/api/v1/projects", async route => {
+    const response = await route.fetch(); const projects = await response.json();
+    await route.fulfill({ response, json: projects.map((project: { name: string }) => project.name === "alpha" ? { ...project, archived } : project) });
+  });
+  await page.route("**/api/v1/projects/*/archive", route => {
+    writes.push({ path: new URL(route.request().url()).pathname, csrf: route.request().headers()["x-csrf-token"], data: null });
+    archived = true; return route.fulfill({ status: 200, json: {} });
+  });
+  await page.route("**/api/v1/projects/*/restore", route => {
+    writes.push({ path: new URL(route.request().url()).pathname, csrf: route.request().headers()["x-csrf-token"], data: null });
+    archived = false; return route.fulfill({ status: 200, json: {} });
+  });
+  await page.route("**/api/v1/projects/*/delete", route => {
+    writes.push({ path: new URL(route.request().url()).pathname, csrf: route.request().headers()["x-csrf-token"], data: route.request().postDataJSON() });
+    return route.fulfill({ status: 202, json: { id: 9001, status: "pending" } });
+  });
+  await signIn(page);
+  await nav(page).getByRole("link", { name: "Projects", exact: true }).click();
+  await page.getByRole("link", { name: "alpha", exact: true }).click();
+  const id = new URL(page.url()).pathname.split("/")[2];
+  await page.getByRole("button", { name: "Archive project", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Restore project", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Restore project", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Delete project", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Archive project", exact: true }).click();
+  await page.getByRole("button", { name: "Delete project", exact: true }).click();
+  const confirm = page.locator(".delete-confirm");
+  await expect(confirm.getByRole("button", { name: "Delete project", exact: true })).toBeDisabled();
+  await confirm.locator("input").fill("wrong-project");
+  await expect(confirm.getByRole("button", { name: "Delete project", exact: true })).toBeDisabled();
+  await confirm.locator("input").fill("alpha");
+  await expect(confirm.getByRole("button", { name: "Delete project", exact: true })).toBeEnabled();
+  await nav(page).getByRole("link", { name: "Projects", exact: true }).click();
+  await page.getByRole("link", { name: "beta", exact: true }).click();
+  await expect(confirm).toHaveCount(0);
+  expect(writes.filter(write => write.path.endsWith("/delete"))).toEqual([]);
+  await nav(page).getByRole("link", { name: "Projects", exact: true }).click();
+  await page.getByRole("link", { name: "alpha", exact: true }).click();
+  await page.getByRole("button", { name: "Delete project", exact: true }).click();
+  await confirm.locator("input").fill("alpha");
+  await confirm.getByRole("button", { name: "Delete project", exact: true }).click();
+  await expect(confirm).toHaveCount(0);
+  expect(writes.map(write => write.path)).toEqual(["archive", "restore", "archive", "delete"].map(action => `/api/v1/projects/${id}/${action}`));
+  expect(writes.every(write => !!write.csrf)).toBe(true);
+  expect(writes.at(-1)?.data?.confirm_name).toBe("alpha");
 });

@@ -21,12 +21,17 @@ keeps job-specific Details links.
 
 
 Projects labels new-ticket pickup as **Monitoring**, with Active/Paused states.
-Administrator row actions pause/activate monitoring and archive/restore projects;
+The directory shows project, repository path, Repo (Gitea/GitHub/GitLab),
+Monitoring, jobs and last activity. Open the project to use Summary actions
+for pause/activate monitoring and archive/restore;
 delete is available for an archived idle project after exact-name confirmation.
 Environment verification records explicit checks against the saved configuration
 revision; Unverified means no current evidence, not an observed failure. Use
 Project details → Summary → Run readiness check for the administrator check.
 Pause semantics are available in header help instead of repeated row guidance.
+The dedicated header combines name/repository and Summary, Settings, Prices,
+Access, Jobs, Statistics, History; Prices/Access are Admin-only. Jobs/Statistics
+are scoped links. Deletion confirmation clears on page or project changes.
 
 ## Routing
 

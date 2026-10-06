@@ -491,3 +491,10 @@ td.strong { font-weight: 800; }
  .overview-header-scope { width:100%; }
  .overview-header-scope select { flex:1; width:0; }
 }
+
+.project-hub > div:first-child { flex: 1 1 220px; }
+.project-hub .project-tabs { flex: 0 1 auto; margin: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.project-tab-group { display: contents; }
+.project-hub .project-tabs a { display: inline-flex; align-items: center; padding: 10px 16px; border: 1px solid var(--border); border-radius: 8px; color: var(--text); background: var(--surface); font-weight: 700; text-decoration: none; }
+.project-hub .project-tabs a:hover { background: var(--accent-soft); }
+.project-summary .button-row { flex-wrap: wrap; }

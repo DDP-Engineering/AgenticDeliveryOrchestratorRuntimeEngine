@@ -90,6 +90,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Simplified Projects to a read-only directory with a Repo forge column; consolidated project identity and navigation, with lifecycle actions on dedicated Summary.
+
 - Projects describes new-ticket pickup as Monitoring (Active/Paused) with
   consistent pause/activate actions and concise project rows and summary.
 

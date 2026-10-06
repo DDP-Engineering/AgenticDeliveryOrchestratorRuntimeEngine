@@ -687,7 +687,7 @@ export default function App() {
 
   const deleteProject = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); setError(""); setNotice("");
-    if (!deleteTarget || !session) return;
+    if (!deleteTarget || !session || !isAdmin || page !== "projectDetails" || deleteTarget.id !== selected || deleteName !== deleteTarget.name || !deleteTarget.archived || !selectedProject?.archived) return;
     try {
       const op = await request<Operation>(`/projects/${encodeURIComponent(deleteTarget.id)}/delete`, "POST",
         { confirm_name: deleteName, idempotency_key: crypto.randomUUID() }, session.csrf);
@@ -697,7 +697,7 @@ export default function App() {
     } catch (cause) { setError(cause); }
   };
 
-  useEffect(() => { setDeleteTarget(null); setDeleteName(""); }, [page]);
+  useEffect(() => { setDeleteTarget(null); setDeleteName(""); }, [page, selected]);
 
   const setProjectArchive = async (archive: boolean, projectId = selected) => {
     if (!projectId || !session || !isAdmin) return;
@@ -911,12 +911,17 @@ export default function App() {
   const pageTitle = isAdmin && adminPages.includes(page) ? t(page === "administration" ? "systemStatus" : page) : t(page === "settings" ? "myAccount" : page);
   const contextual = ["projectDetails", "metrics"].includes(page) || ["jobs", "overview"].includes(page) && !!jobScope;
   const projectContext = projectsState === "ready" && contextual && selectedProject && !(page === "metrics" && allProjectScope) ?
-    <section className="project-context" aria-label={t("projectContext")}>
-      <div><span className="eyebrow">{t("projectContext")}</span><strong>{selectedProject.display_name}</strong><small>{selectedProject.repo}</small></div>
-      <nav aria-label={t("projectLinks")}>
-        <NavigationLink item={{ id: "project", label: t("projectDetails"), href: formatRoute({ view: "projectDetails", project: selectedProject.id, tab: "overview" }), active: page === "projectDetails", onNavigate: () => openProject(selectedProject.id) }} />
+    <section className={`project-context${page === "projectDetails" ? " project-hub" : ""}`} aria-label={t("projectContext")}>
+      <div>{page !== "projectDetails" && <span className="eyebrow">{t("projectContext")}</span>}<strong>{selectedProject.display_name}</strong><small>{selectedProject.repo}</small></div>
+      {page === "projectDetails" ? <div className="metrics-tabs project-tabs" role="tablist" aria-label={t("projectSections")}>
+        {projectTabs.map(tab => <span className="project-tab-group" key={tab}>
+          {tab === "history" && <><RouteLink to={formatRoute({ view: "jobs", project: selectedProject.id })} onNavigate={() => { setJobScope(selectedProject.id); setRequestedRun(""); setPage("jobs"); }}>{t("jobs")}</RouteLink><RouteLink to={formatRoute({ view: "metrics", project: selectedProject.id })} onNavigate={() => { setMetricAllProjects(false); setPage("metrics"); }}>{t("metrics")}</RouteLink></>}
+          <button id={`project-tab-${tab}`} type="button" role="tab" aria-controls="project-tab-panel" aria-selected={projectTab === tab} tabIndex={projectTab === tab ? 0 : -1} onClick={() => setProjectTab(tab)} onKeyDown={event => onProjectTabKeyDown(event, tab)}>{tab === "overview" ? jc.summary : tab === "configuration" ? jc.settings : tab === "history" ? jc.history : t(tab === "prices" ? "prices" : "projectAccessTab")}</button>
+        </span>)}
+      </div> : <nav aria-label={t("projectLinks")}>
+        <NavigationLink item={{ id: "project", label: t("projectDetails"), href: formatRoute({ view: "projectDetails", project: selectedProject.id, tab: "overview" }), active: false, onNavigate: () => openProject(selectedProject.id) }} />
         <NavigationLink item={shellLink("jobs")} /><NavigationLink item={shellLink("metrics")} />
-      </nav>
+      </nav>}
     </section> : page === "metrics" && allProjectScope ? <p className="scope-note">{t("metricsAllProjects")} · {t("globalScopeHelp")}</p> : null;
 
   return <DashboardShell t={t} title={pageTitle} links={nav.map(shellLink)} adminLinks={isAdmin ? adminPages.map(shellLink) : []}
@@ -938,32 +943,18 @@ export default function App() {
 
         {page === "projects" && projectsState === "ready" && <>
           <div className="section-actions">{isAdmin && <><button className="primary" onClick={() => { setError(""); setPage("createProject"); }}>{t("createProject")}</button><button className="ghost" onClick={() => { setError(""); setPage("importProject"); }}>{t("importProject")}</button></>}</div>
-          {deleteTarget && <section className="panel delete-confirm" aria-labelledby="delete-project-title">
-            <h2 id="delete-project-title">{t("deleteProjectTitle").replace("{project}", deleteTarget.name)}</h2>
-            <p>{t("deleteProjectRemoves")}</p>
-            <p className="muted">{t("deleteProjectKeeps")}</p>
-            <form className="form-stack" onSubmit={deleteProject}><FormLegend t={t} />
-              <label><span>{t("deleteProjectConfirm").replace("{project}", deleteTarget.name)}<RequiredMark /></span><input value={deleteName} onChange={event => setDeleteName(event.target.value)} autoComplete="off" spellCheck={false} required autoFocus /></label>
-              <div className="button-row"><button className="danger" type="submit" disabled={deleteName !== deleteTarget.name}>{t("deleteProject")}</button><button className="ghost" type="button" onClick={() => setDeleteTarget(null)}>{t("cancel")}</button></div>
-            </form>
-          </section>}
           <section className="panel">
             {projects.length ? <PagedTable key={`${projectSortKey}-${projectSortDescending}`} t={t}><table className="projects-table"><thead><tr>
               <SortHeader label={t("project")} sortKey="name" activeKey={projectSortKey} descending={projectSortDescending} onSort={changeProjectSort} />
               <SortHeader label={t("repository")} sortKey="repo" activeKey={projectSortKey} descending={projectSortDescending} onSort={changeProjectSort} />
-              <th>{jc.pickup}</th><th>{jc.verification}</th>
+              <th>Repo</th><th>{jc.pickup}</th>
               <SortHeader label={t("jobs")} sortKey="runs" activeKey={projectSortKey} descending={projectSortDescending} onSort={changeProjectSort} />
               <SortHeader label={t("lastActivity")} sortKey="last_activity" activeKey={projectSortKey} descending={projectSortDescending} onSort={changeProjectSort} />
-              <th>{t("actions")}</th>
             </tr></thead><tbody>{sortedProjects.map(item => <tr key={item.id}>
               <td className="strong"><RouteLink to={formatRoute({ view: "projectDetails", project: item.id, tab: "overview" })} onNavigate={() => openProject(item.id)}>{item.display_name}</RouteLink></td><td>{item.repo}</td>
-              <td><StatusBadge code={item.paused ? "paused" : item.archived ? "archived" : "working"}>{item.archived ? t("archived") : item.paused ? jc.pickupStopped : jc.pickupActive}</StatusBadge></td><td>{verificationLabel(item)}{item.verification.checked_at && <small className="field-hint">{t("checkedAt")}: {formatDate(item.verification.checked_at)}</small>}</td>
+              <td>{({ gitea: "Gitea", github: "GitHub", gitlab: "GitLab" } as Record<string, string>)[item.platform] || item.platform}</td>
+              <td><StatusBadge code={item.archived ? "archived" : item.paused ? "paused" : "working"}>{item.archived ? t("archived") : item.paused ? jc.pickupStopped : jc.pickupActive}</StatusBadge></td>
               <td>{item.runs}</td><td>{item.last_activity ? formatDate(item.last_activity) : "\u2014"}</td>
-              <td><div className="project-row-actions"><button className="text-button" onClick={() => openProject(item.id)}>{t("view")}</button>
-                {isAdmin && <>{!item.archived && <button className="text-button" onClick={() => void operate(item.paused ? "resume" : "pause", "", item.id)}>{item.paused ? jc.startPickup : jc.stopPickup}</button>}
-                  <button className="text-button" onClick={() => void setProjectArchive(!item.archived, item.id)}>{t(item.archived ? "restoreProject" : "archiveProject")}</button>
-                  {item.archived && <button className="text-button danger-text" onClick={() => { setError(""); setDeleteName(""); setDeleteTarget(item); }}>{t("deleteProject")}</button>}</>}
-              </div></td>
             </tr>)}</tbody></table></PagedTable> : null}
           </section>
         </>}
@@ -980,12 +971,27 @@ export default function App() {
           onCreated={() => { void refreshProjects(); }} onOpen={id => openProject(id)} />}
 
         {page === "projectDetails" && projectsState === "ready" && selectedProject && <>
-          <section className="panel"><div className="panel-heading"><h2>{selectedProject.display_name}</h2><StatusBadge code={selectedProject.readiness}>{t(selectedProject.readiness === "configured" ? "configured" : selectedProject.readiness === "needs-config" ? "needsConfig" : selectedProject.readiness === "invalid-state" ? "invalidState" : selectedProject.readiness === "archived" ? "archived" : "paused")}</StatusBadge></div><p>{selectedProject.description || selectedProject.repo}</p><p>{jc.pickup}: {selectedProject.archived ? t("archived") : selectedProject.paused ? jc.pickupStopped : jc.pickupActive} · {jc.verification}: {verificationLabel(selectedProject)}</p><p className="muted">{jc.verificationHelp}</p>{(selectedProject.verification.checked_at || selectedProject.verification.revision) && <p className="muted project-verification-evidence">{t("checkedAt")}: {selectedProject.verification.checked_at ? formatDate(selectedProject.verification.checked_at) : jc.unknown} · {t("revision")}: {selectedProject.verification.revision?.slice(0, 12) || jc.unknown}</p>}<div className="project-metadata"><div className="project-meta">{t("forge")}: {selectedProject.platform} · {t("repository")}: {selectedProject.repo}</div><div className="project-meta">{t("runtime")}: {selectedProject.runtime} · {t("executor")}: {selectedProject.executor || "—"}</div><div className="project-meta">{t("lastActivity")}: {selectedProject.last_activity ? formatDate(selectedProject.last_activity) : "—"}</div></div><nav className="project-links" aria-label={t("projectLinks")}><RouteLink to={formatRoute({ view: "jobs", project: selectedProject.id })} onNavigate={() => { setJobScope(selected); setRequestedRun(""); setPage("jobs"); }}>{t("jobs")} →</RouteLink><RouteLink to={formatRoute({ view: "metrics", project: selectedProject.id })} onNavigate={() => { setMetricAllProjects(false); setPage("metrics"); }}>{t("metrics")} →</RouteLink></nav></section>
-          <div className="metrics-tabs project-tabs" role="tablist" aria-label={t("projectSections")}>
-            {projectTabs.map(tab => <button key={tab} id={`project-tab-${tab}`} type="button" role="tab" aria-controls="project-tab-panel" aria-selected={projectTab === tab} tabIndex={projectTab === tab ? 0 : -1} onClick={() => setProjectTab(tab)} onKeyDown={event => onProjectTabKeyDown(event, tab)}>{tab === "overview" ? jc.summary : tab === "configuration" ? jc.settings : tab === "history" ? jc.history : t(tab === "prices" ? "prices" : "projectAccessTab")}</button>)}
-          </div>
           <div id="project-tab-panel" role="tabpanel" aria-labelledby={`project-tab-${projectTab}`}>
           {projectTab === "overview" && <>
+          <section className="panel project-summary">
+            <div className="panel-heading"><StatusBadge code={selectedProject.archived ? "archived" : selectedProject.paused ? "paused" : "working"}>{selectedProject.archived ? t("archived") : selectedProject.paused ? jc.pickupStopped : jc.pickupActive}</StatusBadge>
+              {isAdmin && <div className="button-row">{!selectedProject.archived && <button className="ghost" onClick={() => void operate(selectedProject.paused ? "resume" : "pause", "", selectedProject.id)}>{selectedProject.paused ? jc.startPickup : jc.stopPickup}</button>}
+                <button className="ghost" onClick={() => void setProjectArchive(!selectedProject.archived, selectedProject.id)}>{t(selectedProject.archived ? "restoreProject" : "archiveProject")}</button>
+                {selectedProject.archived && <button className="danger" onClick={() => { setError(""); setDeleteName(""); setDeleteTarget(selectedProject); }}>{t("deleteProject")}</button>}
+              </div>}
+            </div>
+            <div className="project-metadata"><div className="project-meta">{t("runtime")}: {selectedProject.runtime} · {t("executor")}: {selectedProject.executor || "—"}</div><div className="project-meta">{jc.verification}: {verificationLabel(selectedProject)}</div></div>
+            {(selectedProject.verification.checked_at || selectedProject.verification.revision) && <p className="muted project-verification-evidence">{t("checkedAt")}: {selectedProject.verification.checked_at ? formatDate(selectedProject.verification.checked_at) : jc.unknown} · {t("revision")}: {selectedProject.verification.revision?.slice(0, 12) || jc.unknown}</p>}
+          </section>
+          {isAdmin && deleteTarget?.id === selectedProject.id && <section className="panel delete-confirm" aria-labelledby="delete-project-title">
+            <h2 id="delete-project-title">{t("deleteProjectTitle").replace("{project}", deleteTarget.name)}</h2>
+            <p>{t("deleteProjectRemoves")}</p>
+            <p className="muted">{t("deleteProjectKeeps")}</p>
+            <form className="form-stack" onSubmit={deleteProject}><FormLegend t={t} />
+              <label><span>{t("deleteProjectConfirm").replace("{project}", deleteTarget.name)}<RequiredMark /></span><input value={deleteName} onChange={event => setDeleteName(event.target.value)} autoComplete="off" spellCheck={false} required autoFocus /></label>
+              <div className="button-row"><button className="danger" type="submit" disabled={deleteName !== deleteTarget.name}>{t("deleteProject")}</button><button className="ghost" type="button" onClick={() => setDeleteTarget(null)}>{t("cancel")}</button></div>
+            </form>
+          </section>}
           {isAdmin && <section className="panel"><div className="panel-heading"><h2>{t("hostReadiness")}</h2><button className="ghost" onClick={() => void checkProjectReadiness()}>{t("runReadinessCheck")}</button></div><p className="muted">{t("hostReadinessHelp")}</p>{projectReadiness && <><p className="muted">{t("checkedAt")}: {formatDate(projectReadiness.checked_at)}</p><div className="detail-grid">{Object.entries(projectReadiness.checks).map(([key, value]) => <span key={key}>{t(({ git: "gitTool", forge_cli: "forgeCli", forge_auth: "forgeAuth", container_runtime: "containerRuntime", executor_cli: "executorCli", aegis_files: "aegisPayload", model_endpoint: "modelEndpoint" } as Record<string, MessageKey>)[key])}: <strong>{value === true ? t("checkPassed") : value === false ? t("checkMissing") : t("checkUnverified")}</strong></span>)}</div>{projectReadiness.model_probe && <p className="muted">{t("modelEndpoint")}: {modelReason(projectReadiness.model_probe.reason)}{projectReadiness.model_probe.model ? ` (${projectReadiness.model_probe.model})` : ""}</p>}</>}</section>}
           <JobWorkspace reporting={{ from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }} reportingQuery={metricSuffix} admin={isAdmin} {...workspaceProps} mode="overview" scope={selected} fixedScope />
           </>}
