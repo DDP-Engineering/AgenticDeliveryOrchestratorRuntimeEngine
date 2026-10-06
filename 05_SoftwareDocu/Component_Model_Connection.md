@@ -33,7 +33,7 @@ API evidence adds project_id, SHA-256 revision and UTC checked_at. GUI accepts e
 
 ## 7. Workflow Integration
 
-Executor configuration offers Test AI connection; Summary presents the current saved result. Each explicit click can incur provider charges. Inference is capped at 45 seconds and combined output at 1 MiB; setup/inference share a 90-second deadline, followed by cleanup commands capped at 8 seconds each. Cleanup failures become API errors.
+Executor configuration offers Test AI connection; Summary shows the current saved model result only inside expanded host-check details. Each explicit click can incur provider charges. Inference is capped at 45 seconds and combined output at 1 MiB; setup/inference share a 90-second deadline, followed by cleanup commands capped at 8 seconds each. Cleanup failures become API errors.
 
 ## 8. Usage
 

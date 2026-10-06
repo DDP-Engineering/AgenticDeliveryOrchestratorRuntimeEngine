@@ -697,10 +697,12 @@ buttons live in the information panel. Explicit host-check results appear there.
 `ReadinessEvidence.tsx` owns four-locale explanatory rows; `readiness.ts` owns
 scoped response validation and performed-check classification. Focused proof is
 `web/tests/readiness.test.mjs` and `web/e2e/jobs.spec.ts` readiness journeys.
-Explicit host checks retain internally validated check time and configuration revision,
-a visible performed-check verdict, and seven explained results with text/symbol status.
-Check details open after a fresh result and collapse through native pointer/keyboard
-controls while the overall verdict remains visible. Configuration/time metadata remains internal; configuration changes require fresh evidence. An Admin can configure repository sign-in through Connect repository in Summary,
+Explicit host checks retain internally validated check time and configuration revision.
+Results stay collapsed after each check. The labeled chevron beside Check host prerequisites
+expands or collapses individual results with pointer or keyboard; it is disabled until
+valid current evidence exists and resets on project/account changes. Model/executor
+access evidence appears only inside these details on Summary. There is no separate
+connected-model output or overall performed-check banner, keeping the following jobs panel visible. Configuration/time metadata remains internal; configuration changes require fresh evidence. An Admin can configure repository sign-in through Connect repository in Summary,
 or externally under the ADORE service account. Browser sign-in is separate.
 Git supplies isolated working copies; the repository command tool reads issues and
 publishes draft reviews; repository sign-in tests configured host authentication.

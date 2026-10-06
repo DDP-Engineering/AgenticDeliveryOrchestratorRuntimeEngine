@@ -10,7 +10,7 @@ import { messages, type Locale, type MessageKey } from "./i18n";
 import { ModelConnection, validModelEvidence, type ModelEvidence } from "./ModelConnection";
 import { ExecutorCredentials, executorCopy, isExecutorSetting } from "./ExecutorCredentials";
 import { RepositoryConnection } from "./RepositoryConnection";
-import { ReadinessEvidence } from "./ReadinessEvidence";
+import { ReadinessEvidence, readinessDetailsLabel } from "./ReadinessEvidence";
 import { readReadiness, type ProjectReadiness } from "./readiness";
 import { AuditHistory } from "./AuditHistory";
 import { auditCopy } from "./auditCopy";
@@ -124,6 +124,7 @@ export default function App() {
   const [storageStatus, setStorageStatus] = useState<StorageStatus | null>(null);
   const [storageError, setStorageError] = useState(false);
   const [projectReadiness, setProjectReadiness] = useState<ProjectReadiness | null>(null);
+  const [readinessExpanded, setReadinessExpanded] = useState(false);
   const [about, setAbout] = useState<{ name: string; version: string; license: string; license_text: string; third_party_notices: string } | null>(null);
   const [error, setError] = useState<unknown>("");
   const [passwordSession, setPasswordSession] = useState<Session | null>(null);
@@ -385,7 +386,7 @@ export default function App() {
 
   useEffect(() => { setUsage(null); setAllUsage(null); }, [usageSuffix, selected]);
 
-  useEffect(() => { readinessRequest.current += 1; setProjectReadiness(null); }, [selected, session?.user.id]);
+  useEffect(() => { readinessRequest.current += 1; setProjectReadiness(null); setReadinessExpanded(false); }, [selected, session?.user.id]);
 
   useEffect(() => {
     if (!session || !selected || page !== "metrics" || projectsState !== "ready" || !projects.some(item => item.id === selected)) return;
@@ -841,7 +842,7 @@ export default function App() {
     if (!selected || !isAdmin) return;
     const revision = ++readinessRequest.current;
     const generation = viewGeneration.current;
-    setProjectReadiness(null);
+    setProjectReadiness(null); setReadinessExpanded(false);
     try {
       const result = readReadiness(await request<unknown>(`/projects/${encodeURIComponent(selected)}/readiness-check`, "POST", {}, session?.csrf), selected);
       if (generation === viewGeneration.current && revision === readinessRequest.current) {
@@ -996,14 +997,13 @@ export default function App() {
             {isAdmin && <div className="summary-actions button-row">{!selectedProject.archived && <button className="ghost" onClick={() => void operate(selectedProject.paused ? "resume" : "pause", "", selectedProject.id)}>{selectedProject.paused ? jc.startPickup : jc.stopPickup}</button>}
               <button className="ghost" onClick={() => void setProjectArchive(!selectedProject.archived, selectedProject.id)}>{t(selectedProject.archived ? "restoreProject" : "archiveProject")}</button>
               {selectedProject.archived && <button className="danger" onClick={() => { setError(""); setDeleteName(""); setDeleteTarget(selectedProject); }}>{t("deleteProject")}</button>}
-              <button className="ghost" onClick={() => void checkProjectReadiness()}>{t("checkHostPrerequisites")}</button>
+              <span className="button-row"><button className="ghost" onClick={() => void checkProjectReadiness()}>{t("checkHostPrerequisites")}</button><button type="button" className="ghost" aria-label={readinessDetailsLabel(locale)} title={readinessDetailsLabel(locale)} aria-controls="host-check-details" aria-expanded={!!projectReadiness && readinessExpanded} disabled={!projectReadiness} onClick={() => setReadinessExpanded(value => !value)}><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" strokeWidth="2"><polyline points={readinessExpanded && projectReadiness ? "6 15 12 9 18 15" : "6 9 12 15 18 9"} /></svg></button></span>
 
             {!selectedProject.archived && <RepositoryConnection key={`${session.user.id}:${selectedProject.id}`} project={selectedProject.id} provider={selectedProject.platform} repository={selectedProject.repo} locale={locale}
               connect={body => request(`/projects/${encodeURIComponent(selectedProject.id)}/repository-connection`, "POST", body, session.csrf)}
               onConnected={() => { setProjectReadiness(null); setProjects(items => items.map(item => item.id === selectedProject.id ? { ...item, verification: { status: "unverified" } } : item)); }} />}
             </div>}
-            {projectConfig?.model_connection && selectedProject && <ModelConnection readOnly project={selectedProject.id} revision={projectConfig.revision} executor={selectedProject.executor} model={String(settingValue(projectConfig.config,`executor.commands.${selectedProject.executor}.model`))} locale={locale} saved={projectConfig.model_connection} />}
-            {projectReadiness && <ReadinessEvidence modelEvidence={projectConfig?.model_connection} evidence={projectReadiness} locale={locale} modelReason={modelReason(projectReadiness.model_probe.reason)} />}
+            <div id="host-check-details" hidden={!projectReadiness || !readinessExpanded}>{projectReadiness && <ReadinessEvidence modelEvidence={projectConfig?.model_connection} evidence={projectReadiness} locale={locale} modelReason={modelReason(projectReadiness.model_probe.reason)} />}</div>
           </section>} />
           {isAdmin && deleteTarget?.id === selectedProject.id && <ProjectDeleteDialog onClose={() => setDeleteTarget(null)}><section className="delete-confirm">
             <h2 id="delete-project-title">{t("deleteProjectTitle").replace("{project}", deleteTarget.name)}</h2>

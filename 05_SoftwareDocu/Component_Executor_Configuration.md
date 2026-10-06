@@ -30,7 +30,7 @@ Standard library filesystem/JSON/hash functions; existing ProfileStore, StateSto
 GET `/api/v1/projects/{identity}/executor-credentials` (Admin) returns `{project_id, revision, variables:[{name, source}]}`.
 PUT takes exact `{revision, variable, token}`; DELETE exact `{revision, variable}`. Monitoring must be paused, state valid and idle, with no pending configuration/operations. Archived projects reject mutations. Return values contain no key or credential digest. Authentication errors have stable value-free codes.
 
-Config GET includes `model_connection`, a current public result or null. Model test POST stores and returns the same closed result. Summary displays current access; host-check AI access uses that result when present. A separately performed OpenCode endpoint/tool-stream check remains separately identified and retains its verdict.
+Config GET includes `model_connection`, a current public result or null. Model test POST stores and returns the same closed result. Summary displays current access only in expanded host-check details; host-check AI access uses that result when present. A separately performed OpenCode endpoint/tool-stream check remains separately identified and retains its verdict.
 
 ## 6. Data Contracts
 

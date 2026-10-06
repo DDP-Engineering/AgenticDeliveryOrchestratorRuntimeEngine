@@ -119,10 +119,11 @@ test("hub separates pickup and verification and keeps role-appropriate navigatio
   await expect(page.getByRole("tab", { name: "History", exact: true })).toBeVisible();
   expect(checks).toBe(0);
   await facts.getByRole("button", { name: "Check host prerequisites", exact: true }).click();
-  await expect(facts.getByRole("heading", { name: "Attention required", exact: true })).toBeVisible();
+  await facts.getByRole("button", { name: "Check details", exact: true }).click();
+  await expect(facts.locator(".readiness-verdict")).toHaveCount(0);
   await expect(facts.locator(".readiness-check").filter({ hasText: "Repository sign-in" })).toContainText("Sign in on the ADORE server");
   await expect(facts.locator(".readiness-check").filter({ hasText: /^GitCreates/ })).toContainText("Creates isolated working copies");
-  await expect(facts.locator(".readiness-metadata")).toHaveCount(1);
+  await expect(facts.locator(".readiness-metadata")).toHaveCount(0);
   expect(checks).toBe(1);
   await expect(page.locator(".project-summary-window > .panel")).toHaveCount(2);
   await page.screenshot({ path: info.outputPath("project-hub-desktop.png"), fullPage: true });
@@ -556,12 +557,14 @@ for (const scenario of ["passed", "partial", "model-passed", "model-failed", "un
     if (scenario === "malformed" || scenario === "wrong-project") {
       await expect(page.locator(".readiness-check")).toHaveCount(0);
       await expect(page.getByRole("alert")).toBeVisible();
+      await expect(page.getByRole("button", { name: "Check details", exact: true })).toBeDisabled();
     } else {
+      await page.getByRole("button", { name: "Check details", exact: true }).click();
       const panel = page.locator(".readiness-evidence");
-      await expect(panel.getByRole("heading", { name: scenario === "partial" ? "Verification incomplete" : scenario === "model-failed" ? "Attention required" : "Performed checks passed", exact: true })).toBeVisible();
+      await expect(panel.locator(".readiness-verdict")).toHaveCount(0);
       await expect(panel.locator(".readiness-check")).toHaveCount(7);
       const model = panel.locator(".readiness-check").filter({ hasText: "AI model connection" });
-      await expect(model).toContainText(scenario === "unconfigured" ? "No compatible model endpoint" : scenario === "model-passed" ? "✓ Passed" : scenario === "model-failed" ? "! Action needed" : "This executor has no automatic model connection check");
+      await expect(model).toContainText(scenario === "unconfigured" ? "No compatible model endpoint" : scenario === "model-passed" ? "✓ Passed" : scenario === "model-failed" ? "! Action needed" : "Use Test AI connection in Executor configuration");
       await expect(panel).toContainText("does not test a complete job");
       await expect(page.locator(".readiness-metadata")).toHaveCount(0);
       if (scenario === "partial") await expect(panel.locator(".readiness-check").filter({ hasText: "Container engine" })).toContainText("Could not verify");
@@ -576,51 +579,57 @@ test("host prerequisite explanations support four locales and dark theme", async
   await page.route("**/api/v1/projects/*/readiness-check", route => route.fulfill({ status: 200,
     json: readinessFixture(decodeURIComponent(new URL(route.request().url()).pathname.split("/")[4]), { forge_auth: false }) }));
   await signIn(page);
-  for (const [locale, heading] of [["fr", "Intervention nécessaire"], ["de", "Handlung erforderlich"], ["ro", "Necesită intervenție"], ["en", "Attention required"]]) {
+  for (const [locale, status] of [["fr", "! Intervention nécessaire"], ["de", "! Handlung erforderlich"], ["ro", "! Necesită intervenție"], ["en", "! Action needed"]]) {
     await page.goto("/account");
     await page.getByLabel(/Language|Langue|Sprache|Limbă/).selectOption(locale);
     await page.goto("/projects/alpha");
     await page.getByRole("button", { name: /Check host prerequisites|Vérifier les prérequis|Host-Voraussetzungen prüfen|Verifică cerințele gazdei/ }).click();
-    await expect(page.locator(".readiness-evidence").getByRole("heading", { name: heading, exact: true })).toBeVisible();
+    await page.getByRole("button", {name:/Check details|Détails du contrôle|Detaliile verificării|Prüfungsdetails/}).click();
+    await expect(page.locator(".readiness-result").filter({hasText:status})).toBeVisible();
     await expect(page.locator(".readiness-metadata")).toHaveCount(0);
   }
   await page.goto("/account"); await page.getByLabel("Theme", { exact: true }).selectOption("dark");
   await page.goto("/projects/alpha"); await page.getByRole("button", { name: /Check host prerequisites|Vérifier les prérequis|Host-Voraussetzungen prüfen|Verifică cerințele gazdei/ }).click();
+  await page.getByRole("button", {name:"Check details",exact:true}).click();
   await page.screenshot({ path: info.outputPath("readiness-dark.png"), fullPage: true });
 });
 
 test("host prerequisite explanation accepts the real offline API contract", async ({ page }) => {
   await signIn(page); await page.goto("/projects/alpha");
   await page.getByRole("button", { name: "Check host prerequisites", exact: true }).click();
-  await expect(page.locator(".readiness-evidence").getByRole("heading", { name: "Attention required", exact: true })).toBeVisible();
+  await page.getByRole("button", {name:"Check details",exact:true}).click();
+  await expect(page.locator(".readiness-check").filter({hasText:"Repository sign-in"})).toContainText("! Action needed");
   await expect(page.locator(".readiness-check")).toHaveCount(7);
   await expect(page.locator(".readiness-metadata")).toHaveCount(0);
   await expect(page.locator(".summary-fact").filter({ hasText: "Environment verification" })).toContainText("Verification failed");
 });
 
-test("host check details collapse by keyboard and reopen after a fresh check", async ({ page }) => {
+test("host check details expand beside action and stay collapsed after a fresh check", async ({ page }) => {
   await signIn(page); await page.goto("/projects/alpha");
   const check = page.getByRole("button", { name: "Check host prerequisites", exact: true });
+  const toggle = page.getByRole("button", { name: "Check details", exact: true });
+  await expect(toggle).toBeDisabled();
   await check.click();
-  const details = page.locator("details.readiness-details");
-  const summary = details.locator("summary");
-  const verdict = page.locator(".readiness-verdict");
-  await expect(details).toHaveAttribute("open", "");
-  await expect(page.locator(".readiness-metadata")).toHaveCount(0);
-  await expect(details).not.toContainText("Identifies the saved project configuration");
-  await expect(details).toContainText("Use Connect repository in Summary");
-  await summary.click();
-  await expect(details).not.toHaveAttribute("open", "");
+  await expect(toggle).toBeEnabled();
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await expect(toggle.locator("svg polyline")).toHaveAttribute("points", "6 9 12 15 18 9");
   await expect(page.locator(".readiness-check").first()).not.toBeVisible();
-  await expect(verdict).toContainText("Attention required");
-  await summary.focus(); await page.keyboard.press("Enter");
+  await expect(page.locator(".readiness-verdict")).toHaveCount(0);
+  await expect(page.getByText("AI model connected", {exact:true})).toHaveCount(0);
+  const checkBox=await check.boundingBox(), toggleBox=await toggle.boundingBox();
+  expect(Math.abs(checkBox!.y-toggleBox!.y)).toBeLessThan(5);
+  await toggle.focus(); await page.keyboard.press("Enter");
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await expect(toggle.locator("svg polyline")).toHaveAttribute("points", "6 15 12 9 18 15");
   await expect(page.locator(".readiness-check").first()).toBeVisible();
+  await expect(page.locator(".readiness-evidence")).toContainText("Use Connect repository in Summary");
   await page.keyboard.press("Enter");
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await toggle.click(); await check.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
   await expect(page.locator(".readiness-check").first()).not.toBeVisible();
-  await check.click();
-  await expect(details).toHaveAttribute("open", "");
-  await expect(page.locator(".readiness-check").first()).toBeVisible();
-  await expect(page.locator(".readiness-metadata")).toHaveCount(0);
+  await page.goto("/projects/beta");
+  await expect(toggle).toBeDisabled();
 });
 
 

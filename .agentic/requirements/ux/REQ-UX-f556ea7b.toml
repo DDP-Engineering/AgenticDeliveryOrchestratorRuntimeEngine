@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-f556ea7b"
+
+title = "Compact host-check disclosure beside its action"
+
+status = "active"
+
+requirement = """
+On project Summary, ADORE shall keep host-check result details collapsed until an authorized user activates the labeled expand control beside Check host prerequisites, showing individual results and model evidence only inside that disclosure, resetting it on a new check or project/account change, and leaving invalid or absent evidence undisclosed.
+"""
+
+verification = "Offline Chromium verifies initial/recheck collapse, adjacent keyboard-operated expand/collapse, single model presentation, locale/mobile layout, and rejection of malformed/foreign result evidence."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/ReadinessEvidence.tsx", "04_Software/web/e2e/jobs.spec.ts", "04_Software/web/e2e/executor-config.spec.ts", "04_Software/adore/web/static/"]
+
+linked_tests = ["04_Software/web/e2e/jobs.spec.ts", "04_Software/web/e2e/executor-config.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-06
+updated = 2026-10-06

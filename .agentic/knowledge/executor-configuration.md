@@ -25,7 +25,7 @@ CSRF/admin/immutable identity/config and conductor locks/pause/idle/pending guar
 
 ## Key behaviors
 
-REQ-FUNC-4e9e7ecc executor tab/ownership; REQ-SEC-1c210f3f approved project API credentials; REQ-DATA-f304fd2e durable current model result. Existing command tables/manual model IDs and external subscription login guidance preserve actual capabilities.
+REQ-FUNC-4e9e7ecc executor tab/ownership; REQ-SEC-1c210f3f approved project API credentials; REQ-DATA-f304fd2e durable current model result. Existing command tables/manual model IDs and external subscription login guidance preserve actual capabilities. Summary presents model evidence only in the adjacent host-check disclosure; the executor tab retains the explicit test/result.
 
 ## Architecture
 

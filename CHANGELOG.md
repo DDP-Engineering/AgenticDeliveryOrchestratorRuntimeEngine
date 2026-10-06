@@ -114,6 +114,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Project Summary keeps host-check results collapsed behind an adjacent accessible chevron, with model evidence inside details and compact presentation above jobs.
+
 - Project Settings keeps all project values/defaults with one permanent description, without duplicate Help or override-only filtering; global policies remain in Administration.
 
 - Consolidated project Summary into information/action tiles and compact job lists; integrated explicit host checks and accessible modal project deletion.

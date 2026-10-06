@@ -6,7 +6,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 */
 import type { ModelEvidence } from "./ModelConnection";
 import { type Locale } from "./i18n";
-import { readinessKeys, readinessVerdict, type ProjectReadiness } from "./readiness";
+import { readinessKeys, type ProjectReadiness } from "./readiness";
 
 const copy = {
   en: {
@@ -79,13 +79,15 @@ const copy = {
   },
 };
 
-/** Present only validated results, with purposes and remediation at the point of failure. */
+/** Localized accessible name for the Summary disclosure control. */
+export function readinessDetailsLabel(locale: Locale): string { return copy[locale].details; }
+
+/** Present only validated results inside the view-owned disclosure. */
 export function ReadinessEvidence({ evidence, locale, modelReason, modelEvidence }: { modelEvidence?: ModelEvidence | null; evidence: ProjectReadiness; locale: Locale; modelReason: string }) {
   const c = copy[locale];
-  const verdict = modelEvidence?.ready === false ? "failed" : readinessVerdict(evidence);
   return <div className="readiness-evidence">
-    <div className={`readiness-verdict ${verdict}`} role="status"><h3>{c[verdict === "verified" ? "passed" : verdict === "failed" ? "failed" : "partial"]}</h3><p>{c.coverage}</p></div>
-    <details className="readiness-details" open><summary>{c.details}</summary>
+    <p className="muted">{c.coverage}</p>
+    <div className="readiness-details">
     <div className="readiness-checks">{readinessKeys.map((key, index) => {
       const explicit = key === "model_endpoint" ? modelEvidence : null;
       const value = explicit ? explicit.ready : evidence.checks[key];
@@ -103,6 +105,6 @@ export function ReadinessEvidence({ evidence, locale, modelReason, modelEvidence
         </div>
         <strong className="readiness-result">{c[status === "passed" ? "ok" : status === "failed" ? "error" : status === "unknown" ? "unknown" : "skipped"]}</strong>
       </div>;
-    })}{modelEvidence && evidence.checks.model_endpoint !== "not-checked" && <div className={`readiness-check ${evidence.checks.model_endpoint ? "passed" : "failed"}`}><div><strong>{{en:"OpenCode endpoint and tool compatibility",ro:"Compatibilitatea endpoint-ului și instrumentelor OpenCode",fr:"Compatibilité endpoint et outils OpenCode",de:"OpenCode-Endpunkt- und Werkzeugkompatibilität"}[locale]}</strong><p>{modelReason}</p></div><strong className="readiness-result">{evidence.checks.model_endpoint ? c.ok : c.error}</strong></div>}</div></details>
+    })}{modelEvidence && evidence.checks.model_endpoint !== "not-checked" && <div className={`readiness-check ${evidence.checks.model_endpoint ? "passed" : "failed"}`}><div><strong>{{en:"OpenCode endpoint and tool compatibility",ro:"Compatibilitatea endpoint-ului și instrumentelor OpenCode",fr:"Compatibilité endpoint et outils OpenCode",de:"OpenCode-Endpunkt- und Werkzeugkompatibilität"}[locale]}</strong><p>{modelReason}</p></div><strong className="readiness-result">{evidence.checks.model_endpoint ? c.ok : c.error}</strong></div>}</div></div>
   </div>;
 }
