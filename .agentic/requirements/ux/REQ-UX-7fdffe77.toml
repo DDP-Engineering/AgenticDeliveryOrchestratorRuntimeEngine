@@ -9,19 +9,19 @@ schema = 1
 
 id = "REQ-UX-7fdffe77"
 
-title = "Show one message when metrics have no jobs"
+title = "Distinguish successful empty statistics from unavailable measurements"
 
 status = "active"
 
 requirement = """
-While the selected Metrics scope has no jobs, the Summary, Quality and Trends tabs shall each show one localized message explaining that metrics appear after the first job instead of zero-valued cards, while the reporting controls, Usage tab and Projects tab remain available.
+When a successfully validated Statistics scope contains no jobs, Summary shall explain the empty job evidence while retaining measured lifecycle counts, separately named current stock and unavailable token/duration evidence. Quality and Trends shall show localized empty feedback. Reporting controls, Usage and Projects remain available. Pending, failed or corrupt reads shall hide numeric presentations and exports.
 """
 
-verification = "Manual: with a project that has no jobs open Metrics and confirm Summary, Quality and Trends each show the single message and no zero cards, and the reporting controls and other tabs remain; select a project with jobs and confirm the usual cards return; confirm unknown values in a project with jobs still show a dash rather than the message."
+verification = "Offline Chromium selects an empty local interval, asserts zero lifecycle versus unavailable tokens, empty job evidence and independent current stock, then selects nonempty evidence; abort/corrupt response tests require errors without totals or exports."
 
-affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/styles.css", "04_Software/web/src/i18n.ts", "04_Software/adore/web/static/"]
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/StatisticsEvidence.tsx", "04_Software/web/src/statisticsCopy.ts", "04_Software/adore/web/static/"]
 
-linked_tests = []
+linked_tests = ["04_Software/web/e2e/statistics.spec.ts", "04_Software/web/e2e/shell.spec.ts"]
 
 
 spec = ""
@@ -30,4 +30,4 @@ priority = "normal"   # low | normal | high
 rationale = ""        # why this behavior exists, if not obvious
 
 created = 2026-10-03
-updated = 2026-10-03
+updated = 2026-10-06

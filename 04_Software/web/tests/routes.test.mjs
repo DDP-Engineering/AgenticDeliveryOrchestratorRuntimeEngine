@@ -10,6 +10,18 @@ import { formatRoute, normalizeRoute, parseRoute } from "../src/routes.ts";
 
 const ID = "88efed3d79945faab27a52d1a11f219b";
 
+test("reporting selections survive statistics and job deep links", () => {
+  const reporting = { from: "2026-10-25", through: "2026-10-25", timezone: "Europe/Bucharest", granularity: "week" };
+  for (const view of ["metrics", "jobs"]) {
+    const route = { view, project: ID, reporting };
+    const url = new URL(formatRoute(route), "http://localhost");
+    assert.deepEqual(parseRoute(url.pathname, url.search), route);
+    assert.equal(url.searchParams.get("timezone"), "Europe/Bucharest");
+  }
+  assert.equal(parseRoute("/metrics", "?granularity=bad"), null);
+  assert.equal(parseRoute("/metrics", "?from=not-a-date"), null);
+});
+
 // Every route in the URL scheme, as [url, route] pairs that must round-trip.
 const table = [
   ["/", { view: "overview" }],

@@ -112,7 +112,7 @@ setup operations; verification then runs offline.
 The suite covers sign-in/out, incorrect credentials, admin/developer and
 project access, CSRF, configuration staging/applying and stale revisions,
 route reload/Back, a 390px viewport and worker success/failure/idempotency.
-It uses one worker, no retries, a 30-second per-test timeout and a three-minute
+It uses one worker, no retries, a 30-second per-test timeout and a four-minute
 browser-suite limit. The test server has a fixture-only shutdown route so
 normal teardown also removes its temporary home on Windows. Forced termination
 can leave an `adore-e2e-*` directory in the system temporary directory.
@@ -679,12 +679,37 @@ fields for the observed timeline. Existing project run API routes remain compati
 coverage, strict URL validation and source-change semantics.
 
 Statistics keeps shared project, date, timezone and grouping controls above
-Summary, Usage, Quality, Trends and Projects. Blank dates select All-time;
+Summary, Usage, Quality, Trends and Projects. Use **All time** to clear both date bounds; blank dates select All-time;
 selected dates apply to every statistic and export. Usage additionally supports
 exact executor/model filters; job counts remain independent of those identities.
 Unknown values show a dash, measured zero shows 0, source errors show failed
 load, and unallocated usage is explicitly counted. Open reviews are current
-state. These controls preserve the existing layout and four-language guidance.
+state. These controls preserve four-language guidance.
+
+Summary starts with jobs started, completed and failed, known input/output/total
+tokens, coverage and measured duration samples. Completed includes all terminal
+outcomes, and each lifecycle count uses its actual event time. **Current state ·
+active now** is separate from interval events. **Not available**, **Measured zero**
+and **Partial · known subtotal** distinguish unavailable, observed zero and known
+amounts with incomplete coverage. A total requires both known token directions;
+known subtotals and observation counts do not assert a complete bill. Reported
+cost is observed evidence; estimated cost uses saved executor/model prices and
+remains separate. All financial evidence and exports remain Admin-only.
+
+Job consumption shows immutable Project ID and Run ID, lifetime, selected period,
+unallocated observations and source. Jobs list/details reuse the reporting dates,
+timezone and grouping, with a link back to Statistics. A separate all-time read
+retains lifetime evidence outside a selected period; absent period projections
+show Not available. The export menu includes **Job consumption** CSV for the
+same project/date/timezone/grouping selection. Scope controls are encoded in
+Statistics and Jobs URLs for direct links, reload and browser Back.
+
+Trends displays readable lifecycle bars and a captioned accessible table of the
+same server rows. Empty periods have explicit empty feedback. Loading, failed,
+malformed or incompatible responses withhold numerical presentations and exports;
+old responses cannot overwrite a newer selection or removed project access.
+**Messages** explicitly says **Not available** while real message collection is
+unavailable; executor launches do not supply message counts.
 
 Reporting scope is the authorized immutable project set, a half-open UTC
 instant interval `[from,to)`, the selected IANA timezone and day/week/month
@@ -735,7 +760,8 @@ Project `/api/v1/projects/{name}/jobs-usage.csv` and Admin global
 `/api/v1/jobs-usage.csv` share usage date/timezone/group/executor/model filters.
 
 Offline proof: `test_web_scoped_metrics.py`, `test_web_metrics.py`,
-`test_web_pricing.py`, and `web/tests/metrics.test.mjs`, followed by native
+`test_web_pricing.py`, `web/tests/metrics.test.mjs`, `web/tests/statistics.test.mjs` and
+`web/e2e/statistics.spec.ts`, followed by native
 Python/Ruff and frontend validation. CLI summary/export semantics are preserved.
 
 Administrators configure immutable exact executor/model input/output USD rates

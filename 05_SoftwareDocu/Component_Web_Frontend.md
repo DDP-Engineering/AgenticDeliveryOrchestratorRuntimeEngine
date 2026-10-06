@@ -226,7 +226,7 @@ see All projects, with pooled headline totals and a paginated project breakdown
 in Summary. Selecting one project scopes every category, project/repository
 comparison and export to that project. Project details opens Statistics for that
 project. Developers select assigned projects and receive operational data only.
-The export menu offers metrics and usage CSV files for the current scope;
+The export menu offers metrics, usage and composite job-consumption CSV files for the current scope;
 global choices appear only in administrator All projects scope. Arrow keys, Home and End switch tabs,
 and the shared controls retain their values when categories change. On compact
 screens project selection spans a full row above the four period controls in
@@ -240,6 +240,34 @@ Coverage distinguishes unallocated usage and missing launch telemetry.
 Open review cards explicitly label current state. Exact usage identity filters
 remain independent of job counts. Requests discard stale responses after scope
 or session changes. CSV links retain identical reporting options.
+
+
+`StatisticsEvidence.tsx` explains initial started/completed/failed events, known
+input/output/total token subtotals, terminal duration samples and measurement
+coverage. Current-state active jobs are a separate stock panel. Null is Not
+available, explicit zero is Measured zero, and known amounts with missing
+observations are labeled partial. Reported and estimated Admin money have
+separate labels and provenance. Messages remain explicitly Not available.
+`TrendEvidence` displays labeled lifecycle bars and a captioned accessible table
+from the same server buckets. Four-locale `statisticsCopy.ts` explains inclusive
+local dates, exclusive next-midnight boundaries, DST and unallocated evidence.
+
+`statistics.ts` validates scope, immutable project/run IDs, nullable amounts,
+financial absence for Dev, quality counts and exact server duration samples.
+Request/render keys include current project authorization; scope changes,
+reordered polling responses, revoked grants and route transitions hide earlier
+values. Current metric and usage scopes must agree before presentation/export.
+The `/metrics` and `/jobs` URLs retain selected `from`, `through`, `timezone`
+and `granularity`; blank dates and the explicit All time button select all-time.
+
+The Statistics job table and Jobs list/detail identify `(project_id,run_id)`
+and distinguish lifetime, selected-period and unallocated evidence. Jobs reads
+usage once per visible authorized project and a separately validated all-time
+projection when dates are selected. Lifetime stays available for jobs outside
+the period; absent selected-period projections stay unavailable. Observation
+counts identify source coverage without claiming complete measurements. Actual
+server filters and boundaries remain authoritative; browser aggregation uses
+server-selected evidence. Existing job/state persistence and API remain intact.
 
 `src/metrics.ts` pools the server-selected exact duration sample arrays and their
 count/sum, including measured zero. It computes mean/median from these samples;
@@ -386,8 +414,7 @@ Project names and ticket numbers are semantic links with owning-project URLs.
 Project tabs support arrow keys, Home and End; `/configuration` and `/prices`
 remain valid, while `/history` selects terminal jobs in the same authorized hub.
 The Prices form preselects the project's configured executor and remounts per
-project. When the Statistics scope has no jobs, Summary, Quality and Trends show
-one localized message instead of zero-valued cards.
+project. A successful empty Statistics response shows the measured lifecycle counts and explicit unavailable consumption with an empty job table; Quality and Trends show localized empty feedback. Loading or failed reads withhold numeric cards and CSV actions.
 An account whose password an administrator reset signs in to a dedicated
 change-password card with the reason, language, theme and Sign out controls;
 the dashboard and its polling stay inactive until the change succeeds, after
@@ -429,6 +456,13 @@ have localized status labels; neither shows Cancel. Only administrators see
 cost and account/config screens.
 
 ## 9. Validation And Tests
+
+`tests/statistics.test.mjs`, `tests/metrics.test.mjs`, `tests/routes.test.mjs` and
+`e2e/statistics.spec.ts` cover strict analytical transport, scope/exports/stale
+responses and grant revocation, per-job collision/null/zero/partial values,
+canonical mismatches, four locales/themes, keyboard and chart/table parity at
+390px. The browser server uses disposable profiles and fake command boundaries.
+
 
 `tests/jobs.test.mjs` validates complete/unknown evidence, malformed or contradictory
 counts/groups, unauthorized/composite identity, unsafe URLs, command guards and

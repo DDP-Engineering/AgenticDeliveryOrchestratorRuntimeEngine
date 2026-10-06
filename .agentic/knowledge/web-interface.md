@@ -281,6 +281,17 @@ escaping; `X-ADORE-Scope`/`X-ADORE-Coverage` describe empty exports too.
 Project `/api/v1/projects/{name}/jobs-usage.csv` and Admin global
 `/api/v1/jobs-usage.csv` share usage date/timezone/group/executor/model filters.
 
+The browser validates scoped metrics/usage before presenting evidence. Captured
+project/date/timezone/group and authorized-project keys suppress stale reads;
+metric and usage canonical scopes must agree before cards or CSV links appear.
+Summary distinguishes measured zero, unavailable and partial subtotals, lifecycle
+events, current active stock, duration samples and reported/estimated money.
+Messages remain unavailable until a genuine source exists. Server buckets feed
+labeled bars and the same captioned accessible table in all four locales/themes.
+Composite job consumption exposes lifetime, selected-period and undated amounts;
+Jobs/detail reads once per visible project and independently reads all-time data
+when the selected interval lacks a job. Reporting deep links retain selection.
+
 Offline proof: `test_web_scoped_metrics.py`, `test_web_metrics.py`,
 `test_web_pricing.py`, and `web/tests/metrics.test.mjs`, followed by native
 Python/Ruff and frontend validation. CLI summary/export semantics are preserved.
@@ -317,6 +328,7 @@ Python/Ruff and frontend validation. CLI summary/export semantics are preserved.
 | Exact TOML enrollment, safe review and probe | `web/src/ImportWizard.tsx`, `importCopy.ts`, `_inspect_project_import` | `test_web_import.py`, `web/e2e/import.spec.ts` |
 | Guided enrollment steps, correction, draft loss and review | `web/src/EnrollmentWizard.tsx`, `web/src/enrollmentCopy.ts`, `App.tsx` | `web/e2e/enrollment.spec.ts` |
 | Accounts, sessions, queue | `adore/web/store.py` | `test_web_auth.py`, `test_web_commands.py` |
+| Statistics evidence, selection, exports and job consumption | `web/src/statistics.ts`, `StatisticsEvidence.tsx`, `App.tsx`, `JobWorkspace.tsx` | `web/tests/statistics.test.mjs`, `web/e2e/statistics.spec.ts` |
 | API permissions/config/metrics | `adore/web/app.py` | `test_web_rbac.py`, `test_web_config.py`, `test_web_pending_config.py`, `test_web_readiness.py`, `test_web_metrics.py` |
 | Worker execution | `adore/web/commands.py` | `test_web_commands.py` |
 | Action workspace, next action and observed history | `web/src/JobWorkspace.tsx`, `jobModel.ts`, `jobCopy.ts` | `web/tests/jobs.test.mjs`, `web/e2e/jobs.spec.ts`, `test_web_jobs.py` |
@@ -411,6 +423,10 @@ flowchart LR
     Journals[(Raw journals)] --> Analytics[Strict analytics scope usage cohorts samples]
     Summaries[(Read-only terminal summaries)] --> Analytics
     Analytics --> api
+    App --> StatisticsReader[statistics strict scope amounts identity]
+    JobWorkspace --> StatisticsReader
+    StatisticsReader --> Evidence[StatisticsEvidence measures jobs bars and table]
+    Evidence --> StatisticsCopy[statisticsCopy four locale definitions]
     App --> DashboardShell[DashboardShell links branding focus]
     App --> Presentation[Presentation feedback glossary status]
     App --> JobWorkspace[JobWorkspace attention jobs detail commands]
@@ -527,6 +543,12 @@ for Add and Import project. Primary buttons take their text colour from the
 `--on-accent` theme token.
 
 ## Files
+
+- `04_Software/web/src/statistics.ts` - strict analytical scope/amount/job boundary.
+- `04_Software/web/src/StatisticsEvidence.tsx` - honest measures, consumption and trends.
+- `04_Software/web/src/statisticsCopy.ts` - EN/FR/DE/RO measurement definitions.
+- `04_Software/web/tests/statistics.test.mjs` and `web/e2e/statistics.spec.ts` -
+  deterministic analytical values, stale/grant/export/mobile and locale proof.
 
 - `web/src/TransferWizard.tsx`, `transferCopy.ts`, optional `EnrollmentWizard` transfer mode and `tests/test_web_transfer.py`, `web/e2e/transfer.spec.ts` own portable new-project enrollment.
 

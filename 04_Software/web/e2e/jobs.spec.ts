@@ -125,7 +125,8 @@ test("missing evidence and stale worker activity do not fabricate telemetry or a
   await expect(detail).toContainText("saved evidence does not identify an action location");
   await expect(detail.locator(".next-action-panel a")).toHaveCount(0);
   await detail.getByText("Technical details", { exact: true }).click();
-  await expect(detail).toContainText("Not available in the job evidence contract.");
+  await expect(detail.locator(".job-consumption").first()).toContainText("Input tokens: —Not available");
+  await expect(detail.locator(".job-consumption").first()).toContainText("Output tokens: —Not available");
   await page.goto("/jobs?project=alpha&run=ux-working");
   await expect(page.locator(".detail-panel")).toContainText("over 15 minutes old");
 });
@@ -165,10 +166,10 @@ test("composite colliding IDs and reload preserve the owning project", async ({ 
   const links = await page.locator(".action-jobs-table tbody td:first-child a").evaluateAll(nodes => nodes.map(node => (node as HTMLAnchorElement).href));
   expect(new Set(links).size).toBe(2);
   await page.getByRole("link", { name: /Actual beta collision/ }).click();
-  await expect(page.locator(".detail-panel h2")).toHaveText("Actual beta collision");
+  await expect(page.locator(".detail-panel .panel-heading h2")).toHaveText("Actual beta collision");
   await expect(page.getByRole("region", { name: "Project context" })).toContainText("beta");
   await page.reload();
-  await expect(page.locator(".detail-panel h2")).toHaveText("Actual beta collision");
+  await expect(page.locator(".detail-panel .panel-heading h2")).toHaveText("Actual beta collision");
   await page.locator(".detail-panel").getByRole("button", { name: "Close", exact: true }).click();
   await expect(page).not.toHaveURL(/run=/);
 });

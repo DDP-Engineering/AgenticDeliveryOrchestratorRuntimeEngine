@@ -7,12 +7,13 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 export type ProjectTab = "overview" | "configuration" | "prices" | "access" | "history";
 export type MetricsTabRoute = "summary" | "usage" | "quality" | "trends" | "projects";
 type PlainView = "projects" | "createProject" | "importProject" | "administration" | "adminUsers" | "adminAudit" | "settings";
+export type ReportingRoute = { from: string; through: string; timezone: string; granularity: string };
 export type Route =
   | { view: "overview"; project?: string }
   | { view: PlainView }
   | { view: "projectDetails"; project: string; tab: ProjectTab }
-  | { view: "jobs"; project?: string; run?: string }
-  | { view: "metrics"; project?: string; tab?: MetricsTabRoute };
+  | { view: "jobs"; project?: string; run?: string; reporting?: ReportingRoute }
+  | { view: "metrics"; project?: string; tab?: MetricsTabRoute; reporting?: ReportingRoute };
 
 const PLAIN: Record<string, PlainView> = {
   "/projects": "projects", "/projects/new": "createProject", "/projects/import": "importProject",
@@ -34,15 +35,22 @@ export function parseRoute(pathname: string, search = ""): Route | null {
   const path = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
   const query = new URLSearchParams(search);
   const project = identifier(query.get("project"));
+  let reporting: ReportingRoute | undefined;
+  if (["from", "through", "timezone", "granularity"].some(key => query.has(key))) {
+    reporting = { from: query.get("from") || "", through: query.get("through") || "", timezone: query.get("timezone") || "UTC", granularity: query.get("granularity") || "day" };
+    if ([reporting.from, reporting.through].some(value => value && !/^\d{4}-\d{2}-\d{2}$/.test(value)) ||
+      !["day", "week", "month"].includes(reporting.granularity) || reporting.timezone.length > 64) return null;
+    try { new Intl.DateTimeFormat("en", { timeZone: reporting.timezone }); } catch { return null; }
+  }
   if (path === "/" || path === "") return project ? { view: "overview", project } : { view: "overview" };
   if (path in PLAIN) return { view: PLAIN[path] };
   if (path === "/jobs") {
     const run = identifier(query.get("run"));
-    return { view: "jobs", ...(project ? { project } : {}), ...(project && run ? { run } : {}) };
+    return { view: "jobs", ...(reporting ? { reporting } : {}), ...(project ? { project } : {}), ...(project && run ? { run } : {}) };
   }
   if (path === "/metrics") {
     const tab = query.get("tab") as MetricsTabRoute | null;
-    return { view: "metrics", ...(project ? { project } : {}), ...(tab && METRICS_TABS.includes(tab) ? { tab } : {}) };
+    return { view: "metrics", ...(reporting ? { reporting } : {}), ...(project ? { project } : {}), ...(tab && METRICS_TABS.includes(tab) ? { tab } : {}) };
   }
   const match = /^\/projects\/([^/]+)(?:\/([^/]+))?$/.exec(path);
   if (match) {
@@ -63,12 +71,17 @@ export function formatRoute(route: Route): string {
     const text = query.toString();
     return text ? `${path}?${text}` : path;
   };
+  const reportingParams = "reporting" in route && route.reporting ? {
+    from: route.reporting.from, through: route.reporting.through,
+    timezone: route.reporting.timezone === "UTC" ? undefined : route.reporting.timezone,
+    granularity: route.reporting.granularity === "day" ? undefined : route.reporting.granularity,
+  } : {};
   switch (route.view) {
     case "overview": return withQuery("/", { project: route.project });
     case "projectDetails":
       return `/projects/${encodeURIComponent(route.project)}${route.tab === "overview" ? "" : `/${route.tab}`}`;
-    case "jobs": return withQuery("/jobs", { project: route.project, run: route.project ? route.run : undefined });
-    case "metrics": return withQuery("/metrics", { project: route.project, tab: route.tab });
+    case "jobs": return withQuery("/jobs", { project: route.project, run: route.project ? route.run : undefined, ...reportingParams });
+    case "metrics": return withQuery("/metrics", { project: route.project, tab: route.tab, ...reportingParams });
     default: return PLAIN_PATHS[route.view];
   }
 }

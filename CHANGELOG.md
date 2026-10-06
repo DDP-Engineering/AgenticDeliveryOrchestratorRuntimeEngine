@@ -14,6 +14,12 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Added
 
+- Explanatory scoped Statistics with explicit all-time, separate active-now stock,
+  honest zero/unavailable/partial coverage and cost provenance, server-sample
+  durations, composite job lifetime/period consumption, and labeled trends with
+  accessible tables. Scope URLs/CSV, stale-response and grant-revocation guards,
+  four-locale narrow layouts and honest message placeholders complete #15.
+
 - Consistent scoped web metrics with DST-aware instant boundaries, nullable
   consumption, composite per-job lifetime/period/unallocated projections and
   CSV, strict read-only analytical sources and server-selected duration samples

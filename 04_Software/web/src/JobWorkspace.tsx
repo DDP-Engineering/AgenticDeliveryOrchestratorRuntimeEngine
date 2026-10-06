@@ -12,6 +12,10 @@ import { activityAge, commandAllowed, IncompleteJobs, lifecycles, readJobDetail,
 import { DataFeedback, StatusBadge } from "./Presentation";
 import { startVisiblePolling } from "./polling";
 import { formatRoute } from "./routes";
+import { readConsumption, consumptionIdentity, type ReportingSelection } from "./statistics";
+import type { JobConsumption } from "./metrics";
+import { JobAmounts } from "./StatisticsEvidence";
+import { statisticsCopy } from "./statisticsCopy";
 
 export type JobProject = { id: string; name: string; display_name?: string; archived: boolean; paused: boolean };
 type Request = <T>(path: string, method?: string, body?: unknown, csrf?: string) => Promise<T>;
@@ -20,6 +24,7 @@ type Props = {
   csrf: string; request: Request; t: (key: MessageKey) => string; refresh: number;
   onScope: (scope: string) => void; onOpen: (project: string, run: string) => void; onClose: () => void;
   fixedScope?: boolean;
+  reporting: ReportingSelection; reportingQuery: string; admin: boolean;
 };
 type ReadState = "loading" | "ready" | "error" | "incomplete" | "changed";
 type Operation = { id: number; status: "pending" | "running" | "succeeded" | "failed" | "uncertain"; result?: string };
@@ -74,11 +79,43 @@ export function JobWorkspace(props: Props) {
   const [loadedDetailKey, setLoadedDetailKey] = useState("");
   const visible = dataKey === renderKey && state === "ready" ? page : null;
   const visibleDetail = loadedDetailKey === detailKey && detailState === "ready" && ids.split(",").includes(scope) && state !== "changed" ? detail : null;
+  const consumptionProjects = [...new Set([...(visible?.items.map(job => job.project_id) ?? []), ...(visibleDetail ? [visibleDetail.project_id] : [])])].sort().join(",");
+  const consumptionKey = JSON.stringify([consumptionProjects, ids, props.reportingQuery, renderKey, detailKey]);
+  const [consumption, setConsumption] = useState<{ key: string; state: "loading" | "ready" | "error"; jobs: JobConsumption[]; periodKeys: string[] }>({ key: "", state: "loading", jobs: [], periodKeys: [] });
+  const statisticsText = statisticsCopy[locale];
+  const consumptionView = (job: Job, full = false) => {
+    if (consumption.key !== consumptionKey || consumption.state !== "ready") return <DataFeedback state={consumption.key === consumptionKey ? consumption.state : "loading"} t={t} />;
+    const usage = consumption.jobs.find(row => consumptionIdentity(row) === consumptionIdentity(job));
+    return usage ? <JobAmounts job={usage} locale={locale} admin={props.admin} t={t} compact={!full} periodAvailable={consumption.periodKeys.includes(consumptionIdentity(job))} /> : <span>{statisticsText.unavailable}<small>{statisticsText.missingJob}</small></span>;
+  };
   const date = (value: string | null) => value ? new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : copy.unknown;
   const change = (key: keyof Filters, value: string | number) => setFilters(current => ({ ...current, [key]: value, offset: 0 }));
   const busy = submitting || operation !== null && ["pending", "running"].includes(operation.status);
 
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; commandGeneration.current += 1; }; }, []);
+  useEffect(() => {
+    let active = true, sequence = 0;
+    const fetchUsage = async () => {
+      const current = ++sequence;
+      setConsumption({ key: consumptionKey, state: "loading", jobs: [], periodKeys: [] });
+      try {
+        const values = await Promise.all(consumptionProjects.split(",").filter(Boolean).map(async id => {
+          if (!ids.split(",").includes(id)) throw new ApiError("unexpected_response");
+          const selected = readConsumption(await request(`/projects/${encodeURIComponent(id)}/usage${props.reportingQuery}`), id, props.reporting, props.admin);
+          const allTime = { ...props.reporting, from: "", through: "" };
+          const lifetimeQuery = new URLSearchParams({ timezone: allTime.timezone, granularity: allTime.granularity });
+          const lifetime = props.reporting.from || props.reporting.through ? readConsumption(await request(`/projects/${encodeURIComponent(id)}/usage?${lifetimeQuery}`), id, allTime, props.admin) : selected;
+          return { lifetime, selected };
+        }));
+        if (active && current === sequence) setConsumption({ key: consumptionKey, state: "ready", jobs: values.flatMap(value => (value.lifetime.jobs ?? []).map(job => {
+          const selected = value.selected.jobs?.find(row => consumptionIdentity(row) === consumptionIdentity(job));
+          return selected ? { ...job, in_period: selected.in_period } : job;
+        })), periodKeys: values.flatMap(value => value.selected.jobs?.map(consumptionIdentity) ?? []) });
+      } catch { if (active && current === sequence) setConsumption({ key: consumptionKey, state: "error", jobs: [], periodKeys: [] }); }
+    };
+    void fetchUsage(); const stop = startVisiblePolling(() => void fetchUsage(), 30000);
+    return () => { active = false; stop(); };
+  }, [consumptionKey, refresh, reload]);
   useEffect(() => { commandGeneration.current += 1; setTicket(""); setOperation(null); setOperationError(null); setCommandStatusError(false); submitLock.current = false; setSubmitting(false); }, [scope]);
 
   useEffect(() => {
@@ -178,12 +215,12 @@ export function JobWorkspace(props: Props) {
     (["working", "publishing"].includes(job.lifecycle) ? copy.system : ["failed", "stale", "handoff-pending"].includes(job.lifecycle) ? copy.operator : copy.unknown));
   const activity = (job: Job) => <><time dateTime={job.last_activity_at || undefined}>{date(job.last_activity_at)}</time>{activityAge(job.last_activity_at) !== "recent" && <small className="field-hint">{job.last_activity_at ? copy.oldActivity : copy.missingActivity}</small>}</>;
   const open = (event: React.MouseEvent<HTMLAnchorElement>, job: Job) => { if (event.button === 0 && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) { event.preventDefault(); onOpen(job.project_id, job.run_id); } };
-  const table = (rows: Job[]) => <div className="table-scroll"><table className="action-jobs-table"><thead><tr><th>{t("ticket")}</th><th>{t("project")}</th><th>{t("status")}</th><th>{t("lastActivity")}</th><th>{copy.duration} / {copy.consumption}</th></tr></thead><tbody>{rows.map(job => <tr key={`${job.project_id}/${job.run_id}`}>
-    <td><a className="strong" href={formatRoute({ view: "jobs", project: job.project_id, run: job.run_id })} onClick={event => open(event, job)}>#{job.ticket_iid} · {job.ticket_title || copy.titleUnknown}</a><small className="field-hint">{job.run_id}</small></td>
+  const table = (rows: Job[]) => <><p className="statistics-job-scope">{statisticsText.selected}: {props.reporting.from || statisticsText.allTime} → {props.reporting.through || statisticsText.allTime} · {props.reporting.timezone} · {props.reporting.granularity}. <a href={formatRoute({ view: "metrics", ...(scope ? { project: scope } : {}), reporting: props.reporting })}>{statisticsText.periodHelp}</a></p><div className="table-scroll"><table className="action-jobs-table"><thead><tr><th>{t("ticket")}</th><th>{t("project")}</th><th>{t("status")}</th><th>{t("lastActivity")}</th><th>{copy.consumption}</th></tr></thead><tbody>{rows.map(job => <tr key={`${job.project_id}/${job.run_id}`}>
+    <td><a className="strong" href={formatRoute({ view: "jobs", project: job.project_id, run: job.run_id, reporting: props.reporting })} onClick={event => open(event, job)}>#{job.ticket_iid} · {job.ticket_title || copy.titleUnknown}</a><small className="field-hint">{job.run_id}</small></td>
     <td>{job.project_display_name}{job.project_archived && <small className="field-hint">{t("archived")}</small>}</td>
     <td><StatusBadge code={job.lifecycle}>{job.lifecycle === "done" ? copy.completed : job.lifecycle === "stale" ? copy.staleJob : label(job.lifecycle, lifecycleKeys, t)}</StatusBadge><small className="field-hint">{t("stage")}: {label(job.stage, stageKeys, t)}</small><p>{reason(job)}</p>{job.waiting.next_action && job.waiting.evidence_url && <a href={job.waiting.evidence_url} target="_blank" rel="noreferrer">{actionText(job)} ↗</a>}</td>
-    <td>{activity(job)}</td><td>{copy.unknown}<small className="field-hint">{copy.unknownTelemetry}</small></td>
-  </tr>)}</tbody></table></div>;
+    <td>{activity(job)}</td><td>{consumptionView(job)}</td>
+  </tr>)}</tbody></table></div></>;
   const pager = visible && <div className="table-pagination"><label>{t("rowsPerPage")}<select value={filters.size} onChange={event => change("size", event.target.value === "all" ? "all" : Number(event.target.value))}>{[10, 25, 50].map(size => <option key={size} value={size}>{size}</option>)}<option value="all">{t("all")}</option></select></label><span>{visible.total === 0 ? "0" : `${offset + 1}–${Math.min(offset + visible.items.length, visible.total)}`} / {visible.total}</span><div className="button-row"><button className="ghost" disabled={offset === 0} onClick={() => setFilters(current => ({ ...current, offset: Math.max(0, offset - visible.limit) }))}>{t("previous")}</button><button className="ghost" disabled={offset + visible.items.length >= visible.total || filters.size === "all"} onClick={() => setFilters(current => ({ ...current, offset: offset + visible.limit }))}>{t("next")}</button></div></div>;
 
   return <div className="job-workspace">
@@ -215,9 +252,10 @@ export function JobWorkspace(props: Props) {
         <p className="muted">{t("lastActivity")}: {activity(visibleDetail)}</p>
       </div>
       <div className="button-row">{commandAllowed(visibleDetail, "retry") && <div><p className="field-hint">{copy.retryHelp}</p><button className="ghost" disabled={busy} onClick={() => void command("retry", visibleDetail)}>{t("retry")}</button></div>}{commandAllowed(visibleDetail, "cancel") && <div><p className="field-hint">{copy.cancelHelp}</p><button className="danger" disabled={busy} onClick={() => void command("cancel", visibleDetail)}>{t("cancel")}</button></div>}</div>
+      <h3>{statisticsText.jobs}</h3><p>{statisticsText.periodHelp} · {props.reporting.from || statisticsText.allTime} → {props.reporting.through || statisticsText.allTime} · {props.reporting.timezone}</p>{consumptionView(visibleDetail, true)}
       <h3>{t("timeline")}</h3><p className="muted">{copy.observedTimeline}</p>{visibleDetail.timeline?.length ? <ObservedTimeline key={detailKey} events={visibleDetail.timeline} date={date} t={t} unknown={copy.unknown} /> : <p>{copy.unknown}</p>}
       <h3>{copy.artifacts}</h3><div className="button-row">{visibleDetail.ticket_url && <a className="ghost link-button" href={visibleDetail.ticket_url} target="_blank" rel="noreferrer">{t("ticket")} ↗</a>}{visibleDetail.mr_url && <a className="ghost link-button" href={visibleDetail.mr_url} target="_blank" rel="noreferrer">{t("draft")} ↗</a>}</div>{!visibleDetail.ticket_url && !visibleDetail.mr_url && <p>{copy.unknown}</p>}
-      <details><summary>{copy.technical}</summary><dl className="action-explanation"><div><dt>{t("project")}</dt><dd>{visibleDetail.project_id}</dd></div><div><dt>{t("jobTerm")}</dt><dd>{visibleDetail.run_id}</dd></div><div><dt>{t("reviewRounds")} / {t("attempts")}</dt><dd>{visibleDetail.review_rounds} / {visibleDetail.stage_failures}</dd></div><div><dt>{copy.duration} / {copy.consumption}</dt><dd>{copy.unknown} · {copy.unknownTelemetry}</dd></div><div><dt>{t("coverage")}</dt><dd>{Object.entries(visibleDetail.coverage).filter(([key]) => ["ticket", "journal", "title", "last_activity"].includes(key)).map(([key, value]) => `${key}: ${value}`).join(" · ")}</dd></div></dl></details>
+      <details><summary>{copy.technical}</summary><dl className="action-explanation"><div><dt>{t("project")}</dt><dd>{visibleDetail.project_id}</dd></div><div><dt>{t("jobTerm")}</dt><dd>{visibleDetail.run_id}</dd></div><div><dt>{t("reviewRounds")} / {t("attempts")}</dt><dd>{visibleDetail.review_rounds} / {visibleDetail.stage_failures}</dd></div><div><dt>{copy.consumption}</dt><dd>{consumptionView(visibleDetail)}</dd></div><div><dt>{t("coverage")}</dt><dd>{Object.entries(visibleDetail.coverage).filter(([key]) => ["ticket", "journal", "title", "last_activity"].includes(key)).map(([key, value]) => `${key}: ${value}`).join(" · ")}</dd></div></dl></details>
     </section>}
     <section className="panel" aria-label={mode === "overview" ? copy.attention : mode === "history" ? copy.history : t("jobs")}>
       {mode !== "jobs" && <h2>{mode === "overview" ? copy.attention : copy.history}</h2>}

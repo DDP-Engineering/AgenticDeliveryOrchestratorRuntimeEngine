@@ -1,0 +1,333 @@
+{
+  "schema": 1,
+  "task": "TASK-bb98355e",
+  "snapshot_utc": "2026-10-06T03:06:45.314704+00:00",
+  "branch": "task/adore-web-interface",
+  "base": "dc566608665605fc4a45a160438af2d7f910b804",
+  "local_head": "dc566608665605fc4a45a160438af2d7f910b804",
+  "remote_head": "dc566608665605fc4a45a160438af2d7f910b804",
+  "candidate_sha256": "4e21c6abafe3d28e0fd1e62f76ece4865fb699ab4a0ddc23dc2bc9348160eb97",
+  "review_round": 3,
+  "corrective_cycles": 2,
+  "counts_excluding_inventory_self": {
+    "authored": 18,
+    "generated": 5,
+    "workflow": 7,
+    "metadata": 7
+  },
+  "entries": [
+    {
+      "path": ".agentic/context/project.md",
+      "kind": "workflow",
+      "git_status": " M",
+      "state": "present",
+      "sha256_working_bytes": "168023da97e4983073c552be6440921182070f511713f81838409892eafb6a9f",
+      "base_git_blob_sha256": "9610cb903467767e3aacdbcdefd2fc53ded9cb146c3b27f3c163efd331057b07"
+    },
+    {
+      "path": ".agentic/knowledge/web-interface.md",
+      "kind": "workflow",
+      "git_status": " M",
+      "state": "present",
+      "sha256_working_bytes": "65dabb0fbb625abd8dfb2dfb9e4df752bd54519031f29646b61a58eecabee95f",
+      "base_git_blob_sha256": "af2cc8d45de4033f15df3365ce76b0325937eb2cdb3bf64a3dab516e7ceef16c"
+    },
+    {
+      "path": ".agentic/requirements/ux/REQ-UX-7fdffe77.toml",
+      "kind": "workflow",
+      "git_status": " M",
+      "state": "present",
+      "sha256_working_bytes": "992a91e27fac0ebfad9e07278363db2459e0cec8c583c5607551033d54c7bac3",
+      "base_git_blob_sha256": "8b11b5a2e407940a40887fedf495cc87302992dc527549618abe4b2b2ee3d0b8"
+    },
+    {
+      "path": ".agentic/requirements/ux/REQ-UX-9f1ec9fa.toml",
+      "kind": "workflow",
+      "git_status": "??",
+      "state": "present",
+      "sha256_working_bytes": "017b25b68f450fb6f67b973ce683f70b6200bc93553d18fc6394287604fd1879",
+      "base_git_blob_sha256": null
+    },
+    {
+      "path": ".agentic/requirements/ux/REQ-UX-a24db609.toml",
+      "kind": "workflow",
+      "git_status": "??",
+      "state": "present",
+      "sha256_working_bytes": "2646cab7a34ab4a09304065b6faadeaf0d15d5c6aeaf0003d6a33c92f5d8c713",
+      "base_git_blob_sha256": null
+    },
+    {
+      "path": ".agentic/requirements/ux/REQ-UX-c65b3022.toml",
+      "kind": "workflow",
+      "git_status": "??",
+      "state": "present",
+      "sha256_working_bytes": "5db6316000cc02b46af925468f0673221fec92b6effe4d88fe26bcd9fd6898af",
+      "base_git_blob_sha256": null
+    },
+    {
+      "path": ".agentic/specs/statistics-presentation.md",
+      "kind": "workflow",
+      "git_status": "??",
+      "state": "present",
+      "sha256_working_bytes": "1c34c5545fe0653732a1d299627cdb8f3d0701e0b1b9a3ab2a5824a660105917",
+      "base_git_blob_sha256": null
+    },
+    {
+      "path": ".agentic/tasks/TASK-bb98355e.candidate.json",
+      "kind": "metadata",
+      "git_status": "??",
+      "state": "present",
+      "sha256_working_bytes": "9c294a0115eba6aa34ab073db55076d6ea1b68df7931434b18a110df1d974d78",
+      "base_git_blob_sha256": null
+    },
+    {
+      "path": ".agentic/tasks/TASK-bb98355e.md",
+      "kind": "metadata",
+      "git_status": "??",
+      "state": "present",
+      "sha256_working_bytes": "17b1b640a07dbb841d11086966dfa45a122cf801d99ffa2035fe8a595067638b",
+      "base_git_blob_sha256": null
+    },
+    {
+      "path": ".agentic/tasks/TASK-bb98355e.secret-scan.json",
+      "kind": "metadata",
+      "git_status": "??",
+      "state": "present",
+      "sha256_working_bytes": "56fef5bb0a61c3a2638f7c03af98f775d2e504a7af91313e237390910533fb2b",
+      "base_git_blob_sha256": null
+    },
+    {
+      "path": ".agentic/tasks/W11-bb98355e-reviews.md",
+      "kind": "metadata",
+      "git_status": "??",
+      "state": "present",
+      "sha256_working_bytes": "1ecc25444da383d1601fd99ab49b3cae0d03f95f00e0ea1ea50002fee4350716",
+      "base_git_blob_sha256": null
+    },
+    {
+      "path": ".agentic/tasks/W11-bb98355e-strict.json",
+      "kind": "metadata",
+      "git_status": "??",
+      "state": "present",
+      "sha256_working_bytes": "1eb887fe2ccb0bba57705709f0202ae90c8e93f54895751572dae5165200dfd7",
+      "base_git_blob_sha256": null
+    },
+    {
+      "path": ".agentic/tasks/W11-bb98355e-strict.log",
+      "kind": "metadata",
+      "git_status": "??",
+      "state": "present",
+      "sha256_working_bytes": "e5ab64db0196b83b0004686e3570008212ae9cf742ebad1482e990c65c550881",
+      "base_git_blob_sha256": null
+    },
+    {
+      "path": ".agentic/tasks/W11-bb98355e-verification.md",
+      "kind": "metadata",
+      "git_status": "??",
+      "state": "present",
+      "sha256_working_bytes": "6cf9aaf004d42636bf3c7dbadaeaa48561257331caa1b9bbd62aa1b3c78b84ed",
+      "base_git_blob_sha256": null
+    },
+    {
+      "path": "01_Documentation/Web_Interface.md",
+      "kind": "authored",
+      "git_status": " M",
+      "state": "present",
+      "sha256_working_bytes": "a8011c5de585109cfed33a43afeb6d42077d7e5d68a29e112d74e919e911b0cc",
+      "base_git_blob_sha256": "2bbb92964b5c3e1f94e4fcb4354690ce28c950730cc565750d01f9ed55a629ab"
+    },
+    {
+      "path": "04_Software/adore/web/static/assets/index-C5RGRyvo.css",
+      "kind": "generated",
+      "git_status": " D",
+      "state": "deleted",
+      "sha256_working_bytes": null,
+      "base_git_blob_sha256": "398f13c1ec47263ccdd2d8560e616da714ee123de8905892f697e04fffad78d6"
+    },
+    {
+      "path": "04_Software/adore/web/static/assets/index-EDoC3lKU.css",
+      "kind": "generated",
+      "git_status": "??",
+      "state": "present",
+      "sha256_working_bytes": "95a745fbf5a65bd8acecb4012a29dad02ea89be3b8e83db5aad90a27c6479293",
+      "base_git_blob_sha256": null
+    },
+    {
+      "path": "04_Software/adore/web/static/assets/index-K2sSmMhU.js",
+      "kind": "generated",
+      "git_status": " D",
+      "state": "deleted",
+      "sha256_working_bytes": null,
+      "base_git_blob_sha256": "545794fbe7aa31db54e810fd9c321e0aef3854735a9dce66f350bfe57dba87ec"
+    },
+    {
+      "path": "04_Software/adore/web/static/assets/index-b67LL_gF.js",
+      "kind": "generated",
+      "git_status": "??",
+      "state": "present",
+      "sha256_working_bytes": "9845a22e438810a7054af35b7b0e4fc42fe45b6227577b6d0179e2aa3ae3ee99",
+      "base_git_blob_sha256": null
+    },
+    {
+      "path": "04_Software/adore/web/static/index.html",
+      "kind": "generated",
+      "git_status": " M",
+      "state": "present",
+      "sha256_working_bytes": "e13dd7f208a80484fccf477415fa70491298e8672e0b57a949d108de84311cca",
+      "base_git_blob_sha256": "92e7638a70a123f053d10ba6b5ac0efafd9bfa14c7a108a75eb00b25a7611b9b"
+    },
+    {
+      "path": "04_Software/web/e2e/jobs.spec.ts",
+      "kind": "authored",
+      "git_status": " M",
+      "state": "present",
+      "sha256_working_bytes": "9abb6d71ab5304acd61176955084c1a9759c8fa6db943c9c2cf48365c01dd00c",
+      "base_git_blob_sha256": "ac3910e748b94cb9a1a4f42b074ed0186c1101295b2f66ffb4b194020cbe9326"
+    },
+    {
+      "path": "04_Software/web/e2e/shell.spec.ts",
+      "kind": "authored",
+      "git_status": " M",
+      "state": "present",
+      "sha256_working_bytes": "35461c4e893c7ccc02870ac4624964862fcc98eb6b7c112e4f258e48c00124ba",
+      "base_git_blob_sha256": "8e84a72d949075066aaf509bce4be0528570a4cc7fdd390bad359b07c74dc2b5"
+    },
+    {
+      "path": "04_Software/web/e2e/statistics.spec.ts",
+      "kind": "authored",
+      "git_status": "??",
+      "state": "present",
+      "sha256_working_bytes": "71fdcab7672a8f3b050a376ed0e8a9865987eb3aab9954034c3dacef18e7fe21",
+      "base_git_blob_sha256": null
+    },
+    {
+      "path": "04_Software/web/playwright.config.ts",
+      "kind": "authored",
+      "git_status": " M",
+      "state": "present",
+      "sha256_working_bytes": "596d6a4e6e8ca9499a835b422e2d5cd06ded7e871b0ef0b6ee9c03106028faf2",
+      "base_git_blob_sha256": "8816039cac412181970da3f3af2204740f2656ae69bff9889b573e6eb3532a0c"
+    },
+    {
+      "path": "04_Software/web/src/App.tsx",
+      "kind": "authored",
+      "git_status": " M",
+      "state": "present",
+      "sha256_working_bytes": "3c1475d3109505005e4da0ce667ee2e6f93a294d0433386f94acb89fbdb25793",
+      "base_git_blob_sha256": "7c36a6fd35f6b917f44cffbbaed0ec229a88abc05c1e4db1e43984b7df4f52f2"
+    },
+    {
+      "path": "04_Software/web/src/JobWorkspace.tsx",
+      "kind": "authored",
+      "git_status": " M",
+      "state": "present",
+      "sha256_working_bytes": "be3b319551beec3ea47284e989906b0be9c178d6637a81c64f691edfacac89ec",
+      "base_git_blob_sha256": "0dd04af67dac30d3723d9563d91710bf0ef623c260b8e853ddb2cb031787fbe9"
+    },
+    {
+      "path": "04_Software/web/src/StatisticsEvidence.tsx",
+      "kind": "authored",
+      "git_status": "??",
+      "state": "present",
+      "sha256_working_bytes": "b80129a3dcd57c7b7b6bf76f3e64edfdeb736109c7073bc183fc8ec6b14df3a5",
+      "base_git_blob_sha256": null
+    },
+    {
+      "path": "04_Software/web/src/metrics.ts",
+      "kind": "authored",
+      "git_status": " M",
+      "state": "present",
+      "sha256_working_bytes": "e883f93d7c5135d0478e034ebd4da3cb7df2d34ae261a0bf67f682834194203a",
+      "base_git_blob_sha256": "72c89fa92606761ff18cf49a5ab010cb073c5fa2dc98e8578182242968288c75"
+    },
+    {
+      "path": "04_Software/web/src/routes.ts",
+      "kind": "authored",
+      "git_status": " M",
+      "state": "present",
+      "sha256_working_bytes": "0fe26d2bc16e35f043abadaf9583619b4c88323ddd3a2bb1ffb8675fc71e3abf",
+      "base_git_blob_sha256": "d24acf9ba37cd89b5d165ea5360ad2298dbe103cc3c583f3c30b64d906b9c6c3"
+    },
+    {
+      "path": "04_Software/web/src/statistics.ts",
+      "kind": "authored",
+      "git_status": "??",
+      "state": "present",
+      "sha256_working_bytes": "1aef44ddb8365c0cff8ecfe3d72174afcea206f3eb4ed90578918d3d40e02646",
+      "base_git_blob_sha256": null
+    },
+    {
+      "path": "04_Software/web/src/statisticsCopy.ts",
+      "kind": "authored",
+      "git_status": "??",
+      "state": "present",
+      "sha256_working_bytes": "0ba9f3db4bdbb5dcd570ce3f5b00ea4be1da97055645d51e35d4a63a78f25456",
+      "base_git_blob_sha256": null
+    },
+    {
+      "path": "04_Software/web/src/styles.css",
+      "kind": "authored",
+      "git_status": " M",
+      "state": "present",
+      "sha256_working_bytes": "d8e880892b4aad28b170fe1d551c3e5e33e119c646cbba0a7d47535bf4a7ca91",
+      "base_git_blob_sha256": "15973c34611a6f55928e9e1210f29e692a0ade03229bd85b555aa6c04456246a"
+    },
+    {
+      "path": "04_Software/web/tests/metrics.test.mjs",
+      "kind": "authored",
+      "git_status": " M",
+      "state": "present",
+      "sha256_working_bytes": "663640b3eaf46748f0cff5a316d6257e56d665e280382d43d7a619483c2eea2c",
+      "base_git_blob_sha256": "7a3d9950875b69d02e28a46f8dcbb1c6cc7b284fcbaa153e3e5173e99c4f779c"
+    },
+    {
+      "path": "04_Software/web/tests/routes.test.mjs",
+      "kind": "authored",
+      "git_status": " M",
+      "state": "present",
+      "sha256_working_bytes": "819c6b7f0c1e0fb7a72c756bf5b096ba7e941ebb76e55c5a945caef3d7d49fca",
+      "base_git_blob_sha256": "b4fe3eaaa01fe3af63dccaac083c0bb9b0ce5998625ee9085b6de9b8143231b5"
+    },
+    {
+      "path": "04_Software/web/tests/statistics.test.mjs",
+      "kind": "authored",
+      "git_status": "??",
+      "state": "present",
+      "sha256_working_bytes": "547d1ce4d9d24dc9d0fb3e852b1c2f338bf8410dd57a8b4140da483e5d02af97",
+      "base_git_blob_sha256": null
+    },
+    {
+      "path": "05_SoftwareDocu/Component_Web_Frontend.md",
+      "kind": "authored",
+      "git_status": " M",
+      "state": "present",
+      "sha256_working_bytes": "8b977092a918c8f56b025fc113b4f4bfe8b0c1860eae297d2b4c66c42045f97a",
+      "base_git_blob_sha256": "243f59a657af1270c2dbfbc813fd5bf902c7e5eb70374d4a2d31d4406800e17d"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "kind": "authored",
+      "git_status": " M",
+      "state": "present",
+      "sha256_working_bytes": "82630e187dc63d8274bf4db7c6c9bda0fb90658ee7192ac47b74da431e69b36c",
+      "base_git_blob_sha256": "5a7ed5f731ac04a2df03e4bf64ccd692b5a2fce3a8736c2d17411c9fac66b30a"
+    }
+  ],
+  "self": {
+    "path": ".agentic/tasks/W11-bb98355e-inventory.json",
+    "kind": "metadata",
+    "state": "present",
+    "sha256": "Supplied externally in final handoff; no self-referential file hash"
+  },
+  "ignored_local_exclusions": [
+    ".agentic/tasks/TASK-bb98355e.anchor.json",
+    ".agentic/tasks/TASK-bb98355e.evolution.json",
+    "04_Software/web/.e2e-dist/",
+    "04_Software/web/test-results/",
+    "04_Software/web/playwright-report/",
+    "node_modules/",
+    "bytecode",
+    "C:/Users/pasar/AppData/Local/Temp/adore-w11-bb98355e/"
+  ],
+  "instruction": "All entries plus this inventory file form exact delivery review inventory. Raw working-tree SHA256 uses bytes, base hashes use Git-normalized blobs. Deletions explicit. No staging/commit/push/forge write authorized yet."
+}

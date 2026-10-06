@@ -423,3 +423,25 @@ td.strong { font-weight: 800; }
 .candidate-values dt { font-weight: 700; }
 .candidate-values dd { margin: .3rem 0 0; }
 @media (max-width: 640px) { .candidate-values dl { grid-template-columns: 1fr; } }
+/* Statistics uses server buckets; visual bars and the following table share their labels. */
+.measurement { display: inline-flex; flex-direction: column; vertical-align: top; }
+.measurement small, .job-consumption > small { display: block; color: var(--muted); font-size: .8rem; }
+.job-consumption { display: grid; gap: .6rem; overflow-wrap: anywhere; }
+.job-amount { display: grid; gap: .3rem; }
+.canonical-scope { overflow-wrap: anywhere; }
+.current-stock > strong { font-size: 2rem; }
+.statistics-trend { margin: 1rem 0; }
+.statistics-trend figcaption, table caption { text-align: left; font-weight: 600; padding: .6rem 0; }
+.trend-bucket { display: grid; gap: .3rem; padding: .75rem 0; border-bottom: 1px solid var(--border); }
+.trend-series { display: grid; grid-template-columns: minmax(10rem, 1fr) 2fr; gap: .5rem; align-items: center; }
+.trend-track { height: .8rem; border: 1px solid var(--border); border-radius: .2rem; }
+.trend-track i { display: block; height: 100%; background: var(--accent); }
+.trend-failed .trend-track i { background: #b45309; }
+.trend-completed .trend-track i { background: #43846d; }
+.consumption-table td { min-width: 9rem; vertical-align: top; }
+.consumption-table td:last-child { min-width: 21rem; }
+@media (max-width: 600px) {
+  .trend-series { grid-template-columns: 1fr; }
+  .statistics-evidence .stats-grid { grid-template-columns: 1fr; }
+  .job-consumption { min-width: 0; }
+}

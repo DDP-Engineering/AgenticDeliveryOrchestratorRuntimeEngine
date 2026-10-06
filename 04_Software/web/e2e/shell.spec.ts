@@ -173,7 +173,9 @@ test("pending and failed data hide false totals and refresh recovers", async ({ 
   await expect(page.getByText("Loading data…", { exact: true })).toBeVisible();
   await expect(page.locator(".stats-grid")).toHaveCount(0);
   release();
-  await expect(page.getByText("No jobs in this scope yet.", { exact: false })).toBeVisible();
+  await expect(page.getByRole("alert").first()).toBeVisible();
+  await expect(page.locator(".stats-grid")).toHaveCount(0);
+  await expect(page.getByText("Export CSV", { exact: true })).toHaveCount(0);
 });
 
 test("failed projects and corrupt metrics fail closed instead of empty or zero", async ({ page }) => {

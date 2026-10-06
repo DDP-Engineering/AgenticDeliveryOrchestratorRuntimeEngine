@@ -148,3 +148,11 @@ server-selected duration samples share that contract. Current-state stock,
 per-job lifetime and undated unallocated measurements are separately named;
 unknown amounts are null and all financial evidence is Admin-only. Analytical
 source reads fail closed and preserve operational persistence/CLI contracts.
+
+The Statistics browser presents canonical scope-bound measures and CSV actions,
+explicit all-time versus current stock, honest zero/unknown/partial evidence,
+reported versus estimated Admin money, server samples, and labeled trends with
+accessible tables. Job list/detail consumption uses immutable project/run
+identity and selected-period/lifetime/undated measurements. Reporting routes
+preserve calendar/timezone/group selections; stale, revoked and malformed reads
+hide evidence. Four locales and both themes share these responsibilities.

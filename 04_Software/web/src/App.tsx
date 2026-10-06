@@ -17,6 +17,9 @@ import { settingsCopy, settingLabel } from "./settingsCopy";
 import { ImportWizard } from "./ImportWizard";
 import { PortableSettings } from "./PortableSettings";
 import { TransferWizard } from "./TransferWizard";
+import { readStatistics, readConsumption } from "./statistics";
+import { StatisticsEvidence, TrendEvidence } from "./StatisticsEvidence";
+import { statisticsCopy } from "./statisticsCopy";
 import { JobWorkspace } from "./JobWorkspace";
 import { jobCopy } from "./jobCopy";
 import { DashboardShell, NavigationLink, type ShellLink } from "./DashboardShell";
@@ -234,6 +237,8 @@ export default function App() {
     };
     return reason.startsWith("http-") ? reason.toUpperCase() : t(keys[reason] || "modelRuntimeError");
   };
+  const statisticsText = statisticsCopy[locale];
+  const authorizedMetricsKey = JSON.stringify(projects.map(project => [project.id, project.name]).sort());
   const metricParams = new URLSearchParams();
   if (metricFrom) metricParams.set("day_from", metricFrom);
   if (metricTo) metricParams.set("day_to", metricTo);
@@ -250,15 +255,23 @@ export default function App() {
   const scopeProjects = allProjectScope ? projects : projects.filter(project => project.id === selected);
   const globalRows = allProjectScope ? Object.entries(allMetrics || {}) :
     selectedMetrics && metricsScope === selected && selectedProject ? [[selectedProject.name, selectedMetrics] as [string, Metrics]] : [];
-  const selectedKey = JSON.stringify([selected, metricSuffix]);
-  const scopedUsageKey = JSON.stringify([selected, usageSuffix]);
+  const selectedKey = JSON.stringify([selected, metricSuffix, authorizedMetricsKey]);
+  const globalMetricKey = JSON.stringify([metricSuffix, authorizedMetricsKey]);
+  const globalUsageKey = JSON.stringify([usageSuffix, authorizedMetricsKey]);
+  const scopedUsageKey = JSON.stringify([selected, usageSuffix, authorizedMetricsKey]);
   const selectedDataState = selectedState.key === selectedKey ? selectedState.state : "loading";
-  const metricDataState = allProjectScope ? globalState.key === metricSuffix ? globalState.state : "loading" : selectedDataState;
-  const usageDataState = allProjectScope ? globalUsageState.key === usageSuffix ? globalUsageState.state : "loading" : usageState.key === scopedUsageKey ? usageState.state : "loading";
-  const metrics = allProjectScope ? (allMetrics ? aggregateMetrics(Object.values(allMetrics), metricTimezone, metricFrom, metricTo) : null) :
+  const metricDataState = allProjectScope ? globalState.key === globalMetricKey ? globalState.state : "loading" : selectedDataState;
+  const usageDataState = allProjectScope ? globalUsageState.key === globalUsageKey ? globalUsageState.state : "loading" : usageState.key === scopedUsageKey ? usageState.state : "loading";
+  const canonicalScopes = (items: Array<Metrics | Usage>) => items.map(item => JSON.stringify([item.scope?.project_ids, item.scope?.mode, item.scope?.interval, item.scope?.from, item.scope?.to, item.scope?.timezone, item.scope?.granularity, item.scope?.interval_seconds])).sort().join("\0");
+  const metricScopeItems = allProjectScope ? Object.values(allMetrics ?? {}) : selectedMetrics ? [selectedMetrics] : [];
+  const usageScopeItems = allProjectScope ? Object.values(allUsage ?? {}) : selectedUsage ? [selectedUsage] : [];
+  const reportingDataState: DataState = metricDataState === "error" || usageDataState === "error" ? "error" :
+    metricDataState !== "ready" || usageDataState !== "ready" ? "loading" :
+    canonicalScopes(metricScopeItems) === canonicalScopes(usageScopeItems) ? "ready" : "error";
+  const metrics = reportingDataState !== "ready" ? null : allProjectScope ? (allMetrics ? aggregateMetrics(Object.values(allMetrics), metricTimezone, metricFrom, metricTo) : null) :
     metricsScope === selected ? selectedMetrics : null;
   const metricsEmpty = metrics !== null && !((metrics.totals.runs || 0) > 0);
-  const usage = allProjectScope ? (allUsage ? aggregateUsage(Object.values(allUsage)) : null) : usageScope === selected ? selectedUsage : null;
+  const usage = reportingDataState !== "ready" ? null : allProjectScope ? (allUsage ? aggregateUsage(Object.values(allUsage)) : null) : usageScope === selected ? selectedUsage : null;
   const scopedUsageRows = allProjectScope ? Object.entries(allUsage || {}) : selectedUsage && selectedProject ? [[selectedProject.name, selectedUsage] as [string, Usage]] : [];
   const globalTokensIn = metrics?.totals.tokens_in;
   const globalTokensOut = metrics?.totals.tokens_out;
@@ -371,46 +384,50 @@ export default function App() {
   useEffect(() => { readinessRequest.current += 1; setProjectReadiness(null); }, [selected, session?.user.id]);
 
   useEffect(() => {
-    if (!session || !selected || page !== "metrics") return;
-    const revision = ++usageRequest.current;
+    if (!session || !selected || page !== "metrics" || projectsState !== "ready" || !projects.some(item => item.id === selected)) return;
+    let revision = ++usageRequest.current;
     const generation = viewGeneration.current;
-    const key = JSON.stringify([selected, usageSuffix]);
+    const key = JSON.stringify([selected, usageSuffix, authorizedMetricsKey]);
     const current = () => generation === viewGeneration.current && revision === usageRequest.current;
     const refresh = async () => {
+      revision = ++usageRequest.current;
+      const sequence = revision;
+      const live = () => current() && sequence === usageRequest.current;
       setUsageState({ key, state: "loading" });
-      if (isAdmin) setGlobalUsageState({ key: usageSuffix, state: "loading" });
+      if (isAdmin) setGlobalUsageState({ key: globalUsageKey, state: "loading" });
       const scoped = async () => {
         try {
           const value = await request<Usage>("/projects/" + encodeURIComponent(selected) + "/usage" + usageSuffix);
-          aggregateUsage([value]);
-          if (current()) { setUsage(value); setUsageScope(selected); setUsageState({ key, state: "ready" }); }
-        } catch (cause) { if (current()) { setUsage(null); setUsageState({ key, state: "error" }); setError(cause); } }
+          readConsumption(value, selected, { from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }, isAdmin);
+          if (live()) { setUsage(value); setUsageScope(selected); setUsageState({ key, state: "ready" }); }
+        } catch (cause) { if (live()) { setUsage(null); setUsageState({ key, state: "error" }); setError(cause); } }
       };
       const global = async () => {
         try {
           const value = await request<Record<string, Usage>>("/usage" + usageSuffix);
           if (!value || Array.isArray(value)) throw new ApiError("unexpected_response");
-          aggregateUsage(Object.values(value));
-          if (current()) { setAllUsage(value); setGlobalUsageState({ key: usageSuffix, state: "ready" }); }
-        } catch (cause) { if (current()) { setAllUsage(null); setGlobalUsageState({ key: usageSuffix, state: "error" }); setError(cause); } }
+          if (Object.keys(value).sort().join("\0") !== projects.map(item => item.name).sort().join("\0")) throw new ApiError("unexpected_response");
+          for (const project of projects) readConsumption(value[project.name], project.id, { from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }, true);
+          if (live()) { setAllUsage(value); setGlobalUsageState({ key: globalUsageKey, state: "ready" }); }
+        } catch (cause) { if (live()) { setAllUsage(null); setGlobalUsageState({ key: globalUsageKey, state: "error" }); setError(cause); } }
       };
       await Promise.all([scoped(), ...(isAdmin ? [global()] : [])]);
     };
     void refresh();
     const stopPolling = startVisiblePolling(() => void refresh(), 30000);
     return () => { usageRequest.current += 1; stopPolling(); };
-  }, [session, selected, page, usageSuffix, isAdmin, usageRefresh]);
+  }, [session, selected, page, usageSuffix, isAdmin, usageRefresh, authorizedMetricsKey, projectsState]);
 
   const refreshSelected = useCallback(async () => {
     const revision = ++selectedMetricsRequest.current;
-    if (!selected || !session || page !== "metrics") { setMetrics(null); return; }
+    if (!selected || !session || page !== "metrics" || projectsState !== "ready" || !projects.some(item => item.id === selected)) { setMetrics(null); return; }
     const generation = viewGeneration.current;
-    const key = JSON.stringify([selected, metricSuffix]);
+    const key = JSON.stringify([selected, metricSuffix, authorizedMetricsKey]);
     setSelectedState({ key, state: "loading" });
     try {
       const metricData = await request<Metrics>(`/projects/${encodeURIComponent(selected)}/metrics${metricSuffix}`);
       if (generation !== viewGeneration.current || revision !== selectedMetricsRequest.current) return;
-      aggregateMetrics([metricData], metricTimezone, metricFrom, metricTo);
+      readStatistics(metricData, selected, { from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }, isAdmin);
       setSelectedState({ key, state: "ready" });
       setMetrics(metricData); setMetricsScope(selected);
       setLastRefresh(new Date());
@@ -419,7 +436,7 @@ export default function App() {
         setSelectedState({ key, state: "error" }); setMetrics(null); setError(cause);
       }
     }
-  }, [selected, session, metricSuffix, page]);
+  }, [selected, session, metricSuffix, page, authorizedMetricsKey, projectsState]);
 
   useEffect(() => {
     void refreshSelected();
@@ -512,21 +529,22 @@ export default function App() {
   }, [page, isAdmin]);
 
   useEffect(() => {
-    if (page !== "metrics" || !isAdmin) return;
+    if (page !== "metrics" || !isAdmin || projectsState !== "ready") return;
     const refresh = () => {
       const revision = ++globalMetricsRequest.current;
       const generation = viewGeneration.current;
-      setGlobalState({ key: metricSuffix, state: "loading" });
+      setGlobalState({ key: globalMetricKey, state: "loading" });
       return request<Record<string, Metrics>>(`/metrics${metricSuffix}`).then(value => {
         if (!value || Array.isArray(value)) throw new ApiError("unexpected_response");
-        aggregateMetrics(Object.values(value), metricTimezone, metricFrom, metricTo);
-        if (generation === viewGeneration.current && revision === globalMetricsRequest.current) { setAllMetrics(value); setGlobalState({ key: metricSuffix, state: "ready" }); }
-      }).catch(cause => { if (generation === viewGeneration.current && revision === globalMetricsRequest.current) { setAllMetrics(null); setGlobalState({ key: metricSuffix, state: "error" }); setError(cause); } });
+        if (Object.keys(value).sort().join("\0") !== projects.map(item => item.name).sort().join("\0")) throw new ApiError("unexpected_response");
+        for (const project of projects) readStatistics(value[project.name], project.id, { from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }, true);
+        if (generation === viewGeneration.current && revision === globalMetricsRequest.current) { setAllMetrics(value); setGlobalState({ key: globalMetricKey, state: "ready" }); }
+      }).catch(cause => { if (generation === viewGeneration.current && revision === globalMetricsRequest.current) { setAllMetrics(null); setGlobalState({ key: globalMetricKey, state: "error" }); setError(cause); } });
     };
     void refresh();
     const stopPolling = startVisiblePolling(() => void refresh(), 30000);
     return () => { globalMetricsRequest.current += 1; stopPolling(); };
-  }, [page, isAdmin, metricSuffix, usageRefresh]);
+  }, [page, isAdmin, metricSuffix, usageRefresh, authorizedMetricsKey, projectsState]);
 
   useEffect(() => {
     if (!operation || !["pending", "running"].includes(operation.status)) return;
@@ -558,12 +576,13 @@ export default function App() {
     setSelected(id); setProjectTab("overview"); setPage("projectDetails");
   };
 
+  const reportingRoute = metricFrom || metricTo || metricTimezone !== "UTC" || metricGranularity !== "day" ? { reporting: { from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity } } : {};
   const currentRoute = (): Route => {
     switch (page) {
       case "overview": return jobScope ? { view: "overview", project: jobScope } : { view: "overview" };
       case "projectDetails": return selected ? { view: "projectDetails", project: selected, tab: projectTab } : { view: "projects" };
-      case "jobs": return { view: "jobs", ...(jobScope ? { project: jobScope } : {}), ...(jobScope && requestedRun ? { run: requestedRun } : {}) };
-      case "metrics": return { view: "metrics", ...(selected && !(isAdmin && metricAllProjects) ? { project: selected } : {}), ...(metricsTab !== "summary" ? { tab: metricsTab } : {}) };
+      case "jobs": return { view: "jobs", ...reportingRoute, ...(jobScope ? { project: jobScope } : {}), ...(jobScope && requestedRun ? { run: requestedRun } : {}) };
+      case "metrics": return { view: "metrics", ...reportingRoute, ...(selected && !(isAdmin && metricAllProjects) ? { project: selected } : {}), ...(metricsTab !== "summary" ? { tab: metricsTab } : {}) };
       default: return { view: page };
     }
   };
@@ -574,6 +593,10 @@ export default function App() {
     if (route.view === "jobs" || route.view === "overview") setJobScope(route.project || "");
     if ("project" in route && route.project) { routedProject.current = route.project; setSelected(route.project); }
     if (route.view === "projectDetails") setProjectTab(route.tab);
+    if (route.view === "metrics" || route.view === "jobs") {
+      setMetricFrom(route.reporting?.from ?? ""); setMetricTo(route.reporting?.through ?? "");
+      setMetricTimezone(route.reporting?.timezone ?? "UTC"); setMetricGranularity((route.reporting?.granularity ?? "day") as "day" | "week" | "month");
+    }
     if (route.view === "metrics") { setMetricsTab(route.tab ?? "summary"); setMetricAllProjects(!route.project); }
   };
 
@@ -605,7 +628,7 @@ export default function App() {
     if (target === here) return;
     if (target.split("?")[0] === window.location.pathname) window.history.replaceState(null, "", target);
     else window.history.pushState(null, "", target);
-  }, [session, routeReady, page, selected, projectTab, metricsTab, metricAllProjects, requestedRun, jobScope, isAdmin]);
+  }, [session, routeReady, page, selected, projectTab, metricsTab, metricAllProjects, requestedRun, jobScope, isAdmin, metricFrom, metricTo, metricTimezone, metricGranularity]);
 
   useEffect(() => {
     const wanted = routedProject.current;
@@ -948,7 +971,7 @@ export default function App() {
         {operation && <div className="notice" role="status">{t("operationStatus")}: #{operation.id} · {operation.status}{operation.result ? ` · ${operation.result}` : ""}</div>}
         {["overview", "projects", "projectDetails", "jobs", "metrics"].includes(page) && projectsState !== "ready" && <DataFeedback state={projectsState} t={t} />}
         {["overview", "projects", "projectDetails", "jobs", "metrics"].includes(page) && projectsState === "ready" && projects.length === 0 && <ProjectEmpty isAdmin={isAdmin} t={t} />}
-        {page === "overview" && projectsState === "ready" && projects.length > 0 && <JobWorkspace {...workspaceProps} mode="overview" />}
+        {page === "overview" && projectsState === "ready" && projects.length > 0 && <JobWorkspace reporting={{ from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }} reportingQuery={metricSuffix} admin={isAdmin} {...workspaceProps} mode="overview" />}
 
         {page === "projects" && projectsState === "ready" && <>
           <div className="section-actions">{isAdmin && <><button className="primary" onClick={() => { setError(""); setPage("createProject"); }}>{t("createProject")}</button><button className="ghost" onClick={() => { setError(""); setPage("importProject"); }}>{t("importProject")}</button></>}</div>
@@ -1001,9 +1024,9 @@ export default function App() {
           <div id="project-tab-panel" role="tabpanel" aria-labelledby={`project-tab-${projectTab}`}>
           {projectTab === "overview" && <>
           {isAdmin && <section className="panel"><div className="panel-heading"><h2>{t("hostReadiness")}</h2><button className="ghost" onClick={() => void checkProjectReadiness()}>{t("runReadinessCheck")}</button></div><p className="muted">{t("hostReadinessHelp")}</p>{projectReadiness && <><p className="muted">{t("checkedAt")}: {formatDate(projectReadiness.checked_at)}</p><div className="detail-grid">{Object.entries(projectReadiness.checks).map(([key, value]) => <span key={key}>{t(({ git: "gitTool", forge_cli: "forgeCli", forge_auth: "forgeAuth", container_runtime: "containerRuntime", executor_cli: "executorCli", aegis_files: "aegisPayload", model_endpoint: "modelEndpoint" } as Record<string, MessageKey>)[key])}: <strong>{value === true ? t("checkPassed") : value === false ? t("checkMissing") : t("checkUnverified")}</strong></span>)}</div>{projectReadiness.model_probe && <p className="muted">{t("modelEndpoint")}: {modelReason(projectReadiness.model_probe.reason)}{projectReadiness.model_probe.model ? ` (${projectReadiness.model_probe.model})` : ""}</p>}</>}</section>}
-          <JobWorkspace {...workspaceProps} mode="overview" scope={selected} fixedScope />
+          <JobWorkspace reporting={{ from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }} reportingQuery={metricSuffix} admin={isAdmin} {...workspaceProps} mode="overview" scope={selected} fixedScope />
           </>}
-          {projectTab === "history" && <JobWorkspace {...workspaceProps} mode="history" scope={selected} fixedScope />}
+          {projectTab === "history" && <JobWorkspace reporting={{ from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }} reportingQuery={metricSuffix} admin={isAdmin} {...workspaceProps} mode="history" scope={selected} fixedScope />}
           {projectTab === "configuration" && <>
           {isAdmin && selected && <PortableSettings key={`${session?.user.id}-${selected}-${projectConfig?.revision || "unread"}`} project={selected} locale={locale} />}
           {configDataState !== "ready" && <DataFeedback state={configDataState} t={t} />}
@@ -1027,15 +1050,15 @@ export default function App() {
           </div>
         </>}
 
-        {page === "jobs" && projectsState === "ready" && projects.length > 0 && <JobWorkspace {...workspaceProps} mode="jobs" run={requestedRun} />}
+        {page === "jobs" && projectsState === "ready" && projects.length > 0 && <JobWorkspace reporting={{ from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }} reportingQuery={metricSuffix} admin={isAdmin} {...workspaceProps} mode="jobs" run={requestedRun} />}
 
         {page === "metrics" && projectsState === "ready" && projects.length > 0 && <>
-        <section className="panel compact metrics-period"><div className="panel-heading"><h2>{t("reportingPeriod")}</h2>{(selected || isAdmin) && <details className="metrics-export"><summary className="ghost metrics-export-trigger">{t("exportCsv")}</summary><div className="metrics-export-links">{!allProjectScope && selected && <><a href={`/api/v1/projects/${encodeURIComponent(selected)}/metrics.csv${metricSuffix}`}>{t("projectMetricsExport")}</a><a href={`/api/v1/projects/${encodeURIComponent(selected)}/usage.csv${usageSuffix}`}>{t("projectUsageExport")}</a></>}{allProjectScope && <><a href={`/api/v1/metrics.csv${metricSuffix}`}>{t("allMetricsExport")}</a><a href={`/api/v1/usage.csv${usageSuffix}`}>{t("allUsageExport")}</a></>}</div></details>}</div><div className="job-filters">{projects.length > 0 && <label className="metrics-project-filter" htmlFor="metrics-project">{t("project")}<select id="metrics-project" value={allProjectScope ? "" : selected} onChange={event => { setMetricAllProjects(event.target.value === ""); if (event.target.value) setSelected(event.target.value); }}>{isAdmin && <option value="">{t("metricsAllProjects")}</option>}{projects.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}<label>{t("dateFromLocal")}<input type="date" value={metricFrom} max={metricTo || undefined} onChange={event => setMetricFrom(event.target.value)} /></label><label>{t("dateToLocal")}<input type="date" value={metricTo} min={metricFrom || undefined} onChange={event => setMetricTo(event.target.value)} /></label><label>{t("reportingTimezone")}<select value={metricTimezone} onChange={event => setMetricTimezone(event.target.value)}><option value="UTC">UTC</option><option value="Europe/Bucharest">Europe/Bucharest</option><option value="Europe/Paris">Europe/Paris</option><option value="Europe/Berlin">Europe/Berlin</option><option value="America/New_York">America/New_York</option></select></label><label>{t("trendGranularity")}<select value={metricGranularity} onChange={event => setMetricGranularity(event.target.value as "day" | "week" | "month")}><option value="day">{t("byDay")}</option><option value="week">{t("byWeek")}</option><option value="month">{t("byMonth")}</option></select></label></div><p className="muted">{t("metricsScopeHelp")} {t("reportingScopeHelp")}</p></section>
+        <section className="panel compact metrics-period"><div className="panel-heading"><h2>{t("reportingPeriod")}</h2>{(selected || isAdmin) && reportingDataState === "ready" && <details className="metrics-export"><summary className="ghost metrics-export-trigger">{t("exportCsv")}</summary><div className="metrics-export-links">{!allProjectScope && selected && <><a href={`/api/v1/projects/${encodeURIComponent(selected)}/metrics.csv${metricSuffix}`}>{t("projectMetricsExport")}</a><a href={`/api/v1/projects/${encodeURIComponent(selected)}/usage.csv${usageSuffix}`}>{t("projectUsageExport")}</a><a href={`/api/v1/projects/${encodeURIComponent(selected)}/jobs-usage.csv${metricSuffix}`}>{statisticsText.jobs}</a></>}{allProjectScope && <><a href={`/api/v1/metrics.csv${metricSuffix}`}>{t("allMetricsExport")}</a><a href={`/api/v1/usage.csv${usageSuffix}`}>{t("allUsageExport")}</a><a href={`/api/v1/jobs-usage.csv${metricSuffix}`}>{statisticsText.jobs}</a></>}</div></details>}</div><button className="ghost" type="button" onClick={() => { setMetricFrom(""); setMetricTo(""); }}>{statisticsText.allTime}</button><div className="job-filters">{projects.length > 0 && <label className="metrics-project-filter" htmlFor="metrics-project">{t("project")}<select id="metrics-project" value={allProjectScope ? "" : selected} onChange={event => { setMetricAllProjects(event.target.value === ""); if (event.target.value) setSelected(event.target.value); }}>{isAdmin && <option value="">{t("metricsAllProjects")}</option>}{projects.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}<label>{t("dateFromLocal")}<input type="date" value={metricFrom} max={metricTo || undefined} onChange={event => setMetricFrom(event.target.value)} /></label><label>{t("dateToLocal")}<input type="date" value={metricTo} min={metricFrom || undefined} onChange={event => setMetricTo(event.target.value)} /></label><label>{t("reportingTimezone")}<select value={metricTimezone} onChange={event => setMetricTimezone(event.target.value)}><option value="UTC">UTC</option><option value="Europe/Bucharest">Europe/Bucharest</option><option value="Europe/Paris">Europe/Paris</option><option value="Europe/Berlin">Europe/Berlin</option><option value="America/New_York">America/New_York</option></select></label><label>{t("trendGranularity")}<select value={metricGranularity} onChange={event => setMetricGranularity(event.target.value as "day" | "week" | "month")}><option value="day">{t("byDay")}</option><option value="week">{t("byWeek")}</option><option value="month">{t("byMonth")}</option></select></label></div><p className="muted">{t("metricsScopeHelp")} {statisticsText.boundaries}</p><p className="field-hint">{statisticsText.legend}</p></section>
         <div className="metrics-tabs" role="tablist" aria-label={t("metrics")}>
           {metricsTabs.map(tab => <button key={tab} id={`metrics-tab-${tab}`} type="button" role="tab" aria-controls="metrics-tab-panel" aria-selected={metricsTab === tab} tabIndex={metricsTab === tab ? 0 : -1} onClick={() => setMetricsTab(tab)} onKeyDown={event => onMetricsTabKeyDown(event, tab)}>{t(metricsTabLabels[tab])}</button>)}
         </div>
         <div id="metrics-tab-panel" role="tabpanel" aria-labelledby={`metrics-tab-${metricsTab}`} tabIndex={0}>
-        {(metricsTab === "usage" ? usageDataState : metricDataState) !== "ready" ? <DataFeedback state={metricsTab === "usage" ? usageDataState : metricDataState} t={t} /> : <>
+        {reportingDataState !== "ready" ? <DataFeedback state={reportingDataState} t={t} /> : <>
         {metricsTab === "usage" && <>
         <section className="panel"><div className="panel-heading usage-heading"><h2>{t("attributedUsage")}</h2>{isAdmin && <button className="ghost" onClick={() => void rebuildUsage()}>{t("rebuildUsage")}</button>}</div>
           <div className="job-filters"><label>{t("executor")}<input type="search" maxLength={200} value={usageExecutor} onChange={event => setUsageExecutor(event.target.value)} /></label><label>{t("model")}<input type="search" maxLength={200} value={usageModel} onChange={event => setUsageModel(event.target.value)} /></label></div>
@@ -1044,46 +1067,14 @@ export default function App() {
           {usage?.daily.length ? <PagedTable t={t}><table><thead><tr><th>{t("date")}</th><th>{t("executor")}</th><th>{t("model")}</th><th>{t("usageEvents")}</th><th>{t("tokensIn")}</th><th>{t("tokensOut")}</th><th>{t("cacheRead")}</th><th>{t("cacheWrite")}</th>{isAdmin && <th>{t("cost")}</th>}{isAdmin && <th>{t("estimatedCost")}</th>}</tr></thead><tbody>{usage.daily.map((row, index) => <tr key={`${row.date}-${row.executor}-${row.model}-${index}`}><td>{row.date}</td><td>{row.executor || "—"}</td><td>{row.model || "—"}</td><td>{formatNumber(row.events)}</td><td>{formatNumber(row.tokens_in)}</td><td>{formatNumber(row.tokens_out)}</td><td>{row.cache_read_tokens == null ? "\u2014" : formatNumber(row.cache_read_tokens)}</td><td>{row.cache_write_tokens == null ? "\u2014" : formatNumber(row.cache_write_tokens)}</td>{isAdmin && <td>{formatMoney(row.reported_cost_usd)}</td>}{isAdmin && <td>{formatMoney(row.estimated_cost_usd)}</td>}</tr>)}</tbody></table></PagedTable> : <Empty label={t("noMatchingMetrics")} />}
           {allProjectScope && allUsage && <><h3>{t("allProjects")}</h3><PagedTable t={t}><table><thead><tr><th>{t("project")}</th><th>{t("usageEvents")}</th><th>{t("tokensIn")}</th><th>{t("tokensOut")}</th><th>{t("cost")}</th><th>{t("estimatedCost")}</th></tr></thead><tbody>{scopedUsageRows.map(([name, item]) => <tr key={name}><td>{name}</td><td>{formatNumber(item.totals.events)}</td><td>{formatNumber(item.totals.tokens_in)}</td><td>{formatNumber(item.totals.tokens_out)}</td><td>{formatMoney(item.totals.reported_cost_usd)}</td><td>{formatMoney(item.totals.estimated_cost_usd)}</td></tr>)}</tbody></table></PagedTable></>}
         </section></>}
-        {metricsTab === "summary" && metricsEmpty && <section className="panel"><Empty label={t("metricsNoJobs")} /></section>}{metricsTab === "summary" && !metricsEmpty && <>
-        <p className="muted">{scopeLabel} · {t(metricFrom || metricTo ? "periodTotals" : "allTimeTotals")}</p><div className="stats-grid">
-          <Stat label={t("runs")} value={formatNumber(metrics?.totals.runs || 0)} hint={scopeLabel} />
-          <Stat label={t("tokensIn")} value={formatNumber(metrics?.totals.tokens_in)} hint={t("coverage")} />
-          <Stat label={t("tokensOut")} value={formatNumber(metrics?.totals.tokens_out)} hint={t("coverage")} />
-          <Stat label={t("reviewRounds")} value={formatNumber(metrics?.runs.reduce((sum, row) => sum + Number(row.review_rounds || 0), 0) || 0)} hint={scopeLabel} />
-          <Stat label={t("mrRevisions")} value={formatNumber(metrics?.totals.mr_revisions || 0)} hint={scopeLabel} />
-          <Stat label={t("pipelineRepairs")} value={formatNumber(metrics?.totals.pipeline_repairs || 0)} hint={scopeLabel} />
-          {isAdmin && <Stat label={t("cost")} value={metrics?.totals.cost_usd == null ? "—" : new Intl.NumberFormat(locale, { style: "currency", currency: "USD" }).format(metrics.totals.cost_usd)} hint={scopeLabel} />}
-          {isAdmin && <Stat label={t("estimatedCost")} value={formatMoney(metrics?.totals.estimated_cost_usd)} hint={scopeLabel} />}
-        </div>
-        {allProjectScope && allMetrics && <section className="panel"><div className="panel-heading"><h2>{t("projectComparison")}</h2><span className="muted">{t(metricFrom || metricTo ? "periodTotals" : "allTimeTotals")}</span></div>
-          <PagedTable t={t}><table><thead><tr><th>{t("project")}</th><th>{t("jobs")}</th><th>{t("tokensIn")}</th><th>{t("tokensOut")}</th><th>{t("reviewRounds")}</th><th>{t("mrRevisions")}</th><th>{t("pipelineRepairs")}</th><th>{t("cost")}</th><th>{t("estimatedCost")}</th></tr></thead><tbody>
-            {globalRows.map(([name, item]) => <tr key={name}><td>{name}</td><td>{formatNumber(item.totals.runs || 0)}</td><td>{formatNumber(item.totals.tokens_in)}</td><td>{formatNumber(item.totals.tokens_out)}</td><td>{formatNumber(item.runs.reduce((total, row) => total + Number(row.review_rounds || 0), 0))}</td><td>{formatNumber(item.totals.mr_revisions || 0)}</td><td>{formatNumber(item.totals.pipeline_repairs || 0)}</td><td>{formatMoney(item.totals.cost_usd)}</td><td>{formatMoney(item.totals.estimated_cost_usd)}</td></tr>)}
-          </tbody></table></PagedTable>
-        </section>}
-        <section className="panel"><div className="panel-heading"><h2>{t("coverage")}</h2><span className="muted">{t(metricFrom || metricTo ? "periodTotals" : "allTimeTotals")}</span></div>
-          <p className="muted">{t("launchCoverageHelp")}</p><div className="stats-grid">
-            <Stat label={t("reportedTokenLaunches")} value={formatNumber(metrics?.coverage.launches_with_reported_tokens || 0)} hint={scopeLabel} />
-            <Stat label={t("unavailableTokenLaunches")} value={formatNumber(metrics?.coverage.launches_with_unavailable_tokens || 0)} hint={scopeLabel} />
-            <Stat label={t("disabledCaptureLaunches")} value={formatNumber(metrics?.coverage.launches_capture_disabled || 0)} hint={scopeLabel} />
-            {isAdmin && <Stat label={t("reportedCostLaunches")} value={formatNumber(metrics?.coverage.launches_with_reported_cost || 0)} hint={scopeLabel} />}
-            {isAdmin && <Stat label={t("unavailableCostLaunches")} value={formatNumber(metrics?.coverage.launches_with_unavailable_cost || 0)} hint={scopeLabel} />}
-          </div>
-        </section>
-        <section className="panel"><div className="panel-heading"><h2>{t("jobDuration")}</h2><span className="muted">{t(metricFrom || metricTo ? "periodTotals" : "allTimeTotals")}</span></div>
-          <p className="muted">{t("durationHelp")}</p><div className="stats-grid">
-            <Stat label={t("measuredJobs")} value={formatNumber(metrics?.duration.sampled_runs || 0)} hint={scopeLabel} />
-            <Stat label={t("averageSpan")} value={metrics?.duration.avg_span_seconds == null ? "—" : `${formatNumber(metrics.duration.avg_span_seconds)} s`} hint={t("jobDuration")} />
-            <Stat label={t("medianSpan")} value={metrics?.duration.median_span_seconds == null ? "—" : `${formatNumber(metrics.duration.median_span_seconds)} s`} hint={t("jobDuration")} />
-          </div>
-        </section>
-        {(metricFrom || metricTo) && metrics?.period && <section className="panel"><div className="panel-heading"><h2>{t("periodTotals")}</h2><span className="muted">{metricTimezone}</span></div><p className="muted">{t("datedEventsHelp")}</p><PagedTable t={t}><table><thead><tr><th>{t("project")}</th><th>{t("jobsStarted")}</th><th>{t("completed")}</th><th>{t("tokensIn")}</th><th>{t("tokensOut")}</th><th>{t("mrRevisions")}</th><th>{t("pipelineRepairs")}</th>{isAdmin && <th>{t("cost")}</th>}{isAdmin && <th>{t("estimatedCost")}</th>}</tr></thead><tbody><tr><td>{scopeLabel}</td><td>{formatNumber(metrics.period.started)}</td><td>{formatNumber(metrics.period.completed)}</td><td>{formatNumber(metrics.period.tokens_in)}</td><td>{formatNumber(metrics.period.tokens_out)}</td><td>{formatNumber(metrics.period.mr_revisions)}</td><td>{formatNumber(metrics.period.pipeline_repairs)}</td>{isAdmin && <td>{formatMoney(metrics.period.cost_usd)}</td>}{isAdmin && <td>{formatMoney(metrics.period.estimated_cost_usd)}</td>}</tr></tbody></table></PagedTable></section>}
-        {(metricFrom || metricTo) && metrics?.period && <section className="panel"><div className="panel-heading"><h2>{t("jobDuration")} · {t("periodTotals")}</h2><span className="muted">{metricTimezone}</span></div>
-          <p className="muted">{t("durationPeriodHelp")}</p><div className="stats-grid">
-            <Stat label={t("measuredJobs")} value={formatNumber(metrics.period.duration.sampled_runs)} hint={scopeLabel} />
-            <Stat label={t("averageSpan")} value={metrics.period.duration.avg_span_seconds == null ? "—" : `${formatNumber(metrics.period.duration.avg_span_seconds)} s`} hint={scopeLabel} />
-            <Stat label={t("medianSpan")} value={metrics.period.duration.median_span_seconds == null ? "—" : `${formatNumber(metrics.period.duration.median_span_seconds)} s`} hint={scopeLabel} />
-          </div>
-        </section>}
+        {metricsTab === "summary" && metrics && <>
+          <StatisticsEvidence reporting={{ from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }} metrics={metrics} locale={locale} admin={isAdmin} t={t} />
+          <section className="panel"><h2>{t("jobDuration")}</h2><div className="stats-grid">
+            <Stat label={t("measuredJobs")} value={formatNumber(metrics.duration.sampled_runs)} hint={statisticsText.interval} />
+            <Stat label={t("averageSpan")} value={metrics.duration.avg_span_seconds == null ? statisticsText.unavailable : `${formatNumber(metrics.duration.avg_span_seconds)} s`} hint={statisticsText.interval} />
+            <Stat label={t("medianSpan")} value={metrics.duration.median_span_seconds == null ? statisticsText.unavailable : `${formatNumber(metrics.duration.median_span_seconds)} s`} hint={statisticsText.interval} />
+          </div></section>
+          {allProjectScope && <section className="panel"><h2>{t("projectComparison")}</h2><PagedTable t={t}><table><thead><tr><th>{t("project")}</th><th>{statisticsText.started}</th><th>{statisticsText.completed}</th><th>{statisticsText.failed}</th><th>{t("tokensIn")}</th><th>{t("tokensOut")}</th></tr></thead><tbody>{globalRows.map(([name, item]) => <tr key={name}><td>{name}<small>{item.scope?.project_ids[0]}</small></td><td>{item.period.started}</td><td>{item.period.completed}</td><td>{item.period.failed}</td><td>{formatNumber(item.period.tokens_in)}</td><td>{formatNumber(item.period.tokens_out)}</td></tr>)}</tbody></table></PagedTable></section>}
         </>}
         {metricsTab === "quality" && metricsEmpty && <section className="panel"><Empty label={t("metricsNoJobs")} /></section>}{metricsTab === "quality" && !metricsEmpty && <>
         <section className="panel"><div className="panel-heading"><h2>{t("deliveryQuality")}</h2><span className="muted">{t(metricFrom || metricTo ? "periodTotals" : "allTimeTotals")}</span></div>
@@ -1131,7 +1122,7 @@ export default function App() {
         </>}
         {metricsTab === "trends" && metricsEmpty && <section className="panel"><Empty label={t("metricsNoJobs")} /></section>}{metricsTab === "trends" && !metricsEmpty && <>
         <section className="panel"><div className="panel-heading"><h2>{trendTitle}</h2><span className="muted">{metricTimezone}</span></div>
-          {metrics?.daily.length ? <PagedTable t={t}><table><thead><tr><th>{t("date")}</th><th>{t("jobsStarted")}</th><th>{t("completed")}</th><th>{t("tokensIn")}</th><th>{t("tokensOut")}</th>{isAdmin && <th>{t("cost")}</th>}</tr></thead><tbody>{metrics.daily.map(day => <tr key={day.date}><td>{day.date}</td><td>{formatNumber(day.started)}</td><td>{formatNumber(day.completed)}</td><td>{formatNumber(day.tokens_in)}</td><td>{formatNumber(day.tokens_out)}</td>{isAdmin && <td>{day.cost_usd == null ? "—" : new Intl.NumberFormat(locale, { style: "currency", currency: "USD" }).format(day.cost_usd)}</td>}</tr>)}</tbody></table></PagedTable> : <Empty label={metricFrom || metricTo ? t("noMatchingMetrics") : t("noMetrics")} />}
+          {metrics && <TrendEvidence metrics={metrics} locale={locale} admin={isAdmin} t={t} />}
           <p className="muted coverage-note">{t("unallocatedUsage")}: {formatNumber(metrics?.coverage.usage_events_unallocated || 0)} · {t("coverage")}: {formatNumber(metrics?.coverage.runs_with_usage || 0)} / {formatNumber(metrics?.totals.runs || 0)} {t("jobs")}</p>
         </section>
         {isAdmin && <section className="panel"><div className="panel-heading"><h2>{t("estimatedCost")}</h2><strong>{formatMoney(metrics?.totals.estimated_cost_usd)} {scopeLabel}</strong></div>

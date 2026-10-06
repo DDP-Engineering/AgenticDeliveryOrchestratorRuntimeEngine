@@ -8,6 +8,23 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { aggregateMetrics, aggregateUsage } from "../src/metrics.ts";
 
+test("scoped pooling preserves immutable jobs, lifetime and current stock", () => {
+  const a = project(1, 0, 0), b = project(1, 0, 0);
+  const scope = id => ({ project_ids: [id], mode: "all_time", interval: "[from,to)", from: null, to: null,
+    timezone: "UTC", granularity: "day", interval_seconds: null });
+  for (const [item, id, amount] of [[a, "alpha", 0], [b, "beta", 7]]) {
+    item.scope = scope(id);
+    item.jobs = [{ project_id: id, run_id: "same-run", lifetime: { events: 1, tokens_in: amount, tokens_out: null },
+      in_period: { events: 1, tokens_in: amount, tokens_out: null }, unallocated: { events: 0, tokens_in: null, tokens_out: null }, source: "journal", coverage: {} }];
+    item.current_stock = { active_now: 1, jobs_now: 1, waiting_now: 0, review_now: 0, terminal_now: 0, basis: "current_state" };
+  }
+  const result = aggregateMetrics([a, b], "UTC", "", "");
+  assert.equal(result.jobs.length, 2);
+  assert.deepEqual(result.jobs.map(row => [row.project_id, row.run_id, row.lifetime.tokens_in]),
+    [["alpha", "same-run", 0], ["beta", "same-run", 7]]);
+  assert.equal(result.current_stock.active_now, 2);
+});
+
 test("pooling uses server-selected zero and terminal samples without browser date filtering", () => {
   const a = project(1, 0, 0);
   const b = project(1, 0, 0);
