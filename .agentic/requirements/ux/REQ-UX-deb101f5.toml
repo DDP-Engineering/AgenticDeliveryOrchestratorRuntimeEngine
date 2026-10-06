@@ -11,7 +11,7 @@ id = "REQ-UX-deb101f5"
 
 title = "Explain the number on each Overview card"
 
-status = "active"
+status = "retired"
 
 requirement = """
 The Overview summary cards shall explain their numbers in the selected language: the Projects card shall say the count covers projects the user can access, and each job card shall name the project its count belongs to.
@@ -30,4 +30,4 @@ priority = "normal"   # low | normal | high
 rationale = ""        # why this behavior exists, if not obvious
 
 created = 2026-10-03
-updated = 2026-10-03
+updated = 2026-10-06

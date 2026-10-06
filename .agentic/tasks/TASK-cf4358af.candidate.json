@@ -1,0 +1,90 @@
+{
+  "baseline": "db2d01ab0b01ad9dd395673f051caef26d192f3f",
+  "semantic_digest": "977f0a4095537ad45dc251b90f72b90e2a33992cd510615eaf40f1ced6be5eb5",
+  "files": [
+    {
+      "path": ".agentic/context/project.md",
+      "sha256": "e9e35dcfe0ce421f890943ceff90840d944caf11d0ce4d8b4b66d2f9452bddaf"
+    },
+    {
+      "path": ".agentic/knowledge/web-interface.md",
+      "sha256": "46e4e613ab495717d904de041acafecfcbfee63642f0a6a9a1f7290f1098a0db"
+    },
+    {
+      "path": ".agentic/requirements/ux/REQ-UX-0713852d.toml",
+      "sha256": "9d81b720d140589f4e83f1c00ea89ffeb2d63b3e69e13391094782bc351dd28d"
+    },
+    {
+      "path": ".agentic/requirements/ux/REQ-UX-15ad4473.toml",
+      "sha256": "e6224f65da6239400d54cb5aaf6df5f134cd9b73ef63ec0b858a9d243dc70fd7"
+    },
+    {
+      "path": ".agentic/requirements/ux/REQ-UX-205e5379.toml",
+      "sha256": "468bcd1c4c2efa32069f9e9948f05e54136b70c2ef0291f6ad19034bf151e298"
+    },
+    {
+      "path": ".agentic/requirements/ux/REQ-UX-d030ae26.toml",
+      "sha256": "dca205226ad9850684d8415c65ec2304453e174ce80199248dd7f79f257024d8"
+    },
+    {
+      "path": ".agentic/requirements/ux/REQ-UX-deb101f5.toml",
+      "sha256": "cf8c9a21e5f2f519117fd26e0890a7b965b1aa102b4a9fa52a3bc3d76b71d0c9"
+    },
+    {
+      "path": ".agentic/specs/REQ-UX-b758d2b7.md",
+      "sha256": "e16b670d58f23aae1418d8be4fecfa61e702478c1b18ece86580d81ba91586ed"
+    },
+    {
+      "path": "01_Documentation/Web_Interface.md",
+      "sha256": "4386f3e003776d2375b3ffaed4049b9fca4721ff780d8e8d71c7e07607769caa"
+    },
+    {
+      "path": "04_Software/adore/web/static/assets/index-B5Vkqn4l.css",
+      "sha256": null
+    },
+    {
+      "path": "04_Software/adore/web/static/assets/index-CIvJlDU7.css",
+      "sha256": "a488330dde1afdc6fa8fe71b267647b145b9032fc7f9c4bfa0787e8298212ba2"
+    },
+    {
+      "path": "04_Software/adore/web/static/assets/index-DZ53tnS4.js",
+      "sha256": null
+    },
+    {
+      "path": "04_Software/adore/web/static/assets/index-dm3SKoVb.js",
+      "sha256": "1d4aa8608fe7361ae54e64c4c7434be16641705d36317e24bfdfe9b490a9bd6f"
+    },
+    {
+      "path": "04_Software/adore/web/static/index.html",
+      "sha256": "1e04c02ccec778da3371424b276795571b5f3f9d11dd9851b7b9b49d5f2f8b81"
+    },
+    {
+      "path": "04_Software/web/e2e/jobs.spec.ts",
+      "sha256": "cfdeb73fa6f92ba8de6b2aa4855aac3fb2379759b060bb8fe0643387df5a56af"
+    },
+    {
+      "path": "04_Software/web/e2e/shell.spec.ts",
+      "sha256": "c5a53caa14e67f3fc1fcf90640a208d630dfd07199a526f0799387eafee9cf08"
+    },
+    {
+      "path": "04_Software/web/src/JobWorkspace.tsx",
+      "sha256": "73b0c463ef58ab5fe2ae50f408e35fc6bca1db6ea4427c0b39ac3cd5f81de0c2"
+    },
+    {
+      "path": "04_Software/web/src/jobCopy.ts",
+      "sha256": "040f98570748c39214559ac3eea5c187d2c9a40aafbcc032f483ecb081b752e6"
+    },
+    {
+      "path": "04_Software/web/src/styles.css",
+      "sha256": "0c3c2e58a2aa84f7c5106a0e9ad34c825d00cb2b614dfde06c496314e8f5f9e6"
+    },
+    {
+      "path": "05_SoftwareDocu/Component_Web_Frontend.md",
+      "sha256": "8c327828f13ab294c911b9a4c7206339cd8d443f162a8afd6192bc0ab2a88ea0"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "sha256": "459a9059c1c694cc87d03913efbc754c45bca0a2d2ff56729d6b9f4f6b12d496"
+    }
+  ]
+}

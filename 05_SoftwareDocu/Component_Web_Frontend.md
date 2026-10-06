@@ -98,7 +98,12 @@ Project details uses the identity opened from Projects; platform administration 
 use their own status, membership and preference controls. Jobs and Statistics
 keep their project selectors in page content. Overview leads with Needs attention:
 clarification, candidate approval, draft review, failed, stale and pending handoff
-jobs. Current-state cards follow and label the same scope. Source errors or
+jobs. A separate Active jobs table shows actual working/publishing rows from a
+complete authorized active response. Both compact tables show title/project/ticket,
+status and Details; one Project selector scopes both and View all jobs retains it.
+Overview skips consumption reads and reporting/date/technical prose. Only worker
+faults appear beside the selector. Details retains the existing composite Jobs route
+and browser-local timestamp formatting. Source errors or
 incomplete responses hide rows and totals; a changed continuation offers explicit
 Reload first page. Search/project/status group remain visible in Jobs; exact
 lifecycle, stage, observed executor, outcome and UTC dates are in Advanced filters.

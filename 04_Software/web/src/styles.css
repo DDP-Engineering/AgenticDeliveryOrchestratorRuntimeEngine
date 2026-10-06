@@ -463,3 +463,23 @@ td.strong { font-weight: 800; }
 .audit-evidence dd { margin: 5px 0 12px; overflow-wrap: anywhere; max-width: 28rem; }
 .audit-evidence summary { cursor: pointer; }
 @media (max-width: 600px) { .audit-filters { grid-template-columns: 1fr; } }
+
+/* Overview keeps the authorized job projection compact and action-oriented. */
+.overview-controls { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:1rem; margin-bottom:1.25rem; }
+.overview-controls label { display:flex; align-items:center; gap:.75rem; }
+.overview-controls select { min-width:12rem; max-width:100%; }
+.overview-jobs-table { width:100%; table-layout:fixed; }
+.overview-jobs-table th:first-child { width:58%; }
+.overview-jobs-table th:nth-child(2) { width:25%; }
+.overview-jobs-table td { vertical-align:middle; overflow-wrap:anywhere; white-space:normal; }
+.overview-jobs-table .link-button { white-space:nowrap; }
+.overview-footer { display:flex; justify-content:flex-end; margin-top:1rem; }
+@media (max-width:640px) {
+ .overview-controls { justify-content:flex-start; }
+ .overview-controls label { flex-wrap:wrap; width:100%; }
+ .overview-controls select { width:100%; min-width:0; }
+ .overview-jobs-table th:first-child { width:45%; }
+ .overview-jobs-table th:nth-child(2) { width:30%; }
+ .overview-jobs-table .link-button { padding:.6rem .4rem; }
+ .overview-jobs-table td, .overview-jobs-table th { padding:.6rem .4rem; }
+}

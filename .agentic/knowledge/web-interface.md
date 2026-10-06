@@ -215,7 +215,12 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 - The audit trail is available only on the administrator API and page.
 - JobWorkspace reads `/jobs-page` for complete authorized attention/jobs/history
   and composite `/jobs/{project_id}/{run_id}` for detail. Overview leads with
-  human-action/failure/handoff attention and follows with scoped current counts.
+  human-action/failure/handoff attention and actual working/publishing rows in
+  compact title/project/ticket, status and Details tables. One Project selector
+  scopes both. Strict complete active reads and scope/render guards withhold
+  invalid data; Overview performs no usage reads. Worker faults are visible and
+  Details opens the existing composite Jobs route; browser-local dates and
+  reporting/technical evidence belong to dedicated views.
   Jobs keeps search/project/status group visible and advanced exact filters
   disclosed. Ten-row server pages carry source revisions on continuation.
   Detail leads with lifecycle, actual stage, reason, role/location and conditional

@@ -90,6 +90,10 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Compact Overview attention and active tables with one project selector and Details;
+  worker faults remain visible, while reporting dates, timezone, consumption and
+  repeated scope explanations stay out of the overview.
+
 - Project hubs separate pickup from revision/time-bound verification and expose
   Summary, Settings and History alongside existing Admin Prices/Access and
   Jobs/Statistics links. Missing legacy activity remains unknown; unsafe or corrupt

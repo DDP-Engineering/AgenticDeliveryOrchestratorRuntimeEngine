@@ -41,7 +41,10 @@ OpenCode, Pi, Codex and Qwen Code.
   existing CLI/conductor commands; browser roles are admin and project-scoped
   developer, with cost data reserved for admins. Its shared accessible shell
   keeps authorized project context explicit and distinguishes pending, empty
-  and failed reads in the supported locales and themes. Settings uses seven purpose
+  and failed reads in the supported locales and themes. Overview presents compact
+  authorized attention/active tables, one Project selector and Details navigation;
+  worker faults remain visible, with reporting/technical evidence in dedicated views.
+  Settings uses seven purpose
   categories, visible catalog guidance and exact single-candidate active/proposed
   review with explicit base/candidate binding, idle/lock/pause safety and Dev
   financial/secret redaction. Admin portable export validates active configuration

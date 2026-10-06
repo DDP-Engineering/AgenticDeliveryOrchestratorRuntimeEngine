@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-d030ae26"
+
+title = "Compact actionable Overview without reporting noise"
+
+status = "active"
+
+requirement = """
+When an authenticated user opens Overview, the UI shall show a compact authorized attention and active job projection with title/project, status and Details, one project selector and worker fault feedback, while withholding invalid evidence and keeping reporting/technical detail in the existing dedicated views.
+"""
+
+verification = "Offline browser jobs tests verify three-column attention/active tables, Details navigation, no usage requests/reporting/date/raw evidence on Overview, and visible worker faults with malformed active data withheld."
+
+affected_paths = ["04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobCopy.ts", "04_Software/web/src/styles.css", "04_Software/web/e2e/jobs.spec.ts", "04_Software/web/e2e/shell.spec.ts", "04_Software/adore/web/static/"]
+
+linked_tests = ["04_Software/web/e2e/jobs.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-06
+updated = 2026-10-06

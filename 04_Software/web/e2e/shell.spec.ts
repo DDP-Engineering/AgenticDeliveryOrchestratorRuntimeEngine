@@ -162,10 +162,10 @@ test("pending and failed data hide false totals and refresh recovers", async ({ 
   });
   await signIn(page);
   await expect(page.getByText("Could not load data", { exact: true })).toBeVisible();
-  await expect(page.locator(".overview-card").filter({ hasText: "Active jobs" })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Active jobs", exact: true })).toHaveCount(0);
   failing = false;
   await page.getByRole("button", { name: "Refresh", exact: true }).click();
-  await expect(page.locator(".overview-card").filter({ hasText: "Active jobs" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Active jobs", exact: true })).toBeVisible();
   let release!: () => void;
   const pending = new Promise<void>(resolve => { release = resolve; });
   await page.route("**/api/v1/metrics?*", async route => { await pending; await route.fulfill({ status: 200, contentType: "application/json", body: "{}" }); });

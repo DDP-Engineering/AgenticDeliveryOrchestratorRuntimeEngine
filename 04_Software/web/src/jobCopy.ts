@@ -8,6 +8,7 @@ import type { Locale } from "./i18n";
 import type { Lifecycle } from "./jobModel";
 
 const en = {
+  details: "Details", allProjects: "All projects", allJobs: "View all jobs", noActive: "No active jobs",
   completed: "Completed", afterClarification: "After a correlated answer is accepted, the executor can resume through the existing gates.", afterApproval: "After fresh approval of this exact candidate, ADORE can publish a draft MR/PR through the existing gates.", afterReview: "The draft stays in human review; humans decide whether to merge.",
   waiting: "Waiting", terminal: "Finished jobs", staleJob: "Stale", attention: "Needs attention", noAttention: "No jobs need attention in this scope.", scope: "Job scope", all: "All authorized projects",
   scopeHelp: "Complete retained history for the projects your account can access, including archived projects.", scopedHelp: "Jobs shown here belong to the selected project.",
@@ -38,6 +39,7 @@ export type JobCopy = typeof en;
 export const jobCopy: Record<Locale, JobCopy> = {
   en,
   fr: {
+  details: "Détails", allProjects: "Tous les projets", allJobs: "Voir tous les travaux", noActive: "Aucun travail actif",
   completed: "Terminé", afterClarification: "Après acceptation d’une réponse corrélée, l’exécuteur peut reprendre en respectant les contrôles existants.", afterApproval: "Après approbation actuelle de ce candidat exact, ADORE peut publier une MR/PR brouillon avec les contrôles existants.", afterReview: "Le brouillon reste en revue humaine ; les humains décident de la fusion.",
     waiting: "En attente", terminal: "Travaux terminés", staleJob: "Périmé", attention: "À traiter", noAttention: "Aucun travail ne demande une intervention dans ce périmètre.", scope: "Périmètre des travaux", all: "Tous les projets autorisés",
     scopeHelp: "Historique conservé complet des projets accessibles, y compris les projets archivés.", scopedHelp: "Les travaux affichés appartiennent au projet sélectionné.",
@@ -63,6 +65,7 @@ export const jobCopy: Record<Locale, JobCopy> = {
     verificationHelp: "La vérification est explicite et liée à la révision sauvegardée et à l’heure du contrôle.", summary: "Résumé", settings: "Paramètres", history: "Historique", historyHelp: "Travaux terminés, échoués, annulés, périmés et confiés à un humain dans ce projet.",
   },
   de: {
+  details: "Details", allProjects: "Alle Projekte", allJobs: "Alle Jobs anzeigen", noActive: "Keine aktiven Jobs",
   completed: "Abgeschlossen", afterClarification: "Nach Annahme einer zugeordneten Antwort kann der Executor unter den bestehenden Prüfungen fortfahren.", afterApproval: "Nach aktueller Freigabe genau dieses Kandidaten kann ADORE unter den bestehenden Prüfungen einen MR/PR-Entwurf veröffentlichen.", afterReview: "Der Entwurf bleibt in menschlicher Prüfung; Menschen entscheiden über das Zusammenführen.",
     waiting: "Wartend", terminal: "Beendete Jobs", staleJob: "Veraltet", attention: "Handlungsbedarf", noAttention: "Keine Jobs in diesem Bereich benötigen einen Eingriff.", scope: "Jobbereich", all: "Alle berechtigten Projekte",
     scopeHelp: "Vollständiger gespeicherter Verlauf der zugänglichen Projekte, einschließlich archivierter Projekte.", scopedHelp: "Die angezeigten Jobs gehören zum ausgewählten Projekt.",
@@ -88,6 +91,7 @@ export const jobCopy: Record<Locale, JobCopy> = {
     verificationHelp: "Die ausdrückliche Prüfung ist an die gespeicherte Konfigurationsrevision und Prüfzeit gebunden.", summary: "Zusammenfassung", settings: "Einstellungen", history: "Verlauf", historyHelp: "Abgeschlossene, fehlgeschlagene, abgebrochene, veraltete und an Menschen übergebene Jobs dieses Projekts.",
   },
   ro: {
+  details: "Detalii", allProjects: "Toate proiectele", allJobs: "Vezi toate lucrările", noActive: "Nicio lucrare activă",
   completed: "Finalizat", afterClarification: "După acceptarea unui răspuns corelat, executorul poate continua prin verificările existente.", afterApproval: "După aprobarea curentă a acestui candidat exact, ADORE poate publica un MR/PR draft prin verificările existente.", afterReview: "Draftul rămâne în revizuire umană; oamenii decid integrarea.",
     waiting: "În așteptare", terminal: "Joburi încheiate", staleJob: "Învechit", attention: "Necesită intervenție", noAttention: "Niciun job nu necesită intervenție în acest domeniu.", scope: "Domeniul joburilor", all: "Toate proiectele autorizate",
     scopeHelp: "Istoricul păstrat complet al proiectelor accesibile contului, inclusiv proiectele arhivate.", scopedHelp: "Joburile afișate aparțin proiectului selectat.",

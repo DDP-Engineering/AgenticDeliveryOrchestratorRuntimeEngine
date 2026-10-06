@@ -14,10 +14,10 @@ title = "Open projects and jobs from their names"
 status = "active"
 
 requirement = """
-When a user activates a project name in the Projects table or a ticket number or View action in any job table, the web interface shall open that project's details or that job in Jobs, and the names and ticket numbers shall be links to those views' URLs so that a modified click opens them in a new browser tab.
+When a user activates a project name in the Projects table or a ticket link or Details/View action in a job table, the web interface shall open that project's details or that job in Jobs, and the project names and ticket links shall be links to those views' URLs so that a modified click opens them in a new browser tab.
 """
 
-verification = "Manual: on Projects click a project name and confirm Project details opens; middle-click it and confirm a new tab at /projects/<id>; on Overview expanded tables, Project details Recent jobs and Jobs, click a ticket number and a View action and confirm Jobs opens with that job's details and a /jobs?project=<id>&run=<run> URL; confirm the Overview projects table name still selects the project."
+verification = "Manual: on Projects click a project name and confirm Project details opens; middle-click it and confirm a new tab at /projects/<id>; on Overview compact tables, Project details history and Jobs, activate a ticket link and a Details/View action and confirm Jobs opens with that job's details and a /jobs?project=<id>&run=<run> URL; confirm the Overview Project selector scopes both tables."
 
 affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/styles.css", "04_Software/web/src/i18n.ts", "04_Software/adore/web/static/"]
 
@@ -30,4 +30,4 @@ priority = "normal"   # low | normal | high
 rationale = ""        # why this behavior exists, if not obvious
 
 created = 2026-10-03
-updated = 2026-10-03
+updated = 2026-10-06

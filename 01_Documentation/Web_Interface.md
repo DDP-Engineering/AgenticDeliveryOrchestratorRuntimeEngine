@@ -10,10 +10,13 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 The optional web installation serves the React interface and a same-origin
 FastAPI API. It uses the same project profiles and run state as the CLI. The
 Overview opens **Needs attention** across all projects your account can access,
-including archived history. Use **Job scope** for one project. Clarification,
-publication approval, draft review, failed/stale jobs and pending handoffs appear
-before the current-state counts. Those counts describe the selected scope.
-Open a ticket to read what is happening, who acts, where and what follows.
+including archived history. One **Project** selector scopes both **Needs attention**
+and **Active jobs**. Compact rows show the job title, project/ticket, observed
+status and **Details**. Details opens Jobs with the owning project and run.
+**View all jobs** retains the selected scope. Worker faults are visible; a healthy
+worker needs no banner. Overview reads no consumption and displays no reporting
+period, dates or timezone. Jobs holds technical evidence and Statistics owns
+reporting filters; displayed timestamps use the browser/device local timezone.
 
 Administrators open Add project from Projects to enroll an existing server clone
 through six steps: method, repository/identity, working environment,

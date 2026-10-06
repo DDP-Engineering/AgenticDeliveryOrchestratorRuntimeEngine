@@ -11,7 +11,7 @@ id = "REQ-UX-15ad4473"
 
 title = "Expand overview summary into a scoped table"
 
-status = "active"
+status = "retired"
 
 requirement = """
 On Overview, selecting one of the Projects, Active jobs, Awaiting review or Failed jobs summary cards shall expand a table for that category and selecting the card again shall return to Recent jobs. The Projects table shall allow selecting an authorized project, and job tables shall show only that project's matching jobs; the Overview top bar shall not show a project selector.
@@ -30,4 +30,4 @@ priority = "normal"   # low | normal | high
 rationale = "Keep overview navigation and job status detail in one compact page."        # why this behavior exists, if not obvious
 
 created = 2026-10-01
-updated = 2026-10-01
+updated = 2026-10-06
