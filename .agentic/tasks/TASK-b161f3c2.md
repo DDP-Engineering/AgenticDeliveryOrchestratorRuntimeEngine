@@ -70,17 +70,22 @@ Separate notification visibility from durable operation state. Preserve pending/
 
 - 2026-10-06 frame/specify/design: Scope accepted from direct GUI correction request; five-second terminal expiry chosen and announced. Standing human authority resolves unattended checkpoints; tests remain validation, not authority.
 
+- 2026-10-06 post-deploy full verification: Direct human follow-up authorizes full suites after deployment, superseding earlier deferral. Product unchanged at c487efc; tested checkout61be6ad differs only by delivery journal. `aegis.py check --task TASK-b161f3c2 --strict --run --json` exit1: Python1244 passed/1 failed/1 skipped (511.32s), Ruff passed, frontend unit53 passed/1 failed. Strict result false with two failed command findings and ten inherited advisories. Python Gitea enrollment fake authentication output fails current identity validation; isolated test confirms expected partial versus failed. Frontend lacks four executor/model error-code translations in en/fr/de/ro. No fixes made during verification.
+- 2026-10-06 complete Chromium proof: `npm run test:e2e` builds/typechecks successfully; browser run reaches configured480s global timeout with104 passed/5 failed/30 unstarted. Exact remaining statistics/transfer/users selection run with CLI-only1800000ms limit exits0:30 passed (2.1m). All139 scenarios therefore executed:134 passed/5 failed. Failures: enrollment partial verdict; old hub tab list missing Executor configuration; removed verification revision/time; Agent/model group and endpoint form still expected in old Settings. Notification success/failure/dismissal/replacement tests pass. Remaining-run Windows asyncio connection-reset diagnostic occurs in a negative-response test and does not fail tests. Consolidated evidence in TASK-b161f3c2.postdeploy-validation.json; regression remains failing, no tests weakened/omitted. Deployment remains unchanged; this evidence-only commit records results.
+
 ## Rulings
 
 - RULING-001 | date=2026-10-06 | decision=Proceed through scoped validation and commit/push/deploy without repeated permission; focused tests only, full regression deferred | reason=Direct iterative human GUI request and standing delivery instructions; heartbeat remains stopped | source=user | supersedes=none
 
+
+- RULING-002 | date=2026-10-06 | decision=Run all offline verification after deployment; only the previous full-suite deferral is superseded | reason=Direct human follow-up: dupa deploy, ruleaza si suita completa | source=user | supersedes=RULING-001
 
 ## Handoff
 
 
 current: done
 status: ready
-next: Human live GUI review
+next: Reconcile reported regressions before declaring complete regression success
 must_read: .agentic/tasks/TASK-b161f3c2.md; .agentic/steps/5_validate.md
 blockers: none
 
@@ -91,9 +96,9 @@ stage: done
 result: completed
 current: done
 changed: One transient application notification with worker polling retained
-evidence: Five Chromium passed; builds/typecheck passed; c487efc pushed and deployed; API/worker ready
-issues: Full regression deferred by direct user instruction
-next: Human live GUI review
+evidence: c487efc deployed; full Python1244/1/1, frontend-unit53/1, Chromium134/5; lint passed
+issues: Post-deploy regression failed: one Python, one frontend-unit and five Chromium tests; complete evidence recorded
+next: Reconcile reported regressions before declaring complete regression success
 needs_user: no
 spec_compliance: approved
 implementation_quality: approved
