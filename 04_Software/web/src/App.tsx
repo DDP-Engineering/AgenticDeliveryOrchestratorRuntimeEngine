@@ -993,10 +993,10 @@ export default function App() {
               <button className="ghost" onClick={() => void setProjectArchive(!selectedProject.archived, selectedProject.id)}>{t(selectedProject.archived ? "restoreProject" : "archiveProject")}</button>
               {selectedProject.archived && <button className="danger" onClick={() => { setError(""); setDeleteName(""); setDeleteTarget(selectedProject); }}>{t("deleteProject")}</button>}
               <button className="ghost" onClick={() => void checkProjectReadiness()}>{t("checkHostPrerequisites")}</button>
-            </div>}
-            {isAdmin && !selectedProject.archived && <RepositoryConnection key={`${session.user.id}:${selectedProject.id}`} project={selectedProject.id} provider={selectedProject.platform} repository={selectedProject.repo} locale={locale}
+            {!selectedProject.archived && <RepositoryConnection key={`${session.user.id}:${selectedProject.id}`} project={selectedProject.id} provider={selectedProject.platform} repository={selectedProject.repo} locale={locale}
               connect={body => request(`/projects/${encodeURIComponent(selectedProject.id)}/repository-connection`, "POST", body, session.csrf)}
               onConnected={() => { setProjectReadiness(null); setProjects(items => items.map(item => item.id === selectedProject.id ? { ...item, verification: { status: "unverified" } } : item)); }} />}
+            </div>}
             {(projectReadiness || selectedProject.verification.checked_at || selectedProject.verification.revision) && <p className="muted project-verification-evidence readiness-metadata">{t("checkedAt")}: {(projectReadiness?.checked_at || selectedProject.verification.checked_at) ? formatDate(projectReadiness?.checked_at || selectedProject.verification.checked_at || "") : jc.unknown} · <span title={t("configurationVersionHelp")}>{t("configurationVersion")}: {(projectReadiness?.revision || selectedProject.verification.revision)?.slice(0, 12) || jc.unknown}</span></p>}
             {projectReadiness && <ReadinessEvidence evidence={projectReadiness} locale={locale} modelReason={modelReason(projectReadiness.model_probe.reason)} />}
           </section>} />

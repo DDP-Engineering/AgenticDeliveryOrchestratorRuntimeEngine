@@ -953,7 +953,7 @@ Deletion remains subject to archived/idle project preconditions.
 
 ## Project repository connection
 
-Summary → **Connect repository** opens an Admin-only token form for the saved
+Summary → **Connect repository** opens an Admin-only modal token form beside Check host prerequisites for the saved
 provider/repository. Enter a server origin and an access token created on that
 forge. HTTP requires explicit acknowledgement; GitHub requires HTTPS. Embedded
 credentials, paths, queries and fragments reject. The project must be idle,
@@ -962,7 +962,7 @@ checks account identity and exact repository read access with two eight-second
 CLI limits. This does not prove issue-write, draft-review, Git clone/push or
 complete-job permissions. Run **Check host prerequisites** for fresh results.
 
-The browser clears its memory-only token on submission/cancel and discards it
+The browser clears its memory-only token on submission, Close, Cancel or Escape and discards it
 on project/session/navigation changes. Results contain account/server/repository,
 never token. Failed authentication preserves previous credentials; an unconfirmed
 request may have reached the server, so inspect readiness before retrying.

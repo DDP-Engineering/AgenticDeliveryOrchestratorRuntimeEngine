@@ -267,7 +267,12 @@ def test_saved_auth_binds_worker_and_readiness_without_executor_leak(
             )
         else:
             assert not env or "PRIVATE" not in env.values()
-        return CommandResult(argv=list(argv), exit_code=0, stdout="PRIVATE", stderr="PRIVATE")
+        return CommandResult(
+            argv=list(argv),
+            exit_code=0,
+            stdout='{"login":"alice"}' if argv[:2] == ["tea", "api"] else "PRIVATE",
+            stderr="HTTP/1.1 200 OK" if argv[:2] == ["tea", "api"] else "PRIVATE",
+        )
 
     monkeypatch.setattr(
         module,
@@ -451,3 +456,70 @@ def test_http_requires_acknowledgement_and_keeps_other_projects_unchanged(tmp_pa
         assert "PRIVATE" not in client.get("/api/v1/projects/alpha/config").text
         assert "PRIVATE" not in client.get("/api/v1/projects/alpha/config/portable-settings").text
         assert "PRIVATE" not in client.get("/api/v1/audit").text
+
+
+@pytest.mark.parametrize(
+    "payload,status,expected",
+    [
+        ('{"login":"alice"}', "HTTP/1.1 200 OK", True),
+        ('{"login":"alice"}', "HTTP/1.1 401 Unauthorized", False),
+        ("{}", "HTTP/1.1 200 OK", False),
+        ("not-json", "HTTP/1.1 200 OK", False),
+        ('{"login":"alice","login":"other"}', "HTTP/1.1 200 OK", False),
+    ],
+)
+def test_gitea_readiness_uses_supported_scoped_user_api(tmp_path, payload, status, expected):
+    """@brief Saved named tea login uses a supported API and rejects bad evidence."""
+    from adore.config import load_config
+    from adore.repository_auth import save_connection
+
+    profiles = project(tmp_path, "gitea")
+    path = profiles.config_path("alpha")
+    raw = path.read_text(encoding="utf-8").replace('# login = "home"', 'login = "home"')
+    path.write_text(raw, encoding="utf-8")
+    config = load_config(path)
+    save_connection(
+        profiles.profile_dir("alpha"),
+        {
+            "schema": 1,
+            "project_id": profiles.load("alpha").project_id,
+            "provider": "gitea",
+            "repository": config.platform.repo,
+            "login": config.platform.login,
+            "server": "https://forge.example",
+            "token": "PRIVATE",
+            "account": "alice",
+        },
+    )
+    calls = []
+
+    def runner(argv, *, cwd=None, timeout=None, env=None):
+        """@brief Model tea whoami's unsupported flag and API response boundary."""
+        calls.append(list(argv))
+        if argv[:2] == ["tea", "whoami"]:
+            return CommandResult(
+                argv=list(argv), exit_code=1, stdout="", stderr="unsupported login flag"
+            )
+        if argv[:2] == ["tea", "api"]:
+            assert "--login" in argv and argv[argv.index("--login") + 1] == (
+                config.platform.login or "adore-project"
+            )
+            assert (
+                json.loads((Path(env["XDG_CONFIG_HOME"]) / "tea/config.yml").read_text())["logins"][
+                    0
+                ]["token"]
+                == "PRIVATE"
+            )
+            return CommandResult(argv=list(argv), exit_code=0, stdout=payload, stderr=status)
+        return CommandResult(argv=list(argv), exit_code=0, stdout="", stderr="")
+
+    with TestClient(create_app(profiles.home, probe_runner=runner)) as client:
+        csrf = client.post(
+            "/api/v1/session", json={"username": "admin", "password": "admin"}
+        ).json()["csrf"]
+        result = client.post(
+            "/api/v1/projects/alpha/readiness-check", headers={"X-CSRF-Token": csrf}
+        )
+        assert result.status_code == 200
+        assert result.json()["checks"]["forge_auth"] is expected
+        assert any(a[:2] == ["tea", "api"] for a in calls)

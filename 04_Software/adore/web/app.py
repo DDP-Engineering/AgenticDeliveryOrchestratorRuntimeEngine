@@ -18,6 +18,7 @@
 from collections.abc import Callable
 from contextlib import contextmanager
 import csv
+from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
 from hashlib import sha256
 from io import StringIO
@@ -490,12 +491,40 @@ def _probe_setup(config, probe_runner: CommandRunner) -> dict:
         remaining = deadline - monotonic()
         if remaining <= 0:
             raise TimeoutError("host readiness deadline")
-        if argv[:2] == ["tea", "whoami"] and config.platform.login:
-            argv = [*argv, "--login", config.platform.login]
-        return probe_runner(argv, cwd=cwd,
+        tea_auth = argv[:2] == ["tea", "whoami"]
+        if tea_auth:
+            argv = ["tea", "api", "-i", "--method", "GET"]
+            if config.platform.login:
+                argv += ["--login", config.platform.login]
+            argv += ["user"]
+        result = probe_runner(argv, cwd=cwd,
                             timeout=min(timeout if timeout is not None else 8,
                                         8, remaining),
                             env=env)
+        if tea_auth:
+            def unique_fields(pairs):
+                """@brief Reject duplicate identity fields from the forge boundary."""
+                value = {}
+                for key, item in pairs:
+                    if key in value:
+                        raise ValueError("duplicate identity field")
+                    value[key] = item
+                return value
+
+            try:
+                if len(result.stdout) > 1_000_000:
+                    raise ValueError("oversized identity")
+                identity = json.loads(result.stdout, object_pairs_hook=unique_fields)
+                statuses = re.findall(r"HTTP/\S+\s+(\d{3})", result.stderr)
+                valid = (result.ok and bool(statuses) and 200 <= int(statuses[-1]) < 300
+                         and isinstance(identity, dict)
+                         and isinstance(identity.get("login"), str)
+                         and re.fullmatch(r"[A-Za-z0-9_.-]{1,128}", identity["login"]))
+            except (ValueError, TypeError):
+                valid = False
+            if not valid:
+                result = replace(result, exit_code=1)
+        return result
 
     try:
         git = doctor.detect_git(bounded_runner)

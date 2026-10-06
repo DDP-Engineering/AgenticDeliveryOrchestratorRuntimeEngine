@@ -602,3 +602,7 @@ marks completion. No request secret enters audit. Readiness and connection
 serialize through config_lock so an old credential check cannot overwrite fresh
 invalidation. Errors use stable value-free codes. See Component_Repository_Auth.md
 and tests/test_repository_connection.py.
+
+The Gitea host sign-in check uses bounded tea api GET user with the configured
+login. Authentication requires a successful HTTP status and a valid, unique JSON
+login identity. This supports tea versions whose whoami command has no login flag.

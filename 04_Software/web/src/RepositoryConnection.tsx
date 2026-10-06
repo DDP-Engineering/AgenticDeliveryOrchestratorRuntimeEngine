@@ -30,6 +30,12 @@ export function RepositoryConnection({ project, provider, repository, locale, co
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<Connection | null>(null);
+  const dialog = useRef<HTMLDialogElement>(null);
+  const close = () => { setOpen(false); setToken(""); setError(""); };
+  useEffect(() => {
+    if (open && !dialog.current?.open) dialog.current?.showModal();
+    if (!open && dialog.current?.open) dialog.current.close();
+  }, [open]);
   const mounted = useRef(true);
   const pending = useRef(false);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
@@ -61,18 +67,21 @@ export function RepositoryConnection({ project, provider, repository, locale, co
   };
   return <div className="repository-connection">
     <button type="button" className="ghost" aria-expanded={open} onClick={() => { setOpen(!open); setToken(""); setError(""); }}>{text.title}</button>
+    <dialog ref={dialog} className="repository-connect-dialog" aria-label={text.title} onCancel={close} onClose={close}>
     {open && <form className="form-stack" onSubmit={submit}>
+      <div className="card-heading"><h2>{text.title}</h2><button type="button" className="ghost" onClick={close}>{{en: "Close", ro: "Închide", fr: "Fermer", de: "Schließen"}[locale]}</button></div>
       <p><strong>{provider === "github" ? "GitHub" : provider === "gitlab" ? "GitLab" : "Gitea"}</strong> · {repository}</p>
       <p className="muted">{text.help}</p>
       <fieldset disabled={busy} className="form-stack">
         <label>{text.server}<input type="url" required maxLength={512} value={server} onChange={event => { setServer(event.target.value); setAllowHttp(false); }} autoComplete="off" placeholder="https://git.example.com" /></label>
         <label>{text.token}<input type="password" required maxLength={4096} value={token} onChange={event => setToken(event.target.value)} autoComplete="off" spellCheck={false} /></label>
-        {server.startsWith("http:") && <label><input type="checkbox" checked={allowHttp} onChange={event => setAllowHttp(event.target.checked)} /> {text.http}</label>}
-        <div className="button-row"><button className="primary" type="submit" disabled={!token || server.startsWith("http:") && !allowHttp}>{text.submit}</button><button className="ghost" type="button" onClick={() => { setToken(""); setOpen(false); setError(""); }}>{text.cancel}</button></div>
+        {server.startsWith("http:") && <label className="repository-http"><input type="checkbox" checked={allowHttp} onChange={event => setAllowHttp(event.target.checked)} /> {text.http}</label>}
+        <div className="button-row"><button className="primary" type="submit" disabled={!token || server.startsWith("http:") && !allowHttp}>{text.submit}</button><button className="ghost" type="button" onClick={close}>{text.cancel}</button></div>
       </fieldset>
     </form>}
     {busy && <p role="status">{text.busy}</p>}
     {error && <p className="alert" role="alert">{error}</p>}
     {result && <p role="status"><strong>{text.account}: {result.account}</strong> · {result.server}<br />{text.success}</p>}
+    </dialog>
   </div>;
 }

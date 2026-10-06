@@ -633,7 +633,11 @@ test("repository connection clears tokens and shows scoped verified identity", a
     await route.fulfill({ contentType: "application/json", body: JSON.stringify({ project_id: project.id, provider: project.platform, server: "https://git.example.com", repository: project.repo, account: "alice" }) });
   });
   const area = page.locator(".repository-connection");
-  await area.getByRole("button", {name: "Connect repository", exact: true}).click();
+  const trigger = area.getByRole("button", {name: "Connect repository", exact: true});
+  const check = page.getByRole("button", {name: "Check host prerequisites", exact: true});
+  expect(Math.abs((await trigger.boundingBox())!.y - (await check.boundingBox())!.y)).toBeLessThan(2);
+  await trigger.click();
+  await expect(area.getByRole("dialog")).toBeVisible();
   await area.getByLabel("Repository server", {exact: true}).fill("https://git.example.com");
   const token = area.getByLabel("Access token", {exact: true});
   await token.fill("test-only-value");
@@ -645,6 +649,16 @@ test("repository connection clears tokens and shows scoped verified identity", a
   await token.fill("discard-me"); await area.getByRole("button", {name: "Cancel", exact: true}).click();
   await area.getByRole("button", {name: "Connect repository", exact: true}).click();
   await expect(token).toHaveValue("");
+  await area.getByLabel("Repository server", {exact: true}).fill("http://git.example.com");
+  const checkbox = area.getByRole("checkbox");
+  expect((await checkbox.boundingBox())!.width).toBeLessThan(24);
+  expect(await checkbox.locator("..").evaluate(node => getComputedStyle(node).flexDirection)).toBe("row");
+  await token.fill("discard-on-escape");
+  await page.keyboard.press("Escape");
+  await expect(area.getByRole("dialog")).not.toBeVisible();
+  await trigger.click(); await expect(token).toHaveValue("");
+  await area.getByRole("button", {name: "Close", exact: true}).click();
+  await expect(area.getByRole("dialog")).not.toBeVisible();
 });
 
 test("repository connection rejects failed or mismatched evidence without exposing secrets", async ({ page }) => {

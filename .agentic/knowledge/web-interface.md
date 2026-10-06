@@ -724,7 +724,7 @@ Deletion remains subject to archived/idle project preconditions.
 
 ## Project repository connection
 
-Summary → **Connect repository** opens an Admin-only token form for the saved
+Summary → **Connect repository** opens an Admin-only modal token form beside Check host prerequisites for the saved
 provider/repository. Enter a server origin and an access token created on that
 forge. HTTP requires explicit acknowledgement; GitHub requires HTTPS. Embedded
 credentials, paths, queries and fragments reject. The project must be idle,
@@ -733,7 +733,7 @@ checks account identity and exact repository read access with two eight-second
 CLI limits. This does not prove issue-write, draft-review, Git clone/push or
 complete-job permissions. Run **Check host prerequisites** for fresh results.
 
-The browser clears its memory-only token on submission/cancel and discards it
+The browser clears its memory-only token on submission, Close, Cancel or Escape and discards it
 on project/session/navigation changes. Results contain account/server/repository,
 never token. Failed authentication preserves previous credentials; an unconfirmed
 request may have reached the server, so inspect readiness before retrying.
@@ -749,3 +749,6 @@ backups require service-account restrictions. See Component_Repository_Auth.md.
 Proof: tests/test_repository_connection.py, existing readiness tests and
 web/e2e/jobs.spec.ts repository-connection journeys with keyboard, four locales,
 narrow/dark layout, token clearing and wrong-scope rejection.
+
+Gitea readiness verifies configured-login tea API user evidence, requiring 2xx
+HTTP and a valid unique JSON login. CLI exit zero alone does not authenticate.

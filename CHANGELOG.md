@@ -14,6 +14,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Gitea host sign-in checks use the supported named-login API after GUI connection. Repository connection opens a closable modal beside host checks, with an aligned HTTP consent checkbox.
+
 - Make host-check details collapsible with a persistent verdict, clarify the checked
   configuration version and explain external repository sign-in under the service account.
 
