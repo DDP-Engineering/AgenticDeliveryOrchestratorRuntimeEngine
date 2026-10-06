@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # TASK-b93bf854 - Portable new-project import and settings copy
 
-stage: deliver
+stage: done
 type: feature
 path: full
 interaction: autopilot
@@ -24,9 +24,9 @@ opened: 2026-10-06
 - [x] Validated candidate confirmed unchanged; explicit current reviews approved.
 - [x] Validation evidence, inventory, exclusions and intended outcome prepared.
 - [x] Coordinator verified exact inventory and relayed standing human delivery instruction.
-- [x] Journal/report prepared for the authorized delivery commit.
-- [ ] Authorized scoped commit/normal push/ticket outcome delivered.
-- [ ] Close-out after successful delivery.
+- [x] Journal/report included in implementation commit 1d8959a68081fbeeb1f7fc69789eb740456dde57.
+- [x] Authorized scoped commit/normal push and #10-only closure delivered and read back.
+- [x] Journal-only close-out recorded after successful delivery, ready for follow-up commit/push.
 
 ## Frame
 
@@ -117,6 +117,10 @@ flowchart LR
 
 - 2026-10-06 delivery instruction: coordinator 01a10aec-6ac2-79f3-ada3-741950212fb8 verified all 33 bound inventory files/deletions and exact 40-path status, both round-3 verdicts, full passing strict proof and unchanged baseline; relayed existing explicit HUMAN authority to commit requirement-scoped candidate, normal-push task/adore-web-interface, verify remote, complete eight #10 criteria/evidence and close only #10, append compact epic #3 evidence and keep it open, then journal-only closeout commit/push. This relays standing human authority, not authority created by a journal. Local recheck confirmed each working hash/deletion and strict envelope; current #10 eight criteria re-read and labels #10 P2/#3 P1 preserved. No candidate edit or new finding; routine needs_user=no. Execution session CODEX_THREAD_ID=01a10e4d-f2a8-7663-9d04-986ec8143f80.
 
+- 2026-10-06 delivery succeeded: implementation commit 1d8959a68081fbeeb1f7fc69789eb740456dde57 (40 exact scoped paths, 2836 insertions/62 deletions) normal-pushed task/adore-web-interface; authenticated remote equals local commit. All 33 bound working hashes/deletions still match validated candidate; semantic candidate unchanged, only retained failed-attempt JSON structural line endings normalized for staged whitespace hygiene (same parsed evidence). Complete eight #10 criteria checked, English evidence comment 2094 published, #10 closed and authenticated readback confirms exact body/P2 label; epic #3 comment 2097 records issue/session/commit/proof mapping, epic remains open with unchanged body/P1 label. No PR/merge/tag/release/version/deployment/live or later-ticket work.
+
+- 2026-10-06 close-out: agreed delivery outcome succeeded before stage done. This journal-only follow-up records truthful publication/ticket outcomes and retains current proof/reviews; all nonjournal candidate paths unchanged. Follow-up commit and normal push carry this closeout, with both full SHAs and final remote/clean verification reported in the session.
+
 ## Rulings
 
 - RULING-001 | date=2026-10-06 | decision=Autopilot through validated candidate only; no publication before coordinator inventory/delivery instruction | reason=Standing human authorization delegated in initial prompt via coordinator 01a10aec-6ac2-79f3-ada3-741950212fb8; records cannot create authority | source=user | supersedes=none
@@ -125,21 +129,21 @@ flowchart LR
 
 ## Handoff
 
-current: deliver
+current: done
 status: ready
-next: Commit exact scoped inventory, normal push, authenticated issue readback and journal-only closeout.
+next: No implementation remains; publish journal-only closeout and report final remote/clean verification.
 must_read: .agentic/specs/transfer-candidate-inventory.json, .agentic/specs/transfer-candidate-review.md, .agentic/specs/transfer-verification.md, .agentic/tasks/TASK-b93bf854.validation-final.json
 blockers: none
 
 ## Stage report
 
 stage: deliver
-result: in_progress
-current: deliver
-changed: Reporting-only delivery instruction; validated candidate unchanged.
-evidence: All 33 bound hashes/deletions verified; strict passed; coordinator inventory acceptance.
-issues: Nine classified proof advisories; no active findings/deviations.
-next: Scoped commit/normal push and authorized #10-only closure, then journal-only closeout.
+result: completed
+current: done
+changed: Exact 40-path implementation commit plus journal-only closeout; #10 criteria/evidence/closure and epic mapping.
+evidence: Implementation 1d8959a68081fbeeb1f7fc69789eb740456dde57 remotely verified; strict passed/1049 Python/1 skip/Ruff/86 Chromium; authenticated #10 closed/#3 open.
+issues: Nine classified proof advisories; no active findings/deviations; no live or participant acceptance claimed.
+next: Publish journal-only closeout; report both SHAs, remote equality and clean status.
 needs_user: no
 spec_compliance: approved
 implementation_quality: approved
