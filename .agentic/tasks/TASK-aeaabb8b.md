@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # TASK-aeaabb8b - Clean settings and original raw configuration
 
-stage: deliver
+stage: done
 type: change
 path: full
 interaction: autopilot
@@ -25,8 +25,8 @@ opened: 2026-10-06
 - [x] Evidence, scope and outcome presented under standing authority.
 - [x] Scoped commit/push/deploy authorized by human.
 - [x] Journal/report included.
-- [ ] Commit/push and deployed outcome verified.
-- [ ] Close-out committed after outcome succeeds.
+- [x] Commit/push and deployed outcome verified.
+- [x] Close-out committed after outcome succeeds.
 
 ## Frame
 
@@ -72,6 +72,8 @@ Open decisions: none.
 - DEVIATION validate: Required full suite deferred until final iteration by latest direct human instruction. Narrow proof covers current interface/security contracts, not repository-wide regression. Previous seven baseline failures remain outside scope. Strict advisory warnings for historical journals, sidecars and generated minified bundle scanning remain accepted; reviewed authored source and rebuilt bundle.
 - 2026-10-06 delivery presentation: Candidate consists of API/read tests, raw dialog, App Settings layout, two browser test files, rebuilt assets and same-change operator/component/knowledge/requirement/changelog records. TOML only, no .env/external credential export; no epic/later ticket/PR/release. Standing human authority authorizes scoped commit/push/deploy without repeated permission.
 
+- 2026-10-06 delivery outcome: fb156a2c37b80b3d495cd61c14bf428458f111fb pushed and remote ref verified on task/adore-web-interface. Deployed to /home/dpasare/apps/adore/web-ux-fb156a2; backup /home/dpasare/apps/adore/backups/web-ux-fb156a2-20261006224425. SSH host key verified; uploaded SHA256 matched; served JS/CSS byte-matched. Web/worker active; health alive, ready/worker ready; projects unauthenticated401; SQLite schema14/integrity ok, audit80. No live forge/executor acceptance. Full suite not run under latest human instruction.
+
 ## Rulings
 
 - RULING-001 | date=2026-10-06 | decision=Implement original unredacted TOML preview/download for Admin; simplify Settings and preserve candidate review; scoped commit/push/deploy authorized, full suite after deploy | reason=Direct user request and explicit TOML-only answer plus standing delivery authority | source=user | supersedes=none
@@ -80,22 +82,22 @@ Open decisions: none.
 ## Handoff
 
 
-current: deliver
+current: done
 status: ready
-next: Commit/push then deploy with backup and service/bundle verification
+next: Human live iteration; full suite at final iteration
 must_read: .agentic/tasks/TASK-aeaabb8b.md; .agentic/steps/6_deliver.md
 blockers: none
 
 ## Stage report
 
 
-stage: deliver
+stage: done
 result: completed
-current: deliver
+current: done
 changed: Compact Settings and Admin original TOML actions/dialog/endpoint
 evidence: Python17 passed; Chromium11 passed across focused run and Romanian correction rerun; Ruff/build passed
 issues: Full regression deferred by user; previous unrelated regressions remain reported
-next: Commit/push/deploy and verify actual outcome
+next: Human live iteration; full suite at final iteration
 needs_user: no
 spec_compliance: approved
 implementation_quality: approved
