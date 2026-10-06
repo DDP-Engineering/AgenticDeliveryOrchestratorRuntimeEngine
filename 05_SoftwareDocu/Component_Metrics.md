@@ -65,6 +65,65 @@ transitions), token extraction (executor launcher), resource probing
   timestamp (includes waits, deliberately - it is the human-visible
   latency); time-to-MR = first event -> `mr-opened`.
 
+### Web analytical projection
+
+`adore/web/analytics.py` owns strict read-only sources, shared Scope, measured
+usage/job projections and scoped lifecycle/cohort/duration calculations.
+`load_analytical_summaries` reads existing SQLite in mode=ro, accepts neutral
+missing legacy columns and rejects corrupt/unsupported rows without migration.
+
+Reporting scope is the authorized immutable project set, a half-open UTC
+instant interval `[from,to)`, the selected IANA timezone and day/week/month
+granularity. Inclusive date controls resolve each local midnight independently;
+the upper bound is midnight after `day_to`, including 23/25-hour DST days.
+Omitted bounds are unbounded; both omitted explicitly select `all_time`.
+All scoped totals, cards, tables, daily rows, cohorts and exports use this scope.
+
+Started uses the first `picked` event; completed/failed uses the latest event
+matching the final lifecycle. Checkpoints and state update times do not supply
+these dates. Recorded summary start/end is fallback only without lifecycle
+journal evidence. `current_stock` separately names jobs/active/waiting/review/
+terminal now, including only actual retained runtime state.
+
+Unique usage is attributed at its own consumption instant. `jobs` uses
+`(project_id,run_id)` with separate `lifetime`, `in_period`, `unallocated`,
+source and coverage. Historical summaries survive runtime-state removal;
+positive summary-only measurements belong to lifetime/unallocated, never a
+fabricated period. Missing individual token fields stay null; explicit measured
+zero stays zero. Neutral legacy summary defaults are unknown. Legacy missing,
+invalid, naive or date-only timestamps contribute unallocated coverage and
+amounts. Financial fields and financial coverage are Admin-only in every nested
+projection and export. Reported and estimated costs remain separate; matching
+immutable prices use the consumption UTC day, and never price reported money
+again. Coverage identifies partial evidence rather than asserting a full bill.
+
+Review cohorts use first MR opening/adoption in scope; validation cohorts use
+first strict verdict in scope. Human merge uses reviewed jobs with actual done
+in scope and `merged by human`. Rework requires reviewer-requested revision;
+pipeline repair is separate. Each rate exposes numerator/denominator; empty is
+null. Open reviews are labeled current state. Monetary efficiency uses only
+period consumption for the completed/human-merged cohort and separate known
+reported/estimated samples.
+
+Duration is terminal-summary elapsed wall time including waits, selected by
+recorded end instant in scope. Count, sum and sorted exact `samples_seconds`
+support pooled mean/median without browser date approximation. Recorded zero
+is valid; absent pairs are excluded and inconsistent pairs fail.
+
+Raw state/JSONL and read-only summary rows are validated before filters.
+Malformed JSON, duplicate keys, unsupported schema, invalid fields, conflicting
+versioned identity/timestamp, numeric overflow and invalid versioned timestamps
+fail typed 503 without source rewriting. Invalid scope/identity filters return
+422. Analytical summary reads neither initialize nor migrate runtime data.
+CSV includes scope/project provenance, empty unavailable cells and spreadsheet
+escaping; `X-ADORE-Scope`/`X-ADORE-Coverage` describe empty exports too.
+Project `/api/v1/projects/{name}/jobs-usage.csv` and Admin global
+`/api/v1/jobs-usage.csv` share usage date/timezone/group/executor/model filters.
+
+Offline proof: `test_web_scoped_metrics.py`, `test_web_metrics.py`,
+`test_web_pricing.py`, and `web/tests/metrics.test.mjs`, followed by native
+Python/Ruff and frontend validation. CLI summary/export semantics are preserved.
+
 ## 4. Dependencies
 
 - Internal: `adore.state.StateStore` (journal/state/ticket),
@@ -126,13 +185,6 @@ unknown rather than being assigned to an invented day.
 - Minimum validation after a change: `uv run --group dev pytest tests/test_metrics.py`.
 
 ## 10. Limitations And Future Work
-
-- The web API groups journal usage by UTC event date and includes live-run
-  usage in headline totals, with terminal-summary token fallback for legacy
-  runs without usable journal usage. It removes all cost fields for developers and returns null
-  cost to admins when no explicit cost was reported (or when an old event has
-  the default zero without coverage). This does not turn the
-  existing summary's zero defaults into a complete billing ledger.
 
 - `capture_resource` (docker stats / disk probes) is config intent, pending.
 - Code-size lines (+/-) not captured yet (files-changed count only).

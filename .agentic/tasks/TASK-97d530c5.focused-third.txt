@@ -1,0 +1,93 @@
+..............................................F....F.................    [100%]
+================================== FAILURES ===================================
+________ test_global_daily_csv_is_admin_only_and_identifies_repository ________
+
+tmp_path = WindowsPath('C:/Users/pasar/AppData/Local/Temp/pytest-of-pasar/pytest-249/test_global_daily_csv_is_admin0')
+
+    def test_global_daily_csv_is_admin_only_and_identifies_repository(tmp_path):
+        """@brief Global export keeps project/repo provenance and finance private."""
+        profiles = ProfileStore(tmp_path / "home")
+        profile = profiles.create("alpha", repo="=1+1", store_root=str(tmp_path / "state"))
+        state = StateStore(profile.store_root)
+        state.save(RunState(run_id="run-1", ticket_iid=7, lifecycle="done"))
+        state.journal("run-1", "usage", ts="2026-01-05T00:00:00+00:00",
+                      tokens_in=4, tokens_out=2, cost_usd=0.02,
+                      cost_reported=True)
+        app = create_app(profiles.home)
+        web = app.state.web_store
+        dev = web.create_user("dev", "longer-password", "developer")
+        web.set_memberships(dev["id"], ["alpha"])
+        with TestClient(app) as client:
+            client.post("/api/v1/session", json={
+                "username": "dev", "password": "longer-password"})
+            assert client.get("/api/v1/metrics.csv").status_code == 403
+        with TestClient(app) as client:
+            client.post("/api/v1/session", json={
+                "username": "admin", "password": "admin"})
+            response = client.get("/api/v1/metrics.csv")
+            assert response.status_code == 200
+            assert "project,repository,project_id,timezone" in response.text
+>           assert "alpha,'=1+1,2026-01-05" in response.text
+E           assert "alpha,'=1+1,2026-01-05" in "project,repository,project_id,timezone,granularity,scope_mode,scope_from,scope_to,usage_events_unallocated,summary_on...ted_cost_usd\r\nalpha,'=1+1,c6b4d882d43d4616b73df4aada4eecbe,UTC,day,all_time,,,0,0,2026-01-05,0,0,0,4,2,0,0,0.02,\r\n"
+E            +  where "project,repository,project_id,timezone,granularity,scope_mode,scope_from,scope_to,usage_events_unallocated,summary_on...ted_cost_usd\r\nalpha,'=1+1,c6b4d882d43d4616b73df4aada4eecbe,UTC,day,all_time,,,0,0,2026-01-05,0,0,0,4,2,0,0,0.02,\r\n" = <Response [200 OK]>.text
+
+tests\test_web_metrics.py:862: AssertionError
+____ test_quality_cost_per_job_uses_evidence_denominators_and_role_privacy ____
+
+tmp_path = WindowsPath('C:/Users/pasar/AppData/Local/Temp/pytest-of-pasar/pytest-249/test_quality_cost_per_job_uses0')
+
+    def test_quality_cost_per_job_uses_evidence_denominators_and_role_privacy(tmp_path):
+        """@brief Reported and estimated USD use separate known-job cohorts."""
+        profiles = ProfileStore(tmp_path / "home")
+        profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
+        state = StateStore(profile.store_root)
+        for run_id, lifecycle, outcome, cost_reported in (
+            ("merged", "done", "merged by human", True),
+            ("estimated", "done", "", False),
+            ("failed", "failed", "", True),
+        ):
+            state.save(RunState(run_id=run_id, ticket_iid=1,
+                                lifecycle=lifecycle, outcome=outcome))
+            state.journal(run_id, "usage", executor="codex", model="local-1",
+                          tokens_in=1_000_000, tokens_out=0,
+                          cost_usd=4 if cost_reported else 0,
+                          cost_reported=cost_reported)
+            state.journal(run_id, "stage-failed", stage="build")
+            state.journal(run_id, "operator-retry", stage="build")
+            if lifecycle == "done":
+                state.journal(run_id, "done", outcome=outcome)
+        app = create_app(profiles.home)
+        web = app.state.web_store
+        web.add_price("alpha", "codex", "local-1", "2026-01-01", "2", "4", 1)
+        dev = web.create_user("dev", "longer-password", "developer")
+        web.set_memberships(dev["id"], ["alpha"])
+        with TestClient(app) as client:
+            client.post("/api/v1/session", json={
+                "username": "admin", "password": "admin"})
+            quality = client.get("/api/v1/projects/alpha/metrics").json()["quality"]
+            assert quality["stage_failures"] == 3
+            assert quality["operator_retries"] == 3
+            assert quality["cost_efficiency"]["reported_per_completed"] == {
+                "jobs_with_evidence": 1, "usd_per_job": 4.0}
+            assert quality["cost_efficiency"]["estimated_per_completed"] == {
+                "jobs_with_evidence": 1, "usd_per_job": 2.0}
+>           assert quality["cost_efficiency"]["reported_per_human_merged"] == {
+                "jobs_with_evidence": 1, "usd_per_job": 4.0}
+E           AssertionError: assert {'jobs_with_e...er_job': None} == {'jobs_with_e...per_job': 4.0}
+E             
+E             Differing items:
+E             {'usd_per_job': None} != {'usd_per_job': 4.0}
+E             {'jobs_with_evidence': 0} != {'jobs_with_evidence': 1}
+E             Use -v to get more diff
+
+tests\test_web_metrics.py:1066: AssertionError
+============================== warnings summary ===============================
+.venv\Lib\site-packages\fastapi\testclient.py:1
+  D:\ProjectsDDP\2026_AgenticDeliveryOrchestratorRuntimeEngine\04_Software\.venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_web_metrics.py::test_global_daily_csv_is_admin_only_and_identifies_repository
+FAILED tests/test_web_metrics.py::test_quality_cost_per_job_uses_evidence_denominators_and_role_privacy
+2 failed, 67 passed, 1 warning in 25.43s

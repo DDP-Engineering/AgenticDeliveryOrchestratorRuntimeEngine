@@ -589,13 +589,13 @@ class WebStore:
                     continue
                 if event.get("event") != "usage":
                     continue
-                incoming = event.get("tokens_in", 0)
-                outgoing = event.get("tokens_out", 0)
-                money = event.get("cost_usd", 0)
-                if (type(incoming) is not int or incoming < 0
-                        or type(outgoing) is not int or outgoing < 0
-                        or type(money) not in (int, float) or money < 0
-                        or not math.isfinite(money)):
+                incoming = event.get("tokens_in")
+                outgoing = event.get("tokens_out")
+                money = event.get("cost_usd")
+                if ((incoming is not None and (type(incoming) is not int or incoming < 0))
+                        or (outgoing is not None and (type(outgoing) is not int or outgoing < 0))
+                        or (money is not None and (type(money) not in (int, float) or money < 0
+                                                   or not math.isfinite(money)))):
                     raise WebStoreError("malformed usage amounts")
                 key = event.get("event_id", f"legacy:{index}")
                 if not isinstance(key, str) or len(key) > 200:

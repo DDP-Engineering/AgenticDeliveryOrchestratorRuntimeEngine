@@ -139,3 +139,12 @@ protects the worktree from routine cleanup and further autonomous execution.
 - `01_Documentation/Web_Interface.md` - web deployment, roles and metrics.
 - `05_SoftwareDocu/README.md` - component contract index.
 - `CHANGELOG.md` - release history, including each AEGIS re-verification.
+
+## Web reporting scope
+
+Web analytics resolves inclusive local calendar controls to canonical half-open
+UTC instants with explicit all-time. Scoped lifecycle/consumption/quality and
+server-selected duration samples share that contract. Current-state stock,
+per-job lifetime and undated unallocated measurements are separately named;
+unknown amounts are null and all financial evidence is Admin-only. Analytical
+source reads fail closed and preserve operational persistence/CLI contracts.

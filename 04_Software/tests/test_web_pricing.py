@@ -153,7 +153,7 @@ def test_estimates_use_effective_rate_without_double_counting_reported_cost(tmp_
         assert days["2026-02-21"]["estimated_cost_usd"] is None
         exported = client.get("/api/v1/projects/alpha/metrics.csv").text
         assert "estimated_cost_usd" in exported
-        assert "2026-02-20,0,0,1000000,1000000,0,0,,9" in exported
+        assert "2026-02-20,0,0,0,1000000,1000000,0,0,,9" in exported
     with TestClient(app) as client:
         client.post("/api/v1/session", json={
             "username": "dev", "password": "longer-password"})
@@ -207,5 +207,5 @@ def test_nonfinite_journal_cost_is_not_exposed(tmp_path):
         client.post("/api/v1/session", json={
             "username": "admin", "password": "admin"})
         response = client.get("/api/v1/projects/alpha/metrics")
-        assert response.status_code == 200
-        assert response.json()["coverage"]["runs_with_usage"] == 0
+        assert response.status_code == 503
+        assert response.json()["detail"]["code"] == "metrics_corrupt"

@@ -341,82 +341,61 @@ configuration.
 ## 6. Data Contracts
 
 The two roles are administrator and developer. Developer APIs contain no
-monetary fields. Reporting dates convert timezone-aware journal timestamps to
-the selected IANA timezone, defaulting to UTC;
-malformed timestamps are excluded. Cost is null when no
-run reported it; reported cost and configured estimates are separate values.
-Project and administrator-global metrics JSON accept inclusive `day_from` and
-`day_to` dates plus `timezone` and `granularity=day|week|month`. `totals`,
-`runs`, coverage and revision attribution remain all-time; `daily` contains
-selected local-date buckets, grouped by Monday-start week or calendar month
-when requested. The separate `period` object adds the selected dated events
-before grouping and identifies its `dated_events` basis.
-Completed-job buckets use the last lifecycle-matching terminal journal event;
-later checkpoint publication is not a new completion. Legacy runs without a
-terminal event fall back to their stored update timestamp.
-Summary-only historical tokens are not assigned to an invented day. Both
-project and global CSV exports accept the same options. Invalid/reversed dates,
-unsupported timezones and granularities return 422; developer responses and
-exports omit period money fields.
-`duration` reports a terminal-summary sample count plus nullable mean and median
-wall-clock seconds. It requires valid start/end timestamps and includes human
-wait. `period.duration` selects those samples by local completion day, independent
-of daily journal completion buckets; undated legacy summaries are excluded.
-Corrupt persisted span values or inconsistent timestamps return 503 rather than
-publishing a misleading duration. These fields contain no monetary data.
-`/api/v1/projects/{name}/usage` and administrator `/api/v1/usage` group
-projected journal usage by selected local day/week/month, observed executor and observed model. Exact
-`executor` and `model` filters combine with `day_from`/`day_to`; matching CSV
-routes export the same scoped rows. These responses count usage events and
-tokens, not jobs, and never assign summary-only usage to an executor or model.
-Unknown journal identity remains null. Developer JSON and CSV omit all money;
-administrator rows distinguish reported and estimated cost, with null for
-unavailable amounts. Invalid filters return 422, corrupt persisted identity or
-usage numbers and non-object journal records return 503, and CSV escapes
-formula-like identity labels. Daily metrics also reject non-object journal
-records with a typed `metrics_corrupt` response.
-Project headline token and reported-cost totals include live journal events;
-terminal summaries only fill token gaps when journal usage is absent.
-Version 1 `usage-observation` journal records classify each executor launch as
-`reported`, `unavailable`, or `disabled` for tokens and cost. Project/global
-coverage counts use the stable run/attempt event ID, ignore identical replay,
-and reject malformed or conflicting records as `metrics_corrupt`. Numeric
-`usage` events remain the sole source of token and money totals, so an
-observation never doubles a total. Older launches without observations remain
-unclassified. Developer coverage omits monetary status fields.
-Versioned numeric `usage` records use that same run/attempt ID. Identical
-replays contribute once to daily, attributed and terminal-summary totals;
-conflicting or malformed records return a typed error. Legacy usage without
-an ID keeps its historical best-effort behavior.
-Each attributed-usage read reconciles the retained journal with schema-11
-SQLite numeric and launch-coverage projection rows and a durable per-run
-ingestion cursor before returning it. The cursor rejects non-append changes to
-previously ingested journal evidence. `POST /api/v1/usage/rebuild`
-allows an administrator with CSRF protection to replay all projects, including
-archived ones; it reports project/run/event counts, is idempotent, and leaves
-run state unchanged. A conflicting or vanished source fails with 503.
-Price versions are immutable and selected by exact project/executor/model and
-effective date. Present values are not billed amounts.
-Journal `revision-started` events with `revise-label` count as reviewer-requested
-MR/PR revisions; `pipeline-failed` events count as automatic pipeline repairs.
-Unknown triggers remain unclassified rather than inflating either count.
-The all-time `quality` object reports reviewed jobs from `mr-opened` or
-`mr-adopted` journal events, distinct jobs with a `revise-label` revision,
-still-open reviewed jobs, jobs with a strict-verification event and those whose
-first verdict passed, and reviewed human-merged jobs with/without reviewer
-rework. Each ratio uses its named cohort as denominator and is null when that
-cohort is empty. Pipeline repairs do not count as reviewer rework. Invalid
-persisted strict-verification verdicts return `metrics_corrupt`.
-The quality object also counts stage-failure and operator-retry journal events.
-For administrators, `cost_efficiency` reports separate reported and estimated
-USD averages for completed and human-merged jobs. Each average divides known
-money by jobs with that source of cost evidence; its denominator is explicit
-and an empty cohort yields null. Developer responses omit this object.
-Administrator metrics include a `revisions` list. Each entry covers usage
-after one `revision-started` journal event until the next such event in that
-run. Reported and estimated cost remain separate and nullable; initial work
-before the first revision remains only in run/day totals. The list is absent
-from developer responses.
+monetary fields.
+
+Reporting scope is the authorized immutable project set, a half-open UTC
+instant interval `[from,to)`, the selected IANA timezone and day/week/month
+granularity. Inclusive date controls resolve each local midnight independently;
+the upper bound is midnight after `day_to`, including 23/25-hour DST days.
+Omitted bounds are unbounded; both omitted explicitly select `all_time`.
+All scoped totals, cards, tables, daily rows, cohorts and exports use this scope.
+
+Started uses the first `picked` event; completed/failed uses the latest event
+matching the final lifecycle. Checkpoints and state update times do not supply
+these dates. Recorded summary start/end is fallback only without lifecycle
+journal evidence. `current_stock` separately names jobs/active/waiting/review/
+terminal now, including only actual retained runtime state.
+
+Unique usage is attributed at its own consumption instant. `jobs` uses
+`(project_id,run_id)` with separate `lifetime`, `in_period`, `unallocated`,
+source and coverage. Historical summaries survive runtime-state removal;
+positive summary-only measurements belong to lifetime/unallocated, never a
+fabricated period. Missing individual token fields stay null; explicit measured
+zero stays zero. Neutral legacy summary defaults are unknown. Legacy missing,
+invalid, naive or date-only timestamps contribute unallocated coverage and
+amounts. Financial fields and financial coverage are Admin-only in every nested
+projection and export. Reported and estimated costs remain separate; matching
+immutable prices use the consumption UTC day, and never price reported money
+again. Coverage identifies partial evidence rather than asserting a full bill.
+
+Review cohorts use first MR opening/adoption in scope; validation cohorts use
+first strict verdict in scope. Human merge uses reviewed jobs with actual done
+in scope and `merged by human`. Rework requires reviewer-requested revision;
+pipeline repair is separate. Each rate exposes numerator/denominator; empty is
+null. Open reviews are labeled current state. Monetary efficiency uses only
+period consumption for the completed/human-merged cohort and separate known
+reported/estimated samples.
+
+Duration is terminal-summary elapsed wall time including waits, selected by
+recorded end instant in scope. Count, sum and sorted exact `samples_seconds`
+support pooled mean/median without browser date approximation. Recorded zero
+is valid; absent pairs are excluded and inconsistent pairs fail.
+
+Raw state/JSONL and read-only summary rows are validated before filters.
+Malformed JSON, duplicate keys, unsupported schema, invalid fields, conflicting
+versioned identity/timestamp, numeric overflow and invalid versioned timestamps
+fail typed 503 without source rewriting. Invalid scope/identity filters return
+422. Analytical summary reads neither initialize nor migrate runtime data.
+CSV includes scope/project provenance, empty unavailable cells and spreadsheet
+escaping; `X-ADORE-Scope`/`X-ADORE-Coverage` describe empty exports too.
+Project `/api/v1/projects/{name}/jobs-usage.csv` and Admin global
+`/api/v1/jobs-usage.csv` share usage date/timezone/group/executor/model filters.
+
+Offline proof: `test_web_scoped_metrics.py`, `test_web_metrics.py`,
+`test_web_pricing.py`, and `web/tests/metrics.test.mjs`, followed by native
+Python/Ruff and frontend validation. CLI summary/export semantics are preserved.
+
+
 Mutations require `X-CSRF-Token` from the authenticated `/api/v1/me` response.
 Cancellation submission rejects already terminal runs; the worker checks again
 because the run can complete while a command waits in the queue.

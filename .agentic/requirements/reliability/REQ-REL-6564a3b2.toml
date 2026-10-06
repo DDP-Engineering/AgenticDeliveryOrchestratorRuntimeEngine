@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-REL-6564a3b2"
+
+title = "Reject corrupt analytical sources and invalid reporting scopes"
+
+status = "active"
+
+requirement = """If a reporting filter or persisted analytical source violates its supported contract, the analytics service shall return a typed error without guessing, skipping corrupt records or resetting runtime state."""
+
+verification = "Malformed filter/timezone/range, state/event schema, JSONL, numeric data and conflicting replay fixtures assert 422/503 and unchanged source bytes."
+
+affected_paths = ["04_Software/adore/metrics.py", "04_Software/adore/web/store.py", "04_Software/adore/web/app.py", "04_Software/adore/web/analytics.py", "04_Software/web/src/metrics.ts"]
+
+linked_tests = ["04_Software/tests/test_web_scoped_metrics.py", "04_Software/tests/test_web_metrics.py", "04_Software/tests/test_web_pricing.py", "04_Software/web/tests/metrics.test.mjs", "04_Software/web/e2e/shell.spec.ts"]
+
+
+spec = "specs/scoped-metrics.md"
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-06
+updated = 2026-10-06

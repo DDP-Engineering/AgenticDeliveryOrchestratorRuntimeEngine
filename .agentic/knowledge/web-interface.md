@@ -231,30 +231,60 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 - Project daily CSV exports follow the same financial filter as metrics JSON;
   the global daily CSV is administrator-only and includes project/repository
   provenance with spreadsheet-safe repository labels.
-- Project/global metrics JSON and CSV share inclusive local-date `day_from`/`day_to`
-  filters, an IANA timezone and day/week/month grouping. UTC/day is the default.
-  The `period` object sums selected dated journal buckets; `totals`,
-  coverage, run rows and revision attribution remain all-time. Summary-only
-  usage is not fabricated into daily buckets, and developers receive no money.
-  Completed-job trends use terminal lifecycle evidence rather than a later
-  recovery checkpoint event; legacy journals fall back to stored run update time.
-- Project/global metrics expose terminal elapsed-time sample count, average
-  and median separately from event-based throughput. The period duration
-  sample uses local completion day. Missing timestamps are excluded; corrupt
-  persisted spans fail closed. Elapsed time includes human waiting.
-- All-time quality cohorts count one job per review, first validation and
-  human merge. Reviewer rework requires a `revise-label` revision after an
-  observed MR/PR opening/adoption; pipeline repair remains separate. Null rates
-  represent empty denominators, and malformed validation verdicts fail closed.
-- Stage failures and operator retries are distinct quality counts.
-  Administrator cost-efficiency averages use reported and estimated money in
-  separate completed and human-merged evidence cohorts; developer responses
-  contain no monetary efficiency fields.
-- Project/global attributed usage JSON and CSV group journal events by the
-  selected local day/week/month,
-  executor and model with exact identity filters. Job counts remain separate;
-  missing identity stays unknown, developer exports omit money, and CSV labels
-  are spreadsheet-safe. Corrupt persisted identity fails closed.
+- Shared analytical scope and contracts:
+
+Reporting scope is the authorized immutable project set, a half-open UTC
+instant interval `[from,to)`, the selected IANA timezone and day/week/month
+granularity. Inclusive date controls resolve each local midnight independently;
+the upper bound is midnight after `day_to`, including 23/25-hour DST days.
+Omitted bounds are unbounded; both omitted explicitly select `all_time`.
+All scoped totals, cards, tables, daily rows, cohorts and exports use this scope.
+
+Started uses the first `picked` event; completed/failed uses the latest event
+matching the final lifecycle. Checkpoints and state update times do not supply
+these dates. Recorded summary start/end is fallback only without lifecycle
+journal evidence. `current_stock` separately names jobs/active/waiting/review/
+terminal now, including only actual retained runtime state.
+
+Unique usage is attributed at its own consumption instant. `jobs` uses
+`(project_id,run_id)` with separate `lifetime`, `in_period`, `unallocated`,
+source and coverage. Historical summaries survive runtime-state removal;
+positive summary-only measurements belong to lifetime/unallocated, never a
+fabricated period. Missing individual token fields stay null; explicit measured
+zero stays zero. Neutral legacy summary defaults are unknown. Legacy missing,
+invalid, naive or date-only timestamps contribute unallocated coverage and
+amounts. Financial fields and financial coverage are Admin-only in every nested
+projection and export. Reported and estimated costs remain separate; matching
+immutable prices use the consumption UTC day, and never price reported money
+again. Coverage identifies partial evidence rather than asserting a full bill.
+
+Review cohorts use first MR opening/adoption in scope; validation cohorts use
+first strict verdict in scope. Human merge uses reviewed jobs with actual done
+in scope and `merged by human`. Rework requires reviewer-requested revision;
+pipeline repair is separate. Each rate exposes numerator/denominator; empty is
+null. Open reviews are labeled current state. Monetary efficiency uses only
+period consumption for the completed/human-merged cohort and separate known
+reported/estimated samples.
+
+Duration is terminal-summary elapsed wall time including waits, selected by
+recorded end instant in scope. Count, sum and sorted exact `samples_seconds`
+support pooled mean/median without browser date approximation. Recorded zero
+is valid; absent pairs are excluded and inconsistent pairs fail.
+
+Raw state/JSONL and read-only summary rows are validated before filters.
+Malformed JSON, duplicate keys, unsupported schema, invalid fields, conflicting
+versioned identity/timestamp, numeric overflow and invalid versioned timestamps
+fail typed 503 without source rewriting. Invalid scope/identity filters return
+422. Analytical summary reads neither initialize nor migrate runtime data.
+CSV includes scope/project provenance, empty unavailable cells and spreadsheet
+escaping; `X-ADORE-Scope`/`X-ADORE-Coverage` describe empty exports too.
+Project `/api/v1/projects/{name}/jobs-usage.csv` and Admin global
+`/api/v1/jobs-usage.csv` share usage date/timezone/group/executor/model filters.
+
+Offline proof: `test_web_scoped_metrics.py`, `test_web_metrics.py`,
+`test_web_pricing.py`, and `web/tests/metrics.test.mjs`, followed by native
+Python/Ruff and frontend validation. CLI summary/export semantics are preserved.
+
 - Schema-11 SQLite usage and launch-coverage projections are reconciled against retained journals
   before attributed reads. An administrator can explicitly replay archived and
   current projects; a per-run cursor prevents repeated events adding rows, and changed or vanished
@@ -301,6 +331,9 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 | Offline media | `02_Tools/*web*.py` | `test_web_package.py`, installed HTTP smoke |
 
 ## Key behaviors
+
+- `REQ-DATA-5a620f4e` / `REQ-REL-6564a3b2` / `REQ-FUNC-83da8d95` - composite measured job consumption, strict sources and server-selected analytical samples.
+
 
 - `REQ-FUNC-20010f79`, `REQ-SEC-934b2dca`, `REQ-UX-7d0b71c3`: isolated stopped portable enrollment, exact authorized source binding and explanatory mapping/reconfirmation.
 
@@ -375,6 +408,9 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 ```mermaid
 flowchart LR
     browser([Browser]) --> App[App session routes scoped requests]
+    Journals[(Raw journals)] --> Analytics[Strict analytics scope usage cohorts samples]
+    Summaries[(Read-only terminal summaries)] --> Analytics
+    Analytics --> api
     App --> DashboardShell[DashboardShell links branding focus]
     App --> Presentation[Presentation feedback glossary status]
     App --> JobWorkspace[JobWorkspace attention jobs detail commands]
@@ -543,3 +579,6 @@ locks remain the final authority for every apply.
 Restored endpoint CA paths are revalidated before review/apply against the same HTTPS, absolute executor path, bounded length and no traversal/control-character domain as preparation; malformed paths return `pending_config_corrupt`.
 
 Discard focus restoration runs in a post-render effect after the mutation busy guard clears, with the original captured scope checked before focusing the enabled edit control.
+
+- `04_Software/adore/web/analytics.py` - shared scope, strict sources and analytical reports.
+- `04_Software/tests/test_web_scoped_metrics.py` - scoped analytical boundary proof.

@@ -14,6 +14,11 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Added
 
+- Consistent scoped web metrics with DST-aware instant boundaries, nullable
+  consumption, composite per-job lifetime/period/unallocated projections and
+  CSV, strict read-only analytical sources and server-selected duration samples
+  and quality cohorts; current-state counts and Admin-only money remain distinct (#14).
+
 - Portable file import and authorized source-project settings copy for new projects,
   with complete rule/default/effect mapping, explicit target reference/environment
   reconfirmation, independent stopped ownership, exact source/candidate binding,

@@ -1,0 +1,157 @@
+{
+  "task": "TASK-97d530c5",
+  "review_round": 2,
+  "corrective_cycles": 1,
+  "base": "f1aeefa0ca49038c2d70c9987bbaffa6644c61b5",
+  "candidate_sha256": "e9ff78685f8606de38a23a72781ad4729b3e5d689a94c63e62bcfbc37120f3fe",
+  "binding": "Product/generated and contract/context/knowledge files. Task ledger/proof sidecars and self-referential review report excluded; full final handoff inventory separate.",
+  "authored_count": 17,
+  "generated_count": 3,
+  "entries": [
+    {
+      "path": ".agentic/context/project.md",
+      "status": "M",
+      "sha256": "6ee289b4636733284abbf8c6b631d7c2c09cc5c2f40bcd349a862ac8cd010e14"
+    },
+    {
+      "path": ".agentic/knowledge/metrics.md",
+      "status": "M",
+      "sha256": "2ad3999ed07cfff69856d1d475b535db85b324beff300e499a166dd0c98049ef"
+    },
+    {
+      "path": ".agentic/knowledge/web-interface.md",
+      "status": "M",
+      "sha256": "c3326151c23209575b485887574c6c0f52b2031f85d4dcb6fd3bef608f488787"
+    },
+    {
+      "path": ".agentic/requirements/data/REQ-DATA-5a620f4e.toml",
+      "status": "A",
+      "sha256": "e5f2983eba7fdde20f90f75af6d21ca628b48aa4d8d5b4c4f979e4ee2961c5e1"
+    },
+    {
+      "path": ".agentic/requirements/functional/REQ-FUNC-448cbde7.toml",
+      "status": "M",
+      "sha256": "7dded7ddd5d1405e921282c4fae74a98ba9642f4d1f7fdd7ae11c44eea933e38"
+    },
+    {
+      "path": ".agentic/requirements/functional/REQ-FUNC-83da8d95.toml",
+      "status": "A",
+      "sha256": "bc6b0e54c24d7e83caae0816c7731be581c151d4cfcb73affc3b9ff758d4d225"
+    },
+    {
+      "path": ".agentic/requirements/reliability/REQ-REL-6564a3b2.toml",
+      "status": "A",
+      "sha256": "def8ea78844b5ee41390f6e31a7999b80507348ac5e285159ce16be3a38f655b"
+    },
+    {
+      "path": ".agentic/specs/scoped-metrics-verification.md",
+      "status": "A",
+      "sha256": "44db543952b14ed8c175915d9df6fa977642808a7e306391281419d9d44c6925"
+    },
+    {
+      "path": ".agentic/specs/scoped-metrics.md",
+      "status": "A",
+      "sha256": "57c376678c1243559c6ff4f7ba03fa94f5d5f1dc1ce6d5f8091bfaef8d3dfadc"
+    },
+    {
+      "path": "01_Documentation/Web_Interface.md",
+      "status": "M",
+      "sha256": "36154aad79cd1c5417ce212b9b7ee0d71bbe7cb61437757c10541aa40e240e0a"
+    },
+    {
+      "path": "04_Software/adore/metrics.py",
+      "status": "M",
+      "sha256": "9a8e1e5a252301b680c7a4cd18bcd88b6d3784d67161247b214f9946e656a7c2"
+    },
+    {
+      "path": "04_Software/adore/web/analytics.py",
+      "status": "A",
+      "sha256": "d68166dca914f06845cde995baa3c94699c3d71cb1108c8d3cb535a4aef0a04d"
+    },
+    {
+      "path": "04_Software/adore/web/app.py",
+      "status": "M",
+      "sha256": "7a8453853a1336d1d9f861a1f4199b62981c4a3163e89444a5c8e1bc0e187ebc"
+    },
+    {
+      "path": "04_Software/adore/web/static/assets/index-DH2GbHeG.js",
+      "status": "D",
+      "sha256": null
+    },
+    {
+      "path": "04_Software/adore/web/static/assets/index-K2sSmMhU.js",
+      "status": "A",
+      "sha256": "aaf6a196e430c5ec6cd3a88792ac65eef47ab733613201c2358d7302315f60b8"
+    },
+    {
+      "path": "04_Software/adore/web/static/index.html",
+      "status": "M",
+      "sha256": "92e7638a70a123f053d10ba6b5ac0efafd9bfa14c7a108a75eb00b25a7611b9b"
+    },
+    {
+      "path": "04_Software/adore/web/store.py",
+      "status": "M",
+      "sha256": "35f4929ecac8261a220914b1983d053c9746b8e2f668576ecf0718133d7693c1"
+    },
+    {
+      "path": "04_Software/tests/test_web_metrics.py",
+      "status": "M",
+      "sha256": "1b6c2ae12a9cfb7e1bb8e9cfc0d4be49371740b89460df1a28dee7e02a678b37"
+    },
+    {
+      "path": "04_Software/tests/test_web_pricing.py",
+      "status": "M",
+      "sha256": "9e153553f03a2f7f6c60f0284a592ba1896614190e711d8066c69c05c9b9570b"
+    },
+    {
+      "path": "04_Software/tests/test_web_scoped_metrics.py",
+      "status": "A",
+      "sha256": "63b35ac26faebefe41d6df6f62b804c06926b21f7afacdeb64f7bcf990257185"
+    },
+    {
+      "path": "04_Software/web/e2e/shell.spec.ts",
+      "status": "M",
+      "sha256": "fb50ef9e194b1f710288c1c98fcb66c8032a37cfc4e168c5b7d7c9138b4bd234"
+    },
+    {
+      "path": "04_Software/web/src/App.tsx",
+      "status": "M",
+      "sha256": "88645a34833880d914a70f8ecbf9a0606da1ced1edece59a1fa9c47ced95c759"
+    },
+    {
+      "path": "04_Software/web/src/i18n.ts",
+      "status": "M",
+      "sha256": "373ccbaefc5ea7894d87e2dacfae4923d72f7bf9395ff1f5ddaedec862a94afa"
+    },
+    {
+      "path": "04_Software/web/src/metrics.ts",
+      "status": "M",
+      "sha256": "9577e05dbfc6c00d515e3cd460502e78eeb09cc35be0076f2f6638dd3dc10c96"
+    },
+    {
+      "path": "04_Software/web/tests/metrics.test.mjs",
+      "status": "M",
+      "sha256": "7e6f0c831ea47fb060e033a6d4cf66a799cb5b3a6f93e2da69ec2c7e61c038a5"
+    },
+    {
+      "path": "05_SoftwareDocu/Component_Metrics.md",
+      "status": "M",
+      "sha256": "347d1088b0918f797a1d478638e1e30c0e14fb1bcfa0eb461987d99ce7c4e60b"
+    },
+    {
+      "path": "05_SoftwareDocu/Component_Web_API.md",
+      "status": "M",
+      "sha256": "1448f66fa56cc0774e67cf2bdaffa274491ef8f5c986a705a26fc168dc140fb6"
+    },
+    {
+      "path": "05_SoftwareDocu/Component_Web_Frontend.md",
+      "status": "M",
+      "sha256": "7eb8f02e122eb4ffa15080f8a344ce7be0d5117a4b6a263c5713a00034a9fa16"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "status": "M",
+      "sha256": "6cfc40ea20016bca1e396e3db3add42e8f11b839d77b77d0f0c85282e70b4bfd"
+    }
+  ]
+}

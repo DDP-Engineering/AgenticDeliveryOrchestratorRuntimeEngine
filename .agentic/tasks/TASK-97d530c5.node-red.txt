@@ -1,0 +1,35 @@
+✖ pooling uses server-selected zero and terminal samples without browser date filtering (23.1251ms)
+✔ platform totals pool cohorts, duration samples and evidence-weighted costs (1.6017ms)
+✔ period duration uses completion day in chosen timezone and inclusive bounds (0.8446ms)
+✔ empty cohorts and absent evidence remain unavailable; legacy spans are excluded (0.5452ms)
+✔ usage retains separate model/executor buckets and nullable financial/cache evidence (1.2231ms)
+✔ corrupt numeric/duration evidence and invalid timezone fail closed (1.8902ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 5
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 189.7123
+
+✖ failing tests:
+
+test at tests\metrics.test.mjs:11:1
+✖ pooling uses server-selected zero and terminal samples without browser date filtering (23.1251ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 3
+  
+      at TestContext.<anonymous> (file:///D:/ProjectsDDP/2026_AgenticDeliveryOrchestratorRuntimeEngine/04_Software/web/tests/metrics.test.mjs:21:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.start (node:internal/test_runner/test:1096:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:385:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 3,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

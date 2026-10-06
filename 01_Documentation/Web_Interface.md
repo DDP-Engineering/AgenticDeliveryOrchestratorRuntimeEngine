@@ -678,101 +678,70 @@ fields for the observed timeline. Existing project run API routes remain compati
 [the job component contract](../05_SoftwareDocu/Component_Web_Jobs.md) for field
 coverage, strict URL validation and source-change semantics.
 
-The dashboard shows projects, run status and timeline, token counts, time-zone-aware
-activity, and review rounds. Administrators additionally see per-project and
-global reported and estimated USD costs and period totals, plus repository-grouped token,
-job, reported-cost, and estimated-cost totals. Profiles sharing a non-empty
-repository label appear under one repository row; the selected project's
-repository also has a combined trend table. Each project's trend table can be
-downloaded as CSV; developer exports omit monetary columns. Administrators can
-also export global trend rows with project and repository identity.
-The Job elapsed time panel shows the number of terminal jobs with valid start
-and end timestamps, plus their average and median elapsed seconds. This is
-wall-clock time, including waits for human input, and does not claim executor
-runtime. Older undated summaries are omitted from the duration sample instead
-of being counted as zero. With a date range selected, a second duration
-panel includes jobs by their completion day in the selected timezone; its sample may differ from
-the daily completion count when timestamps are unavailable.
-Daily completed-job trends use the run's terminal journal event. Later recovery
-checkpoints do not make an older failed job appear newly completed.
-The administrator project table also shows each project's measured-job count
-and average elapsed time; its total row sums counts but leaves average blank.
-On Statistics, the reporting period, timezone and day/week/month grouping sit above
-the Summary, Usage, Quality, Trends and Projects tabs. The Projects tab is
-administrator-only. The **Export CSV** menu in the same area offers metrics and
-usage files for the selected scope: one project or administrator **All projects**. These
-exports use the shared period, timezone and grouping; the usage files also use
-the executor and model filters in the Usage tab. The default is UTC and daily
-grouping. The date fields limit period tables, trend tables, usage events and CSV
-exports to an inclusive period in the selected timezone; week buckets begin on
-Monday and month buckets begin on the first. The period row for the selected
-scope sums only dated journal events. Headline, project/repository, coverage,
-and revision-history totals remain all-time. Legacy usage known only from a run
-summary may appear in the all-time total without appearing in a period row.
-The **Usage by executor and model** tab applies the selected local-date range plus
-exact executor/model text filters to dated usage events. It shows event and
-token totals by the selected grouping, with unknown identity marked when old journal entries
-lack it. The selected-project CSV uses the same filters. Administrators also
-see filtered totals for all projects when All projects is selected, and export a global CSV with project
-and repository labels. Developers can inspect their assigned project's usage
-and export tokens, but receive no monetary fields. Job counts and headline
-totals in Summary are not filtered by executor/model because a run may
-have used more than one model, and older run summaries lack that identity.
-An unknown reported or estimated cost remains unavailable, rather than zero.
-The dashboard and CSV show reviewer-requested MR/PR revisions separately from
-automatic repairs after a failed pipeline, both by selected reporting period. The administrator
-project view also attributes subsequent token usage, reported cost, and
-configured estimates to each revision until the next revision starts. Work
-before the first revision stays in the run total; a revision without monetary
-evidence shows unavailable cost. Unknown revision triggers appear in an
-unclassified coverage count. Journal timestamps with offsets are converted to
-the selected timezone before grouping. Review rounds remain a
-separate overall run counter; these counts do not imply a human merged the MR/PR.
-The **Delivery quality** panel uses all-time journal evidence and displays each
-rate with its numerator and eligible-job denominator. Reviewer rework is the
-number of jobs with a reviewer-requested revision divided by jobs with a
-recorded opened or adopted MR/PR. First validation pass is the number whose
-first strict-verification event passed divided by jobs with such an event.
-Merged without reviewer revision is the number of human-merged, reviewed jobs
-with no reviewer-requested revision divided by human-merged, reviewed jobs.
-Pipeline repairs do not count as reviewer requests. Jobs still open after
-reaching review have a separate count. An empty denominator displays no rate;
-older jobs without the necessary journal evidence are excluded.
-Stage failures and operator retries are separate event counts. Administrators
-also see reported and estimated USD per completed and human-merged job; each
-figure uses only jobs with that kind of monetary evidence and shows its
-denominator. The two cost sources are never added together.
-In All projects scope, quality rates use the combined eligible-job counts,
-and cost-per-job figures use the combined jobs with monetary evidence.
-Duration averages and medians are calculated from individual measured jobs.
-Choosing one project limits these figures and all breakdown rows to that project.
-Administrators can add immutable, effective-dated USD prices per project, executor and exact model
-in Settings. Each rate is input/output USD per one million tokens. For a
-token-only usage event, the dashboard uses the rate effective on that event's
-UTC day; a provider-reported cost for that event is never estimated again.
-Reported and estimated costs are separate, and unpriced events remain visible
-as a coverage gap. Existing price versions cannot be edited. Adding a backdated
-rate can recalculate earlier estimates, so export any estimate you need to
-retain as a point-in-time record. Prices are estimates, not billed invoices or
-spending caps. Prices follow the project's immutable ID across a profile
-rename. Rates whose ownership cannot be proven during a database upgrade remain
-stored but do not contribute estimates until the administrator re-enters them.
+Statistics keeps shared project, date, timezone and grouping controls above
+Summary, Usage, Quality, Trends and Projects. Blank dates select All-time;
+selected dates apply to every statistic and export. Usage additionally supports
+exact executor/model filters; job counts remain independent of those identities.
+Unknown values show a dash, measured zero shows 0, source errors show failed
+load, and unallocated usage is explicitly counted. Open reviews are current
+state. These controls preserve the existing layout and four-language guidance.
 
-Missing cost telemetry is shown as unavailable, not zero. Project headline
-token and reported-cost totals include live journal events; legacy terminal
-summaries supply token totals when their journal has no usable usage event.
-Statistics use existing terminal run summaries and journal usage events. Executor output may omit
-tokens or cost, and historical runs may lack model identity. Daily charts use
-journal event dates; terminal summaries cover completed runs. The current
-release has no billing reconciliation.
-The Usage coverage panel distinguishes launches with reported token usage,
-launches whose token usage is unavailable, and launches with capture disabled.
-Administrators also see reported/unavailable cost launch counts. These counts
-begin with versioned launch observations; older jobs without them are not
-classified. A missing observation is never treated as a zero-token or free job.
-New numeric usage records identify their launch so a replayed journal record
-does not inflate project, daily, model or terminal-job totals. Conflicting
-records stop the affected metrics query with an explicit data error.
+Reporting scope is the authorized immutable project set, a half-open UTC
+instant interval `[from,to)`, the selected IANA timezone and day/week/month
+granularity. Inclusive date controls resolve each local midnight independently;
+the upper bound is midnight after `day_to`, including 23/25-hour DST days.
+Omitted bounds are unbounded; both omitted explicitly select `all_time`.
+All scoped totals, cards, tables, daily rows, cohorts and exports use this scope.
+
+Started uses the first `picked` event; completed/failed uses the latest event
+matching the final lifecycle. Checkpoints and state update times do not supply
+these dates. Recorded summary start/end is fallback only without lifecycle
+journal evidence. `current_stock` separately names jobs/active/waiting/review/
+terminal now, including only actual retained runtime state.
+
+Unique usage is attributed at its own consumption instant. `jobs` uses
+`(project_id,run_id)` with separate `lifetime`, `in_period`, `unallocated`,
+source and coverage. Historical summaries survive runtime-state removal;
+positive summary-only measurements belong to lifetime/unallocated, never a
+fabricated period. Missing individual token fields stay null; explicit measured
+zero stays zero. Neutral legacy summary defaults are unknown. Legacy missing,
+invalid, naive or date-only timestamps contribute unallocated coverage and
+amounts. Financial fields and financial coverage are Admin-only in every nested
+projection and export. Reported and estimated costs remain separate; matching
+immutable prices use the consumption UTC day, and never price reported money
+again. Coverage identifies partial evidence rather than asserting a full bill.
+
+Review cohorts use first MR opening/adoption in scope; validation cohorts use
+first strict verdict in scope. Human merge uses reviewed jobs with actual done
+in scope and `merged by human`. Rework requires reviewer-requested revision;
+pipeline repair is separate. Each rate exposes numerator/denominator; empty is
+null. Open reviews are labeled current state. Monetary efficiency uses only
+period consumption for the completed/human-merged cohort and separate known
+reported/estimated samples.
+
+Duration is terminal-summary elapsed wall time including waits, selected by
+recorded end instant in scope. Count, sum and sorted exact `samples_seconds`
+support pooled mean/median without browser date approximation. Recorded zero
+is valid; absent pairs are excluded and inconsistent pairs fail.
+
+Raw state/JSONL and read-only summary rows are validated before filters.
+Malformed JSON, duplicate keys, unsupported schema, invalid fields, conflicting
+versioned identity/timestamp, numeric overflow and invalid versioned timestamps
+fail typed 503 without source rewriting. Invalid scope/identity filters return
+422. Analytical summary reads neither initialize nor migrate runtime data.
+CSV includes scope/project provenance, empty unavailable cells and spreadsheet
+escaping; `X-ADORE-Scope`/`X-ADORE-Coverage` describe empty exports too.
+Project `/api/v1/projects/{name}/jobs-usage.csv` and Admin global
+`/api/v1/jobs-usage.csv` share usage date/timezone/group/executor/model filters.
+
+Offline proof: `test_web_scoped_metrics.py`, `test_web_metrics.py`,
+`test_web_pricing.py`, and `web/tests/metrics.test.mjs`, followed by native
+Python/Ruff and frontend validation. CLI summary/export semantics are preserved.
+
+Administrators configure immutable exact executor/model input/output USD rates
+per million tokens in Settings. Backdated rates may recalculate estimates;
+retain an export when a point-in-time estimate is needed. Prices are estimates,
+not invoices or spending caps, and follow immutable project identity.
 
 The UI ships English, French, German, and Romanian translations with light,
 dark, and system themes. The About dialog displays the runtime version and

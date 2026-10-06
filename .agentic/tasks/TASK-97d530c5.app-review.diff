@@ -1,0 +1,870 @@
+diff --git a/04_Software/adore/web/app.py b/04_Software/adore/web/app.py
+index dff749d..b95dbdc 100644
+--- a/04_Software/adore/web/app.py
++++ b/04_Software/adore/web/app.py
+@@ -18,9 +18,7 @@
+ from collections.abc import Callable
+ from contextlib import contextmanager
+ import csv
+-from dataclasses import asdict
+ from datetime import UTC, date, datetime, timedelta
+-from decimal import Decimal
+ from hashlib import sha256
+ from io import StringIO
+ import json
+@@ -30,15 +28,12 @@ from pathlib import Path
+ import re
+ import secrets
+ import shutil
+-import sqlite3
+-from statistics import median
+ import tempfile
+ from threading import Lock
+ from time import monotonic
+ import tomllib
+ from typing import Annotated, Literal
+ from urllib.parse import parse_qsl, urlsplit
+-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+ 
+ from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
+ from fastapi.exceptions import RequestValidationError
+@@ -60,8 +55,9 @@ from adore.portable_settings import (
+     parse_settings,
+ )
+ from adore.profiles import ProfileError, ProfileStore, validate_display_name, validate_profile_id
+-from adore.state import RunState, StateError, StateStore
++from adore.state import StateError, StateStore
+ from adore.util import CommandRunner, force_rmtree, run_command
++from adore.web import analytics
+ from adore.web.endpoint_probe import probe_endpoint
+ from adore.web.jobs import JobReadError, read_jobs
+ from adore.web.store import WebStore, WebStoreError
+@@ -118,12 +114,6 @@ _REQUEST_PARTS = ("body", "query", "path", "header", "cookie")
+ _LOW_STORAGE_BYTES = 1024**3
+ _TERMINAL_RUN_LIFECYCLES = ("done", "failed", "cancelled", "handed-off")
+ _DELETABLE_RUN_LIFECYCLES = (*_TERMINAL_RUN_LIFECYCLES, "handoff-pending")
+-_TERMINAL_JOURNAL_EVENTS = {
+-    "done": {"done"},
+-    "failed": {"failed", "immediate-failure", "stage-failed", "notification-blocked"},
+-    "cancelled": {"cancelled"},
+-    "handed-off": {"handed-off"},
+-}
+ 
+ 
+ # DATA MODELS / TYPEDEFINITIONS
+@@ -955,32 +945,6 @@ def _redact_config(value, prefix: str = ""):
+     return value
+ 
+ 
+-def _event_day(event: dict, zone=UTC) -> str | None:
+-    """@brief Assign a dated journal event to the selected reporting day."""
+-    stamp = event.get("ts")
+-    if not isinstance(stamp, str):
+-        return None
+-    try:
+-        if len(stamp) == 10:
+-            return date.fromisoformat(stamp).isoformat()
+-        parsed = datetime.fromisoformat(stamp)
+-        if parsed.tzinfo is None or parsed.utcoffset() is None:
+-            return None
+-        return parsed.astimezone(zone).date().isoformat()
+-    except ValueError:
+-        return None
+-
+-
+-def _completion_day(run: RunState, events: list[dict], zone=UTC) -> str | None:
+-    """@brief Use terminal evidence, not later recovery activity, for completion trends."""
+-    terminal = _TERMINAL_JOURNAL_EVENTS.get(run.lifecycle, set())
+-    for event in reversed(events):
+-        if event.get("event") in terminal:
+-            return _event_day(event, zone)
+-    # Older imported runs may lack an explicit terminal event in their journals.
+-    return _event_day({"ts": run.updated_at}, zone)
+-
+-
+ def _csv_text(value: str) -> str:
+     """@brief Keep external profile labels from becoming spreadsheet formulas."""
+     if value and value.lstrip().startswith(("=", "+", "-", "@")):
+@@ -1592,84 +1556,29 @@ def _reviewed_import(profiles: ProfileStore, body: ProjectImportInput,
+     return preview, config
+ 
+ 
+-def _check_metric_range(day_from: date | None, day_to: date | None) -> None:
+-    """@brief Reject a reversed reporting period."""
+-    if day_from is not None and day_to is not None and day_from > day_to:
+-        raise _error(422, "invalid_date_range")
++def _check_reporting_scope(day_from, day_to, timezone, granularity, executor=None, model=None):
++    """@brief Validate global scope even when no project contributes data."""
++    try:
++        scope = analytics.Scope.create(day_from, day_to, timezone, granularity)
++        analytics.usage_report([], "", scope, [], False, executor, model)
++    except analytics.AnalyticsError as exc:
++        raise _error(exc.status, exc.code) from exc
+ 
+ 
+-def _reporting_zone(name: str) -> ZoneInfo:
+-    """@brief Resolve a bounded IANA timezone or reject unsupported input."""
+-    if (not isinstance(name, str) or len(name) > 64
+-            or not re.fullmatch(r"[A-Za-z0-9_+.-]+(?:/[A-Za-z0-9_+.-]+)*", name)):
+-        raise _error(422, "invalid_reporting_timezone")
++def _analytics_sources(profiles, profile, web, admin):
++    """@brief Strictly inspect authorized evidence and preserve projection cursors."""
++    store = _store_for(profiles, profile)
++    sources = analytics.read_sources(store)
+     try:
+-        return ZoneInfo(name)
+-    except (ZoneInfoNotFoundError, ValueError) as exc:
+-        raise _error(422, "invalid_reporting_timezone") from exc
+-
+-
+-def _trend_start(day: str, granularity: str) -> str:
+-    """@brief Return the local ISO date beginning a day, Monday-week or month."""
+-    current = date.fromisoformat(day)
+-    if granularity == "day":
+-        return day
+-    if granularity == "week":
+-        return (current - timedelta(days=current.weekday())).isoformat()
+-    return current.replace(day=1).isoformat()
+-
+-
+-def _trend_rows(days: list[dict], granularity: str) -> list[dict]:
+-    """@brief Combine selected local-day buckets without losing cost coverage."""
+-    if granularity == "day":
+-        return days
+-    grouped: dict[str, dict] = {}
+-    for row in days:
+-        key = _trend_start(row["date"], granularity)
+-        target = grouped.setdefault(key, {"date": key, **{
+-            field: None if field in ("cost_usd", "estimated_cost_usd") else 0
+-            for field in row if field != "date"
+-        }})
+-        for field, value in row.items():
+-            if field == "date" or value is None:
+-                continue
+-            target[field] = (target[field] or 0) + value
+-    return [grouped[key] for key in sorted(grouped)]
+-
+-
+-def _duration_samples(summaries: list[metrics.RunSummary], zone=UTC) -> list[tuple[str, int]]:
+-    """@brief Validate terminal spans and assign local completion days."""
+-    samples = []
+-    for summary in summaries:
+-        start, end, span = summary.started_at, summary.ended_at, summary.span_seconds
+-        if (not isinstance(start, str) or not isinstance(end, str)
+-                or not isinstance(span, int) or isinstance(span, bool) or span < 0):
+-            raise _error(503, "metrics_corrupt")
+-        if summary.lifecycle not in _TERMINAL_RUN_LIFECYCLES:
+-            continue
+-        if not start and not end and span == 0:
+-            continue  # Legacy summary without elapsed-time evidence.
+-        if not start or not end:
+-            raise _error(503, "metrics_corrupt")
++        prices = web.list_prices(profile.name) if admin else []
++    except WebStoreError as exc:
++        raise _error(503, "price_storage_corrupt") from exc
++    for run, events in sources:
+         try:
+-            first = datetime.fromisoformat(start)
+-            last = datetime.fromisoformat(end)
+-            if (first.tzinfo is None or first.utcoffset() is None
+-                    or last.tzinfo is None or last.utcoffset() is None
+-                    or last < first or int((last - first).total_seconds()) != span):
+-                raise ValueError("inconsistent elapsed span")
+-        except (TypeError, ValueError, OverflowError) as exc:
+-            raise _error(503, "metrics_corrupt") from exc
+-        samples.append((last.astimezone(zone).date().isoformat(), span))
+-    return samples
+-
+-
+-def _duration_totals(samples: list[tuple[str, int]]) -> dict:
+-    """@brief Return nullable average/median and the number of measured jobs."""
+-    spans = [span for _, span in samples]
+-    return {"sampled_runs": len(spans),
+-            "avg_span_seconds": round(sum(spans) / len(spans)) if spans else None,
+-            "median_span_seconds": median(spans) if spans else None}
++            web.reconcile_usage(profile.project_id, run.run_id, events)
++        except (metrics.MetricsError, WebStoreError) as exc:
++            raise analytics.AnalyticsError("usage_corrupt") from exc
++    return store, sources, prices
+ 
+ 
+ def _usage_view(profiles: ProfileStore, profile, admin: bool, web: WebStore,
+@@ -1677,472 +1586,98 @@ def _usage_view(profiles: ProfileStore, profile, admin: bool, web: WebStore,
+                 executor: str | None, model: str | None,
+                 timezone: str = "UTC",
+                 granularity: Literal["day", "week", "month"] = "day") -> dict:
+-    """@brief Group dated, identified journal usage without inventing run identity."""
+-    _check_metric_range(day_from, day_to)
+-    zone = _reporting_zone(timezone)
+-    if executor is not None and not executor.strip():
+-        raise _error(422, "invalid_executor_filter")
+-    if model is not None and not model.strip():
+-        raise _error(422, "invalid_model_filter")
+-    store = _store_for(profiles, profile)
+-    if store.invalid_runs():
+-        raise _error(503, "run_state_corrupt")
++    """@brief Return shared scoped, nullable consumption with composite jobs."""
+     try:
+-        prices = web.list_prices(profile.name) if admin else []
+-    except WebStoreError as exc:
+-        raise _error(503, "price_storage_corrupt") from exc
+-    buckets: dict[tuple[str, str | None, str | None], dict] = {}
+-    unpriced = 0
+-    for run in store.list_runs():
+-        try:
+-            events = web.reconcile_usage(profile.project_id, run.run_id,
+-                                         store.read_journal(run.run_id))
+-        except (metrics.MetricsError, WebStoreError) as exc:
+-            raise _error(503, "usage_corrupt") from exc
+-        for event in events:
+-            if not isinstance(event, dict):
+-                raise _error(503, "usage_corrupt")
+-            if event.get("event") != "usage":
+-                continue
+-            identity = (event.get("executor"), event.get("model"))
+-            if any(value is not None and (not isinstance(value, str)
+-                                           or len(value) > 200) for value in identity):
+-                raise _error(503, "usage_corrupt")
+-            day = _event_day(event, zone)
+-            if (day is None or (day_from is not None and day < day_from.isoformat())
+-                    or (day_to is not None and day > day_to.isoformat())
+-                    or (executor is not None and identity[0] != executor)
+-                    or (model is not None and identity[1] != model)):
+-                continue
+-            period_key = _trend_start(day, granularity)
+-            try:
+-                incoming = event.get("tokens_in", 0)
+-                outgoing = event.get("tokens_out", 0)
+-                money = event.get("cost_usd", 0)
+-                cache_read = event.get("cache_read_tokens")
+-                cache_write = event.get("cache_write_tokens")
+-                if (not isinstance(incoming, int) or isinstance(incoming, bool)
+-                        or not isinstance(outgoing, int) or isinstance(outgoing, bool)
+-                        or not isinstance(money, (int, float)) or isinstance(money, bool)
+-                        or min(incoming, outgoing, money) < 0
+-                        or not math.isfinite(money)
+-                        or any(value is not None and
+-                               (type(value) is not int or value < 0)
+-                               for value in (cache_read, cache_write))
+-                        or ((cache_read is not None or cache_write is not None)
+-                            and event.get("input_includes_cache") is not True)):
+-                    raise ValueError("invalid usage numbers")
+-            except (TypeError, ValueError, OverflowError):
+-                raise _error(503, "usage_corrupt") from None
+-            row = buckets.setdefault((period_key, *identity), {
+-                "date": period_key, "executor": identity[0], "model": identity[1],
+-                "events": 0, "tokens_in": 0, "tokens_out": 0,
+-                "cache_read_tokens": None, "cache_write_tokens": None,
+-                "reported_cost_usd": None, "estimated_cost_usd": None,
+-            })
+-            row["events"] += 1
+-            row["tokens_in"] += incoming
+-            row["tokens_out"] += outgoing
+-            for field, amount in (("cache_read_tokens", cache_read),
+-                                  ("cache_write_tokens", cache_write)):
+-                if amount is not None:
+-                    row[field] = (row[field] or 0) + amount
+-            if admin:
+-                if event.get("cost_reported") is True or money > 0:
+-                    row["reported_cost_usd"] = (row["reported_cost_usd"] or 0) + money
+-                elif incoming or outgoing:
+-                    matching = [price for price in prices
+-                                if price["executor"] == identity[0]
+-                                and price["model"] == identity[1]
+-                                and price["effective_from"] <= _event_day(event)]
+-                    if matching:
+-                        price = matching[-1]
+-                        estimate = ((Decimal(incoming) * Decimal(price["input_usd_per_million"])
+-                                     + Decimal(outgoing) * Decimal(price["output_usd_per_million"]))
+-                                    / Decimal(1_000_000))
+-                        row["estimated_cost_usd"] = (
+-                            (row["estimated_cost_usd"] or Decimal(0)) + estimate
+-                        )
+-                    else:
+-                        unpriced += 1
+-    rows = [buckets[key] for key in sorted(buckets, key=lambda item: (
+-        item[0], item[1] or "", item[2] or ""))]
+-    totals = {key: sum(row[key] for row in rows)
+-              for key in ("events", "tokens_in", "tokens_out")}
+-    for field in ("cache_read_tokens", "cache_write_tokens"):
+-        amounts = [row[field] for row in rows if row[field] is not None]
+-        totals[field] = sum(amounts) if amounts else None
+-    if admin:
+-        for key in ("reported_cost_usd", "estimated_cost_usd"):
+-            amounts = [row[key] for row in rows if row[key] is not None]
+-            totals[key] = round(float(sum(amounts)), 6) if amounts else None
+-        totals["unpriced_events"] = unpriced
+-        for row in rows:
+-            if row["estimated_cost_usd"] is not None:
+-                row["estimated_cost_usd"] = float(row["estimated_cost_usd"])
+-    else:
+-        for row in rows:
+-            row.pop("reported_cost_usd")
+-            row.pop("estimated_cost_usd")
+-    return {"daily": rows, "totals": totals,
+-            "timezone": timezone, "granularity": granularity,
+-            "filters": {"day_from": day_from.isoformat() if day_from else None,
+-                        "day_to": day_to.isoformat() if day_to else None,
+-                        "executor": executor, "model": model}}
+-
+-
+-def _usage_csv(views: list[tuple[object, dict]], admin: bool,
+-               global_view: bool) -> Response:
+-    """@brief Export attributed usage under the caller's financial boundary."""
++        scope = analytics.Scope.create(day_from, day_to, timezone, granularity)
++        analytics.usage_report([], "", scope, [], False, executor, model)
++        store, sources, prices = _analytics_sources(profiles, profile, web, admin)
++        summaries = metrics.load_analytical_summaries(store.root / "metrics.db")
++        result = analytics.usage_report(sources, profile.project_id, scope, prices,
++                                        admin, executor, model, summaries)
++    except metrics.MetricsError as exc:
++        raise _error(503, "usage_corrupt") from exc
++    except analytics.AnalyticsError as exc:
++        code = "usage_corrupt" if exc.status == 503 and exc.code == "metrics_corrupt" else exc.code
++        raise _error(exc.status, code) from exc
++    result["filters"] = {"day_from": day_from.isoformat() if day_from else None,
++                         "day_to": day_to.isoformat() if day_to else None,
++                         "executor": executor, "model": model}
++    return result
++
++
++def _analytical_csv(views: list[tuple[object, dict]], admin: bool,
++                    global_view: bool, kind: str) -> Response:
++    """@brief Export selected rows with scope, source coverage and financial RBAC."""
+     output = StringIO(newline="")
+     writer = csv.writer(output)
+-    columns = ["date", "executor", "model", "events", "tokens_in", "tokens_out",
+-               "cache_read_tokens", "cache_write_tokens"]
+-    if admin:
++    scope_columns = ["project_id", "timezone", "granularity", "scope_mode",
++                     "scope_from", "scope_to"]
++    if kind == "metrics":
++        columns = ["date", "started", "completed", "failed", "tokens_in", "tokens_out",
++                   "mr_revisions", "pipeline_repairs"]
++    elif kind == "usage":
++        columns = ["date", "executor", "model", "events", "tokens_in", "tokens_out",
++                   "cache_read_tokens", "cache_write_tokens"]
++    else:
++        columns = ["run_id", "source"]
++        fields = ["tokens_in", "tokens_out", "cache_read_tokens", "cache_write_tokens"]
++        if admin:
++            fields.extend(("reported_cost_usd", "estimated_cost_usd"))
++        columns.extend(f"{period}_{field}" for period in ("lifetime", "in_period", "unallocated")
++                       for field in fields)
++    if admin and kind != "jobs-usage":
+         columns.extend(("reported_cost_usd", "estimated_cost_usd"))
+-    writer.writerow((["project", "repository"] if global_view else []) + columns)
++    prefix = ["project", "repository"] if global_view else []
++    coverage_columns = ["usage_events_unallocated", "summary_only_runs"]
++    writer.writerow(prefix + scope_columns + coverage_columns + columns)
+     for profile, view in views:
+-        for row in view["daily"]:
+-            values = [(_csv_text(row[key]) if key in ("executor", "model")
+-                       else row[key]) if row[key] is not None else ""
+-                      for key in columns]
++        scope = view["scope"]
++        scope_values = [profile.project_id, scope["timezone"], scope["granularity"],
++                        scope["mode"], scope["from"], scope["to"]]
++        for row in view["jobs"] if kind == "jobs-usage" else view["daily"]:
++            if kind == "jobs-usage":
++                projected = {"run_id": row["run_id"], "source": row["source"],
++                             **{f"{period}_{field}": row[period][field]
++                                for period in ("lifetime", "in_period", "unallocated")
++                                for field in fields}}
++            else:
++                projected = {**row}
++                if kind == "metrics" and admin:
++                    projected["reported_cost_usd"] = projected["cost_usd"]
++            values = [projected[key] for key in columns]
++            values = [_csv_text(v) if isinstance(v, str) else v for v in values]
+             writer.writerow(([_csv_text(profile.name), _csv_text(profile.repo)]
+-                             if global_view else []) + values)
+-    name = "adore-global-usage.csv" if global_view else f"adore-{views[0][0].name}-usage.csv"
++                             if global_view else []) + scope_values
++                            + [view["coverage"].get(key, 0) for key in coverage_columns] + values)
++    label = "global" if global_view else views[0][0].name
+     return Response(output.getvalue(), media_type="text/csv; charset=utf-8",
+-                    headers={"Content-Disposition": f'attachment; filename="{name}"'})
++                    headers={"Content-Disposition":
++                             f'attachment; filename="adore-{label}-{kind}.csv"',
++                             "X-ADORE-Scope": json.dumps([v["scope"] for _, v in views]),
++                             "X-ADORE-Coverage": json.dumps([v["coverage"] for _, v in views])})
+ 
+ 
+-def _usage_observation(event: dict, run_id: str) -> tuple:
+-    """@brief Validate a persisted launch observation and return replay identity."""
+-    try:
+-        return metrics.validate_usage_observation(event, run_id)
+-    except metrics.MetricsError as exc:
+-        raise _error(503, "metrics_corrupt") from exc
++def _usage_csv(views: list[tuple[object, dict]], admin: bool, global_view: bool) -> Response:
++    """@brief Export attributed consumption using the common scope formatter."""
++    return _analytical_csv(views, admin, global_view, "usage")
+ 
+ 
+ def _metric_view(profiles: ProfileStore, profile, admin: bool,
+                  web: WebStore, day_from: date | None = None,
+                  day_to: date | None = None, timezone: str = "UTC",
+                  granularity: Literal["day", "week", "month"] = "day") -> dict:
+-    _check_metric_range(day_from, day_to)
+-    zone = _reporting_zone(timezone)
+-    store = _store_for(profiles, profile)
+-    if store.invalid_runs():
+-        raise _error(503, "run_state_corrupt")
++    """@brief Return one authorized half-open analytical scope and current stock."""
+     try:
+-        summaries = metrics.load_summaries(store.root / "metrics.db")
+-    except (sqlite3.DatabaseError, OSError, ValueError) as exc:
++        scope = analytics.Scope.create(day_from, day_to, timezone, granularity)
++        store, sources, prices = _analytics_sources(profiles, profile, web, admin)
++        summaries = metrics.load_analytical_summaries(store.root / "metrics.db")
++        return analytics.metric_report(sources, summaries, profile.project_id,
++                                        scope, prices, admin)
++    except metrics.MetricsError as exc:
+         raise _error(503, "metrics_corrupt") from exc
+-    duration_samples = _duration_samples(summaries, zone)
+-    if admin:
+-        try:
+-            prices = web.list_prices(profile.name)
+-        except WebStoreError as exc:
+-            raise _error(503, "price_storage_corrupt") from exc
+-    else:
+-        prices = []
+-    daily: dict[str, dict] = {}
+-    usage_runs = 0
+-    cost_runs = 0
+-    estimated_runs = 0
+-    unpriced_events = 0
+-    unclassified_revisions = 0
+-    reported_token_launches = 0
+-    unavailable_token_launches = 0
+-    disabled_launches = 0
+-    reported_cost_launches = 0
+-    unavailable_cost_launches = 0
+-    mr_revisions = 0
+-    pipeline_repairs = 0
+-    cost_run_ids: set[str] = set()
+-    journal_usage_run_ids: set[str] = set()
+-    run_estimates: dict[str, Decimal] = {}
+-    run_reported: dict[str, Decimal] = {}
+-    revisions: list[dict] = []
+-    runs = store.list_runs()
+-    quality = {
+-        "reviewed_jobs": 0, "reworked_jobs": 0, "open_review_jobs": 0,
+-        "validated_jobs": 0, "first_pass_validations": 0,
+-        "human_merged_jobs": 0, "first_pass_merges": 0,
+-        "stage_failures": 0, "operator_retries": 0,
+-    }
+-    completed_reported: list[Decimal] = []
+-    completed_estimated: list[Decimal] = []
+-    merged_reported: list[Decimal] = []
+-    merged_estimated: list[Decimal] = []
+-
+-    def bucket(day: str) -> dict:
+-        """@brief Return one daily metrics bucket."""
+-        return daily.setdefault(day, {
+-            "started": 0, "completed": 0, "tokens_in": 0,
+-            "tokens_out": 0, "mr_revisions": 0, "pipeline_repairs": 0,
+-            "cost_usd": None, "estimated_cost_usd": None,
+-        })
+-
+-    for run in runs:
+-        try:
+-            events = metrics.unique_usage_events(store.read_journal(run.run_id),
+-                                                  run.run_id)
+-        except metrics.MetricsError as exc:
+-            raise _error(503, "metrics_corrupt") from exc
+-        has_usage = False
+-        has_cost = False
+-        has_estimate = False
+-        active_revision = None
+-        revision_number = 0
+-        reviewed = False
+-        reviewer_rework = False
+-        first_verdict = None
+-        observations: dict[str, tuple] = {}
+-        if events:
+-            started = _event_day(events[0], zone)
+-            if started is not None:
+-                bucket(started)["started"] += 1
+-            if run.lifecycle in _TERMINAL_RUN_LIFECYCLES:
+-                ended = _completion_day(run, events, zone)
+-                if ended is not None:
+-                    bucket(ended)["completed"] += 1
+-        for event in events:
+-            if event.get("event") == "usage-observation":
+-                observation = _usage_observation(event, run.run_id)
+-                event_id = observation[0]
+-                prior = observations.get(event_id)
+-                if prior is not None:
+-                    if prior != observation:
+-                        raise _error(503, "metrics_corrupt")
+-                    continue
+-                observations[event_id] = observation
+-                token_status = event["token_status"]
+-                cost_status = event["cost_status"]
+-                reported_token_launches += token_status == "reported"
+-                unavailable_token_launches += token_status == "unavailable"
+-                disabled_launches += token_status == "disabled"
+-                reported_cost_launches += cost_status == "reported"
+-                unavailable_cost_launches += cost_status == "unavailable"
+-            if event.get("event") in ("mr-opened", "mr-adopted"):
+-                reviewed = True
+-            if event.get("event") == "stage-failed":
+-                quality["stage_failures"] += 1
+-            if event.get("event") == "operator-retry":
+-                quality["operator_retries"] += 1
+-            if event.get("event") == "strict-verification":
+-                verdict = event.get("passed")
+-                if not isinstance(verdict, bool):
+-                    raise _error(503, "metrics_corrupt")
+-                if first_verdict is None:
+-                    first_verdict = verdict
+-            if event.get("event") == "revision-started":
+-                stamp = _event_day(event, zone)
+-                trigger = event.get("trigger")
+-                if trigger == "revise-label":
+-                    reviewer_rework = True
+-                revision_number += 1
+-                if admin:
+-                    active_revision = {
+-                        "run_id": run.run_id, "revision": revision_number,
+-                        "trigger": trigger if trigger in ("revise-label", "pipeline-failed")
+-                        else "unclassified", "date": stamp,
+-                        "tokens_in": 0, "tokens_out": 0,
+-                        "reported_cost_usd": None, "estimated_cost_usd": None,
+-                    }
+-                    revisions.append(active_revision)
+-                if stamp is None or trigger not in ("revise-label", "pipeline-failed"):
+-                    unclassified_revisions += 1
+-                elif trigger == "revise-label":
+-                    bucket(stamp)["mr_revisions"] += 1
+-                    mr_revisions += 1
+-                else:
+-                    bucket(stamp)["pipeline_repairs"] += 1
+-                    pipeline_repairs += 1
+-            if event.get("event") != "usage":
+-                continue
+-            stamp = _event_day(event, zone)
+-            if stamp is None:
+-                continue
+-            try:
+-                incoming = int(event.get("tokens_in", 0) or 0)
+-                outgoing = int(event.get("tokens_out", 0) or 0)
+-                money = float(event.get("cost_usd", 0) or 0)
+-            except (TypeError, ValueError, OverflowError):
+-                continue
+-            if min(incoming, outgoing, money) < 0 or not math.isfinite(money):
+-                continue
+-            day_bucket = bucket(stamp)
+-            day_bucket["tokens_in"] += incoming
+-            day_bucket["tokens_out"] += outgoing
+-            if active_revision is not None:
+-                active_revision["tokens_in"] += incoming
+-                active_revision["tokens_out"] += outgoing
+-            if event.get("cost_reported") is True or money > 0:
+-                day_bucket["cost_usd"] = (day_bucket["cost_usd"] or 0.0) + money
+-                if active_revision is not None:
+-                    active_revision["reported_cost_usd"] = (
+-                        (active_revision["reported_cost_usd"] or 0.0) + money
+-                    )
+-                has_cost = True
+-                run_reported[run.run_id] = (
+-                    run_reported.get(run.run_id, Decimal(0)) + Decimal(str(money))
+-                )
+-            elif admin and (incoming or outgoing):
+-                matching = [price for price in prices
+-                            if price["executor"] == event.get("executor")
+-                            and price["model"] == event.get("model")
+-                            and price["effective_from"] <= _event_day(event)]
+-                if matching:
+-                    price = matching[-1]
+-                    estimate = ((Decimal(incoming) * Decimal(price["input_usd_per_million"])
+-                                 + Decimal(outgoing) * Decimal(price["output_usd_per_million"]))
+-                                / Decimal(1_000_000))
+-                    day_bucket["estimated_cost_usd"] = (
+-                        (day_bucket["estimated_cost_usd"] or Decimal(0)) + estimate
+-                    )
+-                    run_estimates[run.run_id] = (
+-                        run_estimates.get(run.run_id, Decimal(0)) + estimate
+-                    )
+-                    if active_revision is not None:
+-                        active_revision["estimated_cost_usd"] = (
+-                            (active_revision["estimated_cost_usd"] or Decimal(0))
+-                            + estimate
+-                        )
+-                    has_estimate = True
+-                else:
+-                    unpriced_events += 1
+-            has_usage = True
+-        if first_verdict is not None:
+-            quality["validated_jobs"] += 1
+-            quality["first_pass_validations"] += first_verdict
+-        if reviewed:
+-            quality["reviewed_jobs"] += 1
+-            quality["reworked_jobs"] += reviewer_rework
+-            quality["open_review_jobs"] += run.lifecycle not in _TERMINAL_RUN_LIFECYCLES
+-            if run.lifecycle == "done" and run.outcome == "merged by human":
+-                quality["human_merged_jobs"] += 1
+-                quality["first_pass_merges"] += not reviewer_rework
+-        if run.lifecycle == "done":
+-            if run.run_id in run_reported:
+-                completed_reported.append(run_reported[run.run_id])
+-            if run.run_id in run_estimates:
+-                completed_estimated.append(run_estimates[run.run_id])
+-            if run.outcome == "merged by human":
+-                if run.run_id in run_reported:
+-                    merged_reported.append(run_reported[run.run_id])
+-                if run.run_id in run_estimates:
+-                    merged_estimated.append(run_estimates[run.run_id])
+-        usage_runs += has_usage
+-        if has_usage:
+-            journal_usage_run_ids.add(run.run_id)
+-        cost_runs += has_cost
+-        estimated_runs += has_estimate
+-        if has_cost:
+-            cost_run_ids.add(run.run_id)
+-    rows = []
+-    for summary in summaries:
+-        row = asdict(summary)
+-        if not admin:
+-            row.pop("cost_usd")
+-        else:
+-            if summary.run_id not in cost_run_ids:
+-                row["cost_usd"] = None
+-            row["estimated_cost_usd"] = (
+-                float(run_estimates[summary.run_id])
+-                if summary.run_id in run_estimates else None
+-            )
+-        rows.append(row)
+-    totals = metrics.aggregate(summaries).get("all", {})
+-    totals["runs"] = len(runs)
+-    totals["mr_revisions"] = mr_revisions
+-    totals["pipeline_repairs"] = pipeline_repairs
+-    totals["tokens_in"] = sum(day["tokens_in"] for day in daily.values()) + sum(
+-        summary.tokens_in for summary in summaries
+-        if summary.run_id not in journal_usage_run_ids
+-    )
+-    totals["tokens_out"] = sum(day["tokens_out"] for day in daily.values()) + sum(
+-        summary.tokens_out for summary in summaries
+-        if summary.run_id not in journal_usage_run_ids
+-    )
+-    if not admin:
+-        totals.pop("cost_usd", None)
+-    else:
+-        reported = [day["cost_usd"] for day in daily.values()
+-                    if day["cost_usd"] is not None]
+-        totals["cost_usd"] = round(sum(reported), 6) if reported else None
+-    if admin:
+-        totals["estimated_cost_usd"] = (
+-            float(sum(run_estimates.values(), Decimal(0)))
+-            if run_estimates else None
+-        )
+-    days = [{"date": day, **values} for day, values in sorted(daily.items())]
+-    if not admin:
+-        for day in days:
+-            day.pop("cost_usd")
+-            day.pop("estimated_cost_usd")
+-    else:
+-        for day in days:
+-            if day["estimated_cost_usd"] is not None:
+-                day["estimated_cost_usd"] = float(day["estimated_cost_usd"])
+-        for revision in revisions:
+-            if revision["estimated_cost_usd"] is not None:
+-                revision["estimated_cost_usd"] = float(revision["estimated_cost_usd"])
+-    days = [item for item in days
+-            if (day_from is None or item["date"] >= day_from.isoformat())
+-            and (day_to is None or item["date"] <= day_to.isoformat())]
+-    period = {
+-        "from": day_from.isoformat() if day_from else None,
+-        "to": day_to.isoformat() if day_to else None,
+-        "basis": "dated_events",
+-        **{key: sum(item[key] for item in days) for key in (
+-            "started", "completed", "tokens_in", "tokens_out",
+-            "mr_revisions", "pipeline_repairs")},
+-        "duration": _duration_totals([
+-            sample for sample in duration_samples
+-            if (day_from is None or sample[0] >= day_from.isoformat())
+-            and (day_to is None or sample[0] <= day_to.isoformat())]),
+-    }
+-    if admin:
+-        reported = [item["cost_usd"] for item in days
+-                    if item["cost_usd"] is not None]
+-        estimated = [item["estimated_cost_usd"] for item in days
+-                     if item["estimated_cost_usd"] is not None]
+-        period["cost_usd"] = round(sum(reported), 6) if reported else None
+-        period["estimated_cost_usd"] = round(sum(estimated), 6) if estimated else None
+-    quality["review_rework_rate"] = (quality["reworked_jobs"] / quality["reviewed_jobs"]
+-                                     if quality["reviewed_jobs"] else None)
+-    quality["first_validation_rate"] = (
+-        quality["first_pass_validations"] / quality["validated_jobs"]
+-        if quality["validated_jobs"] else None)
+-    quality["first_pass_merge_rate"] = (
+-        quality["first_pass_merges"] / quality["human_merged_jobs"]
+-        if quality["human_merged_jobs"] else None)
+-    if admin:
+-        quality["cost_efficiency"] = {
+-            key: {"jobs_with_evidence": len(values),
+-                  "usd_per_job": (float(sum(values, Decimal(0)) / len(values))
+-                  if values else None)}
+-            for key, values in (
+-                ("reported_per_completed", completed_reported),
+-                ("estimated_per_completed", completed_estimated),
+-                ("reported_per_human_merged", merged_reported),
+-                ("estimated_per_human_merged", merged_estimated),
+-            )
+-        }
+-    result = {"totals": totals, "duration": _duration_totals(duration_samples),
+-            "runs": rows, "daily": _trend_rows(days, granularity),
+-            "timezone": timezone, "granularity": granularity,
+-            "period": period, "quality": quality,
+-            "coverage": {"runs_with_usage": usage_runs,
+-                         "revision_events_unclassified": unclassified_revisions,
+-                         "launches_with_reported_tokens": reported_token_launches,
+-                         "launches_with_unavailable_tokens": unavailable_token_launches,
+-                         "launches_capture_disabled": disabled_launches,
+-                         **({"runs_with_reported_cost": cost_runs,
+-                             "runs_with_estimated_cost": estimated_runs,
+-                             "launches_with_reported_cost": reported_cost_launches,
+-                             "launches_with_unavailable_cost": unavailable_cost_launches,
+-                             "usage_events_unpriced": unpriced_events} if admin else {})}}
+-    if admin:
+-        result["revisions"] = revisions
+-    return result
++    except analytics.AnalyticsError as exc:
++        code = "metrics_corrupt" if exc.code == "usage_corrupt" else exc.code
++        raise _error(exc.status, code) from exc
+ 
+ 
+ def _run_view(run) -> dict:
+@@ -3536,24 +3071,7 @@ def create_app(home: str | Path | None = None,
+         admin = user["role"] == "admin"
+         view = _metric_view(profiles, item, admin, web, day_from, day_to,
+                             timezone, granularity)
+-        columns = ["date", "started", "completed", "tokens_in", "tokens_out",
+-                   "mr_revisions", "pipeline_repairs"]
+-        if admin:
+-            columns.extend(("reported_cost_usd", "estimated_cost_usd"))
+-        output = StringIO(newline="")
+-        writer = csv.writer(output)
+-        writer.writerow(columns)
+-        for day in view["daily"]:
+-            row = [day[key] for key in columns
+-                   if key not in ("reported_cost_usd", "estimated_cost_usd")]
+-            if admin:
+-                row.append(day["cost_usd"] if day["cost_usd"] is not None else "")
+-                row.append(day["estimated_cost_usd"]
+-                           if day["estimated_cost_usd"] is not None else "")
+-            writer.writerow(row)
+-        return Response(output.getvalue(), media_type="text/csv; charset=utf-8",
+-                        headers={"Content-Disposition":
+-                                 f'attachment; filename="adore-{item.name}-{granularity}.csv"'})
++        return _analytical_csv([(item, view)], admin, False, "metrics")
+ 
+     @app.get("/api/v1/metrics.csv")
+     def global_metrics_csv(
+@@ -3564,30 +3082,13 @@ def create_app(home: str | Path | None = None,
+         granularity: Literal["day", "week", "month"] = "day",
+     ) -> Response:
+         """@brief Export administrator daily costs with project provenance."""
+-        _check_metric_range(day_from, day_to)
++        _check_reporting_scope(day_from, day_to, timezone, granularity)
+         if profiles.invalid_profiles():
+             raise _error(503, "project_corrupt")
+-        output = StringIO(newline="")
+-        writer = csv.writer(output)
+-        writer.writerow(("project", "repository", "date", "started", "completed",
+-                         "tokens_in", "tokens_out", "mr_revisions",
+-                         "pipeline_repairs", "reported_cost_usd",
+-                         "estimated_cost_usd"))
+-        for item in profiles.list_profiles():
+-            for day in _metric_view(profiles, item, True, web, day_from,
+-                                    day_to, timezone, granularity)["daily"]:
+-                writer.writerow((
+-                    _csv_text(item.name), _csv_text(item.repo), day["date"],
+-                    day["started"], day["completed"], day["tokens_in"],
+-                    day["tokens_out"], day["mr_revisions"],
+-                    day["pipeline_repairs"],
+-                    day["cost_usd"] if day["cost_usd"] is not None else "",
+-                    day["estimated_cost_usd"]
+-                    if day["estimated_cost_usd"] is not None else "",
+-                ))
+-        return Response(output.getvalue(), media_type="text/csv; charset=utf-8",
+-                        headers={"Content-Disposition":
+-                                 f'attachment; filename="adore-global-{granularity}.csv"'})
++        return _analytical_csv([
++            (item, _metric_view(profiles, item, True, web, day_from, day_to,
++                                timezone, granularity)) for item in profiles.list_profiles()
++        ], True, True, "metrics")
+ 
+     @app.get("/api/v1/metrics")
+     def global_metrics(_user: Annotated[dict, Depends(administrator)],
+@@ -3595,7 +3096,7 @@ def create_app(home: str | Path | None = None,
+                        day_to: date | None = None,
+                        timezone: Annotated[str, Query(max_length=64)] = "UTC",
+                        granularity: Literal["day", "week", "month"] = "day") -> dict:
+-        _check_metric_range(day_from, day_to)
++        _check_reporting_scope(day_from, day_to, timezone, granularity)
+         if profiles.invalid_profiles():
+             raise _error(503, "project_corrupt")
+         return {item.name: _metric_view(profiles, item, True, web, day_from,
+@@ -3612,7 +3113,7 @@ def create_app(home: str | Path | None = None,
+         granularity: Literal["day", "week", "month"] = "day",
+     ) -> dict:
+         """@brief Return attributed usage for every project to administrators."""
+-        _check_metric_range(day_from, day_to)
++        _check_reporting_scope(day_from, day_to, timezone, granularity, executor, model)
+         if profiles.invalid_profiles():
+             raise _error(503, "project_corrupt")
+         return {item.name: _usage_view(profiles, item, True, web, day_from,
+@@ -3629,7 +3130,7 @@ def create_app(home: str | Path | None = None,
+         granularity: Literal["day", "week", "month"] = "day",
+     ) -> Response:
+         """@brief Export administrator usage with project provenance."""
+-        _check_metric_range(day_from, day_to)
++        _check_reporting_scope(day_from, day_to, timezone, granularity, executor, model)
+         if profiles.invalid_profiles():
+             raise _error(503, "project_corrupt")
+         return _usage_csv([
+@@ -3638,6 +3139,41 @@ def create_app(home: str | Path | None = None,
+             for item in profiles.list_profiles()
+         ], True, True)
+ 
++    @app.get("/api/v1/projects/{name}/jobs-usage.csv")
++    def project_jobs_usage_csv(
++        name: str, user: Annotated[dict, Depends(principal)],
++        day_from: date | None = None, day_to: date | None = None,
++        executor: Annotated[str | None, Query(max_length=200)] = None,
++        model: Annotated[str | None, Query(max_length=200)] = None,
++        timezone: Annotated[str, Query(max_length=64)] = "UTC",
++        granularity: Literal["day", "week", "month"] = "day",
++    ) -> Response:
++        """@brief Export composite job lifetime and selected-period measurements."""
++        item = project(name, user)
++        admin = user["role"] == "admin"
++        view = _usage_view(profiles, item, admin, web, day_from, day_to,
++                           executor, model, timezone, granularity)
++        return _analytical_csv([(item, view)], admin, False, "jobs-usage")
++
++    @app.get("/api/v1/jobs-usage.csv")
++    def global_jobs_usage_csv(
++        _user: Annotated[dict, Depends(administrator)],
++        day_from: date | None = None, day_to: date | None = None,
++        executor: Annotated[str | None, Query(max_length=200)] = None,
++        model: Annotated[str | None, Query(max_length=200)] = None,
++        timezone: Annotated[str, Query(max_length=64)] = "UTC",
++        granularity: Literal["day", "week", "month"] = "day",
++    ) -> Response:
++        """@brief Export Admin job consumption with project provenance."""
++        _check_reporting_scope(day_from, day_to, timezone, granularity, executor, model)
++        if profiles.invalid_profiles():
++            raise _error(503, "project_corrupt")
++        return _analytical_csv([
++            (item, _usage_view(profiles, item, True, web, day_from, day_to,
++                               executor, model, timezone, granularity))
++            for item in profiles.list_profiles()
++        ], True, True, "jobs-usage")
++
+     @app.post("/api/v1/usage/rebuild")
+     def rebuild_usage_projection(
+         user: Annotated[dict, Depends(admin_mutation)],

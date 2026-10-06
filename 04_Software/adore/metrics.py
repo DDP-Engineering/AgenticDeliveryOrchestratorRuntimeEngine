@@ -389,6 +389,47 @@ def load_summaries(db_path: str | Path,
     return summaries
 
 
+def load_analytical_summaries(db_path: str | Path) -> list[RunSummary]:
+    """
+    @brief Read summary evidence without creating or extending its database.
+    @param[in] db_path Existing metrics database; absence is an empty source.
+    @return Validated summaries, retaining neutral missing legacy columns.
+    @exception MetricsError Corrupt, unsupported or unreadable summary source.
+    @note Operational load_summaries retains its CLI compatibility behavior.
+    """
+    path = Path(db_path)
+    if not path.exists():
+        return []
+    try:
+        if path.is_symlink() or not path.is_file():
+            raise MetricsError("invalid metrics source")
+        with sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True) as connection:
+            names = [str(row[1]) for row in connection.execute(
+                f"PRAGMA table_info({_TABLE})").fetchall()]
+            fields_by_name = {f.name: f for f in fields(RunSummary)}
+            if not names or "run_id" not in names or set(names) - fields_by_name.keys():
+                raise MetricsError("unsupported metrics table")
+            rows = connection.execute(f"SELECT {', '.join(names)} FROM {_TABLE}").fetchall()
+        result = []
+        for row in rows:
+            values = dict(zip(names, row, strict=True))
+            for name, value in values.items():
+                kind = fields_by_name[name].type
+                valid = (type(value) is str if kind == "str" else
+                         type(value) is int and value >= 0 if kind == "int" else
+                         type(value) in (int, float) and math.isfinite(value) and value >= 0)
+                if not valid:
+                    raise MetricsError("malformed metrics row")
+            if not values["run_id"]:
+                raise MetricsError("missing metrics identity")
+            result.append(RunSummary(**values))
+        if len({r.run_id for r in result}) != len(result):
+            raise MetricsError("duplicate metrics identity")
+        return result
+    except (OSError, sqlite3.DatabaseError, TypeError, ValueError) as exc:
+        raise MetricsError("corrupt metrics source") from exc
+
+
 def aggregate(summaries: list[RunSummary],
               by: str = "") -> dict[str, dict[str, Any]]:
     """

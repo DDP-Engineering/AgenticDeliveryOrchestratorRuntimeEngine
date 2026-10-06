@@ -303,3 +303,32 @@ test("empty administrator enrollment has an actionable explanation", async ({ pa
   await expect(page.getByRole("button", { name: "Add project", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Start job", exact: true })).toHaveCount(0);
 });
+
+
+test("statistics labels scoped evidence and shares DST scope with CSV", async ({ page }) => {
+  await signIn(page);
+  const projects = await (await page.request.get("/api/v1/projects")).json();
+  const projectId = projects.find((item: { name: string }) => item.name === "alpha").id;
+  await page.goto(`/metrics?project=${projectId}`);
+  const tokenCard = page.locator(".stat-card").filter({ has: page.getByText("Input tokens", { exact: true }) });
+  await expect(tokenCard).toContainText("\u2014");
+  await page.getByLabel("From", { exact: true }).fill("2026-10-25");
+  await page.getByLabel("Through", { exact: true }).fill("2026-10-25");
+  const response = page.waitForResponse(response => new URL(response.url()).pathname ===
+    `/api/v1/projects/${projectId}/metrics` &&
+    response.url().includes("timezone=Europe%2FBucharest"));
+  await page.getByRole("combobox", { name: "Time zone", exact: true }).selectOption("Europe/Bucharest");
+  const scoped = await (await response).json();
+  expect(scoped.scope.interval_seconds).toBe(25 * 3600);
+  expect(scoped.totals.tokens_in).toBeNull();
+  expect(scoped.current_stock.jobs_now).toBeGreaterThanOrEqual(1);
+  await page.getByText("Export CSV", { exact: true }).click();
+  const link = page.getByRole("link", { name: "Project metrics", exact: true });
+  const exported = await page.request.get((await link.getAttribute("href"))!);
+  expect(exported.status()).toBe(200);
+  expect(JSON.parse(exported.headers()["x-adore-scope"])).toEqual([scoped.scope]);
+  await page.getByLabel("From", { exact: true }).fill("");
+  await page.getByLabel("Through", { exact: true }).fill("");
+  await page.getByRole("tab", { name: "Quality", exact: true }).click();
+  await expect(page.locator(".stat-card").filter({ hasText: "Review still open" })).toContainText("Current state");
+});

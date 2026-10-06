@@ -1,0 +1,421 @@
+......F.........FFFF..F.F...FFF.......F.........                         [100%]
+================================== FAILURES ===================================
+_____________ test_reporting_timezone_and_weekly_monthly_buckets ______________
+
+tmp_path = WindowsPath('C:/Users/pasar/AppData/Local/Temp/pytest-of-pasar/pytest-245/test_reporting_timezone_and_we0')
+
+    def test_reporting_timezone_and_weekly_monthly_buckets(tmp_path):
+        """@brief UTC evidence crosses DST and week/month boundaries by local day."""
+        profiles = ProfileStore(tmp_path / "home")
+        profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
+        state = StateStore(profile.store_root)
+        state.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="working"))
+        state.journal("run-1", "usage", ts="2026-03-28T22:30:00Z",
+                      tokens_in=3, tokens_out=1, cost_usd=0)
+        state.journal("run-1", "usage", ts="2026-03-29T21:30:00Z",
+                      tokens_in=7, tokens_out=2, cost_usd=0)
+        with TestClient(create_app(profiles.home)) as client:
+            client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
+            utc = client.get("/api/v1/projects/alpha/metrics")
+            assert [row["date"] for row in utc.json()["daily"]] == [
+                "2026-03-28", "2026-03-29"]
+            query = "?timezone=Europe%2FBucharest&granularity=week"
+            weekly = client.get("/api/v1/projects/alpha/metrics" + query)
+            assert weekly.status_code == 200, weekly.text
+            assert weekly.json()["timezone"] == "Europe/Bucharest"
+            assert weekly.json()["granularity"] == "week"
+            assert [(row["date"], row["tokens_in"]) for row in weekly.json()["daily"]] == [
+                ("2026-03-23", 3), ("2026-03-30", 7)]
+            monthly = client.get("/api/v1/projects/alpha/metrics?"
+                                 "timezone=Europe%2FBucharest&granularity=month")
+            assert [(row["date"], row["tokens_in"]) for row in monthly.json()["daily"]] == [
+                ("2026-03-01", 10)]
+            selected = client.get("/api/v1/projects/alpha/metrics?"
+                                  "timezone=Europe%2FBucharest&granularity=week&"
+                                  "day_from=2026-03-29&day_to=2026-03-29")
+            assert selected.json()["period"]["tokens_in"] == 3
+>           assert selected.json()["totals"]["tokens_in"] == 10
+E           assert 3 == 10
+
+tests\test_web_metrics.py:278: AssertionError
+______ test_metric_period_preserves_all_time_totals_and_filters_exports _______
+
+tmp_path = WindowsPath('C:/Users/pasar/AppData/Local/Temp/pytest-of-pasar/pytest-245/test_metric_period_preserves_a0')
+
+    def test_metric_period_preserves_all_time_totals_and_filters_exports(tmp_path):
+        """@brief A UTC period scopes daily evidence and CSV, never all-time totals."""
+        profiles = ProfileStore(tmp_path / "home")
+        alpha = profiles.create("alpha", store_root=str(tmp_path / "alpha-state"))
+        beta = profiles.create("beta", store_root=str(tmp_path / "beta-state"))
+        alpha_state = StateStore(alpha.store_root)
+        beta_state = StateStore(beta.store_root)
+        alpha_state.save(RunState(run_id="alpha-1", ticket_iid=1, lifecycle="working"))
+        beta_state.save(RunState(run_id="beta-1", ticket_iid=2, lifecycle="working"))
+        alpha_state.journal("alpha-1", "usage", ts="2026-01-01T12:00:00Z",
+                            tokens_in=3, tokens_out=1, cost_usd=0.2,
+                            cost_reported=True)
+        alpha_state.journal("alpha-1", "usage", ts="2026-01-01T23:30:00-02:00",
+                            executor="codex", model="local-1", tokens_in=7,
+                            tokens_out=2, cost_usd=0, cost_reported=False)
+        beta_state.journal("beta-1", "usage", ts="2026-01-02T12:00:00Z",
+                           tokens_in=11, tokens_out=4, cost_usd=0.4,
+                           cost_reported=True)
+        app = create_app(profiles.home)
+        web = app.state.web_store
+        web.add_price("alpha", "codex", "local-1", "2026-01-01", "2", "4", 1)
+        developer = web.create_user("dev", "longer-password", "developer")
+        web.set_memberships(developer["id"], ["alpha"])
+        period = "?day_from=2026-01-02&day_to=2026-01-02"
+        with TestClient(app) as client:
+            client.post("/api/v1/session", json={
+                "username": "dev", "password": "longer-password"})
+            response = client.get("/api/v1/projects/alpha/metrics" + period)
+            assert response.status_code == 200
+            scoped = response.json()
+>           assert scoped["totals"]["tokens_in"] == 10
+E           assert 7 == 10
+
+tests\test_web_metrics.py:548: AssertionError
+__________ test_period_does_not_assign_legacy_summary_usage_to_a_day __________
+
+tmp_path = WindowsPath('C:/Users/pasar/AppData/Local/Temp/pytest-of-pasar/pytest-245/test_period_does_not_assign_le0')
+
+    def test_period_does_not_assign_legacy_summary_usage_to_a_day(tmp_path):
+        """@brief Summary-only usage stays all-time rather than fabricating a date."""
+        profiles = ProfileStore(tmp_path / "home")
+        profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
+        state = StateStore(profile.store_root)
+        state.save(RunState(run_id="legacy", ticket_iid=3, lifecycle="done"))
+        metrics.record_summary(state.root / "metrics.db", metrics.RunSummary(
+            run_id="legacy", tokens_in=9, tokens_out=2))
+        with TestClient(create_app(profiles.home)) as client:
+            client.post("/api/v1/session", json={
+                "username": "admin", "password": "admin"})
+            response = client.get(
+                "/api/v1/projects/alpha/metrics?day_from=2026-01-01&day_to=2026-01-31")
+            assert response.status_code == 200
+            body = response.json()
+>           assert body["totals"]["tokens_in"] == 9
+E           assert None == 9
+
+tests\test_web_metrics.py:609: AssertionError
+_______ test_terminal_duration_uses_utc_completion_and_reports_coverage _______
+
+tmp_path = WindowsPath('C:/Users/pasar/AppData/Local/Temp/pytest-of-pasar/pytest-245/test_terminal_duration_uses_ut0')
+
+    def test_terminal_duration_uses_utc_completion_and_reports_coverage(tmp_path):
+        """@brief Elapsed-time samples exclude undated history and respect UTC days."""
+        profiles = ProfileStore(tmp_path / "home")
+        profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
+        state = StateStore(profile.store_root)
+        examples = (
+            ("first", "2026-01-01T23:58:00+00:00", "2026-01-02T00:00:00+00:00", 120),
+            ("second", "2026-01-03T00:00:00+02:00", "2026-01-03T00:03:00+02:00", 180),
+            ("third", "2026-01-03T00:00:00+00:00", "2026-01-03T00:05:00+00:00", 300),
+        )
+        for run_id, started, ended, span in examples:
+            state.save(RunState(run_id=run_id, ticket_iid=1, lifecycle="done"))
+            metrics.record_summary(state.root / "metrics.db", metrics.RunSummary(
+                run_id=run_id, lifecycle="done", started_at=started,
+                ended_at=ended, span_seconds=span))
+        state.save(RunState(run_id="legacy", ticket_iid=2, lifecycle="done"))
+        metrics.record_summary(state.root / "metrics.db", metrics.RunSummary(
+            run_id="legacy", lifecycle="done"))
+        app = create_app(profiles.home)
+        web = app.state.web_store
+        dev = web.create_user("dev", "longer-password", "developer")
+        web.set_memberships(dev["id"], ["alpha"])
+        with TestClient(app) as client:
+            client.post("/api/v1/session", json={
+                "username": "dev", "password": "longer-password"})
+            body = client.get(
+                "/api/v1/projects/alpha/metrics?day_from=2026-01-02&day_to=2026-01-02"
+            ).json()
+>           assert body["duration"] == {"sampled_runs": 3, "avg_span_seconds": 200,
+                                        "median_span_seconds": 180}
+E           AssertionError: assert {'sampled_run...ds': 300, ...} == {'sampled_run...seconds': 180}
+E             
+E             Differing items:
+E             {'sampled_runs': 2} != {'sampled_runs': 3}
+E             {'avg_span_seconds': 150} != {'avg_span_seconds': 200}
+E             {'median_span_seconds': 150.0} != {'median_span_seconds': 180}
+E             Left contains 3 more items:
+E             {'basis': 'terminal_summary_end_in_scope_including_wait',...
+E             
+E             ...Full output truncated (3 lines hidden), use '-vv' to show
+
+tests\test_web_metrics.py:642: AssertionError
+____________ test_missing_or_corrupt_duration_evidence_is_explicit ____________
+
+tmp_path = WindowsPath('C:/Users/pasar/AppData/Local/Temp/pytest-of-pasar/pytest-245/test_missing_or_corrupt_durati0')
+
+    def test_missing_or_corrupt_duration_evidence_is_explicit(tmp_path):
+        """@brief Missing timestamps mean unavailable; corrupt persisted spans fail closed."""
+        profiles = ProfileStore(tmp_path / "home")
+        profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
+        state = StateStore(profile.store_root)
+        state.save(RunState(run_id="legacy", ticket_iid=1, lifecycle="done"))
+        metrics.record_summary(state.root / "metrics.db", metrics.RunSummary(
+            run_id="legacy", lifecycle="done"))
+        app = create_app(profiles.home)
+        with TestClient(app) as client:
+            client.post("/api/v1/session", json={
+                "username": "admin", "password": "admin"})
+            body = client.get("/api/v1/projects/alpha/metrics").json()
+>           assert body["duration"] == {"sampled_runs": 0,
+                                        "avg_span_seconds": None,
+                                        "median_span_seconds": None}
+E           AssertionError: assert {'sampled_run...onds': 0, ...} == {'sampled_run...econds': None}
+E             
+E             Omitting 3 identical items, use -vv to show
+E             Left contains 3 more items:
+E             {'basis': 'terminal_summary_end_in_scope_including_wait',
+E              'samples_seconds': [],
+E              'sum_span_seconds': 0}
+E             Use -v to get more diff
+
+tests\test_web_metrics.py:671: AssertionError
+_______________ test_attributed_usage_csv_escapes_model_formula _______________
+
+tmp_path = WindowsPath('C:/Users/pasar/AppData/Local/Temp/pytest-of-pasar/pytest-245/test_attributed_usage_csv_esca0')
+
+    def test_attributed_usage_csv_escapes_model_formula(tmp_path):
+        """@brief A journal model label cannot become a spreadsheet formula."""
+        profiles = ProfileStore(tmp_path / "home")
+        profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
+        state = StateStore(profile.store_root)
+        state.save(RunState(run_id="first", ticket_iid=1))
+        state.journal("first", "usage", ts="2026-01-01T12:00:00Z",
+                      executor="opencode", model="=1+1", tokens_in=5)
+        with TestClient(create_app(profiles.home)) as client:
+            client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
+            export = client.get("/api/v1/projects/alpha/usage.csv")
+>           assert export.status_code == 200
+E           assert 503 == 200
+E            +  where 503 = <Response [503 Service Unavailable]>.status_code
+
+tests\test_web_metrics.py:785: AssertionError
+_______________ test_attributed_usage_rejects_out_of_range_cost _______________
+
+tmp_path = WindowsPath('C:/Users/pasar/AppData/Local/Temp/pytest-of-pasar/pytest-245/test_attributed_usage_rejects_2')
+
+    def test_attributed_usage_rejects_out_of_range_cost(tmp_path):
+        """@brief Oversize persisted money is a typed error, not an HTTP crash."""
+        profiles = ProfileStore(tmp_path / "home")
+        profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
+        state = StateStore(profile.store_root)
+        state.save(RunState(run_id="first", ticket_iid=1))
+        state.journal("first", "usage", ts="2026-01-01T12:00:00Z",
+                      executor="opencode", model="local/a", tokens_in=5,
+                      cost_usd=10**1000)
+        with TestClient(create_app(profiles.home)) as client:
+            client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
+            response = client.get("/api/v1/projects/alpha/usage")
+            assert response.status_code == 503
+            assert response.json()["detail"]["code"] == "usage_corrupt"
+            daily = client.get("/api/v1/projects/alpha/metrics")
+>           assert daily.status_code == 200
+E           assert 503 == 200
+E            +  where 503 = <Response [503 Service Unavailable]>.status_code
+
+tests\test_web_metrics.py:823: AssertionError
+_____ test_revision_cost_attribution_is_admin_only_and_preserves_unknowns _____
+
+tmp_path = WindowsPath('C:/Users/pasar/AppData/Local/Temp/pytest-of-pasar/pytest-245/test_revision_cost_attribution0')
+
+    def test_revision_cost_attribution_is_admin_only_and_preserves_unknowns(tmp_path):
+        """@brief Attribute subsequent usage to each revision without inventing cost."""
+        profiles = ProfileStore(tmp_path / "home")
+        profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
+        state = StateStore(profile.store_root)
+        state.save(RunState(run_id="run-1", ticket_iid=7, lifecycle="in-review"))
+        state.journal("run-1", "usage", ts="2026-01-02T00:00:00+00:00",
+                      tokens_in=10, tokens_out=2, cost_usd=0.5, cost_reported=True)
+        state.journal("run-1", "revision-started", ts="2026-01-03T00:00:00+00:00",
+                      trigger="revise-label")
+        state.journal("run-1", "usage", ts="2026-01-03T00:01:00+00:00",
+                      executor="codex", model="local-1", tokens_in=1_000_000,
+                      tokens_out=1_000_000, cost_usd=0.0, cost_reported=False)
+        state.journal("run-1", "revision-started", ts="2026-01-04T00:00:00+00:00",
+                      trigger="pipeline-failed")
+        state.journal("run-1", "usage", ts="2026-01-04T00:01:00+00:00",
+                      executor="codex", model="local-1", tokens_in=3,
+                      tokens_out=4, cost_usd=0.25, cost_reported=True)
+        state.journal("run-1", "revision-started", ts="2026-01-05T00:00:00+00:00",
+                      trigger="revise-label")
+        state.journal("run-1", "revision-started", ts="2026-01-06T00:00:00+00:00",
+                      trigger="<script>untrusted</script>")
+        app = create_app(profiles.home)
+        web = app.state.web_store
+        web.add_price("alpha", "codex", "local-1", "2026-01-01", "2", "4", 1)
+        dev = web.create_user("dev", "longer-password", "developer")
+        web.set_memberships(dev["id"], ["alpha"])
+        with TestClient(app) as client:
+            client.post("/api/v1/session", json={
+                "username": "dev", "password": "longer-password"})
+            developer = client.get("/api/v1/projects/alpha/metrics").json()
+            assert "revisions" not in developer
+            assert "cost" not in str(developer).lower()
+        with TestClient(app) as client:
+            client.post("/api/v1/session", json={
+                "username": "admin", "password": "admin"})
+            body = client.get("/api/v1/projects/alpha/metrics").json()
+            revisions = body["revisions"]
+            assert [(row["revision"], row["trigger"], row["date"])
+                    for row in revisions] == [
+                        (1, "revise-label", "2026-01-03"),
+                        (2, "pipeline-failed", "2026-01-04"),
+                        (3, "revise-label", "2026-01-05"),
+                        (4, "unclassified", "2026-01-06"),
+                    ]
+>           assert [(row["tokens_in"], row["tokens_out"]) for row in revisions] == [
+                (1_000_000, 1_000_000), (3, 4), (0, 0), (0, 0)]
+E           assert [(1000000, 10... (None, None)] == [(1000000, 10...0, 0), (0, 0)]
+E             
+E             At index 2 diff: (None, None) != (0, 0)
+E             Use -v to get more diff
+
+tests\test_web_metrics.py:949: AssertionError
+___ test_quality_rates_use_evidence_cohorts_and_keep_open_reviews_separate ____
+
+tmp_path = WindowsPath('C:/Users/pasar/AppData/Local/Temp/pytest-of-pasar/pytest-245/test_quality_rates_use_evidenc0')
+
+    def test_quality_rates_use_evidence_cohorts_and_keep_open_reviews_separate(tmp_path):
+        """@brief Rates count eligible jobs once, not every revision or launch."""
+        profiles = ProfileStore(tmp_path / "home")
+        profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
+        state = StateStore(profile.store_root)
+        examples = (
+            ("first-pass", "done", "merged by human", [
+                ("strict-verification", {"passed": True}), ("mr-opened", {})]),
+            ("reworked", "done", "merged by human", [
+                ("strict-verification", {"passed": False}),
+                ("strict-verification", {"passed": True}),
+                ("mr-opened", {}),
+                ("revision-started", {"trigger": "revise-label"}),
+                ("revision-started", {"trigger": "revise-label"})]),
+            ("open", "in-review", "", [
+                ("strict-verification", {"passed": True}), ("mr-adopted", {}),
+                ("revision-started", {"trigger": "pipeline-failed"})]),
+            ("failed-before-review", "failed", "", [
+                ("strict-verification", {"passed": False})]),
+            ("legacy", "done", "merged by human", []),
+        )
+        for run_id, lifecycle, outcome, events in examples:
+            state.save(RunState(run_id=run_id, ticket_iid=1, lifecycle=lifecycle,
+                                outcome=outcome))
+            for event, fields in events:
+                state.journal(run_id, event, **fields)
+        app = create_app(profiles.home)
+        web = app.state.web_store
+        dev = web.create_user("dev", "longer-password", "developer")
+        web.set_memberships(dev["id"], ["alpha"])
+        expected = {
+            "reviewed_jobs": 3, "reworked_jobs": 1,
+            "review_rework_rate": 1 / 3, "open_review_jobs": 1,
+            "validated_jobs": 4, "first_pass_validations": 2,
+            "first_validation_rate": 0.5,
+            "human_merged_jobs": 2, "first_pass_merges": 1,
+            "first_pass_merge_rate": 0.5,
+            "stage_failures": 0, "operator_retries": 0,
+        }
+        with TestClient(app) as client:
+            client.post("/api/v1/session", json={
+                "username": "dev", "password": "longer-password"})
+            response = client.get("/api/v1/projects/alpha/metrics")
+            assert response.status_code == 200
+>           assert response.json()["quality"] == expected
+E           AssertionError: assert {'reviewed_jo...jobs': 4, ...} == {'reviewed_jo...jobs': 1, ...}
+E             
+E             Omitting 9 identical items, use -vv to show
+E             Differing items:
+E             {'human_merged_jobs': 0} != {'human_merged_jobs': 2}
+E             {'first_pass_merge_rate': None} != {'first_pass_merge_rate': 0.5}
+E             {'first_pass_merges': 0} != {'first_pass_merges': 1}
+E             Use -v to get more diff
+
+tests\test_web_metrics.py:1004: AssertionError
+____ test_quality_cost_per_job_uses_evidence_denominators_and_role_privacy ____
+
+tmp_path = WindowsPath('C:/Users/pasar/AppData/Local/Temp/pytest-of-pasar/pytest-245/test_quality_cost_per_job_uses0')
+
+    def test_quality_cost_per_job_uses_evidence_denominators_and_role_privacy(tmp_path):
+        """@brief Reported and estimated USD use separate known-job cohorts."""
+        profiles = ProfileStore(tmp_path / "home")
+        profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
+        state = StateStore(profile.store_root)
+        for run_id, lifecycle, outcome, cost_reported in (
+            ("merged", "done", "merged by human", True),
+            ("estimated", "done", "", False),
+            ("failed", "failed", "", True),
+        ):
+            state.save(RunState(run_id=run_id, ticket_iid=1,
+                                lifecycle=lifecycle, outcome=outcome))
+            state.journal(run_id, "usage", executor="codex", model="local-1",
+                          tokens_in=1_000_000, tokens_out=0,
+                          cost_usd=4 if cost_reported else 0,
+                          cost_reported=cost_reported)
+            state.journal(run_id, "stage-failed", stage="build")
+            state.journal(run_id, "operator-retry", stage="build")
+        app = create_app(profiles.home)
+        web = app.state.web_store
+        web.add_price("alpha", "codex", "local-1", "2026-01-01", "2", "4", 1)
+        dev = web.create_user("dev", "longer-password", "developer")
+        web.set_memberships(dev["id"], ["alpha"])
+        with TestClient(app) as client:
+            client.post("/api/v1/session", json={
+                "username": "admin", "password": "admin"})
+            quality = client.get("/api/v1/projects/alpha/metrics").json()["quality"]
+            assert quality["stage_failures"] == 3
+            assert quality["operator_retries"] == 3
+>           assert quality["cost_efficiency"]["reported_per_completed"] == {
+                "jobs_with_evidence": 1, "usd_per_job": 4.0}
+E           AssertionError: assert {'jobs_with_e...er_job': None} == {'jobs_with_e...per_job': 4.0}
+E             
+E             Differing items:
+E             {'jobs_with_evidence': 0} != {'jobs_with_evidence': 1}
+E             {'usd_per_job': None} != {'usd_per_job': 4.0}
+E             Use -v to get more diff
+
+tests\test_web_metrics.py:1046: AssertionError
+_________________ test_nonfinite_journal_cost_is_not_exposed __________________
+
+tmp_path = WindowsPath('C:/Users/pasar/AppData/Local/Temp/pytest-of-pasar/pytest-245/test_nonfinite_journal_cost_is0')
+
+    def test_nonfinite_journal_cost_is_not_exposed(tmp_path):
+        """@brief A malformed usage event cannot become a monetary total."""
+        profiles = ProfileStore(tmp_path / "home")
+        profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
+        state = StateStore(profile.store_root)
+        state.save(RunState(run_id="run-1", ticket_iid=7, lifecycle="working"))
+        state.journal("run-1", "usage", tokens_in=4, tokens_out=2,
+                      cost_usd="NaN", cost_reported=True)
+        app = create_app(profiles.home)
+        with TestClient(app) as client:
+            client.post("/api/v1/session", json={
+                "username": "admin", "password": "admin"})
+            response = client.get("/api/v1/projects/alpha/metrics")
+>           assert response.status_code == 200
+E           assert 503 == 200
+E            +  where 503 = <Response [503 Service Unavailable]>.status_code
+
+tests\test_web_pricing.py:210: AssertionError
+============================== warnings summary ===============================
+.venv\Lib\site-packages\fastapi\testclient.py:1
+  D:\ProjectsDDP\2026_AgenticDeliveryOrchestratorRuntimeEngine\04_Software\.venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_web_metrics.py::test_reporting_timezone_and_weekly_monthly_buckets
+FAILED tests/test_web_metrics.py::test_metric_period_preserves_all_time_totals_and_filters_exports
+FAILED tests/test_web_metrics.py::test_period_does_not_assign_legacy_summary_usage_to_a_day
+FAILED tests/test_web_metrics.py::test_terminal_duration_uses_utc_completion_and_reports_coverage
+FAILED tests/test_web_metrics.py::test_missing_or_corrupt_duration_evidence_is_explicit
+FAILED tests/test_web_metrics.py::test_attributed_usage_csv_escapes_model_formula
+FAILED tests/test_web_metrics.py::test_attributed_usage_rejects_out_of_range_cost
+FAILED tests/test_web_metrics.py::test_revision_cost_attribution_is_admin_only_and_preserves_unknowns
+FAILED tests/test_web_metrics.py::test_quality_rates_use_evidence_cohorts_and_keep_open_reviews_separate
+FAILED tests/test_web_metrics.py::test_quality_cost_per_job_uses_evidence_denominators_and_role_privacy
+FAILED tests/test_web_pricing.py::test_nonfinite_journal_cost_is_not_exposed
+11 failed, 37 passed, 1 warning in 16.61s

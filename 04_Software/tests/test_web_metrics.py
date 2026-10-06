@@ -275,9 +275,10 @@ def test_reporting_timezone_and_weekly_monthly_buckets(tmp_path):
                               "timezone=Europe%2FBucharest&granularity=week&"
                               "day_from=2026-03-29&day_to=2026-03-29")
         assert selected.json()["period"]["tokens_in"] == 3
-        assert selected.json()["totals"]["tokens_in"] == 10
-        assert "2026-03-23,1,0,3,1" in client.get(
-            "/api/v1/projects/alpha/metrics.csv" + query).text
+        assert selected.json()["totals"]["tokens_in"] == 3
+        assert (
+            "2026-03-23,0,0,0,3,1" in client.get("/api/v1/projects/alpha/metrics.csv" + query).text
+        )
         attributed = client.get("/api/v1/projects/alpha/usage" + query)
         assert [(row["date"], row["tokens_in"]) for row in attributed.json()["daily"]] == [
             ("2026-03-23", 3), ("2026-03-30", 7)]
@@ -296,11 +297,19 @@ def test_launch_coverage_is_idempotent_and_cost_status_is_admin_only(tmp_path):
     state = StateStore(profile.store_root)
     state.save(RunState(run_id="run-1", ticket_iid=7, lifecycle="working"))
     observation = {
-        "schema": 1, "event_id": "run-1:1", "attempt": 1,
-        "stage": "build", "review_round": 0, "executor": "codex",
-        "model": "example", "token_status": "reported",
-        "cost_status": "unavailable", "tokens_in": 10,
-        "tokens_out": 2, "cost_usd": None,
+        "schema": 1,
+        "event_id": "run-1:1",
+        "attempt": 1,
+        "stage": "build",
+        "review_round": 0,
+        "executor": "codex",
+        "model": "example",
+        "token_status": "reported",
+        "cost_status": "unavailable",
+        "tokens_in": 10,
+        "tokens_out": 2,
+        "cost_usd": None,
+        "ts": "2026-01-01T12:00:00Z",
     }
     state.journal("run-1", "usage-observation", **observation)
     state.journal("run-1", "usage-observation", **observation)
@@ -388,10 +397,19 @@ def test_versioned_usage_replay_is_idempotent_in_views(tmp_path):
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
     state.save(RunState(run_id="run-1", ticket_iid=7, lifecycle="working"))
-    usage = {"event_id": "run-1:1", "attempt": 1, "context": "build",
-             "executor": "codex", "model": "example", "review_round": 0,
-             "tokens_in": 10, "tokens_out": 2, "cost_usd": 0.5,
-             "cost_reported": True}
+    usage = {
+        "event_id": "run-1:1",
+        "attempt": 1,
+        "context": "build",
+        "executor": "codex",
+        "model": "example",
+        "review_round": 0,
+        "tokens_in": 10,
+        "tokens_out": 2,
+        "cost_usd": 0.5,
+        "cost_reported": True,
+        "ts": "2026-01-01T12:00:00Z",
+    }
     state.journal("run-1", "usage", **usage)
     state.journal("run-1", "usage", **usage)
     app = create_app(profiles.home)
@@ -515,8 +533,8 @@ def test_daily_usage_converts_timestamp_offsets_to_utc(tmp_path):
         assert body["totals"]["tokens_in"] == 12
 
 
-def test_metric_period_preserves_all_time_totals_and_filters_exports(tmp_path):
-    """@brief A UTC period scopes daily evidence and CSV, never all-time totals."""
+def test_metric_period_scopes_totals_and_filters_exports(tmp_path):
+    """@brief One period scopes headline and daily evidence; lifetime stays explicit."""
     profiles = ProfileStore(tmp_path / "home")
     alpha = profiles.create("alpha", store_root=str(tmp_path / "alpha-state"))
     beta = profiles.create("beta", store_root=str(tmp_path / "beta-state"))
@@ -524,15 +542,35 @@ def test_metric_period_preserves_all_time_totals_and_filters_exports(tmp_path):
     beta_state = StateStore(beta.store_root)
     alpha_state.save(RunState(run_id="alpha-1", ticket_iid=1, lifecycle="working"))
     beta_state.save(RunState(run_id="beta-1", ticket_iid=2, lifecycle="working"))
-    alpha_state.journal("alpha-1", "usage", ts="2026-01-01T12:00:00Z",
-                        tokens_in=3, tokens_out=1, cost_usd=0.2,
-                        cost_reported=True)
-    alpha_state.journal("alpha-1", "usage", ts="2026-01-01T23:30:00-02:00",
-                        executor="codex", model="local-1", tokens_in=7,
-                        tokens_out=2, cost_usd=0, cost_reported=False)
-    beta_state.journal("beta-1", "usage", ts="2026-01-02T12:00:00Z",
-                       tokens_in=11, tokens_out=4, cost_usd=0.4,
-                       cost_reported=True)
+    alpha_state.journal(
+        "alpha-1",
+        "usage",
+        ts="2026-01-01T12:00:00Z",
+        tokens_in=3,
+        tokens_out=1,
+        cost_usd=0.2,
+        cost_reported=True,
+    )
+    alpha_state.journal(
+        "alpha-1",
+        "usage",
+        ts="2026-01-01T23:30:00-02:00",
+        executor="codex",
+        model="local-1",
+        tokens_in=7,
+        tokens_out=2,
+        cost_usd=0,
+        cost_reported=False,
+    )
+    beta_state.journal(
+        "beta-1",
+        "usage",
+        ts="2026-01-02T12:00:00Z",
+        tokens_in=11,
+        tokens_out=4,
+        cost_usd=0.4,
+        cost_reported=True,
+    )
     app = create_app(profiles.home)
     web = app.state.web_store
     web.add_price("alpha", "codex", "local-1", "2026-01-01", "2", "4", 1)
@@ -540,12 +578,12 @@ def test_metric_period_preserves_all_time_totals_and_filters_exports(tmp_path):
     web.set_memberships(developer["id"], ["alpha"])
     period = "?day_from=2026-01-02&day_to=2026-01-02"
     with TestClient(app) as client:
-        client.post("/api/v1/session", json={
-            "username": "dev", "password": "longer-password"})
+        client.post("/api/v1/session", json={"username": "dev", "password": "longer-password"})
         response = client.get("/api/v1/projects/alpha/metrics" + period)
         assert response.status_code == 200
         scoped = response.json()
-        assert scoped["totals"]["tokens_in"] == 10
+        assert scoped["totals"]["tokens_in"] == 7
+        assert scoped["lifetime"]["tokens_in"] == 10
         assert [day["date"] for day in scoped["daily"]] == ["2026-01-02"]
         assert scoped["period"]["tokens_in"] == 7
         assert "cost" not in str(scoped).lower()
@@ -556,43 +594,44 @@ def test_metric_period_preserves_all_time_totals_and_filters_exports(tmp_path):
         assert client.get("/api/v1/metrics" + period).status_code == 403
         assert client.get("/api/v1/metrics.csv" + period).status_code == 403
     with TestClient(app) as client:
-        client.post("/api/v1/session", json={
-            "username": "admin", "password": "admin"})
+        client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
         scoped = client.get("/api/v1/projects/alpha/metrics" + period).json()
-        assert scoped["totals"]["cost_usd"] == 0.2
+        assert scoped["totals"]["cost_usd"] is None
+        assert scoped["lifetime"]["reported_cost_usd"] == 0.2
         assert scoped["period"]["cost_usd"] is None
         assert scoped["period"]["estimated_cost_usd"] == 0.000022
         assert scoped["period"]["basis"] == "dated_events"
-        before = client.get(
-            "/api/v1/projects/alpha/metrics?day_to=2026-01-01").json()
+        before = client.get("/api/v1/projects/alpha/metrics?day_to=2026-01-01").json()
         assert before["period"]["cost_usd"] == 0.2
         assert before["period"]["estimated_cost_usd"] is None
-        empty = client.get(
-            "/api/v1/projects/alpha/metrics?day_from=2026-02-01").json()
+        empty = client.get("/api/v1/projects/alpha/metrics?day_from=2026-02-01").json()
         assert empty["daily"] == []
-        assert empty["period"]["tokens_in"] == 0
+        assert empty["period"]["tokens_in"] is None
         assert empty["period"]["cost_usd"] is None
-        assert empty["totals"]["tokens_in"] == 10
+        assert empty["totals"]["tokens_in"] is None
+        assert empty["lifetime"]["tokens_in"] == 10
         global_view = client.get("/api/v1/metrics" + period).json()
         assert global_view["beta"]["period"]["tokens_in"] == 11
         assert global_view["beta"]["period"]["cost_usd"] == 0.4
         export = client.get("/api/v1/metrics.csv" + period)
         assert export.status_code == 200
         assert "2026-01-02" in export.text and "2026-01-01" not in export.text
-        assert client.get(
-            "/api/v1/projects/alpha/metrics?day_from=2026-01-03&day_to=2026-01-02"
-        ).status_code == 422
-        assert client.get(
-            "/api/v1/projects/alpha/metrics.csv?day_from=invalid"
-        ).status_code == 422
-        assert client.get(
-            "/api/v1/metrics.csv?day_from=2026-01-03&day_to=2026-01-02"
-        ).status_code == 422
+        assert (
+            client.get(
+                "/api/v1/projects/alpha/metrics?day_from=2026-01-03&day_to=2026-01-02"
+            ).status_code
+            == 422
+        )
+        assert client.get("/api/v1/projects/alpha/metrics.csv?day_from=invalid").status_code == 422
+        assert (
+            client.get("/api/v1/metrics.csv?day_from=2026-01-03&day_to=2026-01-02").status_code
+            == 422
+        )
         assert client.get("/api/v1/metrics?day_from=invalid").status_code == 422
 
 
 def test_period_does_not_assign_legacy_summary_usage_to_a_day(tmp_path):
-    """@brief Summary-only usage stays all-time rather than fabricating a date."""
+    """@brief Summary-only consumption is explicit lifetime/unallocated evidence."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
@@ -606,8 +645,10 @@ def test_period_does_not_assign_legacy_summary_usage_to_a_day(tmp_path):
             "/api/v1/projects/alpha/metrics?day_from=2026-01-01&day_to=2026-01-31")
         assert response.status_code == 200
         body = response.json()
-        assert body["totals"]["tokens_in"] == 9
-        assert body["period"]["tokens_in"] == 0
+        assert body["totals"]["tokens_in"] is None
+        assert body["unallocated"]["tokens_in"] == 9
+        assert body["lifetime"]["tokens_in"] == 9
+        assert body["period"]["tokens_in"] is None
         assert body["daily"] == []
 
 
@@ -634,25 +675,39 @@ def test_terminal_duration_uses_utc_completion_and_reports_coverage(tmp_path):
     dev = web.create_user("dev", "longer-password", "developer")
     web.set_memberships(dev["id"], ["alpha"])
     with TestClient(app) as client:
-        client.post("/api/v1/session", json={
-            "username": "dev", "password": "longer-password"})
+        client.post("/api/v1/session", json={"username": "dev", "password": "longer-password"})
         body = client.get(
             "/api/v1/projects/alpha/metrics?day_from=2026-01-02&day_to=2026-01-02"
         ).json()
-        assert body["duration"] == {"sampled_runs": 3, "avg_span_seconds": 200,
-                                    "median_span_seconds": 180}
-        assert body["period"]["duration"] == {"sampled_runs": 2,
-                                                 "avg_span_seconds": 150,
-                                                 "median_span_seconds": 150}
+        assert body["duration"] == {
+            "sampled_runs": 2,
+            "avg_span_seconds": 150,
+            "median_span_seconds": 150,
+            "sum_span_seconds": 300,
+            "samples_seconds": [120, 180],
+            "basis": "terminal_summary_end_in_scope_including_wait",
+        }
+        assert body["period"]["duration"] == {
+            "sampled_runs": 2,
+            "avg_span_seconds": 150,
+            "median_span_seconds": 150,
+            "sum_span_seconds": 300,
+            "samples_seconds": [120, 180],
+            "basis": "terminal_summary_end_in_scope_including_wait",
+        }
         assert "cost" not in str(body).lower()
         assert client.get("/api/v1/metrics").status_code == 403
     with TestClient(app) as client:
-        client.post("/api/v1/session", json={
-            "username": "admin", "password": "admin"})
+        client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
         global_view = client.get("/api/v1/metrics?day_from=2026-01-03").json()
         assert global_view["alpha"]["period"]["duration"] == {
-            "sampled_runs": 1, "avg_span_seconds": 300,
-            "median_span_seconds": 300}
+            "sampled_runs": 1,
+            "avg_span_seconds": 300,
+            "median_span_seconds": 300,
+            "sum_span_seconds": 300,
+            "samples_seconds": [300],
+            "basis": "terminal_summary_end_in_scope_including_wait",
+        }
 
 
 def test_missing_or_corrupt_duration_evidence_is_explicit(tmp_path):
@@ -668,9 +723,14 @@ def test_missing_or_corrupt_duration_evidence_is_explicit(tmp_path):
         client.post("/api/v1/session", json={
             "username": "admin", "password": "admin"})
         body = client.get("/api/v1/projects/alpha/metrics").json()
-        assert body["duration"] == {"sampled_runs": 0,
-                                    "avg_span_seconds": None,
-                                    "median_span_seconds": None}
+        assert body["duration"] == {
+            "sampled_runs": 0,
+            "avg_span_seconds": None,
+            "median_span_seconds": None,
+            "sum_span_seconds": 0,
+            "samples_seconds": [],
+            "basis": "terminal_summary_end_in_scope_including_wait",
+        }
         with sqlite3.connect(state.root / "metrics.db") as connection:
             connection.execute(
                 "UPDATE run_summaries SET started_at = ?, ended_at = ?, "
@@ -750,7 +810,7 @@ def test_attributed_usage_filters_project_global_and_csv_without_cost_leak(tmp_p
         assert global_view["beta"]["totals"]["tokens_in"] == 11
         export = client.get("/api/v1/usage.csv" + query)
         assert export.status_code == 200
-        assert "project,repository,date,executor,model" in export.text
+        assert "project,repository,project_id,timezone" in export.text
         assert "alpha" in export.text and "beta" in export.text
         assert "cloud/b" not in export.text
 
@@ -820,8 +880,8 @@ def test_attributed_usage_rejects_out_of_range_cost(tmp_path):
         assert response.status_code == 503
         assert response.json()["detail"]["code"] == "usage_corrupt"
         daily = client.get("/api/v1/projects/alpha/metrics")
-        assert daily.status_code == 200
-        assert daily.json()["coverage"]["runs_with_usage"] == 0
+        assert daily.status_code == 503
+        assert daily.json()["detail"]["code"] == "metrics_corrupt"
 
 
 def test_global_daily_csv_is_admin_only_and_identifies_repository(tmp_path):
@@ -842,12 +902,12 @@ def test_global_daily_csv_is_admin_only_and_identifies_repository(tmp_path):
             "username": "dev", "password": "longer-password"})
         assert client.get("/api/v1/metrics.csv").status_code == 403
     with TestClient(app) as client:
-        client.post("/api/v1/session", json={
-            "username": "admin", "password": "admin"})
+        client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
         response = client.get("/api/v1/metrics.csv")
         assert response.status_code == 200
-        assert "project,repository,date" in response.text
-        assert "alpha,'=1+1,2026-01-05" in response.text
+        assert "project,repository,project_id,timezone" in response.text
+        assert f"alpha,'=1+1,{profile.project_id},UTC" in response.text
+        assert "2026-01-05" in response.text
         assert "0.02" in response.text
 
 
@@ -935,23 +995,23 @@ def test_revision_cost_attribution_is_admin_only_and_preserves_unknowns(tmp_path
         assert "revisions" not in developer
         assert "cost" not in str(developer).lower()
     with TestClient(app) as client:
-        client.post("/api/v1/session", json={
-            "username": "admin", "password": "admin"})
+        client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
         body = client.get("/api/v1/projects/alpha/metrics").json()
         revisions = body["revisions"]
-        assert [(row["revision"], row["trigger"], row["date"])
-                for row in revisions] == [
-                    (1, "revise-label", "2026-01-03"),
-                    (2, "pipeline-failed", "2026-01-04"),
-                    (3, "revise-label", "2026-01-05"),
-                    (4, "unclassified", "2026-01-06"),
-                ]
+        assert [(row["revision"], row["trigger"], row["date"]) for row in revisions] == [
+            (1, "revise-label", "2026-01-03"),
+            (2, "pipeline-failed", "2026-01-04"),
+            (3, "revise-label", "2026-01-05"),
+            (4, "unclassified", "2026-01-06"),
+        ]
         assert [(row["tokens_in"], row["tokens_out"]) for row in revisions] == [
-            (1_000_000, 1_000_000), (3, 4), (0, 0), (0, 0)]
-        assert [row["reported_cost_usd"] for row in revisions] == [
-            None, 0.25, None, None]
-        assert [row["estimated_cost_usd"] for row in revisions] == [
-            6.0, None, None, None]
+            (1_000_000, 1_000_000),
+            (3, 4),
+            (None, None),
+            (None, None),
+        ]
+        assert [row["reported_cost_usd"] for row in revisions] == [None, 0.25, None, None]
+        assert [row["estimated_cost_usd"] for row in revisions] == [6.0, None, None, None]
         assert "<script>" not in str(revisions)
         assert body["totals"]["cost_usd"] == 0.75
         assert body["totals"]["estimated_cost_usd"] == 6.0
@@ -983,6 +1043,8 @@ def test_quality_rates_use_evidence_cohorts_and_keep_open_reviews_separate(tmp_p
                             outcome=outcome))
         for event, fields in events:
             state.journal(run_id, event, **fields)
+        if lifecycle == "done":
+            state.journal(run_id, "done", outcome=outcome)
     app = create_app(profiles.home)
     web = app.state.web_store
     dev = web.create_user("dev", "longer-password", "developer")
@@ -1032,6 +1094,10 @@ def test_quality_cost_per_job_uses_evidence_denominators_and_role_privacy(tmp_pa
                       cost_reported=cost_reported)
         state.journal(run_id, "stage-failed", stage="build")
         state.journal(run_id, "operator-retry", stage="build")
+        if outcome == "merged by human":
+            state.journal(run_id, "mr-opened")
+        if lifecycle == "done":
+            state.journal(run_id, "done", outcome=outcome)
     app = create_app(profiles.home)
     web = app.state.web_store
     web.add_price("alpha", "codex", "local-1", "2026-01-01", "2", "4", 1)

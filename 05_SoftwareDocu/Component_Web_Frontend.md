@@ -233,35 +233,23 @@ screens project selection spans a full row above the four period controls in
 two rows. Switching projects retains the category and reporting parameters;
 selected-project metric/usage requests and CSV links use the new project ID.
 The filters are shared by the scoped tables and CSV links.
-It displays period totals separately from
-all-time headline totals; period sums use dated journal events and may omit
-legacy summary-only usage. Range changes discard stale metric responses.
-The all-time launch coverage panel counts reported-token, unavailable-token,
-and disabled-capture launches from versioned observations; cost-status counts
-are visible only to administrators. It explains that older launches have no
-classification and unavailable does not mean zero.
-Statistics shows terminal job elapsed-time sample count, average and median. The
-selected local-date range also scopes a separate duration sample by completion day.
-Missing timestamp evidence appears as unavailable rather than a zero-second
-average; the explanation notes that elapsed time includes human waiting.
-The administrator project comparison table includes sample count and average
-per project; it does not average the per-project averages into a global value.
-The attributed-usage tab uses the same timezone, grouping and date range plus exact
-executor/model text filters. It displays observed usage-event and token totals,
-scoped trend rows, and administrator All projects breakdown rows with
-reported/estimated amounts. Its CSV options carry the same filters. Main job
-counts and all-time headline metrics stay independent of usage identity.
-Session changes and filter changes discard stale usage responses.
-`src/metrics.ts` pools validated project responses: additive counts, nullable
-cost/cache evidence, and date/executor/model buckets. Quality rates use pooled
-numerators and denominators; USD per job uses evidence-weighted cohort totals.
-Elapsed-time averages and medians use individual terminal spans, including
-zero-second samples. Period duration selects completion days in the chosen
-timezone, independently of week/month bucket labels. Missing evidence remains
-unavailable. Invalid numeric/duration evidence raises a RangeError.
-Offline `npm test` (Node.js 22.18 or later) covers these calculation contracts,
-empty cohorts, timezone boundaries and corrupt evidence; the canonical AEGIS
-verification includes this frontend test command.
+The same selected interval supplies headlines, project/repository breakdowns,
+trends, quality and duration. Blank bounds explicitly select All-time. Unknown
+individual token values remain unavailable; measured zero renders zero.
+Coverage distinguishes unallocated usage and missing launch telemetry.
+Open review cards explicitly label current state. Exact usage identity filters
+remain independent of job counts. Requests discard stale responses after scope
+or session changes. CSV links retain identical reporting options.
+
+`src/metrics.ts` pools the server-selected exact duration sample arrays and their
+count/sum, including measured zero. It computes mean/median from these samples;
+it does not parse run dates or approximate interval selection. Rates pool their
+numerators/denominators; monetary averages weight known sample counts. Nullable
+consumption sums remain null when no observation is available. Financial fields
+remain absent when pooling developer responses. Failed/merged counters retain
+server scope. Invalid numeric/duration/scope evidence raises `RangeError`.
+`web/tests/metrics.test.mjs` proves these contracts offline.
+
 Signing out and signing in as another role returns to Overview, so an
 administrator-only view cannot remain selected for a developer. Asynchronous
 user creation and config staging keep their form reference until the request
@@ -307,7 +295,7 @@ still-open review count. Empty cohorts display unavailable instead of zero.
 It shows stage failures and operator retries separately. Administrators also
 see reported and estimated USD per completed and human-merged job, each with
 the count of jobs carrying that kind of cost evidence.
-These are all-time job cohorts, independent of the UTC daily range. The
+These cohorts use first review/validation or human done event in the selected interval. The
 administrator project comparison includes each project's reviewer-rework rate.
 For the selected project, administrators also see token usage and separate
 reported/estimated USD amounts attributed to each revision. Missing monetary
