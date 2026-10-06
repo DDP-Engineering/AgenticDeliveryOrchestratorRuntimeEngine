@@ -1,0 +1,19 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+id = "REQ-UX-2859231a"
+title = "Edit beside active setting value"
+status = "active"
+requirement = "Editable Settings rows shall place the Admin Edit action beside Active value, with no separate action column; desktop/mobile alignment, disabled-state and existing candidate editing remain intact. Developers see no Edit action."
+verification = "Offline Chromium admin/developer row checks, 1280/390px alignment, edit/cancel and existing candidate apply."
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/styles.css", "04_Software/web/e2e/settings.spec.ts", "04_Software/adore/web/static/"]
+linked_tests = ["04_Software/web/e2e/settings.spec.ts", "04_Software/web/e2e/dashboard.spec.ts"]
+spec = ""
+priority = "normal"
+created = 2026-10-06
+updated = 2026-10-06

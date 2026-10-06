@@ -1332,10 +1332,10 @@ function SettingsList({ executorOnly=false, config, settings, t, locale, canEdit
             ? <select aria-label={label(row)} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)}>{(row.input === "boolean" ? ["true", "false"] : row.choices).map(option => <option key={option} value={option}>{option}</option>)}</select>
             : <input aria-label={label(row)} type={row.input === "number" ? "number" : "text"} step={row.step} min={row.minimum ?? undefined} max={row.maximum ?? undefined} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)} required={row.input === "number"} />}
           <div className="button-row"><button className="primary" disabled={disabled}>{copy.prepare}</button><button type="button" className="ghost" onClick={() => setEditing("")}>{t("cancel")}</button></div>
-        </form> : <div><small>{copy.active}</small><code>{shown(row.value)}</code><small>{t("settingDefaultValue")}: {hasDefault(row.defaultValue) ? shown(row.defaultValue) : t("settingNoDefault")}</small></div>}
-        <div className="setting-actions">
+        </form> : <div><div className="setting-value-heading"><small>{copy.active}</small>
           {canEdit && row.input !== "none" && editing !== row.key && <button type="button" className="text-button" disabled={disabled} aria-label={`${t("editSetting")} ${label(row)}`} data-edit-key={row.editKey} onClick={() => { setEditing(row.key); setDraft(editValue(row.value)); }}>{t("editSetting")}</button>}
-        </div>
+        </div><code>{shown(row.value)}</code><small>{t("settingDefaultValue")}: {hasDefault(row.defaultValue) ? shown(row.defaultValue) : t("settingNoDefault")}</small></div>}
+
       </div>)}</div>
     </details>)}</div>}
     {children}

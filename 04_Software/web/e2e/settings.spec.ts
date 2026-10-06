@@ -233,6 +233,21 @@ for (const user of ["admin", "developer"]) {
   await expect(panel.getByRole("heading", {name:"Audit retention",exact:true})).toHaveCount(0);
   if (user === "developer") await expect(panel.getByRole("button")).toHaveCount(0);
   else {
+   const row = panel.locator(".setting-row").filter({has:page.getByText("Repository owner and name", {exact:true})});
+   const heading = row.locator(".setting-value-heading");
+   await expect(heading.getByRole("button", {name:"Edit Repository owner and name",exact:true})).toBeVisible();
+   await expect(row.locator(".setting-actions")).toHaveCount(0);
+   for (const width of [1280, 390]) {
+    await page.setViewportSize({width,height:844});
+    const label = await heading.locator("small").boundingBox();
+    const edit = await heading.getByRole("button").boundingBox();
+    expect(Math.abs(label!.y + label!.height / 2 - edit!.y - edit!.height / 2)).toBeLessThan(3);
+    expect(edit!.x).toBeGreaterThan(label!.x);
+   }
+   await heading.getByRole("button").click();
+   await expect(row.getByRole("textbox", {name:"Repository owner and name",exact:true})).toBeVisible();
+   await row.getByRole("button", {name:"Cancel",exact:true}).click();
+   await expect(heading.getByRole("button")).toBeVisible();
    await page.goto("/admin/status");
    await expect(page.locator(".audit-policy-form")).toBeVisible();
   }
