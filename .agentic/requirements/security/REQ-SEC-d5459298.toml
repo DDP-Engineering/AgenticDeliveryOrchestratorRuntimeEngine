@@ -1,0 +1,19 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+id = "REQ-SEC-d5459298"
+title = "Isolate repository credentials and reject corrupt evidence"
+status = "active"
+requirement = """While project-scoped repository credentials are configured, ADORE shall restrict them to that immutable project and its selected forge CLI under administrator and CSRF protection, excluding secrets from argv, API responses, command output, audit and executors, and refusing corrupt or mismatched stored credentials without fallback."""
+verification = """Offline API/runner tests assert role/CSRF rejection, scoped persistence and worker/probe binding, output redaction, stale/corrupt records, protected storage and failure preservation."""
+affected_paths = ["04_Software/adore/repository_auth.py", "04_Software/adore/web/app.py", "04_Software/adore/orchestrator.py", "04_Software/web/src/RepositoryConnection.tsx", "04_Software/web/src/App.tsx", "04_Software/web/src/ReadinessEvidence.tsx", "04_Software/web/src/styles.css", "04_Software/web/e2e/jobs.spec.ts"]
+linked_tests = ["04_Software/tests/test_repository_connection.py::test_connect_verifies_then_saves_scoped_account", "04_Software/tests/test_repository_connection.py::test_connection_requires_admin_csrf_and_idle_project", "04_Software/tests/test_repository_connection.py::test_saved_auth_binds_worker_and_readiness_without_executor_leak", "04_Software/tests/test_repository_connection.py::test_corrupt_scoped_credentials_never_fall_back"]
+spec = "specs/REQ-FUNC-5de75419.md"
+priority = "high"
+created = 2026-10-06
+updated = 2026-10-06

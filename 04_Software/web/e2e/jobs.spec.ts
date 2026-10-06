@@ -608,7 +608,7 @@ test("host check details collapse by keyboard and reopen after a fresh check", a
   await expect(details).toHaveAttribute("open", "");
   await expect(page.locator(".readiness-metadata")).toContainText("Configuration version:");
   await expect(details).toContainText("Identifies the saved project configuration");
-  await expect(details).toContainText("configured outside this interface");
+  await expect(details).toContainText("Use Connect repository in Summary");
   await summary.click();
   await expect(details).not.toHaveAttribute("open", "");
   await expect(page.locator(".readiness-check").first()).not.toBeVisible();
@@ -621,4 +621,68 @@ test("host check details collapse by keyboard and reopen after a fresh check", a
   await expect(details).toHaveAttribute("open", "");
   await expect(page.locator(".readiness-check").first()).toBeVisible();
   await expect(page.locator(".readiness-metadata")).toHaveCount(1);
+});
+
+
+test("repository connection clears tokens and shows scoped verified identity", async ({ page }) => {
+  await signIn(page); await page.goto("/projects/alpha");
+  const project = (await (await page.request.get("/api/v1/projects")).json()).find((p: {name: string}) => p.name === "alpha");
+  await page.route("**/repository-connection", async route => {
+    expect(route.request().headers()["x-csrf-token"]).toBeTruthy();
+    expect(route.request().postDataJSON()).toEqual({ server: "https://git.example.com", token: "test-only-value", allow_http: false });
+    await route.fulfill({ contentType: "application/json", body: JSON.stringify({ project_id: project.id, provider: project.platform, server: "https://git.example.com", repository: project.repo, account: "alice" }) });
+  });
+  const area = page.locator(".repository-connection");
+  await area.getByRole("button", {name: "Connect repository", exact: true}).click();
+  await area.getByLabel("Repository server", {exact: true}).fill("https://git.example.com");
+  const token = area.getByLabel("Access token", {exact: true});
+  await token.fill("test-only-value");
+  await area.getByRole("button", {name: "Verify and connect"}).click();
+  await expect(token).toHaveValue("");
+  await expect(area.getByRole("status")).toContainText("Connected account: alice");
+  await expect(page.locator(".summary-fact").filter({hasText: "Environment verification"})).toContainText("Unverified");
+  expect(await page.evaluate(() => JSON.stringify([localStorage, sessionStorage]))).not.toContain("test-only-value");
+  await token.fill("discard-me"); await area.getByRole("button", {name: "Cancel", exact: true}).click();
+  await area.getByRole("button", {name: "Connect repository", exact: true}).click();
+  await expect(token).toHaveValue("");
+});
+
+test("repository connection rejects failed or mismatched evidence without exposing secrets", async ({ page }) => {
+  await signIn(page); await page.goto("/projects/alpha");
+  const area = page.locator(".repository-connection");
+  await area.getByRole("button", {name: "Connect repository", exact: true}).click();
+  await area.getByLabel("Repository server", {exact: true}).fill("https://git.example.com");
+  await page.route("**/repository-connection", route => route.fulfill({status: 400, contentType: "application/json", body: JSON.stringify({detail: {code: "repository_connection_failed", message: "DO-NOT-DISPLAY-SECRET"}})}));
+  await area.getByLabel("Access token", {exact: true}).fill("test-secret");
+  await area.getByRole("button", {name: "Verify and connect"}).click();
+  await expect(area.getByRole("alert")).toContainText("Connection failed");
+  await expect(area).not.toContainText("DO-NOT-DISPLAY-SECRET");
+  await page.unroute("**/repository-connection");
+  await page.route("**/repository-connection", route => route.fulfill({contentType: "application/json", body: JSON.stringify({project_id: "wrong", account: "alice"})}));
+  await area.getByLabel("Access token", {exact: true}).fill("test-secret");
+  await area.getByRole("button", {name: "Verify and connect"}).click();
+  await expect(area.getByRole("alert")).toContainText("Credential storage is invalid");
+  await expect(area.getByRole("status")).toHaveCount(0);
+  await page.goto("/projects/beta");
+  await page.locator(".repository-connection").getByRole("button", {name: "Connect repository", exact: true}).click();
+  await expect(page.getByLabel("Access token", {exact: true})).toHaveValue("");
+});
+
+
+test("repository connection supports keyboard four locales and narrow dark layout", async ({ page }, info) => {
+  await signIn(page);
+  await page.setViewportSize({width: 390, height: 844});
+  for (const [locale, button, label] of [["fr", "Connecter le dépôt", "Jeton d’accès"], ["de", "Repository verbinden", "Zugriffstoken"], ["ro", "Conectează depozitul", "Token de acces"], ["en", "Connect repository", "Access token"]]) {
+    await page.goto("/account");
+    await page.getByLabel(/Language|Langue|Sprache|Limbă/).selectOption(locale);
+    await page.goto("/projects/alpha");
+    const open = page.locator(".repository-connection").getByRole("button", {name: button, exact: true});
+    await open.focus(); await page.keyboard.press("Enter");
+    await expect(page.getByLabel(label, {exact: true})).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  }
+  await page.goto("/account"); await page.getByLabel("Theme", {exact: true}).selectOption("dark");
+  await page.goto("/projects/alpha");
+  await page.getByRole("button", {name: "Connect repository", exact: true}).click();
+  await page.screenshot({path: info.outputPath("repository-connection-dark.png"), fullPage: true});
 });

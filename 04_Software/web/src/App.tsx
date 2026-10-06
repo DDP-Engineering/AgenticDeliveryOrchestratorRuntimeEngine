@@ -7,6 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 import { Children, cloneElement, isValidElement, useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactElement, type ReactNode } from "react";
 import { aggregateMetrics, aggregateUsage, type Metrics, type Usage } from "./metrics";
 import { messages, type Locale, type MessageKey } from "./i18n";
+import { RepositoryConnection } from "./RepositoryConnection";
 import { ReadinessEvidence } from "./ReadinessEvidence";
 import { readReadiness, type ProjectReadiness } from "./readiness";
 import { AuditHistory } from "./AuditHistory";
@@ -993,6 +994,9 @@ export default function App() {
               {selectedProject.archived && <button className="danger" onClick={() => { setError(""); setDeleteName(""); setDeleteTarget(selectedProject); }}>{t("deleteProject")}</button>}
               <button className="ghost" onClick={() => void checkProjectReadiness()}>{t("checkHostPrerequisites")}</button>
             </div>}
+            {isAdmin && !selectedProject.archived && <RepositoryConnection key={`${session.user.id}:${selectedProject.id}`} project={selectedProject.id} provider={selectedProject.platform} repository={selectedProject.repo} locale={locale}
+              connect={body => request(`/projects/${encodeURIComponent(selectedProject.id)}/repository-connection`, "POST", body, session.csrf)}
+              onConnected={() => { setProjectReadiness(null); setProjects(items => items.map(item => item.id === selectedProject.id ? { ...item, verification: { status: "unverified" } } : item)); }} />}
             {(projectReadiness || selectedProject.verification.checked_at || selectedProject.verification.revision) && <p className="muted project-verification-evidence readiness-metadata">{t("checkedAt")}: {(projectReadiness?.checked_at || selectedProject.verification.checked_at) ? formatDate(projectReadiness?.checked_at || selectedProject.verification.checked_at || "") : jc.unknown} · <span title={t("configurationVersionHelp")}>{t("configurationVersion")}: {(projectReadiness?.revision || selectedProject.verification.revision)?.slice(0, 12) || jc.unknown}</span></p>}
             {projectReadiness && <ReadinessEvidence evidence={projectReadiness} locale={locale} modelReason={modelReason(projectReadiness.model_probe.reason)} />}
           </section>} />

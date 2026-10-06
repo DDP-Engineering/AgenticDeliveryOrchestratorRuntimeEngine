@@ -184,3 +184,9 @@ actor/project/action/UTC filters precede server counts/paging; Dev project histo
 excludes administrative and name-only legacy rows. Change history presents
 who/what/when/result; System status owns independent audit retention and deletion
 impact. Credentials, environment values and raw errors remain excluded.
+
+Admin Project Summary Connect repository provides scoped Gitea/GitHub/GitLab
+authentication. See repository-auth.md knowledge and Security_And_Credentials.md.
+Protected per-profile tokens are used only by forge CLI commands and explicit
+web host checks, with external CLI auth as the missing-record default. Corrupt
+or mismatched scoped records fail closed.

@@ -9,7 +9,7 @@ import { readinessKeys, readinessVerdict, type ProjectReadiness } from "./readin
 
 const copy = {
   en: {
-    details: "Check details", externalSignIn: "Repository sign-in is configured outside this interface, on the ADORE server, under the account running its services. Signing in to the browser does not configure repository access.",
+    details: "Check details", externalSignIn: "Use Connect repository in Summary to configure this project’s account, or sign in on the ADORE server under its service account. Browser sign-in is separate.",
     passed: "Performed checks passed", failed: "Attention required", partial: "Verification incomplete",
     coverage: "This checks prerequisites on the ADORE server and in the configured image. It does not test a complete job or confirm Git push permission.",
     ok: "✓ Passed", error: "! Action needed", unknown: "? Could not verify", skipped: "○ Not checked",
@@ -26,7 +26,7 @@ const copy = {
     ],
   },
   ro: {
-    details: "Detaliile verificării", externalSignIn: "Autentificarea la repository se configurează în afara acestei interfețe, pe serverul ADORE, sub contul care rulează serviciile. Autentificarea în browser nu configurează accesul la repository.",
+    details: "Detaliile verificării", externalSignIn: "Folosește Conectează depozitul din Summary pentru contul acestui proiect, sau configurează contul serviciului pe serverul ADORE. Autentificarea în browser este separată.",
     passed: "Verificările efectuate au reușit", failed: "Necesită intervenție", partial: "Verificare incompletă",
     coverage: "Verifică cerințele pe serverul ADORE și în imaginea configurată. Nu testează un job complet și nu confirmă permisiunea Git de publicare.",
     ok: "✓ Reușit", error: "! Necesită intervenție", unknown: "? Nu s-a putut verifica", skipped: "○ Neverificat",
@@ -43,7 +43,7 @@ const copy = {
     ],
   },
   fr: {
-    details: "Détails du contrôle", externalSignIn: "La connexion au dépôt se configure hors de cette interface, sur le serveur ADORE, avec le compte qui exécute ses services. La connexion au navigateur ne configure pas cet accès.",
+    details: "Détails du contrôle", externalSignIn: "Utilisez Connecter le dépôt dans Summary pour ce projet, ou configurez le compte du service sur le serveur ADORE. La connexion au navigateur est séparée.",
     passed: "Les contrôles effectués ont réussi", failed: "Intervention nécessaire", partial: "Vérification incomplète",
     coverage: "Vérifie les prérequis sur le serveur ADORE et dans l’image configurée. Ne teste pas une tâche complète ni l’autorisation de publication Git.",
     ok: "✓ Réussi", error: "! Intervention nécessaire", unknown: "? Impossible à vérifier", skipped: "○ Non vérifié",
@@ -60,7 +60,7 @@ const copy = {
     ],
   },
   de: {
-    details: "Prüfungsdetails", externalSignIn: "Die Repository-Anmeldung wird außerhalb dieser Oberfläche auf dem ADORE-Server unter dem Dienstkonto eingerichtet. Die Browser-Anmeldung richtet diesen Zugriff nicht ein.",
+    details: "Prüfungsdetails", externalSignIn: "Nutzen Sie Repository verbinden in Summary für dieses Projekt, oder richten Sie das Dienstkonto auf dem ADORE-Server ein. Die Browser-Anmeldung ist separat.",
     passed: "Durchgeführte Prüfungen bestanden", failed: "Handlung erforderlich", partial: "Prüfung unvollständig",
     coverage: "Prüft Voraussetzungen auf dem ADORE-Server und im konfigurierten Image. Testet keinen vollständigen Job und bestätigt keine Git-Push-Berechtigung.",
     ok: "✓ Bestanden", error: "! Handlung erforderlich", unknown: "? Nicht feststellbar", skipped: "○ Nicht geprüft",

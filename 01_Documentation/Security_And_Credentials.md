@@ -179,3 +179,39 @@ Before the first real poll, confirm:
 5. The chosen image contains no secret files.
 6. The configured egress mode meets the target project's policy.
 7. `adore --profile <profile-name> config validate` completes successfully.
+
+
+## Project-scoped repository tokens from the GUI
+
+Admin Project → Summary → Connect repository verifies the configured forge
+account and exact repository read access before saving a token for this project.
+Create a token on the forge, then submit over the ADORE HTTPS interface. Use an
+account restricted to the required repositories and these operational permissions:
+
+- Gitea: read user identity plus repository/issue read-write scopes. See
+  [Gitea token scopes](https://docs.gitea.com/1.26/development/api-usage).
+- GitHub: selected repository Contents, Issues and Pull requests permissions
+  appropriate to ADORE operations. See
+  [GitHub fine-grained permissions](https://docs.github.com/en/rest/authentication/permissions-required-for-fine-grained-personal-access-tokens).
+- GitLab: api scope and appropriate project membership. See
+  [GitLab token scopes](https://docs.gitlab.com/security/tokens/access_token_scopes/).
+
+Successful connection proves read access, not all operational permissions. Git
+clone/push credentials remain separately configured on the host. GUI web login
+and forge account login are separate. Reconnect to rotate; revoke old tokens on
+the forge. OAuth applications and forge passwords are not supported by this form.
+
+repository-auth.json is a strict scope-bound secret beside config, with POSIX0600
+permissions; Windows installations require restricted profile-home ACLs. Backups
+contain the file and require equal protection. Tokens do not enter argv, API
+responses, browser storage, config/portable export, audit or executor environments.
+The matching forge CLI gets isolated temporary config/environment; shared login
+files are untouched and temporary config is removed after each command. Returned
+CLI token text is redacted. Missing scoped files retain external CLI login;
+corrupt, insecurely permissioned or mismatched records fail closed.
+
+Forge HTTPS verifies certificates. Explicit HTTP acknowledgement is available for
+local Gitea/GitLab; tokens are unencrypted on that path. Origin subpaths are excluded.
+CLI mechanisms: [gh environment](https://cli.github.com/manual/gh_help_environment),
+[glab configuration](https://docs.gitlab.com/cli/config/) and
+[tea config schema](https://gitea.com/gitea/tea/src/branch/main/modules/config).

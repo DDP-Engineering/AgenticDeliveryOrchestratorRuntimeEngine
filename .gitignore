@@ -39,3 +39,6 @@ Thumbs.db
 .agentic/tasks/*.anchor.json
 .agentic/tasks/*.evolution.json
 # AEGIS:END
+
+# Profile-local forge credentials never belong in source control.
+repository-auth.json

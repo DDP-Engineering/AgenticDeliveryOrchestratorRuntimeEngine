@@ -1,0 +1,19 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+id = "REQ-FUNC-5de75419"
+title = "Connect and verify a project repository account"
+status = "active"
+requirement = """When an administrator submits a server and access token for a project in the GUI, ADORE shall verify the selected Gitea, GitHub or GitLab account and repository read access before saving project-scoped credentials, returning only secret-free identity evidence and retaining previous credentials on verification failure."""
+verification = """Offline API tests fake CLI responses for all three providers, failed authentication, malformed identities and wrong repository; browser form submits a memory-only token and displays the actual account result."""
+affected_paths = ["04_Software/adore/repository_auth.py", "04_Software/adore/web/app.py", "04_Software/adore/orchestrator.py", "04_Software/web/src/RepositoryConnection.tsx", "04_Software/web/src/App.tsx", "04_Software/web/src/ReadinessEvidence.tsx", "04_Software/web/src/styles.css", "04_Software/web/e2e/jobs.spec.ts", "04_Software/adore/web/static/index.html", "04_Software/adore/web/static/assets/index-BuRvXcMA.js", "04_Software/adore/web/static/assets/index-DFwp1Ryh.css"]
+linked_tests = ["04_Software/tests/test_repository_connection.py::test_connect_verifies_then_saves_scoped_account", "04_Software/tests/test_repository_connection.py::test_connection_requires_admin_csrf_and_idle_project", "04_Software/tests/test_repository_connection.py::test_saved_auth_binds_worker_and_readiness_without_executor_leak", "04_Software/tests/test_repository_connection.py::test_corrupt_scoped_credentials_never_fall_back"]
+spec = "specs/REQ-FUNC-5de75419.md"
+priority = "high"
+created = 2026-10-06
+updated = 2026-10-06

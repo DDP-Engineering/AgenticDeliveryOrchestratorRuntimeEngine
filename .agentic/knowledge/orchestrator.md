@@ -27,7 +27,9 @@ operations. ADORE never merges or gives forge credentials to an executor.
 `poll_once(ticket_iid=None)` selects an eligible ticket and conducts its run;
 `run_loop()`, `retry(run_id)`, `cancel(run_id)` and `handoff(run_id)` expose
 bounded operations.
-`Orchestrator.from_config()` constructs the conductor from validated settings.
+`Orchestrator.from_config()` constructs the conductor from validated settings
+and binds project-scoped forge credentials through repository-auth.md using
+the env-file directory. Worktree/container/executor credentials stay separate.
 
 ## Invariants
 
@@ -66,7 +68,8 @@ does not refresh historical run timestamps.
 ```mermaid
 flowchart LR
     cli([CLI run or web worker]) --> conductor[Orchestrator]
-    conductor --> forge[(Forge adapter)]
+    conductor --> auth[repository_auth.project_runner]
+    auth --> forge[(Forge adapter)]
     conductor --> state[(StateStore)]
     conductor --> aegis[AEGIS client]
     conductor --> executor[Executor launcher]

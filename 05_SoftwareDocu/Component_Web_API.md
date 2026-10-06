@@ -589,3 +589,16 @@ including concurrency, worker discovery, rollback, legacy identity, secret handl
 RBAC/CSRF, revision races and corrupt persisted evidence.
 
 Restored endpoint CA paths are revalidated before review/apply against the same HTTPS, absolute executor path, bounded length and no traversal/control-character domain as preparation; malformed paths return `pending_config_corrupt`.
+
+
+## Project repository authentication
+
+Admin/CSRF POST /api/v1/projects/{id}/repository-connection accepts server,
+token and explicit allow_http. API owns config/conductor locks, idle/pending/
+archive checks and identity/digest recheck. repository_auth verifies bounded
+CLI account/repository evidence and returns safe identity. begin_change records
+uncertain filesystem publication before atomic token replacement; confirmation
+marks completion. No request secret enters audit. Readiness and connection
+serialize through config_lock so an old credential check cannot overwrite fresh
+invalidation. Errors use stable value-free codes. See Component_Repository_Auth.md
+and tests/test_repository_connection.py.

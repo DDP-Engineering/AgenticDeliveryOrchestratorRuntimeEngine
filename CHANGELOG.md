@@ -23,6 +23,10 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Added
 
+- Project-scoped repository connection from the GUI for Gitea, GitHub and GitLab,
+  with bounded account/repository verification, protected token storage, isolated
+  worker/readiness CLI use and secret-free results.
+
 - Structured redacted web change evidence with known before/after and revisions,
   distinct preparation/application/discard results, atomic identity/access/queue
   evidence, durable filesystem uncertainty and idempotent completion. Explicit

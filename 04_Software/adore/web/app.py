@@ -55,6 +55,13 @@ from adore.portable_settings import (
     parse_settings,
 )
 from adore.profiles import ProfileError, ProfileStore, validate_display_name, validate_profile_id
+from adore.repository_auth import (
+    RepositoryAuthError,
+    connection_view,
+    project_runner,
+    save_connection,
+    verify_connection,
+)
 from adore.state import StateError, StateStore
 from adore.util import CommandRunner, force_rmtree, run_command
 from adore.web import analytics
@@ -150,6 +157,14 @@ class PasswordReset(BaseModel):
     """@brief Administrator recovery password input."""
 
     replacement: str = Field(min_length=8, max_length=1024)
+
+
+class RepositoryConnectionInput(BaseModel):
+    """@brief Explicit memory-only browser credential request."""
+    model_config = ConfigDict(extra="forbid", strict=True)
+    server: str = Field(min_length=1, max_length=512)
+    token: str = Field(min_length=1, max_length=4096, repr=False)
+    allow_http: bool = False
 
 
 class PreferenceInput(BaseModel):
@@ -2540,37 +2555,79 @@ def create_app(home: str | Path | None = None,
     def project_detail(name: str, user: Annotated[dict, Depends(principal)]) -> dict:
         return _profile_view(profiles, project(name, user))
 
+    @app.post("/api/v1/projects/{name}/repository-connection")
+    def connect_repository(name: str, body: RepositoryConnectionInput,
+                           user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+        """@brief Verify scoped forge credentials before protected idle publication."""
+        with config_lock:
+            item = project(name, user)
+            if item.archived:
+                raise _error(409, "project_archived")
+            path = profiles.config_path(item.name)
+            try:
+                raw = path.read_bytes()
+                revision = sha256(raw).hexdigest()
+                config = _config_from_bytes(raw)
+                if _config_findings(config):
+                    raise _error(409, "invalid_config")
+                with (_web_config_edit_lock(path),
+                      guard_direct_config_apply(item, path, "repository.auth")):
+                    verified = verify_connection(config, item.project_id, body.server, body.token,
+                                                 body.allow_http, probe_runner)
+                    current = project(name, user)
+                    if (current.project_id != item.project_id
+                            or sha256(path.read_bytes()).hexdigest() != revision):
+                        raise _error(409, "stale_config_revision")
+                    confirmation = web.begin_change(
+                        user["id"], "repository-connected", item.name)
+                    save_connection(profiles.profile_dir(item.name), verified)
+                    web.audit(user["id"], "repository-connected", item.name,
+                              confirmation_key=confirmation)
+                    return connection_view(verified)
+            except RepositoryAuthError as exc:
+                status = 422 if exc.code == "repository_connection_invalid" else (
+                    400 if exc.code == "repository_connection_failed" else 503)
+                raise _error(status, exc.code) from exc
+            except (OSError, ValueError, TypeError, tomllib.TOMLDecodeError) as exc:
+                raise _error(503, "config_corrupt") from exc
+
     @app.post("/api/v1/projects/{name}/readiness-check")
     def readiness_check(name: str,
                         user: Annotated[dict, Depends(admin_mutation)]) -> dict:
         """@brief Probe selected host prerequisites on explicit admin request."""
-        item = project(name, user)
-        try:
-            raw = profiles.config_path(item.name).read_bytes()
-            revision = sha256(raw).hexdigest()
-            config = _config_from_bytes(raw)
-            if _config_findings(config):
-                raise _error(409, "invalid_config")
-        except (OSError, AttributeError, UnicodeError, TypeError, ValueError,
-                tomllib.TOMLDecodeError) as exc:
-            raise _error(503, "config_corrupt") from exc
-        evidence = _probe_setup(config, probe_runner)
-        checks, model_probe = evidence["checks"], evidence["model_probe"]
-        value = {"schema": 1, "project_id": item.project_id, "revision": revision,
-                 "context": "api-host", "checked_at": datetime.now(UTC).isoformat(),
-                 "checks": checks, "model_probe": model_probe}
-        try:
-            with _web_config_edit_lock(profiles.config_path(item.name)):
-                current = project(name, user)
-                current_revision = sha256(profiles.config_path(item.name).read_bytes()).hexdigest()
-                if current.project_id != item.project_id or current_revision != revision:
-                    raise _error(409, "stale_config_revision")
-                _write_pending_config(profiles.profile_dir(item.name) / "readiness.json", value)
-                web.audit(user["id"], "readiness-checked", item.name)
-                return _verification_view(profiles, current, revision)
-        except OSError as exc:
-            raise _contract_rejection("readiness_store_failed", "readiness",
-                                      "Check local evidence storage before retrying.") from exc
+        with config_lock:
+            item = project(name, user)
+            try:
+                raw = profiles.config_path(item.name).read_bytes()
+                revision = sha256(raw).hexdigest()
+                config = _config_from_bytes(raw)
+                if _config_findings(config):
+                    raise _error(409, "invalid_config")
+            except (OSError, AttributeError, UnicodeError, TypeError, ValueError,
+                    tomllib.TOMLDecodeError) as exc:
+                raise _error(503, "config_corrupt") from exc
+            try:
+                evidence = _probe_setup(
+                    config, project_runner(profiles.profile_dir(item.name), config, probe_runner))
+            except RepositoryAuthError as exc:
+                raise _error(503, exc.code) from exc
+            checks, model_probe = evidence["checks"], evidence["model_probe"]
+            value = {"schema": 1, "project_id": item.project_id, "revision": revision,
+                     "context": "api-host", "checked_at": datetime.now(UTC).isoformat(),
+                     "checks": checks, "model_probe": model_probe}
+            try:
+                with _web_config_edit_lock(profiles.config_path(item.name)):
+                    current = project(name, user)
+                    current_revision = sha256(
+                        profiles.config_path(item.name).read_bytes()).hexdigest()
+                    if current.project_id != item.project_id or current_revision != revision:
+                        raise _error(409, "stale_config_revision")
+                    _write_pending_config(profiles.profile_dir(item.name) / "readiness.json", value)
+                    web.audit(user["id"], "readiness-checked", item.name)
+                    return _verification_view(profiles, current, revision)
+            except OSError as exc:
+                raise _contract_rejection("readiness_store_failed", "readiness",
+                                          "Check local evidence storage before retrying.") from exc
 
     @app.post("/api/v1/projects/{name}/archive")
     def archive_project(name: str,

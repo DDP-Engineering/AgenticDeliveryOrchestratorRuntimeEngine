@@ -632,8 +632,8 @@ a visible performed-check verdict, and seven explained results with text/symbol 
 Check details open after a fresh result and collapse through native pointer/keyboard
 controls while the overall verdict remains visible. Configuration version identifies
 the saved configuration fingerprint used by the check; configuration changes require
-fresh evidence. Repository sign-in is configured externally on the ADORE server under
-the service account; browser sign-in configures only web access.
+fresh evidence. An Admin can configure repository sign-in through Connect repository in Summary,
+or externally under the ADORE service account. Browser sign-in is separate.
 Git supplies isolated working copies; the repository command tool reads issues and
 publishes draft reviews; repository sign-in tests configured host authentication.
 The container engine starts isolation; agent availability proves executable presence
@@ -650,3 +650,32 @@ invalid results produce a localized error and withhold the new check rows.
 Deletion uses a native modal with exact-name confirmation, Escape/cancel,
 focus containment and trigger focus restoration; navigation clears intent.
 Deletion remains subject to archived/idle project preconditions.
+
+
+## Project repository connection
+
+Summary → **Connect repository** opens an Admin-only token form for the saved
+provider/repository. Enter a server origin and an access token created on that
+forge. HTTP requires explicit acknowledgement; GitHub requires HTTPS. Embedded
+credentials, paths, queries and fragments reject. The project must be idle,
+nonarchived and free of pending configuration/operations. **Verify and connect**
+checks account identity and exact repository read access with two eight-second
+CLI limits. This does not prove issue-write, draft-review, Git clone/push or
+complete-job permissions. Run **Check host prerequisites** for fresh results.
+
+The browser clears its memory-only token on submission/cancel and discards it
+on project/session/navigation changes. Results contain account/server/repository,
+never token. Failed authentication preserves previous credentials; an unconfirmed
+request may have reached the server, so inspect readiness before retrying.
+
+The worker and GUI host check use the same isolated CLI binding. Protected
+repository-auth.json beside config binds immutable project identity and current
+provider/repository/login. Other projects/shared logins remain unchanged. Missing
+records preserve external auth; corrupt/stale records fail closed. Reconnect after
+provider/repository/login changes. Config/portable exports and audit exclude tokens;
+executors receive none. POSIX files use 0600; Windows profile ACLs and server-home
+backups require service-account restrictions. See Component_Repository_Auth.md.
+
+Proof: tests/test_repository_connection.py, existing readiness tests and
+web/e2e/jobs.spec.ts repository-connection journeys with keyboard, four locales,
+narrow/dark layout, token clearing and wrong-scope rejection.

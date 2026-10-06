@@ -104,3 +104,9 @@ runtimes receive mount-path translation and `WSLENV` propagation from ADORE.
 - `04_Software/docker/README.md` - executor and proxy image build commands.
 - `02_Tools/README.md` - release check and packaging scripts.
 - `01_Documentation/Web_Interface.md` - optional web setup and offline media.
+
+Admin Project Summary Connect repository provides scoped Gitea/GitHub/GitLab
+authentication. See repository-auth.md knowledge and Security_And_Credentials.md.
+Protected per-profile tokens are used only by forge CLI commands and explicit
+web host checks, with external CLI auth as the missing-record default. Corrupt
+or mismatched scoped records fail closed.

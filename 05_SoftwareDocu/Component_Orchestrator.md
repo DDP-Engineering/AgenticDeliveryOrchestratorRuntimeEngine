@@ -190,3 +190,15 @@ prompt restrictions and the absence of a merge capability.
 `poll_once(ticket_iid=IID)` filters ticket selection to one ready ticket while
 preserving the same eligibility and publication gates. This is the web worker's
 selected-ticket start path; the existing polling path is unchanged.
+
+
+## Scoped repository credentials
+
+Orchestrator.from_config passes a project-scoped runner to build_forge using the
+directory containing the selected profile env file. repository_auth.project_runner
+binds saved credentials to immutable profile identity and provider/repository/login,
+or preserves external CLI behavior when missing. Only matching forge commands
+receive tokens; worktrees, containers and executor secrets retain their own runner/
+environment contracts. Corrupt/stale records raise RepositoryAuthError (ForgeError)
+before fallback. tests/test_repository_connection.py proves all three engine
+bindings and absence from executor secrets.

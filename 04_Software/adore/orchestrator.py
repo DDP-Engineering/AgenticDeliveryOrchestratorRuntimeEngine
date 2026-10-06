@@ -69,6 +69,7 @@ from adore.isolation import (
     WorktreeManager,
     build_container_env,
 )
+from adore.repository_auth import project_runner
 from adore.state import (
     RunState,
     StateError,
@@ -212,7 +213,8 @@ class Orchestrator:
         return cls(
             config=config,
             forge=build_forge(
-                config.platform.kind, config.platform.repo, login=config.platform.login
+                config.platform.kind, config.platform.repo,
+                runner=project_runner(Path(env_file).parent, config), login=config.platform.login
             ),
             store=StateStore(config.state.store_root, config.agent.slug),
             worktrees=WorktreeManager(
