@@ -15,6 +15,8 @@ async function openSettings(page: Page, name = "alpha", user = "admin") {
   const projects = await (await page.request.get("/api/v1/projects")).json();
   await page.goto(`/projects/${projects.find((item: { name: string }) => item.name === name).id}/configuration`);
   await expect(page.getByRole("heading", { name: "Project settings", exact: true })).toBeVisible();
+  await expect(page.locator("#project-settings > .setting-groups > details[open]")).toHaveCount(0);
+  for (const summary of await page.locator("#project-settings > .setting-groups > details > summary").all()) await summary.click();
 }
 
 test.beforeEach(async ({ context }) => {
@@ -239,6 +241,11 @@ for (const user of ["admin", "developer"]) {
    await expect(row.locator(".setting-actions")).toHaveCount(0);
    for (const width of [1280, 390]) {
     await page.setViewportSize({width,height:844});
+    const description = await row.locator(":scope > div").nth(0).boundingBox();
+    const value = await row.locator(":scope > div").nth(1).boundingBox();
+    expect(Math.abs(description!.width - value!.width)).toBeLessThan(2);
+    if (width === 1280) expect(value!.x - description!.x - description!.width).toBeGreaterThanOrEqual(24);
+    else expect(Math.abs(description!.x - value!.x)).toBeLessThan(2);
     const label = await heading.locator("small").boundingBox();
     const edit = await heading.getByRole("button").boundingBox();
     expect(Math.abs(label!.y + label!.height / 2 - edit!.y - edit!.height / 2)).toBeLessThan(3);

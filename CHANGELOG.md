@@ -14,6 +14,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Balanced Settings description/value columns and collapsed project categories on entry.
+
 - Moved setting Edit actions beside Active value and removed the separate action column.
 
 - Simplified project Settings and added administrator preview/download of original TOML, including inline secrets, in place of the portable export panel.

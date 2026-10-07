@@ -1330,7 +1330,7 @@ function SettingsList({ executorOnly=false, config, settings, t, locale, canEdit
   return <section className="panel" id="project-settings">
     <div className="panel-heading"><h2>{executorOnly ? executorCopy[locale].tab : t("projectSettings")}</h2>{actions}</div>
     {(executorOnly || !canEdit) && <p className="muted">{canEdit ? copy.single : copy.readOnly}</p>}
-    {groups.length === 0 ? <Empty label={t("settingsNoneSet")} /> : <div className="setting-groups">{groups.map(group => <details key={group.name} open={true}>
+    {groups.length === 0 ? <Empty label={t("settingsNoneSet")} /> : <div className="setting-groups">{groups.map(group => <details key={group.name} open={executorOnly}>
       <summary>{copy[group.name as keyof typeof copy]} <span className="muted">({group.rows.length})</span></summary>
       <div className="setting-list">{group.rows.map(row => <div className="setting-row" key={row.key}>
         <div>

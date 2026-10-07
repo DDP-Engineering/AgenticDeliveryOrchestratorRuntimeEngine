@@ -25,6 +25,8 @@ async function openConfiguration(page: Page, name = "alpha") {
   await page.getByRole("link", { name, exact: true }).click();
   await page.getByRole("tab", { name: "Settings", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Project settings", exact: true })).toBeVisible();
+  await expect(page.locator("#project-settings > .setting-groups > details[open]")).toHaveCount(0);
+  for (const summary of await page.locator("#project-settings > .setting-groups > details > summary").all()) await summary.click();
 }
 
 test("sign in, sign out and session revocation", async ({ page }) => {
