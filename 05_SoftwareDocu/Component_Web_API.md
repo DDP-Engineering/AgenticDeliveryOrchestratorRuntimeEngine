@@ -62,6 +62,7 @@ Every project route validates the profile name then loads it through
 events are allowlisted for both roles, with reported money fields restricted
 to administrators, and
 MR/PR links accept only HTTP(S). Config reads drop credential-looking fields.
+Existing supported executor launch commands expose exact documented presets as catalog choices. Command values are allowlisted at staged/direct edits and pending review/apply; missing command tables cannot be enrolled through these routes. Custom current commands remain in the original TOML until a preset is explicitly applied.
 Config edits validate a SHA-256 revision,
 write a unique candidate file, load and validate the candidate, then replace
 the original. A process-local lock serializes web threads; the shared

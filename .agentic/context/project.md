@@ -47,6 +47,8 @@ OpenCode, Pi, Codex and Qwen Code.
   worker faults remain visible, with reporting/technical evidence in dedicated views.
   Header help discloses localized delivery meanings beside Refresh/About; sidebar
   Jobs supplies scoped full-history navigation.
+  Executor configuration unifies settings/provider credentials and heading model testing,
+  with server-authoritative agent and exact launch-preset choices through reviewed apply.
   Settings uses seven purpose
   categories, visible catalog guidance and exact single-candidate active/proposed
   review with explicit base/candidate binding, idle/lock/pause safety and Dev

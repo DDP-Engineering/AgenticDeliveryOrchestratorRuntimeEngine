@@ -26,7 +26,7 @@ redacted effective configuration (`config`), sorted by `key`.
    a leaf (whatever its value), otherwise `default`.
 4. **Editable.** True only when the edit key passes the same key rule that
    accepts a web configuration edit (dotted lowercase key in an editable
-   section, not secret-like, not a `command` entry) **and** the effective
+   section, not secret-like, with command entries limited to supported exact launch-preset keys) **and** the effective
    value is a single string, number or boolean (lists, tables and empty values
    from mappings are not editable in the browser).
 5. **Restart.** True when applying a change to the edit key needs a restart
@@ -63,7 +63,7 @@ unchanged.
 - A web-created project: `platform.repo` and `budgets.max_iterations` (the
   setup wizard writes both) source `project`; `polling.poll_interval_seconds`
   source `default`, editable, no restart.
-- `executor.commands.opencode.command`: not editable (command entry).
+- `executor.commands.opencode.command`: editable through the documented launch-preset choices; arbitrary command text is refused.
 - A secret-like key such as `container.runtime_env.GITLAB_TOKEN` is removed by
   redaction, so it is never listed; an uppercase environment key such as
   `container.runtime_env.UV_LINK_MODE` is listed but not editable.
@@ -75,7 +75,7 @@ unchanged.
 - API tests cover a set and a default key, a boolean, the executor mapping, a
   list, a command entry, an uppercase environment key, a non-editable section,
   the restart flag and developer access, and that staging accepts sampled
-  editable keys and refuses command entries, lowercase secret-like keys and
+  editable keys and refuses unknown command entries, lowercase secret-like keys and
   keys outside the editable sections with `setting_not_editable`.
 
 ## Assumptions and open decisions

@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+id = "REQ-UX-646e81fb"
+title = "Unified executor configuration workspace"
+status = "active"
+requirement = "The project Executor configuration tab shall present executor settings and Provider credentials within one panel, with Test AI connection on the heading right and server-catalog choice editors available through Edit."
+verification = "Offline Chromium checks panel ownership, heading/button alignment, dropdown staging/cancel and provider save/remove continuity; Dev has no mutation action and test errors remain scoped."
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/ExecutorCredentials.tsx", "04_Software/web/src/ModelConnection.tsx", "04_Software/web/src/styles.css", "04_Software/web/e2e/executor-config.spec.ts", "04_Software/adore/web/static/"]
+linked_tests = ["04_Software/web/e2e/executor-config.spec.ts", "04_Software/web/e2e/model-connection.spec.ts"]
+created = 2026-10-07
+updated = 2026-10-07

@@ -89,6 +89,20 @@ _EDITABLE_SECTIONS = frozenset({
     "container", "worktree", "workflow", "recovery", "budgets",
     "delivery", "review", "reconcile", "metrics", "labels",
 })
+# Exact documented/tested launch templates; GUI edits never accept shell text.
+_LAUNCH_PRESETS = {
+    "executor.opencode.command": (
+        "opencode run --dir {worktree} -m {model} --format json {prompt}",
+    ),
+    "executor.pi.command": ("pi -p --mode json --model {model} {prompt}",),
+    "executor.codex.command": (
+        "codex exec {resume}--json --model {model} --ignore-user-config "
+        "--disable plugins --dangerously-bypass-approvals-and-sandbox {prompt}",
+    ),
+    "executor.qwen.command": (
+        "qwen -p --model {model} --output-format json {prompt}",
+    ),
+}
 _STATIC = Path(__file__).with_name("static")
 _COOKIE = "adore_session"
 _STORE_ERROR_CODES = {
@@ -1136,6 +1150,8 @@ def _valid_candidate_scalar(key: str, proposed: object) -> bool:
     @param[in] proposed Parsed candidate value.
     @return True for the declared scalar type, including finite numeric values.
     """
+    if key.endswith(".command"):
+        return isinstance(proposed, str) and proposed in _LAUNCH_PRESETS.get(key, ())
     expected = _value_at(default_config().to_dict(), key)
     if (re.fullmatch(r"executor\.[^.]+\.model", key)
             or key == "container.runtime_env.OPENAI_BASE_URL"):
@@ -1186,6 +1202,11 @@ def _candidate_config_edit(path: Path, body: ConfigEdit) -> tuple[bytes, str]:
         if not secrets.compare_digest(sha256(raw).hexdigest(), body.revision):
             raise _error(409, "stale_config_revision")
         current = raw.decode("utf-8")
+        if body.key.endswith(".command") and (
+            not _valid_candidate_scalar(body.key, body.value)
+            or not isinstance(_value_at(tomllib.loads(current), body.key), str)
+        ):
+            raise _error(400, "invalid_config")
         if endpoint_key:
             active = load_config(path)
             if active.executor.default != "opencode":
@@ -1337,7 +1358,7 @@ def _editable_setting_key(key: str, *, endpoint: bool = False) -> bool:
         _is_secret_key(key)
         or (not endpoint and not _SETTING_KEY_RE.fullmatch(key))
         or key.split(".")[0] not in _EDITABLE_SECTIONS
-        or key.endswith(".command")
+        or key.endswith(".command") and key not in _LAUNCH_PRESETS
     )
 
 
@@ -1412,6 +1433,10 @@ def _setting_domain(key: str, value: object, config: dict, declared: object) -> 
         "reconcile.on_ticket_closed": ["cancel", "ignore"],
         "reconcile.on_trigger_removed": ["pause", "abort", "ignore"],
     }.get(key, [])
+    if key.startswith("executor.commands.") and key.endswith(".command"):
+        choices = list(_LAUNCH_PRESETS.get(
+            "executor." + key.removeprefix("executor.commands."), (),
+        ))
     if key.startswith("workflow.kind_labels."):
         choices = list(RUN_KINDS)
     positive = {
@@ -2974,6 +2999,11 @@ def create_app(home: str | Path | None = None,
             candidate: Path | None = None
             try:
                 current = raw.decode("utf-8")
+                if body.key.endswith(".command") and (
+                    not _valid_candidate_scalar(body.key, body.value)
+                    or not isinstance(_value_at(tomllib.loads(current), body.key), str)
+                ):
+                    raise _error(400, "invalid_config")
                 if endpoint_key:
                     active = load_config(path)
                     if active.executor.default != "opencode":

@@ -14,6 +14,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Unify executor settings and Provider credentials in one panel with heading Test AI connection; offer server-validated launch command presets through reviewed dropdown edits.
+
 - Balanced Settings description/value columns and collapsed project categories on entry.
 
 - Moved setting Edit actions beside Active value and removed the separate action column.

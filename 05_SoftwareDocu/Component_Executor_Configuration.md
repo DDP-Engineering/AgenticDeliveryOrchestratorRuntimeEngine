@@ -17,6 +17,8 @@ Provide a single project executor/model workspace and protected provider key lif
 
 ## 3. Implementation Overview
 
+The settings panel embeds Provider credentials beneath its categories. ModelConnection supplies the Executor configuration heading with Test AI connection aligned right, and scoped result/cost guidance below. The native heading layout wraps on narrow screens. Default coding agent Edit uses configured executor choices. Launch-command Edit selects exact documented standard OpenCode/Pi/Codex/Qwen presets for existing command tables; a custom current command stays visible as a disabled current option until a preset is selected. Prepare stays disabled for values outside the catalog. app.py validates command presets at staged/direct edits and persisted review/apply, retaining administrator/CSRF/revision/idle/pause/locking safety. Custom commands and new table enrollment belong to the host TOML.
+
 The Executor configuration route selects executor settings, model identifiers and the applicable OpenCode endpoint form. Administrator edits use the existing Prepare candidate / Apply / Discard workflow. Configured command tables determine the selectable executors; model IDs are entered manually. Developers read non-secret settings/results.
 
 Save API key / Disconnect project API key operate on the selected profile's `.env`. `executor.env_keys` is the authoritative existing allowlist; the form offers known provider API names already in it. Ambient variables (including explicitly empty values) take precedence and are managed externally. Source indicators distinguish missing, project and environment. Saving is not authentication success; explicit Test AI connection provides that evidence.
@@ -54,7 +56,7 @@ Official provider references: [Pi](https://pi.dev/docs/latest/providers), [Qwen]
 
 ## 9. Validation And Tests
 
-`tests/test_executor_settings.py`: all-executor private save/remove, preserved unrelated bytes, CSRF/role/lock/pending/pause/ambient/config/env/evidence negatives, persisted result across host check and credential drift, corrupt/foreign/duplicate evidence. `test_model_connection.py` retains real offline diagnostic contracts. `web/e2e/executor-config.spec.ts` owns tab/credential/candidate/Settings separation; model-connection and settings journeys prove scoped results/defaults. Real provider/whole-job acceptance is operator-triggered.
+`tests/test_web_launch_presets.py`: four-executor candidate apply, arbitrary/missing/unknown command, stale/CSRF/role/pause and tampered-pending rejection. `tests/test_executor_settings.py`: all-executor private save/remove, preserved unrelated bytes, CSRF/role/lock/pending/pause/ambient/config/env/evidence negatives, persisted result across host check and credential drift, corrupt/foreign/duplicate evidence. `test_model_connection.py` retains real offline diagnostic contracts. `web/e2e/executor-config.spec.ts` owns tab/credential/candidate/Settings separation; model-connection and settings journeys prove scoped results/defaults. Real provider/whole-job acceptance is operator-triggered.
 
 ## 10. Limitations
 

@@ -766,4 +766,4 @@ The application shows one dismissible notification for ordinary feedback or the 
 
 Editable settings place **Edit** beside **Active value** in the value column, including narrow screens. Administrators retain candidate review/apply/discard and disabled-state safeguards; developers have read-only rows.
 
-Project Settings purpose categories are collapsed on entry. Opening a category shows equal-width description and active-value columns separated by24px; below640px they stack at full width. Native disclosures retain keyboard operation. Executor configuration retains its expanded categories.
+Project Settings purpose categories are collapsed on entry. Opening a category shows equal-width description and active-value columns separated by24px; below640px they stack at full width. Native disclosures retain keyboard operation. Executor configuration retains its expanded categories, embedded Provider credentials and heading-aligned Test AI connection. Agent/launch choices come from the server catalog; unsupported custom current launch values stay displayed and disabled as choices until a standard preset is selected.

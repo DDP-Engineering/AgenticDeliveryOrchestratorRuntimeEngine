@@ -374,7 +374,8 @@ def test_config_view_reports_each_settings_source_and_editability(tmp_path):
         assert model["source"] == "project" and model["editable"] and model["restart"]
         assert model["default"] is None  # no command table in the default configuration
         assert settings["executor.commands.opencode.command"]["source"] == "project"
-        not_editable = ["executor.commands.opencode.command", "delivery.reviewers",
+        assert settings["executor.commands.opencode.command"]["editable"] is True
+        not_editable = ["delivery.reviewers",
                         "container.egress.allowlist", "container.runtime_env.UV_LINK_MODE",
                         "state.store_root", "clarification.max_rounds"]
         for key in not_editable:
@@ -394,7 +395,7 @@ def test_config_view_reports_each_settings_source_and_editability(tmp_path):
                                                "revision": revision}, headers=csrf)
             assert staged.status_code == 200, (key, staged.text)
             assert client.delete(target, headers=csrf).status_code == 200
-        for key in ("executor.opencode.command", "state.store_root",
+        for key in ("executor.unknown.command", "state.store_root",
                     "clarification.max_rounds", "container.runtime_env.api_key"):
             refused = client.post(target, json={"key": key, "value": "x",
                                                 "revision": revision}, headers=csrf)

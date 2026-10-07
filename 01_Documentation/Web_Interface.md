@@ -600,8 +600,7 @@ The seven collapsible categories are Repository and tickets; Agent and model;
 Isolated environment; Rules and approvals; Limits and recovery; Measurement and
 notifications; Advanced. Frequent settings appear first within their category.
 Each row gives an understandable label, visible purpose/units/consequence guidance,
-its **Active value** and **ADORE default**; inherited values carry a **Default** badge. Permanent guidance below the label explains each setting; server catalog metadata still constrains edit types, choices and numeric bounds. Lists, tables, launch commands and unsupported sections
-are read-only here and are edited in the host's project TOML.
+its **Active value** and **ADORE default**; inherited values carry a **Default** badge. Permanent guidance below the label explains each setting; server catalog metadata still constrains edit types, choices and numeric bounds. Lists, tables and unsupported sections are read-only here and are edited in the host's project TOML. Executor configuration offers launch-command presets for existing supported command tables through the reviewed candidate flow.
 
 Choose **Edit**, correct the value and choose **Prepare candidate**. This writes
 only the pending candidate. Review the affected project, **Active value** and
@@ -984,7 +983,7 @@ Proof: web/e2e/settings.spec.ts project settings keep defaults and single guidan
 
 ## Project executor configuration
 
-The project header includes Executor configuration, the single owner of executor/model settings and the applicable endpoint editor. Configured command tables supply executor choices; model IDs are entered manually. Admin uses reviewed configuration candidates; Dev reads non-secret values. Provider credentials offers Save API key and Disconnect project API key for known variables in executor.env_keys, using the real project .env. Credential changes require paused monitoring and idle/pending-free state. An environment override is managed externally. Saving a key alone does not confirm connection; explicit model testing can incur provider charges. Subscription login retains the installed CLI's external service-account workflow and configured auth bridge/mount. See [Executor configuration](../05_SoftwareDocu/Component_Executor_Configuration.md) for exact API/storage contracts and limitations.
+The project header includes Executor configuration, the single owner of executor/model settings and the applicable endpoint editor. Configured command tables supply the Default coding agent dropdown after Edit; model IDs are entered manually. Launch-command Edit opens a dropdown of documented standard presets for OpenCode, Pi, Codex or Qwen. A custom current command stays displayed and is not changed until a selected preset is reviewed and applied. Arbitrary launch commands and new command tables are managed in the host TOML. Provider credentials shares the executor settings panel; Test AI connection sits on its heading right and wraps on narrow screens. Admin uses reviewed configuration candidates; Dev reads non-secret values. Provider credentials offers Save API key and Disconnect project API key for known variables in executor.env_keys, using the real project .env. Credential changes require paused monitoring and idle/pending-free state. An environment override is managed externally. Saving a key alone does not confirm connection; explicit model testing can incur provider charges. Subscription login retains the installed CLI's external service-account workflow and configured auth bridge/mount. See [Executor configuration](../05_SoftwareDocu/Component_Executor_Configuration.md) for exact API/storage contracts and limitations.
 
 ### Transient application notifications
 

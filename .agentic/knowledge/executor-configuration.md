@@ -25,7 +25,7 @@ CSRF/admin/immutable identity/config and conductor locks/pause/idle/pending guar
 
 ## Key behaviors
 
-REQ-FUNC-4e9e7ecc executor tab/ownership; REQ-SEC-1c210f3f approved project API credentials; REQ-DATA-f304fd2e durable current model result. Existing command tables/manual model IDs and external subscription login guidance preserve actual capabilities. Summary presents model evidence only in the adjacent host-check disclosure; the executor tab retains the explicit test/result.
+REQ-FUNC-4e9e7ecc executor tab/ownership; REQ-SEC-1c210f3f approved project API credentials; REQ-DATA-f304fd2e durable current model result. Existing command tables supply the Default coding agent dropdown; exact documented launch presets supply command choices through reviewed candidates. Arbitrary command input and missing-table enrollment fail closed, including direct PUT and persisted review/apply. Custom active commands remain displayed until a preset is selected and applied. Manual model IDs and external subscription login guidance preserve actual capabilities. Settings and Provider credentials share one panel with Test AI connection at its heading right. Summary presents model evidence only in the adjacent host-check disclosure; the executor tab retains the explicit test/result.
 
 ## Architecture
 

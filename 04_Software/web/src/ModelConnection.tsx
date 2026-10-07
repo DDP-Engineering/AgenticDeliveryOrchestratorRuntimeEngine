@@ -24,7 +24,7 @@ export function validModelEvidence(value: unknown, project:string, revision:stri
 }
 
 /** Explicit billable model test; closed results remain bound to the selected project. */
-export function ModelConnection({project, revision, executor, model, locale, test, saved=null, onResult, readOnly=false}: {project: string; revision: string; executor: string; model: string; locale: Locale; test?: () => Promise<unknown>; saved?:ModelEvidence|null; onResult?:(value:ModelEvidence)=>void; readOnly?:boolean}) {
+export function ModelConnection({project, revision, executor, model, locale, test, saved=null, onResult, readOnly=false, heading}: {heading?:string; project: string; revision: string; executor: string; model: string; locale: Locale; test?: () => Promise<unknown>; saved?:ModelEvidence|null; onResult?:(value:ModelEvidence)=>void; readOnly?:boolean}) {
  const text = copy[locale];
  const [busy, setBusy] = useState(false);
  const [result, setResult] = useState<ModelEvidence | null>(saved && validModelEvidence(saved,project,revision,executor,model) ? saved : null);
@@ -44,7 +44,8 @@ export function ModelConnection({project, revision, executor, model, locale, tes
  };
  const guidance = result?.reason === "timeout" ? text.timeout : result?.reason === "image-missing" ? text.image : result?.reason === "cli-missing" ? text.cli : result?.reason === "credential-invalid" ? text.auth : result?.reason === "model-unavailable" ? text.model : text.other;
  return <div className="model-connection">
-  {!readOnly && <button type="button" className="ghost" disabled={busy} title={text.help} onClick={() => void run()}>{busy ? text.busy : text.title}</button>}
+  {heading ? <div className="panel-heading"><h2>{heading}</h2>{!readOnly && <button type="button" className="ghost" disabled={busy} title={text.help} onClick={() => void run()}>{busy ? text.busy : text.title}</button>}</div>
+    : !readOnly && <button type="button" className="ghost" disabled={busy} title={text.help} onClick={() => void run()}>{busy ? text.busy : text.title}</button>}
   {!readOnly && <p className="muted model-test-help">{text.help}</p>}
   {busy && <p role="status">{text.busy}</p>}
   {error && <p role="alert" className="alert">{text.error}</p>}

@@ -544,3 +544,5 @@ td.strong { font-weight: 800; }
 .model-connection { display: contents; }
 .model-test-help { flex-basis: 100%; margin: 0; font-size: .875rem; line-height: 1.5; order: 1; }
 .model-connection > [role] { flex-basis: 100%; order: 2; }
+
+.executor-credentials-embedded { margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border); }

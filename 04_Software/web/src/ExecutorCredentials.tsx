@@ -20,7 +20,7 @@ const keys = new Set(["OPENAI_API_KEY","ANTHROPIC_API_KEY","GEMINI_API_KEY","GOO
 export const isExecutorSetting = (key:string) => key.startsWith("executor.") || ["container.runtime_env.OPENAI_BASE_URL","container.runtime_env.NODE_EXTRA_CA_CERTS"].includes(key);
 
 /** Secret drafts stay in component memory and are cleared after every mutation attempt. */
-export function ExecutorCredentials({project,revision,executor,locale,read,write,onChanged,disabled}: {project:string;revision:string;executor:string;locale:Locale;read:()=>Promise<unknown>;write:(method:string,body:unknown)=>Promise<unknown>;onChanged:()=>void;disabled:boolean}) {
+export function ExecutorCredentials({project,revision,executor,locale,read,write,onChanged,disabled,embedded=false}: {embedded?:boolean;project:string;revision:string;executor:string;locale:Locale;read:()=>Promise<unknown>;write:(method:string,body:unknown)=>Promise<unknown>;onChanged:()=>void;disabled:boolean}) {
  const c=executorCopy[locale];
  const [value,setValue]=useState<Credentials|null>(null), [variable,setVariable]=useState(""), [token,setToken]=useState(""), [busy,setBusy]=useState(false), [notice,setNotice]=useState(""), [error,setError]=useState(false);
  const active=useRef(true), pending=useRef(false);
@@ -40,7 +40,7 @@ export function ExecutorCredentials({project,revision,executor,locale,read,write
  };
  const submit=(e:FormEvent)=>{e.preventDefault();void mutate("PUT");};
  const login=executor==="opencode"?"opencode auth login":executor==="codex"?"codex login":executor==="pi"?"pi → /login":"qwen → /auth";
- return <section className="panel wide-panel" id="executor-credentials"><h2>{c.title}</h2><p className="muted">{c.help}</p>
+ return <section className={embedded ? "executor-credentials-embedded" : "panel wide-panel"} id="executor-credentials">{embedded ? <h3>{c.title}</h3> : <h2>{c.title}</h2>}<p className="muted">{c.help}</p>
   <form className="form-stack" onSubmit={submit}><fieldset disabled={disabled||busy||!value}>
    <label>{c.variable}<select aria-label={c.variable} value={variable} onChange={e=>{setVariable(e.target.value);setToken("");setNotice("");}}>{value?.variables.map(v=><option key={v.name} value={v.name}>{v.name}</option>)}</select></label>
    {current&&<p>{c[current.source]}</p>}

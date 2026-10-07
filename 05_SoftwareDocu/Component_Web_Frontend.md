@@ -28,6 +28,8 @@ dashboard. Vite compiles it into `adore/web/static` for same-origin serving.
 
 ## 2. Responsibilities
 
+Executor configuration uses one settings panel with embedded Provider credentials and a heading-aligned Test AI connection action. Choice editors use only server catalog values. Custom current launch commands appear as disabled current options until a documented preset is selected; Prepare remains disabled for a value outside the catalog. SettingsList accepts a header slot; ModelConnection can render that heading while retaining scoped result handling. Native heading/action layout wraps on mobile.
+
 The shared shell presents Overview, Projects, Jobs and Statistics as semantic
 links, with My account for each authenticated user and administrator-only
 System status, Users and Change history. The approved DDP Engineering sage

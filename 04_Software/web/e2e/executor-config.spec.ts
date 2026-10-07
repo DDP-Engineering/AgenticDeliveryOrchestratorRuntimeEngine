@@ -16,6 +16,24 @@ test("executor workspace owns model, credentials and coherent evidence", async (
  await expect(page.getByRole("tab",{name:"Executor configuration",exact:true})).toHaveAttribute("aria-selected","true");
  await expect(page.getByRole("button",{name:"Edit opencode model identifier",exact:true})).toBeVisible();
  await expect(page.getByRole("heading",{name:"Provider credentials",exact:true})).toBeVisible();
+ const panel=page.locator("#project-settings");
+ await expect(panel.getByRole("heading",{name:"Provider credentials",exact:true})).toBeVisible();
+ const heading=panel.getByRole("heading",{name:"Executor configuration",exact:true});
+ const testButton=panel.getByRole("button",{name:"Test AI connection",exact:true});
+ const titleBox=await heading.boundingBox(), testBox=await testButton.boundingBox();
+ expect(titleBox && testBox).toBeTruthy();
+ expect(testBox!.x).toBeGreaterThan(titleBox!.x+titleBox!.width);
+ expect(Math.abs((testBox!.y+testBox!.height/2)-(titleBox!.y+titleBox!.height/2))).toBeLessThan(10);
+ await panel.getByRole("button",{name:"Edit Default coding agent",exact:true}).click();
+ await expect(panel.getByLabel("Default coding agent",{exact:true})).toHaveValue("opencode");
+ await panel.getByRole("button",{name:"Cancel",exact:true}).click();
+ await panel.getByRole("button",{name:"Edit opencode launch command",exact:true}).click();
+ const command=panel.getByLabel("opencode launch command",{exact:true});
+ await expect(command).toHaveJSProperty("tagName","SELECT");
+ await command.selectOption("opencode run --dir {worktree} -m {model} --format json {prompt}");
+ await panel.locator(".setting-editor").getByRole("button",{name:"Prepare candidate",exact:true}).click();
+ await expect(page.locator(".candidate-review")).toContainText("opencode run --dir {worktree}");
+ await page.locator(".candidate-review").getByRole("button",{name:"Discard change",exact:true}).click();
  await page.getByLabel("Credential variable",{exact:true}).selectOption("OPENAI_API_KEY");
  await page.getByLabel("API key",{exact:true}).fill("offline-private-key");
  await page.getByRole("button",{name:"Save API key",exact:true}).click();
@@ -32,6 +50,41 @@ test("executor workspace owns model, credentials and coherent evidence", async (
  await expect(page.getByRole("button",{name:"Edit opencode model identifier",exact:true})).toHaveCount(0);
  await expect(page.getByRole("heading",{name:"Provider credentials",exact:true})).toHaveCount(0);
 });
+
+for (const user of ["admin", "developer"]) {
+ test(`executor preset editor preserves current commands and role boundaries ${user}`, async ({page}) => {
+  await page.context().route("**/*", route => new URL(route.request().url()).origin === "http://127.0.0.1:18765" ? route.continue() : route.abort());
+  await page.goto("/"); await page.getByLabel("Username",{exact:false}).fill(user); await page.getByLabel("Password",{exact:false}).fill(user === "admin" ? "admin" : "test-password"); await page.getByRole("button",{name:"Sign in",exact:true}).click();
+  await expect(page.getByRole("navigation",{name:"Primary navigation",exact:true})).toBeVisible();
+  const projects=await(await page.request.get("/api/v1/projects")).json();
+  const id=projects.find((p:{name:string})=>p.name==="alpha").id;
+  const config=await(await page.request.get(`/api/v1/projects/${id}/config`)).json();
+  const current="opencode run --dir {worktree} -m {model} {prompt}";
+  config.config.executor.commands.opencode.command=current;
+  await page.route("**/projects/*/config", route=>route.fulfill({json:config}));
+  await page.goto(`/projects/${id}/executor`);
+  const panel=page.locator("#project-settings");
+  await expect(panel.getByRole("heading",{name:"Executor configuration",exact:true})).toBeVisible();
+  await expect(panel).toContainText(current);
+  if (user === "admin") {
+   await panel.getByRole("button",{name:"Edit opencode launch command",exact:true}).click();
+   const command=panel.getByLabel("opencode launch command",{exact:true});
+   await expect(command).toHaveValue(current);
+   await expect(panel.getByRole("button",{name:"Prepare candidate",exact:true})).toBeDisabled();
+   await command.selectOption(config.settings.find((s:{key:string})=>s.key==="executor.commands.opencode.command").choices[0]);
+   await expect(panel.getByRole("button",{name:"Prepare candidate",exact:true})).toBeEnabled();
+   await panel.getByRole("button",{name:"Cancel",exact:true}).click();
+   await page.setViewportSize({width:390,height:844});
+   const box=await panel.getByRole("button",{name:"Test AI connection",exact:true}).boundingBox();
+   expect(box!.x+box!.width).toBeLessThanOrEqual(390);
+   await page.screenshot({path:"test-results/executor-unified-mobile.png",fullPage:true});
+  } else {
+   await expect(panel.getByRole("button",{name:/^Edit /})).toHaveCount(0);
+   await expect(panel.getByRole("button",{name:"Test AI connection",exact:true})).toHaveCount(0);
+   await expect(panel.locator("#executor-credentials")).toHaveCount(0);
+  }
+ });
+}
 
 
 test("current model evidence remains coherent in Summary and host check details",async({page})=>{

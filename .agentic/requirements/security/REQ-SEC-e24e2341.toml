@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+id = "REQ-SEC-e24e2341"
+title = "Reviewed launch command presets"
+status = "active"
+requirement = "For an existing supported executor command table, the administrator configuration editor shall offer documented launch presets through the reviewed candidate flow, rejecting arbitrary command values, missing or unknown tables, unauthorized requests and corrupt persisted proposals while retaining configuration revision and idle/pause safety."
+verification = "Offline authenticated HTTP stages/applies exact presets for all four supported executors and rejects arbitrary commands, unknown/missing tables, missing CSRF, Dev, stale revision and recomputed-hash tampered proposal without changing live configuration; Chromium proves select then reviewed candidate."
+affected_paths = ["04_Software/adore/web/app.py"]
+linked_tests = ["04_Software/tests/test_web_launch_presets.py::test_launch_presets_are_reviewed_and_fail_closed", "04_Software/web/e2e/executor-config.spec.ts"]
+created = 2026-10-07
+updated = 2026-10-07
