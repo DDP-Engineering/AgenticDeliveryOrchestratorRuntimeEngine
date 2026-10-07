@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # TASK-363f96ed - Repair native image client and simplify live environment workspace
 
-stage: deliver
+stage: done
 type: fix
 path: quick
 interaction: autopilot
@@ -23,9 +23,9 @@ opened: 2026-10-07
 
 - [x] validated candidate and focused evidence presented
 - [x] continuing human local commit/DCP deployment authorization recorded
-- [ ] implementation commit delivered
-- [ ] DCP backup/replacement and actual GUI build verified
-- [ ] journal close-out committed after external outcome
+- [x] implementation commit delivered
+- [x] DCP backup/replacement and actual GUI build verified
+- [x] journal close-out committed after external outcome
 
 ## Frame
 
@@ -70,6 +70,10 @@ Keep LocalProcessController/local_child unchanged. ImageBuildRunner resolves arg
 - 2026-10-07 consolidated final proof: final unchanged nineteen-file candidate, all commands exit=0. `.venv/Scripts/python.exe -m pytest -q tests/test_image_build.py tests/test_web_image_build.py`: 73 passed/two Windows symlink skips/one existing Starlette deprecation warning (33.48 s). Targeted Ruff on image_build_runner.py/test_image_build.py passed. `npm run build:e2e`: application/E2E types and production Vite build passed; `node --test tests/imageBuild.test.mjs tests/settings.test.mjs`: 13 passed. `npx playwright test e2e/images.spec.ts --workers=1`: six passed, including aligned desktop/mobile, define/build/review/apply, local/Dev/paused boundaries, inline focus/draft preservation, automatically loaded actionable failed output, oversized response refusal and delayed-old-operation read rejection. Semantic visual review of desktop/mobile screenshots: aligned fields, separated steps/results, visible downloads and no narrow overflow. Final evolution at 2026-10-07T20:08:46Z lists twelve reviewed non-agentic modifications, zero added/removed product files; total nineteen with governance/journal. `git -c core.safecrlf=false diff --check` passed. Strict advisory without --run: zero errors/eight baseline warnings/25 notes, no current-journal defect. Warnings are two stale catalog paths, one tracked-sidecar finding and five old journal findings. Existing Vite >500 KiB and NO_COLOR advisories accepted. Both criterion verdicts remain approved. Full/platform/model/forge acceptance deferred under the recorded focused scope.
 - 2026-10-07 delivery presentation: nineteen source/test/docs/governance paths, both approved criteria, actual focused proof and warnings/exclusions presented. No children, branch/release/dependency changes, push/PR/MR/merge or model/forge actions. Standing human DCP replacement authority remains; manual missing-base alias uses the installed compatible Python/Pi image with successful Python/Pi/pytest probes, preserving existing image names and profile configuration. Planned actual GUI build uses the unchanged saved canonical template, offline network and existing bounds; no image/config apply. External outcome is recorded only after success.
 
+- 2026-10-07 deliver outcome: committed unchanged validated nineteen-file candidate as 8c579e6ddc0eeaf73e37306e953b9749cd949e80. Authorized test replacement succeeded; source /home/dpasare/apps/adore/dcp-fix-8c579e6/04_Software, private root:0700 backup /home/dpasare/apps/adore/backups/dcp-fix-8c579e6-20261007T201551Z with root:0600 165265609-byte home archive. Rollback not needed. Schema 14/one user/98 audit/two failed and fourteen succeeded operations preserved across switch. All six config files subsequently compared byte-for-byte equal to backup. Both services active/running, zero restarts, delegated cgroups checked; independent pinned-certificate LAN smoke confirms ready worker/HTTP200/new exact compiled bytes and protected API401. No full public TLS trust acceptance claimed.
+- 2026-10-07 deliver prerequisite and actual proof: additive canonical adore-executor-base:1.0.0 alias points to installed compatible adore-executor-python:pi-0.87.1 immutable sha256:4ed34fa72d5d242739110d29e209d0e2af5d821369c9986a86b1f221571c3fb3; no download/install or existing-tag replacement. Real signed-in GUI built unchanged saved canonical template with network none/600 seconds/1024 MiB; operation 8379ee55011c4403a88dbe3ec4c718a6 Verified, actual Python 3.12.14/Pi 0.87.1/pytest 9.1.1 checks exit successfully. Built image sha256:26881dde6e5fd96622329d6e62eeb9c77655a3216e8afceaa901431d3d39b87c. Real bounded output/technical evidence inspected. Verification container removed, queue idle; expected one succeeded operation/two audit rows added by this build. Use image/config apply not performed. Existing image -> Change opens inline editor, canceled without mutation; source/check layout and result reviewed live, JPEG proofs saved in ignored delivery output. Current profile image and all configs unchanged.
+- 2026-10-07 close-out: authorized implementation and DCP outcome completed; journal-only close-out follows observed outcome on the same branch. No children, push/PR/MR/merge or model/forge actions. Report-time ninth warning was the then-open current delivery checklist; baseline eight advisories and focused verification exclusions remain documented. Local deployment report and live screenshots under 07_Delivery/adore-web-dcp-fix-8c579e6. Full suites/platform/model/forge acceptance remains deferred; no pending action in this task.
+
 ## Rulings
 
 - RULING-001 | date=2026-10-07 | decision=Continue same-session corrective autopilot, focused validation, local commits and authorized DCP test replacement | reason=User reports deployed #22 outcome still broken and explicitly supplies signed-in live page for inspection; standing human authority persists | source=user | supersedes=none
@@ -77,22 +81,22 @@ Keep LocalProcessController/local_child unchanged. ImageBuildRunner resolves arg
 ## Handoff
 
 
-current: deliver
-status: ready
-next: Commit reviewed correction and replace authorized DCP test instance.
+current: done
+status: completed
+next: User may review/use the verified image; full acceptance remains deferred.
 must_read: .agentic/tasks/TASK-363f96ed.md, .agentic/steps/6_deliver.md
 blockers: none
 
 ## Stage report
 
 
-stage: validate
+stage: deliver
 result: completed
-current: deliver
-changed: native client repair and usable environment workflow validated
-evidence: 73 backend, 13 helpers, six browser journeys; types/build/Ruff/strict advisory
+current: done
+changed: native image client and readable environment workflow deployed to DCP
+evidence: 73 backend, 13 helpers, six browser journeys; real DCP GUI build Verified; configs preserved
 issues: two Windows symlink skips; eight baseline advisories; full acceptance deferred
-next: authorized local commit and DCP replacement with bounded GUI build
+next: user review of verified image; full acceptance deferred
 needs_user: no
 spec_compliance: approved
 implementation_quality: approved
