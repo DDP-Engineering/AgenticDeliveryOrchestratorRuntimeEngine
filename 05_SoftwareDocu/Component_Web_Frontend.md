@@ -709,10 +709,14 @@ See [Local execution](../01_Documentation/Local_Execution.md) and
 
 SettingsList's isolation slot embeds ProjectImage.tsx within the existing
 Isolated environment category. Its render callback supplies the existing-image
-edit action; SettingsList owns editor focus and preserves an already-open draft.
-Existing image shows the active value and opens normal setting review;
+edit action and inline editor; SettingsList owns focus and preserves a draft.
+Backend and image controls precede collapsed advanced environment settings.
+Existing image shows the active value and opens normal setting review here;
 Define image exposes a bounded text/upload editor, nearby tool checks, explicit
-save/build and truthful phase/cancel/output. Advanced owns policy, technical
+save/build and truthful phase/cancel/output. Downloads is beside checks; bounds
+use a disclosure. Wide fields align and narrow fields stack; three spaced steps
+and saving guidance identify the next action. The separate result panel loads
+saved output automatically and shows localized corrective failures. Advanced owns technical
 identity and saved source/evidence export. Use image invokes the existing
 stageSetting/PendingReview with a verified binding; review includes proposed
 checks, immutable image/base/context evidence and normal apply/discard.

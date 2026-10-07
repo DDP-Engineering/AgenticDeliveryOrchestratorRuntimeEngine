@@ -217,6 +217,9 @@ ImageBuildService and an owned native runtime client reuse the existing queue,
 ContainerBackend and candidate/config apply; source/config/runtime/identity bind
 selection and shared preparation owns recipe conflicts. Native tools and model
 readiness keep separate authority. See knowledge/project-images.md.
-The image panel shows its active value/edit action and numbered system-tool/check
-guidance with an expandable compiler example; existing candidate review owns
-selection and native backend selection retains server-account tooling ownership.
+Backend and image controls lead the environment group above collapsed advanced
+settings. The image panel embeds reviewed editing, aligned responsive source/check
+fields, visible download policy, three steps and actionable saved build output.
+The native client resolves installed executables and returns owned bounded UTF-8
+streams with actual exit/timeout. Candidate review owns selection and native
+backend selection retains server-account tooling ownership.

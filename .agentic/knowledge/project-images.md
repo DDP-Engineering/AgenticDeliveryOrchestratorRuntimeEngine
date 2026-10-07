@@ -31,9 +31,9 @@ service prepare/run/recover/review; typed ImageBuildError. Scoped project
 image-build HTTP read/write/export/operations/status/cancel and optional
 ConfigEdit.image_build_id through existing pending/apply. ProjectImage is a
 Settings isolation slot; imageBuild.ts validates closed source/evidence/bindings.
-The slot receives the existing SettingsList image-edit callback; ProjectImage
-also receives the active image value. Existing-image selection delegates to
-the current reviewed editor, which owns focus and preserves an open draft.
+The slot receives the existing SettingsList image-edit callback and inline editor;
+ProjectImage also receives the active image value. Existing-image selection
+delegates to the current reviewed editor, which owns focus and preserves a draft.
 
 ## Invariants
 
@@ -46,6 +46,9 @@ the current reviewed editor, which owns focus and preserves an open draft.
 - Cancellation uses verified native scopes. Unconfirmed daemon cleanup is uncertain;
   restart never repeats builds. Images persist; no registry publication or pruning.
 - Stage/apply use existing paused/idle/revision locks and shared recipe conflicts.
+- Native executable argv resolves against controlled PATH. Actual exit/timeout
+  and owned bounded strict UTF-8 redacted stream files supply runtime responses;
+  missing executable or invalid captured output fails closed.
 
 ## Change map
 
@@ -62,10 +65,11 @@ the current reviewed editor, which owns focus and preserves an open draft.
 - REQ-REL-2cbd8d83: durable bounded owned runtime work and deterministic recovery.
 - REQ-FUNC-6d6843ab: exact image/non-root/executor/declared tool verification.
 - REQ-SEC-56f5f4a9: current verified image/check candidate through guarded apply.
-- REQ-UX-1b9b5789: localized compact flow, active image/change action, selected
-  choice styling, numbered RUN/check guidance and read-only compiler/download
-  example. Resizable 16/six-line fields retain unsaved text across switches;
-  paused/role/local ownership remain explicit.
+- REQ-UX-1b9b5789: backend/image controls precede collapsed advanced settings;
+  inline active-image editing uses existing review. Aligned responsive source/
+  check columns, visible downloads, spaced actions/results and loaded failure
+  output explain the three localized steps. Read-only compiler guidance and
+  resizable 16/six-line fields preserve drafts and paused/role/local ownership.
 
 ## Architecture
 

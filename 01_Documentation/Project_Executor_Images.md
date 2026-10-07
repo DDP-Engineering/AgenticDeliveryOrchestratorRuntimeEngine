@@ -12,8 +12,13 @@ Project executor image**. The administrator owns the executable Dockerfile.
 The ADORE server builds with its configured runtime and account; the browser
 does not run Docker, download packages or supply host files.
 
+Execution backend appears first: `container` uses images; `local` uses installed
+tools under the server account. The image workspace follows immediately. Other
+runtime, location, recipe, cache and network settings remain available under
+**Advanced environment settings** below the workspace.
+
 1. **Existing image** shows the image currently used. **Change existing image**
-   opens and focuses its setting above. Prepare, review and apply the candidate
+   opens and focuses the image-name/ID editor in this panel. Prepare, review and apply the candidate
    to use an image already installed on the ADORE server.
 2. **Define image** opens the legal ADORE base template. Edit or paste UTF-8
    Dockerfile text, or load a text file. Keep the canonical FROM and finish with
@@ -24,7 +29,8 @@ does not run Docker, download packages or supply host files.
    authority for the checks proposed by Use image. The six-line field resizes
    vertically. Use a version/help command that exits successfully for each tool;
    the selected executor is checked automatically. Installation commands belong
-   in Dockerfile. Switching choices preserves unsaved definition text.
+   in Dockerfile. Source and checks align in two columns on wide screens and
+   stack on smaller screens. Switching choices preserves unsaved definition text.
 4. Save the definition, then explicitly choose **Build and verify**.
    Saving does not launch a build. Unsaved edits disable building/selection.
 5. Follow queued, runtime inspection, building and verification phases and the
@@ -43,8 +49,9 @@ saved source/evidence but cannot save, build, cancel or apply.
 
 The expandable **Example: C/C++ compiler and Make** shows a RUN line that installs
 `build-essential` and the corresponding `gcc --version` / `make --version`
-checks. Package downloads need **Advanced build details → Build downloads →
-Allow default build network**. The example is guidance; displaying it changes
+checks. Package downloads need **Build downloads → Allow default build network**,
+beside the tool checks. Save this policy before building. **Time and memory
+limits** holds advanced bounds. The example is guidance; displaying it changes
 no source, policy or saved configuration. A visible prerequisite message explains
 disabled editing/save/build controls and tells the administrator to pause pickup.
 
@@ -65,6 +72,10 @@ secrets, SSH forwarding or privileged options enter the context/build container.
 
 The base must already be installed in the selected runtime. The execution
 Dockerfile pins its actual image ID, while the original source remains exportable.
+The server operator supplies the canonical `adore-executor-base:1.0.0` tag, either
+by building the shipped base Dockerfile or assigning that tag to an approved,
+compatible installed ADORE image. The chosen base must supply the selected
+executor and the definition's tools, or the Dockerfile must install those tools.
 Downloads default to no network. Selecting the default build network explicitly
 allows Dockerfile package downloads; it does not change executor/preparation
 egress. No base pull, package inference or builder installation is automatic.
@@ -94,6 +105,14 @@ worker environment setting, independent of native local executor profile setting
 Missing ownership/capability support fails closed.
 
 ## Evidence and recovery
+
+The action area explains whether the definition needs saving before a build.
+Build result is a separate spaced panel; failed results show corrective runtime,
+build or tool guidance and open the bounded output. Saved operation output loads
+when the page opens. Technical evidence holds identifiers and the typed error.
+Missing runtime executables fail explicitly; the native client resolves the
+installed executable using its controlled PATH and returns only owned, bounded,
+strict UTF-8 redacted output with its actual exit/timeout result.
 
 Each profile owns image-build/draft.json and UUID operation directories outside
 the checkout. Strict schema-1 records bind source/configuration revisions,

@@ -785,9 +785,12 @@ Project Settings purpose categories are collapsed on entry. Opening a category s
 ## Project image seam
 
 Settings isolation embeds ProjectImage Define / Build and verify / Use image.
-Existing image displays the active value and delegates edit/focus to SettingsList;
-the existing single-setting candidate workflow owns review/apply. Numbered
-localized installation/check guidance and resizable fields explain the definition.
+Backend and image controls lead the group above collapsed advanced settings.
+Existing image displays the active value and embeds SettingsList's editor/focus;
+the existing single-setting candidate workflow owns review/apply. Three localized
+steps, aligned responsive fields, visible downloads and save-before-build guidance
+explain the definition. A separate result panel loads saved bounded output and
+shows corrective failure messages while preserving verified-action guards.
 Scoped HTTP definition/export/queue/status/cancel routes, fixed worker image-build
 action and optional ConfigEdit.image_build_id reuse current administrator/CSRF,
 project, paused/idle/revision and pending/apply boundaries. The reviewed candidate

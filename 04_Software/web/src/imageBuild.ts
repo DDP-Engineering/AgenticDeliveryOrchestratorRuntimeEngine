@@ -4,6 +4,7 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
+import type { Locale } from "./i18n";
 export type ImageDraft = {schema: 1; project_id: string; dockerfile: string; checks: string[]; network: "none" | "default"; timeout_seconds: number; memory_mib: number; revision: string};
 export type ImageBinding = {id: string; project_id: string; config_revision: string; runtime: string; runtime_identity: string; base_id: string; image_id: string; context_sha256: string; draft_revision: string; verified_checks: string[]};
 export type ImageOperation = ImageBinding & {phase: string; tag: string; error: string; host: {system: string; account: string; machine: string}};
@@ -60,45 +61,62 @@ export function validImageView(value: unknown, project: string): value is ImageV
 /** Instructions are examples only; displaying them never changes a saved definition. */
 export const IMAGE_COMPILER_EXAMPLE = "RUN apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*";
 export const IMAGE_COMPILER_CHECKS = "gcc --version\nmake --version";
+
+/** Operator-facing steps and diagnosis; unknown codes retain the generic failure. */
+export const imageWorkflowCopy = {
+  en: {advanced:"Advanced environment settings", downloadHelp:"Allow downloads when RUN installs packages. Keep Offline for a definition that needs no network.", definition:"1. Define system tools", validation:"2. Set tool checks and downloads", execution:"3. Save, build and review", unsaved:"Save the definition to enable Build and verify.", ready:"Definition saved. Build and verify is ready; the active project image stays selected until you review and apply a verified result.", evidence:"Build result", details:"Technical evidence", limits:"Time and memory limits", unavailable:"The container runtime executable is unavailable to the ADORE server account. Check its installation and PATH on the server, then retry.", capabilities:"The runtime did not confirm the required Linux CPU and memory limits. Check the server runtime and diagnostic output before retrying.", tools:"A required tool or the selected executor is missing or failed its check. Add its installation to Dockerfile, save, then build again. The output below identifies the command.", buildFailed:"The image build failed. Check the output below, correct Dockerfile or allow downloads if packages are required, then save and build again."},
+  ro: {advanced:"Setări avansate ale mediului", downloadHelp:"Permite descărcările când RUN instalează pachete. Păstrează Offline dacă definiția nu are nevoie de rețea.", definition:"1. Definește uneltele de sistem", validation:"2. Alege verificările și descărcările", execution:"3. Salvează, construiește și revizuiește", unsaved:"Salvează definiția pentru a activa Construiește și verifică.", ready:"Definiție salvată. Poți construi și verifica; imaginea activă rămâne selectată până revizuiești și aplici rezultatul verificat.", evidence:"Rezultatul construirii", details:"Dovezi tehnice", limits:"Limite de timp și memorie", unavailable:"Comanda runtime nu este disponibilă contului serverului ADORE. Verifică instalarea și PATH pe server, apoi reîncearcă.", capabilities:"Runtime-ul nu a confirmat limitele Linux de CPU și memorie. Verifică runtime-ul serverului și ieșirea diagnostică înainte de reîncercare.", tools:"O unealtă necesară sau executorul lipsește ori nu trece verificarea. Adaugă instalarea în Dockerfile, salvează și reconstruiește. Ieșirea de mai jos identifică comanda.", buildFailed:"Construirea imaginii a eșuat. Verifică ieșirea de mai jos, corectează Dockerfile sau permite descărcările necesare, apoi salvează și reconstruiește."},
+  fr: {advanced:"Paramètres avancés de l’environnement", downloadHelp:"Autorisez les téléchargements si RUN installe des paquets. Gardez Hors ligne si la définition ne nécessite aucun réseau.", definition:"1. Définir les outils système", validation:"2. Choisir contrôles et téléchargements", execution:"3. Enregistrer, construire et examiner", unsaved:"Enregistrez la définition pour activer Construire et vérifier.", ready:"Définition enregistrée. La construction est prête ; l’image active reste sélectionnée jusqu’à l’examen et l’application du résultat vérifié.", evidence:"Résultat de construction", details:"Preuves techniques", limits:"Limites de temps et mémoire", unavailable:"L’exécutable du runtime est indisponible pour le compte du serveur ADORE. Vérifiez son installation et PATH sur le serveur, puis réessayez.", capabilities:"Le runtime n’a pas confirmé les limites Linux de CPU et mémoire. Vérifiez le runtime du serveur et la sortie diagnostique avant de réessayer.", tools:"Un outil requis ou l’exécuteur manque ou échoue au contrôle. Ajoutez son installation au Dockerfile, enregistrez et reconstruisez. La sortie ci-dessous identifie la commande.", buildFailed:"La construction a échoué. Consultez la sortie, corrigez le Dockerfile ou autorisez les téléchargements nécessaires, puis enregistrez et reconstruisez."},
+  de: {advanced:"Erweiterte Umgebungseinstellungen", downloadHelp:"Erlauben Sie Downloads, wenn RUN Pakete installiert. Behalten Sie Offline, wenn die Definition kein Netzwerk braucht.", definition:"1. Systemwerkzeuge definieren", validation:"2. Prüfungen und Downloads wählen", execution:"3. Speichern, bauen und prüfen", unsaved:"Speichern Sie die Definition, um Bauen und prüfen zu aktivieren.", ready:"Definition gespeichert. Der Build ist bereit; das aktive Image bleibt gewählt, bis Sie das geprüfte Ergebnis prüfen und übernehmen.", evidence:"Build-Ergebnis", details:"Technische Nachweise", limits:"Zeit- und Speichergrenzen", unavailable:"Die Runtime-Datei ist für das ADORE-Serverkonto nicht verfügbar. Prüfen Sie Installation und PATH auf dem Server und versuchen Sie es erneut.", capabilities:"Die Runtime hat die Linux-Grenzen für CPU und Speicher nicht bestätigt. Prüfen Sie die Server-Runtime und Diagnoseausgabe vor dem nächsten Versuch.", tools:"Ein benötigtes Werkzeug oder der Executor fehlt oder besteht seine Prüfung nicht. Ergänzen Sie die Installation in Dockerfile, speichern und bauen Sie erneut. Die Ausgabe unten nennt den Befehl.", buildFailed:"Der Image-Build ist fehlgeschlagen. Prüfen Sie die Ausgabe, korrigieren Sie Dockerfile oder erlauben Sie nötige Downloads, speichern und bauen Sie erneut."},
+};
+
+export function imageFailure(locale: Locale, code: string): string {
+  const copy=imageWorkflowCopy[locale];
+  if(code==="image_runtime_unavailable") return copy.unavailable;
+  if(code==="image_runtime_capabilities_unsupported") return copy.capabilities;
+  if(code==="image_tool_check_failed") return copy.tools;
+  if(code==="image_build_failed") return copy.buildFailed;
+  return imageCopy[locale].failed;
+}
 export const imageGuidance = {
   en: {
     current: "Image currently used", change: "Change existing image", noImage: "No image selected",
-    existing: "Use an image already installed on the ADORE server. Change existing image opens its setting above; review and apply the candidate to select it.",
+    existing: "Use an image already installed on the ADORE server. Change existing image opens the image name or ID here; prepare, review and apply the candidate to select it.",
     source: "Add RUN commands between USER root and USER adore to install the system tools your project needs. Keep the FROM base and final USER adore lines. You can also load an existing Dockerfile.",
     checks: "List a version or help command for each tool you add. Every command must exit successfully. The selected executor is checked automatically; installation commands belong in Dockerfile.",
     finish: "Save the definition, then Build and verify. When verification succeeds, Use image prepares a change for review; apply it to select the new image.",
     example: "Example: C/C++ compiler and Make", exampleSource: "Add this RUN line before USER adore:", exampleChecks: "Add these tool checks:",
-    downloads: "This example downloads packages. In Advanced build details, set Build downloads to Allow default build network before building.",
+    downloads: "This example downloads packages. Set Build downloads to Allow default build network before saving and building.",
     blocked: "Editing, saving and building require paused project pickup with no active work or pending settings. Pause pickup in the project controls, then return here.",
   },
   ro: {
     current: "Imaginea folosită acum", change: "Schimbă imaginea existentă", noImage: "Nicio imagine selectată",
-    existing: "Folosește o imagine deja instalată pe serverul ADORE. Schimbă imaginea existentă deschide setarea de mai sus; revizuiește și aplică propunerea pentru a o selecta.",
+    existing: "Folosește o imagine deja instalată pe serverul ADORE. Schimbă imaginea existentă deschide aici numele sau ID-ul imaginii; pregătește, revizuiește și aplică propunerea.",
     source: "Adaugă comenzi RUN între USER root și USER adore pentru a instala uneltele de sistem necesare proiectului. Păstrează baza FROM și linia finală USER adore. Poți încărca și un Dockerfile existent.",
     checks: "Scrie câte o comandă de versiune sau ajutor pentru fiecare unealtă adăugată. Fiecare comandă trebuie să se încheie cu succes. Executorul ales este verificat automat; comenzile de instalare aparțin Dockerfile-ului.",
     finish: "Salvează definiția, apoi Construiește și verifică. După verificare, Folosește imaginea pregătește o propunere; aplic-o pentru a selecta noua imagine.",
     example: "Exemplu: compilator C/C++ și Make", exampleSource: "Adaugă această linie RUN înainte de USER adore:", exampleChecks: "Adaugă aceste verificări de unelte:",
-    downloads: "Exemplul descarcă pachete. În Detalii avansate de construire, setează Descărcări la construire pe Permite rețeaua implicită înainte de construire.",
+    downloads: "Exemplul descarcă pachete. Setează Descărcări la construire pe Permite rețeaua implicită înainte de salvare și construire.",
     blocked: "Editarea, salvarea și construirea cer preluarea proiectului pe pauză, fără lucrări active sau setări în așteptare. Pune preluarea pe pauză din comenzile proiectului, apoi revino aici.",
   },
   fr: {
     current: "Image utilisée actuellement", change: "Changer l’image existante", noImage: "Aucune image sélectionnée",
-    existing: "Utilisez une image déjà installée sur le serveur ADORE. Changer l’image existante ouvre son paramètre ci-dessus ; examinez puis appliquez le candidat pour la sélectionner.",
+    existing: "Utilisez une image déjà installée sur le serveur ADORE. Changer l’image existante ouvre ici son nom ou ID ; préparez, examinez et appliquez le candidat.",
     source: "Ajoutez des commandes RUN entre USER root et USER adore pour installer les outils système du projet. Conservez la base FROM et la dernière ligne USER adore. Vous pouvez aussi charger un Dockerfile existant.",
     checks: "Indiquez une commande de version ou d’aide pour chaque outil ajouté. Chaque commande doit réussir. L’exécuteur choisi est vérifié automatiquement ; les commandes d’installation appartiennent au Dockerfile.",
     finish: "Enregistrez la définition, puis Construire et vérifier. Après vérification, Utiliser l’image prépare un candidat à examiner ; appliquez-le pour sélectionner la nouvelle image.",
     example: "Exemple : compilateur C/C++ et Make", exampleSource: "Ajoutez cette ligne RUN avant USER adore :", exampleChecks: "Ajoutez ces contrôles des outils :",
-    downloads: "Cet exemple télécharge des paquets. Dans Détails avancés, choisissez Autoriser le réseau par défaut pour Téléchargements de construction avant de construire.",
+    downloads: "Cet exemple télécharge des paquets. Choisissez Autoriser le réseau par défaut pour Téléchargements de construction avant d’enregistrer et construire.",
     blocked: "L’édition, l’enregistrement et la construction exigent une collecte en pause, sans travail actif ni paramètres en attente. Mettez la collecte en pause dans les commandes du projet, puis revenez ici.",
   },
   de: {
     current: "Aktuell verwendetes Image", change: "Vorhandenes Image ändern", noImage: "Kein Image ausgewählt",
-    existing: "Verwenden Sie ein bereits auf dem ADORE-Server installiertes Image. Vorhandenes Image ändern öffnet die Einstellung oben; prüfen und übernehmen Sie den Kandidaten zur Auswahl.",
+    existing: "Verwenden Sie ein bereits auf dem ADORE-Server installiertes Image. Vorhandenes Image ändern öffnet hier Namen oder ID; bereiten Sie den Kandidaten vor, prüfen und übernehmen Sie ihn.",
     source: "Fügen Sie RUN-Befehle zwischen USER root und USER adore ein, um benötigte Systemwerkzeuge zu installieren. Behalten Sie die FROM-Basis und die letzte Zeile USER adore. Sie können auch eine vorhandene Dockerfile laden.",
     checks: "Geben Sie je hinzugefügtem Werkzeug einen Versions- oder Hilfebefehl an. Jeder Befehl muss erfolgreich enden. Der gewählte Executor wird automatisch geprüft; Installationsbefehle gehören in die Dockerfile.",
     finish: "Speichern Sie die Definition, dann Bauen und prüfen. Nach erfolgreicher Prüfung bereitet Image verwenden einen Kandidaten vor; prüfen und übernehmen Sie ihn zur Auswahl des neuen Images.",
     example: "Beispiel: C/C++-Compiler und Make", exampleSource: "Fügen Sie diese RUN-Zeile vor USER adore ein:", exampleChecks: "Fügen Sie diese Werkzeugprüfungen ein:",
-    downloads: "Dieses Beispiel lädt Pakete herunter. Wählen Sie in Erweiterte Build-Details für Build-Downloads Standardnetzwerk erlauben, bevor Sie bauen.",
+    downloads: "Dieses Beispiel lädt Pakete herunter. Wählen Sie für Build-Downloads Standardnetzwerk erlauben, bevor Sie speichern und bauen.",
     blocked: "Bearbeiten, Speichern und Bauen erfordern pausierte Projektauswahl ohne aktive Arbeit oder ausstehende Einstellungen. Pausieren Sie die Auswahl in den Projektaktionen und kehren Sie hierher zurück.",
   },
 };

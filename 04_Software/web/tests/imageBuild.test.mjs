@@ -6,7 +6,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { validImageBinding, validImageDraft, validImageOperation, validImageView, imageCopy, imageGuidance, IMAGE_COMPILER_EXAMPLE, IMAGE_COMPILER_CHECKS } from "../src/imageBuild.ts";
+import { validImageBinding, validImageDraft, validImageOperation, validImageView, imageCopy, imageGuidance, imageWorkflowCopy, imageFailure, IMAGE_COMPILER_EXAMPLE, IMAGE_COMPILER_CHECKS } from "../src/imageBuild.ts";
 import { validPendingConfig } from "../src/settings.ts";
 
 const binding = { id: "a".repeat(32), project_id: "b".repeat(32), config_revision: "c".repeat(64),
@@ -29,6 +29,12 @@ test("closed image bindings and pending review preserve exact verified identity"
 test("every locale explains both choices and a concrete tool example without changing policy",()=>{
   for(const locale of ["en","ro","fr","de"]) {
     for(const key of Object.keys(imageGuidance.en)) assert.ok(imageGuidance[locale][key]?.length>8,locale+":"+key);
+    for(const key of Object.keys(imageWorkflowCopy.en)) assert.ok(imageWorkflowCopy[locale][key]?.length>8,locale+":"+key);
+    assert.equal(imageFailure(locale,"image_runtime_unavailable"),imageWorkflowCopy[locale].unavailable);
+    assert.equal(imageFailure(locale,"image_runtime_capabilities_unsupported"),imageWorkflowCopy[locale].capabilities);
+    assert.equal(imageFailure(locale,"image_tool_check_failed"),imageWorkflowCopy[locale].tools);
+    assert.equal(imageFailure(locale,"image_build_failed"),imageWorkflowCopy[locale].buildFailed);
+    assert.equal(imageFailure(locale,"unknown_code"),imageCopy[locale].failed);
     assert.match(imageGuidance[locale].source,/RUN/);
     assert.match(imageGuidance[locale].source,/USER root/);
     assert.match(imageGuidance[locale].source,/USER adore/);

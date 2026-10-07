@@ -12,11 +12,14 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 image_build.py owns explicit profile Dockerfile artifacts and durable bounded
 image evidence; image_build_runner.py controls the owned runtime client.
 ProjectImage.tsx embeds the administrator flow inside Settings Environment.
-Its existing-image panel shows the active image and delegates editing/focus to
-SettingsList's normal single-setting review. Selected-choice styling and numbered
-four-locale instructions explain system-tool RUN lines, successful checks,
-explicit save/build/use and download policy. Source/check textareas show 16/six
-lines, remain vertically resizable, and preserve unsaved text across choices.
+Its existing-image panel shows the active image and embeds SettingsList's normal
+single-setting editor/review with focus. Backend and image controls lead the
+environment group; other settings use a collapsed advanced disclosure. Three
+four-locale steps explain system-tool RUN lines, successful checks and explicit
+save/build/use. Source/check columns align on wide screens and stack on narrow
+screens; downloads sits beside checks, bounds in a disclosure and build evidence
+in a separate panel with actionable failures and automatically loaded output.
+Textareas show 16/six resizable lines and preserve unsaved text across choices.
 The compiler example is read-only guidance with no configuration side effects.
 
 ## 2. Responsibilities
@@ -46,6 +49,13 @@ LocalProcessController/NativeScopes, protected credential readers for redaction,
 and standard-library JSON/hash/argv/path/thread/time operations. Docker legacy
 or Podman with checked Linux resource capabilities; optional strict WSL prefix.
 No new core dependency.
+
+ImageBuildRunner resolves only the first native executable against the supplied
+controlled PATH before entering the controller's ownership barrier. The controller
+returns authoritative exit/timeout plus captured files; the adapter rechecks owned
+stdout/stderr files, 64 KiB bounds and strict UTF-8, redacts them and returns the
+actual streams. Missing executables and missing/linked/oversized/invalid output
+fail closed. Native execution and process-control contracts remain shared.
 
 ## 5. Inputs And Outputs
 

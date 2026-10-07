@@ -30,6 +30,11 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Project image clients resolve native runtime executables and return captured
+  bounded output, preserving real exit/timeout and fail-closed stream validation.
+  Environment setup starts with backend/image controls and uses inline image
+  editing, aligned fields, visible downloads and spaced actionable build results.
+
 - Project image choices show the current image and open its reviewed editor;
   larger Dockerfile/tool-check fields, numbered instructions and a compiler
   example clarify installation, verification, downloads and paused-project prerequisites.

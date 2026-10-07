@@ -20,6 +20,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 import platform
+import shutil
 from threading import Event, Thread
 
 from adore.local_process import LocalProcessController, NativeScopes, native_context
@@ -55,6 +56,13 @@ class ImageBuildRunner:
         launches = self.store.owned_path(self.operation["id"] + "/control/launches")
         if launches.exists() and len(list(launches.iterdir())) >= 160:
             raise ImageBuildError("image_control_retention_full")
+        executable = shutil.which(argv[0], path=env.get("PATH", ""))
+        if executable is None:
+            raise ImageBuildError("image_runtime_unavailable")
+        try:
+            actual = [str(Path(executable).resolve(strict=True)), *argv[1:]]
+        except OSError as exc:
+            raise ImageBuildError("image_runtime_unavailable") from exc
         done = Event()
         failures = []
 
@@ -72,7 +80,7 @@ class ImageBuildRunner:
         watcher.start()
         try:
             result = self.controller.run_files(
-                list(argv),
+                actual,
                 cwd=Path(cwd),
                 env=env,
                 timeout=timeout,
@@ -86,6 +94,22 @@ class ImageBuildRunner:
             )
             if failures:
                 raise ImageBuildError("image_cancel_unconfirmed")
+            # run_files owns redacted stream files; its result carries status only.
+            # Recheck ownership and bounds after the process/drains have finished.
+            streams = []
+            for stream in ("stdout", "stderr"):
+                path = self.store.owned_path(self.operation["id"] + "/" + stream + ".txt")
+                if not path.is_file() or path.stat().st_size > 65536:
+                    raise ImageBuildError("image_runtime_output_invalid")
+                with path.open("rb") as captured:
+                    data = captured.read(65537)
+                if len(data) > 65536:
+                    raise ImageBuildError("image_runtime_output_invalid")
+                try:
+                    streams.append(self.store.redact(data.decode("utf-8")))
+                except UnicodeError as exc:
+                    raise ImageBuildError("image_runtime_output_invalid") from exc
+            result.stdout, result.stderr = streams
             return result
         except ImageBuildError:
             raise

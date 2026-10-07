@@ -467,7 +467,9 @@ def test_image_runtime_rejects_remote_environment_and_linked_storage(tmp_path, m
 
 
 def test_owned_image_client_adapter_uses_shared_native_controller(tmp_path):
-    """@brief The production adapter forwards explicit bounds, scope and redaction."""
+    """@brief Resolve native argv and return authoritative captured bounded streams."""
+    import sys
+
     from adore.util import CommandResult
     from adore.web.image_build_runner import ImageBuildRunner
 
@@ -477,19 +479,77 @@ def test_owned_image_client_adapter_uses_shared_native_controller(tmp_path):
     class Controller:
         def run_files(self, argv, **kwargs):
             calls.append((argv, kwargs))
+            assert Path(argv[0]).is_absolute()
+            assert Path(argv[0]) == Path(sys.executable).resolve()
             assert kwargs["run_id"] == operation["id"]
             assert kwargs["host"] == operation["host"]["host"]
             assert kwargs["stdout_limit"] == 65536
             assert kwargs["timeout"] == 12
-            return CommandResult(argv=argv, stdout="safe")
+            kwargs["stdout"].write_bytes(b"safe\nBearer private-value\n")
+            kwargs["stderr"].write_bytes(b"diagnostic\n")
+            return CommandResult(argv=argv, exit_code=7)
 
         def recover(self, *args):
             calls.append(args)
 
     client = ImageBuildRunner(store, operation, controller=Controller())
-    assert client(["docker", "info"], cwd=store.root, timeout=12, env={"PATH": "owned"}).ok
+    result = client(
+        [Path(sys.executable).name, "--version"], cwd=store.root, timeout=12,
+        env={"PATH": str(Path(sys.executable).parent)},
+    )
+    assert result.exit_code == 7 and not result.ok and not result.timed_out
+    assert result.stdout == "safe\nBearer [redacted]\n" and result.stderr == "diagnostic\n"
     client.recover()
     assert len(calls) == 2
+
+
+@pytest.mark.parametrize("failure", ["missing", "oversized", "utf8", "linked"])
+def test_owned_image_client_rejects_unsafe_captured_output(tmp_path, failure):
+    """@brief Missing, oversized, invalid or foreign native output fails closed."""
+    import sys
+
+    from adore.util import CommandResult
+    from adore.web.image_build_runner import ImageBuildRunner
+
+    module, _profiles, store, _service, _runner, operation, _path = build_project(tmp_path)
+
+    class Controller:
+        def run_files(self, argv, **kwargs):
+            kwargs["stderr"].write_bytes(b"")
+            if failure == "oversized":
+                kwargs["stdout"].write_bytes(b"x" * 65537)
+            elif failure == "utf8":
+                kwargs["stdout"].write_bytes(b"\xff")
+            elif failure == "linked":
+                foreign = tmp_path / "foreign-output"
+                foreign.write_text("foreign", encoding="utf-8")
+                try:
+                    kwargs["stdout"].symlink_to(foreign)
+                except OSError:
+                    pytest.skip("platform denies symlink creation")
+            return CommandResult(argv=argv)
+
+    client = ImageBuildRunner(store, operation, controller=Controller())
+    with pytest.raises(module.ImageBuildError):
+        client([sys.executable, "--version"], cwd=store.root, timeout=12, env={"PATH": ""})
+
+
+def test_owned_image_client_refuses_missing_executable_before_launch(tmp_path):
+    """@brief An unavailable runtime never reaches the owned native controller."""
+    from adore.web.image_build_runner import ImageBuildRunner
+
+    module, _profiles, store, _service, _runner, operation, _path = build_project(tmp_path)
+    calls = []
+
+    class Controller:
+        def run_files(self, argv, **kwargs):
+            calls.append(argv)
+            raise AssertionError("missing runtime was launched")
+
+    client = ImageBuildRunner(store, operation, controller=Controller())
+    with pytest.raises(module.ImageBuildError, match="image_runtime_unavailable"):
+        client(["missing-adore-runtime", "info"], cwd=store.root, timeout=12, env={"PATH": ""})
+    assert calls == []
 
 
 @pytest.mark.parametrize("runtime", ["podman", "wsl -d Ubuntu-24.04 -- docker", "wsl -- podman"])

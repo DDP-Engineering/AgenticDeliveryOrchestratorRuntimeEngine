@@ -6,6 +6,32 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 */
 import {test,expect} from "@playwright/test";
 
+test("environment setup puts mode and aligned image controls before advanced settings",async({page})=>{
+  await page.context().route("**/*",route=>new URL(route.request().url()).origin==="http://127.0.0.1:18765"?route.continue():route.abort());
+  await page.goto("/");await page.getByLabel("Username",{exact:false}).fill("admin");await page.getByLabel("Password",{exact:false}).fill("admin");await page.getByRole("button",{name:"Sign in",exact:true}).click();
+  await expect(page.getByRole("navigation",{name:"Primary navigation",exact:true})).toBeVisible();
+  const projects=await(await page.request.get("/api/v1/projects")).json(),id=projects.find((p:{name:string})=>p.name==="alpha").id;
+  await page.setViewportSize({width:1440,height:1000});
+  await page.goto("/projects/"+id+"/configuration");
+  await page.locator("#project-settings > .setting-groups > details > summary").filter({hasText:"Isolated environment"}).click();
+  await expect(page.getByRole("button",{name:"Edit Execution backend",exact:true})).toBeInViewport();
+  const panel=page.locator(".project-image");
+  await expect(panel.getByRole("heading",{name:"Project executor image",exact:true})).toBeInViewport();
+  await expect(page.getByText("Npm cache volume",{exact:true})).not.toBeVisible();
+  await panel.getByRole("button",{name:"Define image",exact:true}).click();
+  await expect(panel.getByLabel("Build downloads",{exact:true})).toBeVisible();
+  await expect(panel).toContainText("Save the definition to enable Build and verify");
+  const source=await panel.getByLabel("Dockerfile",{exact:true}).boundingBox(),checks=await panel.getByLabel("Tool checks (one command per line)",{exact:true}).boundingBox();
+  expect(Math.abs(source!.y-checks!.y)).toBeLessThanOrEqual(1);
+  expect(checks!.x-source!.x-source!.width).toBeGreaterThanOrEqual(20);
+  await panel.screenshot({path:"test-results/project-image-aligned-desktop.png"});
+  await page.setViewportSize({width:390,height:844});
+  const mobileSource=await panel.getByLabel("Dockerfile",{exact:true}).boundingBox(),mobileChecks=await panel.getByLabel("Tool checks (one command per line)",{exact:true}).boundingBox();
+  expect(mobileChecks!.y).toBeGreaterThan(mobileSource!.y+mobileSource!.height);
+  expect(mobileChecks!.x+mobileChecks!.width).toBeLessThanOrEqual(390);
+  await panel.screenshot({path:"test-results/project-image-aligned-mobile.png"});
+});
+
 test("project image define build verify and reviewed selection stays compact",async({page})=>{
   await page.context().route("**/*",route=>new URL(route.request().url()).origin==="http://127.0.0.1:18765"?route.continue():route.abort());
   await page.goto("/");await page.getByLabel("Username",{exact:false}).fill("admin");await page.getByLabel("Password",{exact:false}).fill("admin");await page.getByRole("button",{name:"Sign in",exact:true}).click();
@@ -122,4 +148,49 @@ test("existing image choice opens the reviewed editor and preserves an unsaved d
   await expect(panel.getByLabel("Tool checks (one command per line)",{exact:true})).toBeDisabled();
   await expect(panel.getByRole("button",{name:"Save definition",exact:true})).toBeDisabled();
   await expect(panel.getByRole("button",{name:"Build and verify",exact:true})).toBeDisabled();
+});
+
+test("failed build loads bounded output and actionable guidance on entry",async({page})=>{
+  await page.context().route("**/*",route=>new URL(route.request().url()).origin==="http://127.0.0.1:18765"?route.continue():route.abort());
+  await page.goto("/");await page.getByLabel("Username",{exact:false}).fill("admin");await page.getByLabel("Password",{exact:false}).fill("admin");await page.getByRole("button",{name:"Sign in",exact:true}).click();
+  await expect(page.getByRole("navigation",{name:"Primary navigation",exact:true})).toBeVisible();
+  const projects=await(await page.request.get("/api/v1/projects")).json(),id=projects.find((p:{name:string})=>p.name==="alpha").id;
+  const config=await(await page.request.get("/api/v1/projects/"+id+"/config")).json();
+  const view=await(await page.request.get("/api/v1/projects/"+id+"/image-build")).json();
+  view.draft={schema:1,project_id:id,dockerfile:view.template,checks:view.template_checks,network:"none",timeout_seconds:600,memory_mib:1024,revision:"b".repeat(64)};
+  const operation={id:"a".repeat(32),project_id:id,config_revision:config.revision,draft_revision:view.draft?.revision??"b".repeat(64),runtime:"docker",runtime_identity:"",base_id:"",image_id:"",context_sha256:"",verified_checks:[],phase:"failed",error:"image_tool_check_failed",host:{machine:"server",account:"worker",system:"Linux"},tag:"adore-built-"+id+":"+"a".repeat(32)};
+  await page.route("**/api/v1/projects/"+id+"/image-build",route=>route.fulfill({json:{...view,operations:[operation]}}));
+  let oversized=false,hold=false;
+  let releaseOld:()=>void=()=>{};
+  const oldGate=new Promise<void>(resolve=>{releaseOld=resolve;});
+  const newer={...operation,id:"c".repeat(32),tag:"adore-built-"+id+":"+"c".repeat(32),error:"image_runtime_unavailable"};
+  await page.route("**/api/v1/projects/"+id+"/image-build/operations",route=>route.fulfill({json:{build:newer,operation:{}}}));
+  await page.route("**/api/v1/projects/"+id+"/image-build/operations/*",async route=>{
+    if(route.request().url().endsWith(newer.id))return route.fulfill({json:{build:newer,log:"new runtime diagnostic"}});
+    if(hold)await oldGate;
+    return route.fulfill({json:{build:operation,log:oversized?"x".repeat(65537):"pytest: command not found"}});
+  });
+  await page.goto("/projects/"+id+"/configuration");
+  await page.locator("#project-settings > .setting-groups > details > summary").filter({hasText:"Isolated environment"}).click();
+  const panel=page.locator(".project-image");
+  await expect(panel).toContainText("Add its installation to Dockerfile");
+  await expect(panel.getByText("pytest: command not found",{exact:true})).toBeVisible();
+  await expect(panel.getByRole("button",{name:"Use image",exact:true})).toHaveCount(0);
+  oversized=true;
+  await page.reload();
+  await page.locator("#project-settings > .setting-groups > details > summary").filter({hasText:"Isolated environment"}).click();
+  await expect(panel.getByRole("alert")).toContainText("Image request failed");
+  await expect(panel.getByText("pytest: command not found",{exact:true})).toHaveCount(0);
+  await expect(panel.getByRole("button",{name:"Use image",exact:true})).toHaveCount(0);
+  oversized=false;hold=true;
+  await page.reload();
+  await page.locator("#project-settings > .setting-groups > details > summary").filter({hasText:"Isolated environment"}).click();
+  await panel.getByRole("button",{name:"Define image",exact:true}).click();
+  await panel.getByRole("button",{name:"Build and verify",exact:true}).click();
+  await expect(panel.getByText("new runtime diagnostic",{exact:true})).toBeVisible();
+  const oldResponse=page.waitForResponse(response=>response.url().endsWith(operation.id));
+  releaseOld();await oldResponse;
+  await panel.getByRole("button",{name:"Refresh evidence",exact:true}).click();
+  await expect(panel.getByText("new runtime diagnostic",{exact:true})).toBeVisible();
+  await expect(panel.getByText("pytest: command not found",{exact:true})).toHaveCount(0);
 });

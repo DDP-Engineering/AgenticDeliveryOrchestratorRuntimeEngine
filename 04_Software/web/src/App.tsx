@@ -20,7 +20,7 @@ import { startVisiblePolling } from "./polling";
 import { formatRoute, normalizeRoute, parseRoute, type ProjectTab, type Route } from "./routes";
 import { editValue, hasDefault, settingGroups, settingRows, type SettingMeta, type SettingRow, settingValue, validSettingCatalog, validPendingConfig, type PendingConfig } from "./settings";
 import { ProjectImage } from "./ProjectImage";
-import { imageCopy } from "./imageBuild";
+import { imageCopy, imageWorkflowCopy } from "./imageBuild";
 import { ExecutionPlanReview } from "./ExecutionPlanReview";
 import { validExecutionPlan, type ExecutionPlan } from "./executionPlan";
 import { localCopy } from "./localExecution";
@@ -1067,7 +1067,7 @@ export default function App() {
           {projectTab === "history" && <JobWorkspace reporting={{ from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }} reportingQuery={metricSuffix} admin={isAdmin} {...workspaceProps} mode="history" scope={selected} fixedScope />}
           {projectTab === "configuration" && <>
           {configDataState !== "ready" && <DataFeedback state={configDataState} t={t} />}
-          {projectConfig && <SettingsList key={`${selected}-${projectConfig.revision}`} config={projectConfig.config} settings={projectConfig.settings || []} t={t} locale={locale} canEdit={isAdmin} disabled={!!projectPendingConfig || configBusy || pendingReadFailed || isAdmin && !pendingReady} onStage={stageSetting} environment={selectedProject ? (editImage) => <ProjectImage key={`${selectedProject.id}:${projectConfig.revision}`} project={selectedProject.id} revision={projectConfig.revision} local={!!projectConfig.local_execution} locale={locale} admin={isAdmin} currentImage={String(settingValue(projectConfig.config,"container.image") || "")} onExisting={editImage} disabled={!!projectPendingConfig || configBusy || pendingReadFailed || isAdmin && !pendingReady || !selectedProject.paused || selectedProject.archived} call={(path,method,body)=>request(path,method,body,session.csrf)} onStage={(image,id)=>stageSetting("container.image",image,id)} /> : undefined} actions={isAdmin && <RawConfiguration key={`${session.user.id}:${selected}:${projectConfig.revision}`} project={selected} locale={locale} />}>
+          {projectConfig && <SettingsList key={`${selected}-${projectConfig.revision}`} config={projectConfig.config} settings={projectConfig.settings || []} t={t} locale={locale} canEdit={isAdmin} disabled={!!projectPendingConfig || configBusy || pendingReadFailed || isAdmin && !pendingReady} onStage={stageSetting} environment={selectedProject ? (editImage, editor) => <ProjectImage key={`${selectedProject.id}:${projectConfig.revision}`} project={selectedProject.id} revision={projectConfig.revision} local={!!projectConfig.local_execution} locale={locale} admin={isAdmin} currentImage={String(settingValue(projectConfig.config,"container.image") || "")} onExisting={editImage} existingEditor={editor} disabled={!!projectPendingConfig || configBusy || pendingReadFailed || isAdmin && !pendingReady || !selectedProject.paused || selectedProject.archived} call={(path,method,body)=>request(path,method,body,session.csrf)} onStage={(image,id)=>stageSetting("container.image",image,id)} /> : undefined} actions={isAdmin && <RawConfiguration key={`${session.user.id}:${selected}:${projectConfig.revision}`} project={selected} locale={locale} />}>
             {isAdmin && <>
             {projectConfig.issues.length > 0 && <div className="alert">{projectConfig.issues.join(" · ")}</div>}
             {projectConfig.local_execution && <section role="note"><h3>{localCopy[locale].title}</h3><p>{localCopy[locale].machine}: <strong>{projectConfig.local_execution.machine}</strong> · {localCopy[locale].account}: <strong>{projectConfig.local_execution.account}</strong></p><p>{localCopy[locale].notice}</p></section>}
@@ -1328,7 +1328,7 @@ function PendingReview({ config, candidate, project, paused, busy, locale, t, on
   </div>;
 }
 
-function SettingsList({ executorOnly=false, config, settings, t, locale, canEdit, disabled, onStage, actions, children, header, environment }: { environment?: (editImage:()=>void)=>ReactNode; header?: ReactNode; actions?: ReactNode; children?: ReactNode; executorOnly?:boolean; config: Record<string, unknown>; settings: SettingMeta[]; t: (key: MessageKey) => string; locale: Locale; canEdit: boolean; disabled: boolean; onStage: (key: string, value: string) => Promise<boolean> }) {
+function SettingsList({ executorOnly=false, config, settings, t, locale, canEdit, disabled, onStage, actions, children, header, environment }: { environment?: (editImage:()=>void, editor:ReactNode)=>ReactNode; header?: ReactNode; actions?: ReactNode; children?: ReactNode; executorOnly?:boolean; config: Record<string, unknown>; settings: SettingMeta[]; t: (key: MessageKey) => string; locale: Locale; canEdit: boolean; disabled: boolean; onStage: (key: string, value: string) => Promise<boolean> }) {
   const [editing, setEditing] = useState("");
   const [draft, setDraft] = useState("");
   const imageEditor = useRef<HTMLInputElement>(null);
@@ -1357,30 +1357,39 @@ function SettingsList({ executorOnly=false, config, settings, t, locale, canEdit
     event.preventDefault();
     if (await onStage(row.editKey, draft)) setEditing("");
   };
-  return <section className="panel" id="project-settings">
-    {header ?? <div className="panel-heading"><h2>{executorOnly ? executorCopy[locale].tab : t("projectSettings")}</h2>{actions}</div>}
-    {!canEdit && <p className="muted">{copy.readOnly}</p>}
-    {groups.length === 0 ? <Empty label={t("settingsNoneSet")} /> : <div className="setting-groups">{groups.map(group => <details key={group.name} open={executorOnly}>
-      <summary>{copy[group.name as keyof typeof copy]} <span className="muted">({group.rows.length})</span></summary>
-      <div className="setting-list">{group.rows.map(row => <div className="setting-row" key={row.key}>
+  const editor = (row:SettingRow) => <form className="setting-editor" onSubmit={event => void submit(event, row)}>
+          {row.input === "boolean" || row.input === "choice"
+            ? <select aria-label={label(row)} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)}>{row.input === "choice" && !row.choices.includes(draft) && <option value={draft} disabled>{draft}</option>}{(row.input === "boolean" ? ["true", "false"] : row.choices).map(option => <option key={option} value={option}>{option}</option>)}</select>
+            : <input ref={row.key === "container.image" ? imageEditor : undefined} aria-label={label(row)} type={row.input === "number" ? "number" : "text"} step={row.step} min={row.minimum ?? undefined} max={row.maximum ?? undefined} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)} required={row.input === "number"} />}
+          <div className="button-row"><button className="primary" disabled={disabled || row.input === "choice" && !row.choices.includes(draft)}>{copy.prepare}</button><button type="button" className="ghost" onClick={() => setEditing("")}>{t("cancel")}</button></div>
+        </form>;
+  const renderRow = (row:SettingRow) => <div className="setting-row" key={row.key}>
         <div>
           <strong>{label(row)}</strong><p className="setting-essential" id={`help-${row.key}`}>{settingHelp(row.key, locale) ?? t("settingGeneralHelp")}</p>
           {row.source !== "project" && <span className="setting-badge">{t("settingDefault")}</span>}
           {canEdit && row.input !== "none" && row.restart && <small className="setting-note">{t("settingRestartShort")}</small>}
           {canEdit && row.input === "none" && <small className="setting-note">{t("settingNotEditableShort")}</small>}
         </div>
-        {editing === row.key ? <form className="setting-editor" onSubmit={event => void submit(event, row)}>
-          {row.input === "boolean" || row.input === "choice"
-            ? <select aria-label={label(row)} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)}>{row.input === "choice" && !row.choices.includes(draft) && <option value={draft} disabled>{draft}</option>}{(row.input === "boolean" ? ["true", "false"] : row.choices).map(option => <option key={option} value={option}>{option}</option>)}</select>
-            : <input ref={row.key === "container.image" ? imageEditor : undefined} aria-label={label(row)} type={row.input === "number" ? "number" : "text"} step={row.step} min={row.minimum ?? undefined} max={row.maximum ?? undefined} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)} required={row.input === "number"} />}
-          <div className="button-row"><button className="primary" disabled={disabled || row.input === "choice" && !row.choices.includes(draft)}>{copy.prepare}</button><button type="button" className="ghost" onClick={() => setEditing("")}>{t("cancel")}</button></div>
-        </form> : <div><div className="setting-value-heading"><small>{copy.active}</small>
+        {editing === row.key ? editor(row) : <div><div className="setting-value-heading"><small>{copy.active}</small>
           {canEdit && row.input !== "none" && editing !== row.key && <button type="button" className="text-button" disabled={disabled} aria-label={`${t("editSetting")} ${label(row)}`} data-edit-key={row.editKey} onClick={() => { setEditing(row.key); setDraft(editValue(row.value)); }}>{t("editSetting")}</button>}
         </div><code>{shown(row.value)}</code><small>{t("settingDefaultValue")}: {hasDefault(row.defaultValue) ? shown(row.defaultValue) : t("settingNoDefault")}</small></div>}
 
-      </div>)}</div>
-      {group.name === "isolation" && environment?.(editImage)}
-    </details>)}</div>}
+      </div>;
+  return <section className="panel" id="project-settings">
+    {header ?? <div className="panel-heading"><h2>{executorOnly ? executorCopy[locale].tab : t("projectSettings")}</h2>{actions}</div>}
+    {!canEdit && <p className="muted">{copy.readOnly}</p>}
+    {groups.length === 0 ? <Empty label={t("settingsNoneSet")} /> : <div className="setting-groups">{groups.map(group => {
+      const isolated = group.name === "isolation" && !!environment;
+      const imageRow = group.rows.find(row=>row.key === "container.image");
+      const advancedRows = group.rows.filter(row=>row.key !== "execution.backend" && row.key !== "container.image");
+      return <details key={group.name} open={executorOnly}>
+      <summary>{copy[group.name as keyof typeof copy]} <span className="muted">({group.rows.length})</span></summary>
+      {isolated ? <div className="environment-workspace">
+        <div className="setting-list">{group.rows.filter(row=>row.key === "execution.backend").map(renderRow)}</div>
+        {environment?.(editImage, imageRow && editing === imageRow.key ? editor(imageRow) : null)}
+        <details className="environment-advanced"><summary>{imageWorkflowCopy[locale].advanced} <span className="muted">({advancedRows.length})</span></summary><div className="setting-list">{advancedRows.map(renderRow)}</div></details>
+      </div> : <div className="setting-list">{group.rows.map(renderRow)}</div>}
+    </details>})}</div>}
     {children}
   </section>;
 }
