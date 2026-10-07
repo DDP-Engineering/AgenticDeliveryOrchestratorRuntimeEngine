@@ -11,7 +11,7 @@ id = "REQ-UX-f556ea7b"
 
 title = "Compact host-check disclosure beside its action"
 
-status = "active"
+status = "retired"
 
 requirement = """
 On project Summary, ADORE shall keep host-check result details collapsed until an authorized user activates the labeled expand control beside Check host prerequisites, showing individual results and model evidence only inside that disclosure, resetting it on a new check or project/account change, and leaving invalid or absent evidence undisclosed.
@@ -31,3 +31,5 @@ rationale = ""        # why this behavior exists, if not obvious
 
 created = 2026-10-06
 updated = 2026-10-06
+
+# Retired by explicit human replacement: REQ-UX-0109a142 opens on check and closes internally; validated evidence-only presentation remains.

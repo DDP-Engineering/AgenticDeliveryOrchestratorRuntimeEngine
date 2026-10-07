@@ -46,8 +46,7 @@ test("current model evidence remains coherent in Summary and host check details"
  await page.goto(`/projects/${id}`);
  await expect(page.getByText("AI model connected",{exact:true})).toHaveCount(0);
  await page.getByRole("button",{name:"Check host prerequisites",exact:true}).click();
- await expect(page.locator(".readiness-check").first()).not.toBeVisible();
- await page.getByRole("button",{name:"Check details",exact:true}).click();
+ await expect(page.locator(".readiness-check").first()).toBeVisible();
  const row=page.locator(".readiness-check").filter({has:page.getByText("AI model connection",{exact:true})});
  await expect(row).toContainText("✓ Passed");await expect(row).not.toContainText("Not checked");
  await expect(row).toContainText(result.model);

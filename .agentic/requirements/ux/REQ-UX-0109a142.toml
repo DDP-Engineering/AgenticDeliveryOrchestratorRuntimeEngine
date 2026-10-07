@@ -1,0 +1,19 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+id = "REQ-UX-0109a142"
+title = "Host check immediate disclosure and internal close"
+status = "active"
+requirement = "Check host prerequisites shall open results immediately, show checking while running, prevent duplicate checks and render validated results or localized errors. Close details inside the panel hides it without cancelling the check or reopening on completion. Project/session/page changes discard stale results."
+verification = "Offline Chromium held request, close while busy, completion without reopening, retry, failed/corrupt result, scope change, real fake-runner contract and localized checks."
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/ReadinessEvidence.tsx", "04_Software/web/e2e/jobs.spec.ts", "04_Software/web/e2e/executor-config.spec.ts", "04_Software/adore/web/static/"]
+linked_tests = ["04_Software/web/e2e/jobs.spec.ts", "04_Software/web/e2e/executor-config.spec.ts"]
+spec = ""
+priority = "normal"
+created = 2026-10-07
+updated = 2026-10-07

@@ -82,6 +82,9 @@ const copy = {
 /** Localized accessible name for the Summary disclosure control. */
 export function readinessDetailsLabel(locale: Locale): string { return copy[locale].details; }
 
+/** Localized action hides only the details panel, without cancelling the check. */
+export function readinessCloseLabel(locale: Locale): string { return { en: "Close details", ro: "Închide detaliile", fr: "Fermer les détails", de: "Details schließen" }[locale]; }
+
 /** Present only validated results inside the view-owned disclosure. */
 export function ReadinessEvidence({ evidence, locale, modelReason, modelEvidence }: { modelEvidence?: ModelEvidence | null; evidence: ProjectReadiness; locale: Locale; modelReason: string }) {
   const c = copy[locale];
