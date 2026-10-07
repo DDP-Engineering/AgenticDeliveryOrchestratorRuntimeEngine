@@ -49,3 +49,10 @@ sheet and a reference need different levels of detail.
 implement ADORE. It is not part of the operator documentation path.
 
 - [Container preparation](Container_Preparation.md): recipe grammar, review, execution evidence and recovery.
+
+## Native local execution
+
+Native execution setup, security and recovery are documented in Local_Execution.md.
+
+See [Local execution](Local_Execution.md) for platform prerequisites, configuration,
+authentication, process ownership and acceptance coverage.

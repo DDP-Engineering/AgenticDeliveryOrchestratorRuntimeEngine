@@ -288,14 +288,16 @@ def resolve_plan(
     @return Versioned fingerprinted plan, including source text for immutable evidence.
     @exception PreparationError For source, image, revision or backend conflicts.
     """
-    if config.execution.backend != "container":
-        raise PreparationError("execution.backend: only container is supported")
+    if config.execution.backend not in {"container", "local"}:
+        raise PreparationError("execution.backend: expected container/local")
+    if config.execution.backend == "local" and config.execution.preparation:
+        raise PreparationError("local execution cannot run a container preparation recipe")
     plan = {
         "schema": PLAN_SCHEMA,
-        "backend": "container",
+        "backend": config.execution.backend,
         "selection": config.execution.preparation,
-        "image": config.container.image,
-        "image_source": "profile",
+        "image": config.container.image if config.execution.backend == "container" else "",
+        "image_source": "profile" if config.execution.backend == "container" else "local",
         "source_sha256": "",
         "source": "",
         "steps": [],
@@ -340,7 +342,9 @@ def resolve_plan(
             source=source,
             source_sha256=sha256(source.encode()).hexdigest(),
         )
-    if not isinstance(plan["image"], str) or not _IMAGE.fullmatch(plan["image"]):
+    if plan["backend"] == "container" and (
+        not isinstance(plan["image"], str) or not _IMAGE.fullmatch(plan["image"])
+    ):
         raise PreparationError("container.image: invalid effective image")
     plan["fingerprint"] = _digest(plan)
     return plan
@@ -352,7 +356,7 @@ def execution_policy(config: Config) -> dict:
     @param[in] config Operator profile.
     @return Closed non-secret policy used for drift checks and future image apply.
     """
-    return {
+    policy = {
         "execution": asdict(config.execution),
         "worktree": asdict(config.worktree),
         "target_branch": config.delivery.target_branch,
@@ -382,6 +386,16 @@ def execution_policy(config: Config) -> dict:
             "stage_host_auth": config.executor.stage_host_auth,
         },
     }
+    if config.execution.backend == "local":
+        from adore.local_execution import local_policy
+        from adore.local_process import LocalExecutionError
+
+        try:
+            policy.pop("container")
+            policy["local"] = local_policy(config)
+        except (LocalExecutionError, OSError, ValueError, KeyError) as exc:
+            raise PreparationError("local execution environment cannot be resolved") from exc
+    return policy
 
 
 def validate_plan(plan: object) -> dict:
@@ -408,7 +422,7 @@ def validate_plan(plan: object) -> dict:
     if (
         type(plan["schema"]) is not int
         or plan["schema"] != PLAN_SCHEMA
-        or plan["backend"] != "container"
+        or plan["backend"] not in {"container", "local"}
     ):
         raise PreparationError("plan: unsupported schema/backend")
     if not isinstance(plan["fingerprint"], str) or plan["fingerprint"] != _digest(
@@ -424,13 +438,19 @@ def validate_plan(plan: object) -> dict:
 
     template = execution_policy(Config())
     template["executor"]["command"] = asdict(ExecutorCommand())
+    if plan["backend"] == "local":
+        template.pop("container")
+        template["local"] = {
+            "settings": asdict(Config().local), "host": "", "account": "", "system": "",
+            "environment_sha256": "", "executable": "", "executable_sha256": "",
+        }
 
     def typed(value: object, example: object, field: str) -> None:
         """@brief Check closed policy types before accepting crash-state authority."""
         if type(value) is not type(example):
             raise PreparationError(f"plan.policy.{field}: invalid type")
         if isinstance(example, dict):
-            if field == "container.runtime_env":
+            if field in {"container.runtime_env", "local.settings.environment"}:
                 if any(not isinstance(k, str) or not isinstance(v, str) for k, v in value.items()):
                     raise PreparationError("plan.policy: invalid environment")
             elif field == "executor.command" and value == {}:
@@ -468,10 +488,17 @@ def validate_plan(plan: object) -> dict:
         plan["steps"]
         or plan["source"]
         or plan["source_sha256"]
-        or plan["image_source"] != "profile"
+        or plan["image_source"] != ("local" if plan["backend"] == "local" else "profile")
     ):
         raise PreparationError("plan: legacy source mismatch")
-    if not isinstance(plan["image"], str) or not _IMAGE.fullmatch(plan["image"]):
+    if plan["backend"] == "local":
+        local = plan["policy"]["local"]
+        if (plan["selection"] or plan["image"] or local["system"] not in {"Windows", "Linux"}
+                or not local["account"] or not local["executable"]
+                or any(not re.fullmatch(r"[0-9a-f]{64}", local[key])
+                       for key in ("host", "environment_sha256", "executable_sha256"))):
+            raise PreparationError("plan: invalid native local identity")
+    elif not isinstance(plan["image"], str) or not _IMAGE.fullmatch(plan["image"]):
         raise PreparationError("plan: invalid image")
     return plan
 

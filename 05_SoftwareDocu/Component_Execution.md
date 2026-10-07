@@ -59,10 +59,24 @@ injected; no real Git/container/model/forge acceptance runs in these tests.
 
 ## 10. Limitations And Future Work
 
-Only the container adapter is enabled. Local execution (#21) supplies backend-native
-transport; image building (#22) supplies separate verified image/build identity.
+Container and native local adapters are enabled. Image building (#22) remains a
+separate image/build identity capability.
 Recipes are the published subset, not general Actions compatibility. Interrupted
 setup needs operator inspection and explicit bounded replay, with retained
 worktree partial effects and no exactly-once guarantee.
 
 Preparation transport checks owned directory containment and linked parents before creating files, and checks result ownership before retaining evidence.
+
+## Native execution contract
+
+ExecutionBackend has ContainerBackend and LocalBackend implementations. Native targets use run_files and native worktree/IO paths. Container controls refuse native identities before any manager call; native controls verify pinned runtime/launch scope. Preparation remains container-only.
+
+See [Local execution](../01_Documentation/Local_Execution.md) and
+[Local execution component](Component_Local_Execution.md). Focused native proof:
+`04_Software/tests/test_local_execution.py`.
+
+Native AEGIS stdout preserves the established 4 MiB JSON exchange bound; gate
+stdout, stderr and questions remain bounded at 64 KiB. Native stream decoding
+rejects invalid UTF-8; truncated JSON cannot become successful AEGIS evidence.
+The shared drain retains container defaults. Saved local readiness checks reuse
+approved profile .env values in memory through the same native environment.

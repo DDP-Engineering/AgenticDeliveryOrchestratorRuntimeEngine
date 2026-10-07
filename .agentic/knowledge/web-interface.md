@@ -395,6 +395,12 @@ Python/Ruff and frontend validation. CLI summary/export semantics are preserved.
 
 ## Key behaviors
 
+- REQ-UX-b75e1df8: ProjectInput accepts execution_backend and local account/home/path/cgroup/native argv. Review/config show actual machine/account/system; metadata reports runtime=local. Reviewed candidates recheck pinned native plans. Host checks avoid container detection.
+
+Native control/auth route to local-execution.md. Focused proof:
+`04_Software/tests/test_local_execution.py`.
+
+
 - `REQ-UX-94a97e70`: Settings exposes closed execution selection/bounds, complete image/source/command review and revision-bound pending Apply. Direct execution writes require pending review. Host/model probes normalize image without setup; jobs project validated timestamp/exit/timeout/cancel evidence. Portable rule allowlists stay unchanged.
 
 - `REQ-DATA-5a620f4e` / `REQ-REL-6564a3b2` / `REQ-FUNC-83da8d95` - composite measured job consumption, strict sources and server-selected analytical samples.
@@ -613,6 +619,9 @@ for Add and Import project. Primary buttons take their text colour from the
 `--on-accent` theme token.
 
 ## Files
+
+- `04_Software/tests/test_local_execution.py`: native integration/negative proof.
+
 
 - `adore/web/audit.py`, `web/src/AuditHistory.tsx`, `auditCopy.ts`,
   `tests/test_web_audit_evidence.py` and `web/e2e/audit.spec.ts` own closed structured

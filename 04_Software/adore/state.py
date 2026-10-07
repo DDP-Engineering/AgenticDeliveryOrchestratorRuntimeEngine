@@ -240,6 +240,21 @@ def validate_execution_record(record: object) -> None:
         if set(record) != keys:
             raise ValueError("closed structure")
         validate_plan(record["plan"])
+        if record["plan"]["backend"] == "local":
+            from adore.local_execution import validate_local_resource
+            from adore.local_process import LocalExecutionError
+
+            if (record["status"] != "not-required" or type(record["attempts"]) is not int
+                    or record["attempts"] != 0 or record["steps"] != []
+                    or record["history"] != [] or record["reprepare"] is not False
+                    or not isinstance(record["resource"], dict)):
+                raise ValueError("local preparation evidence is unsupported")
+            if record["resource"]:
+                try:
+                    validate_local_resource(record["resource"])
+                except LocalExecutionError as exc:
+                    raise ValueError("local resource identity") from exc
+            return
         if (
             record["status"]
             not in {

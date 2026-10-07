@@ -10,22 +10,13 @@
 """
 @file launcher.py
 @brief Configurable executor launchers (opencode / pi / codex / qwen) and factory.
-@details Runs the configured executor headless inside the run's container, one
-         gate per launch, over a shared file-based gate protocol
-         (FileProtocolExecutor): the gate command (with the shell-quoted prompt
-         embedded) is written to a script in the run's io dir and executed as
-         `sh /adore/io/gate.sh` - so no prompt content ever travels through argv
-         (wsl.exe splits argv elements containing spaces) and the event stream
-         is captured to a file, never streamed from stdout. Every launch is a
-         FRESH executor session: the durable AEGIS journal is the resume
-         authority, so nothing is continued and no session id is tracked.
-         Executors differ only in how they parse their own JSON event stream
-         for token usage; everything else - the WSL-safe protocol,
-         clarification-questions detection, and per-launch archiving - is
-         shared. Supported executors read the repo's AGENTS.md gate
-         contract natively and get their push/merge guardrails from the repo's
-         adapter plus container isolation (no remote credentials in the
-         container).
+@details Runs a fresh gate through a bound backend and shared file protocol.
+         Containers execute a WSL-safe shell script; native targets receive
+         argv with substitutions applied after tokenization. Both retain
+         bounded output, questions, usage and immutable invocation archives.
+         The durable AEGIS journal is the sole session-resume authority.
+         Native worktrees rely on the selected account's host permissions;
+         container profiles retain their existing isolation contract.
 """
 
 from __future__ import annotations
@@ -133,10 +124,10 @@ class FileProtocolExecutor(Executor):
                     no session to continue and no dead-session relaunch: the
                     conductor re-sends everything a stage needs in its prompt,
                     and the durable AEGIS journal is the resume authority.
-        @param[in]  execute Exec seam bound to the run's container.
+        @param[in]  execute Command/file seam bound to the run target.
         @param[in]  worktree HOST path of the run's worktree.
         @param[in]  io_dir HOST path of the run's io exchange dir.
-        @param[in]  prompt Gate instruction (never enters argv).
+        @param[in]  prompt Gate instruction (native argv or container script).
         @param[in]  timeout Wall-clock bound (run budgets).
         @param[in]  archive_stem Optional immutable archive name stem.
         @return     A GateRun describing the outcome.
@@ -163,6 +154,7 @@ class FileProtocolExecutor(Executor):
         stderr_path.unlink(missing_ok=True)
 
         paths = getattr(execute, "paths", ExecutionPaths())
+        native = getattr(execute, "run_files", None)
         command = self._build_command(
             prompt=shlex.quote(prompt),
             model=shlex.quote(self.model),
@@ -181,11 +173,25 @@ class FileProtocolExecutor(Executor):
             f"> {shlex.quote(paths.io + '/' + OUTPUT_FILE)} "
             f"2> {shlex.quote(paths.io + '/' + STDERR_FILE)}\n"
         )
+        if native is not None:
+            from adore.local_execution import local_argv
+
+            argv = local_argv(self.command_template, prompt=prompt,
+                              model=self.model, worktree=paths.worktree)
+            script = SHELL_HEADER + "# Native argv launch; no shell is executed.\n"
+            redact = getattr(execute, "redact", lambda text: text)
+            script += "# argv: " + redact(json.dumps(argv, ensure_ascii=True)) + "\n"
         with (io_dir / GATE_SCRIPT).open("w", encoding="utf-8", newline="\n") as handle:
             handle.write(script)
 
-        result = execute([paths.shell, f"{paths.io}/{GATE_SCRIPT}"], timeout=timeout)
+        result = (
+            native(argv, output_path, stderr_path, timeout=timeout)
+            if native is not None
+            else execute([paths.shell, f"{paths.io}/{GATE_SCRIPT}"], timeout=timeout)
+        )
 
+        if native is not None and hasattr(execute, "read_output"):
+            execute.read_output(questions_path, optional=True)
         output = self._read(output_path)
         stderr = self._read(stderr_path) or result.stderr
         artifacts: list[str] = []
@@ -212,6 +218,8 @@ class FileProtocolExecutor(Executor):
                 )
             artifacts.append(str(archive_dir))
         questions = self._read(questions_path)
+        if native is not None:
+            questions = getattr(execute, "redact", lambda text: text)(questions)
         tokens_in, tokens_out, cost, cache_read, cache_write = (
             self._extract_usage_detail(output))
         return GateRun(

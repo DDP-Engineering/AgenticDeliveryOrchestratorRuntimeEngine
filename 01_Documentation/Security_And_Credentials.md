@@ -223,3 +223,10 @@ Admin Project → Executor configuration → Provider credentials edits approved
 ## Container preparation
 
 Preparation recipes are explicitly acknowledged executable project input and immutable review evidence. Keep secret values in existing allowlisted credential variables, not source text. Setup uses existing egress and executor credentials; no forge credentials are injected. Known secret values are redacted from bounded retained streams. Read-only host/model checks never execute recipes. See [Container preparation](Container_Preparation.md).
+
+## Native local execution
+
+Local worktrees are not host sandboxes. Use a dedicated least-privilege account. Installed auth is reused in place; provider values stay in protected .env/memory. Account filesystem/credential-helper access remains available to project commands.
+
+See [Local execution](Local_Execution.md) for platform prerequisites, configuration,
+authentication, process ownership and acceptance coverage.

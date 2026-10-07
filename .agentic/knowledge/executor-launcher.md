@@ -19,7 +19,7 @@ session handling and usage/cost telemetry. Start at
 ## Purpose and boundaries
 
 `04_Software/adore/executor/` launches one bounded executor gate inside an
-already-provisioned container. It is an executor-neutral transport and result
+already-provisioned container or native target. It is an executor-neutral transport and result
 collector; the orchestrator decides which stage to run and what an outcome
 means.
 
@@ -27,7 +27,7 @@ means.
 
 - `build_executor(kind, command_template, model, questions_file)` selects the
   `opencode`, `pi`, `codex`, or `qwen` implementation.
-- `FileProtocolExecutor.run_gate(...)` accepts an injected container-exec seam,
+- `FileProtocolExecutor.run_gate(...)` accepts an injected backend command seam,
   worktree/io paths, prompt, timeout, optional session, and archive stem; it
   returns a typed `GateRun`.
 - `GateRun` reports exit status, typed `timed_out`, questions, bounded output,
@@ -57,6 +57,12 @@ so the launcher leaves billed cost unavailable for administrator price rules.
 
 ## Key behaviors
 
+- REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: Native run_files receives argv tokenized before prompt replacement, preserving fresh sessions, questions, usage and archives. gate.sh is a legal-header native launch description. Native files are contained bounded UTF-8 and redacted before retention, including the conductor questions file.
+
+Native ownership/auth route to `local-execution.md`; focused proof is
+`04_Software/tests/test_local_execution.py`.
+
+
 - `REQ-FUNC-e397f7f6`: Bound targets supply shell/worktree/IO paths and verified resource identity; plain injected callables retain the container defaults. Prompts/scripts remain file transported and quoted.
 
 - `REQ-FUNC-59ccdb74` - WSL-safe file transport and typed timeout propagation.
@@ -81,6 +87,9 @@ The file protocol decouples prompts and results from host/container argument
 quoting; the caller owns stage policy.
 
 ## Files
+
+- `04_Software/tests/test_local_execution.py`: native integration/negative proof.
+
 
 - `04_Software/adore/executor/base.py` - typed gate result and common helpers.
 - `04_Software/adore/executor/launcher.py` - file protocol and parsers.

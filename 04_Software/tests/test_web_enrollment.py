@@ -165,6 +165,9 @@ def test_draft_probe_reports_partial_and_honors_selected_gitea_login(tmp_path):
     def fake(argv, **kwargs):
         calls.append(argv)
         assert 0 < kwargs["timeout"] <= 8
+        if argv[:2] == ["tea", "api"]:
+            return CommandResult(argv=argv, stdout='{"login":"fixture"}',
+                                 stderr="HTTP/1.1 200 OK")
         return CommandResult(argv=argv, exit_code=0, stdout="fixture-1.0")
 
     body = _body(tmp_path)
@@ -182,7 +185,7 @@ def test_draft_probe_reports_partial_and_honors_selected_gitea_login(tmp_path):
         assert result.json()["status"] == "partial"
         assert result.json()["checks"]["git"]
         assert result.json()["checks"]["model_endpoint"] == "not-checked"
-        assert ["tea", "whoami", "--login", "ddp"] in calls
+        assert ["tea", "api", "-i", "--method", "GET", "--login", "ddp", "user"] in calls
         assert not app.state.profiles.profile_dir("alpha").exists()
 
 

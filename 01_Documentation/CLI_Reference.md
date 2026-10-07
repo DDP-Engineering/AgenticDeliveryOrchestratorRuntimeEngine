@@ -141,3 +141,10 @@ same launch. Rebuild validates all terminal runs before refreshing summaries.
 ## Container preparation
 
 Use `adore --profile <name> config plan` to review the effective image and exact preparation commands without executing them. Select through `config set execution.preparation <path.yml#job@full-commit>`. After inspecting a failed setup, `retry <run-id> --reprepare` explicitly replays every step in a fresh owned container with retained worktree, within the configured attempt cap. See [Container preparation](Container_Preparation.md).
+
+## Native local execution
+
+config validate checks local profiles; config plan reviews pinned native policy without project commands. Existing run/retry/cancel/handoff/cleanup commands keep verified conductor ownership.
+
+See [Local execution](Local_Execution.md) for platform prerequisites, configuration,
+authentication, process ownership and acceptance coverage.

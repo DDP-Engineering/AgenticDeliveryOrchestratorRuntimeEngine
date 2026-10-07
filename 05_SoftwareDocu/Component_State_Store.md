@@ -75,3 +75,11 @@ unknown-lock fail-closed behavior, pause and cleanup support.
 ## Preparation evidence
 
 Schema 1 accepts an optional closed `execution` record. Legacy absent/empty records load without claiming recipe success. Plan/policy fingerprints, actual IDs, sequential outcomes, bounded attempt/history records and complete success are validated on load. State JSON rejects duplicate/non-finite fields. Corruption raises `StateError`. Plan and step artifacts are immutable and checked by the conductor on reuse. See `tests/test_state.py` and `tests/test_preparation_lifecycle.py`.
+
+## Native execution contract
+
+Schema-1 execution state accepts the closed native resource with not-required status, zero attempts and empty preparation evidence. PIDs/scopes remain separate authoritative control records. Corrupt/unknown native fields fail closed; legacy container records keep compatibility.
+
+See [Local execution](../01_Documentation/Local_Execution.md) and
+[Local execution component](Component_Local_Execution.md). Focused native proof:
+`04_Software/tests/test_local_execution.py`.

@@ -30,6 +30,12 @@ worktree effects and prior attempt receipts. No publication or merging authority
 
 ## Key behaviors
 
+- REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: ExecutionBackend has ContainerBackend and LocalBackend implementations. Native targets use run_files and native worktree/IO paths. Container controls refuse native identities before any manager call; native controls verify pinned runtime/launch scope. Preparation remains container-only.
+
+Native ownership/auth route to `local-execution.md`; focused proof is
+`04_Software/tests/test_local_execution.py`.
+
+
 - `REQ-FUNC-e2b539d4`: immutable exact-source reviewed image/command plan.
 - `REQ-FUNC-e5419c07`: bounded same-container setup before AEGIS/AI.
 - `REQ-REL-d8fd134e`: fail-closed pinned recovery and explicit capped replay.
@@ -44,6 +50,8 @@ flowchart LR
     Plan --> Conductor([Orchestrator])
     Conductor --> Backend[ContainerBackend]
     Backend --> Runtime([ContainerManager])
+    Conductor --> Native[LocalBackend]
+    Native --> Owned([Native process scopes and file target])
     Conductor --> Evidence[(StateStore and immutable receipts)]
     Backend --> Bound[BoundTarget]
     Bound --> Runner[preparation_runner]
@@ -54,6 +62,9 @@ Conductor → ContainerBackend → ContainerManager. BoundTarget → preparation
 
 ## Files
 
+- `04_Software/tests/test_local_execution.py`: native integration/negative proof.
+
+
 - `04_Software/adore/execution.py`: public component and contracts.
 - `04_Software/adore/preparation_runner.py`: standalone bounded step runner.
 - `04_Software/tests/test_execution.py` and `04_Software/tests/test_preparation_lifecycle.py`: injected contract proof.
@@ -61,3 +72,9 @@ Conductor → ContainerBackend → ContainerManager. BoundTarget → preparation
 - `01_Documentation/Container_Preparation.md`: operator contract.
 
 Preparation transport checks owned directory containment and linked parents before creating files, and checks result ownership before retaining evidence.
+
+Native AEGIS stdout preserves the established 4 MiB JSON exchange bound; gate
+stdout, stderr and questions remain bounded at 64 KiB. Native stream decoding
+rejects invalid UTF-8; truncated JSON cannot become successful AEGIS evidence.
+The shared drain retains container defaults. Saved local readiness checks reuse
+approved profile .env values in memory through the same native environment.

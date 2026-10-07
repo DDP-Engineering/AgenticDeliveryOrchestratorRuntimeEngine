@@ -519,11 +519,15 @@ def run_wizard(
     ), asker, out)
 
     # -- Phase F (runtime & executor) ---------------------------------------------
+    execution_backend = ask(FieldSpec(
+        "execution_backend", "Execution backend:",
+        "container or installed local CLI on the ADORE machine/current account",
+        default="container", choices=("container", "local")), asker, out)
     suggested = "docker"
-    if not prepare_only:
+    if not prepare_only and execution_backend == "container":
         runtimes = doctor.detect_runtimes(runner, os_key=key)
         suggested = _suggest_runtime(key, runtimes)
-    runtime = ask(FieldSpec(
+    runtime = "docker" if execution_backend == "local" else ask(FieldSpec(
         "runtime", "Container runtime:",
         "docker/podman, optionally wrapped for Docker/podman inside WSL2",
         'docker  |  podman  |  wsl -d Ubuntu-24.04 -- docker',
@@ -533,7 +537,7 @@ def run_wizard(
     if runtime.split()[-1] == "podman":
         run_args = ["--userns=keep-id"]
         out("  note: rootless podman -> adding run_args = [\"--userns=keep-id\"].")
-    image = ask(FieldSpec(
+    image = EXECUTOR_BASE_IMAGE if execution_backend == "local" else ask(FieldSpec(
         "image", "Executor image name:",
         "base image for executor-only validation, or a runtime-project image",
         f"{EXECUTOR_BASE_IMAGE}  |  adore-executor-project:latest",
@@ -545,6 +549,13 @@ def run_wizard(
         "push/merge guardrails from the repo adapter)", "opencode",
         default="opencode", choices=_KNOWN_EXECUTORS,
     ), asker, out)
+    executor_command = _command_for(executor_cli)
+    if execution_backend == "local":
+        executor_command = ask(FieldSpec(
+            "executor_command", "Installed native executor argv:",
+            "Quoted native executable paths; Windows npm CLIs use explicit node.exe and "
+            "an absolute installed JavaScript entrypoint. No shell wrappers or compounds.",
+            default=executor_command, validate=_require), asker, out)
     model = ask(FieldSpec(
         "model", "Model id (provider/model):",
         "the executor's model", _DEFAULT_MODEL, default=_DEFAULT_MODEL,
@@ -554,13 +565,29 @@ def run_wizard(
         "auth_mode", "Executor auth mode:",
         "api-key sets a provider key in .env (production); host-auth bridges a "
         "local OpenCode/Codex OAuth session (pilot only)",
-        "api-key", default="api-key", choices=("api-key", "host-auth"),
+        "api-key", default="existing" if execution_backend == "local" else "api-key",
+        choices=("api-key", "existing") if execution_backend == "local"
+        else ("api-key", "host-auth"),
         validate=lambda value: (
             "host-auth is supported only for opencode or codex"
             if value == "host-auth" and executor_cli not in ("opencode", "codex")
             else None
         ),
     ), asker, out)
+    local_settings = {}
+    if execution_backend == "local":
+        from adore.local_process import native_context
+
+        context = native_context()
+        out(f"Local execution machine: {context['machine']}; account: {context['account']}. "
+            "You independently choose/install/prep project tools, versions, SDKs "
+            "and libraries there. "
+            "A worktree is not a host sandbox; use a dedicated account without forge credentials.")
+        for field in ("account", "home", "path", "cgroup_root"):
+            local_settings[field] = ask(FieldSpec(
+                "local_" + field, "Local " + field + ":",
+                "Current account only; existing home/PATH. Linux requires delegated cgroup v2.",
+                default="current" if field == "account" else ""), asker, out)
 
     # -- Phase F2 (workflow labels) -----------------------------------------------
     ready_label = ask(FieldSpec(
@@ -663,7 +690,7 @@ def run_wizard(
         agent_name=agent_name, kind=kind, repo=repo, login=login, store_root=store_root,
         repo_path=repo_path, worktree_root=worktree_root, branch_template=branch_template,
         branch_rule=branch_rule, runtime=runtime, run_args=run_args, image=image,
-        executor_cli=executor_cli, command=_command_for(executor_cli), model=model,
+        executor_cli=executor_cli, command=executor_command, model=model,
         auth_mode=auth_mode, target_branch=target_branch, reviewers=reviewers,
         approval_label=approval_label,
         budgets=budgets, budgets_choice=budgets_choice, polling_mode=polling_mode,
@@ -673,6 +700,9 @@ def run_wizard(
         ready_label=ready_label, fix_label=fix_label, change_label=change_label,
         quick_label=quick_label,
     )
+    if execution_backend == "local":
+        sections = [(name, values) for name, values in sections if name != "container"]
+        sections.extend([("execution", {"backend": "local"}), ("local", local_settings)])
 
     # -- Phase I (summary, validate, save) ----------------------------------------
     _print_summary(out, name, sections)
@@ -690,7 +720,7 @@ def run_wizard(
     if prepare_only:
         return WizardSetup(name, document, {
             "description": description, "platform": kind, "repo": repo,
-            "runtime": runtime, "host_os": key,
+            "runtime": "local" if execution_backend == "local" else runtime, "host_os": key,
             "config_path": str(store.config_path(name)), "store_root": store_root,
         })
 
@@ -699,10 +729,12 @@ def run_wizard(
     config_path.write_text(document, encoding="utf-8")
     profile = store.create(
         name, overwrite=force, description=description, platform=kind,
-        repo=repo, runtime=runtime, host_os=key, config_path=str(config_path),
+        repo=repo, runtime="local" if execution_backend == "local" else runtime,
+        host_os=key, config_path=str(config_path),
         store_root=store_root,
     )
-    _print_next_steps(out, name, kind, auth_mode, model, runtime, image)
+    if execution_backend == "container":
+        _print_next_steps(out, name, kind, auth_mode, model, runtime, image)
     return profile
 
 
@@ -856,6 +888,8 @@ def _assemble_sections(**a: object) -> list[tuple[str, dict[str, object]]]:
         executor["default"] = a["executor_cli"]
     if a["auth_mode"] == "host-auth":
         executor["stage_host_auth"] = True
+    elif a["auth_mode"] == "existing":
+        executor["env_keys"] = []
     else:
         executor["env_keys"] = _env_keys_for_model(str(a["model"]))
     if executor:

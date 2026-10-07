@@ -5,6 +5,7 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
 import type { Locale } from "./i18n";
+import { localCopy, localSettingHelp } from "./localExecution.ts";
 
 /**
  * Help text for every project setting, keyed by the setting catalog
@@ -14,7 +15,8 @@ import type { Locale } from "./i18n";
  */
 export const SETTING_HELP: Record<Locale, Record<string, string>> = {
   en: {
-    "execution.backend": "Execution backend. Only container is supported.",
+    ...localSettingHelp.en,
+    "execution.backend": "container / local. " + localCopy.en.notice,
     "execution.preparation": "Reviewed tracked recipe: relative.yml#job@full Git commit. Empty disables setup. Review commands before applying; stale sources fail closed.",
     "execution.preparation_step_timeout_seconds": "Maximum preparation step time, seconds: 1–1800. Remaining job and setup budgets also apply.",
     "execution.preparation_total_timeout_seconds": "Maximum preparation attempt time, seconds: 1–3600. Exceeding this limit prevents agent startup.",
@@ -57,9 +59,9 @@ export const SETTING_HELP: Record<Locale, Record<string, string>> = {
     "delivery.reviewers": "Forge user names requested as reviewers on the draft merge request; at least one is required.",
     "delivery.target_branch": "Branch the draft merge request targets; new run branches start from it.",
     "executor.commands": "Per-executor command tables (executor.<name> with command and model). The selected executor needs one; this project defines none.",
-    "executor.commands.*.command": "Command line that starts this executor for one stage. It must run without interaction and contain {prompt}; ADORE fills in {worktree}, {model} and {prompt}, and {resume} for Codex.",
+    "executor.commands.*.command": "Command line that starts this executor for one stage. It must run without interaction and contain {prompt}; ADORE fills in {worktree}, {model} and {prompt}. Each gate starts fresh; {resume} is empty. Local profiles use installed native argv.",
     "executor.commands.*.model": "Model this executor uses, written the executor's way (provider/model for OpenCode). ADORE puts it into {model} in the command.",
-    "executor.default": "Executor used for new jobs: opencode, pi, codex or qwen. It needs a command table (executor.<name>) and must be installed in the project's image.",
+    "executor.default": "Executor used for new jobs: opencode, pi, codex or qwen. It needs a command table (executor.<name>) and must be installed in the selected container image or local account.",
     "executor.env_keys": "Names of model-provider variables, such as API keys, copied from the ADORE host into the executor container. Only these names reach it; forge token names are refused.",
     "executor.mode": "Reserved: thick or headless are accepted, but ADORE always uses thick executor sessions.",
     "executor.questions_file": "File the executor writes in the worktree to ask a person a question, which parks the run. Empty means <SLUG>_QUESTIONS.md.",
@@ -124,7 +126,8 @@ export const SETTING_HELP: Record<Locale, Record<string, string>> = {
     "worktree.root": "Folder that holds one worktree per run (<root>/<run ID>). Use an absolute path; a relative one is resolved from the folder ADORE runs in.",
   },
   fr: {
-    "execution.backend": "Environnement d’exécution. Seul container est pris en charge.",
+    ...localSettingHelp.fr,
+    "execution.backend": "container / local. " + localCopy.fr.notice,
     "execution.preparation": "Recette examinée : chemin.yml#job@commit Git complet. Vide désactive la préparation. Examinez les commandes ; les sources périmées sont refusées.",
     "execution.preparation_step_timeout_seconds": "Durée maximale par étape, secondes : 1–1800. Les budgets restants s’appliquent aussi.",
     "execution.preparation_total_timeout_seconds": "Durée maximale par tentative, secondes : 1–3600. Son dépassement empêche le démarrage de l’agent.",
@@ -167,9 +170,9 @@ export const SETTING_HELP: Record<Locale, Record<string, string>> = {
     "delivery.reviewers": "Noms d'utilisateurs de la forge demandés comme relecteurs sur la MR/PR brouillon ; au moins un est obligatoire.",
     "delivery.target_branch": "Branche visée par la MR/PR brouillon ; les nouvelles branches d'exécution en partent.",
     "executor.commands": "Tables de commande par exécuteur (executor.<nom> avec command et model). L'exécuteur choisi en a besoin d'une ; ce projet n'en définit aucune.",
-    "executor.commands.*.command": "Ligne de commande qui lance cet exécuteur pour une étape. Elle doit fonctionner sans interaction et contenir {prompt} ; ADORE remplit {worktree}, {model} et {prompt}, ainsi que {resume} pour Codex.",
+    "executor.commands.*.command": "Ligne de commande qui lance cet exécuteur pour une étape. Elle doit fonctionner sans interaction et contenir {prompt} ; ADORE remplit {worktree}, {model} et {prompt}. Chaque étape démarre à neuf ; {resume} est vide. Le mode local utilise des arguments natifs.",
     "executor.commands.*.model": "Modèle utilisé par cet exécuteur, écrit à sa manière (fournisseur/modèle pour OpenCode). ADORE l'insère dans {model} de la commande.",
-    "executor.default": "Exécuteur utilisé pour les nouvelles tâches : opencode, pi, codex ou qwen. Il lui faut une table de commande (executor.<nom>) et il doit être installé dans l'image du projet.",
+    "executor.default": "Exécuteur utilisé pour les nouvelles tâches : opencode, pi, codex ou qwen. Il lui faut une table de commande (executor.<nom>) et il doit être installé dans l'image choisie ou le compte local.",
     "executor.env_keys": "Noms des variables du fournisseur de modèles, comme les clés d'API, copiées de l'hôte ADORE vers le conteneur d'exécution. Seuls ces noms y arrivent ; les noms de jetons de forge sont refusés.",
     "executor.mode": "Réservé : thick ou headless sont acceptés, mais ADORE utilise toujours des sessions d'exécuteur thick.",
     "executor.questions_file": "Fichier que l'exécuteur écrit dans l'arbre de travail pour poser une question à une personne, ce qui met l'exécution en attente. Vide signifie <SLUG>_QUESTIONS.md.",
@@ -234,7 +237,8 @@ export const SETTING_HELP: Record<Locale, Record<string, string>> = {
     "worktree.root": "Dossier qui contient un arbre de travail par exécution (<root>/<identifiant d'exécution>). Utilisez un chemin absolu ; un chemin relatif part du dossier où ADORE s'exécute.",
   },
   de: {
-    "execution.backend": "Ausführungsumgebung. Nur container wird unterstützt.",
+    ...localSettingHelp.de,
+    "execution.backend": "container / local. " + localCopy.de.notice,
     "execution.preparation": "Geprüftes Rezept: relativ.yml#Job@vollständiger Git-Commit. Leer deaktiviert die Vorbereitung. Prüfen Sie alle Befehle; veraltete Quellen werden abgelehnt.",
     "execution.preparation_step_timeout_seconds": "Maximale Schrittdauer in Sekunden: 1–1800. Verbleibende Job- und Vorbereitungsbudgets gelten ebenfalls.",
     "execution.preparation_total_timeout_seconds": "Maximale Versuchsdauer in Sekunden: 1–3600. Eine Überschreitung verhindert den Agentstart.",
@@ -277,9 +281,9 @@ export const SETTING_HELP: Record<Locale, Record<string, string>> = {
     "delivery.reviewers": "Forge-Benutzernamen, die als Reviewer für den Entwurf MR/PR angefragt werden; mindestens einer ist erforderlich.",
     "delivery.target_branch": "Ziel-Branch des Entwurfs MR/PR; neue Lauf-Branches starten von ihm.",
     "executor.commands": "Befehlstabellen je Executor (executor.<Name> mit command und model). Der gewählte Executor braucht eine; dieses Projekt definiert keine.",
-    "executor.commands.*.command": "Befehlszeile, die diesen Executor für eine Phase startet. Sie muss ohne Interaktion laufen und {prompt} enthalten; ADORE füllt {worktree}, {model} und {prompt} ein, bei Codex auch {resume}.",
+    "executor.commands.*.command": "Befehlszeile, die diesen Executor für eine Phase startet. Sie muss ohne Interaktion laufen und {prompt} enthalten; ADORE füllt {worktree}, {model} und {prompt} ein. Jede Phase startet neu; {resume} bleibt leer. Lokal wird installiertes natives argv verwendet.",
     "executor.commands.*.model": "Modell dieses Executors in dessen Schreibweise (Anbieter/Modell bei OpenCode). ADORE setzt es für {model} in den Befehl ein.",
-    "executor.default": "Executor für neue Aufträge: opencode, pi, codex oder qwen. Er braucht eine Befehlstabelle (executor.<Name>) und muss im Projekt-Image installiert sein.",
+    "executor.default": "Executor für neue Aufträge: opencode, pi, codex oder qwen. Er braucht eine Befehlstabelle (executor.<Name>) und muss im gewählten Image oder lokalen Konto installiert sein.",
     "executor.env_keys": "Namen von Variablen des Modellanbieters, etwa API-Schlüssel, die vom ADORE-Host in den Executor-Container kopiert werden. Nur diese Namen gelangen hinein; Namen von Forge-Tokens werden abgelehnt.",
     "executor.mode": "Reserviert: thick oder headless werden angenommen, aber ADORE nutzt immer thick-Executor-Sitzungen.",
     "executor.questions_file": "Datei, die der Executor im Worktree schreibt, um einer Person eine Frage zu stellen; dadurch wird der Lauf geparkt. Leer bedeutet <SLUG>_QUESTIONS.md.",
@@ -344,7 +348,8 @@ export const SETTING_HELP: Record<Locale, Record<string, string>> = {
     "worktree.root": "Ordner mit einem Worktree je Lauf (<root>/<Lauf-ID>). Einen absoluten Pfad verwenden; ein relativer gilt ab dem Ordner, in dem ADORE läuft.",
   },
   ro: {
-    "execution.backend": "Mediu de execuție. Numai container este acceptat.",
+    ...localSettingHelp.ro,
+    "execution.backend": "container / local. " + localCopy.ro.notice,
     "execution.preparation": "Rețetă revizuită: relativ.yml#job@commit Git complet. Valoarea goală dezactivează pregătirea. Revizuiți comenzile; sursele expirate sunt respinse.",
     "execution.preparation_step_timeout_seconds": "Durata maximă per pas, secunde: 1–1800. Se aplică și bugetele rămase ale jobului și pregătirii.",
     "execution.preparation_total_timeout_seconds": "Durata maximă per încercare, secunde: 1–3600. Depășirea împiedică pornirea agentului.",
@@ -387,9 +392,9 @@ export const SETTING_HELP: Record<Locale, Record<string, string>> = {
     "delivery.reviewers": "Numele de utilizator de pe forge solicitate ca recenzenți pentru MR/PR ciornă; este necesar cel puțin unul.",
     "delivery.target_branch": "Ramura țintă a MR/PR ciornă; ramurile noilor rulări pornesc din ea.",
     "executor.commands": "Tabele de comandă per executor (executor.<nume> cu command și model). Executorul ales are nevoie de una; acest proiect nu definește niciuna.",
-    "executor.commands.*.command": "Linia de comandă care pornește acest executor pentru o etapă. Trebuie să ruleze fără interacțiune și să conțină {prompt}; ADORE completează {worktree}, {model} și {prompt}, iar pentru Codex și {resume}.",
+    "executor.commands.*.command": "Linia de comandă care pornește acest executor pentru o etapă. Trebuie să ruleze fără interacțiune și să conțină {prompt}; ADORE completează {worktree}, {model} și {prompt}. Fiecare etapă pornește o sesiune nouă; {resume} este gol. Modul local folosește argumente native.",
     "executor.commands.*.model": "Modelul folosit de acest executor, scris în stilul lui (furnizor/model pentru OpenCode). ADORE îl pune în {model} din comandă.",
-    "executor.default": "Executorul folosit pentru lucrări noi: opencode, pi, codex sau qwen. Are nevoie de o tabelă de comandă (executor.<nume>) și trebuie instalat în imaginea proiectului.",
+    "executor.default": "Executorul folosit pentru lucrări noi: opencode, pi, codex sau qwen. Are nevoie de o tabelă de comandă (executor.<nume>) și trebuie instalat în imaginea selectată sau contul local.",
     "executor.env_keys": "Numele variabilelor furnizorului de modele, cum ar fi cheile API, copiate de pe gazda ADORE în containerul executorului. Doar aceste nume ajung acolo; numele tokenurilor de forge sunt refuzate.",
     "executor.mode": "Rezervat: thick sau headless sunt acceptate, dar ADORE folosește întotdeauna sesiuni de executor thick.",
     "executor.questions_file": "Fișierul pe care executorul îl scrie în arborele de lucru pentru a pune o întrebare unei persoane, ceea ce oprește rularea. Gol înseamnă <SLUG>_QUESTIONS.md.",

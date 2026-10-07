@@ -79,3 +79,11 @@ four locales and keyboard/390px themes. Live acceptance remains human work.
 The conservative format omits all credential/endpoint references, arbitrary
 free-text policies and host-bound configuration. Consumers require exact installed
 source version; no migration, enrollment write or import UI is provided here.
+
+## Native execution contract
+
+Portable working rules retain their allowlist and exclude backend, local account/home/PATH/environment/cgroup and runtime identity. local.environment is a recognized named string map for metadata, not a transferable working rule.
+
+See [Local execution](../01_Documentation/Local_Execution.md) and
+[Local execution component](Component_Local_Execution.md). Focused native proof:
+`04_Software/tests/test_local_execution.py`.

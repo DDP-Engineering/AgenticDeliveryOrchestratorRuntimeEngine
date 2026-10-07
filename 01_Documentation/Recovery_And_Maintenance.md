@@ -162,3 +162,10 @@ lock. `logs` is read-only and remains available during conduction.
 ## Container preparation
 
 Recipe preparation failure/interruption is durable and never implicitly replayed. Inspect `execution-plan.json`, `state.json` execution fields, and `preparation/attempt-N/step-M.json`; ordinary retry retains the failure. `retry <run-id> --reprepare` explicitly acknowledges full replay in a fresh owned container with retained partial worktree effects. IDs, image, policy and immutable evidence must match on normal resume. See [Container preparation](Container_Preparation.md).
+
+## Native local execution
+
+Native recovery requires pinned backend/account/environment and intact runtime/lease/launch identity. Reused PIDs, drift, corruption or unconfirmed descendants refuse cleanup and preserve worktrees. Container profiles protect persisted native runs; restore the pinned profile.
+
+See [Local execution](Local_Execution.md) for platform prerequisites, configuration,
+authentication, process ownership and acceptance coverage.

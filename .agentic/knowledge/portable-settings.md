@@ -40,6 +40,12 @@ Limits remain bounded; unknown fields and incompatible sources fail closed.
 
 ## Key behaviors
 
+- REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: Portable working rules retain their allowlist and exclude backend, local account/home/PATH/environment/cgroup and runtime identity. local.environment is a recognized named string map for metadata, not a transferable working rule.
+
+Native ownership/auth route to `local-execution.md`; focused proof is
+`04_Software/tests/test_local_execution.py`.
+
+
 - `REQ-DATA-9528fad6`: deterministic complete portable roundtrip and strict errors.
 - `REQ-SEC-f96d80d4`: authoritative Admin export with no unauthorized metadata.
 - `REQ-UX-302fbce4`: localized explicit scoped preview and exact-byte download.
@@ -60,6 +66,9 @@ Both public boundaries validate complete inputs; no partial result or enrollment
 write occurs. Source release provenance uses `adore.__version__`.
 
 ## Files
+
+- `04_Software/tests/test_local_execution.py`: native integration/negative proof.
+
 
 - `04_Software/adore/portable_settings.py`
 - `04_Software/tests/test_portable_settings.py`

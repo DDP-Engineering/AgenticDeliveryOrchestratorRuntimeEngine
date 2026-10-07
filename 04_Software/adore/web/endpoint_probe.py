@@ -9,8 +9,9 @@
 # -----------------------------------------------------------------------------
 """
 @file endpoint_probe.py
-@brief Check a configured OpenAI-compatible model from an executor container.
-@details A disposable container uses the project's image and egress policy.
+@brief Check a configured compatible model through the selected execution backend.
+@details Native probes reuse the selected account/environment and owned scopes.
+         Container probes use the project's image and egress policy.
          The probe never falls back to an API-host connection or pulls images.
 """
 
@@ -86,13 +87,17 @@ def probe_endpoint(config, runner) -> dict[str, str | bool]:
     @exception IsolationError The runtime or cleanup fails.
     """
     result: dict[str, str | bool] = {
-        "context": "executor-container", "ready": False,
+        "context": ("executor-local" if config.execution.backend == "local"
+                    else "executor-container"),
+        "ready": False,
         "model": "", "reason": "not-configured",
     }
     if config.executor.default != "opencode":
         result["reason"] = "unsupported-executor"
         return result
-    url = config.container.runtime_env.get("OPENAI_BASE_URL", "")
+    settings = (config.local.environment if config.execution.backend == "local"
+                else config.container.runtime_env)
+    url = settings.get("OPENAI_BASE_URL", "")
     model = config.executor.commands["opencode"].model
     if not url:
         return result
@@ -104,7 +109,7 @@ def probe_endpoint(config, runner) -> dict[str, str | bool]:
     result["model"] = model
     auth_env = ""
     try:
-        inline = json.loads(config.container.runtime_env.get(
+        inline = json.loads(settings.get(
             "OPENCODE_CONFIG_CONTENT", "{}"))
         provider, separator, model_id = model.partition("/")
         entry = inline["provider"][provider]
@@ -125,6 +130,20 @@ def probe_endpoint(config, runner) -> dict[str, str | bool]:
             auth_env = match[1]
     except (KeyError, TypeError, ValueError, json.JSONDecodeError):
         result["reason"] = "invalid-provider-config"
+        return result
+    if config.execution.backend == "local":
+        from adore.local_execution import local_probe
+
+        with local_probe(config) as (_, target, _, _):
+            target.env.update(ADORE_PROBE_URL=url, ADORE_PROBE_MODEL=model.partition("/")[2],
+                              ADORE_PROBE_AUTH_ENV=auth_env)
+            checked = target([config.workflow.aegis_python, "-c", _PROBE], timeout=8)
+            reason = checked.stdout.strip().splitlines()[-1:] or ["probe-failed"]
+            result["reason"] = reason[0] if reason[0] in {
+                "ready", "credential-missing", "tool-stream-incompatible",
+                "redirect-rejected", "http-error", "endpoint-unreachable-or-incompatible",
+            } or re.fullmatch(r"http-[45]\d\d", reason[0]) else "probe-failed"
+            result["ready"] = checked.ok and result["reason"] == "ready"
         return result
     runtime = ContainerManager(
         config.container.runtime, config.container.image,

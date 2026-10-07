@@ -125,3 +125,10 @@ accessibility audit remain separate from offline automated verification.
 ## Container preparation
 
 Preparation selection, execution backend/bounds, recipe files, images, environment and credentials are outside portable rule packages. Configure/review them independently on the target host; the existing narrow rule allowlist remains unchanged.
+
+## Native local execution
+
+Backend, native account/home/PATH/environment/cgroup and runtime identity are excluded from portable working rules. Prepare each destination account independently.
+
+See [Local execution](Local_Execution.md) for platform prerequisites, configuration,
+authentication, process ownership and acceptance coverage.

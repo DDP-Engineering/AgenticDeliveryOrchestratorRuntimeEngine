@@ -53,7 +53,13 @@ does not refresh historical run timestamps.
 
 ## Key behaviors
 
-Profiles without recipes retain the existing recovery/profile-update contract and empty execution record; immutable preparation policy applies to recipe runs.
+- REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: The conductor selects the shared native backend and pins plan/resource, retaining the same AEGIS/executor/approval loop. Native provisioning skips images/setup/auth copies. Retry/parking preserve identity; local cleanup removes worktrees only after verified control. Container cleanup protects persisted native runs after backend drift.
+
+Native ownership/auth route to `local-execution.md`; focused proof is
+`04_Software/tests/test_local_execution.py`.
+
+
+Container profiles without recipes retain the existing recovery/profile-update contract and empty execution record; immutable preparation policy applies to recipe runs.
 
 - `REQ-FUNC-e5419c07`: Resolve/persist plan, pin base commit, bind identity, provision/check/stage auth, then execute bounded preparation before AEGIS/AI. Immutable receipts and policy/resource IDs guard resume; explicit replay recreates the owned container and retains worktree/history.
 
@@ -79,6 +85,8 @@ flowchart LR
     Plan --> conductor
     conductor --> Backend[ContainerBackend]
     Backend --> Runtime([ContainerManager])
+    conductor --> Native[LocalBackend]
+    Native --> Owned([Native process scopes and file target])
     Backend --> Target[BoundTarget paths and identity]
     conductor --> Preparation[Bounded file preparation runner]
     Preparation --> state
@@ -94,6 +102,9 @@ The conductor is the only stage owner; API requests do not conduct in the HTTP
 process.
 
 ## Files
+
+- `04_Software/tests/test_local_execution.py`: native integration/negative proof.
+
 
 - `04_Software/adore/orchestrator.py` - lifecycle and gate logic.
 - `04_Software/tests/test_orchestrator.py` - selection, recovery and delivery.

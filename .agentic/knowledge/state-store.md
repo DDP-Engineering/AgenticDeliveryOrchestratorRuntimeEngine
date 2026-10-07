@@ -43,6 +43,12 @@ the human-owned worktree remains protected from routine cleanup.
 
 ## Key behaviors
 
+- REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: Schema-1 execution state accepts the closed native resource with not-required status, zero attempts and empty preparation evidence. PIDs/scopes remain separate authoritative control records. Corrupt/unknown native fields fail closed; legacy container records keep compatibility.
+
+Native ownership/auth route to `local-execution.md`; focused proof is
+`04_Software/tests/test_local_execution.py`.
+
+
 - `REQ-REL-d8fd134e`: Optional closed `execution` schema-1 record validates plan/policy, resource IDs, attempts/history and complete ordered success. Legacy absent evidence does not claim preparation success; state JSON rejects duplicates/non-finite constants.
 
 - `REQ-FUNC-0bdb23d5` - schema-1 state corruption fails closed.
@@ -72,6 +78,9 @@ The durable store preserves recovery evidence and refuses corrupt or uncertain
 ownership instead of resetting it.
 
 ## Files
+
+- `04_Software/tests/test_local_execution.py`: native integration/negative proof.
+
 
 - `04_Software/adore/state.py`
 - `04_Software/tests/test_state.py`

@@ -67,3 +67,11 @@ and existing cross-platform configuration rules.
 ## Reviewed preparation settings
 
 `ExecutionConfig` is a closed `[execution]` table: container backend, optional exact Git selection, step/total timeout and attempt cap. Image may be empty only with preparation. Grammar/source validation belongs to `preparation.py`. Defaults preserve old profiles. See [Container preparation](../01_Documentation/Container_Preparation.md) and `tests/test_preparation.py`.
+
+## Native execution contract
+
+LocalConfig supplies account/home/path/environment/cgroup_root. Explicit execution.backend=local rejects recipes, restricted egress, staging and container-only options. Non-secret local maps reject managed/forge variables and literal inline provider credentials. Container remains the default.
+
+See [Local execution](../01_Documentation/Local_Execution.md) and
+[Local execution component](Component_Local_Execution.md). Focused native proof:
+`04_Software/tests/test_local_execution.py`.

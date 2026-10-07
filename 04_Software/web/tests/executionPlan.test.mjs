@@ -9,6 +9,15 @@ import assert from "node:assert/strict";
 import { validExecutionPlan, validPreparationEvidence, preparationCopy } from "../src/executionPlan.ts";
 import { validPendingConfig } from "../src/settings.ts";
 
+test("native local plans are closed and refuse container recipes/images", () => {
+  const native = { schema: 1, backend: "local", selection: "", image: "", image_source: "local",
+    source_sha256: "", fingerprint: "a".repeat(64), steps: [] };
+  assert.equal(validExecutionPlan(native), true);
+  for (const change of [{image: "image:latest"}, {selection: "recipe.yml#job@" + "a".repeat(40)},
+      {steps: [{name: "setup", run: "install"}]}, {image_source: "profile"}, {pid: 42}])
+    assert.equal(validExecutionPlan({...native, ...change}), false);
+});
+
 const plan = { schema: 1, backend: "container", selection: "prepare.yml#setup@" + "a".repeat(40), image: "project:1", image_source: "recipe", source_sha256: "b".repeat(64), fingerprint: "c".repeat(64), steps: [{ name: "Install", run: "uv sync --locked\nnpm ci" }] };
 const step = { index: 0, name: "Install", started_at: "2026-10-07T10:00:00Z", finished_at: "2026-10-07T10:00:02Z", exit_code: 0, timed_out: false, cancelled: false };
 const evidence = { status: "success", attempts: 1, image: "project:1", fingerprint: plan.fingerprint, steps: [step] };

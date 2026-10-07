@@ -84,7 +84,7 @@ export const PURPOSE_GROUPS = ["repository", "agent", "isolation", "rules", "lim
 export function settingPurpose(key: string): string {
   if (key.startsWith("labels.selection.") || key.startsWith("platform.") || key.startsWith("polling.")) return "repository";
   if (key.startsWith("executor.")) return "agent";
-  if (key.startsWith("container.") || key.startsWith("worktree.") || key.startsWith("execution.")) return "isolation";
+  if (key.startsWith("container.") || key.startsWith("worktree.") || key.startsWith("execution.") || key.startsWith("local.")) return "isolation";
   if (["delivery", "readiness", "workflow", "review", "labels"].includes(key.split(".")[0])) return "rules";
   if (["budgets", "recovery", "clarification", "reconcile"].includes(key.split(".")[0])) return "limits";
   if (key.startsWith("metrics.")) return "measurement";

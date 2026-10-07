@@ -498,6 +498,7 @@ class AegisClient:
         from adore.execution import SHELL_HEADER, ExecutionPaths
 
         paths = getattr(self.execute, "paths", ExecutionPaths())
+        native = getattr(self.execute, "run_files", None)
         script_path = self.io_dir / AEGIS_SCRIPT
         stdout_path = self.io_dir / AEGIS_STDOUT_FILE
         stderr_path = self.io_dir / AEGIS_STDERR_FILE
@@ -512,14 +513,17 @@ class AegisClient:
                 f"{quoted} > {shlex.quote(paths.io + '/' + AEGIS_STDOUT_FILE)} "
                 f"2> {shlex.quote(paths.io + '/' + AEGIS_STDERR_FILE)}\n"
             )
+            if native is not None:
+                script = SHELL_HEADER + "# Native AEGIS argv launch; no shell is executed.\n"
             with script_path.open("w", encoding="utf-8", newline="\n") as handle:
                 handle.write(script)
         except OSError as exc:
             raise AegisProtocolError(f"AEGIS exchange setup failed: {exc}") from exc
 
-        result = self.execute(
-            [paths.shell, f"{paths.io}/{AEGIS_SCRIPT}"],
-            timeout=timeout,
+        result = (
+            native(list(command), stdout_path, stderr_path, timeout=timeout)
+            if native is not None
+            else self.execute([paths.shell, f"{paths.io}/{AEGIS_SCRIPT}"], timeout=timeout)
         )
         if result.timed_out:
             return result

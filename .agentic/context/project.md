@@ -13,7 +13,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 ADORE, the Agentic Delivery Orchestrator & Runtime Engine, conducts
 AEGIS-governed repositories for a team. It selects opt-in GitHub, GitLab or
 Gitea tickets, runs one fresh executor session per AEGIS stage inside an
-isolated branch, worktree and container, verifies the candidate independently,
+isolated branch/worktree with container or native local execution, verifies the candidate independently,
 and publishes only a draft MR/PR after fresh human approval. It never merges.
 Its users are the operator who runs the conductor on a host, the reviewers who
 approve and merge on the forge, and the coding executors it launches:
@@ -201,3 +201,10 @@ Project Executor configuration owns agent/model settings and approved provider k
 ## Reviewed container preparation
 
 `adore/preparation.py` resolves closed exact-Git recipe plans and effective image authority; `adore/execution.py` supplies backend paths/environment, bound commands and owned container lifecycle. Preparation runs in the normal pinned worktree/container before AEGIS/AI, with bounded redacted immutable evidence and explicit capped replay. Optional recipe execution state in schema 1 verifies resource/image/policy identity on reuse. Profiles without recipes retain existing profile-update/recovery behavior and empty preparation records. CLI and GUI review the same plans; host/model probes never execute setup.
+
+## Native local execution
+
+LocalBackend and owned Windows Job/Linux delegated cgroup scopes share the existing
+conductor. Actual machine/account, non-secret environment and installed executable
+identity are pinned. Tools and auth remain operator-owned; worktrees are not host
+sandboxes. See knowledge/local-execution.md and 01_Documentation/Local_Execution.md.

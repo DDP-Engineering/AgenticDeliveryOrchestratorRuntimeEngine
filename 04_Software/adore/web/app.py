@@ -93,10 +93,10 @@ _SETTING_KEY_RE = re.compile(r"[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+")
 # Configuration sections whose single values the web may edit.
 _EDITABLE_SECTIONS = frozenset({
     "agent", "platform", "polling", "readiness", "executor",
-    "container", "execution", "worktree", "workflow", "recovery", "budgets",
+    "container", "execution", "local", "worktree", "workflow", "recovery", "budgets",
     "delivery", "review", "reconcile", "metrics", "labels",
 })
-# Exact documented/tested launch templates; GUI edits never accept shell text.
+# Container presets; local profiles accept validated installed native argv.
 _LAUNCH_PRESETS = {
     "executor.opencode.command": (
         "opencode run --dir {worktree} -m {model} --format json {prompt}",
@@ -245,6 +245,12 @@ class ProjectInput(BaseModel):
     repo_path: str
     reviewers: str
     executor_cli: str = "opencode"
+    execution_backend: Literal["container", "local"] = "container"
+    executor_command: str = ""
+    local_account: str = "current"
+    local_home: str = ""
+    local_path: str = ""
+    local_cgroup_root: str = ""
     model: str = ""
     runtime: str = "docker"
     image: str = ""
@@ -491,7 +497,8 @@ def _verification_view(profiles: ProfileStore, profile, revision: str | None) ->
                    "invalid-provider-config", "invalid-credential-reference", "image-missing",
                    "timeout", "runtime-error"}
         if (not isinstance(probe, dict) or set(probe) != {"context", "ready", "model", "reason"}
-                or probe["context"] != "executor-container" or type(probe["ready"]) is not bool
+                or probe["context"] not in {"executor-container", "executor-local"}
+                or type(probe["ready"]) is not bool
                 or not isinstance(probe["model"], str) or len(probe["model"]) > 200
                 or not isinstance(probe["reason"], str)
                 or not (probe["reason"] in reasons
@@ -514,11 +521,12 @@ def _setup_display(body: ProjectInput | ProjectImportInput) -> str:
                                  else body.name)
 
 
-def _probe_setup(config, probe_runner: CommandRunner) -> dict:
+def _probe_setup(config, probe_runner: CommandRunner, env_file: Path | None = None) -> dict:
     """@brief Run bounded redacted prerequisites for an explicit config snapshot.
 
     @param[in] config Validated configuration snapshot.
     @param[in] probe_runner Injectable external command boundary.
+    @param[in] env_file Existing approved provider values for native checks.
     @return Typed prerequisite checks and redacted model evidence.
     @exception HTTPException A prerequisite command fails to produce usable evidence.
     """
@@ -569,10 +577,31 @@ def _probe_setup(config, probe_runner: CommandRunner) -> dict:
         git = doctor.detect_git(bounded_runner)
         forge = doctor.detect_platform_cli(config.platform.kind, bounded_runner)
         auth = doctor.auth_status(config.platform.kind, bounded_runner)
-        runtimes = doctor.detect_runtimes(bounded_runner)
+        runtimes = (doctor.detect_runtimes(bounded_runner)
+                    if config.execution.backend == "container" else None)
     except (OSError, UnicodeError, TypeError, ValueError,
             KeyError, TimeoutError, PreparationError) as exc:
         raise _error(503, "readiness_probe_failed") from exc
+    if config.execution.backend == "local":
+        from adore.local_execution import local_probe
+
+        executor = False
+        try:
+            with local_probe(config, env_file) as (backend, target, _, _):
+                backend.verify_required_tools("probe", [], env=target.env)
+                executor = target.auth_available()
+        except (IsolationError, OSError, ValueError):
+            pass
+        aegis_root = Path(config.worktree.repo_path) / ".agentic"
+        return {"checks": {"git": git.present and not git.detail,
+                            "forge_cli": forge.present and not forge.detail,
+                            "forge_auth": auth.authenticated,
+                            "container_runtime": True, "executor_cli": executor,
+                            "aegis_files": (aegis_root / "aegis.py").is_file()
+                            and (aegis_root / "aegis.toml").is_file(),
+                            "model_endpoint": "not-checked"},
+                "model_probe": {"context": "executor-local", "ready": False,
+                                "model": "", "reason": "not-configured"}}
     try:
         image_runtime = ContainerManager(
             config.container.runtime, config.container.image,
@@ -630,12 +659,19 @@ def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, 
         _finding("project_exists", "name", "Choose another available ID.")]
     answers = body.model_dump(exclude={"name", "display_name", "env_keys", "revision"})
     answers["budgets_choice"] = "custom"
+    if not answers["executor_command"]:
+        answers.pop("executor_command")
+    elif body.execution_backend != "local":
+        issues.append(_finding("setup_field_invalid", "executor_command",
+                               "Custom native argv is available only for local execution."))
     for field in ("ready_label", "approval_label", "kind", "repo", "repo_path",
                   "reviewers", "runtime", "target_branch", "auth_mode", "executor_cli"):
         if not str(answers[field]).strip():
             issues.append(_finding("setup_field_invalid", field,
                                    "Supply a non-empty supported value."))
     for field in ("model", "image"):
+        if field == "image" and body.execution_backend == "local":
+            continue
         if field in body.model_fields_set and not str(answers[field]).strip():
             issues.append(_finding("setup_field_invalid", field,
                                    "Supply an explicit supported value."))
@@ -646,7 +682,7 @@ def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, 
     if body.env_keys is not None and (not body.env_keys and body.auth_mode == "api-key"
             or len(body.env_keys) > 32 or len(set(body.env_keys)) != len(body.env_keys)
             or any(not re.fullmatch(r"[A-Z][A-Z0-9_]{0,63}", key) for key in body.env_keys)
-            or body.auth_mode == "host-auth" and body.env_keys):
+            or body.auth_mode in {"host-auth", "existing"} and body.env_keys):
         issues.append(_finding("setup_field_invalid", "env_keys",
                                "Use unique uppercase environment names outside host-auth mode."))
     for key in ("model", "image"):
@@ -695,6 +731,7 @@ def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, 
             **body.model_dump(exclude={"revision", "env_keys"}),
             "display_name": display,
             "model": config.executor.commands[config.executor.default].model,
+            "executor_command": config.executor.commands[config.executor.default].command,
             "image": config.container.image, "env_keys": config.executor.env_keys,
             "hold_label": config.labels.control.hold,
             "exclude_label": config.labels.control.exclude,
@@ -703,6 +740,12 @@ def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, 
             "config_path": str(profiles.config_path(body.name).resolve()),
             "store_root": config.state.store_root, "worktree_root": config.worktree.root,
         }
+        if config.execution.backend == "local":
+            from adore.local_process import native_context
+
+            context = native_context()
+            preview["review"]["local_execution"] = {
+                key: context[key] for key in ("machine", "account", "system")}
     return preview, candidate
 
 
@@ -1139,7 +1182,8 @@ def _profile_view(profiles: ProfileStore, profile) -> dict:
         "description": profile.description,
         "platform": config.platform.kind if config_valid and config else profile.platform,
         "repo": config.platform.repo if config_valid and config else profile.repo,
-        "runtime": config.container.runtime if config_valid and config else profile.runtime,
+        "runtime": ("local" if config.execution.backend == "local" else config.container.runtime)
+        if config_valid and config else profile.runtime,
         "executor": config.executor.default if config_valid and config else "",
         "config_valid": config_valid,
         "readiness": readiness,
@@ -1151,7 +1195,7 @@ def _profile_view(profiles: ProfileStore, profile) -> dict:
     }
 
 
-def _valid_candidate_scalar(key: str, proposed: object) -> bool:
+def _valid_candidate_scalar(key: str, proposed: object, backend: str = "container") -> bool:
     """
     @brief Enforce the configuration model's scalar type for pending edits.
     @param[in] key TOML file key of the single candidate edit.
@@ -1159,7 +1203,8 @@ def _valid_candidate_scalar(key: str, proposed: object) -> bool:
     @return True for the declared scalar type, including finite numeric values.
     """
     if key.endswith(".command"):
-        return isinstance(proposed, str) and proposed in _LAUNCH_PRESETS.get(key, ())
+        return isinstance(proposed, str) and (backend == "local" and bool(proposed.strip())
+                                              or proposed in _LAUNCH_PRESETS.get(key, ()))
     expected = _value_at(default_config().to_dict(), key)
     if (re.fullmatch(r"executor\.[^.]+\.model", key)
             or key == "container.runtime_env.OPENAI_BASE_URL"):
@@ -1172,6 +1217,8 @@ def _valid_candidate_scalar(key: str, proposed: object) -> bool:
         return isinstance(proposed, str) and proposed in RUN_KINDS
     if key.startswith("workflow.stage_timeout_overrides."):
         return type(proposed) is int and proposed > 0
+    if key.startswith("local.environment."):
+        return isinstance(proposed, str)
     return False
 
 
@@ -1211,7 +1258,8 @@ def _candidate_config_edit(path: Path, body: ConfigEdit) -> tuple[bytes, str]:
             raise _error(409, "stale_config_revision")
         current = raw.decode("utf-8")
         if body.key.endswith(".command") and (
-            not _valid_candidate_scalar(body.key, body.value)
+            not _valid_candidate_scalar(body.key, body.value,
+                    tomllib.loads(current).get("execution", {}).get("backend", "container"))
             or not isinstance(_value_at(tomllib.loads(current), body.key), str)
         ):
             raise _error(400, "invalid_config")
@@ -1232,7 +1280,10 @@ def _candidate_config_edit(path: Path, body: ConfigEdit) -> tuple[bytes, str]:
         else:
             changed = _set_toml_scalar(current, body.key, body.value)
         parsed_change = tomllib.loads(changed)
-        if not _valid_candidate_scalar(body.key, _value_at(parsed_change, body.key)):
+        if not _valid_candidate_scalar(
+            body.key, _value_at(parsed_change, body.key),
+            parsed_change.get("execution", {}).get("backend", "container")
+        ):
             raise _error(400, "invalid_config")
         if _secret_config_keys({"setting": _value_at(parsed_change, body.key)}):
             raise _error(400, "invalid_config")
@@ -1298,7 +1349,8 @@ def _public_pending_config(value: dict) -> dict:
         if not _editable_setting_key(value["key"], endpoint=endpoint_key):
             raise ValueError("unreviewable setting")
         proposed = _value_at(candidate, value["key"])
-        if not _valid_candidate_scalar(value["key"], proposed):
+        if not _valid_candidate_scalar(value["key"], proposed,
+                                       candidate.get("execution", {}).get("backend", "container")):
             raise ValueError("invalid proposed value")
         if _secret_config_keys({"setting": proposed}):
             raise ValueError("unsafe proposed value")
@@ -1356,7 +1408,7 @@ def _public_pending_config(value: dict) -> dict:
 def _restart_required(key: str) -> bool:
     """@brief Classify edits that change project identity or runtime wiring."""
     return key.startswith(("agent.", "platform.", "worktree.",
-                           "container.", "execution.", "executor."))
+                           "container.", "execution.", "local.", "executor."))
 
 
 def _editable_setting_key(key: str, *, endpoint: bool = False) -> bool:
@@ -1422,7 +1474,7 @@ def _setting_domain(key: str, value: object, config: dict, declared: object) -> 
         expected = ""
     if key.startswith("workflow.stage_timeout_overrides."):
         expected = 1
-    if key.startswith("workflow.kind_labels.") or key.startswith("container.runtime_env."):
+    if key.startswith(("workflow.kind_labels.", "container.runtime_env.", "local.environment.")):
         expected = ""
     if expected is not None:
         numeric = type(expected) is float and type(value) in (int, float) and math.isfinite(value)
@@ -1440,7 +1492,7 @@ def _setting_domain(key: str, value: object, config: dict, declared: object) -> 
         "container.selinux_relabel": list(SELINUX_RELABEL_MODES),
         "container.parked_ttl_mode": ["seconds", "polls"],
         "container.egress.mode": ["open", "allowlist-proxy", "none"],
-        "execution.backend": ["container"],
+        "execution.backend": ["container", "local"],
         "delivery.draft": [True],
         "review.trigger": ["label"],
         "review.on_pipeline_failure": ["revise", "notify", "ignore"],
@@ -1453,6 +1505,8 @@ def _setting_domain(key: str, value: object, config: dict, declared: object) -> 
         choices = list(_LAUNCH_PRESETS.get(
             "executor." + key.removeprefix("executor.commands."), (),
         ))
+    if key.endswith(".command") and config.get("execution", {}).get("backend") == "local":
+        choices = []
     if key.startswith("workflow.kind_labels."):
         choices = list(RUN_KINDS)
     positive = {
@@ -1521,7 +1575,7 @@ def _sync_profile_config_identity(profiles: ProfileStore, item, path: Path) -> N
     item = profiles.load(item.name)
     item.platform = config.platform.kind
     item.repo = config.platform.repo
-    item.runtime = config.container.runtime
+    item.runtime = "local" if config.execution.backend == "local" else config.container.runtime
     profiles.save(item)
 
 
@@ -1660,7 +1714,8 @@ def _inspect_project_import(
                                    "model": config.executor.commands[config.executor.default].model,
                                    "env_keys": config.executor.env_keys,
                                    "stage_host_auth": config.executor.stage_host_auth},
-                      "container": {"runtime": config.container.runtime,
+                      "container": {"runtime": ("local" if config.execution.backend == "local"
+                                                else config.container.runtime),
                                     "image": config.container.image,
                                     "egress": config.container.egress.mode}}
     except (AttributeError, TypeError, ValueError, tomllib.TOMLDecodeError):
@@ -1685,7 +1740,8 @@ def _inspect_project_import(
             "review": review, "unchanged": True, "paused_on_import": True,
             "platform": config.platform.kind if review else None,
             "repo": config.platform.repo if review else None,
-            "runtime": config.container.runtime if review else None,
+            "runtime": (("local" if config.execution.backend == "local"
+                         else config.container.runtime) if review else None),
             "store_root": config.state.store_root if review else None,
             "verification": {"status": "unverified"}}, config
 
@@ -2591,7 +2647,8 @@ def create_app(home: str | Path | None = None,
                                    "display_name": preview["display_name"],
                                    "description": body.description,
                                    "platform": config.platform.kind, "repo": config.platform.repo,
-                                   "runtime": config.container.runtime,
+                                   "runtime": ("local" if config.execution.backend == "local"
+                                               else config.container.runtime),
                                    "config_path": str(profiles.config_path(body.name)),
                                    "store_root": config.state.store_root,
                                }, imported=True, import_body=body)
@@ -2797,7 +2854,8 @@ def create_app(home: str | Path | None = None,
                 raise _error(503, "config_corrupt") from exc
             try:
                 evidence = _probe_setup(
-                    config, project_runner(profiles.profile_dir(item.name), config, probe_runner))
+                    config, project_runner(profiles.profile_dir(item.name), config, probe_runner),
+                    profiles.config_path(item.name).parent / ".env")
             except RepositoryAuthError as exc:
                 raise _error(503, exc.code) from exc
             checks, model_probe = evidence["checks"], evidence["model_probe"]
@@ -2924,12 +2982,19 @@ def create_app(home: str | Path | None = None,
             raise _error(503, "executor_evidence_corrupt") from exc
         issues = validate_config(config)
         plan = None
-        if config.execution.preparation and not issues:
+        if (config.execution.preparation or config.execution.backend == "local") and not issues:
             try:
                 plan = public_plan(preview_plan(config, runner=probe_runner))
             except PreparationError as exc:
                 issues.append(str(exc))
+        local_context = None
+        if config.execution.backend == "local":
+            from adore.local_process import native_context
+
+            context = native_context()
+            local_context = {key: context[key] for key in ("machine", "account", "system")}
         return {"config": data, "revision": sha256(raw).hexdigest(),
+                "local_execution": local_context,
                 "issues": issues, "execution_plan": plan,
                 "local_endpoint_timeout_seconds": timeout_seconds,
                 "local_endpoint": endpoint_profile,
@@ -2984,7 +3049,7 @@ def create_app(home: str | Path | None = None,
             raise _error(400, "model_requires_endpoint")
         if not _editable_setting_key(body.key, endpoint=endpoint_key):
             raise _error(400, "setting_not_editable")
-        if body.key.startswith("execution."):
+        if body.key.startswith(("execution.", "local.")):
             raise _error(409, "pending_config_required")
         if endpoint_key:
             if body.ca_file and (
@@ -3028,8 +3093,12 @@ def create_app(home: str | Path | None = None,
             candidate: Path | None = None
             try:
                 current = raw.decode("utf-8")
+                if (body.key.endswith(".command")
+                        and tomllib.loads(current).get("execution", {}).get("backend") == "local"):
+                    raise _error(409, "pending_config_required")
                 if body.key.endswith(".command") and (
-                    not _valid_candidate_scalar(body.key, body.value)
+                    not _valid_candidate_scalar(body.key, body.value,
+                    tomllib.loads(current).get("execution", {}).get("backend", "container"))
                     or not isinstance(_value_at(tomllib.loads(current), body.key), str)
                 ):
                     raise _error(400, "invalid_config")
@@ -3133,7 +3202,8 @@ def create_app(home: str | Path | None = None,
                 "restart_required": _restart_required(body.key),
             }
             candidate_config = _config_from_bytes(changed.encode())
-            if candidate_config.execution.preparation:
+            if (candidate_config.execution.preparation
+                    or candidate_config.execution.backend == "local"):
                 try:
                     value["execution_plan"] = preview_plan(candidate_config, runner=probe_runner)
                 except PreparationError as exc:
@@ -3238,7 +3308,7 @@ def create_app(home: str | Path | None = None,
                         if validate_config(load_config(candidate)):
                             raise _error(400, "invalid_config")
                         proposed = load_config(candidate)
-                        if proposed.execution.preparation:
+                        if proposed.execution.preparation or proposed.execution.backend == "local":
                             try:
                                 plan = preview_plan(proposed, runner=probe_runner)
                                 if plan != pending.get("execution_plan"):

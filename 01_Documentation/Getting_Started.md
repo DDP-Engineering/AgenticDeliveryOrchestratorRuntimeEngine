@@ -8,14 +8,14 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 # Getting Started
 
 ADORE selects eligible GitHub, GitLab or Gitea tickets, runs AEGIS
-inside isolated worktrees and containers, and opens draft MR/PRs after fresh
+inside dedicated worktrees with container or native local execution, and opens draft MR/PRs after fresh
 human approval. It never merges.
 
 ## Prerequisites
 
 - Python 3.11 or newer for ADORE;
 - Git and a non-interactively pushable target clone;
-- Docker or rootless Podman;
+- Docker or rootless Podman for container profiles; native scope controls for local profiles;
 - authenticated `gh`, `glab`, or `tea` on the host;
 - an executor supported by the configured launcher;
 - AEGIS installed in the target repository as `.agentic/aegis.py`;
@@ -163,3 +163,10 @@ adore --profile my-project retry <run-id>
 ```
 
 Retry is refused while a required notification remains pending.
+
+## Native local execution
+
+Choose native local or container execution in setup. Local profiles require installed CLI/native Python and Windows Jobs or delegated Linux cgroup v2. Prepare project tools and account login independently on the ADORE machine.
+
+See [Local execution](Local_Execution.md) for platform prerequisites, configuration,
+authentication, process ownership and acceptance coverage.

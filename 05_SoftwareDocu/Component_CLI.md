@@ -214,3 +214,11 @@ adore --profile <profile-name> run --dry-run   # any command against a profile
 ## Plan and explicit setup replay
 
 `config plan` prints a public normalized image/source/command review without setup. `config validate` and `config set` resolve selected recipes before accepting changes. `retry --reprepare` explicitly authorizes full bounded replay in a fresh owned container with retained worktree. Ordinary retry cannot replay failed preparation. Focused proof: `tests/test_profile_cli.py` and `tests/test_preparation_lifecycle.py`.
+
+## Native execution contract
+
+config validate accepts local profiles; config plan resolves pinned native policy without project commands. Local config set resolves the same plan before writing. Existing run/retry/cancel/handoff/cleanup commands retain conductor ownership.
+
+See [Local execution](../01_Documentation/Local_Execution.md) and
+[Local execution component](Component_Local_Execution.md). Focused native proof:
+`04_Software/tests/test_local_execution.py`.

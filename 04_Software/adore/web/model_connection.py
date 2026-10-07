@@ -162,8 +162,61 @@ def _unique_result(pairs):
     return value
 
 
+def _native_response(kind: str, output: str, nonce: str) -> bool:
+    """@brief Require exact nonce, completion and no tool events from native CLI JSON.
+    @param[in] kind Configured executor parser.
+    @param[in] output Bounded, redacted event stream.
+    @param[in] nonce Unique expected response.
+    @return True only for a complete, unambiguous successful answer.
+    """
+    from adore.util import strict_json_loads
+
+    try:
+        parsed = strict_json_loads(output) if kind == "qwen" else None
+        events = ((parsed if isinstance(parsed, list) else [parsed]) if kind == "qwen"
+                  else [strict_json_loads(line) for line in output.splitlines() if line.strip()])
+        found = complete = False
+        for event in events:
+            if not isinstance(event, dict):
+                return False
+            typ = event.get("type", "")
+            if (not isinstance(typ, str) or typ.startswith("tool")
+                    or "tool_calls" in event or "toolCalls" in event):
+                return False
+            if typ in {"error", "turn.failed", "tool_execution_start", "tool_use"}:
+                return False
+            if kind == "opencode":
+                part = event.get("part", {})
+                found |= typ == "text" and part.get("text", "").strip() == nonce
+                complete |= typ == "step_finish" and part.get("reason") == "stop"
+            elif kind == "pi" and typ == "message_end":
+                msg = event.get("message", {})
+                content = msg.get("content", [])
+                if any(p.get("type") == "toolCall" for p in content):
+                    return False
+                answer = (msg.get("role") == "assistant" and
+                          "".join(p.get("text", "") for p in content
+                                  if p.get("type") == "text").strip() == nonce)
+                found |= answer
+                complete |= answer and msg.get("stopReason") == "stop"
+            elif kind == "codex":
+                item = event.get("item", {})
+                if item.get("type") in {
+                    "command_execution", "mcp_tool_call", "file_change", "web_search"}:
+                    return False
+                found |= (typ == "item.completed" and item.get("type") == "agent_message"
+                          and item.get("text", "").strip() == nonce)
+                complete |= typ == "turn.completed"
+            elif kind == "qwen" and typ == "result":
+                found |= event.get("result", "").strip() == nonce
+                complete |= event.get("subtype") == "success" and event.get("is_error") is False
+        return found and complete
+    except (ValueError, TypeError, AttributeError):
+        return False
+
+
 def probe_model_connection(config, runner, env_file: Path) -> dict:
-    """@brief Run one explicit minimal CLI challenge in an empty disposable container.
+    """@brief Run one bounded challenge through the selected container/native target.
     @param[in] config Validated project snapshot.
     @param[in] runner Injectable external runtime boundary.
     @param[in] env_file Selected profile executor secret file.
@@ -174,6 +227,25 @@ def probe_model_connection(config, runner, env_file: Path) -> dict:
     model = config.executor.commands[kind].model
     result = {"executor": kind, "model": model, "ready": False, "reason": "runtime-error"}
     if kind not in KINDS or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}", model):
+        return result
+    if config.execution.backend == "local":
+        from adore.executor.launcher import build_executor
+        from adore.local_execution import local_probe
+
+        nonce = "ADORE_OK_" + uuid4().hex
+        try:
+            with local_probe(config, env_file) as (_, target, work, exchange):
+                executor = build_executor(kind, config.executor.commands[kind].command, model)
+                gate = executor.run_gate(target, work, exchange,
+                    "Connection test. Do not call tools or read files. Reply exactly: " + nonce,
+                    timeout=45)
+                reason = ("timeout" if gate.timed_out else
+                          "connection-failed" if gate.exit_code else
+                          "ready" if _native_response(kind, gate.output, nonce)
+                          else "invalid-response")
+                result.update(ready=reason == "ready", reason=reason)
+        except (OSError, ValueError, TypeError, IsolationError):
+            result["reason"] = "runtime-error"
         return result
     deadline = monotonic() + 90
 

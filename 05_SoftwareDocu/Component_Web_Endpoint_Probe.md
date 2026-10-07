@@ -62,3 +62,11 @@ the model result is separately identified as executor-container evidence.
 `tests/test_web_readiness.py` exercises success and incompatible stream output
 through a fake container runtime. Live acceptance still requires a prepared
 executor image and an internal OpenAI-compatible endpoint.
+
+## Native execution contract
+
+Native endpoint checks use non-secret local.environment and owned Python with approved provider values in memory. Context is executor-local. Local host readiness leaves model connectivity untested until explicit checking.
+
+See [Local execution](../01_Documentation/Local_Execution.md) and
+[Local execution component](Component_Local_Execution.md). Focused proof:
+`04_Software/tests/test_local_execution.py`.

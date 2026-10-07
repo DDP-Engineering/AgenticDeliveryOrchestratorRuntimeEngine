@@ -70,6 +70,12 @@ state only: they do not edit AEGIS journals or cause a merge.
 
 ## Key behaviors
 
+- REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: config validate accepts local profiles; config plan resolves pinned native policy without project commands. Local config set resolves the same plan before writing. Existing run/retry/cancel/handoff/cleanup commands retain conductor ownership.
+
+Native ownership/auth route to `local-execution.md`; focused proof is
+`04_Software/tests/test_local_execution.py`.
+
+
 - `REQ-UX-94a97e70`: `config plan` previews exact reviewed image/commands; selected source is checked by validate/set. `retry --reprepare` explicitly authorizes capped replay.
 
 - `REQ-FUNC-39697089` - explicit force and live-lock protection for mutations.
@@ -94,6 +100,9 @@ flowchart LR
 The web worker calls the same CLI command boundary with fixed argument vectors.
 
 ## Files
+
+- `04_Software/tests/test_local_execution.py`: native integration/negative proof.
+
 
 - `04_Software/adore/cli.py` - command parsing and routing.
 - `04_Software/tests/test_smoke.py` - CLI behavior and failure contracts.

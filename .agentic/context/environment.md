@@ -111,10 +111,18 @@ Protected per-profile tokens are used only by forge CLI commands and explicit
 web host checks, with external CLI auth as the missing-record default. Corrupt
 or mismatched scoped records fail closed.
 
-Explicit administrator model connectivity uses the selected OpenCode/Pi/Codex/Qwen CLI through a bounded disposable container; see knowledge/model-connection.md. Real provider acceptance is operator-triggered and may incur cost.
+Explicit administrator model connectivity uses the selected OpenCode/Pi/Codex/Qwen CLI through a bounded backend-native disposable workspace; see knowledge/model-connection.md. Real provider acceptance is operator-triggered and may incur cost.
 
-Project Executor configuration owns agent/model settings, reviewed standard launch presets and approved provider key save/remove within one panel, with heading Test AI connection; strict durable credential-bound model access evidence is reused in Summary/host presentation. See knowledge/executor-configuration.md. Subscription login remains the installed CLI service-account flow.
+Project Executor configuration owns agent/model settings, reviewed backend-specific launch configuration and approved provider key save/remove within one panel, with heading Test AI connection; strict durable credential-bound model access evidence is reused in Summary/host presentation. See knowledge/executor-configuration.md. Subscription login remains the installed CLI service-account flow.
 
 ## Reviewed container preparation
 
 Selected preparation profiles use `execution.preparation = "path.yml#job@full-commit"`; preview with `adore --profile <name> config plan`. The locally available effective image supplies `python3`, `sh`, executor and declared image-tool checks. Project dependencies use existing egress/cache/env; expose installed tools through explicit runtime PATH. Source/limits/recovery are documented in `01_Documentation/Container_Preparation.md`. Offline focused recipe/source/recovery tests use injected runners; live container/model/forge acceptance is operator-authorized.
+
+## Native local prerequisites
+
+Local profiles require independently installed CLI/native Python under the ADORE
+service account. Windows needs executable entrypoints (or installed Node/JS argv)
+and Jobs; Linux needs delegated cgroup v2 with kill. Local execution skips images/
+preparation, reuses auth and rejects container egress restrictions. Tools remain
+independently prepared. See 01_Documentation/Local_Execution.md.

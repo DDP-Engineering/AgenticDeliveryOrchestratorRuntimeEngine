@@ -167,3 +167,10 @@ provably stale local lock; a live/unknown holder is reported and left in
 place. Stop the service poller
 before retry/cancel/reset/delete because those mutations use the same
 single-conductor lock.
+
+## Native local execution
+
+Native runs retain budgets, AEGIS, questions, approval and draft publication. Parking/retry preserve identity; cancel/delete release only verified scope/worktree.
+
+See [Local execution](Local_Execution.md) for platform prerequisites, configuration,
+authentication, process ownership and acceptance coverage.

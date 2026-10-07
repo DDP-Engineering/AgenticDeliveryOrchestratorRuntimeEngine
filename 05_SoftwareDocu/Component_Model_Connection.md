@@ -9,7 +9,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 ## 1. Component Overview
 
-Explicit administrator AI connection testing for all implemented executors: OpenCode, Pi, Codex and Qwen. The saved model is called once through a fixed CLI command in an empty temporary workspace.
+Explicit administrator AI connection testing for all implemented executors: OpenCode, Pi, Codex and Qwen. The saved model is called once through a backend-specific CLI command in an empty temporary workspace.
 
 ## 2. Responsibilities
 
@@ -33,11 +33,11 @@ API evidence adds project_id, SHA-256 revision and UTC checked_at. GUI accepts e
 
 ## 7. Workflow Integration
 
-Executor configuration offers Test AI connection at the panel heading right, alongside the settings and embedded Provider credentials; Summary shows the current saved model result only inside expanded host-check details. Each explicit click can incur provider charges. Inference is capped at 45 seconds and combined output at 1 MiB; setup/inference share a 90-second deadline, followed by cleanup commands capped at 8 seconds each. Cleanup failures become API errors.
+Executor configuration offers Test AI connection at the panel heading right, alongside the settings and embedded Provider credentials; Summary shows the current saved model result only inside expanded host-check details. Each explicit click can incur provider charges. Inference is capped at 45 seconds and container combined output at 1 MiB (local streams at 64 KiB each); setup/inference share a 90-second deadline, followed by cleanup commands capped at 8 seconds each. Cleanup failures become API errors.
 
 ## 8. Usage
 
-Save executor/model credentials as for normal execution, ensure its local image is available, then click Test AI connection. Fixed diagnostic flags deny OpenCode tools; disable Pi tools/extensions/skills/templates; use Codex ephemeral/read-only sessions without plugins; restrict Qwen core tools and use plan approval. Compatible installed CLI versions are required; custom project command templates are not used.
+Save executor/model credentials as for normal execution, ensure its local image is available, then click Test AI connection. Fixed diagnostic flags deny OpenCode tools; disable Pi tools/extensions/skills/templates; use Codex ephemeral/read-only sessions without plugins; restrict Qwen core tools and use plan approval. Compatible installed CLI versions are required; container custom project command templates are not used. Local diagnostics use configured native argv/account environment.
 
 ## 9. Validation And Tests
 
@@ -50,3 +50,11 @@ A model response proves no tool capability, Git push permission, AEGIS execution
 ## Effective preparation image
 
 Explicit model connection resolves the selected Git recipe through its bounded runner and uses the normalized effective image. Stale/corrupt source yields a failed result before any container setup. No project recipe command runs in the disposable connectivity workspace.
+
+## Native execution contract
+
+Native nonce challenges use local_probe and the same configured argv/account/environment as gates, with 45-second inference and verified scope cleanup. Incomplete/malformed/wrong-nonce/tool-bearing events fail closed. No login or complete-job/tool-acceptance claim; container diagnostics keep fixed commands.
+
+See [Local execution](../01_Documentation/Local_Execution.md) and
+[Local execution component](Component_Local_Execution.md). Focused native proof:
+`04_Software/tests/test_local_execution.py`.

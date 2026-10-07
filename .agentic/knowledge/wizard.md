@@ -50,6 +50,12 @@ unprovided runtime default. CLI mode retains probes and persistence.
 
 ## Key behaviors
 
+- REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: Setup asks container/local first. Local profiles skip runtime/image detection, accept installed native argv/existing account login and state execution-account/tooling responsibility. Prepared profiles include execution/local sections; web enrollment keeps pickup stopped.
+
+Native ownership/auth route to `local-execution.md`; focused proof is
+`04_Software/tests/test_local_execution.py`.
+
+
 - `REQ-FUNC-3d8f6f5e` - offline preparation and field-specific safe findings;
   `test_web_enrollment.py` proves preparation and preserved default CLI mode.
 
@@ -73,6 +79,9 @@ flowchart LR
 The wizard generates a candidate and saves it only after validation succeeds.
 
 ## Files
+
+- `04_Software/tests/test_local_execution.py`: native integration/negative proof.
+
 
 It composes doctor probes, profiles, typed config validation, and an injected
 command runner. `04_Software/tests/test_wizard.py` covers a golden valid

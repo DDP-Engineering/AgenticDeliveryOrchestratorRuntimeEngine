@@ -32,6 +32,35 @@ test("guided enrollment begins with a supported method and visible step navigati
   await expect(page.getByText(/already exist on the ADORE server/)).toBeVisible();
 });
 
+test("native local enrollment assigns tooling to the server account and needs no container", async ({ page }) => {
+  await enter(page);
+  await repository(page, "native-local");
+  await page.getByRole("button", {name: "Continue", exact: true}).click();
+  await page.getByLabel("Execution backend", {exact: false}).selectOption("local");
+  await page.getByLabel(/^Model \*/).fill("openai/fixture-model");
+  await expect(page.getByText(/You choose and independently install/)).toBeVisible();
+  await expect(page.getByLabel("Executor image", {exact: false})).toHaveCount(0);
+  await expect(page.getByLabel("Container runtime", {exact: false})).toHaveCount(0);
+  await expect(page.locator("#enroll-auth_mode")).toHaveValue("existing");
+  await page.getByRole("button", {name: "Continue", exact: true}).click();
+  await page.getByLabel("Reviewers", {exact: false}).fill("fixture-reviewer");
+  await page.getByRole("button", {name: "Continue", exact: true}).click();
+  await validate(page);
+  await page.getByRole("button", {name: "Review candidate", exact: true}).click();
+  await expect(page.locator(".enrollment-review").filter({
+    has: page.getByRole("heading", {name: "Working environment", exact: true})
+  })).toContainText("local");
+  await page.getByRole("button", {name: "Create project with pickup stopped", exact: true}).click();
+  await expect(page.getByRole("heading", {name: "Enrollment complete", exact: true})).toBeVisible();
+  const projects = await (await page.request.get("/api/v1/projects")).json();
+  const project = projects.find((item: {name: string}) => item.name === "native-local");
+  const config = await (await page.request.get(`/api/v1/projects/${project.id}/config`)).json();
+  expect(config.config.execution.backend).toBe("local");
+  expect(config.local_execution.machine).toBeTruthy();
+  expect(config.local_execution.account).toBeTruthy();
+  expect(project.paused).toBe(true);
+});
+
 async function fixture(page: Page, mode = "failed") {
   const response = await page.request.post("/__e2e__/enrollment?mode=" + mode,
     { headers: { "X-ADORE-E2E": "local-test" } });

@@ -96,3 +96,11 @@ offline.
 ## Backend-native transport
 
 File commands take worktree/IO/shell paths from the bound target; plain injected callables retain default container paths. Paths and tokens are POSIX-quoted within LF scripts and file paths remain single argv tokens, including spaces. Focused proof: `tests/test_aegis.py::test_backend_paths_control_aegis_file_transport`.
+
+## Native execution contract
+
+AegisClient uses native run_files for local Python argv with the same bounded strict file/AEGIS JSON contracts. Container shell transport remains available. Native Python paths may contain spaces.
+
+See [Local execution](../01_Documentation/Local_Execution.md) and
+[Local execution component](Component_Local_Execution.md). Focused native proof:
+`04_Software/tests/test_local_execution.py`.

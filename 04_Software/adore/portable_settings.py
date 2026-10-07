@@ -59,6 +59,7 @@ PORTABLE_FIELDS = {
     ),
 }
 _NAMED_MAPS = {
+    "local.environment": str,
     "container.runtime_env": str,
     "workflow.kind_labels": str,
     "workflow.stage_timeout_overrides": int,

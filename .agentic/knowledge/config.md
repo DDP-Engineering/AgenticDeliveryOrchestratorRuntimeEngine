@@ -44,6 +44,12 @@ USD amounts, with zero disabling only that cap.
 
 ## Key behaviors
 
+- REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: LocalConfig supplies account/home/path/environment/cgroup_root. Explicit execution.backend=local rejects recipes, restricted egress, staging and container-only options. Non-secret local maps reject managed/forge variables and literal inline provider credentials. Container remains the default.
+
+Native ownership/auth route to `local-execution.md`; focused proof is
+`04_Software/tests/test_local_execution.py`.
+
+
 - `REQ-FUNC-e2b539d4`: Closed ExecutionConfig selection/backend/bounds; recipe mode permits empty profile image. Source authority belongs to preparation.md.
 
 - `REQ-FUNC-ca17a8e8` - draft-only delivery and credential isolation.
@@ -66,6 +72,9 @@ flowchart LR
 Both CLI and web use the same validated model before changing runtime policy.
 
 ## Files
+
+- `04_Software/tests/test_local_execution.py`: native integration/negative proof.
+
 
 - `04_Software/adore/config.py`
 - `04_Software/tests/test_config.py`

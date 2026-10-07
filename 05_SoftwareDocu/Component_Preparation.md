@@ -64,3 +64,11 @@ transport; image building (#22) supplies separate verified image/build identity.
 Recipes are the published subset, not general Actions compatibility. Interrupted
 setup needs operator inspection and explicit bounded replay, with retained
 worktree partial effects and no exactly-once guarantee.
+
+## Native execution contract
+
+Local plans use backend=local, empty image/selection/steps and image_source=local. Closed local policy fingerprints machine/account/environment/executable without commands. Container policy keys and fingerprints retain their established shape.
+
+See [Local execution](../01_Documentation/Local_Execution.md) and
+[Local execution component](Component_Local_Execution.md). Focused native proof:
+`04_Software/tests/test_local_execution.py`.

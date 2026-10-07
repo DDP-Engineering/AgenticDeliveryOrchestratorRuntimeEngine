@@ -11,7 +11,7 @@ export type ReadinessKey = typeof readinessKeys[number];
 export type ProjectReadiness = {
   status: "failed" | "partial" | "verified" | "stale"; project_id: string; revision: string; context: "api-host"; checked_at: string;
   checks: Record<ReadinessKey, boolean | null | "not-checked">;
-  model_probe: { context: "executor-container"; ready: boolean; model: string; reason: string };
+  model_probe: { context: "executor-container" | "executor-local"; ready: boolean; model: string; reason: string };
 };
 const reasons = new Set(["ready", "credential-missing", "tool-stream-incompatible", "redirect-rejected", "http-error", "endpoint-unreachable-or-incompatible", "probe-failed", "not-configured", "unsupported-executor", "invalid-endpoint", "invalid-provider-config", "invalid-credential-reference", "image-missing", "timeout", "runtime-error"]);
 const object = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
@@ -30,7 +30,7 @@ export function readReadiness(value: unknown, project: string): ProjectReadiness
         && !(key === "model_endpoint" && result === "not-checked")) return reject();
   }
   const probe = value.model_probe;
-  if (!object(probe) || probe.context !== "executor-container" || typeof probe.ready !== "boolean"
+  if (!object(probe) || !["executor-container", "executor-local"].includes(String(probe.context)) || typeof probe.ready !== "boolean"
       || typeof probe.model !== "string" || (probe.model !== "" && !/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}$/.test(probe.model))
       || typeof probe.reason !== "string" || !(reasons.has(probe.reason) || /^http-[45]\d\d$/.test(probe.reason))) return reject();
   const skipped = probe.reason === "unsupported-executor" || probe.reason === "not-configured";

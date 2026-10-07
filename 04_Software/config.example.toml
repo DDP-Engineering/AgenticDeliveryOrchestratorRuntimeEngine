@@ -179,7 +179,7 @@ model = "openai/gpt-5.4-fast"
 # Alternative executor: OpenAI Codex (@openai/codex). To use it, set
 # `default = "codex"` above and uncomment this table. Codex reads AGENTS.md
 # natively. {resume} becomes `resume --last ` on continuation (Codex resumes
-# the previous gate's session - keep it). SAFETY: full-auto Codex mode is
+# a prior session only outside ADORE; each ADORE gate is fresh). SAFETY: full-auto Codex mode is
 # acceptable only because ADORE runs executors inside an external container/
 # worktree sandbox and keeps push/MR ownership outside the executor.
 # `--ignore-user-config` plus `--disable plugins` prevents workstation-local
@@ -459,3 +459,16 @@ capture_tokens = true
 capture_resource = true
 # Output path for the self-contained `adore stats --html` dashboard.
 html_out = ".adore/metrics/stats.html"
+
+# Native local alternative: switch the existing [execution] backend to "local".
+# Keep preparation empty; remove container required_tool_checks/run_args/custom
+# runtime_env, set egress open and stage_host_auth=false. No tools are installed.
+# Select installed native argv; Windows npm shims need explicit node.exe + installed JS.
+# Each gate starts fresh; {resume} is empty, including Codex.
+# [local]
+# account = "current"  # Actual ADORE account; named value asserts it.
+# home = ""           # Already prepared home; blank uses the account default.
+# path = ""           # Already prepared PATH; blank uses native PATH.
+# environment = {}    # Non-secret only; approved keys belong in protected .env.
+# cgroup_root = ""    # Linux: delegated absolute cgroup-v2 root with cgroup.kill.
+# See ../01_Documentation/Local_Execution.md; worktrees are not host sandboxes.

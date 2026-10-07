@@ -42,3 +42,9 @@ executor nor ADORE merges.
 
 See the [runtime integration guide](../01_Documentation/Integrating_A_Runtime_Project.md)
 for the target-repository contract and onboarding sequence.
+
+## Native local executor
+
+Explicit local profiles run an installed authenticated CLI under the ADORE machine
+and service account with dedicated worktrees and verified Windows Job/Linux cgroup
+process ownership. Project tools remain user-owned. See [Local execution](../01_Documentation/Local_Execution.md).

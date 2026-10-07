@@ -996,3 +996,10 @@ Project Settings purpose categories are collapsed on entry. Opening a category s
 ## Container preparation
 
 Project Settings → Isolated environment exposes execution backend, reviewed recipe selection and setup bounds. Prepare a candidate, expand Preparation commands, inspect exact image/source/job/commit, then Apply to an idle paused project. Stale Git/configuration sources are refused. Host/model checks never execute setup. Job details show durable preparation outcomes and explicit replay guidance. See [Container preparation](Container_Preparation.md).
+
+## Native local execution
+
+Enrollment offers backend/local paths/native argv/existing login. Settings show actual server machine/account and tooling responsibility, hide incompatible container controls and recheck native plans on apply. Host/model checks use native targets without images/recipes; model testing remains explicit.
+
+See [Local execution](Local_Execution.md) for platform prerequisites, configuration,
+authentication, process ownership and acceptance coverage.

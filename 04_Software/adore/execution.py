@@ -212,6 +212,10 @@ class ContainerBackend:
     def verify_identity(self, name: str, expected: dict | None, *, running: bool = False) -> None:
         """@brief Refuse stale IDs before issuing commands or resource controls."""
         if expected:
+            if (expected.get("kind") == "local"
+                    or not {"container_id", "image_id"} <= expected.keys()):
+                raise ExecutionRecoveryError(
+                    "execution backend changed; restore the pinned profile")
             observed = self.resource_identity(name)
             if (
                 observed["container_id"] != expected["container_id"]
@@ -235,6 +239,10 @@ class ContainerBackend:
 
     def remove(self, name: str, *, expected: dict | None = None) -> None:
         """@brief Release the verified target and its owned egress resources."""
+        if expected and (expected.get("kind") == "local"
+                         or not {"container_id", "image_id"} <= expected.keys()):
+            raise ExecutionRecoveryError(
+                    "execution backend changed; restore the pinned profile")
         # Explicit cleanup of an already absent resource is idempotent.
         if expected and self.manager.status(name) != "absent":
             self.verify_identity(name, expected)
@@ -360,5 +368,13 @@ def run_preparation_step(
             raise PreparationResultError(outcome) from exc
     return outcome
 
+
+def __getattr__(name: str):
+    """@brief Expose the local adapter lazily without cyclic contract imports."""
+    if name == "LocalBackend":
+        from adore.local_execution import LocalBackend
+
+        return LocalBackend
+    raise AttributeError(name)
 
 # END OF FILE

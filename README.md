@@ -146,3 +146,9 @@ is schema 1 and is never migrated from earlier lines. See
 
 PolyForm Noncommercial License 1.0.0. Commercial use requires a separate
 commercial license from DDP Engineering.
+
+## Native local executor
+
+Explicit local profiles run an installed authenticated CLI under the ADORE machine
+and service account with dedicated worktrees and verified Windows Job/Linux cgroup
+process ownership. Project tools remain user-owned. See [Local execution](01_Documentation/Local_Execution.md).

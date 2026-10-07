@@ -4,7 +4,7 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
-export type ExecutionPlan = { schema: 1; backend: "container"; selection: string; image: string; image_source: "profile" | "recipe"; source_sha256: string; fingerprint: string; steps: Array<{ name: string; run: string }> };
+export type ExecutionPlan = { schema: 1; backend: "container" | "local"; selection: string; image: string; image_source: "profile" | "recipe" | "local"; source_sha256: string; fingerprint: string; steps: Array<{ name: string; run: string }> };
 export type PreparationEvidence = { status: "pending" | "running" | "success" | "failed" | "interrupted" | "cancelled"; attempts: number; image: string; fingerprint: string; steps: Array<{ index: number; name: string; started_at: string; finished_at: string; exit_code: number; timed_out: boolean; cancelled: boolean }> };
 const selection = (value: string) => {
   const match = /^(.+\.ya?ml)#([A-Za-z_][A-Za-z0-9_-]{0,63})@(?:[a-f0-9]{40}|[a-f0-9]{64})$/.exec(value);
@@ -17,9 +17,9 @@ export function validExecutionPlan(value: unknown): value is ExecutionPlan {
   if (!value || typeof value !== "object") return false;
   const plan = value as ExecutionPlan;
   return Object.keys(plan).sort().join() === ["schema", "backend", "selection", "image", "image_source", "source_sha256", "fingerprint", "steps"].sort().join()
-    && plan.schema === 1 && plan.backend === "container" && typeof plan.selection === "string"
-    && typeof plan.image === "string" && /^[A-Za-z0-9][A-Za-z0-9._/:@-]{0,255}$/.test(plan.image)
-    && ["profile", "recipe"].includes(plan.image_source) && digest(plan.fingerprint)
+    && plan.schema === 1 && ["container", "local"].includes(plan.backend) && typeof plan.selection === "string"
+    && typeof plan.image === "string" && (plan.backend === "local" ? plan.image === "" && plan.image_source === "local" : /^[A-Za-z0-9][A-Za-z0-9._/:@-]{0,255}$/.test(plan.image) && ["profile", "recipe"].includes(plan.image_source))
+    && digest(plan.fingerprint)
     && (plan.image_source === "recipe" ? digest(plan.source_sha256) && selection(plan.selection) : plan.source_sha256 === "" && plan.selection === "")
     && Array.isArray(plan.steps) && plan.steps.length <= 32 && (plan.image_source === "recipe" ? plan.steps.length > 0 : plan.steps.length === 0)
     && plan.steps.every(step => step && Object.keys(step).sort().join() === "name,run" && typeof step.name === "string" && step.name.trim().length > 0 && typeof step.run === "string" && step.run.trim().length > 0 && new TextEncoder().encode(step.run).length <= 8192);

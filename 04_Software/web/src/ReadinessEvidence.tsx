@@ -7,6 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 import type { ModelEvidence } from "./ModelConnection";
 import { type Locale } from "./i18n";
 import { readinessKeys, type ProjectReadiness } from "./readiness";
+import { localCopy } from "./localExecution";
 
 const copy = {
   en: {
@@ -88,14 +89,18 @@ export function readinessCloseLabel(locale: Locale): string { return { en: "Clos
 /** Present only validated results inside the view-owned disclosure. */
 export function ReadinessEvidence({ evidence, locale, modelReason, modelEvidence }: { modelEvidence?: ModelEvidence | null; evidence: ProjectReadiness; locale: Locale; modelReason: string }) {
   const c = copy[locale];
+  const local = evidence.model_probe.context === "executor-local";
   return <div className="readiness-evidence">
-    <p className="muted">{c.coverage}</p>
+    <p className="muted">{local ? localCopy[locale].notice : c.coverage}</p>
     <div className="readiness-details">
     <div className="readiness-checks">{readinessKeys.map((key, index) => {
+      if (local && key === "container_runtime") return null;
       const explicit = key === "model_endpoint" ? modelEvidence : null;
       const value = explicit ? explicit.ready : evidence.checks[key];
       const status = value === true ? "passed" : value === false ? "failed" : value === null ? "unknown" : "skipped";
-      const [label, purpose, fix] = c.rows[index];
+      const [label, purpose, fix] = local && key === "executor_cli"
+        ? [localCopy[locale].title, localCopy[locale].notice, localCopy[locale].notice]
+        : c.rows[index];
       const accessPurpose = {en:"Explicit model access test through the selected executor. Full job and tool support require separate acceptance.",ro:"Test explicit de acces la model prin executorul selectat. Joburile complete și instrumentele necesită acceptare separată.",fr:"Test explicite d’accès au modèle via l’exécuteur. Les tâches complètes et outils nécessitent une validation distincte.",de:"Expliziter Modellzugriffstest über den Executor. Vollständige Aufträge und Werkzeuge benötigen separate Abnahme."}[locale];
       const reason = evidence.model_probe.reason;
       return <div className={`readiness-check ${status}`} key={key}>

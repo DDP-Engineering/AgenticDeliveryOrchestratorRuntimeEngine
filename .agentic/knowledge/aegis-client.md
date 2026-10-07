@@ -48,6 +48,12 @@ orchestrator and human delivery policy.
 
 ## Key behaviors
 
+- REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: AegisClient uses native run_files for local Python argv with the same bounded strict file/AEGIS JSON contracts. Container shell transport remains available. Native Python paths may contain spaces.
+
+Native ownership/auth route to `local-execution.md`; focused proof is
+`04_Software/tests/test_local_execution.py`.
+
+
 - `REQ-FUNC-e397f7f6`: AEGIS file transport uses bound backend worktree/IO/shell paths with quoted paths, including spaces. Direct host probes retain argv behavior.
 
 - `REQ-FUNC-4fe259b0` - bounded container exchange and typed timeout handling.
@@ -72,6 +78,9 @@ flowchart LR
 ```
 
 ## Files
+
+- `04_Software/tests/test_local_execution.py`: native integration/negative proof.
+
 
 - `04_Software/adore/aegis.py`: implementation.
 - `04_Software/tests/test_aegis.py`: public boundary verification.

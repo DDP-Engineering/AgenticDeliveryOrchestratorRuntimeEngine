@@ -182,3 +182,11 @@ Docker default. `WizardError.field` identifies the rejected answer. The web API
 maps it to a value-free structured finding; CLI diagnostics retain their existing
 behavior. Without this option the wizard still probes and saves a `Profile`.
 `test_web_enrollment.py` proves both modes with an injected offline runner.
+
+## Native execution contract
+
+Setup asks container/local first. Local profiles skip runtime/image detection, accept installed native argv/existing account login and state execution-account/tooling responsibility. Prepared profiles include execution/local sections; web enrollment keeps pickup stopped.
+
+See [Local execution](../01_Documentation/Local_Execution.md) and
+[Local execution component](Component_Local_Execution.md). Focused native proof:
+`04_Software/tests/test_local_execution.py`.

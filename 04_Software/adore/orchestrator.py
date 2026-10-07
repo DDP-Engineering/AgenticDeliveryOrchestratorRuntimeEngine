@@ -191,6 +191,10 @@ class Orchestrator:
         self.store = store
         self.worktrees = worktrees
         self.containers = containers
+        if backend is None and config.execution.backend == "local":
+            from adore.local_execution import LocalBackend
+
+            backend = LocalBackend(config)
         self.backend = backend or ContainerBackend(containers)
         self.executor = executor
         self.secrets = secrets or {}
@@ -469,12 +473,30 @@ class Orchestrator:
             if lock is not None:
                 report["lock_held_by"] = lock.get("pid", "unknown")
         prefix = f"{self.identity.slug}-run-"
+        if self.config.execution.backend == "local":
+            eligible, _, runs = self._cleanup_run_ids(prefix, set(corrupt), set())
+            for run_id in sorted(eligible):
+                run = runs.get(run_id)
+                if run is None or not run.execution.get("resource"):
+                    continue  # Unrecorded native ownership cannot authorize cleanup.
+                try:
+                    self.backend.remove(run.container, expected=run.execution["resource"])
+                    self.worktrees.remove(run_id)
+                except IsolationError as exc:
+                    self.log(f"{run_id}: local cleanup retained: {_sanitize(exc)}")
+                    continue
+                report["worktrees_removed"].append(run_id)
+            return report
         listed: set[str] | None = None
         with contextlib.suppress(IsolationError):
             listed = set(self.containers.list_executors(prefix))
         eligible, protected, runs = self._cleanup_run_ids(
             prefix, set(corrupt), listed or set()
         )
+        native = {run_id for run_id, run in runs.items()
+                  if run.execution.get("plan", {}).get("backend") == "local"}
+        eligible -= native
+        protected |= native
 
         def executors(run_ids: set[str]) -> set[str]:
             names = {self.identity.container_name(run_id) for run_id in run_ids}
@@ -565,6 +587,22 @@ class Orchestrator:
             path = self.worktrees.path_for(run.run_id)
             if run.lifecycle in {"handed-off", "handoff-pending"}:
                 if path.is_dir():
+                    report["worktrees_retained"].append(run.run_id)
+                continue
+            if (self.config.execution.backend != "local"
+                    and run.execution.get("plan", {}).get("backend") == "local"):
+                report["worktrees_retained"].append(run.run_id)
+                continue
+            if self.config.execution.backend == "local":
+                try:
+                    resource = run.execution.get("resource")
+                    if not resource:
+                        raise ExecutionRecoveryError("local cleanup identity missing")
+                    self.backend.remove(run.container, expected=resource)
+                    if path.is_dir():
+                        self.worktrees.remove(run.run_id)
+                        report["worktrees_removed"].append(run.run_id)
+                except IsolationError:
                     report["worktrees_retained"].append(run.run_id)
                 continue
             names = {self.identity.container_name(run.run_id)}
@@ -2760,12 +2798,13 @@ class Orchestrator:
     def _provision(self, run: RunState) -> None:
         """@brief Provision the pinned target and prepare once per verified resource."""
         recipe = bool(self.config.execution.preparation)
+        local = self.config.execution.backend == "local"
         record = run.execution
         plan = {}
-        if recipe or record:
+        if recipe or local or record:
             try:
                 if not run.execution:
-                    if recipe and run.active_task_id:
+                    if (recipe or local) and run.active_task_id:
                         raise PreparationError(
                             "active legacy run requires explicit fresh recipe run"
                         )
@@ -2793,7 +2832,7 @@ class Orchestrator:
                 if (
                     plan["policy"] != execution_policy(self.config)
                     or plan["selection"] != self.config.execution.preparation
-                    or not recipe
+                    or not recipe and not local
                     and plan["image"] != self.config.container.image
                 ):
                     raise PreparationError(
@@ -2887,6 +2926,8 @@ class Orchestrator:
         )
         run.worktree = str(worktree)
         env = self._container_env(run)
+        if local and record["resource"]:
+            self.backend.bind(run.container, env, record["resource"])
         provisioned = self.backend.provision(
             run.container,
             self.worktrees.repo_path,
@@ -2902,6 +2943,12 @@ class Orchestrator:
                     or record["resource"] and resource != record["resource"]
                     or not record["resource"] and provisioned != "created"):
                 raise ExecutionRecoveryError("provisioned target identity cannot be trusted")
+            record["resource"] = resource
+            self.store.save(run)
+        elif local:
+            resource = self.backend.resource_identity(run.container)
+            if record["resource"] and resource != record["resource"]:
+                raise ExecutionRecoveryError("local native target identity changed")
             record["resource"] = resource
             self.store.save(run)
         self.backend.verify_required_tools(
@@ -3039,6 +3086,11 @@ class Orchestrator:
 
     def _container_env(self, run: RunState) -> dict[str, str]:
         """@brief Compose the constrained executor environment."""
+        if self.config.execution.backend == "local":
+            env = self.backend.executor_environment(self.config.executor.default)
+            env.update({key: value for key, value in self.secrets.items()
+                        if key in self.config.executor.env_keys})
+            return env
         env = build_container_env(
             self.worktrees.admin_dir_name(run.run_id),
             self.config.agent.name,
@@ -3197,8 +3249,12 @@ class Orchestrator:
 
     def _teardown(self, run: RunState, *, remove_worktree: bool) -> None:
         """@brief Remove execution resources while retaining local state evidence."""
-        with contextlib.suppress(IsolationError):
+        if (self.config.execution.backend == "local"
+                or run.execution.get("plan", {}).get("backend") == "local"):
             self.backend.remove(run.container, expected=run.execution.get("resource") or None)
+        else:
+            with contextlib.suppress(IsolationError):
+                self.backend.remove(run.container, expected=run.execution.get("resource") or None)
         if remove_worktree:
             try:
                 self.worktrees.remove(run.run_id, delete_branch=run.branch)

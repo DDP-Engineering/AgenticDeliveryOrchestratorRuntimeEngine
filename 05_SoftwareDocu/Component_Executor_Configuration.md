@@ -17,7 +17,7 @@ Provide a single project executor/model workspace and protected provider key lif
 
 ## 3. Implementation Overview
 
-The settings panel embeds Provider credentials beneath its categories. ModelConnection supplies the Executor configuration heading with Test AI connection aligned right, and scoped result/cost guidance below. The native heading layout wraps on narrow screens. Default coding agent Edit uses configured executor choices. Launch-command Edit selects exact documented standard OpenCode/Pi/Codex/Qwen presets for existing command tables; a custom current command stays visible as a disabled current option until a preset is selected. Prepare stays disabled for values outside the catalog. app.py validates command presets at staged/direct edits and persisted review/apply, retaining administrator/CSRF/revision/idle/pause/locking safety. Custom commands and new table enrollment belong to the host TOML.
+The settings panel embeds Provider credentials beneath its categories. ModelConnection supplies the Executor configuration heading with Test AI connection aligned right, and scoped result/cost guidance below. The native heading layout wraps on narrow screens. Default coding agent Edit uses configured executor choices. Launch-command Edit selects exact documented standard OpenCode/Pi/Codex/Qwen presets for existing command tables; a custom current command stays visible as a disabled current option until a preset is selected. Prepare stays disabled for values outside the catalog. app.py validates command presets at staged/direct edits and persisted review/apply, retaining administrator/CSRF/revision/idle/pause/locking safety. Container custom commands and new table enrollment belong to host TOML. Local existing command tables accept validated installed argv through reviewed candidates.
 
 The Executor configuration route selects executor settings, model identifiers and the applicable OpenCode endpoint form. Administrator edits use the existing Prepare candidate / Apply / Discard workflow. Configured command tables determine the selectable executors; model IDs are entered manually. Developers read non-secret settings/results.
 
@@ -50,7 +50,7 @@ New jobs load applied executor/model settings. Existing jobs retain their durabl
 
 Open Project → Executor configuration. Prepare/apply the model/default executor change, pause monitoring for credential changes, choose an allowed API variable and Save API key. Test AI connection explicitly, then inspect Summary/check details. A provider key can use separate API billing from a subscription.
 
-Subscription login remains the installed CLI's real interactive service-account flow: OpenCode `opencode auth login`, Codex `codex login`, Pi `/login`, Qwen `/auth`. OpenCode/Codex use the configured host-auth bridge; Pi/Qwen need the protected auth directory/file bind available to actual containers. CLI version and provider determine the login flow. The GUI key removal changes only that project variable; it leaves ambient credentials and subscription sessions intact.
+Subscription login remains the installed CLI's real interactive service-account flow: OpenCode `opencode auth login`, Codex `codex login`, Pi `/login`, Qwen `/auth`. Container OpenCode/Codex use the configured host-auth bridge; container Pi/Qwen need the protected auth directory/file bind available to actual containers. CLI version and provider determine the login flow. The GUI key removal changes only that project variable; it leaves ambient credentials and subscription sessions intact.
 
 Official provider references: [Pi](https://pi.dev/docs/latest/providers), [Qwen](https://qwenlm.github.io/qwen-code-docs/en/users/configuration/auth/), [OpenCode](https://opencode.ai/docs/providers/), [Codex](https://developers.openai.com/codex/auth).
 
@@ -61,3 +61,11 @@ Official provider references: [Pi](https://pi.dev/docs/latest/providers), [Qwen]
 ## 10. Limitations
 
 Model lists, new command-table enrollment and a universal browser OAuth broker are outside this workspace. API-variable allowlists/custom providers are configured in the project profile. Only recognized auth mounts are fingerprinted; opaque external credential sources still require an explicit fresh test. Connectivity does not prove tool support, Git publication or a complete job. Full regression remains deferred during the user's iterative live changes.
+
+## Native execution contract
+
+Local installed native argv is editable through validated reviewed candidates. Container editors retain standard presets. Subscription login stays external; local stores are reused in place. Protected provider edits/current model evidence keep project-bound contracts.
+
+See [Local execution](../01_Documentation/Local_Execution.md) and
+[Local execution component](Component_Local_Execution.md). Focused proof:
+`04_Software/tests/test_local_execution.py`.

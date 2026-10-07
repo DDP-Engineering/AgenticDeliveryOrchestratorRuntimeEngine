@@ -624,3 +624,11 @@ The project header includes Executor configuration, the single owner of executor
 ## Preparation review and apply
 
 The setting catalog exposes closed execution settings with server limits. Recipe candidates retain the complete plan and public image/source/commands; Apply re-resolves exact source/configuration and refuses stale plans. Direct execution-setting writes require pending review. Host readiness and explicit model tests normalize the effective image without running setup. Existing grants, CSRF, config/conductor locks, pause/quiescence and portable allowlists continue to apply. Focused proof: `tests/test_web_pending_config.py`, `tests/test_model_connection.py`.
+
+## Native execution contract
+
+ProjectInput accepts execution_backend and local account/home/path/cgroup/native command fields. Setup review/config show actual machine/account/system; metadata reports runtime=local. Reviewed local settings include and recheck native plan identity. Local host checks avoid container detection.
+
+See [Local execution](../01_Documentation/Local_Execution.md) and
+[Local execution component](Component_Local_Execution.md). Focused native proof:
+`04_Software/tests/test_local_execution.py`.

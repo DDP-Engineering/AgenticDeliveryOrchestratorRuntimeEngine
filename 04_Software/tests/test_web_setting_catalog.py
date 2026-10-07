@@ -27,7 +27,7 @@ _ROOT = Path(__file__).resolve().parents[1]
 _CATALOG = _ROOT / "web" / "src" / "settingKeys.json"
 # Maps whose entries have project-chosen names; the catalog holds the bare key
 # (an empty map) and one `*` pattern for their entries.
-_NAMED_MAPS = ("container.runtime_env", "workflow.kind_labels",
+_NAMED_MAPS = ("local.environment", "container.runtime_env", "workflow.kind_labels",
                "workflow.stage_timeout_overrides")
 
 # HELPER FUNCTIONS

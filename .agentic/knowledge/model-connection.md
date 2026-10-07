@@ -25,6 +25,12 @@ Admin/CSRF and idle configuration/conductor locks precede execution. Saved model
 
 ## Key behaviors
 
+- REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: Native nonce challenges use local_probe and the same configured argv/account/environment as gates, with 45-second inference and verified scope cleanup. Incomplete/malformed/wrong-nonce/tool-bearing events fail closed. No login or complete-job/tool-acceptance claim; container diagnostics keep fixed commands.
+
+Native ownership/auth route to `local-execution.md`; focused proof is
+`04_Software/tests/test_local_execution.py`.
+
+
 - `REQ-UX-94a97e70`: Explicit disposable model checks resolve the same effective preparation image through bounded Git reads, refuse stale source and never execute recipe commands.
 
 - REQ-FUNC-de028c15: OpenCode/Pi/Codex/Qwen explicit connectivity; 45-second inference/90-second setup deadline, 1 MiB capture, 8-second cleanup commands.
@@ -38,6 +44,8 @@ flowchart TD
     API --> Locks[Configuration and conductor locks]
     Locks --> Probe[probe_model_connection]
     Probe --> Runtime[ContainerManager]
+    Probe --> Native[local_probe / configured argv]
+    Native --> CLI
     Runtime --> Script[Disposable container probe.py]
     Script --> CLI([OpenCode / Pi / Codex / Qwen])
     CLI --> Envelope[Closed redacted result]
@@ -49,6 +57,9 @@ flowchart TD
 Only model connectivity is tested; full job/tool acceptance remains separate.
 
 ## Files
+
+- `04_Software/tests/test_local_execution.py`: native integration/negative proof.
+
 
 - `04_Software/adore/web/model_connection.py`, `web/app.py`: probe/API.
 - `04_Software/web/src/ModelConnection.tsx`, `App.tsx`, `styles.css`: GUI.

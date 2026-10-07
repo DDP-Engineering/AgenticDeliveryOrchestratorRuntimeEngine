@@ -9,8 +9,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 This reference describes the ADORE configuration. The canonical
 annotated example is [config.example.toml](../04_Software/config.example.toml).
-Unknown top-level sections fail validation. Unknown keys within known sections
-are currently ignored, so use only documented keys and run `adore config
+Unknown top-level sections fail validation. Unknown execution/local keys are rejected. Other known sections
+currently ignore unknown keys, so use only documented keys and run `adore config
 validate` after an edit. Secrets do not belong in TOML.
 
 ## Agent, Platform and State
@@ -229,3 +229,10 @@ Project → Executor configuration owns executor fields and the applicable OpenC
 ## Container preparation
 
 The optional closed `[execution]` table selects a reviewed `path.yml#job@full-commit` recipe. Defaults are container backend, no preparation, 300-second step limit, 900-second total attempt limit and two explicit attempts. [Container preparation](Container_Preparation.md) defines the authoritative grammar, image precedence, selection/review commands and recovery.
+
+## Native local execution
+
+execution.backend accepts container (default) or local. Closed local fields: account="current", home="", path="", environment={}, cgroup_root="". Local selection rejects recipes, restricted egress/staging/container-only options; policy pins machine/account/environment/executable. Unknown execution/local fields reject.
+
+See [Local execution](Local_Execution.md) for platform prerequisites, configuration,
+authentication, process ownership and acceptance coverage.

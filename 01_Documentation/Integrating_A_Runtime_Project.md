@@ -210,3 +210,10 @@ treated as proof that ADORE killed the process.
 ## Container preparation
 
 Projects may select a tracked preparation recipe at an exact reviewed target commit after `adore init`. It prepares the ordinary run worktree/container before any AI stage; declared image tools must already exist and dependencies follow existing egress. Later gates discover installed tools through explicit `container.runtime_env.PATH`. See [Container preparation](Container_Preparation.md) for the closed Actions-style grammar and immutable recovery contract.
+
+## Native local execution
+
+Local projects use dedicated worktrees with independently prepared account tools. Container recipes/tool-check manifests cannot be selected for local profiles.
+
+See [Local execution](Local_Execution.md) for platform prerequisites, configuration,
+authentication, process ownership and acceptance coverage.

@@ -443,7 +443,7 @@ def _config_set_locked(args: argparse.Namespace, path: Path) -> int:
             for issue in issues:
                 print(f"  - {issue}")
             return EXIT_ERROR
-        if candidate.execution.preparation:
+        if candidate.execution.preparation or candidate.execution.backend == "local":
             try:
                 preview_plan(candidate, runner=run_command)
             except PreparationError as exc:

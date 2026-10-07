@@ -239,3 +239,11 @@ elif run.ok:
 ## Backend-native gate paths
 
 Bound targets supply worktree, IO and shell paths through `ExecutionPaths`. The existing container defaults preserve legacy injected callables. Preparation and all later gates use the same bound resource/environment; launcher parsing/approval remains unchanged.
+
+## Native execution contract
+
+Native run_files receives argv tokenized before prompt replacement, preserving fresh sessions, questions, usage and archives. gate.sh is a legal-header native launch description. Native files are contained bounded UTF-8 and redacted before retention, including the conductor questions file.
+
+See [Local execution](../01_Documentation/Local_Execution.md) and
+[Local execution component](Component_Local_Execution.md). Focused native proof:
+`04_Software/tests/test_local_execution.py`.

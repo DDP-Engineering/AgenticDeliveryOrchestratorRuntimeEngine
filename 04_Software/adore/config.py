@@ -39,7 +39,7 @@ from adore.branding import (
     PRODUCT_SLUG,
     UV_CACHE_VOLUME,
 )
-from adore.util import parse_duration
+from adore.util import parse_duration, strict_json_loads
 
 # CONSTANTS
 
@@ -101,6 +101,7 @@ KNOWN_SECTIONS = frozenset(
         "labels",
         "executor",
         "execution",
+        "local",
         "clarification",
         "container",
         "worktree",
@@ -342,6 +343,21 @@ class ExecutionConfig:
 
 
 @dataclass
+class LocalConfig:
+    """
+    @brief   [local] - preinstalled native service-account environment.
+    @details Selects existing home/PATH without impersonation or installation.
+             Linux requires an operator-delegated cgroup-v2 root for ownership.
+    """
+
+    account: str = "current"
+    home: str = ""
+    path: str = ""
+    environment: dict[str, str] = field(default_factory=dict)
+    cgroup_root: str = ""
+
+
+@dataclass
 class ContainerConfig:
     """
     @brief   [container] - execution isolation and parked-container TTL.
@@ -525,6 +541,7 @@ class Config:
     labels: LabelsConfig = field(default_factory=LabelsConfig)
     executor: ExecutorConfig = field(default_factory=ExecutorConfig)
     execution: ExecutionConfig = field(default_factory=ExecutionConfig)
+    local: LocalConfig = field(default_factory=LocalConfig)
     clarification: ClarificationConfig = field(default_factory=ClarificationConfig)
     container: ContainerConfig = field(default_factory=ContainerConfig)
     worktree: WorktreeConfig = field(default_factory=WorktreeConfig)
@@ -553,6 +570,7 @@ class Config:
                 "labels",
                 "executor",
                 "execution",
+                "local",
                 "clarification",
                 "container",
                 "worktree",
@@ -761,6 +779,7 @@ def load_config(path: str | Path) -> Config:
         labels=_build_labels(raw.get("labels")),
         executor=_build_executor(raw.get("executor")),
         execution=_build_section(ExecutionConfig, raw.get("execution")),
+        local=_build_section(LocalConfig, raw.get("local")),
         clarification=_build_section(ClarificationConfig, raw.get("clarification")),
         container=_build_container(raw.get("container")),
         worktree=_build_section(WorktreeConfig, raw.get("worktree")),
@@ -1011,7 +1030,73 @@ def validate_config(config: Config) -> list[str]:
         f"[container] parked_ttl_mode must be seconds/polls: "
         f"{config.container.parked_ttl_mode!r}",
     )
-    check(config.execution.backend == "container", "[execution] backend must be container")
+    check(config.execution.backend in ("container", "local"),
+          "[execution] backend must be container/local")
+    local = config.local
+    if "local" in config.raw:
+        declaration = config.raw["local"]
+        check(isinstance(declaration, dict), "[local] must be a table")
+        if isinstance(declaration, dict):
+            for key in set(declaration) - {item.name for item in fields(LocalConfig)}:
+                issues.append(f"[local] unknown field: {key}")
+    for key in ("account", "home", "path", "cgroup_root"):
+        value = getattr(local, key)
+        check(isinstance(value, str) and not any(ord(c) < 32 for c in value),
+              f"[local] {key} must be plain text")
+    check(bool(local.account), "[local] account is required")
+    check(isinstance(local.environment, dict), "[local] environment must be a table")
+    if isinstance(local.environment, dict):
+        for key, value in local.environment.items():
+            check(isinstance(key, str) and not re.search(
+                r"(?:^|_)(?:TOKEN|SECRET|PASSWORD|API_KEY|PRIVATE_KEY)$", key.upper()),
+                "[local] secret values belong in approved executor env_keys, not environment")
+            check(isinstance(key, str) and bool(re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key))
+                  and isinstance(value, str) and "\x00" not in value,
+                  "[local] environment requires plain string names/values")
+            check(isinstance(key, str) and key.upper() not in _FORGE_CREDENTIAL_ENV | {
+                "HOME", "USERPROFILE", "PATH", "SYSTEMROOT", "COMSPEC", "USERNAME",
+                "USER", "LOGNAME", "GIT_DIR", "GIT_WORK_TREE", "PYTHONPATH",
+            }, "[local] environment cannot override managed account or forge variables")
+        inline = local.environment.get("OPENCODE_CONFIG_CONTENT")
+        if inline is not None:
+            try:
+                if not isinstance(inline, str) or len(inline.encode("utf-8")) > 131072:
+                    raise ValueError
+                data = strict_json_loads(inline)
+                if not isinstance(data, dict):
+                    raise ValueError
+                pending = [(data, 0)]
+                while pending:
+                    item, depth = pending.pop()
+                    if depth > 16:
+                        raise ValueError
+                    if isinstance(item, dict):
+                        for name, value in item.items():
+                            if (name.casefold() in {"apikey", "token", "password", "secret"}
+                                    and value and not (isinstance(value, str)
+                                    and re.fullmatch(r"\{env:[A-Za-z_][A-Za-z0-9_]*\}", value))):
+                                raise ValueError
+                            pending.append((value, depth + 1))
+                    elif isinstance(item, list):
+                        pending.extend((value, depth + 1) for value in item)
+            except (ValueError, TypeError, RecursionError):
+                issues.append(
+                    "[local] inline configuration must be bounded JSON with env auth refs")
+    if config.execution.backend == "local":
+        check(not config.execution.preparation, "[local] container preparation is unsupported")
+        check(config.container.egress.mode == "open", "[local] container egress must be open")
+        check(not config.executor.stage_host_auth, "[local] host-auth staging is unsupported")
+        check(not config.container.run_args and not config.container.required_tool_checks
+              and config.container.selinux_relabel == "off",
+              "[local] container runtime options/tool checks are unsupported")
+        check(config.container.runtime_env == ContainerConfig().runtime_env,
+              "[local] configure environment in [local], not [container] runtime_env")
+        try:
+            tokens = shlex.split(config.executor.commands[default].command)
+            check(not any(token in {"&&", "||", ";", "|", ">", "<", "&"} for token in tokens),
+                  "[local] executor command must be argv without shell compounds")
+        except (ValueError, KeyError):
+            issues.append("[local] executor command is invalid")
     if "execution" in config.raw:
         declaration = config.raw["execution"]
         check(isinstance(declaration, dict), "[execution] must be a table")
@@ -1033,7 +1118,8 @@ def validate_config(config: Config) -> list[str]:
         value = getattr(config.execution, key)
         check(type(value) is int and 1 <= value <= maximum,
               f"[execution] {key} must be an integer in 1..{maximum}")
-    check(bool(config.container.image.strip()) or bool(config.execution.preparation),
+    check(config.execution.backend == "local" or bool(config.container.image.strip())
+          or bool(config.execution.preparation),
           "[container] image is required without preparation")
     egress = config.container.egress
     check(
@@ -1168,7 +1254,9 @@ def validate_config(config: Config) -> list[str]:
     check(
         isinstance(workflow.aegis_python, str)
         and bool(workflow.aegis_python.strip())
-        and not any(char.isspace() for char in workflow.aegis_python),
+        and (config.execution.backend == "local"
+             or not any(char.isspace() for char in workflow.aegis_python))
+        and not any(char in workflow.aegis_python for char in "\x00\r\n"),
         "[workflow] aegis_python must be one executable token",
     )
     check(

@@ -30,6 +30,12 @@ worktree effects and prior attempt receipts. No publication or merging authority
 
 ## Key behaviors
 
+- REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: Local plans use backend=local, empty image/selection/steps and image_source=local. Closed local policy fingerprints machine/account/environment/executable without commands. Container policy keys and fingerprints retain their established shape.
+
+Native ownership/auth route to `local-execution.md`; focused proof is
+`04_Software/tests/test_local_execution.py`.
+
+
 - `REQ-FUNC-e2b539d4`: immutable exact-source reviewed image/command plan.
 - `REQ-FUNC-e5419c07`: bounded same-container setup before AEGIS/AI.
 - `REQ-REL-d8fd134e`: fail-closed pinned recovery and explicit capped replay.
@@ -44,6 +50,8 @@ flowchart LR
     Plan --> Conductor([Orchestrator])
     Conductor --> Backend[ContainerBackend]
     Backend --> Runtime([ContainerManager])
+    Conductor --> Native[LocalBackend]
+    Native --> Owned([Native process scopes and file target])
     Conductor --> Evidence[(StateStore and immutable receipts)]
     Backend --> Bound[BoundTarget]
     Bound --> Runner[preparation_runner]
@@ -53,6 +61,9 @@ flowchart LR
 Typed selection → exact regular Git blob → complete grammar validation → normalized fingerprinted plan. No install, fetch, model call or image pull occurs in preview.
 
 ## Files
+
+- `04_Software/tests/test_local_execution.py`: native integration/negative proof.
+
 
 - `04_Software/adore/preparation.py`: public component and contracts.
 - `04_Software/adore/preparation_runner.py`: standalone bounded step runner.

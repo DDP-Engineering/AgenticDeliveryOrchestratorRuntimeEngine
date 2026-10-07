@@ -696,3 +696,11 @@ Project Settings purpose categories are collapsed on entry. Opening a category s
 ## Preparation review and outcomes
 
 `executionPlan.ts` validates closed public plan/outcome envelopes. `ExecutionPlanReview.tsx` renders image authority, source/job/revision, hashes and all commands inside Settings/Pending Apply, with four-locale guidance. `PreparationResults` renders persisted attempts and step outcomes in job details and explicit CLI replay guidance on failure. Incomplete/forged evidence cannot display preparation success or enable an unbound recipe Apply. Focused tests: `web/tests/executionPlan.test.mjs` and the preparation journey in `web/e2e/settings.spec.ts`.
+
+## Native execution contract
+
+Enrollment/settings present backend, native argv/account paths and four-locale machine/account/tooling notices. Local settings hide container/recipe controls; readiness hides container rows and plans require image-free local evidence. Revision/idle/pause/role safeguards remain.
+
+See [Local execution](../01_Documentation/Local_Execution.md) and
+[Local execution component](Component_Local_Execution.md). Focused proof:
+`04_Software/tests/test_local_execution.py`.

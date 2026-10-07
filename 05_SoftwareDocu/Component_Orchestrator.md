@@ -206,3 +206,11 @@ bindings and absence from executor secrets.
 ## Prepared backend target
 
 Recipe runs resolve/persist the plan before worktree effects, pins the reviewed base commit, verifies actual image/container identity, provisions through `ExecutionBackend`, checks image tools/stages auth, then executes bounded preparation before AEGIS/AI. It saves running state before project effects and immutable timestamped redacted step receipts after execution. Failure/cancel/corrupt receipts never authorize gates. Resume verifies immutable evidence and IDs; only explicit bounded `--reprepare` recreates the owned container and retains history/worktree. Backend paths and executor homes/auth destinations govern commands. Tests: `tests/test_preparation_lifecycle.py`, `tests/test_orchestrator.py`.
+
+## Native execution contract
+
+The conductor selects the shared native backend and pins plan/resource, retaining the same AEGIS/executor/approval loop. Native provisioning skips images/setup/auth copies. Retry/parking preserve identity; local cleanup removes worktrees only after verified control. Container cleanup protects persisted native runs after backend drift.
+
+See [Local execution](../01_Documentation/Local_Execution.md) and
+[Local execution component](Component_Local_Execution.md). Focused native proof:
+`04_Software/tests/test_local_execution.py`.

@@ -25,7 +25,13 @@ CSRF/admin/immutable identity/config and conductor locks/pause/idle/pending guar
 
 ## Key behaviors
 
-REQ-FUNC-4e9e7ecc executor tab/ownership; REQ-SEC-1c210f3f approved project API credentials; REQ-DATA-f304fd2e durable current model result. Existing command tables supply the Default coding agent dropdown; exact documented launch presets supply command choices through reviewed candidates. Arbitrary command input and missing-table enrollment fail closed, including direct PUT and persisted review/apply. Custom active commands remain displayed until a preset is selected and applied. Manual model IDs and external subscription login guidance preserve actual capabilities. Settings and Provider credentials share one panel with Test AI connection at its heading right. Summary presents model evidence only in the adjacent host-check disclosure; the executor tab retains the explicit test/result.
+- REQ-UX-b75e1df8: Local installed native argv is editable through validated reviewed candidates. Container editors retain standard presets. Subscription login stays external; local stores are reused in place. Protected provider edits/current model evidence keep project-bound contracts.
+
+Native control/auth route to local-execution.md. Focused proof:
+`04_Software/tests/test_local_execution.py`.
+
+
+REQ-FUNC-4e9e7ecc executor tab/ownership; REQ-SEC-1c210f3f approved project API credentials; REQ-DATA-f304fd2e durable current model result. Existing command tables supply the Default coding agent dropdown; exact documented launch presets supply command choices through reviewed candidates. Container arbitrary command input and missing-table enrollment fail closed, including direct PUT and persisted review/apply. Container custom active commands remain displayed until a preset is applied. Local installed native argv uses validated reviewed text candidates. Manual model IDs and external subscription login guidance preserve actual capabilities. Settings and Provider credentials share one panel with Test AI connection at its heading right. Summary presents model evidence only in the adjacent host-check disclosure; the executor tab retains the explicit test/result.
 
 ## Architecture
 
@@ -45,5 +51,8 @@ flowchart TD
 Credential persistence/binding: executor_settings.py, test_executor_settings.py. HTTP permissions/locks: app.py and same tests. GUI ownership: App/routes/ExecutorCredentials/ReadinessEvidence/ModelConnection, executor-config/model-connection/settings Chromium journeys.
 
 ## Files
+
+- `04_Software/tests/test_local_execution.py`: native integration/negative proof.
+
 
 Source/tests above; detailed component contract `05_SoftwareDocu/Component_Executor_Configuration.md`; operator web/security/configuration references. No SQLite migration.

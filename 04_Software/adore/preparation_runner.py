@@ -33,14 +33,18 @@ MAX_OUTPUT_BYTES = 65536
 # LOCAL HELPERS
 
 
-def _drain(stream, path: Path, secrets: list[str]) -> None:
+def _drain(stream, path: Path, secrets: list[str], *,
+           max_bytes: int = MAX_OUTPUT_BYTES, strict_utf8: bool = False) -> None:
     """
     @brief Drain one pipe, redacting split credential values before bounded writes.
     @param[in] stream Child stdout/stderr byte stream.
     @param[in] path Owned output file.
     @param[in] secrets Known values read only from the container process environment.
+    @param[in] max_bytes Retained output bound; native AEGIS preserves its JSON limit.
+    @param[in] strict_utf8 Native evidence refuses corrupt UTF-8.
     """
-    decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
+    decoder = codecs.getincrementaldecoder("utf-8")(
+        errors="strict" if strict_utf8 else "replace")
     tail = max((len(value) for value in secrets), default=0) + 256
     buffer = ""
     retained = 0
@@ -52,7 +56,9 @@ def _drain(stream, path: Path, secrets: list[str]) -> None:
                 buffer = buffer.replace(value, "[REDACTED]")
             buffer = re.sub(r"(?i)(Bearer\s+)\S+", r"\1[REDACTED]", buffer)
             count = len(buffer) if not chunk else max(0, len(buffer) - tail)
-            data = buffer[:count].encode("utf-8")[: max(0, MAX_OUTPUT_BYTES - retained)]
+            data = buffer[:count].encode("utf-8")[: max(0, max_bytes - retained)]
+            if strict_utf8:
+                data = data.decode("utf-8", errors="ignore").encode("utf-8")
             output.write(data)
             retained += len(data)
             buffer = buffer[count:]
