@@ -214,3 +214,7 @@ Do not bake secrets into either image. ADORE injects only the configured
 executor environment keys at `run` or `exec` time. See
 `../../01_Documentation/Security_And_Credentials.md` for the credential
 boundary.
+
+## Recipe execution requirements
+
+Selected preparation images must already exist locally and include `python3`, `sh`, the executor and configured image tool checks. Dependency setup runs later in the same run container/worktree, under existing egress and bounds. See [Container preparation](../../01_Documentation/Container_Preparation.md).

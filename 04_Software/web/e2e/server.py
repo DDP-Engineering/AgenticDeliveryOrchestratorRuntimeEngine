@@ -107,6 +107,20 @@ def main() -> None:
 
         def fixture_probe(argv, **_kwargs):
             """@brief Simulate explicit readiness without any external services."""
+            if argv[:1] == ["git"] and "-C" in argv:
+                recipe = ("jobs:\n  setup:\n    container:\n"
+                          "      image: adore-executor-project:latest\n    steps:\n"
+                          "      - name: Install project dependencies\n"
+                          "        run: uv sync --locked\n")
+                if "rev-parse" in argv:
+                    output = "a" * 40
+                elif "ls-tree" in argv:
+                    output = f"100644 blob {'b' * 40}\tprepare.yml\x00"
+                elif "-s" in argv:
+                    output = str(len(recipe.encode()))
+                else:
+                    output = recipe
+                return CommandResult(argv=argv, stdout=output)
             return CommandResult(argv=argv, exit_code=(
                 127 if probe_mode["mode"] == "failed" else 0), stdout="fixture-1.0")
 

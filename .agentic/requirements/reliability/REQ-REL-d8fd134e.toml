@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-REL-d8fd134e"
+title = "Bind preparation recovery to immutable runtime identity"
+status = "active"
+requirement = "When recovering a recipe-based run, ADORE shall reuse successful preparation only for its exact plan, container and image identities, fail closed on interrupted or changed resources, and permit bounded full-step replay only after explicit operator acknowledgement while retaining earlier evidence."
+verification = "Persist/load and injected runtime tests observe same-resource reuse, refusal on drift/corrupt/incomplete state and explicit bounded replay with prior attempts retained."
+affected_paths = ["04_Software/adore/state.py", "04_Software/adore/execution.py", "04_Software/adore/orchestrator.py", "04_Software/adore/isolation.py", "04_Software/adore/util.py"]
+linked_tests = ["04_Software/tests/test_preparation_lifecycle.py::test_crashed_preparation_becomes_explicit_interrupted_evidence", "04_Software/tests/test_state.py::test_execution_state_is_additive_and_closed", "04_Software/tests/test_preparation_lifecycle.py::test_explicit_reprepare_recreates_owned_container_and_caps_replay", "04_Software/tests/test_preparation_lifecycle.py::test_success_cannot_authorize_drifted_resources_or_configuration", "04_Software/tests/test_execution.py::test_container_identity_rejects_corrupt_or_foreign_resources"]
+spec = "specs/REQ-FUNC-e2b539d4.md"
+priority = "high"
+created = 2026-10-07
+updated = 2026-10-07

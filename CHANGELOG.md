@@ -43,6 +43,9 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Added
 
+- Shared container execution backend and immutable reviewed recipe plans with a closed version-1 Actions-style preparation grammar, same-container dependency setup before AI gates, bounded redacted evidence, identity-bound recovery and explicit capped `retry --reprepare`.
+- CLI plan review and revision-bound GUI preparation selection/apply, effective-image readiness and persisted preparation outcomes.
+
 - Project Executor configuration tab with single-owned model/agent settings, applicable endpoint controls and protected scoped provider API key save/remove.
 - Durable explicit model connectivity evidence bound to immutable project, configuration and credential inputs, reused by Summary and host-check access display.
 

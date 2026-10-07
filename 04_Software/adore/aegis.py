@@ -29,7 +29,6 @@ import re
 import shlex
 from typing import Any
 
-from adore.branding import CONTAINER_IO_MOUNT, CONTAINER_WORKTREE_MOUNT
 from adore.executor.base import ExecTarget
 from adore.util import CommandResult
 
@@ -496,6 +495,9 @@ class AegisClient:
         @exception  AegisProtocolError When exchange setup or output is unusable.
         """
         assert self.io_dir is not None  # construction chooses this path
+        from adore.execution import SHELL_HEADER, ExecutionPaths
+
+        paths = getattr(self.execute, "paths", ExecutionPaths())
         script_path = self.io_dir / AEGIS_SCRIPT
         stdout_path = self.io_dir / AEGIS_STDOUT_FILE
         stderr_path = self.io_dir / AEGIS_STDERR_FILE
@@ -505,10 +507,10 @@ class AegisClient:
             stderr_path.unlink(missing_ok=True)
             quoted = " ".join(shlex.quote(str(token)) for token in command)
             script = (
-                "#!/bin/sh\n"
-                f"cd {CONTAINER_WORKTREE_MOUNT}\n"
-                f"{quoted} > {CONTAINER_IO_MOUNT}/{AEGIS_STDOUT_FILE} "
-                f"2> {CONTAINER_IO_MOUNT}/{AEGIS_STDERR_FILE}\n"
+                SHELL_HEADER
+                + f"cd {shlex.quote(paths.worktree)}\n"
+                f"{quoted} > {shlex.quote(paths.io + '/' + AEGIS_STDOUT_FILE)} "
+                f"2> {shlex.quote(paths.io + '/' + AEGIS_STDERR_FILE)}\n"
             )
             with script_path.open("w", encoding="utf-8", newline="\n") as handle:
                 handle.write(script)
@@ -516,7 +518,7 @@ class AegisClient:
             raise AegisProtocolError(f"AEGIS exchange setup failed: {exc}") from exc
 
         result = self.execute(
-            ["sh", f"{CONTAINER_IO_MOUNT}/{AEGIS_SCRIPT}"],
+            [paths.shell, f"{paths.io}/{AEGIS_SCRIPT}"],
             timeout=timeout,
         )
         if result.timed_out:

@@ -513,3 +513,32 @@ def test_corrupt_profile_decoding_is_typed_on_global_project_and_direct_reads(
 
 
 # END OF FILE
+
+
+def test_job_preparation_projection_is_closed_and_rejects_false_success(tmp_path):
+    """@brief Jobs expose authoritative outcomes without source/policy or false success."""
+    from adore.preparation import resolve_plan
+
+    from tests.test_preparation import SourceRunner, recipe_config
+
+    _, items, stores, app = _fixture(tmp_path)
+    plan = resolve_plan(recipe_config(), runner=SourceRunner())
+    execution = {"plan": plan, "resource": {"container_id": "c" * 64,
+        "image_id": "sha256:" + "d" * 64}, "status": "running", "attempts": 1,
+        "steps": [{"index": 0, "name": plan["steps"][0]["name"],
+            "started_at": "2026-10-07T10:00:00Z", "finished_at": "2026-10-07T10:00:01Z",
+            "exit_code": 0, "timed_out": False, "cancelled": False}],
+        "history": [], "reprepare": False}
+    _state(stores[0], "same", execution=execution)
+    url = f"/api/v1/jobs/{items[0].project_id}/same"
+    with TestClient(app) as client:
+        _login(client)
+        response = client.get(url)
+        assert response.status_code == 200, response.text
+        projected = response.json()["job"]["preparation"]
+        assert projected["image"] == "project:1" and projected["status"] == "running"
+        assert set(projected) == {"status", "attempts", "image", "fingerprint", "steps"}
+        assert "uv sync" not in response.text and '"policy"' not in response.text
+        execution["status"] = "success"  # Missing the second step cannot claim success.
+        _state(stores[0], "same", execution=execution)
+        assert client.get(url).status_code == 503

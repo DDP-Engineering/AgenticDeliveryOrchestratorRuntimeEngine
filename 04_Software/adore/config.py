@@ -100,6 +100,7 @@ KNOWN_SECTIONS = frozenset(
         "readiness",
         "labels",
         "executor",
+        "execution",
         "clarification",
         "container",
         "worktree",
@@ -326,6 +327,21 @@ class ClarificationConfig:
 
 
 @dataclass
+class ExecutionConfig:
+    """
+    @brief   [execution] - shared backend and reviewed container preparation.
+    @details Preparation is path#job@full-commit; empty retains legacy behavior.
+             Bounds apply to setup independently of the total run budget.
+    """
+
+    backend: str = "container"
+    preparation: str = ""
+    preparation_step_timeout_seconds: int = 300
+    preparation_total_timeout_seconds: int = 900
+    preparation_max_attempts: int = 2
+
+
+@dataclass
 class ContainerConfig:
     """
     @brief   [container] - execution isolation and parked-container TTL.
@@ -508,6 +524,7 @@ class Config:
     readiness: ReadinessConfig = field(default_factory=ReadinessConfig)
     labels: LabelsConfig = field(default_factory=LabelsConfig)
     executor: ExecutorConfig = field(default_factory=ExecutorConfig)
+    execution: ExecutionConfig = field(default_factory=ExecutionConfig)
     clarification: ClarificationConfig = field(default_factory=ClarificationConfig)
     container: ContainerConfig = field(default_factory=ContainerConfig)
     worktree: WorktreeConfig = field(default_factory=WorktreeConfig)
@@ -535,6 +552,7 @@ class Config:
                 "readiness",
                 "labels",
                 "executor",
+                "execution",
                 "clarification",
                 "container",
                 "worktree",
@@ -742,6 +760,7 @@ def load_config(path: str | Path) -> Config:
         readiness=_build_section(ReadinessConfig, raw.get("readiness")),
         labels=_build_labels(raw.get("labels")),
         executor=_build_executor(raw.get("executor")),
+        execution=_build_section(ExecutionConfig, raw.get("execution")),
         clarification=_build_section(ClarificationConfig, raw.get("clarification")),
         container=_build_container(raw.get("container")),
         worktree=_build_section(WorktreeConfig, raw.get("worktree")),
@@ -992,7 +1011,30 @@ def validate_config(config: Config) -> list[str]:
         f"[container] parked_ttl_mode must be seconds/polls: "
         f"{config.container.parked_ttl_mode!r}",
     )
-    check(bool(config.container.image.strip()), "[container] image is required")
+    check(config.execution.backend == "container", "[execution] backend must be container")
+    if "execution" in config.raw:
+        declaration = config.raw["execution"]
+        check(isinstance(declaration, dict), "[execution] must be a table")
+        if isinstance(declaration, dict):
+            for key in set(declaration) - {item.name for item in fields(ExecutionConfig)}:
+                issues.append(f"[execution] unknown field: {key}")
+    if not isinstance(config.execution.preparation, str):
+        issues.append("[execution] preparation must be text")
+    elif config.execution.preparation:
+        from adore.preparation import PreparationError, parse_selection
+
+        try:
+            parse_selection(config.execution.preparation)
+        except PreparationError as exc:
+            issues.append(f"[execution] preparation: {exc}")
+    for key, maximum in (("preparation_step_timeout_seconds", 1800),
+                         ("preparation_total_timeout_seconds", 3600),
+                         ("preparation_max_attempts", 3)):
+        value = getattr(config.execution, key)
+        check(type(value) is int and 1 <= value <= maximum,
+              f"[execution] {key} must be an integer in 1..{maximum}")
+    check(bool(config.container.image.strip()) or bool(config.execution.preparation),
+          "[container] image is required without preparation")
     egress = config.container.egress
     check(
         egress.mode in ("open", "allowlist-proxy", "none"),

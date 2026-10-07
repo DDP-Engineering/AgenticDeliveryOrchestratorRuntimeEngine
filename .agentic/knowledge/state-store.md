@@ -43,6 +43,8 @@ the human-owned worktree remains protected from routine cleanup.
 
 ## Key behaviors
 
+- `REQ-REL-d8fd134e`: Optional closed `execution` schema-1 record validates plan/policy, resource IDs, attempts/history and complete ordered success. Legacy absent evidence does not claim preparation success; state JSON rejects duplicates/non-finite constants.
+
 - `REQ-FUNC-0bdb23d5` - schema-1 state corruption fails closed.
 - `REQ-FUNC-51f9c365` - lock reclamation requires a provably dead local owner.
 - `REQ-FUNC-1a2c56fe` - append-only journal persistence and torn-tail recovery.

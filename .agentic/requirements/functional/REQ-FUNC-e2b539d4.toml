@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-e2b539d4"
+title = "Resolve reviewed container preparation plans"
+status = "active"
+requirement = "When an operator selects a repository recipe path, job and exact reviewed Git revision, ADORE shall resolve a complete immutable container execution plan using the closed version-1 preparation syntax and reject unsupported, ambiguous, unsafe, stale or conflicting input before executing project commands."
+verification = "Offline plan tests observe normalized multiline steps/image/fingerprints from injected Git output and typed failures for unsupported YAML, traversal/symlink, stale revision, invalid CLI output and image conflict."
+affected_paths = ["04_Software/adore/preparation.py", "04_Software/adore/config.py", "04_Software/adore/util.py", "04_Software/config.example.toml"]
+linked_tests = ["04_Software/tests/test_preparation.py::test_plan_pins_exact_source_image_and_policy_without_installing", "04_Software/tests/test_preparation.py::test_recipe_rejects_unsupported_ambiguous_and_excessive_input", "04_Software/tests/test_preparation.py::test_plan_rejects_corrupt_git_output", "04_Software/tests/test_util.py::test_command_preserves_crlf_bytes"]
+spec = "specs/REQ-FUNC-e2b539d4.md"
+priority = "high"
+created = 2026-10-07
+updated = 2026-10-07

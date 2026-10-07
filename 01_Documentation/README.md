@@ -47,3 +47,5 @@ sheet and a reference need different levels of detail.
 
 [Code_Style.md](Code_Style.md) is internal engineering guidance for people who
 implement ADORE. It is not part of the operator documentation path.
+
+- [Container preparation](Container_Preparation.md): recipe grammar, review, execution evidence and recovery.

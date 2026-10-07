@@ -26,6 +26,7 @@ from uuid import uuid4
 
 from adore.branding import CONTAINER_CODEX_HOME, CONTAINER_OPENCODE_AUTH_DIR
 from adore.isolation import ContainerManager, IsolationError
+from adore.preparation import PreparationError, effective_probe_config
 from adore.util import load_env_file
 
 # CONSTANTS
@@ -186,6 +187,10 @@ def probe_model_connection(config, runner, env_file: Path) -> dict:
             raise TimeoutError()
         return value
 
+    try:
+        config = effective_probe_config(config, runner=bounded)
+    except (PreparationError, TimeoutError, OSError):
+        return result
     runtime = ContainerManager(
         config.container.runtime,
         config.container.image,

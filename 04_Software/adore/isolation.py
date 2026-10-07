@@ -54,6 +54,7 @@ from adore.util import (
     CommandResult,
     CommandRunner,
     run_command,
+    strict_json_loads,
 )
 
 # CONSTANTS
@@ -875,6 +876,56 @@ class ContainerManager:
         if any(marker in text for marker in _ABSENT_MARKERS):
             return "absent"
         raise IsolationError(f"{self.runtime} inspect failed", result.argv, result.stderr)
+
+    def resource_identity(self, name: str) -> dict[str, str]:
+        """
+        @brief Read actual owned resource/image identity with strict inspect validation.
+        @param[in] name Exact expected run container name.
+        @return Container ID, image ID and observed lifecycle status.
+        @exception IsolationError For missing, corrupt or foreign resources.
+        """
+        result = self.runner([*self.runtime_argv, "inspect", name], timeout=30)
+        try:
+            if not result.ok or result.timed_out:
+                raise ValueError
+            if len(result.stdout) > 1_000_000:
+                raise ValueError
+            data = strict_json_loads(result.stdout)
+            if not isinstance(data, list) or len(data) != 1 or not isinstance(data[0], dict):
+                raise ValueError
+            item = data[0]
+            cid, image, status = item["Id"], item["Image"], item["State"]["Status"]
+            if (
+                item["Name"].lstrip("/") != name
+                or not isinstance(cid, str)
+                or not re.fullmatch(r"[0-9a-f]{64}", cid)
+                or not isinstance(image, str)
+                or not re.fullmatch(r"(?:sha256:)?[0-9a-f]{64}", image)
+                or status not in {"running", "exited", "created", "paused", "restarting", "dead"}
+            ):
+                raise ValueError
+        except (ValueError, TypeError, KeyError, AttributeError) as exc:
+            raise IsolationError("container identity unavailable or corrupt") from exc
+        return {"container_id": cid, "image_id": image, "status": status}
+
+    def image_identity(self, image: str) -> str:
+        """
+        @brief Resolve a locally available image ID without pulling or installing.
+        @param[in] image Effective reviewed image reference.
+        @return Exact runtime image ID.
+        @exception IsolationError For missing or malformed runtime output.
+        """
+        result = self.runner(
+            [*self.runtime_argv, "image", "inspect", "--format", "{{.Id}}", image], timeout=30
+        )
+        value = result.stdout.strip()
+        if (
+            not result.ok
+            or result.timed_out
+            or not re.fullmatch(r"(?:sha256:)?[0-9a-f]{64}", value)
+        ):
+            raise IsolationError("image identity unavailable or corrupt")
+        return value
 
     def list_containers(self, prefix: str) -> list[str]:
         """

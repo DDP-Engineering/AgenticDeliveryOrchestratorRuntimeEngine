@@ -260,3 +260,23 @@ for (const user of ["admin", "developer"]) {
   }
  });
 }
+
+
+test("review exact preparation commands before applying a recipe selection", async ({ page }) => {
+  await openSettings(page);
+  const selection = "prepare.yml#setup@" + "a".repeat(40);
+  await page.getByRole("button", { name: "Edit Reviewed preparation recipe", exact: true }).click();
+  const editor = page.locator(".setting-editor");
+  await editor.getByRole("textbox").fill(selection);
+  await editor.getByRole("button", { name: "Prepare candidate" }).click();
+  const review = page.locator(".candidate-review");
+  await expect(review).toContainText("adore-executor-project:latest");
+  await expect(review).toContainText(selection);
+  await review.getByText("Preparation commands (1)", { exact: true }).click();
+  await expect(review.locator("pre")).toHaveText("uv sync --locked");
+  await review.getByRole("button", { name: "Apply change", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Pending configuration", exact: true })).toHaveCount(0);
+  await expect(page.locator(".execution-plan")).toContainText(selection);
+  const config = await (await page.request.get("/api/v1/projects/alpha/config")).json();
+  expect(config.execution_plan.image_source).toBe("recipe");
+});

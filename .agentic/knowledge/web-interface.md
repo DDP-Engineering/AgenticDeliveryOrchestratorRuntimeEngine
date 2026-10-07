@@ -27,7 +27,7 @@ for pause/activate monitoring and archive/restore;
 delete is available for an archived idle project after exact-name confirmation.
 Environment verification records explicit checks against the saved configuration
 revision; Unverified means no current evidence, not an observed failure. Use
-Project details → Summary → Check host prerequisites for the administrator check.
+Project details â†’ Summary â†’ Check host prerequisites for the administrator check.
 Pause semantics are available in header help instead of repeated row guidance.
 The dedicated header combines name/repository and Summary, Settings, Prices,
 Access, Jobs, Statistics, History; Prices/Access are Admin-only. Jobs/Statistics
@@ -395,6 +395,8 @@ Python/Ruff and frontend validation. CLI summary/export semantics are preserved.
 
 ## Key behaviors
 
+- `REQ-UX-94a97e70`: Settings exposes closed execution selection/bounds, complete image/source/command review and revision-bound pending Apply. Direct execution writes require pending review. Host/model probes normalize image without setup; jobs project validated timestamp/exit/timeout/cancel evidence. Portable rule allowlists stay unchanged.
+
 - `REQ-DATA-5a620f4e` / `REQ-REL-6564a3b2` / `REQ-FUNC-83da8d95` - composite measured job consumption, strict sources and server-selected analytical samples.
 
 
@@ -404,11 +406,11 @@ Python/Ruff and frontend validation. CLI summary/export semantics are preserved.
 - `REQ-UX-34ca5d39` / `REQ-SEC-3cf6cde4`: compact Settings and Admin original TOML reads, memory-only preview and exact download.
 
 - `REQ-UX-b758d2b7`, `REQ-UX-78923e00`, `REQ-UX-a7969a9d`,
-  `REQ-FUNC-25dc0271` — complete authorized action workspace, pickup/verification
+  `REQ-FUNC-25dc0271` â€” complete authorized action workspace, pickup/verification
   project hubs, observed safe timeline/advanced filters and actual queued outcomes.
 
 
-- `REQ-FUNC-e8455ab6`, `REQ-DATA-0ba9e469`, `REQ-SEC-5d0f86e7` — complete
+- `REQ-FUNC-e8455ab6`, `REQ-DATA-0ba9e469`, `REQ-SEC-5d0f86e7` â€” complete
   authorized job pages, actual persisted evidence/unknowns and strict trusted sources.
 
 - `REQ-UX-3b5b2257`, `REQ-FUNC-c987bc4a`, `REQ-REL-39c1b197`, `REQ-DATA-71853fbc` - explanatory exact enrollment, explicit ephemeral checks, locked candidate publication and memory correction/loss guards.
@@ -501,6 +503,9 @@ flowchart LR
     App --> SettingsList[SettingsList catalog guidance]
     App --> PendingReview[PendingReview safe single candidate]
     SettingsList --> settings[settings.ts domains grouping]
+    PendingReview --> ExecutionPlanReview[ExecutionPlanReview image source commands]
+    ExecutionPlanReview --> executionPlan[Closed executionPlan validators]
+    JobWorkspace --> PreparationResults[PreparationResults persisted outcomes]
     PendingReview --> settings
     SettingsList --> settingsCopy[settingsCopy.ts localized guidance]
     PendingReview --> settingsCopy
@@ -624,10 +629,10 @@ for Add and Import project. Primary buttons take their text colour from the
 
 - `web/src/TransferWizard.tsx`, `transferCopy.ts`, optional `EnrollmentWizard` transfer mode and `tests/test_web_transfer.py`, `web/e2e/transfer.spec.ts` own portable new-project enrollment.
 
-- `04_Software/web/src/JobWorkspace.tsx` — scoped attention/jobs/detail, observed
+- `04_Software/web/src/JobWorkspace.tsx` â€” scoped attention/jobs/detail, observed
   paging and queued command feedback; `jobModel.ts` validates transport evidence,
   `jobCopy.ts` localizes conditional actions.
-- `04_Software/web/tests/jobs.test.mjs`, `04_Software/web/e2e/jobs.spec.ts` — public
+- `04_Software/web/tests/jobs.test.mjs`, `04_Software/web/e2e/jobs.spec.ts` â€” public
   evidence/route boundaries and offline real API/worker/browser journeys.
 
 
@@ -717,7 +722,7 @@ Deletion remains subject to archived/idle project preconditions.
 
 ## Project repository connection
 
-Summary → **Connect repository** opens an Admin-only modal token form beside Check host prerequisites for the saved
+Summary â†’ **Connect repository** opens an Admin-only modal token form beside Check host prerequisites for the saved
 provider/repository. Enter a server origin and an access token created on that
 forge. HTTP requires explicit acknowledgement; GitHub requires HTTPS. Embedded
 credentials, paths, queries and fragments reject. The project must be idle,
@@ -749,7 +754,7 @@ HTTP and a valid unique JSON login. CLI exit zero alone does not authenticate.
 
 ## Explicit AI connection test
 
-Administrators use **Executor configuration → Test AI connection** for the configured OpenCode, Pi, Codex or Qwen model. Each explicit click sends one short request in a temporary container and may incur provider charges. The project must be idle with valid saved settings and no pending configuration/operations; its installed image must contain Python and the agent.
+Administrators use **Executor configuration â†’ Test AI connection** for the configured OpenCode, Pi, Codex or Qwen model. Each explicit click sends one short request in a temporary container and may incur provider charges. The project must be idle with valid saved settings and no pending configuration/operations; its installed image must contain Python and the agent.
 
 Only a valid completed challenge response reports connected. Failures provide redacted guidance for credentials, model availability, image, CLI version or network. The action reuses executor credentials and egress; it starts no job and proves no tool capability. Persisted evidence is bound to current project/model/configuration/credentials and presented consistently in Summary and host verification. OpenCode endpoint tool compatibility remains separately reported. Host-check time/version are internally validated and hidden from Summary/check details. See Component_Model_Connection.md and Component_Executor_Configuration.md.
 

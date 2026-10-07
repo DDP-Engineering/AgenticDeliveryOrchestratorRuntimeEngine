@@ -56,10 +56,14 @@ configuration; validation rejects their host-auth setting before a run starts.
 
 Input is a TOML file plus derived profile paths. Output is a `Config` dataclass
 and a stable list of validation problems. An unknown top-level section is an
-error; unknown keys inside a known section are ignored.
+error; unknown keys inside legacy sections are ignored; unknown `[execution]` keys fail closed.
 
 ## 5. Validation and Tests
 
 `tests/test_config.py` covers defaults, recovery bounds, AEGIS stage names,
 approval-label collisions, forge credential denial, container trust boundaries
 and existing cross-platform configuration rules.
+
+## Reviewed preparation settings
+
+`ExecutionConfig` is a closed `[execution]` table: container backend, optional exact Git selection, step/total timeout and attempt cap. Image may be empty only with preparation. Grammar/source validation belongs to `preparation.py`. Defaults preserve old profiles. See [Container preparation](../01_Documentation/Container_Preparation.md) and `tests/test_preparation.py`.

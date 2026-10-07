@@ -46,6 +46,17 @@ def _store(tmp_path: Path) -> StateStore:
 # PUBLIC API / TESTS
 
 
+def test_execution_state_is_additive_and_closed() -> None:
+    """@brief Legacy schema-1 state remains readable; runtime records are strict."""
+    state = RunState(run_id="owned-1", ticket_iid=1)
+    assert hasattr(state, "execution"), "state has no durable execution record"
+    assert RunState.from_dict(state.to_dict()).execution == {}
+    data = state.to_dict()
+    data["execution"] = {"status": "success"}
+    with pytest.raises(StateError, match="execution"):
+        RunState.from_dict(data)
+
+
 def test_derive_run_id_is_stable_and_safe() -> None:
     """
     @brief   Run-id is deterministic and filesystem-safe (design doc 8a).

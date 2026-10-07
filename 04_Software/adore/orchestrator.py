@@ -24,7 +24,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterator
 import contextlib
 from datetime import timedelta
-from functools import partial
+import json
 import os
 from pathlib import Path
 import random
@@ -52,11 +52,18 @@ from adore.aegis import (
 )
 from adore.branding import (
     CONTAINER_CODEX_HOME,
-    CONTAINER_IO_MOUNT,
     CONTAINER_OPENCODE_AUTH_DIR,
     DEFAULT_QUESTIONS_FILE,
+    EXECUTOR_BASE_IMAGE,
 )
 from adore.config import Config
+from adore.execution import (
+    ContainerBackend,
+    ExecutionBackend,
+    ExecutionRecoveryError,
+    PreparationResultError,
+    run_preparation_step,
+)
 from adore.executor.base import Executor, GateRun
 from adore.executor.launcher import build_executor
 from adore.forge import Comment, Forge, ForgeError, Ticket, build_forge
@@ -69,6 +76,7 @@ from adore.isolation import (
     WorktreeManager,
     build_container_env,
 )
+from adore.preparation import PreparationError, execution_policy, resolve_plan
 from adore.repository_auth import project_runner
 from adore.state import (
     RunState,
@@ -85,6 +93,7 @@ from adore.util import (
     iso_to_datetime,
     load_env_file,
     run_command,
+    strict_json_loads,
     utc_now_iso,
 )
 
@@ -99,7 +108,6 @@ _HOST_AUTH_PATHS = {
     "opencode": (".local/share/opencode/auth.json", CONTAINER_OPENCODE_AUTH_DIR),
     "codex": (".codex/auth.json", CONTAINER_CODEX_HOME),
 }
-_EXECUTOR_CONTAINER_ENV = {"codex": {"CODEX_HOME": CONTAINER_CODEX_HOME}}
 _REDACTIONS = (
     re.compile(r"(?i)(authorization\s*[:=]\s*)(\S+)"),
     re.compile(r"(?i)(token\s*[:=]\s*)(\S+)"),
@@ -175,6 +183,7 @@ class Orchestrator:
         secrets: dict[str, str] | None = None,
         sleep: Callable[[float], None] = time.sleep,
         log: Callable[[str], None] = print,
+        backend: ExecutionBackend | None = None,
     ) -> None:
         """@brief Wire the conductor from production or fake collaborators."""
         self.config = config
@@ -182,6 +191,7 @@ class Orchestrator:
         self.store = store
         self.worktrees = worktrees
         self.containers = containers
+        self.backend = backend or ContainerBackend(containers)
         self.executor = executor
         self.secrets = secrets or {}
         self.sleep = sleep
@@ -346,7 +356,7 @@ class Orchestrator:
         self._record_metrics(run)
         return True
 
-    def retry(self, run_id: str) -> bool:
+    def retry(self, run_id: str, *, reprepare: bool = False) -> bool:
         """@brief Explicitly re-arm a failed run without erasing history."""
         try:
             run = self.store.load(run_id)
@@ -358,6 +368,19 @@ class Orchestrator:
         if run.lifecycle != "failed":
             self.log(f"retry {run_id}: lifecycle is {run.lifecycle}, not failed")
             return False
+        if reprepare:
+            record = run.execution
+            if (not record or not record["plan"]["selection"]
+                    or record["attempts"] >= self.config.execution.preparation_max_attempts):
+                self.log(f"retry {run_id}: no recipe or preparation replay limit reached")
+                return False
+            record["reprepare"] = True
+            self.store.journal(
+                run_id,
+                "operator-reprepare-authorized",
+                attempts=record["attempts"],
+                note="All steps replay; retained worktree may contain partial effects",
+            )
         ticket = self.forge.get_ticket(run.ticket_iid)
         if ticket is None:
             self.log(f"retry {run_id}: ticket #{run.ticket_iid} no longer exists")
@@ -549,7 +572,7 @@ class Orchestrator:
                 names.add(run.container)
             for name in sorted(names):
                 try:
-                    self.containers.remove(name)
+                    self.backend.remove(name, expected=run.execution.get("resource") or None)
                 except IsolationError:
                     continue
                 report["containers_removed"].append(name)
@@ -589,7 +612,7 @@ class Orchestrator:
         self.store.save(run)
         try:
             if run.container:
-                self.containers.stop(run.container)
+                self.backend.stop(run.container, expected=run.execution.get("resource") or None)
         except IsolationError as exc:
             self.log(f"handoff pending; container stop not verified: {_sanitize(exc)}")
             self.store.journal(run_id, "handoff-pending", evidence=_sanitize(exc))
@@ -804,11 +827,11 @@ class Orchestrator:
             try:
                 self._transient(run, "provision", lambda: self._provision(run))
             except (IsolationError, ForgeError) as exc:
+                if self._cancel_if_requested(run):
+                    return
                 self._fail_immediately(run, "INFRASTRUCTURE_EXHAUSTED", exc)
                 return
-            execute = partial(
-                self.containers.exec, run.container, env=self._container_env(run)
-            )
+            execute = self._execute(run)
             client = AegisClient(
                 execute,
                 self.config.workflow.aegis_python,
@@ -1131,7 +1154,9 @@ class Orchestrator:
                     try:
                         if not self.store.cancel_requested(run.run_id):
                             continue
-                        self.containers.interrupt(run.container)
+                        self.backend.interrupt(
+                            run.container, expected=run.execution.get("resource") or None
+                        )
                     except (StateError, IsolationError) as exc:
                         self.log(f"cancel interruption failed: {_sanitize(exc)}")
                     return
@@ -1140,7 +1165,7 @@ class Orchestrator:
             watcher.start()
         try:
             result = self.executor.run_gate(
-                partial(self.containers.exec, run.container, env=self._container_env(run)),
+                self._execute(run),
                 run.worktree,
                 self._io_dir(run.run_id),
                 self._stage_prompt(
@@ -1504,9 +1529,7 @@ class Orchestrator:
             self._stage_failure(run, "VALIDATION_REMEDIATION_EXIT", result.stderr or result.output)
             return False
         if run.lifecycle == "working":
-            execute = partial(
-                self.containers.exec, run.container, env=self._container_env(run)
-            )
+            execute = self._execute(run)
             self._conduct_task(
                 run,
                 ticket,
@@ -1553,7 +1576,7 @@ class Orchestrator:
             deviations=len(run.validation_evidence.get("deviations", [])),
         )
         with contextlib.suppress(IsolationError):
-            self.containers.stop(run.container)
+            self.backend.stop(run.container, expected=run.execution.get("resource") or None)
         self._status(run)
 
     def _approval_body(self, run: RunState, ticket: Ticket) -> str:
@@ -1667,9 +1690,7 @@ class Orchestrator:
         self._status(run)
         try:
             self._transient(run, "publication-provision", lambda: self._provision(run))
-            execute = partial(
-                self.containers.exec, run.container, env=self._container_env(run)
-            )
+            execute = self._execute(run)
             client = AegisClient(
                 execute,
                 self.config.workflow.aegis_python,
@@ -1904,7 +1925,7 @@ class Orchestrator:
         self.store.save(run)
         self._status(run)
         with contextlib.suppress(IsolationError):
-            self.containers.stop(run.container)
+            self.backend.stop(run.container, expected=run.execution.get("resource") or None)
 
     def _mr_body(self, run: RunState, ticket: Ticket) -> str:
         """@brief Render a draft-only, traceable MR/PR description."""
@@ -1990,7 +2011,7 @@ class Orchestrator:
         run.outcome = f"{code}: {_sanitize(evidence, 2000)}"
         self.store.save(run)
         with contextlib.suppress(IsolationError):
-            self.containers.stop(run.container)
+            self.backend.stop(run.container, expected=run.execution.get("resource") or None)
         body = (
             f"{self.identity.tag} Run `{run.run_id}` failed loudly at stage "
             f"`{run.stage}`.\n\n"
@@ -2040,7 +2061,7 @@ class Orchestrator:
             evidence=_sanitize(evidence),
         )
         with contextlib.suppress(IsolationError):
-            self.containers.stop(run.container)
+            self.backend.stop(run.container, expected=run.execution.get("resource") or None)
         self._record_metrics(run)
 
     def _required_incident(self, run: RunState, body: str) -> int | None:
@@ -2266,6 +2287,8 @@ class Orchestrator:
         for index in range(attempts):
             try:
                 return call()
+            except ExecutionRecoveryError:
+                raise
             except (IsolationError, ForgeError) as exc:
                 last = exc
                 self.store.journal(
@@ -2344,6 +2367,8 @@ class Orchestrator:
         now = iso_to_datetime(utc_now_iso())
         if updated and now and (now - updated).total_seconds() < _STALE_WORKING_GRACE_SECONDS:
             return
+        if run.execution.get("status") == "running":
+            run.execution["status"] = "interrupted"
         self._fail_immediately(
             run,
             "STALE_WORKING",
@@ -2410,7 +2435,7 @@ class Orchestrator:
         with contextlib.suppress(OSError):
             (Path(run.worktree) / self.questions_file).unlink(missing_ok=True)
         with contextlib.suppress(IsolationError):
-            self.containers.stop(run.container)
+            self.backend.stop(run.container, expected=run.execution.get("resource") or None)
         self._status(run)
 
     def _reconcile_clarification(self, run: RunState, summary: dict[str, Any]) -> None:
@@ -2528,9 +2553,7 @@ class Orchestrator:
         try:
             comments = self.forge.list_mr_comments(run.mr_iid)
             self._transient(run, "revision-provision", lambda: self._provision(run))
-            execute = partial(
-                self.containers.exec, run.container, env=self._container_env(run)
-            )
+            execute = self._execute(run)
             client = AegisClient(
                 execute,
                 self.config.workflow.aegis_python,
@@ -2735,28 +2758,284 @@ class Orchestrator:
         return self.store.run_dir(run_id) / "io"
 
     def _provision(self, run: RunState) -> None:
-        """@brief Idempotently create/restart the worktree and container."""
-        if not self.worktrees.exists(run.run_id):
+        """@brief Provision the pinned target and prepare once per verified resource."""
+        recipe = bool(self.config.execution.preparation)
+        record = run.execution
+        plan = {}
+        if recipe or record:
+            try:
+                if not run.execution:
+                    if recipe and run.active_task_id:
+                        raise PreparationError(
+                            "active legacy run requires explicit fresh recipe run"
+                        )
+                    if recipe and not self.worktrees.exists(run.run_id):
+                        self.worktrees.fetch()
+                    plan = resolve_plan(
+                        self.config,
+                        runner=getattr(self.worktrees, "runner", run_command),
+                        expected_revision=self.worktrees.ref_head(run.base_ref) if recipe else None,
+                    )
+                    if recipe:
+                        run.base_ref = plan["selection"].rsplit("@", 1)[1]
+                    run.execution = {
+                        "plan": plan,
+                        "resource": {},
+                        "status": "pending" if recipe else "not-required",
+                        "attempts": 0,
+                        "steps": [],
+                        "history": [],
+                        "reprepare": False,
+                    }
+                    self.store.save(run)
+                record = run.execution
+                plan = record["plan"]
+                if (
+                    plan["policy"] != execution_policy(self.config)
+                    or plan["selection"] != self.config.execution.preparation
+                    or not recipe
+                    and plan["image"] != self.config.container.image
+                ):
+                    raise PreparationError(
+                        "execution profile drift; restore pinned settings or start a fresh run"
+                    )
+                if (
+                    recipe
+                    and self.config.container.image
+                    and (
+                        "image" in self.config.raw.get("container", {})
+                        or self.config.container.image != EXECUTOR_BASE_IMAGE
+                    )
+                    and self.config.container.image != plan["image"]
+                ):
+                    raise PreparationError("container.image conflicts with pinned preparation")
+                plan_file = self.store.run_dir(run.run_id) / "execution-plan.json"
+                serialized = json.dumps(plan, sort_keys=True, ensure_ascii=False, indent=2).encode()
+                if plan_file.exists():
+                    if plan_file.is_symlink() or plan_file.read_bytes() != serialized:
+                        raise PreparationError("immutable execution plan differs from state")
+                else:
+                    with plan_file.open("xb") as handle:
+                        handle.write(serialized)
+            except (PreparationError, OSError, TypeError, ValueError) as exc:
+                raise ExecutionRecoveryError(str(exc)) from exc
+        if recipe:
+            for attempt in [
+                *record["history"],
+                {"attempt": record["attempts"], "steps": record["steps"]},
+            ]:
+                for step in attempt["steps"]:
+                    evidence = (
+                        self.store.run_dir(run.run_id)
+                        / "preparation"
+                        / f"attempt-{attempt['attempt']}"
+                        / f"step-{step['index'] + 1}.json"
+                    )
+                    try:
+                        if evidence.is_symlink() or evidence.stat().st_size > 1_000_000:
+                            raise ValueError
+                        stored = strict_json_loads(evidence.read_text(encoding="utf-8"))
+                        if (
+                            not isinstance(stored, dict)
+                            or set(stored) != set(step) | {"stdout", "stderr"}
+                            or any(stored[key] != value for key, value in step.items())
+                            or any(
+                                not isinstance(stored[key], str)
+                                or len(stored[key].encode()) > 65536
+                                for key in ("stdout", "stderr")
+                            )
+                        ):
+                            raise ValueError
+                    except (OSError, ValueError, TypeError) as exc:
+                        raise ExecutionRecoveryError(
+                            "immutable preparation evidence missing or corrupt"
+                        ) from exc
+            if record["reprepare"]:
+                self.backend.remove(run.container, expected=record["resource"] or None)
+                if record["attempts"]:
+                    record["history"].append(
+                        {
+                            "attempt": record["attempts"],
+                            "status": record["status"],
+                            "resource": record["resource"],
+                            "steps": record["steps"],
+                        }
+                    )
+                record.update(resource={}, steps=[], status="pending", reprepare=False)
+                self.store.save(run)
+            elif record["status"] in {"running", "failed", "interrupted", "cancelled"}:
+                raise ExecutionRecoveryError(
+                    "preparation incomplete; inspect evidence then retry --reprepare"
+                )
+            elif record["resource"]:
+                observed = self.backend.resource_identity(run.container)
+                if any(
+                    observed[key] != record["resource"][key] for key in ("container_id", "image_id")
+                ):
+                    raise ExecutionRecoveryError(
+                        "prepared resource changed; explicit recovery required"
+                    )
+            image_id = self.backend.image_identity(plan["image"])
+            if record["resource"] and image_id != record["resource"]["image_id"]:
+                raise ExecutionRecoveryError(
+                    "prepared image identity changed; explicit recovery required"
+                )
+        if not recipe and not self.worktrees.exists(run.run_id):
             self.worktrees.fetch()
         worktree = self.worktrees.create(
             run.run_id, run.branch, run.base_ref or "HEAD"
         )
         run.worktree = str(worktree)
         env = self._container_env(run)
-        self.containers.ensure_volumes()
-        self.containers.provision(
+        provisioned = self.backend.provision(
             run.container,
             self.worktrees.repo_path,
             worktree,
             self._io_dir(run.run_id),
             env,
+            image=plan["image"] if recipe else None,
         )
-        self.containers.verify_required_tools(
+        if recipe:
+            observed = self.backend.resource_identity(run.container)
+            resource = {key: observed[key] for key in ("container_id", "image_id")}
+            if (observed["status"] != "running" or resource["image_id"] != image_id
+                    or record["resource"] and resource != record["resource"]
+                    or not record["resource"] and provisioned != "created"):
+                raise ExecutionRecoveryError("provisioned target identity cannot be trusted")
+            record["resource"] = resource
+            self.store.save(run)
+        self.backend.verify_required_tools(
             run.container, self.config.container.required_tool_checks, env=env
         )
         if self.config.executor.stage_host_auth:
             self._stage_host_auth(run)
+        if recipe and record["status"] != "success":
+            self._prepare_execution(run)
         self.store.save(run)
+
+    def _execute(self, run: RunState):
+        """@brief Bind gates and AEGIS commands to verified backend-native paths."""
+        return self.backend.bind(
+            run.container, self._container_env(run), run.execution.get("resource") or None
+        )
+
+    def _prepare_execution(self, run: RunState) -> None:
+        """@brief Execute sequential bounded setup, with durable fail-closed evidence."""
+        record = run.execution
+        if record["attempts"] >= self.config.execution.preparation_max_attempts:
+            raise ExecutionRecoveryError("preparation attempt limit reached")
+        record["attempts"] += 1
+        record.update(status="running", steps=[])
+        self.store.save(run)  # Durable before the first project side effect.
+        started = time.monotonic()
+        finished = Event()
+
+        def interrupt_on_cancel() -> None:
+            """@brief Stop only the verified recipe target after a durable cancel."""
+            while not finished.wait(0.2):
+                try:
+                    if not self.store.cancel_requested(run.run_id):
+                        continue
+                    self.backend.interrupt(run.container, expected=record["resource"])
+                except (StateError, IsolationError) as exc:
+                    self.log(f"preparation cancellation failed: {_sanitize(exc)}")
+                return
+
+        watcher = Thread(target=interrupt_on_cancel, daemon=True)
+        watcher.start()
+        try:
+            for index, step in enumerate(record["plan"]["steps"]):
+                if self.store.cancel_requested(run.run_id):
+                    record["status"] = "cancelled"
+                    raise ExecutionRecoveryError("preparation cancelled")
+                active_start = iso_to_datetime(run.active_started_at)
+                elapsed = (
+                    (iso_to_datetime(utc_now_iso()) - active_start).total_seconds()
+                    if active_start
+                    else 0
+                )
+                remaining = min(
+                    self.config.execution.preparation_total_timeout_seconds
+                    - (time.monotonic() - started),
+                    self.config.budgets.max_wall_clock_seconds - elapsed,
+                    self.config.execution.preparation_step_timeout_seconds,
+                )
+                if remaining <= 0 or self._budget_exceeded(run):
+                    raise ExecutionRecoveryError("preparation run budget exhausted")
+                self.store.journal(
+                    run.run_id,
+                    "preparation-step-started",
+                    index=index,
+                    name=step["name"],
+                    attempt=record["attempts"],
+                )
+                protocol_error = None
+                try:
+                    outcome = run_preparation_step(
+                        self._execute(run),
+                        self._io_dir(run.run_id),
+                        record["attempts"],
+                        index,
+                        step,
+                        timeout=remaining,
+                        secrets=self.secrets,
+                        auth_file=(
+                            self.backend.auth_directory(self.config.executor.default) + "/auth.json"
+                            if self.config.executor.stage_host_auth
+                            else None
+                        ),
+                    )
+                except PreparationResultError as exc:
+                    outcome, protocol_error = exc.outcome, exc
+
+                outcome["cancelled"] = self.store.cancel_requested(run.run_id)
+                archive = (
+                    self.store.run_dir(run.run_id) / "preparation" / f"attempt-{record['attempts']}"
+                )
+                archive.mkdir(parents=True, exist_ok=True)
+                with (archive / f"step-{index + 1}.json").open("x", encoding="utf-8") as handle:
+                    json.dump(outcome, handle, ensure_ascii=False, indent=2)
+                record["steps"].append(
+                    {k: v for k, v in outcome.items() if k not in {"stdout", "stderr"}}
+                )
+                self.store.save(run)
+                self.store.journal(
+                    run.run_id,
+                    "preparation-step-finished",
+                    index=index,
+                    exit_code=outcome["exit_code"],
+                    timed_out=outcome["timed_out"],
+                    cancelled=outcome["cancelled"],
+                    attempt=record["attempts"],
+                )
+                if protocol_error:
+                    record["status"] = "cancelled" if outcome["cancelled"] else "interrupted"
+                    raise protocol_error
+                if outcome["exit_code"] or outcome["timed_out"] or outcome["cancelled"]:
+                    record["status"] = "cancelled" if outcome["cancelled"] else "failed"
+                    raise ExecutionRecoveryError(
+                        "preparation step failed; inspect evidence then retry --reprepare"
+                    )
+            record["status"] = "success"
+            self.store.save(run)
+            self.store.journal(
+                run.run_id,
+                "preparation-succeeded",
+                fingerprint=record["plan"]["fingerprint"],
+                attempt=record["attempts"],
+            )
+        except (IsolationError, OSError) as exc:
+            if record["status"] == "running":
+                record["status"] = (
+                    "cancelled" if self.store.cancel_requested(run.run_id) else "interrupted"
+                )
+            self.store.save(run)
+            with contextlib.suppress(IsolationError):
+                self.backend.interrupt(run.container, expected=record["resource"])
+            raise ExecutionRecoveryError(str(exc)) from exc
+        finally:
+            finished.set()
+            watcher.join(timeout=21)
 
     def _container_env(self, run: RunState) -> dict[str, str]:
         """@brief Compose the constrained executor environment."""
@@ -2767,7 +3046,7 @@ class Orchestrator:
         )
         env.update(self.config.container.runtime_env)
         env.update(self.secrets)
-        env.update(_EXECUTOR_CONTAINER_ENV.get(self.config.executor.default, {}))
+        env.update(self.backend.executor_environment(self.config.executor.default))
         return env
 
     def _stage_host_auth(self, run: RunState) -> None:
@@ -2782,16 +3061,15 @@ class Orchestrator:
         with contextlib.suppress(OSError):
             staged.chmod(0o644)
         try:
-            execute = partial(
-                self.containers.exec, run.container, env=self._container_env(run)
-            )
-            created = execute(["mkdir", "-p", self.host_auth_container_dir])
+            execute = self._execute(run)
+            auth_directory = self.backend.auth_directory(self.config.executor.default)
+            created = execute(["mkdir", "-p", auth_directory])
             if not created.ok:
                 raise IsolationError("executor auth directory creation failed")
             copied = execute([
                 "cp",
-                f"{CONTAINER_IO_MOUNT}/host-auth.json",
-                f"{self.host_auth_container_dir}/auth.json",
+                f"{self.backend.paths.io}/host-auth.json",
+                f"{auth_directory}/auth.json",
             ])
             if not copied.ok:
                 raise IsolationError("executor auth staging failed", copied.argv, copied.stderr)
@@ -2920,7 +3198,7 @@ class Orchestrator:
     def _teardown(self, run: RunState, *, remove_worktree: bool) -> None:
         """@brief Remove execution resources while retaining local state evidence."""
         with contextlib.suppress(IsolationError):
-            self.containers.remove(run.container)
+            self.backend.remove(run.container, expected=run.execution.get("resource") or None)
         if remove_worktree:
             try:
                 self.worktrees.remove(run.run_id, delete_branch=run.branch)

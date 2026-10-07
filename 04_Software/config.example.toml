@@ -218,6 +218,15 @@ timeout_state = "failed"
 # ----- Container / isolation ---------------------------------------------------
 # Execution isolation: the executor always runs inside a container; the git
 # worktree is mounted in. Both exist once per run-id.
+# Optional reviewed project preparation; see Container_Preparation.md.
+# Selection is a tracked path#job@full-reviewed-target-commit, never a branch name.
+[execution]
+backend = "container"
+preparation = ""
+preparation_step_timeout_seconds = 300
+preparation_total_timeout_seconds = 900
+preparation_max_attempts = 2
+
 [container]
 # "docker" | "podman", optionally wrapped when the daemon lives elsewhere -
 # e.g. Docker Engine inside WSL2 (no Docker Desktop):

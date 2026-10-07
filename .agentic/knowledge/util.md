@@ -8,12 +8,18 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # Utilities
 
-## Purpose
+## Routing
+
+Start at `04_Software/adore/util.py`; focused proof is
+`04_Software/tests/test_util.py`. Shared execution/recipe policy belongs to
+`execution.md` and `preparation.md`.
+
+## Purpose and boundaries
 
 Provides injectable, shell-free command execution, duration parsing, UTC
 timestamps, bounded output helpers, and reparse-point-safe cleanup support.
 
-## Public contract
+## Public interface
 
 `run_command()` takes an argv sequence and returns `CommandResult`, preserving
 stdout, stderr, exit code, duration, and the authoritative timeout flag.
@@ -22,6 +28,8 @@ text/bytes, and remove only an explicitly selected tree without following
 Windows reparse points.
 
 ## Key behaviors
+
+- `REQ-FUNC-e2b539d4`: Subprocess bytes retain original CRLF for exact-source hashes; strict_json_loads rejects duplicate keys, non-finite constants and excessive decoder nesting.
 
 - `CommandResult.timed_out` is set only when ADORE's wrapper kills a process.
 - Callers must not infer timeout from exit code or stderr wording.
@@ -38,3 +46,17 @@ Windows reparse points.
 
 - `04_Software/adore/util.py`
 - `04_Software/tests/test_util.py`
+
+## Invariants
+
+Commands use injected argv runners and typed captured results; retained source newlines remain exact. External JSON ambiguity fails closed.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    Caller([Caller]) --> API[util]
+    API --> Runner([Injected command target])
+    Runner --> Result[Validated typed result]
+    Result --> Caller
+```

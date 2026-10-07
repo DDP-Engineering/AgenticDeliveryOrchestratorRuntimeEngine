@@ -160,3 +160,7 @@ IO scale with retained sources. Read-time file absence cannot recover deleted
 history. Named responsibility and usage remain unknown until actual persisted
 contracts supply that evidence. The action workspace consumes this projection; Statistics supplies separate
 measured duration and usage contracts.
+
+## Preparation projection
+
+Authorized job reads validate `RunState.execution` then expose only preparation status, attempt count, image, fingerprint and ordered timestamp/exit/timeout/cancel summaries. Legacy jobs carry null. Source scripts, policy and raw streams remain outside the job projection. Existing composite identity, authorization and optimistic snapshots are preserved.

@@ -158,3 +158,7 @@ Stop the service poller before `retry`, `cancel`, `delete`, or `reset`; these
 commands acquire the same single-conductor lock and refuse a live/unknown
 holder. `pause` prevents new pickup but does not stop the poller or release its
 lock. `logs` is read-only and remains available during conduction.
+
+## Container preparation
+
+Recipe preparation failure/interruption is durable and never implicitly replayed. Inspect `execution-plan.json`, `state.json` execution fields, and `preparation/attempt-N/step-M.json`; ordinary retry retains the failure. `retry <run-id> --reprepare` explicitly acknowledges full replay in a fresh owned container with retained partial worktree effects. IDs, image, policy and immutable evidence must match on normal resume. See [Container preparation](Container_Preparation.md).

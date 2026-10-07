@@ -109,3 +109,7 @@ seconds = parse_duration("24h")  # 86400
 - No retry/backoff wrapper yet; the poll loop will add it where needed.
 - No streaming mode; if a later phase needs live progress, add an explicit
   file-tail mechanism rather than reading process stdout.
+
+## Exact source decoding
+
+`run_command` decodes captured bytes without newline translation, preserving CRLF recipe fingerprints. `strict_json_loads` rejects duplicate keys, non-finite constants and decoder nesting overflow. Callers own input-size limits and translate failures to their typed domain errors. Focused proof: `tests/test_util.py`.

@@ -55,6 +55,13 @@ from adore.portable_settings import (
     export_settings,
     parse_settings,
 )
+from adore.preparation import (
+    PreparationError,
+    effective_probe_config,
+    preview_plan,
+    public_plan,
+    validate_plan,
+)
 from adore.profiles import ProfileError, ProfileStore, validate_display_name, validate_profile_id
 from adore.repository_auth import (
     RepositoryAuthError,
@@ -64,7 +71,7 @@ from adore.repository_auth import (
     verify_connection,
 )
 from adore.state import StateError, StateStore
-from adore.util import CommandRunner, force_rmtree, run_command
+from adore.util import CommandRunner, force_rmtree, run_command, strict_json_loads
 from adore.web import analytics
 from adore.web.endpoint_probe import probe_endpoint
 from adore.web.executor_settings import (
@@ -86,7 +93,7 @@ _SETTING_KEY_RE = re.compile(r"[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+")
 # Configuration sections whose single values the web may edit.
 _EDITABLE_SECTIONS = frozenset({
     "agent", "platform", "polling", "readiness", "executor",
-    "container", "worktree", "workflow", "recovery", "budgets",
+    "container", "execution", "worktree", "workflow", "recovery", "budgets",
     "delivery", "review", "reconcile", "metrics", "labels",
 })
 # Exact documented/tested launch templates; GUI edits never accept shell text.
@@ -558,12 +565,13 @@ def _probe_setup(config, probe_runner: CommandRunner) -> dict:
         return result
 
     try:
+        config = effective_probe_config(config, runner=bounded_runner)
         git = doctor.detect_git(bounded_runner)
         forge = doctor.detect_platform_cli(config.platform.kind, bounded_runner)
         auth = doctor.auth_status(config.platform.kind, bounded_runner)
         runtimes = doctor.detect_runtimes(bounded_runner)
     except (OSError, UnicodeError, TypeError, ValueError,
-            KeyError, TimeoutError) as exc:
+            KeyError, TimeoutError, PreparationError) as exc:
         raise _error(503, "readiness_probe_failed") from exc
     try:
         image_runtime = ContainerManager(
@@ -1243,12 +1251,14 @@ def _candidate_config_edit(path: Path, body: ConfigEdit) -> tuple[bytes, str]:
 
 def _read_pending_config(path: Path) -> dict | None:
     """@brief Read and verify a durable staged edit, failing closed on corruption."""
+    if path.is_symlink():
+        raise _error(503, "pending_config_corrupt")
     if not path.is_file():
         return None
     try:
         if path.stat().st_size > 2097152:
             raise ValueError("pending config too large")
-        value = json.loads(path.read_text(encoding="utf-8"))
+        value = strict_json_loads(path.read_text(encoding="utf-8"))
         if (not isinstance(value, dict) or type(value.get("schema")) is not int
                 or value["schema"] != 1
                 or any(not isinstance(value.get(key), str) for key in (
@@ -1277,6 +1287,11 @@ def _public_pending_config(value: dict) -> dict:
         "base_revision", "candidate_revision", "key", "value", "created_at",
         "restart_required",
     )}
+    if "execution_plan" in value:
+        try:
+            public["execution_plan"] = public_plan(validate_plan(value["execution_plan"]))
+        except PreparationError as exc:
+            raise _error(503, "pending_config_corrupt") from exc
     try:
         candidate = tomllib.loads(value["candidate_text"])
         endpoint_key = value["key"] == "container.runtime_env.OPENAI_BASE_URL"
@@ -1341,7 +1356,7 @@ def _public_pending_config(value: dict) -> dict:
 def _restart_required(key: str) -> bool:
     """@brief Classify edits that change project identity or runtime wiring."""
     return key.startswith(("agent.", "platform.", "worktree.",
-                           "container.", "executor."))
+                           "container.", "execution.", "executor."))
 
 
 def _editable_setting_key(key: str, *, endpoint: bool = False) -> bool:
@@ -1425,6 +1440,7 @@ def _setting_domain(key: str, value: object, config: dict, declared: object) -> 
         "container.selinux_relabel": list(SELINUX_RELABEL_MODES),
         "container.parked_ttl_mode": ["seconds", "polls"],
         "container.egress.mode": ["open", "allowlist-proxy", "none"],
+        "execution.backend": ["container"],
         "delivery.draft": [True],
         "review.trigger": ["label"],
         "review.on_pipeline_failure": ["revise", "notify", "ignore"],
@@ -1445,7 +1461,8 @@ def _setting_domain(key: str, value: object, config: dict, declared: object) -> 
         "recovery.max_transient_retries", "budgets.max_iterations",
         "budgets.max_wall_clock_seconds", "budgets.per_gate_timeout_seconds",
         "budgets.max_files_touched", "review.max_review_rounds",
-        "container.egress.proxy_port",
+        "container.egress.proxy_port", "execution.preparation_step_timeout_seconds",
+        "execution.preparation_total_timeout_seconds", "execution.preparation_max_attempts",
     }
     minimum = (1 if key in positive or key.startswith("workflow.stage_timeout_overrides.")
                else 0 if key in {"polling.poll_jitter_seconds", "budgets.max_cost_usd"}
@@ -1454,7 +1471,10 @@ def _setting_domain(key: str, value: object, config: dict, declared: object) -> 
             else "number" if type(model_value) is float else "list" if isinstance(model_value, list)
             else "map" if isinstance(model_value, dict) else "text")
     return {"type": kind, "choices": choices, "minimum": minimum,
-            "maximum": 65535 if key == "container.egress.proxy_port" else None}
+            "maximum": {"container.egress.proxy_port": 65535,
+                        "execution.preparation_step_timeout_seconds": 1800,
+                        "execution.preparation_total_timeout_seconds": 3600,
+                        "execution.preparation_max_attempts": 3}.get(key)}
 
 
 def _setting_metadata(config: dict, raw: bytes) -> list[dict]:
@@ -2902,11 +2922,18 @@ def create_app(home: str | Path | None = None,
                                         item.project_id, sha256(raw).hexdigest())
         except ExecutorSettingsError as exc:
             raise _error(503, "executor_evidence_corrupt") from exc
+        issues = validate_config(config)
+        plan = None
+        if config.execution.preparation and not issues:
+            try:
+                plan = public_plan(preview_plan(config, runner=probe_runner))
+            except PreparationError as exc:
+                issues.append(str(exc))
         return {"config": data, "revision": sha256(raw).hexdigest(),
-                "issues": validate_config(config),
+                "issues": issues, "execution_plan": plan,
                 "local_endpoint_timeout_seconds": timeout_seconds,
                 "local_endpoint": endpoint_profile,
-                "model_connection": connection, "settings": settings}
+                "model_connection": connection if not issues else None, "settings": settings}
 
     @app.get("/api/v1/projects/{name}/config/raw")
     def raw_config(name: str, user: Annotated[dict, Depends(administrator)],
@@ -2957,6 +2984,8 @@ def create_app(home: str | Path | None = None,
             raise _error(400, "model_requires_endpoint")
         if not _editable_setting_key(body.key, endpoint=endpoint_key):
             raise _error(400, "setting_not_editable")
+        if body.key.startswith("execution."):
+            raise _error(409, "pending_config_required")
         if endpoint_key:
             if body.ca_file and (
                 not body.value.startswith("https://")
@@ -3103,6 +3132,12 @@ def create_app(home: str | Path | None = None,
                 "created_at": datetime.now(UTC).isoformat(),
                 "restart_required": _restart_required(body.key),
             }
+            candidate_config = _config_from_bytes(changed.encode())
+            if candidate_config.execution.preparation:
+                try:
+                    value["execution_plan"] = preview_plan(candidate_config, runner=probe_runner)
+                except PreparationError as exc:
+                    raise _error(400, "execution_plan_invalid", message=str(exc)) from exc
             public = _public_pending_config(value)
             attempt = web.begin_change(
                 user["id"],
@@ -3202,6 +3237,14 @@ def create_app(home: str | Path | None = None,
                         candidate.write_bytes(pending["candidate_text"].encode("utf-8"))
                         if validate_config(load_config(candidate)):
                             raise _error(400, "invalid_config")
+                        proposed = load_config(candidate)
+                        if proposed.execution.preparation:
+                            try:
+                                plan = preview_plan(proposed, runner=probe_runner)
+                                if plan != pending.get("execution_plan"):
+                                    raise PreparationError("reviewed execution plan changed")
+                            except PreparationError as exc:
+                                raise _error(409, "execution_plan_stale") from exc
                         if sha256(path.read_bytes()).hexdigest() != pending["base_revision"]:
                             raise _error(409, "stale_config_revision")
                         candidate.replace(path)

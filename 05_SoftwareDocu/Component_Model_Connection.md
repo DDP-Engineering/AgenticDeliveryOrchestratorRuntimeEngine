@@ -46,3 +46,7 @@ Save executor/model credentials as for normal execution, ensure its local image 
 ## 10. Limitations
 
 A model response proves no tool capability, Git push permission, AEGIS execution or complete job. Current results are persisted in model-connection.json by executor_settings.py, validated against immutable identity/configuration/credential inputs, and reused by Summary and host-check access presentation. Stale results are suppressed and corrupt results rejected. See Component_Executor_Configuration.md for storage/auth contracts. Full regression is deferred during iterative GUI work; real paid provider checks remain operator-triggered acceptance.
+
+## Effective preparation image
+
+Explicit model connection resolves the selected Git recipe through its bounded runner and uses the normalized effective image. Stale/corrupt source yields a failed result before any container setup. No project recipe command runs in the disposable connectivity workspace.

@@ -353,6 +353,12 @@ def _view(item: Profile, run_id: str, sources: dict) -> dict:
         "waiting": _waiting(run, events, ticket_url, mr_url, item.platform),
         "evidence_url": detail_url,
         "consumption": {"availability": "unknown"},
+        "preparation": ({"status": run.execution["status"],
+                         "attempts": run.execution["attempts"],
+                         "image": run.execution["plan"]["image"],
+                         "fingerprint": run.execution["plan"]["fingerprint"],
+                         "steps": run.execution["steps"]}
+                        if run.execution and run.execution["plan"]["selection"] else None),
         "observed_executors": sorted({event["executor"] for event in events
                                       if "executor" in event}),
         "timeline": [{"ts": _stamp(event.get("ts", ""), "run_journal_corrupt"),

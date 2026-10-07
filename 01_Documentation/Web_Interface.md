@@ -992,3 +992,7 @@ The application shows one dismissible notification for ordinary feedback or the 
 Editable settings place **Edit** beside **Active value** in the value column, including narrow screens. Administrators retain candidate review/apply/discard and disabled-state safeguards; developers have read-only rows.
 
 Project Settings purpose categories are collapsed on entry. Opening a category shows equal-width description and active-value columns separated by24px; below640px they stack at full width. Native disclosures retain keyboard operation. Executor configuration retains its expanded categories.
+
+## Container preparation
+
+Project Settings → Isolated environment exposes execution backend, reviewed recipe selection and setup bounds. Prepare a candidate, expand Preparation commands, inspect exact image/source/job/commit, then Apply to an idle paused project. Stale Git/configuration sources are refused. Host/model checks never execute setup. Job details show durable preparation outcomes and explicit replay guidance. See [Container preparation](Container_Preparation.md).

@@ -210,3 +210,7 @@ adore --profile <profile-name> run --dry-run   # any command against a profile
   purpose. Comments on the edited line are kept via a quote-aware heuristic.
 - No `--json` output mode for `status`/`runs` yet; add when scripting needs
   it.
+
+## Plan and explicit setup replay
+
+`config plan` prints a public normalized image/source/command review without setup. `config validate` and `config set` resolve selected recipes before accepting changes. `retry --reprepare` explicitly authorizes full bounded replay in a fresh owned container with retained worktree. Ordinary retry cannot replay failed preparation. Focused proof: `tests/test_profile_cli.py` and `tests/test_preparation_lifecycle.py`.

@@ -557,3 +557,22 @@ def test_evidenced_jump_declines_what_allowed_transition_already_rules_on() -> N
 
 
 # END OF FILE
+
+
+def test_backend_paths_control_aegis_file_transport(tmp_path):
+    """@brief Backend paths, including spaces, govern both scripts and launch argv."""
+    from adore.execution import ExecutionPaths
+
+    class Target:
+        """@brief Backend-native exchange fake with distinct paths."""
+        paths = ExecutionPaths(worktree="/native work", io="/native io")
+
+        def __call__(self, argv, **kwargs):
+            assert argv == ["sh", f"/native io/{AEGIS_SCRIPT}"]
+            script = (tmp_path / AEGIS_SCRIPT).read_text()
+            assert "cd '/native work'" in script
+            (tmp_path / AEGIS_STDOUT_FILE).write_text(f".agentic/tasks/{TASK_ID}.md\n")
+            (tmp_path / AEGIS_STDERR_FILE).write_text("")
+            return CommandResult()
+
+    assert AegisClient(Target(), io_dir=tmp_path).create_task("New task", "fix") == TASK_ID

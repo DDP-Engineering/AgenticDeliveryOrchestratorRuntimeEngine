@@ -219,3 +219,7 @@ CLI mechanisms: [gh environment](https://cli.github.com/manual/gh_help_environme
 ## Project provider keys in the web interface
 
 Admin Project → Executor configuration → Provider credentials edits approved provider variables in the private profile .env. Saving/removing requires paused monitoring, idle valid state and no pending changes. Other .env variables are retained. POSIX files use 0600; Windows deployment must protect the profile directory with the service-account ACL. Browser drafts clear after a mutation and leaving the page; response, audit and portable export omit credential values. Ambient environment overrides remain externally managed. A saved key is not proof of provider sign-in; Test AI connection is explicit and may use API billing separately from a subscription. GUI disconnect removes only the chosen project API key, leaving external subscription login and provider revocation to their actual owners. See Component_Executor_Configuration.md for strict input/evidence contracts.
+
+## Container preparation
+
+Preparation recipes are explicitly acknowledged executable project input and immutable review evidence. Keep secret values in existing allowlisted credential variables, not source text. Setup uses existing egress and executor credentials; no forge credentials are injected. Known secret values are redacted from bounded retained streams. Read-only host/model checks never execute recipes. See [Container preparation](Container_Preparation.md).

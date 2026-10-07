@@ -14,6 +14,11 @@ import type { Locale } from "./i18n";
  */
 export const SETTING_HELP: Record<Locale, Record<string, string>> = {
   en: {
+    "execution.backend": "Execution backend. Only container is supported.",
+    "execution.preparation": "Reviewed tracked recipe: relative.yml#job@full Git commit. Empty disables setup. Review commands before applying; stale sources fail closed.",
+    "execution.preparation_step_timeout_seconds": "Maximum preparation step time, seconds: 1–1800. Remaining job and setup budgets also apply.",
+    "execution.preparation_total_timeout_seconds": "Maximum preparation attempt time, seconds: 1–3600. Exceeding this limit prevents agent startup.",
+    "execution.preparation_max_attempts": "Maximum explicit preparation attempts: 1–3. Failure requires retry --reprepare; all steps replay.",
     "agent.email": "Git author email for the checkpoint commits ADORE makes in a run's worktree. Empty means <slug>-bot@local.",
     "agent.name": "Name ADORE shows in the tag of its forge comments, for example [ADORE]. When agent.slug is empty, the slug is derived from it.",
     "agent.slug": "Lowercase prefix of every local name: run branches (through the branch template), containers (<slug>-run-…), the state folder (.<slug>) and comment markers. Empty means derived from agent.name. Changing it for a project with runs leaves their containers and default state folder unmatched.",
@@ -119,6 +124,11 @@ export const SETTING_HELP: Record<Locale, Record<string, string>> = {
     "worktree.root": "Folder that holds one worktree per run (<root>/<run ID>). Use an absolute path; a relative one is resolved from the folder ADORE runs in.",
   },
   fr: {
+    "execution.backend": "Environnement d’exécution. Seul container est pris en charge.",
+    "execution.preparation": "Recette examinée : chemin.yml#job@commit Git complet. Vide désactive la préparation. Examinez les commandes ; les sources périmées sont refusées.",
+    "execution.preparation_step_timeout_seconds": "Durée maximale par étape, secondes : 1–1800. Les budgets restants s’appliquent aussi.",
+    "execution.preparation_total_timeout_seconds": "Durée maximale par tentative, secondes : 1–3600. Son dépassement empêche le démarrage de l’agent.",
+    "execution.preparation_max_attempts": "Tentatives explicites maximales : 1–3. Un échec exige retry --reprepare ; toutes les étapes sont rejouées.",
     "agent.email": "Adresse e-mail d'auteur Git des commits de point de contrôle qu'ADORE crée dans l'arbre de travail d'une exécution. Vide signifie <slug>-bot@local.",
     "agent.name": "Nom qu'ADORE affiche dans l'étiquette de ses commentaires sur la forge, par exemple [ADORE]. Si agent.slug est vide, le slug en est dérivé.",
     "agent.slug": "Préfixe en minuscules de tous les noms locaux : branches d'exécution (via le modèle de branche), conteneurs (<slug>-run-…), dossier d'état (.<slug>) et marqueurs de commentaire. Vide signifie dérivé d'agent.name. Le changer sur un projet qui a des exécutions laisse leurs conteneurs et leur dossier d'état par défaut sans correspondance.",
@@ -224,6 +234,11 @@ export const SETTING_HELP: Record<Locale, Record<string, string>> = {
     "worktree.root": "Dossier qui contient un arbre de travail par exécution (<root>/<identifiant d'exécution>). Utilisez un chemin absolu ; un chemin relatif part du dossier où ADORE s'exécute.",
   },
   de: {
+    "execution.backend": "Ausführungsumgebung. Nur container wird unterstützt.",
+    "execution.preparation": "Geprüftes Rezept: relativ.yml#Job@vollständiger Git-Commit. Leer deaktiviert die Vorbereitung. Prüfen Sie alle Befehle; veraltete Quellen werden abgelehnt.",
+    "execution.preparation_step_timeout_seconds": "Maximale Schrittdauer in Sekunden: 1–1800. Verbleibende Job- und Vorbereitungsbudgets gelten ebenfalls.",
+    "execution.preparation_total_timeout_seconds": "Maximale Versuchsdauer in Sekunden: 1–3600. Eine Überschreitung verhindert den Agentstart.",
+    "execution.preparation_max_attempts": "Maximale ausdrückliche Versuche: 1–3. Fehler erfordern retry --reprepare; alle Schritte werden wiederholt.",
     "agent.email": "Git-Autor-E-Mail für die Checkpoint-Commits, die ADORE im Worktree eines Laufs erstellt. Leer bedeutet <slug>-bot@local.",
     "agent.name": "Name, den ADORE im Kennzeichen seiner Forge-Kommentare zeigt, zum Beispiel [ADORE]. Ist agent.slug leer, wird der Slug daraus abgeleitet.",
     "agent.slug": "Kleingeschriebenes Präfix aller lokalen Namen: Lauf-Branches (über die Branch-Vorlage), Container (<slug>-run-…), Zustandsordner (.<slug>) und Kommentarmarker. Leer bedeutet aus agent.name abgeleitet. Eine Änderung bei einem Projekt mit Läufen lässt deren Container und Standard-Zustandsordner nicht mehr zuordnen.",
@@ -329,6 +344,11 @@ export const SETTING_HELP: Record<Locale, Record<string, string>> = {
     "worktree.root": "Ordner mit einem Worktree je Lauf (<root>/<Lauf-ID>). Einen absoluten Pfad verwenden; ein relativer gilt ab dem Ordner, in dem ADORE läuft.",
   },
   ro: {
+    "execution.backend": "Mediu de execuție. Numai container este acceptat.",
+    "execution.preparation": "Rețetă revizuită: relativ.yml#job@commit Git complet. Valoarea goală dezactivează pregătirea. Revizuiți comenzile; sursele expirate sunt respinse.",
+    "execution.preparation_step_timeout_seconds": "Durata maximă per pas, secunde: 1–1800. Se aplică și bugetele rămase ale jobului și pregătirii.",
+    "execution.preparation_total_timeout_seconds": "Durata maximă per încercare, secunde: 1–3600. Depășirea împiedică pornirea agentului.",
+    "execution.preparation_max_attempts": "Încercări explicite maxime: 1–3. Eșecul cere retry --reprepare; toți pașii sunt repetați.",
     "agent.email": "Adresa de e-mail a autorului Git pentru commiturile de punct de control pe care ADORE le face în arborele de lucru al unei rulări. Gol înseamnă <slug>-bot@local.",
     "agent.name": "Numele pe care ADORE îl afișează în eticheta comentariilor de pe forge, de exemplu [ADORE]. Când agent.slug este gol, slugul se derivă din el.",
     "agent.slug": "Prefixul cu litere mici al tuturor numelor locale: ramurile rulărilor (prin șablonul de ramură), containerele (<slug>-run-…), dosarul de stare (.<slug>) și marcajele din comentarii. Gol înseamnă derivat din agent.name. Schimbarea lui la un proiect cu rulări lasă containerele și dosarul de stare implicit ale acestora fără corespondență.",

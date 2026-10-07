@@ -4,10 +4,12 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
+import { validPreparationEvidence, type PreparationEvidence } from "./executionPlan.ts";
 export const lifecycles = ["working", "publishing", "parked-clarification", "awaiting-approval", "in-review", "handoff-pending", "handed-off", "done", "failed", "cancelled", "stale"] as const;
 export const stages = ["frame", "specify", "design", "build", "validate", "deliver", "done", "publishing"] as const;
 export type Lifecycle = typeof lifecycles[number];
 export type Job = {
+  preparation?: PreparationEvidence | null;
   project_id: string; project_name: string; project_display_name: string; project_archived: boolean;
   run_id: string; ticket_iid: number; ticket_title: string | null; ticket_url: string | null; mr_url: string | null;
   lifecycle: Lifecycle; stage: string; status_group: string; outcome: string;
@@ -56,6 +58,7 @@ export function readJob(value: unknown, authorized: string[]): Job {
     ![row.created_at, row.updated_at, row.last_activity_at].every(stamp) ||
     row.evidence_url !== `/api/v1/jobs/${row.project_id}/${row.run_id}` ||
     object(row.consumption).availability !== "unknown") invalid();
+  if (row.preparation !== undefined && row.preparation !== null && !validPreparationEvidence(row.preparation)) invalid();
   for (const link of [row.ticket_url, row.mr_url, waiting.evidence_url]) if (link !== null && safeEvidenceLink(link) === null) invalid();
   if (!["unknown", "observed"].includes(String(waiting.availability)) ||
     ![waiting.reason, waiting.next_action, waiting.responsible_role, waiting.responsible_person, waiting.source].every(optionalText) ||

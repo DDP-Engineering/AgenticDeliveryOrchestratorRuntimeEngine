@@ -206,3 +206,7 @@ outage stops code work until polling delivers the pending notification.
 Executor timeouts are classified only from the command runner's authoritative
 timeout flag. Exit code or stderr text containing the word `timeout` is not
 treated as proof that ADORE killed the process.
+
+## Container preparation
+
+Projects may select a tracked preparation recipe at an exact reviewed target commit after `adore init`. It prepares the ordinary run worktree/container before any AI stage; declared image tools must already exist and dependencies follow existing egress. Later gates discover installed tools through explicit `container.runtime_env.PATH`. See [Container preparation](Container_Preparation.md) for the closed Actions-style grammar and immutable recovery contract.

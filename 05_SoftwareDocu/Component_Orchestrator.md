@@ -202,3 +202,7 @@ receive tokens; worktrees, containers and executor secrets retain their own runn
 environment contracts. Corrupt/stale records raise RepositoryAuthError (ForgeError)
 before fallback. tests/test_repository_connection.py proves all three engine
 bindings and absence from executor secrets.
+
+## Prepared backend target
+
+Recipe runs resolve/persist the plan before worktree effects, pins the reviewed base commit, verifies actual image/container identity, provisions through `ExecutionBackend`, checks image tools/stages auth, then executes bounded preparation before AEGIS/AI. It saves running state before project effects and immutable timestamped redacted step receipts after execution. Failure/cancel/corrupt receipts never authorize gates. Resume verifies immutable evidence and IDs; only explicit bounded `--reprepare` recreates the owned container and retains history/worktree. Backend paths and executor homes/auth destinations govern commands. Tests: `tests/test_preparation_lifecycle.py`, `tests/test_orchestrator.py`.

@@ -70,6 +70,8 @@ state only: they do not edit AEGIS journals or cause a merge.
 
 ## Key behaviors
 
+- `REQ-UX-94a97e70`: `config plan` previews exact reviewed image/commands; selected source is checked by validate/set. `retry --reprepare` explicitly authorizes capped replay.
+
 - `REQ-FUNC-39697089` - explicit force and live-lock protection for mutations.
 - `REQ-FUNC-3557ecdf` - profile resolution, use tracking, and visible corrupt run state.
 - `REQ-FUNC-f9946b6b` - selected-ticket web operations retain CLI boundaries.

@@ -340,3 +340,7 @@ result = containers.exec("adore-run-gitlab-x-14", ["opencode", "--version"])
   shell re-parses them, so argv elements containing spaces can be split. The
   executor launcher must pass prompts through a file, never through argv
   (planned anyway for output capture).
+
+## Authoritative execution identity
+
+`resource_identity(name)` validates bounded inspect JSON, duplicate fields, exact name, actual container ID, image ID and status; foreign/missing/malformed data raises `IsolationError`. `image_identity(image)` reads a local image ID without pulling. `ContainerBackend` supplies shared lifecycle/command ownership and verifies IDs before commands or cleanup. Focused proof: `tests/test_execution.py`.

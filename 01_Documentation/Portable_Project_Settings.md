@@ -121,3 +121,7 @@ byte-exact review/import contract. **Statistics CSV** contains measurement rows
 and retains its existing authorization/filter contract. Neither is a portable
 working-rules package. Live acceptance, novice participants and a comprehensive
 accessibility audit remain separate from offline automated verification.
+
+## Container preparation
+
+Preparation selection, execution backend/bounds, recipe files, images, environment and credentials are outside portable rule packages. Configure/review them independently on the target host; the existing narrow rule allowlist remains unchanged.

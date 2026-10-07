@@ -8,7 +8,13 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # AEGIS client
 
-## Purpose
+## Routing
+
+Start at `04_Software/adore/aegis.py`; focused proof is
+`04_Software/tests/test_aegis.py`. Shared execution/recipe policy belongs to
+`execution.md` and `preparation.md`.
+
+## Purpose and boundaries
 
 `04_Software/adore/aegis.py` is ADORE's sole companion-governance boundary. It
 speaks the installed AEGIS Python CLI at 0.5 or later within major 0 and its
@@ -25,11 +31,11 @@ own delivery report. Its validated value objects
 (`AegisProbe`, `AegisTask`, `AegisCheck`, `AegisFinding`, and
 `AegisCommandRun`) expose only decision-safe data to the orchestrator.
 
-## Contract and safety boundary
+## Invariants
 
 Host pre-pick probing uses direct subprocess argv. Calls made from a run
 container instead write a LF-only, POSIX-quoted `aegis.sh` and invoke exactly
-`sh /adore/io/aegis.sh`; bounded UTF-8 exchange files replace wrapper output.
+the backend shell and native IO path (container default `sh /adore/io/aegis.sh`); bounded UTF-8 exchange files replace wrapper output.
 The client accepts only `aegis` major 0 at 0.5 or later, schema `1`, expected task ids, legal
 stages/paths, contained artifact paths, and internally consistent strict-check
 results. Malformed JSON, path escapes, unknown schema/version, missing or
@@ -40,7 +46,9 @@ The client never edits a journal, advances a stage, approves publication,
 commits, pushes, or calls a forge. Those remain explicitly owned by the
 orchestrator and human delivery policy.
 
-## Requirement coverage
+## Key behaviors
+
+- `REQ-FUNC-e397f7f6`: AEGIS file transport uses bound backend worktree/IO/shell paths with quoted paths, including spaces. Direct host probes retain argv behavior.
 
 - `REQ-FUNC-4fe259b0` - bounded container exchange and typed timeout handling.
 - `REQ-FUNC-16237c6d` - pinned AEGIS task, stage, and strict-check validation.
@@ -48,7 +56,22 @@ orchestrator and human delivery policy.
 ## Dependencies and verification
 
 It depends on the target repository's `.agentic/aegis.py`, an injected command
-or container exec seam, `adore.util.CommandResult`, and branding mount paths.
+or container exec seam, `adore.util.CommandResult`, and backend `ExecutionPaths`.
 `04_Software/tests/test_aegis.py` covers valid and corrupt schema data,
 transition rules, protocol/containment failures, shell-sensitive inputs, and
 typed timeout preservation offline.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    Caller([Caller]) --> API[aegis]
+    API --> Runner([Injected command target])
+    Runner --> Result[Validated typed result]
+    Result --> Caller
+```
+
+## Files
+
+- `04_Software/adore/aegis.py`: implementation.
+- `04_Software/tests/test_aegis.py`: public boundary verification.

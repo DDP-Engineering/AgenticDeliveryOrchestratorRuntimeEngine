@@ -75,8 +75,9 @@ so live streaming looks hung.
    both in `/adore/io`. No `exec` prefix - templates may be compound commands,
    and the group makes the redirection cover the WHOLE compound (e.g. `a && b`),
    not just its last stage.
-4. Run `["sh", "/adore/io/gate.sh"]` through the exec seam - two space-free
-   tokens, immune to WSL argv splitting. The script's exit status is the
+4. Run the backend shell and native IO script path through the bound command
+   seam (container default `["sh", "/adore/io/gate.sh"]`). Paths remain single argv tokens;
+   script paths are quoted and support spaces. The script's exit status is the
    executor's.
 5. Read back from the HOST filesystem: the event stream and stderr from the
    io dir, questions from `<worktree>/<questions_file>`. Token usage is parsed
@@ -234,3 +235,7 @@ elif run.ok:
 - No mid-gate progress visibility: results are read at exit. If gates prove
   too long to run blind, add tailing of `output.jsonl` (it grows during the
   run) without changing the protocol.
+
+## Backend-native gate paths
+
+Bound targets supply worktree, IO and shell paths through `ExecutionPaths`. The existing container defaults preserve legacy injected callables. Preparation and all later gates use the same bound resource/environment; launcher parsing/approval remains unchanged.

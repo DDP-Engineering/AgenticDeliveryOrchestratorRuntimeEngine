@@ -160,3 +160,26 @@ def test_load_env_file(tmp_path) -> None:
 
 
 # END OF FILE
+
+
+def test_command_preserves_crlf_bytes(monkeypatch):
+    """@brief Exact Git source fingerprints retain CRLF subprocess output."""
+    from types import SimpleNamespace
+
+    from adore.util import run_command
+
+    def execute(*args, **kwargs):
+        assert not kwargs.get("text")
+        return SimpleNamespace(returncode=0, stdout=b"first\r\nsecond\n", stderr=b"")
+
+    monkeypatch.setattr("adore.util.subprocess.run", execute)
+    assert run_command(["git", "cat-file"]).stdout == "first\r\nsecond\n"
+
+
+@pytest.mark.parametrize("source", ['{"key":1,"key":2}', '{"key":NaN}', '[' * 2000])
+def test_strict_json_rejects_ambiguous_external_data(source):
+    """@brief Duplicate, non-finite and excessive nesting fail closed."""
+    from adore.util import strict_json_loads
+
+    with pytest.raises(ValueError):
+        strict_json_loads(source)

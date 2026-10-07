@@ -120,3 +120,9 @@ test("every catalog key has an understandable English label and purpose", async 
   assert.deepEqual(Object.keys(settingsCopy.de).sort(), Object.keys(settingsCopy.en).sort());
   assert.deepEqual(Object.keys(settingsCopy.ro).sort(), Object.keys(settingsCopy.en).sort());
 });
+
+test("preparation selection requires a complete bound plan before Apply", () => {
+  const selection = "prepare.yml#setup@" + "a".repeat(40);
+  const candidate = { base_revision: "a".repeat(64), candidate_revision: "b".repeat(64), key: "execution.preparation", value: selection, proposed_value: selection, created_at: "2026-10-07T12:00:00Z", restart_required: true };
+  assert.equal(validPendingConfig(candidate), false, "unreviewed preparation enables Apply");
+});

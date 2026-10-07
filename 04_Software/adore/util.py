@@ -24,6 +24,7 @@ from collections.abc import Sequence
 import contextlib
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+import json
 import os
 from pathlib import Path
 import re
@@ -149,9 +150,6 @@ def run_command(
         completed = subprocess.run(  # noqa: S603 - fixed argv, no shell
             argv_list,
             capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
             cwd=str(cwd) if cwd is not None else None,
             timeout=timeout,
             env=env,
@@ -182,8 +180,8 @@ def run_command(
     return CommandResult(
         argv=argv_list,
         exit_code=completed.returncode,
-        stdout=completed.stdout or "",
-        stderr=completed.stderr or "",
+        stdout=_decode(completed.stdout),
+        stderr=_decode(completed.stderr),
     )
 
 
@@ -373,6 +371,32 @@ def load_env_file(path: str | Path = ".env") -> dict[str, str]:
         if key:
             values[key] = value
     return values
+
+
+def strict_json_loads(source: str) -> object:
+    """
+    @brief Decode external JSON without duplicate keys or non-finite numbers.
+    @param[in] source Untrusted JSON text, bounded by the caller.
+    @return Decoded JSON value.
+    @exception ValueError For malformed or ambiguous input.
+    """
+    def unique(pairs):
+        """@brief Reject repeated keys at every nested object boundary."""
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError("duplicate JSON field")
+            result[key] = value
+        return result
+
+    def invalid(value):
+        """@brief Reject constants outside the JSON number grammar."""
+        raise ValueError("non-finite JSON value")
+
+    try:
+        return json.loads(source, object_pairs_hook=unique, parse_constant=invalid)
+    except RecursionError as exc:
+        raise ValueError("JSON nesting exceeds decoder bound") from exc
 
 
 # END OF FILE

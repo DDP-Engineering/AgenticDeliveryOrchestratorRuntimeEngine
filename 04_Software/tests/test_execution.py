@@ -1,0 +1,214 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# -----------------------------------------------------------------------------
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+# -----------------------------------------------------------------------------
+"""
+@file    test_execution.py
+@brief   Shared execution identity and bounded preparation file contracts.
+@details All command/process boundaries are injected and remain offline.
+"""
+
+# IMPORTS
+import io
+import json
+from pathlib import Path
+import subprocess
+
+from adore import preparation_runner
+from adore.execution import ExecutionPaths, redact_output, run_preparation_step
+from adore.isolation import ContainerManager, IsolationError
+from adore.util import CommandResult
+import pytest
+
+# PUBLIC API / TESTS
+
+
+def test_transport_rejects_linked_parents_before_creating_files(tmp_path, monkeypatch):
+    """@brief Linked executor-controlled parents cannot cause host-side writes."""
+    original = Path.is_symlink
+    monkeypatch.setattr(
+        Path, "is_symlink", lambda path: path == tmp_path / "preparation" or original(path)
+    )
+    with pytest.raises(IsolationError):
+        run_preparation_step(
+            None, tmp_path, 1, 0, {"name": "setup", "run": "true"}, timeout=1, secrets={}
+        )
+    assert not (tmp_path / "preparation").exists()
+
+
+def test_preparation_runner_uses_file_transport_and_authoritative_result(tmp_path):
+    """@brief Multiline scripts are files with bounded redacted evidence."""
+
+    class Target:
+        """@brief Fake target writes the file protocol through mounted IO."""
+
+        paths = ExecutionPaths()
+
+        def __call__(self, argv, **kwargs):
+            assert len(argv) == 5 and "echo" not in " ".join(argv)
+            directory = tmp_path / "preparation/attempt-1/step-1"
+            assert (directory / "run.sh").read_text().endswith('echo "space path"\necho done\n')
+            (directory / "stdout.txt").write_text("secret-value " + "x" * 70000)
+            (directory / "stderr.txt").write_text("")
+            (directory / "result.json").write_text('{"exit_code":0,"timed_out":false}')
+            return CommandResult()
+
+    result = run_preparation_step(
+        Target(),
+        tmp_path,
+        1,
+        0,
+        {"name": "setup", "run": 'echo "space path"\necho done'},
+        timeout=10,
+        secrets={"MODEL_KEY": "secret-value"},
+    )
+    assert result["exit_code"] == 0 and not result["timed_out"]
+    assert "secret-value" not in result["stdout"]
+    assert len(result["stdout"].encode()) <= 65536
+
+
+def test_container_identity_reports_actual_container_and_image_ids():
+    """@brief Authoritative inspect IDs govern resource identity."""
+    manager = ContainerManager(
+        "docker",
+        "project:1",
+        "uv",
+        "npm",
+        runner=lambda *args, **kwargs: CommandResult(
+            stdout=json.dumps(
+                [
+                    {
+                        "Id": "a" * 64,
+                        "Image": "sha256:" + "b" * 64,
+                        "Name": "/owned-run",
+                        "State": {"Status": "running"},
+                    }
+                ]
+            )
+        ),
+    )
+    identity = manager.resource_identity("owned-run")
+    assert identity["container_id"] == "a" * 64
+    assert identity["image_id"] == "sha256:" + "b" * 64
+
+
+@pytest.mark.parametrize(
+    "output",
+    [
+        "",
+        "{}",
+        "[{}]",
+        "null",
+        "[1]",
+        '[{"Id":"short","Image":"x","Name":"/other","State":{"Status":"running"}}]',
+        '[{"Id":"short","Id":"other"}]',
+    ],
+)
+def test_container_identity_rejects_corrupt_or_foreign_resources(output):
+    """@brief Malformed or duplicate inspect values cannot authorize a target."""
+    manager = ContainerManager(
+        "podman",
+        "project:1",
+        "uv",
+        "npm",
+        runner=lambda *args, **kwargs: CommandResult(stdout=output),
+    )
+    with pytest.raises(IsolationError):
+        manager.resource_identity("owned-run")
+
+
+@pytest.mark.parametrize("mode", ["ok", "exit124", "timeout"])
+def test_standalone_preparation_runner_bounds_output_and_process_lifetime(
+    tmp_path, monkeypatch, mode
+):
+    """@brief File runner bounds retention and distinguishes shell exit from timeout."""
+    secret = "secret-" + "z" * 200
+    monkeypatch.setenv("MODEL_KEY", secret)
+    (tmp_path / "secret-keys.json").write_text('["MODEL_KEY"]')
+    calls = []
+
+    class Process:
+        """@brief Fake pipes exercise redaction without launching a command."""
+
+        pid = 123
+        stdout = io.BytesIO(("x" * 4090 + secret + "\U0001f600" * 40000).encode())
+        stderr = io.BytesIO(b"bounded stderr")
+        waited = False
+
+        def wait(self, timeout=None):
+            if mode == "timeout" and not self.waited:
+                self.waited = True
+                raise subprocess.TimeoutExpired("sh", timeout)
+            return 124 if mode == "exit124" else 0
+
+    def start(argv, **kwargs):
+        assert argv == ["sh", "-eu", str(tmp_path / "run.sh")]
+        assert kwargs["cwd"] == "worktree with spaces" and kwargs["start_new_session"]
+        return Process()
+
+    monkeypatch.setattr(preparation_runner.signal, "SIGKILL", 9, raising=False)
+    monkeypatch.setattr(preparation_runner.subprocess, "Popen", start)
+    monkeypatch.setattr(
+        preparation_runner.os, "killpg", lambda *args: calls.append(args), raising=False
+    )
+    assert preparation_runner.main(["1", str(tmp_path), "worktree with spaces"]) == (
+        0 if mode == "ok" else 124
+    )
+    record = json.loads((tmp_path / "result.json").read_text())
+    assert record["timed_out"] == (mode == "timeout")
+    assert secret.encode() not in (tmp_path / "stdout.txt").read_bytes()
+    assert (tmp_path / "stdout.txt").stat().st_size <= 65536
+    assert calls
+
+
+def test_redacted_unicode_output_respects_byte_limit():
+    """@brief Multibyte truncation never exceeds the retained UTF-8 byte limit."""
+    assert len(redact_output("\U0001f600" * 20000, {}).encode()) <= 65536
+
+
+# END OF FILE
+
+
+def test_preparation_runner_redacts_existing_staged_auth_values(tmp_path, monkeypatch):
+    """@brief Existing staged executor credentials are redacted without new key sources."""
+    (tmp_path / "secret-keys.json").write_text("[]")
+    auth = tmp_path / "auth.json"
+    auth.write_text('{"provider":{"access_token":"existing-staged-secret"}}')
+
+    class Process:
+        """@brief Fake emits existing auth material like a project diagnostic."""
+
+        pid = 123
+        stdout = io.BytesIO(b"existing-staged-secret")
+        stderr = io.BytesIO()
+
+        def wait(self, timeout=None):
+            return 0
+
+    monkeypatch.setattr(preparation_runner.subprocess, "Popen", lambda *args, **kwargs: Process())
+    monkeypatch.setattr(preparation_runner.os, "killpg", lambda *args: None, raising=False)
+    monkeypatch.setattr(preparation_runner.signal, "SIGKILL", 9, raising=False)
+    assert preparation_runner.main(["1", str(tmp_path), "work", str(auth)]) == 0
+    assert b"existing-staged-secret" not in (tmp_path / "stdout.txt").read_bytes()
+
+
+@pytest.mark.parametrize(
+    "body", ['{"token":1,"token":2}', "[]", "x" * 131073], ids=["duplicates", "array", "oversized"]
+)
+def test_corrupt_staged_auth_fails_before_preparation_process(tmp_path, monkeypatch, body):
+    """@brief Ambiguous or excessive staged auth cannot weaken output redaction."""
+    (tmp_path / "secret-keys.json").write_text("[]")
+    auth = tmp_path / "auth.json"
+    auth.write_text(body)
+    calls = []
+    monkeypatch.setattr(
+        preparation_runner.subprocess, "Popen", lambda *args, **kwargs: calls.append(args)
+    )
+    with pytest.raises(ValueError):
+        preparation_runner.main(["1", str(tmp_path), "work", str(auth)])
+    assert calls == []

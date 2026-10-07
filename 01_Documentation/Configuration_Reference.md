@@ -225,3 +225,7 @@ reserved; ADORE currently performs no resource-usage probing.
 ## Web executor configuration
 
 Project → Executor configuration owns executor fields and the applicable OpenCode endpoint form. The saved default/model is edited through reviewed candidates; existing configured command tables determine choices. Model IDs use the installed CLI/provider syntax. API keys are stored through Provider credentials in the selected profile .env, limited to known names already in executor.env_keys. Subscription credentials retain the configured CLI login bridge/mount. New jobs use applied values; active jobs retain their durable configuration. Current explicit model evidence is invalidated by configuration/credential changes. See [Executor configuration](../05_SoftwareDocu/Component_Executor_Configuration.md).
+
+## Container preparation
+
+The optional closed `[execution]` table selects a reviewed `path.yml#job@full-commit` recipe. Defaults are container backend, no preparation, 300-second step limit, 900-second total attempt limit and two explicit attempts. [Container preparation](Container_Preparation.md) defines the authoritative grammar, image precedence, selection/review commands and recovery.

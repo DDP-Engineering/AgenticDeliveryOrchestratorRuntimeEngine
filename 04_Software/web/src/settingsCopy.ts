@@ -20,6 +20,12 @@ export const settingsCopy: Record<Locale, typeof en> = {
 /** Understandable English catalog labels, including named entries. */
 export function settingLabel(key: string): string {
  const labels: Record<string, string> = {
+ "execution.backend": "Execution backend",
+ "execution.preparation": "Reviewed preparation recipe",
+ "execution.preparation_step_timeout_seconds": "Preparation step limit (seconds)",
+ "execution.preparation_total_timeout_seconds": "Preparation total limit (seconds)",
+ "execution.preparation_max_attempts": "Maximum preparation attempts",
+
  "container.runtime_env.OPENAI_BASE_URL": "Model endpoint URL", "agent.name": "Agent display name", "agent.slug": "Agent resource name", "agent.email": "Commit author email", "platform.kind": "Repository service", "platform.repo": "Repository owner and name", "platform.login": "Gitea login name",
  "executor.default": "Default coding agent", "executor.mode": "Agent execution mode", "executor.stage_host_auth": "Use host agent sign-in", "executor.questions_file": "Agent question file", "executor.env_keys": "Credential variable names",
  "polling.mode": "Ticket checking mode", "polling.poll_interval_seconds": "Ticket check interval (seconds)", "polling.poll_jitter_seconds": "Random check delay (seconds)", "polling.poll_backoff": "Wait longer after ticket service errors", "polling.max_concurrent_runs": "Active job limit", "polling.quiet_hours": "Hours with no pickup or advancement",

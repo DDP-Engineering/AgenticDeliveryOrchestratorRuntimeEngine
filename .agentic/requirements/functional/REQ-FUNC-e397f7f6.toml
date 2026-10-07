@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-e397f7f6"
+title = "Route executor lifecycle through a shared execution backend"
+status = "active"
+requirement = "For container profiles, ADORE shall route execution paths, provisioning, command execution, stop/interruption and owned-resource removal through a shared backend contract while preserving legacy profiles, file gates, authentication, egress and delivery approval."
+verification = "Offline backend/conductor/launcher regression tests observe default legacy provisioning and equivalent gate, parking, cancel and cleanup outcomes with Docker, Podman and WSL command runners."
+affected_paths = ["04_Software/adore/execution.py", "04_Software/adore/orchestrator.py", "04_Software/adore/isolation.py", "04_Software/adore/executor/base.py", "04_Software/adore/executor/launcher.py", "04_Software/adore/aegis.py"]
+linked_tests = ["04_Software/tests/test_preparation_lifecycle.py::test_legacy_retry_keeps_existing_profile_update_contract", "04_Software/tests/test_aegis.py::test_backend_paths_control_aegis_file_transport", "04_Software/tests/test_execution.py::test_container_identity_reports_actual_container_and_image_ids", "04_Software/tests/test_orchestrator.py::test_recipe_preparation_precedes_ai_and_is_not_replayed_on_resume"]
+spec = "specs/REQ-FUNC-e2b539d4.md"
+priority = "high"
+created = 2026-10-07
+updated = 2026-10-07

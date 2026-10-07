@@ -38,8 +38,8 @@ import shlex
 import shutil
 
 from adore.branding import DEFAULT_QUESTIONS_FILE
+from adore.execution import SHELL_HEADER, ExecutionPaths
 from adore.executor.base import ExecTarget, Executor, GateRun
-from adore.isolation import CONTAINER_IO_MOUNT, CONTAINER_WORKTREE_MOUNT
 from adore.util import utc_now_iso
 
 # CONSTANTS
@@ -162,10 +162,11 @@ class FileProtocolExecutor(Executor):
         output_path.unlink(missing_ok=True)
         stderr_path.unlink(missing_ok=True)
 
+        paths = getattr(execute, "paths", ExecutionPaths())
         command = self._build_command(
             prompt=shlex.quote(prompt),
             model=shlex.quote(self.model),
-            worktree=CONTAINER_WORKTREE_MOUNT,
+            worktree=shlex.quote(paths.worktree),
         )
         # No `exec` prefix: the template may be a compound command, and the
         # script's exit status is the command's status either way. The command
@@ -174,16 +175,16 @@ class FileProtocolExecutor(Executor):
         # stage - otherwise a compound template would lose the earlier stage's
         # stream. Group exit status is that of the last command run, unchanged.
         script = (
-            "#!/bin/sh\n"
-            f"cd {CONTAINER_WORKTREE_MOUNT}\n"
+            SHELL_HEADER
+            + f"cd {shlex.quote(paths.worktree)}\n"
             f"{{ {command}; }} "
-            f"> {CONTAINER_IO_MOUNT}/{OUTPUT_FILE} "
-            f"2> {CONTAINER_IO_MOUNT}/{STDERR_FILE}\n"
+            f"> {shlex.quote(paths.io + '/' + OUTPUT_FILE)} "
+            f"2> {shlex.quote(paths.io + '/' + STDERR_FILE)}\n"
         )
         with (io_dir / GATE_SCRIPT).open("w", encoding="utf-8", newline="\n") as handle:
             handle.write(script)
 
-        result = execute(["sh", f"{CONTAINER_IO_MOUNT}/{GATE_SCRIPT}"], timeout=timeout)
+        result = execute([paths.shell, f"{paths.io}/{GATE_SCRIPT}"], timeout=timeout)
 
         output = self._read(output_path)
         stderr = self._read(stderr_path) or result.stderr

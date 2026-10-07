@@ -34,10 +34,10 @@ from adore.util import CommandResult
 
 class ExecTarget(Protocol):
     """
-    @brief   Callable that runs a command inside the run's container.
-    @details The orchestrator binds ContainerManager.exec to the run's
-             container name and passes it in; tests pass fakes. Matches the
-             exec seam: exit codes come back as data.
+    @brief   Callable that runs a command in the run's execution backend.
+    @details The backend binds resource identity/environment and exposes target
+             paths for file gates; plain test callables retain container defaults.
+             Exit codes and authoritative timeouts come back as data.
     """
 
     def __call__(

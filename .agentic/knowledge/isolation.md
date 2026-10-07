@@ -48,6 +48,8 @@ host-side checkpoint commits, so a new clone needs no local Git identity.
 
 ## Key behaviors
 
+- `REQ-REL-d8fd134e`: `resource_identity`/`image_identity` validate authoritative bounded runtime output, actual IDs/name/status and duplicate fields. ContainerBackend verifies owned identity before bound commands and lifecycle controls.
+
 - `REQ-FUNC-fcb2448b` - isolated container/worktree provisioning and egress modes.
 - `REQ-FUNC-42b1c98a` - idempotent, fail-closed Git worktree lifecycle.
 - `REQ-FUNC-0ad8ba4f` - WSL runtime mount translation and command prefixing.

@@ -27,6 +27,7 @@ from __future__ import annotations
 # IMPORTS
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field, fields
+from datetime import datetime
 import hashlib
 import json
 import os
@@ -39,7 +40,8 @@ import tempfile
 from typing import Any
 
 from adore.branding import DEFAULT_STATE_ROOT, PRODUCT_SLUG
-from adore.util import process_alive, utc_now_iso
+from adore.preparation import PreparationError, validate_plan
+from adore.util import iso_to_datetime, process_alive, strict_json_loads, utc_now_iso
 
 # CONSTANTS
 
@@ -129,6 +131,8 @@ class RunState:
     approval_comment_id: int | None = None
     approval_label_removed: bool = False
     validation_evidence: dict[str, Any] = field(default_factory=dict)
+    #: Optional closed execution/preparation record. Empty means legacy mode.
+    execution: dict[str, Any] = field(default_factory=dict)
     outcome: str = ""
     checkpoint_remote_commit: str = ""
     checkpoint_error: str = ""
@@ -203,6 +207,7 @@ class RunState:
             raise StateError("run-state notification_outbox must be an object list")
         if not isinstance(state.validation_evidence, dict):
             raise StateError("run-state validation_evidence must be an object")
+        validate_execution_record(state.execution)
         if not isinstance(state.checkpoint_error, str):
             raise StateError("run-state checkpoint_error must be text")
         if not isinstance(state.checkpoint_remote_commit, str) or (
@@ -218,6 +223,142 @@ class RunState:
 
 
 # HELPER FUNCTIONS
+
+
+def validate_execution_record(record: object) -> None:
+    """
+    @brief Validate an additive closed execution identity/recovery record.
+    @param[in] record Persisted untrusted execution mapping or legacy empty mapping.
+    @exception StateError For corrupt identity, plan, status or preparation evidence.
+    """
+    if not isinstance(record, dict):
+        raise StateError("run-state execution must be an object")
+    if not record:
+        return
+    keys = {"plan", "resource", "status", "attempts", "steps", "history", "reprepare"}
+    try:
+        if set(record) != keys:
+            raise ValueError("closed structure")
+        validate_plan(record["plan"])
+        if (
+            record["status"]
+            not in {
+                "pending",
+                "running",
+                "success",
+                "failed",
+                "interrupted",
+                "cancelled",
+                "not-required",
+            }
+            or type(record["attempts"]) is not int
+            or not 0 <= record["attempts"] <= 3
+            or type(record["reprepare"]) is not bool
+            or not isinstance(record["steps"], list)
+            or len(record["steps"]) > 32
+            or not isinstance(record["history"], list)
+            or len(record["history"]) > 3
+        ):
+            raise ValueError("status/attempts/evidence")
+        if len(record["steps"]) > len(record["plan"]["steps"]):
+            raise ValueError("step count")
+        if record["status"] != "not-required" and not record["plan"]["selection"]:
+            raise ValueError("recipe status without selection")
+        if record["attempts"] > record["plan"]["policy"]["execution"]["preparation_max_attempts"]:
+            raise ValueError("attempt bound")
+        if record["status"] in {"running", "success", "failed", "interrupted", "cancelled"} and (
+            record["attempts"] < 1 or not record["resource"]
+        ):
+            raise ValueError("preparation without resource/attempt")
+        resource = record["resource"]
+        if not isinstance(resource, dict):
+            raise ValueError("resource")
+        if resource and (
+            set(resource) != {"container_id", "image_id"}
+            or not isinstance(resource["container_id"], str)
+            or not re.fullmatch(r"[0-9a-f]{64}", resource["container_id"])
+            or not isinstance(resource["image_id"], str)
+            or not re.fullmatch(r"(?:sha256:)?[0-9a-f]{64}", resource["image_id"])
+        ):
+            raise ValueError("resource identity")
+        step_keys = {
+            "index",
+            "name",
+            "started_at",
+            "finished_at",
+            "exit_code",
+            "timed_out",
+            "cancelled",
+        }
+        for index, step in enumerate(record["steps"]):
+            if (
+                not isinstance(step, dict)
+                or set(step) != step_keys
+                or type(step["index"]) is not int
+                or step["index"] != index
+                or step["name"] != record["plan"]["steps"][index]["name"]
+                or type(step["exit_code"]) is not int
+                or not -255 <= step["exit_code"] <= 255
+                or type(step["timed_out"]) is not bool
+                or type(step["cancelled"]) is not bool
+                or iso_to_datetime(step["started_at"]) is None
+                or iso_to_datetime(step["finished_at"]) is None
+            ):
+                raise ValueError("step evidence")
+            stamps = [datetime.fromisoformat(step[key].replace("Z", "+00:00"))
+                      for key in ("started_at", "finished_at")]
+            if any(stamp.tzinfo is None for stamp in stamps) or stamps[1] < stamps[0]:
+                raise ValueError("step timestamp order/timezone")
+        if record["status"] == "success" and (
+            not resource
+            or record["attempts"] < 1
+            or len(record["steps"]) != len(record["plan"]["steps"])
+            or any(
+                step["exit_code"] != 0 or step["timed_out"] or step["cancelled"]
+                for step in record["steps"]
+            )
+        ):
+            raise ValueError("success without complete evidence")
+        if record["status"] == "not-required" and (
+            record["plan"]["selection"] or resource or record["attempts"] or record["steps"]
+        ):
+            raise ValueError("legacy preparation mismatch")
+        last_attempt = 0
+        for history in record["history"]:
+            if not isinstance(history, dict) or set(history) != {
+                "attempt",
+                "status",
+                "resource",
+                "steps",
+            }:
+                raise ValueError("history")
+            if (
+                type(history["attempt"]) is not int
+                or not last_attempt < history["attempt"] <= record["attempts"]
+                or history["status"] in {"pending", "not-required"}
+            ):
+                raise ValueError("history ordering")
+            last_attempt = history["attempt"]
+            historic = {
+                **record,
+                "attempts": history["attempt"],
+                "status": history["status"],
+                "resource": history["resource"],
+                "steps": history["steps"],
+                "history": [],
+                "reprepare": False,
+            }
+            validate_execution_record(historic)
+    except (
+        PreparationError,
+        ValueError,
+        TypeError,
+        KeyError,
+        IndexError,
+        AttributeError,
+        OverflowError,
+    ) as exc:
+        raise StateError("run-state execution record is corrupt") from exc
 
 
 def _run_id_stem(platform: str, project: str) -> str:
@@ -416,8 +557,8 @@ class StateStore:
         path = self.run_dir(run_id) / STATE_FILE
         with path.open(encoding="utf-8") as handle:
             try:
-                data = json.load(handle)
-            except json.JSONDecodeError as exc:
+                data = strict_json_loads(handle.read())
+            except ValueError as exc:
                 raise StateError(f"corrupt state.json for run {run_id!r}: {exc}") from exc
         if not isinstance(data, dict):
             raise StateError(f"corrupt state.json for run {run_id!r}: not a JSON object")
@@ -525,7 +666,7 @@ class StateStore:
         """
         path = self.run_dir(run_id) / "handoff-request.json"
         try:
-            data = json.loads(path.read_text(encoding="utf-8"))
+            data = strict_json_loads(path.read_text(encoding="utf-8"))
         except FileNotFoundError:
             return False
         except (OSError, ValueError) as exc:

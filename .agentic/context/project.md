@@ -197,3 +197,7 @@ or mismatched scoped records fail closed.
 Explicit administrator model connectivity uses the selected OpenCode/Pi/Codex/Qwen CLI through a bounded disposable container; see knowledge/model-connection.md. Real provider acceptance is operator-triggered and may incur cost.
 
 Project Executor configuration owns agent/model settings and approved provider key save/remove; strict durable credential-bound model access evidence is reused inside Summary’s collapsed host-check details. See knowledge/executor-configuration.md. Subscription login remains the installed CLI service-account flow.
+
+## Reviewed container preparation
+
+`adore/preparation.py` resolves closed exact-Git recipe plans and effective image authority; `adore/execution.py` supplies backend paths/environment, bound commands and owned container lifecycle. Preparation runs in the normal pinned worktree/container before AEGIS/AI, with bounded redacted immutable evidence and explicit capped replay. Optional recipe execution state in schema 1 verifies resource/image/policy identity on reuse. Profiles without recipes retain existing profile-update/recovery behavior and empty preparation records. CLI and GUI review the same plans; host/model probes never execute setup.

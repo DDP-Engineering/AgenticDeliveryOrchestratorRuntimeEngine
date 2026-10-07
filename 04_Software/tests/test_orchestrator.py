@@ -338,6 +338,80 @@ class FakeAegis:
 # HELPER FUNCTIONS
 
 
+def test_recipe_preparation_precedes_ai_and_is_not_replayed_on_resume(
+    tmp_path, monkeypatch
+) -> None:
+    """@brief Public retry prepares once, then preserves same-container success."""
+    from types import SimpleNamespace
+
+    from adore.preparation import resolve_plan
+
+    from tests.test_preparation import SourceRunner
+
+    engine, forge, worktrees, containers, executor = make_engine(
+        tmp_path,
+        executor=FakeExecutor(GateRun(exit_code=0, has_questions=True, questions="Need answer")),
+    )
+    engine.config.execution.preparation = "prepare.yml#setup@" + "a" * 40
+    engine.config.worktree.repo_path = str(tmp_path)
+    worktrees.repo_path = tmp_path
+    worktrees.create = lambda *args: tmp_path
+    worktrees.runner = SourceRunner()
+    cid = "d" * 64
+    containers.resource_identity = lambda _: {
+        "container_id": cid,
+        "image_id": "sha256:" + "e" * 64,
+        "status": "running",
+    }
+    containers.image_identity = lambda _: "sha256:" + "e" * 64
+    setup_calls = []
+
+    def execute(name, argv, **kwargs):
+        if argv[0] == "python3":
+            index = len(setup_calls) + 1
+            setup_calls.append(index)
+            directory = (
+                engine.store.run_dir("github-owner-repo-7")
+                / f"io/preparation/attempt-1/step-{index}"
+            )
+            (directory / "stdout.txt").write_text("")
+            (directory / "stderr.txt").write_text("")
+            (directory / "result.json").write_text('{"exit_code":0,"timed_out":false}')
+        return CommandResult()
+
+    containers.exec = execute
+
+    class Client(FakeAegis):
+        """@brief File-gate client fake checks preparation before AI task creation."""
+        def __init__(self, *args):
+            super().__init__([task("frame")])
+        def probe(self):
+            assert setup_calls == [1, 2]
+            return SimpleNamespace(version="0.5.0", schema=1)
+        def create_task(self, *args):
+            return TASK_ID
+
+    monkeypatch.setattr(orchestrator_module, "AegisClient", Client)
+    run = make_run(engine)
+    run.active_task_id = None
+    run.task_ids = []
+    run.lifecycle = "failed"
+    engine.store.save(run)
+    assert engine.retry(run.run_id)
+    assert setup_calls == [1, 2], "preparation did not execute before the AI gate"
+    saved = engine.store.load(run.run_id)
+    assert saved.execution["status"] == "success"
+    assert saved.lifecycle == "parked-clarification"
+    saved.lifecycle = "failed"
+    engine.store.save(saved)
+    # Preserve the same verified resource; existing preparation is reused.
+    executor.results.append(GateRun(exit_code=0, has_questions=True, questions="Again"))
+    assert engine.retry(run.run_id)
+    assert setup_calls == [1, 2]
+    plan = resolve_plan(engine.config, runner=worktrees.runner)
+    assert saved.execution["plan"]["fingerprint"] == plan["fingerprint"]
+
+
 def make_config(tmp_path: Path) -> Config:
     """@brief Return a directly injectable valid-enough configuration."""
     config = Config()

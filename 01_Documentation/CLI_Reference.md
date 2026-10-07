@@ -137,3 +137,7 @@ same launch. Rebuild validates all terminal runs before refreshing summaries.
 | `0` | Command completed successfully. |
 | `1` | Configuration, operational, or validation error (including a refused `config set`). |
 | `2` | Command-line usage error reported by the argument parser, such as an unknown option or missing required argument. |
+
+## Container preparation
+
+Use `adore --profile <name> config plan` to review the effective image and exact preparation commands without executing them. Select through `config set execution.preparation <path.yml#job@full-commit>`. After inspecting a failed setup, `retry <run-id> --reprepare` explicitly replays every step in a fresh owned container with retained worktree, within the configured attempt cap. See [Container preparation](Container_Preparation.md).

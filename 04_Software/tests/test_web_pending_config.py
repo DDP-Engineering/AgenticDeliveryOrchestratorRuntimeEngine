@@ -44,6 +44,43 @@ def _headers(client):
     return {"X-CSRF-Token": csrf}
 
 
+def test_preparation_selection_reviews_plan_and_rejects_stale_source(tmp_path) -> None:
+    """@brief Recipe settings use existing project/revision/paused apply guards."""
+    from tests.test_preparation import SourceRunner
+
+    profiles, path, state = _project(tmp_path)
+    text = path.read_text().replace('image = "adore-executor-base:1.0.0"', 'image = "project:1"')
+    # Use the effective recipe authority without a competing legacy declaration.
+    import re
+    text = re.sub(r'^image = ".*"', 'image = "project:1"', text, flags=re.MULTILINE)
+    path.write_text(text)
+    runner = SourceRunner()
+    with TestClient(create_app(profiles.home, probe_runner=runner)) as client:
+        headers = _headers(client)
+        revision = client.get("/api/v1/projects/alpha/config").json()["revision"]
+        response = client.post("/api/v1/projects/alpha/config/pending", headers=headers,
+            json={"key": "execution.preparation", "value": "prepare.yml#setup@" + "a" * 40,
+                  "revision": revision})
+        assert response.status_code == 200, (
+            "GUI has no reviewed preparation selection: " + response.text
+        )
+        reviewed = response.json()
+        assert reviewed["execution_plan"]["image"] == "project:1"
+        assert reviewed["execution_plan"]["steps"][1]["run"].endswith("uv sync --locked")
+        assert not load_config(path).execution.preparation
+        state.pause()
+        runner.corrupt = "rev-parse"
+        stale = client.post("/api/v1/projects/alpha/config/apply", headers=headers,
+            json={"base_revision": revision, "candidate_revision": reviewed["candidate_revision"]})
+        assert stale.status_code == 409
+        assert not load_config(path).execution.preparation
+        runner.corrupt = ""
+        applied = client.post("/api/v1/projects/alpha/config/apply", headers=headers,
+            json={"base_revision": revision, "candidate_revision": reviewed["candidate_revision"]})
+        assert applied.status_code == 200, applied.text
+        assert all(argv[0] == "git" for argv in runner.calls)
+
+
 def test_stage_review_apply_and_discard_config(tmp_path):
     """@brief Stage leaves live TOML untouched until explicit safe apply."""
     profiles, path, state = _project(tmp_path)
@@ -417,3 +454,18 @@ def test_catalog_fails_closed_on_corrupt_declared_scalar_type(tmp_path):
         viewed = client.get("/api/v1/projects/alpha/config")
         assert viewed.status_code == 503
         assert viewed.json()["detail"]["code"] == "config_corrupt"
+
+
+def test_execution_setting_direct_write_requires_review(tmp_path):
+    """@brief Preparation cannot bypass the normalized pending-plan review route."""
+    profiles, path, _ = _project(tmp_path)
+    original = path.read_bytes()
+    with TestClient(create_app(profiles.home)) as client:
+        headers = _headers(client)
+        revision = client.get("/api/v1/projects/alpha/config").json()["revision"]
+        response = client.put("/api/v1/projects/alpha/config", headers=headers,
+            json={"key": "execution.preparation", "value": "prepare.yml#setup@" + "a" * 40,
+                  "revision": revision})
+        assert response.status_code == 409
+        assert response.json()["detail"]["code"] == "pending_config_required"
+        assert path.read_bytes() == original

@@ -37,10 +37,11 @@ from adore.branding import PACKAGE_NAME, PRODUCT_NAME
 from adore.config import Config, load_config, validate_config
 from adore.config_edit import ConfigEditLockedError, config_edit_lock
 from adore.orchestrator import LockHeldError, Orchestrator
+from adore.preparation import PreparationError, preview_plan, public_plan
 from adore.process_log import ProcessLogger, process_log_path
 from adore.profiles import ProfileError, ProfileStore, resolve_config_path
 from adore.state import StateError, StateStore
-from adore.util import parse_duration
+from adore.util import parse_duration, run_command
 from adore.wizard import ConsoleAsker, ScriptedAsker, WizardError, run_wizard
 
 # CONSTANTS
@@ -99,6 +100,13 @@ def _build_parser() -> argparse.ArgumentParser:
     for name in ("retry", "cancel", "logs", "handoff"):
         p = sub.add_parser(name, help=f"{name} a run")
         p.add_argument("run_id")
+        if name == "retry":
+            p.add_argument(
+                "--reprepare",
+                action="store_true",
+                help=("Acknowledge full recipe replay in a fresh owned container "
+                      "with retained worktree"),
+            )
 
     delete = sub.add_parser("delete", help="Hard-remove a run including state")
     delete.add_argument("run_id")
@@ -126,7 +134,7 @@ def _build_parser() -> argparse.ArgumentParser:
     export.add_argument("--csv", action="store_true")
 
     cfg = sub.add_parser("config", help="Config helpers")
-    cfg.add_argument("action", choices=["show", "validate", "set"])
+    cfg.add_argument("action", choices=["show", "validate", "plan", "set"])
     cfg.add_argument("key", nargs="?")
     cfg.add_argument("value", nargs="?")
 
@@ -435,6 +443,12 @@ def _config_set_locked(args: argparse.Namespace, path: Path) -> int:
             for issue in issues:
                 print(f"  - {issue}")
             return EXIT_ERROR
+        if candidate.execution.preparation:
+            try:
+                preview_plan(candidate, runner=run_command)
+            except PreparationError as exc:
+                print(f"refusing execution selection: {exc}")
+                return EXIT_ERROR
         tmp.replace(path)
     finally:
         tmp.unlink(missing_ok=True)
@@ -462,6 +476,15 @@ def _cmd_config(args: argparse.Namespace) -> int:
         for issue in issues:
             print(f"  - {issue}")
         return EXIT_ERROR
+    if args.action == "plan" or config.execution.preparation:
+        try:
+            plan = preview_plan(config, runner=run_command)
+        except PreparationError as exc:
+            print(f"error: {exc}")
+            return EXIT_ERROR
+        if args.action == "plan":
+            print(json.dumps(public_plan(plan), indent=2, ensure_ascii=False))
+            return EXIT_OK
     print(f"{args.config}: OK")
     return EXIT_OK
 
@@ -673,7 +696,8 @@ def _cmd_run_op(args: argparse.Namespace) -> int:
                 print("cancelled" if ok else f"no such run: {args.run_id}")
                 return EXIT_OK if ok else EXIT_ERROR
             if args.command == "retry":
-                ok = engine.retry(args.run_id)
+                ok = (engine.retry(args.run_id, reprepare=True) if args.reprepare
+                      else engine.retry(args.run_id))
                 print("retried" if ok else f"cannot retry: {args.run_id}")
                 return EXIT_OK if ok else EXIT_ERROR
             engine.cancel(args.run_id, outcome="deleted")

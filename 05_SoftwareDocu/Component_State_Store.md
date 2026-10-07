@@ -71,3 +71,7 @@ the marker after durable ownership transfer.
 `tests/test_state.py` covers schema-1 round trips, task history, refusal
 rejection, corrupt state, snapshots, JSONL, locking, public stale reclamation,
 unknown-lock fail-closed behavior, pause and cleanup support.
+
+## Preparation evidence
+
+Schema 1 accepts an optional closed `execution` record. Legacy absent/empty records load without claiming recipe success. Plan/policy fingerprints, actual IDs, sequential outcomes, bounded attempt/history records and complete success are validated on load. State JSON rejects duplicate/non-finite fields. Corruption raises `StateError`. Plan and step artifacts are immutable and checked by the conductor on reuse. See `tests/test_state.py` and `tests/test_preparation_lifecycle.py`.

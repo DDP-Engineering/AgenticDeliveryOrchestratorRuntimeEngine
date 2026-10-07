@@ -44,6 +44,8 @@ USD amounts, with zero disabling only that cap.
 
 ## Key behaviors
 
+- `REQ-FUNC-e2b539d4`: Closed ExecutionConfig selection/backend/bounds; recipe mode permits empty profile image. Source authority belongs to preparation.md.
+
 - `REQ-FUNC-ca17a8e8` - draft-only delivery and credential isolation.
 - `REQ-FUNC-97e17737` - executor and egress policy validation.
 - `REQ-FUNC-7ce5b17a` - web-created and imported profiles share the typed

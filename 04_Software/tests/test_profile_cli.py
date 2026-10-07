@@ -47,6 +47,29 @@ store_root = "{state}"
 # HELPER FUNCTIONS
 
 
+def test_cli_previews_reviewed_plan_without_setup(tmp_path, monkeypatch, capsys) -> None:
+    """@brief CLI preview uses exact Git source and executes no project commands."""
+    import adore.cli as cli_module
+
+    from tests.test_preparation import SourceRunner
+
+    home = _home(tmp_path, monkeypatch)
+    store = _ready_profile(home)
+    path = store.config_path("proj")
+    with path.open("a") as handle:
+        handle.write('[execution]\npreparation = "prepare.yml#setup@' + "a" * 40 + '"\n')
+    runner = SourceRunner()
+    monkeypatch.setattr(cli_module, "run_command", runner, raising=False)
+    try:
+        code = main(["--profile", "proj", "config", "plan"])
+    except SystemExit:
+        pytest.fail("CLI has no execution-plan preview action")
+    assert code == EXIT_OK
+    output = capsys.readouterr().out
+    assert "project:1" in output and "recipe" in output and "uv sync --locked" in output
+    assert all(argv[0] == "git" for argv in runner.calls)
+
+
 def _home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """
     @brief      A tmp ADORE home wired into the environment for main().

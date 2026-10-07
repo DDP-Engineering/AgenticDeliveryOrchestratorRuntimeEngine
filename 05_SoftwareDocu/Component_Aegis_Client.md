@@ -92,3 +92,7 @@ titles never enter container argv, LF script quoting, validated file stdout,
 typed timeout preservation, and fail-closed missing/unreadable/oversized
 exchange output, including bounded pre-script runtime diagnostics. Tests are
 offline.
+
+## Backend-native transport
+
+File commands take worktree/IO/shell paths from the bound target; plain injected callables retain default container paths. Paths and tokens are POSIX-quoted within LF scripts and file paths remain single argv tokens, including spaces. Focused proof: `tests/test_aegis.py::test_backend_paths_control_aegis_file_transport`.

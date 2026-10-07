@@ -36,7 +36,7 @@ means.
 ## Invariants
 
 The launcher writes LF-only `gate.sh` into the run IO directory and invokes
-only `sh /adore/io/gate.sh`; prompts and models are shell-quoted before they
+the backend shell and native IO path (container default `sh /adore/io/gate.sh`); prompts and models are shell-quoted before they
 enter that script. Results cross the container boundary through `output.jsonl`,
 `stderr.log`, and the configured questions file rather than fragile host/WSL
 argv or streamed output. A timeout is taken solely from `CommandResult.timed_out`,
@@ -56,6 +56,8 @@ usage values are skipped. Pi's embedded monetary value is an executor estimate,
 so the launcher leaves billed cost unavailable for administrator price rules.
 
 ## Key behaviors
+
+- `REQ-FUNC-e397f7f6`: Bound targets supply shell/worktree/IO paths and verified resource identity; plain injected callables retain the container defaults. Prompts/scripts remain file transported and quoted.
 
 - `REQ-FUNC-59ccdb74` - WSL-safe file transport and typed timeout propagation.
 - `REQ-FUNC-c6e5282d` - questions parking and immutable launch archives.

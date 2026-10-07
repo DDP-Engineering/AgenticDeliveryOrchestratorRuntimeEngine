@@ -53,6 +53,10 @@ does not refresh historical run timestamps.
 
 ## Key behaviors
 
+Profiles without recipes retain the existing recovery/profile-update contract and empty execution record; immutable preparation policy applies to recipe runs.
+
+- `REQ-FUNC-e5419c07`: Resolve/persist plan, pin base commit, bind identity, provision/check/stage auth, then execute bounded preparation before AEGIS/AI. Immutable receipts and policy/resource IDs guard resume; explicit replay recreates the owned container and retains worktree/history.
+
 - `REQ-FUNC-ff7dad34` - candidate-bound approval and draft-only publication.
 - `REQ-FUNC-83133b5e` - deterministic stage failure and timeout recovery.
 - `REQ-FUNC-1ec4a21d` - durable notification outbox replay.
@@ -71,7 +75,16 @@ flowchart LR
     conductor --> auth[repository_auth.project_runner]
     auth --> forge[(Forge adapter)]
     conductor --> state[(StateStore)]
-    conductor --> aegis[AEGIS client]
+    Source[(Exact tracked Git blob)] --> Plan[preparation.resolve_plan]
+    Plan --> conductor
+    conductor --> Backend[ContainerBackend]
+    Backend --> Runtime([ContainerManager])
+    Backend --> Target[BoundTarget paths and identity]
+    conductor --> Preparation[Bounded file preparation runner]
+    Preparation --> state
+    Target --> aegis[AEGIS client]
+    Target --> executor
+    conductor --> aegis
     conductor --> executor[Executor launcher]
     conductor --> metrics[Terminal metrics]
     executor --> state
