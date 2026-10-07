@@ -6,16 +6,17 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 */
 import { useEffect, useRef, useState } from "react";
 import type { Locale } from "./i18n";
-import { imageCopy, validImageOperation, validImageView, type ImageOperation, type ImageView } from "./imageBuild";
+import { imageCopy, imageGuidance, IMAGE_COMPILER_EXAMPLE, IMAGE_COMPILER_CHECKS, validImageOperation, validImageView, type ImageOperation, type ImageView } from "./imageBuild";
 import { startVisiblePolling } from "./polling";
 
 /** Compact explicit administrator flow inside the existing Environment group. */
-export function ProjectImage({project, revision, local, locale, admin, disabled, call, onStage}: {
+export function ProjectImage({project, revision, local, locale, admin, disabled, currentImage, onExisting, call, onStage}: {
   project:string; revision:string; local:boolean; locale:Locale; admin:boolean; disabled:boolean;
+  currentImage:string; onExisting:()=>void;
   call:(path:string,method?:string,body?:unknown)=>Promise<unknown>;
   onStage:(image:string,operation:string)=>Promise<boolean>;
 }) {
-  const copy=imageCopy[locale];
+  const copy=imageCopy[locale], guidance=imageGuidance[locale];
   const [view,setView]=useState<ImageView|null>(null);
   const [define,setDefine]=useState(false);
   const [source,setSource]=useState("");
@@ -87,9 +88,13 @@ export function ProjectImage({project, revision, local, locale, admin, disabled,
   return <div className="project-image">
     <h3>{copy.title}</h3><p>{copy.help}</p>
     {admin && <div className="button-row"><button type="button" className="ghost" aria-pressed={!define} onClick={()=>setDefine(false)}>{copy.existing}</button><button type="button" className="ghost" aria-pressed={define} onClick={()=>setDefine(true)}>{copy.define}</button></div>}
+    {!define && <div className="image-existing"><p><strong>{guidance.current}:</strong> <code>{currentImage || guidance.noImage}</code></p><p>{guidance.existing}</p>{admin && <button type="button" className="ghost" disabled={busy||active||disabled} onClick={onExisting}>{guidance.change}</button>}</div>}
+    {disabled && admin && <p className="image-prerequisite">{guidance.blocked}</p>}
     {(define || !admin && view?.draft) && <div className="image-definition">
-      <label>{copy.source}<textarea aria-label={copy.source} rows={9} value={source} readOnly={!admin} disabled={busy||active||disabled} onChange={e=>setSource(e.target.value)}/></label>
-      <label>{copy.checks}<textarea aria-label={copy.checks} rows={2} value={checks} readOnly={!admin} disabled={busy||active||disabled} onChange={e=>setChecks(e.target.value)}/></label>
+      <ol className="image-steps"><li>{guidance.source}</li><li>{guidance.checks}</li><li>{guidance.finish}</li></ol>
+      <details className="image-example"><summary>{guidance.example}</summary><p>{guidance.exampleSource}</p><pre>{IMAGE_COMPILER_EXAMPLE}</pre><p>{guidance.exampleChecks}</p><pre>{IMAGE_COMPILER_CHECKS}</pre><p>{guidance.downloads}</p></details>
+      <label>{copy.source}<textarea aria-label={copy.source} rows={16} value={source} readOnly={!admin} disabled={busy||active||disabled} onChange={e=>setSource(e.target.value)}/></label>
+      <label>{copy.checks}<textarea aria-label={copy.checks} rows={6} placeholder={IMAGE_COMPILER_CHECKS} value={checks} readOnly={!admin} disabled={busy||active||disabled} onChange={e=>setChecks(e.target.value)}/></label>
       {admin && <label>{copy.upload}<input aria-label={copy.upload} type="file" accept=".txt,.dockerfile,text/plain" disabled={busy||active||disabled} onChange={e=>{void upload(e.target.files?.[0]);e.target.value="";}}/></label>}
       <details><summary>{copy.advanced}</summary><p>{copy.context}</p><fieldset disabled={!admin||busy||active||disabled}>
         <label>{copy.network}<select value={network} onChange={e=>setNetwork(e.target.value as "none"|"default")}><option value="none">{copy.none}</option><option value="default">{copy.downloads}</option></select></label>
@@ -97,7 +102,6 @@ export function ProjectImage({project, revision, local, locale, admin, disabled,
         <label>{copy.memory}<input type="number" min={512} max={4096} step={1} value={memory} onChange={e=>setMemory(Number(e.target.value))}/></label>
       </fieldset></details>
       <div className="button-row">{admin && <><button className="primary" disabled={busy||active||disabled||!view} onClick={()=>void save()}>{copy.save}</button><button className="primary" disabled={busy||active||disabled||dirty||!view?.draft} onClick={()=>void build()}>{copy.build}</button></>}{admin && <button className="ghost" disabled={!view?.draft} onClick={exportSource}>{copy.export}</button>}</div>
-      {disabled && admin && <p className="muted">{copy.blocked}</p>}
     </div>}
     {error && <p role="alert" className="alert">{error}</p>}{notice && <p role="status">{notice}</p>}
     {result && <div className="image-evidence">

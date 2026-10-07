@@ -30,6 +30,10 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Project image choices show the current image and open its reviewed editor;
+  larger Dockerfile/tool-check fields, numbered instructions and a compiler
+  example clarify installation, verification, downloads and paused-project prerequisites.
+
 - Host prerequisite checks open their results immediately with checking/error feedback and an internal Close details action.
 
 - Show one dismissible application notification, updating operation status and hiding final/ordinary feedback after five seconds while preserving worker polling.

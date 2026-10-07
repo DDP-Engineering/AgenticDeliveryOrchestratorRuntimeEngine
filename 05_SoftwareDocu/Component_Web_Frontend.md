@@ -708,7 +708,9 @@ See [Local execution](../01_Documentation/Local_Execution.md) and
 ## Project image workspace
 
 SettingsList's isolation slot embeds ProjectImage.tsx within the existing
-Isolated environment category. Existing image retains normal setting review;
+Isolated environment category. Its render callback supplies the existing-image
+edit action; SettingsList owns editor focus and preserves an already-open draft.
+Existing image shows the active value and opens normal setting review;
 Define image exposes a bounded text/upload editor, nearby tool checks, explicit
 save/build and truthful phase/cancel/output. Advanced owns policy, technical
 identity and saved source/evidence export. Use image invokes the existing
@@ -718,4 +720,7 @@ imageBuild.ts rejects malformed/foreign/stale action evidence; responses are
 scoped to the mounted project/config revision. Native local mode shows tooling
 ownership and no build controls; developers read saved evidence. Four locales,
 mobile wrapping and helper/browser proof live in imageBuild.test.mjs and
-images.spec.ts. See Component_Project_Images.md.
+images.spec.ts. Numbered localized instructions and an expandable compiler
+example explain RUN/tool-check/download steps; selected styling and larger
+resizable source/check fields make both choices visible. Choice switches preserve
+unsaved source. See Component_Project_Images.md.

@@ -6,7 +6,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { validImageBinding, validImageDraft, validImageOperation, validImageView, imageCopy } from "../src/imageBuild.ts";
+import { validImageBinding, validImageDraft, validImageOperation, validImageView, imageCopy, imageGuidance, IMAGE_COMPILER_EXAMPLE, IMAGE_COMPILER_CHECKS } from "../src/imageBuild.ts";
 import { validPendingConfig } from "../src/settings.ts";
 
 const binding = { id: "a".repeat(32), project_id: "b".repeat(32), config_revision: "c".repeat(64),
@@ -24,6 +24,17 @@ test("closed image bindings and pending review preserve exact verified identity"
   assert.equal(validPendingConfig(pending), true);
   assert.equal(validPendingConfig({...pending, value: "latest", proposed_value: "latest"}), false);
   assert.equal(validPendingConfig({...pending, image_build: {...binding, config_revision: "3".repeat(64)}}), false);
+});
+
+test("every locale explains both choices and a concrete tool example without changing policy",()=>{
+  for(const locale of ["en","ro","fr","de"]) {
+    for(const key of Object.keys(imageGuidance.en)) assert.ok(imageGuidance[locale][key]?.length>8,locale+":"+key);
+    assert.match(imageGuidance[locale].source,/RUN/);
+    assert.match(imageGuidance[locale].source,/USER root/);
+    assert.match(imageGuidance[locale].source,/USER adore/);
+  }
+  assert.match(IMAGE_COMPILER_EXAMPLE,/^RUN apt-get update.*build-essential/);
+  assert.equal(IMAGE_COMPILER_CHECKS,"gcc --version\nmake --version");
 });
 
 test("operation phases and complete project snapshots fail closed", () => {

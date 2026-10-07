@@ -113,8 +113,14 @@ cannot create or apply candidates. Stale candidates require fresh review/build.
 ## GUI and proof
 
 One localized panel inside Settings' Isolated environment group. Existing image
-choice preserves existing single-setting review; Build project image offers edit/
-paste/text import, tool checks alongside source, explicit Build and verify,
+choice preserves existing single-setting review and shows the current image with
+an action that opens/focuses the
+existing setting editor. Selected styling identifies the active choice. Definition
+guidance explains RUN commands between USER root and USER adore, successful tool
+checks and explicit save/build/use. Source/check fields show 16/six resizable lines;
+switches preserve unsaved text. An expandable compiler example displays RUN and
+gcc/make checks plus explicit download-policy instructions without changing data.
+Define image offers edit/paste/text import, tool checks alongside source, explicit Build and verify,
 phase/log/error/cancel, source/evidence export and Use image review through existing
 PendingReview. Technical tag/context/policy detail is Advanced. Distinguish ADORE
 server from browser, Dockerfile system tools from per-worktree recipe libraries,

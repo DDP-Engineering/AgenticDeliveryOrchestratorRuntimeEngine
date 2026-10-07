@@ -553,3 +553,11 @@ td.strong { font-weight: 800; }
 .image-definition textarea { width: 100%; box-sizing: border-box; font-family: monospace; resize: vertical; }
 .image-definition fieldset { border: 0; padding: 0; min-width: 0; }
 .image-evidence pre, .image-evidence code { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 100%; }
+.project-image button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.image-existing code, .image-example pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.image-steps { padding-left: 1.5rem; }
+.image-steps li { margin: .6rem 0; }
+.image-example { border: 1px solid var(--border); border-radius: .5rem; padding: .75rem; }
+.image-example pre { padding: .65rem; background: var(--surface); max-width: 100%; box-sizing: border-box; }
+.image-prerequisite { border-left: 3px solid var(--accent); padding: .75rem; }
+.image-definition textarea[rows="6"] { min-height: 9rem; }

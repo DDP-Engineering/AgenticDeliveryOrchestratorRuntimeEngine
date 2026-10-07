@@ -31,6 +31,9 @@ service prepare/run/recover/review; typed ImageBuildError. Scoped project
 image-build HTTP read/write/export/operations/status/cancel and optional
 ConfigEdit.image_build_id through existing pending/apply. ProjectImage is a
 Settings isolation slot; imageBuild.ts validates closed source/evidence/bindings.
+The slot receives the existing SettingsList image-edit callback; ProjectImage
+also receives the active image value. Existing-image selection delegates to
+the current reviewed editor, which owns focus and preserves an open draft.
 
 ## Invariants
 
@@ -59,7 +62,10 @@ Settings isolation slot; imageBuild.ts validates closed source/evidence/bindings
 - REQ-REL-2cbd8d83: durable bounded owned runtime work and deterministic recovery.
 - REQ-FUNC-6d6843ab: exact image/non-root/executor/declared tool verification.
 - REQ-SEC-56f5f4a9: current verified image/check candidate through guarded apply.
-- REQ-UX-1b9b5789: localized compact flow, Existing image and role/local ownership.
+- REQ-UX-1b9b5789: localized compact flow, active image/change action, selected
+  choice styling, numbered RUN/check guidance and read-only compiler/download
+  example. Resizable 16/six-line fields retain unsaved text across switches;
+  paused/role/local ownership remain explicit.
 
 ## Architecture
 

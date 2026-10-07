@@ -12,13 +12,19 @@ Project executor image**. The administrator owns the executable Dockerfile.
 The ADORE server builds with its configured runtime and account; the browser
 does not run Docker, download packages or supply host files.
 
-1. **Existing image** retains the existing image setting and its normal review.
+1. **Existing image** shows the image currently used. **Change existing image**
+   opens and focuses its setting above. Prepare, review and apply the candidate
+   to use an image already installed on the ADORE server.
 2. **Define image** opens the legal ADORE base template. Edit or paste UTF-8
    Dockerfile text, or load a text file. Keep the canonical FROM and finish with
-   USER adore. Use RUN for explicit system-tool installation.
+   USER adore. Add RUN commands between USER root and USER adore for explicit
+   system-tool installation. The editor shows 16 lines and resizes vertically.
 3. Review tool checks beside the source, one shell-free command per line.
    Initial checks come from the profile; the saved definition is the explicit
-   authority for the checks proposed by Use image.
+   authority for the checks proposed by Use image. The six-line field resizes
+   vertically. Use a version/help command that exits successfully for each tool;
+   the selected executor is checked automatically. Installation commands belong
+   in Dockerfile. Switching choices preserves unsaved definition text.
 4. Save the definition, then explicitly choose **Build and verify**.
    Saving does not launch a build. Unsaved edits disable building/selection.
 5. Follow queued, runtime inspection, building and verification phases and the
@@ -34,6 +40,18 @@ commands. Model access and full run readiness require their separate explicit
 checks. Local profiles show the server-account tooling responsibility notice
 and have no build or automatic host-preparation actions. Developers can read
 saved source/evidence but cannot save, build, cancel or apply.
+
+The expandable **Example: C/C++ compiler and Make** shows a RUN line that installs
+`build-essential` and the corresponding `gcc --version` / `make --version`
+checks. Package downloads need **Advanced build details → Build downloads →
+Allow default build network**. The example is guidance; displaying it changes
+no source, policy or saved configuration. A visible prerequisite message explains
+disabled editing/save/build controls and tells the administrator to pause pickup.
+
+To execute without containers, edit **Execution backend** to `local` in the same
+settings group, then review/apply. New-project setup offers `local` in **Working
+environment**. This selects tools installed under the ADORE server account;
+it does not install an executor, SDK or project dependencies.
 
 ## Context, network and bounds
 

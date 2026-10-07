@@ -57,6 +57,52 @@ export function validImageView(value: unknown, project: string): value is ImageV
     && new Set(value.operations.map(v=>v.id)).size === value.operations.length;
 }
 
+/** Instructions are examples only; displaying them never changes a saved definition. */
+export const IMAGE_COMPILER_EXAMPLE = "RUN apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*";
+export const IMAGE_COMPILER_CHECKS = "gcc --version\nmake --version";
+export const imageGuidance = {
+  en: {
+    current: "Image currently used", change: "Change existing image", noImage: "No image selected",
+    existing: "Use an image already installed on the ADORE server. Change existing image opens its setting above; review and apply the candidate to select it.",
+    source: "Add RUN commands between USER root and USER adore to install the system tools your project needs. Keep the FROM base and final USER adore lines. You can also load an existing Dockerfile.",
+    checks: "List a version or help command for each tool you add. Every command must exit successfully. The selected executor is checked automatically; installation commands belong in Dockerfile.",
+    finish: "Save the definition, then Build and verify. When verification succeeds, Use image prepares a change for review; apply it to select the new image.",
+    example: "Example: C/C++ compiler and Make", exampleSource: "Add this RUN line before USER adore:", exampleChecks: "Add these tool checks:",
+    downloads: "This example downloads packages. In Advanced build details, set Build downloads to Allow default build network before building.",
+    blocked: "Editing, saving and building require paused project pickup with no active work or pending settings. Pause pickup in the project controls, then return here.",
+  },
+  ro: {
+    current: "Imaginea folosită acum", change: "Schimbă imaginea existentă", noImage: "Nicio imagine selectată",
+    existing: "Folosește o imagine deja instalată pe serverul ADORE. Schimbă imaginea existentă deschide setarea de mai sus; revizuiește și aplică propunerea pentru a o selecta.",
+    source: "Adaugă comenzi RUN între USER root și USER adore pentru a instala uneltele de sistem necesare proiectului. Păstrează baza FROM și linia finală USER adore. Poți încărca și un Dockerfile existent.",
+    checks: "Scrie câte o comandă de versiune sau ajutor pentru fiecare unealtă adăugată. Fiecare comandă trebuie să se încheie cu succes. Executorul ales este verificat automat; comenzile de instalare aparțin Dockerfile-ului.",
+    finish: "Salvează definiția, apoi Construiește și verifică. După verificare, Folosește imaginea pregătește o propunere; aplic-o pentru a selecta noua imagine.",
+    example: "Exemplu: compilator C/C++ și Make", exampleSource: "Adaugă această linie RUN înainte de USER adore:", exampleChecks: "Adaugă aceste verificări de unelte:",
+    downloads: "Exemplul descarcă pachete. În Detalii avansate de construire, setează Descărcări la construire pe Permite rețeaua implicită înainte de construire.",
+    blocked: "Editarea, salvarea și construirea cer preluarea proiectului pe pauză, fără lucrări active sau setări în așteptare. Pune preluarea pe pauză din comenzile proiectului, apoi revino aici.",
+  },
+  fr: {
+    current: "Image utilisée actuellement", change: "Changer l’image existante", noImage: "Aucune image sélectionnée",
+    existing: "Utilisez une image déjà installée sur le serveur ADORE. Changer l’image existante ouvre son paramètre ci-dessus ; examinez puis appliquez le candidat pour la sélectionner.",
+    source: "Ajoutez des commandes RUN entre USER root et USER adore pour installer les outils système du projet. Conservez la base FROM et la dernière ligne USER adore. Vous pouvez aussi charger un Dockerfile existant.",
+    checks: "Indiquez une commande de version ou d’aide pour chaque outil ajouté. Chaque commande doit réussir. L’exécuteur choisi est vérifié automatiquement ; les commandes d’installation appartiennent au Dockerfile.",
+    finish: "Enregistrez la définition, puis Construire et vérifier. Après vérification, Utiliser l’image prépare un candidat à examiner ; appliquez-le pour sélectionner la nouvelle image.",
+    example: "Exemple : compilateur C/C++ et Make", exampleSource: "Ajoutez cette ligne RUN avant USER adore :", exampleChecks: "Ajoutez ces contrôles des outils :",
+    downloads: "Cet exemple télécharge des paquets. Dans Détails avancés, choisissez Autoriser le réseau par défaut pour Téléchargements de construction avant de construire.",
+    blocked: "L’édition, l’enregistrement et la construction exigent une collecte en pause, sans travail actif ni paramètres en attente. Mettez la collecte en pause dans les commandes du projet, puis revenez ici.",
+  },
+  de: {
+    current: "Aktuell verwendetes Image", change: "Vorhandenes Image ändern", noImage: "Kein Image ausgewählt",
+    existing: "Verwenden Sie ein bereits auf dem ADORE-Server installiertes Image. Vorhandenes Image ändern öffnet die Einstellung oben; prüfen und übernehmen Sie den Kandidaten zur Auswahl.",
+    source: "Fügen Sie RUN-Befehle zwischen USER root und USER adore ein, um benötigte Systemwerkzeuge zu installieren. Behalten Sie die FROM-Basis und die letzte Zeile USER adore. Sie können auch eine vorhandene Dockerfile laden.",
+    checks: "Geben Sie je hinzugefügtem Werkzeug einen Versions- oder Hilfebefehl an. Jeder Befehl muss erfolgreich enden. Der gewählte Executor wird automatisch geprüft; Installationsbefehle gehören in die Dockerfile.",
+    finish: "Speichern Sie die Definition, dann Bauen und prüfen. Nach erfolgreicher Prüfung bereitet Image verwenden einen Kandidaten vor; prüfen und übernehmen Sie ihn zur Auswahl des neuen Images.",
+    example: "Beispiel: C/C++-Compiler und Make", exampleSource: "Fügen Sie diese RUN-Zeile vor USER adore ein:", exampleChecks: "Fügen Sie diese Werkzeugprüfungen ein:",
+    downloads: "Dieses Beispiel lädt Pakete herunter. Wählen Sie in Erweiterte Build-Details für Build-Downloads Standardnetzwerk erlauben, bevor Sie bauen.",
+    blocked: "Bearbeiten, Speichern und Bauen erfordern pausierte Projektauswahl ohne aktive Arbeit oder ausstehende Einstellungen. Pausieren Sie die Auswahl in den Projektaktionen und kehren Sie hierher zurück.",
+  },
+};
+
 export const imageCopy = {
   en: {title:"Project executor image", existing:"Existing image", define:"Define image", help:"Install system tools in this image. Per-worktree library preparation uses the project recipe; model access and full run readiness are checked separately.", local:"Local execution uses this server account's installed tools and dependencies. Image builds and automatic host preparation are unavailable.", source:"Dockerfile", checks:"Tool checks (one command per line)", upload:"Load Dockerfile text", save:"Save definition", export:"Export Dockerfile", evidence:"Export build evidence", build:"Build and verify", use:"Use image", advanced:"Advanced build details", context:"Only Dockerfile enters the context. COPY/ADD and checkout snapshots are deferred. Administrator commands are executable input; syntax checks are not a sandbox.", network:"Build downloads", none:"Offline (no network)", downloads:"Allow default build network", timeout:"Maximum seconds", memory:"Memory per build step (MiB)", cancel:"Cancel build", refresh:"Refresh evidence", logs:"Bounded build output", blocked:"Stop project pickup and finish active work or pending settings before saving or building.", failed:"Image request failed. Check the saved definition, installed base, runtime support and server evidence.", uncertain:"Build outcome or daemon cleanup is unconfirmed. Ask the server operator to reconcile preserved evidence; this image cannot be selected.", saved:"Definition saved. Build explicitly when ready.", stale:"This result belongs to an older definition or configuration. Save and build a current definition.", reviewed:"Verified tool checks", phases:{queued:"Queued",inspecting:"Checking runtime and base",building:"Building image",verifying:"Verifying image and tools",verified:"Verified",failed:"Failed",cancelled:"Cancelled before start",uncertain:"Uncertain",interrupted:"Interrupted by restart"}},
   ro: {title:"Imaginea executorului proiectului", existing:"Imagine existentă", define:"Definește imaginea", help:"Instalează uneltele de sistem în imagine. Bibliotecile per worktree folosesc rețeta proiectului; accesul la model și pregătirea completă se verifică separat.", local:"Execuția locală folosește uneltele și dependențele contului acestui server. Construirea imaginilor și pregătirea automată a gazdei nu sunt disponibile.", source:"Dockerfile", checks:"Verificări de unelte (o comandă pe linie)", upload:"Încarcă text Dockerfile", save:"Salvează definiția", export:"Exportă Dockerfile", evidence:"Exportă dovezile construirii", build:"Construiește și verifică", use:"Folosește imaginea", advanced:"Detalii avansate de construire", context:"Doar Dockerfile intră în context. COPY/ADD și copiile depozitului sunt amânate. Comenzile administratorului sunt executabile; verificarea sintaxei nu este un sandbox.", network:"Descărcări la construire", none:"Offline (fără rețea)", downloads:"Permite rețeaua implicită", timeout:"Secunde maxime", memory:"Memorie pe pas (MiB)", cancel:"Anulează construirea", refresh:"Actualizează dovezile", logs:"Ieșire limitată a construirii", blocked:"Oprește preluarea proiectului și încheie lucrările sau setările în așteptare înainte de salvare sau construire.", failed:"Cererea a eșuat. Verifică definiția, baza instalată, suportul runtime și dovezile serverului.", uncertain:"Rezultatul sau curățarea runtime nu sunt confirmate. Operatorul trebuie să reconcilieze dovezile păstrate; imaginea nu poate fi selectată.", saved:"Definiție salvată. Construiește explicit când este gata.", stale:"Rezultatul aparține unei definiții sau configurații vechi. Salvează și construiește o definiție curentă.", reviewed:"Verificări confirmate", phases:{queued:"În așteptare",inspecting:"Verificare runtime și bază",building:"Construire imagine",verifying:"Verificare imagine și unelte",verified:"Verificat",failed:"Eșuat",cancelled:"Anulat înainte de pornire",uncertain:"Incert",interrupted:"Întrerupt la repornire"}},

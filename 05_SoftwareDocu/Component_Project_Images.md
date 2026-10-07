@@ -12,6 +12,12 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 image_build.py owns explicit profile Dockerfile artifacts and durable bounded
 image evidence; image_build_runner.py controls the owned runtime client.
 ProjectImage.tsx embeds the administrator flow inside Settings Environment.
+Its existing-image panel shows the active image and delegates editing/focus to
+SettingsList's normal single-setting review. Selected-choice styling and numbered
+four-locale instructions explain system-tool RUN lines, successful checks,
+explicit save/build/use and download policy. Source/check textareas show 16/six
+lines, remain vertically resizable, and preserve unsaved text across choices.
+The compiler example is read-only guidance with no configuration side effects.
 
 ## 2. Responsibilities
 
