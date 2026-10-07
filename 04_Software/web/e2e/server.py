@@ -31,6 +31,7 @@ import adore.web.app as web_app
 from adore.web.commands import CommandWorker
 from adore.wizard import run_wizard
 from fastapi import BackgroundTasks, HTTPException, Request
+from tests.test_image_build import ImageRuntime
 import uvicorn
 
 # CONSTANTS
@@ -104,9 +105,12 @@ def main() -> None:
                 "# See LICENSE.txt. SPDX-License-Identifier: "
                 "LicenseRef-PolyForm-Noncommercial-1.0.0\n", encoding="utf-8")
         probe_mode = {"mode": "failed"}
+        image_runtime = ImageRuntime()
 
         def fixture_probe(argv, **_kwargs):
             """@brief Simulate explicit readiness without any external services."""
+            if "image-build" in Path(_kwargs.get("cwd") or ".").parts:
+                return image_runtime(argv, **_kwargs)
             if argv[:1] == ["git"] and "-C" in argv:
                 recipe = ("jobs:\n  setup:\n    container:\n"
                           "      image: adore-executor-project:latest\n    steps:\n"
@@ -233,7 +237,8 @@ def main() -> None:
         store = app.state.web_store
         developer = store.create_user("developer", "test-password", "developer")
         store.set_memberships(developer["id"], ["alpha"])
-        worker = CommandWorker(profiles, store, runner=simulated_command)
+        worker = CommandWorker(
+            profiles, store, runner=simulated_command, image_runner=image_runtime)
         stop = Event()
 
         @asynccontextmanager

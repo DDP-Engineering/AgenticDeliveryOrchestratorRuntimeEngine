@@ -16,7 +16,7 @@
 
 # IMPORTS
 from collections.abc import Callable
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 import csv
 from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
@@ -82,6 +82,7 @@ from adore.web.executor_settings import (
     save_model_evidence,
     update_credential,
 )
+from adore.web.image_build import ImageBuildError, ImageBuildService, dockerfile_template
 from adore.web.jobs import JobReadError, read_jobs
 from adore.web.model_connection import probe_model_connection
 from adore.web.store import WebStore, WebStoreError
@@ -332,6 +333,28 @@ class ConfigEdit(BaseModel):
     protocol: Literal["openai-chat-completions"] | None = None
     timeout_seconds: int | None = Field(default=None, ge=1, le=600)
     ca_file: str | None = None
+    image_build_id: str | None = Field(default=None, pattern=r"^[0-9a-f]{32}$")
+
+
+class ImageDefinition(BaseModel):
+    """@brief Closed bounded administrator Dockerfile text input."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+    dockerfile: str = Field(max_length=65536)
+    checks: list[str] = Field(max_length=32)
+    revision: str = Field(max_length=64)
+    network: Literal["none", "default"] = "none"
+    timeout_seconds: int = Field(default=600, ge=30, le=1800)
+    memory_mib: int = Field(default=1024, ge=512, le=4096)
+
+
+class ImageRequest(BaseModel):
+    """@brief Current definition/config binding for one durable image request."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+    revision: str = Field(pattern=r"^[0-9a-f]{64}$")
+    config_revision: str = Field(pattern=r"^[0-9a-f]{64}$")
+    idempotency_key: str = Field(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9_-]+$")
 
 
 class ConfigApply(BaseModel):
@@ -1332,7 +1355,42 @@ def _read_pending_config(path: Path) -> dict | None:
     return value
 
 
-def _public_pending_config(value: dict) -> dict:
+def _image_candidate_checks(text: str, checks: list[str]) -> str:
+    """@brief Replace one complete tool-check array while preserving other settings.
+    @param[in] text Existing validated candidate TOML.
+    @param[in] checks Explicit verified project-image tool checks.
+    @return Candidate with the complete array replaced, including multiline values.
+    @exception ImageBuildError Unsupported configuration spelling fails closed.
+    """
+    lines = text.splitlines(keepends=True)
+    newline = _newline(text)
+    inside = False
+    header = None
+    for index, line in enumerate(lines):
+        if re.match(r'^\s*\[', line):
+            inside = line.strip() == "[container]"
+            if inside:
+                header = index
+        if inside and re.match(
+                r'^\s*(?:required_tool_checks|"required_tool_checks"|\'required_tool_checks\')\s*=',
+                line):
+            for end in range(index + 1, len(lines) + 1):
+                try:
+                    fragment = tomllib.loads("".join(lines[index:end]))
+                except tomllib.TOMLDecodeError:
+                    continue
+                if set(fragment) != {"required_tool_checks"}:
+                    raise ImageBuildError("image_checks_config_unsupported")
+                lines[index:end] = ["required_tool_checks = " + json.dumps(checks) + newline]
+                return "".join(lines)
+            raise ImageBuildError("image_checks_config_unsupported")
+    if header is None:
+        raise ImageBuildError("image_checks_config_unsupported")
+    lines.insert(header + 1, "required_tool_checks = " + json.dumps(checks) + newline)
+    return "".join(lines)
+
+
+def _public_pending_config(value: dict, *, active_text: str | None = None) -> dict:
     """@brief Return review metadata without exposing the full TOML document."""
     public = {key: value[key] for key in (
         "base_revision", "candidate_revision", "key", "value", "created_at",
@@ -1360,6 +1418,13 @@ def _public_pending_config(value: dict) -> dict:
             raise ValueError("candidate review metadata differs from its value")
         public["proposed_value"] = proposed
         public["value"] = str(proposed).lower() if type(proposed) is bool else str(proposed)
+        if (value["key"] == "container.image" and "image_build" not in value
+                and active_text is not None
+                and sha256(active_text.encode("utf-8")).hexdigest() == value["base_revision"]):
+            active = tomllib.loads(active_text)
+            if (candidate.get("container", {}).get("required_tool_checks", [])
+                    != active.get("container", {}).get("required_tool_checks", [])):
+                raise ValueError("image candidate lost its tool-check review binding")
     except (KeyError, TypeError, ValueError, tomllib.TOMLDecodeError) as exc:
         raise _error(503, "pending_config_corrupt") from exc
     if endpoint_key:
@@ -1401,6 +1466,33 @@ def _public_pending_config(value: dict) -> dict:
             }
         except (KeyError, TypeError, ValueError, tomllib.TOMLDecodeError,
                 json.JSONDecodeError) as exc:
+            raise _error(503, "pending_config_corrupt") from exc
+    if "image_build" in value:
+        binding = value["image_build"]
+        try:
+            fields = {"id", "project_id", "config_revision", "runtime", "runtime_identity",
+                      "base_id", "image_id", "context_sha256", "verified_checks", "draft_revision"}
+            if (not isinstance(binding, dict) or set(binding) != fields
+                    or value["key"] != "container.image"
+                    or binding["config_revision"] != value["base_revision"]
+                    or binding["image_id"] != proposed
+                    or not all(isinstance(binding[k], str) and re.fullmatch(r"[0-9a-f]{32}",
+                        binding[k]) for k in ("id", "project_id"))
+                    or not all(isinstance(binding[k], str) and re.fullmatch(r"[0-9a-f]{64}",
+                        binding[k]) for k in (
+                            "config_revision", "context_sha256", "draft_revision"))
+                    or not all(isinstance(binding[k], str) and re.fullmatch(r"sha256:[0-9a-f]{64}",
+                        binding[k]) for k in ("image_id", "base_id"))
+                    or not isinstance(binding["runtime"], str)
+                    or not isinstance(binding["runtime_identity"], str)
+                    or not isinstance(binding["verified_checks"], list)
+                    or not binding["verified_checks"]
+                    or not all(isinstance(c, str) for c in binding["verified_checks"])
+                    or candidate["container"]["required_tool_checks"]
+                    != binding["verified_checks"][1:]):
+                raise ValueError
+            public["image_build"] = binding
+        except (KeyError, TypeError, ValueError) as exc:
             raise _error(503, "pending_config_corrupt") from exc
     return public
 
@@ -1926,11 +2018,23 @@ def create_app(home: str | Path | None = None,
     @return Configured FastAPI application.
     """
     profiles = ProfileStore(home)
+    images = ImageBuildService(
+        profiles, runner=probe_runner if probe_runner is not run_command else None)
     web = WebStore(profiles.home / "web.db")
     config_lock = Lock()
     app = FastAPI(title="ADORE", version=__version__, docs_url=None, redoc_url=None)
     app.state.web_store = web
     app.state.profiles = profiles
+    app.state.image_builds = images
+
+    @app.exception_handler(ImageBuildError)
+    async def image_failure(_request: Request, exc: ImageBuildError) -> JSONResponse:
+        """@brief Expose safe typed artifact/runtime errors without source values."""
+        status = 503 if any(s in exc.code for s in (
+            "corrupt", "storage", "retention_invalid")) else (
+            409 if any(s in exc.code for s in (
+                "stale", "terminal", "verified", "changed", "full")) else 400)
+        return JSONResponse(status_code=status, content={"detail": {"code": exc.code}})
 
     @app.exception_handler(WebStoreError)
     async def web_store_failure(_request: Request, _exc: WebStoreError) -> JSONResponse:
@@ -2053,6 +2157,96 @@ def create_app(home: str | Path | None = None,
             yield
         finally:
             state.release_lock()
+
+    def image_view(item) -> dict:
+        """@brief Read saved definition/evidence without invoking the runtime."""
+        store = images.store(item.name)
+        config = load_config(profiles.config_path(item.name))
+        return {"project_id": item.project_id, "backend": config.execution.backend,
+                "draft": store.read(), "template": dockerfile_template(),
+                "template_checks": config.container.required_tool_checks,
+                "operations": [public_image(value) for value in store.operations()]}
+
+    def public_image(value: dict) -> dict:
+        """@brief Expose bounded build evidence without server home/PATH controls."""
+        return {key: value[key] for key in ("id", "project_id", "phase", "tag", "error",
+            "config_revision", "image_id", "base_id", "context_sha256", "runtime",
+            "runtime_identity", "verified_checks")} | {"draft_revision": value["draft"]["revision"],
+                "host": {k: value["host"][k] for k in ("system", "account", "machine")}}
+
+    @app.get("/api/v1/projects/{name}/image-build")
+    def image_definition(name: str, user: Annotated[dict, Depends(principal)]) -> dict:
+        """@brief Read a scoped definition, template and durable build summaries."""
+        return image_view(project(name, user))
+
+    @app.put("/api/v1/projects/{name}/image-build")
+    def save_image_definition(name: str, body: ImageDefinition,
+                              user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+        """@brief Save bounded explicit text behind current idle/paused config guards."""
+        item = project(name, user)
+        if item.archived:
+            raise _error(409, "project_archived")
+        with config_lock, _web_config_edit_lock(profiles.config_path(item.name)), \
+                guard_direct_config_apply(item, profiles.config_path(item.name), "container.image"):
+            config = load_config(profiles.config_path(item.name))
+            if config.execution.backend != "container":
+                raise ImageBuildError("image_local_unavailable")
+            images.store(item.name).save(**body.model_dump())
+            web.audit(user["id"], "image-definition-saved", item.name)
+        return image_view(item)
+
+    @app.get("/api/v1/projects/{name}/image-build/export")
+    def export_image_definition(name: str, user: Annotated[dict, Depends(administrator)]) -> dict:
+        """@brief Export only the validated bounded project definition."""
+        item = project(name, user)
+        return images.store(item.name).export()
+
+    @app.post("/api/v1/projects/{name}/image-build/operations")
+    def build_image(name: str, body: ImageRequest,
+                    user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+        """@brief Queue one current immutable bounded build; never build in HTTP."""
+        item = project(name, user)
+        if item.archived:
+            raise _error(409, "project_archived")
+        with config_lock, _web_config_edit_lock(profiles.config_path(item.name)):
+            existing = web.operation_for_key(user["id"], body.idempotency_key)
+            if existing is not None:
+                if (existing["project_id"] != item.project_id
+                        or existing["action"] != "image-build"):
+                    raise _error(409, "idempotency_key_conflict")
+                value = images.store(item.name).operation(existing["run_id"])
+                if (value["draft"]["revision"] != body.revision
+                        or value["config_revision"] != body.config_revision):
+                    raise _error(409, "idempotency_key_conflict")
+                return {"build": public_image(value), "operation": existing}
+            with guard_direct_config_apply(
+                    item, profiles.config_path(item.name), "container.image"):
+                value = images.prepare(item.name, body.revision, body.config_revision)
+                try:
+                    operation = web.enqueue(user["id"], item.name, "image-build", value["id"],
+                                            body.idempotency_key)
+                except WebStoreError:
+                    images.set_phase(item.name, value["id"], "failed", error="image_queue_failed")
+                    raise
+        return {"build": public_image(value), "operation": operation}
+
+    @app.get("/api/v1/projects/{name}/image-build/operations/{operation_id}")
+    def image_operation(name: str, operation_id: str,
+                        user: Annotated[dict, Depends(principal)]) -> dict:
+        """@brief Read scoped truthful phases and bounded redacted output."""
+        item = project(name, user)
+        store = images.store(item.name)
+        return {"build": public_image(store.operation(operation_id)),
+                "log": store.live_log(operation_id)}
+
+    @app.post("/api/v1/projects/{name}/image-build/operations/{operation_id}/cancel")
+    def cancel_image(name: str, operation_id: str,
+                     user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+        """@brief Signal owned build cancellation without guessing completion."""
+        item = project(name, user)
+        images.store(item.name).cancel(operation_id)
+        web.audit(user["id"], "image-build-cancel-requested", item.name, operation_id)
+        return {"ok": True}
 
     @app.get("/api/v1/health")
     def health() -> dict:
@@ -3175,7 +3369,13 @@ def create_app(home: str | Path | None = None,
         """@brief Show a saved candidate without returning its full TOML text."""
         item = project(name, user)
         value = _read_pending_config(profiles.profile_dir(item.name) / "pending_config.json")
-        return _public_pending_config(value) if value else None
+        if value is None:
+            return None
+        try:
+            active_text = profiles.config_path(item.name).read_bytes().decode("utf-8")
+        except (OSError, UnicodeError) as exc:
+            raise _error(503, "config_corrupt") from exc
+        return _public_pending_config(value, active_text=active_text)
 
     @app.post("/api/v1/projects/{name}/config/pending")
     def stage_config(
@@ -3185,10 +3385,19 @@ def create_app(home: str | Path | None = None,
         item = project(name, user)
         path = profiles.config_path(item.name)
         pending_path = profiles.profile_dir(item.name) / "pending_config.json"
-        with config_lock, _web_config_edit_lock(path):
+        if body.image_build_id and body.key != "container.image":
+            raise ImageBuildError("image_selection_invalid")
+        with config_lock, _web_config_edit_lock(path), (guard_direct_config_apply(
+                item, path, "container.image") if body.image_build_id else nullcontext()):
             if _read_pending_config(pending_path) is not None:
                 raise _error(409, "pending_config_exists")
             raw, changed = _candidate_config_edit(path, body)
+            binding = None
+            if body.image_build_id:
+                binding = images.review(item.name, body.image_build_id)
+                if binding["image_id"] != body.value:
+                    raise ImageBuildError("image_selection_invalid")
+                changed = _image_candidate_checks(changed, binding["verified_checks"][1:])
             if sha256(path.read_bytes()).digest() != sha256(raw).digest():
                 raise _error(409, "stale_config_revision")
             value = {
@@ -3202,6 +3411,8 @@ def create_app(home: str | Path | None = None,
                 "restart_required": _restart_required(body.key),
             }
             candidate_config = _config_from_bytes(changed.encode())
+            if binding is not None:
+                value["image_build"] = binding
             if (candidate_config.execution.preparation
                     or candidate_config.execution.backend == "local"):
                 try:
@@ -3253,6 +3464,7 @@ def create_app(home: str | Path | None = None,
             except (OSError, UnicodeError, ValueError, TypeError, tomllib.TOMLDecodeError) as exc:
                 raise _error(503, "config_corrupt") from exc
             current_revision = sha256(raw).hexdigest()
+            _public_pending_config(pending, active_text=raw.decode("utf-8"))
             already_applied = current_revision == pending["candidate_revision"]
             if current_revision != pending["base_revision"] and not already_applied:
                 raise _error(409, "stale_config_revision")
@@ -3293,6 +3505,14 @@ def create_app(home: str | Path | None = None,
                     ),
                 )
                 try:
+                    if "image_build" in pending:
+                        binding = images.review(
+                            item.name, pending["image_build"]["id"],
+                            applied_revision=(
+                                pending["candidate_revision"] if already_applied else None))
+                        if (binding != pending["image_build"]
+                                or binding["project_id"] != item.project_id):
+                            raise ImageBuildError("image_revision_stale")
                     if already_applied:
                         if validate_config(current):
                             raise _error(503, "config_corrupt")

@@ -1003,3 +1003,14 @@ Enrollment offers backend/local paths/native argv/existing login. Settings show 
 
 See [Local execution](Local_Execution.md) for platform prerequisites, configuration,
 authentication, process ownership and acceptance coverage.
+
+## Project executor images
+
+Settings → Isolated environment contains Existing image / Define image,
+explicit Build and verify and Use image through the normal configuration review.
+The administrator edits/uploads Dockerfile text and declares nearby tool checks.
+System tools, per-worktree recipe libraries, model access and full readiness
+remain distinct. Local profiles retain operator-owned installed tooling;
+developers read evidence. See [Project executor images](Project_Executor_Images.md)
+for runtime/environment support, bounds, network, cancellation/recovery, retention
+and the deferred #23/live acceptance checklist.

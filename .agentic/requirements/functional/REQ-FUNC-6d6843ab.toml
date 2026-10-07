@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-6d6843ab"
+title = "Verify project image executor tools and identity"
+status = "active"
+requirement = "After a project image build succeeds, ADORE shall bind its runtime/image identity to explicit non-root executor and declared tool verification in an owned disposable container while keeping preparation and model readiness separate."
+verification = "Injected runtime tests observe exact image/user/labels and selected executor/tool checks and refuse missing, malformed, replaced image identities or failed checks without changing live configuration."
+affected_paths = ["04_Software/adore/web/image_build.py", "04_Software/adore/execution.py"]
+linked_tests = ["04_Software/tests/test_image_build.py::test_project_image_build_verifies_owned_identity_and_tools", "04_Software/tests/test_image_build.py::test_project_image_build_failure_never_selects_image", "04_Software/tests/test_image_build.py::test_image_supported_runtime_builds_are_bounded_and_scoped", "04_Software/tests/test_image_build.py::test_image_verification_accepts_strict_equivalent_raw_oci_identity", "04_Software/tests/test_image_build.py::test_image_cleanup_refuses_a_replaced_owned_resource"]
+spec = "specs/REQ-FUNC-a6a81d86.md"
+priority = "high"
+created = 2026-10-07
+updated = 2026-10-07

@@ -30,6 +30,7 @@ import time
 from adore.config import load_config
 from adore.profiles import ProfileError, ProfileStore
 from adore.state import StateError, StateStore
+from adore.web.image_build import ImageBuildError, ImageBuildService
 from adore.web.store import WebStore, WebStoreError
 
 # DATA MODELS / TYPEDEFINITIONS
@@ -54,11 +55,12 @@ class CommandWorker:
     """@brief Execute authorized persisted commands through ADORE's CLI."""
 
     def __init__(self, profiles: ProfileStore, web: WebStore,
-                 runner: Runner = _run) -> None:
+                 runner: Runner = _run, *, image_runner=None) -> None:
         self.profiles = profiles
         self.web = web
         self.runner = runner
         self.environment = {**os.environ, "ADORE_HOME": str(profiles.home)}
+        self.images = ImageBuildService(profiles, runner=image_runner)
 
     def run_pending(self) -> int:
         """@brief Execute at most one pending command; return 1 if claimed."""
@@ -72,30 +74,70 @@ class CommandWorker:
                       if actor is not None and actor["role"] != "admin" else set())
         except WebStoreError:
             self.web.finish(operation["id"], "failed", "project grants are corrupt")
+            self.reject_image(operation)
             return 1
         if (actor is None or actor["disabled"] or not self.profiles.exists(project)
                 or (actor["role"] != "admin" and project not in grants)):
             self.web.finish(operation["id"], "failed", "permission or project revoked")
+            self.reject_image(operation)
             return 1
         try:
             profile = self.profiles.load(project)
             if profile.project_id != operation["project_id"]:
                 self.web.finish(operation["id"], "failed", "project identity changed")
+                self.reject_image(operation)
                 return 1
             if operation["action"] == "delete":
                 if actor["role"] != "admin" or not profile.archived:
                     self.web.finish(operation["id"], "failed",
                                     "delete requires an administrator and an archived project")
+                    self.reject_image(operation)
                     return 1
             elif profile.archived:
                 self.web.finish(operation["id"], "failed", "project archived")
+                self.reject_image(operation)
                 return 1
         except ProfileError:
             self.web.finish(operation["id"], "failed", "project metadata corrupt")
+            self.reject_image(operation)
             return 1
         argv = [sys.executable, "-m", "adore", "--profile", project]
         action = operation["action"]
         target = operation["run_id"]
+        if action == "image-build":
+            state = None
+            locked = False
+            try:
+                if actor["role"] != "admin":
+                    raise ImageBuildError("image_admin_required")
+                config = load_config(self.profiles.config_path(project))
+                if (not profile.store_root or Path(profile.store_root).resolve()
+                        != Path(config.state.store_root).resolve()):
+                    raise ImageBuildError("image_state_root_unmanaged")
+                state = StateStore(profile.store_root, config.agent.slug)
+                locked = state.acquire_lock()
+                if (not locked or not state.is_paused() or state.invalid_runs()
+                        or any(run.lifecycle not in {"done", "failed", "cancelled", "handed-off"}
+                               for run in state.list_runs())
+                        or (self.profiles.profile_dir(project) / "pending_config.json").exists()):
+                    raise ImageBuildError("image_project_active")
+                result = self.images.run(project, target)
+                phase = result["phase"]
+                status = "succeeded" if phase == "verified" else (
+                    "uncertain" if phase in {"uncertain", "interrupted"} else "failed")
+                self.web.finish(operation["id"], status, phase)
+            except (ImageBuildError, StateError, OSError, ValueError):
+                self.web.finish(operation["id"], "failed", "image build rejected")
+                try:
+                    if self.images.store(project).operation(target)["phase"] == "queued":
+                        self.images.set_phase(
+                            project, target, "failed", error="image_worker_rejected")
+                except (ImageBuildError, OSError, ValueError):
+                    pass  # Corrupt artifacts remain preserved; queue records the failed request.
+            finally:
+                if locked and state is not None:
+                    state.release_lock()
+            return 1
         if action == "cancel":
             try:
                 profile = self.profiles.load(project)
@@ -141,6 +183,23 @@ class CommandWorker:
         if action == "delete" and status == "succeeded":
             self.web.audit(actor["id"], "project-deleted", project)
         return 1
+
+    def reject_image(self, operation: dict) -> None:
+        """@brief Mark a revoked queued image artifact failed without runtime effects.
+        @param[in] operation Identity-bound queue request whose authorization failed.
+        """
+        if operation["action"] != "image-build":
+            return
+        try:
+            profile = self.profiles.load(operation["project"])
+            if profile.project_id != operation["project_id"]:
+                return
+            value = self.images.store(profile.name).operation(operation["run_id"])
+            if value["phase"] == "queued":
+                self.images.set_phase(profile.name, value["id"], "failed",
+                                      error="image_worker_rejected")
+        except (ProfileError, ImageBuildError, OSError, ValueError):
+            pass  # Corruption cannot grant authority; queue retains the failed outcome.
 
     def _signal_pending_cancels(self) -> None:
         """@brief Recheck grants before signalling any active conductor."""
@@ -216,6 +275,13 @@ class CommandWorker:
 
         next_poll: dict[str, float] = {}
         try:
+            for operation in self.web.running_image_builds():
+                try:
+                    profile = self.profiles.load(operation["project"])
+                    if profile.project_id == operation["project_id"]:
+                        self.images.recover(profile.name, operation["run_id"])
+                except (ProfileError, ImageBuildError, OSError, ValueError):
+                    pass  # No authority from corrupt/replaced profiles; evidence stays uncertain.
             self.web.recover_interrupted()
             self.web.touch_worker()
             heartbeat_started = True

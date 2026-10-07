@@ -69,3 +69,11 @@ failures, role/CSRF/idle locks, secret storage, export/audit exclusion, engine/p
 bindings, redaction, corruption and scope drift. `web/e2e/jobs.spec.ts` proves
 memory-only secret UI and honest scoped result. Real token permissions and Git
 clone/push are human live acceptance, not offline proof.
+
+## Private read for image redaction
+
+load_connection returns the existing strictly validated protected record or
+None only when absent. project_runner reuses this public read before creating
+the same scoped forge runner. ImageBuildService reads its token in memory only
+to reject/redact source/output; build clients never receive it. Corrupt records
+fail closed. Existing scoped auth tests and image secret boundaries cover the seam.

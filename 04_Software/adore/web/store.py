@@ -1297,7 +1297,7 @@ class WebStore:
     ) -> dict[str, Any]:
         """@brief Persist an idempotent operation request."""
         if (
-            action not in ("start", "retry", "cancel", "pause", "resume", "delete")
+            action not in ("start", "retry", "cancel", "pause", "resume", "delete", "image-build")
             or not key
             or len(key) > 128
         ):
@@ -1352,6 +1352,26 @@ class WebStore:
                 "SELECT * FROM operations WHERE id=?", (operation_id,)
             ).fetchone()
         return self._operation_with_current_project(row) if row else None
+
+    def operation_for_key(self, actor_id: int, key: str) -> dict | None:
+        """@brief Resolve a durable idempotency key before preparing external work.
+        @return Current operation or None; callers recheck immutable request binding.
+        """
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT * FROM operations WHERE actor_id=? AND idempotency_key=?",
+                (actor_id, key)).fetchone()
+        return self._operation_with_current_project(row) if row else None
+
+    def running_image_builds(self) -> list[dict]:
+        """@brief Enumerate in-flight image requests for owned startup reconciliation.
+        @return Durable running image operations, never replay requests.
+        """
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT * FROM operations WHERE action='image-build' AND status='running'"
+            ).fetchall()
+        return [self._operation_with_current_project(row) for row in rows]
 
     def has_unfinished_operations(self, project: str) -> bool:
         """@brief Check for queued or executing operations before project archive."""

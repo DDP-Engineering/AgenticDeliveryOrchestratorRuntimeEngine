@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-1b9b5789"
+title = "Provide compact backend-aware project image flow"
+status = "active"
+requirement = "In the existing project Environment settings, ADORE shall provide a compact Define, Build and verify, Use image flow with existing-image choice, explicit server/tooling/network/limits guidance, durable status/log/cancel/export and read-only developer/local behavior."
+verification = "Focused browser/helper tests observe build/review/apply and existing-image/local regression, upload errors and safe stale/action handling in the established localized settings."
+affected_paths = ["04_Software/web/src/ProjectImage.tsx", "04_Software/web/src/imageBuild.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/settings.ts", "04_Software/web/src/styles.css", "04_Software/web/e2e/images.spec.ts", "04_Software/web/tests/imageBuild.test.mjs"]
+linked_tests = ["04_Software/web/tests/imageBuild.test.mjs", "04_Software/web/e2e/images.spec.ts"]
+spec = "specs/REQ-FUNC-a6a81d86.md"
+priority = "high"
+created = 2026-10-07
+updated = 2026-10-07

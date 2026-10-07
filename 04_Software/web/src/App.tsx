@@ -19,6 +19,8 @@ import { ApiError, describeError } from "./errors";
 import { startVisiblePolling } from "./polling";
 import { formatRoute, normalizeRoute, parseRoute, type ProjectTab, type Route } from "./routes";
 import { editValue, hasDefault, settingGroups, settingRows, type SettingMeta, type SettingRow, settingValue, validSettingCatalog, validPendingConfig, type PendingConfig } from "./settings";
+import { ProjectImage } from "./ProjectImage";
+import { imageCopy } from "./imageBuild";
 import { ExecutionPlanReview } from "./ExecutionPlanReview";
 import { validExecutionPlan, type ExecutionPlan } from "./executionPlan";
 import { localCopy } from "./localExecution";
@@ -782,13 +784,13 @@ export default function App() {
     } catch (cause) { setError(cause); }
   };
 
-  const stageSetting = async (key: string, value: string): Promise<boolean> => {
+  const stageSetting = async (key: string, value: string, imageBuildId?: string): Promise<boolean> => {
     if (!projectConfig || !selected || configMutation.current || projectPendingConfig || pendingReadFailed || !pendingReady) return false;
     const target = selected, generation = viewGeneration.current, revision = configRequest.current, scope = configView.current;
     const current = () => generation === viewGeneration.current && revision === configRequest.current && scope === configView.current;
     configMutation.current = true; setConfigBusy(true); setError("");
     try {
-      const staged = await request<PendingConfig>(`/projects/${encodeURIComponent(target)}/config/pending`, "POST", { key, value, revision: projectConfig.revision }, session?.csrf);
+      const staged = await request<PendingConfig>(`/projects/${encodeURIComponent(target)}/config/pending`, "POST", { key, value, revision: projectConfig.revision, ...(imageBuildId ? {image_build_id:imageBuildId} : {}) }, session?.csrf);
       if (!validPendingConfig(staged) || !staged || staged.base_revision !== projectConfig.revision || staged.key !== key) throw new ApiError("unexpected_response");
       if (!current()) return false;
       setPendingConfig(staged); setPendingConfigScope(target); setNotice(t("changeStaged"));
@@ -1065,7 +1067,7 @@ export default function App() {
           {projectTab === "history" && <JobWorkspace reporting={{ from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }} reportingQuery={metricSuffix} admin={isAdmin} {...workspaceProps} mode="history" scope={selected} fixedScope />}
           {projectTab === "configuration" && <>
           {configDataState !== "ready" && <DataFeedback state={configDataState} t={t} />}
-          {projectConfig && <SettingsList key={`${selected}-${projectConfig.revision}`} config={projectConfig.config} settings={projectConfig.settings || []} t={t} locale={locale} canEdit={isAdmin} disabled={!!projectPendingConfig || configBusy || pendingReadFailed || isAdmin && !pendingReady} onStage={stageSetting} actions={isAdmin && <RawConfiguration key={`${session.user.id}:${selected}:${projectConfig.revision}`} project={selected} locale={locale} />}>
+          {projectConfig && <SettingsList key={`${selected}-${projectConfig.revision}`} config={projectConfig.config} settings={projectConfig.settings || []} t={t} locale={locale} canEdit={isAdmin} disabled={!!projectPendingConfig || configBusy || pendingReadFailed || isAdmin && !pendingReady} onStage={stageSetting} environment={selectedProject && <ProjectImage key={`${selectedProject.id}:${projectConfig.revision}`} project={selectedProject.id} revision={projectConfig.revision} local={!!projectConfig.local_execution} locale={locale} admin={isAdmin} disabled={!!projectPendingConfig || configBusy || pendingReadFailed || isAdmin && !pendingReady || !selectedProject.paused || selectedProject.archived} call={(path,method,body)=>request(path,method,body,session.csrf)} onStage={(image,id)=>stageSetting("container.image",image,id)} />} actions={isAdmin && <RawConfiguration key={`${session.user.id}:${selected}:${projectConfig.revision}`} project={selected} locale={locale} />}>
             {isAdmin && <>
             {projectConfig.issues.length > 0 && <div className="alert">{projectConfig.issues.join(" · ")}</div>}
             {projectConfig.local_execution && <section role="note"><h3>{localCopy[locale].title}</h3><p>{localCopy[locale].machine}: <strong>{projectConfig.local_execution.machine}</strong> · {localCopy[locale].account}: <strong>{projectConfig.local_execution.account}</strong></p><p>{localCopy[locale].notice}</p></section>}
@@ -1309,12 +1311,14 @@ function PendingReview({ config, candidate, project, paused, busy, locale, t, on
     rows.push({ label: t("endpointTimeout"), active: config.local_endpoint_timeout_seconds, proposed: candidate.endpoint.timeout_seconds });
     rows.push({ label: t("endpointCa"), active: settingValue(config.config, "container.runtime_env.NODE_EXTRA_CA_CERTS"), proposed: candidate.endpoint.ca_file ?? t("settingNoDefault") });
   }
+  if (candidate.image_build) rows.push({label:imageCopy[locale].reviewed,active:settingValue(config.config,"container.required_tool_checks"),proposed:candidate.image_build.verified_checks});
   const stale = candidate.base_revision !== config.revision;
   const blocked = stale || candidate.restart_required && !paused;
   const reviewText = [copy.project + ": " + project, ...rows.map(row => `${row.label}: ${copy.active}: ${show(row.active)} → ${copy.proposed}: ${show(row.proposed)}`), copy.base + ": " + candidate.base_revision, copy.candidate + ": " + candidate.candidate_revision].join("\n");
   return <div className="import-preview candidate-review"><h3 ref={heading} tabIndex={-1}>{t("pendingChange")}</h3>
     <p><strong>{copy.project}:</strong> {project}</p><p>{copy.single}</p>
     <div className="candidate-values">{rows.map(row => <section key={row.label}><h4>{row.label}</h4><dl><div><dt>{copy.active}</dt><dd>{show(row.active)}</dd></div><div><dt>{copy.proposed}</dt><dd>{show(row.proposed)}</dd></div></dl></section>)}</div>
+    {candidate.image_build && <details><summary>{imageCopy[locale].advanced}</summary><p><code>{candidate.image_build.runtime}</code></p><p><code>{candidate.image_build.base_id}</code></p><p><code>{candidate.image_build.context_sha256}</code></p></details>}
     {candidate.execution_plan && <ExecutionPlanReview plan={candidate.execution_plan} locale={locale} />}
     <h4>{copy.effect}</h4><p>{candidate.endpoint ? copy.endpoint : settingHelp(meta?.key || candidate.key, locale)}</p><p>{copy.future}</p>
     <p>{copy.prepared}: <time dateTime={candidate.created_at}>{new Date(candidate.created_at).toLocaleString(locale)}</time></p><p>{copy.actor}</p>
@@ -1324,7 +1328,7 @@ function PendingReview({ config, candidate, project, paused, busy, locale, t, on
   </div>;
 }
 
-function SettingsList({ executorOnly=false, config, settings, t, locale, canEdit, disabled, onStage, actions, children, header }: { header?: ReactNode; actions?: ReactNode; children?: ReactNode; executorOnly?:boolean; config: Record<string, unknown>; settings: SettingMeta[]; t: (key: MessageKey) => string; locale: Locale; canEdit: boolean; disabled: boolean; onStage: (key: string, value: string) => Promise<boolean> }) {
+function SettingsList({ executorOnly=false, config, settings, t, locale, canEdit, disabled, onStage, actions, children, header, environment }: { environment?: ReactNode; header?: ReactNode; actions?: ReactNode; children?: ReactNode; executorOnly?:boolean; config: Record<string, unknown>; settings: SettingMeta[]; t: (key: MessageKey) => string; locale: Locale; canEdit: boolean; disabled: boolean; onStage: (key: string, value: string) => Promise<boolean> }) {
   const [editing, setEditing] = useState("");
   const [draft, setDraft] = useState("");
   const groups = settingGroups(settingRows(config, settings).filter(row=>isExecutorSetting(row.key)===executorOnly && !(settingValue(config, "execution.backend") === "local" && (row.key.startsWith("container.") || row.key.startsWith("execution.preparation")))), false);
@@ -1358,6 +1362,7 @@ function SettingsList({ executorOnly=false, config, settings, t, locale, canEdit
         </div><code>{shown(row.value)}</code><small>{t("settingDefaultValue")}: {hasDefault(row.defaultValue) ? shown(row.defaultValue) : t("settingNoDefault")}</small></div>}
 
       </div>)}</div>
+      {group.name === "isolation" && environment}
     </details>)}</div>}
     {children}
   </section>;

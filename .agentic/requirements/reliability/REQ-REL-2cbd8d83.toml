@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-REL-2cbd8d83"
+title = "Build project images through bounded durable owned operations"
+status = "active"
+requirement = "When an authorized image build is submitted, ADORE shall execute one durable bounded runtime operation with unique managed identity, controlled network/environment, redacted phased evidence and owned cancellation or deterministic interrupted failure without replay or unrelated cleanup."
+verification = "Offline injected-runner/worker tests observe queued build progress and success and negative timeout/cancel/restart/control failure, concurrency, resource/runtime and retention boundaries."
+affected_paths = ["04_Software/adore/web/image_build.py", "04_Software/adore/web/image_build_runner.py", "04_Software/adore/web/commands.py", "04_Software/adore/web/store.py", "04_Software/web/e2e/server.py"]
+linked_tests = ["04_Software/tests/test_image_build.py::test_project_image_build_verifies_owned_identity_and_tools", "04_Software/tests/test_image_build.py::test_project_image_build_failure_never_selects_image", "04_Software/tests/test_image_build.py::test_project_image_cancel_before_start_runs_no_commands", "04_Software/tests/test_image_build.py::test_project_image_cancel_during_build_never_claims_unconfirmed_remote_cleanup", "04_Software/tests/test_image_build.py::test_project_image_restart_never_replays_an_interrupted_build", "04_Software/tests/test_image_build.py::test_image_retention_revision_and_foreign_identity_fail_before_commands", "04_Software/tests/test_image_build.py::test_owned_image_client_adapter_uses_shared_native_controller", "04_Software/tests/test_web_image_build.py::test_image_worker_revocation_and_idempotency_are_durable"]
+spec = "specs/REQ-FUNC-a6a81d86.md"
+priority = "high"
+created = 2026-10-07
+updated = 2026-10-07

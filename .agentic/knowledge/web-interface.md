@@ -46,7 +46,7 @@ for attention/global jobs/details; `web/e2e/jobs.spec.ts` verifies those views. 
 
 The optional web package gives one ADORE host an authenticated dashboard and
 durable control queue. The API reads existing profiles and run state and never
-launches an executor directly. The separate worker executes fixed CLI commands;
+launches an executor directly. The separate worker executes fixed CLI commands and bounded owned image builds;
 the orchestrator still owns readiness, locks, approvals and draft publication.
 
 ## Public interface
@@ -110,7 +110,7 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
   full identity/ownership/state reinspection within enrollment/conductor locks.
 
 - `create_app(home, probe_runner=...)` mounts `/api/v1` and bundled static
-  assets. The runner is injectable for explicit host-readiness probes.
+  assets. The runner is injectable for explicit host-readiness and image runtime commands.
 - Guided `setup-preview` returns canonical secret-free setup/paths and a digest
   binding exact deterministic config, ID, display and description. Additive
   `setup-check` returns ephemeral revision/time-bound evidence; `setup-create`
@@ -781,3 +781,14 @@ The application shows one dismissible notification for ordinary feedback or the 
 Editable settings place **Edit** beside **Active value** in the value column, including narrow screens. Administrators retain candidate review/apply/discard and disabled-state safeguards; developers have read-only rows.
 
 Project Settings purpose categories are collapsed on entry. Opening a category shows equal-width description and active-value columns separated by24px; below640px they stack at full width. Native disclosures retain keyboard operation. Executor configuration retains its expanded categories, embedded Provider credentials and heading-aligned Test AI connection. Agent/launch choices come from the server catalog; unsupported custom current launch values stay displayed and disabled as choices until a standard preset is selected.
+
+## Project image seam
+
+Settings isolation embeds ProjectImage Define / Build and verify / Use image.
+Scoped HTTP definition/export/queue/status/cancel routes, fixed worker image-build
+action and optional ConfigEdit.image_build_id reuse current administrator/CSRF,
+project, paused/idle/revision and pending/apply boundaries. The reviewed candidate
+contains immutable image ID plus explicit verified tool checks; shared preparation
+rejects recipe conflicts. ImageBuildService/native scope ownership and exact
+record/runtime/cleanup contracts route to project-images.md. API never builds;
+the worker owns durable execution. Source/UI/worker proof is named there.

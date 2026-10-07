@@ -704,3 +704,18 @@ Enrollment/settings present backend, native argv/account paths and four-locale m
 See [Local execution](../01_Documentation/Local_Execution.md) and
 [Local execution component](Component_Local_Execution.md). Focused proof:
 `04_Software/tests/test_local_execution.py`.
+
+## Project image workspace
+
+SettingsList's isolation slot embeds ProjectImage.tsx within the existing
+Isolated environment category. Existing image retains normal setting review;
+Define image exposes a bounded text/upload editor, nearby tool checks, explicit
+save/build and truthful phase/cancel/output. Advanced owns policy, technical
+identity and saved source/evidence export. Use image invokes the existing
+stageSetting/PendingReview with a verified binding; review includes proposed
+checks, immutable image/base/context evidence and normal apply/discard.
+imageBuild.ts rejects malformed/foreign/stale action evidence; responses are
+scoped to the mounted project/config revision. Native local mode shows tooling
+ownership and no build controls; developers read saved evidence. Four locales,
+mobile wrapping and helper/browser proof live in imageBuild.test.mjs and
+images.spec.ts. See Component_Project_Images.md.

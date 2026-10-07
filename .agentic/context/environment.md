@@ -14,8 +14,8 @@ Python 3.11 or later with `uv`; the runtime itself uses only the standard
 library. Verification uses pytest and Ruff from the `dev` dependency group in
 `04_Software/pyproject.toml`. Git is required. Live operation additionally
 needs Docker or rootless Podman, natively or as Docker Engine inside WSL2 on
-Windows, and an authenticated `glab`, `gh` or `tea`. Node.js is needed only
-inside the executor image, where the executors are installed as npm packages.
+Windows, and an authenticated `glab`, `gh` or `tea`. Node.js supports npm-based installed executors in container images or under
+the native local service account.
 The optional web extra uses FastAPI, Uvicorn and Argon2id. Node.js/npm are
 also needed on the web **build** machine for `04_Software/web/npm run build`;
 the installed web runtime serves local assets without Node.js.
@@ -126,3 +126,15 @@ service account. Windows needs executable entrypoints (or installed Node/JS argv
 and Jobs; Linux needs delegated cgroup v2 with kill. Local execution skips images/
 preparation, reuses auth and rejects container egress restrictions. Tools remain
 independently prepared. See 01_Documentation/Local_Execution.md.
+
+## Project image build clients
+
+GUI image builds use the profile's installed Docker/Podman runtime, a Dockerfile-
+only context, explicit network policy and checked Linux memory/CPU capabilities.
+Docker uses its explicit legacy builder; unsupported builders/modes fail closed.
+Windows clients use owned Jobs; Linux requires delegated cgroup v2 kill support
+in ADORE_BUILD_CGROUP_ROOT. Strict WSL prefixes clear the Linux command
+environment and translate owned paths. Runtime authentication homes are isolated,
+with rootless Podman data/runtime locations retained. See
+01_Documentation/Project_Executor_Images.md for bounds, operator retention and
+uncertain daemon cleanup; full run/model/forge acceptance has separate authority.

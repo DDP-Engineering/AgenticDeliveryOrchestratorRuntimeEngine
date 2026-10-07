@@ -100,3 +100,5 @@ documented in `Component_State_Store.md`, `Component_Orchestrator.md`, and
 
 - [Preparation](Component_Preparation.md): reviewed exact-source plans and closed grammar.
 - [Execution](Component_Execution.md): shared backend, file setup runner and owned recovery.
+
+- [Project images](Component_Project_Images.md): bounded project Dockerfile/build/verification and reviewed selection.

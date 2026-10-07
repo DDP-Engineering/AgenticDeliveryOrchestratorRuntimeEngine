@@ -69,3 +69,11 @@ Local installed native argv is editable through validated reviewed candidates. C
 See [Local execution](../01_Documentation/Local_Execution.md) and
 [Local execution component](Component_Local_Execution.md). Focused proof:
 `04_Software/tests/test_local_execution.py`.
+
+## Image source/output credential boundary
+
+credential_values returns nonempty values from the existing strict bounded
+private dotenv parser solely for in-memory rejection/redaction. ImageBuildService
+uses these values without forwarding or exporting them. Missing .env is empty;
+corrupt stored bytes fail closed. Image definition/runtime secret tests and
+existing provider credential tests cover this shared read.

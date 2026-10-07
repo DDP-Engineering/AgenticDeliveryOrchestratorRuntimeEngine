@@ -56,3 +56,5 @@ Native execution setup, security and recovery are documented in Local_Execution.
 
 See [Local execution](Local_Execution.md) for platform prerequisites, configuration,
 authentication, process ownership and acceptance coverage.
+
+- [Project executor images](Project_Executor_Images.md): explicit GUI image build, verification, selection and operator recovery.

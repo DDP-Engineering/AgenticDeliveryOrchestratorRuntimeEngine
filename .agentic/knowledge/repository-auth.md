@@ -27,6 +27,13 @@ identity only. save_connection publishes privately and invalidates old readiness
 project_runner loads strict scope-bound credentials or retains external auth when
 missing. RepositoryAuthError subclasses ForgeError with a value-free code.
 
+
+load_connection publicly returns the strictly validated protected internal record
+or None when absent. project_runner uses that read for scoped forge auth; image
+artifacts use only its token for in-memory rejection/redaction. Build clients
+receive no token. Additional focused proof: tests/test_image_build.py credential
+boundaries and tests/test_repository_connection.py scoped/corrupt persistence.
+
 ## Invariants
 
 Only selected forge commands receive secrets; no argv, shared config, process-env
@@ -50,7 +57,9 @@ flowchart LR
     api --> save[save_connection]
     save --> secret[(repository-auth.json)]
     engine([from_config / readiness]) --> load[project_runner]
-    load --> secret
+    load --> read[load_connection]
+    read --> secret
+    images([ImageBuildService redaction]) --> read
     load --> runner
 ```
 

@@ -632,3 +632,15 @@ ProjectInput accepts execution_backend and local account/home/path/cgroup/native
 See [Local execution](../01_Documentation/Local_Execution.md) and
 [Local execution component](Component_Local_Execution.md). Focused native proof:
 `04_Software/tests/test_local_execution.py`.
+
+## Project image candidates
+
+Scoped image-build read/save/export/queue/status/cancel routes delegate to
+ImageBuildStore/Service. Administrator mutations reuse CSRF, paused/idle,
+managed state/config locks and operation guards. HTTP queues builds; it never
+builds an image. ConfigEdit.image_build_id is allowed only for container.image.
+Staging proposes the verified immutable ID plus the definition's tool checks;
+public pending validation binds closed image evidence and candidate checks.
+Apply reinspects current definition/config/runtime/base/result/labels and the
+shared preparation plan. See Component_Project_Images.md and
+tests/test_web_image_build.py for current identity/failure contracts.

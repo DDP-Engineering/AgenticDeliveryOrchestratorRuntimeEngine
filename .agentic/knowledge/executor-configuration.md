@@ -19,6 +19,12 @@ One project-owned workspace; protected provider variable edits and durable model
 
 GET/PUT/DELETE executor-credentials (Admin), config GET model_connection, model test POST persistence. See Component_Executor_Configuration.md for exact schemas/error/status contracts.
 
+
+credential_values exposes the existing strict bounded private dotenv read solely
+for in-memory image-source/output rejection/redaction. No values are exported or
+forwarded to builds. Corruption fails closed; missing input is empty. Focused
+proof lives in test_image_build.py and existing provider credential boundaries.
+
 ## Invariants
 
 CSRF/admin/immutable identity/config and conductor locks/pause/idle/pending guards. Private bounded atomic dotenv edits; secret-free API/audit; strict duplicate/corrupt evidence rejection before stale filtering. Current public result binds model/revision and internal credential digest. Key changes delete old evidence. Real model testing remains explicit.
@@ -40,6 +46,8 @@ flowchart TD
     Tab[Executor configuration] --> Candidate[Existing reviewed config apply]
     Tab --> Credentials[Private credential routes]
     Credentials --> Env[Project .env]
+    Images[ImageBuildService redaction] --> Reader[credential_values]
+    Reader --> Env
     Env --> Launcher[Existing launcher / probe]
     Launcher --> Evidence[model-connection.json]
     Evidence --> Config[Validated config read]

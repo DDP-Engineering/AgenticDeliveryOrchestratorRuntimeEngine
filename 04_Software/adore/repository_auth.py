@@ -293,15 +293,15 @@ def save_connection(directory: Path, value: dict) -> None:
         raise RepositoryAuthError("repository_credentials_store_failed") from exc
 
 
-def project_runner(directory: Path, config, runner: CommandRunner = run_command) -> CommandRunner:
-    """@brief Load profile credentials for worker or readiness; missing preserves CLI auth.
+def load_connection(directory: Path, config) -> dict | None:
+    """@brief Read validated private profile credentials for scoped use or redaction.
     @exception RepositoryAuthError Corruption/scope mismatch never falls back.
     """
     path = directory / AUTH_FILE
     try:
         path.lstat()
     except FileNotFoundError:
-        return runner
+        return None
     except OSError as exc:
         raise RepositoryAuthError("repository_credentials_corrupt") from exc
     try:
@@ -329,7 +329,16 @@ def project_runner(directory: Path, config, runner: CommandRunner = run_command)
             raise ValueError
     except (OSError, ValueError, TypeError, KeyError, RepositoryAuthError) as exc:
         raise RepositoryAuthError("repository_credentials_corrupt") from exc
-    return credential_runner(value, runner)
+    return value
+
+
+def project_runner(directory: Path, config, runner: CommandRunner = run_command) -> CommandRunner:
+    """@brief Load validated profile credentials into a scoped command runner.
+    @return Original runner only when no private credential record exists.
+    @exception RepositoryAuthError Corruption/scope mismatch never falls back.
+    """
+    value = load_connection(directory, config)
+    return credential_runner(value, runner) if value is not None else runner
 
 
 # END OF FILE

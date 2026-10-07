@@ -130,6 +130,15 @@ def _atomic(path: Path, raw: bytes) -> None:
 # PUBLIC API
 
 
+def credential_values(directory: Path) -> list[str]:
+    """@brief Read existing private dotenv values solely for in-memory redaction.
+    @return Nonempty configured values; callers must never persist or forward them.
+    @exception ExecutorSettingsError Corrupt stored input fails closed.
+    """
+    _lines, values = _environment(directory)
+    return [value for value in values.values() if value]
+
+
 def credential_view(directory: Path, config) -> dict:
     """@brief Return only configured API variable names and effective credential sources."""
     _, values = _environment(directory)

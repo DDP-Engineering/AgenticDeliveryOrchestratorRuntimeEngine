@@ -108,7 +108,7 @@ protects the worktree from routine cleanup and further autonomous execution.
   against.
 - Run state is schema 1 with no migration from earlier lines; unknown or
   corrupt state fails closed.
-- Executors run inside a container, never receive forge credentials, and never
+- Executors use the selected container/native backend, never receive forge credentials, and never
   commit, push, open or merge. ADORE owns checkpoints, push and draft creation
   and never merges; `draft = false` is rejected by configuration validation.
 - Secrets live only in the process environment or a gitignored `.env`.
@@ -208,3 +208,12 @@ LocalBackend and owned Windows Job/Linux delegated cgroup scopes share the exist
 conductor. Actual machine/account, non-secret environment and installed executable
 identity are pinned. Tools and auth remain operator-owned; worktrees are not host
 sandboxes. See knowledge/local-execution.md and 01_Documentation/Local_Execution.md.
+
+## Project executor images
+
+Settings Environment offers project-owned Dockerfile definitions, bounded durable
+queued builds and exact installed-base/image/non-root/executor/tool verification.
+ImageBuildService and an owned native runtime client reuse the existing queue,
+ContainerBackend and candidate/config apply; source/config/runtime/identity bind
+selection and shared preparation owns recipe conflicts. Native tools and model
+readiness keep separate authority. See knowledge/project-images.md.

@@ -199,3 +199,12 @@ manual stopped-service restore of the default home.
 This is a single-host store. There is no email password recovery or
 multi-host dispatch. The account lockout key uses the direct client address;
 a reverse proxy should preserve a stable trusted address policy.
+
+## Project image queue extension
+
+WebStore.enqueue accepts the fixed image-build action with immutable artifact
+UUID run_id. operation_for_key resolves existing actor idempotency before new
+artifact allocation; API rechecks complete request binding. running_image_builds
+returns only in-flight image queue records for startup reconciliation. Existing
+queue status/schema, atomic audit and project-identity resolution remain the
+authority. Focused HTTP/worker proof: tests/test_web_image_build.py.

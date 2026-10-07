@@ -80,3 +80,15 @@ The worker executes one engine command at a time. A running executor gate can
 be interrupted, while cancellation during other bounded conductor work may
 still wait. There is no global parallel job admission
 cap or multi-host dispatch in this implementation.
+
+## Project image work
+
+The fixed image-build action uses its artifact UUID as queue run_id. The worker
+rechecks administrator/project/config/state, holds the existing conductor lock
+and invokes ImageBuildService with a separate controlled native runtime runner.
+Revoked queued artifacts become failed without commands. On startup, in-flight
+image requests reconcile only verified native leases/owned verification resources
+before the normal queue becomes uncertain; builds are never replayed.
+Image output/phases live in bounded profile artifacts, while the existing queue
+records completion/audit. See Component_Project_Images.md and focused
+test_web_image_build.py; the ordinary CLI runner/environment remains separate.

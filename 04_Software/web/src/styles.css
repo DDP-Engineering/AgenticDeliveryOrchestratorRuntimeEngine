@@ -546,3 +546,10 @@ td.strong { font-weight: 800; }
 .model-connection > [role] { flex-basis: 100%; order: 2; }
 
 .executor-credentials-embedded { margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border); }
+
+/* Project image definition and bounded evidence remain within Environment. */
+.project-image { border-top: 1px solid var(--border); margin-top: 1rem; padding-top: 1rem; min-width: 0; }
+.image-definition label { display: grid; gap: .35rem; margin: .75rem 0; }
+.image-definition textarea { width: 100%; box-sizing: border-box; font-family: monospace; resize: vertical; }
+.image-definition fieldset { border: 0; padding: 0; min-width: 0; }
+.image-evidence pre, .image-evidence code { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 100%; }

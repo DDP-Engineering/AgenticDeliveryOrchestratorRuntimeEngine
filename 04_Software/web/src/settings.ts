@@ -4,6 +4,7 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
+import { validImageBinding, type ImageBinding } from "./imageBuild.ts";
 import type { MessageKey } from "./i18n";
 import { validExecutionPlan, type ExecutionPlan } from "./executionPlan.ts";
 
@@ -165,7 +166,7 @@ export function validSettingCatalog(settings: unknown): settings is SettingMeta[
   });
 }
 
-export type PendingConfig = { base_revision: string; candidate_revision: string; key: string; value: string; proposed_value: string | number | boolean; created_at: string; restart_required: boolean; execution_plan?: ExecutionPlan; endpoint?: { protocol: string; model: string; auth_env: string | null; timeout_seconds: number | null; ca_file: string | null } };
+export type PendingConfig = { image_build?: ImageBinding; base_revision: string; candidate_revision: string; key: string; value: string; proposed_value: string | number | boolean; created_at: string; restart_required: boolean; execution_plan?: ExecutionPlan; endpoint?: { protocol: string; model: string; auth_env: string | null; timeout_seconds: number | null; ca_file: string | null } };
 
 /** A malformed or unbound server candidate never enables Apply. */
 export function validPendingConfig(value: unknown): value is PendingConfig | null {
@@ -179,6 +180,7 @@ export function validPendingConfig(value: unknown): value is PendingConfig | nul
     && ["string", "number", "boolean"].includes(typeof item.proposed_value)
     && (typeof item.proposed_value !== "number" || Number.isFinite(item.proposed_value))
     && typeof item.restart_required === "boolean"
+    && (item.image_build === undefined || validImageBinding(item.image_build) && item.key === "container.image" && item.image_build.image_id === item.proposed_value && item.image_build.config_revision === item.base_revision)
     && (item.execution_plan === undefined || validExecutionPlan(item.execution_plan))
     && (item.key !== "execution.preparation" || !item.proposed_value || !!item.execution_plan && item.execution_plan.selection === item.proposed_value)
     && typeof item.created_at === "string" && /(?:Z|[+-]\d{2}:\d{2})$/.test(item.created_at) && Number.isFinite(Date.parse(item.created_at))

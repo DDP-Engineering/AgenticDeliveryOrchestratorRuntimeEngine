@@ -14,6 +14,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Added
 
+- Compact project Dockerfile definition, durable bounded image build/verification, redacted owned runtime evidence and revision-bound image/tool selection through existing configuration review.
+
 - Native local executor profiles reuse installed account authentication with pinned machine/environment identity, verified Windows Job/Linux cgroup ownership, native AEGIS/gate evidence, backend-aware setup/settings/readiness and user-owned tooling guidance.
 
 ### Changed
