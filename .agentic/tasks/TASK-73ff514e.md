@@ -8,7 +8,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 
 # TASK-73ff514e - Host check opens results immediately and closes internally
-stage: deliver
+stage: done
 type: fix
 path: quick
 interaction: autopilot
@@ -23,8 +23,8 @@ opened: 2026-10-07
 - [x] Docs, requirements, knowledge and scoped proof complete.
 - [x] Delivery presented under standing human authority.
 - [x] Report/journal prepared.
-- [ ] Scoped commit/push/deploy verified.
-- [ ] Close-out committed after outcome.
+- [x] Scoped commit/push/deploy verified.
+- [x] Close-out committed after outcome.
 
 ## Frame
 Problem: Check clears/hides results; separate chevron required, so user sees no progress.
@@ -51,24 +51,26 @@ Open before await; state/ref busy guard prevents duplicates. Separate per-panel 
 - DEVIATION validate: Full suite deferred until final iteration under direct user instruction. Focused proof covers current disclosure/model presentation and error boundaries, not repository-wide regression. Historical unrelated failures remain outside scope. Existing Vite/NO_COLOR and strict historical/generated-asset advisories accepted; authored source reviewed and bundle rebuilt.
 - 2026-10-07 delivery presentation: Summary check opens immediately, internal Close details hides without cancellation; no external chevron. Build11 focused tests passed; deferred full proof disclosed. Scoped source/tests/docs/assets and journal will be committed/pushed/deployed under standing human authority; no PR/merge/version or live provider acceptance.
 
+- 2026-10-07 outcome: 3b6a121b9f0f22bbbcb8af30203061206eec17b3 pushed with remote ref verified; deployed /home/dpasare/apps/adore/web-ux-3b6a121. Backup /home/dpasare/apps/adore/backups/web-ux-3b6a121-20261007100035. Known SSH host key verified; upload hashes and served JS/CSS byte match; web/worker active; health alive, ready/worker ready; projects401 unauthenticated; SQLite schema14/integrity ok/audit84. Strict advisory0 errors11 historical/generated warnings/passed, no full suite run. No live forge/model acceptance performed.
+
 ## Rulings
 - RULING-001 | date=2026-10-07 | decision=Implement immediate disclosure/internal Close details and scoped commit/push/deploy with focused proof | reason=Direct user request and standing delivery/testing authority | source=user | supersedes=none
 
 ## Handoff
-current: deliver
+current: done
 status: ready
-next: Commit/push/deploy and verify actual outcome
+next: Human live iteration; full suite at final iteration
 must_read: .agentic/tasks/TASK-73ff514e.md; .agentic/steps/5_validate.md
 blockers: none
 
 ## Stage report
-stage: deliver
+stage: done
 result: completed
-current: deliver
+current: done
 changed: Immediate checking panel with internal localized Close details
 evidence: Build/typecheck passed; final focused Chromium11 passed
 issues: Full suite deferred until final iteration by user
-next: Commit/push/deploy and verify actual outcome
+next: Human live iteration; full suite at final iteration
 needs_user: no
 spec_compliance: approved
 implementation_quality: approved
@@ -76,7 +78,7 @@ review_round: 2
 
 ## Delivery report (2026-10-07)
 
-- stage: deliver; type: fix; path: quick; branch: task/adore-web-interface
+- stage: done; type: fix; path: quick; branch: task/adore-web-interface
 - requirements:
   - REQ-UX-0109a142 - Host check immediate disclosure and internal close
 - deviations: 1 recorded
