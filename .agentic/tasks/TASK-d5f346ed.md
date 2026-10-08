@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # TASK-d5f346ed - Externalize executor environment setup
 
-stage: deliver
+stage: done
 type: change
 path: full
 interaction: autopilot
@@ -22,9 +22,9 @@ opened: 2026-10-08
 - [x] validated candidate confirmed unchanged
 - [x] validation evidence, diff, exclusions and outcome presented
 - [x] human local delivery and DCP replacement authorization confirmed from this session
-- [ ] journal and report included in delivery commit
-- [ ] agreed DCP replacement and read-only acceptance delivered
-- [ ] close-out committed after outcome succeeds
+- [x] journal and report included in delivery commit
+- [x] agreed DCP replacement and read-only acceptance delivered
+- [x] close-out committed after outcome succeeds
 
 ## Frame
 
@@ -89,6 +89,9 @@ Open decisions: none.
 - 2026-10-08 final validation: `python .agentic/aegis.py check --task TASK-d5f346ed --strict --run` exit0; configured full pytest success363.7s, Ruff success0.1s, npm validate (helper tests, type/build and complete offline Chromium) success413.2s. Focused corrected import/Jobs12/12; earlier Python Windows symlink-privilege skips retained and Linux/full-job acceptance not inferred. Inspected final desktop/390px guidance screenshots: readable spacing, wrapped code/path and no horizontal clipping.43 candidate non-journal path SHA256 values match before/after final proof; actual complete candidate is44 Git paths, correcting the earlier45 estimate and remaining below45 bound.12 advisory warnings accepted: two unchanged obsolete asset links, tracked historical sidecars, six unrelated historical journal-header findings, fake offline test-only password literal, and two generated delivery helpers in the designated delivery area.25 historical manual reminders are unchanged and are not claimed newly accepted; in-scope role/locale/mobile/API boundaries are covered above. No candidate test failure remains.
 - 2026-10-08 delivery presentation: unchanged44-path candidate is external notice/guarded boundaries, guided simplification, contract tests, operator/component/current-state documentation and requirement retirement. No children. Exclusions remain profile/image/schema/history changes, model/forge operations and remote Git publication. Deviation recap: late anchor supplemented by complete base diff; bounded baseline CRLF fixtures, error catalog and obsolete navigation/status assertions corrected with trust negatives retained. Reuse explicit same-session implementation/local commit/DCP test-instance replacement authority; no new confirmation requested. Planned source commit, trimmed source plus newly compiled UI package, root-private consistent backup, one rollback-protected replacement and read-only LAN/browser acceptance. Generated delivery helpers compile successfully and inspect profile/config/run/pause integrity before/after; no runtime package/dependency/TLS/profile changes.
 
+- 2026-10-08 delivery succeeded: source commit b83c40664860a4cabc4d4c9f5d999b1c0707068f, clean worktree. Trimmed git source archive plus freshly compiled/stamped UI (archiveSHA256 d93ae04430575a5d9f56b1e5991a44e6a160fb1b02c76f50608601da9f8fe6b4) transferred and independently checked on DCP. Root-private consistent backup /home/dpasare/apps/adore/backups/dcp-external-d5f346ed-20261008T053347Z. Both web and worker now use /home/dpasare/apps/adore/dcp-external-d5f346ed/04_Software, existing runtime/TLS retained, worker ready and service-account cgroup delegation valid. Before/after schema14, one user,104 audit entries,18 historical operations (16 succeeded/two failed), six configuration hashes, pause flags and run-state hashes unchanged. Additional backup comparison:1233 stable profile TOML/JSON/JSONL files byte-identical; six profile.json files differ only in normal use_count/updated_at/last_used_at metadata, with configuration/identity and all other fields retained. No pending image/build mutation, model test, forge publication or new job was performed.
+- 2026-10-08 live acceptance: workstation LAN /, /projects, health and ready200; ready worker; unauthenticated projects/audit/image-build401. Served bundle bytes exactly match compiled index-CK9AQ3lK.js SHA25657d9cd449c853ef84eb853610c0ef7787eb02eefaba4dc547bad9ac10c9ed260; existing certificate fingerprint unchanged. In the user's existing Chrome tab, reloaded signed-in Projects, opened aegis -> Settings (five collapsed groups, no environment editor), then Executor configuration -> Environment preparation instructions. Observed existing adore-executor-python:pi-0.87.1, recommended executor/Dockerfile/README, legal non-root structure, external build steps and exact Admin path /home/dpasare/.config/adore/profiles/aegis/config.toml. No browser security warning or credentials entry occurred. Saved contextual and complete live screenshots under generated 07_Delivery/adore-external-environment-d5f346ed/; left the user's tab at /projects/88efed3d79945faab27a52d1a11f219b/executor with guidance expanded. Read-only role/native/locale boundaries remain covered by automated proof. Authorized outcome complete within bounds; this journal-only close-out records outcomes after the source commit and deployment succeeded.
+
 ## Rulings
 
 
@@ -96,21 +99,21 @@ Open decisions: none.
 
 ## Handoff
 
-current: deliver
+current: done
 status: ready
-next: Commit the validated candidate and perform authorized DCP replacement and read-only acceptance.
-must_read: .agentic/tasks/TASK-d5f346ed.md, .agentic/steps/6_deliver.md
+next: none; authorized implementation and DCP delivery complete.
+must_read: .agentic/tasks/TASK-d5f346ed.md
 blockers: none
 
 ## Stage report
 
-stage: validate
+stage: deliver
 result: completed
-current: deliver
-changed: conditional external container instructions; removed environment controls; guarded retired mutations and queue
-evidence: strict configured full pytest, Ruff and npm validation exit0; final desktop/mobile images inspected; candidate hashes unchanged
+current: done
+changed: external environment guidance and guarded web boundaries committed and deployed on DCP
+evidence: strict full proof exit0; source b83c406; worker/LAN/browser verified; six configs and run states preserved;1233 stable profile files byte-identical
 issues: twelve accepted advisory warnings; three Windows symlink-privilege skips; disclosed anchor/fixture/catalog/nav corrections
-next: authorized local commit and rollback-protected DCP test replacement
+next: none; delivered
 needs_user: no
 spec_compliance: approved
 implementation_quality: approved
