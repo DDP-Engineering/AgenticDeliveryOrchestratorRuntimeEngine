@@ -28,6 +28,11 @@ dashboard. Vite compiles it into `adore/web/static` for same-origin serving.
 
 ## 2. Responsibilities
 
+Project Settings retains the effective durable state folder as a read-only row.
+The shared SettingsList filters the reserved `state.channel` compatibility key
+before grouping for both Admin and Dev. Server metadata and raw TOML retain it;
+existing API read-only rules continue to reject edits.
+
 Executor configuration uses one settings panel with embedded Provider credentials and a heading-aligned Test AI connection action. Choice editors use only server catalog values. Custom current launch commands appear as disabled current options until a documented preset is selected; Prepare remains disabled for a value outside the catalog. SettingsList accepts a header slot; ModelConnection can render that heading while retaining scoped result handling. Native heading/action layout wraps on mobile.
 
 The shared shell presents Overview, Projects, Jobs and Statistics as semantic
@@ -555,8 +560,10 @@ acceptance. API and external command boundaries remain simulated offline.
 
 `npm run validate` runs the Node helper suite, UI/E2E TypeScript checks,
 an isolated Vite build in `.e2e-dist` and the Playwright Chromium journeys.
-`playwright.config.ts` bounds the complete browser suite to 480 seconds, with
+`playwright.config.ts` bounds the complete browser suite to 600 seconds, with
 30-second test and 10-second assertion limits, one worker and no retries.
+Locale journeys await the successful preference-save response so their final
+English restore persists before the disposable browser context closes.
 It owns failure
 screenshots/traces and the private fixture server. `e2e/server.py` creates
 temporary profiles, identity/state stores and a real API/worker with simulated

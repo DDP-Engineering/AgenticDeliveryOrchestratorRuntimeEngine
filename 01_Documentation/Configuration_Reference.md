@@ -23,8 +23,8 @@ validate` after an edit. Secrets do not belong in TOML.
 | `platform.kind` | `github`, `gitlab`, or `gitea`. | `gitlab` |
 | `platform.repo` | Forge repository identity. | required |
 | `platform.login` | Named `tea` login; Gitea only. | empty |
-| `state.channel` | Reserved compatibility setting; status uses its comment and lifecycle labels regardless of this value. | `comments` |
-| `state.store_root` | Local run-state root. | `.<slug>` |
+| `state.channel` | TOML compatibility setting; status uses its comment and lifecycle labels regardless of this value. Omitted from web Settings. | `comments` |
+| `state.store_root` | Durable local run-state root; visible read-only in web Settings. | `.<slug>` |
 
 ADORE's run-state schema is `1`, numbered alongside the AEGIS JSON schema it
 is conducted with and independent of any ADORE release number. Any other

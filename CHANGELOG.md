@@ -32,6 +32,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Hide the ineffective State reporting channel from web Settings while retaining the read-only durable job state folder and compatible TOML.
+
 - Complete localized corrective messages for environment, preparation, model and executor credential failures.
 
 - Project image clients resolve native runtime executables and return captured

@@ -770,9 +770,15 @@ Only a valid completed challenge response reports connected. Failures provide re
 
 ## Project setting scope and guidance
 
-Project Settings displays the selected project's configuration catalog, including inherited defaults, except executor/model and AI endpoint fields owned by Executor configuration. Descriptions remain permanently below each label and provide the editor's accessible description. There is no per-row Help disclosure or override-only filter. The default/source marker describes value origin, not ADORE-wide scope. Polling intervals, per-project concurrency, executor and recovery settings remain per-project; environment setup is externally managed. Global capacity and audit retention belong to Administration. No project setting is promoted into a global policy by this presentation.
+Project Settings displays the selected project's effective configuration controls and inherited defaults. Executor/model and AI endpoint fields belong to Executor configuration; environment setup is externally managed. The durable job state folder remains a read-only row. The reserved `state.channel` value is retained in compatible TOML/API metadata; SettingsList omits its row for both roles while existing API edit refusal remains. Descriptions remain permanently below each label and provide the editor's accessible description. There is no per-row Help disclosure or override-only filter. The default/source marker describes value origin, not ADORE-wide scope. Polling intervals, per-project concurrency, executor and recovery settings remain per-project. Global capacity and audit retention belong to Administration. No project setting is promoted into a global policy by this presentation.
 
 Proof: web/e2e/settings.spec.ts project settings keep defaults and single guidance (administrator/developer), plus existing candidate edit/discard journey.
+
+Offline Playwright verification runs serially with a ten-minute global deadline,
+thirty-second tests, ten-second assertions and no retries. A global timeout does
+not establish complete proof even when every executed test passed.
+Shell locale journeys await the exact successful language-save response before
+closing a context, preserving the shared fixture's restored English preference.
 
 ### Transient application notifications
 

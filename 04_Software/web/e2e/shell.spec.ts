@@ -275,7 +275,10 @@ test("localized shell and assigned Dev remain usable in both themes and widths",
   for (const [locale, accountLabel, glossary] of [["fr", "Mon compte", "Comment fonctionne ADORE"],
     ["de", "Mein Konto", "So funktioniert ADORE"], ["ro", "Contul meu", "Cum funcționează ADORE"],
     ["en", "My account", "How ADORE works"]]) {
+    const saved = page.waitForResponse(response => response.url().endsWith("/me/preferences") &&
+      response.request().method() === "PATCH" && response.request().postDataJSON()?.language === locale);
     await page.locator(".content select").first().selectOption(locale);
+    expect((await saved).ok()).toBe(true);
     await expect(page.locator("html")).toHaveAttribute("lang", locale);
     await expect(page.getByRole("navigation").getByRole("link", { name: accountLabel, exact: true })).toBeVisible();
     await expect(page.getByText(glossary, { exact: true })).toBeVisible();

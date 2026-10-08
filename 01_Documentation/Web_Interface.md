@@ -602,6 +602,10 @@ notifications; Advanced. Frequent settings appear first within their category.
 Each row gives an understandable label, visible purpose/units/consequence guidance,
 its **Active value** and **ADORE default**; inherited values carry a **Default** badge. Permanent guidance below the label explains each setting; server catalog metadata still constrains edit types, choices and numeric bounds. Lists, tables and unsupported sections are read-only here and are edited in the host's project TOML. Executor configuration offers launch-command presets for existing supported command tables through the reviewed candidate flow.
 
+The **Durable job state folder** remains visible read-only. The reserved
+`state.channel` compatibility value stays in TOML/API metadata and has no web
+Settings row; runtime reporting always uses its status comment and lifecycle labels.
+
 Choose **Edit**, correct the value and choose **Prepare candidate**. This writes
 only the pending candidate. Review the affected project, **Active value** and
 **Proposed value**, effect, actual preparation time and full base/candidate

@@ -377,7 +377,7 @@ def test_config_view_reports_each_settings_source_and_editability(tmp_path):
         assert settings["executor.commands.opencode.command"]["editable"] is True
         not_editable = ["delivery.reviewers",
                         "container.egress.allowlist", "container.runtime_env.UV_LINK_MODE",
-                        "state.store_root", "clarification.max_rounds"]
+                        "state.channel", "state.store_root", "clarification.max_rounds"]
         for key in not_editable:
             assert settings[key]["editable"] is False, key
         assert "container.runtime_env.API_KEY" not in settings  # redacted, never listed
@@ -395,12 +395,22 @@ def test_config_view_reports_each_settings_source_and_editability(tmp_path):
                                                "revision": revision}, headers=csrf)
             assert staged.status_code == 200, (key, staged.text)
             assert client.delete(target, headers=csrf).status_code == 200
-        for key in ("executor.unknown.command", "state.store_root",
+        for key in ("executor.unknown.command", "state.channel", "state.store_root",
                     "clarification.max_rounds", "container.runtime_env.api_key"):
             refused = client.post(target, json={"key": key, "value": "x",
                                                 "revision": revision}, headers=csrf)
             assert refused.status_code == 400, key
             assert refused.json()["detail"]["code"] == "setting_not_editable"
+
+        original = profiles.config_path("alpha").read_bytes()
+        for method, route in ((client.put, "/api/v1/projects/alpha/config"),
+                              (client.post, target)):
+            refused = method(route, json={"key": "state.channel", "value": "labels",
+                                          "revision": revision}, headers=csrf)
+            assert refused.status_code == 400
+            assert refused.json()["detail"]["code"] == "setting_not_editable"
+            assert profiles.config_path("alpha").read_bytes() == original
+        assert not (profiles.profile_dir("alpha") / "pending_config.json").exists()
 
         client.post("/api/v1/session", json={"username": "dev", "password": "longer-password"})
         seen = client.get("/api/v1/projects/alpha/config").json()["settings"]

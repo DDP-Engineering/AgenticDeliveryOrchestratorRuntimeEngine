@@ -1331,7 +1331,7 @@ function PendingReview({ config, candidate, project, paused, busy, locale, t, on
 function SettingsList({ executorOnly=false, config, settings, t, locale, canEdit, disabled, onStage, actions, children, header }: { header?: ReactNode; actions?: ReactNode; children?: ReactNode; executorOnly?:boolean; config: Record<string, unknown>; settings: SettingMeta[]; t: (key: MessageKey) => string; locale: Locale; canEdit: boolean; disabled: boolean; onStage: (key: string, value: string) => Promise<boolean> }) {
   const [editing, setEditing] = useState("");
   const [draft, setDraft] = useState("");
-  const groups = settingGroups(settingRows(config, settings).filter(row=>!row.key.startsWith("container.") && !row.key.startsWith("worktree.") && !row.key.startsWith("execution.") && !row.key.startsWith("local.") && isExecutorSetting(row.key)===executorOnly), false);
+  const groups = settingGroups(settingRows(config, settings).filter(row=>row.key!=="state.channel" && !row.key.startsWith("container.") && !row.key.startsWith("worktree.") && !row.key.startsWith("execution.") && !row.key.startsWith("local.") && isExecutorSetting(row.key)===executorOnly), false);
   const copy = settingsCopy[locale];
   const shown = (value: unknown) => value == null || value === "" ? "—" :
     Array.isArray(value) || typeof value === "object" ? JSON.stringify(value) : String(value);
