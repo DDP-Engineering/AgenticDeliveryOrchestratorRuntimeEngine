@@ -31,6 +31,52 @@ test.afterEach(async ({ page }) => {
   }
 });
 
+test("ticket labels separate actions from collapsed status edits and retain inactive config", async ({ page }) => {
+  await openSettings(page);
+  const before = await (await page.request.get("/api/v1/projects/alpha/config")).json();
+  const panel = page.locator("#project-settings");
+  await expect(panel.getByText("Ready for pickup label", { exact: true })).toBeVisible();
+  await expect(panel.getByText("Clarification answered label", { exact: true })).toBeVisible();
+  for (const key of ["labels.executor.prefix", "readiness.max_scope_hint"]) {
+    expect(before.settings.some((item: { key: string }) => item.key === key)).toBe(true);
+    await expect(panel.locator(`[id="help-${key}"]`)).toHaveCount(0);
+  }
+  const statuses = panel.locator(".status-label-settings");
+  await expect(statuses).not.toHaveAttribute("open");
+  await expect(statuses.locator(".setting-row")).toHaveCount(5);
+  await expect(statuses.locator(".setting-row").first()).not.toBeVisible();
+  await statuses.locator("summary").click();
+  for (const name of ["clarify", "done", "failed", "review", "working"]) {
+    await expect(statuses.getByText(`Job status: ${name} label`, { exact: true })).toBeVisible();
+  }
+  const row = statuses.locator(".setting-row").filter({ has: page.getByText("Job status: working label", { exact: true }) });
+  await row.getByRole("button", { name: "Edit Job status: working label", exact: true }).click();
+  await row.getByRole("textbox", { name: "Job status: working label", exact: true }).fill("agent-running");
+  await row.getByRole("button", { name: "Prepare candidate" }).click();
+  const review = page.locator(".candidate-review");
+  await expect(review).toContainText("Job status: working label");
+  await expect(review).toContainText("agent-running");
+  await expect(review).toContainText("human publication approval");
+  const unchanged = await (await page.request.get("/api/v1/projects/alpha/config")).json();
+  expect(unchanged.revision).toBe(before.revision);
+  expect(unchanged.config.labels.executor.prefix).toBe(before.config.labels.executor.prefix);
+  expect(unchanged.config.readiness.max_scope_hint).toBe(before.config.readiness.max_scope_hint);
+  await review.getByRole("button", { name: "Discard change", exact: true }).click();
+});
+
+test("ticket labels stay read-only for developers in the narrow status disclosure", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openSettings(page, "alpha", "developer");
+  const statuses = page.locator(".status-label-settings");
+  await expect(statuses).not.toHaveAttribute("open");
+  await statuses.locator("summary").click();
+  await expect(statuses.locator(".setting-row")).toHaveCount(5);
+  await expect(statuses.locator(".setting-row").first()).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Edit / })).toHaveCount(0);
+  await expect(page.locator('[id="help-labels.executor.prefix"], [id="help-readiness.max_scope_hint"]')).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+});
+
 test("merged branch cleanup help applies to every forge", async ({ page }) => {
   await openSettings(page);
   const row = page.locator(".setting-row").filter({ has: page.getByText("Remove branch after human merge", { exact: true }) });
@@ -229,6 +275,12 @@ test("purpose guidance and single-setting flow preserve four locales", async ({ 
   const projects = await (await page.request.get("/api/v1/projects")).json();
   const id = projects.find((item: { name: string }) => item.name === "alpha").id;
   const expected = { en: "Repository and tickets", fr: "Dépôt et tickets", de: "Repository und Tickets", ro: "Depozit și tichete" };
+  const labelNames = {
+    en: ["Ready for pickup label", "Clarification answered label", "Status labels"],
+    fr: ["Étiquette de disponibilité pour la prise en charge", "Étiquette de réponse à une clarification", "Étiquettes de statut"],
+    de: ["Label für aufnahmebereite Tickets", "Label für beantwortete Rückfragen", "Statuslabels"],
+    ro: ["Eticheta pentru preluare", "Eticheta de răspuns la clarificări", "Etichete de stare"],
+  };
   for (const locale of ["fr", "de", "ro", "en"] as const) {
     await page.goto("/account");
     const saved = page.waitForResponse(response => response.url().endsWith("/me/preferences") && response.request().method() !== "GET");
@@ -238,6 +290,17 @@ test("purpose guidance and single-setting flow preserve four locales", async ({ 
     await expect(page.locator("#project-settings > .setting-groups > details > summary").first()).toContainText(expected[locale]);
     await page.locator("#project-settings > .setting-groups > details > summary").first().click();
     await expect(page.locator(".setting-essential").first()).toBeVisible();
+    const statuses = page.locator(".status-label-settings");
+    const rules = page.locator("#project-settings > .setting-groups > details").filter({ has: statuses });
+    await rules.locator("summary").first().click();
+    await expect(page.getByText(labelNames[locale][0], { exact: true })).toBeVisible();
+    await expect(page.getByText(labelNames[locale][1], { exact: true })).toBeVisible();
+    await expect(statuses.locator("summary")).toContainText(labelNames[locale][2]);
+    await expect(statuses).not.toHaveAttribute("open");
+    await statuses.locator("summary").click();
+    await expect(statuses.locator(".setting-row")).toHaveCount(5);
+    await expect(statuses.locator(".setting-row").first()).toBeVisible();
+    await expect(page.locator('[id="help-labels.executor.prefix"], [id="help-readiness.max_scope_hint"]')).toHaveCount(0);
   }
 });
 
@@ -301,7 +364,7 @@ for (const user of ["admin", "developer"]) {
   await expect(stateFolder).toBeVisible();
   await expect(stateFolder).toContainText(configuration.config.state.store_root);
   await expect(stateFolder.getByRole("button")).toHaveCount(0);
-  const shown = configuration.settings.filter((s:{key:string})=>s.key!=="state.channel" && !["executor.","container.","execution.","local.","worktree."].some(prefix=>s.key.startsWith(prefix)));
+  const shown = configuration.settings.filter((s:{key:string})=>!["state.channel", "labels.executor.prefix", "readiness.max_scope_hint"].includes(s.key) && !["executor.","container.","execution.","local.","worktree."].some(prefix=>s.key.startsWith(prefix)));
   await expect(panel.locator(".setting-row")).toHaveCount(shown.length);
   await expect(panel.locator(".setting-actions details")).toHaveCount(0);
   await expect(panel.getByRole("checkbox")).toHaveCount(0);

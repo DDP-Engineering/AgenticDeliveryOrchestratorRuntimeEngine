@@ -8,6 +8,8 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # Web interface
 
+Project settings keeps ready/answered action labels visible and places clarify/done/failed/review/working names in a native initially closed Status labels disclosure. Four-locale row/editor/review names explain actual lifecycle semantics. Inactive executor prefix and scope hint are omitted from controls while technical config/catalog values persist; admin reviewed edits and Dev read-only access retain existing authority.
+
 `labels.control.exclude` has a shared four-locale Exclude from pickup label name in row/editor/candidate review. Help identifies the label-name setting and reversible presence-based pickup gate; already-started jobs continue.
 
 `delivery.target_branch` has a shared four-locale Target branch label (Romanian: Ramura de integrare) in the row/editor/candidate review; help identifies the new-job remote base and PR/MR destination, short name without origin/, and human merge boundary.

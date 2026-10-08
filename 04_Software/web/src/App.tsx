@@ -18,13 +18,13 @@ import { auditPolicyPayload } from "./auditPolicy";
 import { ApiError, describeError } from "./errors";
 import { startVisiblePolling } from "./polling";
 import { formatRoute, normalizeRoute, parseRoute, type ProjectTab, type Route } from "./routes";
-import { editValue, hasDefault, settingGroups, settingRows, type SettingMeta, type SettingRow, settingValue, validSettingCatalog, validPendingConfig, type PendingConfig } from "./settings";
+import { editValue, hasDefault, settingGroups, settingRows, type SettingMeta, type SettingRow, settingValue, validSettingCatalog, validPendingConfig, type PendingConfig, HIDDEN_SETTING_KEYS, STATUS_LABEL_KEYS } from "./settings";
 import { ExecutorEnvironment, externalEnvironmentCopy, type ExecutorEnvironmentInfo } from "./ExecutorEnvironment";
 import { imageCopy } from "./imageBuild";
 import { ExecutionPlanReview } from "./ExecutionPlanReview";
 import { type ExecutionPlan } from "./executionPlan";
 import { settingHelp } from "./settingHelp";
-import { settingsCopy, settingLabel, publicationCopy, publicationValue, reviewerCopy, targetBranchCopy, excludeLabelCopy } from "./settingsCopy";
+import { settingsCopy, settingLabel, publicationCopy, publicationValue, reviewerCopy, targetBranchCopy, excludeLabelCopy, lifecycleCopy } from "./settingsCopy";
 import { ImportWizard } from "./ImportWizard";
 import { RawConfiguration } from "./RawConfiguration";
 import { TransferWizard } from "./TransferWizard";
@@ -1301,7 +1301,7 @@ function PendingReview({ config, candidate, project, paused, busy, locale, t, on
   const meta = config.settings?.find(item => item.edit_key === candidate.key);
   const active = settingValue(config.config, meta?.key || candidate.key);
   const show = (value: unknown) => candidate.key === "delivery.draft" && publicationValue(value, locale) !== null ? publicationValue(value, locale) : value == null ? copy.unknown : value === "" ? t("settingNoDefault") : typeof value === "object" ? JSON.stringify(value) : String(value);
-  const rows: Array<{ label: string; active: unknown; proposed: unknown }> = [{ label: candidate.key === "labels.control.exclude" ? excludeLabelCopy[locale].label : candidate.key === "delivery.target_branch" ? targetBranchCopy[locale].label : candidate.key === "delivery.reviewers" ? reviewerCopy[locale].label : candidate.key === "delivery.draft" ? publicationCopy[locale].label : locale === "en" ? settingLabel(meta?.key || candidate.key) : t("config"), active, proposed: candidate.proposed_value }];
+  const rows: Array<{ label: string; active: unknown; proposed: unknown }> = [{ label: lifecycleCopy[locale].labels[candidate.key] || (candidate.key === "labels.control.exclude" ? excludeLabelCopy[locale].label : candidate.key === "delivery.target_branch" ? targetBranchCopy[locale].label : candidate.key === "delivery.reviewers" ? reviewerCopy[locale].label : candidate.key === "delivery.draft" ? publicationCopy[locale].label : locale === "en" ? settingLabel(meta?.key || candidate.key) : t("config")), active, proposed: candidate.proposed_value }];
   if (candidate.endpoint) {
     rows.push({ label: t("model"), active: settingValue(config.config, "executor.commands.opencode.model"), proposed: candidate.endpoint.model });
     rows.push({ label: t("endpointProtocol"), active: config.local_endpoint?.protocol, proposed: candidate.endpoint.protocol });
@@ -1331,11 +1331,11 @@ function PendingReview({ config, candidate, project, paused, busy, locale, t, on
 function SettingsList({ executorOnly=false, config, settings, t, locale, canEdit, disabled, onStage, actions, children, header }: { header?: ReactNode; actions?: ReactNode; children?: ReactNode; executorOnly?:boolean; config: Record<string, unknown>; settings: SettingMeta[]; t: (key: MessageKey) => string; locale: Locale; canEdit: boolean; disabled: boolean; onStage: (key: string, value: string) => Promise<boolean> }) {
   const [editing, setEditing] = useState("");
   const [draft, setDraft] = useState("");
-  const groups = settingGroups(settingRows(config, settings).filter(row=>row.key!=="state.channel" && !row.key.startsWith("container.") && !row.key.startsWith("worktree.") && !row.key.startsWith("execution.") && !row.key.startsWith("local.") && isExecutorSetting(row.key)===executorOnly), false);
+  const groups = settingGroups(settingRows(config, settings).filter(row=>!HIDDEN_SETTING_KEYS.has(row.key) && !row.key.startsWith("container.") && !row.key.startsWith("worktree.") && !row.key.startsWith("execution.") && !row.key.startsWith("local.") && isExecutorSetting(row.key)===executorOnly), false);
   const copy = settingsCopy[locale];
   const shown = (value: unknown) => value == null || value === "" ? "—" :
     Array.isArray(value) || typeof value === "object" ? JSON.stringify(value) : String(value);
-  const label = (row: SettingRow) => row.key === "labels.control.exclude" ? excludeLabelCopy[locale].label : row.key === "delivery.target_branch" ? targetBranchCopy[locale].label : row.key === "delivery.reviewers" ? reviewerCopy[locale].label : row.key === "delivery.draft" ? publicationCopy[locale].label : locale === "en" ? settingLabel(row.key) : row.label ? t(row.label) : (settingHelp(row.key, locale)?.split(". ")[0] || settingLabel(row.key));
+  const label = (row: SettingRow) => lifecycleCopy[locale].labels[row.key] || (row.key === "labels.control.exclude" ? excludeLabelCopy[locale].label : row.key === "delivery.target_branch" ? targetBranchCopy[locale].label : row.key === "delivery.reviewers" ? reviewerCopy[locale].label : row.key === "delivery.draft" ? publicationCopy[locale].label : locale === "en" ? settingLabel(row.key) : row.label ? t(row.label) : (settingHelp(row.key, locale)?.split(". ")[0] || settingLabel(row.key)));
   const submit = async (event: FormEvent<HTMLFormElement>, row: SettingRow) => {
     event.preventDefault();
     const value = row.input === "reviewers" ? JSON.stringify(draft.split(/\r?\n/).map(name => name.trim()).filter(Boolean)) : draft;
@@ -1366,7 +1366,13 @@ function SettingsList({ executorOnly=false, config, settings, t, locale, canEdit
     {groups.length === 0 ? <Empty label={t("settingsNoneSet")} /> : <div className="setting-groups">{groups.map(group => {
       return <details key={group.name} open={executorOnly}>
       <summary>{copy[group.name as keyof typeof copy]} <span className="muted">({group.rows.length})</span></summary>
-      <div className="setting-list">{group.rows.map(renderRow)}</div>
+      <div className="setting-list">{group.rows.filter(row => !STATUS_LABEL_KEYS.has(row.key)).map(renderRow)}
+        {group.rows.some(row => STATUS_LABEL_KEYS.has(row.key)) && <details className="status-label-settings">
+          <summary>{lifecycleCopy[locale].title} <span className="muted">({group.rows.filter(row => STATUS_LABEL_KEYS.has(row.key)).length})</span></summary>
+          <p className="muted">{lifecycleCopy[locale].help}</p>
+          <div className="setting-list">{group.rows.filter(row => STATUS_LABEL_KEYS.has(row.key)).map(renderRow)}</div>
+        </details>}
+      </div>
     </details>})}</div>}
     {children}
   </section>;

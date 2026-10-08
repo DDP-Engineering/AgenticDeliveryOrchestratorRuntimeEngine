@@ -7,6 +7,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Web frontend
 
+`lifecycleCopy` names ready/answered action labels and the five managed status labels consistently in rows, editors and candidate review. `STATUS_LABEL_KEYS` partitions the five rows into a native initially closed Status labels disclosure inside Rules and approvals. `HIDDEN_SETTING_KEYS` omits state reporting channel, executor prefix and ticket scope hint controls; effective config/catalog and scalar transport retain those keys for compatibility. Status edits retain existing administrator/revision/idle authority; Dev remains read-only. The disclosure uses the existing responsive row layout.
+
 `labels.control.exclude` uses `excludeLabelCopy` for the settings row, editor and candidate review in all four locales. Help describes its configured name, presence-based pickup exclusion, removal under remaining eligibility gates and already-started job boundary. The scalar editing and conductor contracts remain unchanged.
 
 `delivery.target_branch` uses `targetBranchCopy` for the row, editor and candidate review in four locales. Help describes the remote starting branch, PR/MR destination, short branch-name format and human merge boundary. The scalar key, active/default values and reviewed editing contract retain their existing authority.

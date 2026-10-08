@@ -20,6 +20,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Separate ready/answered ticket actions from five initially collapsed status-label settings, localize their names and lifecycle help, and hide inactive executor-prefix and scope-hint controls while preserving technical configuration.
+
 - Clarify the Target branch setting in all four GUI locales, including its new-job base and PR/MR destination, with consistent row/editor/review naming.
 
 - Rename reviewer settings to Request review from and support a localized multiline account editor through typed reviewed configuration apply, with strict list validation.

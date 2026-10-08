@@ -6,6 +6,26 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 */
 import type { Locale } from "./i18n";
 
+/** Human ticket actions and the status names managed by the conductor. */
+export const lifecycleCopy: Record<Locale, { title: string; help: string; labels: Record<string, string> }> = {
+ en: { title: "Status labels", help: "ADORE applies these labels to tickets as jobs change state. Customize their names to match your repository conventions; adding or removing them manually does not change the saved job state.", labels: {
+  "labels.lifecycle.ready": "Ready for pickup label", "labels.lifecycle.answered": "Clarification answered label",
+  "labels.lifecycle.clarify": "Job status: clarify label", "labels.lifecycle.done": "Job status: done label", "labels.lifecycle.failed": "Job status: failed label", "labels.lifecycle.review": "Job status: review label", "labels.lifecycle.working": "Job status: working label",
+ } },
+ fr: { title: "Étiquettes de statut", help: "ADORE applique ces étiquettes aux tickets selon l’état des tâches. Adaptez leurs noms aux conventions du dépôt ; les ajouter ou les retirer manuellement ne modifie pas l’état enregistré de la tâche.", labels: {
+  "labels.lifecycle.ready": "Étiquette de disponibilité pour la prise en charge", "labels.lifecycle.answered": "Étiquette de réponse à une clarification",
+  "labels.lifecycle.clarify": "Étiquette de clarification en attente", "labels.lifecycle.done": "Étiquette de tâche terminée", "labels.lifecycle.failed": "Étiquette de tâche échouée", "labels.lifecycle.review": "Étiquette de revue en attente", "labels.lifecycle.working": "Étiquette de travail en cours",
+ } },
+ de: { title: "Statuslabels", help: "ADORE setzt diese Labels entsprechend dem Aufgabenstatus auf Tickets. Passen Sie die Namen an die Repository-Konventionen an; manuelles Setzen oder Entfernen ändert den gespeicherten Aufgabenstatus nicht.", labels: {
+  "labels.lifecycle.ready": "Label für aufnahmebereite Tickets", "labels.lifecycle.answered": "Label für beantwortete Rückfragen",
+  "labels.lifecycle.clarify": "Label für offene Rückfragen", "labels.lifecycle.done": "Label für abgeschlossene Aufgaben", "labels.lifecycle.failed": "Label für fehlgeschlagene Aufgaben", "labels.lifecycle.review": "Label für ausstehendes Review", "labels.lifecycle.working": "Label für laufende Arbeit",
+ } },
+ ro: { title: "Etichete de stare", help: "ADORE aplică aceste etichete pe tichete în funcție de starea lucrării. Adaptează numele la convențiile depozitului; adăugarea sau eliminarea lor manuală nu schimbă starea salvată a lucrării.", labels: {
+  "labels.lifecycle.ready": "Eticheta pentru preluare", "labels.lifecycle.answered": "Eticheta de răspuns la clarificări",
+  "labels.lifecycle.clarify": "Eticheta de așteptare a clarificărilor", "labels.lifecycle.done": "Eticheta lucrării finalizate", "labels.lifecycle.failed": "Eticheta lucrării eșuate", "labels.lifecycle.review": "Eticheta de așteptare a review-ului", "labels.lifecycle.working": "Eticheta lucrului în curs",
+ } },
+};
+
 /** Exclusion controls ticket pickup while its configured label is present. */
 export const excludeLabelCopy: Record<Locale, { label: string }> = {
  en: { label: "Exclude from pickup label" },
@@ -58,6 +78,7 @@ export const settingsCopy: Record<Locale, typeof en> = {
 /** Understandable English catalog labels, including named entries. */
 export function settingLabel(key: string): string {
  const labels: Record<string, string> = {
+ "labels.lifecycle.ready": "Ready for pickup label", "labels.lifecycle.answered": "Clarification answered label",
  "labels.control.exclude": "Exclude from pickup label",
  "execution.backend": "Execution backend",
  "execution.preparation": "Reviewed preparation recipe",

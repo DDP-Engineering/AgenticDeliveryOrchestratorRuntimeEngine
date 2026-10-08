@@ -64,6 +64,8 @@ lifecycle or control labels.
 
 `labels.control.exclude` names the **Exclude from pickup label** (default `no-agent`). ADORE skips a ticket while that label is present, including tickets carrying the ready label. Removing it permits pickup if all other eligibility conditions hold. Adding it does not stop an already-started job. Apply the configured label on the ticket in its GitHub, GitLab or Gitea repository.
 
+The GUI exposes `labels.lifecycle.ready` as **Ready for pickup label** and `answered` as **Clarification answered label**. The latter needs a new reply comment as well as the label. `clarify`, `done`, `failed`, `review` and `working` are in the initially closed **Status labels** group; ADORE manages their ticket state presentation. `working` includes waiting for publication approval, `review` covers a published draft or ready PR/MR, and `done` follows a human merge. Manual status-label changes do not transition the saved job; retry is a separate action. Reserved `labels.executor.prefix` and `readiness.max_scope_hint` remain accepted technical configuration with no runtime effect and have no GUI controls.
+
 ## Executor and Container
 
 `executor.default` selects a command table. Every command is non-interactive

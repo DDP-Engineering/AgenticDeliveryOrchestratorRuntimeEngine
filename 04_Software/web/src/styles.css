@@ -271,6 +271,9 @@ td.strong { font-weight: 800; }
 .setting-groups > details > summary { cursor: pointer; font-weight: 700; text-transform: capitalize; }
 .setting-groups > details.common > summary { text-transform: none; }
 .setting-list { margin-top: 10px; }
+.status-label-settings { margin-top: 14px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 9px; min-width: 0; }
+.status-label-settings > summary { cursor: pointer; font-weight: 650; overflow-wrap: anywhere; }
+.status-label-settings > summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 .setting-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 24px; padding: 10px 0; border-top: 1px solid var(--border); min-width: 0; }
 .setting-row > div, .setting-row code { min-width: 0; }
 .setting-row strong, .setting-row small { display: block; overflow-wrap: anywhere; }

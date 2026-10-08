@@ -7,6 +7,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # ADORE web interface
 
+In **Rules and approvals**, **Ready for pickup label** and **Clarification answered label** stay in the main list. Five managed names (clarify, done, failed, review, working) are grouped in **Status labels**, initially closed. Expand it for the existing administrator prepare/review/apply workflow; developers see values without edit controls. Names and help are localized in all four languages. Executor-label prefix and ticket-scope hint stay in technical configuration and are omitted from the GUI because they have no runtime effect.
+
 **Exclude from pickup label** in Rules and approvals edits the label name, shown as **Eticheta de excludere de la preluare** in Romanian. Its help explains that label presence blocks pickup, removal restores possible eligibility, and started jobs continue.
 
 **Target branch** in Rules and approvals identifies both the starting branch for new jobs and the destination of their PR/MR. The row, editor and candidate review share its localized name (**Ramura de integrare** in Romanian). Use a short remote branch name such as `main`, without `origin/`; existing PR/MR targets remain unchanged.

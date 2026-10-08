@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+id = "REQ-UX-0c049d23"
+title = "Separate ticket action labels from collapsed status labels"
+status = "active"
+requirement = "When an authorized user opens project settings, ADORE shall show Ready for pickup label and Clarification answered label outside an initially closed Status labels disclosure containing exactly clarify, done, failed, review and working, with localized truthful help and consistent row/editor/review names while preserving existing reviewed administrator edits and developer read-only access."
+verification = "Offline browser journeys verify visible action rows, exactly five initially collapsed status rows, localized row/editor/review names, hidden inactive rows with unchanged config values, developer read-only access and narrow layout; existing helper tests reject malformed catalog/candidate transport."
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/settings.ts", "04_Software/web/src/settingsCopy.ts", "04_Software/web/src/settingHelp.ts", "04_Software/web/src/styles.css", "04_Software/web/e2e/settings.spec.ts"]
+linked_tests = ["04_Software/web/e2e/settings.spec.ts"]
+created = 2026-10-08
+updated = 2026-10-08

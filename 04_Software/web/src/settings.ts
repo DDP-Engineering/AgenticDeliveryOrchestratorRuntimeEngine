@@ -82,6 +82,15 @@ const inputKind = (item: SettingMeta): InputKind => {
 
 export const PURPOSE_GROUPS = ["repository", "agent", "isolation", "rules", "limits", "measurement", "advanced"] as const;
 
+/** Technical keys retained by configuration but omitted from operator controls. */
+export const HIDDEN_SETTING_KEYS = new Set(["state.channel", "labels.executor.prefix", "readiness.max_scope_hint"]);
+
+/** Managed status names belong in the optional disclosure; ready/answered are actions. */
+export const STATUS_LABEL_KEYS = new Set([
+  "labels.lifecycle.clarify", "labels.lifecycle.done", "labels.lifecycle.failed",
+  "labels.lifecycle.review", "labels.lifecycle.working",
+]);
+
 /** Purpose ownership of catalog settings, including dynamic entries. */
 export function settingPurpose(key: string): string {
   if (key.startsWith("labels.selection.") || key.startsWith("platform.") || key.startsWith("polling.")) return "repository";
