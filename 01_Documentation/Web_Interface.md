@@ -7,6 +7,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # ADORE web interface
 
+**Exclude from pickup label** in Rules and approvals edits the label name, shown as **Eticheta de excludere de la preluare** in Romanian. Its help explains that label presence blocks pickup, removal restores possible eligibility, and started jobs continue.
+
 **Target branch** in Rules and approvals identifies both the starting branch for new jobs and the destination of their PR/MR. The row, editor and candidate review share its localized name (**Ramura de integrare** in Romanian). Use a short remote branch name such as `main`, without `origin/`; existing PR/MR targets remain unchanged.
 
 The optional web installation serves the React interface and a same-origin

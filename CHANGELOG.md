@@ -40,6 +40,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Clarify the pickup exclusion label in all four GUI locales: exclusion lasts while the label is present and does not stop already-started jobs.
+
 - Apply configured human-merged run-branch removal to GitHub, GitLab and Gitea with exact commit protection, bounded failure reporting and consistent settings help.
 
 - Web automatic ticket checks share CLI loop interval, capped error backoff,

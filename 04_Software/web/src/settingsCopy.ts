@@ -6,6 +6,14 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 */
 import type { Locale } from "./i18n";
 
+/** Exclusion controls ticket pickup while its configured label is present. */
+export const excludeLabelCopy: Record<Locale, { label: string }> = {
+ en: { label: "Exclude from pickup label" },
+ fr: { label: "Étiquette d’exclusion de la prise en charge" },
+ de: { label: "Label zum Ausschluss von der Aufnahme" },
+ ro: { label: "Eticheta de excludere de la preluare" },
+};
+
 /** The integration branch supplies both the worktree base and the PR/MR target. */
 export const targetBranchCopy: Record<Locale, { label: string }> = {
  en: { label: "Target branch" },
@@ -50,6 +58,7 @@ export const settingsCopy: Record<Locale, typeof en> = {
 /** Understandable English catalog labels, including named entries. */
 export function settingLabel(key: string): string {
  const labels: Record<string, string> = {
+ "labels.control.exclude": "Exclude from pickup label",
  "execution.backend": "Execution backend",
  "execution.preparation": "Reviewed preparation recipe",
  "execution.preparation_step_timeout_seconds": "Preparation step limit (seconds)",

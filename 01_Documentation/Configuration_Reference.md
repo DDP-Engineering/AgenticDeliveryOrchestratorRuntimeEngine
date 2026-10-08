@@ -62,6 +62,8 @@ defaults include priorities `P1/P2/P3` and type labels. Control defaults are
 The delivery approval label is configured separately and must not collide with
 lifecycle or control labels.
 
+`labels.control.exclude` names the **Exclude from pickup label** (default `no-agent`). ADORE skips a ticket while that label is present, including tickets carrying the ready label. Removing it permits pickup if all other eligibility conditions hold. Adding it does not stop an already-started job. Apply the configured label on the ticket in its GitHub, GitLab or Gitea repository.
+
 ## Executor and Container
 
 `executor.default` selects a command table. Every command is non-interactive

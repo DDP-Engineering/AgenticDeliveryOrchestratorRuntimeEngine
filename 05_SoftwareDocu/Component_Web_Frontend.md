@@ -7,6 +7,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Web frontend
 
+`labels.control.exclude` uses `excludeLabelCopy` for the settings row, editor and candidate review in all four locales. Help describes its configured name, presence-based pickup exclusion, removal under remaining eligibility gates and already-started job boundary. The scalar editing and conductor contracts remain unchanged.
+
 `delivery.target_branch` uses `targetBranchCopy` for the row, editor and candidate review in four locales. Help describes the remote starting branch, PR/MR destination, short branch-name format and human merge boundary. The scalar key, active/default values and reviewed editing contract retain their existing authority.
 
 Settings names `delivery.draft` as PR/MR state at publication and displays localized Draft/Ready for review labels for active/default values, options and candidate review. Boolean wire values use the existing reviewed apply flow. The in-review lifecycle represents human review for either forge state.
