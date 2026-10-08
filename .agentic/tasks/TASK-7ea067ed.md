@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # TASK-7ea067ed - Hide ineffective state reporting channel from web settings
 
-stage: deliver
+stage: done
 type: change
 path: full
 interaction: autopilot
@@ -24,9 +24,9 @@ opened: 2026-10-08
 - [x] validated candidate unchanged; both round3 verdicts approved
 - [x] validation, exact diff, exclusions and outcome presented
 - [x] standing human delivery authority reused
-- [ ] journal/report and twelve-path delivery commit
-- [ ] authorized backup-protected DCP replacement and read-only acceptance
-- [ ] close-out committed after successful deployment
+- [x] journal/report and twelve-path delivery commit
+- [x] authorized backup-protected DCP replacement and read-only acceptance
+- [x] close-out committed after successful deployment
 
 ## Frame
 
@@ -83,27 +83,29 @@ REQ-UX-c0731681: SettingsList excludes row.key == state.channel before existing 
 
 - 2026-10-08 report inspected: report-time advisory snapshot has 10 warnings because `unticked-deliver` correctly describes the three pending delivery checklist items in addition to the 9 historical warnings. It is not a new validation failure or a replacement for the successful full proof.
 
+- 2026-10-08 delivered and closed: source commit `9cc2413e7d7168a59ff59b0ee07dde5222e9255e` on the existing branch, no push/PR/merge. Committed-source archive SHA256 `4cab9ef720c38853bde67e969e6f151ccae09d8dc8ddb01210aa6cec22e959c2` verified before extraction. Installed `/home/dpasare/apps/adore/dcp-state-channel-7ea067ed/04_Software`; private backup `/home/dpasare/apps/adore/backups/dcp-state-channel-7ea067ed-20261008T104400Z`. Both existing services active, worker ready, schema14/users1/18 operation statuses preserved; all six configuration and run-state hashes plus pause flags match before/after. Existing runtime, TLS and delegated cgroups retained. LAN health/ready/pages return200, unauthenticated protected APIs401; exact served asset SHA256 `bac1fe3369d63c0282547923ba498507f4945867e5b053600f7d7bb3a403fc49` matches package/local build and existing TLS fingerprint is pinned, without asserting public certificate trust. Authenticated user Chrome tab reloaded: Advanced(4), reporting-channel count0, actual durable folder visible with zero edit buttons. Saved full-page `07_Delivery/adore-state-channel-7ea067ed/dcp-settings.jpg`, left Advanced open and marked tab deliverable. Only disclosure/read actions; no config mutation, job, Docker/image/model or forge probe. Generated evidence stays ignored; SSH closed. Close-out journal commit follows this successful deployment, inside the final 75-minute bound.
+
 ## Rulings
 
 - RULING-001 | date=2026-10-08 | decision=Remove exactly state.channel presentation and preserve state storage/runtime/config compatibility | reason=Explicit human removal instruction and separate state folder question; standing local delivery and DCP testing authority | source=user | supersedes=none
 
 ## Handoff
 
-current: deliver
+current: done
 status: ready
-next: Report and commit, then authorized DCP replacement and browser acceptance.
-must_read: .agentic/tasks/TASK-7ea067ed.md, .agentic/steps/6_deliver.md
+next: None; approved outcome delivered.
+must_read: .agentic/tasks/TASK-7ea067ed.md
 blockers: none
 
 ## Stage report
 
-stage: validate
+stage: deliver
 result: completed
-current: deliver
-changed: inactive channel row omitted; state folder retained read-only; verification corrected
-evidence: fresh strict exit0; Python1489 and Chromium150 passes; frozen candidate unchanged
-issues: 3 existing Windows skips and 9 unrelated catalog warnings
-next: authorized local commit and backup-protected DCP deployment
+current: done
+changed: inactive state reporting row removed locally and on DCP; actual state folder read-only
+evidence: source9cc2413; strict exit0; Python1489/Chromium150; preserved profiles/state; live browser proof
+issues: 3 existing Windows skips and 9 unrelated catalog warnings; no delivery failure
+next: none
 needs_user: no
 spec_compliance: approved
 implementation_quality: approved
