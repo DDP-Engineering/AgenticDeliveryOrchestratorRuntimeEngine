@@ -288,7 +288,7 @@ class Forge(ABC):
         @param[in]  body MR/PR description.
         @param[in]  draft Open as draft when true, otherwise ready for review.
         @param[in]  reviewers Human reviewers to assign.
-        @param[in]  remove_source_branch Delete the branch on merge (GitLab).
+        @param[in]  remove_source_branch Native deletion hint; conductor also cleans up after merge.
         @param[in]  cwd Git checkout to run in - the platform CLIs resolve
                         remotes from a local repo even with --repo (live
                         finding 2026-07-04: "No git remotes found"); pass the

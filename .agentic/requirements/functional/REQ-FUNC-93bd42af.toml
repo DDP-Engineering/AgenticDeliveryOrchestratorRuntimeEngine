@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+schema = 1
+id = "REQ-FUNC-93bd42af"
+title = "Remove owned merged branches on every forge"
+status = "active"
+requirement = """
+When a human-merged review is observed and delivery.remove_source_branch is true, ADORE shall remove its unchanged remote run branch on GitHub, GitLab and Gitea using an exact commit lease, treating an absent branch as success and reporting bounded cleanup failure while preserving the human-merged outcome and local evidence.
+"""
+verification = "Offline public poll tests cover all forges, false, open/closed reviews and bounded failure; injected Git tests cover absent branches, exact leased deletion, changed commits, malformed output, protected targets and failed transport. Configuration rejects non-boolean choices; Gitea rejects malformed merge evidence."
+affected_paths = ["04_Software/adore/orchestrator.py", "04_Software/adore/isolation.py", "04_Software/adore/config.py", "04_Software/adore/forge/gitea.py", "04_Software/adore/forge/base.py", "04_Software/adore/forge/github.py", "04_Software/web/e2e/settings.spec.ts", "04_Software/web/src/settingHelp.ts"]
+linked_tests = ["04_Software/tests/test_merged_branch_cleanup.py"]
+priority = "normal"
+created = 2026-10-08
+updated = 2026-10-08

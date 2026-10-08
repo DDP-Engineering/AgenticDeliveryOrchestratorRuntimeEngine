@@ -2309,7 +2309,7 @@ class Orchestrator:
             self.sleep(schedule[min(attempt - 1, len(schedule) - 1)])
             result = self.worktrees.push(run.run_id, run.branch)
             attempt += 1
-        if result.ok and (self.config.delivery.publish_checkpoints or run.checkpoint_remote_commit):
+        if result.ok:
             run.checkpoint_remote_commit = self.worktrees.ref_head(run.branch)
             run.checkpoint_error = ""
             self.store.save(run)
@@ -2541,13 +2541,34 @@ class Orchestrator:
             return
         run.mr_missing_polls = 0
         if mr.state == "merged":
+            cleanup_error = ""
+            if self.config.delivery.remove_source_branch:
+                try:
+                    if (mr.iid != run.mr_iid
+                            or run.branch != self._branch_name(run.run_id, run.ticket_iid)):
+                        raise IsolationError("run branch or review ownership changed")
+                    self._transient(run, "remove-source-branch", lambda: (
+                        self.worktrees.remove_remote_branch(
+                            run.branch, run.checkpoint_remote_commit,
+                            self.config.delivery.target_branch,
+                        )
+                    ))
+                    self.store.journal(run.run_id, "source-branch-removed", branch=run.branch)
+                except IsolationError as exc:
+                    cleanup_error = _sanitize(exc, 2000)
+                    self.store.journal(
+                        run.run_id, "source-branch-retained", branch=run.branch,
+                        evidence=cleanup_error,
+                    )
             run.lifecycle = "done"
             run.outcome = "merged by human"
+            if cleanup_error:
+                run.outcome += f"; branch retained: {cleanup_error}"
             self.store.save(run)
             self.store.journal(run.run_id, "done", outcome=run.outcome)
             self._status(run)
             self._record_metrics(run)
-            self._teardown(run, remove_worktree=True)
+            self._teardown(run, remove_worktree=not cleanup_error)
             summary["done"] += 1
             return
         if mr.state == "closed":

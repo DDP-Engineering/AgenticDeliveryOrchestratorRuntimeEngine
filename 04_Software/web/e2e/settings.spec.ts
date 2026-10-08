@@ -31,6 +31,15 @@ test.afterEach(async ({ page }) => {
   }
 });
 
+test("merged branch cleanup help applies to every forge", async ({ page }) => {
+  await openSettings(page);
+  const row = page.locator(".setting-row").filter({ has: page.getByText("Remove branch after human merge", { exact: true }) });
+  await row.getByRole("button", { name: "Edit Remove branch after human merge", exact: true }).click();
+  await expect(row).toContainText("GitHub, GitLab and Gitea");
+  await expect(row).toContainText("published commit");
+  await expect(row).toContainText("When false");
+});
+
 test("publication state offers draft and ready with explicit reviewed apply", async ({ page }) => {
   await openSettings(page);
   const before = await (await page.request.get("/api/v1/projects/alpha/config")).json();

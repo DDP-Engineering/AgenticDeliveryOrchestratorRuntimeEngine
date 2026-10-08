@@ -184,6 +184,10 @@ class FakeWorktrees:
         self.pushes.append(branch)
         return CommandResult(exit_code=0)
 
+    def remove_remote_branch(self, branch, expected, target):
+        """@brief Simulate successful idempotent merged-branch cleanup."""
+        return None
+
     def is_dirty(self, run_id):
         return self.dirty
 

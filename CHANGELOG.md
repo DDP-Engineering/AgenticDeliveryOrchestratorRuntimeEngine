@@ -36,6 +36,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Apply configured human-merged run-branch removal to GitHub, GitLab and Gitea with exact commit protection, bounded failure reporting and consistent settings help.
+
 - Web automatic ticket checks share CLI loop interval, capped error backoff,
   nonnegative jitter and quiet hours, with independent per-project waits after
   completion. Polling settings remain available with localized scope guidance.

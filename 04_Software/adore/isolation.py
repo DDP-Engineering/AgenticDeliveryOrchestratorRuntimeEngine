@@ -510,6 +510,46 @@ class WorktreeManager:
             raise CheckpointConflictError("remote branch changed during checkpoint push")
         raise IsolationError("checkpoint push not verified", result.argv, result.stderr)
 
+    def remove_remote_branch(self, branch: str, expected: str, target: str) -> None:
+        """
+        @brief Remove an unchanged human-merged run branch using an exact remote lease.
+        @param[in] branch Owned run branch selected by the conductor.
+        @param[in] expected Last published commit, or empty for a legacy local branch.
+        @param[in] target Protected delivery target branch.
+        @exception IsolationError When identity, transport or deletion cannot be verified.
+        @note An already absent branch succeeds without requiring its local counterpart.
+        """
+        ref = f"refs/heads/{branch}"
+        if (not branch or branch.startswith("-") or branch == target
+                or (expected and re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", expected) is None)):
+            raise IsolationError("invalid or protected branch cleanup identity")
+        self._git("check-ref-format", ref)
+
+        def remote_head() -> str:
+            """@brief Reject remote output that does not identify exactly the requested ref."""
+            output = self._git("ls-remote", "--heads", "origin", ref).stdout.strip()
+            if not output:
+                return ""
+            match = re.fullmatch(r"([0-9a-f]{40}|[0-9a-f]{64})\t" + re.escape(ref), output)
+            if match is None:
+                raise IsolationError("invalid remote branch cleanup identity")
+            return match[1]
+
+        remote = remote_head()
+        if not remote:
+            return
+        expected = expected or self.ref_head(ref)
+        if remote != expected:
+            raise IsolationError("remote run branch changed outside ADORE")
+        self.scrub_container_worktree_config()
+        result = self.runner([
+            "git", "-C", str(self.repo_path), "push",
+            f"--force-with-lease={ref}:{expected}", "origin", f":{ref}",
+        ])
+        if not remote_head():
+            return
+        raise IsolationError("remote branch deletion not verified", result.argv, result.stderr)
+
     def is_dirty(self, run_id: str) -> bool:
         """
         @brief      Whether the run's worktree has uncommitted changes.

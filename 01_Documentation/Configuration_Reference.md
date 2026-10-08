@@ -190,9 +190,15 @@ the pipeline read. All three obey `max_review_rounds`, which bounds repairs and
 human-requested revisions together. Only a changed verdict is a signal, and an
 unreadable verdict is silent.
 
-`remove_source_branch` asks GitLab to delete the run's branch once a person
-merges the merge request. GitHub and Gitea ignore it; there, deleting merged
-branches is a repository setting.
+`remove_source_branch` accepts only booleans and defaults to `true`. On GitHub,
+GitLab and Gitea, ADORE removes its remote run branch on the next reconciliation
+after a human merge. An exact commit lease protects branches changed since
+publication; an already absent branch succeeds. GitLab also receives its native
+delete-on-merge flag. With `false`, ADORE requests no remote deletion; the
+repository's own auto-delete policy remains independent. Closed unmerged reviews
+keep their remote branches. Cleanup uses bounded infrastructure retries; an
+unverified deletion completes the human-merged job with a branch-retained warning
+and preserves its local worktree for operator remediation.
 
 `draft` accepts only booleans: `true` (default) creates a draft; `false` creates a PR/MR ready for review. Both require human publication approval and ADORE never merges. Existing PR/MRs retain their current state, including during revisions and crash recovery. ADORE removes `approval_label` before presenting a
 candidate and accepts only a fresh re-add after presentation. Approval is

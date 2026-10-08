@@ -373,8 +373,8 @@ class GiteaForge(Forge):
                     best-effort: a rejected reviewer (for example no repo
                     access) must not lose the already-created PR, so that
                     follow-up failure is swallowed - the created PR itself is the
-                    delivery. `remove_source_branch` is ignored (a repository
-                    setting on Gitea) and `cwd` is not needed (pure API call,
+                    delivery. The conductor owns branch cleanup after human merge.
+                    `cwd` is not needed (pure API call,
                     no local remote resolution).
         @param[in]  source Head branch.
         @param[in]  target Base branch.
@@ -382,12 +382,12 @@ class GiteaForge(Forge):
         @param[in]  body PR description.
         @param[in]  draft Open as draft when true, otherwise ready for review.
         @param[in]  reviewers Reviewer usernames (best-effort on Gitea).
-        @param[in]  remove_source_branch Ignored (a repo setting on Gitea).
+        @param[in]  remove_source_branch Conductor cleans up after human merge.
         @param[in]  cwd Ignored (tea resolves everything from --repo/--login).
         @return     PR web URL.
         @exception  ForgeError When tea fails or the response has no html_url.
         """
-        del remove_source_branch  # branch deletion is a repo setting on Gitea
+        del remove_source_branch  # The conductor owns leased post-merge cleanup.
         del cwd  # pure API call; no local checkout involved
         wip_title = title if not draft or _WIP_RE.match(title) else f"WIP: {title}"
         result = self._api(
@@ -575,7 +575,9 @@ class GiteaForge(Forge):
         @exception  ForgeError When the record misses the pull number.
         """
         state = str(data.get("state", "open")).lower()
-        if data.get("merged"):
+        if "merged" in data and type(data["merged"]) is not bool:
+            raise ForgeError("Gitea pull merged must be a boolean")
+        if data.get("merged", False):
             state = "merged"
         elif state == "open":
             state = "opened"

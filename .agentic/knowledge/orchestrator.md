@@ -15,6 +15,9 @@ publication and recovery. Start at `04_Software/adore/orchestrator.py` and
 verify with `04_Software/tests/test_orchestrator.py`. Web queueing belongs to
 `web-interface.md`; CLI argument parsing belongs to `cli.md`.
 
+
+`REQ-FUNC-93bd42af`: Human-merged reviews trigger configured, leased remote run-branch cleanup on every forge. Final publication persists its commit independently of progress-publication policy. Bounded cleanup failure completes the merge with a branch-retained warning and preserves local evidence. Closed unmerged reviews authorize no remote deletion.
+
 ## Purpose and boundaries
 
 The orchestrator conducts one agent-operated AEGIS task through isolation,

@@ -12,6 +12,9 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 Use this page for forge ticket/comment/label/branch/review contracts. Start at `04_Software/adore/forge/base.py` and concrete adapters; verify through `04_Software/tests/test_forge.py`. Candidate approval and lifecycle belong to `orchestrator.md`.
 
+
+`REQ-FUNC-93bd42af`: Review merge state authorizes shared conductor cleanup through host Git. GitLab carries a native delete-on-merge hint; GitHub/Gitea use conductor cleanup. Gitea's external `merged` field must be boolean when supplied, or raises `ForgeError`.
+
 ## Purpose and boundaries
 
 Defines the forge-neutral data model and adapter boundary for GitHub (`gh`),

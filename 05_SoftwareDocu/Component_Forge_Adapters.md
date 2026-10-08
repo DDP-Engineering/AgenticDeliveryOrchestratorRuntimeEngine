@@ -12,6 +12,9 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 `adore/forge` hides GitHub, GitLab and Gitea CLI/API differences behind one
 ticket, comment, label and draft or ready MR/PR contract.
 
+
+The conductor performs leased post-merge branch cleanup through host Git on all three forges. GitLab additionally receives its native removal hint at MR creation; GitHub/Gitea creation delegates cleanup to the conductor. Gitea accepts only a boolean `merged` field when supplied; malformed merge evidence raises `ForgeError` before destructive cleanup can be authorized.
+
 ## 2. Responsibilities
 
 - list/read tickets and comments;

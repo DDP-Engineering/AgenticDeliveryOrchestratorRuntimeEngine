@@ -1328,6 +1328,10 @@ def validate_config(config: Config) -> list[str]:
     check(bool(config.delivery.reviewers), "[delivery] reviewers must list at least one human")
     check(type(config.delivery.draft) is bool, "[delivery] draft must be a boolean")
     check(
+        type(config.delivery.remove_source_branch) is bool,
+        "[delivery] remove_source_branch must be a boolean",
+    )
+    check(
         isinstance(config.delivery.approval_label, str)
         and bool(config.delivery.approval_label.strip()),
         "[delivery] approval_label must be a non-empty label",

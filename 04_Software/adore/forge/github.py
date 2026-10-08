@@ -386,14 +386,14 @@ class GitHubForge(Forge):
         @param[in]  body PR description.
         @param[in]  draft Open as draft when true, otherwise ready for review.
         @param[in]  reviewers Reviewer logins.
-        @param[in]  remove_source_branch Ignored (a repo setting on GitHub).
+        @param[in]  remove_source_branch Conductor cleans up after human merge.
         @param[in]  cwd Git checkout to run in; gh resolves remotes from a
                         local repo even with --repo, so the run's worktree is
                         passed (see the Forge base contract).
         @return     PR web URL.
         @exception  ForgeError When gh fails or no URL is printed.
         """
-        del remove_source_branch  # branch deletion is a repo setting on GitHub
+        del remove_source_branch  # The conductor owns leased post-merge cleanup.
         argv = [
             "gh", "pr", "create",
             "--repo", self.repo,

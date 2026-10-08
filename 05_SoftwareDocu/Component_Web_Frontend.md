@@ -28,6 +28,9 @@ keeps job-specific Details links.
 `04_Software/web` is the React/TypeScript source for the responsive ADORE
 dashboard. Vite compiles it into `adore/web/static` for same-origin serving.
 
+
+The Remove branch after human merge help describes the shared GitHub/GitLab/Gitea behavior in all four locales: exact published commit protection, retained-branch warnings and an independent repository auto-delete policy. The boolean choice feeds the same conductor configuration used by CLI.
+
 ## 2. Responsibilities
 
 Project Settings retains the effective durable state folder as a read-only row.

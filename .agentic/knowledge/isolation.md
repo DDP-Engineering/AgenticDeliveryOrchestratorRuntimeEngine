@@ -15,6 +15,9 @@ provisioning, egress and cancellation. Start at
 `04_Software/adore/isolation.py`; verify with
 `04_Software/tests/test_isolation.py`. Run policy belongs to `orchestrator.md`.
 
+
+`REQ-FUNC-93bd42af`: `remove_remote_branch` validates ref/target and exact published or legacy local commit, deletes through host Git with an exact remote lease and verifies absence. Missing refs are idempotent success; malformed output, foreign commits and transport failures raise `IsolationError`.
+
 ## Purpose and boundaries
 
 Creates one Git worktree and one executor container per run, mounts the

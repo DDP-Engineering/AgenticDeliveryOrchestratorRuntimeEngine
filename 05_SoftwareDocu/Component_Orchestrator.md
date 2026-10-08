@@ -13,6 +13,9 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 agent-driven AEGIS workflow. It prevents silent stalls and keeps remote
 publication human-approved with configurable draft or ready state.
 
+
+After observing a human merge, the shared CLI/web conductor honors `delivery.remove_source_branch` on GitHub, GitLab and Gitea. It checks review/run-branch ownership and performs bounded host-Git deletion with the last published commit lease. Every approved publication pins that commit even when progress commits are disabled. An absent branch succeeds; an unverified deletion leaves the job done with a branch-retained warning and keeps its local worktree for remediation. Closed unmerged reviews keep their remote branch.
+
 ## 2. Responsibilities
 
 - select/claim forge tickets and provision worktree/container isolation;

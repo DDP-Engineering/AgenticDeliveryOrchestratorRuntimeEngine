@@ -25,6 +25,9 @@ isolation - the real sandbox bounding what the executor can touch). Isolation
 is mandatory once the human leaves the loop; the workflow's hooks are
 guardrails, not a sandbox.
 
+
+`WorktreeManager.remove_remote_branch(branch, expected, target)` uses host Git authentication to delete one exact merged run ref with `--force-with-lease`. It rejects the target branch, malformed identities and a changed remote commit through `IsolationError`, verifies remote absence after pushing, and treats an already absent ref as success. Legacy runs may use the exact local branch head when no published commit was persisted; arbitrary remote output is rejected.
+
 ## 2. Responsibilities
 
 - `WorktreeManager(repo_path, root, runner=..., sleep=...,
