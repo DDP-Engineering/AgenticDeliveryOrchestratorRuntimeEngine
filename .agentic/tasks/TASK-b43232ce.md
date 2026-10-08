@@ -6,7 +6,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 -->
 # TASK-b43232ce - Remove merged run branches across all forges
 
-stage: deliver
+stage: done
 type: change
 path: full
 interaction: autopilot
@@ -20,9 +20,9 @@ opened: 2026-10-08
 
 - [x] Validated candidate unchanged and concrete delivery scope recorded
 - [x] Standing human authority for local commit and DCP replacement recorded
-- [ ] Source commit and report
-- [ ] DCP replacement and live verification
-- [ ] Close-out
+- [x] Source commit and report
+- [x] DCP replacement and live verification
+- [x] Close-out
 
 ## Frame
 
@@ -58,6 +58,8 @@ Alternative: Per-forge deletion APIs add three redundant transport implementatio
 
 ## Log
 
+- 2026-10-08 delivery outcome: Source commit 07c20456a8f2b277e097e71b8a7f49df25291a91 installed at /home/dpasare/apps/adore/dcp-branch-b43232ce/04_Software; backup /home/dpasare/apps/adore/backups/dcp-branch-b43232ce-20261008T180739Z. Package SHA256 f5d337f3721d7663be3237e804ef5f9affd69ccb4ae24ddbd144cc8079452831; compiled asset index-BSiG9x16.js SHA256 9070e4f4de9336c7675f95e03d67f1685339e0f998e46972a6e85c5a14a11d23. Both services active and worker ready; LAN health/pages 200, protected APIs 401, existing TLS certificate pinned unchanged. Before/after inventories exactly equal: schema 14, one user, audit 105, 18 completed operations, all six configuration/state hashes and pause flags intact. Authenticated live settings show GitHub/GitLab/Gitea help; screenshot dcp-branch-help.png saved; no GUI configuration writes. SSH/SCP sessions exited. No real remote branch deletion/merge performed during acceptance, and no Git push/PR. Targeted offline proof covers branch transport; full suite remains deferred.
+
 - 2026-10-08 validate final: Final targeted pytest on cleanup/conductor/checkpoint/forge/config exit=0, 284 passed; changed Python Ruff exit=0; TypeScript/build and focused Chromium help journey exit=0 (1 passed). Strict catalog exit=0, 0 errors / 9 historical warnings / 25 unrelated manual notes. Full suite deferred per user. Candidate 22 files within bound; both verdicts approved round 2.
 - 2026-10-08 deliver: Concrete candidate is shared leased cleanup, exact boolean validation, strict Gitea merge evidence, four-locale help and directly affected docs/tests. Existing configs/state remain intact; no push/PR. Use standing user-authorized local commit and DCP test replacement; full-suite substitution remains recorded.
 
@@ -79,21 +81,21 @@ Alternative: Per-forge deletion APIs add three redundant transport implementatio
 
 ## Handoff
 
-current: deliver
+current: done
 status: ready
-next: Final targeted proof and authorized DCP delivery
+next: Continue settings analysis; full suite deferred until requested
 must_read: .agentic/requirements/functional/REQ-FUNC-93bd42af.toml
 blockers: none
 
 ## Stage report
 
-stage: validate
+stage: deliver
 result: completed
-current: deliver
+current: done
 changed: Shared human-merged branch cleanup and all-forge help implemented
-evidence: 284 focused Python tests, 1 Chromium help test, TypeScript/build/Ruff and strict catalog passed
+evidence: 284 focused Python tests, 1 Chromium help test and build/lint passed; DCP services/worker ready, live help verified, config/state preserved
 issues: Full suite deferred by user
-next: Final targeted proof and authorized DCP delivery
+next: Continue settings analysis; full suite deferred until requested
 needs_user: no
 spec_compliance: approved
 implementation_quality: approved
