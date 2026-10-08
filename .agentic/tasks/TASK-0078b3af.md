@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # TASK-0078b3af - Clarify target branch setting labels and guidance
 
-stage: deliver
+stage: done
 type: change
 path: quick
 interaction: autopilot
@@ -23,9 +23,9 @@ opened: 2026-10-08
 
 - [x] Validated candidate unchanged and delivery scope presented
 - [x] Standing human authority for local commit/DCP replacement recorded
-- [ ] Source commit and delivery report
-- [ ] DCP replacement and live inspection
-- [ ] Close-out
+- [x] Source commit and delivery report
+- [x] DCP replacement and live inspection
+- [x] Close-out
 
 ## Frame
 
@@ -65,25 +65,27 @@ Localized targetBranchCopy follows existing reviewer/publication copy pattern; s
 
 - 2026-10-08 frame: User approved recommendation; quick path for copy only under existing REQ-UX-2bea4ff1. Standing autonomous commit/DCP deployment and targeted-only verification retained. No new tests for low-impact wording; inspect presentation and run existing focused checks.
 
+- 2026-10-08 delivery outcome: Source c0ce9710616f86c8a8566cd253ab4818834decf4 installed at /home/dpasare/apps/adore/dcp-target-0078b3af/04_Software; backup /home/dpasare/apps/adore/backups/dcp-target-0078b3af-20261008T184455Z. Package SHA256 5f2209682dd10c005583e7c4bac5eda77e225b1b9bd608384e5beef17a7862c2; compiled JS index-DDC-rw-u.js SHA256 e93caf929fd91451457e9ef6604e5ff8bbd5805b48cad9d138a59fbacac285ef. Both services active, worker ready; LAN health/pages 200 and protected APIs 401; existing TLS pinned. Before/after inventories exactly equal: schema 14, user 1, audit 105, 18 completed operations, six configuration/run-state hashes and pickup flags retained. Authenticated live Settings shows Target branch, complete dual-purpose help and editor prefilled master. No config/pending/apply writes or live forge operations. Screenshot dcp-target-branch.png saved under ignored delivery proof folder. SSH/SCP closed; no Git push/PR. Full suite remains deferred by user.
+
 ## Rulings
 
 ## Handoff
 
-current: deliver
+current: done
 status: ready
-next: Commit and replace DCP test instance
+next: Continue settings analysis
 must_read: .agentic/requirements/ux/REQ-UX-2bea4ff1.toml
 blockers: none
 
 ## Stage report
 
-stage: validate
+stage: deliver
 result: completed
-current: deliver
+current: done
 changed: Four-locale target branch labels/help and direct docs
-evidence: 11 settings helper tests, 2 Chromium journeys, TypeScript/build and strict catalog passed
+evidence: 11 helper tests, 2 Chromium journeys, TypeScript/build passed; DCP services ready, new label/editor verified; six configs/state unchanged
 issues: Full suite deferred by user; nine historical catalog warnings and copy-only no-test-change warning
-next: Commit and replace DCP test instance
+next: Continue settings analysis
 needs_user: no
 spec_compliance: approved
 implementation_quality: approved
