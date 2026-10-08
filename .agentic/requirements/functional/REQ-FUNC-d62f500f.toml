@@ -1,0 +1,18 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+id = "REQ-FUNC-d62f500f"
+title = "Apply shared polling cadence in CLI and web"
+status = "active"
+requirement = """When an automatic polling round finishes, CLI loop and the web worker shall schedule the next round after the configured interval multiplied by consecutive-error backoff (doubling to at most 8 when enabled, reset on success) plus uniform random jitter from 0 to the configured maximum, independently per project in web."""
+verification = "Fake-clock loop tests observe post-completion waits, jitter bounds, disabled backoff, cap, success reset, timeout and separate-project scheduling."
+affected_paths = ["04_Software/adore/polling.py", "04_Software/adore/web/commands.py", "04_Software/adore/orchestrator.py", "04_Software/web/src/settingHelp.ts", "04_Software/config.example.toml"]
+linked_tests = ["04_Software/tests/test_web_commands.py::test_automatic_polling_uses_loop_wait_after_completion", "04_Software/tests/test_web_commands.py::test_project_polling_is_independent_and_quiet_hours_keep_queue_available", "04_Software/tests/test_orchestrator.py::test_loop_polling_cadence_matches_web_errors_and_success"]
+priority = "normal"
+created = 2026-10-08
+updated = 2026-10-08

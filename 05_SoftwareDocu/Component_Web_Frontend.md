@@ -715,3 +715,15 @@ Executor configuration shows a compact container notice with the effective image
 `ExecutorEnvironment.tsx` renders read-only four-locale content from the config response. `App.tsx` filters container/execution/local/worktree settings from both settings lists. Legacy environment candidates show disabled Apply and retain Discard. `images.spec.ts` proves the disclosure, Admin/Dev scoping, local suppression and mobile wrapping; `test_web_image_build.py` proves typed API/worker refusals.
 
 External environment refusals and preparation/model/credential failures have four-locale corrective messages in errors.ts; errors.test.mjs verifies complete server-code coverage and preserved diagnostic/generic fallback.
+
+## Polling settings guidance
+
+The shared settings list retains Ticket checking mode, Ticket check interval,
+Wait longer after ticket service errors and Random check delay. Localized help
+in English, French, German and Romanian states that interval, error backoff,
+random delay and quiet hours apply to automatic web polling and CLI loop.
+Ticket checking mode governs standalone CLI startup; the web worker owns its
+repeated rounds. Editing/review/apply permissions and configuration keys remain
+owned by the existing settings API. See Component_Web_Worker.md and
+Component_Polling.md for runtime scheduling contracts. Existing settings/catalog
+browser and helper tests verify the shared presentation surface.

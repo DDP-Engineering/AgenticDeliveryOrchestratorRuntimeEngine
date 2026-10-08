@@ -27,9 +27,11 @@ import sys
 from threading import Event, Thread
 import time
 
-from adore.config import load_config
+from adore.config import load_config, validate_config
+from adore.polling import PollCadence
 from adore.profiles import ProfileError, ProfileStore
 from adore.state import StateError, StateStore
+from adore.util import in_quiet_hours
 from adore.web.image_build import ImageBuildError, ImageBuildService
 from adore.web.store import WebStore, WebStoreError
 
@@ -244,6 +246,7 @@ class CommandWorker:
                     return
 
         next_poll: dict[str, float] = {}
+        cadences: dict[str, PollCadence] = {}
         try:
             for operation in self.web.running_image_builds():
                 try:
@@ -262,21 +265,38 @@ class CommandWorker:
                     raise RuntimeError("web control worker heartbeat failed")
                 if self.run_pending():
                     continue
-                now = time.monotonic()
-                for profile in self.profiles.list_profiles():
-                    if profile.archived:
+                active_profiles = [profile for profile in self.profiles.list_profiles()
+                                   if not profile.archived]
+                for profile in sorted(active_profiles,
+                                      key=lambda item: next_poll.get(item.project_id, 0.0)):
+                    identity = profile.project_id
+                    if next_poll.get(identity, 0.0) > time.monotonic():
                         continue
-                    if next_poll.get(profile.name, 0.0) > now:
-                        continue
+                    cadence = cadences.setdefault(identity, PollCadence())
                     try:
                         config = load_config(self.profiles.config_path(profile.name))
-                        cadence = max(5, config.polling.poll_interval_seconds)
-                    except (OSError, ValueError):
-                        cadence = 60
-                    next_poll[profile.name] = now + cadence
-                    self.poll_project(profile.name)
+                        if validate_config(config):
+                            raise ValueError("invalid project configuration")
+                        # Validate cadence before invoking external work, without
+                        # consuming a jitter sample or changing this project's state.
+                        PollCadence.validate(config.polling)
+                    except (OSError, ValueError, TypeError, AttributeError):
+                        next_poll[identity] = time.monotonic() + 60
+                        continue
+                    failed = None
+                    if not in_quiet_hours(config.polling.quiet_hours):
+                        try:
+                            code = self.poll_project(profile.name)
+                            failed = type(code) is not int or code != 0
+                        except Exception:  # noqa: BLE001 - a failed pass must not stop scheduling
+                            failed = True
+                    delay = cadence.next_delay(config.polling, failed=failed)
+                    next_poll[identity] = time.monotonic() + delay
                     break
-                stop.wait(interval)
+                deadlines = [next_poll.get(item.project_id, 0.0) for item in active_profiles]
+                wait = (min(interval, max(0.0, min(deadlines) - time.monotonic()))
+                        if deadlines else interval)
+                stop.wait(wait)
         finally:
             heartbeat_done.set()
             if heartbeat_thread is not None:

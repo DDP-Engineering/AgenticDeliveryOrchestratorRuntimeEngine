@@ -32,6 +32,10 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Web automatic ticket checks share CLI loop interval, capped error backoff,
+  nonnegative jitter and quiet hours, with independent per-project waits after
+  completion. Polling settings remain available with localized scope guidance.
+
 - Hide the ineffective State reporting channel from web Settings while retaining the read-only durable job state folder and compatible TOML.
 
 - Complete localized corrective messages for environment, preparation, model and executor credential failures.

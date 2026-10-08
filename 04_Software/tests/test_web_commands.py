@@ -13,15 +13,22 @@
 @details Command runner is injected so no real forge, git, or container runs.
 """
 
+from datetime import datetime
+from pathlib import Path
+import re
 from threading import Event, Thread
 import time
 
+from adore.config import PollingConfig, load_config, validate_config
+from adore.polling import PollCadence
 from adore.profiles import ProfileStore
 from adore.state import RunState, StateStore
+from adore.util import in_quiet_hours
 from adore.web.app import create_app
 from adore.web.commands import CommandWorker
 from adore.web.store import WebStore
 from fastapi.testclient import TestClient
+import pytest
 
 
 def test_authorized_start_uses_explicit_ticket_and_deduplicates(tmp_path):
@@ -448,3 +455,203 @@ def test_blocking_retry_watches_other_project_cancel(tmp_path):
         return 0
 
     assert CommandWorker(profiles, web, runner=retry).run_pending() == 1
+
+
+@pytest.mark.parametrize("backoff, outcomes, expected", [
+    (True, [0, 1, 1, 1, 1, 0, 0], [12, 22, 42, 82, 82, 12]),
+    (False, [1, 1, 0], [12, 12]),
+    (True, [124, None, True, "0", RuntimeError("transport"), 0], [22, 42, 82, 82, 82]),
+])
+def test_automatic_polling_uses_loop_wait_after_completion(
+    tmp_path, monkeypatch, backoff, outcomes, expected,
+):
+    """@brief Observe configured waits and failures across actual worker rounds."""
+    profiles = ProfileStore(tmp_path / "home")
+    profiles.create("alpha")
+    example = Path(__file__).resolve().parents[1] / "config.example.toml"
+    source = example.read_text(encoding="utf-8")
+    source = source.replace('mode = "loop"', 'mode = "once"')
+    source = source.replace("poll_interval_seconds = 60", "poll_interval_seconds = 10")
+    source = source.replace("poll_jitter_seconds = 5", "poll_jitter_seconds = 2")
+    source = source.replace("poll_backoff = true", f"poll_backoff = {str(backoff).lower()}")
+    profiles.config_path("alpha").write_text(source, encoding="utf-8")
+    load_config(profiles.config_path("alpha"))
+    web = WebStore(profiles.home / "web.db")
+    clock = [0.0]
+    starts = []
+    stop = Event()
+    # Both implementations draw from Python's shared random module.
+    monkeypatch.setattr("random.uniform", lambda low, high: high)
+    monkeypatch.setattr("adore.web.commands.time.monotonic", lambda: clock[0])
+
+    def advance(seconds):
+        """@brief Advance logical time while keeping heartbeat threading real."""
+        clock[0] += seconds
+        assert clock[0] < 2000, "worker failed to finish bounded fake rounds"
+        return stop.is_set()
+
+    monkeypatch.setattr(stop, "wait", advance)
+
+    def runner(argv, _env):
+        """@brief Simulate a seven-second pass and return external outcomes."""
+        assert argv[-2:] == ["run", "--once"]
+        starts.append(clock[0])
+        outcome = outcomes[len(starts) - 1]
+        clock[0] += 7
+        if len(starts) == len(outcomes):
+            stop.set()
+        if isinstance(outcome, Exception):
+            raise outcome
+        return outcome
+
+    CommandWorker(profiles, web, runner=runner).run_forever(interval=1, stop=stop)
+    waits = [later - earlier - 7 for earlier, later in zip(starts, starts[1:], strict=False)]
+    assert waits == expected
+    assert not web.worker_ready()
+
+
+@pytest.mark.parametrize("source", [
+    "[polling]\npoll_interval_seconds = -1\n",
+    "[polling]\npoll_interval_seconds = true\n",
+    "[polling]\npoll_backoff = \"yes\"\n",
+    "[polling]\npoll_jitter_seconds = -1\n",
+    "[polling]\npoll_interval_seconds = \"bad\"\n",
+    "[polling",
+])
+def test_bad_polling_config_skips_invocation_and_rechecks(tmp_path, monkeypatch, source):
+    """@brief Corrupt/invalid typed configuration never enters the engine."""
+    profiles = ProfileStore(tmp_path / "home")
+    profiles.create("alpha")
+    path = profiles.config_path("alpha")
+    example = Path(__file__).resolve().parents[1] / "config.example.toml"
+    valid = example.read_text(encoding="utf-8")
+    path.write_text(valid, encoding="utf-8")
+    assert validate_config(load_config(path)) == []
+    if source != "[polling":
+        assignment = source.splitlines()[1]
+        key = assignment.split("=", 1)[0].strip()
+        source = re.sub(rf"^{key} = .*?$", assignment, valid, flags=re.MULTILINE)
+    path.write_text(source, encoding="utf-8")
+    web = WebStore(profiles.home / "web.db")
+    clock = [0.0]
+    calls = []
+    stop = Event()
+    monkeypatch.setattr("adore.web.commands.time.monotonic", lambda: clock[0])
+
+    def advance(seconds):
+        """@brief Bound the simulation past two invalid configuration checks."""
+        clock[0] += seconds
+        if clock[0] >= 61:
+            stop.set()
+        return stop.is_set()
+
+    monkeypatch.setattr(stop, "wait", advance)
+    CommandWorker(profiles, web, runner=lambda argv, env: calls.append(argv) or 0).run_forever(
+        interval=1, stop=stop,
+    )
+    assert calls == []
+
+
+@pytest.mark.parametrize("quiet", [False, True])
+@pytest.mark.parametrize("tick", [0.1, 2])
+def test_project_polling_is_independent_and_quiet_hours_keep_queue_available(
+    tmp_path, monkeypatch, quiet, tick,
+):
+    """@brief One failing/quiet project cannot suppress healthy rounds or queued pause."""
+    profiles = ProfileStore(tmp_path / "home")
+    example = Path(__file__).resolve().parents[1] / "config.example.toml"
+    source = example.read_text(encoding="utf-8").replace(
+        "poll_interval_seconds = 60", "poll_interval_seconds = 1",
+    ).replace("poll_jitter_seconds = 5", "poll_jitter_seconds = 0")
+    for name in ("alpha", "beta"):
+        profiles.create(name)
+        text = (source.replace('quiet_hours = []', 'quiet_hours = ["22:00-06:00"]')
+                if name == "alpha" else source)
+        profiles.config_path(name).write_text(text, encoding="utf-8")
+    web = WebStore(profiles.home / "web.db")
+    admin = web.authenticate("admin", "admin")
+    queued = web.enqueue(admin["id"], "alpha", "pause", "", "pause-while-quiet")
+    clock = [0.0]
+    stop = Event()
+    calls = []
+    monkeypatch.setattr("adore.web.commands.time.monotonic", lambda: clock[0])
+    monkeypatch.setattr(
+        "adore.web.commands.in_quiet_hours", lambda windows: quiet and bool(windows),
+    )
+
+    def advance(seconds):
+        """@brief Run a bounded ten-second logical scheduling window."""
+        clock[0] += seconds
+        if clock[0] >= 10:
+            stop.set()
+        return stop.is_set()
+
+    monkeypatch.setattr(stop, "wait", advance)
+
+    def runner(argv, _env):
+        """@brief Fail alpha automatic rounds while beta and explicit pause succeed."""
+        calls.append((argv[4], argv[-1], clock[0]))
+        return 1 if argv[4] == "alpha" and argv[-1] == "--once" else 0
+
+    CommandWorker(profiles, web, runner=runner).run_forever(interval=tick, stop=stop)
+    alpha = [when for name, action, when in calls if name == "alpha" and action == "--once"]
+    beta = [when for name, action, when in calls if name == "beta" and action == "--once"]
+    assert len(beta) >= 8  # interval1 remains below the old forced5-second minimum.
+    if quiet:
+        assert alpha == []
+    else:
+        assert len(alpha) == 3
+        assert alpha[1] - alpha[0] == pytest.approx(2, abs=0.11)
+        assert alpha[2] - alpha[1] == pytest.approx(4, abs=0.11)
+    assert web.operation(queued["id"])["status"] == "succeeded"
+    assert not web.worker_ready()
+
+
+@pytest.mark.parametrize("sample", [0, 3])
+def test_shared_cadence_retains_errors_through_quiet_rounds_and_resets(sample, monkeypatch):
+    """@brief Observe positive jitter endpoints and unchanged quiet-round error wait."""
+    monkeypatch.setattr("random.uniform", lambda low, high: sample)
+    config = PollingConfig(poll_interval_seconds=10, poll_jitter_seconds=3)
+    cadence = PollCadence()
+    assert cadence.next_delay(config, failed=True) == 20 + sample
+    assert cadence.next_delay(config, failed=None) == 20 + sample
+    assert cadence.next_delay(config, failed=False) == 10 + sample
+    assert cadence.next_delay(config, failed=True) == 20 + sample
+    config.poll_backoff = False
+    assert cadence.next_delay(config, failed=None) == 10 + sample
+    for hour, expected in [(21, False), (22, True), (0, True), (5, True), (6, False)]:
+        assert in_quiet_hours(["22:00-06:00"], datetime(2026, 10, 8, hour)) is expected
+
+
+def test_worker_resumes_automatic_polling_after_quiet_window(tmp_path, monkeypatch):
+    """@brief The worker resumes scheduled rounds after host-local quiet hours end."""
+    profiles = ProfileStore(tmp_path / "home")
+    profiles.create("alpha")
+    example = Path(__file__).resolve().parents[1] / "config.example.toml"
+    source = example.read_text(encoding="utf-8").replace(
+        "poll_interval_seconds = 60", "poll_interval_seconds = 1",
+    ).replace("poll_jitter_seconds = 5", "poll_jitter_seconds = 0")
+    profiles.config_path("alpha").write_text(source, encoding="utf-8")
+    web = WebStore(profiles.home / "web.db")
+    clock = [0.0]
+    stop = Event()
+    starts = []
+    monkeypatch.setattr("adore.web.commands.time.monotonic", lambda: clock[0])
+    monkeypatch.setattr("adore.web.commands.in_quiet_hours", lambda windows: clock[0] < 3)
+
+    def advance(seconds):
+        """@brief Advance across a bounded quiet-to-active transition."""
+        clock[0] += seconds
+        assert clock[0] < 10
+        return stop.is_set()
+
+    monkeypatch.setattr(stop, "wait", advance)
+
+    def runner(_argv, _env):
+        """@brief Stop after the first post-window automatic pass."""
+        starts.append(clock[0])
+        stop.set()
+        return 0
+
+    CommandWorker(profiles, web, runner=runner).run_forever(interval=1, stop=stop)
+    assert starts == [3]

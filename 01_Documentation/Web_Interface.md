@@ -1008,3 +1008,18 @@ Native execution is selected externally in the server profile or through server 
 ## Project executor images
 
 Executor configuration shows a compact container notice with the effective image and one expandable instruction disclosure. It identifies standard `executor/Dockerfile`, optional `executor/README.md`, a non-root example, external Docker/Podman build and verification, and the existing profile fields. Only administrators see the actual resolved server `config.toml` path. No controls define, build or select an environment. Guided creation configures agent/model with the standard container defaults; specialized container/local profiles use server TOML enrollment. Historical records remain readable/exportable/cancellable; old pending candidates can be discarded, and queued image-build requests fail without runtime execution. See [Project executor images](Project_Executor_Images.md).
+
+## Automatic polling cadence
+
+Automatic web polling and CLI `run --loop` use `PollCadence`: after a round
+finishes, wait `poll_interval_seconds * multiplier + uniform(0, poll_jitter_seconds)`.
+With `poll_backoff = true`, failures double the multiplier from 1 to 2/4/8,
+cap at 8, and success resets it to 1. Disabled backoff uses 1. Quiet rounds retain
+the multiplier and defer automatic work using the same wait. Quiet windows use
+server-local time; explicit web commands remain available.
+The web worker keeps independent in-memory cadence/deadlines per immutable
+project identity and treats nonzero, timed-out, malformed or exceptional CLI
+outcomes as failed checks. Invalid configuration gets a 60-second recheck with
+no engine invocation. Restart resets cadence; serial work on another project
+may delay a due round. `polling.mode` governs standalone CLI startup; the web
+service schedules repeated `run --once` rounds independently of that value.

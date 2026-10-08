@@ -35,12 +35,12 @@ migrated.
 
 | Key | Meaning | Default |
 | --- | --- | --- |
-| `polling.mode` | `once` or `loop`. | `loop` |
-| `poll_interval_seconds` | Base loop interval. | `60` |
-| `poll_jitter_seconds` | Added random jitter. | `5` |
-| `poll_backoff` | Back off after forge errors. | `true` |
+| `polling.mode` | Standalone CLI startup: `once` or `loop`; web schedules its own rounds. | `loop` |
+| `poll_interval_seconds` | Base wait after each completed CLI loop/web round. | `60` |
+| `poll_jitter_seconds` | Add 0..maximum random seconds after backoff, CLI loop/web. | `5` |
+| `poll_backoff` | Double failed-round waits up to 8x, reset on success; CLI loop/web. | `true` |
 | `max_concurrent_runs` | Capacity ceiling for persisted `working` runs; it does not enable parallel conduction. | `1` |
-| `quiet_hours` | `HH:MM-HH:MM` windows. | `[]` |
+| `quiet_hours` | Server-local `HH:MM-HH:MM` automatic polling pause windows, CLI loop/web. | `[]` |
 | `readiness.require_acceptance_criteria` | Require heading or task list. | `true` |
 | `readiness.require_priority_label` | Require a configured priority. | `true` |
 

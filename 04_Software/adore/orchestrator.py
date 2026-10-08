@@ -27,7 +27,6 @@ from datetime import timedelta
 import json
 import os
 from pathlib import Path
-import random
 import re
 import shutil
 from threading import Event, Thread
@@ -76,6 +75,7 @@ from adore.isolation import (
     WorktreeManager,
     build_container_env,
 )
+from adore.polling import PollCadence
 from adore.preparation import PreparationError, execution_policy, resolve_plan
 from adore.repository_auth import project_runner
 from adore.state import (
@@ -260,19 +260,19 @@ class Orchestrator:
         if not self.store.acquire_lock():
             self.log(f"error: another instance holds the lock ({self.store.lock_path})")
             return 1
-        backoff = 1
+        cadence = PollCadence()
         try:
             while True:
+                failed = None
                 if in_quiet_hours(self.config.polling.quiet_hours):
                     self.log("quiet hours: polling paused")
                 else:
                     try:
                         self.poll_once(locked=True)
-                        backoff = 1
+                        failed = False
                     except ForgeError as exc:
                         self.log(f"poll error (platform): {exc}")
-                        if self.config.polling.poll_backoff:
-                            backoff = min(backoff * 2, 8)
+                        failed = True
                     except Exception as exc:  # noqa: BLE001 - the loop outlives one pass
                         # One run's unexpected failure must not end the daemon
                         # and strand every other run. An IsolationError from a
@@ -283,11 +283,8 @@ class Orchestrator:
                         # KeyboardInterrupt is a BaseException and still stops
                         # the loop through the handler below.
                         self.log(f"poll error (unexpected): {_sanitize(exc)}")
-                        if self.config.polling.poll_backoff:
-                            backoff = min(backoff * 2, 8)
-                interval = self.config.polling.poll_interval_seconds * backoff
-                interval += random.uniform(0, self.config.polling.poll_jitter_seconds)
-                self.sleep(interval)
+                        failed = True
+                self.sleep(cadence.next_delay(self.config.polling, failed=failed))
         except KeyboardInterrupt:
             self.log("interrupted; shutting down cleanly")
             return 0

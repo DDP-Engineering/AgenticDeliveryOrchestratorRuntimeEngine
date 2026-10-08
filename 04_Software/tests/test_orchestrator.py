@@ -2801,3 +2801,42 @@ def test_cleanup_removes_unshared_old_cut_names_of_a_finished_run(tmp_path: Path
     assert report["egress_networks_removed"] == [network]
     assert runtime.containers == set() and runtime.networks == set()
     assert not (root / done).exists()
+
+
+@pytest.mark.parametrize("backoff, expected", [
+    (True, [22, 42, 82, 82, 12]),
+    (False, [12, 12, 12, 12, 12]),
+])
+def test_loop_polling_cadence_matches_web_errors_and_success(
+    tmp_path, monkeypatch, backoff, expected,
+):
+    """@brief CLI loop keeps the same capped delays and reset as web rounds."""
+    engine, *_ = make_engine(tmp_path)
+    engine.config.polling.poll_interval_seconds = 10
+    engine.config.polling.poll_jitter_seconds = 2
+    engine.config.polling.poll_backoff = backoff
+    outcomes = [ForgeError("forge"), RuntimeError("unexpected"), ForgeError("forge"),
+                RuntimeError("unexpected"), None]
+    delays = []
+    monkeypatch.setattr("random.uniform", lambda low, high: high)
+
+    def poll(**kwargs):
+        """@brief Report forge/unexpected faults through the public polling seam."""
+        assert kwargs == {"locked": True}
+        value = outcomes[len(delays)]
+        if value is not None:
+            raise value
+        return {}
+
+    def sleep(seconds):
+        """@brief Record completed-round delays and stop the bounded loop."""
+        delays.append(seconds)
+        if len(delays) == len(expected):
+            raise KeyboardInterrupt
+
+    monkeypatch.setattr(engine, "poll_once", poll)
+    engine.sleep = sleep
+    assert engine.run_loop() == 0
+    assert delays == expected
+    assert engine.store.acquire_lock()
+    engine.store.release_lock()

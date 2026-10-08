@@ -214,3 +214,11 @@ The conductor selects the shared native backend and pins plan/resource, retainin
 See [Local execution](../01_Documentation/Local_Execution.md) and
 [Local execution component](Component_Local_Execution.md). Focused native proof:
 `04_Software/tests/test_local_execution.py`.
+
+## Automatic loop cadence
+
+`run_loop()` uses the shared `adore.polling.PollCadence` policy documented in
+[Polling cadence](Component_Polling.md). It retains the conductor lock, typed
+forge/unexpected-error logging, local quiet windows and interrupt cleanup.
+Success resets backoff; a quiet round preserves it. Each wait begins after the
+round completes. Offline regression: `test_loop_polling_cadence_matches_web_errors_and_success`.

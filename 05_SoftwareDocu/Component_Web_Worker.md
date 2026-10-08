@@ -83,12 +83,22 @@ cap or multi-host dispatch in this implementation.
 
 ## Project image work
 
-The fixed image-build action uses its artifact UUID as queue run_id. The worker
-rechecks administrator/project/config/state, holds the existing conductor lock
-and invokes ImageBuildService with a separate controlled native runtime runner.
-Revoked queued artifacts become failed without commands. On startup, in-flight
-image requests reconcile only verified native leases/owned verification resources
-before the normal queue becomes uncertain; builds are never replayed.
-Image output/phases live in bounded profile artifacts, while the existing queue
-records completion/audit. See Component_Project_Images.md and focused
-test_web_image_build.py; the ordinary CLI runner/environment remains separate.
+Queued historical image-build actions are marked failed without runtime execution.
+On startup, interrupted image requests reconcile verified owned resources through
+ImageBuildService before ordinary operations become uncertain. See
+Component_Project_Images.md and test_web_image_build.py.
+
+## Automatic polling cadence
+
+Automatic web polling and CLI `run --loop` use `PollCadence`: after a round
+finishes, wait `poll_interval_seconds * multiplier + uniform(0, poll_jitter_seconds)`.
+With `poll_backoff = true`, failures double the multiplier from 1 to 2/4/8,
+cap at 8, and success resets it to 1. Disabled backoff uses 1. Quiet rounds retain
+the multiplier and defer automatic work using the same wait. Quiet windows use
+server-local time; explicit web commands remain available.
+The web worker keeps independent in-memory cadence/deadlines per immutable
+project identity and treats nonzero, timed-out, malformed or exceptional CLI
+outcomes as failed checks. Invalid configuration gets a 60-second recheck with
+no engine invocation. Restart resets cadence; serial work on another project
+may delay a due round. `polling.mode` governs standalone CLI startup; the web
+service schedules repeated `run --once` rounds independently of that value.

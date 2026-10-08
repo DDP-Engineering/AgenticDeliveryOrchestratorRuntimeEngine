@@ -69,11 +69,11 @@ store_root = ".adore"
 # "once" = a single pass per invocation, scheduled externally by cron (Linux)
 #          or Task Scheduler (Windows).
 mode = "loop"
-# Base wait between poll passes, in seconds.
+# Base wait after completed passes in CLI loop and the web worker, in seconds.
 poll_interval_seconds = 60
-# Random +/- jitter added to each wait, to avoid a fixed cadence.
+# Random 0..maximum seconds added after backoff, to avoid synchronized checks.
 poll_jitter_seconds = 5
-# Lengthen the interval after Git-platform errors / rate limits.
+# Double waits after failed checks (up to 8x); reset after success. Web includes nonzero/uncertain CLI outcomes.
 poll_backoff = true
 # How many tickets may be in flight at once (worktree + container each).
 max_concurrent_runs = 1

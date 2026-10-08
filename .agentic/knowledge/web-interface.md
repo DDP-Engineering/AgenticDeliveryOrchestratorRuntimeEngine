@@ -793,3 +793,18 @@ Project Settings purpose categories are collapsed on entry. Opening a category s
 ExecutorEnvironment.tsx supplies a compact conditional container notice with four-locale external Dockerfile/build/profile instructions. Config GET returns the effective image and Admin-only resolved config path. Settings and guided creation omit environment controls. Mutation guards precede all config writes, staging/application and build artifacts; the dedicated existing AI endpoint is retained. Queued historical builds fail without launching a runtime. Historical read/export/cancel/owned interrupted cleanup and pending discard are retained. Focused proof: test_web_image_build.py, test_web_pending_config.py, images.spec.ts, enrollment.spec.ts. Detailed ownership: project-images.md.
 
 External ownership and preparation/model/credential errors have localized corrective messages in errors.ts; errors.test.mjs checks server-code coverage and diagnostic/generic fallback.
+
+## Automatic polling cadence
+
+Automatic web polling and CLI `run --loop` use `PollCadence`: after a round
+finishes, wait `poll_interval_seconds * multiplier + uniform(0, poll_jitter_seconds)`.
+With `poll_backoff = true`, failures double the multiplier from 1 to 2/4/8,
+cap at 8, and success resets it to 1. Disabled backoff uses 1. Quiet rounds retain
+the multiplier and defer automatic work using the same wait. Quiet windows use
+server-local time; explicit web commands remain available.
+The web worker keeps independent in-memory cadence/deadlines per immutable
+project identity and treats nonzero, timed-out, malformed or exceptional CLI
+outcomes as failed checks. Invalid configuration gets a 60-second recheck with
+no engine invocation. Restart resets cadence; serial work on another project
+may delay a due round. `polling.mode` governs standalone CLI startup; the web
+service schedules repeated `run --once` rounds independently of that value.

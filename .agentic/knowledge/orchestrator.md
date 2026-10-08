@@ -109,3 +109,11 @@ process.
 - `04_Software/adore/orchestrator.py` - lifecycle and gate logic.
 - `04_Software/tests/test_orchestrator.py` - selection, recovery and delivery.
 - `04_Software/tests/test_checkpoint_handoff.py` - checkpoint and handoff edges.
+
+## Automatic loop cadence
+
+`run_loop()` uses the shared `adore.polling.PollCadence` policy documented in
+[Polling cadence](polling.md). It retains the conductor lock, typed
+forge/unexpected-error logging, local quiet windows and interrupt cleanup.
+Success resets backoff; a quiet round preserves it. Each wait begins after the
+round completes. Offline regression: `test_loop_polling_cadence_matches_web_errors_and_success`.
