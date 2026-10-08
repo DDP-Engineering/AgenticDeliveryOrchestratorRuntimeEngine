@@ -77,3 +77,18 @@ private dotenv parser solely for in-memory rejection/redaction. ImageBuildServic
 uses these values without forwarding or exporting them. Missing .env is empty;
 corrupt stored bytes fail closed. Image definition/runtime secret tests and
 existing provider credential tests cover this shared read.
+
+## External environment guidance
+
+`ExecutorEnvironment.tsx` is a read-only four-locale notice in the executor panel,
+rendered only for container profiles. Config GET `executor_environment` has
+`backend`, `image` and `config_path`. Image comes from the validated preparation
+plan when configured; invalid plan selection yields null, with operator-attention
+text. Otherwise it is container.image. Only Admin receives the resolved profile
+path; Dev receives null and contact guidance. A native details disclosure explains
+executor/Dockerfile, executor/README.md, non-root structure, external build/check
+and server config fields. It neither reads repository Dockerfiles nor issues
+mutation requests. Settings/enrollment omit environment controls. Legacy pending
+environment Apply is disabled while Discard remains. API guards preserve the
+existing dedicated AI endpoint exception. Proof: test_web_image_build.py and
+web/e2e/images.spec.ts; operator steps: Project_Executor_Images.md.

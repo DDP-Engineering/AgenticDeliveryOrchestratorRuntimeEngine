@@ -103,7 +103,7 @@ test("hub separates pickup and verification and keeps role-appropriate navigatio
   await expect(page.locator(".project-summary-window .summary-job-window")).toContainText("Working");
   const hub = page.locator(".project-hub");
   await expect(hub.locator("strong")).toHaveText("alpha");
-  await expect(hub.locator("button, a")).toHaveText(["Summary", "Settings", "Prices", "Access", "Jobs", "Statistics", "History"]);
+  await expect(hub.locator("button, a")).toHaveText(["Summary", "Settings", "Executor configuration", "Prices", "Access", "Jobs", "Statistics", "History"]);
   await expect(page.locator(".project-links")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "alpha", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Pause monitoring|Activate monitoring/ })).toBeVisible();
@@ -392,7 +392,7 @@ test("observed timeline retains paging and rejects unsafe action locations", asy
 });
 
 
-test("project hub exposes verification revision and time and rejects corrupt stamps", async ({ page }) => {
+test("project hub shows verification state and rejects corrupt stamps", async ({ page }) => {
   let corrupt = false;
   await page.route("**/api/v1/projects", async route => {
     const response = await route.fetch(); const rows = await response.json();
@@ -403,12 +403,14 @@ test("project hub exposes verification revision and time and rejects corrupt sta
   });
   await signIn(page);
   await page.goto("/projects/alpha");
-  await expect(page.locator(".project-verification-evidence")).toContainText("aaaaaaaaaaaa");
-  await expect(page.locator(".project-verification-evidence")).toContainText("Oct 5, 2026");
+  const verification = page.locator(".summary-fact").filter({ hasText: "Environment verification" });
+  await expect(verification).toContainText("Stale verification");
+  // The compact summary presents status; API evidence stamps are still validated.
+  await expect(page.locator(".project-verification-evidence")).toHaveCount(0);
   corrupt = true;
   await page.getByRole("button", { name: "Refresh", exact: true }).click();
   await expect(page.getByRole("alert").first()).toBeVisible();
-  await expect(page.locator(".project-verification-evidence")).toHaveCount(0);
+  await expect(verification).toHaveCount(0);
   // Drain in-flight rewrites before fixture teardown disposes their API responses.
   await page.unrouteAll({ behavior: "wait" });
 });

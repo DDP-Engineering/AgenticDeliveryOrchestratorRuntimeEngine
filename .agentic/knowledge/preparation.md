@@ -11,7 +11,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 Start at `04_Software/adore/preparation.py` for preparation contracts.
 Focused verification: `04_Software/tests/test_preparation.py`. Conductor ordering/recovery belongs
-to `orchestrator.md`; CLI/GUI selection belongs to `cli.md`/`web-interface.md`.
+to `orchestrator.md`; external CLI selection belongs to `cli.md`/`web-interface.md`.
 
 ## Purpose and boundaries
 

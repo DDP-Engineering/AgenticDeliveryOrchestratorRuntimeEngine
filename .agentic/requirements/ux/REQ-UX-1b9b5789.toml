@@ -6,12 +6,12 @@
 schema = 1
 id = "REQ-UX-1b9b5789"
 title = "Provide compact backend-aware project image flow"
-status = "active"
-requirement = "In the existing project Environment settings, ADORE shall provide a compact Define, Build and verify, Use image flow with existing-image choice, explicit server/tooling/network/limits guidance, durable status/log/cancel/export and read-only developer/local behavior."
+status = "retired"
+requirement = "In the existing project Environment settings, ADORE shall provide a compact Define, Build and verify, Use image flow with existing-image choice, explicit server/tooling/network/limits guidance, durable status/log/cancel/export and read-only developer/local behavior. Retired 2026-10-08: user approved external operator environment preparation."
 verification = "Focused browser/helper tests observe backend/image controls before collapsed advanced settings, aligned responsive source/check fields, explicit downloads and save-before-build guidance, localized failure diagnosis and loaded output, build/review/apply, inline active-image edit/focus through existing reviewed settings and definition preservation across choices; developer/local/paused restrictions, upload errors and safe stale/action handling remain enforced."
 affected_paths = ["04_Software/web/src/ProjectImage.tsx", "04_Software/web/src/imageBuild.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/settings.ts", "04_Software/web/src/styles.css", "04_Software/web/e2e/images.spec.ts", "04_Software/web/tests/imageBuild.test.mjs"]
 linked_tests = ["04_Software/web/tests/imageBuild.test.mjs", "04_Software/web/e2e/images.spec.ts"]
 spec = "specs/REQ-FUNC-a6a81d86.md"
 priority = "high"
 created = 2026-10-07
-updated = 2026-10-07
+updated = 2026-10-08

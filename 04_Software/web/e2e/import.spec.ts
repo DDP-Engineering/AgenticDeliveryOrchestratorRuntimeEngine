@@ -28,7 +28,7 @@ async function upload(page: Page, name: string, bad = false) {
   const response = await page.request.post("/__e2e__/enrollment?mode=failed",
     { headers: { "X-ADORE-E2E": "local-test" } });
   const clone = ((await response.json()).clone as string).replaceAll("\\", "/");
-  let text = readFileSync("../config.example.toml", "utf8");
+  let text = readFileSync("../config.example.toml", "utf8").replace(/\r\n/g, "\n");
   const root = clone + "/" + name;
   for (const [old, value] of [[".adore", root + "/state"], ["../project", clone],
     ["worktrees", root + "/trees"], [".adore/metrics.db", root + "/state/metrics.db"],

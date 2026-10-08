@@ -28,7 +28,8 @@ def raw_project(tmp_path):
     profiles = ProfileStore(tmp_path / "home")
     profiles.create("alpha")
     path = profiles.config_path("alpha")
-    source = (Path(__file__).resolve().parents[1] / "config.example.toml").read_bytes()
+    source = (Path(__file__).resolve().parents[1] / "config.example.toml").read_text(
+        encoding="utf-8").encode("utf-8")
     raw = (source + b'\n[private_fixture]\nvalue = "inline-private-fixture"\n').replace(
         b"\n", b"\r\n"
     )

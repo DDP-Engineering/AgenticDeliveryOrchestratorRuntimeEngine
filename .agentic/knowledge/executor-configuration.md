@@ -43,7 +43,8 @@ REQ-FUNC-4e9e7ecc executor tab/ownership; REQ-SEC-1c210f3f approved project API 
 
 ```mermaid
 flowchart TD
-    Tab[Executor configuration] --> Candidate[Existing reviewed config apply]
+    Tab[Executor configuration] --> Guide[Read-only external environment instructions]
+    Tab --> Candidate[Existing reviewed config apply]
     Tab --> Credentials[Private credential routes]
     Credentials --> Env[Project .env]
     Images[ImageBuildService redaction] --> Reader[credential_values]
@@ -64,3 +65,13 @@ Credential persistence/binding: executor_settings.py, test_executor_settings.py.
 
 
 Source/tests above; detailed component contract `05_SoftwareDocu/Component_Executor_Configuration.md`; operator web/security/configuration references. No SQLite migration.
+
+## External environment guidance
+
+REQ-UX-01d189b8 / REQ-FUNC-6b8494a7: ExecutorEnvironment.tsx reads the validated
+config executor_environment object. Container profiles show effective image and
+one external Dockerfile/build/profile disclosure; local profiles omit it. The
+resolved profile path is Admin-only. No mutation requests occur. Settings/guided
+creation omit container/execution/local/worktree editors. Existing dedicated AI
+endpoint and executor/model/credential operations remain. Focused proof:
+test_web_image_build.py and images.spec.ts.

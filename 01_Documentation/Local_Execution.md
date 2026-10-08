@@ -9,8 +9,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 Select `[execution] backend = "local"` to run the installed executor under ADORE's
 current machine/service account in a dedicated ticket worktree. Omitted backend
-keeps container execution. Assisted setup and web enrollment offer this choice;
-settings show the actual server machine/account. Tools installed on the browser
+keeps container execution. Assisted CLI setup or external server TOML enrollment supplies this choice;
+readiness evidence identifies the actual server machine/account. Tools installed on the browser
 laptop do not prepare the execution server.
 
 ## Account and user-owned tools

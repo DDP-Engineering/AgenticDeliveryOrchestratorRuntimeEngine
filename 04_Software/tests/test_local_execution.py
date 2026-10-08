@@ -971,7 +971,7 @@ def test_local_aegis_preserves_the_existing_json_exchange_bound(tmp_path, monkey
 
 
 def test_local_review_apply_rechecks_native_identity_and_permissions(tmp_path, monkeypatch):
-    """@brief Native apply refuses CSRF/direct-write/drift and applies pinned candidates."""
+    """@brief Local configuration stays external while read-only context remains accurate."""
     import re
 
     from adore.web.app import create_app
@@ -979,46 +979,29 @@ def test_local_review_apply_rechecks_native_identity_and_permissions(tmp_path, m
 
     from tests.test_web_pending_config import _headers, _project
 
-    config, context, _, _, work = local_fixture(tmp_path, monkeypatch)
-    profiles, path, state = _project(tmp_path)
+    _config, context, _backend, _controller, _work = local_fixture(tmp_path, monkeypatch)
+    profiles, path, _state = _project(tmp_path)
     text = path.read_text(encoding="utf-8").replace('backend = "container"', 'backend = "local"')
     text = re.sub(r"required_tool_checks = \[.*?\]", "required_tool_checks = []", text, flags=re.S)
     path.write_text(text, encoding="utf-8")
-    installed = Path(context["path"]) / "opencode.exe"
     with TestClient(create_app(profiles.home)) as client:
         headers = _headers(client)
-        revision = client.get("/api/v1/projects/alpha/config").json()["revision"]
+        current = client.get("/api/v1/projects/alpha/config")
+        assert current.status_code == 200
+        environment = current.json()["executor_environment"]
+        assert environment == {
+            "backend": "local", "image": None, "config_path": str(path.resolve())}
         original = path.read_bytes()
-        body = {"key": "local.account", "value": context["account"], "revision": revision}
+        body = {"key": "local.account", "value": context["account"],
+                "revision": current.json()["revision"]}
         assert client.post("/api/v1/projects/alpha/config/pending", json=body).status_code == 403
-        assert (
-            client.put("/api/v1/projects/alpha/config", json=body, headers=headers).status_code
-            == 409
-        )
-        staged = client.post("/api/v1/projects/alpha/config/pending", json=body, headers=headers)
-        assert staged.status_code == 200, staged.text
-        assert staged.json()["execution_plan"]["backend"] == "local"
-        state.pause()
-        apply = {
-            "base_revision": revision,
-            "candidate_revision": staged.json()["candidate_revision"],
-        }
-        detail = installed.stat()
-        installed.write_bytes(b"replaced executable")
-        assert (
-            client.post(
-                "/api/v1/projects/alpha/config/apply", json=apply, headers=headers
-            ).status_code
-            == 409
-        )
+        for method, route in [("PUT", "/config"), ("POST", "/config/pending")]:
+            response = client.request(method, "/api/v1/projects/alpha" + route,
+                                      json=body, headers=headers)
+            assert response.status_code == 400
+            assert response.json()["detail"]["code"] == "environment_managed_externally"
         assert path.read_bytes() == original
-        installed.write_bytes(b"injected native executable")
-        __import__("os").utime(installed, ns=(detail.st_atime_ns, detail.st_mtime_ns))
-        applied = client.post("/api/v1/projects/alpha/config/apply", json=apply, headers=headers)
-        assert applied.status_code == 200, applied.text
-        assert (
-            __import__("tomllib").loads(path.read_text())["local"]["account"] == context["account"]
-        )
+        assert not (profiles.profile_dir("alpha") / "pending_config.json").exists()
 
 
 # END OF FILE

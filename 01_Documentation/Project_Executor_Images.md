@@ -7,162 +7,92 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Project executor images
 
-In a stopped container project, open **Settings → Isolated environment →
-Project executor image**. The administrator owns the executable Dockerfile.
-The ADORE server builds with its configured runtime and account; the browser
-does not run Docker, download packages or supply host files.
+Executor environments are prepared by the server administrator outside ADORE.
+For a container project, **Project → Executor configuration** displays the effective
+image and expandable **Environment preparation instructions**. The administrator
+also sees the resolved server profile `config.toml` path; authorized developers
+see guidance to contact the administrator. Local projects omit this notice.
 
-Execution backend appears first: `container` uses images; `local` uses installed
-tools under the server account. The image workspace follows immediately. Other
-runtime, location, recipe, cache and network settings remain available under
-**Advanced environment settings** below the workspace.
+## Create the definition in the project repository
 
-1. **Existing image** shows the image currently used. **Change existing image**
-   opens and focuses the image-name/ID editor in this panel. Prepare, review and apply the candidate
-   to use an image already installed on the ADORE server.
-2. **Define image** opens the legal ADORE base template. Edit or paste UTF-8
-   Dockerfile text, or load a text file. Keep the canonical FROM and finish with
-   USER adore. Add RUN commands between USER root and USER adore for explicit
-   system-tool installation. The editor shows 16 lines and resizes vertically.
-3. Review tool checks beside the source, one shell-free command per line.
-   Initial checks come from the profile; the saved definition is the explicit
-   authority for the checks proposed by Use image. The six-line field resizes
-   vertically. Use a version/help command that exits successfully for each tool;
-   the selected executor is checked automatically. Installation commands belong
-   in Dockerfile. Source and checks align in two columns on wide screens and
-   stack on smaller screens. Switching choices preserves unsaved definition text.
-4. Save the definition, then explicitly choose **Build and verify**.
-   Saving does not launch a build. Unsaved edits disable building/selection.
-5. Follow queued, runtime inspection, building and verification phases and the
-   bounded output. **Use image** prepares the existing configuration review.
-   Review the immutable image ID and active/proposed tool checks, then apply.
-   Pickup must stay stopped and work must be idle. Failed, stale, interrupted
-   or uncertain results cannot be selected.
+Use a standard Dockerfile. The recommended layout is:
 
-System tools belong in the image. Per-worktree libraries belong in the reviewed
-project preparation recipe; see [Container preparation](Container_Preparation.md).
-Image verification checks the installed selected executor and declared tool
-commands. Model access and full run readiness require their separate explicit
-checks. Local profiles show the server-account tooling responsibility notice
-and have no build or automatic host-preparation actions. Developers can read
-saved source/evidence but cannot save, build, cancel or apply.
+```text
+executor/
+  Dockerfile
+  README.md
+```
 
-The expandable **Example: C/C++ compiler and Make** shows a RUN line that installs
-`build-essential` and the corresponding `gcc --version` / `make --version`
-checks. Package downloads need **Build downloads → Allow default build network**,
-beside the tool checks. Save this policy before building. **Time and memory
-limits** holds advanced bounds. The example is guidance; displaying it changes
-no source, policy or saved configuration. A visible prerequisite message explains
-disabled editing/save/build controls and tells the administrator to pause pickup.
+Record build commands, required versions, verification and profile selection in
+`executor/README.md`. Start from a compatible base already installed on the ADORE
+server. The canonical base tag must contain Python, sh and the selected executor;
+a base for another executor must be adapted or replaced externally.
 
-To execute without containers, edit **Execution backend** to `local` in the same
-settings group, then review/apply. New-project setup offers `local` in **Working
-environment**. This selects tools installed under the ADORE server account;
-it does not install an executor, SDK or project dependencies.
+```dockerfile
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+FROM adore-executor-base:1.0.0
+USER root
+# RUN ... install the project's system tools
+USER adore
+```
 
-## Context, network and bounds
+Replace the comment with installation commands for your project. Keep credentials
+outside the Dockerfile. Project library preparation remains the optional reviewed
+per-worktree recipe described in [Container preparation](Container_Preparation.md).
 
-Advanced details show policy, runtime/account, managed tag, immutable base/result
-IDs and execution-context checksum. The initial context contains only Dockerfile;
-COPY/ADD, repository snapshots, extra stages, ARG, ONBUILD, syntax-front-end
-downloads and RUN mount/network overrides are unsupported. Syntax checks describe
-the supported input format; they do not sandbox administrator commands.
-No checkout, home directory, .env, provider/forge credentials, sockets, build
-secrets, SSH forwarding or privileged options enter the context/build container.
+## Build and verify on the execution server
 
-The base must already be installed in the selected runtime. The execution
-Dockerfile pins its actual image ID, while the original source remains exportable.
-The server operator supplies the canonical `adore-executor-base:1.0.0` tag, either
-by building the shipped base Dockerfile or assigning that tag to an approved,
-compatible installed ADORE image. The chosen base must supply the selected
-executor and the definition's tools, or the Dockerfile must install those tools.
-Downloads default to no network. Selecting the default build network explicitly
-allows Dockerfile package downloads; it does not change executor/preparation
-egress. No base pull, package inference or builder installation is automatic.
+Use the runtime installed on that server, Docker or Podman. From the repository
+root, for Docker:
 
-Definitions accept 64 KiB UTF-8/1024 lines, up to 32 checks of 512 bytes each,
-30–1800 seconds (default 600), and 512–4096 MiB per build step (default 1024).
-Build flags enforce one CPU, the selected memory/swap limit and intermediate
-container removal. All build/verification commands share the operation deadline;
-individual inspection/check commands are capped at 30 seconds. Exact owned
-cleanup gets a separate bounded 30-second window, with native process drain
-also bounded by the shared controller. Retained output is a redacted 64 KiB tail,
-plus at most 64 KiB each for the active native stdout/stderr.
+```sh
+docker build --file executor/Dockerfile --tag adore-executor-project:1.0 .
+docker run --rm --network none --entrypoint python3 adore-executor-project:1.0 --version
+```
 
-Linux-container Docker uses the explicit legacy builder with memory/CPU capability
-checks. Unsupported/removed legacy builders fail with evidence. Podman requires
-Linux cgroup v2 CPU/memory controllers. Plain docker/podman executables and
-WSL -- docker/podman or WSL -d DISTRIBUTION -- docker/podman are accepted.
-Remote/TLS credentialed Docker contexts and arbitrary runtime wrappers/options
-are unsupported. Runtime clients use isolated authentication/configuration homes;
-Podman retains the service account's rootless data/runtime locations without
-copying authentication. WSL runs through a cleared Linux environment and
-translated owned paths.
+Verify the selected executor and every project tool as the image's non-root user.
+Use controlled versioned tags or immutable image IDs for reproducible deployment.
+Adding `executor/Dockerfile` to the repository does not trigger a build in ADORE.
+The suggested location is an operator convention, not a watched file contract.
 
-Native Windows build clients use owned Jobs. Linux requires a service-account
-delegated cgroup v2 root with cgroup.kill in ADORE_BUILD_CGROUP_ROOT. This is a
-worker environment setting, independent of native local executor profile settings.
-Missing ownership/capability support fails closed.
+## Select the prepared image
 
-## Evidence and recovery
+Pause pickup and ensure there are no active jobs. Update the existing server
+profile at the path displayed to the administrator in Executor configuration:
 
-The action area explains whether the definition needs saving before a build.
-Build result is a separate spaced panel; failed results show corrective runtime,
-build or tool guidance and open the bounded output. Saved operation output loads
-when the page opens. Technical evidence holds identifiers and the typed error.
-Missing runtime executables fail explicitly; the native client resolves the
-installed executable using its controlled PATH and returns only owned, bounded,
-strict UTF-8 redacted output with its actual exit/timeout result.
+```toml
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+[execution]
+backend = "container"
+[container]
+image = "adore-executor-project:1.0"
+required_tool_checks = ["python3 --version"]
+```
 
-Each profile owns image-build/draft.json and UUID operation directories outside
-the checkout. Strict schema-1 records bind source/configuration revisions,
-project/runtime/account, context, base/result IDs and verified checks.
-Managed tags are unique adore-built-PROJECT_ID:OPERATION_ID values; existing
-tags are not overwritten. Export Dockerfile retains the saved original source.
-Advanced Export build evidence downloads only the saved definition, public
-operation evidence and current redacted output.
+These are sections of the existing profile, not a complete replacement profile.
+Add the selected executor/project checks and keep any configured recipe's image
+consistent: its validated plan owns the effective image when preparation is set.
+Run `adore --profile <name> config validate`, then the explicit host/model checks
+as appropriate before resuming pickup. Image/tool availability, preparation,
+model access and full job readiness retain their separate evidence.
 
-At most ten operations and 160 owned native command launch records per operation
-are retained. JSON records are capped at 512 KiB; source/context and output are
-independently bounded. Repeated review requests also consume this finite native
-evidence allowance. New work rejects exhausted retention. Images are retained;
-ADORE never pushes, prunes or deletes them. The operator owns image disk capacity
-and offline archival/reconciliation of terminal profile evidence before another
-build. Do not remove evidence for an active or uncertain operation.
+For native execution, externally select `execution.backend = "local"` and follow
+[Local execution](Local_Execution.md). Guided creation uses the standard container
+profile; specialized profiles use existing server TOML enrollment.
 
-Cancel before start performs no runtime commands. Active cancellation signals
-only the owned native process scope. A stopped client alone cannot prove the
-daemon's build cleanup: active cancel/timeout or failed process/resource control
-is uncertain, retains evidence, and cannot become a usable image. Restart
-reconciles verified native leases and exact verification-container identities,
-marks interrupted requests terminally, and never repeats a build. An identity
-mismatch forbids cleanup; the operator must inspect the original runtime and
-owned resources. No PID-only kill or inventory-wide cleanup is used.
+## Historical evidence and recovery
 
-Selection stages one immutable image ID and the definition's tool checks through
-the existing candidate workflow. Stage and apply recheck current source/config,
-runtime/base/result identities and labels. Recipe image conflicts are rejected by
-the shared preparation plan. Review a consistent profile/recipe selection
-separately; ADORE does not edit target-repository YAML.
-
-## Deferred acceptance checklist
-
-Offline proof uses injected runtime output and an isolated browser API/worker.
-The following remain explicitly deferred from issue #22:
-
-- Full offline Python suite, full frontend helper/browser suites and aggregate
-  AEGIS strict --run, with the final #23 integrated candidate.
-- #23: existing image, GUI-built image with preparation, and native local mode
-  through one complete isolated AEGIS job, bounded recovery and candidate-bound
-  approval/draft publication, preserving the human merge boundary.
-- Windows native Jobs, Linux delegated cgroups, Docker legacy, rootless Podman
-  and supported WSL wrappers: actual CPU/memory/network limits, installed base
-  identity, tool verification, cancellation/timeout/worker crash and daemon
-  reconciliation. Confirm unrelated images/containers remain intact.
-- Platform link/junction ownership rejection and service-account/private-home
-  permissions, registry/proxy credential absence and log redaction.
-- Explicit model access and real forge account/issue/Git/draft-only permissions,
-  using operator-authorized credentials and cost/network limits.
-
-No live runtime, package download, provider request or forge publication is part
-of the offline implementation verification.
+Existing image-build records remain in each profile. Authorized scoped read,
+export, status and cancel routes retain evidence and owned interrupted cleanup.
+Definition saves and build submissions return HTTP 410
+`environment_managed_externally`. Environment setting edits/staging/application
+return HTTP 400 with the same code; existing dedicated AI endpoint edits remain
+available. Retained queued image-build requests fail without launching a runtime.
+Old pending environment candidates remain readable and discardable; they cannot
+be applied. Existing profiles, installed images and database schema are retained.

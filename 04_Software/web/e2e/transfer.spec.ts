@@ -40,11 +40,11 @@ async function target(page: Page, name: string) {
   await page.getByLabel("Local clone path", { exact: false }).fill(clone);
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page.getByLabel(/^Model \*/).fill("openai/fixture-model");
-  await page.getByLabel("Executor image", { exact: false }).fill("fixture-image:local");
+  await expect(page.getByLabel("Executor image", { exact: false })).toHaveCount(0);
   await page.getByLabel("Credential environment references", { exact: false }).fill("TARGET_API_KEY");
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(page.getByRole("alert")).toBeFocused();
-  await expect(page.getByRole("heading", { name: "Working environment", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Agent and model", exact: true })).toBeVisible();
   await page.getByLabel(transferCopy.en.confirm, { exact: true }).check();
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page.getByLabel("Reviewers", { exact: false }).fill("fixture-reviewer");

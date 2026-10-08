@@ -19,11 +19,10 @@ import { ApiError, describeError } from "./errors";
 import { startVisiblePolling } from "./polling";
 import { formatRoute, normalizeRoute, parseRoute, type ProjectTab, type Route } from "./routes";
 import { editValue, hasDefault, settingGroups, settingRows, type SettingMeta, type SettingRow, settingValue, validSettingCatalog, validPendingConfig, type PendingConfig } from "./settings";
-import { ProjectImage } from "./ProjectImage";
-import { imageCopy, imageWorkflowCopy } from "./imageBuild";
+import { ExecutorEnvironment, externalEnvironmentCopy, type ExecutorEnvironmentInfo } from "./ExecutorEnvironment";
+import { imageCopy } from "./imageBuild";
 import { ExecutionPlanReview } from "./ExecutionPlanReview";
-import { validExecutionPlan, type ExecutionPlan } from "./executionPlan";
-import { localCopy } from "./localExecution";
+import { type ExecutionPlan } from "./executionPlan";
 import { settingHelp } from "./settingHelp";
 import { settingsCopy, settingLabel } from "./settingsCopy";
 import { ImportWizard } from "./ImportWizard";
@@ -44,7 +43,7 @@ type AccountUser = User & Account;
 type Session = { user: User; csrf: string };
 type Preferences = { language: Locale | null; theme: "light" | "dark" | "system" | null };
 type Project = { display_name: string; pickup_state: string; verification: { status: string; checked_at?: string | null; revision?: string | null }; validation: { structural_valid: boolean }; id: string; name: string; description: string; platform: string; repo: string; runtime: string; executor: string; readiness: string; last_activity: string | null; paused: boolean; archived: boolean; runs: number; invalid_runs: string[] };
-type Config = { local_execution?: { machine: string; account: string; system: string } | null; execution_plan?: ExecutionPlan | null; model_connection?: ModelEvidence | null; config: Record<string, unknown>; revision: string; issues: string[]; local_endpoint_timeout_seconds?: number | null; local_endpoint?: { protocol: string; auth_env: string | null } | null; settings?: SettingMeta[] };
+type Config = { executor_environment?: ExecutorEnvironmentInfo; local_execution?: { machine: string; account: string; system: string } | null; execution_plan?: ExecutionPlan | null; model_connection?: ModelEvidence | null; config: Record<string, unknown>; revision: string; issues: string[]; local_endpoint_timeout_seconds?: number | null; local_endpoint?: { protocol: string; auth_env: string | null } | null; settings?: SettingMeta[] };
 type Operation = { id: number; status: string; result?: string; action?: string };
 type Price = { id: number; executor: string; model: string; effective_from: string; input_usd_per_million: string; output_usd_per_million: string };
 type Page = "overview" | "projects" | "createProject" | "importProject" | "projectDetails" | "jobs" | "metrics" | "administration" | "adminUsers" | "adminAudit" | "settings";
@@ -1057,6 +1056,7 @@ export default function App() {
                   <ModelConnection heading={executorCopy[locale].tab} key={`${session.user.id}:${selected}:${projectConfig.revision}:${projectConfig.model_connection?.checked_at || "untested"}`} project={selectedProject.id} revision={projectConfig.revision} executor={selectedProject.executor} model={String(settingValue(projectConfig.config,`executor.commands.${selectedProject.executor}.model`))} locale={locale} saved={projectConfig.model_connection} readOnly={!isAdmin || selectedProject.archived} onResult={value=>setConfig(current=>current?{...current,model_connection:value}:current)} test={()=>request(`/projects/${encodeURIComponent(selected)}/model-connection-test`,"POST",{},session.csrf)} />
                   <p className="muted">{executorCopy[locale].modelHelp}</p>
                 </>}>
+                <ExecutorEnvironment environment={projectConfig.executor_environment} executor={selectedProject.executor} locale={locale} />
                 {isAdmin && !selectedProject.archived && <ExecutorCredentials embedded key={`${session.user.id}:${selected}:${projectConfig.revision}`} project={selectedProject.id} revision={projectConfig.revision} executor={selectedProject.executor} locale={locale} disabled={!!projectPendingConfig || configBusy || pendingReadFailed || !pendingReady || !selectedProject.paused} read={() => request(`/projects/${encodeURIComponent(selected)}/executor-credentials`)} write={(method,body)=>request(`/projects/${encodeURIComponent(selected)}/executor-credentials`,method,body,session.csrf)} onChanged={()=>setConfig(current=>current?{...current,model_connection:null}:current)} />}
               </SettingsList>
               {isAdmin && projectPendingConfig && <section className="panel"><PendingReview config={projectConfig} candidate={projectPendingConfig} project={selectedProject.display_name || selected} paused={selectedProject.paused} busy={configBusy} locale={locale} t={t} onApply={applyPendingConfig} onDiscard={discardPendingConfig}/></section>}
@@ -1067,11 +1067,9 @@ export default function App() {
           {projectTab === "history" && <JobWorkspace reporting={{ from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }} reportingQuery={metricSuffix} admin={isAdmin} {...workspaceProps} mode="history" scope={selected} fixedScope />}
           {projectTab === "configuration" && <>
           {configDataState !== "ready" && <DataFeedback state={configDataState} t={t} />}
-          {projectConfig && <SettingsList key={`${selected}-${projectConfig.revision}`} config={projectConfig.config} settings={projectConfig.settings || []} t={t} locale={locale} canEdit={isAdmin} disabled={!!projectPendingConfig || configBusy || pendingReadFailed || isAdmin && !pendingReady} onStage={stageSetting} environment={selectedProject ? (editImage, editor) => <ProjectImage key={`${selectedProject.id}:${projectConfig.revision}`} project={selectedProject.id} revision={projectConfig.revision} local={!!projectConfig.local_execution} locale={locale} admin={isAdmin} currentImage={String(settingValue(projectConfig.config,"container.image") || "")} onExisting={editImage} existingEditor={editor} disabled={!!projectPendingConfig || configBusy || pendingReadFailed || isAdmin && !pendingReady || !selectedProject.paused || selectedProject.archived} call={(path,method,body)=>request(path,method,body,session.csrf)} onStage={(image,id)=>stageSetting("container.image",image,id)} /> : undefined} actions={isAdmin && <RawConfiguration key={`${session.user.id}:${selected}:${projectConfig.revision}`} project={selected} locale={locale} />}>
+          {projectConfig && <SettingsList key={`${selected}-${projectConfig.revision}`} config={projectConfig.config} settings={projectConfig.settings || []} t={t} locale={locale} canEdit={isAdmin} disabled={!!projectPendingConfig || configBusy || pendingReadFailed || isAdmin && !pendingReady} onStage={stageSetting} actions={isAdmin && <RawConfiguration key={`${session.user.id}:${selected}:${projectConfig.revision}`} project={selected} locale={locale} />}>
             {isAdmin && <>
             {projectConfig.issues.length > 0 && <div className="alert">{projectConfig.issues.join(" · ")}</div>}
-            {projectConfig.local_execution && <section role="note"><h3>{localCopy[locale].title}</h3><p>{localCopy[locale].machine}: <strong>{projectConfig.local_execution.machine}</strong> · {localCopy[locale].account}: <strong>{projectConfig.local_execution.account}</strong></p><p>{localCopy[locale].notice}</p></section>}
-            {projectConfig.execution_plan && validExecutionPlan(projectConfig.execution_plan) && <ExecutionPlanReview plan={projectConfig.execution_plan} locale={locale} />}
             {projectPendingConfig && <PendingReview config={projectConfig} candidate={projectPendingConfig} project={selectedProject?.display_name || selected} paused={selectedProject?.paused === true} busy={configBusy} locale={locale} t={t} onApply={applyPendingConfig} onDiscard={discardPendingConfig} />}
             {pendingReadFailed && <div className="alert"><p>{settingsCopy[locale].readFailed}</p><p>{settingsCopy[locale].discard}</p><button className="ghost" disabled={configBusy} onClick={() => void discardPendingConfig()}>{t("discardChange")}</button></div>}
             </>}
@@ -1313,7 +1311,8 @@ function PendingReview({ config, candidate, project, paused, busy, locale, t, on
   }
   if (candidate.image_build) rows.push({label:imageCopy[locale].reviewed,active:settingValue(config.config,"container.required_tool_checks"),proposed:candidate.image_build.verified_checks});
   const stale = candidate.base_revision !== config.revision;
-  const blocked = stale || candidate.restart_required && !paused;
+  const external = !candidate.endpoint && ["container.", "execution.", "local.", "worktree."].some(prefix => candidate.key.startsWith(prefix));
+  const blocked = external || stale || candidate.restart_required && !paused;
   const reviewText = [copy.project + ": " + project, ...rows.map(row => `${row.label}: ${copy.active}: ${show(row.active)} → ${copy.proposed}: ${show(row.proposed)}`), copy.base + ": " + candidate.base_revision, copy.candidate + ": " + candidate.candidate_revision].join("\n");
   return <div className="import-preview candidate-review"><h3 ref={heading} tabIndex={-1}>{t("pendingChange")}</h3>
     <p><strong>{copy.project}:</strong> {project}</p><p>{copy.single}</p>
@@ -1324,31 +1323,15 @@ function PendingReview({ config, candidate, project, paused, busy, locale, t, on
     <p>{copy.prepared}: <time dateTime={candidate.created_at}>{new Date(candidate.created_at).toLocaleString(locale)}</time></p><p>{copy.actor}</p>
     <p>{copy.idle}</p>{candidate.restart_required && <p className={!paused ? "alert" : "muted"}>{copy.pause}</p>}{stale && <p className="alert">{copy.stale}</p>}
     <details><summary>{copy.details}</summary><p><code>{candidate.key}</code></p><p>{copy.base}: <code>{candidate.base_revision}</code></p><p>{copy.candidate}: <code>{candidate.candidate_revision}</code></p></details>
+    {external && <p role="note">{externalEnvironmentCopy[locale].notice}</p>}
     <p>{copy.discard}</p><div className="button-row"><button className="primary" disabled={busy || blocked} onClick={() => void onApply()}>{t("apply")}</button><button className="ghost" disabled={busy} onClick={() => void onDiscard()}>{t("discardChange")}</button><button className="ghost" onClick={() => void navigator.clipboard.writeText(reviewText).then(() => setCopied(true)).catch(() => setCopied(false))}>{copy.copy}</button>{copied && <span role="status">{copy.copied}</span>}</div>
   </div>;
 }
 
-function SettingsList({ executorOnly=false, config, settings, t, locale, canEdit, disabled, onStage, actions, children, header, environment }: { environment?: (editImage:()=>void, editor:ReactNode)=>ReactNode; header?: ReactNode; actions?: ReactNode; children?: ReactNode; executorOnly?:boolean; config: Record<string, unknown>; settings: SettingMeta[]; t: (key: MessageKey) => string; locale: Locale; canEdit: boolean; disabled: boolean; onStage: (key: string, value: string) => Promise<boolean> }) {
+function SettingsList({ executorOnly=false, config, settings, t, locale, canEdit, disabled, onStage, actions, children, header }: { header?: ReactNode; actions?: ReactNode; children?: ReactNode; executorOnly?:boolean; config: Record<string, unknown>; settings: SettingMeta[]; t: (key: MessageKey) => string; locale: Locale; canEdit: boolean; disabled: boolean; onStage: (key: string, value: string) => Promise<boolean> }) {
   const [editing, setEditing] = useState("");
   const [draft, setDraft] = useState("");
-  const imageEditor = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    if (editing === "container.image") {
-      imageEditor.current?.focus();
-      imageEditor.current?.scrollIntoView({block:"center"});
-    }
-  }, [editing]);
-  const editImage = () => {
-    const row = settingRows(config, settings).find(item=>item.key === "container.image");
-    if (!canEdit || disabled || !row || row.input === "none") return;
-    if (editing !== row.key) {
-      setDraft(editValue(row.value));
-      setEditing(row.key);
-    }
-    imageEditor.current?.focus();
-    imageEditor.current?.scrollIntoView({block:"center"});
-  };
-  const groups = settingGroups(settingRows(config, settings).filter(row=>isExecutorSetting(row.key)===executorOnly && !(settingValue(config, "execution.backend") === "local" && (row.key.startsWith("container.") || row.key.startsWith("execution.preparation")))), false);
+  const groups = settingGroups(settingRows(config, settings).filter(row=>!row.key.startsWith("container.") && !row.key.startsWith("worktree.") && !row.key.startsWith("execution.") && !row.key.startsWith("local.") && isExecutorSetting(row.key)===executorOnly), false);
   const copy = settingsCopy[locale];
   const shown = (value: unknown) => value == null || value === "" ? "—" :
     Array.isArray(value) || typeof value === "object" ? JSON.stringify(value) : String(value);
@@ -1360,7 +1343,7 @@ function SettingsList({ executorOnly=false, config, settings, t, locale, canEdit
   const editor = (row:SettingRow) => <form className="setting-editor" onSubmit={event => void submit(event, row)}>
           {row.input === "boolean" || row.input === "choice"
             ? <select aria-label={label(row)} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)}>{row.input === "choice" && !row.choices.includes(draft) && <option value={draft} disabled>{draft}</option>}{(row.input === "boolean" ? ["true", "false"] : row.choices).map(option => <option key={option} value={option}>{option}</option>)}</select>
-            : <input ref={row.key === "container.image" ? imageEditor : undefined} aria-label={label(row)} type={row.input === "number" ? "number" : "text"} step={row.step} min={row.minimum ?? undefined} max={row.maximum ?? undefined} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)} required={row.input === "number"} />}
+            : <input aria-label={label(row)} type={row.input === "number" ? "number" : "text"} step={row.step} min={row.minimum ?? undefined} max={row.maximum ?? undefined} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)} required={row.input === "number"} />}
           <div className="button-row"><button className="primary" disabled={disabled || row.input === "choice" && !row.choices.includes(draft)}>{copy.prepare}</button><button type="button" className="ghost" onClick={() => setEditing("")}>{t("cancel")}</button></div>
         </form>;
   const renderRow = (row:SettingRow) => <div className="setting-row" key={row.key}>
@@ -1379,16 +1362,9 @@ function SettingsList({ executorOnly=false, config, settings, t, locale, canEdit
     {header ?? <div className="panel-heading"><h2>{executorOnly ? executorCopy[locale].tab : t("projectSettings")}</h2>{actions}</div>}
     {!canEdit && <p className="muted">{copy.readOnly}</p>}
     {groups.length === 0 ? <Empty label={t("settingsNoneSet")} /> : <div className="setting-groups">{groups.map(group => {
-      const isolated = group.name === "isolation" && !!environment;
-      const imageRow = group.rows.find(row=>row.key === "container.image");
-      const advancedRows = group.rows.filter(row=>row.key !== "execution.backend" && row.key !== "container.image");
       return <details key={group.name} open={executorOnly}>
       <summary>{copy[group.name as keyof typeof copy]} <span className="muted">({group.rows.length})</span></summary>
-      {isolated ? <div className="environment-workspace">
-        <div className="setting-list">{group.rows.filter(row=>row.key === "execution.backend").map(renderRow)}</div>
-        {environment?.(editImage, imageRow && editing === imageRow.key ? editor(imageRow) : null)}
-        <details className="environment-advanced"><summary>{imageWorkflowCopy[locale].advanced} <span className="muted">({advancedRows.length})</span></summary><div className="setting-list">{advancedRows.map(renderRow)}</div></details>
-      </div> : <div className="setting-list">{group.rows.map(renderRow)}</div>}
+      <div className="setting-list">{group.rows.map(renderRow)}</div>
     </details>})}</div>}
     {children}
   </section>;

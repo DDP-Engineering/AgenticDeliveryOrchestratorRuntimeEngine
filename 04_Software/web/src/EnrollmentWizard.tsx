@@ -10,6 +10,7 @@ import { ApiError, describeError } from "./errors";
 import { enrollmentCopy } from "./enrollmentCopy";
 import { transferCopy, validTransferSettings, type TransferSource } from "./transferCopy";
 import { portableFields } from "./portable";
+import { externalEnvironmentCopy } from "./ExecutorEnvironment";
 import { localCopy } from "./localExecution";
 
 type Draft = {
@@ -35,11 +36,11 @@ class SetupError extends ApiError {
 const initial: Draft = { name: "", display_name: "", description: "", kind: "gitlab", repo: "", repo_path: "",
   execution_backend: "container", local_account: "current", local_home: "", local_path: "", local_cgroup_root: "",
   executor_command: "",
-  target_branch: "main", login: "", executor_cli: "opencode", model: "", runtime: "docker", image: "",
+  target_branch: "main", login: "", executor_cli: "opencode", model: "", runtime: "docker", image: "adore-executor-base:1.0.0",
   auth_mode: "api-key", env_keys: "", reviewers: "", ready_label: "agent-ready", approval_label: "agent-approved",
   max_iterations: "12", max_wall_clock_seconds: "5400", max_cost_usd: "5", max_files_touched: "120" };
 const fields: FieldName[][] = [[], ["display_name", "name", "description", "kind", "repo", "login", "repo_path", "target_branch"],
-  ["execution_backend", "executor_cli", "executor_command", "model", "runtime", "image", "local_account", "local_home", "local_path", "local_cgroup_root", "auth_mode", "env_keys"],
+  ["executor_cli", "model", "auth_mode", "env_keys"],
   ["ready_label", "approval_label", "reviewers", "max_iterations", "max_wall_clock_seconds", "max_cost_usd", "max_files_touched"]];
 const numeric = ["max_iterations", "max_wall_clock_seconds", "max_cost_usd", "max_files_touched"] as const;
 const digest = (value: unknown): value is string => typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
@@ -339,9 +340,10 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
       <fieldset disabled={busy === "create"} className="enrollment-fields">
         {step === 0 && <><p>{c.intro}</p><div className="enrollment-method"><strong>{c.method}</strong><p>{c.clone}</p></div></>}
         {step > 0 && step < 4 && <>
-          {(step === 1 ? ["identity", "forge", "clone", "login"] : step === 2 ? ["environment", "credentials"] :
+          {(step === 1 ? ["identity", "forge", "clone", "login"] : step === 2 ? ["credentials"] :
             ["rules", "limits"]).map(key => <p id={"enrollment-help-" + key} key={key}>{step === 2 && draft.execution_backend === "local" ? (key === "environment" ? localCopy[locale].notice : c.noSecrets) : c[key as
               "identity" | "forge" | "clone" | "login" | "environment" | "credentials" | "rules" | "limits"]}</p>)}
+          {step === 2 && <p role="note">{externalEnvironmentCopy[locale].enrollment}</p>}
           <div className="enrollment-grid">{fields[step].map(control)}</div>
 
           {transfer && step === 2 && <><p id="transfer-reference-help">{tc.references}</p><label><input id="transfer-references" aria-describedby="transfer-reference-help" type="checkbox" checked={referencesConfirmed}
@@ -375,7 +377,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
             <h3>{c.steps[index + 1]}</h3><button type="button" className="text-button" onClick={() => move(index + 1)}>{c.change} — {c.steps[index + 1]}</button>
             <dl>{group.filter(key => reviewed.draft.execution_backend === "local" ? !["runtime", "image"].includes(key) : !key.startsWith("local_") && key !== "executor_command").map(key => <div key={key}><dt>{labels[key]}</dt><dd>{Array.isArray(reviewed.preview.review?.[key]) ?
               (reviewed.preview.review?.[key] as string[]).join(", ") : String(reviewed.preview.review?.[key] ?? "—")}</dd></div>)}
-              {(index === 0 ? [["branch_template", c.branches]] : index === 1 ? [["egress_mode", c.egress]] :
+              {(index === 0 ? [["branch_template", c.branches]] : index === 1 ? [] :
                 [["hold_label", c.hold], ["exclude_label", c.exclude]]).map(([key, label]) =>
                   <div key={key}><dt>{label}</dt><dd>{String(reviewed.preview.review?.[key] ?? "—")}</dd></div>)}
             </dl>

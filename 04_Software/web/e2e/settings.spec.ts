@@ -34,7 +34,7 @@ test.afterEach(async ({ page }) => {
 test("purpose guidance, correction, exact safe review/copy and candidate-only discard", async ({ page, context }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await openSettings(page);
-  for (const category of ["Repository and tickets", "Agent and model", "Isolated environment", "Rules and approvals", "Limits and recovery", "Measurement and notifications", "Advanced"]) await expect(page.locator("#project-settings > .setting-groups > details > summary").filter({ hasText: category })).toBeVisible();
+  for (const category of ["Repository and tickets", "Rules and approvals", "Limits and recovery", "Measurement and notifications", "Advanced"]) await expect(page.locator("#project-settings > .setting-groups > details > summary").filter({ hasText: category })).toBeVisible();
   const before = await (await page.request.get("/api/v1/projects/alpha/config")).json();
   await page.getByRole("button", { name: "Edit Repository owner and name", exact: true }).click();
   const editor = page.locator(".setting-editor");
@@ -118,16 +118,17 @@ test("late prepare cannot populate another project and repeated clicks prepare o
 
 test("endpoint review compares complete supported connection without credential values", async ({ page }, info) => {
   await openSettings(page);
+  await page.getByRole("tab", { name: "Executor configuration", exact: true }).click();
   const before = await (await page.request.get("/api/v1/projects/alpha/config")).json();
   const form = page.locator(".config-form");
-  await form.locator('[name="model"]').fill("local/settings-review");
+  const model = await form.locator('[name="model"]').inputValue();
   await form.locator('[name="endpoint"]').fill("https://model.local/v1");
   await form.locator('[name="auth_env"]').selectOption("OPENAI_API_KEY");
   await form.locator('[name="timeout_seconds"]').fill("45");
   await form.locator('[name="ca_file"]').fill("/etc/ssl/model-ca.pem");
   await form.getByRole("button", { name: "Prepare candidate" }).click();
   const review = page.locator(".candidate-review");
-  for (const value of ["https://model.local/v1", "local/settings-review", "openai-chat-completions", "OPENAI_API_KEY", "45", "/etc/ssl/model-ca.pem", "Not recorded"]) await expect(review).toContainText(value);
+  for (const value of ["https://model.local/v1", model, "openai-chat-completions", "OPENAI_API_KEY", "45", "/etc/ssl/model-ca.pem", "Not recorded"]) await expect(review).toContainText(value);
   expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).revision).toBe(before.revision);
   await page.setViewportSize({ width: 390, height: 844 });
   await review.screenshot({ path: info.outputPath("settings-endpoint-review-390.png") });
@@ -170,6 +171,7 @@ test("purpose guidance and single-setting flow preserve four locales", async ({ 
     await saved;
     await page.goto(`/projects/${id}/configuration`);
     await expect(page.locator("#project-settings > .setting-groups > details > summary").first()).toContainText(expected[locale]);
+    await page.locator("#project-settings > .setting-groups > details > summary").first().click();
     await expect(page.locator(".setting-essential").first()).toBeVisible();
   }
 });
@@ -212,8 +214,9 @@ test("stale base and malformed restored candidate cannot enable Apply", async ({
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ candidate_revision: "broken" }) });
   });
   await page.locator(".topbar").getByRole("button", { name: "Refresh", exact: true }).click();
-  await expect(page.locator("#project-config-editor")).toContainText("could not be verified");
+  await expect(page.locator("#project-settings")).toContainText("could not be verified");
   await expect(page.getByRole("button", { name: "Apply change", exact: true })).toHaveCount(0);
+  await page.locator("#project-settings > .setting-groups > details > summary").filter({hasText:/Limits and recovery/i}).click();
   await expect(page.getByRole("button", { name: "Edit Maximum iterations per job", exact: true })).toBeDisabled();
   await page.getByRole("button", { name: "Discard change", exact: true }).click();
   await expect(page.getByRole("button", { name: "Edit Maximum iterations per job", exact: true })).toBeEnabled();
@@ -227,10 +230,10 @@ for (const user of ["admin", "developer"]) {
   const projects = await (await page.request.get("/api/v1/projects")).json();
   const identity = projects.find((item: {name:string}) => item.name === "alpha").id;
   const configuration = await (await page.request.get(`/api/v1/projects/${identity}/config`)).json();
-  await expect(panel.locator(".setting-row")).toHaveCount(configuration.settings.filter((s:{key:string})=>!s.key.startsWith("executor.") && !["container.runtime_env.OPENAI_BASE_URL","container.runtime_env.NODE_EXTRA_CA_CERTS"].includes(s.key)).length);
+  await expect(panel.locator(".setting-row")).toHaveCount(configuration.settings.filter((s:{key:string})=>!["executor.","container.","execution.","local.","worktree."].some(prefix=>s.key.startsWith(prefix))).length);
   await expect(panel.locator(".setting-actions details")).toHaveCount(0);
   await expect(panel.getByRole("checkbox")).toHaveCount(0);
-  await expect(panel.locator(".setting-essential")).toHaveCount(configuration.settings.filter((s:{key:string})=>!s.key.startsWith("executor.") && !["container.runtime_env.OPENAI_BASE_URL","container.runtime_env.NODE_EXTRA_CA_CERTS"].includes(s.key)).length);
+  await expect(panel.locator(".setting-essential")).toHaveCount(configuration.settings.filter((s:{key:string})=>!["executor.","container.","execution.","local.","worktree."].some(prefix=>s.key.startsWith(prefix))).length);
   await expect(panel.locator(".setting-badge").filter({hasText:"Default"}).first()).toBeVisible();
   await expect(panel.getByRole("heading", {name:"Audit retention",exact:true})).toHaveCount(0);
   if (user === "developer") await expect(panel.getByRole("button")).toHaveCount(0);
@@ -262,21 +265,8 @@ for (const user of ["admin", "developer"]) {
 }
 
 
-test("review exact preparation commands before applying a recipe selection", async ({ page }) => {
+test("environment recipe selection is external", async ({page}) => {
   await openSettings(page);
-  const selection = "prepare.yml#setup@" + "a".repeat(40);
-  await page.getByRole("button", { name: "Edit Reviewed preparation recipe", exact: true }).click();
-  const editor = page.locator(".setting-editor");
-  await editor.getByRole("textbox").fill(selection);
-  await editor.getByRole("button", { name: "Prepare candidate" }).click();
-  const review = page.locator(".candidate-review");
-  await expect(review).toContainText("adore-executor-project:latest");
-  await expect(review).toContainText(selection);
-  await review.getByText("Preparation commands (1)", { exact: true }).click();
-  await expect(review.locator("pre")).toHaveText("uv sync --locked");
-  await review.getByRole("button", { name: "Apply change", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Pending configuration", exact: true })).toHaveCount(0);
-  await expect(page.locator(".execution-plan")).toContainText(selection);
-  const config = await (await page.request.get("/api/v1/projects/alpha/config")).json();
-  expect(config.execution_plan.image_source).toBe("recipe");
+  await expect(page.getByRole("button",{name:"Edit Reviewed preparation recipe",exact:true})).toHaveCount(0);
+  await expect(page.locator(".project-image")).toHaveCount(0);
 });

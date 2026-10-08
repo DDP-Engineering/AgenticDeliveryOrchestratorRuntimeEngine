@@ -332,7 +332,7 @@ key without collecting its value in the browser. The form exposes the supported
 chat-completions protocol, bounded request timeout, and HTTPS custom-CA file
 path inside the executor image. Its pending-change panel shows the resulting
 endpoint fields before Apply.
-Settings presents seven purpose categories with frequent rows first in each,
+Settings presents five purpose categories with frequent rows first in each,
 source badges, visible localized purpose/units/consequence help, Active value and
 ADORE default. Server catalog type/choices/numeric bounds continue to constrain editors; permanent descriptions provide guidance. Browser controls use server metadata; malformed catalog/candidate
 transport fails closed. English labels clarify catalog keys; other locales retain
@@ -677,7 +677,7 @@ Only a valid completed challenge response reports connected. Failures provide re
 
 ## Project setting scope and guidance
 
-Project Settings displays the selected project's operational settings, including inherited defaults. Executor/model/authentication settings and the applicable OpenCode endpoint form belong to Executor configuration. Descriptions remain permanently below each label and provide the editor's accessible description. There is no per-row Help disclosure or override-only filter. The default/source marker describes value origin, not ADORE-wide scope. Polling intervals, per-project concurrency, executor, isolation and recovery settings remain per-project across their dedicated tabs. Global capacity and audit retention belong to Administration. No project setting is promoted into a global policy by this presentation.
+Project Settings displays the selected project's operational settings, including inherited defaults. Executor/model/authentication settings and the applicable OpenCode endpoint form belong to Executor configuration. Descriptions remain permanently below each label and provide the editor's accessible description. There is no per-row Help disclosure or override-only filter. The default/source marker describes value origin, not ADORE-wide scope. Polling intervals, per-project concurrency, executor and recovery settings remain per-project across their dedicated tabs; environment setup is externally managed. Global capacity and audit retention belong to Administration. No project setting is promoted into a global policy by this presentation.
 
 Proof: web/e2e/settings.spec.ts project settings keep defaults and single guidance (administrator/developer), plus existing candidate edit/discard journey.
 
@@ -695,36 +695,16 @@ Project Settings purpose categories are collapsed on entry. Opening a category s
 
 ## Preparation review and outcomes
 
-`executionPlan.ts` validates closed public plan/outcome envelopes. `ExecutionPlanReview.tsx` renders image authority, source/job/revision, hashes and all commands inside Settings/Pending Apply, with four-locale guidance. `PreparationResults` renders persisted attempts and step outcomes in job details and explicit CLI replay guidance on failure. Incomplete/forged evidence cannot display preparation success or enable an unbound recipe Apply. Focused tests: `web/tests/executionPlan.test.mjs` and the preparation journey in `web/e2e/settings.spec.ts`.
+`executionPlan.ts` validates closed public plan/outcome envelopes. `ExecutionPlanReview.tsx` renders image authority, source/job/revision, hashes and all commands in retained candidate reviews, with four-locale guidance. `PreparationResults` renders persisted attempts and step outcomes in job details and explicit CLI replay guidance on failure. Incomplete/forged evidence cannot display preparation success or enable an unbound recipe Apply. Focused tests: `web/tests/executionPlan.test.mjs` and external ownership journeys in `web/e2e/settings.spec.ts`.
 
 ## Native execution contract
 
-Enrollment/settings present backend, native argv/account paths and four-locale machine/account/tooling notices. Local settings hide container/recipe controls; readiness hides container rows and plans require image-free local evidence. Revision/idle/pause/role safeguards remain.
-
-See [Local execution](../01_Documentation/Local_Execution.md) and
-[Local execution component](Component_Local_Execution.md). Focused proof:
-`04_Software/tests/test_local_execution.py`.
+Native execution is selected externally in the server profile or through server TOML enrollment. Existing native executor/model and explicit host checks use that prepared environment. The container notice is omitted for local projects. See [Local execution](../01_Documentation/Local_Execution.md) for machine/account, authentication and process ownership.
 
 ## Project image workspace
 
-SettingsList's isolation slot embeds ProjectImage.tsx within the existing
-Isolated environment category. Its render callback supplies the existing-image
-edit action and inline editor; SettingsList owns focus and preserves a draft.
-Backend and image controls precede collapsed advanced environment settings.
-Existing image shows the active value and opens normal setting review here;
-Define image exposes a bounded text/upload editor, nearby tool checks, explicit
-save/build and truthful phase/cancel/output. Downloads is beside checks; bounds
-use a disclosure. Wide fields align and narrow fields stack; three spaced steps
-and saving guidance identify the next action. The separate result panel loads
-saved output automatically and shows localized corrective failures. Advanced owns technical
-identity and saved source/evidence export. Use image invokes the existing
-stageSetting/PendingReview with a verified binding; review includes proposed
-checks, immutable image/base/context evidence and normal apply/discard.
-imageBuild.ts rejects malformed/foreign/stale action evidence; responses are
-scoped to the mounted project/config revision. Native local mode shows tooling
-ownership and no build controls; developers read saved evidence. Four locales,
-mobile wrapping and helper/browser proof live in imageBuild.test.mjs and
-images.spec.ts. Numbered localized instructions and an expandable compiler
-example explain RUN/tool-check/download steps; selected styling and larger
-resizable source/check fields make both choices visible. Choice switches preserve
-unsaved source. See Component_Project_Images.md.
+Executor configuration shows a compact container notice with the effective image and one expandable instruction disclosure. It identifies standard `executor/Dockerfile`, optional `executor/README.md`, a non-root example, external Docker/Podman build and verification, and the existing profile fields. Only administrators see the actual resolved server `config.toml` path. No controls define, build or select an environment. Guided creation configures agent/model with the standard container defaults; specialized container/local profiles use server TOML enrollment. Historical records remain readable/exportable/cancellable; old pending candidates can be discarded, and queued image-build requests fail without runtime execution. See [Project executor images](../01_Documentation/Project_Executor_Images.md).
+
+`ExecutorEnvironment.tsx` renders read-only four-locale content from the config response. `App.tsx` filters container/execution/local/worktree settings from both settings lists. Legacy environment candidates show disabled Apply and retain Discard. `images.spec.ts` proves the disclosure, Admin/Dev scoping, local suppression and mobile wrapping; `test_web_image_build.py` proves typed API/worker refusals.
+
+External environment refusals and preparation/model/credential failures have four-locale corrective messages in errors.ts; errors.test.mjs verifies complete server-code coverage and preserved diagnostic/generic fallback.

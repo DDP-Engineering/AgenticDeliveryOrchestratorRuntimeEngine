@@ -5,6 +5,9 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
+> Historical design: associated GUI image capabilities retired on 2026-10-08.
+> Current external ownership contract: REQ-UX-01d189b8 and REQ-FUNC-6b8494a7.
+
 # Project executor image definition and build
 
 ## Define and data authority

@@ -589,3 +589,13 @@ td.strong { font-weight: 800; }
 .image-definition textarea[rows="6"] { min-height: 9rem; }
 @media (max-width: 1100px) { .image-fields { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 640px) { .image-limits fieldset { grid-template-columns: minmax(0, 1fr); gap: 12px; } .image-existing, .image-evidence { padding: 16px; } }
+
+/* External executor preparation guidance, shared with the existing panel theme. */
+.executor-environment { margin: 1.5rem 0; padding: 1.25rem; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-alt); min-width: 0; }
+.executor-environment h3 { margin: 0 0 .75rem; }
+.executor-environment p { line-height: 1.55; overflow-wrap: anywhere; }
+.executor-environment details { margin-top: 1rem; }
+.executor-environment summary { cursor: pointer; font-weight: 600; }
+.executor-environment h4 { margin: 1.5rem 0 .5rem; }
+.executor-environment pre { padding: 1rem; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); white-space: pre-wrap; overflow-wrap: anywhere; font-size: .85rem; line-height: 1.5; }
+.executor-environment code { overflow-wrap: anywhere; }

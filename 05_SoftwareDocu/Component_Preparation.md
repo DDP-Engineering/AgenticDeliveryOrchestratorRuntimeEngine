@@ -43,7 +43,7 @@ intact immutable receipts; ordinary retry cannot replay partial setup.
 ## 7. Workflow Integration
 
 Plan resolution precedes worktree creation and setup. Provision/tool checks/auth
-staging precede setup; setup precedes every AEGIS/AI gate. CLI/GUI use the same
+staging precede setup; setup precedes every AEGIS/AI gate. CLI plan preview and runtime checks use the same
 plan resolver. Host and explicit model checks normalize the image without running
 project preparation. Owned cancel/delete boundaries preserve shared caches/images.
 

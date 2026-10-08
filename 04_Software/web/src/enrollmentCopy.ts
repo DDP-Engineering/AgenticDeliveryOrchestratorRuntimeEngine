@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 import type { Locale } from "./i18n";
 
 const en = {
-  steps: ["Enrollment method", "Repository and identity", "Working environment", "Eligibility, reviewers and limits", "Verification", "Review and create"],
+  steps: ["Enrollment method", "Repository and identity", "Agent and model", "Eligibility, reviewers and limits", "Verification", "Review and create"],
   stepsLabel: "Enrollment steps", method: "Existing repository clone",
   intro: "Enroll a repository so ADORE can select eligible issues, ask an executor to work through the repository's AEGIS stages, validate the result and publish a draft MR/PR for human review. ADORE never merges. AEGIS is the repository workflow for scoping, building, testing and reviewing a change.",
   clone: "The repository clone must already exist on the ADORE server, with Git metadata and its repository-installed AEGIS workflow. This path is not a folder on your browser computer. Enrollment does not clone a repository.",
@@ -58,7 +58,7 @@ type Copy = { [K in keyof typeof en]: typeof en[K] extends string[] ? string[] :
 export const enrollmentCopy: Record<Locale, Copy> = {
   en,
   fr: {
-    steps: ["Méthode d'inscription", "Dépôt et identité", "Environnement de travail", "Éligibilité, relecteurs et limites", "Vérification", "Révision et création"],
+    steps: ["Méthode d'inscription", "Dépôt et identité", "Agent et modèle", "Éligibilité, relecteurs et limites", "Vérification", "Révision et création"],
     stepsLabel: "Étapes d'inscription", method: "Clone de dépôt existant",
     intro: "Inscrivez un dépôt pour qu'ADORE sélectionne les tickets éligibles, confie les étapes AEGIS à un exécuteur, valide le résultat et publie une MR/PR en brouillon pour révision humaine. ADORE ne fusionne jamais. AEGIS est le workflow du dépôt pour cadrer, réaliser, tester et réviser une modification.",
     clone: "Le clone doit déjà exister sur le serveur ADORE avec ses métadonnées Git et son workflow AEGIS. Ce chemin n'est pas un dossier de l'ordinateur du navigateur. L'inscription ne clone pas de dépôt.",
@@ -97,7 +97,7 @@ export const enrollmentCopy: Record<Locale, Copy> = {
     },
   },
   de: {
-    steps: ["Registrierungsmethode", "Repository und Identität", "Arbeitsumgebung", "Eignung, Prüfer und Grenzen", "Überprüfung", "Prüfen und erstellen"],
+    steps: ["Registrierungsmethode", "Repository und Identität", "Agent und Modell", "Eignung, Prüfer und Grenzen", "Überprüfung", "Prüfen und erstellen"],
     stepsLabel: "Registrierungsschritte", method: "Vorhandener Repository-Klon",
     intro: "Registrieren Sie ein Repository: ADORE wählt geeignete Issues, beauftragt einen Executor mit den AEGIS-Schritten, validiert das Ergebnis und veröffentlicht einen MR/PR-Entwurf zur menschlichen Prüfung. ADORE führt nie einen Merge aus. AEGIS ist der Repositoryablauf für Planung, Umsetzung, Tests und Prüfung einer Änderung.",
     clone: "Der Klon muss bereits auf dem ADORE-Server liegen, mit Git-Metadaten und installiertem AEGIS-Workflow. Dies ist kein Ordner des Browsercomputers. Die Registrierung klont kein Repository.",
@@ -133,7 +133,7 @@ export const enrollmentCopy: Record<Locale, Copy> = {
     },
   },
   ro: {
-    steps: ["Metoda de înrolare", "Repository și identitate", "Mediul de lucru", "Eligibilitate, recenzori și limite", "Verificare", "Revizuire și creare"],
+    steps: ["Metoda de înrolare", "Repository și identitate", "Agent și model", "Eligibilitate, recenzori și limite", "Verificare", "Revizuire și creare"],
     stepsLabel: "Pașii înrolării", method: "Clonă existentă a repository-ului",
     intro: "Înrolează un repository pentru ca ADORE să selecteze tichete eligibile, să ceară unui executor parcurgerea etapelor AEGIS, să valideze rezultatul și să publice un MR/PR draft pentru revizuire umană. ADORE nu face merge. AEGIS este workflow-ul repository-ului pentru definirea, implementarea, testarea și revizuirea unei modificări.",
     clone: "Clona trebuie să existe deja pe serverul ADORE, cu metadatele Git și workflow-ul AEGIS instalat în repository. Calea nu este un folder de pe calculatorul browserului. Înrolarea nu clonează repository-ul.",

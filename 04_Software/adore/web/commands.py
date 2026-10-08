@@ -105,38 +105,8 @@ class CommandWorker:
         action = operation["action"]
         target = operation["run_id"]
         if action == "image-build":
-            state = None
-            locked = False
-            try:
-                if actor["role"] != "admin":
-                    raise ImageBuildError("image_admin_required")
-                config = load_config(self.profiles.config_path(project))
-                if (not profile.store_root or Path(profile.store_root).resolve()
-                        != Path(config.state.store_root).resolve()):
-                    raise ImageBuildError("image_state_root_unmanaged")
-                state = StateStore(profile.store_root, config.agent.slug)
-                locked = state.acquire_lock()
-                if (not locked or not state.is_paused() or state.invalid_runs()
-                        or any(run.lifecycle not in {"done", "failed", "cancelled", "handed-off"}
-                               for run in state.list_runs())
-                        or (self.profiles.profile_dir(project) / "pending_config.json").exists()):
-                    raise ImageBuildError("image_project_active")
-                result = self.images.run(project, target)
-                phase = result["phase"]
-                status = "succeeded" if phase == "verified" else (
-                    "uncertain" if phase in {"uncertain", "interrupted"} else "failed")
-                self.web.finish(operation["id"], status, phase)
-            except (ImageBuildError, StateError, OSError, ValueError):
-                self.web.finish(operation["id"], "failed", "image build rejected")
-                try:
-                    if self.images.store(project).operation(target)["phase"] == "queued":
-                        self.images.set_phase(
-                            project, target, "failed", error="image_worker_rejected")
-                except (ImageBuildError, OSError, ValueError):
-                    pass  # Corrupt artifacts remain preserved; queue records the failed request.
-            finally:
-                if locked and state is not None:
-                    state.release_lock()
+            self.web.finish(operation["id"], "failed", "environment managed externally")
+            self.reject_image(operation)
             return 1
         if action == "cancel":
             try:

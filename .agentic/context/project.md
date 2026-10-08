@@ -49,7 +49,7 @@ OpenCode, Pi, Codex and Qwen Code.
   Jobs supplies scoped full-history navigation.
   Executor configuration unifies settings/provider credentials and heading model testing,
   with server-authoritative agent and exact launch-preset choices through reviewed apply.
-  Settings uses seven purpose
+  Settings uses five purpose
   categories, visible catalog guidance and exact single-candidate active/proposed
   review with explicit base/candidate binding, idle/lock/pause safety and Dev
   financial/secret redaction. Admin portable export validates active configuration
@@ -200,7 +200,7 @@ Project Executor configuration owns agent/model settings and approved provider k
 
 ## Reviewed container preparation
 
-`adore/preparation.py` resolves closed exact-Git recipe plans and effective image authority; `adore/execution.py` supplies backend paths/environment, bound commands and owned container lifecycle. Preparation runs in the normal pinned worktree/container before AEGIS/AI, with bounded redacted immutable evidence and explicit capped replay. Optional recipe execution state in schema 1 verifies resource/image/policy identity on reuse. Profiles without recipes retain existing profile-update/recovery behavior and empty preparation records. CLI and GUI review the same plans; host/model probes never execute setup.
+`adore/preparation.py` resolves closed exact-Git recipe plans and effective image authority; `adore/execution.py` supplies backend paths/environment, bound commands and owned container lifecycle. Preparation runs in the normal pinned worktree/container before AEGIS/AI, with bounded redacted immutable evidence and explicit capped replay. Optional recipe execution state in schema 1 verifies resource/image/policy identity on reuse. Profiles without recipes retain existing profile-update/recovery behavior and empty preparation records. CLI reviews external preparation plans; GUI shows the effective image and saved run evidence. Host/model probes never execute setup.
 
 ## Native local execution
 
@@ -211,15 +211,4 @@ sandboxes. See knowledge/local-execution.md and 01_Documentation/Local_Execution
 
 ## Project executor images
 
-Settings Environment offers project-owned Dockerfile definitions, bounded durable
-queued builds and exact installed-base/image/non-root/executor/tool verification.
-ImageBuildService and an owned native runtime client reuse the existing queue,
-ContainerBackend and candidate/config apply; source/config/runtime/identity bind
-selection and shared preparation owns recipe conflicts. Native tools and model
-readiness keep separate authority. See knowledge/project-images.md.
-Backend and image controls lead the environment group above collapsed advanced
-settings. The image panel embeds reviewed editing, aligned responsive source/check
-fields, visible download policy, three steps and actionable saved build output.
-The native client resolves installed executables and returns owned bounded UTF-8
-streams with actual exit/timeout. Candidate review owns selection and native
-backend selection retains server-account tooling ownership.
+Executor configuration shows a compact container notice with the effective image and one expandable instruction disclosure. It identifies standard `executor/Dockerfile`, optional `executor/README.md`, a non-root example, external Docker/Podman build and verification, and the existing profile fields. Only administrators see the actual resolved server `config.toml` path. No controls define, build or select an environment. Guided creation configures agent/model with the standard container defaults; specialized container/local profiles use server TOML enrollment. Historical records remain readable/exportable/cancellable; old pending candidates can be discarded, and queued image-build requests fail without runtime execution. See [Project executor images](../../01_Documentation/Project_Executor_Images.md).

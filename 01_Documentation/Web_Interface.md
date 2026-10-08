@@ -25,7 +25,7 @@ period, dates or timezone. Jobs holds technical evidence and Statistics owns
 reporting filters; displayed timestamps use the browser/device local timezone.
 
 Administrators open Add project from Projects to enroll an existing server clone
-through six steps: method, repository/identity, working environment,
+through six steps: method, repository/identity, agent/model,
 eligibility/reviewers/limits, verification, review/create. AEGIS is the repository's
 workflow for framing, building, testing and reviewing changes; ADORE conducts that
 workflow for eligible issues and publishes only draft MR/PRs for human review.
@@ -596,8 +596,8 @@ details; the filter does not search the full AEGIS or executor log. Leave
 either field empty to remove that filter.
 
 In Project details > Settings, administrators prepare **one setting at a time**.
-The seven collapsible categories are Repository and tickets; Agent and model;
-Isolated environment; Rules and approvals; Limits and recovery; Measurement and
+The five collapsible categories are Repository and tickets;
+Rules and approvals; Limits and recovery; Measurement and
 notifications; Advanced. Frequent settings appear first within their category.
 Each row gives an understandable label, visible purpose/units/consequence guidance,
 its **Active value** and **ADORE default**; inherited values carry a **Default** badge. Permanent guidance below the label explains each setting; server catalog metadata still constrains edit types, choices and numeric bounds. Lists, tables and unsupported sections are read-only here and are edited in the host's project TOML. Executor configuration offers launch-command presets for existing supported command tables through the reviewed candidate flow.
@@ -977,7 +977,7 @@ Only a valid completed challenge response reports connected. Failures provide re
 
 ## Project setting scope and guidance
 
-Project Settings displays the selected project's operational settings, including inherited defaults. Executor/model/authentication settings and the applicable OpenCode endpoint form belong to Executor configuration. Descriptions remain permanently below each label and provide the editor's accessible description. There is no per-row Help disclosure or override-only filter. The default/source marker describes value origin, not ADORE-wide scope. Polling intervals, per-project concurrency, executor, isolation and recovery settings remain per-project across their dedicated tabs. Global capacity and audit retention belong to Administration. No project setting is promoted into a global policy by this presentation.
+Project Settings displays the selected project's operational settings, including inherited defaults. Executor/model/authentication settings and the applicable OpenCode endpoint form belong to Executor configuration. Descriptions remain permanently below each label and provide the editor's accessible description. There is no per-row Help disclosure or override-only filter. The default/source marker describes value origin, not ADORE-wide scope. Polling intervals, per-project concurrency, executor and recovery settings remain per-project across their dedicated tabs; environment setup is externally managed. Global capacity and audit retention belong to Administration. No project setting is promoted into a global policy by this presentation.
 
 Proof: web/e2e/settings.spec.ts project settings keep defaults and single guidance (administrator/developer), plus existing candidate edit/discard journey.
 
@@ -995,22 +995,12 @@ Project Settings purpose categories are collapsed on entry. Opening a category s
 
 ## Container preparation
 
-Project Settings → Isolated environment exposes execution backend, reviewed recipe selection and setup bounds. Prepare a candidate, expand Preparation commands, inspect exact image/source/job/commit, then Apply to an idle paused project. Stale Git/configuration sources are refused. Host/model checks never execute setup. Job details show durable preparation outcomes and explicit replay guidance. See [Container preparation](Container_Preparation.md).
+Preparation recipes and execution settings are configured externally through the server TOML/CLI. Executor configuration displays the effective container image and external preparation instructions. Host/model checks never execute setup. Job details retain durable preparation outcomes and explicit replay guidance. See [Container preparation](Container_Preparation.md).
 
 ## Native local execution
 
-Enrollment offers backend/local paths/native argv/existing login. Settings show actual server machine/account and tooling responsibility, hide incompatible container controls and recheck native plans on apply. Host/model checks use native targets without images/recipes; model testing remains explicit.
-
-See [Local execution](Local_Execution.md) for platform prerequisites, configuration,
-authentication, process ownership and acceptance coverage.
+Native execution is selected externally in the server profile or through server TOML enrollment. Existing native executor/model and explicit host checks use that prepared environment. The container notice is omitted for local projects. See [Local execution](Local_Execution.md) for machine/account, authentication and process ownership.
 
 ## Project executor images
 
-Settings → Isolated environment contains Existing image / Define image,
-explicit Build and verify and Use image through the normal configuration review.
-The administrator edits/uploads Dockerfile text and declares nearby tool checks.
-System tools, per-worktree recipe libraries, model access and full readiness
-remain distinct. Local profiles retain operator-owned installed tooling;
-developers read evidence. See [Project executor images](Project_Executor_Images.md)
-for runtime/environment support, bounds, network, cancellation/recovery, retention
-and the deferred #23/live acceptance checklist.
+Executor configuration shows a compact container notice with the effective image and one expandable instruction disclosure. It identifies standard `executor/Dockerfile`, optional `executor/README.md`, a non-root example, external Docker/Podman build and verification, and the existing profile fields. Only administrators see the actual resolved server `config.toml` path. No controls define, build or select an environment. Guided creation configures agent/model with the standard container defaults; specialized container/local profiles use server TOML enrollment. Historical records remain readable/exportable/cancellable; old pending candidates can be discarded, and queued image-build requests fail without runtime execution. See [Project executor images](Project_Executor_Images.md).

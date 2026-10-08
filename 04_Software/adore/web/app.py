@@ -1503,6 +1503,17 @@ def _restart_required(key: str) -> bool:
                            "container.", "execution.", "local.", "executor."))
 
 
+def _external_environment_key(key: str, *, endpoint: bool = False) -> bool:
+    """@brief Identify externally owned environment keys at web mutation boundaries.
+    @param[in] key Dotted configuration key.
+    @param[in] endpoint Dedicated validated AI endpoint editing exception.
+    @return True for operator-owned environment settings.
+    @note Legacy pending readers retain their original validation and discard contract.
+    """
+    return (not endpoint and not _is_secret_key(key)
+            and key.startswith(("container.", "execution.", "local.", "worktree.")))
+
+
 def _editable_setting_key(key: str, *, endpoint: bool = False) -> bool:
     """
     @brief      The one rule for which configuration keys the web may edit.
@@ -1652,7 +1663,8 @@ def _setting_metadata(config: dict, raw: bytes) -> list[dict]:
             "key": key,
             "edit_key": edit_key,
             "source": "project" if edit_key in in_file else "default",
-            "editable": (_editable_setting_key(edit_key)
+            "editable": (not _external_environment_key(edit_key)
+                         and _editable_setting_key(edit_key)
                          and isinstance(value, str | int | float)),
             "restart": _restart_required(edit_key),
             "default": _value_at(defaults, key),
@@ -2182,18 +2194,9 @@ def create_app(home: str | Path | None = None,
     @app.put("/api/v1/projects/{name}/image-build")
     def save_image_definition(name: str, body: ImageDefinition,
                               user: Annotated[dict, Depends(admin_mutation)]) -> dict:
-        """@brief Save bounded explicit text behind current idle/paused config guards."""
-        item = project(name, user)
-        if item.archived:
-            raise _error(409, "project_archived")
-        with config_lock, _web_config_edit_lock(profiles.config_path(item.name)), \
-                guard_direct_config_apply(item, profiles.config_path(item.name), "container.image"):
-            config = load_config(profiles.config_path(item.name))
-            if config.execution.backend != "container":
-                raise ImageBuildError("image_local_unavailable")
-            images.store(item.name).save(**body.model_dump())
-            web.audit(user["id"], "image-definition-saved", item.name)
-        return image_view(item)
+        """@brief Refuse externally owned image definition changes after authorization."""
+        project(name, user)
+        raise _error(410, "environment_managed_externally")
 
     @app.get("/api/v1/projects/{name}/image-build/export")
     def export_image_definition(name: str, user: Annotated[dict, Depends(administrator)]) -> dict:
@@ -2204,31 +2207,9 @@ def create_app(home: str | Path | None = None,
     @app.post("/api/v1/projects/{name}/image-build/operations")
     def build_image(name: str, body: ImageRequest,
                     user: Annotated[dict, Depends(admin_mutation)]) -> dict:
-        """@brief Queue one current immutable bounded build; never build in HTTP."""
-        item = project(name, user)
-        if item.archived:
-            raise _error(409, "project_archived")
-        with config_lock, _web_config_edit_lock(profiles.config_path(item.name)):
-            existing = web.operation_for_key(user["id"], body.idempotency_key)
-            if existing is not None:
-                if (existing["project_id"] != item.project_id
-                        or existing["action"] != "image-build"):
-                    raise _error(409, "idempotency_key_conflict")
-                value = images.store(item.name).operation(existing["run_id"])
-                if (value["draft"]["revision"] != body.revision
-                        or value["config_revision"] != body.config_revision):
-                    raise _error(409, "idempotency_key_conflict")
-                return {"build": public_image(value), "operation": existing}
-            with guard_direct_config_apply(
-                    item, profiles.config_path(item.name), "container.image"):
-                value = images.prepare(item.name, body.revision, body.config_revision)
-                try:
-                    operation = web.enqueue(user["id"], item.name, "image-build", value["id"],
-                                            body.idempotency_key)
-                except WebStoreError:
-                    images.set_phase(item.name, value["id"], "failed", error="image_queue_failed")
-                    raise
-        return {"build": public_image(value), "operation": operation}
+        """@brief Refuse externally owned image build requests after authorization."""
+        project(name, user)
+        raise _error(410, "environment_managed_externally")
 
     @app.get("/api/v1/projects/{name}/image-build/operations/{operation_id}")
     def image_operation(name: str, operation_id: str,
@@ -3188,6 +3169,13 @@ def create_app(home: str | Path | None = None,
             context = native_context()
             local_context = {key: context[key] for key in ("machine", "account", "system")}
         return {"config": data, "revision": sha256(raw).hexdigest(),
+                "executor_environment": {
+                    "backend": config.execution.backend,
+                    "image": ((plan["image"] if plan else
+                               (None if config.execution.preparation else config.container.image))
+                              if config.execution.backend == "container" else None),
+                    "config_path": str(path.resolve()) if user["role"] == "admin" else None,
+                },
                 "local_execution": local_context,
                 "issues": issues, "execution_plan": plan,
                 "local_endpoint_timeout_seconds": timeout_seconds,
@@ -3241,6 +3229,8 @@ def create_app(home: str | Path | None = None,
             or body.ca_file is not None
         ) and not endpoint_key:
             raise _error(400, "model_requires_endpoint")
+        if _external_environment_key(body.key, endpoint=endpoint_key):
+            raise _error(400, "environment_managed_externally")
         if not _editable_setting_key(body.key, endpoint=endpoint_key):
             raise _error(400, "setting_not_editable")
         if body.key.startswith(("execution.", "local.")):
@@ -3383,6 +3373,9 @@ def create_app(home: str | Path | None = None,
     ) -> dict:
         """@brief Save a validated candidate revision while live config stays put."""
         item = project(name, user)
+        if _external_environment_key(
+                body.key, endpoint=body.key == "container.runtime_env.OPENAI_BASE_URL"):
+            raise _error(400, "environment_managed_externally")
         path = profiles.config_path(item.name)
         pending_path = profiles.profile_dir(item.name) / "pending_config.json"
         if body.image_build_id and body.key != "container.image":
@@ -3452,6 +3445,10 @@ def create_app(home: str | Path | None = None,
             if pending is None:
                 raise _error(404, "pending_config_not_found")
             _public_pending_config(pending)
+            if _external_environment_key(
+                    pending["key"],
+                    endpoint=pending["key"] == "container.runtime_env.OPENAI_BASE_URL"):
+                raise _error(400, "environment_managed_externally")
             if body.base_revision is not None and not secrets.compare_digest(
                 body.base_revision, pending["base_revision"]
             ):

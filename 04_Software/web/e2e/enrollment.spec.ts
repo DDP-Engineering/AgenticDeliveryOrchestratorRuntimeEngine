@@ -32,33 +32,14 @@ test("guided enrollment begins with a supported method and visible step navigati
   await expect(page.getByText(/already exist on the ADORE server/)).toBeVisible();
 });
 
-test("native local enrollment assigns tooling to the server account and needs no container", async ({ page }) => {
-  await enter(page);
-  await repository(page, "native-local");
-  await page.getByRole("button", {name: "Continue", exact: true}).click();
-  await page.getByLabel("Execution backend", {exact: false}).selectOption("local");
-  await page.getByLabel(/^Model \*/).fill("openai/fixture-model");
-  await expect(page.getByText(/You choose and independently install/)).toBeVisible();
-  await expect(page.getByLabel("Executor image", {exact: false})).toHaveCount(0);
-  await expect(page.getByLabel("Container runtime", {exact: false})).toHaveCount(0);
-  await expect(page.locator("#enroll-auth_mode")).toHaveValue("existing");
-  await page.getByRole("button", {name: "Continue", exact: true}).click();
-  await page.getByLabel("Reviewers", {exact: false}).fill("fixture-reviewer");
-  await page.getByRole("button", {name: "Continue", exact: true}).click();
-  await validate(page);
-  await page.getByRole("button", {name: "Review candidate", exact: true}).click();
-  await expect(page.locator(".enrollment-review").filter({
-    has: page.getByRole("heading", {name: "Working environment", exact: true})
-  })).toContainText("local");
-  await page.getByRole("button", {name: "Create project with pickup stopped", exact: true}).click();
-  await expect(page.getByRole("heading", {name: "Enrollment complete", exact: true})).toBeVisible();
-  const projects = await (await page.request.get("/api/v1/projects")).json();
-  const project = projects.find((item: {name: string}) => item.name === "native-local");
-  const config = await (await page.request.get(`/api/v1/projects/${project.id}/config`)).json();
-  expect(config.config.execution.backend).toBe("local");
-  expect(config.local_execution.machine).toBeTruthy();
-  expect(config.local_execution.account).toBeTruthy();
-  expect(project.paused).toBe(true);
+test("guided enrollment delegates environment setup to the server operator",async({page})=>{
+  await enter(page);await repository(page,"external-env");
+  await page.getByRole("button",{name:"Continue",exact:true}).click();
+  await expect(page.getByRole("heading",{name:"Agent and model",exact:true})).toBeVisible();
+  await expect(page.getByLabel("Execution backend",{exact:false})).toHaveCount(0);
+  await expect(page.getByLabel("Executor image",{exact:false})).toHaveCount(0);
+  await expect(page.getByLabel("Container runtime",{exact:false})).toHaveCount(0);
+  await expect(page.getByText(/environment is prepared externally/)).toBeVisible();
 });
 
 async function fixture(page: Page, mode = "failed") {
@@ -81,7 +62,6 @@ async function repository(page: Page, name = "e2e-valid") {
 async function environment(page: Page) {
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page.getByLabel(/^Model \*/).fill("openai/fixture-model");
-  await page.getByLabel("Executor image", { exact: false }).fill("fixture-image:local");
   await page.getByLabel("Credential environment references", { exact: false }).fill("LOCAL_API_KEY");
 }
 async function verification(page: Page, name = "e2e-valid") {
@@ -98,7 +78,7 @@ const validate = async (page: Page) => {
   await expect(page.getByText("Structural setup valid", { exact: true })).toBeVisible();
 };
 
-test("complete reviewed draft creates once with stopped pickup and honest failed/partial checks", async ({ page }, info) => {
+test("complete reviewed draft creates once with stopped pickup and honest failed checks", async ({ page }, info) => {
   let previewBody: Record<string, unknown> = {};
   let submitted: Record<string, unknown> = {};
   let creates = 0;
@@ -118,7 +98,8 @@ test("complete reviewed draft creates once with stopped pickup and honest failed
   await expect(page.getByText(/Failed — correct/).first()).toBeVisible();
   await fixture(page, "partial");
   await page.getByRole("button", { name: "Recheck environment", exact: true }).click();
-  await expect(page.getByText(/Partial — some prerequisites/)).toBeVisible();
+  await expect(page.getByText(/Failed — correct/).first()).toBeVisible();
+  await expect(page.getByText("git", {exact:true}).locator("..")).toContainText("Passed");
   await page.getByRole("button", { name: "Review candidate", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Review and create", exact: true })).toBeFocused();
   await expect(page.locator(".enrollment-review")).toContainText(["Offline service", "LOCAL_API_KEY"]);
@@ -138,7 +119,7 @@ test("complete reviewed draft creates once with stopped pickup and honest failed
   expect(created.paused).toBe(true); expect(created.pickup_state).toBe("stopped");
 });
 
-test("field summary focus, malformed fields, collision and invalid server clone/runtime recover", async ({ page }) => {
+test("field summary focus, malformed fields, collision and invalid server clone recover", async ({ page }) => {
   await enter(page);
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page.getByRole("button", { name: "Continue", exact: true }).click();
@@ -163,24 +144,13 @@ test("field summary focus, malformed fields, collision and invalid server clone/
   await page.getByRole("button", { name: /Stable project ID — Correct/ }).click();
   await page.getByLabel("Stable project ID", { exact: false }).fill("e2e-corrections");
   await page.getByLabel("Local clone path", { exact: false }).fill("/missing-offline-clone");
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await page.getByLabel("Container runtime", { exact: false }).fill("invalid-runtime");
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await page.getByRole("button", { name: "Validate setup", exact: true }).click();
+  for(let i=0;i<3;i++) await page.getByRole("button",{name:"Continue",exact:true}).click();
+  await page.getByRole("button",{name:"Validate setup",exact:true}).click();
   await expect(page.getByRole("alert")).toContainText("setup_field_invalid");
-  await page.getByRole("button", { name: /Local clone path — Correct/ }).click();
-  await expect(page.getByLabel("Local clone path", { exact: false })).toBeFocused();
-  await page.getByLabel("Local clone path", { exact: false }).fill(await fixture(page));
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await page.getByRole("button", { name: "Validate setup", exact: true }).click();
-  await page.getByRole("button", { name: /Container runtime — Correct/ }).click();
-  await expect(page.getByLabel("Container runtime", { exact: false })).toBeFocused();
-  await page.getByLabel("Container runtime", { exact: false }).fill("docker");
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.getByRole("button",{name:/Local clone path — Correct/}).click();
+  await expect(page.getByLabel("Local clone path",{exact:false})).toBeFocused();
+  await page.getByLabel("Local clone path",{exact:false}).fill(await fixture(page));
+  for(let i=0;i<3;i++) await page.getByRole("button",{name:"Continue",exact:true}).click();
   await validate(page);
 });
 
@@ -194,7 +164,7 @@ test("Back and review changes retain values and invalidate dependent checks", as
   await expect(page.getByLabel("Display name", { exact: false })).toHaveValue("Offline service");
   await page.getByLabel("Display name", { exact: false }).fill("Changed display");
   await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await expect(page.getByLabel("Executor image", { exact: false })).toHaveValue("fixture-image:local");
+  await expect(page.getByLabel("Executor image", { exact: false })).toHaveCount(0);
   await page.getByRole("button", { name: "Back", exact: true }).click();
   await expect(page.getByLabel("Display name", { exact: false })).toHaveValue("Changed display");
   for (let i = 0; i < 3; i++) await page.getByRole("button", { name: "Continue", exact: true }).click();
@@ -274,10 +244,10 @@ test("390px keyboard guidance and review wrap in both themes", async ({ page }, 
     await page.evaluate(value => document.documentElement.dataset.theme = value, theme);
     await page.setViewportSize({ width: 390, height: 844 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
-    const change = page.getByRole("button", { name: "Change — Working environment", exact: true });
+    const change = page.getByRole("button", { name: "Change — Agent and model", exact: true });
     await change.focus(); await page.keyboard.press("Enter");
-    await expect(page.getByRole("heading", { name: "Working environment", exact: true })).toBeFocused();
-    await expect(page.getByLabel("Executor image", { exact: false })).toHaveValue("fixture-image:local");
+    await expect(page.getByRole("heading", { name: "Agent and model", exact: true })).toBeFocused();
+    await expect(page.getByLabel("Executor image", { exact: false })).toHaveCount(0);
     await page.screenshot({ path: info.outputPath("enrollment-environment-" + theme + "-390.png"), fullPage: true });
     await page.getByRole("button", { name: "Continue", exact: true }).click();
     await page.getByRole("button", { name: "Continue", exact: true }).click();

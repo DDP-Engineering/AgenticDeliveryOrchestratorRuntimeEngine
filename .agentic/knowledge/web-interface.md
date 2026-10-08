@@ -29,8 +29,8 @@ Environment verification records explicit checks against the saved configuration
 revision; Unverified means no current evidence, not an observed failure. Use
 Project details â†’ Summary â†’ Check host prerequisites for the administrator check.
 Pause semantics are available in header help instead of repeated row guidance.
-The dedicated header combines name/repository and Summary, Settings, Prices,
-Access, Jobs, Statistics, History; Prices/Access are Admin-only. Jobs/Statistics
+The dedicated header combines name/repository and Summary, Settings, Executor
+configuration, Prices, Access, Jobs, Statistics, History; Prices/Access are Admin-only. Jobs/Statistics
 are scoped links. Deletion confirmation clears on page or project changes.
 
 ## Routing
@@ -46,7 +46,7 @@ for attention/global jobs/details; `web/e2e/jobs.spec.ts` verifies those views. 
 
 The optional web package gives one ADORE host an authenticated dashboard and
 durable control queue. The API reads existing profiles and run state and never
-launches an executor directly. The separate worker executes fixed CLI commands and bounded owned image builds;
+launches an executor directly. The separate worker executes fixed CLI commands and rejects queued historical image-build requests;
 the orchestrator still owns readiness, locks, approvals and draft publication.
 
 ## Public interface
@@ -264,7 +264,7 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
   project summaries; nonempty corrupt timestamps fail closed.
   Administrators open Add project as a six-step guided page with visible localized
   instructions. Clone paths identify existing Git clones on the ADORE host;
-  executor/model/runtime/image values describe actual operator setup. Back retains
+  executor/model values describe the selected agent; environment setup is external. Back retains
   the memory draft, Cancel warns about loss, and completion confirms stopped pickup
   before the explicit Open project action.
   Exact configuration enrollment mounts ImportWizard with four-locale visible file
@@ -401,7 +401,7 @@ Native control/auth route to local-execution.md. Focused proof:
 `04_Software/tests/test_local_execution.py`.
 
 
-- `REQ-UX-94a97e70`: Settings exposes closed execution selection/bounds, complete image/source/command review and revision-bound pending Apply. Direct execution writes require pending review. Host/model probes normalize image without setup; jobs project validated timestamp/exit/timeout/cancel evidence. Portable rule allowlists stay unchanged.
+- `REQ-UX-94a97e70`: CLI validates external execution selections and previews complete image/source/commands. Web reads expose effective image and retained preparation evidence; environment mutations are refused. Host/model probes normalize image without setup; jobs project validated timestamp/exit/timeout/cancel evidence. Portable rule allowlists stay unchanged.
 
 - `REQ-DATA-5a620f4e` / `REQ-REL-6564a3b2` / `REQ-FUNC-83da8d95` - composite measured job consumption, strict sources and server-selected analytical samples.
 
@@ -559,7 +559,7 @@ Administration expands into System status, Users and Change history sidebar page
 both roles reach a top-level My account page. Every view has a path URL
 (`web/src/routes.ts`) kept in sync with view state; project details uses
 Summary/Settings/Prices/Access/History tabs and Jobs/Statistics links. Project details shows effective
-configuration in seven purpose categories with frequent settings first within each,
+configuration in five purpose categories with frequent settings first within each,
 with a Default badge for inherited values, field type, domain and permanent purpose guidance; administrators edit settings on their rows and stage
 endpoint and price changes there. The
 settings response is scoped to the current project identity so switching
@@ -770,7 +770,7 @@ Only a valid completed challenge response reports connected. Failures provide re
 
 ## Project setting scope and guidance
 
-Project Settings displays the selected project's configuration catalog, including inherited defaults, except executor/model and AI endpoint fields owned by Executor configuration. Descriptions remain permanently below each label and provide the editor's accessible description. There is no per-row Help disclosure or override-only filter. The default/source marker describes value origin, not ADORE-wide scope. Polling intervals, per-project concurrency, executor, isolation and recovery settings remain per-project. Global capacity and audit retention belong to Administration. No project setting is promoted into a global policy by this presentation.
+Project Settings displays the selected project's configuration catalog, including inherited defaults, except executor/model and AI endpoint fields owned by Executor configuration. Descriptions remain permanently below each label and provide the editor's accessible description. There is no per-row Help disclosure or override-only filter. The default/source marker describes value origin, not ADORE-wide scope. Polling intervals, per-project concurrency, executor and recovery settings remain per-project; environment setup is externally managed. Global capacity and audit retention belong to Administration. No project setting is promoted into a global policy by this presentation.
 
 Proof: web/e2e/settings.spec.ts project settings keep defaults and single guidance (administrator/developer), plus existing candidate edit/discard journey.
 
@@ -782,19 +782,8 @@ Editable settings place **Edit** beside **Active value** in the value column, in
 
 Project Settings purpose categories are collapsed on entry. Opening a category shows equal-width description and active-value columns separated by24px; below640px they stack at full width. Native disclosures retain keyboard operation. Executor configuration retains its expanded categories, embedded Provider credentials and heading-aligned Test AI connection. Agent/launch choices come from the server catalog; unsupported custom current launch values stay displayed and disabled as choices until a standard preset is selected.
 
-## Project image seam
+## External executor environment seam
 
-Settings isolation embeds ProjectImage Define / Build and verify / Use image.
-Backend and image controls lead the group above collapsed advanced settings.
-Existing image displays the active value and embeds SettingsList's editor/focus;
-the existing single-setting candidate workflow owns review/apply. Three localized
-steps, aligned responsive fields, visible downloads and save-before-build guidance
-explain the definition. A separate result panel loads saved bounded output and
-shows corrective failure messages while preserving verified-action guards.
-Scoped HTTP definition/export/queue/status/cancel routes, fixed worker image-build
-action and optional ConfigEdit.image_build_id reuse current administrator/CSRF,
-project, paused/idle/revision and pending/apply boundaries. The reviewed candidate
-contains immutable image ID plus explicit verified tool checks; shared preparation
-rejects recipe conflicts. ImageBuildService/native scope ownership and exact
-record/runtime/cleanup contracts route to project-images.md. API never builds;
-the worker owns durable execution. Source/UI/worker proof is named there.
+ExecutorEnvironment.tsx supplies a compact conditional container notice with four-locale external Dockerfile/build/profile instructions. Config GET returns the effective image and Admin-only resolved config path. Settings and guided creation omit environment controls. Mutation guards precede all config writes, staging/application and build artifacts; the dedicated existing AI endpoint is retained. Queued historical builds fail without launching a runtime. Historical read/export/cancel/owned interrupted cleanup and pending discard are retained. Focused proof: test_web_image_build.py, test_web_pending_config.py, images.spec.ts, enrollment.spec.ts. Detailed ownership: project-images.md.
+
+External ownership and preparation/model/credential errors have localized corrective messages in errors.ts; errors.test.mjs checks server-code coverage and diagnostic/generic fallback.

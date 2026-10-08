@@ -129,12 +129,4 @@ independently prepared. See 01_Documentation/Local_Execution.md.
 
 ## Project image build clients
 
-GUI image builds use the profile's installed Docker/Podman runtime, a Dockerfile-
-only context, explicit network policy and checked Linux memory/CPU capabilities.
-Docker uses its explicit legacy builder; unsupported builders/modes fail closed.
-Windows clients use owned Jobs; Linux requires delegated cgroup v2 kill support
-in ADORE_BUILD_CGROUP_ROOT. Strict WSL prefixes clear the Linux command
-environment and translate owned paths. Runtime authentication homes are isolated,
-with rootless Podman data/runtime locations retained. See
-01_Documentation/Project_Executor_Images.md for bounds, operator retention and
-uncertain daemon cleanup; full run/model/forge acceptance has separate authority.
+The server administrator builds and verifies executor images externally with the installed Docker/Podman runtime, then updates the existing profile. The GUI supplies a read-only Dockerfile/profile guide. Existing native owned process scopes and delegated Linux `ADORE_BUILD_CGROUP_ROOT` remain available for retained interrupted build cleanup; queued requests are refused. See `01_Documentation/Project_Executor_Images.md`. Full run/model/forge acceptance has separate authority.

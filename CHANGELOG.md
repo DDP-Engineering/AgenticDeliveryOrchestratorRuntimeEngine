@@ -20,6 +20,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Move execution environment preparation outside ADORE: Executor configuration now shows conditional container Dockerfile/server-profile instructions and effective image; Settings and guided enrollment omit environment editors. Retired web build/config mutations fail closed while existing profiles, historical evidence and owned recovery remain.
+
 - Unify executor settings and Provider credentials in one panel with heading Test AI connection; offer server-validated launch command presets through reviewed dropdown edits.
 
 - Balanced Settings description/value columns and collapsed project categories on entry.
@@ -29,6 +31,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 - Simplified project Settings and added administrator preview/download of original TOML, including inline secrets, in place of the portable export panel.
 
 ### Fixed
+
+- Complete localized corrective messages for environment, preparation, model and executor credential failures.
 
 - Project image clients resolve native runtime executables and return captured
   bounded output, preserving real exit/timeout and fail-closed stream validation.

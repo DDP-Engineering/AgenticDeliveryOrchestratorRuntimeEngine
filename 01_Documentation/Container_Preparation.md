@@ -7,8 +7,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Reviewed container preparation
 
-Configure preparation after creating a project with `adore init`, or through
-Project → Settings → Isolated environment. Preparation is optional; old profiles
+Configure preparation externally in the server profile after creating a project
+with `adore init`. Preparation is optional; existing profiles
 keep their existing container image and gate behavior.
 
 ## Select and review
@@ -34,10 +34,10 @@ The example commit is a placeholder; replace it with the reviewed target commit.
 source and configuration before applying. `adore --profile <name> config plan`
 prints the effective image, image authority, exact source selection, hashes and
 commands without running them. `config validate` also validates a selected recipe.
-In the GUI, prepare a candidate, inspect **Container preparation** and expand
-**Preparation commands**, then Apply. Apply requires an idle paused project and
-rechecks the same configuration, Git revision and plan. The GUI does not upload,
-edit or generate recipes. Execution settings use the pending-review API.
+Pause pickup and ensure no jobs are active before changing the profile externally.
+The CLI validates the same configuration, Git revision and plan. Executor
+configuration supplies external preparation instructions and the effective image;
+job details retain preparation evidence. Host/model checks never execute setup.
 
 ## Recipe grammar, version 1
 
@@ -141,8 +141,8 @@ compatible binary for rollback. No earlier run-state schema is migrated.
 
 `ExecutionBackend` supplies paths/shell, executor homes/auth destinations,
 provisioning, tool checks, identity, bound commands, stop/interrupt and owned
-cleanup. `ContainerBackend` is the only adapter enabled here. Local execution
-(#21) will use that seam and its native transport. Image GUI/build integration
-(#22) will use normalized plans and separate image/build identity. Portable rule
+cleanup. `ContainerBackend` and `LocalBackend` supply their respective transports.
+Executor image definition/build and environment selection are external operator
+actions; container recipes retain normalized image/command authority. Portable rule
 exports keep their existing narrow allowlist and never carry executable selection,
 runtime environment, credentials or recipes.

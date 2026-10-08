@@ -14,14 +14,13 @@
 """
 
 from hashlib import sha256
-import json
 
 from adore.web.app import create_app
 from adore.web.commands import CommandWorker
 from fastapi.testclient import TestClient
 import pytest
 
-from tests.test_image_build import IMAGE_ID, build_project
+from tests.test_image_build import build_project
 
 
 def image_client(tmp_path):
@@ -35,230 +34,157 @@ def image_client(tmp_path):
     return client, headers, profiles, store, service, runner, operation, path
 
 
-def test_web_project_image_define_build_review_and_apply(tmp_path):
-    """@brief Explicit image selection uses the existing pending review/apply flow."""
-    client, headers, profiles, store, _service, runner, _operation, path = image_client(tmp_path)
-    base = "/api/v1/projects/alpha"
-    current = client.get(base + "/image-build")
-    assert current.status_code == 200, current.text
-    source = current.json()["draft"]
-    revision = sha256(path.read_bytes()).hexdigest()
-    queued = client.post(
-        base + "/image-build/operations",
-        headers=headers,
-        json={
-            "revision": source["revision"],
-            "config_revision": revision,
-            "idempotency_key": "build-one",
-        },
-    )
-    assert queued.status_code == 200, queued.text
-    image_id = queued.json()["build"]["id"]
-    worker = CommandWorker(profiles, client.app.state.web_store, image_runner=runner)
-    assert worker.run_pending() == 1
-    result = client.get(base + "/image-build/operations/" + image_id).json()
-    assert result["build"]["phase"] == "verified", result
-    original = path.read_bytes()
-    pending = client.post(
-        base + "/config/pending",
-        headers=headers,
-        json={
-            "key": "container.image",
-            "value": IMAGE_ID,
-            "revision": revision,
-            "image_build_id": image_id,
-        },
-    )
-    assert pending.status_code == 200, pending.text
-    review = pending.json()
-    assert review["image_build"]["image_id"] == IMAGE_ID
-    assert review["image_build"]["verified_checks"][-1] == "rustc --version"
-    assert path.read_bytes() == original
-    applied = client.post(
-        base + "/config/apply",
-        headers=headers,
-        json={"candidate_revision": review["candidate_revision"], "base_revision": revision},
-    )
-    assert applied.status_code == 200, applied.text
-    assert f'image = "{IMAGE_ID}"' in path.read_text(encoding="utf-8")
-    assert 'required_tool_checks = ["python3 --version", "rustc --version"]' in (
-        path.read_text(encoding="utf-8")
-    )
-
-
-@pytest.mark.parametrize(
-    "boundary",
-    ["csrf", "developer", "other-project", "local", "unpaused", "stale-config", "stale-draft"],
-)
-def test_web_image_build_rejects_untrusted_mutation(tmp_path, boundary):
-    """@brief Authorization and stopped/revision boundaries fail before runtime calls."""
-    client, headers, profiles, store, _service, runner, _op, path = image_client(tmp_path)
-    revision = sha256(path.read_bytes()).hexdigest()
-    draft_revision = store.export()["revision"]
-    base = "/api/v1/projects/alpha"
-    if boundary == "csrf":
-        headers = {}
-    elif boundary in {"developer", "other-project"}:
-        web = client.app.state.web_store
-        user = web.create_user("dev", "longer-password", "developer")
-        if boundary == "developer":
-            web.set_memberships(user["id"], ["alpha"])
-        session = client.post(
-            "/api/v1/session", json={"username": "dev", "password": "longer-password"}
-        )
-        headers = {"x-csrf-token": session.json()["csrf"]}
-    elif boundary == "local":
-        path.write_text(
-            path.read_text(encoding="utf-8").replace('backend = "container"', 'backend = "local"'),
-            encoding="utf-8",
-        )
-        revision = sha256(path.read_bytes()).hexdigest()
-    elif boundary == "unpaused":
-        from adore.state import StateStore
-
-        StateStore(profiles.load("alpha").store_root).resume()
-    elif boundary == "stale-config":
-        revision = "e" * 64
-    else:
-        draft_revision = "e" * 64
-    response = client.post(
-        base + "/image-build/operations",
-        headers=headers,
-        json={"revision": draft_revision, "config_revision": revision, "idempotency_key": "bad"},
-    )
-    assert response.status_code in {400, 403, 404, 409}, response.text
+def test_executor_environment_guidance_is_truthful_and_role_scoped(tmp_path):
+    """@brief Container metadata uses current config and limits server paths to Admin."""
+    client, _headers, profiles, _store, _service, runner, _operation, path = image_client(tmp_path)
+    current = client.get("/api/v1/projects/alpha/config")
+    assert current.status_code == 200
+    environment = current.json()["executor_environment"]
+    assert environment["backend"] == "container"
+    assert environment["image"] == current.json()["config"]["container"]["image"]
+    assert environment["config_path"] == str(path.resolve())
     assert not runner.calls
+    web = client.app.state.web_store
+    dev = web.create_user("dev", "longer-password", "developer")
+    web.set_memberships(dev["id"], ["alpha"])
+    client.post("/api/v1/session", json={"username": "dev", "password": "longer-password"})
+    visible = client.get("/api/v1/projects/alpha/config")
+    assert visible.status_code == 200
+    assert visible.json()["executor_environment"]["config_path"] is None
+    assert str(path.resolve()) not in visible.text
+    web.set_memberships(dev["id"], [])
+    assert client.get("/api/v1/projects/alpha/config").status_code == 404
 
 
-def test_web_image_apply_rejects_changed_source_and_corrupt_binding(tmp_path):
-    """@brief An already reviewed image cannot apply after source or binding drift."""
-    client, headers, _profiles, store, service, _runner, operation, path = image_client(tmp_path)
-    service.run("alpha", operation["id"])
-    base = "/api/v1/projects/alpha"
-    revision = sha256(path.read_bytes()).hexdigest()
-    pending = client.post(
-        base + "/config/pending",
-        headers=headers,
-        json={
-            "key": "container.image",
-            "value": IMAGE_ID,
-            "revision": revision,
-            "image_build_id": operation["id"],
-        },
-    )
-    assert pending.status_code == 200, pending.text
-    candidate = pending.json()["candidate_revision"]
-    draft = store.export()
-    store.save(
-        draft["dockerfile"].replace("USER adore", "RUN echo changed\nUSER adore"),
-        draft["checks"],
-        revision=draft["revision"],
-    )
-    response = client.post(
-        base + "/config/apply", headers=headers, json={"candidate_revision": candidate}
-    )
-    assert response.status_code == 409, response.text
-    assert sha256(path.read_bytes()).hexdigest() == revision
-    pending_path = store.profile / "pending_config.json"
-    value = json.loads(pending_path.read_text(encoding="utf-8"))
-    value["image_build"]["image_id"] = "sha256:" + "f" * 64
-    pending_path.write_text(json.dumps(value), encoding="utf-8")
-    assert client.get(base + "/config/pending").status_code == 503
+@pytest.mark.parametrize("key", ["execution.backend", "execution.preparation", "local.home",
+                                  "container.image", "container.runtime", "worktree.root"])
+@pytest.mark.parametrize("route", ["/config", "/config/pending"])
+def test_web_environment_edits_are_external(tmp_path, key, route):
+    """@brief Both edit surfaces reject environment ownership before writes or probes."""
+    client, headers, _profiles, store, _service, runner, _operation, path = image_client(tmp_path)
+    original = path.read_bytes()
+    body = {"key": key, "value": "external", "revision": sha256(original).hexdigest()}
+    response = client.request("PUT" if route == "/config" else "POST",
+                              "/api/v1/projects/alpha" + route, headers=headers, json=body)
+    assert response.status_code == 400, response.text
+    assert response.json()["detail"]["code"] == "environment_managed_externally"
+    assert path.read_bytes() == original
+    assert not (store.profile / "pending_config.json").exists()
+    assert not runner.calls
+    metadata = client.get("/api/v1/projects/alpha/config").json()["settings"]
+    assert not any(item["editable"] for item in metadata if item["key"] == key)
 
 
-def test_image_worker_revocation_and_idempotency_are_durable(tmp_path):
-    """@brief Replayed submissions do not allocate builds; revoked actors never execute."""
-    client, headers, profiles, store, _service, runner, _op, path = image_client(tmp_path)
-    body = {
-        "revision": store.export()["revision"],
-        "config_revision": sha256(path.read_bytes()).hexdigest(),
-        "idempotency_key": "same",
-    }
-    url = "/api/v1/projects/alpha/image-build/operations"
-    first = client.post(url, headers=headers, json=body)
-    second = client.post(url, headers=headers, json=body)
-    assert first.status_code == second.status_code == 200
-    assert first.json() == second.json()
-    assert len(store.operations()) == 2  # Fixture request plus the one queued request.
+@pytest.mark.parametrize("method,route,body", [
+    ("PUT", "/image-build", {"dockerfile": "arbitrary", "checks": [], "revision": ""}),
+    ("POST", "/image-build/operations", {"revision": "a" * 64,
+      "config_revision": "b" * 64, "idempotency_key": "retired-build"}),
+])
+def test_retired_web_build_requests_preserve_artifacts(tmp_path, method, route, body):
+    """@brief Obsolete clients get a typed retirement response without saved effects."""
+    client, headers, _profiles, store, _service, runner, _operation, path = image_client(tmp_path)
+    original, draft, operations = path.read_bytes(), store.export(), store.operations()
+    response = client.request(method, "/api/v1/projects/alpha" + route,
+                              headers=headers, json=body)
+    assert response.status_code == 410, response.text
+    assert response.json()["detail"]["code"] == "environment_managed_externally"
+    assert path.read_bytes() == original and store.export() == draft
+    assert store.operations() == operations and not runner.calls
+    assert client.get("/api/v1/projects/alpha/image-build").status_code == 200
+    assert client.get("/api/v1/projects/alpha/image-build/export").status_code == 200
+
+
+def test_retained_queued_image_build_fails_without_runtime(tmp_path):
+    """@brief A pre-upgrade queue cannot restart the retired build workflow."""
+    client, _headers, profiles, store, _service, runner, operation, path = image_client(tmp_path)
     web = client.app.state.web_store
     actor = web.authenticate("admin", "admin")
-    web.create_user("second_admin", "longer-password", "admin")
-    web.disable_user(actor["id"])
+    queued = web.enqueue(actor["id"], "alpha", "image-build", operation["id"], "old-request")
     worker = CommandWorker(profiles, web, image_runner=runner)
     assert worker.run_pending() == 1
-    assert store.operation(first.json()["build"]["id"])["phase"] == "failed"
+    outcome = web.operation(queued["id"])
+    assert outcome["status"] == "failed"
+    assert "externally" in outcome["result"]
+    assert store.operation(operation["id"])["phase"] == "failed"
+    assert not runner.calls
+    assert path.exists()
+
+
+def test_non_environment_candidate_still_applies(tmp_path):
+    """@brief Budget settings retain the current candidate/apply ownership contract."""
+    client, headers, _profiles, _store, _service, runner, _operation, path = image_client(tmp_path)
+    base = "/api/v1/projects/alpha"
+    staged = client.post(base + "/config/pending", headers=headers,
+                         json={"key": "budgets.max_iterations", "value": "30",
+                               "revision": sha256(path.read_bytes()).hexdigest()})
+    assert staged.status_code == 200, staged.text
+    applied = client.post(base + "/config/apply", headers=headers,
+                          json={"candidate_revision": staged.json()["candidate_revision"]})
+    assert applied.status_code == 200, applied.text
+    assert client.get(base + "/config").json()["config"]["budgets"]["max_iterations"] == 30
     assert not runner.calls
 
 
-def test_verified_image_review_rejects_recipe_image_conflict(tmp_path):
-    """@brief Shared recipe authority rejects conflicting selection without YAML writes."""
-    from adore.web.app import create_app
-    from adore.web.image_build import ImageBuildService
+
+@pytest.mark.parametrize("role", ["anonymous", "csrf", "developer"])
+def test_retired_build_keeps_authentication_boundaries(tmp_path, role):
+    """@brief Retirement does not grant unauthenticated or unauthorized mutation access."""
+    client, headers, _profiles, store, _service, runner, _operation, path = image_client(tmp_path)
+    original = path.read_bytes()
+    if role == "anonymous":
+        client.cookies.clear()
+    elif role == "csrf":
+        headers = {}
+    else:
+        web = client.app.state.web_store
+        dev = web.create_user("dev", "longer-password", "developer")
+        web.set_memberships(dev["id"], ["alpha"])
+        headers = {"x-csrf-token": client.post("/api/v1/session", json={
+            "username": "dev", "password": "longer-password"}).json()["csrf"]}
+    response = client.post("/api/v1/projects/alpha/image-build/operations", headers=headers,
+        json={"revision": store.export()["revision"],
+              "config_revision": sha256(original).hexdigest(),
+              "idempotency_key": "unauthorized-build"})
+    assert response.status_code == (401 if role == "anonymous" else 403)
+    assert path.read_bytes() == original and not runner.calls
+
+
+def test_environment_guidance_uses_reviewed_recipe_image(tmp_path):
+    """@brief A recipe-selected effective image is shown from the normalized plan."""
+    import re
 
     from tests.test_preparation import SourceRunner
 
-    client, headers, profiles, store, _service, runner, _op, path = image_client(tmp_path)
-    recipe = SourceRunner()
-    path.write_text(
-        path.read_text(encoding="utf-8").replace(
-            'preparation = ""', 'preparation = "prepare.yml#setup@' + "a" * 40 + '"'
-        ),
-        encoding="utf-8",
-    )
-    revision = sha256(path.read_bytes()).hexdigest()
-    service = ImageBuildService(profiles, runner=runner)
-    operation = service.prepare("alpha", store.export()["revision"], revision)
-    assert service.run("alpha", operation["id"])["phase"] == "verified"
-
-    def hybrid(argv, **kwargs):
-        return recipe(argv, **kwargs) if argv[0] == "git" else runner(argv, **kwargs)
-
-    with TestClient(create_app(profiles.home, probe_runner=hybrid)) as current:
-        session = current.post("/api/v1/session", json={"username": "admin", "password": "admin"})
-        response = current.post(
-            "/api/v1/projects/alpha/config/pending",
-            headers={"x-csrf-token": session.json()["csrf"]},
-            json={
-                "key": "container.image",
-                "value": IMAGE_ID,
-                "revision": revision,
-                "image_build_id": operation["id"],
-            },
-        )
-    assert response.status_code == 400, response.text
-    assert response.json()["detail"]["code"] == "execution_plan_invalid"
-    assert sha256(path.read_bytes()).hexdigest() == revision
+    client, _headers, profiles, _store, _service, _runner, _operation, path = image_client(tmp_path)
+    text = re.sub(r'^image = ".*"', 'image = "project:1"',
+                  path.read_text(encoding="utf-8"), flags=re.MULTILINE)
+    text = text.replace('preparation = ""', 'preparation = "prepare.yml#setup@' + "a" * 40 + '"')
+    path.write_text(text, encoding="utf-8")
+    with TestClient(create_app(profiles.home, probe_runner=SourceRunner())) as current:
+        current.post("/api/v1/session", json={"username": "admin", "password": "admin"})
+        response = current.get("/api/v1/projects/alpha/config")
+        assert response.status_code == 200, response.text
+        assert response.json()["executor_environment"]["image"] == "project:1"
+        assert response.json()["execution_plan"]["image_source"] == "recipe"
 
 
-def test_image_candidate_cannot_lose_its_multi_setting_review_binding(tmp_path):
-    """@brief Stripping image evidence cannot hide the accompanying tool-check edit."""
-    client, headers, _profiles, _store, service, _runner, operation, path = image_client(tmp_path)
-    assert service.run("alpha", operation["id"])["phase"] == "verified"
-    base = "/api/v1/projects/alpha"
-    staged = client.post(
-        base + "/config/pending",
-        headers=headers,
-        json={
-            "key": "container.image",
-            "value": IMAGE_ID,
-            "revision": sha256(path.read_bytes()).hexdigest(),
-            "image_build_id": operation["id"],
-        },
-    )
-    assert staged.status_code == 200, staged.text
-    pending_path = path.parent / "pending_config.json"
-    value = json.loads(pending_path.read_text(encoding="utf-8"))
-    del value["image_build"]
-    pending_path.write_text(json.dumps(value), encoding="utf-8")
-    original = path.read_bytes()
-    assert client.get(base + "/config/pending").status_code == 503
-    response = client.post(
-        base + "/config/apply",
-        headers=headers,
-        json={"candidate_revision": value["candidate_revision"]},
-    )
-    assert response.status_code == 503
-    assert path.read_bytes() == original
+
+def test_environment_guidance_does_not_guess_an_invalid_recipe_image(tmp_path):
+    """@brief Invalid configured preparation exposes no misleading effective image."""
+    from tests.test_preparation import SourceRunner
+
+    _client, _headers, profiles, _store, _service, _runner, _operation, path = (
+        image_client(tmp_path))
+    text = path.read_text(encoding="utf-8")
+    text = text.replace('preparation = ""', 'preparation = "missing.yml#setup@' + "a" * 40 + '"')
+    path.write_text(text, encoding="utf-8")
+    with TestClient(create_app(profiles.home, probe_runner=SourceRunner())) as current:
+        current.post("/api/v1/session", json={"username": "admin", "password": "admin"})
+        response = current.get("/api/v1/projects/alpha/config")
+        assert response.status_code == 200
+        assert response.json()["executor_environment"]["image"] is None
+        assert response.json()["execution_plan"] is None
+        assert response.json()["issues"]
 
 
 # END OF FILE
