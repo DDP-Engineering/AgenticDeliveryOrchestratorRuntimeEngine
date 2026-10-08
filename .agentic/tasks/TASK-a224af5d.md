@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # TASK-a224af5d - Unify web and CLI polling cadence
 
-stage: deliver
+stage: done
 type: change
 path: full
 interaction: autopilot
@@ -25,8 +25,8 @@ opened: 2026-10-08
 - [x] validation evidence, diff, exclusions and deviations presented
 - [x] standing human local commit/DCP delivery authority reused
 - [x] journal/report and source commit
-- [ ] backup-protected DCP deployment and read-only acceptance
-- [ ] close-out committed after success
+- [x] backup-protected DCP deployment and read-only acceptance
+- [x] close-out committed after success
 
 ## Frame
 
@@ -97,27 +97,29 @@ Risks: nonzero lock/config child outcome also backs off safely; serial long comm
 - 2026-10-08 final validation: strict runtime run exit0; Python1507 passed/3 existing Windows symlink skips/one dependency deprecation warning (340.5s), Ruff passed (0.1s), helper tests/typechecks/fresh isolated stamped build and150 Chromium tests passed (417.8s), zero browser retries/skips. Fresh strict catalog after final prose reconciliation exit0, zero errors/zero promoted warnings,10 warnings and25 unrelated manual notes.9 historical catalog warnings plus config.example.toml outside layout; explicitly owned documentation, no coverage gap.20 non-journal hashes match final reviewed21-path candidate. Changelog consolidated under existing Fixed section; both final specification/quality assessments approved unchanged executable and final prose. Final evolution refreshed at12:01:52Z. First failed run remains recorded; final proof is successful.
 - 2026-10-08 delivery presentation:21 paths cover3 runtime modules,2 tests, localized settings help/example, operator/component/knowledge docs, changelog,3 requirements and journal. No schema/dependency/default/config-key changes, state migration, children, Git publication, model/forge acceptance. Standing same-session local commit and DCP test replacement authority reused for the concrete reviewed candidate. Repeat deviations: quiet-hour tests followed implementation;21-path bound and prose-only completion during runtime verification with final strict catalog. One backup-protected replacement and read-only LAN/browser acceptance remain.
 
+- 2026-10-08 delivery report inspected:11 warnings include the expected unfinished-delivery checklist plus10 recorded catalog warnings; no validation replacement. Source commit `21e2e7cde48c185baee96a524b13b0d164398b0e` records21 approved paths; no push/PR/merge. Package SHA25678aaa17235e63a67f90bf00c9ca1f47eed38f7f4218d9c96ae2476921c319911 verified before extraction. Installed `/home/dpasare/apps/adore/dcp-polling-a224af5d/04_Software` with private backup `/home/dpasare/apps/adore/backups/dcp-polling-a224af5d-20261008T120339Z`. Both existing services active, worker ready, existing runtime/TLS/delegated scopes retained. Schema14/users1/audit104/18 operation outcomes and all6 configuration/run-state hashes and pause flags match before/after. LAN health/ready/pages200, protected unauthenticated APIs401; exact served asset SHA256dd5cc22daaae1daf9fdbadb9db7ea0ccf01cfe9c3fcda0253ac1b923ea38742c matches validated package. Existing TLS certificate pinned, no public-trust claim. Authenticated user Chrome tab reloaded: Repository And Tickets open, interval/backoff/jitter edit controls enabled, updated web/CLI guidance visible; mode remains once for standalone CLI and web repeats independently. Saved full and viewport PNG plus browser acceptance JSON; marked tab deliverable. Only reload/disclosure/scroll/read actions, no configuration edits or explicit jobs/model/forge/image probes. SSH/SCP closed. Local generated evidence ignored. Successful close-out remains inside60-minute operational bound; journal-only close-out commit follows.
+
 ## Rulings
 
 - RULING-001 | date=2026-10-08 | decision=Keep polling controls and apply loop scheduling to web | reason=Explicit user request; standing autonomous implementation/local delivery authority | source=user | supersedes=none
 
 ## Handoff
 
-current: deliver
+current: done
 status: ready
-next: Commit and package validated source for authorized DCP replacement
-must_read: .agentic/tasks/TASK-a224af5d.md, .agentic/steps/6_deliver.md
+next: None; authorized implementation and DCP deployment complete
+must_read: .agentic/tasks/TASK-a224af5d.md
 blockers: none
 
 ## Stage report
 
-stage: validate
+stage: deliver
 result: completed
-current: deliver
-changed:21-path shared CLI/web cadence with retained settings and localized guidance
-evidence: strict runtime exit0; Python1507/Chromium150; final strict catalog0; frozen hashes match
-issues:3 existing Windows skips,10 catalog warnings; recorded workflow deviations
-next: authorized local commit and backup-protected DCP replacement
+current: done
+changed: shared CLI/web scheduling deployed on DCP; settings retained and guidance verified
+evidence: source21e2e7c; Python1507/Chromium150; ready services; preserved6 profiles; live browser
+issues:3 existing Windows skips and10 catalog warnings; recorded workflow deviations
+next: none
 needs_user: no
 spec_compliance: approved
 implementation_quality: approved
