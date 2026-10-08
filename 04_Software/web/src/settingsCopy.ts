@@ -6,6 +6,14 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 */
 import type { Locale } from "./i18n";
 
+/** The integration branch supplies both the worktree base and the PR/MR target. */
+export const targetBranchCopy: Record<Locale, { label: string }> = {
+ en: { label: "Target branch" },
+ fr: { label: "Branche cible" },
+ de: { label: "Zielbranch" },
+ ro: { label: "Ramura de integrare" },
+};
+
 /** Reviewer requests are distinct from publication approval and merge authorization. */
 export const reviewerCopy: Record<Locale, { label: string }> = {
  en: { label: "Request review from" },
@@ -54,7 +62,7 @@ export function settingLabel(key: string): string {
  "budgets.max_iterations": "Maximum iterations per job", "budgets.max_files_touched": "Maximum changed files per job", "budgets.max_cost_usd": "Job cost cap (USD)", "budgets.max_wall_clock_seconds": "Job time limit (seconds)", "budgets.per_gate_timeout_seconds": "Stage attempt time limit (seconds)",
  "container.runtime": "Container runtime command", "container.image": "Agent container image", "container.selinux_relabel": "Shared mount access on SELinux", "container.egress.mode": "Outbound network policy", "container.egress.proxy_port": "Network proxy port", "container.egress.proxy_image": "Network proxy image", "container.egress.network_prefix": "Isolated network name prefix", "container.keep_parked": "Keep containers while waiting", "container.parked_ttl_mode": "Waiting-container retention unit", "container.parked_ttl_seconds": "Waiting-container retention (seconds)", "container.parked_ttl_polls": "Waiting-container retention (checks)",
  "worktree.repo_path": "Existing local repository path", "worktree.root": "Job working folders", "worktree.branch_template": "Job branch naming template", "worktree.branch_rule": "Required branch name pattern",
- "delivery.draft": "PR/MR state at publication", "delivery.approval_label": "Human publication approval label", "delivery.publish_checkpoints": "Publish progress commits", "delivery.target_branch": "Human review target branch", "delivery.remove_source_branch": "Remove branch after human merge", "delivery.reviewers": "Request review from",
+ "delivery.draft": "PR/MR state at publication", "delivery.approval_label": "Human publication approval label", "delivery.publish_checkpoints": "Publish progress commits", "delivery.target_branch": "Target branch", "delivery.remove_source_branch": "Remove branch after human merge", "delivery.reviewers": "Request review from",
  "workflow.default_kind": "Default task type", "workflow.aegis_python": "Workflow Python command", "workflow.quick_label": "Quick-path suggestion label", "state.channel": "State reporting channel", "state.store_root": "Durable job state folder", "review.trigger": "Review request method", "review.revise_label": "Revision request label", "review.max_review_rounds": "Maximum revision rounds", "review.on_pipeline_failure": "Response to failed review pipeline", "review.review_reminder_after": "Review reminder interval (reserved)",
  "recovery.max_stage_failures": "Failed attempts allowed per stage", "recovery.max_transient_retries": "Attempts allowed for temporary errors", "recovery.retry_backoff_seconds": "Retry delays (seconds)", "metrics.enabled": "Record completed job measurements", "metrics.capture_tokens": "Record agent-reported tokens", "metrics.capture_resource": "Resource measurement (reserved)", "metrics.db_path": "Measurement database path", "metrics.export_jsonl": "Measurement export path", "metrics.html_out": "Statistics HTML output path",
  "readiness.max_scope_hint": "Ticket scope hint (reserved)", "readiness.require_known_component": "Require known component (reserved)", "readiness.require_acceptance_criteria": "Require ticket acceptance criteria", "readiness.require_priority_label": "Require ticket priority label",

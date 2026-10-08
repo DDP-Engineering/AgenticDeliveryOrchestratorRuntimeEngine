@@ -7,6 +7,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Web frontend
 
+`delivery.target_branch` uses `targetBranchCopy` for the row, editor and candidate review in four locales. Help describes the remote starting branch, PR/MR destination, short branch-name format and human merge boundary. The scalar key, active/default values and reviewed editing contract retain their existing authority.
+
 Settings names `delivery.draft` as PR/MR state at publication and displays localized Draft/Ready for review labels for active/default values, options and candidate review. Boolean wire values use the existing reviewed apply flow. The in-review lifecycle represents human review for either forge state.
 
 Project details groups its three metadata rows with a 4px gap and separates

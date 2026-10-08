@@ -24,7 +24,7 @@ import { imageCopy } from "./imageBuild";
 import { ExecutionPlanReview } from "./ExecutionPlanReview";
 import { type ExecutionPlan } from "./executionPlan";
 import { settingHelp } from "./settingHelp";
-import { settingsCopy, settingLabel, publicationCopy, publicationValue, reviewerCopy } from "./settingsCopy";
+import { settingsCopy, settingLabel, publicationCopy, publicationValue, reviewerCopy, targetBranchCopy } from "./settingsCopy";
 import { ImportWizard } from "./ImportWizard";
 import { RawConfiguration } from "./RawConfiguration";
 import { TransferWizard } from "./TransferWizard";
@@ -1301,7 +1301,7 @@ function PendingReview({ config, candidate, project, paused, busy, locale, t, on
   const meta = config.settings?.find(item => item.edit_key === candidate.key);
   const active = settingValue(config.config, meta?.key || candidate.key);
   const show = (value: unknown) => candidate.key === "delivery.draft" && publicationValue(value, locale) !== null ? publicationValue(value, locale) : value == null ? copy.unknown : value === "" ? t("settingNoDefault") : typeof value === "object" ? JSON.stringify(value) : String(value);
-  const rows: Array<{ label: string; active: unknown; proposed: unknown }> = [{ label: candidate.key === "delivery.reviewers" ? reviewerCopy[locale].label : candidate.key === "delivery.draft" ? publicationCopy[locale].label : locale === "en" ? settingLabel(meta?.key || candidate.key) : t("config"), active, proposed: candidate.proposed_value }];
+  const rows: Array<{ label: string; active: unknown; proposed: unknown }> = [{ label: candidate.key === "delivery.target_branch" ? targetBranchCopy[locale].label : candidate.key === "delivery.reviewers" ? reviewerCopy[locale].label : candidate.key === "delivery.draft" ? publicationCopy[locale].label : locale === "en" ? settingLabel(meta?.key || candidate.key) : t("config"), active, proposed: candidate.proposed_value }];
   if (candidate.endpoint) {
     rows.push({ label: t("model"), active: settingValue(config.config, "executor.commands.opencode.model"), proposed: candidate.endpoint.model });
     rows.push({ label: t("endpointProtocol"), active: config.local_endpoint?.protocol, proposed: candidate.endpoint.protocol });
@@ -1335,7 +1335,7 @@ function SettingsList({ executorOnly=false, config, settings, t, locale, canEdit
   const copy = settingsCopy[locale];
   const shown = (value: unknown) => value == null || value === "" ? "—" :
     Array.isArray(value) || typeof value === "object" ? JSON.stringify(value) : String(value);
-  const label = (row: SettingRow) => row.key === "delivery.reviewers" ? reviewerCopy[locale].label : row.key === "delivery.draft" ? publicationCopy[locale].label : locale === "en" ? settingLabel(row.key) : row.label ? t(row.label) : (settingHelp(row.key, locale)?.split(". ")[0] || settingLabel(row.key));
+  const label = (row: SettingRow) => row.key === "delivery.target_branch" ? targetBranchCopy[locale].label : row.key === "delivery.reviewers" ? reviewerCopy[locale].label : row.key === "delivery.draft" ? publicationCopy[locale].label : locale === "en" ? settingLabel(row.key) : row.label ? t(row.label) : (settingHelp(row.key, locale)?.split(". ")[0] || settingLabel(row.key));
   const submit = async (event: FormEvent<HTMLFormElement>, row: SettingRow) => {
     event.preventDefault();
     const value = row.input === "reviewers" ? JSON.stringify(draft.split(/\r?\n/).map(name => name.trim()).filter(Boolean)) : draft;

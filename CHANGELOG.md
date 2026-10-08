@@ -20,6 +20,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Clarify the Target branch setting in all four GUI locales, including its new-job base and PR/MR destination, with consistent row/editor/review naming.
+
 - Rename reviewer settings to Request review from and support a localized multiline account editor through typed reviewed configuration apply, with strict list validation.
 
 - Enable guarded progress commit publication by default in CLI and GUI; preserve explicit project overrides and final human publication approval.

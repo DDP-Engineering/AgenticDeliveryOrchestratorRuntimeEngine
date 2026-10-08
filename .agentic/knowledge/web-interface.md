@@ -8,6 +8,8 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # Web interface
 
+`delivery.target_branch` has a shared four-locale Target branch label (Romanian: Ramura de integrare) in the row/editor/candidate review; help identifies the new-job remote base and PR/MR destination, short name without origin/, and human merge boundary.
+
 `delivery.draft` is presented as localized PR/MR state at publication with Draft/Ready for review choices, using the existing administrator reviewed prepare/apply flow and boolean wire contract. Active/default/proposed values carry the same names; in-review covers both forge states.
 
 Secondary text uses contrasting light/dark theme colours. Project metadata,

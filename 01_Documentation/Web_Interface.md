@@ -7,6 +7,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # ADORE web interface
 
+**Target branch** in Rules and approvals identifies both the starting branch for new jobs and the destination of their PR/MR. The row, editor and candidate review share its localized name (**Ramura de integrare** in Romanian). Use a short remote branch name such as `main`, without `origin/`; existing PR/MR targets remain unchanged.
+
 The optional web installation serves the React interface and a same-origin
 FastAPI API. It uses the same project profiles and run state as the CLI. The
 Overview opens **Needs attention** across all projects your account can access,

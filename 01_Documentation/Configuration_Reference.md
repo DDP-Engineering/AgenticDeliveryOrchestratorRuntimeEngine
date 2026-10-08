@@ -7,6 +7,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Configuration Reference
 
+`target_branch` is shown as **Target branch** (Romanian: **Ramura de integrare**). New jobs start from `origin/<target_branch>` and their PR/MR targets that branch. Enter an existing remote branch’s short name, such as `main`, `master` or `develop`, without `origin/`. A human performs the merge; changing this setting does not retarget existing PRs/MRs.
+
 This reference describes the ADORE configuration. The canonical
 annotated example is [config.example.toml](../04_Software/config.example.toml).
 Unknown top-level sections fail validation. Unknown execution/local keys are rejected. Other known sections
