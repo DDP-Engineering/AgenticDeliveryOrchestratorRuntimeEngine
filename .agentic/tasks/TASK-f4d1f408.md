@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # TASK-f4d1f408 - Enable progress commit publication by default in CLI and GUI
 
-stage: deliver
+stage: done
 type: change
 path: full
 interaction: autopilot
@@ -24,9 +24,9 @@ opened: 2026-10-08
 - [x] Validated candidate unchanged
 - [x] Evidence, diff and authorized outcome presented
 - [x] Standing local commit and DCP test deployment authorization retained
-- [ ] Journal/report included in source commit
-- [ ] DCP replacement and live verification
-- [ ] Close-out
+- [x] Journal/report included in source commit
+- [x] DCP replacement and live verification
+- [x] Close-out
 
 ## Frame
 
@@ -83,26 +83,28 @@ REQ-FUNC-64174b8b: Change DeliveryConfig.publish_checkpoints to True and bundled
 - 2026-10-08 validate final: Focused command=`.\04_Software\.venv\Scripts\python.exe -m pytest -q 04_Software/tests/test_config.py 04_Software/tests/test_checkpoint_handoff.py 04_Software/tests/test_web_config.py 04_Software/tests/test_local_execution.py::test_local_conductor_pins_target_parks_retries_and_never_lists_containers 04_Software/tests/test_release_consistency.py::test_repository_release_identity_is_consistent`; exit=0; 101 passed. Ruff on changed Python files exit=0. Strict catalog exit=0, 0 errors / 10 historical-layout warnings / 25 unrelated manual notes. Previously completed frontend 151 Chromium tests passed. Frozen 19 candidate files plus journal; no source drift. Full Python suite deferred by user; initial full gate failed on two now-corrected cases, interrupted rerun proves nothing.
 - 2026-10-08 deliver: Reuse explicit standing authorization for local commit and replacement of the DCP test installation. Preserve configuration/state/TLS; no push or PR. Candidate consists of shared enabled default/example, tests and directly affected documentation/requirements; no existing explicit boolean rewrite. Verification substitution and deferred full suite remain explicit.
 
+- 2026-10-08 delivery outcome: Source commit f2bad6eddca66a2ef3fd6809e4ed70d95af81c21 installed at /home/dpasare/apps/adore/dcp-progress-f4d1f408/04_Software; rollback backup /home/dpasare/apps/adore/backups/dcp-progress-f4d1f408-20261008T175132Z. Package SHA256 b3a945203b8507a0e575773f7ce6642d9685503f7ffe4bd8b5015811c6377671; fresh validated asset index-CjVWR5Es.js retains hash b668f13b62da178c63c1f8b2056a0bcfdc66e7a4ce4ea2e08462dcad605c38f8. Services active, worker ready, LAN health/pages 200 and protected API 401; existing certificate pinned unchanged. Before/after inventories identical (schema 14, users 1, audit 105, 18 completed operations, six config/state hashes and pause flags retained). Remote shared default and all six effective profiles true. Reloaded authenticated live GUI confirms active/default true; no config writes; screenshot dcp-progress-view.png saved. SSH and both SCP sessions exited. No Git push or PR. Full suite remains deferred by explicit user instruction; subsequent settings changes use targeted verification until final review.
+
 ## Rulings
 
 
 ## Handoff
 
-current: deliver
+current: done
 status: ready
-next: Commit and replace authorized DCP test instance
+next: Continue settings analysis; targeted tests only until user requests final full suite
 must_read: .agentic/tasks/TASK-f4d1f408.md
 blockers: none
 
 ## Stage report
 
-stage: validate
+stage: deliver
 result: completed
-current: deliver
-changed: Shared default true in CLI and GUI, example, tests and documentation; 20 candidate files
-evidence: 101 focused tests and changed-file Ruff passed; 151 browser tests already passed; strict catalog 0 errors
-issues: Full Python suite deferred by explicit user request; cancelled rerun proves nothing; ten historical/layout catalog warnings
-next: Local commit and DCP test deployment
+current: done
+changed: Enabled shared CLI/GUI progress publication default; committed and installed on DCP
+evidence: 101 focused tests and changed-file Ruff passed; live GUI/default and six profiles true; services/worker ready; config/state preserved
+issues: Full suite deferred at user request; cancelled rerun proves nothing; ten historical/layout catalog warnings
+next: Continue settings analysis with targeted verification
 needs_user: no
 spec_compliance: approved
 implementation_quality: approved
