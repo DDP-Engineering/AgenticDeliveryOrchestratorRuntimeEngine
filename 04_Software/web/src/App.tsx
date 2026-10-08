@@ -24,7 +24,7 @@ import { imageCopy } from "./imageBuild";
 import { ExecutionPlanReview } from "./ExecutionPlanReview";
 import { type ExecutionPlan } from "./executionPlan";
 import { settingHelp } from "./settingHelp";
-import { settingsCopy, settingLabel, publicationCopy, publicationValue } from "./settingsCopy";
+import { settingsCopy, settingLabel, publicationCopy, publicationValue, reviewerCopy } from "./settingsCopy";
 import { ImportWizard } from "./ImportWizard";
 import { RawConfiguration } from "./RawConfiguration";
 import { TransferWizard } from "./TransferWizard";
@@ -1301,7 +1301,7 @@ function PendingReview({ config, candidate, project, paused, busy, locale, t, on
   const meta = config.settings?.find(item => item.edit_key === candidate.key);
   const active = settingValue(config.config, meta?.key || candidate.key);
   const show = (value: unknown) => candidate.key === "delivery.draft" && publicationValue(value, locale) !== null ? publicationValue(value, locale) : value == null ? copy.unknown : value === "" ? t("settingNoDefault") : typeof value === "object" ? JSON.stringify(value) : String(value);
-  const rows: Array<{ label: string; active: unknown; proposed: unknown }> = [{ label: candidate.key === "delivery.draft" ? publicationCopy[locale].label : locale === "en" ? settingLabel(meta?.key || candidate.key) : t("config"), active, proposed: candidate.proposed_value }];
+  const rows: Array<{ label: string; active: unknown; proposed: unknown }> = [{ label: candidate.key === "delivery.reviewers" ? reviewerCopy[locale].label : candidate.key === "delivery.draft" ? publicationCopy[locale].label : locale === "en" ? settingLabel(meta?.key || candidate.key) : t("config"), active, proposed: candidate.proposed_value }];
   if (candidate.endpoint) {
     rows.push({ label: t("model"), active: settingValue(config.config, "executor.commands.opencode.model"), proposed: candidate.endpoint.model });
     rows.push({ label: t("endpointProtocol"), active: config.local_endpoint?.protocol, proposed: candidate.endpoint.protocol });
@@ -1335,14 +1335,16 @@ function SettingsList({ executorOnly=false, config, settings, t, locale, canEdit
   const copy = settingsCopy[locale];
   const shown = (value: unknown) => value == null || value === "" ? "—" :
     Array.isArray(value) || typeof value === "object" ? JSON.stringify(value) : String(value);
-  const label = (row: SettingRow) => row.key === "delivery.draft" ? publicationCopy[locale].label : locale === "en" ? settingLabel(row.key) : row.label ? t(row.label) : (settingHelp(row.key, locale)?.split(". ")[0] || settingLabel(row.key));
+  const label = (row: SettingRow) => row.key === "delivery.reviewers" ? reviewerCopy[locale].label : row.key === "delivery.draft" ? publicationCopy[locale].label : locale === "en" ? settingLabel(row.key) : row.label ? t(row.label) : (settingHelp(row.key, locale)?.split(". ")[0] || settingLabel(row.key));
   const submit = async (event: FormEvent<HTMLFormElement>, row: SettingRow) => {
     event.preventDefault();
-    if (await onStage(row.editKey, draft)) setEditing("");
+    const value = row.input === "reviewers" ? JSON.stringify(draft.split(/\r?\n/).map(name => name.trim()).filter(Boolean)) : draft;
+    if (await onStage(row.editKey, value)) setEditing("");
   };
   const editor = (row:SettingRow) => <form className="setting-editor" onSubmit={event => void submit(event, row)}>
           {row.input === "boolean" || row.input === "choice"
             ? <select aria-label={label(row)} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)}>{row.input === "choice" && !row.choices.includes(draft) && <option value={draft} disabled>{draft}</option>}{(row.input === "boolean" ? ["true", "false"] : row.choices).map(option => <option key={option} value={option}>{row.key === "delivery.draft" ? publicationValue(option, locale) : option}</option>)}</select>
+            : row.input === "reviewers" ? <textarea rows={6} aria-label={label(row)} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)} required />
             : <input aria-label={label(row)} type={row.input === "number" ? "number" : "text"} step={row.step} min={row.minimum ?? undefined} max={row.maximum ?? undefined} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)} required={row.input === "number"} />}
           <div className="button-row"><button className="primary" disabled={disabled || row.input === "choice" && !row.choices.includes(draft)}>{copy.prepare}</button><button type="button" className="ghost" onClick={() => setEditing("")}>{t("cancel")}</button></div>
         </form>;
@@ -1354,7 +1356,7 @@ function SettingsList({ executorOnly=false, config, settings, t, locale, canEdit
           {canEdit && row.input === "none" && <small className="setting-note">{t("settingNotEditableShort")}</small>}
         </div>
         {editing === row.key ? editor(row) : <div><div className="setting-value-heading"><small>{copy.active}</small>
-          {canEdit && row.input !== "none" && editing !== row.key && <button type="button" className="text-button" disabled={disabled} aria-label={`${t("editSetting")} ${label(row)}`} data-edit-key={row.editKey} onClick={() => { setEditing(row.key); setDraft(editValue(row.value)); }}>{t("editSetting")}</button>}
+          {canEdit && row.input !== "none" && editing !== row.key && <button type="button" className="text-button" disabled={disabled} aria-label={`${t("editSetting")} ${label(row)}`} data-edit-key={row.editKey} onClick={() => { setEditing(row.key); setDraft(row.input === "reviewers" && Array.isArray(row.value) ? row.value.join("\n") : editValue(row.value)); }}>{t("editSetting")}</button>}
         </div><code>{row.key === "delivery.draft" ? publicationValue(row.value, locale) : shown(row.value)}</code><small>{t("settingDefaultValue")}: {hasDefault(row.defaultValue) ? row.key === "delivery.draft" ? publicationValue(row.defaultValue, locale) : shown(row.defaultValue) : t("settingNoDefault")}</small></div>}
 
       </div>;

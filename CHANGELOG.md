@@ -20,6 +20,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Rename reviewer settings to Request review from and support a localized multiline account editor through typed reviewed configuration apply, with strict list validation.
+
 - Enable guarded progress commit publication by default in CLI and GUI; preserve explicit project overrides and final human publication approval.
 
 - Allow `delivery.draft = false` to create review-ready PR/MRs after fresh human publication approval; settings show localized Draft/Ready for review choices. Existing review records retain their state, and ADORE never merges.

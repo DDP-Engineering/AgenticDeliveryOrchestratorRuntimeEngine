@@ -483,7 +483,13 @@ Exact server TOML enrollment and statistics CSV remain separate formats.
 ## Project and model setup
 
 An administrator can create a profile in Projects, edit validated scalar
-configuration keys in Project details, and use the CLI for other complex settings.
+configuration keys and the requested reviewer list in Project details, and use the CLI for other complex settings.
+**Request review from** is an administrator-editable list with one forge account
+per line and at least one account. Prepare the change, compare active/proposed
+reviewers, then apply it. Requests affect subsequent PR/MR creation and confer
+no publication approval or merge permission. Other list settings keep their
+individual supported-editing rules.
+
 Every project setting lives in that project's own `config.toml`; Project details
 Settings lists effective project values including defaults. Each row's visible guidance explains, in the selected
 language, what the setting controls, its unit or allowed values and the effect

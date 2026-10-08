@@ -31,6 +31,9 @@ dashboard. Vite compiles it into `adore/web/static` for same-origin serving.
 
 The Remove branch after human merge help describes the shared GitHub/GitLab/Gitea behavior in all four locales: exact published commit protection, retained-branch warnings and an independent repository auto-delete policy. The boolean choice feeds the same conductor configuration used by CLI.
 
+
+Request review from has a localized label and six-line resizable account editor, one forge username per line. It serializes names into the reviewer-only candidate list, displays active/proposed lists in the existing review, and applies through the reviewed configuration flow. Pending array authority is accepted only for delivery.reviewers with exact canonical list/value agreement. Other list settings retain their own read-only contract.
+
 ## 2. Responsibilities
 
 Project Settings retains the effective durable state folder as a read-only row.

@@ -24,7 +24,7 @@ export type SettingMeta = {
 };
 
 /** How a row's value is edited in the browser; `none` means not editable here. */
-export type InputKind = "boolean" | "number" | "choice" | "text" | "none";
+export type InputKind = "boolean" | "number" | "choice" | "text" | "reviewers" | "none";
 
 type CommonKind = "text" | "positive" | "forge" | "runtime" | "executor";
 
@@ -72,6 +72,7 @@ export const settingValue = (config: Record<string, unknown>, key: string): unkn
     current && typeof current === "object" ? (current as Record<string, unknown>)[part] : undefined, config);
 
 const inputKind = (item: SettingMeta): InputKind => {
+  if (item.editable && item.key === "delivery.reviewers" && item.type === "list") return "reviewers";
   if (!item.editable || !["boolean", "integer", "number", "text"].includes(item.type || "")) return "none";
   if (item.choices?.length) return "choice";
   if (item.type === "boolean") return "boolean";
@@ -166,7 +167,7 @@ export function validSettingCatalog(settings: unknown): settings is SettingMeta[
   });
 }
 
-export type PendingConfig = { image_build?: ImageBinding; base_revision: string; candidate_revision: string; key: string; value: string; proposed_value: string | number | boolean; created_at: string; restart_required: boolean; execution_plan?: ExecutionPlan; endpoint?: { protocol: string; model: string; auth_env: string | null; timeout_seconds: number | null; ca_file: string | null } };
+export type PendingConfig = { image_build?: ImageBinding; base_revision: string; candidate_revision: string; key: string; value: string; proposed_value: string | number | boolean | string[]; created_at: string; restart_required: boolean; execution_plan?: ExecutionPlan; endpoint?: { protocol: string; model: string; auth_env: string | null; timeout_seconds: number | null; ca_file: string | null } };
 
 /** A malformed or unbound server candidate never enables Apply. */
 export function validPendingConfig(value: unknown): value is PendingConfig | null {
@@ -174,10 +175,13 @@ export function validPendingConfig(value: unknown): value is PendingConfig | nul
   if (!value || typeof value !== "object") return false;
   const item = value as PendingConfig;
   const digest = (part: unknown) => typeof part === "string" && /^[a-f0-9]{64}$/.test(part);
+  const reviewerList = item.key === "delivery.reviewers" && Array.isArray(item.proposed_value)
+    && item.proposed_value.length > 0 && item.proposed_value.every(name => typeof name === "string"
+      && name.length > 0 && name.length <= 255 && !name.startsWith("-") && !/[\s\u0000-\u001f\u007f]/.test(name));
   return digest(item.base_revision) && digest(item.candidate_revision)
     && typeof item.key === "string" && item.key.length > 0 && typeof item.value === "string"
-    && item.value === (typeof item.proposed_value === "boolean" ? String(item.proposed_value).toLowerCase() : String(item.proposed_value))
-    && ["string", "number", "boolean"].includes(typeof item.proposed_value)
+    && item.value === (reviewerList ? JSON.stringify(item.proposed_value) : typeof item.proposed_value === "boolean" ? String(item.proposed_value).toLowerCase() : String(item.proposed_value))
+    && (reviewerList || item.key !== "delivery.reviewers" && ["string", "number", "boolean"].includes(typeof item.proposed_value))
     && (typeof item.proposed_value !== "number" || Number.isFinite(item.proposed_value))
     && typeof item.restart_required === "boolean"
     && (item.image_build === undefined || validImageBinding(item.image_build) && item.key === "container.image" && item.image_build.image_id === item.proposed_value && item.image_build.config_revision === item.base_revision)

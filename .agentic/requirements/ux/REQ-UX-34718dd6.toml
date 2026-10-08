@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+schema = 1
+id = "REQ-UX-34718dd6"
+title = "Edit requested reviewers through reviewed configuration"
+status = "active"
+requirement = """
+When an administrator edits Request review from, ADORE shall prepare and apply a nonempty list of forge account names through its existing revision-bound configuration review, with one account per editor line, exact list preview and rejection of malformed list/value authority while retaining unrelated configuration and existing access controls.
+"""
+verification = "Authenticated offline API tests prepare/apply single and multiline TOML lists, reject empty/mixed/hostile values, verify no active write before apply and unchanged adjacent keys; browser tests edit/preview/apply/restore two reviewers; helper tests reject malformed array transport and retain other list settings as read-only."
+affected_paths = ["04_Software/adore/config.py", "04_Software/adore/web/app.py", "04_Software/web/src/settings.ts", "04_Software/web/src/settingsCopy.ts", "04_Software/web/src/settingHelp.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/styles.css", "04_Software/web/e2e/settings.spec.ts", "04_Software/web/tests/settings.test.mjs"]
+linked_tests = ["04_Software/tests/test_web_config.py::test_reviewer_list_candidate_applies_without_changing_other_settings", "04_Software/tests/test_web_config.py::test_reviewer_list_rejects_invalid_input"]
+created = 2026-10-08
+updated = 2026-10-08

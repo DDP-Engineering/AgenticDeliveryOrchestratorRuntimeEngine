@@ -44,6 +44,9 @@ React action workspaces/project hubs, the web queue, or offline web media. Start
 for attention/global jobs/details; `web/e2e/jobs.spec.ts` verifies those views. Focused tests are
 `04_Software/tests/test_web_*.py`. Engine internals belong to `orchestrator.md`.
 
+
+`REQ-UX-34718dd6`: Admin Project settings exposes Request review from as a reviewer-only six-line list editor. Typed exact candidate authority and complete TOML array replacement retain existing revision/access/idle/apply checks. Developers retain read-only settings; other arrays stay outside generic editing.
+
 ## Purpose and boundaries
 
 The optional web package gives one ADORE host an authenticated dashboard and

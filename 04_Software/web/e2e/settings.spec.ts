@@ -40,6 +40,34 @@ test("merged branch cleanup help applies to every forge", async ({ page }) => {
   await expect(row).toContainText("When false");
 });
 
+test("request review from edits one account per line through reviewed apply", async ({ page }) => {
+  await openSettings(page);
+  const before = await (await page.request.get("/api/v1/projects/alpha/config")).json();
+  const row = page.locator(".setting-row").filter({ has: page.getByText("Request review from", { exact: true }) });
+  await expect(row).toContainText("one account per line");
+  await row.getByRole("button", { name: "Edit Request review from", exact: true }).click();
+  const editor = row.getByRole("textbox", { name: "Request review from", exact: true });
+  await expect(editor).toHaveValue(before.config.delivery.reviewers.join("\n"));
+  await expect(editor).toHaveAttribute("rows", "6");
+  await editor.fill("alice\nbob.smith");
+  await row.getByRole("button", { name: "Prepare candidate" }).click();
+  const review = page.locator(".candidate-review");
+  await expect(review).toContainText("Request review from");
+  await expect(review).toContainText("alice");
+  await expect(review).toContainText("bob.smith");
+  expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).revision).toBe(before.revision);
+  await review.getByRole("button", { name: "Apply change", exact: true }).click();
+  await expect(review).toHaveCount(0);
+  expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).config.delivery.reviewers).toEqual(["alice", "bob.smith"]);
+  // Restore the independent test profile using the same reviewed workflow.
+  await page.locator("#project-settings > .setting-groups > details > summary").filter({ hasText: "Rules and approvals" }).click();
+  await row.getByRole("button", { name: "Edit Request review from", exact: true }).click();
+  await editor.fill(before.config.delivery.reviewers.join("\n"));
+  await row.getByRole("button", { name: "Prepare candidate" }).click();
+  await review.getByRole("button", { name: "Apply change", exact: true }).click();
+  await expect(review).toHaveCount(0);
+});
+
 test("publication state offers draft and ready with explicit reviewed apply", async ({ page }) => {
   await openSettings(page);
   const before = await (await page.request.get("/api/v1/projects/alpha/config")).json();

@@ -15,6 +15,7 @@
 
 import json
 from pathlib import Path
+import tomllib
 
 from adore.cli import EXIT_ERROR, EXIT_OK, main
 from adore.config import load_config
@@ -22,6 +23,92 @@ from adore.profiles import ProfileStore
 from adore.state import StateStore
 from adore.web.app import create_app
 from fastapi.testclient import TestClient
+import pytest
+
+
+@pytest.mark.parametrize("multiline", [False, True])
+def test_reviewer_list_candidate_applies_without_changing_other_settings(tmp_path, multiline):
+    """@brief Admin reviews a reviewer list and changes only that complete TOML value."""
+    profiles = ProfileStore(tmp_path / "home")
+    profiles.create("alpha", store_root=str(tmp_path / "state"))
+    path = profiles.config_path("alpha")
+    text = (Path(__file__).resolve().parents[1] / "config.example.toml").read_text()
+    text = text.replace('store_root = ".adore"',
+                        f'store_root = "{(tmp_path / "state").as_posix()}"')
+    if multiline:
+        text = text.replace('reviewers = ["dan.pasare"]', 'reviewers = [\n  "dan.pasare",\n]')
+    path.write_bytes(text.replace("\n", "\r\n").encode())
+    original = path.read_bytes()
+    app = create_app(profiles.home)
+    with TestClient(app) as client:
+        login = client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
+        headers = {"X-CSRF-Token": login.json()["csrf"]}
+        revision = client.get("/api/v1/projects/alpha/config").json()["revision"]
+        response = client.post("/api/v1/projects/alpha/config/pending", headers=headers,
+                               json={"key": "delivery.reviewers", "value": '["alice", "bob.smith"]',
+                                     "revision": revision})
+        assert response.status_code == 200, response.text
+        candidate = response.json()
+        assert candidate["proposed_value"] == ["alice", "bob.smith"]
+        assert json.loads(candidate["value"]) == candidate["proposed_value"]
+        assert candidate["restart_required"] is False
+        assert path.read_bytes() == original
+        assert client.get("/api/v1/projects/alpha/config/pending").json() == candidate
+        result = client.post("/api/v1/projects/alpha/config/apply", headers=headers,
+                             json={"candidate_revision": candidate["candidate_revision"]})
+        assert result.status_code == 200, result.text
+    expected = tomllib.loads(original.decode())
+    expected["delivery"]["reviewers"] = ["alice", "bob.smith"]
+    assert tomllib.loads(path.read_text()) == expected
+    assert b"\r\n" in path.read_bytes()
+
+
+@pytest.mark.parametrize("value", ['[]', '[1]', '[true]', '["alice", 1]', '"alice"',
+                                 '[""]', '["two names"]', '["--repo"]',
+                                 '["alice\\nother"]', '["' + "a" * 256 + '"]'])
+def test_reviewer_list_rejects_invalid_input(tmp_path, value):
+    """@brief Human list input fails closed without writing active or pending configuration."""
+    profiles = ProfileStore(tmp_path / "home")
+    profiles.create("alpha")
+    path = profiles.config_path("alpha")
+    path.write_bytes((Path(__file__).resolve().parents[1] / "config.example.toml").read_bytes())
+    original = path.read_bytes()
+    with TestClient(create_app(profiles.home)) as client:
+        login = client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
+        headers = {"X-CSRF-Token": login.json()["csrf"]}
+        revision = client.get("/api/v1/projects/alpha/config").json()["revision"]
+        response = client.post("/api/v1/projects/alpha/config/pending", headers=headers,
+                               json={"key": "delivery.reviewers", "value": value,
+                                     "revision": revision})
+        assert response.status_code == 400, response.text
+        assert path.read_bytes() == original
+        assert client.get("/api/v1/projects/alpha/config/pending").json() is None
+
+
+@pytest.mark.parametrize("claimed", ['["other"]', '"alice"', '[1]'])
+def test_reviewer_pending_list_rejects_forged_value(tmp_path, claimed):
+    """@brief Persisted list metadata must agree exactly with the prepared candidate."""
+    profiles = ProfileStore(tmp_path / "home")
+    profiles.create("alpha")
+    path = profiles.config_path("alpha")
+    path.write_bytes((Path(__file__).resolve().parents[1] / "config.example.toml").read_bytes())
+    original = path.read_bytes()
+    with TestClient(create_app(profiles.home)) as client:
+        login = client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
+        headers = {"X-CSRF-Token": login.json()["csrf"]}
+        revision = client.get("/api/v1/projects/alpha/config").json()["revision"]
+        candidate = client.post("/api/v1/projects/alpha/config/pending", headers=headers,
+                                json={"key": "delivery.reviewers", "value": '["alice"]',
+                                      "revision": revision})
+        assert candidate.status_code == 200
+        pending = profiles.profile_dir("alpha") / "pending_config.json"
+        record = json.loads(pending.read_text())
+        record["value"] = claimed
+        pending.write_text(json.dumps(record), encoding="utf-8")
+        response = client.get("/api/v1/projects/alpha/config/pending")
+        assert response.status_code == 503
+        assert response.json()["detail"]["code"] == "pending_config_corrupt"
+        assert path.read_bytes() == original
 
 
 def test_local_endpoint_edit_is_validated_and_revision_checked(tmp_path):
@@ -396,8 +483,9 @@ def test_config_view_reports_each_settings_source_and_editability(tmp_path):
         assert model["default"] is None  # no command table in the default configuration
         assert settings["executor.commands.opencode.command"]["source"] == "project"
         assert settings["executor.commands.opencode.command"]["editable"] is True
-        not_editable = ["delivery.reviewers",
-                        "container.egress.allowlist", "container.runtime_env.UV_LINK_MODE",
+        assert settings["delivery.reviewers"]["editable"] is True
+        assert settings["delivery.reviewers"]["type"] == "list"
+        not_editable = ["container.egress.allowlist", "container.runtime_env.UV_LINK_MODE",
                         "state.channel", "state.store_root", "clarification.max_rounds"]
         for key in not_editable:
             assert settings[key]["editable"] is False, key

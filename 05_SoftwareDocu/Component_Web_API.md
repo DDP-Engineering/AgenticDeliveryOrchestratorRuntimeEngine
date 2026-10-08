@@ -22,6 +22,9 @@ The server refuses non-loopback binds and trusts forwarded scheme/client
 headers only from local proxy addresses. HTTPS login responses set Secure,
 HttpOnly and SameSite session cookies; direct HTTP remains local-only.
 
+
+The authorized `delivery.reviewers` candidate is the one editable list in Project settings. Admins submit a JSON string array through existing prepare/review/apply endpoints; metadata reports list type and editability. A complete single/multiline TOML array writer preserves adjacent configuration and CRLF. Candidate readback verifies the exact list against claimed wire value, and malformed input fails closed. Admin, CSRF, revision, idle and integrity checks apply to lists as to scalar edits.
+
 ## 2. Responsibilities
 
 The API authenticates users, checks CSRF on mutations, enforces admin/project
@@ -75,7 +78,7 @@ write a unique candidate file, load and validate the candidate, then replace
 the original. A process-local lock serializes web threads; the shared
 `config_edit_lock` coordinates CLI and web edits across ADORE processes.
 The staged API stores one bounded candidate per project without modifying live
-TOML. Review returns its base and candidate revisions, changed scalar and
+TOML. Review returns its base and candidate revisions, changed scalar or reviewer list and
 whether a controlled restart is required. Apply rechecks the base revision,
 conductor lock, run state and queued operations. Identity and runtime edits
 also require pickup to be paused. The older direct PUT endpoint observes the

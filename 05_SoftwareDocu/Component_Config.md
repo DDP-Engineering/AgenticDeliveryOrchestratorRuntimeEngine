@@ -12,6 +12,9 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 `adore/config.py` loads typed TOML and rejects unsafe or ambiguous ADORE
 settings before a poll starts.
 
+
+`delivery.reviewers` is a nonempty list of forge account names, each 1–255 characters without whitespace, controls or a leading option prefix. Configuration validation rejects malformed lists before forge CLI invocation. Review requests are independent of candidate publication approval and repository merge permissions.
+
 ## 2. AEGIS Settings
 
 `WorkflowConfig` maps ticket labels to `feature`, `fix`, or `change`, carries a

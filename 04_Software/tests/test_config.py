@@ -71,6 +71,14 @@ def test_minimal_config_is_valid_with_defaults(tmp_path: Path) -> None:
     assert config.review.trigger == "label"
 
 
+@pytest.mark.parametrize("reviewers", ["alice", [1], [], ["--repo"], ["two names"]])
+def test_reviewer_config_requires_account_list(tmp_path, reviewers):
+    """@brief Human-authored reviewer configuration fails closed before forge invocation."""
+    config = load_config(_write_config(tmp_path, MINIMAL_VALID))
+    config.delivery.reviewers = reviewers
+    assert any("reviewers" in issue for issue in validate_config(config))
+
+
 def test_host_auth_requires_supported_executor(tmp_path: Path) -> None:
     """@brief Host OAuth staging works for OpenCode but rejects Pi."""
     supported = MINIMAL_VALID.replace(

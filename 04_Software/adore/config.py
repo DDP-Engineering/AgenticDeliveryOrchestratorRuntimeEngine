@@ -796,6 +796,19 @@ def load_config(path: str | Path) -> Config:
     return config
 
 
+def valid_reviewers(value: object) -> bool:
+    """
+    @brief Validate a nonempty list of forge account names before CLI submission.
+    @param[in] value Human-authored reviewer list.
+    @return True for bounded names without whitespace, controls or option prefixes.
+    """
+    return isinstance(value, list) and bool(value) and all(
+        isinstance(name, str) and 1 <= len(name) <= 255 and not name.startswith("-")
+        and not any(char.isspace() or ord(char) < 32 or ord(char) == 127 for char in name)
+        for name in value
+    )
+
+
 def validate_config(config: Config) -> list[str]:
     """
     @brief      Validate a Config and return a list of human-readable issues.
@@ -1325,7 +1338,8 @@ def validate_config(config: Config) -> list[str]:
         type(config.delivery.publish_checkpoints) is bool,
         "[delivery] publish_checkpoints must be a boolean",
     )
-    check(bool(config.delivery.reviewers), "[delivery] reviewers must list at least one human")
+    check(valid_reviewers(config.delivery.reviewers),
+          "[delivery] reviewers must list at least one valid human account name")
     check(type(config.delivery.draft) is bool, "[delivery] draft must be a boolean")
     check(
         type(config.delivery.remove_source_branch) is bool,

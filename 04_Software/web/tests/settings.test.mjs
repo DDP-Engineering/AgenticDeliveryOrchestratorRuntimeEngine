@@ -19,6 +19,14 @@ test("publication state names exact booleans in every locale", () => {
  }
 });
 
+test("reviewer list alone is editable and pending arrays have exact authority", () => {
+ const rows = settingRows(config, [{ ...meta("delivery.reviewers", "project", true), type: "list" }]);
+ assert.equal(rows[0].input, "reviewers");
+ const candidate = { base_revision: "a".repeat(64), candidate_revision: "b".repeat(64), key: "delivery.reviewers", value: '["alice","bob"]', proposed_value: ["alice", "bob"], created_at: "2026-10-08T18:00:00Z", restart_required: false };
+ assert.equal(validPendingConfig(candidate), true);
+ for (const bad of [{ ...candidate, value: '["other"]' }, { ...candidate, key: "container.egress.allowlist" }, { ...candidate, proposed_value: [] }, { ...candidate, proposed_value: [1] }, { ...candidate, proposed_value: ["--repo"] }]) assert.equal(validPendingConfig(bad), false);
+});
+
 const config = {
   platform: { kind: "gitlab", repo: "group/project" },
   executor: { default: "opencode", commands: { opencode: { command: "opencode run", model: "openai/gpt" } } },

@@ -45,7 +45,13 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from adore import __version__, doctor, metrics
 from adore.aegis import RUN_KINDS
 from adore.cli import _NOT_SECRET_KEYS, _SECRET_KEY_RE, _is_secret_key, _newline, _set_toml_scalar
-from adore.config import SELINUX_RELABEL_MODES, default_config, load_config, validate_config
+from adore.config import (
+    SELINUX_RELABEL_MODES,
+    default_config,
+    load_config,
+    valid_reviewers,
+    validate_config,
+)
 from adore.config_edit import ConfigEditLockedError, config_edit_lock
 from adore.isolation import ContainerManager, IsolationError
 from adore.portable_settings import (
@@ -1220,11 +1226,13 @@ def _profile_view(profiles: ProfileStore, profile) -> dict:
 
 def _valid_candidate_scalar(key: str, proposed: object, backend: str = "container") -> bool:
     """
-    @brief Enforce the configuration model's scalar type for pending edits.
+    @brief Enforce scalar types and the dedicated reviewer-list type for pending edits.
     @param[in] key TOML file key of the single candidate edit.
     @param[in] proposed Parsed candidate value.
-    @return True for the declared scalar type, including finite numeric values.
+    @return True for a declared scalar type or a valid reviewer list.
     """
+    if key == "delivery.reviewers":
+        return valid_reviewers(proposed)
     if key.endswith(".command"):
         return isinstance(proposed, str) and (backend == "local" and bool(proposed.strip())
                                               or proposed in _LAUNCH_PRESETS.get(key, ()))
@@ -1245,8 +1253,54 @@ def _valid_candidate_scalar(key: str, proposed: object, backend: str = "containe
     return False
 
 
+def _set_candidate_value(text: str, key: str, value: str) -> str:
+    """
+    @brief Write a scalar or the closed reviewer-list edit, retaining unrelated TOML.
+    @param[in] text Active TOML text.
+    @param[in] key Authorized candidate key.
+    @param[in] value Scalar wire value or JSON reviewer list.
+    @return Candidate text, preserving unrelated keys and line endings.
+    @exception ValueError When reviewer input or existing key spelling is unsupported.
+    """
+    if key != "delivery.reviewers":
+        return _set_toml_scalar(text, key, value)
+    reviewers = json.loads(value)
+    if not valid_reviewers(reviewers):
+        raise ValueError("invalid reviewer list")
+    newline = _newline(text)
+    literal = "reviewers = " + json.dumps(reviewers, ensure_ascii=False)
+    lines = text.splitlines(keepends=True)
+    header = None
+    inside = False
+    for index, line in enumerate(lines):
+        if re.match(r'^\s*\[', line):
+            inside = bool(re.fullmatch(r"\s*\[delivery\]\s*(?:#.*)?", line.strip()))
+            if inside:
+                header = index
+        if inside and re.match(r'^\s*(?:reviewers|"reviewers"|\'reviewers\')\s*=', line):
+            for end in range(index + 1, len(lines) + 1):
+                try:
+                    fragment = tomllib.loads("".join(lines[index:end]))
+                except tomllib.TOMLDecodeError:
+                    continue
+                if set(fragment) != {"reviewers"}:
+                    raise ValueError("unsupported reviewer key spelling")
+                lines[index:end] = [literal + (newline if lines[end - 1].endswith("\n") else "")]
+                return "".join(lines)
+            raise ValueError("unsupported reviewer array")
+    if header is None:
+        if _value_at(tomllib.loads(text), key) is not None:
+            raise ValueError("unsupported reviewer key spelling")
+        return text + ("" if not text or text.endswith("\n") else newline) + (
+            newline + "[delivery]" + newline + literal + newline
+        )
+    lines[header] = lines[header].rstrip("\r\n") + newline
+    lines.insert(header + 1, literal + newline)
+    return "".join(lines)
+
+
 def _candidate_config_edit(path: Path, body: ConfigEdit) -> tuple[bytes, str]:
-    """@brief Produce one validated scalar edit without changing live TOML."""
+    """@brief Produce one validated scalar or reviewer-list edit without changing live TOML."""
     endpoint_key = body.key == "container.runtime_env.OPENAI_BASE_URL"
     if (body.model is not None or body.auth_env is not None
             or body.protocol is not None or body.timeout_seconds is not None
@@ -1301,7 +1355,7 @@ def _candidate_config_edit(path: Path, body: ConfigEdit) -> tuple[bytes, str]:
             changed = _set_endpoint(current, body.value, model, body.auth_env,
                                     body.timeout_seconds, body.ca_file)
         else:
-            changed = _set_toml_scalar(current, body.key, body.value)
+            changed = _set_candidate_value(current, body.key, body.value)
         parsed_change = tomllib.loads(changed)
         if not _valid_candidate_scalar(
             body.key, _value_at(parsed_change, body.key),
@@ -1412,12 +1466,14 @@ def _public_pending_config(value: dict, *, active_text: str | None = None) -> di
             raise ValueError("invalid proposed value")
         if _secret_config_keys({"setting": proposed}):
             raise ValueError("unsafe proposed value")
-        claimed = _value_at(tomllib.loads(_set_toml_scalar(
+        claimed = _value_at(tomllib.loads(_set_candidate_value(
             "", value["key"], value["value"])), value["key"])
         if type(claimed) is not type(proposed) or claimed != proposed:
             raise ValueError("candidate review metadata differs from its value")
         public["proposed_value"] = proposed
-        public["value"] = str(proposed).lower() if type(proposed) is bool else str(proposed)
+        public["value"] = (json.dumps(proposed, ensure_ascii=False, separators=(",", ":"))
+                           if isinstance(proposed, list) else
+                           str(proposed).lower() if type(proposed) is bool else str(proposed))
         if (value["key"] == "container.image" and "image_build" not in value
                 and active_text is not None
                 and sha256(active_text.encode("utf-8")).hexdigest() == value["base_revision"]):
@@ -1643,7 +1699,7 @@ def _setting_metadata(config: dict, raw: bytes) -> list[dict]:
                 nests it under `executor.commands`. A setting is from the
                 project when its file key is a leaf of the file, whatever its
                 value; it is editable when the shared key rule accepts the file
-                key and its value is a single string, number or boolean. Its
+                key and its value is a scalar or a valid delivery.reviewers list. Its
                 default is the value at the same key in ADORE's built-in
                 configuration (names derived, redacted) - the whole built-in
                 map for a map the project emptied - or None when that
@@ -1665,7 +1721,8 @@ def _setting_metadata(config: dict, raw: bytes) -> list[dict]:
             "source": "project" if edit_key in in_file else "default",
             "editable": (not _external_environment_key(edit_key)
                          and _editable_setting_key(edit_key)
-                         and isinstance(value, str | int | float)),
+                         and (isinstance(value, str | int | float)
+                              or edit_key == "delivery.reviewers" and valid_reviewers(value))),
             "restart": _restart_required(edit_key),
             "default": _value_at(defaults, key),
             **_setting_domain(key, value, config, _value_at(defaults, key)),
@@ -3315,7 +3372,7 @@ def create_app(home: str | Path | None = None,
                         body.ca_file,
                     )
                 else:
-                    changed = _set_toml_scalar(current, body.key, body.value)
+                    changed = _set_candidate_value(current, body.key, body.value)
                 descriptor, candidate_name = tempfile.mkstemp(
                     prefix="config.web-", suffix=".toml", dir=path.parent
                 )
