@@ -20,6 +20,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Enable guarded progress commit publication by default in CLI and GUI; preserve explicit project overrides and final human publication approval.
+
 - Allow `delivery.draft = false` to create review-ready PR/MRs after fresh human publication approval; settings show localized Draft/Ready for review choices. Existing review records retain their state, and ADORE never merges.
 
 - Move execution environment preparation outside ADORE: Executor configuration now shows conditional container Dockerfile/server-profile instructions and effective image; Settings and guided enrollment omit environment editors. Retired web build/config mutations fail closed while existing profiles, historical evidence and owned recovery remain.

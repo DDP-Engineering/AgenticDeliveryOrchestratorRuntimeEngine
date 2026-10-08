@@ -38,7 +38,8 @@ and resource limits instead of letting a later component guess.
 ADORE-managed `stage_host_auth` supports only OpenCode and Codex. Pi may use an
 operator-provided credential mount with staging disabled; unsupported
 executor/staging pairs fail validation before a run starts.
-`delivery.publish_checkpoints` is a strict opt-in boolean; candidate-bound MR/PR
+`delivery.publish_checkpoints` is a strict boolean, enabled by default for CLI
+and web with explicit false respected; candidate-bound MR/PR
 approval remains mandatory. The reported-cost cap accepts finite nonnegative
 USD amounts, with zero disabling only that cap.
 
@@ -56,7 +57,7 @@ Native ownership/auth route to `local-execution.md`; focused proof is
 - `REQ-FUNC-97e17737` - executor and egress policy validation.
 - `REQ-FUNC-7ce5b17a` - web-created and imported profiles share the typed
   validator.
-- `REQ-REL-94e653aa` - checkpoint publication is explicit and off by default.
+- `REQ-REL-94e653aa` - checkpoint publication defaults to enabled and respects explicit overrides.
 
 ## Architecture
 

@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-FUNC-64174b8b"
+
+title = "Share enabled progress publication defaults across CLI and GUI"
+
+status = "active"
+
+requirement = """
+When delivery.publish_checkpoints is omitted, ADORE CLI and GUI shall use an enabled progress-publication default from the shared configuration model, retain explicit boolean overrides, and reject non-boolean input through configuration validation.
+"""
+
+verification = "Offline tests load minimal TOML and observe true; query authenticated project config API and observe effective/default true with default source; load explicit true/false and observe exact choices; reject numeric and string overrides."
+
+affected_paths = ["04_Software/adore/config.py", "04_Software/config.example.toml"]
+
+linked_tests = ["04_Software/tests/test_checkpoint_handoff.py::test_checkpoint_handoff_configuration_default_on", "04_Software/tests/test_checkpoint_handoff.py::test_checkpoint_handoff_configuration_boolean_boundary", "04_Software/tests/test_web_config.py::test_config_view_reports_each_settings_source_and_editability", "04_Software/tests/test_web_config.py::test_progress_publication_explicit_false_is_retained_in_gui"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-08
+updated = 2026-10-08

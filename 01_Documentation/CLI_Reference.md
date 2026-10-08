@@ -65,9 +65,10 @@ unless `ADORE_HOME` overrides the location.
 
 In this table, `[selector]` means `-c <config.toml>` or `--profile
 <profile-name>` where appropriate.
-`delivery.publish_checkpoints` is off by default and accepts only a TOML
-boolean. Enabling it publishes guarded ticket-branch progress commits without
-creating an MR/PR before approval. `budgets.max_cost_usd = 0` disables the
+`delivery.publish_checkpoints` is on by default in CLI and web and accepts only
+a TOML boolean. It publishes guarded ticket-branch progress commits without
+creating an MR/PR before approval. Set it to false to keep intermediate
+checkpoints local; explicit project values are preserved. `budgets.max_cost_usd = 0` disables the
 reported-cost cap; iteration, wall-clock and file bounds still apply.
 
 ## Running and Monitoring

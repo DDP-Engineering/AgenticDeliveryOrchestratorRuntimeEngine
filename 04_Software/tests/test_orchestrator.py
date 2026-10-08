@@ -422,6 +422,9 @@ def make_config(tmp_path: Path) -> Config:
     config.state.store_root = str(tmp_path / ".adore")
     config.delivery.target_branch = "main"
     config.delivery.reviewers = ["reviewer"]
+    # Generic conductor tests select approval-only pushes; checkpoint tests
+    # enable their independently observable remote transport explicitly.
+    config.delivery.publish_checkpoints = False
     config.metrics.enabled = False
     return config
 

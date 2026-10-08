@@ -174,9 +174,11 @@ the worker rejects the late cancel and preserves its completed state.
 An operator may use `adore handoff <run-id>` to transfer a run to a human.
 Jobs shows pending and completed handoffs. A completed handoff preserves its
 worktree, remains in history and cannot be cancelled from the web interface.
-Optional `delivery.publish_checkpoints = true` makes owned ticket-branch
-progress commits fetchable before approval; draft MR/PR creation still waits
-for a fresh candidate-bound human approval. The default is false.
+`delivery.publish_checkpoints` defaults to true in both CLI and web. Owned
+ticket-branch progress commits are fetchable before approval; MR/PR creation
+still waits for fresh candidate-bound human approval. An explicit false keeps
+intermediate checkpoints local. The GUI shows the shared model default and
+retains saved project overrides.
 Disabling a user revokes sessions; the last
 active administrator cannot be disabled. Administrators can reset an account's
 password in Administration; this revokes all of that account's sessions, and

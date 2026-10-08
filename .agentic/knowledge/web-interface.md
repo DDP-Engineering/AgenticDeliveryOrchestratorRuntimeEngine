@@ -53,6 +53,9 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 
 ## Public interface
 
+- Project settings report `delivery.publish_checkpoints` with shared default
+  true; an explicit false remains effective with source `project`.
+
 - `/audit-page` selects actor ID, stable project ID, exact action and half-open
   UTC instants before counts/server paging. Actor IDs and offsets reject values
   outside SQLite signed64-bit bounds. Admin global history includes closed

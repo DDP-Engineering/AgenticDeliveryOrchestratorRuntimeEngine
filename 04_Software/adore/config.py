@@ -477,7 +477,7 @@ class DeliveryConfig:
     reviewers: list[str] = field(default_factory=list)
     remove_source_branch: bool = True
     approval_label: str = "agent-approved"
-    publish_checkpoints: bool = False
+    publish_checkpoints: bool = True
 
 
 @dataclass

@@ -70,28 +70,30 @@ def setup_run(tmp_path):
     return engine, run, forge, engine.worktrees, containers, executor
 
 
-def test_checkpoint_handoff_configuration_default_off(tmp_path):
-    """@brief Existing profiles retain approval-only pushes."""
+def test_checkpoint_handoff_configuration_default_on(tmp_path):
+    """@brief Profiles without an override publish guarded progress by default."""
     path = tmp_path / "config.toml"
     path.write_text(MINIMAL_VALID)
-    assert load_config(path).delivery.publish_checkpoints is False
+    assert load_config(path).delivery.publish_checkpoints is True
 
 
 @pytest.mark.parametrize(
     "value,valid", [("true", True), ("false", True), ("1", False), ('"yes"', False)]
 )
 def test_checkpoint_handoff_configuration_boolean_boundary(tmp_path, value, valid):
-    """@brief Opt-in accepts only TOML booleans."""
+    """@brief Explicit overrides accept only TOML booleans."""
     path = tmp_path / "config.toml"
     path.write_text(MINIMAL_VALID + "\npublish_checkpoints = " + value)
     config = load_config(path)
     issues = validate_config(config)
     assert any("publish_checkpoints" in issue for issue in issues) is (not valid)
+    if valid:
+        assert config.delivery.publish_checkpoints is (value == "true")
 
 
 @pytest.mark.parametrize("enabled", [False, True])
 def test_checkpoint_handoff_progress_push_retains_approval_boundary(tmp_path, enabled):
-    """@brief Useful checkpoints become fetchable only with explicit opt-in."""
+    """@brief Progress publication follows the selected policy and retains approval."""
     engine, run, forge, worktrees, _, executor = setup_run(tmp_path)
     engine.config.delivery.publish_checkpoints = enabled
     run.stage = "build"

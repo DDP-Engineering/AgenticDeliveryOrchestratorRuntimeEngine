@@ -9,6 +9,11 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 The settings catalog advertises `delivery.draft` choices `[true, false]`. Reviewed prepare/apply validates the exact boolean with the shared configuration validator and retains administrator, CSRF, revision, idle and locking gates.
 
+The catalog and effective configuration use the shared enabled default for
+`delivery.publish_checkpoints`; explicit project false remains effective and
+is reported with project source and default true. Reading settings preserves
+the saved configuration bytes.
+
 ## 1. Purpose
 
 `adore.web.app.create_app` exposes the same-origin `/api/v1` API and serves

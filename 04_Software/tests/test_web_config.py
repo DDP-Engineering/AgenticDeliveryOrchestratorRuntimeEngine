@@ -330,6 +330,24 @@ def _leaves(value, prefix=""):
     return [prefix]
 
 
+def test_progress_publication_explicit_false_is_retained_in_gui(tmp_path):
+    """@brief A saved false overrides the enabled GUI default without rewriting TOML."""
+    profiles = ProfileStore(tmp_path / "home")
+    profiles.create("alpha")
+    path = profiles.config_path("alpha")
+    original = _PARTIAL_CONFIG.replace(
+        "[delivery]", "[delivery]\npublish_checkpoints = false").encode("utf-8")
+    path.write_bytes(original)
+    with TestClient(create_app(profiles.home)) as client:
+        client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
+        body = client.get("/api/v1/projects/alpha/config").json()
+    setting = next(item for item in body["settings"]
+                   if item["key"] == "delivery.publish_checkpoints")
+    assert body["config"]["delivery"]["publish_checkpoints"] is False
+    assert setting["default"] is True and setting["source"] == "project"
+    assert path.read_bytes() == original
+
+
 def test_config_view_reports_each_settings_source_and_editability(tmp_path):
     """
     @brief   Every effective setting says whether the project's file sets it,
@@ -367,6 +385,9 @@ def test_config_view_reports_each_settings_source_and_editability(tmp_path):
             "source": "default", "editable": True, "restart": False,
             "default": True, "type": "boolean", "choices": [True, False],
             "minimum": None, "maximum": None}  # boolean
+        assert body["config"]["delivery"]["publish_checkpoints"] is True
+        assert settings["delivery.publish_checkpoints"]["default"] is True
+        assert settings["delivery.publish_checkpoints"]["source"] == "default"
         assert settings["metrics.db_path"]["default"] == ".adore/metrics.db"  # derived
         assert settings["agent.slug"]["default"] == "adore"
         model = settings["executor.commands.opencode.model"]

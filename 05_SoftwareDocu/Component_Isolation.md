@@ -37,7 +37,7 @@ guardrails, not a sandbox.
   max_files_touched budget; a rename counts as ONE file - its destination - and
   git's path quoting is stripped), the delivery git plumbing - `merge` (conflict =
   data, left in progress for the executor), `merge_in_progress`, `push`
-  (approved draft delivery), and `push_checkpoint` (opt-in guarded WIP branch
+  (approved review delivery), and `push_checkpoint` (configurable guarded WIP branch
   publication) - `commit_all_if_dirty` for
   conductor-generated stage/delivery artifacts with the configured agent's
   host-side Git identity, plus the committed-state checks

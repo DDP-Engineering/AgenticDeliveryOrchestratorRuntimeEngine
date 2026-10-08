@@ -402,6 +402,8 @@ def test_local_conductor_pins_target_parks_retries_and_never_lists_containers(
     engine.config, engine.backend = config, backend
     config.state.store_root = str(engine.store.root)
     config.platform.kind = "github"
+    # This native retry scenario uses a worktree fake without remote transport.
+    config.delivery.publish_checkpoints = False
     trees.repo_path = work
     trees.create = lambda *args: work
     containers.list_executors = lambda *args: pytest.fail("local container inventory")

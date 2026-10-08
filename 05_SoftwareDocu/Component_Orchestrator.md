@@ -30,7 +30,8 @@ publication human-approved with configurable draft or ready state.
 - create an unpushed local checkpoint commit after every successful stage,
   using the configured agent identity even when the host clone has no
   repository or global Git identity;
-- optionally publish owned ticket-branch progress checkpoints under a remote
+- publish owned ticket-branch progress checkpoints by default (explicit false
+  keeps them local) under a remote
   lease, and stop on foreign branch ownership without weakening approval;
 - reconcile an unpublished failed-run checkpoint once, leaving already verified
   failed-run state and its historical update time unchanged on later polls;

@@ -384,8 +384,9 @@ reviewers = ["reviewer.one"]
 remove_source_branch = true
 # ADORE removes this label before presentation and accepts only a fresh re-add.
 approval_label = "agent-approved"
-# Opt in to remote WIP checkpoints; delivery still needs fresh human approval.
-publish_checkpoints = false
+# Publish remote WIP checkpoints by default; delivery needs fresh human approval.
+# Set false to keep intermediate checkpoints local.
+publish_checkpoints = true
 
 # ----- Post-MR review loop ----------------------------------------------------
 # How ADORE reacts to review feedback on its draft MR. It never auto-reacts to

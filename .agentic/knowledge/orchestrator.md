@@ -37,7 +37,7 @@ The conductor owns ticket claiming, worktrees/containers, budgets, retries,
 clarification parking, outbox replay, candidate fingerprinting and human-approved
 MR/PR publication. One AEGIS task is pinned to each run. Strict verification
 and fresh candidate-bound approval precede delivery push or draft creation;
-optional guarded progress checkpoints stay on the owned ticket branch and do
+guarded progress checkpoints default to enabled and stay on the owned ticket branch and do
 not open an MR/PR. Drift forces re-conduction. Failed and handed-off resources
 remain available for recovery. Cleanup works only on this project's run IDs and
 keeps active, failed, human-owned and corrupt runs' resources. Selected-ticket
@@ -70,7 +70,7 @@ Container profiles without recipes retain the existing recovery/profile-update c
 - `REQ-FUNC-448cbde7` - usage events carry executor/model/review-round context
   and explicit token/cost coverage for web analytics. Complete zero-token
   reports remain known zero; partial records do not create numeric usage.
-- `REQ-REL-94e653aa` - opt-in remote checkpoints and durable human handoff
+- `REQ-REL-94e653aa` - configurable remote checkpoints and durable human handoff
   preserve DCP recovery evidence and the fresh approval boundary.
 
 ## Architecture
