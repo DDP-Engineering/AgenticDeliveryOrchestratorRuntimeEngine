@@ -21,7 +21,7 @@ test("delivery glossary and feedback are complete in every supported locale", ()
   }
   assert.equal(messages.en.metrics, "Statistics");
   assert.equal(messages.en.paused, "Pickup stopped");
-  assert.equal(messages.en.inReviewStatus, "Draft review");
+  assert.equal(messages.en.inReviewStatus, "Human review");
   assert.match(messages.en.pickupStoppedDefinition, /active job/i);
   assert.match(messages.en.approvalDefinition, /forge/i);
   assert.match(messages.en.draftReviewDefinition, /human/i);

@@ -8,6 +8,8 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # Web interface
 
+`delivery.draft` is presented as localized PR/MR state at publication with Draft/Ready for review choices, using the existing administrator reviewed prepare/apply flow and boolean wire contract. Active/default/proposed values carry the same names; in-review covers both forge states.
+
 Secondary text uses contrasting light/dark theme colours. Project metadata,
 configuration values, type/domain hints and field help use 0.875rem text with
 1.5 line height; long identifiers and guidance wrap within their panels.

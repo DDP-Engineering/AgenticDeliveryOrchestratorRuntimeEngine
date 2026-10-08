@@ -153,7 +153,7 @@ test("all real lifecycle groups explain exact stage evidence and protected hando
   const cases = [
     ["working", "Working", "Build", true], ["publishing", "Publishing", "Deliver", true],
     ["clarification", "Waiting for clarification", "Build", true], ["approval", "Waiting for approval", "Deliver", true],
-    ["review", "Draft review", "Done", true], ["handoff-pending", "Handoff pending", "Build", false],
+    ["review", "Human review", "Done", true], ["handoff-pending", "Handoff pending", "Build", false],
     ["handed-off", "Handed off", "Build", false], ["done", "Completed", "Done", false],
     ["failed", "Failed", "Build", false], ["cancelled", "Cancelled", "Build", false], ["stale", "Stale", "Build", false],
   ] as const;
@@ -181,7 +181,7 @@ test("clarification candidate and draft actions open actual saved locations and 
   for (const [run, name, href] of [
     ["ux-clarification", "Answer on the ticket", "https://forge.example/offline/alpha/issues/42#note_7"],
     ["ux-approval", "Review the candidate on the forge", "https://forge.example/offline/alpha/issues/42#note_8"],
-    ["ux-review", "Review the draft MR/PR", "https://forge.example/offline/alpha/pulls/3"],
+    ["ux-review", "Review the MR/PR", "https://forge.example/offline/alpha/pulls/3"],
   ]) {
     await page.goto(`/jobs?project=alpha&run=${run}`);
     const detail = page.locator(".detail-panel");

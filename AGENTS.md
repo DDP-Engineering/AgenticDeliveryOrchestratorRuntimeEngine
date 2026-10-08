@@ -170,7 +170,7 @@ run state as schema 1. The supported AEGIS range is declared once in
 `04_Software/adore/aegis.py`, never in prose. Executors advance the durable AEGIS
 task journals; ADORE independently owns ticket selection, worktree/container
 isolation, bounded recovery, validation, candidate-bound human approval, Git
-publication, forge comments, and draft-only MR/PR creation. ADORE never
+publication, forge comments, and configured draft or ready MR/PR creation. ADORE never
 merges, and migrates no earlier run state.
 
 The runnable implementation under `04_Software/` supports GitLab, GitHub and

@@ -1273,11 +1273,13 @@ def test_approval_invalidation_rearms_clock_and_stage_failures(
     assert "agent-approved" not in forge.ticket.labels
 
 
+@pytest.mark.parametrize("draft", [True, False])
 def test_retry_rechecks_missing_approval_before_publication(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, draft: bool,
 ) -> None:
     """@brief A removed approval label returns retry to one normal conduction."""
     engine, forge, worktrees, _, _ = make_engine(tmp_path)
+    engine.config.delivery.draft = draft
     run = make_run(engine)
     run.lifecycle = "failed"
     run.stage = "deliver"
@@ -1409,15 +1411,17 @@ def test_executor_prompt_does_not_contradict_itself_about_stopping(
     assert "end the session" in prompt
 
 
+@pytest.mark.parametrize("draft", [True, False])
 def test_approved_publication_opens_draft_and_pushes_close_out(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, draft: bool,
 ) -> None:
-    """@brief Publication is ADORE-owned, draft-only and requires task done."""
+    """@brief Approved publication uses the configured state and requires task done."""
     engine, forge, worktrees, _, executor = make_engine(
         tmp_path, executor=FakeExecutor(GateRun(0), GateRun(0))
     )
     run = make_run(engine)
     run.stage = "deliver"
+    engine.config.delivery.draft = draft
     run.lifecycle = "awaiting-approval"
     run.validation_evidence = engine._validation_payload(passing_check())
     run.candidate_fingerprint = worktrees.fingerprint
@@ -1452,7 +1456,7 @@ def test_approved_publication_opens_draft_and_pushes_close_out(
 
     saved = engine.store.load(run.run_id)
     assert saved.lifecycle == "in-review" and saved.stage == "done"
-    assert forge.opened and forge.opened[0]["draft"] is True
+    assert forge.opened and forge.opened[0]["draft"] is draft
     assert len(worktrees.pushes) == 2
     assert len(executor.prompts) == 2
 

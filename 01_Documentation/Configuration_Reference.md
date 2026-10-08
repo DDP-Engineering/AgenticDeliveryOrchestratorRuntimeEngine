@@ -194,7 +194,7 @@ unreadable verdict is silent.
 merges the merge request. GitHub and Gitea ignore it; there, deleting merged
 branches is a repository setting.
 
-`draft=false` is invalid. ADORE removes `approval_label` before presenting a
+`draft` accepts only booleans: `true` (default) creates a draft; `false` creates a PR/MR ready for review. Both require human publication approval and ADORE never merges. Existing PR/MRs retain their current state, including during revisions and crash recovery. ADORE removes `approval_label` before presenting a
 candidate and accepts only a fresh re-add after presentation. Approval is
 bound to candidate fingerprint and target commit. Every revision creates a
 new task and repeats validation and approval. Review reminder behavior remains

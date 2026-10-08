@@ -38,7 +38,7 @@ status = "active"
 # Do not contort prose to fit a pattern - a constraint that reads better
 # plainly is better plainly.
 requirement = """
-Before a run starts, the runtime shall reject configuration that permits non-draft delivery or exposes forge credentials to an executor.
+Before a run starts, the runtime shall reject configuration containing non-boolean delivery.draft or exposing forge credentials to an executor.
 """
 
 # The observation that settles whether the behavior holds — not a
@@ -49,14 +49,14 @@ Before a run starts, the runtime shall reject configuration that permits non-dra
 # "Inspection:" and name the method, and `check` records the requirement
 # as verified by hand instead of counting it among the tests still owed.
 # The prefix alone is not enough — it has to say what someone does.
-verification = "Automated validation tests reject non-draft delivery and forge credential executor environment keys."
+verification = "Automated validation tests accept both review-state booleans and reject malformed values and forge credential executor environment keys."
 
 # Repo-relative, forward slashes. The source files this behavior lives in.
 affected_paths = ["04_Software/adore/config.py"]
 
 # "tests/path/test_file.py::test_name" entries. Kept current during build;
 # these select the impacted regression set.
-linked_tests = ["04_Software/tests/test_config.py::test_validation_catches_bad_durations_and_draft_false", "04_Software/tests/test_config.py::test_executor_cannot_receive_forge_credentials"]
+linked_tests = ["04_Software/tests/test_config.py::test_delivery_draft_accepts_both_booleans", "04_Software/tests/test_config.py::test_delivery_draft_rejects_non_booleans", "04_Software/tests/test_config.py::test_executor_cannot_receive_forge_credentials"]
 
 # --- optional below this line ---
 
@@ -67,4 +67,4 @@ priority = "normal"   # low | normal | high
 rationale = "Delivery remains a human merge decision and executors stay away from remote credentials."
 
 created = 2026-08-15
-updated = 2026-08-15
+updated = 2026-10-08

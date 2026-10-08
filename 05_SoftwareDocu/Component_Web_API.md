@@ -7,6 +7,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Web API
 
+The settings catalog advertises `delivery.draft` choices `[true, false]`. Reviewed prepare/apply validates the exact boolean with the shared configuration validator and retains administrator, CSRF, revision, idle and locking gates.
+
 ## 1. Purpose
 
 `adore.web.app.create_app` exposes the same-origin `/api/v1` API and serves

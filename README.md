@@ -12,7 +12,7 @@ ADORE turns an opt-in forge ticket into a governed, isolated, human-approved
 draft merge request. It selects a ticket from GitHub, GitLab or Gitea, runs a
 coding executor through the repository's installed AEGIS workflow one stage at
 a time inside a dedicated branch, worktree and container, verifies the result
-independently, and publishes only a draft MR/PR after a fresh human approval.
+independently, and publishes a draft or ready MR/PR according to `delivery.draft` after a fresh human approval.
 It never merges.
 
 Current release: **ADORE 0.13.0**.

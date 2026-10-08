@@ -326,6 +326,20 @@ def test_github_open_pr_draft() -> None:
     assert "--base" in argv and "develop" in argv
 
 
+@pytest.mark.parametrize("forge_type,url", [
+    (GitHubForge, "https://github.com/o/r/pull/12"),
+    (GitLabForge, "https://gitlab.com/o/r/-/merge_requests/12"),
+])
+def test_ready_review_omits_draft_flag(forge_type, url: str) -> None:
+    """@brief Ready review creation keeps head/base and omits the draft switch."""
+    runner = FakeRunner(_ok(url + "\n"))
+    assert forge_type("o/r", runner).open_merge_request(
+        "adore/run-3", "develop", "fix", "body", draft=False
+    ) == url
+    assert "--draft" not in runner.calls[0]
+    assert "adore/run-3" in runner.calls[0] and "develop" in runner.calls[0]
+
+
 def test_github_get_ticket_not_found() -> None:
     """
     @brief   gh "could not resolve" failures map to None.

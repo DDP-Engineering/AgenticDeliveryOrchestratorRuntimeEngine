@@ -319,7 +319,26 @@ def test_settings_metadata_projects_server_domains(tmp_path):
         assert rows["budgets.max_iterations"]["type"] == "integer"
         assert rows["budgets.max_iterations"]["minimum"] == 1
         assert rows["container.egress.proxy_port"]["maximum"] == 65535
-        assert rows["delivery.draft"]["choices"] == [True]
+        assert rows["delivery.draft"]["choices"] == [True, False]
+
+
+@pytest.mark.parametrize("value", ["false", "true"])
+def test_review_state_is_applied_only_after_review(tmp_path, value):
+    """@brief Both review states use the exact reviewed configuration boundary."""
+    profiles, path, _state = _project(tmp_path)
+    with TestClient(create_app(profiles.home)) as client:
+        headers = _headers(client)
+        revision = client.get("/api/v1/projects/alpha/config").json()["revision"]
+        original = path.read_bytes()
+        staged = client.post("/api/v1/projects/alpha/config/pending", headers=headers,
+            json={"key": "delivery.draft", "value": value, "revision": revision})
+        assert staged.status_code == 200, staged.text
+        assert staged.json()["proposed_value"] is (value == "true")
+        assert path.read_bytes() == original
+        applied = client.post("/api/v1/projects/alpha/config/apply", headers=headers,
+            json={"candidate_revision": staged.json()["candidate_revision"]})
+        assert applied.status_code == 200, applied.text
+        assert load_config(path).delivery.draft is (value == "true")
 
 
 @pytest.mark.parametrize("key,value", [
@@ -328,6 +347,8 @@ def test_settings_metadata_projects_server_domains(tmp_path):
     ("budgets.max_iterations", "0"),
     ("budgets.max_cost_usd", "-1"),
     ("platform.kind", "unknown"),
+    ("delivery.draft", '"false"'),
+    ("delivery.draft", "1"),
 ])
 def test_preparing_invalid_catalog_types_and_bounds_fails_closed(tmp_path, key, value):
     """@brief Scalar inference cannot bypass declared configuration types."""

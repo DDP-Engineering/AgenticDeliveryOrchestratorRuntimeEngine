@@ -18,7 +18,7 @@ verify with `04_Software/tests/test_orchestrator.py`. Web queueing belongs to
 ## Purpose and boundaries
 
 The orchestrator conducts one agent-operated AEGIS task through isolation,
-bounded stage execution, validation and draft publication. AEGIS owns its task
+bounded stage execution, validation and configured draft or ready publication. AEGIS owns its task
 journal, the executor performs code work, and forge adapters perform remote
 operations. ADORE never merges or gives forge credentials to an executor.
 
@@ -34,7 +34,7 @@ the env-file directory. Worktree/container/executor credentials stay separate.
 ## Invariants
 
 The conductor owns ticket claiming, worktrees/containers, budgets, retries,
-clarification parking, outbox replay, candidate fingerprinting and draft-only
+clarification parking, outbox replay, candidate fingerprinting and human-approved
 MR/PR publication. One AEGIS task is pinned to each run. Strict verification
 and fresh candidate-bound approval precede delivery push or draft creation;
 optional guarded progress checkpoints stay on the owned ticket branch and do
@@ -63,7 +63,7 @@ Container profiles without recipes retain the existing recovery/profile-update c
 
 - `REQ-FUNC-e5419c07`: Resolve/persist plan, pin base commit, bind identity, provision/check/stage auth, then execute bounded preparation before AEGIS/AI. Immutable receipts and policy/resource IDs guard resume; explicit replay recreates the owned container and retains worktree/history.
 
-- `REQ-FUNC-ff7dad34` - candidate-bound approval and draft-only publication.
+- `REQ-FUNC-ff7dad34` - candidate-bound approval and human-approved draft or ready publication.
 - `REQ-FUNC-83133b5e` - deterministic stage failure and timeout recovery.
 - `REQ-FUNC-1ec4a21d` - durable notification outbox replay.
 - `REQ-FUNC-f9946b6b` - selected-ticket web start uses the normal conductor.

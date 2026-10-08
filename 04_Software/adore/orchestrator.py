@@ -1272,7 +1272,7 @@ class Orchestrator:
         if thread:
             parts.append("Human clarification thread:\n" + thread)
         if close_out:
-            parts.append("Successful draft MR/PR outcome:\n" + close_out)
+            parts.append("Successful MR/PR outcome:\n" + close_out)
         parts.append(
             "Never commit, push, open or merge an MR/PR, access forge credentials, or "
             "modify AEGIS source/payload files. You may edit only executor-owned journal "
@@ -1651,7 +1651,8 @@ class Orchestrator:
             f"Recorded deviations:\n{deviation_lines}\n\n"
             f"Verification commands:\n{command_lines}\n\n"
             f"Local commit series:\n{commit_lines}\n\n"
-            "Intended outcome: push this exact candidate and open/update a draft MR/PR; "
+            "Intended outcome: push this exact candidate and open/update an MR/PR; "
+            f"new reviews open as {'draft' if self.config.delivery.draft else 'ready for review'}. "
             "ADORE will never merge it. To approve, freshly add the "
             f"`{self.config.delivery.approval_label}` label after this presentation.\n"
             f"{marker}"
@@ -1716,7 +1717,7 @@ class Orchestrator:
             return
 
     def _publish_impl(self, run: RunState, ticket: Ticket) -> None:
-        """@brief Finish AEGIS delivery bookkeeping and publish only a draft MR/PR."""
+        """@brief Finish AEGIS bookkeeping and publish the configured review state."""
         if self._cancel_if_requested(run):
             return
         run.lifecycle = "publishing"
@@ -1809,7 +1810,7 @@ class Orchestrator:
                     mr.iid < 1 or not mr.web_url.strip()
                 ):
                     raise ForgeError(
-                        "existing open draft MR/PR is missing its iid or URL"
+                        "existing open MR/PR is missing its iid or URL"
                     )
                 if mr is None or mr.state != "opened":
                     self.forge.open_merge_request(
@@ -1817,7 +1818,7 @@ class Orchestrator:
                         self.config.delivery.target_branch,
                         ticket.title,
                         self._mr_body(run, ticket),
-                        draft=True,
+                        draft=self.config.delivery.draft,
                         reviewers=self.config.delivery.reviewers,
                         remove_source_branch=self.config.delivery.remove_source_branch,
                         cwd=run.worktree,
@@ -1830,7 +1831,7 @@ class Orchestrator:
                     or mr.iid < 1
                     or not mr.web_url.strip()
                 ):
-                    raise ForgeError("draft MR/PR was created but could not be read back")
+                    raise ForgeError("MR/PR was created but could not be read back")
                 run.mr_iid = mr.iid
                 run.mr_url = mr.web_url
                 self.store.journal(
@@ -1842,7 +1843,7 @@ class Orchestrator:
                 run,
                 ticket,
                 close_task,
-                close_out=f"Draft MR/PR #{run.mr_iid}: {run.mr_url}",
+                close_out=f"MR/PR #{run.mr_iid}: {run.mr_url}",
             )
             if close.has_questions or not close.ok:
                 if self._stage_failure(
@@ -1935,7 +1936,7 @@ class Orchestrator:
         """
         if run.mr_iid is None:
             self._fail_immediately(
-                run, "PREMATURE_DONE", "done task has no published draft MR/PR"
+                run, "PREMATURE_DONE", "done task has no published MR/PR"
             )
             return
         try:
@@ -1963,9 +1964,9 @@ class Orchestrator:
             self.backend.stop(run.container, expected=run.execution.get("resource") or None)
 
     def _mr_body(self, run: RunState, ticket: Ticket) -> str:
-        """@brief Render a draft-only, traceable MR/PR description."""
+        """@brief Render a traceable human-review MR/PR description."""
         return (
-            f"Draft delivery for ticket #{ticket.iid}.\n\n"
+            f"Delivery for ticket #{ticket.iid}.\n\n"
             f"AEGIS task: `{run.active_task_id}`\n\n"
             f"Candidate fingerprint: `{run.candidate_fingerprint}`\n\n"
             "This MR/PR was opened by ADORE and must be reviewed and merged by a human.\n\n"
@@ -2536,7 +2537,7 @@ class Orchestrator:
             run.mr_missing_polls += 1
             self.store.save(run)
             if run.mr_missing_polls >= self.config.recovery.max_transient_retries:
-                self._fail_immediately(run, "MR_DELETED", "draft MR/PR was deleted")
+                self._fail_immediately(run, "MR_DELETED", "MR/PR was deleted")
             return
         run.mr_missing_polls = 0
         if mr.state == "merged":
@@ -2550,7 +2551,7 @@ class Orchestrator:
             summary["done"] += 1
             return
         if mr.state == "closed":
-            self._fail_immediately(run, "MR_CLOSED", "draft MR/PR closed without merge")
+            self._fail_immediately(run, "MR_CLOSED", "MR/PR closed without merge")
             return
         ticket = self.forge.get_ticket(run.ticket_iid)
         if ticket is None:
@@ -2687,7 +2688,7 @@ class Orchestrator:
         @return  Thread text prepended to the review discussion.
         """
         return (
-            "The forge pipeline on the published draft reported `failed`, and "
+            "The forge pipeline on the published MR/PR reported `failed`, and "
             "this revision exists to make it green. Read the repository's CI "
             "configuration, reproduce the failing checks inside this container, "
             "and fix the cause. Treat a green pipeline as part of the "
@@ -2749,7 +2750,7 @@ class Orchestrator:
             f"add `{self.config.review.revise_label}`."
         )
         body = (
-            f"{self.identity.tag} The forge pipeline on this draft reports "
+            f"{self.identity.tag} The forge pipeline on this MR/PR reports "
             f"`failed`.\n\n{next_step} ADORE never merges, so this run stays in "
             "review until a human merges it, closes it, or closes the source "
             "ticket.\n"

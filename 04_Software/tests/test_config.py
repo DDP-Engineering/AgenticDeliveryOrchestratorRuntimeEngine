@@ -188,9 +188,9 @@ reviewers = ["r"]
     assert any("[executor.pi]" in issue or "default 'pi'" in issue for issue in issues)
 
 
-def test_validation_catches_bad_durations_and_draft_false(tmp_path: Path) -> None:
+def test_validation_catches_bad_durations(tmp_path: Path) -> None:
     """
-    @brief   Unparseable durations and draft=false are rejected.
+    @brief   Unparseable durations are rejected.
     """
     text = MINIMAL_VALID + """
 [clarification]
@@ -198,11 +198,30 @@ answer_timeout = "three days"
 
 [delivery.extra]
 """
-    # draft=false must be flagged: never open a ready (mergeable) MR.
-    text = text.replace('reviewers = ["dan.pasare"]', 'reviewers = ["dan.pasare"]\ndraft = false')
     issues = validate_config(load_config(_write_config(tmp_path, text)))
     assert any("answer_timeout" in issue for issue in issues)
-    assert any("draft" in issue for issue in issues)
+
+
+@pytest.mark.parametrize("draft", ["true", "false"])
+def test_delivery_draft_accepts_both_booleans(tmp_path: Path, draft: str) -> None:
+    """@brief Both requested review states are valid human configuration."""
+    text = MINIMAL_VALID.replace(
+        'reviewers = ["dan.pasare"]', f'reviewers = ["dan.pasare"]\ndraft = {draft}'
+    )
+    config = load_config(_write_config(tmp_path, text))
+    assert validate_config(config) == []
+    assert config.delivery.draft is (draft == "true")
+
+
+@pytest.mark.parametrize("draft", ['"false"', '"true"', "0", "1", "[]"])
+def test_delivery_draft_rejects_non_booleans(tmp_path: Path, draft: str) -> None:
+    """@brief Truthy values cannot bypass the review-state boolean contract."""
+    text = MINIMAL_VALID.replace(
+        'reviewers = ["dan.pasare"]', f'reviewers = ["dan.pasare"]\ndraft = {draft}'
+    )
+    assert any("draft" in issue for issue in validate_config(
+        load_config(_write_config(tmp_path, text))
+    ))
 
 
 def test_per_gate_timeout_defaults_and_is_validated(tmp_path: Path) -> None:

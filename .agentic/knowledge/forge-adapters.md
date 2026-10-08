@@ -8,29 +8,46 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # Forge adapters
 
-## Purpose
+## Routing
+
+Use this page for forge ticket/comment/label/branch/review contracts. Start at `04_Software/adore/forge/base.py` and concrete adapters; verify through `04_Software/tests/test_forge.py`. Candidate approval and lifecycle belong to `orchestrator.md`.
+
+## Purpose and boundaries
 
 Defines the forge-neutral data model and adapter boundary for GitHub (`gh`),
 GitLab (`glab`), and Gitea (`tea`): tickets, comments, labels, branches, and
-draft MR/PRs.
+draft or ready MR/PRs.
 
-## Public contract
+## Public interface
 
 The `Forge` interface normalizes ticket selection, claims, comments, labels,
-branch state, push, and draft MR/PR operations. Concrete GitHub, GitLab, and
+branch state, push, and draft or ready MR/PR operations. Concrete GitHub, GitLab, and
 Gitea adapters translate their CLIs through an injectable command runner and
 return typed domain data, leaving orchestration policy above the boundary.
 
-## Safety contract
+## Invariants
 
 All CLI output, URLs, status lines, and JSON are parsed as untrusted input and
 malformed responses raise `ForgeError`. Adapters expose no merge action and
 cannot use a human comment without a valid ADORE marker as mutable state.
 
-## Requirement coverage
+## Key behaviors
 
 - `REQ-FUNC-f699f84a` - malformed forge response data fails closed.
-- `REQ-FUNC-e7a89a6d` - publication creates draft records only and has no merge capability.
+- `REQ-FUNC-e7a89a6d` - publication creates draft or ready records according to the requested boolean and has no merge capability.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    caller([Orchestrator]) --> contract[Forge]
+    contract --> adapters[GitLabForge / GitHubForge / GiteaForge]
+    adapters --> runner([Injected command runner])
+    runner --> output[Strict response parser]
+    output --> records[(Typed tickets and reviews)]
+```
+
+Draft state is a creation input; the adapters expose no merge operation.
 
 ## Files
 

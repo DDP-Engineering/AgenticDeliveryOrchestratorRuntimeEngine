@@ -7,6 +7,17 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { editValue, hasDefault, settingGroups, settingRows, validSettingCatalog, validPendingConfig } from "../src/settings.ts";
+import { publicationCopy, publicationValue } from "../src/settingsCopy.ts";
+
+test("publication state names exact booleans in every locale", () => {
+ for (const locale of ["en", "fr", "de", "ro"]) {
+  assert.equal(publicationValue(true, locale), publicationCopy[locale].draft);
+  assert.equal(publicationValue("true", locale), publicationCopy[locale].draft);
+  assert.equal(publicationValue(false, locale), publicationCopy[locale].ready);
+  assert.equal(publicationValue("false", locale), publicationCopy[locale].ready);
+  for (const invalid of [null, 0, 1, "False", {}, []]) assert.equal(publicationValue(invalid, locale), null);
+ }
+});
 
 const config = {
   platform: { kind: "gitlab", repo: "group/project" },

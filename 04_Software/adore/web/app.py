@@ -1596,7 +1596,7 @@ def _setting_domain(key: str, value: object, config: dict, declared: object) -> 
         "container.parked_ttl_mode": ["seconds", "polls"],
         "container.egress.mode": ["open", "allowlist-proxy", "none"],
         "execution.backend": ["container", "local"],
-        "delivery.draft": [True],
+        "delivery.draft": [True, False],
         "review.trigger": ["label"],
         "review.on_pipeline_failure": ["revise", "notify", "ignore"],
         "workflow.default_kind": list(RUN_KINDS),

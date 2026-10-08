@@ -379,12 +379,12 @@ class GitHubForge(Forge):
         cwd: str | None = None,
     ) -> str:
         """
-        @brief      Open a draft PR via `gh pr create --draft`. Never merges.
+        @brief      Open a draft or ready PR via `gh pr create`. Never merges.
         @param[in]  source Head branch.
         @param[in]  target Base branch.
         @param[in]  title PR title.
         @param[in]  body PR description.
-        @param[in]  draft Open as draft (ADORE always passes true).
+        @param[in]  draft Open as draft when true, otherwise ready for review.
         @param[in]  reviewers Reviewer logins.
         @param[in]  remove_source_branch Ignored (a repo setting on GitHub).
         @param[in]  cwd Git checkout to run in; gh resolves remotes from a

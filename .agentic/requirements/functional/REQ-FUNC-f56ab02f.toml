@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-FUNC-f56ab02f"
+
+title = "Configured draft or ready review publication"
+
+status = "active"
+
+requirement = """
+When an administrator edits delivery.draft, the web interface shall offer localized Draft and Ready for review choices through the existing exact reviewed apply flow, preserving the boolean wire format and naming active, default and proposed values.
+"""
+
+verification = "Offline API tests prepare/apply both booleans and reject malformed values without writes; browser tests select Ready for review, observe unchanged active configuration until Apply, then restore Draft; helper tests verify four locales."
+
+affected_paths = ["04_Software/adore/web/app.py", "04_Software/web/src/App.tsx", "04_Software/web/src/settingsCopy.ts", "04_Software/web/src/settingHelp.ts", "04_Software/web/src/i18n.ts", "04_Software/web/src/jobCopy.ts", "04_Software/web/e2e/settings.spec.ts", "04_Software/web/e2e/jobs.spec.ts", "04_Software/web/tests/settings.test.mjs", "04_Software/web/tests/shell.test.mjs"]
+
+linked_tests = ["04_Software/tests/test_web_pending_config.py::test_review_state_is_applied_only_after_review", "04_Software/tests/test_web_pending_config.py::test_preparing_invalid_catalog_types_and_bounds_fails_closed", "04_Software/tests/test_web_config.py::test_config_view_reports_each_settings_source_and_editability", "04_Software/web/e2e/settings.spec.ts", "04_Software/web/tests/settings.test.mjs"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-08
+updated = 2026-10-08

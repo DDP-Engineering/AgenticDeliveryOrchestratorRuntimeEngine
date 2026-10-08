@@ -281,12 +281,12 @@ class Forge(ABC):
         cwd: str | None = None,
     ) -> str:
         """
-        @brief      Open a DRAFT merge/pull request. Never merges.
+        @brief      Open a draft or ready merge/pull request. Never merges.
         @param[in]  source Source branch.
         @param[in]  target Target branch.
         @param[in]  title MR/PR title.
         @param[in]  body MR/PR description.
-        @param[in]  draft Open as draft (always true in ADORE).
+        @param[in]  draft Open as draft when true, otherwise ready for review.
         @param[in]  reviewers Human reviewers to assign.
         @param[in]  remove_source_branch Delete the branch on merge (GitLab).
         @param[in]  cwd Git checkout to run in - the platform CLIs resolve

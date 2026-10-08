@@ -33,12 +33,12 @@ fails closed at external trust boundaries before a poll starts.
 Configuration establishes the permitted forge, executor, container, budget,
 and delivery policy before an orchestration run begins. It forbids forge
 credentials in executor environment allowlists, rejects unsafe executor modes,
-requires draft-only delivery, and validates paths, labels, retries, duration,
+requires boolean review-state delivery, and validates paths, labels, retries, duration,
 and resource limits instead of letting a later component guess.
 ADORE-managed `stage_host_auth` supports only OpenCode and Codex. Pi may use an
 operator-provided credential mount with staging disabled; unsupported
 executor/staging pairs fail validation before a run starts.
-`delivery.publish_checkpoints` is a strict opt-in boolean; draft-only MR/PR
+`delivery.publish_checkpoints` is a strict opt-in boolean; candidate-bound MR/PR
 approval remains mandatory. The reported-cost cap accepts finite nonnegative
 USD amounts, with zero disabling only that cap.
 
@@ -52,7 +52,7 @@ Native ownership/auth route to `local-execution.md`; focused proof is
 
 - `REQ-FUNC-e2b539d4`: Closed ExecutionConfig selection/backend/bounds; recipe mode permits empty profile image. Source authority belongs to preparation.md.
 
-- `REQ-FUNC-ca17a8e8` - draft-only delivery and credential isolation.
+- `REQ-FUNC-ca17a8e8` - boolean review-state delivery and credential isolation.
 - `REQ-FUNC-97e17737` - executor and egress policy validation.
 - `REQ-FUNC-7ce5b17a` - web-created and imported profiles share the typed
   validator.

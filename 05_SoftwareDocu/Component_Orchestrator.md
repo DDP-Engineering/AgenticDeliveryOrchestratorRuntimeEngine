@@ -11,7 +11,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 `adore/orchestrator.py` is the deterministic ADORE conductor around the
 agent-driven AEGIS workflow. It prevents silent stalls and keeps remote
-publication human-approved and draft-only.
+publication human-approved with configurable draft or ready state.
 
 ## 2. Responsibilities
 

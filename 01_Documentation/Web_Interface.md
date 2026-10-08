@@ -28,7 +28,7 @@ Administrators open Add project from Projects to enroll an existing server clone
 through six steps: method, repository/identity, agent/model,
 eligibility/reviewers/limits, verification, review/create. AEGIS is the repository's
 workflow for framing, building, testing and reviewing changes; ADORE conducts that
-workflow for eligible issues and publishes only draft MR/PRs for human review.
+workflow for eligible issues and publishes draft or ready MR/PRs according to `delivery.draft` for human review.
 The clone must already exist at an absolute path on the ADORE server with Git
 metadata and its installed AEGIS workflow. Enter the forge's owner/repository
 identifier and existing target branch; Gitea can select an existing tea login.

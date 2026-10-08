@@ -10,17 +10,17 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 ## 1. Purpose
 
 `adore/forge` hides GitHub, GitLab and Gitea CLI/API differences behind one
-ticket, comment, label and draft MR/PR contract.
+ticket, comment, label and draft or ready MR/PR contract.
 
 ## 2. Responsibilities
 
 - list/read tickets and comments;
 - post/edit marker-owned ticket comments;
 - add/remove ticket labels;
-- read draft MR/PR state and discussion;
+- read draft or ready MR/PR state and discussion;
 - post/edit marker-owned MR/PR comments;
 - remove review-trigger labels;
-- open a draft MR/PR.
+- open a draft or ready MR/PR.
 
 The base interface deliberately has no merge operation. For MR/PR comments,
 GitLab uses merge-request notes, which already include diff notes; GitHub and
@@ -49,5 +49,5 @@ record undeliverable.
 ## 4. Validation and Tests
 
 `tests/test_forge.py` covers the three offline adapters, command/JSON trust
-boundaries, labels, comments, draft creation and resource lookup. Conductor
+boundaries, labels, comments, draft and ready creation and resource lookup. Conductor
 tests cover incident editing, routing, fallback, redaction and outage replay.

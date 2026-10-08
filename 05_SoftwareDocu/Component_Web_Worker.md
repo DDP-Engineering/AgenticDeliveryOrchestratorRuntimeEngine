@@ -66,7 +66,7 @@ outcome remains `uncertain` and requires an operator to inspect run state.
 
 Run `adore-web-worker` beside `adore-web`. It replaces a separate
 `adore run --loop` scheduler for profiles in that home. The existing
-orchestrator still owns state locks, approval and draft-only publication.
+orchestrator still owns state locks, approval and human-approved draft or ready publication.
 
 ## 9. Validation And Tests
 

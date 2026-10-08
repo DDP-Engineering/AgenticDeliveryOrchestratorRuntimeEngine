@@ -6,6 +6,20 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 */
 import type { Locale } from "./i18n";
 
+/** Localized presentation of the boolean wire contract for newly created reviews. */
+export const publicationCopy: Record<Locale, { label: string; draft: string; ready: string }> = {
+ en: { label: "PR/MR state at publication", draft: "Draft", ready: "Ready for review" },
+ fr: { label: "État de la PR/MR à la publication", draft: "Brouillon", ready: "Prête pour revue" },
+ de: { label: "PR/MR-Status bei Veröffentlichung", draft: "Entwurf", ready: "Bereit zur Prüfung" },
+ ro: { label: "Starea PR/MR la publicare", draft: "Draft", ready: "Pregătit pentru review" },
+};
+
+/** Name an exact review-state value without coercing malformed values. */
+export function publicationValue(value: unknown, locale: Locale): string | null {
+ return value === true || value === "true" ? publicationCopy[locale].draft
+  : value === false || value === "false" ? publicationCopy[locale].ready : null;
+}
+
 const en = {
   repository: "Repository and tickets", agent: "Agent and model", isolation: "Isolated environment", rules: "Rules and approvals", limits: "Limits and recovery", measurement: "Measurement and notifications", advanced: "Advanced",
   readFailed: "The saved candidate could not be verified. Refresh to read it again, or explicitly discard it.", single: "Prepare one setting at a time. Review and apply or discard its candidate before editing another setting.", active: "Active value", proposed: "Proposed value", effect: "Effect after applying", project: "Affected project", prepared: "Prepared at", actor: "Prepared by: not recorded", stale: "The active configuration changed. Discard this candidate, refresh and prepare the change again.", idle: "Apply requires no active job, conductor lock or unfinished operation. The server checks these conditions again when you apply.", pause: "Stop project pickup and wait for active work to finish before applying this identity or runtime change.", discard: "Discard removes only this candidate. The active configuration stays unchanged.", copy: "Copy safe review", copied: "Review copied", details: "Technical details", base: "Reviewed base revision", candidate: "Candidate revision", unknown: "Not recorded", minimum: "Minimum", maximum: "Maximum", prepare: "Prepare candidate", readOnly: "Read-only settings", future: "Applies to subsequent execution; existing jobs retain their configuration.", endpoint: "This endpoint change also updates the displayed model and connection options together.",
@@ -32,7 +46,7 @@ export function settingLabel(key: string): string {
  "budgets.max_iterations": "Maximum iterations per job", "budgets.max_files_touched": "Maximum changed files per job", "budgets.max_cost_usd": "Job cost cap (USD)", "budgets.max_wall_clock_seconds": "Job time limit (seconds)", "budgets.per_gate_timeout_seconds": "Stage attempt time limit (seconds)",
  "container.runtime": "Container runtime command", "container.image": "Agent container image", "container.selinux_relabel": "Shared mount access on SELinux", "container.egress.mode": "Outbound network policy", "container.egress.proxy_port": "Network proxy port", "container.egress.proxy_image": "Network proxy image", "container.egress.network_prefix": "Isolated network name prefix", "container.keep_parked": "Keep containers while waiting", "container.parked_ttl_mode": "Waiting-container retention unit", "container.parked_ttl_seconds": "Waiting-container retention (seconds)", "container.parked_ttl_polls": "Waiting-container retention (checks)",
  "worktree.repo_path": "Existing local repository path", "worktree.root": "Job working folders", "worktree.branch_template": "Job branch naming template", "worktree.branch_rule": "Required branch name pattern",
- "delivery.draft": "Publish reviews as drafts", "delivery.approval_label": "Human publication approval label", "delivery.publish_checkpoints": "Publish progress commits", "delivery.target_branch": "Human review target branch", "delivery.remove_source_branch": "Remove branch after human merge", "delivery.reviewers": "Human reviewers",
+ "delivery.draft": "PR/MR state at publication", "delivery.approval_label": "Human publication approval label", "delivery.publish_checkpoints": "Publish progress commits", "delivery.target_branch": "Human review target branch", "delivery.remove_source_branch": "Remove branch after human merge", "delivery.reviewers": "Human reviewers",
  "workflow.default_kind": "Default task type", "workflow.aegis_python": "Workflow Python command", "workflow.quick_label": "Quick-path suggestion label", "state.channel": "State reporting channel", "state.store_root": "Durable job state folder", "review.trigger": "Review request method", "review.revise_label": "Revision request label", "review.max_review_rounds": "Maximum revision rounds", "review.on_pipeline_failure": "Response to failed review pipeline", "review.review_reminder_after": "Review reminder interval (reserved)",
  "recovery.max_stage_failures": "Failed attempts allowed per stage", "recovery.max_transient_retries": "Attempts allowed for temporary errors", "recovery.retry_backoff_seconds": "Retry delays (seconds)", "metrics.enabled": "Record completed job measurements", "metrics.capture_tokens": "Record agent-reported tokens", "metrics.capture_resource": "Resource measurement (reserved)", "metrics.db_path": "Measurement database path", "metrics.export_jsonl": "Measurement export path", "metrics.html_out": "Statistics HTML output path",
  "readiness.max_scope_hint": "Ticket scope hint (reserved)", "readiness.require_known_component": "Require known component (reserved)", "readiness.require_acceptance_criteria": "Require ticket acceptance criteria", "readiness.require_priority_label": "Require ticket priority label",

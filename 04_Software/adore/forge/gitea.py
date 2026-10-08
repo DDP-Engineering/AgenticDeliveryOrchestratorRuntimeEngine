@@ -364,7 +364,7 @@ class GiteaForge(Forge):
         cwd: str | None = None,
     ) -> str:
         """
-        @brief      Open a DRAFT pull request via the REST API. Never merges.
+        @brief      Open a draft or ready pull request via the REST API. Never merges.
         @details    Draft on Gitea is the `WIP: ` title prefix (tea's own
                     `--draft` does the same); the prefix is added only when the
                     title has none. The response JSON carries `html_url` and
@@ -372,7 +372,7 @@ class GiteaForge(Forge):
                     Reviewer requests are a SEPARATE endpoint on Gitea and are
                     best-effort: a rejected reviewer (for example no repo
                     access) must not lose the already-created PR, so that
-                    follow-up failure is swallowed - the draft PR itself is the
+                    follow-up failure is swallowed - the created PR itself is the
                     delivery. `remove_source_branch` is ignored (a repository
                     setting on Gitea) and `cwd` is not needed (pure API call,
                     no local remote resolution).
@@ -380,7 +380,7 @@ class GiteaForge(Forge):
         @param[in]  target Base branch.
         @param[in]  title PR title.
         @param[in]  body PR description.
-        @param[in]  draft Open as draft (ADORE always passes true).
+        @param[in]  draft Open as draft when true, otherwise ready for review.
         @param[in]  reviewers Reviewer usernames (best-effort on Gitea).
         @param[in]  remove_source_branch Ignored (a repo setting on Gitea).
         @param[in]  cwd Ignored (tea resolves everything from --repo/--login).

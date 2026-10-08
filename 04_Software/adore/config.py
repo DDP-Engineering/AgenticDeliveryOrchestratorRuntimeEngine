@@ -1326,7 +1326,7 @@ def validate_config(config: Config) -> list[str]:
         "[delivery] publish_checkpoints must be a boolean",
     )
     check(bool(config.delivery.reviewers), "[delivery] reviewers must list at least one human")
-    check(config.delivery.draft, "[delivery] draft must stay true: ADORE never opens ready MRs")
+    check(type(config.delivery.draft) is bool, "[delivery] draft must be a boolean")
     check(
         isinstance(config.delivery.approval_label, str)
         and bool(config.delivery.approval_label.strip()),

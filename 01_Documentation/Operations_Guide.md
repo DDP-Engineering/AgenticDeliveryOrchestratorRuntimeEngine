@@ -83,7 +83,7 @@ candidate invalidation.
 
 ## Review Operations
 
-ADORE opens only a draft. Apply `agent-revise` to the MR/PR to request a
+ADORE opens a draft by default, or a ready review when `delivery.draft = false`. Apply `agent-revise` to the MR/PR to request a
 governed revision. The next poll creates a new AEGIS task on the same branch,
 preserves earlier journals, and repeats the path. The configured review-round
 limit ends visibly on both active surfaces.

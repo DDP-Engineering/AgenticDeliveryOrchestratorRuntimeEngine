@@ -14,7 +14,7 @@ ADORE, the Agentic Delivery Orchestrator & Runtime Engine, conducts
 AEGIS-governed repositories for a team. It selects opt-in GitHub, GitLab or
 Gitea tickets, runs one fresh executor session per AEGIS stage inside an
 isolated branch/worktree with container or native local execution, verifies the candidate independently,
-and publishes only a draft MR/PR after fresh human approval. It never merges.
+and publishes a draft or ready MR/PR according to `delivery.draft` after fresh human approval. It never merges.
 Its users are the operator who runs the conductor on a host, the reviewers who
 approve and merge on the forge, and the coding executors it launches:
 OpenCode, Pi, Codex and Qwen Code.
@@ -110,7 +110,7 @@ protects the worktree from routine cleanup and further autonomous execution.
   corrupt state fails closed.
 - Executors use the selected container/native backend, never receive forge credentials, and never
   commit, push, open or merge. ADORE owns checkpoints, push and draft creation
-  and never merges; `draft = false` is rejected by configuration validation.
+  and never merges; `delivery.draft` selects draft (`true`, default) or ready (`false`) creation.
 - Secrets live only in the process environment or a gitignored `.env`.
 - Version assignment, packaging and delivery are repository operations outside
   AEGIS scope, checked by `02_Tools/check_release_consistency.py`. This

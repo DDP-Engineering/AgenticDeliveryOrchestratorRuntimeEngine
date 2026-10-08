@@ -365,7 +365,7 @@ def test_config_view_reports_each_settings_source_and_editability(tmp_path):
         assert settings["delivery.draft"] == {
             "key": "delivery.draft", "edit_key": "delivery.draft",
             "source": "default", "editable": True, "restart": False,
-            "default": True, "type": "boolean", "choices": [True],
+            "default": True, "type": "boolean", "choices": [True, False],
             "minimum": None, "maximum": None}  # boolean
         assert settings["metrics.db_path"]["default"] == ".adore/metrics.db"  # derived
         assert settings["agent.slug"]["default"] == "adore"

@@ -31,6 +31,34 @@ test.afterEach(async ({ page }) => {
   }
 });
 
+test("publication state offers draft and ready with explicit reviewed apply", async ({ page }) => {
+  await openSettings(page);
+  const before = await (await page.request.get("/api/v1/projects/alpha/config")).json();
+  const row = page.locator(".setting-row").filter({ has: page.getByText("PR/MR state at publication", { exact: true }) });
+  await expect(row).toContainText("Draft");
+  await row.getByRole("button", { name: "Edit PR/MR state at publication", exact: true }).click();
+  const editor = row.getByRole("combobox");
+  await expect(editor.getByRole("option", { name: "Draft", exact: true })).toHaveAttribute("value", "true");
+  await editor.selectOption({ label: "Ready for review" });
+  await row.getByRole("button", { name: "Prepare candidate" }).click();
+  const review = page.locator(".candidate-review");
+  await expect(review).toContainText("Draft");
+  await expect(review).toContainText("Ready for review");
+  await expect(review).toContainText("fresh human publication approval");
+  expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).revision).toBe(before.revision);
+  await review.getByRole("button", { name: "Apply change", exact: true }).click();
+  await expect(review).toHaveCount(0);
+  await expect(row.locator("code")).toHaveText("Ready for review");
+  expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).config.delivery.draft).toBe(false);
+  // Restore the independent test profile through the same reviewed UI.
+  await page.locator("#project-settings > .setting-groups > details > summary").filter({ hasText: "Rules and approvals" }).click();
+  await row.getByRole("button", { name: "Edit PR/MR state at publication", exact: true }).click();
+  await row.getByRole("combobox").selectOption({ label: "Draft" });
+  await row.getByRole("button", { name: "Prepare candidate" }).click();
+  await review.getByRole("button", { name: "Apply change", exact: true }).click();
+  await expect(row.locator("code")).toHaveText("Draft");
+});
+
 test("purpose guidance, correction, exact safe review/copy and candidate-only discard", async ({ page, context }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await openSettings(page);

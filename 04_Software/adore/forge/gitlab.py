@@ -341,12 +341,12 @@ class GitLabForge(Forge):
         cwd: str | None = None,
     ) -> str:
         """
-        @brief      Open a draft MR via `glab mr create --draft`. Never merges.
+        @brief      Open a draft or ready MR via `glab mr create`. Never merges.
         @param[in]  source Source branch.
         @param[in]  target Target branch.
         @param[in]  title MR title.
         @param[in]  body MR description.
-        @param[in]  draft Open as draft (ADORE always passes true).
+        @param[in]  draft Open as draft when true, otherwise ready for review.
         @param[in]  reviewers Reviewer usernames.
         @param[in]  remove_source_branch Delete the branch on merge.
         @param[in]  cwd Git checkout to run in; glab resolves remotes from a
