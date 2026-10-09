@@ -542,7 +542,9 @@ def test_config_view_reports_each_settings_source_and_editability(tmp_path):
         settings = {item["key"]: item for item in body["settings"]}
 
         assert [item["key"] for item in body["settings"]] == sorted(settings)
-        assert set(settings) == set(_leaves(body["config"]))
+        assert set(settings) == set(_leaves(body["config"])) | {
+            f"executor.commands.{agent}.{field}"
+            for agent in ("opencode", "pi", "codex", "qwen") for field in ("command", "model")}
         assert settings["platform.repo"] == {
             "key": "platform.repo", "edit_key": "platform.repo",
             "source": "project", "editable": True, "restart": True, "default": "",

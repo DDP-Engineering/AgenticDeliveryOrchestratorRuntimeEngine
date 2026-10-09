@@ -4,6 +4,8 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
+import { agentSettingsCopy } from "../src/executorSettings";
+import { settingVisible } from "../src/settings";
 import { test, expect, type Page } from "@playwright/test";
 import { branchNamingCopy, implementationLabels, pipelineFailureCopy, statisticsDatabaseCopy } from "../src/settingsCopy";
 
@@ -348,7 +350,7 @@ test("late prepare cannot populate another project and repeated clicks prepare o
 
 test("endpoint review compares complete supported connection without credential values", async ({ page }, info) => {
   await openSettings(page);
-  await page.getByRole("tab", { name: "Executor configuration", exact: true }).click();
+  await page.getByRole("tab", { name: "Settings", exact: true }).click();
   const before = await (await page.request.get("/api/v1/projects/alpha/config")).json();
   const form = page.locator(".config-form");
   const model = await form.locator('[name="model"]').inputValue();
@@ -417,6 +419,13 @@ test("purpose guidance and single-setting flow preserve four locales", async ({ 
     await expect(page.locator(".setting-essential").first()).toBeVisible();
     await expect(page.locator('[id="setting-worktree.branch_template"] strong')).toHaveText(branchNamingCopy[locale].template);
     await expect(page.locator('[id="setting-worktree.branch_rule"] strong')).toHaveText(branchNamingCopy[locale].rule);
+    const agent = page.locator('[data-setting-purpose="executor"]');
+    await agent.locator(":scope > summary").click();
+    await expect(agent.locator('[id="setting-executor.default"] strong')).toHaveText(agentSettingsCopy[locale].agent);
+    await expect(agent.locator('[id="setting-executor.commands.opencode.command"] strong')).toHaveText(agentSettingsCopy[locale].command);
+    await expect(agent.locator('[id="setting-executor.commands.opencode.model"] strong')).toHaveText(agentSettingsCopy[locale].model);
+    await agent.locator('[data-setting-topic="authentication"] > summary').click();
+    await expect(agent.locator('[id="setting-executor.env_keys"] strong')).toHaveText(agentSettingsCopy[locale].variables);
     const ci = page.locator('[id="setting-review.on_pipeline_failure"]');
     await expect(ci.locator("strong")).toHaveText(pipelineFailureCopy[locale].label);
     await expect(ci.locator("code")).toHaveText(pipelineFailureCopy[locale].revise);
@@ -522,12 +531,11 @@ for (const user of ["admin", "developer"]) {
   await expect(stateFolder).toBeVisible();
   await expect(stateFolder).toContainText(configuration.config.state.store_root);
   await expect(stateFolder.getByRole("button")).toHaveCount(0);
-  const hidden = ["state.channel", "labels.executor.prefix", "readiness.max_scope_hint", "labels.selection.type_feature", "review.trigger", "review.review_reminder_after", "clarification.reminder_after", "clarification.timeout_state", "metrics.capture_resource", "reconcile.on_ticket_closed", "reconcile.on_ticket_deleted", "reconcile.on_trigger_removed", "executor.mode"];
-  const shown = configuration.settings.filter((s:{key:string}) => !hidden.includes(s.key) && !["executor.", "container.", "execution.", "local."].some(prefix => s.key.startsWith(prefix)) && (!s.key.startsWith("worktree.") || ["worktree.repo_path", "worktree.root", "worktree.branch_template", "worktree.branch_rule"].includes(s.key)));
-  await expect(panel.locator(".setting-row")).toHaveCount(shown.length);
+  const shown = configuration.settings.filter((s:{key:string}) => settingVisible(s.key, false, configuration.config.executor.default));
+  await expect(panel.locator(".setting-row[id]")).toHaveCount(shown.length);
   await expect(panel.locator(".setting-actions details")).toHaveCount(0);
   await expect(panel.getByRole("checkbox")).toHaveCount(0);
-  await expect(panel.locator(".setting-essential")).toHaveCount(shown.length);
+  await expect(panel.locator(".setting-row[id] .setting-essential")).toHaveCount(shown.length);
   expect((await (await page.request.get(`/api/v1/projects/${identity}/config`)).json()).revision).toBe(configuration.revision);
   await expect(panel.locator(".setting-badge").filter({hasText:"Default"}).first()).toBeVisible();
   await expect(panel.getByRole("heading", {name:"Audit retention",exact:true})).toHaveCount(0);
@@ -573,7 +581,7 @@ for (const user of ["admin", "developer"]) {
   const groups = panel.locator(":scope > .setting-groups > details");
   expect(await groups.locator(":scope > summary").allTextContents()).toEqual([
    expect.stringMatching(/^Repository /), expect.stringMatching(/^Tickets /), expect.stringMatching(/^Implementation /),
-   expect.stringMatching(/^PR\/MR and review /), expect.stringMatching(/^Statistics /), expect.stringMatching(/^Technical details /),
+   expect.stringMatching(/^PR\/MR and review /), expect.stringMatching(/^Statistics /), expect.stringMatching(/^Agent and model /), expect.stringMatching(/^Technical details /),
   ]);
   const before = await (await page.request.get("/api/v1/projects/alpha/config")).json();
   expect(before.config.polling.mode).toBe("loop");
@@ -584,6 +592,7 @@ for (const user of ["admin", "developer"]) {
    Implementation: ["budgets.max_cost_usd", "polling.max_concurrent_runs", "delivery.publish_checkpoints", "clarification.max_rounds", "recovery.max_stage_failures"],
    "PR/MR and review": ["review.max_review_rounds", "review.revise_label", "delivery.reviewers"],
    Statistics: ["metrics.enabled", "metrics.capture_tokens", "metrics.db_path"],
+   "Agent and model": ["executor.default", "executor.commands.opencode.command", "executor.commands.opencode.model", "executor.env_keys", "executor.stage_host_auth", "executor.questions_file"],
    "Technical details": ["state.store_root", "agent.slug", "worktree.repo_path", "worktree.root", "workflow.aegis_python"],
   };
   for (const [name, keys] of Object.entries(placements)) for (const key of keys) {

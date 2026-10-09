@@ -4,6 +4,7 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
+import { validExecutorSelection, validCredentialNames, type ExecutorSelection } from "./executorSettings.ts";
 import { validImplementationCollection } from "./implementationSettings.ts";
 import { validImageBinding, type ImageBinding } from "./imageBuild.ts";
 import type { MessageKey } from "./i18n";
@@ -25,7 +26,7 @@ export type SettingMeta = {
 };
 
 /** How a row's value is edited in the browser; `none` means not editable here. */
-export type InputKind = "boolean" | "number" | "choice" | "text" | "reviewers" | "duration" | "retry-delays" | "stage-timeouts" | "none";
+export type InputKind = "boolean" | "number" | "choice" | "text" | "reviewers" | "duration" | "retry-delays" | "stage-timeouts" | "agent-selection" | "credential-names" | "none";
 
 type CommonKind = "text" | "positive" | "forge" | "runtime" | "executor";
 
@@ -73,6 +74,8 @@ export const settingValue = (config: Record<string, unknown>, key: string): unkn
     current && typeof current === "object" ? (current as Record<string, unknown>)[part] : undefined, config);
 
 const inputKind = (item: SettingMeta): InputKind => {
+  if (item.editable && item.key === "executor.default") return "agent-selection";
+  if (item.editable && item.key === "executor.env_keys") return "credential-names";
   if (item.key === "metrics.db_path") return "none";
   if (settingPurpose(item.key) === "technical" || item.key.startsWith("worktree.") && !BRANCH_NAMING_KEYS.has(item.key)) return "none";
   if (item.editable && item.key === "clarification.answer_timeout" && item.type === "text") return "duration";
@@ -86,7 +89,7 @@ const inputKind = (item: SettingMeta): InputKind => {
   return "text";
 };
 
-export const PURPOSE_GROUPS = ["repository", "tickets", "implementation", "reviews", "statistics", "technical", "executor", "environment"] as const;
+export const PURPOSE_GROUPS = ["repository", "tickets", "implementation", "reviews", "statistics", "executor", "technical", "environment"] as const;
 
 /** The only worktree fields managed through reviewed browser edits. */
 export const BRANCH_NAMING_KEYS = new Set(["worktree.branch_template", "worktree.branch_rule"]);
@@ -145,15 +148,17 @@ export function settingPurpose(key: string): string {
 }
 
 /** Only known informational worktree fields accompany the external environment. */
-export function settingVisible(key: string, executorOnly = false): boolean {
+export function settingVisible(key: string, executorOnly = false, agent?:string): boolean {
+  if (agent && key.startsWith("executor.commands.") && key.split(".")[2] !== agent) return false;
   if (HIDDEN_SETTING_KEYS.has(key)) return false;
   if (["container.", "execution.", "local."].some(prefix => key.startsWith(prefix))) return false;
   if (key.startsWith("worktree.") && !["worktree.repo_path", "worktree.root", "worktree.branch_template", "worktree.branch_rule"].includes(key)) return false;
-  return key.startsWith("executor.") === executorOnly;
+  return !executorOnly || key.startsWith("executor.");
 }
 
 /** Optional topic disclosures inside a workflow category; ordinary rows stay direct. */
-export function settingSubgroup(key: string): "clarification" | "recovery" | "stageLimits" | "statisticsFiles" | null {
+export function settingSubgroup(key: string): "clarification" | "recovery" | "stageLimits" | "statisticsFiles" | "authentication" | null {
+  if (["executor.env_keys", "executor.stage_host_auth"].includes(key)) return "authentication";
   if (key.startsWith("clarification.")) return "clarification";
   if (key.startsWith("recovery.")) return "recovery";
   if (key.startsWith("workflow.stage_timeout_overrides")) return "stageLimits";
@@ -236,7 +241,7 @@ export function validSettingCatalog(settings: unknown): settings is SettingMeta[
   });
 }
 
-export type PendingConfig = { image_build?: ImageBinding; base_revision: string; candidate_revision: string; key: string; value: string; proposed_value: string | number | boolean | string[] | number[] | Record<string, number>; created_at: string; restart_required: boolean; execution_plan?: ExecutionPlan; endpoint?: { protocol: string; model: string; auth_env: string | null; timeout_seconds: number | null; ca_file: string | null } };
+export type PendingConfig = { image_build?: ImageBinding; base_revision: string; candidate_revision: string; key: string; value: string; proposed_value: string | number | boolean | string[] | number[] | Record<string, number> | ExecutorSelection; created_at: string; restart_required: boolean; execution_plan?: ExecutionPlan; endpoint?: { protocol: string; model: string; auth_env: string | null; timeout_seconds: number | null; ca_file: string | null } };
 
 /** A malformed or unbound server candidate never enables Apply. */
 export function validPendingConfig(value: unknown): value is PendingConfig | null {
@@ -247,11 +252,13 @@ export function validPendingConfig(value: unknown): value is PendingConfig | nul
   const reviewerList = item.key === "delivery.reviewers" && Array.isArray(item.proposed_value)
     && item.proposed_value.length > 0 && item.proposed_value.every(name => typeof name === "string"
       && name.length > 0 && name.length <= 255 && !name.startsWith("-") && !/[\s\u0000-\u001f\u007f]/.test(name));
+  const agentSelection = item.key === "executor.selection" && validExecutorSelection(item.proposed_value);
+  const credentials = item.key === "executor.env_keys" && validCredentialNames(item.proposed_value);
   const collection = validImplementationCollection(item.key, item.proposed_value);
   return digest(item.base_revision) && digest(item.candidate_revision)
     && typeof item.key === "string" && item.key.length > 0 && typeof item.value === "string"
-    && item.value === (reviewerList || collection ? JSON.stringify(item.proposed_value) : typeof item.proposed_value === "boolean" ? String(item.proposed_value).toLowerCase() : String(item.proposed_value))
-    && (collection || reviewerList || !["delivery.reviewers", "recovery.retry_backoff_seconds", "workflow.stage_timeout_overrides"].includes(item.key) && ["string", "number", "boolean"].includes(typeof item.proposed_value))
+    && item.value === (reviewerList || collection || agentSelection || credentials ? JSON.stringify(item.proposed_value) : typeof item.proposed_value === "boolean" ? String(item.proposed_value).toLowerCase() : String(item.proposed_value))
+    && (collection || reviewerList || agentSelection || credentials || !["executor.selection", "executor.env_keys", "delivery.reviewers", "recovery.retry_backoff_seconds", "workflow.stage_timeout_overrides"].includes(item.key) && ["string", "number", "boolean"].includes(typeof item.proposed_value))
     && (typeof item.proposed_value !== "number" || Number.isFinite(item.proposed_value))
     && typeof item.restart_required === "boolean"
     && (item.image_build === undefined || validImageBinding(item.image_build) && item.key === "container.image" && item.image_build.image_id === item.proposed_value && item.image_build.config_revision === item.base_revision)

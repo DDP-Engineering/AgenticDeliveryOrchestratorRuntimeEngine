@@ -20,6 +20,17 @@ test("technical guidance covers external ownership and existing data in all loca
 });
 import { durationParts, implementationDraft } from "../src/implementationSettings.ts";
 
+test("Settings owns executor rows and accepts only complete agent selection review", async () => {
+ const {settingVisible} = await import("../src/settings.ts");
+ assert.equal(settingVisible("executor.default"), true);
+ const selection = {agent:"codex",command:"codex exec --json --model {model} {prompt}",model:"offline-model"};
+ const pending = {base_revision:"a".repeat(64),candidate_revision:"b".repeat(64),key:"executor.selection",value:JSON.stringify(selection),proposed_value:selection,created_at:"2026-10-09T00:00:00Z",restart_required:true};
+ assert.equal(validPendingConfig(pending), true);
+ for (const invalid of [{...selection,agent:"unknown"},{...selection,model:""},{...selection,token:"secret"}]) {
+  assert.equal(validPendingConfig({...pending,value:JSON.stringify(invalid),proposed_value:invalid}), false);
+ }
+});
+
 test("implementation drafts serialize only complete valid human values", () => {
  assert.deepEqual(durationParts("12h"), {amount:"12",unit:"h"});
  assert.deepEqual(durationParts("d"), {amount:"",unit:"d"});
@@ -77,7 +88,7 @@ test("flow visibility omits inactive and external fields and keeps technical row
  for (const key of ["polling.poll_interval_seconds", "polling.poll_jitter_seconds", "polling.poll_backoff"]) assert.equal(settingVisible(key), true, key);
  for (const key of ["state.channel", "review.trigger", "review.review_reminder_after", "clarification.reminder_after", "clarification.timeout_state", "metrics.capture_resource", "labels.selection.type_feature", "reconcile.on_ticket_closed", "executor.mode", "container.image", "execution.backend", "local.account", "worktree.future_field"]) assert.equal(settingVisible(key), false, key);
  for (const key of ["worktree.repo_path", "worktree.root", "worktree.branch_template", "worktree.branch_rule", "state.store_root", "agent.slug"]) assert.equal(settingVisible(key), true, key);
- assert.equal(settingVisible("executor.default"), false);
+ assert.equal(settingVisible("executor.default"), true);
  assert.equal(settingVisible("executor.default", true), true);
  assert.equal(settingVisible("platform.repo", true), false);
  const technical = settingRows({}, ["worktree.repo_path", "worktree.root", "agent.slug", "state.store_root", "workflow.aegis_python", "future.new_key"].map(key => meta(key, "project", true)));
@@ -257,4 +268,20 @@ test("Implementation typed controls keep narrow collection review authority", ()
   {...pending,key:"recovery.retry_backoff_seconds",value:"[]",proposed_value:[]},
   {...pending,key:"recovery.retry_backoff_seconds",value:"[1.5]",proposed_value:[1.5]},
  ]) assert.equal(validPendingConfig(bad),false);
+});
+
+
+test("agent labels, selected fields and credential names retain exact authority in four locales", async () => {
+ const {agentSettingsCopy,executorSettingLabel,validCredentialNames}=await import("../src/executorSettings.ts");
+ const {settingVisible}=await import("../src/settings.ts");
+ for (const locale of ["en","ro","fr","de"]) {
+  for (const agent of ["opencode","pi","codex","qwen"]) {
+   assert.equal(executorSettingLabel(`executor.commands.${agent}.command`,locale),agentSettingsCopy[locale].command);
+   assert.equal(executorSettingLabel(`executor.commands.${agent}.model`,locale),agentSettingsCopy[locale].model);
+   assert.equal(settingVisible(`executor.commands.${agent}.command`,false,"pi"),agent==="pi");
+  }
+  assert.equal(executorSettingLabel("executor.env_keys",locale),agentSettingsCopy[locale].variables);
+ }
+ for (const names of [[],["OPENAI_API_KEY"],["CUSTOM_PROVIDER_KEY","OPENROUTER_API_KEY"]]) assert.equal(validCredentialNames(names),true);
+ for (const names of [null,{},[true],["OPENAI_API_KEY=value"],["OPENAI_API_KEY","OPENAI_API_KEY"],["invalid"],Array(33).fill("OPENAI_API_KEY")]) assert.equal(validCredentialNames(names),false);
 });

@@ -14,10 +14,10 @@ title = "Project executor configuration workspace"
 status = "active"
 
 requirement = """
-When an authorized user opens a project, ADORE shall present a dedicated Executor configuration tab containing that project’s executor/model settings and applicable connection controls, with administrator-only edits through the existing reviewed candidate contract and no duplicated executor editor in generic Settings.
+When an authorized user opens a project, ADORE shall present one Agent and model category in Settings containing that project’s executor/model settings and applicable connection controls, with administrator-only edits through the existing reviewed candidate contract with private keys under Authentication and legacy executor URLs normalized to Settings.
 """
 
-verification = "Chromium opens the tab, observes current model/defaults, stages/discards a scoped model candidate and observes absence from Settings; offline config API verifies model/endpoint save, developer rejection and revision guards."
+verification = "Chromium follows the legacy URL to Settings, observes current model/defaults, stages/discards a scoped model candidate and verifies one category with no old tab; offline config API verifies model/endpoint save, developer rejection and revision guards."
 
 affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/ExecutorCredentials.tsx", "04_Software/web/src/routes.ts", "04_Software/web/src/ModelConnection.tsx", "04_Software/web/src/ReadinessEvidence.tsx", "04_Software/web/e2e/executor-config.spec.ts", "04_Software/web/e2e/model-connection.spec.ts", "04_Software/web/e2e/settings.spec.ts", "04_Software/adore/web/static/index.html", "04_Software/adore/web/static/assets/"]
 
@@ -30,4 +30,4 @@ priority = "normal"   # low | normal | high
 rationale = ""        # why this behavior exists, if not obvious
 
 created = 2026-10-06
-updated = 2026-10-06
+updated = 2026-10-09

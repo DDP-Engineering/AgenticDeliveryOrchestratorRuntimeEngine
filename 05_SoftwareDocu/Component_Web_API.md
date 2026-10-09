@@ -647,13 +647,15 @@ login identity. This supports tea versions whose whoami command has no login fla
 
 ## Explicit AI connection test
 
-Administrators use **Executor configuration → Test AI connection** for the configured OpenCode, Pi, Codex or Qwen model. Each explicit click sends one short request in a temporary container and may incur provider charges. The project must be idle with valid saved settings and no pending configuration/operations; its installed image must contain Python and the agent.
+Administrators use **Settings → Agent and model → Test AI connection** for the configured OpenCode, Pi, Codex or Qwen model. Each explicit click sends one short request in a temporary container and may incur provider charges. The project must be idle with valid saved settings and no pending configuration/operations; its installed image must contain Python and the agent.
 
 Only a valid completed challenge response reports connected. Failures provide redacted guidance for credentials, model availability, image, CLI version or network. The action reuses executor credentials and egress; it starts no job and proves no tool capability. Evidence is durably saved, bound to current project/model/configuration and credential inputs. Summary and host-check details reuse the current access result; endpoint/tool compatibility remains separate. Host-check time/version are internally validated and hidden from Summary/check details. See Component_Model_Connection.md.
 
 ## Project executor configuration
 
-The project header includes Executor configuration, the single owner of executor/model settings and the applicable endpoint editor. Configured command tables supply executor choices; model IDs are entered manually. Admin uses reviewed configuration candidates; Dev reads non-secret values. Provider credentials offers Save API key and Disconnect project API key for known variables in executor.env_keys, using the real project .env. Credential changes require paused monitoring and idle/pending-free state. An environment override is managed externally. Saving a key alone does not confirm connection; explicit model testing can incur provider charges. Subscription login retains the installed CLI's external service-account workflow and configured auth bridge/mount. See [Executor configuration](../05_SoftwareDocu/Component_Executor_Configuration.md) for exact API/storage contracts and limitations.
+**Project → Settings → Agent and model** owns the default coding agent, the selected agent's launch command/model, AI connection testing and external container guidance. Its **Authentication** disclosure groups allowed credential variable names, host sign-in reuse and **Provider API keys**. The agent editor offers OpenCode, Pi, Codex and Qwen Code even when their command tables are absent. Selecting an agent loads its saved command/model or the documented command preset; a new model ID must be supplied explicitly. Prepare reviews agent, command and model together, then Apply writes one complete paused/idle candidate. The generic launch-command/model labels follow the selected agent. Installed agents and runtime preparation remain external. The old `/executor` URL redirects to Settings. Developers read non-secret settings/results without mutation actions.
+
+The names-only credential selector offers known provider names and retained custom names, independently of coding agent. Empty lists support existing server sign-in. Applying names does not delete saved `.env` values. Provider API keys offers private Save/Disconnect for known allowed variables and shows sources only; key changes require paused pickup and idle/pending-free state. Explicit Test AI connection remains the evidence of model access and may incur provider charges. Subscription login retains the installed CLI's external service-account workflow. See [Executor configuration](../05_SoftwareDocu/Component_Executor_Configuration.md) for the exact API/storage contracts.
 
 ## Preparation review and apply
 
@@ -678,3 +680,7 @@ public pending validation binds closed image evidence and candidate checks.
 Apply reinspects current definition/config/runtime/base/result/labels and the
 shared preparation plan. See Component_Project_Images.md and
 tests/test_web_image_build.py for current identity/failure contracts.
+
+## Reviewed executor configuration
+
+The web-only executor.selection candidate owns default agent and its command/model atomically; executor.env_keys owns a complete names-only list. Both require pending review and existing paused/idle apply guards. Public pending values and persisted scope are closed and checked against the unchanged base. Source-only private credential APIs retain their contracts. See [Executor configuration and credentials](Component_Executor_Configuration.md) and test_web_executor_configuration.py.

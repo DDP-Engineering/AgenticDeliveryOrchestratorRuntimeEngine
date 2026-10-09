@@ -13,13 +13,13 @@ Provide a single project executor/model workspace and protected provider key lif
 
 ## 2. Responsibilities
 
-`web/executor_settings.py` validates private profile inputs, edits one approved .env variable atomically, and binds/loads model evidence. `web/app.py` owns roles, CSRF, immutable project selection, configuration/conductor locks and audit attempts/confirmations. The existing config candidate and launcher own applied TOML changes and actual job injection.
+`web/executor_configuration.py` validates atomic agent selection; `web/implementation_settings.py` validates names-only lists. `web/executor_settings.py` validates private profile inputs, edits one approved .env variable atomically, and binds/loads model evidence. `web/app.py` owns roles, CSRF, immutable project selection, configuration/conductor locks and audit attempts/confirmations. The existing config candidate and launcher own applied TOML changes and actual job injection.
 
 ## 3. Implementation Overview
 
-The settings panel embeds Provider credentials beneath its categories. ModelConnection supplies the Executor configuration heading with Test AI connection aligned right, and scoped result/cost guidance below. The native heading layout wraps on narrow screens. Default coding agent Edit uses configured executor choices. Launch-command Edit selects exact documented standard OpenCode/Pi/Codex/Qwen presets for existing command tables; a custom current command stays visible as a disabled current option until a preset is selected. Prepare stays disabled for values outside the catalog. app.py validates command presets at staged/direct edits and persisted review/apply, retaining administrator/CSRF/revision/idle/pause/locking safety. Container custom commands and new table enrollment belong to host TOML. Local existing command tables accept validated installed argv through reviewed candidates.
+**Project → Settings → Agent and model** owns the default coding agent, the selected agent's launch command/model, AI connection testing and external container guidance. Its **Authentication** disclosure groups allowed credential variable names, host sign-in reuse and **Provider API keys**. The agent editor offers OpenCode, Pi, Codex and Qwen Code even when their command tables are absent. Selecting an agent loads its saved command/model or the documented command preset; a new model ID must be supplied explicitly. Prepare reviews agent, command and model together, then Apply writes one complete paused/idle candidate. The generic launch-command/model labels follow the selected agent. Installed agents and runtime preparation remain external. The old `/executor` URL redirects to Settings. Developers read non-secret settings/results without mutation actions.
 
-The Executor configuration route selects executor settings, model identifiers and the applicable OpenCode endpoint form. Administrator edits use the existing Prepare candidate / Apply / Discard workflow. Configured command tables determine the selectable executors; model IDs are entered manually. Developers read non-secret settings/results.
+The names-only credential selector offers known provider names and retained custom names, independently of coding agent. Empty lists support existing server sign-in. Applying names does not delete saved `.env` values. Provider API keys offers private Save/Disconnect for known allowed variables and shows sources only; key changes require paused pickup and idle/pending-free state. Explicit Test AI connection remains the evidence of model access and may incur provider charges. Subscription login retains the installed CLI's external service-account workflow.
 
 Save API key / Disconnect project API key operate on the selected profile's `.env`. `executor.env_keys` is the authoritative existing allowlist; the form offers known provider API names already in it. Ambient variables (including explicitly empty values) take precedence and are managed externally. Source indicators distinguish missing, project and environment. Saving is not authentication success; explicit Test AI connection provides that evidence.
 
@@ -48,7 +48,7 @@ New jobs load applied executor/model settings. Existing jobs retain their durabl
 
 ## 8. Usage
 
-Open Project → Executor configuration. Prepare/apply the model/default executor change, pause monitoring for credential changes, choose an allowed API variable and Save API key. Test AI connection explicitly, then inspect Summary/check details. A provider key can use separate API billing from a subscription.
+Open Project → Settings → Agent and model → Authentication for credentials. Prepare/apply the model/default executor change, pause monitoring for credential changes, choose an allowed API variable and Save API key. Test AI connection explicitly, then inspect Summary/check details. A provider key can use separate API billing from a subscription.
 
 Subscription login remains the installed CLI's real interactive service-account flow: OpenCode `opencode auth login`, Codex `codex login`, Pi `/login`, Qwen `/auth`. Container OpenCode/Codex use the configured host-auth bridge; container Pi/Qwen need the protected auth directory/file bind available to actual containers. CLI version and provider determine the login flow. The GUI key removal changes only that project variable; it leaves ambient credentials and subscription sessions intact.
 
@@ -56,11 +56,11 @@ Official provider references: [Pi](https://pi.dev/docs/latest/providers), [Qwen]
 
 ## 9. Validation And Tests
 
-`tests/test_web_launch_presets.py`: four-executor candidate apply, arbitrary/missing/unknown command, stale/CSRF/role/pause and tampered-pending rejection. `tests/test_executor_settings.py`: all-executor private save/remove, preserved unrelated bytes, CSRF/role/lock/pending/pause/ambient/config/env/evidence negatives, persisted result across host check and credential drift, corrupt/foreign/duplicate evidence. `test_model_connection.py` retains real offline diagnostic contracts. `web/e2e/executor-config.spec.ts` owns tab/credential/candidate/Settings separation; model-connection and settings journeys prove scoped results/defaults. Real provider/whole-job acceptance is operator-triggered.
+`tests/test_web_launch_presets.py`: four-executor candidate apply, arbitrary/missing/unknown command, stale/CSRF/role/pause and tampered-pending rejection. `tests/test_executor_settings.py`: all-executor private save/remove, preserved unrelated bytes, CSRF/role/lock/pending/pause/ambient/config/env/evidence negatives, persisted result across host check and credential drift, corrupt/foreign/duplicate evidence. `test_model_connection.py` retains real offline diagnostic contracts. `test_web_executor_configuration.py` covers atomic selection of all four agents, complete review/apply, names-only lists, preserved private files and malformed/role/revision/pause/corrupt persistence boundaries. `web/e2e/executor-config.spec.ts` owns Settings/category/credential/candidate continuity; model-connection and settings journeys prove scoped results/defaults. Real provider/whole-job acceptance is operator-triggered.
 
 ## 10. Limitations
 
-Model lists, new command-table enrollment and a universal browser OAuth broker are outside this workspace. API-variable allowlists/custom providers are configured in the project profile. Only recognized auth mounts are fingerprinted; opaque external credential sources still require an explicit fresh test. Connectivity does not prove tool support, Git publication or a complete job. Full regression remains deferred during the user's iterative live changes.
+Model catalogs, executor installation and a universal browser OAuth broker remain external. New supported command tables can be enrolled through a complete reviewed selection. New custom provider names require external TOML configuration; retained custom names can be selected or removed. Only recognized auth mounts are fingerprinted; opaque external credential sources still require an explicit fresh test. Connectivity does not prove tool support, Git publication or a complete job. Full regression remains deferred during the user's iterative live changes.
 
 ## Native execution contract
 
@@ -80,7 +80,7 @@ existing provider credential tests cover this shared read.
 
 ## External environment guidance
 
-`ExecutorEnvironment.tsx` is a read-only four-locale notice in the executor panel,
+`ExecutorEnvironment.tsx` is a read-only four-locale notice in Settings → Agent and model,
 rendered only for container profiles. Config GET `executor_environment` has
 `backend`, `image` and `config_path`. Image comes from the validated preparation
 plan when configured; invalid plan selection yields null, with operator-attention
@@ -92,3 +92,9 @@ mutation requests. Settings/enrollment omit environment controls. Legacy pending
 environment Apply is disabled while Discard remains. API guards preserve the
 existing dedicated AI endpoint exception. Proof: test_web_image_build.py and
 web/e2e/images.spec.ts; operator steps: Project_Executor_Images.md.
+
+## Reviewed selection and variable-name contracts
+
+`POST config/pending` accepts web-only `key=executor.selection` with a strict JSON-string value containing exactly `agent`, `command`, `model`. It returns the complete map in `proposed_value`. Container commands must match a documented preset or the existing command; native execution retains validated local argv. Apply changes `executor.default` and that selected `executor.<agent>.command/model` together, preserving other TOML meaning. This synthetic key is not a CLI/TOML setting.
+
+`executor.env_keys` candidates accept a complete distinct uppercase name list, bounded to32 entries; known provider names or retained existing custom names only. Forge variables and credential values fail closed. Direct PUT of either selection or variable names refuses with `pending_config_required`. Pending reads/apply reconstruct these candidates against the active base and reject unrelated persisted changes, even with a recomputed candidate hash. Existing role, CSRF, revision, idle and configuration locks remain authoritative.

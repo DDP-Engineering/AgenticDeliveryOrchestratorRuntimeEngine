@@ -8,6 +8,8 @@ import { Children, cloneElement, isValidElement, useCallback, useEffect, useRef,
 import { aggregateMetrics, aggregateUsage, type Metrics, type Usage } from "./metrics";
 import { messages, type Locale, type MessageKey } from "./i18n";
 import { ModelConnection, validModelEvidence, type ModelEvidence } from "./ModelConnection";
+import { agentSettingsCopy, executorSettingLabel, executorSelectionDraft, validExecutorSelection, validCredentialNames } from "./executorSettings";
+import { ExecutorSelectionEditor } from "./ExecutorSelectionEditor";
 import { ExecutorCredentials, executorCopy } from "./ExecutorCredentials";
 import { RepositoryConnection } from "./RepositoryConnection";
 import { ReadinessEvidence, readinessDetailsLabel, readinessCloseLabel } from "./ReadinessEvidence";
@@ -205,7 +207,7 @@ export default function App() {
     setMetricsTab(metricsTabs[next]);
     document.getElementById(`metrics-tab-${metricsTabs[next]}`)?.focus();
   };
-  const projectTabs: ProjectTab[] = isAdmin ? ["overview", "configuration", "executor", "prices", "access", "history"] : ["overview", "configuration", "executor", "history"];
+  const projectTabs: ProjectTab[] = isAdmin ? ["overview", "configuration", "prices", "access", "history"] : ["overview", "configuration", "history"];
   const onProjectTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, tab: ProjectTab) => {
     const current = projectTabs.indexOf(tab);
     const next = event.key === "ArrowRight" ? (current + 1) % projectTabs.length :
@@ -1049,26 +1051,12 @@ export default function App() {
             </form>
           </section></ProjectDeleteDialog>}
           </>}
-          {projectTab === "executor" && <>
-            {configDataState !== "ready" && <DataFeedback state={configDataState} t={t} />}
-            {projectConfig && selectedProject && <>
-              <SettingsList key={`${selected}-${projectConfig.revision}-executor`} executorOnly config={projectConfig.config} settings={projectConfig.settings || []} t={t} locale={locale} canEdit={isAdmin} disabled={!!projectPendingConfig || configBusy || pendingReadFailed || isAdmin && !pendingReady} onStage={stageSetting}
-                header={<>
-                  <ModelConnection heading={executorCopy[locale].tab} key={`${session.user.id}:${selected}:${projectConfig.revision}:${projectConfig.model_connection?.checked_at || "untested"}`} project={selectedProject.id} revision={projectConfig.revision} executor={selectedProject.executor} model={String(settingValue(projectConfig.config,`executor.commands.${selectedProject.executor}.model`))} locale={locale} saved={projectConfig.model_connection} readOnly={!isAdmin || selectedProject.archived} onResult={value=>setConfig(current=>current?{...current,model_connection:value}:current)} test={()=>request(`/projects/${encodeURIComponent(selected)}/model-connection-test`,"POST",{},session.csrf)} />
-                  <p className="muted">{executorCopy[locale].modelHelp}</p>
-                </>}>
-                <ExecutorEnvironment environment={projectConfig.executor_environment} executor={selectedProject.executor} locale={locale} />
-                {isAdmin && !selectedProject.archived && <ExecutorCredentials embedded key={`${session.user.id}:${selected}:${projectConfig.revision}`} project={selectedProject.id} revision={projectConfig.revision} executor={selectedProject.executor} locale={locale} disabled={!!projectPendingConfig || configBusy || pendingReadFailed || !pendingReady || !selectedProject.paused} read={() => request(`/projects/${encodeURIComponent(selected)}/executor-credentials`)} write={(method,body)=>request(`/projects/${encodeURIComponent(selected)}/executor-credentials`,method,body,session.csrf)} onChanged={()=>setConfig(current=>current?{...current,model_connection:null}:current)} />}
-              </SettingsList>
-              {isAdmin && projectPendingConfig && <section className="panel"><PendingReview config={projectConfig} candidate={projectPendingConfig} project={selectedProject.display_name || selected} paused={selectedProject.paused} busy={configBusy} locale={locale} t={t} onApply={applyPendingConfig} onDiscard={discardPendingConfig}/></section>}
-            </>}
-          {isAdmin && selected && projectConfig && !projectConfig.local_execution && (projectConfig.config.executor as { default?: string } | undefined)?.default === "opencode" && <section className="panel wide-panel"><h2>{t("localEndpoint")}</h2><p className="muted">{t("localEndpointHelp")}</p><p className="muted">{t("localProviderHelp")}</p>{(projectConfig.config.executor as { default?: string } | undefined)?.default === "opencode" && <form key={`${selected}-${projectConfig.revision}`} className="inline-form config-form" onSubmit={saveEndpoint}><fieldset className="endpoint-fields" disabled={!!projectPendingConfig || configBusy || pendingReadFailed || isAdmin && !pendingReady}><FormLegend t={t} /><input type="hidden" name="model" value={(projectConfig.config.executor as { commands?: { opencode?: { model?: string } } }).commands?.opencode?.model || ""} /><Field name="endpoint" label={t("localEndpoint")} type="url" defaultValue={(projectConfig.config.container as { runtime_env?: { OPENAI_BASE_URL?: string } } | undefined)?.runtime_env?.OPENAI_BASE_URL || ""} required /><label>{t("endpointAuth")}<select name="auth_env"><option value="">{t("none")}</option><option value="OPENAI_API_KEY">OPENAI_API_KEY</option></select></label><label>{t("endpointProtocol")}<select name="protocol"><option value="openai-chat-completions">OpenAI chat completions</option></select></label><Field name="timeout_seconds" label={t("endpointTimeout")} type="number" defaultValue={String(projectConfig.local_endpoint_timeout_seconds || 300)} required /><Field name="ca_file" label={t("endpointCa")} defaultValue={(projectConfig.config.container as { runtime_env?: { NODE_EXTRA_CA_CERTS?: string } } | undefined)?.runtime_env?.NODE_EXTRA_CA_CERTS || ""} /><button className="primary" disabled={!!projectPendingConfig || configBusy || pendingReadFailed || isAdmin && !pendingReady}>{settingsCopy[locale].prepare}</button></fieldset></form>}</section>}
-          </>}
           {projectTab === "history" && selectedProject?.id && <AuditHistory key={`${session.user.id}:${selected}`} locale={locale} projects={projects} fixedProject={selectedProject?.id} read={path => request(path)} />}
           {projectTab === "history" && <JobWorkspace reporting={{ from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }} reportingQuery={metricSuffix} admin={isAdmin} {...workspaceProps} mode="history" scope={selected} fixedScope />}
           {projectTab === "configuration" && <>
           {configDataState !== "ready" && <DataFeedback state={configDataState} t={t} />}
-          {projectConfig && <SettingsList key={`${selected}-${projectConfig.revision}`} project={selected} revision={projectConfig.revision} csrf={session.csrf} branchCandidate={projectPendingConfig} config={projectConfig.config} settings={projectConfig.settings || []} t={t} locale={locale} canEdit={isAdmin} disabled={!!projectPendingConfig || configBusy || pendingReadFailed || isAdmin && !pendingReady} onStage={stageSetting} actions={isAdmin && <RawConfiguration key={`${session.user.id}:${selected}:${projectConfig.revision}`} project={selected} locale={locale} />}>
+          {projectConfig && <SettingsList key={`${selected}-${projectConfig.revision}`} project={selected} revision={projectConfig.revision} csrf={session.csrf} branchCandidate={projectPendingConfig} config={projectConfig.config} settings={projectConfig.settings || []} t={t} locale={locale} canEdit={isAdmin} disabled={!!projectPendingConfig || configBusy || pendingReadFailed || isAdmin && !pendingReady} onStage={stageSetting} executorBefore={selectedProject && <><ModelConnection heading={agentSettingsCopy[locale].connection} key={`${session.user.id}:${selected}:${projectConfig.revision}:${projectConfig.model_connection?.checked_at || "untested"}`} project={selectedProject.id} revision={projectConfig.revision} executor={selectedProject.executor} model={String(settingValue(projectConfig.config,`executor.commands.${selectedProject.executor}.model`))} locale={locale} saved={projectConfig.model_connection} readOnly={!isAdmin || selectedProject.archived} onResult={value=>setConfig(current=>current?{...current,model_connection:value}:current)} test={()=>request(`/projects/${encodeURIComponent(selected)}/model-connection-test`,"POST",{},session.csrf)} />
+                  <p className="muted">{executorCopy[locale].modelHelp}</p></>} executorAuthentication={selectedProject && <>{isAdmin && !selectedProject.archived && <ExecutorCredentials embedded key={`${session.user.id}:${selected}:${projectConfig.revision}`} project={selectedProject.id} revision={projectConfig.revision} executor={selectedProject.executor} locale={locale} disabled={!!projectPendingConfig || configBusy || pendingReadFailed || !pendingReady || !selectedProject.paused} read={() => request(`/projects/${encodeURIComponent(selected)}/executor-credentials`)} write={(method,body)=>request(`/projects/${encodeURIComponent(selected)}/executor-credentials`,method,body,session.csrf)} onChanged={()=>setConfig(current=>current?{...current,model_connection:null}:current)} />}</>} executorAfter={selectedProject && <><ExecutorEnvironment environment={projectConfig.executor_environment} executor={selectedProject.executor} locale={locale} />{isAdmin && selected && projectConfig && !projectConfig.local_execution && (projectConfig.config.executor as { default?: string } | undefined)?.default === "opencode" && <section className="executor-endpoint"><h2>{t("localEndpoint")}</h2><p className="muted">{t("localEndpointHelp")}</p><p className="muted">{t("localProviderHelp")}</p>{(projectConfig.config.executor as { default?: string } | undefined)?.default === "opencode" && <form key={`${selected}-${projectConfig.revision}`} className="inline-form config-form" onSubmit={saveEndpoint}><fieldset className="endpoint-fields" disabled={!!projectPendingConfig || configBusy || pendingReadFailed || isAdmin && !pendingReady}><FormLegend t={t} /><input type="hidden" name="model" value={(projectConfig.config.executor as { commands?: { opencode?: { model?: string } } }).commands?.opencode?.model || ""} /><Field name="endpoint" label={t("localEndpoint")} type="url" defaultValue={(projectConfig.config.container as { runtime_env?: { OPENAI_BASE_URL?: string } } | undefined)?.runtime_env?.OPENAI_BASE_URL || ""} required /><label>{t("endpointAuth")}<select name="auth_env"><option value="">{t("none")}</option><option value="OPENAI_API_KEY">OPENAI_API_KEY</option></select></label><label>{t("endpointProtocol")}<select name="protocol"><option value="openai-chat-completions">OpenAI chat completions</option></select></label><Field name="timeout_seconds" label={t("endpointTimeout")} type="number" defaultValue={String(projectConfig.local_endpoint_timeout_seconds || 300)} required /><Field name="ca_file" label={t("endpointCa")} defaultValue={(projectConfig.config.container as { runtime_env?: { NODE_EXTRA_CA_CERTS?: string } } | undefined)?.runtime_env?.NODE_EXTRA_CA_CERTS || ""} /><button className="primary" disabled={!!projectPendingConfig || configBusy || pendingReadFailed || isAdmin && !pendingReady}>{settingsCopy[locale].prepare}</button></fieldset></form>}</section>}</>} actions={isAdmin && <RawConfiguration key={`${session.user.id}:${selected}:${projectConfig.revision}`} project={selected} locale={locale} />}>
             {isAdmin && <>
             {projectConfig.issues.length > 0 && <div className="alert">{projectConfig.issues.join(" · ")}</div>}
             {projectPendingConfig && <PendingReview config={projectConfig} candidate={projectPendingConfig} project={selectedProject?.display_name || selected} paused={selectedProject?.paused === true} busy={configBusy} locale={locale} t={t} onApply={applyPendingConfig} onDiscard={discardPendingConfig} />}
@@ -1302,7 +1290,11 @@ function PendingReview({ config, candidate, project, paused, busy, locale, t, on
   const meta = config.settings?.find(item => item.edit_key === candidate.key);
   const active = settingValue(config.config, meta?.key || candidate.key);
   const show = (value: unknown) => candidate.key === "review.on_pipeline_failure" && pipelineFailureValue(value, locale) !== null ? pipelineFailureValue(value, locale) : candidate.key === "delivery.draft" && publicationValue(value, locale) !== null ? publicationValue(value, locale) : value == null ? copy.unknown : value === "" ? t("settingNoDefault") : typeof value === "object" ? JSON.stringify(value) : String(value);
-  const rows: Array<{ label: string; active: unknown; proposed: unknown }> = [{ label: branchSettingLabel(candidate.key, locale) || implementationSettingLabel(candidate.key, locale) || lifecycleCopy[locale].labels[candidate.key] || (candidate.key === "review.on_pipeline_failure" ? pipelineFailureCopy[locale].label : candidate.key === "labels.control.exclude" ? excludeLabelCopy[locale].label : candidate.key === "delivery.target_branch" ? targetBranchCopy[locale].label : candidate.key === "delivery.reviewers" ? reviewerCopy[locale].label : candidate.key === "delivery.draft" ? publicationCopy[locale].label : locale === "en" ? settingLabel(meta?.key || candidate.key) : t("config")), active, proposed: candidate.proposed_value }];
+  const rows: Array<{ label: string; active: unknown; proposed: unknown }> = [{ label: executorSettingLabel(meta?.key || candidate.key,locale) || branchSettingLabel(candidate.key, locale) || implementationSettingLabel(candidate.key, locale) || lifecycleCopy[locale].labels[candidate.key] || (candidate.key === "review.on_pipeline_failure" ? pipelineFailureCopy[locale].label : candidate.key === "labels.control.exclude" ? excludeLabelCopy[locale].label : candidate.key === "delivery.target_branch" ? targetBranchCopy[locale].label : candidate.key === "delivery.reviewers" ? reviewerCopy[locale].label : candidate.key === "delivery.draft" ? publicationCopy[locale].label : locale === "en" ? settingLabel(meta?.key || candidate.key) : t("config")), active, proposed: candidate.proposed_value }];
+  if (candidate.key === "executor.selection" && validExecutorSelection(candidate.proposed_value)) {
+    const selected=candidate.proposed_value, current=executorSelectionDraft(config.config), c=agentSettingsCopy[locale];
+    rows.splice(0,1,{label:c.agent,active:current.agent,proposed:selected.agent},{label:c.command,active:current.command,proposed:selected.command},{label:c.model,active:current.model,proposed:selected.model});
+  }
   if (candidate.endpoint) {
     rows.push({ label: t("model"), active: settingValue(config.config, "executor.commands.opencode.model"), proposed: candidate.endpoint.model });
     rows.push({ label: t("endpointProtocol"), active: config.local_endpoint?.protocol, proposed: candidate.endpoint.protocol });
@@ -1320,7 +1312,7 @@ function PendingReview({ config, candidate, project, paused, busy, locale, t, on
     <div className="candidate-values">{rows.map(row => <section key={row.label}><h4>{row.label}</h4><dl><div><dt>{copy.active}</dt><dd>{show(row.active)}</dd></div><div><dt>{copy.proposed}</dt><dd>{show(row.proposed)}</dd></div></dl></section>)}</div>
     {candidate.image_build && <details><summary>{imageCopy[locale].advanced}</summary><p><code>{candidate.image_build.runtime}</code></p><p><code>{candidate.image_build.base_id}</code></p><p><code>{candidate.image_build.context_sha256}</code></p></details>}
     {candidate.execution_plan && <ExecutionPlanReview plan={candidate.execution_plan} locale={locale} />}
-    <h4>{copy.effect}</h4><p>{candidate.endpoint ? copy.endpoint : settingHelp(meta?.key || candidate.key, locale)}</p><p>{copy.future}</p>
+    <h4>{copy.effect}</h4><p>{candidate.endpoint ? copy.endpoint : candidate.key === "executor.selection" ? agentSettingsCopy[locale].setup : settingHelp(meta?.key || candidate.key, locale)}</p><p>{copy.future}</p>
     <p>{copy.prepared}: <time dateTime={candidate.created_at}>{new Date(candidate.created_at).toLocaleString(locale)}</time></p><p>{copy.actor}</p>
     <p>{copy.idle}</p>{candidate.restart_required && <p className={!paused ? "alert" : "muted"}>{copy.pause}</p>}{stale && <p className="alert">{copy.stale}</p>}
     <details><summary>{copy.details}</summary><p><code>{candidate.key}</code></p><p>{copy.base}: <code>{candidate.base_revision}</code></p><p>{copy.candidate}: <code>{candidate.candidate_revision}</code></p></details>
@@ -1329,7 +1321,7 @@ function PendingReview({ config, candidate, project, paused, busy, locale, t, on
   </div>;
 }
 
-function SettingsList({ executorOnly=false, project, revision, csrf, branchCandidate, config, settings, t, locale, canEdit, disabled, onStage, actions, children, header }: { project?: string; revision?: string; csrf?: string; branchCandidate?: PendingConfig | null; header?: ReactNode; actions?: ReactNode; children?: ReactNode; executorOnly?:boolean; config: Record<string, unknown>; settings: SettingMeta[]; t: (key: MessageKey) => string; locale: Locale; canEdit: boolean; disabled: boolean; onStage: (key: string, value: string) => Promise<boolean> }) {
+function SettingsList({ executorOnly=false, project, revision, csrf, branchCandidate, config, settings, t, locale, canEdit, disabled, onStage, actions, children, header, executorBefore, executorAfter, executorAuthentication }: { executorBefore?:ReactNode; executorAfter?:ReactNode; executorAuthentication?:ReactNode; project?: string; revision?: string; csrf?: string; branchCandidate?: PendingConfig | null; header?: ReactNode; actions?: ReactNode; children?: ReactNode; executorOnly?:boolean; config: Record<string, unknown>; settings: SettingMeta[]; t: (key: MessageKey) => string; locale: Locale; canEdit: boolean; disabled: boolean; onStage: (key: string, value: string) => Promise<boolean> }) {
   const [editing, setEditing] = useState("");
   const [draft, setDraft] = useState("");
   const [branchPreview, setBranchPreview] = useState<BranchPreview | null>(null);
@@ -1350,14 +1342,19 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
     }, 250);
     return () => { current = false; window.clearTimeout(timer); };
   }, [executorOnly, project, revision, csrf, template, rule, branchIdentity]);
-  const groups = settingGroups(settingRows(config, settings).filter(row => settingVisible(row.key, executorOnly)), false);
+  const groups = settingGroups(settingRows(config, settings).filter(row => settingVisible(row.key, executorOnly, String(settingValue(config,"executor.default")))), false);
   const copy = settingsCopy[locale];
   const shown = (value: unknown) => value == null || value === "" ? "—" :
     Array.isArray(value) || typeof value === "object" ? JSON.stringify(value) : String(value);
-  const label = (row: SettingRow) => branchSettingLabel(row.key, locale) || implementationSettingLabel(row.key, locale) || lifecycleCopy[locale].labels[row.key] || (row.key === "metrics.db_path" ? statisticsDatabaseCopy[locale].label : row.key === "review.on_pipeline_failure" ? pipelineFailureCopy[locale].label : row.key === "labels.control.exclude" ? excludeLabelCopy[locale].label : row.key === "delivery.target_branch" ? targetBranchCopy[locale].label : row.key === "delivery.reviewers" ? reviewerCopy[locale].label : row.key === "delivery.draft" ? publicationCopy[locale].label : locale === "en" ? settingLabel(row.key) : row.label ? t(row.label) : (settingHelp(row.key, locale)?.split(". ")[0] || settingLabel(row.key)));
+  const label = (row: SettingRow) => executorSettingLabel(row.key,locale) || branchSettingLabel(row.key, locale) || implementationSettingLabel(row.key, locale) || lifecycleCopy[locale].labels[row.key] || (row.key === "metrics.db_path" ? statisticsDatabaseCopy[locale].label : row.key === "review.on_pipeline_failure" ? pipelineFailureCopy[locale].label : row.key === "labels.control.exclude" ? excludeLabelCopy[locale].label : row.key === "delivery.target_branch" ? targetBranchCopy[locale].label : row.key === "delivery.reviewers" ? reviewerCopy[locale].label : row.key === "delivery.draft" ? publicationCopy[locale].label : locale === "en" ? settingLabel(row.key) : row.label ? t(row.label) : (settingHelp(row.key, locale)?.split(". ")[0] || settingLabel(row.key)));
   const editorCopy = implementationEditorCopy[locale];
   const typedKinds = ["duration", "retry-delays", "stage-timeouts"];
-  const typedValue = (row: SettingRow) => typedKinds.includes(row.input) ? implementationDraft(row.input, draft) : draft;
+  const typedValue = (row: SettingRow) => {
+    if (["agent-selection","credential-names"].includes(row.input)) {
+      try { const parsed=JSON.parse(draft); return (row.input==="agent-selection" ? validExecutorSelection(parsed) : validCredentialNames(parsed)) ? draft : null; } catch { return null; }
+    }
+    return typedKinds.includes(row.input) ? implementationDraft(row.input, draft) : draft;
+  };
   let stageValues: Record<string, number> = {};
   try { const parsed = JSON.parse(draft); if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) stageValues = parsed; } catch { /* Incomplete drafts cannot be prepared. */ }
   const submit = async (event: FormEvent<HTMLFormElement>, row: SettingRow) => {
@@ -1368,7 +1365,9 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
     if (await onStage(row.editKey, value)) setEditing("");
   };
   const editor = (row:SettingRow) => <form className="setting-editor" onSubmit={event => void submit(event, row)}>
-          {row.input === "duration" ? <div className="duration-inputs">
+          {row.input === "agent-selection" ? <ExecutorSelectionEditor value={draft} config={config} settings={settings} locale={locale} disabled={disabled} onChange={setDraft}/>
+          : row.input === "credential-names" ? <fieldset className="credential-variable-options" disabled={disabled}><legend>{agentSettingsCopy[locale].variables}</legend><p>{agentSettingsCopy[locale].variableHelp}</p>{row.choices.map(name=>{let names:string[]=[];try{names=JSON.parse(draft);}catch{/* A malformed draft stays disabled. */}return <label key={name}><input type="checkbox" checked={names.includes(name)} onChange={event=>setDraft(JSON.stringify(event.target.checked?[...names,name]:names.filter(item=>item!==name)))}/><span>{name}</span></label>;})}</fieldset>
+          : row.input === "duration" ? <div className="duration-inputs">
             <label>{editorCopy.amount}<input type="number" min={1} step={1} aria-label={label(row)} aria-describedby={`help-${row.key}`} disabled={disabled} value={durationParts(draft).amount} onChange={event => setDraft(event.target.value + durationParts(draft).unit)} /></label>
             <label>{editorCopy.unit}<select aria-label={editorCopy.unit} disabled={disabled} value={durationParts(draft).unit} onChange={event => setDraft(durationParts(draft).amount + event.target.value)}>{Object.entries(editorCopy.units).map(([unit, name]) => <option key={unit} value={unit}>{name}</option>)}</select></label>
           </div> : row.input === "stage-timeouts" ? <div className="stage-timeout-inputs">{executionStages.map((stage, index) => {
@@ -1388,13 +1387,13 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
         </form>;
   const renderRow = (row:SettingRow) => <div className="setting-row" key={row.key} id={`setting-${row.key}`} tabIndex={-1}>
         <div>
-          <strong>{label(row)}</strong><p className="setting-essential" id={`help-${row.key}`}>{settingHelp(row.key, locale) ?? t("settingGeneralHelp")}</p>
+          <strong>{label(row)}</strong><p className="setting-essential" id={`help-${row.key}`}>{row.key === "executor.default" ? agentSettingsCopy[locale].setup : row.key === "executor.env_keys" ? agentSettingsCopy[locale].variableHelp : settingHelp(row.key, locale) ?? t("settingGeneralHelp")}</p>
           {row.source !== "project" && <span className="setting-badge">{t("settingDefault")}</span>}
           {canEdit && row.input !== "none" && row.restart && <small className="setting-note">{t("settingRestartShort")}</small>}
           {canEdit && row.input === "none" && <small className="setting-note">{t("settingNotEditableShort")}</small>}
         </div>
         {editing === row.key ? editor(row) : <div><div className="setting-value-heading"><small>{copy.active}</small>
-          {canEdit && row.input !== "none" && editing !== row.key && <button type="button" className="text-button" disabled={disabled} aria-label={`${t("editSetting")} ${label(row)}`} data-edit-key={row.editKey} onClick={() => { setEditing(row.key); setDraft(["reviewers", "retry-delays"].includes(row.input) && Array.isArray(row.value) ? row.value.join("\n") : editValue(row.value)); }}>{t("editSetting")}</button>}
+          {canEdit && row.input !== "none" && editing !== row.key && <button type="button" className="text-button" disabled={disabled} aria-label={`${t("editSetting")} ${label(row)}`} data-edit-key={row.editKey} onClick={() => { setEditing(row.key); setDraft(row.input === "agent-selection" ? JSON.stringify(executorSelectionDraft(config)) : ["reviewers", "retry-delays"].includes(row.input) && Array.isArray(row.value) ? row.value.join("\n") : editValue(row.value)); }}>{t("editSetting")}</button>}
         </div><code>{row.key === "review.on_pipeline_failure" ? pipelineFailureValue(row.value, locale) ?? shown(row.value) : row.key === "delivery.draft" ? publicationValue(row.value, locale) : shown(row.value)}</code><small>{t("settingDefaultValue")}: {hasDefault(row.defaultValue) ? row.key === "review.on_pipeline_failure" ? pipelineFailureValue(row.defaultValue, locale) ?? shown(row.defaultValue) : row.key === "delivery.draft" ? publicationValue(row.defaultValue, locale) : shown(row.defaultValue) : t("settingNoDefault")}</small></div>}
 
       </div>;
@@ -1404,6 +1403,7 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
     {groups.length === 0 ? <Empty label={t("settingsNoneSet")} /> : <div className="setting-groups">{groups.map(group => {
       return <details key={group.name} data-setting-purpose={group.name} open={executorOnly}>
       <summary>{copy[group.name as keyof typeof copy]} <span className="muted">({group.rows.length})</span></summary>
+      {group.name === "executor" && <div className="executor-settings-content">{executorBefore}</div>}
       {group.name === "technical" && <p className="muted">{technicalSettingsHelp[locale]}</p>}
       {group.name === "reviews" && settingValue(config, "delivery.target_branch") !== undefined && <div className="setting-row setting-reference">
         <div><strong>{copy.integrationBranch}</strong><p className="setting-essential">{copy.integrationBranchHelp}</p>
@@ -1430,11 +1430,12 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
           </div>
           <p className="muted">{branchNamingCopy[locale].example}</p>
         </section>}
-        {(["clarification", "recovery", "stageLimits", "statisticsFiles"] as const).map(topic => {
+        {(["clarification", "recovery", "stageLimits", "statisticsFiles", "authentication"] as const).map(topic => {
           const rows = group.rows.filter(row => settingSubgroup(row.key) === topic);
           return rows.length > 0 && <details className="setting-topic" data-setting-topic={topic} key={topic}>
             <summary>{copy[topic]} <span className="muted">({rows.length})</span></summary>
             <div className="setting-list">{rows.map(renderRow)}</div>
+            {topic === "authentication" && executorAuthentication}
           </details>;
         })}
         {group.rows.some(row => STATUS_LABEL_KEYS.has(row.key)) && <details className="status-label-settings">
@@ -1443,6 +1444,7 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
           <div className="setting-list">{group.rows.filter(row => STATUS_LABEL_KEYS.has(row.key)).map(renderRow)}</div>
         </details>}
       </div>
+      {group.name === "executor" && <div className="executor-settings-content">{executorAfter}</div>}
     </details>})}</div>}
     {children}
   </section>;

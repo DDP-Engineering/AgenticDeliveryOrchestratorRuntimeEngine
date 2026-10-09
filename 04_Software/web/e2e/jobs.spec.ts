@@ -103,7 +103,7 @@ test("hub separates pickup and verification and keeps role-appropriate navigatio
   await expect(page.locator(".project-summary-window .summary-job-window")).toContainText("Working");
   const hub = page.locator(".project-hub");
   await expect(hub.locator("strong")).toHaveText("alpha");
-  await expect(hub.locator("button, a")).toHaveText(["Summary", "Settings", "Executor configuration", "Prices", "Access", "Jobs", "Statistics", "History"]);
+  await expect(hub.locator("button, a")).toHaveText(["Summary", "Settings", "Prices", "Access", "Jobs", "Statistics", "History"]);
   await expect(page.locator(".project-links")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "alpha", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Pause monitoring|Activate monitoring/ })).toBeVisible();
@@ -564,7 +564,7 @@ for (const scenario of ["passed", "partial", "model-passed", "model-failed", "un
       await expect(panel.locator(".readiness-verdict")).toHaveCount(0);
       await expect(panel.locator(".readiness-check")).toHaveCount(7);
       const model = panel.locator(".readiness-check").filter({ hasText: "AI model connection" });
-      await expect(model).toContainText(scenario === "unconfigured" ? "No compatible model endpoint" : scenario === "model-passed" ? "✓ Passed" : scenario === "model-failed" ? "! Action needed" : "Use Test AI connection in Executor configuration");
+      await expect(model).toContainText(scenario === "unconfigured" ? "No compatible model endpoint" : scenario === "model-passed" ? "✓ Passed" : scenario === "model-failed" ? "! Action needed" : "Use Test AI connection in Settings → Agent and model");
       await expect(panel).toContainText("does not test a complete job");
       await expect(page.locator(".readiness-metadata")).toHaveCount(0);
       if (scenario === "partial") await expect(panel.locator(".readiness-check").filter({ hasText: "Container engine" })).toContainText("Could not verify");

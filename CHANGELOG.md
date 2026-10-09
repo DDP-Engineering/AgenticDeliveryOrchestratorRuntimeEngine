@@ -20,6 +20,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Consolidate executor configuration in Settings → Agent and model, with atomic reviewed selection of OpenCode/Pi/Codex/Qwen, selected-agent launch/model labels and names-only provider authentication controls.
+
 - Clarify externally configured installation values in Technical details and align Workflow Python command API authority with its read-only GUI.
 
 - Enable reviewed Implementation edits for human-answer duration, question rounds, retry-delay lists and all six stage timeout overrides, with localized typed controls; validate the active answer deadline independently of the reserved reminder.

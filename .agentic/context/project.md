@@ -54,9 +54,9 @@ OpenCode, Pi, Codex and Qwen Code.
   worker faults remain visible, with reporting/technical evidence in dedicated views.
   Header help discloses localized delivery meanings beside Refresh/About; sidebar
   Jobs supplies scoped full-history navigation.
-  Executor configuration unifies settings/provider credentials and heading model testing,
+  Settings → Agent and model unifies agent selection, provider credentials and model testing,
   with server-authoritative agent and exact launch-preset choices through reviewed apply.
-  Settings uses five Git-flow
+  Settings uses six purpose
   categories and closed informational Technical details, with clarification/recovery/statistics-path topics and one Repository branch editor linked from PR/MR, visible catalog guidance and exact single-candidate active/proposed
   review with explicit base/candidate binding, idle/lock/pause safety and Dev
   financial/secret redaction. Admin portable export validates active configuration
@@ -206,7 +206,7 @@ or mismatched scoped records fail closed.
 
 Explicit administrator model connectivity uses the selected OpenCode/Pi/Codex/Qwen CLI through a bounded disposable container; see knowledge/model-connection.md. Real provider acceptance is operator-triggered and may incur cost.
 
-Project Executor configuration owns agent/model settings and approved provider key save/remove; strict durable credential-bound model access evidence is reused inside Summary’s collapsed host-check details. See knowledge/executor-configuration.md. Subscription login remains the installed CLI service-account flow.
+Project Settings → Agent and model owns agent/model settings and approved provider key save/remove; strict durable credential-bound model access evidence is reused inside Summary’s collapsed host-check details. See knowledge/executor-configuration.md. Subscription login remains the installed CLI service-account flow.
 
 ## Reviewed container preparation
 
@@ -221,7 +221,7 @@ sandboxes. See knowledge/local-execution.md and 01_Documentation/Local_Execution
 
 ## Project executor images
 
-Executor configuration shows a compact container notice with the effective image and one expandable instruction disclosure. It identifies standard `executor/Dockerfile`, optional `executor/README.md`, a non-root example, external Docker/Podman build and verification, and the existing profile fields. Only administrators see the actual resolved server `config.toml` path. No controls define, build or select an environment. Guided creation configures agent/model with the standard container defaults; specialized container/local profiles use server TOML enrollment. Historical records remain readable/exportable/cancellable; old pending candidates can be discarded, and queued image-build requests fail without runtime execution. See [Project executor images](../../01_Documentation/Project_Executor_Images.md).
+Settings → Agent and model shows a compact container notice with the effective image and one expandable instruction disclosure. It identifies standard `executor/Dockerfile`, optional `executor/README.md`, a non-root example, external Docker/Podman build and verification, and the existing profile fields. Only administrators see the actual resolved server `config.toml` path. No controls define, build or select an environment. Guided creation configures agent/model with the standard container defaults; specialized container/local profiles use server TOML enrollment. Historical records remain readable/exportable/cancellable; old pending candidates can be discarded, and queued image-build requests fail without runtime execution. See [Project executor images](../../01_Documentation/Project_Executor_Images.md).
 
 ## Job branch naming
 

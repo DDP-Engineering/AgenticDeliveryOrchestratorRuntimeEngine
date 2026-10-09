@@ -90,3 +90,7 @@ test("identifiers follow the API alphabet and a run needs its project", () => {
   assert.deepEqual(parseRoute("/jobs", "?run=run-26"), { view: "jobs" });
   assert.equal(formatRoute({ view: "jobs", run: "run-26" }), "/jobs");
 });
+
+test("legacy executor links redirect to Settings for both roles", () => {
+ for (const isAdmin of [true,false]) assert.deepEqual(normalizeRoute(parseRoute(`/projects/${ID}/executor`),{isAdmin}),{route:{view:"projectDetails",project:ID,tab:"configuration"},replaced:true});
+});

@@ -89,6 +89,7 @@ export function formatRoute(route: Route): string {
 /** Apply role rules; `replaced` means the browser entry must be replaced, not added. */
 export function normalizeRoute(route: Route | null, context: { isAdmin: boolean }): { route: Route; replaced: boolean } {
   if (route === null) return { route: { view: "overview" }, replaced: true };
+  if (route.view === "projectDetails" && route.tab === "executor") return {route:{...route,tab:"configuration"},replaced:true};
   if (context.isAdmin) return { route, replaced: false };
   if (ADMIN_ONLY.has(route.view)) return { route: { view: "overview" }, replaced: true };
   if (route.view === "projectDetails" && ADMIN_PROJECT_TABS.has(route.tab)) return { route: { ...route, tab: "overview" }, replaced: true };

@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-FUNC-c829c366"
+
+title = "Reviewed coding agent selection includes command and model atomically"
+
+status = "active"
+
+requirement = "When an administrator prepares a coding-agent selection, ADORE shall validate and review the supported agent, its launch command and explicit model as one candidate, preserving other executor entries and unrelated configuration, and apply it only at the existing idle/revision boundary."
+
+verification = "Authenticated API tests select all four agents including absent entries, inspect complete review values, apply and verify exact TOML meaning; malformed values, unsafe commands, stale revisions, developers and tampered persisted candidates fail closed."
+
+affected_paths = ["04_Software/adore/web/app.py", "04_Software/adore/web/executor_configuration.py", "04_Software/adore/web/implementation_settings.py", "04_Software/web/src/executorSettings.ts", "04_Software/web/src/ExecutorSelectionEditor.tsx", "04_Software/web/src/settings.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/ExecutorCredentials.tsx", "04_Software/web/src/routes.ts", "04_Software/web/src/styles.css", "04_Software/tests/test_web_executor_configuration.py", "04_Software/tests/test_web_config.py"]
+
+linked_tests = ["04_Software/tests/test_web_executor_configuration.py", "04_Software/web/tests/settings.test.mjs", "04_Software/web/e2e/executor-config.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-09
+updated = 2026-10-09

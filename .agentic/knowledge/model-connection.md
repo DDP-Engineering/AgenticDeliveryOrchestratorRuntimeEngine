@@ -34,7 +34,7 @@ Native ownership/auth route to `local-execution.md`; focused proof is
 - `REQ-UX-94a97e70`: Explicit disposable model checks resolve the same effective preparation image through bounded Git reads, refuse stale source and never execute recipe commands.
 
 - REQ-FUNC-de028c15: OpenCode/Pi/Codex/Qwen explicit connectivity; 45-second inference/90-second setup deadline, 1 MiB capture, 8-second cleanup commands.
-- Executor configuration heading action, integrated credential/settings panel, cost notice, duplicate suppression and exact project/configuration binding; executor_settings.py durably saves and validates credential-bound evidence used in Summary/host access.
+- Settings → Agent and model heading action, integrated credential/settings panel, cost notice, duplicate suppression and exact project/configuration binding; executor_settings.py durably saves and validates credential-bound evidence used in Summary/host access.
 
 ## Architecture
 

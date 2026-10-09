@@ -81,7 +81,15 @@ from adore.state import StateError, StateStore
 from adore.util import CommandRunner, force_rmtree, run_command, strict_json_loads
 from adore.web import analytics
 from adore.web.endpoint_probe import probe_endpoint
+from adore.web.executor_configuration import (
+    LAUNCH_PRESETS,
+    SUPPORTED_AGENTS,
+    selection_value,
+    set_selection,
+    valid_selection,
+)
 from adore.web.executor_settings import (
+    PROVIDER_KEYS,
     ExecutorSettingsError,
     credential_binding,
     credential_view,
@@ -106,19 +114,8 @@ _EDITABLE_SECTIONS = frozenset({
     "delivery", "review", "reconcile", "metrics", "labels",
 })
 # Container presets; local profiles accept validated installed native argv.
-_LAUNCH_PRESETS = {
-    "executor.opencode.command": (
-        "opencode run --dir {worktree} -m {model} --format json {prompt}",
-    ),
-    "executor.pi.command": ("pi -p --mode json --model {model} {prompt}",),
-    "executor.codex.command": (
-        "codex exec {resume}--json --model {model} --ignore-user-config "
-        "--disable plugins --dangerously-bypass-approvals-and-sandbox {prompt}",
-    ),
-    "executor.qwen.command": (
-        "qwen -p --model {model} --output-format json {prompt}",
-    ),
-}
+_LAUNCH_PRESETS = LAUNCH_PRESETS
+
 _STATIC = Path(__file__).with_name("static")
 _COOKIE = "adore_session"
 _STORE_ERROR_CODES = {
@@ -1242,6 +1239,8 @@ def _valid_candidate_scalar(key: str, proposed: object, backend: str = "containe
     @param[in] proposed Parsed candidate value.
     @return True for a declared scalar type or an exact approved collection.
     """
+    if key == "executor.selection":
+        return valid_selection(proposed)
     if key in COLLECTION_KEYS:
         return valid_collection(key, proposed)
     if key == "delivery.reviewers":
@@ -1275,6 +1274,8 @@ def _set_candidate_value(text: str, key: str, value: str) -> str:
     @return Candidate text, preserving unrelated keys and line endings.
     @exception ValueError When collection input or existing key spelling is unsupported.
     """
+    if key == "executor.selection":
+        return set_selection(text, value)
     if key in COLLECTION_KEYS:
         return set_collection(text, key, value)
     if key != "delivery.reviewers":
@@ -1312,6 +1313,11 @@ def _set_candidate_value(text: str, key: str, value: str) -> str:
     lines[header] = lines[header].rstrip("\r\n") + newline
     lines.insert(header + 1, literal + newline)
     return "".join(lines)
+
+
+def _candidate_value(tree: dict, key: str):
+    """@brief Read one scalar/collection or the complete synthetic agent review."""
+    return selection_value(tree) if key == "executor.selection" else _value_at(tree, key)
 
 
 def _candidate_config_edit(path: Path, body: ConfigEdit) -> tuple[bytes, str]:
@@ -1373,11 +1379,11 @@ def _candidate_config_edit(path: Path, body: ConfigEdit) -> tuple[bytes, str]:
             changed = _set_candidate_value(current, body.key, body.value)
         parsed_change = tomllib.loads(changed)
         if not _valid_candidate_scalar(
-            body.key, _value_at(parsed_change, body.key),
+            body.key, _candidate_value(parsed_change, body.key),
             parsed_change.get("execution", {}).get("backend", "container")
         ):
             raise _error(400, "invalid_config")
-        if _secret_config_keys({"setting": _value_at(parsed_change, body.key)}):
+        if _secret_config_keys({"setting": _candidate_value(parsed_change, body.key)}):
             raise _error(400, "invalid_config")
         if len(changed.encode("utf-8")) > 1048576:
             raise _error(413, "config_too_large")
@@ -1475,19 +1481,22 @@ def _public_pending_config(value: dict, *, active_text: str | None = None) -> di
         endpoint_key = value["key"] == "container.runtime_env.OPENAI_BASE_URL"
         if not _editable_setting_key(value["key"], endpoint=endpoint_key):
             raise ValueError("unreviewable setting")
-        proposed = _value_at(candidate, value["key"])
+        proposed = _candidate_value(candidate, value["key"])
         if not _valid_candidate_scalar(value["key"], proposed,
                                        candidate.get("execution", {}).get("backend", "container")):
             raise ValueError("invalid proposed value")
         if _secret_config_keys({"setting": proposed}):
             raise ValueError("unsafe proposed value")
-        claimed = _value_at(tomllib.loads(_set_candidate_value(
-            "", value["key"], value["value"])), value["key"])
+        claimed = (strict_json_loads(value["value"])
+                   if value["key"] in COLLECTION_KEYS or value["key"] == "executor.selection"
+                   else _value_at(tomllib.loads(_set_candidate_value(
+                       "", value["key"], value["value"])), value["key"]))
         if type(claimed) is not type(proposed) or claimed != proposed:
             raise ValueError("candidate review metadata differs from its value")
-        if (value["key"] in COLLECTION_KEYS and active_text is not None
+        if ((value["key"] in COLLECTION_KEYS or value["key"] == "executor.selection")
+                and active_text is not None
                 and sha256(active_text.encode("utf-8")).hexdigest() == value["base_revision"]
-                and candidate != tomllib.loads(set_collection(
+                and candidate != tomllib.loads(_set_candidate_value(
                     active_text, value["key"], value["value"]))):
             raise ValueError("collection candidate changed unrelated settings")
         public["proposed_value"] = proposed
@@ -1649,7 +1658,7 @@ def _setting_domain(key: str, value: object, config: dict, declared: object) -> 
     @brief Project the current configuration validation domain for a setting.
     @param[in] key Effective dotted configuration key.
     @param[in] value Redacted effective value; establishes scalar/list/map type.
-    @param[in] config Redacted configuration; configured executor names are choices.
+    @param[in] config Redacted configuration; supported agents and provider names supply choices.
     @param[in] declared Built-in model default supplying the declared type.
     @return Type, allowed choices and inclusive numeric bounds for browser guidance.
     @note Full configuration validation remains authoritative for dependent rules.
@@ -1672,7 +1681,9 @@ def _setting_domain(key: str, value: object, config: dict, declared: object) -> 
         "state.channel": ["comments", "labels", "both"],
         "polling.mode": ["loop", "once"],
         "executor.mode": ["thick", "headless"],
-        "executor.default": list(config.get("executor", {}).get("commands", {})),
+        "executor.default": list(SUPPORTED_AGENTS),
+        "executor.env_keys": sorted(
+            PROVIDER_KEYS | set(config.get("executor", {}).get("env_keys", []))),
         "clarification.timeout_state": ["failed", "stale"],
         "container.selinux_relabel": list(SELINUX_RELABEL_MODES),
         "container.parked_ttl_mode": ["seconds", "polls"],
@@ -1725,7 +1736,9 @@ def _setting_metadata(config: dict, raw: bytes) -> list[dict]:
                 nests it under `executor.commands`. A setting is from the
                 project when its file key is a leaf of the file, whatever its
                 value; it is editable when the shared key rule accepts the file
-                key and its value is a scalar or a valid delivery.reviewers list. Its
+                key and its value has a supported scalar or closed collection type. Missing
+                agent fields expose noneditable preset metadata for the atomic
+                selection editor. Its
                 default is the value at the same key in ADORE's built-in
                 configuration (names derived, redacted) - the whole built-in
                 map for a map the project emptied - or None when that
@@ -1743,16 +1756,27 @@ def _setting_metadata(config: dict, raw: bytes) -> list[dict]:
               and not key.startswith("workflow.stage_timeout_overrides.")]
     leaves.append(("workflow.stage_timeout_overrides",
                    config.get("workflow", {}).get("stage_timeout_overrides", {})))
+    present = {key for key, _ in leaves}
+    virtual = set()
+    for agent in SUPPORTED_AGENTS:
+        for field in ("command", "model"):
+            key = f"executor.commands.{agent}.{field}"
+            if key not in present:
+                leaves.append((key, ""))
+                virtual.add(key)
     for key, value in leaves:
         edit_key = ("executor." + key.removeprefix("executor.commands.")
                     if key.startswith("executor.commands.") else key)
+        source_key = edit_key
+        if key == "executor.default":
+            edit_key = "executor.selection"
         settings.append({
             "key": key,
             "edit_key": edit_key,
-            "source": "project" if (edit_key in in_file or edit_key in COLLECTION_KEYS
+            "source": "project" if (source_key in in_file or edit_key in COLLECTION_KEYS
                                      and any(k.startswith(edit_key + ".") for k in in_file))
             else "default",
-            "editable": (not _external_environment_key(edit_key)
+            "editable": (key not in virtual and not _external_environment_key(edit_key)
                          and _editable_setting_key(edit_key)
                          and (isinstance(value, str | int | float)
                               or edit_key == "delivery.reviewers" and valid_reviewers(value)
@@ -3371,6 +3395,8 @@ def create_app(home: str | Path | None = None,
         name: str, body: ConfigEdit, user: Annotated[dict, Depends(admin_mutation)]
     ) -> dict:
         item = project(name, user)
+        if body.key in {"executor.selection", "executor.env_keys"}:
+            raise _error(409, "pending_config_required")
         endpoint_key = body.key == "container.runtime_env.OPENAI_BASE_URL"
         if (
             body.model is not None
@@ -3487,7 +3513,7 @@ def create_app(home: str | Path | None = None,
                     resource_id=body.key,
                     base_revision=sha256(raw).hexdigest(),
                     candidate_revision=sha256(candidate.read_bytes()).hexdigest(),
-                    before={"value": _value_at(tomllib.loads(raw.decode()), body.key)},
+                    before={"value": _candidate_value(tomllib.loads(raw.decode()), body.key)},
                 )
                 candidate.replace(path)
                 _sync_profile_config_identity(profiles, item, path)
@@ -3578,7 +3604,7 @@ def create_app(home: str | Path | None = None,
             _write_pending_config(pending_path, value)
             web.confirm_change(
                 attempt,
-                after={"value": _value_at(tomllib.loads(changed), body.key)},
+                after={"value": _candidate_value(tomllib.loads(changed), body.key)},
                 detail=body.key,
             )
         return public

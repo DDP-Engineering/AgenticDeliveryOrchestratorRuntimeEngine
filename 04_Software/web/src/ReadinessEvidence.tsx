@@ -15,7 +15,7 @@ const copy = {
     passed: "Performed checks passed", failed: "Attention required", partial: "Verification incomplete",
     coverage: "This checks prerequisites on the ADORE server and in the configured image. It does not test a complete job or confirm Git push permission.",
     ok: "✓ Passed", error: "! Action needed", unknown: "? Could not verify", skipped: "○ Not checked",
-    unsupported: "Use Test AI connection in Executor configuration to explicitly check the configured model through this executor.",
+    unsupported: "Use Test AI connection in Settings → Agent and model to explicitly check the configured model through this executor.",
     unconfigured: "No compatible model endpoint is configured for this check. Model access remains unverified.",
     rows: [
       ["Git", "Creates isolated working copies and records code changes.", "Install Git on the ADORE server and check that the service can run it."],
@@ -24,7 +24,7 @@ const copy = {
       ["Container engine", "Starts the isolated environment where the coding agent works.", "Check the configured container engine and the ADORE service account's permissions."],
       ["Coding agent in image", "Checks that the selected coding agent's executable exists in the local container image.", "Check that the configured image is installed locally and contains the selected agent."],
       ["Repository workflow files", "Checks that the repository contains the AEGIS files used to guide and validate implementation.", "Check the configured repository path and its .agentic/aegis.py and .agentic/aegis.toml files."],
-      ["AI model connection", "For a configured compatible OpenCode endpoint, sends a test request from a temporary container and checks a streamed tool call.", "Review the model endpoint, credentials and container connectivity in Executor configuration."],
+      ["AI model connection", "For a configured compatible OpenCode endpoint, sends a test request from a temporary container and checks a streamed tool call.", "Review the model endpoint, credentials and container connectivity in Settings → Agent and model."],
     ],
   },
   ro: {
@@ -32,7 +32,7 @@ const copy = {
     passed: "Verificările efectuate au reușit", failed: "Necesită intervenție", partial: "Verificare incompletă",
     coverage: "Verifică cerințele pe serverul ADORE și în imaginea configurată. Nu testează un job complet și nu confirmă permisiunea Git de publicare.",
     ok: "✓ Reușit", error: "! Necesită intervenție", unknown: "? Nu s-a putut verifica", skipped: "○ Neverificat",
-    unsupported: "Folosește Testează conexiunea AI din Configurare executor pentru a verifica explicit modelul configurat.",
+    unsupported: "Folosește Testează conexiunea AI din Setări → Agent și model pentru a verifica explicit modelul configurat.",
     unconfigured: "Nu este configurat un endpoint de model compatibil pentru această verificare. Accesul la model rămâne neverificat.",
     rows: [
       ["Git", "Creează copii de lucru izolate și înregistrează modificările de cod.", "Instalează Git pe serverul ADORE și verifică dacă serviciul îl poate executa."],
@@ -41,7 +41,7 @@ const copy = {
       ["Motorul de containere", "Pornește mediul izolat în care lucrează agentul de programare.", "Verifică motorul de containere configurat și permisiunile contului serviciului ADORE."],
       ["Agentul din imagine", "Verifică dacă executabilul agentului selectat există în imaginea locală de container.", "Verifică dacă imaginea configurată este instalată local și conține agentul selectat."],
       ["Fișierele workflow-ului", "Verifică dacă repository-ul conține fișierele AEGIS care ghidează și validează implementarea.", "Verifică locația repository-ului și fișierele .agentic/aegis.py și .agentic/aegis.toml."],
-      ["Conexiunea la modelul AI", "Pentru un endpoint OpenCode compatibil configurat, trimite o cerere de test dintr-un container temporar și verifică un apel de instrument transmis în flux.", "Verifică endpoint-ul modelului, credențialele și conectivitatea containerului în Configurare executor."],
+      ["Conexiunea la modelul AI", "Pentru un endpoint OpenCode compatibil configurat, trimite o cerere de test dintr-un container temporar și verifică un apel de instrument transmis în flux.", "Verifică endpoint-ul modelului, credențialele și conectivitatea containerului în Setări → Agent și model."],
     ],
   },
   fr: {
@@ -49,7 +49,7 @@ const copy = {
     passed: "Les contrôles effectués ont réussi", failed: "Intervention nécessaire", partial: "Vérification incomplète",
     coverage: "Vérifie les prérequis sur le serveur ADORE et dans l’image configurée. Ne teste pas une tâche complète ni l’autorisation de publication Git.",
     ok: "✓ Réussi", error: "! Intervention nécessaire", unknown: "? Impossible à vérifier", skipped: "○ Non vérifié",
-    unsupported: "Utilisez Tester la connexion IA dans Configuration de l’exécuteur pour vérifier explicitement le modèle configuré.",
+    unsupported: "Utilisez Tester la connexion IA dans Paramètres → Agent et modèle pour vérifier explicitement le modèle configuré.",
     unconfigured: "Aucun endpoint de modèle compatible n’est configuré pour ce contrôle. L’accès au modèle reste non vérifié.",
     rows: [
       ["Git", "Crée des copies de travail isolées et enregistre les modifications du code.", "Installez Git sur le serveur ADORE et vérifiez son accès par le service."],
@@ -58,7 +58,7 @@ const copy = {
       ["Moteur de conteneurs", "Démarre l’environnement isolé de l’agent de programmation.", "Vérifiez le moteur configuré et les permissions du compte du service ADORE."],
       ["Agent dans l’image", "Vérifie la présence de l’exécutable de l’agent dans l’image locale du conteneur.", "Vérifiez que l’image configurée est installée localement et contient l’agent choisi."],
       ["Fichiers du workflow", "Vérifie les fichiers AEGIS du dépôt qui guident et valident l’implémentation.", "Vérifiez le chemin du dépôt et ses fichiers .agentic/aegis.py et .agentic/aegis.toml."],
-      ["Connexion au modèle IA", "Pour un endpoint OpenCode compatible configuré, envoie une requête depuis un conteneur temporaire et vérifie un appel d’outil en streaming.", "Vérifiez l’endpoint, les identifiants et la connexion du conteneur dans Configuration de l’exécuteur."],
+      ["Connexion au modèle IA", "Pour un endpoint OpenCode compatible configuré, envoie une requête depuis un conteneur temporaire et vérifie un appel d’outil en streaming.", "Vérifiez l’endpoint, les identifiants et la connexion du conteneur dans Paramètres → Agent et modèle."],
     ],
   },
   de: {
@@ -66,7 +66,7 @@ const copy = {
     passed: "Durchgeführte Prüfungen bestanden", failed: "Handlung erforderlich", partial: "Prüfung unvollständig",
     coverage: "Prüft Voraussetzungen auf dem ADORE-Server und im konfigurierten Image. Testet keinen vollständigen Job und bestätigt keine Git-Push-Berechtigung.",
     ok: "✓ Bestanden", error: "! Handlung erforderlich", unknown: "? Nicht feststellbar", skipped: "○ Nicht geprüft",
-    unsupported: "Nutzen Sie KI-Verbindung testen in Executor-Konfiguration, um das konfigurierte Modell explizit zu prüfen.",
+    unsupported: "Nutzen Sie KI-Verbindung testen in Einstellungen → Agent und Modell, um das konfigurierte Modell explizit zu prüfen.",
     unconfigured: "Für diese Prüfung ist kein kompatibler Modell-Endpunkt konfiguriert. Der Modellzugriff bleibt ungeprüft.",
     rows: [
       ["Git", "Erstellt isolierte Arbeitskopien und speichert Codeänderungen.", "Installieren Sie Git auf dem ADORE-Server und prüfen Sie den Zugriff des Dienstes."],
@@ -75,7 +75,7 @@ const copy = {
       ["Container-Engine", "Startet die isolierte Arbeitsumgebung des Programmieragenten.", "Prüfen Sie die konfigurierte Engine und die Rechte des ADORE-Dienstkontos."],
       ["Agent im Image", "Prüft, ob die ausführbare Datei des ausgewählten Agenten im lokalen Container-Image vorhanden ist.", "Prüfen Sie, ob das konfigurierte Image lokal installiert ist und den Agenten enthält."],
       ["Workflow-Dateien", "Prüft die AEGIS-Dateien im Repository zur Steuerung und Validierung der Implementierung.", "Prüfen Sie den Repository-Pfad sowie .agentic/aegis.py und .agentic/aegis.toml."],
-      ["KI-Modellverbindung", "Sendet für einen konfigurierten kompatiblen OpenCode-Endpunkt eine Testanfrage aus einem temporären Container und prüft einen gestreamten Werkzeugaufruf.", "Prüfen Sie Modell-Endpunkt, Zugangsdaten und Container-Verbindung in Executor-Konfiguration."],
+      ["KI-Modellverbindung", "Sendet für einen konfigurierten kompatiblen OpenCode-Endpunkt eine Testanfrage aus einem temporären Container und prüft einen gestreamten Werkzeugaufruf.", "Prüfen Sie Modell-Endpunkt, Zugangsdaten und Container-Verbindung in Einstellungen → Agent und Modell."],
     ],
   },
 };

@@ -13,7 +13,7 @@ const externalEnvironmentCopy = {
 };
 import type {Locale} from "../src/i18n";
 
-test("environment is external and executor tab gives container instructions",async({page})=>{
+test("environment is external and Agent and model gives container instructions",async({page})=>{
   await page.context().route("**/*",route=>new URL(route.request().url()).origin==="http://127.0.0.1:18765"?route.continue():route.abort());
   await page.goto("/");await page.getByLabel("Username",{exact:false}).fill("admin");await page.getByLabel("Password",{exact:false}).fill("admin");await page.getByRole("button",{name:"Sign in",exact:true}).click();
   await expect(page.getByRole("navigation",{name:"Primary navigation",exact:true})).toBeVisible();
@@ -21,7 +21,8 @@ test("environment is external and executor tab gives container instructions",asy
   await page.goto("/projects/"+id+"/configuration");
   await expect(page.locator("#project-settings").getByText(/Isolated environment/i)).toHaveCount(0);
   await expect(page.getByRole("button",{name:"Build and verify",exact:true})).toHaveCount(0);
-  await page.getByRole("tab",{name:"Executor configuration",exact:true}).click();
+  await page.getByRole("tab",{name:"Settings",exact:true}).click();
+  await page.getByText("Agent and model (6)",{exact:true}).click();
   const panel=page.locator(".executor-environment");
   await expect(panel.getByRole("heading",{name:"Executor runs in a container",exact:true})).toBeVisible();
   const config=await(await page.request.get("/api/v1/projects/"+id+"/config")).json();
@@ -47,6 +48,7 @@ for (const locale of ["en","ro","fr","de"] as Locale[]) {
     expect((await page.request.post("/api/v1/session",{data:{username:"developer",password:"test-password"}})).ok()).toBeTruthy();
     const projects=await(await page.request.get("/api/v1/projects")).json(),id=projects.find((p:{name:string})=>p.name==="alpha").id;
     await page.goto("/projects/"+id+"/executor");
+    await page.locator('[data-setting-purpose="executor"] > summary').click();
     const c=externalEnvironmentCopy[locale],panel=page.locator(".executor-environment");
     await expect(panel.getByRole("heading",{name:c.title,exact:true})).toBeVisible();
     await panel.getByText(c.instructions,{exact:true}).click();

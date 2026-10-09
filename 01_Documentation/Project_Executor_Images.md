@@ -8,7 +8,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 # Project executor images
 
 Executor environments are prepared by the server administrator outside ADORE.
-For a container project, **Project → Executor configuration** displays the effective
+For a container project, **Project → Settings → Agent and model** displays the effective
 image and expandable **Environment preparation instructions**. The administrator
 also sees the resolved server profile `config.toml` path; authorized developers
 see guidance to contact the administrator. Local projects omit this notice.
@@ -61,7 +61,7 @@ The suggested location is an operator convention, not a watched file contract.
 ## Select the prepared image
 
 Pause pickup and ensure there are no active jobs. Update the existing server
-profile at the path displayed to the administrator in Executor configuration:
+profile at the path displayed to the administrator in Settings → Agent and model:
 
 ```toml
 # Copyright (c) 2026 DDP Engineering
