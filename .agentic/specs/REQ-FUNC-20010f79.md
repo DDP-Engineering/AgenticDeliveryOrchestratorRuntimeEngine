@@ -9,7 +9,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 ## Behavior
 
-Admin selects supported UTF-8 JSON or an authorized active source profile. Only PORTABLE_FIELDS (complete 16-field polling/readiness/recovery/budgets) transfer; #9 source compatibility/parser/export remain authoritative. Source fields never seed target identity, clone, runtime, credentials, endpoints, labels, delivery, users, grants, audit, pending data, history or state. Target setup is supplied afresh through guided fields, with explicit environment/reference reconfirmation. All portable fields override target rule defaults; target budget controls display copied values read-only. State/config live beneath new profile; worktrees beneath home/worktrees/target; metrics derive beneath new state. Existing repository clone must be supplied, no clone operation occurs.
+Admin selects supported UTF-8 JSON or an authorized active source profile. Only PORTABLE_FIELDS (complete 15-field polling/readiness/recovery/budgets) transfer; #9 source compatibility/parser/export remain authoritative. Source fields never seed target identity, clone, runtime, credentials, endpoints, labels, delivery, users, grants, audit, pending data, history or state. Target setup is supplied afresh through guided fields, with explicit environment/reference reconfirmation. All portable fields override target rule defaults; target budget controls display copied values read-only. State/config live beneath new profile; worktrees beneath home/worktrees/target; metrics derive beneath new state. Existing repository clone must be supplied, no clone operation occurs.
 
 ## Data / interface
 

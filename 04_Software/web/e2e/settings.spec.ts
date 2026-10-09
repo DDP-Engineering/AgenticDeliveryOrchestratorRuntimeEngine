@@ -64,6 +64,37 @@ test("ticket labels separate actions from collapsed status edits and retain inac
   await review.getByRole("button", { name: "Discard change", exact: true }).click();
 });
 
+for (const user of ["admin", "developer"]) {
+ test(`pickup defaults and revision limits preserve ${user} settings authority`, async ({ page }) => {
+  await openSettings(page, "alpha", user);
+  const panel = page.locator("#project-settings");
+  const groups = panel.locator(":scope > .setting-groups > details");
+  const limits = groups.filter({ hasText: "Limits and recovery" });
+  const rules = groups.filter({ hasText: "Rules and approvals" });
+  const row = limits.locator(".setting-row").filter({ has: page.getByText("Maximum revision rounds", { exact: true }) });
+  await expect(row).toHaveCount(1);
+  await expect(rules.getByText("Maximum revision rounds", { exact: true })).toHaveCount(0);
+  await expect(row).toContainText("5");
+  await expect(row).toContainText("Initial implementation does not count");
+  await expect(row).toContainText("REVIEW_LIMIT");
+  const acceptance = rules.locator(".setting-row").filter({ has: page.getByText("Require ticket acceptance criteria", { exact: true }) });
+  await expect(acceptance).toContainText("false");
+  await expect(panel.locator('[id="help-readiness.require_known_component"]')).toHaveCount(0);
+  if (user === "developer") {
+   await expect(row.getByRole("button")).toHaveCount(0);
+  } else {
+   await row.getByRole("button", { name: "Edit Maximum revision rounds", exact: true }).click();
+   await expect(row.getByRole("spinbutton", { name: "Maximum revision rounds", exact: true })).toHaveAttribute("min", "1");
+   await row.getByRole("spinbutton", { name: "Maximum revision rounds", exact: true }).fill("6");
+   await row.getByRole("button", { name: "Prepare candidate" }).click();
+   const review = page.locator(".candidate-review");
+   await expect(review).toContainText("Maximum revision rounds");
+   await expect(review).toContainText("REVIEW_LIMIT");
+   await review.getByRole("button", { name: "Discard change", exact: true }).click();
+  }
+ });
+}
+
 test("ticket labels stay read-only for developers in the narrow status disclosure", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await openSettings(page, "alpha", "developer");

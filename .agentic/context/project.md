@@ -8,6 +8,8 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # Project profile
 
+Shared CLI/web configuration defaults optional acceptance checking to false and additional revision rounds to five; the typed readiness and portable contracts contain supported fields only.
+
 ## Purpose and users
 
 ADORE, the Agentic Delivery Orchestrator & Runtime Engine, conducts

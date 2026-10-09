@@ -31,7 +31,7 @@ Settings has exactly these four sections and all listed fields:
 | Section | Fields and domains |
 | --- | --- |
 | polling | mode (`loop` or `once`); poll_interval_seconds (positive integer); poll_jitter_seconds (nonnegative integer); poll_backoff (boolean); max_concurrent_runs (positive integer) |
-| readiness | require_acceptance_criteria, require_priority_label, require_known_component (booleans) |
+| readiness | require_acceptance_criteria, require_priority_label (booleans) |
 | recovery | max_stage_failures, max_transient_retries (positive integers); retry_backoff_seconds (nonempty list of nonnegative integers) |
 | budgets | max_iterations, max_wall_clock_seconds, per_gate_timeout_seconds, max_files_touched (positive integers); max_cost_usd (finite nonnegative JSON number; zero disables reported-cost enforcement) |
 

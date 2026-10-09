@@ -11,7 +11,7 @@ import { parsePortableResponse, portableFields } from "../src/portable.ts";
 
 const settings = {
   polling: { mode: "loop", poll_interval_seconds: 60, poll_jitter_seconds: 5, poll_backoff: true, max_concurrent_runs: 1 },
-  readiness: { require_acceptance_criteria: true, require_priority_label: true, require_known_component: true },
+  readiness: { require_acceptance_criteria: false, require_priority_label: true },
   recovery: { max_stage_failures: 3, max_transient_retries: 3, retry_backoff_seconds: [5, 30, 120] },
   budgets: { max_iterations: 20, max_wall_clock_seconds: 3600, per_gate_timeout_seconds: 1800, max_cost_usd: 5, max_files_touched: 120 },
 };
@@ -39,4 +39,8 @@ test("transport does not fold fractional or exponent integer tokens into valid l
     return raw.replace(/"checksum":"[0-9a-f]{64}"/, `"checksum":"${checksum}"`);
   };
   for (const raw of [encode().replace('"max_iterations":20', '"max_iterations":20.0'), encode().replace('"schema_version":1', '"schema_version":1.0'), encode().replace('"max_iterations":20', '"max_iterations":2e1'), encode().replace('[5,30,120]', '[5.0,30,120]')]) await assert.rejects(parsePortableResponse(resign(raw)));
+});
+
+test("portable readiness rejects the removed component requirement even with a valid checksum", async () => {
+ await assert.rejects(parsePortableResponse(encode(p => { p.settings.readiness.require_known_component = true; })));
 });

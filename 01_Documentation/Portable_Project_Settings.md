@@ -26,7 +26,7 @@ credential references and endpoint setup explicitly. Standard provider connectio
 use the selected model; custom target endpoints are a separate Settings action
 while pickup remains stopped. All source references are excluded.
 
-Validate setup to see **Source value / This server value / Effect** for all 16
+Validate setup to see **Source value / This server value / Effect** for all 15
 rules. This server value is the installed default; the source rule becomes the
 new project's rule. Copied budget controls are read-only. Review includes
 independent allocated config/state/worktree/metrics locations. Confirm **Create
@@ -58,7 +58,7 @@ defaults when active TOML omits them:
 | Section | Complete allowed fields |
 | --- | --- |
 | polling | `mode` (`loop`/`once`), `poll_interval_seconds` (positive integer), `poll_jitter_seconds` (nonnegative integer), `poll_backoff` (boolean), `max_concurrent_runs` (positive integer) |
-| readiness | `require_acceptance_criteria`, `require_priority_label`, `require_known_component` (booleans) |
+| readiness | `require_acceptance_criteria`, `require_priority_label` (booleans) |
 | recovery | `max_stage_failures`, `max_transient_retries` (positive integers), `retry_backoff_seconds` (1–100 nonnegative integer entries) |
 | budgets | `max_iterations`, `max_wall_clock_seconds`, `per_gate_timeout_seconds`, `max_files_touched` (positive integers), `max_cost_usd` (finite nonnegative JSON number) |
 

@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+id = "REQ-FUNC-99dabc38"
+title = "Supported readiness fields and portable rules"
+status = "active"
+requirement = "ADORE shall expose supported readiness fields without require_known_component in CLI, GUI or portable settings, with strict portable source and payload parsing rejecting that unsupported field."
+verification = "Public config representation, API catalog, portable export/roundtrip and extra-key rejection tests prove omission and failure boundaries."
+affected_paths = ["04_Software/adore/config.py", "04_Software/adore/portable_settings.py", "04_Software/web/src/portable.ts", "04_Software/web/src/EnrollmentWizard.tsx", "04_Software/web/src/settingKeys.json", "04_Software/web/src/settingsCopy.ts", "04_Software/tests/test_portable_settings.py", "04_Software/tests/test_web_transfer.py", "04_Software/web/tests/portable.test.mjs"]
+linked_tests = ["04_Software/tests/test_portable_settings.py", "04_Software/tests/test_web_transfer.py", "04_Software/web/tests/portable.test.mjs"]
+created = 2026-10-09
+updated = 2026-10-09

@@ -20,6 +20,9 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Default acceptance-criteria pickup checking to false and maximum additional revision rounds to five; move the revision limit to Limits and recovery with accurate exhaustion guidance.
+- Remove the inactive known-component requirement from CLI/web configuration and portable rules; portable working rules now contain fifteen fields.
+
 - Separate ready/answered ticket actions from five initially collapsed status-label settings, localize their names and lifecycle help, and hide inactive executor-prefix and scope-hint controls while preserving technical configuration.
 
 - Clarify the Target branch setting in all four GUI locales, including its new-job base and PR/MR destination, with consistent row/editor/review naming.

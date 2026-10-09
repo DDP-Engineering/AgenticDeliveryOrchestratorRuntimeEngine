@@ -7,6 +7,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # ADORE web interface
 
+**Maximum revision rounds** belongs to **Limits and recovery**. Its shared CLI/web default is five; explicit project limits remain effective. **Require ticket acceptance criteria** defaults to false, while priority remains required by default. Supported readiness settings contain no component requirement.
+
 In **Rules and approvals**, **Ready for pickup label** and **Clarification answered label** stay in the main list. Five managed names (clarify, done, failed, review, working) are grouped in **Status labels**, initially closed. Expand it for the existing administrator prepare/review/apply workflow; developers see values without edit controls. Names and help are localized in all four languages. Executor-label prefix and ticket-scope hint stay in technical configuration and are omitted from the GUI because they have no runtime effect.
 
 **Exclude from pickup label** in Rules and approvals edits the label name, shown as **Eticheta de excludere de la preluare** in Romanian. Its help explains that label presence blocks pickup, removal restores possible eligibility, and started jobs continue.
@@ -877,7 +879,7 @@ reconciliation rather than being blindly replayed.
 ## Backend project enrollment and verification
 
 **Add project** offers **Import portable settings** and **Copy project settings**.
-Sources supply only the strict 16-rule allowlist. The localized wizard requires
+Sources supply only the strict 15-rule allowlist. The localized wizard requires
 fresh target identity/repository/environment/references, shows source/default/effect
 mapping and independently allocated locations, and confirms pickup-stopped
 creation. Exact source/candidate revisions, Admin/CSRF, current source authority,

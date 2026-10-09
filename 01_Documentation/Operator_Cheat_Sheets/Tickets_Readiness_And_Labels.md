@@ -93,14 +93,11 @@ is nine in total, plus your priority labels.
 
 ## Readiness Rules
 
-The implemented readiness filter rejects tickets that are missing:
-
-- acceptance criteria;
-- a priority label;
-
-Known component and scope remain strongly recommended, but
-`require_known_component` and `max_scope_hint` are currently validated settings
-only and do not filter pickup. Do not treat them as enforcement.
+By default, pickup requires a configured priority label. Acceptance-criteria
+checking is optional and disabled by default. When enabled, the description
+must contain `acceptance criteria` (case-insensitive) or an unchecked `- [ ]`
+item. This is a text check, not a quality assessment. Explicit project settings
+override the defaults. The reserved `max_scope_hint` does not filter pickup.
 
 Check the active configuration:
 

@@ -93,6 +93,7 @@ export const STATUS_LABEL_KEYS = new Set([
 
 /** Purpose ownership of catalog settings, including dynamic entries. */
 export function settingPurpose(key: string): string {
+  if (key === "review.max_review_rounds") return "limits";
   if (key.startsWith("labels.selection.") || key.startsWith("platform.") || key.startsWith("polling.")) return "repository";
   if (key.startsWith("executor.")) return "agent";
   if (key.startsWith("container.") || key.startsWith("worktree.") || key.startsWith("execution.") || key.startsWith("local.")) return "isolation";

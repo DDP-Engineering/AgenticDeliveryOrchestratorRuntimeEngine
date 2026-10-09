@@ -45,6 +45,9 @@ def test_portable_public_export_exists_and_roundtrips():
     }
     assert portable.parse_settings(encoded) == package["settings"]
     assert set(package["settings"]) == {"polling", "readiness", "recovery", "budgets"}
+    assert package["settings"]["readiness"] == {
+        "require_acceptance_criteria": False, "require_priority_label": True,
+    }
     assert set(package["settings"]["polling"]) == {
         "mode",
         "poll_interval_seconds",
@@ -81,6 +84,10 @@ def test_portable_omits_recognized_nested_secrets_and_rejects_unknown_source():
             portable.export_settings(raw + extra)
         assert "SECRET" not in str(error.value)
 
+    obsolete = raw.replace(b"[readiness]", b"[readiness]\nrequire_known_component=true")
+    with pytest.raises(portable.PortableSettingsError):
+        portable.export_settings(obsolete)
+
 
 @pytest.mark.parametrize(
     "change",
@@ -115,6 +122,7 @@ def test_portable_rejects_envelope_corruption(change):
         ("polling", "poll_backoff", 1),
         ("polling", "unknown", "SECRET"),
         ("readiness", "require_priority_label", {"secret": "SECRET"}),
+        ("readiness", "require_known_component", True),
         ("recovery", "retry_backoff_seconds", []),
         ("recovery", "retry_backoff_seconds", [False]),
         ("recovery", "retry_backoff_seconds", [-1]),

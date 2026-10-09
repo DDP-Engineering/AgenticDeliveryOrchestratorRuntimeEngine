@@ -87,7 +87,6 @@
   "polling.quiet_hours",
   "readiness.max_scope_hint",
   "readiness.require_acceptance_criteria",
-  "readiness.require_known_component",
   "readiness.require_priority_label",
   "reconcile.on_ticket_closed",
   "reconcile.on_ticket_deleted",

@@ -43,14 +43,15 @@ migrated.
 | `poll_backoff` | Double failed-round waits up to 8x, reset on success; CLI loop/web. | `true` |
 | `max_concurrent_runs` | Capacity ceiling for persisted `working` runs; it does not enable parallel conduction. | `1` |
 | `quiet_hours` | Server-local `HH:MM-HH:MM` automatic polling pause windows, CLI loop/web. | `[]` |
-| `readiness.require_acceptance_criteria` | Require heading or task list. | `true` |
+| `readiness.require_acceptance_criteria` | Optional text gate: `acceptance criteria` or an unchecked `- [ ]` item. | `false` |
 | `readiness.require_priority_label` | Require a configured priority. | `true` |
 
-`require_known_component` and `max_scope_hint` remain reserved configuration
-intent and are not pickup filters.
+`max_scope_hint` remains reserved configuration intent and is not a pickup filter.
 
 Conduction is synchronous and serial: one `poll_once` call works at most one
 run at a time. Values above `1` do not create parallel gates or workers.
+
+Acceptance checking defaults to false; priority checking stays true. Explicit values override these defaults. Maximum additional revision rounds defaults to five (minimum one), excluding initial implementation and sharing the budget between human requests and automatic pipeline repairs. After exhaustion, a new human request fails with REVIEW_LIMIT; a failed pipeline stops automatic repairs, posts a notice and leaves the job in review.
 
 ## Labels
 
@@ -183,7 +184,7 @@ approval_label = "agent-approved"
 [review]
 trigger = "label"
 revise_label = "agent-revise"
-max_review_rounds = 3
+max_review_rounds = 5
 review_reminder_after = "48h"
 ```
 

@@ -38,6 +38,8 @@ detects changes without authenticity. No secrets, host/identity/access data,
 credential/endpoint references, pending records or price history are copied.
 Limits remain bounded; unknown fields and incompatible sources fail closed.
 
+The complete portable allowlist contains fifteen fields. Its readiness portion contains acceptance and priority booleans; strict source and payload checks reject extra component fields.
+
 ## Key behaviors
 
 - REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: Portable working rules retain their allowlist and exclude backend, local account/home/PATH/environment/cgroup and runtime identity. local.environment is a recognized named string map for metadata, not a transferable working rule.

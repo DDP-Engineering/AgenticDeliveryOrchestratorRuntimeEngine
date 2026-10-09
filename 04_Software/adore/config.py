@@ -179,9 +179,8 @@ class ReadinessConfig:
     @brief   [readiness] - selection filter applied after eligibility.
     """
 
-    require_acceptance_criteria: bool = True
+    require_acceptance_criteria: bool = False
     require_priority_label: bool = True
-    require_known_component: bool = True
     max_scope_hint: str = "small"
 
 
@@ -494,7 +493,7 @@ class ReviewConfig:
 
     trigger: str = "label"
     revise_label: str = "agent-revise"
-    max_review_rounds: int = 3
+    max_review_rounds: int = 5
     review_reminder_after: str = "48h"
     on_pipeline_failure: str = "revise"
 

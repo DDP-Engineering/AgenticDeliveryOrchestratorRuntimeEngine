@@ -7,6 +7,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Web frontend
 
+`review.max_review_rounds` maps exactly to Limits and recovery; other review policies and pickup gates stay in Rules and approvals. Localized help explains the shared additional-round budget and distinct exhaustion outcomes. Portable mapping validation derives its exact size from `portableFields`, whose readiness map contains two booleans.
+
 `lifecycleCopy` names ready/answered action labels and the five managed status labels consistently in rows, editors and candidate review. `STATUS_LABEL_KEYS` partitions the five rows into a native initially closed Status labels disclosure inside Rules and approvals. `HIDDEN_SETTING_KEYS` omits state reporting channel, executor prefix and ticket scope hint controls; effective config/catalog and scalar transport retain those keys for compatibility. Status edits retain existing administrator/revision/idle authority; Dev remains read-only. The disclosure uses the existing responsive row layout.
 
 `labels.control.exclude` uses `excludeLabelCopy` for the settings row, editor and candidate review in all four locales. Help describes its configured name, presence-based pickup exclusion, removal under remaining eligibility gates and already-started job boundary. The scalar editing and conductor contracts remain unchanged.
@@ -397,7 +399,7 @@ those views after the switch.
 
 `TransferWizard.tsx` presents guided creation, portable file import, settings copy
 and the separately worded advanced unchanged server TOML copy. File/source selection
-reviews all 16 recognized rules and explicit exclusions before target setup.
+reviews all 15 recognized rules and explicit exclusions before target setup.
 `EnrollmentWizard` receives optional memory-only source context and uses the same
 identity/repository/environment/eligibility/verification/review steps. Copied
 budget controls are read-only; canonical review shows every source rule, installed

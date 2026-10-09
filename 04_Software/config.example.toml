@@ -84,15 +84,10 @@ quiet_hours = []
 # Applied AFTER the eligibility label: a ticket that is `agent-ready` but fails
 # these checks is left for a human instead of being picked.
 [readiness]
-# Skip tickets whose body has no acceptance criteria.
-require_acceptance_criteria = true
+# Optional: require "acceptance criteria" text or an unchecked - [ ] item.
+require_acceptance_criteria = false
 # Require one of the priority labels (see [labels.selection]).
 require_priority_label = true
-# Require the ticket to map to a known component of the target repo.
-# NOT YET ENFORCED: accepted and validated, but pickup is not filtered by
-# component (review finding ADORE-ARCH-006). Today only
-# require_acceptance_criteria / require_priority_label filter pickup.
-require_known_component = true
 # Skip tickets estimated larger than this scope hint.
 # NOT YET ENFORCED: accepted and validated, but large tickets are NOT skipped
 # (review finding ADORE-ARCH-006).
@@ -399,7 +394,7 @@ revise_label = "agent-revise"
 # Revise cycles before the run escalates to `failed`. Bounds human-requested
 # revisions and automatic pipeline repairs together, so a permanently red
 # pipeline cannot loop.
-max_review_rounds = 3
+max_review_rounds = 5
 # What a NEW `failed` forge pipeline verdict on the published draft does:
 #   "revise" - start a governed repair round automatically (default). Same
 #              bounded path as the revise label: a new AEGIS task on the same

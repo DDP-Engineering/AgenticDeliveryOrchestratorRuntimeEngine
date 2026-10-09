@@ -46,6 +46,8 @@ and web with explicit false respected; candidate-bound MR/PR
 approval remains mandatory. The reported-cost cap accepts finite nonnegative
 USD amounts, with zero disabling only that cap.
 
+Shared CLI/web defaults are acceptance=false, priority=true and maximum additional revision rounds=5 (minimum one), with explicit overrides retained. The typed readiness model contains acceptance, priority and reserved scope hint.
+
 ## Key behaviors
 
 - REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: LocalConfig supplies account/home/path/environment/cgroup_root. Explicit execution.backend=local rejects recipes, restricted egress, staging and container-only options. Non-secret local maps reject managed/forge variables and literal inline provider credentials. Container remains the default.

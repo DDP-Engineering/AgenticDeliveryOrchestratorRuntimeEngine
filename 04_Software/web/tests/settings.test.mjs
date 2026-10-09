@@ -6,7 +6,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { editValue, hasDefault, settingGroups, settingRows, validSettingCatalog, validPendingConfig } from "../src/settings.ts";
+import { editValue, hasDefault, settingGroups, settingRows, settingPurpose, validSettingCatalog, validPendingConfig } from "../src/settings.ts";
 import { publicationCopy, publicationValue } from "../src/settingsCopy.ts";
 
 test("publication state names exact booleans in every locale", () => {
@@ -17,6 +17,11 @@ test("publication state names exact booleans in every locale", () => {
   assert.equal(publicationValue("false", locale), publicationCopy[locale].ready);
   for (const invalid of [null, 0, 1, "False", {}, []]) assert.equal(publicationValue(invalid, locale), null);
  }
+});
+
+test("revision limit belongs to limits while review policy and pickup gates stay in rules", () => {
+ assert.equal(settingPurpose("review.max_review_rounds"), "limits");
+ for (const key of ["review.on_pipeline_failure", "review.revise_label", "readiness.require_acceptance_criteria", "readiness.require_priority_label"]) assert.equal(settingPurpose(key), "rules");
 });
 
 test("reviewer list alone is editable and pending arrays have exact authority", () => {

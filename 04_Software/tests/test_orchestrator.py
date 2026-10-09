@@ -1686,6 +1686,22 @@ def test_selection_skips_a_ticket_that_is_not_open(tmp_path: Path) -> None:
     assert engine._pick_ticket() is None
 
 
+@pytest.mark.parametrize("require_criteria", [False, True])
+def test_public_pickup_obeys_optional_acceptance_criteria(tmp_path, monkeypatch, require_criteria):
+    """@brief A plain ready ticket is picked only when the optional text gate is off."""
+    engine, forge, _, _, _ = make_engine(tmp_path)
+    engine.config.readiness.require_acceptance_criteria = require_criteria
+    forge.ticket.description = "Implement the requested change."
+    forge.ticket.labels = [engine.config.labels.lifecycle.ready, "P2"]
+    forge.ready = [forge.ticket]
+    selected = []
+    monkeypatch.setattr(engine, "_probe_repository_payload", lambda: None)
+    monkeypatch.setattr(engine, "_claim_and_conduct", lambda ticket: selected.append(ticket.iid))
+    result = engine.poll_once()
+    assert result["picked"] == (None if require_criteria else forge.ticket.iid)
+    assert selected == ([] if require_criteria else [forge.ticket.iid])
+
+
 def test_explicit_ticket_start_keeps_readiness_boundary(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1884,7 +1900,7 @@ def test_failed_pipeline_starts_a_governed_repair_round(
     assert "pipeline" in threads[0] and "green" in threads[0]
     # the reviewer watching the draft is told why commits are about to arrive
     announced = "\n".join(forge.mr_comments.values())
-    assert "automatic repair round (1/3)" in announced
+    assert "automatic repair round (1/5)" in announced
     # the verdict is cleared so the NEXT pipeline run is judged on its own
     assert saved.pipeline_reported == ""
     # no label was involved, so none was removed

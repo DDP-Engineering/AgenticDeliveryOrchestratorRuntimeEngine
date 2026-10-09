@@ -47,7 +47,6 @@ PORTABLE_FIELDS = {
     "readiness": (
         "require_acceptance_criteria",
         "require_priority_label",
-        "require_known_component",
     ),
     "recovery": ("max_stage_failures", "max_transient_retries", "retry_backoff_seconds"),
     "budgets": (

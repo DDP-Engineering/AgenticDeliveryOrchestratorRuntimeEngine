@@ -50,7 +50,6 @@ def _source(client, app, tmp_path, method="file"):
         "readiness": {
             "require_acceptance_criteria": False,
             "require_priority_label": False,
-            "require_known_component": False,
         },
         "recovery": {
             "max_stage_failures": 5,
@@ -127,7 +126,7 @@ def test_transfer_roundtrip_independent_stopped_and_replay(tmp_path, method):
             if p.is_file()
         }
         reviewed, preview = _review(client, body, headers)
-        assert len(preview["mapping"]) == 16
+        assert len(preview["mapping"]) == 15
         assert not app.state.profiles.exists("target")
         created = client.post("/api/v1/projects/transfer-create", json=reviewed, headers=headers)
         assert created.status_code == 200, created.text

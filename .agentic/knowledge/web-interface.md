@@ -8,6 +8,8 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # Web interface
 
+The revision-round limit belongs to Limits and recovery, with shared default five and localized combined-budget/exhaustion guidance. Acceptance checking defaults false; explicit values remain authoritative. Portable enrollment validates mapping size against the fifteen recognized rule keys.
+
 Project settings keeps ready/answered action labels visible and places clarify/done/failed/review/working names in a native initially closed Status labels disclosure. Four-locale row/editor/review names explain actual lifecycle semantics. Inactive executor prefix and scope hint are omitted from controls while technical config/catalog values persist; admin reviewed edits and Dev read-only access retain existing authority.
 
 `labels.control.exclude` has a shared four-locale Exclude from pickup label name in row/editor/candidate review. Help identifies the label-name setting and reversible presence-based pickup gate; already-started jobs continue.
@@ -91,7 +93,7 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 - Admin/CSRF `transfer-source/preview/check/create` create fresh stopped projects
   from strict portable files or immutable authorized source identities. Exact source
   bytes/ID and target revision are bound; source/session/ownership are rechecked
-  during existing locked atomic publication. All 16 rules transfer, while target
+  during existing locked atomic publication. All 15 rules transfer, while target
   identity/repository/environment/references are supplied anew. Allocated state,
   worktrees and derived metrics remain independent; corrupt/overlapping ownership,
   stale sources, rollback and replay fail closed. `TransferWizard` reviews the

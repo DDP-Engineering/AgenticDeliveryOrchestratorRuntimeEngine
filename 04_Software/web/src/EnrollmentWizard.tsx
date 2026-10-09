@@ -217,7 +217,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
         throw new ApiError("unexpected_response");
       if (transfer && value.structural_valid) {
         const expected = Object.entries(portableFields).flatMap(([section, keys]) => keys.map(key => section + "." + key));
-        if (value.source_revision !== transfer.source_revision || !Array.isArray(value.mapping) || value.mapping.length !== 16 ||
+        if (value.source_revision !== transfer.source_revision || !Array.isArray(value.mapping) || value.mapping.length !== expected.length ||
           expected.some(key => value.mapping!.filter(row => row.key === key).length !== 1) ||
           value.mapping.some(row => row.effect !== "copy-rule" || !Object.hasOwn(row, "server_value") ||
             JSON.stringify(row.source_value) !== JSON.stringify(transfer.settings[row.key.split(".")[0]][row.key.split(".")[1]])) ||

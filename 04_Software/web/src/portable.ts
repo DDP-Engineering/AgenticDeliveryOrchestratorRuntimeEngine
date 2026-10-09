@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 export const portableFields = {
   polling: ["mode", "poll_interval_seconds", "poll_jitter_seconds", "poll_backoff", "max_concurrent_runs"],
-  readiness: ["require_acceptance_criteria", "require_priority_label", "require_known_component"],
+  readiness: ["require_acceptance_criteria", "require_priority_label"],
   recovery: ["max_stage_failures", "max_transient_retries", "retry_backoff_seconds"],
   budgets: ["max_iterations", "max_wall_clock_seconds", "per_gate_timeout_seconds", "max_cost_usd", "max_files_touched"],
 } as const;

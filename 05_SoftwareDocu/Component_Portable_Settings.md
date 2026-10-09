@@ -21,6 +21,8 @@ encode deterministic schema-1 JSON; reject duplicate/malformed/incompatible
 packages and return fresh portable values. Secrets, identity, host locations,
 access state and references remain outside the format.
 
+The complete portable rule allowlist contains fifteen fields; readiness contains acceptance and priority booleans. Extra component fields reject at source and JSON boundaries.
+
 ## 3. Implementation Overview
 
 `export_settings(raw: bytes) -> bytes` checks 512-KiB UTF-8 TOML, recursively

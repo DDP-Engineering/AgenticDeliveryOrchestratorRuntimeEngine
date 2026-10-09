@@ -56,6 +56,32 @@ def _write_config(tmp_path: Path, text: str) -> Path:
 # PUBLIC API / TESTS
 
 
+def test_pickup_and_review_defaults_and_explicit_overrides(tmp_path: Path) -> None:
+    """@brief Shared defaults apply only when the operator omits the values."""
+    config = load_config(_write_config(tmp_path, MINIMAL_VALID))
+    assert config.readiness.require_acceptance_criteria is False
+    assert config.readiness.require_priority_label is True
+    assert config.review.max_review_rounds == 5
+    assert not hasattr(config.readiness, "require_known_component")
+    assert validate_config(config) == []
+    explicit = MINIMAL_VALID + (
+        "\n[readiness]\nrequire_acceptance_criteria = true\n"
+        "\n[review]\nmax_review_rounds = 2\n"
+    )
+    override = load_config(_write_config(tmp_path, explicit))
+    assert override.readiness.require_acceptance_criteria is True
+    assert override.review.max_review_rounds == 2
+    assert validate_config(override) == []
+    invalid = load_config(_write_config(
+        tmp_path, explicit.replace("max_review_rounds = 2", "max_review_rounds = 0")
+    ))
+    assert any("max_review_rounds" in issue for issue in validate_config(invalid))
+    sample = load_config(Path(__file__).parents[1] / "config.example.toml")
+    assert sample.readiness.require_acceptance_criteria is False
+    assert sample.review.max_review_rounds == 5
+    assert "require_known_component" not in sample.raw["readiness"]
+
+
 def test_minimal_config_is_valid_with_defaults(tmp_path: Path) -> None:
     """
     @brief   A minimal file loads, defaults apply, and validation passes.

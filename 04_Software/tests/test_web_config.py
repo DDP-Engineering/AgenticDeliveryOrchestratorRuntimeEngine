@@ -435,6 +435,44 @@ def test_progress_publication_explicit_false_is_retained_in_gui(tmp_path):
     assert path.read_bytes() == original
 
 
+@pytest.mark.parametrize("explicit", [False, True])
+def test_pickup_review_defaults_and_supported_catalog(tmp_path, explicit):
+    """@brief GUI uses shared defaults, retains overrides and omits inactive fields."""
+    profiles = ProfileStore(tmp_path / "home")
+    profiles.create("alpha")
+    path = profiles.config_path("alpha")
+    original = _PARTIAL_CONFIG + (
+        "\n[readiness]\nrequire_acceptance_criteria = true\n"
+        "\n[review]\nmax_review_rounds = 2\n" if explicit else ""
+    )
+    path.write_text(original, encoding="utf-8")
+    with TestClient(create_app(profiles.home)) as client:
+        client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
+        response = client.get("/api/v1/projects/alpha/config")
+        assert response.status_code == 200
+        body = response.json()
+    rows = {row["key"]: row for row in body["settings"]}
+    assert rows["readiness.require_acceptance_criteria"]["default"] is False
+    assert rows["review.max_review_rounds"]["default"] == 5
+    assert body["config"]["readiness"]["require_acceptance_criteria"] is explicit
+    assert body["config"]["review"]["max_review_rounds"] == (2 if explicit else 5)
+    assert rows["review.max_review_rounds"]["source"] == ("project" if explicit else "default")
+    assert "require_known_component" not in body["config"]["readiness"]
+    assert "readiness.require_known_component" not in rows
+    assert path.read_text(encoding="utf-8") == original
+
+
+def test_cli_shows_shared_defaults_without_component_setting(tmp_path, capsys):
+    """@brief CLI JSON exposes the same supported defaults as the GUI catalog."""
+    path = tmp_path / "config.toml"
+    path.write_text(_PARTIAL_CONFIG, encoding="utf-8")
+    assert main(["--config", str(path), "config", "show"]) == EXIT_OK
+    shown = json.loads(capsys.readouterr().out)
+    assert shown["readiness"]["require_acceptance_criteria"] is False
+    assert shown["review"]["max_review_rounds"] == 5
+    assert "require_known_component" not in shown["readiness"]
+
+
 def test_config_view_reports_each_settings_source_and_editability(tmp_path):
     """
     @brief   Every effective setting says whether the project's file sets it,
