@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # TASK-e1e7c2b5 - Keep agent actions aligned when selection becomes incomplete
 
-stage: deliver
+stage: done
 type: fix
 path: quick
 interaction: autopilot
@@ -25,7 +25,7 @@ opened: 2026-10-09
 - [x] common controls/validation order corrected; focused proof green
 - [x] current docs and scope/quality review completed
 - [x] final scoped check/evolution recorded
-- [ ] DCP live selection proof and closeout complete
+- [x] DCP live selection proof and closeout complete
 
 ## Frame
 
@@ -55,27 +55,30 @@ Keep selector and actions adjacent in DOM, render validation after actions and g
 - 2026-10-09 final validation: npm build:e2e/typecheck exit0; focused executor Chromium3passed14.2s covering all4incomplete-model selections with disabled Prepare/visible alert and stable action geometry plus candidate/mobile/locale checks; npx playwright test settings.spec.ts --grep "typed Implementation controls review and apply" exit0=1passed10.7s. Strict scoped catalog exit0 errors0/warnings11/notes25:10existing findings plus Playwright test-glob heuristic, actual e2e test changed and passed. Evolution refreshed19:57:43Z, six post-anchor paths in scope; red browser test edit is pre-anchor and retained in Git diff. git diff --check exit0. Round1 compliance/quality approved final candidate, no children/backend changes.
 - 2026-10-09 deliver: concrete minimal validation-order and flex-line correction, regression and current docs presented; standing authorized local commit and DCP deployment retained, no push/PR/merge. Fullsuite remains deferred under user instruction.
 
+- 2026-10-09 delivered: product6fc3563a25160e3bb1d7c87c83f30c9e64d7ad8a installed at /home/dpasare/apps/adore/dcp-validation-e1e7c2b5/04_Software; exact package71b9c3d17da1423b74eac46a817e3c5f5359b8fc8dadb1bccece3ce24a8afe5c and fresh JS28a4ced498f7127e6d247834664bd577038d21962c94353f09d0b7c1a9eafb4d/CSS06db9ee078b1a89fb3f27f586f5b3e1b607388ac2bee623a49f5847db610b5cd verified DCP/LAN. Both services active, worker ready, schema14/users1/audit108/operations2failed16succeeded preserved; all6profile config/pause/run-state hashes identical. Existing TLS pin and protected401 preserved. Live aegis user tab: select opencode/pi/qwen/codex, all4selectRight1191.8/actionsLeft1199.8/centers342identical. OpenCode/Qwen/Codex missing-model alerts and disabled Prepare remain below controls; Pi existing valid draft retains same placement. No Prepare/Apply/model-call mutation; Cancel restored activePi. live-selection-proof.json and live-after-select.png saved and image inspected; tab retained. Own backup safely removed after path/service/receipt checks, backups directory empty. SSH/SCP closed. Local ignored receipts in07_Delivery/adore-polling-a224af5d/validation-e1e7c2b5.
+- 2026-10-09 closeout: requested stable actions after selection and authorized DCP deployment completed. Fullsuite remains deferred. Report warning12 included then-unfinished deployment checklist; final precommit strict11warnings already explained.
+
 ## Rulings
 
 - RULING-001 | date=2026-10-09 | decision=Correct stable actions across incomplete selection and redeploy DCP | reason=User reports reproducible regression after selecting agent; prior delivery scope persists | source=user | supersedes=none
 
 ## Handoff
 
-current: deliver
+current: done
 status: ready
-next: selection red proof then small layout correction
+next: none; deployment verified
 must_read: task journal; REQ-UX-646e81fb; executor-configuration/web-interface knowledge
 blockers: none
 
 ## Stage report
 
-stage: validate
+stage: deliver
 result: completed
-current: deliver
-changed: correction scope and invalid-draft trigger identified
-evidence: user report and App validation/action ordering
-issues: prior geometry proof omitted selection transition
-next: final scoped validation then authorized deployment
+current: done
+changed: validation follows control/actions on a dedicated flex line; all4selection regression
+evidence: 4focused Chromium tests, build/typecheck/strict catalog; DCP/LAN receipts and live4selection stable geometry in Log
+issues: full suite deferred by user; pre-existing Vite/catalog findings accepted
+next: none; closeout complete
 needs_user: no
 spec_compliance: approved
 implementation_quality: approved
