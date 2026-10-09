@@ -868,3 +868,5 @@ outcomes as failed checks. Invalid configuration gets a 60-second recheck with
 no engine invocation. Restart resets cadence; serial work on another project
 may delay a due round. `polling.mode` governs standalone CLI startup; the web
 service schedules repeated `run --once` rounds independently of that value.
+
+Default-agent editing uses the ordinary setting-editor flex layout: Prepare/Cancel follow its dropdown on wide screens, with shared responsive wrapping. Grouped-draft guidance stays in the description column.

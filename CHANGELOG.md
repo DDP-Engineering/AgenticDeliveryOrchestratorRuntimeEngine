@@ -57,6 +57,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Align coding-agent Prepare/Cancel actions beside the selector using the ordinary responsive setting-editor layout.
+
 - Keep complete agent editing within the existing setting rows and select allowed credential variables through a compact dropdown with removable names.
 
 - Web statistics and exports respect the configured summary database; statistics storage paths are managed externally with only an informational database file in Settings.

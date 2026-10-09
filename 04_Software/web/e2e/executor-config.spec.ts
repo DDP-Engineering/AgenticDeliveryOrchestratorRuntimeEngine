@@ -145,6 +145,7 @@ test("agent and provider drafts have complete review and fit mobile",async({page
 
 
 test("inline executor editors retain columns and use a credential dropdown",async({page})=>{
+ await page.setViewportSize({width:1520,height:900});
  await page.context().route("**/*",route=>new URL(route.request().url()).origin==="http://127.0.0.1:18765"?route.continue():route.abort());
  await page.goto("/");await page.getByLabel("Username",{exact:false}).fill("admin");await page.getByLabel("Password",{exact:false}).fill("admin");await page.getByRole("button",{name:"Sign in",exact:true}).click();
  await expect(page.getByRole("navigation",{name:"Primary navigation",exact:true})).toBeVisible();
@@ -156,6 +157,10 @@ test("inline executor editors retain columns and use a credential dropdown",asyn
  const editor=await row.locator(':scope > form').boundingBox();
  expect(Math.abs(editor!.x-before!.x)).toBeLessThan(2);
  expect(Math.abs(editor!.width-before!.width)).toBeLessThan(2);
+ const select=await row.getByLabel("Default coding agent",{exact:true}).boundingBox();
+ const actions=await row.locator(".button-row").boundingBox();
+ expect(actions!.x).toBeGreaterThanOrEqual(select!.x+select!.width);
+ expect(Math.abs(actions!.y+actions!.height/2-select!.y-select!.height/2)).toBeLessThan(2);
  await expect(row.getByLabel("Executor launch command",{exact:true})).toHaveCount(0);
  await expect(page.locator('[id="setting-executor.commands.opencode.command"]').getByLabel("Executor launch command",{exact:true})).toBeVisible();
  await expect(page.locator('[id="setting-executor.commands.opencode.model"]').getByLabel("Executor model identifier",{exact:true})).toBeVisible();
