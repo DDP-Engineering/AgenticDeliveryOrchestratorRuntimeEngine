@@ -613,7 +613,9 @@ td.strong { font-weight: 800; }
 
 /* Typed Implementation editors wrap under the existing reviewed-setting layout. */
 .duration-inputs, .stage-timeout-row { display: flex; flex-wrap: wrap; align-items: end; gap: .75rem; }
+.duration-inputs, .stage-timeout-inputs { flex-basis: 100%; width: 100%; min-width: 0; }
 .duration-inputs label, .stage-timeout-row label { display: flex; flex-direction: column; gap: .35rem; flex: 1 1 10rem; min-width: 0; }
 .stage-timeout-inputs { display: grid; gap: .75rem; }
 .stage-timeout-row small { flex: 1 1 8rem; padding-bottom: .6rem; }
-.duration-inputs input, .duration-inputs select, .stage-timeout-row input, .stage-timeout-row select { width: 100%; min-width: 0; }
+.setting-editor .duration-inputs input, .setting-editor .duration-inputs select,
+.setting-editor .stage-timeout-row input, .setting-editor .stage-timeout-row select { flex: 0 0 auto; width: 100%; min-width: 0; }

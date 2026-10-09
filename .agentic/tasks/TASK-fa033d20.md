@@ -82,6 +82,14 @@ Tests: Public config/API positive and trust-negative cases first; helper contrac
 - 2026-10-09 final review: Both verdicts approved for final source/test/requirement/docs candidate after traceability reconciliation. Evolution lists exactly 20 non-agentic files, no removals, all agreed code/tests/docs; 29 total tracked candidate paths within 32-file bound. No new dependencies, executor/conductor enforcement changes, secrets or children.
 - 2026-10-09 deliver authorization: User approval and standing session instruction authorize local commit and replacement of DCP test instance; no redundant checkpoint, push, PR or merge. Candidate includes the four typed editors, independent deadline validation, narrow integrity enforcement, focused tests and current docs. Temporary deployment backup is removed after verified success; six profile configs/state/TLS remain unchanged.
 
+- 2026-10-09 delivery inspection: Candidate 5a6054584c4f69a24036cdc53a8c0e394f1b11dc deployed with healthy services, identical six-profile config/state inventory and pinned TLS/asset LAN proof. Live editor screenshot exposed inherited `.setting-editor input/select` flex basis expanding controls vertically inside column labels and placing action buttons beside the stage stack. Own temporary backup cleanup succeeded, backups root empty. Return to build for this in-scope visual defect; add bounded control-height/action-placement regression, scoped CSS correction and repeat DCP delivery. Verdicts cleared pending revalidation.
+
+- 2026-10-09 build red REQ-UX-66547cbf: `npx playwright test e2e/settings.spec.ts --grep "typed Implementation controls review"`; exit=1; expected missing behavior=duration control height is 192px, exceeding normal 60px bound. Added desktop/mobile stage control-height and action-below-stack assertions; original task anchor remains the full-change baseline.
+
+- 2026-10-09 validate round 2: Scoped CSS resets inherited horizontal flex basis for nested column controls, full-width typed groups place actions below the stack; added desktop/mobile height/placement regressions. Component/knowledge/requirement prose reconciled. Spec compliance and implementation quality independently approved for this bounded correction; no other source or runtime behavior changed. Original source/API/conductor/helper proof retained; focused layout browser/typecheck/build and strict catalog cover the new candidate.
+
+- 2026-10-09 final layout validate: `npm --prefix 04_Software/web run build:e2e` exit 0 (typecheck/build/stamp); `npx playwright test e2e/settings.spec.ts --grep "typed Implementation"` exit 0, 2 passed, now asserts duration normal height, all six stage controls <=60px and action below final stage at 1280/390px. Strict catalog exit 0, 0 errors/10 existing warnings/25 historical notes; no full suite. Only scoped CSS/test/prose changed from proven product candidate. Round 2 verdicts approved, final evolution reviewed. Proceed under existing local/DCP authorization.
+
 ## Rulings
 
 - RULING-001 | date=2026-10-09 | decision=Implement recommended editors and independent answer duration, targeted proof and standing local/DCP delivery | reason=User approval plus session delivery/test authority | source=user | supersedes=none
@@ -90,7 +98,7 @@ Tests: Public config/API positive and trust-negative cases first; helper contrac
 
 current: deliver
 status: ready
-next: Local candidate commit and authorized DCP test replacement
+next: Commit and redeploy the visually corrected candidate
 must_read: .agentic/tasks/TASK-fa033d20.md
 blockers: none
 
@@ -99,14 +107,14 @@ blockers: none
 stage: validate
 result: completed
 current: deliver
-changed: Typed Implementation controls, independent answer deadline and exact collection integrity
-evidence: 145 regression/28 final targeted API/config; 8 conductor; 17 helpers; 6 browser; Ruff/typecheck/build/strict catalog passed
-issues: Full suite deferred by user; 10 old advisory warnings, existing Starlette/Node/chunk warnings
-next: Commit and DCP delivery
+changed: Normal-height duration/stage controls and actions below typed editors
+evidence: 2 corrected browser journeys with height/placement at 1280/390px; typecheck/build/strict catalog passed; prior backend/helper proof retained
+issues: Full suite deferred by user; existing warnings
+next: Commit and corrected DCP delivery
 needs_user: no
 spec_compliance: approved
 implementation_quality: approved
-review_round: 1
+review_round: 2
 
 ## Delivery report (2026-10-09)
 
@@ -121,3 +129,17 @@ review_round: 1
 - diff vs task base eb9a5ae: 29 file(s) changed, 810 line(s) added
 - checks: errors=0 warnings=11 notes=25
 - checklist: 1/4 done; open: Delivery report and local candidate commit; DCP services/TLS/assets/profile preservation verified; Own temporary backup cleanup and close-out commit
+
+## Delivery report (2026-10-09)
+
+- stage: deliver; type: feature; path: full; branch: task/adore-web-interface
+- requirements:
+  - REQ-FUNC-d67a1d33 - Reviewed clarification and recovery collection settings
+  - REQ-FUNC-c6c694cc - Independent positive clarification answer duration
+  - REQ-UX-66547cbf - Human duration retry schedule and six-stage timeout editors
+- deviations: 1 recorded
+  - validate: standing user instruction defers the full suite; substitute scoped config/pending/catalog/conductor/helper/browser proof, typecheck/build/Ruff and strict catalog without --run. Unrelated product paths and full-suite integration remain unverified. Existing Starlette/Node color/chunk-size warnings accepted without dependency/build scope expansion.
+- explicit review: enabled; spec_compliance=approved; implementation_quality=approved; review_round=2
+- diff vs task base eb9a5ae: 29 file(s) changed, 843 line(s) added
+- checks: errors=0 warnings=11 notes=25
+- checklist: 2/4 done; open: DCP services/TLS/assets/profile preservation verified; Own temporary backup cleanup and close-out commit

@@ -629,6 +629,7 @@ test("typed Implementation controls review and apply human duration, rounds, ret
  await show("clarification");
  const answer = row("clarification.answer_timeout");
  await answer.getByRole("button").click();
+ expect((await answer.getByRole("spinbutton").boundingBox())!.height).toBeLessThanOrEqual(60);
  await answer.getByRole("spinbutton").fill("");
  await answer.getByRole("combobox", {name:"Time unit",exact:true}).selectOption("d");
  await expect(answer.getByRole("button", {name:"Prepare candidate"})).toBeDisabled();
@@ -652,6 +653,14 @@ test("typed Implementation controls review and apply human duration, rounds, ret
  const stages = row("workflow.stage_timeout_overrides");
  await stages.getByRole("button").click();
  await expect(stages.getByRole("combobox")).toHaveCount(6);
+ for (const width of [1280,390]) {
+  await page.setViewportSize({width,height:844});
+  for (const control of await stages.getByRole("combobox").all()) expect((await control.boundingBox())!.height).toBeLessThanOrEqual(60);
+  const last = await stages.getByRole("combobox", {name:"Delivery",exact:true}).boundingBox();
+  const action = await stages.getByRole("button", {name:"Prepare candidate"}).boundingBox();
+  expect(action!.y).toBeGreaterThan(last!.y + last!.height);
+ }
+
  await stages.getByRole("combobox", {name:"Implementation",exact:true}).selectOption("custom");
  await stages.getByRole("spinbutton", {name:"Implementation Seconds",exact:true}).fill("0");
  await expect(stages.getByRole("button", {name:"Prepare candidate"})).toBeDisabled();
