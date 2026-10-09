@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # TASK-da26661c - Editable job branch naming and server-validated preview
 
-stage: deliver
+stage: done
 type: feature
 path: full
 interaction: autopilot
@@ -26,7 +26,7 @@ opened: 2026-10-09
 - [x] Requirements and documentation agree with implemented behavior
 - [x] Final targeted checks and current evolution recorded
 - [x] Both explicit review axes approved
-- [ ] Authorized delivery and DCP live acceptance
+- [x] Authorized delivery and DCP live acceptance
 
 ## Frame
 
@@ -76,27 +76,29 @@ Architecture: config validator -> shared preview <- scoped preview API <- Settin
 - 2026-10-09 validate final proof: 174 targeted Python tests passed (one existing Starlette deprecation warning); 23 settings browser journeys passed; 15 settings helpers passed; scoped Ruff and TypeScript/Vite build passed. Current evolution recorded at 07:23:21 UTC. Both round-1 review axes approved. Full suite deferred by user instruction. No children. Validated candidate unchanged.
 - 2026-10-09 deliver authorization: User explicitly requested implementation and DCP deployment, with standing local commit authority; validation results and intended deployment presented. Local delivery commit then replacement of DCP test source, preserving profiles/state/TLS; no push, PR or merge.
 
+- 2026-10-09 deliver outcome: Product commit 2b71d80fc4d009ababf380b5ea4ba13528658f87 deployed to /home/dpasare/apps/adore/dcp-branch-da26661c/04_Software. Package SHA256 0f2bdfbe37f1eca47071d38632494b36e5f7897c8003da8182ef4087dde06b6d; asset index-D1XxS8xt.js matched locally and remotely. Both services active, worker ready, health/pages 200 and protected unauthenticated APIs 401; existing certificate pinned. Six profiles and state/pause/config hashes, schema 14, one user, audit 106 and 18 terminal operations unchanged. Live authenticated aegis Repository showed two Edit actions and adore/pi-1; invalid regex blocked preparation, valid regex matched, edited template rendered feature/adore-aegis-1. Drafts cancelled, configuration unchanged; screenshot retained. Temporary rollback backup removed and backups directory empty. No push/PR/merge. Close-out journal commit follows.
+
 ## Rulings
 
 - RULING-001 | date=2026-10-09 | decision=Autonomous implementation/local commit and DCP test deployment, focused tests only | reason=Explicit current user request and standing test/deploy instructions | source=user | supersedes=none
 
 ## Handoff
 
-current: deliver
+current: done
 status: ready
-next: local commit, DCP deployment and live acceptance
+next: none
 must_read: .agentic/requirements/ux/REQ-UX-7b47e30e.toml, .agentic/requirements/functional/REQ-FUNC-84f30174.toml
 blockers: none
 
 ## Stage report
 
-stage: validate
+stage: deliver
 result: completed
-current: deliver
-changed: Two editable Repository branch fields, bounded sample/rule feedback, localized UI and docs
-evidence: 174 Python tests, 23 browser journeys, 15 helper tests, build and scoped Ruff passed
-issues: Full suite deferred by user; existing Starlette warning and historical catalog findings
-next: Authorized local commit and DCP live deployment
+current: done
+changed: Editable branch naming and server-validated preview deployed to DCP
+evidence: 174 Python, 23 browser, 15 helper tests; build/Ruff; DCP ready and live draft validation passed
+issues: Full suite deferred by user; historical catalog findings and existing Starlette warning
+next: none
 needs_user: no
 spec_compliance: approved
 implementation_quality: approved
