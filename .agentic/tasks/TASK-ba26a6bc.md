@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # TASK-ba26a6bc - Clarify failed CI action and align integration branch reference
 
-stage: deliver
+stage: done
 type: fix
 path: quick
 interaction: autopilot
@@ -26,7 +26,7 @@ opened: 2026-10-09
 - [x] anchor/evolution reviewed
 - [x] diff and two independent review questions assessed
 - [x] final strict catalog: 0 errors, 10 existing warnings, 25 historical notes
-- [ ] deployment verified and own backup removed
+- [x] deployment verified and own backup removed; close-out recorded
 
 ## Frame
 
@@ -65,6 +65,9 @@ Path and reason: quick; existing REQ-UX-d8745013 covers presentation. No new beh
 
 - 2026-10-09 final validate: strict catalog exit=0 (without --run), errors=0/warnings=10/notes=25; all warnings pre-existing. Diff check clean. Two reviews approved for unchanged source; no dependencies, runtime or authority changes. Proceed with authorized local commit and DCP replacement.
 
+- 2026-10-09 deliver: product commit 00e5bb0 deployed at /home/dpasare/apps/adore/dcp-settings-ba26a6bc/04_Software. LAN JS/CSS byte checks, existing TLS pin, 200 public/health/ready and 401 protected routes passed. Web/worker active and ready; six configs/pause/run-state hashes, schema14/user1/audit106/18 terminal operations preserved. Own backup removed; backups directory empty.
+- 2026-10-09 live acceptance: authenticated aegis PR/MR page shows new CI name and Notify only active / Automatic repair default. Branch master and adjacent values share 14px font and exactly the same left coordinate. Screenshot inspected and saved in ignored delivery settings-ba26a6bc/live-review-settings.png; page left open with PR/MR expanded. No live setting was changed. SSH/SCP sessions closed; no push/PR/merge.
+
 ## Rulings
 
 - RULING-001 | date=2026-10-09 | decision=Implement rename/alignment and continue existing local/DCP delivery with targeted tests | reason=Direct user request and standing session authorization | source=user | supersedes=none
@@ -73,22 +76,22 @@ Path and reason: quick; existing REQ-UX-d8745013 covers presentation. No new beh
 ## Handoff
 
 
-current: deliver
+current: done
 status: ready
-next: strict catalog and authorized delivery
+next: none
 must_read: .agentic/requirements/ux/REQ-UX-d8745013.toml
 blockers: none
 
 ## Stage report
 
 
-stage: validate
+stage: deliver
 result: completed
-current: deliver
-changed: localized CI action presentation and responsive integration branch reference; docs and tests
-evidence: 18 helper, 4 browser and 5 conductor tests pass; typecheck/build pass; screenshot inspected
+current: done
+changed: localized CI action and aligned Integration branch deployed on DCP
+evidence: 18 helpers, 4 browser and 5 conductor tests pass; typecheck/build/strict catalog; LAN assets/readiness/profile preservation and live screenshot
 issues: full suite deferred by user; existing Vite chunk-size advisory
-next: local commit and authorized DCP deployment
+next: none
 needs_user: no
 spec_compliance: approved
 implementation_quality: approved
