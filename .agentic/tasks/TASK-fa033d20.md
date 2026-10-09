@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # TASK-fa033d20 - Edit clarification recovery and stage timeouts in Implementation
 
-stage: deliver
+stage: done
 type: feature
 path: full
 interaction: autopilot
@@ -23,8 +23,8 @@ opened: 2026-10-09
 
 - [x] Final candidate verified and reviewed; standing delivery approval recorded
 - [x] Delivery report and local candidate commit
-- [ ] DCP services/TLS/assets/profile preservation verified
-- [ ] Own temporary backup cleanup and close-out commit
+- [x] DCP services/TLS/assets/profile preservation verified
+- [x] Own temporary backup cleanup and close-out commit
 
 ## Frame
 
@@ -90,27 +90,30 @@ Tests: Public config/API positive and trust-negative cases first; helper contrac
 
 - 2026-10-09 final layout validate: `npm --prefix 04_Software/web run build:e2e` exit 0 (typecheck/build/stamp); `npx playwright test e2e/settings.spec.ts --grep "typed Implementation"` exit 0, 2 passed, now asserts duration normal height, all six stage controls <=60px and action below final stage at 1280/390px. Strict catalog exit 0, 0 errors/10 existing warnings/25 historical notes; no full suite. Only scoped CSS/test/prose changed from proven product candidate. Round 2 verdicts approved, final evolution reviewed. Proceed under existing local/DCP authorization.
 
+- 2026-10-09 final delivery outcome: Corrected product commit 8121dd888b24773cb938c33102ae48959a80ec6e deployed to /home/dpasare/apps/adore/dcp-implementation-fa033d20-layout/04_Software. Package SHA256 abc66631edb948de0983f8f71a4e3f856d322e25e8b6a0e9a32025a49ea1642b; index-Meczuws2.js SHA256 ba635139b4fef67802aca0006d7d4a832e6d71105e650edc00cded822099d5dd; index-DteeiVrM.css SHA256 549c178426c056d630ed7a853cb5a92848a7c7d2707374343e0a87b4ac299fd0. LAN JS/CSS bytes match and pinned original TLS certificate is retained; public/health/ready routes 200, protected APIs 401, web/worker ready. Six config/pause/run-state hashes, schema14/user1/audit106/18 terminal operations retained; no config writes.
+- 2026-10-09 live visual acceptance: Authenticated aegis Settings/Implementation exposes all four new editors. Duration amount/unit and six-row retry field inspected without prepare/apply on live config; all six stage selectors are 42px high with actions below, full-stage screenshot saved under 07_Delivery/adore-polling-a224af5d/implementation-fa033d20-layout/live-stage-editor.png. Browser remains marked deliverable on unchanged stage draft; offline disposable tests proved exact application. Final deployment-result/backup-cleanup/lan-smoke receipts inspected locally; owned temporary backup removed and backups directory empty. SSH/SCP sessions closed, no push/PR/merge. Journal-only close-out follows; full suite remains deferred.
+
 ## Rulings
 
 - RULING-001 | date=2026-10-09 | decision=Implement recommended editors and independent answer duration, targeted proof and standing local/DCP delivery | reason=User approval plus session delivery/test authority | source=user | supersedes=none
 
 ## Handoff
 
-current: deliver
+current: done
 status: ready
-next: Commit and redeploy the visually corrected candidate
-must_read: .agentic/tasks/TASK-fa033d20.md
+next: none
+must_read: .agentic/specs/implementation-settings.md
 blockers: none
 
 ## Stage report
 
-stage: validate
+stage: deliver
 result: completed
-current: deliver
-changed: Normal-height duration/stage controls and actions below typed editors
-evidence: 2 corrected browser journeys with height/placement at 1280/390px; typecheck/build/strict catalog passed; prior backend/helper proof retained
-issues: Full suite deferred by user; existing warnings
-next: Commit and corrected DCP delivery
+current: done
+changed: Typed Implementation settings and normal-height editors deployed on DCP
+evidence: 145 API/config regressions, 8 conductor, 17 helpers, 6 browser plus 2 layout journeys; build/Ruff/strict catalog; JS/CSS LAN match and live screenshot
+issues: Full suite deferred by user; existing dependency/build/catalog advisories
+next: none
 needs_user: no
 spec_compliance: approved
 implementation_quality: approved
