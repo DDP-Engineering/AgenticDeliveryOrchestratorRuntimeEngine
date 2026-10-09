@@ -49,7 +49,7 @@ The server preview uses the effective agent slug, ticket number `1` and run iden
 | `poll_interval_seconds` | Base wait after each completed CLI loop/web round. | `60` |
 | `poll_jitter_seconds` | Add 0..maximum random seconds after backoff, CLI loop/web. | `5` |
 | `poll_backoff` | Double failed-round waits up to 8x, reset on success; CLI loop/web. | `true` |
-| `max_concurrent_runs` | Capacity ceiling for persisted `working` runs; it does not enable parallel conduction. | `1` |
+| `max_concurrent_runs` | Capacity ceiling for persisted `working` and `handoff-pending` runs; clarification, approval and review waits release capacity. Conduction remains serial. | `1` |
 | `quiet_hours` | Server-local `HH:MM-HH:MM` automatic polling pause windows, CLI loop/web. | `[]` |
 | `readiness.require_acceptance_criteria` | Optional text gate: `acceptance criteria` or an unchecked `- [ ]` item. | `false` |
 | `readiness.require_priority_label` | Require a configured priority. | `true` |
@@ -170,14 +170,28 @@ as stage failures. Resume requires a human comment plus `agent-answered`.
 
 | Key | Meaning | Default |
 | --- | --- | --- |
-| `max_iterations` | Total executor launches. | `20` |
+| `max_iterations` | Total executor launches across stages, including failed attempts, retries and revisions throughout the job lifetime. | `20` |
 | `max_wall_clock_seconds` | Active-work time; re-armed by retry, clarification resume, revision, or approval invalidation. | `3600` |
-| `per_gate_timeout_seconds` | One executor attempt. | `1800` |
-| `max_cost_usd` | Reported model spend. | `5.0` |
-| `max_files_touched` | Product plus governance paths. | `120` |
+| `per_gate_timeout_seconds` | One executor attempt and the strict AEGIS check; recovery may retry a timed-out stage attempt. Stage overrides affect executor attempts only. | `1800` |
+| `max_cost_usd` | Recorded executor-reported model cost in US dollars over the job lifetime; `0` disables the cap. | `5.0` |
+| `max_files_touched` | Distinct product and AEGIS paths changed from the job base, including committed, pending and new files. | `120` |
 
-Budget exhaustion fails immediately, preserves evidence, and requires
-`adore retry` after operator remediation.
+The GUI names `max_iterations` **Maximum executor launches per job** and
+`max_wall_clock_seconds` **Active work time limit (seconds)**. The active clock
+restarts on retry, clarification resume, revision or approval invalidation.
+Time and cost are checked between attempts; an attempt may exceed either cap
+before the next check. Its own timeout bounds that executor launch.
+
+Cost accounting sums recorded usage across the job lifetime. Recording new
+usage requires `metrics.capture_tokens = true` and executor token telemetry;
+cost-only reports do not enter this sum. Values use reported USD without
+currency conversion, subscription allocation or reconstruction of missing cost.
+Previously recorded usage continues to count. The file-count check runs outside
+an unfinished merge; an unavailable Git count skips that check and conduction
+continues. A count exceeding the limit fails the job.
+
+Detected budget exhaustion preserves evidence and requires `adore retry` after
+operator remediation.
 
 ## Delivery and Review
 

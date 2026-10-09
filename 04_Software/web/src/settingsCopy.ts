@@ -31,6 +31,19 @@ export function branchSettingLabel(key: string, locale: Locale): string | null {
   : key === "worktree.branch_rule" ? branchNamingCopy[locale].rule : null;
 }
 
+/** Implementation setting names shared by rows, editors and review. */
+export const implementationLabels: Record<Locale, Record<string, string>> = {
+ en: { "polling.max_concurrent_runs": "Active job limit", "budgets.max_iterations": "Maximum executor launches per job", "budgets.max_wall_clock_seconds": "Active work time limit (seconds)", "budgets.max_files_touched": "Maximum changed files per job", "budgets.max_cost_usd": "Job cost cap (USD)", "budgets.per_gate_timeout_seconds": "Stage attempt time limit (seconds)", "delivery.publish_checkpoints": "Publish progress commits", "workflow.quick_label": "Quick-path suggestion label" },
+ fr: { "polling.max_concurrent_runs": "Limite de tâches actives", "budgets.max_iterations": "Nombre maximal de lancements de l’exécuteur par tâche", "budgets.max_wall_clock_seconds": "Limite de temps de travail actif (secondes)", "budgets.max_files_touched": "Nombre maximal de fichiers modifiés par tâche", "budgets.max_cost_usd": "Plafond de coût de la tâche (USD)", "budgets.per_gate_timeout_seconds": "Limite de temps par tentative d’étape (secondes)", "delivery.publish_checkpoints": "Publier les commits de progression", "workflow.quick_label": "Étiquette de suggestion du chemin rapide" },
+ de: { "polling.max_concurrent_runs": "Limit aktiver Aufträge", "budgets.max_iterations": "Maximale Executor-Starts je Auftrag", "budgets.max_wall_clock_seconds": "Zeitlimit für aktive Arbeit (Sekunden)", "budgets.max_files_touched": "Maximale geänderte Dateien je Auftrag", "budgets.max_cost_usd": "Kostenlimit je Auftrag (USD)", "budgets.per_gate_timeout_seconds": "Zeitlimit je Phasenversuch (Sekunden)", "delivery.publish_checkpoints": "Fortschrittscommits veröffentlichen", "workflow.quick_label": "Label als Schnellpfad-Vorschlag" },
+ ro: { "polling.max_concurrent_runs": "Limita lucrărilor active", "budgets.max_iterations": "Numărul maxim de lansări ale executorului per job", "budgets.max_wall_clock_seconds": "Limita timpului de lucru activ (secunde)", "budgets.max_files_touched": "Numărul maxim de fișiere modificate per job", "budgets.max_cost_usd": "Plafonul costului jobului (USD)", "budgets.per_gate_timeout_seconds": "Limita timpului pentru o încercare de etapă (secunde)", "delivery.publish_checkpoints": "Publică commituri de progres", "workflow.quick_label": "Eticheta de sugestie pentru traseul rapid" },
+};
+
+export function implementationSettingLabel(key: string, locale: Locale): string | null {
+ const labels = implementationLabels[locale];
+ return Object.hasOwn(labels, key) ? labels[key] : null;
+}
+
 /** Human ticket actions and the status names managed by the conductor. */
 export const lifecycleCopy: Record<Locale, { title: string; help: string; labels: Record<string, string> }> = {
  en: { title: "Status labels", help: "Names used for ticket states and clarification replies. ADORE manages the state labels; a person adds the answered label after posting a new reply. Labels alone do not replace a required comment or recovery action.", labels: {
@@ -103,7 +116,7 @@ export const settingsCopy: Record<Locale, typeof en> = {
 
 /** Understandable English catalog labels, including named entries. */
 export function settingLabel(key: string): string {
- const branch = branchSettingLabel(key, "en");
+ const branch = implementationSettingLabel(key, "en") || branchSettingLabel(key, "en");
  if (branch) return branch;
  const labels: Record<string, string> = {
  "labels.lifecycle.ready": "Ready for pickup label", "labels.lifecycle.answered": "Clarification answered label",
@@ -117,7 +130,7 @@ export function settingLabel(key: string): string {
  "container.runtime_env.OPENAI_BASE_URL": "Model endpoint URL", "agent.name": "Agent display name", "agent.slug": "Agent resource name", "agent.email": "Commit author email", "platform.kind": "Repository service", "platform.repo": "Repository owner and name", "platform.login": "Gitea login name",
  "executor.default": "Default coding agent", "executor.mode": "Agent execution mode", "executor.stage_host_auth": "Use host agent sign-in", "executor.questions_file": "Agent question file", "executor.env_keys": "Credential variable names",
  "polling.mode": "Ticket checking mode", "polling.poll_interval_seconds": "Ticket check interval (seconds)", "polling.poll_jitter_seconds": "Random check delay (seconds)", "polling.poll_backoff": "Wait longer after ticket service errors", "polling.max_concurrent_runs": "Active job limit", "polling.quiet_hours": "Hours with no pickup or advancement",
- "budgets.max_iterations": "Maximum iterations per job", "budgets.max_files_touched": "Maximum changed files per job", "budgets.max_cost_usd": "Job cost cap (USD)", "budgets.max_wall_clock_seconds": "Job time limit (seconds)", "budgets.per_gate_timeout_seconds": "Stage attempt time limit (seconds)",
+ "budgets.max_iterations": "Maximum executor launches per job", "budgets.max_files_touched": "Maximum changed files per job", "budgets.max_cost_usd": "Job cost cap (USD)", "budgets.max_wall_clock_seconds": "Active work time limit (seconds)", "budgets.per_gate_timeout_seconds": "Stage attempt time limit (seconds)",
  "container.runtime": "Container runtime command", "container.image": "Agent container image", "container.selinux_relabel": "Shared mount access on SELinux", "container.egress.mode": "Outbound network policy", "container.egress.proxy_port": "Network proxy port", "container.egress.proxy_image": "Network proxy image", "container.egress.network_prefix": "Isolated network name prefix", "container.keep_parked": "Keep containers while waiting", "container.parked_ttl_mode": "Waiting-container retention unit", "container.parked_ttl_seconds": "Waiting-container retention (seconds)", "container.parked_ttl_polls": "Waiting-container retention (checks)",
  "worktree.repo_path": "Existing local repository path", "worktree.root": "Job working folders", "worktree.branch_template": "Job branch name template", "worktree.branch_rule": "Optional branch name rule",
  "delivery.draft": "PR/MR state at publication", "delivery.approval_label": "Human publication approval label", "delivery.publish_checkpoints": "Publish progress commits", "delivery.target_branch": "Target branch", "delivery.remove_source_branch": "Remove branch after human merge", "delivery.reviewers": "Request review from",

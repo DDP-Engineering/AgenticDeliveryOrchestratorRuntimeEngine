@@ -77,7 +77,7 @@ test("admin stages and applies a budget change without changing live config duri
   await openConfiguration(page);
   const before = await (await page.request.get("/api/v1/projects/alpha/config")).json();
   const value = before.config.budgets.max_iterations + 1;
-  await page.getByRole("button", { name: "Edit Maximum iterations per job", exact: true }).click();
+  await page.getByRole("button", { name: "Edit Maximum executor launches per job", exact: true }).click();
   const editor = page.locator(".setting-editor");
   await editor.getByRole("spinbutton").fill(String(value));
   await editor.getByRole("button", { name: "Prepare candidate", exact: true }).click();
@@ -91,7 +91,7 @@ test("admin stages and applies a budget change without changing live config duri
   const applied = await (await page.request.get("/api/v1/projects/alpha/config")).json();
   expect(applied.config.budgets.max_iterations).toBe(value);
   expect(applied.revision).not.toBe(before.revision);
-  const row = page.locator(".setting-row").filter({ has: page.getByText("Maximum iterations per job", { exact: true }) });
+  const row = page.locator(".setting-row").filter({ has: page.getByText("Maximum executor launches per job", { exact: true }) });
   await expect(row.locator(".setting-badge")).toHaveCount(0);
   await expect(row.locator("code").first()).toHaveText(String(value));
 });
@@ -149,7 +149,7 @@ test("narrow viewport menu and configuration editor remain usable", async ({ pag
   await expect(menu).toHaveAttribute("aria-expanded", "true");
   await openConfiguration(page);
   await expect(menu).toHaveAttribute("aria-expanded", "false");
-  await page.getByRole("button", { name: "Edit Maximum iterations per job", exact: true }).click();
+  await page.getByRole("button", { name: "Edit Maximum executor launches per job", exact: true }).click();
   await expect(page.locator(".setting-editor").getByRole("spinbutton")).toBeVisible();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(1);

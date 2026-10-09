@@ -282,7 +282,7 @@ test("purpose guidance, correction, exact safe review/copy and candidate-only di
   await expect(review).toContainText("offline/reviewed-repository");
   await expect(review).toContainText("Prepared by: not recorded");
   await expect(review).toContainText("Stop project pickup");
-  await expect(page.getByRole("button", { name: "Edit Maximum iterations per job", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Edit Maximum executor launches per job", exact: true })).toBeDisabled();
   expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).revision).toBe(before.revision);
   await review.getByRole("button", { name: "Copy safe review" }).click();
   const copied = await page.evaluate(() => navigator.clipboard.readText());
@@ -298,7 +298,7 @@ test("purpose guidance, correction, exact safe review/copy and candidate-only di
 test("server blocked apply preserves review and active configuration", async ({ page }) => {
   await openSettings(page);
   const before = await (await page.request.get("/api/v1/projects/alpha/config")).json();
-  await page.getByRole("button", { name: "Edit Maximum iterations per job", exact: true }).click();
+  await page.getByRole("button", { name: "Edit Maximum executor launches per job", exact: true }).click();
   const editor = page.locator(".setting-editor");
   await editor.getByRole("spinbutton").fill("12");
   await editor.getByRole("button", { name: "Prepare candidate" }).click();
@@ -328,7 +328,7 @@ test("late prepare cannot populate another project and repeated clicks prepare o
     await held;
     await route.fulfill({ response });
   });
-  await page.getByRole("button", { name: "Edit Maximum iterations per job", exact: true }).click();
+  await page.getByRole("button", { name: "Edit Maximum executor launches per job", exact: true }).click();
   await page.locator(".setting-editor").getByRole("spinbutton").fill("13");
   const prepare = page.locator(".setting-editor").getByRole("button", { name: "Prepare candidate" });
   await prepare.click();
@@ -394,6 +394,12 @@ test("purpose guidance and single-setting flow preserve four locales", async ({ 
   const projects = await (await page.request.get("/api/v1/projects")).json();
   const id = projects.find((item: { name: string }) => item.name === "alpha").id;
   const expected = { en: "Repository", fr: "Dépôt", de: "Repository", ro: "Repository" };
+  const implementationNames = {
+    en: ["Active job limit", "Maximum executor launches per job", "Active work time limit (seconds)"],
+    fr: ["Limite de tâches actives", "Nombre maximal de lancements de l’exécuteur par tâche", "Limite de temps de travail actif (secondes)"],
+    de: ["Limit aktiver Aufträge", "Maximale Executor-Starts je Auftrag", "Zeitlimit für aktive Arbeit (Sekunden)"],
+    ro: ["Limita lucrărilor active", "Numărul maxim de lansări ale executorului per job", "Limita timpului de lucru activ (secunde)"],
+  };
   const labelNames = {
     en: ["Ready for pickup label", "Clarification answered label", "Status labels"],
     fr: ["Étiquette de disponibilité pour la prise en charge", "Étiquette de réponse à une clarification", "Étiquettes de statut"],
@@ -425,6 +431,24 @@ test("purpose guidance and single-setting flow preserve four locales", async ({ 
     await expect(page.getByText(labelNames[locale][1], { exact: true })).toBeVisible();
     await expect(page.locator('[id="help-labels.executor.prefix"], [id="help-readiness.max_scope_hint"]')).toHaveCount(0);
     await expect(page.locator('[id="setting-polling.mode"], [id="help-polling.mode"]')).toHaveCount(0);
+    const implementation = page.locator('[data-setting-purpose="implementation"]');
+    await implementation.locator("summary").first().click();
+    for (const [index, key] of ["polling.max_concurrent_runs", "budgets.max_iterations", "budgets.max_wall_clock_seconds"].entries()) {
+      const row = implementation.locator(`[id="setting-${key}"]`);
+      await expect(row.locator("strong")).toHaveText(implementationNames[locale][index]);
+      await expect(row.getByRole("button")).toHaveAccessibleName(new RegExp(implementationNames[locale][index].replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    }
+    const launchRow = implementation.locator('[id="setting-budgets.max_iterations"]');
+    await launchRow.getByRole("button").click();
+    const editor = launchRow.locator(".setting-editor");
+    await expect(editor.getByRole("spinbutton")).toHaveAccessibleName(implementationNames[locale][1]);
+    const active = await (await page.request.get(`/api/v1/projects/${id}/config`)).json();
+    await editor.getByRole("spinbutton").fill(String(active.config.budgets.max_iterations + 1));
+    await editor.locator("button.primary").click();
+    await expect(page.locator(".candidate-review")).toContainText(implementationNames[locale][1]);
+    expect((await (await page.request.get(`/api/v1/projects/${id}/config`)).json()).revision).toBe(active.revision);
+    const csrf = (await (await page.request.get("/api/v1/me")).json()).csrf;
+    await page.request.delete(`/api/v1/projects/${id}/config/pending`, { headers: { "X-CSRF-Token": csrf } });
   }
 });
 
@@ -449,7 +473,7 @@ test("unpaused identity candidate is blocked in the browser without an apply req
 
 test("stale base and malformed restored candidate cannot enable Apply", async ({ page }) => {
   await openSettings(page);
-  await page.getByRole("button", { name: "Edit Maximum iterations per job", exact: true }).click();
+  await page.getByRole("button", { name: "Edit Maximum executor launches per job", exact: true }).click();
   await page.locator(".setting-editor").getByRole("spinbutton").fill("17");
   await page.locator(".setting-editor").getByRole("button", { name: "Prepare candidate" }).click();
   await expect(page.locator(".candidate-review")).toBeVisible();
@@ -469,9 +493,9 @@ test("stale base and malformed restored candidate cannot enable Apply", async ({
   await expect(page.locator("#project-settings")).toContainText("could not be verified");
   await expect(page.getByRole("button", { name: "Apply change", exact: true })).toHaveCount(0);
   await page.locator("#project-settings > .setting-groups > details > summary").filter({hasText:/Implementation/i}).click();
-  await expect(page.getByRole("button", { name: "Edit Maximum iterations per job", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Edit Maximum executor launches per job", exact: true })).toBeDisabled();
   await page.getByRole("button", { name: "Discard change", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Edit Maximum iterations per job", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Edit Maximum executor launches per job", exact: true })).toBeEnabled();
 });
 
 
