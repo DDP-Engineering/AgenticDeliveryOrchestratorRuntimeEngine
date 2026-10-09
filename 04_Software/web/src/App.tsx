@@ -8,7 +8,8 @@ import { Children, cloneElement, isValidElement, useCallback, useEffect, useRef,
 import { aggregateMetrics, aggregateUsage, type Metrics, type Usage } from "./metrics";
 import { messages, type Locale, type MessageKey } from "./i18n";
 import { ModelConnection, validModelEvidence, type ModelEvidence } from "./ModelConnection";
-import { agentSettingsCopy, executorSettingLabel, executorSelectionDraft, validExecutorSelection, validCredentialNames } from "./executorSettings";
+import { agentSettingsCopy, executorSettingLabel, executorSelectionDraft, validExecutorSelection, validCredentialNames, credentialEditorCopy } from "./executorSettings";
+import { CredentialNamesEditor } from "./CredentialNamesEditor";
 import { ExecutorSelectionEditor } from "./ExecutorSelectionEditor";
 import { ExecutorCredentials, executorCopy } from "./ExecutorCredentials";
 import { RepositoryConnection } from "./RepositoryConnection";
@@ -1364,9 +1365,9 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
     if (value === null) return;
     if (await onStage(row.editKey, value)) setEditing("");
   };
-  const editor = (row:SettingRow) => <form className="setting-editor" onSubmit={event => void submit(event, row)}>
+  const editor = (row:SettingRow) => <form className={`setting-editor ${row.input === "agent-selection" ? "executor-agent-editor" : ""}`} onSubmit={event => void submit(event, row)}>
           {row.input === "agent-selection" ? <ExecutorSelectionEditor value={draft} config={config} settings={settings} locale={locale} disabled={disabled} onChange={setDraft}/>
-          : row.input === "credential-names" ? <fieldset className="credential-variable-options" disabled={disabled}><legend>{agentSettingsCopy[locale].variables}</legend><p>{agentSettingsCopy[locale].variableHelp}</p>{row.choices.map(name=>{let names:string[]=[];try{names=JSON.parse(draft);}catch{/* A malformed draft stays disabled. */}return <label key={name}><input type="checkbox" checked={names.includes(name)} onChange={event=>setDraft(JSON.stringify(event.target.checked?[...names,name]:names.filter(item=>item!==name)))}/><span>{name}</span></label>;})}</fieldset>
+          : row.input === "credential-names" ? <CredentialNamesEditor value={draft} choices={row.choices} locale={locale} disabled={disabled} onChange={setDraft}/>
           : row.input === "duration" ? <div className="duration-inputs">
             <label>{editorCopy.amount}<input type="number" min={1} step={1} aria-label={label(row)} aria-describedby={`help-${row.key}`} disabled={disabled} value={durationParts(draft).amount} onChange={event => setDraft(event.target.value + durationParts(draft).unit)} /></label>
             <label>{editorCopy.unit}<select aria-label={editorCopy.unit} disabled={disabled} value={durationParts(draft).unit} onChange={event => setDraft(durationParts(draft).amount + event.target.value)}>{Object.entries(editorCopy.units).map(([unit, name]) => <option key={unit} value={unit}>{name}</option>)}</select></label>
@@ -1382,6 +1383,7 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
             ? <select aria-label={label(row)} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)}>{row.input === "choice" && !row.choices.includes(draft) && <option value={draft} disabled>{draft}</option>}{(row.input === "boolean" ? ["true", "false"] : row.choices).map(option => <option key={option} value={option}>{row.key === "review.on_pipeline_failure" ? pipelineFailureValue(option, locale) ?? option : row.key === "delivery.draft" ? publicationValue(option, locale) : option}</option>)}</select>
             : row.input === "reviewers" ? <textarea rows={6} aria-label={label(row)} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)} required />
             : <input aria-label={label(row)} type={row.input === "number" ? "number" : "text"} step={row.step} min={row.minimum ?? undefined} max={row.maximum ?? undefined} maxLength={BRANCH_NAMING_KEYS.has(row.key) ? 512 : undefined} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)} required={row.input === "number"} />}
+          {row.input === "agent-selection" && <p className="muted">{credentialEditorCopy[locale].inline}</p>}
           {typedValue(row) === null && <p role="alert">{editorCopy.invalid}</p>}
           <div className="button-row"><button className="primary" disabled={disabled || typedValue(row) === null || BRANCH_NAMING_KEYS.has(row.key) && !currentPreview?.valid || row.input === "choice" && !row.choices.includes(draft)}>{copy.prepare}</button><button type="button" className="ghost" onClick={() => setEditing("")}>{t("cancel")}</button></div>
         </form>;
@@ -1392,7 +1394,7 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
           {canEdit && row.input !== "none" && row.restart && <small className="setting-note">{t("settingRestartShort")}</small>}
           {canEdit && row.input === "none" && <small className="setting-note">{t("settingNotEditableShort")}</small>}
         </div>
-        {editing === row.key ? editor(row) : <div><div className="setting-value-heading"><small>{copy.active}</small>
+        {editing === row.key ? editor(row) : editing === "executor.default" && /^executor\.commands\.[^.]+\.(command|model)$/.test(row.key) ? <div className="setting-editor executor-related-editor"><small>{copy.proposed}</small><ExecutorSelectionEditor field={row.key.endsWith(".command") ? "command" : "model"} value={draft} config={config} settings={settings} locale={locale} disabled={disabled} onChange={setDraft}/></div> : <div><div className="setting-value-heading"><small>{copy.active}</small>
           {canEdit && row.input !== "none" && editing !== row.key && <button type="button" className="text-button" disabled={disabled} aria-label={`${t("editSetting")} ${label(row)}`} data-edit-key={row.editKey} onClick={() => { setEditing(row.key); setDraft(row.input === "agent-selection" ? JSON.stringify(executorSelectionDraft(config)) : ["reviewers", "retry-delays"].includes(row.input) && Array.isArray(row.value) ? row.value.join("\n") : editValue(row.value)); }}>{t("editSetting")}</button>}
         </div><code>{row.key === "review.on_pipeline_failure" ? pipelineFailureValue(row.value, locale) ?? shown(row.value) : row.key === "delivery.draft" ? publicationValue(row.value, locale) : shown(row.value)}</code><small>{t("settingDefaultValue")}: {hasDefault(row.defaultValue) ? row.key === "review.on_pipeline_failure" ? pipelineFailureValue(row.defaultValue, locale) ?? shown(row.defaultValue) : row.key === "delivery.draft" ? publicationValue(row.defaultValue, locale) : shown(row.defaultValue) : t("settingNoDefault")}</small></div>}
 

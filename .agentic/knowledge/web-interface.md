@@ -45,8 +45,7 @@ Environment verification records explicit checks against the saved configuration
 revision; Unverified means no current evidence, not an observed failure. Use
 Project details â†’ Summary â†’ Check host prerequisites for the administrator check.
 Pause semantics are available in header help instead of repeated row guidance.
-The dedicated header combines name/repository and Summary, Settings, Executor
-configuration, Prices, Access, Jobs, Statistics, History; Prices/Access are Admin-only. Jobs/Statistics
+The dedicated header combines name/repository and Summary, Settings, Prices, Access, Jobs, Statistics, History; Prices/Access are Admin-only. Jobs/Statistics
 are scoped links. Deletion confirmation clears on page or project changes.
 
 Implementation settings support reviewed edits for human-answer waiting time (positive integer plus seconds/minutes/hours/days), positive question-round count, a nonempty retry schedule (one nonnegative integer per line), and the complete stage-timeout map. The six stage rows choose either the general attempt limit or a positive custom limit in seconds; choosing general removes the override. Retry and timeout collections accept only safe integers and their declared keys; other lists/maps remain read-only except the existing reviewer list. Admins prepare, inspect active/proposed values and apply only at the existing idle boundary; developers remain read-only. Names, help and controls share four locales. The answer deadline is independent of the reserved reminder; reminder format is still checked and no reminder is sent.
@@ -847,7 +846,7 @@ The application shows one dismissible notification for ordinary feedback or the 
 
 Editable settings place **Edit** beside **Active value** in the value column, including narrow screens. Administrators retain candidate review/apply/discard and disabled-state safeguards; developers have read-only rows.
 
-Project Settings purpose categories are collapsed on entry. Opening a category shows equal-width description and active-value columns separated by24px; below640px they stack at full width. Native disclosures retain keyboard operation. Agent and model groups AI connection, selected-agent settings, closed Authentication and external environment guidance. Its complete agent editor and credential-name list stack at full width on mobile.
+Project Settings purpose categories are collapsed on entry. Opening a category shows equal-width description and active-value columns separated by24px; below640px they stack at full width. Native disclosures retain keyboard operation. Agent and model groups AI connection, selected-agent settings, closed Authentication and external environment guidance. Its inline field editors retain the existing row columns and stack using the normal mobile layout; the credential-name dropdown and removable selections wrap within the value column.
 
 ## External executor environment seam
 

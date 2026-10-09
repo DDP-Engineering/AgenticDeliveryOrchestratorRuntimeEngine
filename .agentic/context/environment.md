@@ -113,7 +113,7 @@ or mismatched scoped records fail closed.
 
 Explicit administrator model connectivity uses the selected OpenCode/Pi/Codex/Qwen CLI through a bounded backend-native disposable workspace; see knowledge/model-connection.md. Real provider acceptance is operator-triggered and may incur cost.
 
-Project Executor configuration owns agent/model settings, reviewed backend-specific launch configuration and approved provider key save/remove within one panel, with heading Test AI connection; strict durable credential-bound model access evidence is reused in Summary/host presentation. See knowledge/executor-configuration.md. Subscription login remains the installed CLI service-account flow.
+Project Settings → Agent and model owns agent/model settings, reviewed backend-specific launch configuration and approved provider key save/remove within one panel, with inline selected-agent fields and credential-name dropdown, plus Test AI connection; strict durable credential-bound model access evidence is reused in Summary/host presentation. See knowledge/executor-configuration.md. Subscription login remains the installed CLI service-account flow.
 
 ## Reviewed container preparation
 

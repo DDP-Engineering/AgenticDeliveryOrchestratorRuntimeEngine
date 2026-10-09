@@ -46,3 +46,11 @@ export function executorSelectionDraft(config:Record<string,unknown>,agent?:stri
  const name=agent || executor.default || "opencode", command=executor.commands?.[name];
  return {agent:name,command:command?.command || "",model:command?.model || ""};
 }
+
+
+export const credentialEditorCopy = {
+ en:{add:"Add credential variable",choose:"Choose a variable…",selected:"Selected variables",remove:"Remove",inline:"Edit the command and model in their rows below, then prepare the complete change here."},
+ ro:{add:"Adaugă o variabilă de autentificare",choose:"Alege o variabilă…",selected:"Variabile selectate",remove:"Elimină",inline:"Editează comanda și modelul pe rândurile de mai jos, apoi pregătește aici schimbarea completă."},
+ fr:{add:"Ajouter une variable d’identification",choose:"Choisir une variable…",selected:"Variables sélectionnées",remove:"Supprimer",inline:"Modifiez la commande et le modèle dans leurs lignes ci-dessous, puis préparez ici la modification complète."},
+ de:{add:"Zugangsdaten-Variable hinzufügen",choose:"Variable auswählen…",selected:"Ausgewählte Variablen",remove:"Entfernen",inline:"Bearbeiten Sie Befehl und Modell in ihren Zeilen unten und bereiten Sie hier die vollständige Änderung vor."},
+};

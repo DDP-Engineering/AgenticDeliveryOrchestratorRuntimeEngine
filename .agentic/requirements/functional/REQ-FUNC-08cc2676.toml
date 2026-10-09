@@ -17,7 +17,7 @@ requirement = "When an administrator prepares allowed provider variable names, A
 
 verification = "Authenticated API tests review/apply provider-name lists and empty subscription lists, preserve dotenv bytes, and reject malformed, duplicate, unknown-new or forge names; existing private credential APIs continue to expose sources only."
 
-affected_paths = ["04_Software/adore/web/app.py", "04_Software/adore/web/executor_configuration.py", "04_Software/adore/web/implementation_settings.py", "04_Software/web/src/executorSettings.ts", "04_Software/web/src/ExecutorSelectionEditor.tsx", "04_Software/web/src/settings.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/ExecutorCredentials.tsx", "04_Software/web/src/routes.ts", "04_Software/web/src/styles.css", "04_Software/tests/test_web_executor_configuration.py", "04_Software/tests/test_web_config.py"]
+affected_paths = ["04_Software/adore/web/app.py", "04_Software/adore/web/executor_configuration.py", "04_Software/adore/web/implementation_settings.py", "04_Software/web/src/executorSettings.ts", "04_Software/web/src/ExecutorSelectionEditor.tsx", "04_Software/web/src/CredentialNamesEditor.tsx", "04_Software/web/src/settings.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/ExecutorCredentials.tsx", "04_Software/web/src/routes.ts", "04_Software/web/src/styles.css", "04_Software/tests/test_web_executor_configuration.py", "04_Software/tests/test_web_config.py"]
 
 linked_tests = ["04_Software/tests/test_web_executor_configuration.py", "04_Software/web/tests/settings.test.mjs", "04_Software/web/e2e/executor-config.spec.ts"]
 

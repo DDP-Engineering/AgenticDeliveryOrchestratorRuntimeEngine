@@ -4,6 +4,7 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
+import {agentSettingsCopy,credentialEditorCopy} from "../src/executorSettings";
 import {test, expect} from "@playwright/test";
 
 test("executor workspace owns model, credentials and coherent evidence", async ({page}) => {
@@ -137,7 +138,66 @@ test("agent and provider drafts have complete review and fit mobile",async({page
  await review.getByRole("button",{name:"Discard change",exact:true}).click();
  await page.locator('[data-setting-topic="authentication"] > summary').click();
  await page.getByRole("button",{name:"Edit Allowed credential variables",exact:true}).click();
- await page.getByRole("checkbox",{name:"OPENROUTER_API_KEY",exact:true}).check();
+ await page.getByLabel("Add credential variable",{exact:true}).selectOption("OPENROUTER_API_KEY");
  await page.locator(".setting-editor").getByRole("button",{name:"Prepare candidate",exact:true}).click(); await expect(review).toContainText("OPENROUTER_API_KEY");
  await review.getByRole("button",{name:"Discard change",exact:true}).click();
+});
+
+
+test("inline executor editors retain columns and use a credential dropdown",async({page})=>{
+ await page.context().route("**/*",route=>new URL(route.request().url()).origin==="http://127.0.0.1:18765"?route.continue():route.abort());
+ await page.goto("/");await page.getByLabel("Username",{exact:false}).fill("admin");await page.getByLabel("Password",{exact:false}).fill("admin");await page.getByRole("button",{name:"Sign in",exact:true}).click();
+ await expect(page.getByRole("navigation",{name:"Primary navigation",exact:true})).toBeVisible();
+ const projects=await(await page.request.get("/api/v1/projects")).json();const id=projects.find((p:{name:string})=>p.name==="alpha").id;
+ await page.goto(`/projects/${id}/configuration`);await page.getByText("Agent and model (6)",{exact:true}).click();
+ const row=page.locator('[id="setting-executor.default"]');
+ const before=await row.locator(':scope > div').nth(1).boundingBox();
+ await row.getByRole("button",{name:"Edit Default coding agent",exact:true}).click();
+ const editor=await row.locator(':scope > form').boundingBox();
+ expect(Math.abs(editor!.x-before!.x)).toBeLessThan(2);
+ expect(Math.abs(editor!.width-before!.width)).toBeLessThan(2);
+ await expect(row.getByLabel("Executor launch command",{exact:true})).toHaveCount(0);
+ await expect(page.locator('[id="setting-executor.commands.opencode.command"]').getByLabel("Executor launch command",{exact:true})).toBeVisible();
+ await expect(page.locator('[id="setting-executor.commands.opencode.model"]').getByLabel("Executor model identifier",{exact:true})).toBeVisible();
+ await page.getByLabel("Default coding agent",{exact:true}).selectOption("codex");
+ await expect(row.getByRole("button",{name:"Prepare candidate",exact:true})).toBeDisabled();
+ await page.getByLabel("Executor model identifier",{exact:true}).fill("offline-inline-model");
+ await row.getByRole("button",{name:"Prepare candidate",exact:true}).click();
+ await expect(page.locator(".candidate-review")).toContainText("offline-inline-model");
+ await page.locator(".candidate-review").getByRole("button",{name:"Discard change",exact:true}).click();
+ await expect(row.locator("code")).toHaveText("opencode");
+ await page.locator('[data-setting-topic="authentication"] > summary').click();
+ await page.getByRole("button",{name:"Edit Allowed credential variables",exact:true}).click();
+ const names=page.locator('[id="setting-executor.env_keys"]');
+ await expect(names.getByRole("checkbox")).toHaveCount(0);
+ await names.getByLabel("Add credential variable",{exact:true}).selectOption("OPENROUTER_API_KEY");
+ await expect(names.getByRole("button",{name:"Remove OPENROUTER_API_KEY",exact:true})).toBeVisible();
+ await expect(names.getByLabel("Add credential variable",{exact:true}).locator('option[value="OPENROUTER_API_KEY"]')).toBeDisabled();
+ await names.getByLabel("Add credential variable",{exact:true}).selectOption("GEMINI_API_KEY");
+ await names.getByRole("button",{name:"Remove OPENROUTER_API_KEY",exact:true}).click();
+ await expect(names.getByRole("button",{name:"Remove OPENROUTER_API_KEY",exact:true})).toHaveCount(0);
+ await expect(names.getByRole("button",{name:"Remove GEMINI_API_KEY",exact:true})).toBeVisible();
+ await names.getByRole("button",{name:"Cancel",exact:true}).click();
+});
+
+
+test("inline executor and credential dropdown controls preserve four locales",async({page})=>{
+ await page.context().route("**/*",route=>new URL(route.request().url()).origin==="http://127.0.0.1:18765"?route.continue():route.abort());
+ await page.goto("/");await page.getByLabel("Username",{exact:false}).fill("admin");await page.getByLabel("Password",{exact:false}).fill("admin");await page.getByRole("button",{name:"Sign in",exact:true}).click();
+ await expect(page.getByRole("navigation",{name:"Primary navigation",exact:true})).toBeVisible();
+ const projects=await(await page.request.get("/api/v1/projects")).json();const id=projects.find((p:{name:string})=>p.name==="alpha").id;
+ for(const locale of ["ro","fr","de","en"] as const){
+  await page.goto("/account");const saved=page.waitForResponse(r=>r.url().endsWith("/me/preferences")&&r.request().method()!=="GET");
+  await page.locator(".form-stack select").first().selectOption(locale);await saved;
+  await page.goto(`/projects/${id}/configuration`);await page.locator('[data-setting-purpose="executor"] > summary').click();
+  const agent=page.locator('[id="setting-executor.default"]');await agent.getByRole("button").click();
+  await expect(agent.getByLabel(agentSettingsCopy[locale].agent,{exact:true})).toBeVisible();
+  await expect(page.locator('[id="setting-executor.commands.opencode.model"]').getByLabel(agentSettingsCopy[locale].model,{exact:true})).toBeVisible();
+  await agent.locator('button.ghost').click();await page.locator('[data-setting-topic="authentication"] > summary').click();
+  const names=page.locator('[id="setting-executor.env_keys"]');await names.getByRole("button").click();
+  await names.getByLabel(credentialEditorCopy[locale].add,{exact:true}).selectOption("OPENROUTER_API_KEY");
+  await names.getByRole("button",{name:`${credentialEditorCopy[locale].remove} OPENROUTER_API_KEY`,exact:true}).click();
+  await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await names.locator('button.ghost').click();await page.setViewportSize({width:1280,height:720});
+ }
 });

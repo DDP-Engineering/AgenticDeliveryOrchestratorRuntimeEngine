@@ -57,6 +57,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Keep complete agent editing within the existing setting rows and select allowed credential variables through a compact dropdown with removable names.
+
 - Web statistics and exports respect the configured summary database; statistics storage paths are managed externally with only an informational database file in Settings.
 
 - Clarify PR/MR CI failure actions in all four dashboard languages and align the Integration branch reference with standard setting values.

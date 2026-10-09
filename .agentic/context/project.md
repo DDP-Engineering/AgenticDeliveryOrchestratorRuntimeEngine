@@ -55,7 +55,7 @@ OpenCode, Pi, Codex and Qwen Code.
   Header help discloses localized delivery meanings beside Refresh/About; sidebar
   Jobs supplies scoped full-history navigation.
   Settings → Agent and model unifies agent selection, provider credentials and model testing,
-  with server-authoritative agent and exact launch-preset choices through reviewed apply.
+  with server-authoritative agent and exact launch-preset choices through reviewed apply, inline field editors retaining row columns and a names-only credential dropdown with removable selections.
   Settings uses six purpose
   categories and closed informational Technical details, with clarification/recovery/statistics-path topics and one Repository branch editor linked from PR/MR, visible catalog guidance and exact single-candidate active/proposed
   review with explicit base/candidate binding, idle/lock/pause safety and Dev
