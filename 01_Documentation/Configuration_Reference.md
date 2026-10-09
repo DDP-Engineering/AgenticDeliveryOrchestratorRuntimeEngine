@@ -265,6 +265,18 @@ consuming a slot, and terminal runs retain state evidence.
 best-effort and can never change governance outcomes. `capture_resource` is
 reserved; ADORE currently performs no resource-usage probing.
 
+Statistics displays **Statistics database file** as an informational row with
+four-locale guidance. Server `config.toml` owns `metrics.db_path`,
+`metrics.export_jsonl` and `metrics.html_out`; web candidate preparation rejects
+all three. JSONL and static HTML paths remain available through TOML/CLI and
+are omitted from Project Settings controls. Project/global statistics, usage
+and their CSV exports read summaries from the configured database with the
+same relative-path semantics as CLI. Missing databases contribute no summaries
+and remain absent; malformed configuration or database evidence returns the
+existing typed 503 response. Metadata-only profiles retain their state-root
+summary history until a configuration file exists. Analytical reads preserve
+SQLite bytes, authorization, scope and financial redaction.
+
 ## Web executor configuration
 
 Project → Executor configuration owns executor fields and the applicable OpenCode endpoint form. The saved default/model is edited through reviewed candidates; existing configured command tables determine choices. Model IDs use the installed CLI/provider syntax. API keys are stored through Provider credentials in the selected profile .env, limited to known names already in executor.env_keys. Subscription credentials retain the configured CLI login bridge/mount. New jobs use applied values; active jobs retain their durable configuration. Current explicit model evidence is invalidated by configuration/credential changes. See [Executor configuration](../05_SoftwareDocu/Component_Executor_Configuration.md).

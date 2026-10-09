@@ -1601,6 +1601,8 @@ def _editable_setting_key(key: str, *, endpoint: bool = False) -> bool:
                 edited through its own validated form.
     @return     True when the key may be staged from the browser.
     """
+    if key in {"metrics.db_path", "metrics.export_jsonl", "metrics.html_out"}:
+        return False
     if key in {"clarification.answer_timeout", "clarification.max_rounds"}:
         return True
     return not (
@@ -1998,7 +2000,7 @@ def _usage_view(profiles: ProfileStore, profile, admin: bool, web: WebStore,
         scope = analytics.Scope.create(day_from, day_to, timezone, granularity)
         analytics.usage_report([], "", scope, [], False, executor, model)
         store, sources, prices = _analytics_sources(profiles, profile, web, admin)
-        summaries = metrics.load_analytical_summaries(store.root / "metrics.db")
+        summaries = _configured_summaries(profiles, profile, store)
         result = analytics.usage_report(sources, profile.project_id, scope, prices,
                                         admin, executor, model, summaries)
     except metrics.MetricsError as exc:
@@ -2074,6 +2076,37 @@ def _usage_csv(views: list[tuple[object, dict]], admin: bool, global_view: bool,
     return _analytical_csv(views, admin, global_view, "usage", empty_scope)
 
 
+def _configured_summaries(
+    profiles: ProfileStore, profile, store: StateStore,
+) -> list[metrics.RunSummary]:
+    """
+    @brief      Read analytical summaries from the same configured path as CLI.
+    @param[in]  profiles Profile configuration owner.
+    @param[in]  profile Authorized project identity.
+    @param[in]  store Historical state owner for metadata-only profiles.
+    @return     Validated summaries without creating or modifying the database.
+    @exception  metrics.MetricsError Unreadable or malformed configuration/evidence.
+    @note       Relative paths use the process working folder, matching CLI.
+                Metadata-only profiles retain their existing state-root history.
+    """
+    path = profiles.config_path(profile.name)
+    try:
+        config = load_config(path)
+        declared = config.raw.get("metrics", {})
+        if not isinstance(declared, dict) or not isinstance(declared.get("db_path", ""), str):
+            raise ValueError("invalid statistics database declaration")
+        database = config.metrics.db_path
+        if not isinstance(database, str) or not database.strip() or "\0" in database:
+            raise ValueError("invalid statistics database path")
+    except FileNotFoundError as exc:
+        if path.is_symlink():
+            raise metrics.MetricsError("statistics configuration unavailable") from exc
+        database = store.root / "metrics.db"
+    except (OSError, ValueError, TypeError, AttributeError) as exc:
+        raise metrics.MetricsError("statistics configuration invalid") from exc
+    return metrics.load_analytical_summaries(database)
+
+
 def _metric_view(profiles: ProfileStore, profile, admin: bool,
                  web: WebStore, day_from: date | None = None,
                  day_to: date | None = None, timezone: str = "UTC",
@@ -2082,7 +2115,7 @@ def _metric_view(profiles: ProfileStore, profile, admin: bool,
     try:
         scope = analytics.Scope.create(day_from, day_to, timezone, granularity)
         store, sources, prices = _analytics_sources(profiles, profile, web, admin)
-        summaries = metrics.load_analytical_summaries(store.root / "metrics.db")
+        summaries = _configured_summaries(profiles, profile, store)
         return analytics.metric_report(sources, summaries, profile.project_id,
                                         scope, prices, admin)
     except metrics.MetricsError as exc:

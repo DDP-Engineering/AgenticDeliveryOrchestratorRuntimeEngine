@@ -53,6 +53,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Web statistics and exports respect the configured summary database; statistics storage paths are managed externally with only an informational database file in Settings.
+
 - Clarify PR/MR CI failure actions in all four dashboard languages and align the Integration branch reference with standard setting values.
 
 - Clarify the pickup exclusion label in all four GUI locales: exclusion lasts while the label is present and does not stop already-started jobs.

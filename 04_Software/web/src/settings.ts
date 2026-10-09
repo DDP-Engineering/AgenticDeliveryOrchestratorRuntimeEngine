@@ -73,6 +73,7 @@ export const settingValue = (config: Record<string, unknown>, key: string): unkn
     current && typeof current === "object" ? (current as Record<string, unknown>)[part] : undefined, config);
 
 const inputKind = (item: SettingMeta): InputKind => {
+  if (item.key === "metrics.db_path") return "none";
   if (settingPurpose(item.key) === "technical" || item.key.startsWith("worktree.") && !BRANCH_NAMING_KEYS.has(item.key)) return "none";
   if (item.editable && item.key === "clarification.answer_timeout" && item.type === "text") return "duration";
   if (item.editable && item.key === "recovery.retry_backoff_seconds" && item.type === "list") return "retry-delays";
@@ -121,7 +122,7 @@ export const HIDDEN_SETTING_KEYS = new Set([
   "labels.selection.type_feature", "review.trigger", "review.review_reminder_after",
   "clarification.reminder_after", "clarification.timeout_state", "metrics.capture_resource",
   "reconcile.on_ticket_closed", "reconcile.on_ticket_deleted", "reconcile.on_trigger_removed",
-  "executor.mode", "polling.mode",
+  "executor.mode", "polling.mode", "metrics.export_jsonl", "metrics.html_out",
 ]);
 
 /** Ticket state names share one optional disclosure; ready is the pickup action. */

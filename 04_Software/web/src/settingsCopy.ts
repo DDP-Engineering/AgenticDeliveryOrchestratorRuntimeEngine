@@ -72,6 +72,14 @@ export const excludeLabelCopy: Record<Locale, { label: string }> = {
  ro: { label: "Eticheta de excludere de la preluare" },
 };
 
+/** Statistics storage is configured externally and shown informationally. */
+export const statisticsDatabaseCopy: Record<Locale, { label: string }> = {
+ en: { label: "Statistics database file" },
+ fr: { label: "Fichier de la base de statistiques" },
+ de: { label: "Statistik-Datenbankdatei" },
+ ro: { label: "Fișierul bazei de date pentru statistici" },
+};
+
 /** The integration branch supplies both the worktree base and the PR/MR target. */
 export const targetBranchCopy: Record<Locale, { label: string }> = {
  en: { label: "Target branch" },
@@ -129,6 +137,7 @@ export const settingsCopy: Record<Locale, typeof en> = {
 
 /** Understandable English catalog labels, including named entries. */
 export function settingLabel(key: string): string {
+ if (key === "metrics.db_path") return statisticsDatabaseCopy.en.label;
  if (key === "review.on_pipeline_failure") return pipelineFailureCopy.en.label;
  const branch = implementationSettingLabel(key, "en") || branchSettingLabel(key, "en");
  if (branch) return branch;
@@ -149,7 +158,7 @@ export function settingLabel(key: string): string {
  "worktree.repo_path": "Existing local repository path", "worktree.root": "Job working folders", "worktree.branch_template": "Job branch name template", "worktree.branch_rule": "Optional branch name rule",
  "delivery.draft": "PR/MR state at publication", "delivery.approval_label": "Human publication approval label", "delivery.publish_checkpoints": "Publish progress commits", "delivery.target_branch": "Target branch", "delivery.remove_source_branch": "Remove branch after human merge", "delivery.reviewers": "Request review from",
  "workflow.default_kind": "Default task type", "workflow.aegis_python": "Workflow Python command", "workflow.quick_label": "Quick-path suggestion label", "state.channel": "State reporting channel", "state.store_root": "Durable job state folder", "review.trigger": "Review request method", "review.revise_label": "Revision request label", "review.max_review_rounds": "Maximum revision rounds", "review.on_pipeline_failure": "Action when PR/MR CI checks fail", "review.review_reminder_after": "Review reminder interval (reserved)",
- "recovery.max_stage_failures": "Failed attempts allowed per stage", "recovery.max_transient_retries": "Attempts allowed for temporary errors", "recovery.retry_backoff_seconds": "Retry delays (seconds)", "metrics.enabled": "Record completed job measurements", "metrics.capture_tokens": "Record agent-reported tokens", "metrics.capture_resource": "Resource measurement (reserved)", "metrics.db_path": "Measurement database path", "metrics.export_jsonl": "Measurement export path", "metrics.html_out": "Statistics HTML output path",
+ "recovery.max_stage_failures": "Failed attempts allowed per stage", "recovery.max_transient_retries": "Attempts allowed for temporary errors", "recovery.retry_backoff_seconds": "Retry delays (seconds)", "metrics.enabled": "Record completed job measurements", "metrics.capture_tokens": "Record agent-reported tokens", "metrics.capture_resource": "Resource measurement (reserved)", "metrics.db_path": "Statistics database file", "metrics.export_jsonl": "Measurement export path", "metrics.html_out": "Statistics HTML output path",
  "readiness.max_scope_hint": "Ticket scope hint (reserved)", "readiness.require_acceptance_criteria": "Require ticket acceptance criteria", "readiness.require_priority_label": "Require ticket priority label",
  "reconcile.on_ticket_closed": "Response when a ticket closes (reserved)", "reconcile.on_ticket_deleted": "Response when a ticket is deleted (reserved)", "reconcile.on_trigger_removed": "Response when pickup label is removed (reserved)",
  "clarification.answer_timeout": "Time allowed for a human answer", "clarification.reminder_after": "Human answer reminder interval", "clarification.max_rounds": "Maximum question rounds", "clarification.timeout_state": "Outcome when an answer expires",

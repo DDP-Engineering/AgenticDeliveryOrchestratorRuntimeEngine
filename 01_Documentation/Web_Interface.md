@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # ADORE web interface
 
-Project Settings follows **Repository → Tickets → Implementation → PR/MR and review → Statistics**, followed by closed **Technical details**. Repository owns platform/author identity and the single integration-branch editor; PR/MR shows its value and a link that opens/focuses that row. Tickets owns eligibility, polling, priority/type and pickup/status labels; hold/exclude affect pickup, not already-started jobs. Implementation owns capacity, budgets and progress commits, with closed Clarifications, Recovery after errors and Advanced stage time limits. Statistics owns recording/token switches with closed Advanced statistics paths. Technical details and worktree paths are read-only; Repository branch naming uses reviewed edits and a server-checked example; runtime installation stays external and Executor configuration remains its separate page. Inactive reserved controls are omitted without changing CLI configuration. All categories start closed, retain reviewed Admin edits and Dev redaction, and have four-locale names.
+Project Settings follows **Repository → Tickets → Implementation → PR/MR and review → Statistics**, followed by closed **Technical details**. Repository owns platform/author identity and the single integration-branch editor; PR/MR shows its value and a link that opens/focuses that row. Tickets owns eligibility, polling, priority/type and pickup/status labels; hold/exclude affect pickup, not already-started jobs. Implementation owns capacity, budgets and progress commits, with closed Clarifications, Recovery after errors and Advanced stage time limits. Statistics owns recording/token switches and the informational database file inside closed Advanced statistics paths. Technical details and worktree paths are read-only; Repository branch naming uses reviewed edits and a server-checked example; runtime installation stays external and Executor configuration remains its separate page. Inactive reserved controls are omitted without changing CLI configuration. All categories start closed, retain reviewed Admin edits and Dev redaction, and have four-locale names.
 
 **Maximum revision rounds** belongs to **PR/MR and review**. Its shared CLI/web default is five; explicit project limits remain effective. **Require ticket acceptance criteria** defaults to false, while priority remains required by default. Supported readiness settings contain no component requirement.
 
@@ -1011,6 +1011,18 @@ Only a valid completed challenge response reports connected. Failures provide re
 
 
 ## Project setting scope and guidance
+
+Statistics displays **Statistics database file** as an informational row with
+four-locale guidance. Server `config.toml` owns `metrics.db_path`,
+`metrics.export_jsonl` and `metrics.html_out`; web candidate preparation rejects
+all three. JSONL and static HTML paths remain available through TOML/CLI and
+are omitted from Project Settings controls. Project/global statistics, usage
+and their CSV exports read summaries from the configured database with the
+same relative-path semantics as CLI. Missing databases contribute no summaries
+and remain absent; malformed configuration or database evidence returns the
+existing typed 503 response. Metadata-only profiles retain their state-root
+summary history until a configuration file exists. Analytical reads preserve
+SQLite bytes, authorization, scope and financial redaction.
 
 PR/MR settings names the CI response **Action when PR/MR CI checks fail**.
 Active/default values, option labels and candidate review use **Automatic repair**,

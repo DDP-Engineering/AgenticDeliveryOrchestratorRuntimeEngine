@@ -26,6 +26,18 @@ Only `worktree.branch_template` and `worktree.branch_rule` are exceptions to the
 
 ## 1. Purpose
 
+Statistics displays **Statistics database file** as an informational row with
+four-locale guidance. Server `config.toml` owns `metrics.db_path`,
+`metrics.export_jsonl` and `metrics.html_out`; web candidate preparation rejects
+all three. JSONL and static HTML paths remain available through TOML/CLI and
+are omitted from Project Settings controls. Project/global statistics, usage
+and their CSV exports read summaries from the configured database with the
+same relative-path semantics as CLI. Missing databases contribute no summaries
+and remain absent; malformed configuration or database evidence returns the
+existing typed 503 response. Metadata-only profiles retain their state-root
+summary history until a configuration file exists. Analytical reads preserve
+SQLite bytes, authorization, scope and financial redaction.
+
 `adore.web.app.create_app` exposes the same-origin `/api/v1` API and serves
 the bundled React build. `adore.web.server` runs it on loopback by default.
 The server refuses non-loopback binds and trusts forwarded scheme/client

@@ -61,6 +61,9 @@ test("flow visibility omits inactive and external fields and keeps technical row
  assert.equal(typeof settingVisible, "function");
  assert.equal(settingVisible("polling.mode"), false);
  assert.equal(settingVisible("polling.mode", true), false);
+ for (const key of ["metrics.export_jsonl", "metrics.html_out"]) assert.equal(settingVisible(key), false);
+ assert.equal(settingVisible("metrics.db_path"), true);
+ assert.equal(settingRows({}, [meta("metrics.db_path", "project", true)])[0].input, "none");
  for (const key of ["polling.poll_interval_seconds", "polling.poll_jitter_seconds", "polling.poll_backoff"]) assert.equal(settingVisible(key), true, key);
  for (const key of ["state.channel", "review.trigger", "review.review_reminder_after", "clarification.reminder_after", "clarification.timeout_state", "metrics.capture_resource", "labels.selection.type_feature", "reconcile.on_ticket_closed", "executor.mode", "container.image", "execution.backend", "local.account", "worktree.future_field"]) assert.equal(settingVisible(key), false, key);
  for (const key of ["worktree.repo_path", "worktree.root", "worktree.branch_template", "worktree.branch_rule", "state.store_root", "agent.slug"]) assert.equal(settingVisible(key), true, key);

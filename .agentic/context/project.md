@@ -167,6 +167,8 @@ credential drafts remain transient and clear on success or leaving the page.
 
 ## Web reporting scope
 
+Web analytical summaries use the profile-configured statistics database with CLI path semantics; the database file is informational in Settings and JSONL/HTML destinations are server TOML/CLI configuration.
+
 Web analytics resolves inclusive local calendar controls to canonical half-open
 UTC instants with explicit all-time. Scoped lifecycle/consumption/quality and
 server-selected duration samples share that contract. Current-state stock,

@@ -31,6 +31,86 @@ import pytest
 
 
 # PUBLIC API
+@pytest.mark.parametrize("relative", [False, True])
+def test_configured_statistics_database_drives_project_global_and_exports(
+    tmp_path, monkeypatch, relative,
+):
+    """@brief Configured summaries drive authorized reports, never a default-path decoy."""
+    monkeypatch.chdir(tmp_path)
+    profiles = ProfileStore(tmp_path / "home")
+    profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
+    database = Path("custom/stats.db") if relative else tmp_path / "custom/stats.db"
+    profiles.config_path("alpha").write_text(
+        '[metrics]\ndb_path = ' + json.dumps(str(database)) + '\n', encoding="utf-8"
+    )
+    metrics.record_summary(database, metrics.RunSummary(
+        run_id="configured-history", lifecycle="done", tokens_in=17,
+        started_at="2026-01-02T00:00:00Z", ended_at="2026-01-02T00:01:00Z", span_seconds=60,
+    ))
+    metrics.record_summary(Path(profile.store_root) / "metrics.db", metrics.RunSummary(
+        run_id="wrong-default", lifecycle="done", tokens_in=99,
+    ))
+    before = database.read_bytes()
+    app = create_app(profiles.home)
+    developer = app.state.web_store.create_user("dev", "longer-password", "developer")
+    app.state.web_store.set_memberships(developer["id"], ["alpha"])
+    with TestClient(app) as client:
+        client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
+        for route in ("/api/v1/projects/alpha/metrics", "/api/v1/projects/alpha/usage",
+                      "/api/v1/metrics", "/api/v1/usage", "/api/v1/projects/alpha/metrics.csv",
+                      "/api/v1/projects/alpha/usage.csv", "/api/v1/metrics.csv",
+                      "/api/v1/usage.csv",
+                      "/api/v1/projects/alpha/jobs-usage.csv", "/api/v1/jobs-usage.csv"):
+            response = client.get(route)
+            assert response.status_code == 200, response.text
+            if route.endswith("metrics.csv"):
+                rows = list(csv.DictReader(StringIO(response.text)))
+                assert len(rows) == 1
+                assert rows[0]["date"] == "2026-01-02" and rows[0]["completed"] == "1"
+            elif route.endswith("/usage.csv"):
+                # Summary-only tokens have no dated usage event to export.
+                assert list(csv.DictReader(StringIO(response.text))) == []
+            else:
+                assert "configured-history" in response.text
+            assert "wrong-default" not in response.text
+        client.post("/api/v1/session", json={"username": "dev", "password": "longer-password"})
+        assert "configured-history" in client.get("/api/v1/projects/alpha/metrics").text
+        assert client.get("/api/v1/metrics").status_code == 403
+    assert database.read_bytes() == before
+
+
+@pytest.mark.parametrize("content", [None, "not sqlite", 'db_path = 42', 'db_path = 0',
+                                     'db_path = false', 'db_path = ["bad"]',
+                                     'db_path = ""', 'db_path = "\\u0000"', 'broken = ['])
+def test_configured_statistics_database_missing_or_invalid_never_uses_default(tmp_path, content):
+    """@brief Missing configured files stay absent; invalid config/database fails closed."""
+    profiles = ProfileStore(tmp_path / "home")
+    profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
+    database = tmp_path / "custom.db"
+    value = 'db_path = ' + json.dumps(str(database))
+    if content == "not sqlite":
+        database.write_text(content, encoding="utf-8")
+    elif content is not None:
+        value = content
+    profiles.config_path("alpha").write_text('[metrics]\n' + value + '\n', encoding="utf-8")
+    metrics.record_summary(
+        Path(profile.store_root) / "metrics.db", metrics.RunSummary(run_id="wrong-default"),
+    )
+    with TestClient(create_app(profiles.home)) as client:
+        client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
+        for route, code in (("metrics", "metrics_corrupt"), ("usage", "usage_corrupt")):
+            response = client.get(f"/api/v1/projects/alpha/{route}")
+            # Empty values retain the CLI-derived default, independent of profile metadata.
+            if content is None or content == 'db_path = ""':
+                assert response.status_code == 200
+                assert "wrong-default" not in response.text
+            else:
+                assert response.status_code == 503
+                assert response.json()["detail"]["code"] == code
+    if content is None:
+        assert not database.exists()
+
+
 @pytest.mark.parametrize(
     ("day", "start", "end", "hours"),
     [

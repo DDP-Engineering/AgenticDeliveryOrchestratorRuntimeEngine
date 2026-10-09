@@ -13,7 +13,7 @@ title = "Project settings follow Git delivery flow"
 
 status = "active"
 
-requirement = "When an authorized operator opens Project Settings, ADORE shall present each visible setting once in Repository, Tickets, Implementation, PR/MR, Statistics or closed Technical details, with a single Repository integration-branch editor referenced from PR/MR, localized clarification/recovery/advanced disclosures, informational installation fields and separate Executor configuration while omitting inactive controls and preserving reviewed administrator and redacted read-only developer authority."
+requirement = "When an authorized operator opens Project Settings, ADORE shall present each visible setting once in Repository, Tickets, Implementation, PR/MR, Statistics or closed Technical details, with a single Repository integration-branch editor referenced from PR/MR, an informational Statistics database file configured externally and CLI/TOML-only JSONL/HTML paths omitted, localized clarification/recovery/advanced disclosures, informational installation fields and separate Executor configuration while omitting inactive controls and preserving reviewed administrator and redacted read-only developer authority."
 
 verification = "Helper routing/visibility tests and offline browser journeys check exact category ownership/order, native subgroups, target-link opening without a second editor, inactive/external control absence, unchanged config revision, Admin candidate review, Dev redaction, four locales and narrow light/dark layout."
 

@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Web frontend
 
-Project Settings follows **Repository → Tickets → Implementation → PR/MR and review → Statistics**, followed by closed **Technical details**. Repository owns platform/author identity and the single integration-branch editor; PR/MR shows its value and a link that opens/focuses that row. Tickets owns eligibility, polling, priority/type and pickup/status labels; hold/exclude affect pickup, not already-started jobs. Implementation owns capacity, budgets and progress commits, with closed Clarifications, Recovery after errors and Advanced stage time limits. Statistics owns recording/token switches with closed Advanced statistics paths. Technical details and worktree paths are read-only; Repository branch naming uses reviewed edits and a server-checked example; runtime installation stays external and Executor configuration remains its separate page. Inactive reserved controls are omitted without changing CLI configuration. All categories start closed, retain reviewed Admin edits and Dev redaction, and have four-locale names.
+Project Settings follows **Repository → Tickets → Implementation → PR/MR and review → Statistics**, followed by closed **Technical details**. Repository owns platform/author identity and the single integration-branch editor; PR/MR shows its value and a link that opens/focuses that row. Tickets owns eligibility, polling, priority/type and pickup/status labels; hold/exclude affect pickup, not already-started jobs. Implementation owns capacity, budgets and progress commits, with closed Clarifications, Recovery after errors and Advanced stage time limits. Statistics owns recording/token switches and the informational database file inside closed Advanced statistics paths. Technical details and worktree paths are read-only; Repository branch naming uses reviewed edits and a server-checked example; runtime installation stays external and Executor configuration remains its separate page. Inactive reserved controls are omitted without changing CLI configuration. All categories start closed, retain reviewed Admin edits and Dev redaction, and have four-locale names.
 
 `settingPurpose` routes exact effect overrides before section fallbacks; `settingVisible` suppresses inactive/external fields and admits only four known informational worktree fields; `settingSubgroup` owns native topic disclosures. Technical/unknown and worktree rows cannot acquire editors from catalog metadata. The target reference opens its containing disclosure and focuses the single row.
 
@@ -57,6 +57,18 @@ Its link opens Repository and focuses the single target-branch setting.
 
 
 ## 1. Purpose
+
+Statistics displays **Statistics database file** as an informational row with
+four-locale guidance. Server `config.toml` owns `metrics.db_path`,
+`metrics.export_jsonl` and `metrics.html_out`; web candidate preparation rejects
+all three. JSONL and static HTML paths remain available through TOML/CLI and
+are omitted from Project Settings controls. Project/global statistics, usage
+and their CSV exports read summaries from the configured database with the
+same relative-path semantics as CLI. Missing databases contribute no summaries
+and remain absent; malformed configuration or database evidence returns the
+existing typed 503 response. Metadata-only profiles retain their state-root
+summary history until a configuration file exists. Analytical reads preserve
+SQLite bytes, authorization, scope and financial redaction.
 
 `04_Software/web` is the React/TypeScript source for the responsive ADORE
 dashboard. Vite compiles it into `adore/web/static` for same-origin serving.

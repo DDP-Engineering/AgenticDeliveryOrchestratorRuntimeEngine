@@ -8,7 +8,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # Web interface
 
-Project Settings follows **Repository → Tickets → Implementation → PR/MR and review → Statistics**, followed by closed **Technical details**. Repository owns platform/author identity and the single integration-branch editor; PR/MR shows its value and a link that opens/focuses that row. Tickets owns eligibility, polling, priority/type and pickup/status labels; hold/exclude affect pickup, not already-started jobs. Implementation owns capacity, budgets and progress commits, with closed Clarifications, Recovery after errors and Advanced stage time limits. Statistics owns recording/token switches with closed Advanced statistics paths. Technical details and worktree paths are read-only; Repository branch naming uses reviewed edits and a server-checked example; runtime installation stays external and Executor configuration remains its separate page. Interval, jitter and backoff remain visible; standalone CLI startup mode (`polling.mode`) stays in TOML/raw configuration and the effective catalog. Inactive reserved controls are omitted without changing CLI configuration. All categories start closed, retain reviewed Admin edits and Dev redaction, and have four-locale names.
+Project Settings follows **Repository → Tickets → Implementation → PR/MR and review → Statistics**, followed by closed **Technical details**. Repository owns platform/author identity and the single integration-branch editor; PR/MR shows its value and a link that opens/focuses that row. Tickets owns eligibility, polling, priority/type and pickup/status labels; hold/exclude affect pickup, not already-started jobs. Implementation owns capacity, budgets and progress commits, with closed Clarifications, Recovery after errors and Advanced stage time limits. Statistics owns recording/token switches and the informational database file inside closed Advanced statistics paths. Technical details and worktree paths are read-only; Repository branch naming uses reviewed edits and a server-checked example; runtime installation stays external and Executor configuration remains its separate page. Interval, jitter and backoff remain visible; standalone CLI startup mode (`polling.mode`) stays in TOML/raw configuration and the effective catalog. Inactive reserved controls are omitted without changing CLI configuration. All categories start closed, retain reviewed Admin edits and Dev redaction, and have four-locale names.
 
 Implementation uses shared four-locale names for reviewed settings, including **Active job limit**, **Maximum executor launches per job** and **Active work time limit (seconds)** names in rows, editors and candidate review. Help describes serial capacity with parked jobs excluded, lifetime launch counts, resettable active periods and between-attempt time/cost checks. Reported USD accounting depends on captured token usage; cost-only reports do not count. File guidance describes distinct committed/pending/new product and AEGIS paths, the unfinished-merge exception and continuation when Git counting is unavailable. Per-attempt timeout help preserves configured recovery and strict-check semantics; progress publication is enabled by default with local commits retained when disabled, and the quick label is an optional framing hint. Configuration keys, runtime enforcement and role/redaction contracts retain their current behavior.
 
@@ -91,6 +91,18 @@ launches an executor directly. The separate worker executes fixed CLI commands a
 the orchestrator still owns readiness, locks, approvals and draft publication.
 
 ## Public interface
+
+Statistics displays **Statistics database file** as an informational row with
+four-locale guidance. Server `config.toml` owns `metrics.db_path`,
+`metrics.export_jsonl` and `metrics.html_out`; web candidate preparation rejects
+all three. JSONL and static HTML paths remain available through TOML/CLI and
+are omitted from Project Settings controls. Project/global statistics, usage
+and their CSV exports read summaries from the configured database with the
+same relative-path semantics as CLI. Missing databases contribute no summaries
+and remain absent; malformed configuration or database evidence returns the
+existing typed 503 response. Metadata-only profiles retain their state-root
+summary history until a configuration file exists. Analytical reads preserve
+SQLite bytes, authorization, scope and financial redaction.
 
 - Project settings report `delivery.publish_checkpoints` with shared default
   true; an explicit false remains effective with source `project`.

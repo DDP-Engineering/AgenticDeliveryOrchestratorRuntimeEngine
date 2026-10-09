@@ -473,6 +473,28 @@ def test_cli_shows_shared_defaults_without_component_setting(tmp_path, capsys):
     assert "require_known_component" not in shown["readiness"]
 
 
+def test_statistics_storage_settings_are_external_and_cannot_prepare(tmp_path):
+    """@brief Informational statistics paths retain TOML values without web write authority."""
+    profiles = ProfileStore(tmp_path / "home")
+    profiles.create("alpha")
+    path = profiles.config_path("alpha")
+    path.write_bytes(_PARTIAL_CONFIG.encode("utf-8"))
+    before = path.read_bytes()
+    with TestClient(create_app(profiles.home)) as client:
+        login = client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
+        headers = {"X-CSRF-Token": login.json()["csrf"]}
+        config = client.get("/api/v1/projects/alpha/config").json()
+        settings = {item["key"]: item for item in config["settings"]}
+        for key in ("metrics.db_path", "metrics.export_jsonl", "metrics.html_out"):
+            assert settings[key]["editable"] is False
+            response = client.post("/api/v1/projects/alpha/config/pending", headers=headers,
+                                   json={"key": key, "value": "other-file",
+                                         "revision": config["revision"]})
+            assert response.status_code == 400
+        assert client.get("/api/v1/projects/alpha/config/pending").json() is None
+    assert path.read_bytes() == before
+
+
 def test_config_view_reports_each_settings_source_and_editability(tmp_path):
     """
     @brief   Every effective setting says whether the project's file sets it,

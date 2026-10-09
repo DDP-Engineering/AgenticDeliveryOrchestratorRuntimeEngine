@@ -5,7 +5,7 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
 import { test, expect, type Page } from "@playwright/test";
-import { branchNamingCopy, implementationLabels, pipelineFailureCopy } from "../src/settingsCopy";
+import { branchNamingCopy, implementationLabels, pipelineFailureCopy, statisticsDatabaseCopy } from "../src/settingsCopy";
 
 async function openSettings(page: Page, name = "alpha", user = "admin") {
   await page.goto("/");
@@ -420,6 +420,10 @@ test("purpose guidance and single-setting flow preserve four locales", async ({ 
     const ci = page.locator('[id="setting-review.on_pipeline_failure"]');
     await expect(ci.locator("strong")).toHaveText(pipelineFailureCopy[locale].label);
     await expect(ci.locator("code")).toHaveText(pipelineFailureCopy[locale].revise);
+    const database = page.locator('[id="setting-metrics.db_path"]');
+    await expect(database.locator("strong")).toHaveText(statisticsDatabaseCopy[locale].label);
+    await expect(database.getByRole("button")).toHaveCount(0);
+    await expect(page.locator('[id="setting-metrics.export_jsonl"], [id="setting-metrics.html_out"]')).toHaveCount(0);
     await expect(page.getByRole("region", { name: branchNamingCopy[locale].preview })).toContainText(branchNamingCopy[locale].noRule);
     const statuses = page.locator(".status-label-settings");
     const rules = page.locator("#project-settings > .setting-groups > details").filter({ has: statuses });
@@ -591,6 +595,10 @@ for (const user of ["admin", "developer"]) {
   expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).config.polling.mode).toBe(before.config.polling.mode);
   for (const key of ["review.trigger", "review.review_reminder_after", "metrics.capture_resource", "clarification.reminder_after", "clarification.timeout_state", "reconcile.on_ticket_closed", "labels.selection.type_feature", "execution.backend", "container.image"]) await expect(panel.locator(`[id="help-${key}"]`)).toHaveCount(0);
   for (const key of ["worktree.repo_path", "worktree.root", "agent.slug", "workflow.aegis_python"]) await expect(panel.locator(`[id="setting-${key}"]`).getByRole("button")).toHaveCount(0);
+  for (const key of ["metrics.export_jsonl", "metrics.html_out"]) await expect(panel.locator(`[id="setting-${key}"]`)).toHaveCount(0);
+  const database = panel.locator('[id="setting-metrics.db_path"]');
+  await expect(database.locator("strong")).toHaveText("Statistics database file");
+  await expect(database.getByRole("button")).toHaveCount(0);
   for (const topic of ["clarification", "recovery", "stageLimits", "statisticsFiles"]) {
    const disclosure = panel.locator(`[data-setting-topic="${topic}"]`);
    await expect(disclosure).not.toHaveAttribute("open");
