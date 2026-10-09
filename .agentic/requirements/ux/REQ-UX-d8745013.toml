@@ -17,7 +17,7 @@ requirement = "When an authorized operator opens Project Settings, ADORE shall p
 
 verification = "Helper routing/visibility tests and offline browser journeys check exact category ownership/order, native subgroups, target-link opening without a second editor, inactive/external control absence, unchanged config revision, Admin candidate review, Dev redaction, four locales and narrow light/dark layout."
 
-affected_paths = ["04_Software/web/src/settings.ts", "04_Software/web/src/settingsCopy.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/styles.css"]
+affected_paths = ["04_Software/web/src/settings.ts", "04_Software/web/src/settingsCopy.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/styles.css", "04_Software/web/src/settingHelp.ts", "04_Software/web/e2e/settings.spec.ts", "04_Software/web/tests/settings.test.mjs"]
 
 linked_tests = ["04_Software/web/tests/settings.test.mjs", "04_Software/web/e2e/settings.spec.ts"]
 

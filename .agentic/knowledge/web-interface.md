@@ -53,6 +53,16 @@ Implementation settings support reviewed edits for human-answer waiting time (po
 
 ## Branch naming presentation
 
+PR/MR settings names the CI response **Action when PR/MR CI checks fail**.
+Active/default values, option labels and candidate review use **Automatic repair**,
+**Notify only** and **Ignore**, localized in English, French, German and Romanian.
+The configured values remain `revise`, `notify` and `ignore`. Help explains the
+shared revision-round limit and fresh human approval before repair publication.
+The read-only Integration branch reference uses the standard responsive setting
+row: description and Repository link in the label column, Active value and the
+branch in the value column, with the same value typography as other settings.
+Its link opens Repository and focuses the single target-branch setting.
+
 `SettingsList` owns reactive revision/draft-bound preview requests, cancellation of stale completions and closed `validBranchPreview` transport checks. Repository offers two text editors using shared four-locale row/editor/candidate names and help. Preview shows the effective/proposed pair and fixed example inputs; malformed, mismatching, stale or unavailable evidence cannot prepare a branch candidate. Developer preview is read-only and respects the project grant; runtime paths remain informational. The preview card wraps in narrow layouts and announces updates through a polite live region. Focused proof: `web/tests/settings.test.mjs`, `web/e2e/settings.spec.ts` branch-naming and locale journeys.
 
 ## Branch naming preview and edit authority

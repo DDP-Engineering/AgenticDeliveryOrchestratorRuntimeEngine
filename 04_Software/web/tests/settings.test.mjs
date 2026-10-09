@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { editValue, hasDefault, settingGroups, settingRows, settingPurpose, validSettingCatalog, validPendingConfig } from "../src/settings.ts";
-import { publicationCopy, publicationValue } from "../src/settingsCopy.ts";
+import { publicationCopy, publicationValue, pipelineFailureCopy, pipelineFailureValue, settingLabel } from "../src/settingsCopy.ts";
 import { durationParts, implementationDraft } from "../src/implementationSettings.ts";
 
 test("implementation drafts serialize only complete valid human values", () => {
@@ -34,6 +34,14 @@ test("publication state names exact booleans in every locale", () => {
   assert.equal(publicationValue("false", locale), publicationCopy[locale].ready);
   for (const invalid of [null, 0, 1, "False", {}, []]) assert.equal(publicationValue(invalid, locale), null);
  }
+});
+
+test("failed CI action names only exact configured options in every locale", () => {
+ for (const locale of ["en", "fr", "de", "ro"]) {
+  for (const value of ["revise", "notify", "ignore"]) assert.equal(pipelineFailureValue(value, locale), pipelineFailureCopy[locale][value]);
+  for (const invalid of [null, true, 1, "Revise", "toString", "__proto__", {}, []]) assert.equal(pipelineFailureValue(invalid, locale), null);
+ }
+ assert.equal(settingLabel("review.on_pipeline_failure"), "Action when PR/MR CI checks fail");
 });
 
 test("Git flow owns settings by effect rather than technical section", () => {

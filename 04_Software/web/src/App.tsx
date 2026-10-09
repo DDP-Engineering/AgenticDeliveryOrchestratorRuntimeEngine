@@ -25,7 +25,7 @@ import { ExecutionPlanReview } from "./ExecutionPlanReview";
 import { type ExecutionPlan } from "./executionPlan";
 import { settingHelp } from "./settingHelp";
 import { durationParts, executionStages, implementationDraft, implementationEditorCopy } from "./implementationSettings";
-import { settingsCopy, settingLabel, publicationCopy, publicationValue, reviewerCopy, targetBranchCopy, excludeLabelCopy, lifecycleCopy, branchNamingCopy, branchSettingLabel, implementationSettingLabel } from "./settingsCopy";
+import { settingsCopy, settingLabel, publicationCopy, publicationValue, pipelineFailureCopy, pipelineFailureValue, reviewerCopy, targetBranchCopy, excludeLabelCopy, lifecycleCopy, branchNamingCopy, branchSettingLabel, implementationSettingLabel } from "./settingsCopy";
 import { ImportWizard } from "./ImportWizard";
 import { RawConfiguration } from "./RawConfiguration";
 import { TransferWizard } from "./TransferWizard";
@@ -1301,8 +1301,8 @@ function PendingReview({ config, candidate, project, paused, busy, locale, t, on
   const [copied, setCopied] = useState(false);
   const meta = config.settings?.find(item => item.edit_key === candidate.key);
   const active = settingValue(config.config, meta?.key || candidate.key);
-  const show = (value: unknown) => candidate.key === "delivery.draft" && publicationValue(value, locale) !== null ? publicationValue(value, locale) : value == null ? copy.unknown : value === "" ? t("settingNoDefault") : typeof value === "object" ? JSON.stringify(value) : String(value);
-  const rows: Array<{ label: string; active: unknown; proposed: unknown }> = [{ label: branchSettingLabel(candidate.key, locale) || implementationSettingLabel(candidate.key, locale) || lifecycleCopy[locale].labels[candidate.key] || (candidate.key === "labels.control.exclude" ? excludeLabelCopy[locale].label : candidate.key === "delivery.target_branch" ? targetBranchCopy[locale].label : candidate.key === "delivery.reviewers" ? reviewerCopy[locale].label : candidate.key === "delivery.draft" ? publicationCopy[locale].label : locale === "en" ? settingLabel(meta?.key || candidate.key) : t("config")), active, proposed: candidate.proposed_value }];
+  const show = (value: unknown) => candidate.key === "review.on_pipeline_failure" && pipelineFailureValue(value, locale) !== null ? pipelineFailureValue(value, locale) : candidate.key === "delivery.draft" && publicationValue(value, locale) !== null ? publicationValue(value, locale) : value == null ? copy.unknown : value === "" ? t("settingNoDefault") : typeof value === "object" ? JSON.stringify(value) : String(value);
+  const rows: Array<{ label: string; active: unknown; proposed: unknown }> = [{ label: branchSettingLabel(candidate.key, locale) || implementationSettingLabel(candidate.key, locale) || lifecycleCopy[locale].labels[candidate.key] || (candidate.key === "review.on_pipeline_failure" ? pipelineFailureCopy[locale].label : candidate.key === "labels.control.exclude" ? excludeLabelCopy[locale].label : candidate.key === "delivery.target_branch" ? targetBranchCopy[locale].label : candidate.key === "delivery.reviewers" ? reviewerCopy[locale].label : candidate.key === "delivery.draft" ? publicationCopy[locale].label : locale === "en" ? settingLabel(meta?.key || candidate.key) : t("config")), active, proposed: candidate.proposed_value }];
   if (candidate.endpoint) {
     rows.push({ label: t("model"), active: settingValue(config.config, "executor.commands.opencode.model"), proposed: candidate.endpoint.model });
     rows.push({ label: t("endpointProtocol"), active: config.local_endpoint?.protocol, proposed: candidate.endpoint.protocol });
@@ -1354,7 +1354,7 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
   const copy = settingsCopy[locale];
   const shown = (value: unknown) => value == null || value === "" ? "—" :
     Array.isArray(value) || typeof value === "object" ? JSON.stringify(value) : String(value);
-  const label = (row: SettingRow) => branchSettingLabel(row.key, locale) || implementationSettingLabel(row.key, locale) || lifecycleCopy[locale].labels[row.key] || (row.key === "labels.control.exclude" ? excludeLabelCopy[locale].label : row.key === "delivery.target_branch" ? targetBranchCopy[locale].label : row.key === "delivery.reviewers" ? reviewerCopy[locale].label : row.key === "delivery.draft" ? publicationCopy[locale].label : locale === "en" ? settingLabel(row.key) : row.label ? t(row.label) : (settingHelp(row.key, locale)?.split(". ")[0] || settingLabel(row.key)));
+  const label = (row: SettingRow) => branchSettingLabel(row.key, locale) || implementationSettingLabel(row.key, locale) || lifecycleCopy[locale].labels[row.key] || (row.key === "review.on_pipeline_failure" ? pipelineFailureCopy[locale].label : row.key === "labels.control.exclude" ? excludeLabelCopy[locale].label : row.key === "delivery.target_branch" ? targetBranchCopy[locale].label : row.key === "delivery.reviewers" ? reviewerCopy[locale].label : row.key === "delivery.draft" ? publicationCopy[locale].label : locale === "en" ? settingLabel(row.key) : row.label ? t(row.label) : (settingHelp(row.key, locale)?.split(". ")[0] || settingLabel(row.key)));
   const editorCopy = implementationEditorCopy[locale];
   const typedKinds = ["duration", "retry-delays", "stage-timeouts"];
   const typedValue = (row: SettingRow) => typedKinds.includes(row.input) ? implementationDraft(row.input, draft) : draft;
@@ -1380,7 +1380,7 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
               {custom ? <label>{editorCopy.seconds}<input type="number" min={1} step={1} aria-label={`${editorCopy.stages[index]} ${editorCopy.seconds}`} disabled={disabled} value={values[stage] || ""} onChange={event => setDraft(JSON.stringify({...values, [stage]: Number(event.target.value)}))} /></label> : <small>{general} {editorCopy.seconds.toLowerCase()}</small>}
             </div>;
           })}</div> : row.input === "retry-delays" ? <><textarea rows={6} aria-label={label(row)} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)} required /><p className="muted">{editorCopy.schedule}</p></> : row.input === "boolean" || row.input === "choice"
-            ? <select aria-label={label(row)} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)}>{row.input === "choice" && !row.choices.includes(draft) && <option value={draft} disabled>{draft}</option>}{(row.input === "boolean" ? ["true", "false"] : row.choices).map(option => <option key={option} value={option}>{row.key === "delivery.draft" ? publicationValue(option, locale) : option}</option>)}</select>
+            ? <select aria-label={label(row)} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)}>{row.input === "choice" && !row.choices.includes(draft) && <option value={draft} disabled>{draft}</option>}{(row.input === "boolean" ? ["true", "false"] : row.choices).map(option => <option key={option} value={option}>{row.key === "review.on_pipeline_failure" ? pipelineFailureValue(option, locale) ?? option : row.key === "delivery.draft" ? publicationValue(option, locale) : option}</option>)}</select>
             : row.input === "reviewers" ? <textarea rows={6} aria-label={label(row)} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)} required />
             : <input aria-label={label(row)} type={row.input === "number" ? "number" : "text"} step={row.step} min={row.minimum ?? undefined} max={row.maximum ?? undefined} maxLength={BRANCH_NAMING_KEYS.has(row.key) ? 512 : undefined} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)} required={row.input === "number"} />}
           {typedValue(row) === null && <p role="alert">{editorCopy.invalid}</p>}
@@ -1395,7 +1395,7 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
         </div>
         {editing === row.key ? editor(row) : <div><div className="setting-value-heading"><small>{copy.active}</small>
           {canEdit && row.input !== "none" && editing !== row.key && <button type="button" className="text-button" disabled={disabled} aria-label={`${t("editSetting")} ${label(row)}`} data-edit-key={row.editKey} onClick={() => { setEditing(row.key); setDraft(["reviewers", "retry-delays"].includes(row.input) && Array.isArray(row.value) ? row.value.join("\n") : editValue(row.value)); }}>{t("editSetting")}</button>}
-        </div><code>{row.key === "delivery.draft" ? publicationValue(row.value, locale) : shown(row.value)}</code><small>{t("settingDefaultValue")}: {hasDefault(row.defaultValue) ? row.key === "delivery.draft" ? publicationValue(row.defaultValue, locale) : shown(row.defaultValue) : t("settingNoDefault")}</small></div>}
+        </div><code>{row.key === "review.on_pipeline_failure" ? pipelineFailureValue(row.value, locale) ?? shown(row.value) : row.key === "delivery.draft" ? publicationValue(row.value, locale) : shown(row.value)}</code><small>{t("settingDefaultValue")}: {hasDefault(row.defaultValue) ? row.key === "review.on_pipeline_failure" ? pipelineFailureValue(row.defaultValue, locale) ?? shown(row.defaultValue) : row.key === "delivery.draft" ? publicationValue(row.defaultValue, locale) : shown(row.defaultValue) : t("settingNoDefault")}</small></div>}
 
       </div>;
   return <section className="panel" id="project-settings">
@@ -1404,17 +1404,18 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
     {groups.length === 0 ? <Empty label={t("settingsNoneSet")} /> : <div className="setting-groups">{groups.map(group => {
       return <details key={group.name} data-setting-purpose={group.name} open={executorOnly}>
       <summary>{copy[group.name as keyof typeof copy]} <span className="muted">({group.rows.length})</span></summary>
-      {group.name === "reviews" && settingValue(config, "delivery.target_branch") !== undefined && <p className="setting-reference">
-        <strong>{copy.integrationBranch}:</strong> <code>{shown(settingValue(config, "delivery.target_branch"))}</code>{" · "}
-        <a href="#setting-delivery.target_branch" onClick={event => {
+      {group.name === "reviews" && settingValue(config, "delivery.target_branch") !== undefined && <div className="setting-row setting-reference">
+        <div><strong>{copy.integrationBranch}</strong><p className="setting-essential">{copy.integrationBranchHelp}</p>
+        <a className="text-button" href="#setting-delivery.target_branch" onClick={event => {
           const target = document.getElementById("setting-delivery.target_branch");
           if (!target) return;
           event.preventDefault();
           const category = target.closest("details");
           if (category) category.open = true;
           target.focus(); target.scrollIntoView({ block: "center" });
-        }}>{copy.integrationBranchLink}</a>
-      </p>}
+        }}>{copy.integrationBranchLink}</a></div>
+        <div><div className="setting-value-heading"><small>{copy.active}</small></div><code>{shown(settingValue(config, "delivery.target_branch"))}</code></div>
+      </div>}
       <div className="setting-list">{group.rows.filter(row => !STATUS_LABEL_KEYS.has(row.key) && !settingSubgroup(row.key)).map(renderRow)}
         {group.name === "repository" && <section className="branch-naming-preview" aria-label={branchNamingCopy[locale].preview}>
           <h3>{branchNamingCopy[locale].preview}</h3>

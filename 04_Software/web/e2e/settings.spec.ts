@@ -5,7 +5,7 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
 import { test, expect, type Page } from "@playwright/test";
-import { branchNamingCopy, implementationLabels } from "../src/settingsCopy";
+import { branchNamingCopy, implementationLabels, pipelineFailureCopy } from "../src/settingsCopy";
 
 async function openSettings(page: Page, name = "alpha", user = "admin") {
   await page.goto("/");
@@ -417,6 +417,9 @@ test("purpose guidance and single-setting flow preserve four locales", async ({ 
     await expect(page.locator(".setting-essential").first()).toBeVisible();
     await expect(page.locator('[id="setting-worktree.branch_template"] strong')).toHaveText(branchNamingCopy[locale].template);
     await expect(page.locator('[id="setting-worktree.branch_rule"] strong')).toHaveText(branchNamingCopy[locale].rule);
+    const ci = page.locator('[id="setting-review.on_pipeline_failure"]');
+    await expect(ci.locator("strong")).toHaveText(pipelineFailureCopy[locale].label);
+    await expect(ci.locator("code")).toHaveText(pipelineFailureCopy[locale].revise);
     await expect(page.getByRole("region", { name: branchNamingCopy[locale].preview })).toContainText(branchNamingCopy[locale].noRule);
     const statuses = page.locator(".status-label-settings");
     const rules = page.locator("#project-settings > .setting-groups > details").filter({ has: statuses });
@@ -595,6 +598,28 @@ for (const user of ["admin", "developer"]) {
    await expect(disclosure.locator(".setting-row").first()).toBeVisible();
   }
   const repository = category("Repository");
+  const reference = category("PR/MR and review").locator(".setting-reference");
+  const adjacent = category("PR/MR and review").locator('[id="setting-delivery.approval_label"]');
+  await expect(reference.locator("strong")).toHaveText("Integration branch");
+  const geometry = async () => reference.evaluate((element) => {
+   const other = document.getElementById("setting-delivery.approval_label")!;
+   const value = element.querySelector("code")!;
+   const compare = other.querySelector("code")!;
+   return { left: value.getBoundingClientRect().left, otherLeft: compare.getBoundingClientRect().left,
+    font: getComputedStyle(value).fontSize, otherFont: getComputedStyle(compare).fontSize,
+    width: document.documentElement.scrollWidth, viewport: window.innerWidth };
+  });
+  await expect(adjacent).toBeVisible();
+  for (const width of [1280, 390]) {
+   await page.setViewportSize({width,height:900});
+   const result = await geometry();
+   expect(Math.abs(result.left-result.otherLeft)).toBeLessThan(2);
+   expect(result.font).toBe(result.otherFont);
+   expect(result.width).toBeLessThanOrEqual(result.viewport);
+  }
+  await page.setViewportSize({width:1280,height:900});
+  await expect(reference.getByRole("button")).toHaveCount(0);
+  if (user === "admin") await category("PR/MR and review").screenshot({path:test.info().outputPath("review-settings.png")});
   await repository.locator(":scope > summary").click();
   await expect(repository).not.toHaveAttribute("open");
   await category("PR/MR and review").getByRole("link", {name:"View in Repository",exact:true}).click();
@@ -607,6 +632,26 @@ for (const user of ["admin", "developer"]) {
   } else await expect(panel.getByRole("button", {name:"Edit Target branch",exact:true})).toHaveCount(1);
  });
 }
+
+test("failed CI action uses human names in values, options and candidate review", async ({page}) => {
+ await openSettings(page);
+ const row = page.locator('[id="setting-review.on_pipeline_failure"]');
+ const copy = pipelineFailureCopy.en;
+ await expect(row.locator("strong")).toHaveText(copy.label);
+ await expect(row.locator("code")).toHaveText(copy.revise);
+ await expect(row).toContainText(`ADORE default: ${copy.revise}`);
+ await row.getByRole("button", {name:`Edit ${copy.label}`,exact:true}).click();
+ const select = row.getByRole("combobox", {name:copy.label,exact:true});
+ expect(await select.locator("option").allTextContents()).toEqual([copy.revise,copy.notify,copy.ignore]);
+ await select.selectOption("notify");
+ await row.getByRole("button", {name:"Prepare candidate",exact:true}).click();
+ const review = page.locator(".candidate-review");
+ await expect(review).toContainText(copy.label);
+ await expect(review).toContainText(copy.revise);
+ await expect(review).toContainText(copy.notify);
+ const candidate = await (await page.request.get("/api/v1/projects/alpha/config/pending")).json();
+ expect(candidate.proposed_value).toBe("notify");
+});
 
 
 test("typed Implementation controls review and apply human duration, rounds, retry schedule and stage map", async ({page}) => {

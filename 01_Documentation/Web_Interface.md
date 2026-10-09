@@ -1012,6 +1012,16 @@ Only a valid completed challenge response reports connected. Failures provide re
 
 ## Project setting scope and guidance
 
+PR/MR settings names the CI response **Action when PR/MR CI checks fail**.
+Active/default values, option labels and candidate review use **Automatic repair**,
+**Notify only** and **Ignore**, localized in English, French, German and Romanian.
+The configured values remain `revise`, `notify` and `ignore`. Help explains the
+shared revision-round limit and fresh human approval before repair publication.
+The read-only Integration branch reference uses the standard responsive setting
+row: description and Repository link in the label column, Active value and the
+branch in the value column, with the same value typography as other settings.
+Its link opens Repository and focuses the single target-branch setting.
+
 Project Settings displays the selected project's operational settings, including inherited defaults. Executor/model/authentication settings and the applicable OpenCode endpoint form belong to Executor configuration. Descriptions remain permanently below each label and provide the editor's accessible description. There is no per-row Help disclosure or override-only filter. The default/source marker describes value origin, not ADORE-wide scope. Polling intervals, per-project concurrency, executor and recovery settings remain per-project across their dedicated tabs; environment setup is externally managed. Global capacity and audit retention belong to Administration. No project setting is promoted into a global policy by this presentation.
 
 Proof: web/e2e/settings.spec.ts project settings keep defaults and single guidance (administrator/developer), plus existing candidate edit/discard journey.

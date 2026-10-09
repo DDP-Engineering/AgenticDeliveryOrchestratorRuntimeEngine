@@ -274,7 +274,7 @@ td.strong { font-weight: 800; }
 .status-label-settings, .setting-topic { margin-top: 14px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 9px; min-width: 0; }
 .status-label-settings > summary, .setting-topic > summary { cursor: pointer; font-weight: 650; overflow-wrap: anywhere; }
 .status-label-settings > summary:focus-visible, .setting-topic > summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
-.setting-reference { margin: 16px 0; overflow-wrap: anywhere; }
+.setting-reference { margin: 16px 0 0; overflow-wrap: anywhere; }
 .branch-naming-preview { margin: 16px 0; padding: 20px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-alt); min-width: 0; overflow-wrap: anywhere; }
 .branch-naming-preview h3 { margin: 0 0 12px; font-size: 1rem; }
 .branch-naming-preview p, .branch-naming-preview li { font-size: .875rem; line-height: 1.5; }
