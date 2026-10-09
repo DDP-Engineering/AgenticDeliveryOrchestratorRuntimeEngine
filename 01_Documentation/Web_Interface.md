@@ -7,13 +7,15 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # ADORE web interface
 
-**Maximum revision rounds** belongs to **Limits and recovery**. Its shared CLI/web default is five; explicit project limits remain effective. **Require ticket acceptance criteria** defaults to false, while priority remains required by default. Supported readiness settings contain no component requirement.
+Project Settings follows **Repository → Tickets → Implementation → PR/MR and review → Statistics**, followed by closed **Technical details**. Repository owns platform/author identity and the single integration-branch editor; PR/MR shows its value and a link that opens/focuses that row. Tickets owns eligibility, polling, priority/type and pickup/status labels; hold/exclude affect pickup, not already-started jobs. Implementation owns capacity, budgets and progress commits, with closed Clarifications, Recovery after errors and Advanced stage time limits. Statistics owns recording/token switches with closed Advanced statistics paths. Technical details and worktree paths/branch naming are read-only; runtime installation stays external and Executor configuration remains its separate page. Inactive reserved controls are omitted without changing CLI configuration. All categories start closed, retain reviewed Admin edits and Dev redaction, and have four-locale names.
 
-In **Rules and approvals**, **Ready for pickup label** and **Clarification answered label** stay in the main list. Five managed names (clarify, done, failed, review, working) are grouped in **Status labels**, initially closed. Expand it for the existing administrator prepare/review/apply workflow; developers see values without edit controls. Names and help are localized in all four languages. Executor-label prefix and ticket-scope hint stay in technical configuration and are omitted from the GUI because they have no runtime effect.
+**Maximum revision rounds** belongs to **PR/MR and review**. Its shared CLI/web default is five; explicit project limits remain effective. **Require ticket acceptance criteria** defaults to false, while priority remains required by default. Supported readiness settings contain no component requirement.
 
-**Exclude from pickup label** in Rules and approvals edits the label name, shown as **Eticheta de excludere de la preluare** in Romanian. Its help explains that label presence blocks pickup, removal restores possible eligibility, and started jobs continue.
+In **Tickets**, **Ready for pickup label** stays in the main list. Six names (answered, clarify, done, failed, review, working) are grouped in **Status labels**, initially closed. A person adds the answered label after a new reply; ADORE manages the other state labels. Expand it for the existing administrator prepare/review/apply workflow; developers see values without edit controls. Names and help are localized in all four languages. Executor-label prefix and ticket-scope hint stay in technical configuration and are omitted from the GUI because they have no runtime effect.
 
-**Target branch** in Rules and approvals identifies both the starting branch for new jobs and the destination of their PR/MR. The row, editor and candidate review share its localized name (**Ramura de integrare** in Romanian). Use a short remote branch name such as `main`, without `origin/`; existing PR/MR targets remain unchanged.
+**Exclude from pickup label** in Tickets edits the label name, shown as **Eticheta de excludere de la preluare** in Romanian. Its help explains that label presence blocks pickup, removal restores possible eligibility, and started jobs continue.
+
+**Target branch** in Repository identifies both the starting branch for new jobs and the destination of their PR/MR. The row, editor and candidate review share its localized name (**Ramura de integrare** in Romanian). Use a short remote branch name such as `main`, without `origin/`; existing PR/MR targets remain unchanged.
 
 The optional web installation serves the React interface and a same-origin
 FastAPI API. It uses the same project profiles and run state as the CLI. The
@@ -612,9 +614,7 @@ details; the filter does not search the full AEGIS or executor log. Leave
 either field empty to remove that filter.
 
 In Project details > Settings, administrators prepare **one setting at a time**.
-The five collapsible categories are Repository and tickets;
-Rules and approvals; Limits and recovery; Measurement and
-notifications; Advanced. Frequent settings appear first within their category.
+The five Git-flow categories are Repository, Tickets, Implementation, PR/MR and review, and Statistics, followed by closed informational Technical details. Frequent settings appear first within their category.
 Each row gives an understandable label, visible purpose/units/consequence guidance,
 its **Active value** and **ADORE default**; inherited values carry a **Default** badge. Permanent guidance below the label explains each setting; server catalog metadata still constrains edit types, choices and numeric bounds. Lists, tables and unsupported sections are read-only here and are edited in the host's project TOML. Executor configuration offers launch-command presets for existing supported command tables through the reviewed candidate flow.
 

@@ -7,9 +7,9 @@
 
 schema = 1
 id = "REQ-UX-7ab1c5a5"
-title = "Review revision limit in recovery limits"
+title = "Review revision limit in PR/MR settings"
 status = "active"
-requirement = "When an authorized user opens settings, ADORE shall show Maximum revision rounds once in Limits and recovery with help describing the combined revision budget and exhaustion outcomes while preserving administrator reviewed editing and developer read-only access."
+requirement = "When an authorized user opens settings, ADORE shall show Maximum revision rounds once in PR/MR and review with help describing the combined revision budget and exhaustion outcomes while preserving administrator reviewed editing and developer read-only access."
 verification = "Helper purpose mapping and offline browser journeys check exact category, active/default values, candidate review, minimum-one constraints and developer read-only access."
 affected_paths = ["04_Software/web/src/settings.ts", "04_Software/web/src/settingHelp.ts", "04_Software/web/e2e/settings.spec.ts", "04_Software/web/tests/settings.test.mjs"]
 linked_tests = ["04_Software/web/tests/settings.test.mjs", "04_Software/web/e2e/settings.spec.ts"]

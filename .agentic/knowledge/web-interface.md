@@ -8,9 +8,11 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # Web interface
 
-The revision-round limit belongs to Limits and recovery, with shared default five and localized combined-budget/exhaustion guidance. Acceptance checking defaults false; explicit values remain authoritative. Portable enrollment validates mapping size against the fifteen recognized rule keys.
+Project Settings follows **Repository → Tickets → Implementation → PR/MR and review → Statistics**, followed by closed **Technical details**. Repository owns platform/author identity and the single integration-branch editor; PR/MR shows its value and a link that opens/focuses that row. Tickets owns eligibility, polling, priority/type and pickup/status labels; hold/exclude affect pickup, not already-started jobs. Implementation owns capacity, budgets and progress commits, with closed Clarifications, Recovery after errors and Advanced stage time limits. Statistics owns recording/token switches with closed Advanced statistics paths. Technical details and worktree paths/branch naming are read-only; runtime installation stays external and Executor configuration remains its separate page. Inactive reserved controls are omitted without changing CLI configuration. All categories start closed, retain reviewed Admin edits and Dev redaction, and have four-locale names.
 
-Project settings keeps ready/answered action labels visible and places clarify/done/failed/review/working names in a native initially closed Status labels disclosure. Four-locale row/editor/review names explain actual lifecycle semantics. Inactive executor prefix and scope hint are omitted from controls while technical config/catalog values persist; admin reviewed edits and Dev read-only access retain existing authority.
+The revision-round limit belongs to PR/MR and review, with shared default five and localized combined-budget/exhaustion guidance. Acceptance checking defaults false; explicit values remain authoritative. Portable enrollment validates mapping size against the fifteen recognized rule keys.
+
+Project settings keeps ready visible in Tickets and places answered/clarify/done/failed/review/working names in a native initially closed Status labels disclosure. Four-locale row/editor/review names explain actual lifecycle semantics. Inactive executor prefix and scope hint are omitted from controls while technical config/catalog values persist; admin reviewed edits and Dev read-only access retain existing authority.
 
 `labels.control.exclude` has a shared four-locale Exclude from pickup label name in row/editor/candidate review. Help identifies the label-name setting and reversible presence-based pickup gate; already-started jobs continue.
 
@@ -575,7 +577,7 @@ Administration expands into System status, Users and Change history sidebar page
 both roles reach a top-level My account page. Every view has a path URL
 (`web/src/routes.ts`) kept in sync with view state; project details uses
 Summary/Settings/Prices/Access/History tabs and Jobs/Statistics links. Project details shows effective
-configuration in five purpose categories with frequent settings first within each,
+configuration in five Git-flow categories plus closed Technical details with frequent settings first within each,
 with a Default badge for inherited values, field type, domain and permanent purpose guidance; administrators edit settings on their rows and stage
 endpoint and price changes there. The
 settings response is scoped to the current project identity so switching

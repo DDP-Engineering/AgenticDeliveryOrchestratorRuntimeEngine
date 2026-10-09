@@ -72,6 +72,7 @@ export const settingValue = (config: Record<string, unknown>, key: string): unkn
     current && typeof current === "object" ? (current as Record<string, unknown>)[part] : undefined, config);
 
 const inputKind = (item: SettingMeta): InputKind => {
+  if (settingPurpose(item.key) === "technical" || item.key.startsWith("worktree.")) return "none";
   if (item.editable && item.key === "delivery.reviewers" && item.type === "list") return "reviewers";
   if (!item.editable || !["boolean", "integer", "number", "text"].includes(item.type || "")) return "none";
   if (item.choices?.length) return "choice";
@@ -80,27 +81,51 @@ const inputKind = (item: SettingMeta): InputKind => {
   return "text";
 };
 
-export const PURPOSE_GROUPS = ["repository", "agent", "isolation", "rules", "limits", "measurement", "advanced"] as const;
+export const PURPOSE_GROUPS = ["repository", "tickets", "implementation", "reviews", "statistics", "technical", "executor", "environment"] as const;
 
 /** Technical keys retained by configuration but omitted from operator controls. */
-export const HIDDEN_SETTING_KEYS = new Set(["state.channel", "labels.executor.prefix", "readiness.max_scope_hint"]);
+export const HIDDEN_SETTING_KEYS = new Set([
+  "state.channel", "labels.executor.prefix", "readiness.max_scope_hint",
+  "labels.selection.type_feature", "review.trigger", "review.review_reminder_after",
+  "clarification.reminder_after", "clarification.timeout_state", "metrics.capture_resource",
+  "reconcile.on_ticket_closed", "reconcile.on_ticket_deleted", "reconcile.on_trigger_removed",
+  "executor.mode",
+]);
 
-/** Managed status names belong in the optional disclosure; ready/answered are actions. */
+/** Ticket state names share one optional disclosure; ready is the pickup action. */
 export const STATUS_LABEL_KEYS = new Set([
+  "labels.lifecycle.answered",
   "labels.lifecycle.clarify", "labels.lifecycle.done", "labels.lifecycle.failed",
   "labels.lifecycle.review", "labels.lifecycle.working",
 ]);
 
 /** Purpose ownership of catalog settings, including dynamic entries. */
 export function settingPurpose(key: string): string {
-  if (key === "review.max_review_rounds") return "limits";
-  if (key.startsWith("labels.selection.") || key.startsWith("platform.") || key.startsWith("polling.")) return "repository";
-  if (key.startsWith("executor.")) return "agent";
-  if (key.startsWith("container.") || key.startsWith("worktree.") || key.startsWith("execution.") || key.startsWith("local.")) return "isolation";
-  if (["delivery", "readiness", "workflow", "review", "labels"].includes(key.split(".")[0])) return "rules";
-  if (["budgets", "recovery", "clarification", "reconcile"].includes(key.split(".")[0])) return "limits";
-  if (key.startsWith("metrics.")) return "measurement";
-  return "advanced";
+  if (["agent.name", "agent.email", "delivery.target_branch", "worktree.branch_template", "worktree.branch_rule"].includes(key) || key.startsWith("platform.")) return "repository";
+  if (["polling.max_concurrent_runs", "delivery.publish_checkpoints", "workflow.quick_label"].includes(key) || key.startsWith("workflow.stage_timeout_overrides") || ["budgets", "recovery", "clarification"].includes(key.split(".")[0])) return "implementation";
+  if (["labels", "polling", "readiness"].includes(key.split(".")[0]) || key === "workflow.default_kind" || key.startsWith("workflow.kind_labels")) return "tickets";
+  if (key.startsWith("delivery.") || key.startsWith("review.")) return "reviews";
+  if (key.startsWith("metrics.")) return "statistics";
+  if (key.startsWith("executor.")) return "executor";
+  if (key.startsWith("container.") || key.startsWith("execution.") || key.startsWith("local.")) return "environment";
+  return "technical";
+}
+
+/** Only known informational worktree fields accompany the external environment. */
+export function settingVisible(key: string, executorOnly = false): boolean {
+  if (HIDDEN_SETTING_KEYS.has(key)) return false;
+  if (["container.", "execution.", "local."].some(prefix => key.startsWith(prefix))) return false;
+  if (key.startsWith("worktree.") && !["worktree.repo_path", "worktree.root", "worktree.branch_template", "worktree.branch_rule"].includes(key)) return false;
+  return key.startsWith("executor.") === executorOnly;
+}
+
+/** Optional topic disclosures inside a workflow category; ordinary rows stay direct. */
+export function settingSubgroup(key: string): "clarification" | "recovery" | "stageLimits" | "statisticsFiles" | null {
+  if (key.startsWith("clarification.")) return "clarification";
+  if (key.startsWith("recovery.")) return "recovery";
+  if (key.startsWith("workflow.stage_timeout_overrides")) return "stageLimits";
+  if (["metrics.db_path", "metrics.export_jsonl", "metrics.html_out"].includes(key)) return "statisticsFiles";
+  return null;
 }
 
 /**
@@ -134,7 +159,7 @@ export function settingRows(config: Record<string, unknown>, settings: SettingMe
 }
 
 /**
- * Groups rows by purpose in the seven agreed categories. With
+ * Groups rows by delivery flow, followed by technical and executor views. With
  * `projectOnly`, only settings the project's file sets remain, and groups
  * left empty are dropped.
  */

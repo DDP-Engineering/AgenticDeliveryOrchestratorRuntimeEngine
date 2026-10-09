@@ -19,9 +19,32 @@ test("publication state names exact booleans in every locale", () => {
  }
 });
 
-test("revision limit belongs to limits while review policy and pickup gates stay in rules", () => {
- assert.equal(settingPurpose("review.max_review_rounds"), "limits");
- for (const key of ["review.on_pipeline_failure", "review.revise_label", "readiness.require_acceptance_criteria", "readiness.require_priority_label"]) assert.equal(settingPurpose(key), "rules");
+test("Git flow owns settings by effect rather than technical section", () => {
+ const cases = {
+  repository: ["platform.repo", "platform.login", "agent.name", "agent.email", "delivery.target_branch", "worktree.branch_template", "worktree.branch_rule"],
+  tickets: ["polling.mode", "polling.poll_interval_seconds", "labels.control.hold", "labels.control.exclude", "labels.lifecycle.answered", "labels.lifecycle.ready", "labels.lifecycle.working", "readiness.require_acceptance_criteria", "workflow.default_kind", "workflow.kind_labels.bug"],
+  implementation: ["polling.max_concurrent_runs", "budgets.max_cost_usd", "delivery.publish_checkpoints", "workflow.quick_label", "workflow.stage_timeout_overrides.build", "recovery.max_stage_failures", "clarification.max_rounds"],
+  reviews: ["review.max_review_rounds", "review.revise_label", "review.on_pipeline_failure", "delivery.reviewers", "delivery.approval_label", "delivery.remove_source_branch"],
+  statistics: ["metrics.enabled", "metrics.capture_tokens", "metrics.db_path"],
+  technical: ["agent.slug", "state.store_root", "worktree.repo_path", "worktree.root", "workflow.aegis_python", "future.new_key"],
+ };
+ for (const [purpose, keys] of Object.entries(cases)) for (const key of keys) assert.equal(settingPurpose(key), purpose, key);
+});
+
+test("flow visibility omits inactive and external fields and keeps technical rows read-only", async () => {
+ const { settingVisible, settingSubgroup, STATUS_LABEL_KEYS } = await import("../src/settings.ts");
+ assert.equal(typeof settingVisible, "function");
+ for (const key of ["state.channel", "review.trigger", "review.review_reminder_after", "clarification.reminder_after", "clarification.timeout_state", "metrics.capture_resource", "labels.selection.type_feature", "reconcile.on_ticket_closed", "executor.mode", "container.image", "execution.backend", "local.account", "worktree.future_field"]) assert.equal(settingVisible(key), false, key);
+ for (const key of ["worktree.repo_path", "worktree.root", "worktree.branch_template", "worktree.branch_rule", "state.store_root", "agent.slug"]) assert.equal(settingVisible(key), true, key);
+ assert.equal(settingVisible("executor.default"), false);
+ assert.equal(settingVisible("executor.default", true), true);
+ assert.equal(settingVisible("platform.repo", true), false);
+ const technical = settingRows({}, ["worktree.repo_path", "worktree.root", "worktree.branch_template", "worktree.branch_rule", "agent.slug", "state.store_root", "workflow.aegis_python", "future.new_key"].map(key => meta(key, "project", true)));
+ for (const row of technical) assert.equal(row.input, "none", row.key);
+ assert.equal(STATUS_LABEL_KEYS.size, 6);
+ assert.equal(STATUS_LABEL_KEYS.has("labels.lifecycle.answered"), true);
+ assert.equal(STATUS_LABEL_KEYS.has("labels.lifecycle.ready"), false);
+ for (const [key, expected] of [["clarification.max_rounds","clarification"], ["recovery.max_transient_retries","recovery"], ["workflow.stage_timeout_overrides.build","stageLimits"], ["metrics.db_path","statisticsFiles"], ["metrics.capture_tokens",null]]) assert.equal(settingSubgroup(key), expected);
 });
 
 test("reviewer list alone is editable and pending arrays have exact authority", () => {
@@ -81,7 +104,7 @@ test("rows carry value, source, edit key, restart and an input kind", () => {
 
 test("purpose groups retain every row once in catalog order", () => {
   const groups = settingGroups(settingRows(config, settings), false);
-  assert.deepEqual(groups.map(group => group.name), ["repository", "agent", "isolation", "rules", "limits"]);
+  assert.deepEqual(groups.map(group => group.name), ["repository", "implementation", "reviews", "executor", "environment"]);
   const keys = groups.flatMap(group => group.rows.map(row => row.key));
   assert.equal(new Set(keys).size, settings.length);
   assert.deepEqual([...keys].sort(), settings.map(item => item.key).sort());
@@ -91,9 +114,9 @@ test("the project-set filter keeps project rows and drops empty groups", () => {
   const groups = settingGroups(settingRows(config, settings), true);
   assert.deepEqual(groups.map(group => [group.name, group.rows.map(row => row.key)]), [
     ["repository", ["platform.repo", "platform.kind"]],
-    ["agent", ["executor.commands.opencode.command", "executor.commands.opencode.model"]],
-    ["rules", ["delivery.reviewers"]],
-    ["limits", ["budgets.max_iterations"]],
+    ["implementation", ["budgets.max_iterations"]],
+    ["reviews", ["delivery.reviewers"]],
+    ["executor", ["executor.commands.opencode.command", "executor.commands.opencode.model"]],
   ]);
 });
 
@@ -114,7 +137,7 @@ test("purpose groups and server choices replace inferred browser domains", () =>
   const rows = settingRows(config, settings.map(item => ({ ...item, type: item.key === "budgets.max_iterations" ? "integer" : "text", choices: item.key === "platform.kind" ? ["gitea"] : [], minimum: item.key === "budgets.max_iterations" ? 1 : null, maximum: null })));
   assert.deepEqual(rows.find(row => row.key === "platform.kind").choices, ["gitea"]);
   assert.equal(rows.find(row => row.key === "budgets.max_iterations").minimum, 1);
-  assert.deepEqual(settingGroups(rows, false).map(group => group.name), ["repository", "agent", "isolation", "rules", "limits"]);
+  assert.deepEqual(settingGroups(rows, false).map(group => group.name), ["repository", "implementation", "reviews", "executor", "environment"]);
   const unknown = settingRows(config, [{ ...settings[0], type: "unknown" }]);
   assert.equal(unknown[0].input, "none");
 });

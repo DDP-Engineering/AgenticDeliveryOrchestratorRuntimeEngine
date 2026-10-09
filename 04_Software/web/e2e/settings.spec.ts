@@ -36,14 +36,14 @@ test("ticket labels separate actions from collapsed status edits and retain inac
   const before = await (await page.request.get("/api/v1/projects/alpha/config")).json();
   const panel = page.locator("#project-settings");
   await expect(panel.getByText("Ready for pickup label", { exact: true })).toBeVisible();
-  await expect(panel.getByText("Clarification answered label", { exact: true })).toBeVisible();
+  await expect(panel.getByText("Clarification answered label", { exact: true })).not.toBeVisible();
   for (const key of ["labels.executor.prefix", "readiness.max_scope_hint"]) {
     expect(before.settings.some((item: { key: string }) => item.key === key)).toBe(true);
     await expect(panel.locator(`[id="help-${key}"]`)).toHaveCount(0);
   }
   const statuses = panel.locator(".status-label-settings");
   await expect(statuses).not.toHaveAttribute("open");
-  await expect(statuses.locator(".setting-row")).toHaveCount(5);
+  await expect(statuses.locator(".setting-row")).toHaveCount(6);
   await expect(statuses.locator(".setting-row").first()).not.toBeVisible();
   await statuses.locator("summary").click();
   for (const name of ["clarify", "done", "failed", "review", "working"]) {
@@ -69,8 +69,8 @@ for (const user of ["admin", "developer"]) {
   await openSettings(page, "alpha", user);
   const panel = page.locator("#project-settings");
   const groups = panel.locator(":scope > .setting-groups > details");
-  const limits = groups.filter({ hasText: "Limits and recovery" });
-  const rules = groups.filter({ hasText: "Rules and approvals" });
+  const limits = groups.filter({ hasText: "PR/MR and review" });
+  const rules = groups.filter({ hasText: "Tickets" });
   const row = limits.locator(".setting-row").filter({ has: page.getByText("Maximum revision rounds", { exact: true }) });
   await expect(row).toHaveCount(1);
   await expect(rules.getByText("Maximum revision rounds", { exact: true })).toHaveCount(0);
@@ -101,7 +101,7 @@ test("ticket labels stay read-only for developers in the narrow status disclosur
   const statuses = page.locator(".status-label-settings");
   await expect(statuses).not.toHaveAttribute("open");
   await statuses.locator("summary").click();
-  await expect(statuses.locator(".setting-row")).toHaveCount(5);
+  await expect(statuses.locator(".setting-row")).toHaveCount(6);
   await expect(statuses.locator(".setting-row").first()).toBeVisible();
   await expect(page.getByRole("button", { name: /^Edit / })).toHaveCount(0);
   await expect(page.locator('[id="help-labels.executor.prefix"], [id="help-readiness.max_scope_hint"]')).toHaveCount(0);
@@ -137,7 +137,7 @@ test("request review from edits one account per line through reviewed apply", as
   await expect(review).toHaveCount(0);
   expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).config.delivery.reviewers).toEqual(["alice", "bob.smith"]);
   // Restore the independent test profile using the same reviewed workflow.
-  await page.locator("#project-settings > .setting-groups > details > summary").filter({ hasText: "Rules and approvals" }).click();
+  await page.locator("#project-settings > .setting-groups > details > summary").filter({ hasText: "PR/MR and review" }).click();
   await row.getByRole("button", { name: "Edit Request review from", exact: true }).click();
   await editor.fill(before.config.delivery.reviewers.join("\n"));
   await row.getByRole("button", { name: "Prepare candidate" }).click();
@@ -165,7 +165,7 @@ test("publication state offers draft and ready with explicit reviewed apply", as
   await expect(row.locator("code")).toHaveText("Ready for review");
   expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).config.delivery.draft).toBe(false);
   // Restore the independent test profile through the same reviewed UI.
-  await page.locator("#project-settings > .setting-groups > details > summary").filter({ hasText: "Rules and approvals" }).click();
+  await page.locator("#project-settings > .setting-groups > details > summary").filter({ hasText: "PR/MR and review" }).click();
   await row.getByRole("button", { name: "Edit PR/MR state at publication", exact: true }).click();
   await row.getByRole("combobox").selectOption({ label: "Draft" });
   await row.getByRole("button", { name: "Prepare candidate" }).click();
@@ -176,7 +176,7 @@ test("publication state offers draft and ready with explicit reviewed apply", as
 test("purpose guidance, correction, exact safe review/copy and candidate-only discard", async ({ page, context }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await openSettings(page);
-  for (const category of ["Repository and tickets", "Rules and approvals", "Limits and recovery", "Measurement and notifications", "Advanced"]) await expect(page.locator("#project-settings > .setting-groups > details > summary").filter({ hasText: category })).toBeVisible();
+  for (const category of ["Repository", "Tickets", "Implementation", "PR/MR and review", "Statistics", "Technical details"]) await expect(page.locator("#project-settings > .setting-groups > details > summary").filter({ hasText: category })).toBeVisible();
   const before = await (await page.request.get("/api/v1/projects/alpha/config")).json();
   await page.getByRole("button", { name: "Edit Repository owner and name", exact: true }).click();
   const editor = page.locator(".setting-editor");
@@ -305,7 +305,7 @@ test("purpose guidance and single-setting flow preserve four locales", async ({ 
   await openSettings(page);
   const projects = await (await page.request.get("/api/v1/projects")).json();
   const id = projects.find((item: { name: string }) => item.name === "alpha").id;
-  const expected = { en: "Repository and tickets", fr: "Dépôt et tickets", de: "Repository und Tickets", ro: "Depozit și tichete" };
+  const expected = { en: "Repository", fr: "Dépôt", de: "Repository", ro: "Repository" };
   const labelNames = {
     en: ["Ready for pickup label", "Clarification answered label", "Status labels"],
     fr: ["Étiquette de disponibilité pour la prise en charge", "Étiquette de réponse à une clarification", "Étiquettes de statut"],
@@ -325,12 +325,13 @@ test("purpose guidance and single-setting flow preserve four locales", async ({ 
     const rules = page.locator("#project-settings > .setting-groups > details").filter({ has: statuses });
     await rules.locator("summary").first().click();
     await expect(page.getByText(labelNames[locale][0], { exact: true })).toBeVisible();
-    await expect(page.getByText(labelNames[locale][1], { exact: true })).toBeVisible();
+    await expect(page.getByText(labelNames[locale][1], { exact: true })).not.toBeVisible();
     await expect(statuses.locator("summary")).toContainText(labelNames[locale][2]);
     await expect(statuses).not.toHaveAttribute("open");
     await statuses.locator("summary").click();
-    await expect(statuses.locator(".setting-row")).toHaveCount(5);
+    await expect(statuses.locator(".setting-row")).toHaveCount(6);
     await expect(statuses.locator(".setting-row").first()).toBeVisible();
+    await expect(page.getByText(labelNames[locale][1], { exact: true })).toBeVisible();
     await expect(page.locator('[id="help-labels.executor.prefix"], [id="help-readiness.max_scope_hint"]')).toHaveCount(0);
   }
 });
@@ -375,7 +376,7 @@ test("stale base and malformed restored candidate cannot enable Apply", async ({
   await page.locator(".topbar").getByRole("button", { name: "Refresh", exact: true }).click();
   await expect(page.locator("#project-settings")).toContainText("could not be verified");
   await expect(page.getByRole("button", { name: "Apply change", exact: true })).toHaveCount(0);
-  await page.locator("#project-settings > .setting-groups > details > summary").filter({hasText:/Limits and recovery/i}).click();
+  await page.locator("#project-settings > .setting-groups > details > summary").filter({hasText:/Implementation/i}).click();
   await expect(page.getByRole("button", { name: "Edit Maximum iterations per job", exact: true })).toBeDisabled();
   await page.getByRole("button", { name: "Discard change", exact: true }).click();
   await expect(page.getByRole("button", { name: "Edit Maximum iterations per job", exact: true })).toBeEnabled();
@@ -395,7 +396,8 @@ for (const user of ["admin", "developer"]) {
   await expect(stateFolder).toBeVisible();
   await expect(stateFolder).toContainText(configuration.config.state.store_root);
   await expect(stateFolder.getByRole("button")).toHaveCount(0);
-  const shown = configuration.settings.filter((s:{key:string})=>!["state.channel", "labels.executor.prefix", "readiness.max_scope_hint"].includes(s.key) && !["executor.","container.","execution.","local.","worktree."].some(prefix=>s.key.startsWith(prefix)));
+  const hidden = ["state.channel", "labels.executor.prefix", "readiness.max_scope_hint", "labels.selection.type_feature", "review.trigger", "review.review_reminder_after", "clarification.reminder_after", "clarification.timeout_state", "metrics.capture_resource", "reconcile.on_ticket_closed", "reconcile.on_ticket_deleted", "reconcile.on_trigger_removed", "executor.mode"];
+  const shown = configuration.settings.filter((s:{key:string}) => !hidden.includes(s.key) && !["executor.", "container.", "execution.", "local."].some(prefix => s.key.startsWith(prefix)) && (!s.key.startsWith("worktree.") || ["worktree.repo_path", "worktree.root", "worktree.branch_template", "worktree.branch_rule"].includes(s.key)));
   await expect(panel.locator(".setting-row")).toHaveCount(shown.length);
   await expect(panel.locator(".setting-actions details")).toHaveCount(0);
   await expect(panel.getByRole("checkbox")).toHaveCount(0);
@@ -437,3 +439,49 @@ test("environment recipe selection is external", async ({page}) => {
   await expect(page.getByRole("button",{name:"Edit Reviewed preparation recipe",exact:true})).toHaveCount(0);
   await expect(page.locator(".project-image")).toHaveCount(0);
 });
+
+for (const user of ["admin", "developer"]) {
+ test(`Git flow categories, branch reference and topic disclosures preserve ${user} authority`, async ({page}) => {
+  await openSettings(page, "alpha", user);
+  const panel = page.locator("#project-settings");
+  const groups = panel.locator(":scope > .setting-groups > details");
+  expect(await groups.locator(":scope > summary").allTextContents()).toEqual([
+   expect.stringMatching(/^Repository /), expect.stringMatching(/^Tickets /), expect.stringMatching(/^Implementation /),
+   expect.stringMatching(/^PR\/MR and review /), expect.stringMatching(/^Statistics /), expect.stringMatching(/^Technical details /),
+  ]);
+  const before = await (await page.request.get("/api/v1/projects/alpha/config")).json();
+  const category = (name:string) => groups.filter({has: page.locator(`summary`).filter({hasText: new RegExp(`^${name} \\(`)})});
+  const placements = {
+   Repository: ["platform.repo", "agent.email", "delivery.target_branch", "worktree.branch_template", "worktree.branch_rule"],
+   Tickets: ["labels.control.hold", "labels.control.exclude", "polling.poll_interval_seconds", "readiness.require_acceptance_criteria"],
+   Implementation: ["budgets.max_cost_usd", "polling.max_concurrent_runs", "delivery.publish_checkpoints", "clarification.max_rounds", "recovery.max_stage_failures"],
+   "PR/MR and review": ["review.max_review_rounds", "review.revise_label", "delivery.reviewers"],
+   Statistics: ["metrics.enabled", "metrics.capture_tokens", "metrics.db_path"],
+   "Technical details": ["state.store_root", "agent.slug", "worktree.repo_path", "worktree.root", "workflow.aegis_python"],
+  };
+  for (const [name, keys] of Object.entries(placements)) for (const key of keys) {
+   if (user === "developer" && key === "budgets.max_cost_usd") continue;
+   await expect(category(name).locator(`[id="setting-${key}"]`)).toHaveCount(1);
+   await expect(panel.locator(`[id="setting-${key}"]`)).toHaveCount(1);
+  }
+  for (const key of ["review.trigger", "review.review_reminder_after", "metrics.capture_resource", "clarification.reminder_after", "clarification.timeout_state", "reconcile.on_ticket_closed", "labels.selection.type_feature", "execution.backend", "container.image"]) await expect(panel.locator(`[id="help-${key}"]`)).toHaveCount(0);
+  for (const key of ["worktree.repo_path", "worktree.root", "worktree.branch_template", "agent.slug", "workflow.aegis_python"]) await expect(panel.locator(`[id="setting-${key}"]`).getByRole("button")).toHaveCount(0);
+  for (const topic of ["clarification", "recovery", "stageLimits", "statisticsFiles"]) {
+   const disclosure = panel.locator(`[data-setting-topic="${topic}"]`);
+   await expect(disclosure).not.toHaveAttribute("open");
+   await disclosure.locator(":scope > summary").click();
+   await expect(disclosure.locator(".setting-row").first()).toBeVisible();
+  }
+  const repository = category("Repository");
+  await repository.locator(":scope > summary").click();
+  await expect(repository).not.toHaveAttribute("open");
+  await category("PR/MR and review").getByRole("link", {name:"View in Repository",exact:true}).click();
+  await expect(repository).toHaveAttribute("open", "");
+  await expect(panel.locator('[id="setting-delivery.target_branch"]')).toBeFocused();
+  expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).revision).toBe(before.revision);
+  if (user === "developer") {
+   await expect(panel.getByRole("button")).toHaveCount(0);
+   await expect(panel.locator('[id="setting-budgets.max_cost_usd"]')).toHaveCount(0);
+  } else await expect(panel.getByRole("button", {name:"Edit Target branch",exact:true})).toHaveCount(1);
+ });
+}

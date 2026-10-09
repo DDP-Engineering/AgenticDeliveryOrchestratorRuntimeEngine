@@ -7,9 +7,13 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Web frontend
 
-`review.max_review_rounds` maps exactly to Limits and recovery; other review policies and pickup gates stay in Rules and approvals. Localized help explains the shared additional-round budget and distinct exhaustion outcomes. Portable mapping validation derives its exact size from `portableFields`, whose readiness map contains two booleans.
+Project Settings follows **Repository → Tickets → Implementation → PR/MR and review → Statistics**, followed by closed **Technical details**. Repository owns platform/author identity and the single integration-branch editor; PR/MR shows its value and a link that opens/focuses that row. Tickets owns eligibility, polling, priority/type and pickup/status labels; hold/exclude affect pickup, not already-started jobs. Implementation owns capacity, budgets and progress commits, with closed Clarifications, Recovery after errors and Advanced stage time limits. Statistics owns recording/token switches with closed Advanced statistics paths. Technical details and worktree paths/branch naming are read-only; runtime installation stays external and Executor configuration remains its separate page. Inactive reserved controls are omitted without changing CLI configuration. All categories start closed, retain reviewed Admin edits and Dev redaction, and have four-locale names.
 
-`lifecycleCopy` names ready/answered action labels and the five managed status labels consistently in rows, editors and candidate review. `STATUS_LABEL_KEYS` partitions the five rows into a native initially closed Status labels disclosure inside Rules and approvals. `HIDDEN_SETTING_KEYS` omits state reporting channel, executor prefix and ticket scope hint controls; effective config/catalog and scalar transport retain those keys for compatibility. Status edits retain existing administrator/revision/idle authority; Dev remains read-only. The disclosure uses the existing responsive row layout.
+`settingPurpose` routes exact effect overrides before section fallbacks; `settingVisible` suppresses inactive/external fields and admits only four known informational worktree fields; `settingSubgroup` owns native topic disclosures. Technical/unknown and worktree rows cannot acquire editors from catalog metadata. The target reference opens its containing disclosure and focuses the single row.
+
+`review.max_review_rounds` and other review policies map to PR/MR and review; pickup gates map to Tickets. Localized help explains the shared additional-round budget and distinct exhaustion outcomes. Portable mapping validation derives its exact size from `portableFields`, whose readiness map contains two booleans.
+
+`lifecycleCopy` names pickup/status/answer labels consistently in rows, editors and candidate review. `STATUS_LABEL_KEYS` partitions six rows (including answered) into a native initially closed Status labels disclosure inside Tickets. `HIDDEN_SETTING_KEYS` omits inactive reserved controls; effective config/catalog and scalar transport retain those keys for compatibility. Status edits retain existing administrator/revision/idle authority; Dev remains read-only. The disclosure uses the existing responsive row layout.
 
 `labels.control.exclude` uses `excludeLabelCopy` for the settings row, editor and candidate review in all four locales. Help describes its configured name, presence-based pickup exclusion, removal under remaining eligibility gates and already-started job boundary. The scalar editing and conductor contracts remain unchanged.
 
@@ -237,11 +241,9 @@ The API owns archived/idle preconditions, authorization and CSRF enforcement.
 Verification shows structural invalidity or persisted unverified/stale/failed/
 partial/verified evidence; static validity does not establish live readiness.
 Assigned developers can inspect the redacted effective configuration in
-collapsible purpose categories, with frequent settings first within each. Each row shows its value,
+collapsible Git-flow categories, with frequent settings first within each. Each row shows its value,
 a Default badge for inherited values, its type and contextual help; common
-settings also describe their valid domain. A checkbox limits the list to
-settings set for the project (`web/src/settings.ts` builds and groups the
-rows). Each row's visible guidance shows the setting's own text in the selected language
+settings also describe their valid domain. `web/src/settings.ts` builds, filters and groups the rows. Each row's visible guidance shows the setting's own text in the selected language
 from `web/src/settingHelp.ts` (keyed by the catalog `web/src/settingKeys.json`,
 with `*` for project-chosen names) and its ADORE default. Administrators can stage and apply
 project configuration, local endpoint and estimated-price changes there, while
@@ -353,7 +355,7 @@ key without collecting its value in the browser. The form exposes the supported
 chat-completions protocol, bounded request timeout, and HTTPS custom-CA file
 path inside the executor image. Its pending-change panel shows the resulting
 endpoint fields before Apply.
-Settings presents five purpose categories with frequent rows first in each,
+Settings presents five Git-flow categories plus closed Technical details with frequent rows first in each,
 source badges, visible localized purpose/units/consequence help, Active value and
 ADORE default. Server catalog type/choices/numeric bounds continue to constrain editors; permanent descriptions provide guidance. Browser controls use server metadata; malformed catalog/candidate
 transport fails closed. English labels clarify catalog keys; other locales retain

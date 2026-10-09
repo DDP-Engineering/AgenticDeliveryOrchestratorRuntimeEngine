@@ -20,6 +20,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Group Project Settings by Git delivery flow: Repository, Tickets, Implementation, PR/MR and review, Statistics and informational Technical details; add topic disclosures and a single integration-branch editor referenced from PR/MR, retain separate Executor configuration, and omit inactive GUI controls.
+
 - Default acceptance-criteria pickup checking to false and maximum additional revision rounds to five; move the revision limit to Limits and recovery with accurate exhaustion guidance.
 - Remove the inactive known-component requirement from CLI/web configuration and portable rules; portable working rules now contain fifteen fields.
 

@@ -17,7 +17,7 @@ AEGIS-governed repositories for a team. It selects opt-in GitHub, GitLab or
 Gitea tickets, runs one fresh executor session per AEGIS stage inside an
 isolated branch/worktree with container or native local execution, verifies the candidate independently,
 and publishes a draft or ready MR/PR according to `delivery.draft` after fresh human approval. It never merges. After a human merge, configured remote run-branch cleanup uses an exact commit lease on all three forges.
-Administrator settings edit requested reviewers as a reviewed account list. Ticket action labels stay visible; five managed status-label names use an initially closed disclosure with reviewed edits, while inactive executor-prefix and scope-hint controls are omitted.
+Administrator settings edit requested reviewers as a reviewed account list. Ready stays visible in Tickets; six status/answer-label names use an initially closed disclosure with reviewed edits, while inactive executor-prefix and scope-hint controls are omitted.
 Its users are the operator who runs the conductor on a host, the reviewers who
 approve and merge on the forge, and the coding executors it launches:
 OpenCode, Pi, Codex and Qwen Code.
@@ -52,8 +52,8 @@ OpenCode, Pi, Codex and Qwen Code.
   Jobs supplies scoped full-history navigation.
   Executor configuration unifies settings/provider credentials and heading model testing,
   with server-authoritative agent and exact launch-preset choices through reviewed apply.
-  Settings uses five purpose
-  categories, visible catalog guidance and exact single-candidate active/proposed
+  Settings uses five Git-flow
+  categories and closed informational Technical details, with clarification/recovery/statistics-path topics and one Repository branch editor linked from PR/MR, visible catalog guidance and exact single-candidate active/proposed
   review with explicit base/candidate binding, idle/lock/pause safety and Dev
   financial/secret redaction. Admin portable export validates active configuration
   and transfers only complete polling/readiness/recovery/budget defaults with exact

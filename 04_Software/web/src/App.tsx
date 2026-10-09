@@ -8,7 +8,7 @@ import { Children, cloneElement, isValidElement, useCallback, useEffect, useRef,
 import { aggregateMetrics, aggregateUsage, type Metrics, type Usage } from "./metrics";
 import { messages, type Locale, type MessageKey } from "./i18n";
 import { ModelConnection, validModelEvidence, type ModelEvidence } from "./ModelConnection";
-import { ExecutorCredentials, executorCopy, isExecutorSetting } from "./ExecutorCredentials";
+import { ExecutorCredentials, executorCopy } from "./ExecutorCredentials";
 import { RepositoryConnection } from "./RepositoryConnection";
 import { ReadinessEvidence, readinessDetailsLabel, readinessCloseLabel } from "./ReadinessEvidence";
 import { readReadiness, type ProjectReadiness } from "./readiness";
@@ -18,7 +18,7 @@ import { auditPolicyPayload } from "./auditPolicy";
 import { ApiError, describeError } from "./errors";
 import { startVisiblePolling } from "./polling";
 import { formatRoute, normalizeRoute, parseRoute, type ProjectTab, type Route } from "./routes";
-import { editValue, hasDefault, settingGroups, settingRows, type SettingMeta, type SettingRow, settingValue, validSettingCatalog, validPendingConfig, type PendingConfig, HIDDEN_SETTING_KEYS, STATUS_LABEL_KEYS } from "./settings";
+import { editValue, hasDefault, settingGroups, settingRows, type SettingMeta, type SettingRow, settingValue, validSettingCatalog, validPendingConfig, type PendingConfig, settingVisible, settingSubgroup, STATUS_LABEL_KEYS } from "./settings";
 import { ExecutorEnvironment, externalEnvironmentCopy, type ExecutorEnvironmentInfo } from "./ExecutorEnvironment";
 import { imageCopy } from "./imageBuild";
 import { ExecutionPlanReview } from "./ExecutionPlanReview";
@@ -1331,7 +1331,7 @@ function PendingReview({ config, candidate, project, paused, busy, locale, t, on
 function SettingsList({ executorOnly=false, config, settings, t, locale, canEdit, disabled, onStage, actions, children, header }: { header?: ReactNode; actions?: ReactNode; children?: ReactNode; executorOnly?:boolean; config: Record<string, unknown>; settings: SettingMeta[]; t: (key: MessageKey) => string; locale: Locale; canEdit: boolean; disabled: boolean; onStage: (key: string, value: string) => Promise<boolean> }) {
   const [editing, setEditing] = useState("");
   const [draft, setDraft] = useState("");
-  const groups = settingGroups(settingRows(config, settings).filter(row=>!HIDDEN_SETTING_KEYS.has(row.key) && !row.key.startsWith("container.") && !row.key.startsWith("worktree.") && !row.key.startsWith("execution.") && !row.key.startsWith("local.") && isExecutorSetting(row.key)===executorOnly), false);
+  const groups = settingGroups(settingRows(config, settings).filter(row => settingVisible(row.key, executorOnly)), false);
   const copy = settingsCopy[locale];
   const shown = (value: unknown) => value == null || value === "" ? "—" :
     Array.isArray(value) || typeof value === "object" ? JSON.stringify(value) : String(value);
@@ -1348,7 +1348,7 @@ function SettingsList({ executorOnly=false, config, settings, t, locale, canEdit
             : <input aria-label={label(row)} type={row.input === "number" ? "number" : "text"} step={row.step} min={row.minimum ?? undefined} max={row.maximum ?? undefined} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)} required={row.input === "number"} />}
           <div className="button-row"><button className="primary" disabled={disabled || row.input === "choice" && !row.choices.includes(draft)}>{copy.prepare}</button><button type="button" className="ghost" onClick={() => setEditing("")}>{t("cancel")}</button></div>
         </form>;
-  const renderRow = (row:SettingRow) => <div className="setting-row" key={row.key}>
+  const renderRow = (row:SettingRow) => <div className="setting-row" key={row.key} id={`setting-${row.key}`} tabIndex={-1}>
         <div>
           <strong>{label(row)}</strong><p className="setting-essential" id={`help-${row.key}`}>{settingHelp(row.key, locale) ?? t("settingGeneralHelp")}</p>
           {row.source !== "project" && <span className="setting-badge">{t("settingDefault")}</span>}
@@ -1364,9 +1364,27 @@ function SettingsList({ executorOnly=false, config, settings, t, locale, canEdit
     {header ?? <div className="panel-heading"><h2>{executorOnly ? executorCopy[locale].tab : t("projectSettings")}</h2>{actions}</div>}
     {!canEdit && <p className="muted">{copy.readOnly}</p>}
     {groups.length === 0 ? <Empty label={t("settingsNoneSet")} /> : <div className="setting-groups">{groups.map(group => {
-      return <details key={group.name} open={executorOnly}>
+      return <details key={group.name} data-setting-purpose={group.name} open={executorOnly}>
       <summary>{copy[group.name as keyof typeof copy]} <span className="muted">({group.rows.length})</span></summary>
-      <div className="setting-list">{group.rows.filter(row => !STATUS_LABEL_KEYS.has(row.key)).map(renderRow)}
+      {group.name === "reviews" && settingValue(config, "delivery.target_branch") !== undefined && <p className="setting-reference">
+        <strong>{copy.integrationBranch}:</strong> <code>{shown(settingValue(config, "delivery.target_branch"))}</code>{" · "}
+        <a href="#setting-delivery.target_branch" onClick={event => {
+          const target = document.getElementById("setting-delivery.target_branch");
+          if (!target) return;
+          event.preventDefault();
+          const category = target.closest("details");
+          if (category) category.open = true;
+          target.focus(); target.scrollIntoView({ block: "center" });
+        }}>{copy.integrationBranchLink}</a>
+      </p>}
+      <div className="setting-list">{group.rows.filter(row => !STATUS_LABEL_KEYS.has(row.key) && !settingSubgroup(row.key)).map(renderRow)}
+        {(["clarification", "recovery", "stageLimits", "statisticsFiles"] as const).map(topic => {
+          const rows = group.rows.filter(row => settingSubgroup(row.key) === topic);
+          return rows.length > 0 && <details className="setting-topic" data-setting-topic={topic} key={topic}>
+            <summary>{copy[topic]} <span className="muted">({rows.length})</span></summary>
+            <div className="setting-list">{rows.map(renderRow)}</div>
+          </details>;
+        })}
         {group.rows.some(row => STATUS_LABEL_KEYS.has(row.key)) && <details className="status-label-settings">
           <summary>{lifecycleCopy[locale].title} <span className="muted">({group.rows.filter(row => STATUS_LABEL_KEYS.has(row.key)).length})</span></summary>
           <p className="muted">{lifecycleCopy[locale].help}</p>

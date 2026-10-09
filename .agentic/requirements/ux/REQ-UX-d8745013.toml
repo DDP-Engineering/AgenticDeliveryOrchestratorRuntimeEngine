@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-d8745013"
+
+title = "Project settings follow Git delivery flow"
+
+status = "active"
+
+requirement = "When an authorized operator opens Project Settings, ADORE shall present each visible setting once in Repository, Tickets, Implementation, PR/MR, Statistics or closed Technical details, with a single Repository integration-branch editor referenced from PR/MR, localized clarification/recovery/advanced disclosures, informational installation fields and separate Executor configuration while omitting inactive controls and preserving reviewed administrator and redacted read-only developer authority."
+
+verification = "Helper routing/visibility tests and offline browser journeys check exact category ownership/order, native subgroups, target-link opening without a second editor, inactive/external control absence, unchanged config revision, Admin candidate review, Dev redaction, four locales and narrow light/dark layout."
+
+affected_paths = ["04_Software/web/src/settings.ts", "04_Software/web/src/settingsCopy.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/styles.css"]
+
+linked_tests = ["04_Software/web/tests/settings.test.mjs", "04_Software/web/e2e/settings.spec.ts"]
+
+
+spec = "specs/settings-candidate-review.md"
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-09
+updated = 2026-10-09
