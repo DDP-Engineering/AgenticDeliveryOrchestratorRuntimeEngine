@@ -7,7 +7,17 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { editValue, hasDefault, settingGroups, settingRows, settingPurpose, validSettingCatalog, validPendingConfig } from "../src/settings.ts";
-import { publicationCopy, publicationValue, pipelineFailureCopy, pipelineFailureValue, settingLabel } from "../src/settingsCopy.ts";
+import { publicationCopy, publicationValue, pipelineFailureCopy, pipelineFailureValue, technicalSettingsHelp, settingLabel } from "../src/settingsCopy.ts";
+
+test("technical guidance covers external ownership and existing data in all locales", () => {
+ assert.deepEqual(Object.keys(technicalSettingsHelp).sort(), ["de", "en", "fr", "ro"]);
+ for (const text of Object.values(technicalSettingsHelp)) {
+  assert.match(text, /TOML/);
+  assert.match(text, /ADORE/);
+  assert.ok(text.length > 80);
+ }
+ assert.match(technicalSettingsHelp.en, /Changing a path does not move existing/);
+});
 import { durationParts, implementationDraft } from "../src/implementationSettings.ts";
 
 test("implementation drafts serialize only complete valid human values", () => {

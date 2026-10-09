@@ -606,6 +606,11 @@ for (const user of ["admin", "developer"]) {
    await expect(disclosure.locator(".setting-row").first()).toBeVisible();
   }
   const repository = category("Repository");
+  const technical = category("Technical details");
+  await technical.locator(":scope > summary").click();
+  await expect(technical).toContainText("Configured externally in the project's TOML file on the ADORE server.");
+  await expect(technical).toContainText("Changing a path does not move existing job state");
+  await expect(technical.getByRole("button", {name: /^Edit /})).toHaveCount(0);
   const reference = category("PR/MR and review").locator(".setting-reference");
   const adjacent = category("PR/MR and review").locator('[id="setting-delivery.approval_label"]');
   await expect(reference.locator("strong")).toHaveText("Integration branch");

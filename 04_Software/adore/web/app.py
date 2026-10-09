@@ -1601,7 +1601,8 @@ def _editable_setting_key(key: str, *, endpoint: bool = False) -> bool:
                 edited through its own validated form.
     @return     True when the key may be staged from the browser.
     """
-    if key in {"metrics.db_path", "metrics.export_jsonl", "metrics.html_out"}:
+    if key in {"metrics.db_path", "metrics.export_jsonl", "metrics.html_out",
+               "workflow.aegis_python"}:
         return False
     if key in {"clarification.answer_timeout", "clarification.max_rounds"}:
         return True

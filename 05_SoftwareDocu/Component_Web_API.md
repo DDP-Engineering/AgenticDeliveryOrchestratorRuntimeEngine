@@ -7,6 +7,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Web API
 
+Technical details displays Durable job state folder (`state.store_root`), Workflow Python command (`workflow.aegis_python`), Existing local repository path (`worktree.repo_path`) and Job working folders (`worktree.root`) as informational installation values. Operators configure them in the project TOML on the ADORE server; generic web mutations are refused. The localized guidance explains that changing a path does not relocate existing job state, repositories or working folders.
+
 The settings catalog advertises `delivery.draft` choices `[true, false]`. Reviewed prepare/apply validates the exact boolean with the shared configuration validator and retains administrator, CSRF, revision, idle and locking gates.
 
 The catalog and effective configuration use the shared enabled default for

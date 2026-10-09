@@ -20,6 +20,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Clarify externally configured installation values in Technical details and align Workflow Python command API authority with its read-only GUI.
+
 - Enable reviewed Implementation edits for human-answer duration, question rounds, retry-delay lists and all six stage timeout overrides, with localized typed controls; validate the active answer deadline independently of the reserved reminder.
 
 - Clarify implementation settings in four GUI locales with executor-launch and active-work names, consistent candidate review and accurate capacity, telemetry, timing, file-count, checkpoint and quick-path guidance.

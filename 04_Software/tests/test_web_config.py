@@ -495,6 +495,33 @@ def test_statistics_storage_settings_are_external_and_cannot_prepare(tmp_path):
     assert path.read_bytes() == before
 
 
+def test_installation_settings_are_external_and_cannot_be_mutated(tmp_path):
+    """@brief Installation values are readable while direct and staged writes are refused."""
+    profiles = ProfileStore(tmp_path / "home")
+    profiles.create("alpha")
+    path = profiles.config_path("alpha")
+    path.write_bytes(_PARTIAL_CONFIG.encode("utf-8"))
+    before = path.read_bytes()
+    with TestClient(create_app(profiles.home)) as client:
+        login = client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
+        headers = {"X-CSRF-Token": login.json()["csrf"]}
+        view = client.get("/api/v1/projects/alpha/config").json()
+        settings = {item["key"]: item for item in view["settings"]}
+        for key in ("workflow.aegis_python", "state.store_root",
+                    "worktree.repo_path", "worktree.root"):
+            assert settings[key]["editable"] is False, key
+            section, name = key.split(".")
+            assert name in view["config"][section]
+            for method, route in ((client.put, "/api/v1/projects/alpha/config"),
+                                  (client.post, "/api/v1/projects/alpha/config/pending")):
+                response = method(route, headers=headers,
+                                  json={"key": key, "value": "other-value",
+                                        "revision": view["revision"]})
+                assert response.status_code == 400, (key, response.text)
+                assert path.read_bytes() == before
+                assert client.get("/api/v1/projects/alpha/config/pending").json() is None
+
+
 def test_config_view_reports_each_settings_source_and_editability(tmp_path):
     """
     @brief   Every effective setting says whether the project's file sets it,

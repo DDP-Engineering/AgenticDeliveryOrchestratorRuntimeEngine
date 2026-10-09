@@ -25,7 +25,7 @@ import { ExecutionPlanReview } from "./ExecutionPlanReview";
 import { type ExecutionPlan } from "./executionPlan";
 import { settingHelp } from "./settingHelp";
 import { durationParts, executionStages, implementationDraft, implementationEditorCopy } from "./implementationSettings";
-import { settingsCopy, settingLabel, statisticsDatabaseCopy, publicationCopy, publicationValue, pipelineFailureCopy, pipelineFailureValue, reviewerCopy, targetBranchCopy, excludeLabelCopy, lifecycleCopy, branchNamingCopy, branchSettingLabel, implementationSettingLabel } from "./settingsCopy";
+import { settingsCopy, technicalSettingsHelp, settingLabel, statisticsDatabaseCopy, publicationCopy, publicationValue, pipelineFailureCopy, pipelineFailureValue, reviewerCopy, targetBranchCopy, excludeLabelCopy, lifecycleCopy, branchNamingCopy, branchSettingLabel, implementationSettingLabel } from "./settingsCopy";
 import { ImportWizard } from "./ImportWizard";
 import { RawConfiguration } from "./RawConfiguration";
 import { TransferWizard } from "./TransferWizard";
@@ -1404,6 +1404,7 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
     {groups.length === 0 ? <Empty label={t("settingsNoneSet")} /> : <div className="setting-groups">{groups.map(group => {
       return <details key={group.name} data-setting-purpose={group.name} open={executorOnly}>
       <summary>{copy[group.name as keyof typeof copy]} <span className="muted">({group.rows.length})</span></summary>
+      {group.name === "technical" && <p className="muted">{technicalSettingsHelp[locale]}</p>}
       {group.name === "reviews" && settingValue(config, "delivery.target_branch") !== undefined && <div className="setting-row setting-reference">
         <div><strong>{copy.integrationBranch}</strong><p className="setting-essential">{copy.integrationBranchHelp}</p>
         <a className="text-button" href="#setting-delivery.target_branch" onClick={event => {
