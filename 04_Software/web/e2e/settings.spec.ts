@@ -282,10 +282,11 @@ test("purpose guidance, correction, exact safe review/copy and candidate-only di
   await expect(review).toContainText("Affected project: alpha");
   await expect(review).toContainText(String(before.config.platform.repo));
   await expect(review).toContainText("offline/reviewed-repository");
-  await expect(review).toContainText("Prepared by: not recorded");
+  await expect(review.locator(".candidate-details")).not.toHaveAttribute("open", "");
   await expect(review).toContainText("Stop project pickup");
   await expect(page.getByRole("button", { name: "Edit Maximum executor launches per job", exact: true })).toBeDisabled();
   expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).revision).toBe(before.revision);
+  await review.locator(".candidate-details > summary").click();
   await review.getByRole("button", { name: "Copy safe review" }).click();
   const copied = await page.evaluate(() => navigator.clipboard.readText());
   expect(copied).toContain("offline/reviewed-repository");

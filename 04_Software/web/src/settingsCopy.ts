@@ -180,3 +180,11 @@ export function settingLabel(key: string): string {
  if (key.startsWith("labels.")) return `${parts[1] === "lifecycle" ? "Job status" : parts[1] === "control" ? "Pickup control" : parts[1] === "selection" ? "Ticket selection" : "Agent selection"}: ${parts[2].replaceAll("_", " ")} label`;
  return parts.slice(1).join(" ").replaceAll("_", " ").replace(/^./, letter => letter.toUpperCase());
 }
+
+/** Compact comparison headings and explicit unchanged-candidate feedback. */
+export const compactReviewCopy: Record<Locale, { setting: string; complete: string; unchanged: string }> = {
+ en: { setting: "Setting", complete: "Complete comparison", unchanged: "No values have changed." },
+ ro: { setting: "Setare", complete: "Comparație completă", unchanged: "Nu există valori modificate." },
+ fr: { setting: "Paramètre", complete: "Comparaison complète", unchanged: "Aucune valeur n’a changé." },
+ de: { setting: "Einstellung", complete: "Vollständiger Vergleich", unchanged: "Keine Werte wurden geändert." },
+};

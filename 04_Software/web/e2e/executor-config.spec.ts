@@ -217,3 +217,35 @@ test("inline executor and credential dropdown controls preserve four locales",as
   await names.locator('button.ghost').click();await page.setViewportSize({width:1280,height:720});
  }
 });
+
+
+test("compact review shows only differences above settings and blocks unchanged candidates",async({page,context})=>{
+ await context.grantPermissions(["clipboard-read","clipboard-write"]);
+ await page.setViewportSize({width:1520,height:900});
+ await context.route("**/*",route=>new URL(route.request().url()).origin==="http://127.0.0.1:18765"?route.continue():route.abort());
+ await page.goto("/");await page.getByLabel("Username",{exact:false}).fill("admin");await page.getByLabel("Password",{exact:false}).fill("admin");await page.getByRole("button",{name:"Sign in",exact:true}).click();
+ await expect(page.getByRole("navigation",{name:"Primary navigation",exact:true})).toBeVisible();
+ const projects=await(await page.request.get("/api/v1/projects")).json();const id=projects.find((p:{name:string})=>p.name==="alpha").id;
+ await page.goto(`/projects/${id}/configuration`);await page.getByText("Agent and model (6)",{exact:true}).click();
+ const before=await(await page.request.get(`/api/v1/projects/${id}/config`)).json();
+ await page.getByRole("button",{name:"Edit Default coding agent",exact:true}).click();
+ await page.getByLabel("Executor model identifier",{exact:true}).fill("offline-review-model");
+ await page.locator(".setting-editor").getByRole("button",{name:"Prepare candidate",exact:true}).click();
+ const review=page.locator(".candidate-review"),changes=review.locator(".candidate-changes tbody tr"),details=review.locator(".candidate-details");
+ await expect(changes).toHaveCount(1);await expect(changes).toContainText("Executor model identifier");
+ await expect(details).not.toHaveAttribute("open","");
+ const bounds=await review.boundingBox(),groups=await page.locator("#project-settings > .setting-groups").boundingBox();
+ expect(bounds!.y+bounds!.height).toBeLessThanOrEqual(groups!.y);expect(bounds!.height).toBeLessThan(420);
+ const apply=review.getByRole("button",{name:"Apply change",exact:true}),discard=review.getByRole("button",{name:"Discard change",exact:true});
+ expect(Math.abs((await apply.boundingBox())!.y-(await discard.boundingBox())!.y)).toBeLessThan(2);
+ await details.locator(":scope > summary").click();await expect(details.locator(".candidate-complete tbody tr")).toHaveCount(3);
+ await details.getByRole("button",{name:"Copy safe review",exact:true}).click();
+ const copied=await page.evaluate(()=>navigator.clipboard.readText());expect(copied).toContain("Default coding agent");expect(copied).toContain("Executor launch command");expect(copied).toContain("offline-review-model");expect(copied).not.toContain("OPENCODE_CONFIG_CONTENT");
+ await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+ await discard.click();expect((await(await page.request.get(`/api/v1/projects/${id}/config`)).json()).revision).toBe(before.revision);
+ await page.getByRole("button",{name:"Edit Default coding agent",exact:true}).click();
+ await page.locator(".setting-editor").getByRole("button",{name:"Prepare candidate",exact:true}).click();
+ await expect(review).toContainText("No values have changed.");await expect(apply).toBeDisabled();await expect(changes).toHaveCount(0);
+ await discard.click();expect(await(await page.request.get(`/api/v1/projects/${id}/config/pending`)).json()).toBeNull();
+ expect((await(await page.request.get(`/api/v1/projects/${id}/config`)).json()).revision).toBe(before.revision);
+});

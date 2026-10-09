@@ -28,7 +28,7 @@ import { ExecutionPlanReview } from "./ExecutionPlanReview";
 import { type ExecutionPlan } from "./executionPlan";
 import { settingHelp } from "./settingHelp";
 import { durationParts, executionStages, implementationDraft, implementationEditorCopy } from "./implementationSettings";
-import { settingsCopy, technicalSettingsHelp, settingLabel, statisticsDatabaseCopy, publicationCopy, publicationValue, pipelineFailureCopy, pipelineFailureValue, reviewerCopy, targetBranchCopy, excludeLabelCopy, lifecycleCopy, branchNamingCopy, branchSettingLabel, implementationSettingLabel } from "./settingsCopy";
+import { compactReviewCopy, settingsCopy, technicalSettingsHelp, settingLabel, statisticsDatabaseCopy, publicationCopy, publicationValue, pipelineFailureCopy, pipelineFailureValue, reviewerCopy, targetBranchCopy, excludeLabelCopy, lifecycleCopy, branchNamingCopy, branchSettingLabel, implementationSettingLabel } from "./settingsCopy";
 import { ImportWizard } from "./ImportWizard";
 import { RawConfiguration } from "./RawConfiguration";
 import { TransferWizard } from "./TransferWizard";
@@ -1304,21 +1304,35 @@ function PendingReview({ config, candidate, project, paused, busy, locale, t, on
     rows.push({ label: t("endpointCa"), active: settingValue(config.config, "container.runtime_env.NODE_EXTRA_CA_CERTS"), proposed: candidate.endpoint.ca_file ?? t("settingNoDefault") });
   }
   if (candidate.image_build) rows.push({label:imageCopy[locale].reviewed,active:settingValue(config.config,"container.required_tool_checks"),proposed:candidate.image_build.verified_checks});
+  // Candidate values are validated JSON; property order is immaterial, array order is retained.
+  const canonical = (value: unknown): string => Array.isArray(value) ? `[${value.map(canonical).join(",")}]`
+    : value !== null && typeof value === "object" ? `{${Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([key, item]) => `${JSON.stringify(key)}:${canonical(item)}`).join(",")}}`
+    : JSON.stringify(value ?? null);
+  const changed = rows.filter(row => canonical(row.active) !== canonical(row.proposed));
+  const unchanged = changed.length === 0 && !candidate.image_build && !candidate.execution_plan;
+  const compact = compactReviewCopy[locale];
+  const comparison = (items: typeof rows, className: string) => <table className={`candidate-table ${className}`}><thead><tr><th scope="col">{compact.setting}</th><th scope="col">{copy.active}</th><th scope="col">{copy.proposed}</th></tr></thead><tbody>{items.map(row => <tr key={row.label}><th scope="row">{row.label}</th><td data-label={copy.active}>{show(row.active)}</td><td data-label={copy.proposed}>{show(row.proposed)}</td></tr>)}</tbody></table>;
   const stale = candidate.base_revision !== config.revision;
   const external = !candidate.endpoint && !BRANCH_NAMING_KEYS.has(candidate.key) && ["container.", "execution.", "local.", "worktree."].some(prefix => candidate.key.startsWith(prefix));
-  const blocked = external || stale || candidate.restart_required && !paused;
+  const blocked = unchanged || external || stale || candidate.restart_required && !paused;
   const reviewText = [copy.project + ": " + project, ...rows.map(row => `${row.label}: ${copy.active}: ${show(row.active)} → ${copy.proposed}: ${show(row.proposed)}`), copy.base + ": " + candidate.base_revision, copy.candidate + ": " + candidate.candidate_revision].join("\n");
   return <div className="import-preview candidate-review"><h3 ref={heading} tabIndex={-1}>{t("pendingChange")}</h3>
-    <p><strong>{copy.project}:</strong> {project}</p><p>{copy.single}</p>
-    <div className="candidate-values">{rows.map(row => <section key={row.label}><h4>{row.label}</h4><dl><div><dt>{copy.active}</dt><dd>{show(row.active)}</dd></div><div><dt>{copy.proposed}</dt><dd>{show(row.proposed)}</dd></div></dl></section>)}</div>
-    {candidate.image_build && <details><summary>{imageCopy[locale].advanced}</summary><p><code>{candidate.image_build.runtime}</code></p><p><code>{candidate.image_build.base_id}</code></p><p><code>{candidate.image_build.context_sha256}</code></p></details>}
+    <p className="muted"><strong>{copy.project}:</strong> {project}</p>
+    {changed.length > 0 && comparison(changed, "candidate-changes")}
+    {unchanged && <p role="status">{compact.unchanged}</p>}
     {candidate.execution_plan && <ExecutionPlanReview plan={candidate.execution_plan} locale={locale} />}
-    <h4>{copy.effect}</h4><p>{candidate.endpoint ? copy.endpoint : candidate.key === "executor.selection" ? agentSettingsCopy[locale].setup : settingHelp(meta?.key || candidate.key, locale)}</p><p>{copy.future}</p>
-    <p>{copy.prepared}: <time dateTime={candidate.created_at}>{new Date(candidate.created_at).toLocaleString(locale)}</time></p><p>{copy.actor}</p>
-    <p>{copy.idle}</p>{candidate.restart_required && <p className={!paused ? "alert" : "muted"}>{copy.pause}</p>}{stale && <p className="alert">{copy.stale}</p>}
-    <details><summary>{copy.details}</summary><p><code>{candidate.key}</code></p><p>{copy.base}: <code>{candidate.base_revision}</code></p><p>{copy.candidate}: <code>{candidate.candidate_revision}</code></p></details>
+    {candidate.restart_required && <p className={!paused ? "alert" : "muted"}>{copy.pause}</p>}{stale && <p className="alert">{copy.stale}</p>}
     {external && <p role="note">{externalEnvironmentCopy[locale].notice}</p>}
-    <p>{copy.discard}</p><div className="button-row"><button className="primary" disabled={busy || blocked} onClick={() => void onApply()}>{t("apply")}</button><button className="ghost" disabled={busy} onClick={() => void onDiscard()}>{t("discardChange")}</button><button className="ghost" onClick={() => void navigator.clipboard.writeText(reviewText).then(() => setCopied(true)).catch(() => setCopied(false))}>{copy.copy}</button>{copied && <span role="status">{copy.copied}</span>}</div>
+    <div className="button-row candidate-actions"><button className="primary" disabled={busy || blocked} onClick={() => void onApply()}>{t("apply")}</button><button className="ghost" disabled={busy} onClick={() => void onDiscard()}>{t("discardChange")}</button></div>
+    <details className="candidate-details"><summary>{copy.details}</summary>
+      <h4>{compact.complete}</h4>{comparison(rows, "candidate-complete")}
+      <h4>{copy.effect}</h4><p>{candidate.endpoint ? copy.endpoint : candidate.key === "executor.selection" ? agentSettingsCopy[locale].setup : settingHelp(meta?.key || candidate.key, locale)}</p><p>{copy.future}</p>
+      <p>{copy.idle}</p><p>{copy.discard}</p>
+      <p>{copy.prepared}: <time dateTime={candidate.created_at}>{new Date(candidate.created_at).toLocaleString(locale)}</time></p>
+      <p><code>{candidate.key}</code></p><p>{copy.base}: <code>{candidate.base_revision}</code></p><p>{copy.candidate}: <code>{candidate.candidate_revision}</code></p>
+      {candidate.image_build && <section><h4>{imageCopy[locale].advanced}</h4><p><code>{candidate.image_build.runtime}</code></p><p><code>{candidate.image_build.base_id}</code></p><p><code>{candidate.image_build.context_sha256}</code></p></section>}
+      <div className="button-row"><button className="ghost" onClick={() => void navigator.clipboard.writeText(reviewText).then(() => setCopied(true)).catch(() => setCopied(false))}>{copy.copy}</button>{copied && <span role="status">{copy.copied}</span>}</div>
+    </details>
   </div>;
 }
 
@@ -1402,6 +1416,7 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
   return <section className="panel" id="project-settings">
     {header ?? <div className="panel-heading"><h2>{executorOnly ? executorCopy[locale].tab : t("projectSettings")}</h2>{actions}</div>}
     {!canEdit && <p className="muted">{copy.readOnly}</p>}
+    {children}
     {groups.length === 0 ? <Empty label={t("settingsNoneSet")} /> : <div className="setting-groups">{groups.map(group => {
       return <details key={group.name} data-setting-purpose={group.name} open={executorOnly}>
       <summary>{copy[group.name as keyof typeof copy]} <span className="muted">({group.rows.length})</span></summary>
@@ -1448,7 +1463,6 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
       </div>
       {group.name === "executor" && <div className="executor-settings-content">{executorAfter}</div>}
     </details>})}</div>}
-    {children}
   </section>;
 }
 

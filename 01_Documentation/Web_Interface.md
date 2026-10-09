@@ -640,12 +640,9 @@ The **Durable job state folder** remains visible read-only. The reserved
 Settings row; runtime reporting always uses its status comment and lifecycle labels.
 
 Choose **Edit**, correct the value and choose **Prepare candidate**. This writes
-only the pending candidate. Review the affected project, **Active value** and
-**Proposed value**, effect, actual preparation time and full base/candidate
-revisions under Technical details. The actor is shown as not recorded because
-saved candidate records contain no actor. The supported OpenCode endpoint form
+only the pending candidate. Pending configuration appears above the settings categories. The main comparison shows changed values only, with adjacent Apply/Discard actions. A candidate with unchanged simple values displays a clear notice and disables Apply; image/plan binding candidates retain their review. Closed Technical details contains the complete safe comparison, effect, preparation time, revisions and Copy safe review. Blocking pause/stale notices remain visible. Object property order is ignored when comparing values; list order is significant. The comparison wraps into labeled value cells on narrow screens. The supported OpenCode endpoint form
 prepares its URL/model/connection options together as the existing single edit.
-**Copy safe review** copies only the displayed safe values and revision identifiers.
+Copy contains all safe compared values and revision identifiers.
 Credential values, inline provider JSON and credential-bearing URLs are redacted.
 
 Choose **Apply change** explicitly to submit both reviewed revisions. The server

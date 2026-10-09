@@ -265,8 +265,7 @@ SQLite bytes, authorization, scope and financial redaction.
   Staged, applied, direct and OpenCode endpoint edits write bytes and keep the
   file's CR LF or LF line endings (`REQ-PLAT-722173c8`).
 - The administrator UI prepares one validated config candidate per project,
-  reviews safe active/proposed values, effect, affected project, observed time and
-  unrecorded actor, with both full base/candidate revisions and applies it only with no active run, conductor or
+  reviews changed safe values above categories with adjacent Apply/Discard; complete comparison, effect, observed time and full base/candidate revisions are disclosed in Technical details and applies it only with no active run, conductor or
   queued operation. Identity/runtime edits require paused pickup. Retrying an
   interrupted apply reconciles exact candidate bytes and profile labels.
 - Explicit administrator readiness checks use bounded doctor probes from the
