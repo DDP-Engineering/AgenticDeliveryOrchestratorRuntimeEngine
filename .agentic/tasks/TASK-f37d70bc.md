@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # TASK-f37d70bc - Respect configured statistics database and simplify GUI storage settings
 
-stage: deliver
+stage: done
 type: fix
 path: full
 interaction: autopilot
@@ -23,7 +23,7 @@ opened: 2026-10-09
 
 - [x] implemented configured-path and storage-presentation requirements
 - [x] targeted proof and documentation complete
-- [ ] final review/catalog and authorized deployment complete
+- [x] final review/catalog and authorized deployment complete; backup removed and close-out recorded
 
 ## Frame
 
@@ -64,6 +64,9 @@ One helper selects the summary database from the existing profile config, then d
 
 - 2026-10-09 final validate: all candidate checks exit=0. 104 tests across test_web_scoped_metrics.py/test_web_metrics.py/test_web_config.py passed; final configured/storage selection passed 12 (61 deselected) after formatting and added null-byte boundary. 18 settings helper tests and three browser journeys passed (four locales, Admin and Dev), TypeScript and isolated build/stamp passed, focused Ruff and diff check passed. Strict catalog without --run: 0 errors, 10 existing warnings, 25 historical notes. Existing Starlette/color/chunk advisories accepted; full suite remains deferred. No new scope findings; source-selection and external storage claims reviewed against final diff. Authorized delivery is local commit and DCP replacement.
 
+- 2026-10-09 deliver: product commit afdb885 deployed to /home/dpasare/apps/adore/dcp-statistics-f37d70bc/04_Software. Web and worker active/ready; both retain the same process working directory. LAN JS/CSS byte comparison, original TLS pin, public/health/ready 200 and protected 401 passed. Six configuration/pause/run-state hashes and schema14/user1/audit106/18 terminal operations preserved. Temporary owned backup removed, backup directory empty; receipts inspected locally.
+- 2026-10-09 live acceptance: authenticated aegis Settings shows Statistics (3) and one informational Statistics database file with no editor; JSONL/HTML controls absent. Authenticated Statistics report loads normally with empty aegis evidence and no error. Live settings screenshot inspected in ignored statistics-f37d70bc/live-statistics-settings.png and page left expanded. No live config edited; temporary report tab and SSH/SCP sessions closed. Journal-only close-out commit follows; no push/PR/merge.
+
 ## Rulings
 
 - RULING-001 | date=2026-10-09 | decision=Implement approved statistics changes and deploy DCP using targeted tests only | reason=Explicit user request and standing test instruction | source=user | supersedes=none
@@ -72,22 +75,22 @@ One helper selects the summary database from the existing profile config, then d
 ## Handoff
 
 
-current: deliver
+current: done
 status: ready
-next: local commit and DCP deployment
+next: none
 must_read: .agentic/requirements/functional/REQ-FUNC-b6a46511.toml
 blockers: none
 
 ## Stage report
 
 
-stage: validate
+stage: deliver
 result: completed
-current: deliver
-changed: configured statistics source and external storage settings
-evidence: 104 API/config/metrics passed, 18 helpers and 3 browser journeys; typecheck/build/Ruff
+current: done
+changed: configured statistics source and external storage settings deployed on DCP
+evidence: 104 API/config/metrics and final 12 boundary tests, 18 helpers, 3 browser journeys; build/Ruff/strict catalog; LAN/readiness/profile preservation and live screenshot
 issues: full suite deferred; existing dependency/build advisories
-next: local commit and DCP deployment
+next: none
 needs_user: no
 spec_compliance: approved
 implementation_quality: approved
