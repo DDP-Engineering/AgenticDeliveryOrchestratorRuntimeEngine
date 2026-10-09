@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # TASK-d7c2da84 - Revise pickup defaults and review limits
 
-stage: deliver
+stage: done
 type: change
 path: full
 interaction: autopilot
@@ -27,8 +27,8 @@ opened: 2026-10-09
 - [x] Advance to validate
 - [x] Final reviews, evolution and strict catalog
 - [x] Validated unchanged candidate and authorized delivery presented
-- [ ] Local commit and DCP test replacement
-- [ ] Acceptance and close-out commit
+- [x] Local commit and DCP test replacement
+- [x] Acceptance and close-out commit
 
 ## Frame
 
@@ -77,27 +77,29 @@ ReadinessConfig drops the inactive field and defaults acceptance false; ReviewCo
 
 - 2026-10-09 validate final: Evolution refreshed 2026-10-09T06:18:44.224833Z, 23 expected non-agentic modified paths, no additions/removals. Strict catalog exit 0, errors=0 warnings=10 notes=25: nine historical warnings and canonical config.example.toml outside-layout heuristic, explicitly governed by the default/sample requirement and tests; 25 historical manual notes. Both reviews approved round 1 for unchanged candidate, 36 tracked files including this journal and three requirements. User explicit deployment approval applied; no push/PR, no child work, explicit live values remain authoritative; remove only obsolete declared component assignment after temporary backup.
 
+- 2026-10-09 deliver: Local source commit bd0f85734b8840e4e3f2f0496bcbfddfca7099b3 installed at /home/dpasare/apps/adore/dcp-defaults-d7c2da84/04_Software after package SHA-256 c36ebddaa895a8a96734a79e442f821c300d8e7becc366c5e08172adc5dad2e5 verification. Both services active, worker ready, delegated cgroups checked, fresh asset index-CrOxBKj_.js byte-identical with SHA-256 0ff5557438d0914fc20cfc3343155f19a42f122b04b8cc20f8a229c246b2cb77. LAN health/readiness/pages 200; protected APIs reject unauthenticated requests with 401; existing TLS certificate pinned. Before/after inventories identical: six profiles/config bytes and run-state hashes, schema 14, one user, audit 106, two failed and sixteen succeeded terminal operations. No obsolete component assignment present in live profiles. Authenticated browser confirms component absent, acceptance default false with aegis explicit true retained, revision limit in Limits and recovery with active/default five. Saved screenshot and package/deploy/LAN/cleanup receipts under ignored 07_Delivery/adore-polling-a224af5d/defaults-d7c2da84/. Exact temporary backup deleted only after successful acceptance; backup directory verified empty. No push or PR. Agreed deployment succeeded; journal-only close-out follows.
+
 ## Rulings
 
 - RULING-001 | date=2026-10-09 | decision=Autonomous implementation, local commits and DCP test deploy with targeted tests | reason=User instruction and standing session authority; no push or PR; full suite deferred | source=user | supersedes=none
 
 ## Handoff
 
-current: deliver
-status: ready
-next: Commit and deploy the validated candidate
+current: done
+status: completed
+next: none
 must_read: .agentic/requirements/functional/REQ-FUNC-db301d30.toml, .agentic/requirements/functional/REQ-FUNC-99dabc38.toml, .agentic/requirements/ux/REQ-UX-7ab1c5a5.toml
 blockers: none
 
 ## Stage report
 
-stage: validate
+stage: deliver
 result: completed
-current: deliver
+current: done
 changed: Shared defaults false/five, inactive schema removal, limit category and localized help
-evidence: Focused Python proof, 15 helpers, eight browser journeys, build and lint passed
+evidence: Focused Python proof, 15 helpers, eight browser journeys, build and lint passed; DCP services, asset, preserved inventory, authenticated UI and backup cleanup verified
 issues: Full suite deferred; historical catalog/dependency/chunk warnings; sample-file layout warning is covered by direct tests
-next: Authorized local commit and DCP deployment
+next: none
 needs_user: no
 spec_compliance: approved
 implementation_quality: approved
