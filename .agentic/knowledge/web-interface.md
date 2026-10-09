@@ -8,7 +8,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # Web interface
 
-Project Settings follows **Repository → Tickets → Implementation → PR/MR and review → Statistics**, followed by closed **Technical details**. Repository owns platform/author identity and the single integration-branch editor; PR/MR shows its value and a link that opens/focuses that row. Tickets owns eligibility, polling, priority/type and pickup/status labels; hold/exclude affect pickup, not already-started jobs. Implementation owns capacity, budgets and progress commits, with closed Clarifications, Recovery after errors and Advanced stage time limits. Statistics owns recording/token switches with closed Advanced statistics paths. Technical details and worktree paths/branch naming are read-only; runtime installation stays external and Executor configuration remains its separate page. Inactive reserved controls are omitted without changing CLI configuration. All categories start closed, retain reviewed Admin edits and Dev redaction, and have four-locale names.
+Project Settings follows **Repository → Tickets → Implementation → PR/MR and review → Statistics**, followed by closed **Technical details**. Repository owns platform/author identity and the single integration-branch editor; PR/MR shows its value and a link that opens/focuses that row. Tickets owns eligibility, polling, priority/type and pickup/status labels; hold/exclude affect pickup, not already-started jobs. Implementation owns capacity, budgets and progress commits, with closed Clarifications, Recovery after errors and Advanced stage time limits. Statistics owns recording/token switches with closed Advanced statistics paths. Technical details and worktree paths are read-only; Repository branch naming uses reviewed edits and a server-checked example; runtime installation stays external and Executor configuration remains its separate page. Inactive reserved controls are omitted without changing CLI configuration. All categories start closed, retain reviewed Admin edits and Dev redaction, and have four-locale names.
 
 The revision-round limit belongs to PR/MR and review, with shared default five and localized combined-budget/exhaustion guidance. Acceptance checking defaults false; explicit values remain authoritative. Portable enrollment validates mapping size against the fifteen recognized rule keys.
 
@@ -44,6 +44,16 @@ Pause semantics are available in header help instead of repeated row guidance.
 The dedicated header combines name/repository and Summary, Settings, Executor
 configuration, Prices, Access, Jobs, Statistics, History; Prices/Access are Admin-only. Jobs/Statistics
 are scoped links. Deletion confirmation clears on page or project changes.
+
+## Branch naming presentation
+
+`SettingsList` owns reactive revision/draft-bound preview requests, cancellation of stale completions and closed `validBranchPreview` transport checks. Repository offers two text editors using shared four-locale row/editor/candidate names and help. Preview shows the effective/proposed pair and fixed example inputs; malformed, mismatching, stale or unavailable evidence cannot prepare a branch candidate. Developer preview is read-only and respects the project grant; runtime paths remain informational. The preview card wraps in narrow layouts and announces updates through a polite live region. Focused proof: `web/tests/settings.test.mjs`, `web/e2e/settings.spec.ts` branch-naming and locale journeys.
+
+## Branch naming preview and edit authority
+
+`POST /api/v1/projects/{name}/config/branch-preview` accepts the closed strict body `{template, rule, revision}` (512-character text bounds, SHA-256 revision). Scoped users supply CSRF; the shared config lock coordinates preview reads with application, and project grants and before/after revision checks precede evidence release. The route returns the shared config preview plus inspected revision and performs no writes or Git operations. Corrupt source returns `config_corrupt`, stale input returns `stale_config_revision`, and malformed transport fails request validation. Scoped developer reads hide inaccessible project identity with the existing 404 policy.
+
+Only `worktree.branch_template` and `worktree.branch_rule` are exceptions to the external environment edit restriction. Both advertise text editability/restart and retain administrator, validated single-setting candidate, lock, revision, paused/idle and replay integrity gates. Every other worktree/container/execution/local setting keeps external ownership. Focused proof: `tests/test_web_branch_naming.py`, `tests/test_web_config.py`, `tests/test_web_pending_config.py`.
 
 ## Routing
 

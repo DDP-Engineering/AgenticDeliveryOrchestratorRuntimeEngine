@@ -14,6 +14,12 @@ The catalog and effective configuration use the shared enabled default for
 is reported with project source and default true. Reading settings preserves
 the saved configuration bytes.
 
+## Branch naming preview and edit authority
+
+`POST /api/v1/projects/{name}/config/branch-preview` accepts the closed strict body `{template, rule, revision}` (512-character text bounds, SHA-256 revision). Scoped users supply CSRF; the shared config lock coordinates preview reads with application, and project grants and before/after revision checks precede evidence release. The route returns the shared config preview plus inspected revision and performs no writes or Git operations. Corrupt source returns `config_corrupt`, stale input returns `stale_config_revision`, and malformed transport fails request validation. Scoped developer reads hide inaccessible project identity with the existing 404 policy.
+
+Only `worktree.branch_template` and `worktree.branch_rule` are exceptions to the external environment edit restriction. Both advertise text editability/restart and retain administrator, validated single-setting candidate, lock, revision, paused/idle and replay integrity gates. Every other worktree/container/execution/local setting keeps external ownership. Focused proof: `tests/test_web_branch_naming.py`, `tests/test_web_config.py`, `tests/test_web_pending_config.py`.
+
 ## 1. Purpose
 
 `adore.web.app.create_app` exposes the same-origin `/api/v1` API and serves

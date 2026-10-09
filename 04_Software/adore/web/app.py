@@ -47,6 +47,7 @@ from adore.aegis import RUN_KINDS
 from adore.cli import _NOT_SECRET_KEYS, _SECRET_KEY_RE, _is_secret_key, _newline, _set_toml_scalar
 from adore.config import (
     SELINUX_RELABEL_MODES,
+    branch_naming_preview,
     default_config,
     load_config,
     valid_reviewers,
@@ -340,6 +341,15 @@ class ConfigEdit(BaseModel):
     timeout_seconds: int | None = Field(default=None, ge=1, le=600)
     ca_file: str | None = None
     image_build_id: str | None = Field(default=None, pattern=r"^[0-9a-f]{32}$")
+
+
+class BranchPreview(BaseModel):
+    """@brief Closed no-write branch template/rule draft tied to a config revision."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+    template: str = Field(max_length=512)
+    rule: str = Field(max_length=512)
+    revision: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
 class ImageDefinition(BaseModel):
@@ -1566,7 +1576,8 @@ def _external_environment_key(key: str, *, endpoint: bool = False) -> bool:
     @return True for operator-owned environment settings.
     @note Legacy pending readers retain their original validation and discard contract.
     """
-    return (not endpoint and not _is_secret_key(key)
+    return (not endpoint and key not in {"worktree.branch_template", "worktree.branch_rule"}
+            and not _is_secret_key(key)
             and key.startswith(("container.", "execution.", "local.", "worktree.")))
 
 
@@ -3238,6 +3249,34 @@ def create_app(home: str | Path | None = None,
                 "local_endpoint_timeout_seconds": timeout_seconds,
                 "local_endpoint": endpoint_profile,
                 "model_connection": connection if not issues else None, "settings": settings}
+
+    @app.post("/api/v1/projects/{name}/config/branch-preview")
+    def branch_preview(name: str, body: BranchPreview,
+                       user: Annotated[dict, Depends(mutation)]) -> dict:
+        """
+        @brief Preview naming for an authorized current profile without writes.
+        @param[in] name Selected profile name or immutable project identity.
+        @param[in] body Bounded template/rule pair and the displayed revision.
+        @param[in] user Scoped authenticated user with same-origin CSRF proof.
+        @return Sample and Python rule findings bound to the inspected revision.
+        @exception HTTPException Stale, corrupt or unauthorized source fails closed.
+        """
+        # Coordinate source/profile reads with atomic config application, also
+        # on Windows where an open reader can prevent replacing the source.
+        with config_lock:
+            item = project(name, user)
+            path = profiles.config_path(item.name)
+            try:
+                raw = path.read_bytes()
+                if not secrets.compare_digest(sha256(raw).hexdigest(), body.revision):
+                    raise _error(409, "stale_config_revision")
+                config = load_config(path)
+                result = branch_naming_preview(body.template, body.rule, config.agent.slug)
+                if path.read_bytes() != raw or project(name, user).project_id != item.project_id:
+                    raise _error(409, "stale_config_revision")
+            except (OSError, ValueError, TypeError) as exc:
+                raise _error(503, "config_corrupt") from exc
+        return {**result, "revision": body.revision}
 
     @app.get("/api/v1/projects/{name}/config/raw")
     def raw_config(name: str, user: Annotated[dict, Depends(administrator)],

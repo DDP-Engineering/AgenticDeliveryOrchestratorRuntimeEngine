@@ -39,12 +39,32 @@ test("flow visibility omits inactive and external fields and keeps technical row
  assert.equal(settingVisible("executor.default"), false);
  assert.equal(settingVisible("executor.default", true), true);
  assert.equal(settingVisible("platform.repo", true), false);
- const technical = settingRows({}, ["worktree.repo_path", "worktree.root", "worktree.branch_template", "worktree.branch_rule", "agent.slug", "state.store_root", "workflow.aegis_python", "future.new_key"].map(key => meta(key, "project", true)));
+ const technical = settingRows({}, ["worktree.repo_path", "worktree.root", "agent.slug", "state.store_root", "workflow.aegis_python", "future.new_key"].map(key => meta(key, "project", true)));
  for (const row of technical) assert.equal(row.input, "none", row.key);
  assert.equal(STATUS_LABEL_KEYS.size, 6);
  assert.equal(STATUS_LABEL_KEYS.has("labels.lifecycle.answered"), true);
  assert.equal(STATUS_LABEL_KEYS.has("labels.lifecycle.ready"), false);
  for (const [key, expected] of [["clarification.max_rounds","clarification"], ["recovery.max_transient_retries","recovery"], ["workflow.stage_timeout_overrides.build","stageLimits"], ["metrics.db_path","statisticsFiles"], ["metrics.capture_tokens",null]]) assert.equal(settingSubgroup(key), expected);
+});
+
+test("only branch naming worktree fields get text editors under server authority", () => {
+ const keys = ["worktree.branch_template", "worktree.branch_rule"];
+ for (const row of settingRows({}, keys.map(key => meta(key, "project", true, true)))) {
+  assert.equal(row.input, "text");
+  assert.equal(row.restart, true);
+ }
+ for (const row of settingRows({}, keys.map(key => meta(key, "project", false)))) assert.equal(row.input, "none");
+ const group = settingGroups(settingRows({}, [...keys].reverse().map(key => meta(key, "project", true))), false)[0];
+ assert.deepEqual(group.rows.map(row => row.key), keys);
+});
+
+test("branch preview transport requires exact sample, revision and closed findings", async () => {
+ const { validBranchPreview } = await import("../src/settings.ts");
+ assert.equal(typeof validBranchPreview, "function");
+ const valid = { revision: "a".repeat(64), template: "feature/{slug}-{iid}", rule: "^feature/", slug: "adore", iid: 1, run_id: "sample-run-1", name: "feature/adore-1", valid: true, rule_matches: true, issues: [] };
+ assert.equal(validBranchPreview(valid), true);
+ assert.equal(validBranchPreview({ ...valid, valid: false, rule_matches: false, issues: ["rule_mismatch"] }), true);
+ for (const bad of [null, {}, { ...valid, revision: "bad" }, { ...valid, name: null }, { ...valid, iid: 2 }, { ...valid, rule_matches: null }, { ...valid, issues: ["unknown"] }, { ...valid, issues: ["invalid_rule"] }, { ...valid, valid: "true" }, { ...valid, name: 5 }]) assert.equal(validBranchPreview(bad), false);
 });
 
 test("reviewer list alone is editable and pending arrays have exact authority", () => {

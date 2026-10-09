@@ -21,11 +21,14 @@ from __future__ import annotations
 
 # IMPORTS
 from dataclasses import asdict, dataclass, field, fields
+import json
 import math
 from pathlib import Path
 import re
 import shlex
 from string import Formatter
+import subprocess
+import sys
 import tomllib
 from typing import Any
 
@@ -808,6 +811,77 @@ def valid_reviewers(value: object) -> bool:
     )
 
 
+def branch_naming_preview(template: str, rule: str, slug: str) -> dict[str, Any]:
+    """
+    @brief Render a fixed job-branch example and check the optional Python regex.
+    @param[in] template Branch template using only slug, run_id and iid fields.
+    @param[in] rule Optional repository naming regex; empty disables this check.
+    @param[in] slug Effective agent slug from the selected configuration.
+    @return Explicit sample identity, name, match result and closed issue codes.
+    @note An example proves this identity only; it creates no branch or config.
+          Regex execution is isolated and bounded to one second, failing closed.
+    """
+    result: dict[str, Any] = {"template": template, "rule": rule, "slug": slug,
+                              "iid": 1, "run_id": "sample-run-1", "name": None,
+                              "valid": False, "rule_matches": None, "issues": []}
+    issues = result["issues"]
+    if not isinstance(template, str) or not isinstance(slug, str):
+        issues.append("invalid_template")
+        return result
+    if not isinstance(rule, str):
+        issues.append("invalid_rule")
+        return result
+    if len(template) > 512 or len(rule) > 512 or len(slug) > 255:
+        issues.append("too_long")
+        return result
+    try:
+        names = []
+        for _text, name, spec, conversion in Formatter().parse(template):
+            if name is not None:
+                if name not in ("slug", "run_id", "iid") or spec or conversion:
+                    raise ValueError("unsupported branch field")
+                names.append(name)
+        if not {"iid", "run_id"}.intersection(names):
+            issues.append("missing_identity")
+        name = template.format(slug=slug, run_id=result["run_id"], iid=result["iid"])
+    except (ValueError, KeyError, IndexError):
+        issues.append("invalid_template")
+        return result
+    result["name"] = name
+    if (not name or len(name) > 255 or name == "@" or name.startswith(("-", "/"))
+            or name.endswith(("/", ".")) or any(part in name for part in ("..", "@{", "//"))
+            or any(ord(char) <= 32 or ord(char) == 127 or char in "~^:?*[\\" for char in name)
+            or any(part.startswith(".") or part.endswith(".lock") for part in name.split("/"))):
+        issues.append("invalid_branch")
+    if rule:
+        try:
+            re.compile(rule)
+        except (re.error, RecursionError):
+            issues.append("invalid_rule")
+            return result
+        # JSON on stdin keeps human regex/source out of executable Python text.
+        code = ("import json,re,sys; rule,name=json.load(sys.stdin); "
+                "print(json.dumps(re.match(rule,name) is not None))")
+        try:
+            checked = subprocess.run([sys.executable, "-I", "-c", code],
+                                     input=json.dumps([rule, name]), capture_output=True,
+                                     text=True, timeout=1)
+            if checked.returncode != 0:
+                raise ValueError("regex process failed")
+            matched = json.loads(checked.stdout)
+            if type(matched) is not bool:
+                raise ValueError("invalid regex result")
+            result["rule_matches"] = matched
+            if not matched:
+                issues.append("rule_mismatch")
+        except subprocess.TimeoutExpired:
+            issues.append("rule_timeout")
+        except (OSError, ValueError):
+            issues.append("rule_check_failed")
+    result["valid"] = not issues
+    return result
+
+
 def validate_config(config: Config) -> list[str]:
     """
     @brief      Validate a Config and return a list of human-readable issues.
@@ -1216,26 +1290,20 @@ def validate_config(config: Config) -> list[str]:
         "[worktree] repo_path is required (local clone the run worktrees are created from)",
     )
     check(bool(config.worktree.root.strip()), "[worktree] root must not be empty")
-    check(
-        "{run_id}" in config.worktree.branch_template
-        or "{iid}" in config.worktree.branch_template,
-        "[worktree] branch_template must contain {run_id} or {iid} so branches "
-        f"stay unique per ticket: {config.worktree.branch_template!r}",
-    )
-    if config.worktree.branch_rule:
-        sample = config.worktree.branch_template.format(
-            slug=config.agent.slug, run_id="sample-run-1", iid=1
-        )
-        try:
-            rule = re.compile(config.worktree.branch_rule)
-        except re.error as exc:
-            issues.append(f"[worktree] branch_rule is not a valid regex: {exc}")
-        else:
-            check(
-                rule.match(sample) is not None,
-                f"[worktree] branch_template renders {sample!r}, which the "
-                f"repo push rule {config.worktree.branch_rule!r} would REJECT",
-            )
+    branch = branch_naming_preview(config.worktree.branch_template,
+                                   config.worktree.branch_rule, config.agent.slug)
+    branch_messages = {
+        "missing_identity": "branch_template must contain {run_id} or {iid}",
+        "invalid_template": ("branch_template accepts only {slug}, {run_id}, {iid} "
+                             "without format modifiers"),
+        "invalid_branch": "branch_template renders an invalid Git branch name",
+        "invalid_rule": "branch_rule is not a valid regex",
+        "rule_mismatch": "branch_template renders a name the repo push rule would REJECT",
+        "rule_timeout": "branch_rule evaluation exceeded one second",
+        "rule_check_failed": "branch_rule evaluation failed",
+        "too_long": "branch_template and branch_rule must be at most 512 characters",
+    }
+    issues.extend("[worktree] " + branch_messages[code] for code in branch["issues"])
 
     workflow = config.workflow
     check(

@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # ADORE web interface
 
-Project Settings follows **Repository → Tickets → Implementation → PR/MR and review → Statistics**, followed by closed **Technical details**. Repository owns platform/author identity and the single integration-branch editor; PR/MR shows its value and a link that opens/focuses that row. Tickets owns eligibility, polling, priority/type and pickup/status labels; hold/exclude affect pickup, not already-started jobs. Implementation owns capacity, budgets and progress commits, with closed Clarifications, Recovery after errors and Advanced stage time limits. Statistics owns recording/token switches with closed Advanced statistics paths. Technical details and worktree paths/branch naming are read-only; runtime installation stays external and Executor configuration remains its separate page. Inactive reserved controls are omitted without changing CLI configuration. All categories start closed, retain reviewed Admin edits and Dev redaction, and have four-locale names.
+Project Settings follows **Repository → Tickets → Implementation → PR/MR and review → Statistics**, followed by closed **Technical details**. Repository owns platform/author identity and the single integration-branch editor; PR/MR shows its value and a link that opens/focuses that row. Tickets owns eligibility, polling, priority/type and pickup/status labels; hold/exclude affect pickup, not already-started jobs. Implementation owns capacity, budgets and progress commits, with closed Clarifications, Recovery after errors and Advanced stage time limits. Statistics owns recording/token switches with closed Advanced statistics paths. Technical details and worktree paths are read-only; Repository branch naming uses reviewed edits and a server-checked example; runtime installation stays external and Executor configuration remains its separate page. Inactive reserved controls are omitted without changing CLI configuration. All categories start closed, retain reviewed Admin edits and Dev redaction, and have four-locale names.
 
 **Maximum revision rounds** belongs to **PR/MR and review**. Its shared CLI/web default is five; explicit project limits remain effective. **Require ticket acceptance criteria** defaults to false, while priority remains required by default. Supported readiness settings contain no component requirement.
 
@@ -101,6 +101,15 @@ Environment verification records explicit checks against the saved configuration
 revision; Unverified means no current evidence, not an observed failure. Use
 Project details → Summary → Check host prerequisites for the administrator check.
 Pause semantics are available in header help instead of repeated row guidance.
+
+## Branch naming
+
+Repository settings provides **Job branch name template** and **Optional branch name rule**. Administrators edit one field at a time, prepare the validated candidate, review active/proposed values, stop project pickup and apply while no jobs are active. Existing jobs retain their configuration. Developers see the same effective settings and example without edit actions. Worktree paths and runtime setup remain externally managed.
+
+The template generates a name; the optional Python regular expression checks it. For example `feature/{slug}-{iid}` produces `feature/adore-1`, compatible with `^feature/.*$`. Empty rule means no extra naming rule. The repository convention is entered explicitly; ADORE does not fetch it automatically.
+
+The server preview uses the effective agent slug, ticket number `1` and run identifier `sample-run-1`. It refreshes while editing and when reviewing a branch candidate, shows the generated name and rule result, and writes neither configuration nor Git branches. This is one example, not a guarantee for every future identifier. Missing/unsupported variables, invalid Git names or Python regex, mismatch and unavailable/slow checking block preparation; refresh after a stale revision. Allowed fields are `{slug}`, `{iid}` and `{run_id}` without format modifiers; include `{iid}` or `{run_id}`. Template and rule are bounded to 512 characters each; generated examples to 255 characters; regex matching to one second.
+
 
 ## Start from source
 

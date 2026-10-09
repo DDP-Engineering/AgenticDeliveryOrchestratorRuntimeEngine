@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-FUNC-84f30174"
+
+title = "Shared bounded branch naming preview and validation"
+
+status = "active"
+
+requirement = "When validating branch naming configuration or previewing an authorized revision-bound draft, ADORE shall render a fixed example using only slug/run_id/iid, report Git-name and Python-regex compatibility using bounded evaluation, and reject malformed, unsupported or unevaluable input without configuration or branch side effects."
+
+verification = "Offline public preview/config and API tests assert allowed variables, valid sample, empty/matching/nonmatching Python rules and typed closed findings for invalid format, names, regex, overlong input, timeout/process output, stale revision and malformed HTTP input."
+
+affected_paths = ["04_Software/adore/config.py", "04_Software/adore/web/app.py"]
+
+linked_tests = ["04_Software/tests/test_branch_naming.py", "04_Software/tests/test_config.py", "04_Software/tests/test_web_branch_naming.py"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-09
+updated = 2026-10-09

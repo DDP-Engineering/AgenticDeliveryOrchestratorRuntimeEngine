@@ -24,8 +24,15 @@ Loads TOML into typed configuration for platform, selection, executor,
 container, recovery, budgets, delivery, profiles, and metrics. Validation
 fails closed at external trust boundaries before a poll starts.
 
+## Branch naming contract
+
+`branch_naming_preview(template, rule, slug)` returns the fixed identity (`iid=1`, `run_id=sample-run-1`), rendered name, optional Python `re.match` result and closed issue codes. `validate_config` uses this same result before CLI/web application. Only plain `{slug}`, `{iid}`, `{run_id}` substitutions are supported and an identity field is required. Limits are 512 characters per template/rule and 255 for the sample name. Invalid formatting, Git branch syntax, malformed regex, mismatch and unevaluable process output are explicit findings. Python regex matching runs in a one-second isolated subprocess via JSON stdin with no shell/network/Git. The example does not prove all future identities.
+
+Focused public-contract proof: `04_Software/tests/test_branch_naming.py`, existing config and wizard tests, and `04_Software/tests/test_web_branch_naming.py` for HTTP authority.
+
 ## Public interface
 
+- `REQ-FUNC-84f30174`: bounded shared branch-name example and Python regex findings.
 - `load_config()` builds the dataclass model; `validate_config()` returns
   deterministic operator-facing problems.
 - `ConfigError` distinguishes unreadable/malformed configuration from a valid
@@ -71,6 +78,9 @@ flowchart LR
     toml[(config.toml)] --> load[load_config]
     load --> model[Typed Config]
     model --> validate[validate_config]
+    validate --> branch[branch_naming_preview]
+    preview([Scoped web preview]) --> branch
+    branch --> regex([Bounded Python regex process])
     validate --> conductor([Orchestrator])
     validate --> web([Web configuration API])
 ```

@@ -5,6 +5,7 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
 import { test, expect, type Page } from "@playwright/test";
+import { branchNamingCopy } from "../src/settingsCopy";
 
 async function openSettings(page: Page, name = "alpha", user = "admin") {
   await page.goto("/");
@@ -29,6 +30,93 @@ test.afterEach(async ({ page }) => {
     const session = await me.json();
     if (session.user.role === "admin") await page.request.delete("/api/v1/projects/alpha/config/pending", { headers: { "X-CSRF-Token": session.csrf } });
   }
+});
+
+test("branch naming previews invalid drafts and applies both fields through exact review", async ({ page }) => {
+  await openSettings(page);
+  const before = await (await page.request.get("/api/v1/projects/alpha/config")).json();
+  const preview = page.getByRole("region", { name: "Example job branch", exact: true });
+  await expect(preview).toContainText("No naming rule configured.");
+  const template = page.locator('[id="setting-worktree.branch_template"]');
+  await template.getByRole("button", { name: "Edit Job branch name template", exact: true }).click();
+  const text = template.getByRole("textbox", { name: "Job branch name template", exact: true });
+  await text.fill("feature/{unknown}-{iid}");
+  await expect(preview).toContainText("Use only {slug}, {iid} and {run_id}");
+  await expect(template.getByRole("button", { name: "Prepare candidate" })).toBeDisabled();
+  expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).revision).toBe(before.revision);
+  await text.fill("feature/{slug}-{iid}");
+  await expect(preview).toContainText(`feature/${before.config.agent.slug}-1`);
+  await expect(template.getByRole("button", { name: "Prepare candidate" })).toBeEnabled();
+  await template.getByRole("button", { name: "Prepare candidate" }).click();
+  const review = page.locator(".candidate-review");
+  await expect(review).toContainText("Job branch name template");
+  await expect(preview).toContainText(`feature/${before.config.agent.slug}-1`);
+  await review.getByRole("button", { name: "Apply change", exact: true }).click();
+  await expect(review).toHaveCount(0);
+  await page.locator('[data-setting-purpose="repository"] > summary').click();
+  const rule = page.locator('[id="setting-worktree.branch_rule"]');
+  await rule.getByRole("button", { name: "Edit Optional branch name rule", exact: true }).click();
+  const regex = rule.getByRole("textbox", { name: "Optional branch name rule", exact: true });
+  await regex.fill("[");
+  await expect(preview).toContainText("not a valid Python regular expression");
+  await expect(rule.getByRole("button", { name: "Prepare candidate" })).toBeDisabled();
+  await regex.fill("^bugfix/");
+  await expect(preview).toContainText("does not match the rule");
+  await regex.fill("^(?P<prefix>feature)/.*$");
+  await expect(preview).toContainText("This example matches the rule.");
+  await rule.getByRole("button", { name: "Prepare candidate" }).click();
+  await expect(review).toContainText("Optional branch name rule");
+  await review.getByRole("button", { name: "Apply change", exact: true }).click();
+  await expect(review).toHaveCount(0);
+  const applied = await (await page.request.get("/api/v1/projects/alpha/config")).json();
+  expect(applied.config.worktree.branch_template).toBe("feature/{slug}-{iid}");
+  expect(applied.config.worktree.branch_rule).toBe("^(?P<prefix>feature)/.*$");
+  // Restore the isolated profile through the same reviewed workflow, rule first.
+  for (const [key, value] of [["worktree.branch_rule", before.config.worktree.branch_rule], ["worktree.branch_template", before.config.worktree.branch_template]]) {
+    await page.locator('[data-setting-purpose="repository"] > summary').click();
+    const row = page.locator(`[id="setting-${key}"]`);
+    await row.getByRole("button").click();
+    await row.getByRole("textbox").fill(value);
+    await expect(row.getByRole("button", { name: "Prepare candidate" })).toBeEnabled();
+    await row.getByRole("button", { name: "Prepare candidate" }).click();
+    await review.getByRole("button", { name: "Apply change", exact: true }).click();
+    await expect(review).toHaveCount(0);
+  }
+});
+
+test("branch preview rejects corrupt and late responses before preparing a candidate", async ({ page }) => {
+  await openSettings(page);
+  const row = page.locator('[id="setting-worktree.branch_template"]');
+  await row.getByRole("button").click();
+  const editor = row.getByRole("textbox");
+  const preview = page.getByRole("region", { name: "Example job branch", exact: true });
+  await page.route("**/config/branch-preview", route => route.fulfill({ json: { valid: true } }));
+  await editor.fill("feature/{iid}");
+  await expect(preview).toContainText("Preview unavailable");
+  await expect(row.getByRole("button", { name: "Prepare candidate" })).toBeDisabled();
+  await page.unroute("**/config/branch-preview");
+  await page.route("**/config/branch-preview", async route => {
+    const response = await route.fetch();
+    if (route.request().postDataJSON().template === "slow/{iid}") await new Promise(resolve => setTimeout(resolve, 700));
+    await route.fulfill({ response });
+  });
+  const slow = page.waitForRequest(request => request.url().endsWith("/config/branch-preview") && request.postDataJSON().template === "slow/{iid}");
+  await editor.fill("slow/{iid}");
+  await slow;
+  await editor.fill("latest/{iid}");
+  await expect(preview).toContainText("latest/1");
+  await page.waitForTimeout(900);
+  await expect(preview).not.toContainText("slow/1");
+  await expect(row.getByRole("button", { name: "Prepare candidate" })).toBeEnabled();
+});
+
+test("branch naming is read-only for developers and wraps on narrow screens", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openSettings(page, "alpha", "developer");
+  const preview = page.getByRole("region", { name: "Example job branch", exact: true });
+  await expect(preview).toContainText("No naming rule configured.");
+  for (const key of ["worktree.branch_template", "worktree.branch_rule"]) await expect(page.locator(`[id="setting-${key}"]`).getByRole("button")).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
 });
 
 test("ticket labels separate actions from collapsed status edits and retain inactive config", async ({ page }) => {
@@ -321,6 +409,9 @@ test("purpose guidance and single-setting flow preserve four locales", async ({ 
     await expect(page.locator("#project-settings > .setting-groups > details > summary").first()).toContainText(expected[locale]);
     await page.locator("#project-settings > .setting-groups > details > summary").first().click();
     await expect(page.locator(".setting-essential").first()).toBeVisible();
+    await expect(page.locator('[id="setting-worktree.branch_template"] strong')).toHaveText(branchNamingCopy[locale].template);
+    await expect(page.locator('[id="setting-worktree.branch_rule"] strong')).toHaveText(branchNamingCopy[locale].rule);
+    await expect(page.getByRole("region", { name: branchNamingCopy[locale].preview })).toContainText(branchNamingCopy[locale].noRule);
     const statuses = page.locator(".status-label-settings");
     const rules = page.locator("#project-settings > .setting-groups > details").filter({ has: statuses });
     await rules.locator("summary").first().click();
@@ -465,7 +556,7 @@ for (const user of ["admin", "developer"]) {
    await expect(panel.locator(`[id="setting-${key}"]`)).toHaveCount(1);
   }
   for (const key of ["review.trigger", "review.review_reminder_after", "metrics.capture_resource", "clarification.reminder_after", "clarification.timeout_state", "reconcile.on_ticket_closed", "labels.selection.type_feature", "execution.backend", "container.image"]) await expect(panel.locator(`[id="help-${key}"]`)).toHaveCount(0);
-  for (const key of ["worktree.repo_path", "worktree.root", "worktree.branch_template", "agent.slug", "workflow.aegis_python"]) await expect(panel.locator(`[id="setting-${key}"]`).getByRole("button")).toHaveCount(0);
+  for (const key of ["worktree.repo_path", "worktree.root", "agent.slug", "workflow.aegis_python"]) await expect(panel.locator(`[id="setting-${key}"]`).getByRole("button")).toHaveCount(0);
   for (const topic of ["clarification", "recovery", "stageLimits", "statisticsFiles"]) {
    const disclosure = panel.locator(`[data-setting-topic="${topic}"]`);
    await expect(disclosure).not.toHaveAttribute("open");

@@ -6,6 +6,31 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 */
 import type { Locale } from "./i18n";
 
+/** Branch row/editor/review names and server preview findings share four locales. */
+export const branchNamingCopy = {
+ en: {
+  template: "Job branch name template", rule: "Optional branch name rule", preview: "Example job branch", checking: "Checking this example…", unavailable: "Preview unavailable. Check the connection or refresh the settings.", matched: "This example matches the rule.", noRule: "No naming rule configured.", example: "Example only: no branch is created. The rule must also allow future ticket and run identifiers.", variables: "Template variables: {slug} = agent resource name, {iid} = ticket number, {run_id} = unique run identifier.",
+  issues: { missing_identity: "Include {iid} or {run_id} in the template.", invalid_template: "Use only {slug}, {iid} and {run_id}, without formatting modifiers.", invalid_branch: "The example is not a valid Git branch name.", invalid_rule: "The rule is not a valid Python regular expression.", rule_mismatch: "This example does not match the rule.", rule_timeout: "Rule checking took too long. Simplify the expression.", rule_check_failed: "The server could not check this rule.", too_long: "The template and rule must each contain at most 512 characters." },
+ },
+ ro: {
+  template: "Șablonul numelui branch-ului de job", rule: "Regulă opțională pentru numele branch-ului", preview: "Exemplu de branch pentru job", checking: "Se verifică acest exemplu…", unavailable: "Previzualizarea nu este disponibilă. Verifică conexiunea sau reîncarcă setările.", matched: "Acest exemplu respectă regula.", noRule: "Nu este configurată o regulă de denumire.", example: "Este doar un exemplu: nu se creează niciun branch. Regula trebuie să permită și identificatorii viitoarelor tichete și rulări.", variables: "Variabile în șablon: {slug} = numele tehnic al agentului, {iid} = numărul tichetului, {run_id} = identificatorul unic al rulării.",
+  issues: { missing_identity: "Include {iid} sau {run_id} în șablon.", invalid_template: "Folosește doar {slug}, {iid} și {run_id}, fără modificatori de formatare.", invalid_branch: "Exemplul nu este un nume valid de branch Git.", invalid_rule: "Regula nu este o expresie regulată Python validă.", rule_mismatch: "Acest exemplu nu respectă regula.", rule_timeout: "Verificarea regulii a durat prea mult. Simplifică expresia.", rule_check_failed: "Serverul nu a putut verifica această regulă.", too_long: "Șablonul și regula pot avea fiecare cel mult 512 caractere." },
+ },
+ fr: {
+  template: "Modèle du nom de branche du travail", rule: "Règle facultative du nom de branche", preview: "Exemple de branche du travail", checking: "Vérification de cet exemple…", unavailable: "Aperçu indisponible. Vérifiez la connexion ou rechargez les paramètres.", matched: "Cet exemple respecte la règle.", noRule: "Aucune règle de nommage configurée.", example: "Exemple uniquement : aucune branche n’est créée. La règle doit aussi autoriser les futurs identifiants de tickets et d’exécutions.", variables: "Variables du modèle : {slug} = nom technique de l’agent, {iid} = numéro du ticket, {run_id} = identifiant unique de l’exécution.",
+  issues: { missing_identity: "Incluez {iid} ou {run_id} dans le modèle.", invalid_template: "Utilisez uniquement {slug}, {iid} et {run_id}, sans modificateurs de format.", invalid_branch: "L’exemple n’est pas un nom de branche Git valide.", invalid_rule: "La règle n’est pas une expression régulière Python valide.", rule_mismatch: "Cet exemple ne respecte pas la règle.", rule_timeout: "La vérification a pris trop de temps. Simplifiez l’expression.", rule_check_failed: "Le serveur n’a pas pu vérifier cette règle.", too_long: "Le modèle et la règle sont limités à 512 caractères chacun." },
+ },
+ de: {
+  template: "Vorlage für den Job-Branch-Namen", rule: "Optionale Regel für Branch-Namen", preview: "Beispiel eines Job-Branches", checking: "Dieses Beispiel wird geprüft…", unavailable: "Vorschau nicht verfügbar. Verbindung prüfen oder Einstellungen neu laden.", matched: "Dieses Beispiel erfüllt die Regel.", noRule: "Keine Namensregel konfiguriert.", example: "Nur ein Beispiel: Es wird kein Branch erstellt. Die Regel muss auch künftige Ticket- und Laufkennungen zulassen.", variables: "Vorlagenvariablen: {slug} = technischer Agentenname, {iid} = Ticketnummer, {run_id} = eindeutige Laufkennung.",
+  issues: { missing_identity: "{iid} oder {run_id} in die Vorlage aufnehmen.", invalid_template: "Nur {slug}, {iid} und {run_id} ohne Formatmodifikatoren verwenden.", invalid_branch: "Das Beispiel ist kein gültiger Git-Branch-Name.", invalid_rule: "Die Regel ist kein gültiger regulärer Python-Ausdruck.", rule_mismatch: "Dieses Beispiel erfüllt die Regel nicht.", rule_timeout: "Die Prüfung dauerte zu lange. Ausdruck vereinfachen.", rule_check_failed: "Der Server konnte diese Regel nicht prüfen.", too_long: "Vorlage und Regel dürfen jeweils höchstens 512 Zeichen enthalten." },
+ },
+};
+
+export function branchSettingLabel(key: string, locale: Locale): string | null {
+ return key === "worktree.branch_template" ? branchNamingCopy[locale].template
+  : key === "worktree.branch_rule" ? branchNamingCopy[locale].rule : null;
+}
+
 /** Human ticket actions and the status names managed by the conductor. */
 export const lifecycleCopy: Record<Locale, { title: string; help: string; labels: Record<string, string> }> = {
  en: { title: "Status labels", help: "Names used for ticket states and clarification replies. ADORE manages the state labels; a person adds the answered label after posting a new reply. Labels alone do not replace a required comment or recovery action.", labels: {
@@ -78,6 +103,8 @@ export const settingsCopy: Record<Locale, typeof en> = {
 
 /** Understandable English catalog labels, including named entries. */
 export function settingLabel(key: string): string {
+ const branch = branchSettingLabel(key, "en");
+ if (branch) return branch;
  const labels: Record<string, string> = {
  "labels.lifecycle.ready": "Ready for pickup label", "labels.lifecycle.answered": "Clarification answered label",
  "labels.control.exclude": "Exclude from pickup label",
@@ -92,7 +119,7 @@ export function settingLabel(key: string): string {
  "polling.mode": "Ticket checking mode", "polling.poll_interval_seconds": "Ticket check interval (seconds)", "polling.poll_jitter_seconds": "Random check delay (seconds)", "polling.poll_backoff": "Wait longer after ticket service errors", "polling.max_concurrent_runs": "Active job limit", "polling.quiet_hours": "Hours with no pickup or advancement",
  "budgets.max_iterations": "Maximum iterations per job", "budgets.max_files_touched": "Maximum changed files per job", "budgets.max_cost_usd": "Job cost cap (USD)", "budgets.max_wall_clock_seconds": "Job time limit (seconds)", "budgets.per_gate_timeout_seconds": "Stage attempt time limit (seconds)",
  "container.runtime": "Container runtime command", "container.image": "Agent container image", "container.selinux_relabel": "Shared mount access on SELinux", "container.egress.mode": "Outbound network policy", "container.egress.proxy_port": "Network proxy port", "container.egress.proxy_image": "Network proxy image", "container.egress.network_prefix": "Isolated network name prefix", "container.keep_parked": "Keep containers while waiting", "container.parked_ttl_mode": "Waiting-container retention unit", "container.parked_ttl_seconds": "Waiting-container retention (seconds)", "container.parked_ttl_polls": "Waiting-container retention (checks)",
- "worktree.repo_path": "Existing local repository path", "worktree.root": "Job working folders", "worktree.branch_template": "Job branch naming template", "worktree.branch_rule": "Required branch name pattern",
+ "worktree.repo_path": "Existing local repository path", "worktree.root": "Job working folders", "worktree.branch_template": "Job branch name template", "worktree.branch_rule": "Optional branch name rule",
  "delivery.draft": "PR/MR state at publication", "delivery.approval_label": "Human publication approval label", "delivery.publish_checkpoints": "Publish progress commits", "delivery.target_branch": "Target branch", "delivery.remove_source_branch": "Remove branch after human merge", "delivery.reviewers": "Request review from",
  "workflow.default_kind": "Default task type", "workflow.aegis_python": "Workflow Python command", "workflow.quick_label": "Quick-path suggestion label", "state.channel": "State reporting channel", "state.store_root": "Durable job state folder", "review.trigger": "Review request method", "review.revise_label": "Revision request label", "review.max_review_rounds": "Maximum revision rounds", "review.on_pipeline_failure": "Response to failed review pipeline", "review.review_reminder_after": "Review reminder interval (reserved)",
  "recovery.max_stage_failures": "Failed attempts allowed per stage", "recovery.max_transient_retries": "Attempts allowed for temporary errors", "recovery.retry_backoff_seconds": "Retry delays (seconds)", "metrics.enabled": "Record completed job measurements", "metrics.capture_tokens": "Record agent-reported tokens", "metrics.capture_resource": "Resource measurement (reserved)", "metrics.db_path": "Measurement database path", "metrics.export_jsonl": "Measurement export path", "metrics.html_out": "Statistics HTML output path",

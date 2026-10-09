@@ -33,6 +33,14 @@ is conducted with and independent of any ADORE release number. Any other
 value is rejected with an actionable message and never reinterpreted or
 migrated.
 
+## Branch naming
+
+Repository settings provides **Job branch name template** and **Optional branch name rule**. Administrators edit one field at a time, prepare the validated candidate, review active/proposed values, stop project pickup and apply while no jobs are active. Existing jobs retain their configuration. Developers see the same effective settings and example without edit actions. Worktree paths and runtime setup remain externally managed.
+
+The template generates a name; the optional Python regular expression checks it. For example `feature/{slug}-{iid}` produces `feature/adore-1`, compatible with `^feature/.*$`. Empty rule means no extra naming rule. The repository convention is entered explicitly; ADORE does not fetch it automatically.
+
+The server preview uses the effective agent slug, ticket number `1` and run identifier `sample-run-1`. It refreshes while editing and when reviewing a branch candidate, shows the generated name and rule result, and writes neither configuration nor Git branches. This is one example, not a guarantee for every future identifier. Missing/unsupported variables, invalid Git names or Python regex, mismatch and unavailable/slow checking block preparation; refresh after a stale revision. Allowed fields are `{slug}`, `{iid}` and `{run_id}` without format modifiers; include `{iid}` or `{run_id}`. Template and rule are bounded to 512 characters each; generated examples to 255 characters; regex matching to one second.
+
 ## Polling and Readiness
 
 | Key | Meaning | Default |

@@ -18,13 +18,13 @@ import { auditPolicyPayload } from "./auditPolicy";
 import { ApiError, describeError } from "./errors";
 import { startVisiblePolling } from "./polling";
 import { formatRoute, normalizeRoute, parseRoute, type ProjectTab, type Route } from "./routes";
-import { editValue, hasDefault, settingGroups, settingRows, type SettingMeta, type SettingRow, settingValue, validSettingCatalog, validPendingConfig, type PendingConfig, settingVisible, settingSubgroup, STATUS_LABEL_KEYS } from "./settings";
+import { editValue, hasDefault, settingGroups, settingRows, type SettingMeta, type SettingRow, settingValue, validSettingCatalog, validPendingConfig, type PendingConfig, settingVisible, settingSubgroup, STATUS_LABEL_KEYS, BRANCH_NAMING_KEYS, validBranchPreview, type BranchPreview } from "./settings";
 import { ExecutorEnvironment, externalEnvironmentCopy, type ExecutorEnvironmentInfo } from "./ExecutorEnvironment";
 import { imageCopy } from "./imageBuild";
 import { ExecutionPlanReview } from "./ExecutionPlanReview";
 import { type ExecutionPlan } from "./executionPlan";
 import { settingHelp } from "./settingHelp";
-import { settingsCopy, settingLabel, publicationCopy, publicationValue, reviewerCopy, targetBranchCopy, excludeLabelCopy, lifecycleCopy } from "./settingsCopy";
+import { settingsCopy, settingLabel, publicationCopy, publicationValue, reviewerCopy, targetBranchCopy, excludeLabelCopy, lifecycleCopy, branchNamingCopy, branchSettingLabel } from "./settingsCopy";
 import { ImportWizard } from "./ImportWizard";
 import { RawConfiguration } from "./RawConfiguration";
 import { TransferWizard } from "./TransferWizard";
@@ -1067,7 +1067,7 @@ export default function App() {
           {projectTab === "history" && <JobWorkspace reporting={{ from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }} reportingQuery={metricSuffix} admin={isAdmin} {...workspaceProps} mode="history" scope={selected} fixedScope />}
           {projectTab === "configuration" && <>
           {configDataState !== "ready" && <DataFeedback state={configDataState} t={t} />}
-          {projectConfig && <SettingsList key={`${selected}-${projectConfig.revision}`} config={projectConfig.config} settings={projectConfig.settings || []} t={t} locale={locale} canEdit={isAdmin} disabled={!!projectPendingConfig || configBusy || pendingReadFailed || isAdmin && !pendingReady} onStage={stageSetting} actions={isAdmin && <RawConfiguration key={`${session.user.id}:${selected}:${projectConfig.revision}`} project={selected} locale={locale} />}>
+          {projectConfig && <SettingsList key={`${selected}-${projectConfig.revision}`} project={selected} revision={projectConfig.revision} csrf={session.csrf} branchCandidate={projectPendingConfig} config={projectConfig.config} settings={projectConfig.settings || []} t={t} locale={locale} canEdit={isAdmin} disabled={!!projectPendingConfig || configBusy || pendingReadFailed || isAdmin && !pendingReady} onStage={stageSetting} actions={isAdmin && <RawConfiguration key={`${session.user.id}:${selected}:${projectConfig.revision}`} project={selected} locale={locale} />}>
             {isAdmin && <>
             {projectConfig.issues.length > 0 && <div className="alert">{projectConfig.issues.join(" · ")}</div>}
             {projectPendingConfig && <PendingReview config={projectConfig} candidate={projectPendingConfig} project={selectedProject?.display_name || selected} paused={selectedProject?.paused === true} busy={configBusy} locale={locale} t={t} onApply={applyPendingConfig} onDiscard={discardPendingConfig} />}
@@ -1301,7 +1301,7 @@ function PendingReview({ config, candidate, project, paused, busy, locale, t, on
   const meta = config.settings?.find(item => item.edit_key === candidate.key);
   const active = settingValue(config.config, meta?.key || candidate.key);
   const show = (value: unknown) => candidate.key === "delivery.draft" && publicationValue(value, locale) !== null ? publicationValue(value, locale) : value == null ? copy.unknown : value === "" ? t("settingNoDefault") : typeof value === "object" ? JSON.stringify(value) : String(value);
-  const rows: Array<{ label: string; active: unknown; proposed: unknown }> = [{ label: lifecycleCopy[locale].labels[candidate.key] || (candidate.key === "labels.control.exclude" ? excludeLabelCopy[locale].label : candidate.key === "delivery.target_branch" ? targetBranchCopy[locale].label : candidate.key === "delivery.reviewers" ? reviewerCopy[locale].label : candidate.key === "delivery.draft" ? publicationCopy[locale].label : locale === "en" ? settingLabel(meta?.key || candidate.key) : t("config")), active, proposed: candidate.proposed_value }];
+  const rows: Array<{ label: string; active: unknown; proposed: unknown }> = [{ label: branchSettingLabel(candidate.key, locale) || lifecycleCopy[locale].labels[candidate.key] || (candidate.key === "labels.control.exclude" ? excludeLabelCopy[locale].label : candidate.key === "delivery.target_branch" ? targetBranchCopy[locale].label : candidate.key === "delivery.reviewers" ? reviewerCopy[locale].label : candidate.key === "delivery.draft" ? publicationCopy[locale].label : locale === "en" ? settingLabel(meta?.key || candidate.key) : t("config")), active, proposed: candidate.proposed_value }];
   if (candidate.endpoint) {
     rows.push({ label: t("model"), active: settingValue(config.config, "executor.commands.opencode.model"), proposed: candidate.endpoint.model });
     rows.push({ label: t("endpointProtocol"), active: config.local_endpoint?.protocol, proposed: candidate.endpoint.protocol });
@@ -1311,7 +1311,7 @@ function PendingReview({ config, candidate, project, paused, busy, locale, t, on
   }
   if (candidate.image_build) rows.push({label:imageCopy[locale].reviewed,active:settingValue(config.config,"container.required_tool_checks"),proposed:candidate.image_build.verified_checks});
   const stale = candidate.base_revision !== config.revision;
-  const external = !candidate.endpoint && ["container.", "execution.", "local.", "worktree."].some(prefix => candidate.key.startsWith(prefix));
+  const external = !candidate.endpoint && !BRANCH_NAMING_KEYS.has(candidate.key) && ["container.", "execution.", "local.", "worktree."].some(prefix => candidate.key.startsWith(prefix));
   const blocked = external || stale || candidate.restart_required && !paused;
   const reviewText = [copy.project + ": " + project, ...rows.map(row => `${row.label}: ${copy.active}: ${show(row.active)} → ${copy.proposed}: ${show(row.proposed)}`), copy.base + ": " + candidate.base_revision, copy.candidate + ": " + candidate.candidate_revision].join("\n");
   return <div className="import-preview candidate-review"><h3 ref={heading} tabIndex={-1}>{t("pendingChange")}</h3>
@@ -1328,16 +1328,35 @@ function PendingReview({ config, candidate, project, paused, busy, locale, t, on
   </div>;
 }
 
-function SettingsList({ executorOnly=false, config, settings, t, locale, canEdit, disabled, onStage, actions, children, header }: { header?: ReactNode; actions?: ReactNode; children?: ReactNode; executorOnly?:boolean; config: Record<string, unknown>; settings: SettingMeta[]; t: (key: MessageKey) => string; locale: Locale; canEdit: boolean; disabled: boolean; onStage: (key: string, value: string) => Promise<boolean> }) {
+function SettingsList({ executorOnly=false, project, revision, csrf, branchCandidate, config, settings, t, locale, canEdit, disabled, onStage, actions, children, header }: { project?: string; revision?: string; csrf?: string; branchCandidate?: PendingConfig | null; header?: ReactNode; actions?: ReactNode; children?: ReactNode; executorOnly?:boolean; config: Record<string, unknown>; settings: SettingMeta[]; t: (key: MessageKey) => string; locale: Locale; canEdit: boolean; disabled: boolean; onStage: (key: string, value: string) => Promise<boolean> }) {
   const [editing, setEditing] = useState("");
   const [draft, setDraft] = useState("");
+  const [branchPreview, setBranchPreview] = useState<BranchPreview | null>(null);
+  const [branchFailure, setBranchFailure] = useState("");
+  const template = editing === "worktree.branch_template" ? draft : branchCandidate?.key === "worktree.branch_template" ? String(branchCandidate.proposed_value) : String(settingValue(config, "worktree.branch_template") ?? "");
+  const rule = editing === "worktree.branch_rule" ? draft : branchCandidate?.key === "worktree.branch_rule" ? String(branchCandidate.proposed_value) : String(settingValue(config, "worktree.branch_rule") ?? "");
+  const branchIdentity = JSON.stringify([project, revision, template, rule]);
+  const currentPreview = branchPreview && branchPreview.revision === revision && branchPreview.template === template && branchPreview.rule === rule ? branchPreview : null;
+  useEffect(() => {
+    if (executorOnly || !project || !revision || !csrf) return;
+    let current = true;
+    const timer = window.setTimeout(() => {
+      void request<unknown>(`/projects/${encodeURIComponent(project)}/config/branch-preview`, "POST", { template, rule, revision }, csrf).then(result => {
+        if (!current) return;
+        if (!validBranchPreview(result) || result.revision !== revision || result.template !== template || result.rule !== rule || result.slug !== settingValue(config, "agent.slug")) throw new Error("invalid preview");
+        setBranchPreview(result); setBranchFailure("");
+      }).catch(() => { if (current) { setBranchPreview(null); setBranchFailure(branchIdentity); } });
+    }, 250);
+    return () => { current = false; window.clearTimeout(timer); };
+  }, [executorOnly, project, revision, csrf, template, rule, branchIdentity]);
   const groups = settingGroups(settingRows(config, settings).filter(row => settingVisible(row.key, executorOnly)), false);
   const copy = settingsCopy[locale];
   const shown = (value: unknown) => value == null || value === "" ? "—" :
     Array.isArray(value) || typeof value === "object" ? JSON.stringify(value) : String(value);
-  const label = (row: SettingRow) => lifecycleCopy[locale].labels[row.key] || (row.key === "labels.control.exclude" ? excludeLabelCopy[locale].label : row.key === "delivery.target_branch" ? targetBranchCopy[locale].label : row.key === "delivery.reviewers" ? reviewerCopy[locale].label : row.key === "delivery.draft" ? publicationCopy[locale].label : locale === "en" ? settingLabel(row.key) : row.label ? t(row.label) : (settingHelp(row.key, locale)?.split(". ")[0] || settingLabel(row.key)));
+  const label = (row: SettingRow) => branchSettingLabel(row.key, locale) || lifecycleCopy[locale].labels[row.key] || (row.key === "labels.control.exclude" ? excludeLabelCopy[locale].label : row.key === "delivery.target_branch" ? targetBranchCopy[locale].label : row.key === "delivery.reviewers" ? reviewerCopy[locale].label : row.key === "delivery.draft" ? publicationCopy[locale].label : locale === "en" ? settingLabel(row.key) : row.label ? t(row.label) : (settingHelp(row.key, locale)?.split(". ")[0] || settingLabel(row.key)));
   const submit = async (event: FormEvent<HTMLFormElement>, row: SettingRow) => {
     event.preventDefault();
+    if (BRANCH_NAMING_KEYS.has(row.key) && !currentPreview?.valid) return;
     const value = row.input === "reviewers" ? JSON.stringify(draft.split(/\r?\n/).map(name => name.trim()).filter(Boolean)) : draft;
     if (await onStage(row.editKey, value)) setEditing("");
   };
@@ -1345,8 +1364,8 @@ function SettingsList({ executorOnly=false, config, settings, t, locale, canEdit
           {row.input === "boolean" || row.input === "choice"
             ? <select aria-label={label(row)} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)}>{row.input === "choice" && !row.choices.includes(draft) && <option value={draft} disabled>{draft}</option>}{(row.input === "boolean" ? ["true", "false"] : row.choices).map(option => <option key={option} value={option}>{row.key === "delivery.draft" ? publicationValue(option, locale) : option}</option>)}</select>
             : row.input === "reviewers" ? <textarea rows={6} aria-label={label(row)} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)} required />
-            : <input aria-label={label(row)} type={row.input === "number" ? "number" : "text"} step={row.step} min={row.minimum ?? undefined} max={row.maximum ?? undefined} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)} required={row.input === "number"} />}
-          <div className="button-row"><button className="primary" disabled={disabled || row.input === "choice" && !row.choices.includes(draft)}>{copy.prepare}</button><button type="button" className="ghost" onClick={() => setEditing("")}>{t("cancel")}</button></div>
+            : <input aria-label={label(row)} type={row.input === "number" ? "number" : "text"} step={row.step} min={row.minimum ?? undefined} max={row.maximum ?? undefined} maxLength={BRANCH_NAMING_KEYS.has(row.key) ? 512 : undefined} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)} required={row.input === "number"} />}
+          <div className="button-row"><button className="primary" disabled={disabled || BRANCH_NAMING_KEYS.has(row.key) && !currentPreview?.valid || row.input === "choice" && !row.choices.includes(draft)}>{copy.prepare}</button><button type="button" className="ghost" onClick={() => setEditing("")}>{t("cancel")}</button></div>
         </form>;
   const renderRow = (row:SettingRow) => <div className="setting-row" key={row.key} id={`setting-${row.key}`} tabIndex={-1}>
         <div>
@@ -1378,6 +1397,18 @@ function SettingsList({ executorOnly=false, config, settings, t, locale, canEdit
         }}>{copy.integrationBranchLink}</a>
       </p>}
       <div className="setting-list">{group.rows.filter(row => !STATUS_LABEL_KEYS.has(row.key) && !settingSubgroup(row.key)).map(renderRow)}
+        {group.name === "repository" && <section className="branch-naming-preview" aria-label={branchNamingCopy[locale].preview}>
+          <h3>{branchNamingCopy[locale].preview}</h3>
+          <p>{branchNamingCopy[locale].variables}</p>
+          <p><code>{`{slug} = ${String(settingValue(config, "agent.slug") ?? "")}, {iid} = 1, {run_id} = sample-run-1`}</code></p>
+          <div role="status" aria-live="polite" aria-atomic="true">
+            {currentPreview?.name && <p className="branch-example-name"><code>{currentPreview.name}</code></p>}
+            {!currentPreview ? <p>{branchFailure === branchIdentity ? branchNamingCopy[locale].unavailable : branchNamingCopy[locale].checking}</p>
+              : currentPreview.valid ? <p>{rule ? branchNamingCopy[locale].matched : branchNamingCopy[locale].noRule}</p>
+                : <ul>{currentPreview.issues.map(issue => <li key={issue}>{branchNamingCopy[locale].issues[issue as keyof typeof branchNamingCopy.en.issues]}</li>)}</ul>}
+          </div>
+          <p className="muted">{branchNamingCopy[locale].example}</p>
+        </section>}
         {(["clarification", "recovery", "stageLimits", "statisticsFiles"] as const).map(topic => {
           const rows = group.rows.filter(row => settingSubgroup(row.key) === topic);
           return rows.length > 0 && <details className="setting-topic" data-setting-topic={topic} key={topic}>

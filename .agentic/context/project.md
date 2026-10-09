@@ -216,3 +216,7 @@ sandboxes. See knowledge/local-execution.md and 01_Documentation/Local_Execution
 ## Project executor images
 
 Executor configuration shows a compact container notice with the effective image and one expandable instruction disclosure. It identifies standard `executor/Dockerfile`, optional `executor/README.md`, a non-root example, external Docker/Podman build and verification, and the existing profile fields. Only administrators see the actual resolved server `config.toml` path. No controls define, build or select an environment. Guided creation configures agent/model with the standard container defaults; specialized container/local profiles use server TOML enrollment. Historical records remain readable/exportable/cancellable; old pending candidates can be discarded, and queued image-build requests fail without runtime execution. See [Project executor images](../../01_Documentation/Project_Executor_Images.md).
+
+## Job branch naming
+
+Repository settings uses administrator-reviewed branch template/rule edits with a revision-bound fixed example. Shared CLI/web Python validation rejects malformed formatting, invalid Git samples and incompatible or unevaluable rules; scoped developers can preview without write authority. Runtime paths remain external. See Configuration_Reference.md and knowledge/config.md.

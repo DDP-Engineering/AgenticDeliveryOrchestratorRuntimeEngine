@@ -20,6 +20,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Enable reviewed Repository editing of job branch templates and optional naming rules, with four-locale names/help and a revision-bound Python-checked example; retain external runtime paths and reject malformed or unevaluable branch naming in CLI and GUI.
+
 - Group Project Settings by Git delivery flow: Repository, Tickets, Implementation, PR/MR and review, Statistics and informational Technical details; add topic disclosures and a single integration-branch editor referenced from PR/MR, retain separate Executor configuration, and omit inactive GUI controls.
 
 - Default acceptance-criteria pickup checking to false and maximum additional revision rounds to five; move the revision limit to Limits and recovery with accurate exhaustion guidance.

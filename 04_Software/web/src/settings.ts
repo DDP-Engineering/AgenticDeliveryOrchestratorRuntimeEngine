@@ -72,7 +72,7 @@ export const settingValue = (config: Record<string, unknown>, key: string): unkn
     current && typeof current === "object" ? (current as Record<string, unknown>)[part] : undefined, config);
 
 const inputKind = (item: SettingMeta): InputKind => {
-  if (settingPurpose(item.key) === "technical" || item.key.startsWith("worktree.")) return "none";
+  if (settingPurpose(item.key) === "technical" || item.key.startsWith("worktree.") && !BRANCH_NAMING_KEYS.has(item.key)) return "none";
   if (item.editable && item.key === "delivery.reviewers" && item.type === "list") return "reviewers";
   if (!item.editable || !["boolean", "integer", "number", "text"].includes(item.type || "")) return "none";
   if (item.choices?.length) return "choice";
@@ -82,6 +82,34 @@ const inputKind = (item: SettingMeta): InputKind => {
 };
 
 export const PURPOSE_GROUPS = ["repository", "tickets", "implementation", "reviews", "statistics", "technical", "executor", "environment"] as const;
+
+/** The only worktree fields managed through reviewed browser edits. */
+export const BRANCH_NAMING_KEYS = new Set(["worktree.branch_template", "worktree.branch_rule"]);
+
+export type BranchPreview = {
+  revision: string; template: string; rule: string; slug: string; iid: 1;
+  run_id: "sample-run-1"; name: string | null; valid: boolean;
+  rule_matches: boolean | null; issues: string[];
+};
+
+/** Closed server result; malformed evidence never enables branch candidate preparation. */
+export function validBranchPreview(value: unknown): value is BranchPreview {
+  if (!value || typeof value !== "object") return false;
+  const item = value as BranchPreview;
+  const codes = ["missing_identity", "invalid_template", "invalid_branch", "invalid_rule", "rule_mismatch", "rule_timeout", "rule_check_failed", "too_long"];
+  return typeof item.revision === "string" && /^[a-f0-9]{64}$/.test(item.revision)
+    && [item.template, item.rule].every(text => typeof text === "string" && text.length <= 512)
+    && typeof item.slug === "string" && /^[a-z][a-z0-9-]*$/.test(item.slug)
+    && item.iid === 1 && item.run_id === "sample-run-1"
+    && (item.name === null || typeof item.name === "string")
+    && typeof item.valid === "boolean" && [true, false, null].includes(item.rule_matches)
+    && Array.isArray(item.issues) && item.issues.every(code => codes.includes(code))
+    && new Set(item.issues).size === item.issues.length
+    && item.valid === (item.issues.length === 0)
+    && (!item.valid || typeof item.name === "string" && item.name.length > 0 && item.name.length <= 255
+      && item.rule_matches === (item.rule ? true : null))
+    && (item.rule_matches !== false || item.issues.includes("rule_mismatch"));
+}
 
 /** Technical keys retained by configuration but omitted from operator controls. */
 export const HIDDEN_SETTING_KEYS = new Set([
@@ -167,6 +195,7 @@ export function settingGroups(rows: SettingRow[], projectOnly: boolean): Setting
   const shown = projectOnly ? rows.filter(row => row.source === "project") : rows;
   const rank = (row: SettingRow) => {
     const position = COMMON_SETTINGS.findIndex(item => item.key === row.key);
+    if (BRANCH_NAMING_KEYS.has(row.key)) return COMMON_SETTINGS.length + (row.key.endsWith("template") ? 1 : 2);
     return position < 0 ? COMMON_SETTINGS.length : position;
   };
   return PURPOSE_GROUPS.map(name => ({ name, rows: shown.filter(row => settingPurpose(row.key) === name)
