@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # TASK-665acb43 - Keep executor editors in their rows and select credential names from a dropdown
 
-stage: deliver
+stage: done
 type: fix
 path: full
 interaction: autopilot
@@ -25,7 +25,7 @@ opened: 2026-10-09
 - [x] stable columns, atomic candidate, cancel, dropdown/roles/locales/mobile inspected through browser tests
 - [x] final evolution and strict scoped catalog recorded
 - [x] delivery evidence and unchanged candidate confirmed
-- [ ] authorized DCP deployment verified and closeout recorded
+- [x] authorized DCP deployment verified and closeout recorded
 
 ## Frame
 
@@ -70,6 +70,10 @@ ExecutorSelectionEditor renders one field specified by agent/command/model. Sett
 - 2026-10-09 final validation: npm build:e2e/typecheck exit0; initial7 Chromium scenarios passed22.7s; strengthened multiple-name test initially selected an already-present Anthropic option (correctly disabled); corrected fixture choice to Gemini, final affected scenario passed6.3s and unchanged other6passed. Node settings/routes28passed; git diff --check exit0. Evolution refreshed17:38:59Z includes all10non-agentic paths; semantic/traceability review and both independent round1 verdicts refreshed after final fixture edit. Strict catalog exit0 errors0/warnings11/notes25:10existing catalog/journal/fingerprint findings plus source-no-test heuristic because Playwright files are outside configured test globs; actual browser tests changed and ran. Existing Vite large-chunk warning accepted, no bundling change. Fullsuite substitution recorded above.
 - 2026-10-09 deliver: concrete requested UI corrections, scoped proof and preserved config outcome presented; standing user authorization for implementation/local commits/DCP deployment retained. No push/PR/merge.
 
+
+- 2026-10-09 delivered: product commit48f71bb55ddb899cbec1244cf668ed84a59eee8f installed at /home/dpasare/apps/adore/dcp-inline-665acb43/04_Software; package81116f64265306a6f8817e42c16a0007257703756df45a4cd6207280a63af944 and fresh JSfd034741f0c497e6367263d4a6f13f99b4a913f957572707e75e043af565071c/CSS07db7c7c397bd2fdcd52fe77b4da5d294a3e9a36b54e70a6c3a22f0ff732027c verified DCP and LAN. Server/worker active and ready; schema14/users1/audit106/operations2failed16succeeded preserved, all6config/pause/run-state inventories identical. Existing TLS certificate pin and protected401 routes preserved. Live user aegis Settings: default-agent value/editor geometry exactly x890.400,width548.800 before/after; Pi command/model preserved in own rows. Authentication names-only dropdown add/remove OpenRouter verified then Cancel, active list remains[]; no API-key/model-test/config mutation. Screenshots live-agent-edit.png and live-dropdown.png saved and visually inspected; user tab retained. Own temporary backup removed after exact receipt/service/path checks; backups directory empty. SSH/SCP closed. Ignored receipts in07_Delivery/adore-polling-a224af5d/inline-665acb43/{package-summary,deployment-result,lan-smoke,backup-cleanup}.json.
+- 2026-10-09 closeout: authorized UI correction and test-server deployment complete. Delivery-report warning12 included unfinished deployment checklist then in progress; final scoped catalog before commit had11warnings, with10pre-existing plus Playwright test-glob heuristic explained above. Fullsuite remains deferred by user.
+
 ## Rulings
 
 
@@ -78,22 +82,22 @@ ExecutorSelectionEditor renders one field specified by agent/command/model. Sett
 ## Handoff
 
 
-current: deliver
+current: done
 status: ready
-next: final scoped proof, local commit and authorized DCP test delivery
+next: none; authorized DCP deployment verified
 must_read: task journal, linked requirements, executor-configuration/web-interface knowledge
 blockers: none
 
 ## Stage report
 
 
-stage: validate
+stage: deliver
 result: completed
-current: deliver
+current: done
 changed: normal row editors; dropdown/removable names; four-locale copy, browser tests and docs
-evidence: build/typecheck exit0; 7 executor Chromium scenarios and28 settings/routes node checks passed
+evidence: targeted7Chromium/28Node, build/typecheck, strict scoped catalog, exact DCP/LAN assets and live browser proof; preserved6profiles and backup cleanup receipts in Log
 issues: full suite deferred per user; existing catalog findings and Vite chunk warning
-next: scoped proof then authorized local commit/deploy
+next: none; closeout complete
 needs_user: no
 spec_compliance: approved
 implementation_quality: approved
