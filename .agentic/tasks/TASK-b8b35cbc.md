@@ -9,7 +9,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # TASK-b8b35cbc - Hide standalone CLI ticket checking mode in GUI
 
-stage: deliver
+stage: done
 type: change
 path: full
 interaction: autopilot
@@ -25,7 +25,7 @@ opened: 2026-10-09
 - [x] Both explicit review axes approved for unchanged candidate
 - [x] Final targeted proof and strict catalog recorded
 - [x] Authorized delivery ready
-- [ ] DCP live outcome and close-out
+- [x] DCP live outcome and close-out
 
 ## Frame
 
@@ -71,27 +71,29 @@ REQ-UX-35aa7f6e: Add polling.mode to HIDDEN_SETTING_KEYS, preserving effective c
 - 2026-10-09 validate final proof: `pytest -q tests/test_config.py tests/test_profile_cli.py` passed 70; settings helpers passed 15; focused Playwright settings role/locale journeys passed 3; TypeScript/UI/E2E and Vite build passed. Strict scoped catalog passed with errors=0, ten historical warnings and 25 manual-verification notes, no current-task findings. Git diff check passed. Candidate scope is 11 tracked files including docs/knowledge/spec/requirement/journal, no runtime edits or children.
 - 2026-10-09 deliver authorization: User explicitly requested GUI omission then DCP deployment, with standing local commit authority. Evidence and scoped outcome presented; commit validated candidate then replace DCP source, preserve profiles/state/TLS and remove temporary backup after live acceptance. No push/PR/merge.
 
+- 2026-10-09 deliver outcome: Product commit d8e8fa83068702adc5d6875e31e2e41b59f2582e deployed to /home/dpasare/apps/adore/dcp-pollmode-b8b35cbc/04_Software. Package SHA256 1f917b0feda46778cae3e5dfc2221308b6ad7e4ebc66b096da44dd2172e35f20; served asset index-Daa9M2d7.js matches workstation. API/worker active and ready, health/pages 200, protected APIs 401 unauthenticated; existing certificate pinned. All six profile config/run-state/pause hashes, schema 14, one user, audit 106 and 18 terminal operations preserved. Authenticated live aegis Settings/Tickets shows 23 settings, mode row/help count zero, interval/backoff/jitter edit counts one each. Temporary backoff editor cancelled without saving; screenshot retained. Temporary rollback backup removed, backup directory empty. No push/PR/merge; journal-only close-out commit follows.
+
 ## Rulings
 
 - RULING-001 | date=2026-10-09 | decision=Autonomous implementation/local commit and DCP test deployment with focused tests | reason=Explicit user instruction and standing delivery/test authority | source=user | supersedes=none
 
 ## Handoff
 
-current: deliver
+current: done
 status: ready
-next: commit and DCP deployment
+next: none
 must_read: .agentic/requirements/ux/REQ-UX-35aa7f6e.toml
 blockers: none
 
 ## Stage report
 
-stage: validate
+stage: deliver
 result: completed
-current: deliver
-changed: GUI-only mode omission; CLI configuration and cadence retained
-evidence: 70 Python, 15 helper and 3 browser tests, build and strict catalog passed
-issues: Full suite deferred by user; historical catalog and existing build size warnings
-next: Authorized commit and DCP deploy
+current: done
+changed: Ticket checking mode omitted from GUI and deployed to DCP
+evidence: 70 Python, 15 helper, 3 browser tests; build/catalog; DCP ready and live omission verified
+issues: Full suite deferred by user; existing build size and historical catalog warnings
+next: none
 needs_user: no
 spec_compliance: approved
 implementation_quality: approved
