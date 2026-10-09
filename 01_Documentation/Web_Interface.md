@@ -1048,3 +1048,6 @@ outcomes as failed checks. Invalid configuration gets a 60-second recheck with
 no engine invocation. Restart resets cadence; serial work on another project
 may delay a due round. `polling.mode` governs standalone CLI startup; the web
 service schedules repeated `run --once` rounds independently of that value.
+Project Settings exposes interval, jitter and error backoff controls. Standalone
+CLI startup mode is configured in the server TOML; its saved value remains
+available in raw configuration and the effective API catalog.

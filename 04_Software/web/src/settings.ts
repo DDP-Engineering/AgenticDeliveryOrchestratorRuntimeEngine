@@ -111,13 +111,13 @@ export function validBranchPreview(value: unknown): value is BranchPreview {
     && (item.rule_matches !== false || item.issues.includes("rule_mismatch"));
 }
 
-/** Technical keys retained by configuration but omitted from operator controls. */
+/** CLI-only and technical keys retained by configuration but omitted from operator controls. */
 export const HIDDEN_SETTING_KEYS = new Set([
   "state.channel", "labels.executor.prefix", "readiness.max_scope_hint",
   "labels.selection.type_feature", "review.trigger", "review.review_reminder_after",
   "clarification.reminder_after", "clarification.timeout_state", "metrics.capture_resource",
   "reconcile.on_ticket_closed", "reconcile.on_ticket_deleted", "reconcile.on_trigger_removed",
-  "executor.mode",
+  "executor.mode", "polling.mode",
 ]);
 
 /** Ticket state names share one optional disclosure; ready is the pickup action. */

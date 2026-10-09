@@ -632,6 +632,10 @@ This project follows Keep a Changelog and Semantic Versioning.
   shared by every run and by host git, so `Z` would bind the clone to whichever
   container mounted it first and break the next run.
 
+### Removed
+
+- Omit standalone CLI ticket checking mode from GUI settings while preserving its TOML/CLI behavior and web cadence controls.
+
 ## [0.13.0] - 2026-09-12
 
 ### Changed

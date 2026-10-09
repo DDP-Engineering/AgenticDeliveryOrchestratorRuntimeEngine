@@ -45,7 +45,7 @@ The server preview uses the effective agent slug, ticket number `1` and run iden
 
 | Key | Meaning | Default |
 | --- | --- | --- |
-| `polling.mode` | Standalone CLI startup: `once` or `loop`; web schedules its own rounds. | `loop` |
+| `polling.mode` | Standalone CLI startup: `once` or `loop`, configured in TOML; explicit `--once`/`--loop` override it. Web schedules its own rounds; GUI controls show cadence settings. | `loop` |
 | `poll_interval_seconds` | Base wait after each completed CLI loop/web round. | `60` |
 | `poll_jitter_seconds` | Add 0..maximum random seconds after backoff, CLI loop/web. | `5` |
 | `poll_backoff` | Double failed-round waits up to 8x, reset on success; CLI loop/web. | `true` |

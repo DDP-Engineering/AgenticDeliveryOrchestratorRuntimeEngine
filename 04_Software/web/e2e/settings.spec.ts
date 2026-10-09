@@ -424,6 +424,7 @@ test("purpose guidance and single-setting flow preserve four locales", async ({ 
     await expect(statuses.locator(".setting-row").first()).toBeVisible();
     await expect(page.getByText(labelNames[locale][1], { exact: true })).toBeVisible();
     await expect(page.locator('[id="help-labels.executor.prefix"], [id="help-readiness.max_scope_hint"]')).toHaveCount(0);
+    await expect(page.locator('[id="setting-polling.mode"], [id="help-polling.mode"]')).toHaveCount(0);
   }
 });
 
@@ -541,10 +542,11 @@ for (const user of ["admin", "developer"]) {
    expect.stringMatching(/^PR\/MR and review /), expect.stringMatching(/^Statistics /), expect.stringMatching(/^Technical details /),
   ]);
   const before = await (await page.request.get("/api/v1/projects/alpha/config")).json();
+  expect(before.config.polling.mode).toBe("loop");
   const category = (name:string) => groups.filter({has: page.locator(`summary`).filter({hasText: new RegExp(`^${name} \\(`)})});
   const placements = {
    Repository: ["platform.repo", "agent.email", "delivery.target_branch", "worktree.branch_template", "worktree.branch_rule"],
-   Tickets: ["labels.control.hold", "labels.control.exclude", "polling.poll_interval_seconds", "readiness.require_acceptance_criteria"],
+   Tickets: ["labels.control.hold", "labels.control.exclude", "polling.poll_interval_seconds", "polling.poll_jitter_seconds", "polling.poll_backoff", "readiness.require_acceptance_criteria"],
    Implementation: ["budgets.max_cost_usd", "polling.max_concurrent_runs", "delivery.publish_checkpoints", "clarification.max_rounds", "recovery.max_stage_failures"],
    "PR/MR and review": ["review.max_review_rounds", "review.revise_label", "delivery.reviewers"],
    Statistics: ["metrics.enabled", "metrics.capture_tokens", "metrics.db_path"],
@@ -555,6 +557,8 @@ for (const user of ["admin", "developer"]) {
    await expect(category(name).locator(`[id="setting-${key}"]`)).toHaveCount(1);
    await expect(panel.locator(`[id="setting-${key}"]`)).toHaveCount(1);
   }
+  await expect(panel.locator('[id="setting-polling.mode"], [id="help-polling.mode"]')).toHaveCount(0);
+  expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).config.polling.mode).toBe(before.config.polling.mode);
   for (const key of ["review.trigger", "review.review_reminder_after", "metrics.capture_resource", "clarification.reminder_after", "clarification.timeout_state", "reconcile.on_ticket_closed", "labels.selection.type_feature", "execution.backend", "container.image"]) await expect(panel.locator(`[id="help-${key}"]`)).toHaveCount(0);
   for (const key of ["worktree.repo_path", "worktree.root", "agent.slug", "workflow.aegis_python"]) await expect(panel.locator(`[id="setting-${key}"]`).getByRole("button")).toHaveCount(0);
   for (const topic of ["clarification", "recovery", "stageLimits", "statisticsFiles"]) {

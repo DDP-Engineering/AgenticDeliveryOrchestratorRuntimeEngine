@@ -1,0 +1,20 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+id = "REQ-UX-35aa7f6e"
+title = "CLI checking mode stays outside GUI controls"
+status = "active"
+requirement = "When an authorized user opens project settings, ADORE shall omit polling.mode from the GUI controls in every locale and role while retaining the saved configuration value, effective catalog/raw configuration and standalone CLI loop/once behavior."
+verification = "Offline settings helper and browser role/locale journeys verify no mode row or editor, retained interval/jitter/backoff controls, unchanged effective config/revision and existing CLI/config focused tests."
+affected_paths = ["04_Software/web/src/settings.ts", "04_Software/web/tests/settings.test.mjs", "04_Software/web/e2e/settings.spec.ts"]
+linked_tests = ["04_Software/web/tests/settings.test.mjs", "04_Software/web/e2e/settings.spec.ts"]
+spec = ""
+priority = "normal"
+rationale = "Standalone CLI startup mode does not govern the web scheduler."
+created = 2026-10-09
+updated = 2026-10-09
