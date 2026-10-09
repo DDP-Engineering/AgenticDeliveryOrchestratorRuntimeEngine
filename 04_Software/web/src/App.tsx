@@ -24,6 +24,7 @@ import { imageCopy } from "./imageBuild";
 import { ExecutionPlanReview } from "./ExecutionPlanReview";
 import { type ExecutionPlan } from "./executionPlan";
 import { settingHelp } from "./settingHelp";
+import { durationParts, executionStages, implementationDraft, implementationEditorCopy } from "./implementationSettings";
 import { settingsCopy, settingLabel, publicationCopy, publicationValue, reviewerCopy, targetBranchCopy, excludeLabelCopy, lifecycleCopy, branchNamingCopy, branchSettingLabel, implementationSettingLabel } from "./settingsCopy";
 import { ImportWizard } from "./ImportWizard";
 import { RawConfiguration } from "./RawConfiguration";
@@ -1354,18 +1355,36 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
   const shown = (value: unknown) => value == null || value === "" ? "—" :
     Array.isArray(value) || typeof value === "object" ? JSON.stringify(value) : String(value);
   const label = (row: SettingRow) => branchSettingLabel(row.key, locale) || implementationSettingLabel(row.key, locale) || lifecycleCopy[locale].labels[row.key] || (row.key === "labels.control.exclude" ? excludeLabelCopy[locale].label : row.key === "delivery.target_branch" ? targetBranchCopy[locale].label : row.key === "delivery.reviewers" ? reviewerCopy[locale].label : row.key === "delivery.draft" ? publicationCopy[locale].label : locale === "en" ? settingLabel(row.key) : row.label ? t(row.label) : (settingHelp(row.key, locale)?.split(". ")[0] || settingLabel(row.key)));
+  const editorCopy = implementationEditorCopy[locale];
+  const typedKinds = ["duration", "retry-delays", "stage-timeouts"];
+  const typedValue = (row: SettingRow) => typedKinds.includes(row.input) ? implementationDraft(row.input, draft) : draft;
+  let stageValues: Record<string, number> = {};
+  try { const parsed = JSON.parse(draft); if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) stageValues = parsed; } catch { /* Incomplete drafts cannot be prepared. */ }
   const submit = async (event: FormEvent<HTMLFormElement>, row: SettingRow) => {
     event.preventDefault();
     if (BRANCH_NAMING_KEYS.has(row.key) && !currentPreview?.valid) return;
-    const value = row.input === "reviewers" ? JSON.stringify(draft.split(/\r?\n/).map(name => name.trim()).filter(Boolean)) : draft;
+    const value = row.input === "reviewers" ? JSON.stringify(draft.split(/\r?\n/).map(name => name.trim()).filter(Boolean)) : typedValue(row);
+    if (value === null) return;
     if (await onStage(row.editKey, value)) setEditing("");
   };
   const editor = (row:SettingRow) => <form className="setting-editor" onSubmit={event => void submit(event, row)}>
-          {row.input === "boolean" || row.input === "choice"
+          {row.input === "duration" ? <div className="duration-inputs">
+            <label>{editorCopy.amount}<input type="number" min={1} step={1} aria-label={label(row)} aria-describedby={`help-${row.key}`} disabled={disabled} value={durationParts(draft).amount} onChange={event => setDraft(event.target.value + durationParts(draft).unit)} /></label>
+            <label>{editorCopy.unit}<select aria-label={editorCopy.unit} disabled={disabled} value={durationParts(draft).unit} onChange={event => setDraft(durationParts(draft).amount + event.target.value)}>{Object.entries(editorCopy.units).map(([unit, name]) => <option key={unit} value={unit}>{name}</option>)}</select></label>
+          </div> : row.input === "stage-timeouts" ? <div className="stage-timeout-inputs">{executionStages.map((stage, index) => {
+            const values = stageValues;
+            const custom = Object.hasOwn(values, stage);
+            const general = Number(settingValue(config, "budgets.per_gate_timeout_seconds"));
+            return <div className="stage-timeout-row" key={stage}>
+              <label>{editorCopy.stages[index]}<select aria-label={editorCopy.stages[index]} disabled={disabled} value={custom ? "custom" : "general"} onChange={event => { const next = {...values}; if (event.target.value === "general") delete next[stage]; else next[stage] = general; setDraft(JSON.stringify(next)); }}><option value="general">{editorCopy.general}</option><option value="custom">{editorCopy.custom}</option></select></label>
+              {custom ? <label>{editorCopy.seconds}<input type="number" min={1} step={1} aria-label={`${editorCopy.stages[index]} ${editorCopy.seconds}`} disabled={disabled} value={values[stage] || ""} onChange={event => setDraft(JSON.stringify({...values, [stage]: Number(event.target.value)}))} /></label> : <small>{general} {editorCopy.seconds.toLowerCase()}</small>}
+            </div>;
+          })}</div> : row.input === "retry-delays" ? <><textarea rows={6} aria-label={label(row)} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)} required /><p className="muted">{editorCopy.schedule}</p></> : row.input === "boolean" || row.input === "choice"
             ? <select aria-label={label(row)} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)}>{row.input === "choice" && !row.choices.includes(draft) && <option value={draft} disabled>{draft}</option>}{(row.input === "boolean" ? ["true", "false"] : row.choices).map(option => <option key={option} value={option}>{row.key === "delivery.draft" ? publicationValue(option, locale) : option}</option>)}</select>
             : row.input === "reviewers" ? <textarea rows={6} aria-label={label(row)} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)} required />
             : <input aria-label={label(row)} type={row.input === "number" ? "number" : "text"} step={row.step} min={row.minimum ?? undefined} max={row.maximum ?? undefined} maxLength={BRANCH_NAMING_KEYS.has(row.key) ? 512 : undefined} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)} required={row.input === "number"} />}
-          <div className="button-row"><button className="primary" disabled={disabled || BRANCH_NAMING_KEYS.has(row.key) && !currentPreview?.valid || row.input === "choice" && !row.choices.includes(draft)}>{copy.prepare}</button><button type="button" className="ghost" onClick={() => setEditing("")}>{t("cancel")}</button></div>
+          {typedValue(row) === null && <p role="alert">{editorCopy.invalid}</p>}
+          <div className="button-row"><button className="primary" disabled={disabled || typedValue(row) === null || BRANCH_NAMING_KEYS.has(row.key) && !currentPreview?.valid || row.input === "choice" && !row.choices.includes(draft)}>{copy.prepare}</button><button type="button" className="ghost" onClick={() => setEditing("")}>{t("cancel")}</button></div>
         </form>;
   const renderRow = (row:SettingRow) => <div className="setting-row" key={row.key} id={`setting-${row.key}`} tabIndex={-1}>
         <div>
@@ -1375,7 +1394,7 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
           {canEdit && row.input === "none" && <small className="setting-note">{t("settingNotEditableShort")}</small>}
         </div>
         {editing === row.key ? editor(row) : <div><div className="setting-value-heading"><small>{copy.active}</small>
-          {canEdit && row.input !== "none" && editing !== row.key && <button type="button" className="text-button" disabled={disabled} aria-label={`${t("editSetting")} ${label(row)}`} data-edit-key={row.editKey} onClick={() => { setEditing(row.key); setDraft(row.input === "reviewers" && Array.isArray(row.value) ? row.value.join("\n") : editValue(row.value)); }}>{t("editSetting")}</button>}
+          {canEdit && row.input !== "none" && editing !== row.key && <button type="button" className="text-button" disabled={disabled} aria-label={`${t("editSetting")} ${label(row)}`} data-edit-key={row.editKey} onClick={() => { setEditing(row.key); setDraft(["reviewers", "retry-delays"].includes(row.input) && Array.isArray(row.value) ? row.value.join("\n") : editValue(row.value)); }}>{t("editSetting")}</button>}
         </div><code>{row.key === "delivery.draft" ? publicationValue(row.value, locale) : shown(row.value)}</code><small>{t("settingDefaultValue")}: {hasDefault(row.defaultValue) ? row.key === "delivery.draft" ? publicationValue(row.defaultValue, locale) : shown(row.defaultValue) : t("settingNoDefault")}</small></div>}
 
       </div>;

@@ -20,6 +20,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Enable reviewed Implementation edits for human-answer duration, question rounds, retry-delay lists and all six stage timeout overrides, with localized typed controls; validate the active answer deadline independently of the reserved reminder.
+
 - Clarify implementation settings in four GUI locales with executor-launch and active-work names, consistent candidate review and accurate capacity, telemetry, timing, file-count, checkpoint and quick-path guidance.
 
 - Enable reviewed Repository editing of job branch templates and optional naming rules, with four-locale names/help and a revision-bound Python-checked example; retain external runtime paths and reject malformed or unevaluable branch naming in CLI and GUI.

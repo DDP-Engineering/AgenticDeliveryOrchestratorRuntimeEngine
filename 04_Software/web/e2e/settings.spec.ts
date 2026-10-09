@@ -5,7 +5,7 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
 import { test, expect, type Page } from "@playwright/test";
-import { branchNamingCopy } from "../src/settingsCopy";
+import { branchNamingCopy, implementationLabels } from "../src/settingsCopy";
 
 async function openSettings(page: Page, name = "alpha", user = "admin") {
   await page.goto("/");
@@ -433,6 +433,9 @@ test("purpose guidance and single-setting flow preserve four locales", async ({ 
     await expect(page.locator('[id="setting-polling.mode"], [id="help-polling.mode"]')).toHaveCount(0);
     const implementation = page.locator('[data-setting-purpose="implementation"]');
     await implementation.locator("summary").first().click();
+    for (const key of ["clarification.answer_timeout", "clarification.max_rounds", "recovery.max_stage_failures", "recovery.max_transient_retries", "recovery.retry_backoff_seconds", "workflow.stage_timeout_overrides"]) {
+      await expect(implementation.locator(`[id="setting-${key}"] strong`)).toHaveText(implementationLabels[locale][key]);
+    }
     for (const [index, key] of ["polling.max_concurrent_runs", "budgets.max_iterations", "budgets.max_wall_clock_seconds"].entries()) {
       const row = implementation.locator(`[id="setting-${key}"]`);
       await expect(row.locator("strong")).toHaveText(implementationNames[locale][index]);
@@ -604,3 +607,92 @@ for (const user of ["admin", "developer"]) {
   } else await expect(panel.getByRole("button", {name:"Edit Target branch",exact:true})).toHaveCount(1);
  });
 }
+
+
+test("typed Implementation controls review and apply human duration, rounds, retry schedule and stage map", async ({page}) => {
+ await openSettings(page);
+ const before = await (await page.request.get("/api/v1/projects/alpha/config")).json();
+ const review = page.locator(".candidate-review");
+ const topic = (name:string) => page.locator(`[data-setting-topic="${name}"]`);
+ const row = (key:string) => page.locator(`[id="setting-${key}"]`);
+ const show = async (name:string) => {
+  const group = page.locator('[data-setting-purpose="implementation"]');
+  if (await group.getAttribute("open") === null) await group.locator(":scope > summary").click();
+  if (await topic(name).getAttribute("open") === null) await topic(name).locator(":scope > summary").click();
+ };
+ const apply = async (key:string) => {
+  await row(key).getByRole("button", {name:"Prepare candidate",exact:true}).click();
+  await expect(review).toContainText(implementationLabels.en[key]);
+  await review.getByRole("button", {name:"Apply change",exact:true}).click();
+  await expect(review).toHaveCount(0);
+ };
+ await show("clarification");
+ const answer = row("clarification.answer_timeout");
+ await answer.getByRole("button").click();
+ await answer.getByRole("spinbutton").fill("");
+ await answer.getByRole("combobox", {name:"Time unit",exact:true}).selectOption("d");
+ await expect(answer.getByRole("button", {name:"Prepare candidate"})).toBeDisabled();
+ await answer.getByRole("spinbutton").fill("12");
+ await answer.getByRole("combobox", {name:"Time unit",exact:true}).selectOption("h");
+ await apply("clarification.answer_timeout");
+ await show("clarification");
+ await row("clarification.max_rounds").getByRole("button").click();
+ await row("clarification.max_rounds").getByRole("spinbutton").fill("5");
+ await apply("clarification.max_rounds");
+ await show("recovery");
+ const retry = row("recovery.retry_backoff_seconds");
+ await retry.getByRole("button").click();
+ await expect(retry.getByRole("textbox")).toHaveAttribute("rows","6");
+ await retry.getByRole("textbox").fill("5\n-1");
+ await expect(retry.getByRole("button", {name:"Prepare candidate"})).toBeDisabled();
+ await retry.getByRole("textbox").fill("0\n10\n45");
+ await apply("recovery.retry_backoff_seconds");
+ await page.setViewportSize({width:390,height:844});
+ await show("stageLimits");
+ const stages = row("workflow.stage_timeout_overrides");
+ await stages.getByRole("button").click();
+ await expect(stages.getByRole("combobox")).toHaveCount(6);
+ await stages.getByRole("combobox", {name:"Implementation",exact:true}).selectOption("custom");
+ await stages.getByRole("spinbutton", {name:"Implementation Seconds",exact:true}).fill("0");
+ await expect(stages.getByRole("button", {name:"Prepare candidate"})).toBeDisabled();
+ await stages.getByRole("spinbutton", {name:"Implementation Seconds",exact:true}).fill("5400");
+ await stages.getByRole("combobox", {name:"Validation",exact:true}).selectOption("custom");
+ await stages.getByRole("spinbutton", {name:"Validation Seconds",exact:true}).fill("3600");
+ expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+ await apply("workflow.stage_timeout_overrides");
+ await show("stageLimits");
+ await stages.getByRole("button").click();
+ await stages.getByRole("combobox", {name:"Implementation",exact:true}).selectOption("general");
+ await expect(stages.getByRole("spinbutton", {name:"Implementation Seconds",exact:true})).toHaveCount(0);
+ await apply("workflow.stage_timeout_overrides");
+ const after = await (await page.request.get("/api/v1/projects/alpha/config")).json();
+ expect(after.config.clarification.answer_timeout).toBe("12h");
+ expect(after.config.clarification.max_rounds).toBe(5);
+ expect(after.config.recovery.retry_backoff_seconds).toEqual([0,10,45]);
+ expect(after.config.workflow.stage_timeout_overrides).toEqual({validate:3600});
+ expect(after.config.recovery.max_stage_failures).toBe(before.config.recovery.max_stage_failures);
+ expect(after.config.recovery.max_transient_retries).toBe(before.config.recovery.max_transient_retries);
+ // Restore the disposable fixture through the same exact candidate workflow.
+ const csrf = (await (await page.request.get("/api/v1/me")).json()).csrf;
+ for (const key of ["clarification.answer_timeout", "clarification.max_rounds", "recovery.retry_backoff_seconds", "workflow.stage_timeout_overrides"]) {
+  const [section,name] = key.split(".");
+  const value = before.config[section][name];
+  const current = await (await page.request.get("/api/v1/projects/alpha/config")).json();
+  const prepared = await page.request.post("/api/v1/projects/alpha/config/pending", {headers:{"X-CSRF-Token":csrf},data:{key,value:typeof value === "object" ? JSON.stringify(value) : String(value),revision:current.revision}});
+  expect(prepared.ok()).toBe(true);
+  const result = await page.request.post("/api/v1/projects/alpha/config/apply", {headers:{"X-CSRF-Token":csrf},data:{candidate_revision:(await prepared.json()).candidate_revision}});
+  expect(result.ok()).toBe(true);
+ }
+});
+
+test("typed Implementation controls remain read-only for developers on narrow screens", async ({page}) => {
+ await page.setViewportSize({width:390,height:844});
+ await openSettings(page,"alpha","developer");
+ for (const name of ["clarification","recovery","stageLimits"]) await page.locator(`[data-setting-topic="${name}"] > summary`).click();
+ for (const key of ["clarification.answer_timeout","clarification.max_rounds","recovery.retry_backoff_seconds","workflow.stage_timeout_overrides"]) {
+  const row = page.locator(`[id="setting-${key}"]`);
+  await expect(row).toBeVisible();
+  await expect(row.getByRole("button")).toHaveCount(0);
+ }
+ expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+});

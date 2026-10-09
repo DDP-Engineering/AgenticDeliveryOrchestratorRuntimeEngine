@@ -1024,13 +1024,8 @@ def validate_config(config: Config) -> list[str]:
                 f"{getattr(config.clarification, key)!r}"
             )
     if durations_ok:
-        # a reminder that fires at or after the hard timeout can never nudge
-        # before the run is released - reject the ordering, not just the format
-        check(
-            config.clarification.reminder_after_seconds()
-            < config.clarification.answer_timeout_seconds(),
-            "[clarification] reminder_after must be shorter than answer_timeout",
-        )
+        check(config.clarification.answer_timeout_seconds() > 0,
+              "[clarification] answer_timeout must be positive")
     check(
         config.clarification.timeout_state in ("failed", "stale"),
         f"[clarification] timeout_state must be failed/stale: "

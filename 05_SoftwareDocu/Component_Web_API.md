@@ -14,6 +14,10 @@ The catalog and effective configuration use the shared enabled default for
 is reported with project source and default true. Reading settings preserves
 the saved configuration bytes.
 
+Implementation settings support reviewed edits for human-answer waiting time (positive integer plus seconds/minutes/hours/days), positive question-round count, a nonempty retry schedule (one nonnegative integer per line), and the complete stage-timeout map. The six stage rows choose either the general attempt limit or a positive custom limit in seconds; choosing general removes the override. Retry and timeout collections accept only safe integers and their declared keys; other lists/maps remain read-only except the existing reviewer list. Admins prepare, inspect active/proposed values and apply only at the existing idle boundary; developers remain read-only. Names, help and controls share four locales. The answer deadline is independent of the reserved reminder; reminder format is still checked and no reminder is sent.
+
+`implementation_settings.py` supplies narrow collection validation and single-value TOML replacement. JSON strings reject duplicate keys, booleans/fractions, unknown stages, empty schedules and unsafe integer magnitudes. Complete stage maps may be empty. The writer supports missing/inline/nested tables, quoted keys and multiline lists, preserves original line endings, and verifies full parsed configuration equality against the requested edit. Unsupported spellings fail explicitly. Pending read/apply bind the claimed collection and reject unrelated candidate changes against an unchanged active base. Metadata emits one map row even when populated; nested values have project source. Focused proof: `test_web_pending_config.py` and `test_web_config.py`.
+
 ## Branch naming preview and edit authority
 
 `POST /api/v1/projects/{name}/config/branch-preview` accepts the closed strict body `{template, rule, revision}` (512-character text bounds, SHA-256 revision). Scoped users supply CSRF; the shared config lock coordinates preview reads with application, and project grants and before/after revision checks precede evidence release. The route returns the shared config preview plus inspected revision and performs no writes or Git operations. Corrupt source returns `config_corrupt`, stale input returns `stale_config_revision`, and malformed transport fails request validation. Scoped developer reads hide inaccessible project identity with the existing 404 policy.
@@ -29,7 +33,7 @@ headers only from local proxy addresses. HTTPS login responses set Secure,
 HttpOnly and SameSite session cookies; direct HTTP remains local-only.
 
 
-The authorized `delivery.reviewers` candidate is the one editable list in Project settings. Admins submit a JSON string array through existing prepare/review/apply endpoints; metadata reports list type and editability. A complete single/multiline TOML array writer preserves adjacent configuration and CRLF. Candidate readback verifies the exact list against claimed wire value, and malformed input fails closed. Admin, CSRF, revision, idle and integrity checks apply to lists as to scalar edits.
+The authorized `delivery.reviewers` candidate uses a dedicated account-list editor in Project settings. Admins submit a JSON string array through existing prepare/review/apply endpoints; metadata reports list type and editability. A complete single/multiline TOML array writer preserves adjacent configuration and CRLF. Candidate readback verifies the exact list against claimed wire value, and malformed input fails closed. Admin, CSRF, revision, idle and integrity checks apply to lists as to scalar edits.
 
 ## 2. Responsibilities
 
@@ -84,7 +88,7 @@ write a unique candidate file, load and validate the candidate, then replace
 the original. A process-local lock serializes web threads; the shared
 `config_edit_lock` coordinates CLI and web edits across ADORE processes.
 The staged API stores one bounded candidate per project without modifying live
-TOML. Review returns its base and candidate revisions, changed scalar or reviewer list and
+TOML. Review returns its base and candidate revisions, changed scalar or approved collection and
 whether a controlled restart is required. Apply rechecks the base revision,
 conductor lock, run state and queued operations. Identity and runtime edits
 also require pickup to be paused. The older direct PUT endpoint observes the

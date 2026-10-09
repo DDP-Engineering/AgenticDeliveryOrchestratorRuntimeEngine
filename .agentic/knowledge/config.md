@@ -55,6 +55,8 @@ USD amounts, with zero disabling only that cap.
 
 Shared CLI/web defaults are acceptance=false, priority=true and maximum additional revision rounds=5 (minimum one), with explicit overrides retained. The typed readiness model contains acceptance, priority and reserved scope hint.
 
+`REQ-FUNC-c6c694cc`: Human-answer timeout is a positive parsed duration independent of reserved reminder timing. Both duration formats remain checked; runtime clarification expiry/round semantics are unchanged. Focused proof: `tests/test_config.py` and clarification cases in `tests/test_orchestrator.py`.
+
 ## Key behaviors
 
 - REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: LocalConfig supplies account/home/path/environment/cgroup_root. Explicit execution.backend=local rejects recipes, restricted egress, staging and container-only options. Non-secret local maps reject managed/forge variables and literal inline provider credentials. Container remains the default.

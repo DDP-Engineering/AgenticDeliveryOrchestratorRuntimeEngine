@@ -4,6 +4,7 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
+import { validImplementationCollection } from "./implementationSettings.ts";
 import { validImageBinding, type ImageBinding } from "./imageBuild.ts";
 import type { MessageKey } from "./i18n";
 import { validExecutionPlan, type ExecutionPlan } from "./executionPlan.ts";
@@ -24,7 +25,7 @@ export type SettingMeta = {
 };
 
 /** How a row's value is edited in the browser; `none` means not editable here. */
-export type InputKind = "boolean" | "number" | "choice" | "text" | "reviewers" | "none";
+export type InputKind = "boolean" | "number" | "choice" | "text" | "reviewers" | "duration" | "retry-delays" | "stage-timeouts" | "none";
 
 type CommonKind = "text" | "positive" | "forge" | "runtime" | "executor";
 
@@ -73,6 +74,9 @@ export const settingValue = (config: Record<string, unknown>, key: string): unkn
 
 const inputKind = (item: SettingMeta): InputKind => {
   if (settingPurpose(item.key) === "technical" || item.key.startsWith("worktree.") && !BRANCH_NAMING_KEYS.has(item.key)) return "none";
+  if (item.editable && item.key === "clarification.answer_timeout" && item.type === "text") return "duration";
+  if (item.editable && item.key === "recovery.retry_backoff_seconds" && item.type === "list") return "retry-delays";
+  if (item.editable && item.key === "workflow.stage_timeout_overrides" && item.type === "map") return "stage-timeouts";
   if (item.editable && item.key === "delivery.reviewers" && item.type === "list") return "reviewers";
   if (!item.editable || !["boolean", "integer", "number", "text"].includes(item.type || "")) return "none";
   if (item.choices?.length) return "choice";
@@ -205,7 +209,7 @@ export function settingGroups(rows: SettingRow[], projectOnly: boolean): Setting
 
 /** The text an editor starts from for a setting's current value. */
 export function editValue(value: unknown): string {
-  return value === null || value === undefined ? "" : String(value);
+  return value === null || value === undefined ? "" : typeof value === "object" ? JSON.stringify(value) : String(value);
 }
 
 /** Whether a setting's ADORE default is worth showing: missing, empty text, an empty list or an empty map read as none. */
@@ -231,7 +235,7 @@ export function validSettingCatalog(settings: unknown): settings is SettingMeta[
   });
 }
 
-export type PendingConfig = { image_build?: ImageBinding; base_revision: string; candidate_revision: string; key: string; value: string; proposed_value: string | number | boolean | string[]; created_at: string; restart_required: boolean; execution_plan?: ExecutionPlan; endpoint?: { protocol: string; model: string; auth_env: string | null; timeout_seconds: number | null; ca_file: string | null } };
+export type PendingConfig = { image_build?: ImageBinding; base_revision: string; candidate_revision: string; key: string; value: string; proposed_value: string | number | boolean | string[] | number[] | Record<string, number>; created_at: string; restart_required: boolean; execution_plan?: ExecutionPlan; endpoint?: { protocol: string; model: string; auth_env: string | null; timeout_seconds: number | null; ca_file: string | null } };
 
 /** A malformed or unbound server candidate never enables Apply. */
 export function validPendingConfig(value: unknown): value is PendingConfig | null {
@@ -242,10 +246,11 @@ export function validPendingConfig(value: unknown): value is PendingConfig | nul
   const reviewerList = item.key === "delivery.reviewers" && Array.isArray(item.proposed_value)
     && item.proposed_value.length > 0 && item.proposed_value.every(name => typeof name === "string"
       && name.length > 0 && name.length <= 255 && !name.startsWith("-") && !/[\s\u0000-\u001f\u007f]/.test(name));
+  const collection = validImplementationCollection(item.key, item.proposed_value);
   return digest(item.base_revision) && digest(item.candidate_revision)
     && typeof item.key === "string" && item.key.length > 0 && typeof item.value === "string"
-    && item.value === (reviewerList ? JSON.stringify(item.proposed_value) : typeof item.proposed_value === "boolean" ? String(item.proposed_value).toLowerCase() : String(item.proposed_value))
-    && (reviewerList || item.key !== "delivery.reviewers" && ["string", "number", "boolean"].includes(typeof item.proposed_value))
+    && item.value === (reviewerList || collection ? JSON.stringify(item.proposed_value) : typeof item.proposed_value === "boolean" ? String(item.proposed_value).toLowerCase() : String(item.proposed_value))
+    && (collection || reviewerList || !["delivery.reviewers", "recovery.retry_backoff_seconds", "workflow.stage_timeout_overrides"].includes(item.key) && ["string", "number", "boolean"].includes(typeof item.proposed_value))
     && (typeof item.proposed_value !== "number" || Number.isFinite(item.proposed_value))
     && typeof item.restart_required === "boolean"
     && (item.image_build === undefined || validImageBinding(item.image_build) && item.key === "container.image" && item.image_build.image_id === item.proposed_value && item.image_build.config_revision === item.base_revision)

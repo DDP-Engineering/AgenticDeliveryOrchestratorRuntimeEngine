@@ -524,14 +524,15 @@ def test_config_view_reports_each_settings_source_and_editability(tmp_path):
         assert settings["delivery.reviewers"]["editable"] is True
         assert settings["delivery.reviewers"]["type"] == "list"
         not_editable = ["container.egress.allowlist", "container.runtime_env.UV_LINK_MODE",
-                        "state.channel", "state.store_root", "clarification.max_rounds"]
+                        "state.channel", "state.store_root", "clarification.reminder_after"]
         for key in not_editable:
             assert settings[key]["editable"] is False, key
         assert "container.runtime_env.API_KEY" not in settings  # redacted, never listed
         assert settings["delivery.reviewers"]["source"] == "project"
         assert settings["container.egress.allowlist"]["source"] == "default"
         assert all(not item["editable"] for key, item in settings.items()
-                   if key.startswith(("state.", "clarification.")))
+                   if key.startswith("state.") or key in {
+                       "clarification.reminder_after", "clarification.timeout_state"})
 
         revision = body["revision"]
         target = "/api/v1/projects/alpha/config/pending"
@@ -543,7 +544,7 @@ def test_config_view_reports_each_settings_source_and_editability(tmp_path):
             assert staged.status_code == 200, (key, staged.text)
             assert client.delete(target, headers=csrf).status_code == 200
         for key in ("executor.unknown.command", "state.channel", "state.store_root",
-                    "clarification.max_rounds", "container.runtime_env.api_key"):
+                    "clarification.reminder_after", "container.runtime_env.api_key"):
             refused = client.post(target, json={"key": key, "value": "x",
                                                 "revision": revision}, headers=csrf)
             assert refused.status_code == 400, key

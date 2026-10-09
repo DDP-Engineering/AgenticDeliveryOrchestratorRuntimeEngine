@@ -483,3 +483,186 @@ def test_execution_setting_direct_write_requires_review(tmp_path):
         assert response.status_code == 400
         assert response.json()["detail"]["code"] == "environment_managed_externally"
         assert path.read_bytes() == original
+
+
+@pytest.mark.parametrize("key,value,expected", [
+    ("clarification.answer_timeout", "12h", "12h"),
+    ("clarification.max_rounds", "5", 5),
+    ("recovery.retry_backoff_seconds", "[0,10,45]", [0, 10, 45]),
+    ("workflow.stage_timeout_overrides", '{"build":5400,"validate":3600}',
+     {"build": 5400, "validate": 3600}),
+])
+def test_implementation_settings_review_and_apply_exact_value(tmp_path, key, value, expected):
+    """@brief New typed controls retain reviewed apply and every unrelated config value."""
+    profiles, path, _ = _project(tmp_path)
+    before = load_config(path).to_dict()
+    original = path.read_bytes()
+    with TestClient(create_app(profiles.home)) as client:
+        headers = _headers(client)
+        view = client.get('/api/v1/projects/alpha/config').json()
+        meta = {row['key']: row for row in view['settings']}
+        assert meta[key]['editable'] is True
+        result = client.post('/api/v1/projects/alpha/config/pending', headers=headers,
+                             json={'key': key, 'value': value, 'revision': view['revision']})
+        assert result.status_code == 200, result.text
+        assert result.json()['proposed_value'] == expected
+        assert path.read_bytes() == original
+        assert client.get('/api/v1/projects/alpha/config/pending').json() == result.json()
+        applied = client.post('/api/v1/projects/alpha/config/apply', headers=headers,
+                              json={'candidate_revision': result.json()['candidate_revision']})
+        assert applied.status_code == 200, applied.text
+        section, name = key.split('.')
+        before[section][name] = expected
+        assert load_config(path).to_dict() == before
+
+
+@pytest.mark.parametrize('shape', ['inline', 'table', 'quoted', 'missing'])
+def test_stage_timeout_map_handles_human_toml_and_removes_override(tmp_path, shape):
+    """@brief Complete stage edits handle supported TOML spelling without touching other keys."""
+    profiles, path, _ = _project(tmp_path)
+    text = path.read_text(encoding='utf-8')
+    replacements = {
+        'inline': 'stage_timeout_overrides = { build = 5400, validate = 3600 }',
+        'quoted': '\"stage_timeout_overrides\" = { build = 5400 }',
+        'missing': '',
+        'table': '',
+    }
+    text = text.replace('stage_timeout_overrides = {}', replacements[shape])
+    if shape == 'table':
+        text += ('\n[workflow.stage_timeout_overrides] # operator limits\n'
+                 'build = 5400\nvalidate = 3600\n')
+    text = text.replace('retry_backoff_seconds = [5, 30, 120]',
+                        'retry_backoff_seconds = [\n 5, # first delay\n 30, 120,\n]')
+    path.write_bytes(text.replace('\n', '\r\n').encode())
+    before = load_config(path).to_dict()
+    with TestClient(create_app(profiles.home)) as client:
+        headers = _headers(client)
+        for key, value, expected in [
+                ('workflow.stage_timeout_overrides', '{}', {}),
+                ('recovery.retry_backoff_seconds', '[0,2]', [0, 2])]:
+            view = client.get('/api/v1/projects/alpha/config').json()
+            assert sum(row['key'] == 'workflow.stage_timeout_overrides'
+                       for row in view['settings']) == 1
+            response = client.post('/api/v1/projects/alpha/config/pending', headers=headers,
+                                  json={'key': key, 'value': value, 'revision': view['revision']})
+            assert response.status_code == 200, response.text
+            applied = client.post('/api/v1/projects/alpha/config/apply', headers=headers,
+                                  json={'candidate_revision':
+                                        response.json()['candidate_revision']})
+            assert applied.status_code == 200, applied.text
+            section, name = key.split('.')
+            before[section][name] = expected
+            assert load_config(path).to_dict() == before
+            assert b'\r\n' in path.read_bytes()
+
+
+@pytest.mark.parametrize('key,value', [
+    ('clarification.answer_timeout','0s'), ('clarification.max_rounds','0'),
+    ('clarification.reminder_after','1h'), ('clarification.timeout_state','stale'),
+    ('recovery.retry_backoff_seconds','[9007199254740992]'),
+    ('recovery.retry_backoff_seconds','[]'), ('recovery.retry_backoff_seconds','[true]'),
+    ('recovery.retry_backoff_seconds','[-1]'), ('recovery.retry_backoff_seconds','[1.5]'),
+    ('workflow.stage_timeout_overrides','{"build":0}'),
+    ('workflow.stage_timeout_overrides','{"build":true}'),
+    ('workflow.stage_timeout_overrides','{"unknown":30}'),
+    ('workflow.stage_timeout_overrides','{"build":30,"build":60}'),
+    ('workflow.stage_timeout_overrides','[30]'),
+])
+def test_implementation_setting_bad_input_never_writes(tmp_path, key, value):
+    """@brief Closed collection/scalar authority rejects malformed human input atomically."""
+    profiles, path, _ = _project(tmp_path)
+    original = path.read_bytes()
+    with TestClient(create_app(profiles.home)) as client:
+        headers = _headers(client)
+        revision = client.get('/api/v1/projects/alpha/config').json()['revision']
+        response = client.post('/api/v1/projects/alpha/config/pending', headers=headers,
+                              json={'key':key,'value':value,'revision':revision})
+        assert response.status_code == 400, response.text
+        assert path.read_bytes() == original
+        assert client.get('/api/v1/projects/alpha/config/pending').json() is None
+
+
+@pytest.mark.parametrize('key,value,claimed', [
+    ('recovery.retry_backoff_seconds','[5,30]','[true]'),
+    ('workflow.stage_timeout_overrides','{"build":300}','{"design":300}'),
+])
+def test_implementation_collection_corrupt_pending_is_refused(tmp_path,key,value,claimed):
+    """@brief Corrupt persisted typed evidence cannot be read or applied as a reviewed value."""
+    profiles,path,_ = _project(tmp_path)
+    original = path.read_bytes()
+    with TestClient(create_app(profiles.home)) as client:
+        headers = _headers(client)
+        revision = client.get('/api/v1/projects/alpha/config').json()['revision']
+        response = client.post('/api/v1/projects/alpha/config/pending', headers=headers,
+                              json={'key':key,'value':value,'revision':revision})
+        assert response.status_code == 200, response.text
+        pending = path.parent/'pending_config.json'
+        record = json.loads(pending.read_text(encoding='utf-8'))
+        record['value'] = claimed
+        pending.write_text(json.dumps(record),encoding='utf-8')
+        assert client.get('/api/v1/projects/alpha/config/pending').status_code == 503
+        assert client.post('/api/v1/projects/alpha/config/apply',headers=headers,
+            json={'candidate_revision':response.json()['candidate_revision']}).status_code == 503
+        assert path.read_bytes() == original
+
+
+@pytest.mark.parametrize("key,value", [
+    ("recovery.retry_backoff_seconds", "[5,30]"),
+    ("workflow.stage_timeout_overrides", '{"build":300}'),
+])
+def test_implementation_collections_keep_role_csrf_revision_and_integrity_gates(
+        tmp_path, key, value):
+    """@brief Collection candidates reject unauthorized edits and unrelated persisted changes."""
+    from hashlib import sha256
+
+    profiles, path, _ = _project(tmp_path)
+    original = path.read_bytes()
+    app = create_app(profiles.home)
+    developer = app.state.web_store.create_user("dev", "longer-password", "developer")
+    app.state.web_store.set_memberships(developer["id"], ["alpha"])
+    with TestClient(app) as client:
+        headers = _headers(client)
+        revision = client.get("/api/v1/projects/alpha/config").json()["revision"]
+        body = {"key": key, "value": value, "revision": revision}
+        assert client.post("/api/v1/projects/alpha/config/pending", json=body).status_code == 403
+        assert client.post("/api/v1/projects/alpha/config/pending", headers=headers,
+                           json={**body, "revision": "stale"}).status_code == 409
+        response = client.post("/api/v1/projects/alpha/config/pending", headers=headers, json=body)
+        assert response.status_code == 200, response.text
+        pending = path.parent / "pending_config.json"
+        record = json.loads(pending.read_text(encoding="utf-8"))
+        record["candidate_text"] = record["candidate_text"].replace(
+            "max_iterations           = 20", "max_iterations           = 21")
+        record["candidate_revision"] = sha256(record["candidate_text"].encode()).hexdigest()
+        pending.write_text(json.dumps(record), encoding="utf-8")
+        assert client.get("/api/v1/projects/alpha/config/pending").status_code == 503
+        refused = client.post("/api/v1/projects/alpha/config/apply", headers=headers,
+                              json={"candidate_revision": record["candidate_revision"]})
+        assert refused.status_code == 503
+        client.post("/api/v1/session/logout", headers=headers)
+        csrf = client.post("/api/v1/session", json={
+            "username": "dev", "password": "longer-password"}).json()["csrf"]
+        assert client.post("/api/v1/projects/alpha/config/pending", json=body,
+                           headers={"X-CSRF-Token": csrf}).status_code == 403
+        assert client.post("/api/v1/projects/alpha/config/apply",
+                           json={"candidate_revision": record["candidate_revision"]},
+                           headers={"X-CSRF-Token": csrf}).status_code == 403
+        assert path.read_bytes() == original
+
+
+def test_implementation_collection_unsupported_human_spelling_fails_without_write(tmp_path):
+    """@brief A valid but unsupported dotted TOML value cannot alter adjacent settings."""
+    profiles, path, _ = _project(tmp_path)
+    text = path.read_text(encoding="utf-8").replace(
+        "stage_timeout_overrides = {}", "stage_timeout_overrides.build = 300")
+    path.write_text(text, encoding="utf-8")
+    assert load_config(path).workflow.stage_timeout_overrides == {"build": 300}
+    original = path.read_bytes()
+    with TestClient(create_app(profiles.home)) as client:
+        headers = _headers(client)
+        revision = client.get("/api/v1/projects/alpha/config").json()["revision"]
+        response = client.post("/api/v1/projects/alpha/config/pending", headers=headers,
+            json={"key": "workflow.stage_timeout_overrides", "value": "{}", "revision": revision})
+        assert response.status_code == 400, response.text
+        assert client.get("/api/v1/projects/alpha/config/pending").json() is None
+        assert path.read_bytes() == original

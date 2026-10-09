@@ -90,6 +90,7 @@ from adore.web.executor_settings import (
     update_credential,
 )
 from adore.web.image_build import ImageBuildError, ImageBuildService, dockerfile_template
+from adore.web.implementation_settings import COLLECTION_KEYS, set_collection, valid_collection
 from adore.web.jobs import JobReadError, read_jobs
 from adore.web.model_connection import probe_model_connection
 from adore.web.store import WebStore, WebStoreError
@@ -1239,8 +1240,10 @@ def _valid_candidate_scalar(key: str, proposed: object, backend: str = "containe
     @brief Enforce scalar types and the dedicated reviewer-list type for pending edits.
     @param[in] key TOML file key of the single candidate edit.
     @param[in] proposed Parsed candidate value.
-    @return True for a declared scalar type or a valid reviewer list.
+    @return True for a declared scalar type or an exact approved collection.
     """
+    if key in COLLECTION_KEYS:
+        return valid_collection(key, proposed)
     if key == "delivery.reviewers":
         return valid_reviewers(proposed)
     if key.endswith(".command"):
@@ -1270,8 +1273,10 @@ def _set_candidate_value(text: str, key: str, value: str) -> str:
     @param[in] key Authorized candidate key.
     @param[in] value Scalar wire value or JSON reviewer list.
     @return Candidate text, preserving unrelated keys and line endings.
-    @exception ValueError When reviewer input or existing key spelling is unsupported.
+    @exception ValueError When collection input or existing key spelling is unsupported.
     """
+    if key in COLLECTION_KEYS:
+        return set_collection(text, key, value)
     if key != "delivery.reviewers":
         return _set_toml_scalar(text, key, value)
     reviewers = json.loads(value)
@@ -1480,9 +1485,14 @@ def _public_pending_config(value: dict, *, active_text: str | None = None) -> di
             "", value["key"], value["value"])), value["key"])
         if type(claimed) is not type(proposed) or claimed != proposed:
             raise ValueError("candidate review metadata differs from its value")
+        if (value["key"] in COLLECTION_KEYS and active_text is not None
+                and sha256(active_text.encode("utf-8")).hexdigest() == value["base_revision"]
+                and candidate != tomllib.loads(set_collection(
+                    active_text, value["key"], value["value"]))):
+            raise ValueError("collection candidate changed unrelated settings")
         public["proposed_value"] = proposed
         public["value"] = (json.dumps(proposed, ensure_ascii=False, separators=(",", ":"))
-                           if isinstance(proposed, list) else
+                           if isinstance(proposed, (list, dict)) else
                            str(proposed).lower() if type(proposed) is bool else str(proposed))
         if (value["key"] == "container.image" and "image_build" not in value
                 and active_text is not None
@@ -1591,6 +1601,8 @@ def _editable_setting_key(key: str, *, endpoint: bool = False) -> bool:
                 edited through its own validated form.
     @return     True when the key may be staged from the browser.
     """
+    if key in {"clarification.answer_timeout", "clarification.max_rounds"}:
+        return True
     return not (
         _is_secret_key(key)
         or (not endpoint and not _SETTING_KEY_RE.fullmatch(key))
@@ -1723,17 +1735,26 @@ def _setting_metadata(config: dict, raw: bytes) -> list[dict]:
     in_file = {key for key, _ in _toml_leaves(tomllib.loads(raw.decode("utf-8")))}
     defaults = _redact_config(default_config().to_dict())
     settings = []
-    for key, value in _toml_leaves(config):
+    leaves = [(key, value) for key, value in _toml_leaves(config)
+              if key != "workflow.stage_timeout_overrides"
+              and not key.startswith("workflow.stage_timeout_overrides.")]
+    leaves.append(("workflow.stage_timeout_overrides",
+                   config.get("workflow", {}).get("stage_timeout_overrides", {})))
+    for key, value in leaves:
         edit_key = ("executor." + key.removeprefix("executor.commands.")
                     if key.startswith("executor.commands.") else key)
         settings.append({
             "key": key,
             "edit_key": edit_key,
-            "source": "project" if edit_key in in_file else "default",
+            "source": "project" if (edit_key in in_file or edit_key in COLLECTION_KEYS
+                                     and any(k.startswith(edit_key + ".") for k in in_file))
+            else "default",
             "editable": (not _external_environment_key(edit_key)
                          and _editable_setting_key(edit_key)
                          and (isinstance(value, str | int | float)
-                              or edit_key == "delivery.reviewers" and valid_reviewers(value))),
+                              or edit_key == "delivery.reviewers" and valid_reviewers(value)
+                              or edit_key in COLLECTION_KEYS
+                              and valid_collection(edit_key, value))),
             "restart": _restart_required(edit_key),
             "default": _value_at(defaults, key),
             **_setting_domain(key, value, config, _value_at(defaults, key)),

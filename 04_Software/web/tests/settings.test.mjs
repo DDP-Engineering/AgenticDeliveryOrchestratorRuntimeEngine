@@ -8,6 +8,23 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { editValue, hasDefault, settingGroups, settingRows, settingPurpose, validSettingCatalog, validPendingConfig } from "../src/settings.ts";
 import { publicationCopy, publicationValue } from "../src/settingsCopy.ts";
+import { durationParts, implementationDraft } from "../src/implementationSettings.ts";
+
+test("implementation drafts serialize only complete valid human values", () => {
+ assert.deepEqual(durationParts("12h"), {amount:"12",unit:"h"});
+ assert.deepEqual(durationParts("d"), {amount:"",unit:"d"});
+ assert.equal(implementationDraft("duration", "12h"), "12h");
+ assert.equal(implementationDraft("retry-delays", "0\n 10\n45\n"), "[0,10,45]");
+ assert.equal(implementationDraft("stage-timeouts", '{"validate":3600,"build":5400}'), '{"build":5400,"validate":3600}');
+ assert.equal(implementationDraft("stage-timeouts", "{}"), "{}");
+ assert.equal(editValue({build:5400,validate:3600}), '{"build":5400,"validate":3600}');
+ for (const value of ["0s", "d", "", "1.5h", "-1h", "9007199254740991d", "garbage"])
+  assert.equal(implementationDraft("duration", value), null);
+ for (const value of ["", "true", "-1", "1.5", "9007199254740992", "5\nabc"])
+  assert.equal(implementationDraft("retry-delays", value), null);
+ for (const value of ["null", "[]", "{bad", '{"build":0}', '{"build":true}', '{"unknown":10}'])
+  assert.equal(implementationDraft("stage-timeouts", value), null);
+});
 
 test("publication state names exact booleans in every locale", () => {
  for (const locale of ["en", "fr", "de", "ro"]) {
@@ -195,4 +212,28 @@ test("preparation selection requires a complete bound plan before Apply", () => 
   const selection = "prepare.yml#setup@" + "a".repeat(40);
   const candidate = { base_revision: "a".repeat(64), candidate_revision: "b".repeat(64), key: "execution.preparation", value: selection, proposed_value: selection, created_at: "2026-10-07T12:00:00Z", restart_required: true };
   assert.equal(validPendingConfig(candidate), false, "unreviewed preparation enables Apply");
+});
+
+
+test("Implementation typed controls keep narrow collection review authority", () => {
+ const items = [
+  {...meta("clarification.answer_timeout", "project", true), type:"text"},
+  {...meta("recovery.retry_backoff_seconds", "project", true), type:"list"},
+  {...meta("workflow.stage_timeout_overrides", "project", true), type:"map"},
+ ];
+ assert.deepEqual(settingRows({}, items).map(row => row.input), ["duration", "retry-delays", "stage-timeouts"]);
+ const pending = {base_revision:"a".repeat(64), candidate_revision:"b".repeat(64),
+  key:"workflow.stage_timeout_overrides", value:'{"build":300}', proposed_value:{build:300},
+  restart_required:false, created_at:"2026-10-09T12:00:00Z"};
+ assert.equal(validPendingConfig(pending),true);
+ assert.equal(validPendingConfig({...pending,key:"recovery.retry_backoff_seconds",value:"[0,5]",proposed_value:[0,5]}),true);
+ for(const bad of [
+  {...pending, proposed_value:{unknown:300},value:'{"unknown":300}'},
+  {...pending, proposed_value:{build:true},value:'{"build":true}'},
+  {...pending, proposed_value:{build:0},value:'{"build":0}'},
+  {...pending, value:'{"build":300,"build":300}'},
+  {...pending, key:"workflow.kind_labels"},
+  {...pending,key:"recovery.retry_backoff_seconds",value:"[]",proposed_value:[]},
+  {...pending,key:"recovery.retry_backoff_seconds",value:"[1.5]",proposed_value:[1.5]},
+ ]) assert.equal(validPendingConfig(bad),false);
 });

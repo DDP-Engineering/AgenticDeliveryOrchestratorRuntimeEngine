@@ -10,7 +10,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 Project Settings follows **Repository → Tickets → Implementation → PR/MR and review → Statistics**, followed by closed **Technical details**. Repository owns platform/author identity and the single integration-branch editor; PR/MR shows its value and a link that opens/focuses that row. Tickets owns eligibility, polling, priority/type and pickup/status labels; hold/exclude affect pickup, not already-started jobs. Implementation owns capacity, budgets and progress commits, with closed Clarifications, Recovery after errors and Advanced stage time limits. Statistics owns recording/token switches with closed Advanced statistics paths. Technical details and worktree paths are read-only; Repository branch naming uses reviewed edits and a server-checked example; runtime installation stays external and Executor configuration remains its separate page. Interval, jitter and backoff remain visible; standalone CLI startup mode (`polling.mode`) stays in TOML/raw configuration and the effective catalog. Inactive reserved controls are omitted without changing CLI configuration. All categories start closed, retain reviewed Admin edits and Dev redaction, and have four-locale names.
 
-Implementation uses shared four-locale names for the eight reviewed settings, including **Active job limit**, **Maximum executor launches per job** and **Active work time limit (seconds)** names in rows, editors and candidate review. Help describes serial capacity with parked jobs excluded, lifetime launch counts, resettable active periods and between-attempt time/cost checks. Reported USD accounting depends on captured token usage; cost-only reports do not count. File guidance describes distinct committed/pending/new product and AEGIS paths, the unfinished-merge exception and continuation when Git counting is unavailable. Per-attempt timeout help preserves configured recovery and strict-check semantics; progress publication is enabled by default with local commits retained when disabled, and the quick label is an optional framing hint. Configuration keys, runtime enforcement and role/redaction contracts retain their current behavior.
+Implementation uses shared four-locale names for reviewed settings, including **Active job limit**, **Maximum executor launches per job** and **Active work time limit (seconds)** names in rows, editors and candidate review. Help describes serial capacity with parked jobs excluded, lifetime launch counts, resettable active periods and between-attempt time/cost checks. Reported USD accounting depends on captured token usage; cost-only reports do not count. File guidance describes distinct committed/pending/new product and AEGIS paths, the unfinished-merge exception and continuation when Git counting is unavailable. Per-attempt timeout help preserves configured recovery and strict-check semantics; progress publication is enabled by default with local commits retained when disabled, and the quick label is an optional framing hint. Configuration keys, runtime enforcement and role/redaction contracts retain their current behavior.
 
 The revision-round limit belongs to PR/MR and review, with shared default five and localized combined-budget/exhaustion guidance. Acceptance checking defaults false; explicit values remain authoritative. Portable enrollment validates mapping size against the fifteen recognized rule keys.
 
@@ -47,6 +47,10 @@ The dedicated header combines name/repository and Summary, Settings, Executor
 configuration, Prices, Access, Jobs, Statistics, History; Prices/Access are Admin-only. Jobs/Statistics
 are scoped links. Deletion confirmation clears on page or project changes.
 
+Implementation settings support reviewed edits for human-answer waiting time (positive integer plus seconds/minutes/hours/days), positive question-round count, a nonempty retry schedule (one nonnegative integer per line), and the complete stage-timeout map. The six stage rows choose either the general attempt limit or a positive custom limit in seconds; choosing general removes the override. Retry and timeout collections accept only safe integers and their declared keys; other lists/maps remain read-only except the existing reviewer list. Admins prepare, inspect active/proposed values and apply only at the existing idle boundary; developers remain read-only. Names, help and controls share four locales. The answer deadline is independent of the reserved reminder; reminder format is still checked and no reminder is sent.
+
+`REQ-FUNC-d67a1d33` / `REQ-UX-66547cbf`: `web/implementation_settings.py` validates only retry delays and the complete six-stage map and verifies a single semantic TOML edit. `web/src/implementationSettings.ts` supplies safe draft serialization and editor copy. Metadata emits one parent stage-map row for empty or populated maps; reviewed values and unchanged-base candidate meaning are checked again before apply. `test_web_pending_config.py`, `web/tests/settings.test.mjs` and typed Implementation/locale/Dev journeys in `web/e2e/settings.spec.ts` prove this seam.
+
 ## Branch naming presentation
 
 `SettingsList` owns reactive revision/draft-bound preview requests, cancellation of stale completions and closed `validBranchPreview` transport checks. Repository offers two text editors using shared four-locale row/editor/candidate names and help. Preview shows the effective/proposed pair and fixed example inputs; malformed, mismatching, stale or unavailable evidence cannot prepare a branch candidate. Developer preview is read-only and respects the project grant; runtime paths remain informational. The preview card wraps in narrow layouts and announces updates through a polite live region. Focused proof: `web/tests/settings.test.mjs`, `web/e2e/settings.spec.ts` branch-naming and locale journeys.
@@ -67,7 +71,7 @@ for attention/global jobs/details; `web/e2e/jobs.spec.ts` verifies those views. 
 `04_Software/tests/test_web_*.py`. Engine internals belong to `orchestrator.md`.
 
 
-`REQ-UX-34718dd6`: Admin Project settings exposes Request review from as a reviewer-only six-line list editor. Typed exact candidate authority and complete TOML array replacement retain existing revision/access/idle/apply checks. Developers retain read-only settings; other arrays stay outside generic editing.
+`REQ-UX-34718dd6`: Admin Project settings exposes Request review from as a reviewer-only six-line list editor. Typed exact candidate authority and complete TOML array replacement retain existing revision/access/idle/apply checks. Developers retain read-only settings; retry schedules use their own integer editor; other arrays stay outside generic editing.
 
 ## Purpose and boundaries
 
@@ -649,6 +653,9 @@ for Add and Import project. Primary buttons take their text colour from the
 `--on-accent` theme token.
 
 ## Files
+
+- `04_Software/adore/web/implementation_settings.py`: strict retry/map domain and semantic single-setting TOML writer.
+- `04_Software/web/src/implementationSettings.ts`: typed Implementation drafts and localized editor terminology.
 
 - `04_Software/tests/test_local_execution.py`: native integration/negative proof.
 

@@ -131,7 +131,7 @@ stage_timeout_overrides = { build = 5400, validate = 3600 }
 - `quick_label` is only a framing hint. ADORE does not select the path.
 - `aegis_python` is the one-token executable used with `.agentic/aegis.py`.
 - timeout override keys are `frame`, `specify`, `design`, `build`, `validate`,
-  or `deliver`.
+  or `deliver`. Each positive override bounds one executor attempt, replacing the general stage-attempt limit. In the GUI, all six stages offer General or Custom seconds; General removes that stage’s entry.
 
 ADORE conducts AEGIS major 0 from 0.5.0 upward over JSON schema `1`; a
 different major, a payload below the floor, or any other contract is refused
@@ -152,15 +152,15 @@ there is no fourth launch. A check invocation counts once even when it reports
 many findings. The counter resets after a successful legal stage transition.
 
 `max_transient_retries` independently bounds container, fetch, and forge
-transport retries. Those attempts do not consume the stage counter.
+transport retries. Those attempts do not consume the stage counter. The first attempt counts toward this limit. Backoff delays run in order before each retry and repeat the final value when exhausted; the same schedule paces forge notification replay. With three attempts, the first two delays are used.
 
 ## Clarification
 
 | Key | Meaning | Default |
 | --- | --- | --- |
 | `max_rounds` | Human question/answer rounds. | `3` |
-| `reminder_after` | Reserved; its format and ordering are validated, but no reminder is sent. | `24h` |
-| `answer_timeout` | Loud-failure timeout. | `72h` |
+| `reminder_after` | Reserved; its duration format is validated, but no reminder is sent. | `24h` |
+| `answer_timeout` | Positive duration per question; expiry fails the run, independently of reserved reminder timing. | `72h` |
 | `timeout_state` | Reserved; its choice is validated, but expiry currently fails the run. | `failed` |
 
 Questions park the run, stop the container, release the slot, and do not count

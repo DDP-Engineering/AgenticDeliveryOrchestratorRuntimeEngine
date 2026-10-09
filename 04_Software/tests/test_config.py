@@ -281,14 +281,15 @@ def test_file_budget_rejects_zero(tmp_path: Path) -> None:
     assert any("max_files_touched" in issue for issue in issues)
 
 
-def test_validation_rejects_reminder_after_the_timeout(tmp_path: Path) -> None:
-    """
-    @brief   A reminder scheduled at or after the hard answer timeout can never
-             fire before release; the ordering is rejected, not just the format.
-    """
-    text = MINIMAL_VALID + '\n[clarification]\nreminder_after = "72h"\nanswer_timeout = "24h"\n'
-    issues = validate_config(load_config(_write_config(tmp_path, text)))
-    assert any("reminder_after must be shorter" in issue for issue in issues)
+def test_validation_accepts_answer_timeout_independently_of_reserved_reminder(
+        tmp_path: Path) -> None:
+    """@brief An active positive answer deadline is independent of the reserved reminder."""
+    text = MINIMAL_VALID + '\n[clarification]\nreminder_after = "24h"\nanswer_timeout = "12h"\n'
+    assert validate_config(load_config(_write_config(tmp_path, text))) == []
+    for timeout in ('0s', 'invalid'):
+        bad = text.replace('answer_timeout = "12h"', f'answer_timeout = "{timeout}"')
+        assert any('answer_timeout' in issue for issue in validate_config(
+            load_config(_write_config(tmp_path, bad))))
 
 
 def test_validation_flags_unknown_sections(tmp_path: Path) -> None:

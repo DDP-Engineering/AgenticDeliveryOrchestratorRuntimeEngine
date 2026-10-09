@@ -102,6 +102,12 @@ revision; Unverified means no current evidence, not an observed failure. Use
 Project details → Summary → Check host prerequisites for the administrator check.
 Pause semantics are available in header help instead of repeated row guidance.
 
+### Editing clarification, recovery and stage limits
+
+In Project settings, open **Implementation**, then **Clarifications**, **Recovery after errors** or **Advanced stage time limits**. Choose Edit, enter the typed value and select Prepare candidate. Inspect the active/proposed comparison, then Apply change. Discard change leaves active settings unchanged.
+
+Implementation settings support reviewed edits for human-answer waiting time (positive integer plus seconds/minutes/hours/days), positive question-round count, a nonempty retry schedule (one nonnegative integer per line), and the complete stage-timeout map. The six stage rows choose either the general attempt limit or a positive custom limit in seconds; choosing general removes the override. Retry and timeout collections accept only safe integers and their declared keys; other lists/maps remain read-only except the existing reviewer list. Admins prepare, inspect active/proposed values and apply only at the existing idle boundary; developers remain read-only. Names, help and controls share four locales. The answer deadline is independent of the reserved reminder; reminder format is still checked and no reminder is sent.
+
 ## Branch naming
 
 Repository settings provides **Job branch name template** and **Optional branch name rule**. Administrators edit one field at a time, prepare the validated candidate, review active/proposed values, stop project pickup and apply while no jobs are active. Existing jobs retain their configuration. Developers see the same effective settings and example without edit actions. Worktree paths and runtime setup remain externally managed.
