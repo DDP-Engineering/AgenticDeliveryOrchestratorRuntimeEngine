@@ -57,6 +57,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Preserve inline setting action placement when validation appears after changing the coding agent.
+
 - Align coding-agent Prepare/Cancel actions beside the selector using the ordinary responsive setting-editor layout.
 
 - Keep complete agent editing within the existing setting rows and select allowed credential variables through a compact dropdown with removable names.

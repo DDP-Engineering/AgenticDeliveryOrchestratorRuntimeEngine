@@ -164,6 +164,17 @@ test("inline executor editors retain columns and use a credential dropdown",asyn
  await expect(row.getByLabel("Executor launch command",{exact:true})).toHaveCount(0);
  await expect(page.locator('[id="setting-executor.commands.opencode.command"]').getByLabel("Executor launch command",{exact:true})).toBeVisible();
  await expect(page.locator('[id="setting-executor.commands.opencode.model"]').getByLabel("Executor model identifier",{exact:true})).toBeVisible();
+ for(const agent of ["pi","codex","qwen","opencode"]){
+  await page.getByLabel("Default coding agent",{exact:true}).selectOption(agent);
+  await page.getByLabel("Executor model identifier",{exact:true}).fill("");
+  await expect(row.getByRole("button",{name:"Prepare candidate",exact:true})).toBeDisabled();
+  await expect(row.getByRole("alert")).toBeVisible();
+  const nextSelect=await row.getByLabel("Default coding agent",{exact:true}).boundingBox();
+  const nextActions=await row.locator(".button-row").boundingBox();
+  expect(nextActions!.x).toBeGreaterThanOrEqual(nextSelect!.x+nextSelect!.width);
+  expect(Math.abs(nextActions!.y+nextActions!.height/2-nextSelect!.y-nextSelect!.height/2)).toBeLessThan(2);
+  expect(Math.abs(nextActions!.x-actions!.x)).toBeLessThan(2);
+ }
  await page.getByLabel("Default coding agent",{exact:true}).selectOption("codex");
  await expect(row.getByRole("button",{name:"Prepare candidate",exact:true})).toBeDisabled();
  await page.getByLabel("Executor model identifier",{exact:true}).fill("offline-inline-model");

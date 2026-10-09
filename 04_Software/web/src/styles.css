@@ -297,6 +297,7 @@ td.strong { font-weight: 800; }
 .setting-editor textarea { width: 100%; min-height: 9rem; box-sizing: border-box; padding: 10px; font: inherit; line-height: 1.5; resize: vertical; color: var(--text); background: var(--surface-alt); border: 1px solid var(--border); border-radius: 8px; }
 .setting-editor textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 .setting-editor .button-row { margin: 0; }
+.setting-editor > p[role="alert"] { flex-basis: 100%; margin: 0; }
 .check-inline { display: inline-flex; flex-direction: row; align-items: center; gap: 6px; font-size: .875rem; font-weight: 600; cursor: pointer; }
 .check-inline input { width: auto; margin: 0; }
 @media (max-width: 640px) { .setting-row { grid-template-columns: minmax(0, 1fr); } .setting-row details { justify-self: start; max-width: 100%; } }
