@@ -246,6 +246,6 @@ test("compact review shows only differences above settings and blocks unchanged 
  await page.getByRole("button",{name:"Edit Default coding agent",exact:true}).click();
  await page.locator(".setting-editor").getByRole("button",{name:"Prepare candidate",exact:true}).click();
  await expect(review).toContainText("No values have changed.");await expect(apply).toBeDisabled();await expect(changes).toHaveCount(0);
- await discard.click();expect(await(await page.request.get(`/api/v1/projects/${id}/config/pending`)).json()).toBeNull();
+ await discard.click();await expect(review).toHaveCount(0);expect(await(await page.request.get(`/api/v1/projects/${id}/config/pending`)).json()).toBeNull();
  expect((await(await page.request.get(`/api/v1/projects/${id}/config`)).json()).revision).toBe(before.revision);
 });
