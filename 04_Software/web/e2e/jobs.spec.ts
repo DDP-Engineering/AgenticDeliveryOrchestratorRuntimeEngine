@@ -109,8 +109,9 @@ test("hub separates pickup and verification and keeps role-appropriate navigatio
   await expect(page.getByRole("button", { name: /Pause monitoring|Activate monitoring/ })).toBeVisible();
   await expect(page.getByRole("button", { name: "Archive project", exact: true })).toBeVisible();
   const project = new URL(page.url()).pathname.split("/")[2];
-  await expect(hub.getByRole("link", { name: "Jobs", exact: true })).toHaveAttribute("href", `/jobs?project=${project}`);
-  await expect(hub.getByRole("link", { name: "Statistics", exact: true })).toHaveAttribute("href", `/metrics?project=${project}`);
+  await expect(hub.getByRole("link")).toHaveCount(0);
+  await expect(hub.getByRole("tab", { name: "Jobs", exact: true })).toBeVisible();
+  await expect(hub.getByRole("tab", { name: "Statistics", exact: true })).toBeVisible();
 
   await expect(page.getByText("Active jobs continue when pickup is stopped.", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("tab", { name: "Summary", exact: true })).toBeVisible();
@@ -126,8 +127,9 @@ test("hub separates pickup and verification and keeps role-appropriate navigatio
   expect(checks).toBe(1);
   await expect(page.locator(".project-summary-window > .panel")).toHaveCount(2);
   await page.screenshot({ path: info.outputPath("project-hub-desktop.png"), fullPage: true });
-  await hub.getByRole("link", { name: "Statistics", exact: true }).click();
-  await expect(page).toHaveURL(new RegExp(`/metrics\\?project=${project}`));
+  await hub.getByRole("tab", { name: "Statistics", exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/projects/${project}/statistics$`));
+  await expect(hub).toBeVisible();
   await page.goBack();
   await expect(hub).toBeVisible();
   await page.getByRole("tab", { name: "Settings", exact: true }).click();
@@ -253,7 +255,8 @@ test("composite colliding IDs and reload preserve the owning project", async ({ 
   expect(new Set(links).size).toBe(2);
   await page.getByRole("link", { name: /Actual beta collision/ }).click();
   await expect(page.locator(".detail-panel .panel-heading h2")).toHaveText("Actual beta collision");
-  await expect(page.getByRole("region", { name: "Project context" })).toContainText("beta");
+  await expect(page.getByRole("region", { name: "Project context" })).toHaveCount(0);
+  await expect(page.locator("#jobs-project option:checked")).toHaveText("beta");
   await page.reload();
   await expect(page.locator(".detail-panel .panel-heading h2")).toHaveText("Actual beta collision");
   await page.locator(".detail-panel").getByRole("button", { name: "Close", exact: true }).click();
@@ -416,7 +419,7 @@ test("project hub shows verification state and rejects corrupt stamps", async ({
 });
 
 
-test("overview header selector precedes context and navigation resets all projects", async ({ page }) => {
+test("overview header selector precedes job tables without a duplicate context band and navigation resets all projects", async ({ page }) => {
   await signIn(page);
   const selector = page.getByLabel("Project", { exact: true });
   await expect(page.locator(".topbar").getByLabel("Project", { exact: true })).toBeVisible();
@@ -425,11 +428,10 @@ test("overview header selector precedes context and navigation resets all projec
   const alpha = projects.find((row: { name: string }) => row.name === "alpha").id;
   await selector.selectOption(alpha);
   const context = page.getByRole("region", { name: "Project context", exact: true });
-  await expect(context).toContainText("alpha");
   await expect(page.locator(".overview-jobs-table").first()).toBeVisible();
-  const bounds = await Promise.all([selector.boundingBox(), context.boundingBox(), page.locator(".overview-jobs-table").first().boundingBox()]);
+  await expect(context).toHaveCount(0);
+  const bounds = await Promise.all([selector.boundingBox(), page.locator(".overview-jobs-table").first().boundingBox()]);
   expect(bounds[0]!.y + bounds[0]!.height).toBeLessThanOrEqual(bounds[1]!.y);
-  expect(bounds[1]!.y + bounds[1]!.height).toBeLessThanOrEqual(bounds[2]!.y);
   await page.reload();
   await expect(selector).toHaveValue(alpha);
   const overview = nav(page).getByRole("link", { name: "Overview", exact: true });
@@ -713,4 +715,49 @@ test("repository connection supports keyboard four locales and narrow dark layou
   await page.goto("/projects/alpha");
   await page.getByRole("button", {name: "Connect repository", exact: true}).click();
   await page.screenshot({path: info.outputPath("repository-connection-dark.png"), fullPage: true});
+});
+
+test("project hub shows jobs and statistics as tabs without duplicated scope", async ({ page }) => {
+  await signIn(page);
+  const projects = await (await page.request.get("/api/v1/projects")).json();
+  const alpha = projects.find((row: { name: string }) => row.name === "alpha").id;
+  await page.goto(`/projects/${alpha}`);
+  const hub = page.locator(".project-hub");
+  await hub.getByRole("tab", { name: "Jobs", exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/projects/${alpha}/jobs$`));
+  await expect(hub.getByRole("tab", { name: "Jobs", exact: true })).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator("#job-ticket-number")).toBeVisible();
+  await expect(page.locator("#jobs-project")).toHaveCount(0);
+  await expect(page.getByText("Jobs shown here belong to the selected project.")).toHaveCount(0);
+  await expect(page.locator(".project-context")).toHaveCount(1);
+  await expect(page.locator("#job-search")).toBeVisible();
+  const firstJob = page.locator(".action-jobs-table tbody tr").first().locator("td:first-child a");
+  await expect(firstJob).toHaveAttribute("href", new RegExp(`^/projects/${alpha}/jobs\\?run=`));
+  await firstJob.click();
+  await expect(page).toHaveURL(new RegExp(`/projects/${alpha}/jobs\\?run=`));
+  await expect(page.locator(".detail-panel")).toBeVisible();
+  await expect(hub.getByRole("tab", { name: "Jobs", exact: true })).toHaveAttribute("aria-selected", "true");
+  await page.reload();
+  await expect(page.locator(".detail-panel")).toBeVisible();
+  await page.locator(".detail-panel").getByRole("button", { name: "Close", exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/projects/${alpha}/jobs$`));
+  await hub.getByRole("tab", { name: "Summary", exact: true }).click();
+  await page.locator(".overview-jobs-table tbody tr").first().locator("a").first().click();
+  await expect(page).toHaveURL(new RegExp(`/projects/${alpha}/jobs\\?run=`));
+  await expect(page.locator(".detail-panel")).toBeVisible();
+  await hub.getByRole("tab", { name: "History", exact: true }).click();
+  await page.locator(".action-jobs-table tbody tr").first().locator("td:first-child a").click();
+  await expect(page).toHaveURL(new RegExp(`/projects/${alpha}/jobs\\?run=`));
+  await expect(hub.getByRole("tab", { name: "Jobs", exact: true })).toHaveAttribute("aria-selected", "true");
+  await hub.getByRole("tab", { name: "Statistics", exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/projects/${alpha}/statistics$`));
+  await expect(page.locator(".metrics-period")).toBeVisible();
+  await expect(page.locator("#metrics-project")).toHaveCount(0);
+  await expect(page.locator("#metrics-tab-projects")).toHaveCount(0);
+  await expect(page.locator(".statistics-evidence")).toBeVisible();
+  await page.locator("#metrics-tab-usage").click();
+  await expect(page).toHaveURL(new RegExp(`/projects/${alpha}/statistics\\?tab=usage$`));
+  await page.reload();
+  await expect(page.locator("#metrics-tab-usage")).toHaveAttribute("aria-selected", "true");
+  await expect(hub.getByRole("tab", { name: "Statistics", exact: true })).toHaveAttribute("aria-selected", "true");
 });

@@ -100,9 +100,10 @@ separately from ADORE. Source SHA-256:
 `4957da4edf9aebf02dcb0e24823ff5f8d5ee524622773f4285c9e2261903c481`.
 The binary inherits the provenance documented in the published design bundle.
 
-Project context shows the authorized project's display name and repository with
-links to its hub, jobs and statistics. Overview and Jobs default to all authorized
-current and archived projects and offer an explicit project selector.
+The project hub band shows the authorized project's display name, repository and
+section tabs; it appears only on Project details. Overview and Jobs default to all
+authorized current and archived projects and offer an explicit project selector,
+which is their only scope indicator.
 `JobWorkspace` reads the complete global jobs API; scope and composite job identity
 remain independent of the Statistics selector. Statistics retains `/metrics`,
 existing exports and query parameters.
@@ -267,8 +268,10 @@ The Projects directory lists authorized projects in a sortable, paged table
 with project, repository path, Repo forge provider (Gitea/GitHub/GitLab),
 Monitoring, job count and saved last activity. Project-name links open the hub.
 The dedicated hub has one identity/navigation band: name, repository path,
-Summary, Settings, Access, Jobs, Statistics, History. Access is
-Admin-only; Jobs/Statistics retain selected project scope.
+Summary, Settings, Access, Jobs, Statistics, History, all tabs. Access is
+Admin-only. The Jobs tab renders `JobWorkspace` in jobs mode with a fixed scope
+and the hub's `onOpen`, so job detail stays in the tab; Statistics renders the
+shared `statisticsView(true)` without the project selector or the cross-project tab.
 Summary holds Monitoring Active/Paused status, runtime/executor and explicit
 revision-bound verification evidence. Administrators use Summary to pause or
 activate monitoring, archive/restore, and delete archived idle projects using
@@ -288,8 +291,9 @@ a developer's projects are edited together under Users, and one project's
 developers on its Access tab. My account holds account
 appearance and password controls. Project details groups this content into
 Summary (pickup, host verification and project jobs), Settings (read-only settings
-and administrator editors), History (terminal jobs), and the administrator-only Access tab with
-keyboard tab navigation; Jobs and Statistics are real links. Access
+and administrator editors), Jobs (start, filter and inspect project jobs), Statistics
+(project reporting), History (terminal jobs), and the administrator-only Access tab with
+keyboard tab navigation. Access
 (`ProjectAccess` in `App.tsx`) lists the project's developers from
 `GET /projects/{name}/access` and grants or removes one with
 `PUT /projects/{name}/access/{user_id}`; a developer's `/access` route falls

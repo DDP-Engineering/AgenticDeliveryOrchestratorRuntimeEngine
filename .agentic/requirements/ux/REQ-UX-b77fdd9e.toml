@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-b77fdd9e"
+
+title = "Show project statistics inside the project hub"
+
+status = "active"
+
+requirement = """
+While a user views an authorized project's details, the Statistics tab shall show that project's reporting period, statistics tabs, figures and CSV exports within the project hub without a project selector, with the view addressable as /projects/<id>/statistics including its statistics tab and reporting period.
+"""
+
+verification = "Automated: e2e opens a project's Statistics tab, sees the reporting period and statistics figures under the project hub with no project selector, switches a statistics tab and reloads the URL to the same view; unit tests parse/format the statistics URL with tab and period."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/routes.ts", "04_Software/adore/web/static/"]
+
+linked_tests = ["04_Software/web/e2e/jobs.spec.ts", "04_Software/web/tests/routes.test.mjs"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-10
+updated = 2026-10-10

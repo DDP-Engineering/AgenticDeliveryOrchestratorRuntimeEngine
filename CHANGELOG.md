@@ -20,6 +20,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Show a project's Jobs and Statistics as tabs inside its project hub, with job detail opening in the Jobs tab and no repeated project selector or scope panel; Overview, Jobs and Statistics pages identify their scope only through their own Project selector.
+
 - Move Admin estimated prices from their own project tab into Settings → Agent and model; prices are recorded for the selected coding agent and its configured model, so the form asks only for effective date and input/output rates; older `/prices` links open Settings.
 
 - Show pending settings above category groups with changed values and adjacent Apply/Discard; fold complete review/technical evidence and clearly block unchanged simple candidates.

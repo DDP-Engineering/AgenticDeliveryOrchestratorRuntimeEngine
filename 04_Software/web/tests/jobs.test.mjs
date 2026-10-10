@@ -60,7 +60,7 @@ test("command contracts protect final or human owned jobs and old routes survive
   assert.equal(commandAllowed({ ...job(), lifecycle: "failed" }, "retry"), true);
   for (const lifecycle of ["done", "cancelled", "failed", "stale", "handoff-pending", "handed-off"]) assert.equal(commandAllowed({ ...job(), lifecycle }, "cancel"), false);
   assert.equal(commandAllowed({ ...job(), project_archived: true, lifecycle: "failed" }, "retry"), false);
-  for (const tab of ["overview", "configuration", "access", "history"]) {
+  for (const tab of ["overview", "configuration", "access", "jobs", "statistics", "history"]) {
     const route = { view: "projectDetails", project: id, tab };
     assert.deepEqual(parseRoute(formatRoute(route)), route);
   }

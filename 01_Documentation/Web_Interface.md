@@ -23,8 +23,7 @@ The optional web installation serves the React interface and a same-origin
 FastAPI API. It uses the same project profiles and run state as the CLI. The
 Overview opens **Needs attention** across all projects your account can access,
 including archived history. One **Project** selector scopes both **Needs attention**
-and **Active jobs** from the ADORE/Overview header. The selected-project context
-band appears below that header, followed by the job tables. Activating the primary
+and **Active jobs** from the ADORE/Overview header, followed by the job tables. Activating the primary
 **Overview** link resets to all authorized projects; a scoped URL/reload retains
 its explicit selection. Automatic job reads run every 15 seconds while visible,
 retaining validated current-scope rows while the background response is pending.
@@ -339,12 +338,12 @@ Statistics places its scope selector with the common reporting period controls.
 Changing projects retains the reporting period and category tab. Administrators
 start with **All projects**, showing overall Summary totals and a project table.
 Selecting one project applies to every category and export, including project
-and repository comparison tables. Opening Statistics from project details selects
-that project. Developers choose only their assigned projects.
+and repository comparison tables. A project's own Statistics tab in Project
+details shows that project without a selector. Developers choose only their
+assigned projects.
 The top bar names the current page and provides common actions. Project details
-retains the project opened from Projects. Its Summary, Settings, History and, for
-administrators, Access tabs switch content within the page; Jobs
-and Statistics are links to those pages for the project. Access lists every
+retains the project opened from Projects. Its Summary, Settings, Jobs, Statistics,
+History and, for administrators, Access tabs switch content within the page. Access lists every
 developer account with whether it can access the project, and an
 administrator grants or removes one developer's access with a button; the
 change applies at once, leaves the developer's other projects alone and is
@@ -714,15 +713,19 @@ mark; ADORE is the product name. Use the keyboard **Skip to content** link to
 reach page content. On compact screens, **Menu** opens navigation and choosing
 a destination closes it.
 
-The project context shows the scoped project's display name and repository.
-Its links open that project's hub, Jobs or Statistics. Overview and Jobs default
-to **All authorized projects**; Statistics keeps its independent scope and
-`/metrics` URLs. A selected job URL includes both immutable project and run IDs,
+Overview, Jobs and Statistics name their scope through their own **Project**
+selector. Overview and Jobs default to **All authorized projects**; Statistics
+keeps its independent scope and `/metrics` URLs. A selected job URL includes both immutable project and run IDs,
 so colliding run IDs remain distinct after reload. Closing detail clears its ID.
 
 The dedicated project header displays its name and repository path beside
-Summary, Settings, Access, Jobs, Statistics and History navigation.
-Jobs and Statistics links preserve project scope; Access is Admin-only.
+Summary, Settings, Access, Jobs, Statistics and History tabs; Access is
+Admin-only. **Jobs** starts and lists that project's jobs and opens a job's
+detail in the same tab (`/projects/<id>/jobs?run=<run_id>`), including jobs
+chosen from Summary or History. **Statistics** shows that project's reporting
+period, statistics tabs and CSV exports (`/projects/<id>/statistics`). Neither
+tab repeats a project selector; worker status appears only when the worker is
+unavailable or failing.
 Summary holds monitoring actions and revision-bound environment verification.
 Paused monitoring prevents new work and allows active jobs to continue.
 Verification is explicit and tied to saved configuration revision and check time:

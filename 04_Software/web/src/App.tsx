@@ -39,7 +39,7 @@ import { JobWorkspace } from "./JobWorkspace";
 import { jobCopy } from "./jobCopy";
 import { UserCreation, AccountAccessEditor, AccessReview, validAccount, type Account } from "./UserCreation";
 import { userCopy } from "./userCopy";
-import { DashboardShell, NavigationLink, type ShellLink } from "./DashboardShell";
+import { DashboardShell, type ShellLink } from "./DashboardShell";
 import { DataFeedback, ProjectEmpty, StatusBadge, DeliveryGlossary, type DataState, type ScopedState } from "./Presentation";
 
 type User = { id: number; username: string; role: "admin" | "developer"; disabled: boolean; password_change_required?: boolean; projects?: string[] };
@@ -197,7 +197,7 @@ export default function App() {
     if (saved.theme) setTheme(saved.theme);
   };
   const isAdmin = session?.user.role === "admin";
-  const metricsTabs: MetricsTab[] = isAdmin ? ["summary", "usage", "quality", "trends", "projects"] : ["summary", "usage", "quality", "trends"];
+  const metricsTabs: MetricsTab[] = isAdmin && page === "metrics" ? ["summary", "usage", "quality", "trends", "projects"] : ["summary", "usage", "quality", "trends"];
   const onMetricsTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, tab: MetricsTab) => {
     const current = metricsTabs.indexOf(tab);
     const next = event.key === "ArrowRight" ? (current + 1) % metricsTabs.length :
@@ -208,7 +208,9 @@ export default function App() {
     setMetricsTab(metricsTabs[next]);
     document.getElementById(`metrics-tab-${metricsTabs[next]}`)?.focus();
   };
-  const projectTabs: ProjectTab[] = isAdmin ? ["overview", "configuration", "access", "history"] : ["overview", "configuration", "history"];
+  const projectTabs: ProjectTab[] = isAdmin ? ["overview", "configuration", "access", "jobs", "statistics", "history"] : ["overview", "configuration", "jobs", "statistics", "history"];
+  // Leaving a tab closes any job detail opened in the Jobs tab.
+  const selectProjectTab = (tab: ProjectTab) => { setRequestedRun(""); if (tab === "statistics" && tab !== projectTab) setMetricsTab("summary"); setProjectTab(tab); };
   const onProjectTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, tab: ProjectTab) => {
     const current = projectTabs.indexOf(tab);
     const next = event.key === "ArrowRight" ? (current + 1) % projectTabs.length :
@@ -216,7 +218,7 @@ export default function App() {
       event.key === "Home" ? 0 : event.key === "End" ? projectTabs.length - 1 : -1;
     if (next < 0) return;
     event.preventDefault();
-    setProjectTab(projectTabs[next]);
+    selectProjectTab(projectTabs[next]);
     document.getElementById(`project-tab-${projectTabs[next]}`)?.focus();
   };
   const projectStatusLabel = (item: Project) => t(item.readiness === "configured" ? "configured" : item.readiness === "needs-config" ? "needsConfig" : item.readiness === "invalid-state" ? "invalidState" : item.readiness === "archived" ? "archived" : "paused");
@@ -273,7 +275,10 @@ export default function App() {
   if (usageExecutor.trim()) usageParams.set("executor", usageExecutor.trim());
   if (usageModel.trim()) usageParams.set("model", usageModel.trim());
   const usageSuffix = usageParams.toString() ? `?${usageParams}` : "";
-  const allProjectScope = isAdmin && metricAllProjects;
+  const allProjectScope = isAdmin && metricAllProjects && page === "metrics";
+  const statisticsVisible = page === "metrics" || page === "projectDetails" && projectTab === "statistics";
+  // The cross-project comparison tab exists only on the global Statistics page.
+  useEffect(() => { if (page === "projectDetails" && metricsTab === "projects") setMetricsTab("summary"); }, [page, metricsTab]);
   const scopeLabel = allProjectScope ? t("metricsAllProjects") : selectedProject?.name || "";
   const scopeProjects = allProjectScope ? projects : projects.filter(project => project.id === selected);
   const globalRows = allProjectScope ? Object.entries(allMetrics || {}) :
@@ -407,7 +412,7 @@ export default function App() {
   useEffect(() => { readinessRequest.current += 1; readinessPending.current = false; setReadinessBusy(false); setReadinessError(null); setProjectReadiness(null); setReadinessExpanded(false); }, [selected, page, session?.user.id]);
 
   useEffect(() => {
-    if (!session || !selected || page !== "metrics" || projectsState !== "ready" || !projects.some(item => item.id === selected)) return;
+    if (!session || !selected || !statisticsVisible || projectsState !== "ready" || !projects.some(item => item.id === selected)) return;
     let revision = ++usageRequest.current;
     const generation = viewGeneration.current;
     const key = JSON.stringify([selected, usageSuffix, authorizedMetricsKey]);
@@ -439,11 +444,11 @@ export default function App() {
     void refresh();
     const stopPolling = startVisiblePolling(() => void refresh(), 30000);
     return () => { usageRequest.current += 1; stopPolling(); };
-  }, [session, selected, page, usageSuffix, isAdmin, usageRefresh, authorizedMetricsKey, projectsState]);
+  }, [session, selected, statisticsVisible, usageSuffix, isAdmin, usageRefresh, authorizedMetricsKey, projectsState]);
 
   const refreshSelected = useCallback(async () => {
     const revision = ++selectedMetricsRequest.current;
-    if (!selected || !session || page !== "metrics" || projectsState !== "ready" || !projects.some(item => item.id === selected)) { setMetrics(null); return; }
+    if (!selected || !session || !statisticsVisible || projectsState !== "ready" || !projects.some(item => item.id === selected)) { setMetrics(null); return; }
     const generation = viewGeneration.current;
     const key = JSON.stringify([selected, metricSuffix, authorizedMetricsKey]);
     setSelectedState({ key, state: "loading" });
@@ -459,7 +464,7 @@ export default function App() {
         setSelectedState({ key, state: "error" }); setMetrics(null); setError(cause);
       }
     }
-  }, [selected, session, metricSuffix, page, authorizedMetricsKey, projectsState]);
+  }, [selected, session, metricSuffix, statisticsVisible, authorizedMetricsKey, projectsState]);
 
   useEffect(() => {
     void refreshSelected();
@@ -602,7 +607,9 @@ export default function App() {
   const currentRoute = (): Route => {
     switch (page) {
       case "overview": return jobScope ? { view: "overview", project: jobScope } : { view: "overview" };
-      case "projectDetails": return selected ? { view: "projectDetails", project: selected, tab: projectTab } : { view: "projects" };
+      case "projectDetails": return selected ? { view: "projectDetails", project: selected, tab: projectTab,
+        ...(projectTab === "jobs" && requestedRun ? { run: requestedRun } : {}),
+        ...(projectTab === "statistics" ? { ...reportingRoute, ...(metricsTab !== "summary" && metricsTab !== "projects" ? { metricsTab } : {}) } : {}) } : { view: "projects" };
       case "jobs": return { view: "jobs", ...reportingRoute, ...(jobScope ? { project: jobScope } : {}), ...(jobScope && requestedRun ? { run: requestedRun } : {}) };
       case "metrics": return { view: "metrics", ...reportingRoute, ...(selected && !(isAdmin && metricAllProjects) ? { project: selected } : {}), ...(metricsTab !== "summary" ? { tab: metricsTab } : {}) };
       default: return { view: page };
@@ -610,16 +617,17 @@ export default function App() {
   };
 
   const applyRoute = (route: Route) => {
-    setRequestedRun(route.view === "jobs" ? route.run || "" : "");
+    setRequestedRun(route.view === "jobs" || route.view === "projectDetails" && route.tab === "jobs" ? route.run || "" : "");
     setPage(route.view); setMenuOpen(false);
     if (route.view === "jobs" || route.view === "overview") setJobScope(route.project || "");
     if ("project" in route && route.project) { routedProject.current = route.project; setSelected(route.project); }
     if (route.view === "projectDetails") setProjectTab(route.tab);
-    if (route.view === "metrics" || route.view === "jobs") {
+    if (route.view === "metrics" || route.view === "jobs" || route.view === "projectDetails" && route.tab === "statistics") {
       setMetricFrom(route.reporting?.from ?? ""); setMetricTo(route.reporting?.through ?? "");
       setMetricTimezone(route.reporting?.timezone ?? "UTC"); setMetricGranularity((route.reporting?.granularity ?? "day") as "day" | "week" | "month");
     }
     if (route.view === "metrics") { setMetricsTab(route.tab ?? "summary"); setMetricAllProjects(!route.project); }
+    if (route.view === "projectDetails" && route.tab === "statistics") setMetricsTab(route.metricsTab ?? "summary");
   };
 
   const applyLocation = () => {
@@ -937,6 +945,8 @@ export default function App() {
     onScope: (id: string) => { setJobScope(id); if (id) setSelected(id); setRequestedRun(""); },
     onOpen: (id: string, runId: string) => { setSelected(id); setJobScope(id); setRequestedRun(runId); setPage("jobs"); },
     onClose: () => setRequestedRun("") };
+  const hubWorkspaceProps = { ...workspaceProps, scope: selected,
+    onOpen: (id: string, runId: string) => { setSelected(id); setRequestedRun(runId); setProjectTab("jobs"); } };
   const nav: Page[] = ["overview", "projects", "jobs", "metrics"];
   const adminPages: Page[] = ["administration", "adminUsers", "adminAudit"];
 
@@ -944,6 +954,7 @@ export default function App() {
   const navigatePage = (target: Page) => {
     if (target !== page && enrollmentGuard.current && !enrollmentGuard.current()) return;
     setRequestedRun("");
+    if (target !== page) setMetricsTab("summary");
     if (target === "overview") { routedProject.current = null; setJobScope(""); }
     if (target === "jobs" && ["projectDetails", "metrics"].includes(page)) setJobScope(selected);
     setPage(target); setMenuOpen(false);
@@ -957,131 +968,17 @@ export default function App() {
     onNavigate: () => navigatePage(target),
   });
   const pageTitle = isAdmin && adminPages.includes(page) ? t(page === "administration" ? "systemStatus" : page) : t(page === "settings" ? "myAccount" : page);
-  const contextual = ["projectDetails", "metrics"].includes(page) || ["jobs", "overview"].includes(page) && !!jobScope;
-  const projectContext = projectsState === "ready" && contextual && selectedProject && !(page === "metrics" && allProjectScope) ?
-    <section className={`project-context${page === "projectDetails" ? " project-hub" : ""}`} aria-label={t("projectContext")}>
-      <div>{page !== "projectDetails" && <span className="eyebrow">{t("projectContext")}</span>}<strong>{selectedProject.display_name}</strong><small>{selectedProject.repo}</small></div>
-      {page === "projectDetails" ? <div className="metrics-tabs project-tabs" role="tablist" aria-label={t("projectSections")}>
-        {projectTabs.map(tab => <span className="project-tab-group" key={tab}>
-          {tab === "history" && <><RouteLink to={formatRoute({ view: "jobs", project: selectedProject.id })} onNavigate={() => { setJobScope(selectedProject.id); setRequestedRun(""); setPage("jobs"); }}>{t("jobs")}</RouteLink><RouteLink to={formatRoute({ view: "metrics", project: selectedProject.id })} onNavigate={() => { setMetricAllProjects(false); setPage("metrics"); }}>{t("metrics")}</RouteLink></>}
-          <button id={`project-tab-${tab}`} type="button" role="tab" aria-controls="project-tab-panel" aria-selected={projectTab === tab} tabIndex={projectTab === tab ? 0 : -1} onClick={() => setProjectTab(tab)} onKeyDown={event => onProjectTabKeyDown(event, tab)}>{tab === "overview" ? jc.summary : tab === "configuration" ? jc.settings : tab === "executor" ? executorCopy[locale].tab : tab === "history" ? jc.history : t("projectAccessTab")}</button>
-        </span>)}
-      </div> : <nav aria-label={t("projectLinks")}>
-        <NavigationLink item={{ id: "project", label: t("projectDetails"), href: formatRoute({ view: "projectDetails", project: selectedProject.id, tab: "overview" }), active: false, onNavigate: () => openProject(selectedProject.id) }} />
-        <NavigationLink item={shellLink("jobs")} /><NavigationLink item={shellLink("metrics")} />
-      </nav>}
+  const projectContext = projectsState === "ready" && page === "projectDetails" && selectedProject ?
+    <section className="project-context project-hub" aria-label={t("projectContext")}>
+      <div><strong>{selectedProject.display_name}</strong><small>{selectedProject.repo}</small></div>
+      <div className="metrics-tabs project-tabs" role="tablist" aria-label={t("projectSections")}>
+        {projectTabs.map(tab => <button key={tab} id={`project-tab-${tab}`} type="button" role="tab" aria-controls="project-tab-panel" aria-selected={projectTab === tab} tabIndex={projectTab === tab ? 0 : -1} onClick={() => selectProjectTab(tab)} onKeyDown={event => onProjectTabKeyDown(event, tab)}>{tab === "overview" ? jc.summary : tab === "configuration" ? jc.settings : tab === "jobs" ? t("jobs") : tab === "statistics" ? t("metrics") : tab === "history" ? jc.history : t("projectAccessTab")}</button>)}
+      </div>
     </section> : page === "metrics" && allProjectScope ? <p className="scope-note">{t("metricsAllProjects")} · {t("globalScopeHelp")}</p> : null;
 
-  return <DashboardShell t={t} title={pageTitle} links={nav.map(shellLink)} adminLinks={isAdmin ? adminPages.map(shellLink) : []}
-    account={shellLink("settings")} username={session.user.username} role={t(session.user.role)}
-    menuOpen={menuOpen} onMenu={() => setMenuOpen(open => !open)} adminOpen={adminMenuOpen} onAdmin={() => setAdminMenuOpen(open => !open)}
-    onSignOut={signOut} context={projectContext}
-    controls={page === "overview" && projectsState === "ready" && projects.length > 0 && <label className="overview-header-scope" htmlFor="overview-project">{t("project")}<select id="overview-project" aria-label={t("project")} value={jobScope} onChange={event => workspaceProps.onScope(event.target.value)}><option value="">{jc.allProjects}</option>{projects.map(item => <option key={item.id} value={item.id}>{item.display_name || item.name}</option>)}</select></label>}
-    actions={<>{page !== "overview" && <span className="refresh-stamp">{lastRefresh && t("lastRefresh") + ": " + formatDate(lastRefresh.toISOString())}</span>}
-      <button className="ghost" onClick={() => { void refreshProjects().catch(setError); void refreshSelected();  setUsageRefresh(value => value + 1); setViewRefresh(value => value + 1); }}>{t("refresh")}</button>
-      <button className="ghost" ref={aboutTrigger} onClick={() => request<typeof about>("/about").then(setAbout).catch(cause => setError(cause))}>{t("about")}</button><DeliveryGlossary t={t} /></>}
-    modal={about && <div className="modal-backdrop" onClick={closeAbout}><section role="dialog" aria-modal="true" aria-labelledby="adore-about-heading" className="modal" onClick={event => event.stopPropagation()} onKeyDown={event => { if (event.key === "Escape") closeAbout(); if (event.key === "Tab") { event.preventDefault(); aboutClose.current?.focus(); } }}><button className="ghost modal-close" ref={aboutClose} autoFocus onClick={closeAbout}>{t("close")}</button><div className="brand-mark">A</div><h2 id="adore-about-heading">{t("about")} ADORE</h2><p>{t("version")}: {about.version}</p><p>{t("license")}: {about.license}</p><pre className="license-text">{about.license_text}</pre><h3>{t("thirdPartyNotices")}</h3><pre className="license-text">{about.third_party_notices}</pre></section></div>}>
-
-        {error ? <div className="alert" role="alert">{describeError(locale, error)}<button onClick={() => setError("")} aria-label={t("close")}>×</button></div> : null}
-        {(notice || (operationVisible && operation)) && <div className="notice" role="status">
-          {notice || (operation && <>{t("operationStatus")}: #{operation.id} · {operation.status}{operation.result && operation.result !== "completed" ? ` · ${operation.result}` : ""}</>)}
-          <button onClick={() => { setNotice(""); setOperationVisible(false); }} aria-label={t("close")}>×</button>
-        </div>}
-        {["overview", "projects", "projectDetails", "jobs", "metrics"].includes(page) && projectsState !== "ready" && <DataFeedback state={projectsState} t={t} />}
-        {["overview", "projects", "projectDetails", "jobs", "metrics"].includes(page) && projectsState === "ready" && projects.length === 0 && <ProjectEmpty isAdmin={isAdmin} t={t} />}
-        {page === "overview" && projectsState === "ready" && projects.length > 0 && <JobWorkspace reporting={{ from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }} reportingQuery={metricSuffix} admin={isAdmin} {...workspaceProps} mode="overview" />}
-
-        {page === "projects" && projectsState === "ready" && <>
-          <div className="section-actions">{isAdmin && <><button className="primary" onClick={() => { setError(""); setPage("createProject"); }}>{t("createProject")}</button><button className="ghost" onClick={() => { setError(""); setPage("importProject"); }}>{t("importProject")}</button></>}</div>
-          <section className="panel">
-            {projects.length ? <PagedTable key={`${projectSortKey}-${projectSortDescending}`} t={t}><table className="projects-table"><thead><tr>
-              <SortHeader label={t("project")} sortKey="name" activeKey={projectSortKey} descending={projectSortDescending} onSort={changeProjectSort} />
-              <SortHeader label={t("repository")} sortKey="repo" activeKey={projectSortKey} descending={projectSortDescending} onSort={changeProjectSort} />
-              <th>Repo</th><th>{jc.pickup}</th>
-              <SortHeader label={t("jobs")} sortKey="runs" activeKey={projectSortKey} descending={projectSortDescending} onSort={changeProjectSort} />
-              <SortHeader label={t("lastActivity")} sortKey="last_activity" activeKey={projectSortKey} descending={projectSortDescending} onSort={changeProjectSort} />
-            </tr></thead><tbody>{sortedProjects.map(item => <tr key={item.id}>
-              <td className="strong"><RouteLink to={formatRoute({ view: "projectDetails", project: item.id, tab: "overview" })} onNavigate={() => openProject(item.id)}>{item.display_name}</RouteLink></td><td>{item.repo}</td>
-              <td>{({ gitea: "Gitea", github: "GitHub", gitlab: "GitLab" } as Record<string, string>)[item.platform] || item.platform}</td>
-              <td><StatusBadge code={item.archived ? "archived" : item.paused ? "paused" : "working"}>{item.archived ? t("archived") : item.paused ? jc.pickupStopped : jc.pickupActive}</StatusBadge></td>
-              <td>{item.runs}</td><td>{item.last_activity ? formatDate(item.last_activity) : "\u2014"}</td>
-            </tr>)}</tbody></table></PagedTable> : null}
-          </section>
-        </>}
-
-        {page === "createProject" && isAdmin && <TransferWizard locale={locale} csrf={session.csrf} t={t}
-          projects={projects} onExact={() => setPage("importProject")}
-          registerGuard={guard => { enrollmentGuard.current = guard; }}
-          onCancel={() => { setError(""); setPage("projects"); }}
-          onCreated={() => { void refreshProjects(); }} onOpen={id => openProject(id)} />}
-
-        {page === "importProject" && isAdmin && <ImportWizard locale={locale} csrf={session.csrf} t={t}
-          registerGuard={guard => { enrollmentGuard.current = guard; }}
-          onCancel={() => { setError(""); setPage("projects"); }}
-          onCreated={() => { void refreshProjects(); }} onOpen={id => openProject(id)} />}
-
-        {page === "projectDetails" && projectsState === "ready" && selectedProject && <>
-          <div id="project-tab-panel" role="tabpanel" aria-labelledby={`project-tab-${projectTab}`}>
-          {projectTab === "overview" && <>
-          <JobWorkspace reporting={{ from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }} reportingQuery={metricSuffix} admin={isAdmin} {...workspaceProps} mode="overview" scope={selected} fixedScope summaryHeader={evidence => <section className="panel project-summary">
-            <dl className="summary-facts">
-              <div className="summary-fact"><dt>{t("containerType")}</dt><dd>{({ docker: "Docker", podman: "Podman" } as Record<string, string>)[selectedProject.runtime] || selectedProject.runtime}</dd></div>
-              <div className="summary-fact"><dt>{t("executor")}</dt><dd>{({ pi: "Pi", codex: "Codex", opencode: "OpenCode", qwen: "Qwen Code" } as Record<string, string>)[selectedProject.executor] || selectedProject.executor || "—"}</dd></div>
-              <div className="summary-fact"><dt>{jc.pickup}</dt><dd><StatusBadge code={selectedProject.archived ? "archived" : selectedProject.paused ? "paused" : "working"}>{selectedProject.archived ? t("archived") : selectedProject.paused ? jc.pickupStopped : jc.pickupActive}</StatusBadge></dd></div>
-              <div className="summary-fact"><dt>{jc.verification}</dt><dd>{verificationLabel(selectedProject)}</dd></div>
-              {[{ label: t("activeJobs"), value: evidence?.groups.active }, { label: jc.waiting, value: evidence?.groups.waiting }, { label: t("inReviewStatus"), value: evidence ? evidence.counts["in-review"] || 0 : undefined }, { label: t("failedJobs"), value: evidence ? evidence.counts.failed || 0 : undefined }].map(fact => <div className="summary-fact" key={fact.label}><dt>{fact.label}</dt><dd>{fact.value === undefined ? "—" : new Intl.NumberFormat(locale).format(fact.value)}</dd></div>)}
-            </dl>
-            {isAdmin && <div className="summary-actions button-row">{!selectedProject.archived && <button className="ghost" onClick={() => void operate(selectedProject.paused ? "resume" : "pause", "", selectedProject.id)}>{selectedProject.paused ? jc.startPickup : jc.stopPickup}</button>}
-              <button className="ghost" onClick={() => void setProjectArchive(!selectedProject.archived, selectedProject.id)}>{t(selectedProject.archived ? "restoreProject" : "archiveProject")}</button>
-              {selectedProject.archived && <button className="danger" onClick={() => { setError(""); setDeleteName(""); setDeleteTarget(selectedProject); }}>{t("deleteProject")}</button>}
-              <button ref={readinessTrigger} type="button" className="ghost" aria-disabled={readinessBusy} aria-controls="host-check-details" aria-expanded={readinessExpanded} onClick={() => void checkProjectReadiness()}>{t("checkHostPrerequisites")}</button>
-
-            {!selectedProject.archived && <RepositoryConnection key={`${session.user.id}:${selectedProject.id}`} project={selectedProject.id} provider={selectedProject.platform} repository={selectedProject.repo} locale={locale}
-              connect={body => request(`/projects/${encodeURIComponent(selectedProject.id)}/repository-connection`, "POST", body, session.csrf)}
-              onConnected={() => { setProjectReadiness(null); setProjects(items => items.map(item => item.id === selectedProject.id ? { ...item, verification: { status: "unverified" } } : item)); }} />}
-            </div>}
-            <section id="host-check-details" hidden={!readinessExpanded} aria-busy={readinessBusy} aria-labelledby="host-check-title">
-              <div className="panel-heading"><h3 id="host-check-title">{readinessDetailsLabel(locale)}</h3><button type="button" className="ghost" onClick={() => { setReadinessExpanded(false); readinessTrigger.current?.focus(); }}>{readinessCloseLabel(locale)}</button></div>
-              {readinessBusy && <p role="status">{t("workerChecking")}</p>}
-              {readinessError !== null && <p role="alert" className="alert">{describeError(locale, readinessError)}</p>}
-              {projectReadiness && <ReadinessEvidence modelEvidence={projectConfig?.model_connection} evidence={projectReadiness} locale={locale} modelReason={modelReason(projectReadiness.model_probe.reason)} />}
-            </section>
-          </section>} />
-          {isAdmin && deleteTarget?.id === selectedProject.id && <ProjectDeleteDialog onClose={() => setDeleteTarget(null)}><section className="delete-confirm">
-            <h2 id="delete-project-title">{t("deleteProjectTitle").replace("{project}", deleteTarget.name)}</h2>
-            <p>{t("deleteProjectRemoves")}</p>
-            <p className="muted">{t("deleteProjectKeeps")}</p>
-            <form className="form-stack" onSubmit={deleteProject}><FormLegend t={t} />
-              <label><span>{t("deleteProjectConfirm").replace("{project}", deleteTarget.name)}<RequiredMark /></span><input value={deleteName} onChange={event => setDeleteName(event.target.value)} autoComplete="off" spellCheck={false} required /></label>
-              <div className="button-row"><button className="danger" type="submit" disabled={deleteName !== deleteTarget.name}>{t("deleteProject")}</button><button className="ghost" type="button" onClick={() => setDeleteTarget(null)}>{t("cancel")}</button></div>
-            </form>
-          </section></ProjectDeleteDialog>}
-          </>}
-          {projectTab === "history" && selectedProject?.id && <AuditHistory key={`${session.user.id}:${selected}`} locale={locale} projects={projects} fixedProject={selectedProject?.id} read={path => request(path)} />}
-          {projectTab === "history" && <JobWorkspace reporting={{ from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }} reportingQuery={metricSuffix} admin={isAdmin} {...workspaceProps} mode="history" scope={selected} fixedScope />}
-          {projectTab === "configuration" && <>
-          {configDataState !== "ready" && <DataFeedback state={configDataState} t={t} />}
-          {projectConfig && <SettingsList key={`${selected}-${projectConfig.revision}`} project={selected} revision={projectConfig.revision} csrf={session.csrf} branchCandidate={projectPendingConfig} config={projectConfig.config} settings={projectConfig.settings || []} t={t} locale={locale} canEdit={isAdmin} disabled={!!projectPendingConfig || configBusy || pendingReadFailed || isAdmin && !pendingReady} onStage={stageSetting} executorBefore={selectedProject && <><ModelConnection heading={agentSettingsCopy[locale].connection} key={`${session.user.id}:${selected}:${projectConfig.revision}:${projectConfig.model_connection?.checked_at || "untested"}`} project={selectedProject.id} revision={projectConfig.revision} executor={selectedProject.executor} model={String(settingValue(projectConfig.config,`executor.commands.${selectedProject.executor}.model`))} locale={locale} saved={projectConfig.model_connection} readOnly={!isAdmin || selectedProject.archived} onResult={value=>setConfig(current=>current?{...current,model_connection:value}:current)} test={()=>request(`/projects/${encodeURIComponent(selected)}/model-connection-test`,"POST",{},session.csrf)} />
-                  <p className="muted">{executorCopy[locale].modelHelp}</p></>} executorAuthentication={selectedProject && <>{isAdmin && !selectedProject.archived && <ExecutorCredentials embedded key={`${session.user.id}:${selected}:${projectConfig.revision}`} project={selectedProject.id} revision={projectConfig.revision} executor={selectedProject.executor} locale={locale} disabled={!!projectPendingConfig || configBusy || pendingReadFailed || !pendingReady || !selectedProject.paused} read={() => request(`/projects/${encodeURIComponent(selected)}/executor-credentials`)} write={(method,body)=>request(`/projects/${encodeURIComponent(selected)}/executor-credentials`,method,body,session.csrf)} onChanged={()=>setConfig(current=>current?{...current,model_connection:null}:current)} />}</>} executorAfter={selectedProject && <><ExecutorEnvironment environment={projectConfig.executor_environment} executor={selectedProject.executor} locale={locale} />{isAdmin && selected && projectConfig && !projectConfig.local_execution && (projectConfig.config.executor as { default?: string } | undefined)?.default === "opencode" && <section className="executor-endpoint"><h2>{t("localEndpoint")}</h2><p className="muted">{t("localEndpointHelp")}</p><p className="muted">{t("localProviderHelp")}</p>{(projectConfig.config.executor as { default?: string } | undefined)?.default === "opencode" && <form key={`${selected}-${projectConfig.revision}`} className="inline-form config-form" onSubmit={saveEndpoint}><fieldset className="endpoint-fields" disabled={!!projectPendingConfig || configBusy || pendingReadFailed || isAdmin && !pendingReady}><FormLegend t={t} /><input type="hidden" name="model" value={(projectConfig.config.executor as { commands?: { opencode?: { model?: string } } }).commands?.opencode?.model || ""} /><Field name="endpoint" label={t("localEndpoint")} type="url" defaultValue={(projectConfig.config.container as { runtime_env?: { OPENAI_BASE_URL?: string } } | undefined)?.runtime_env?.OPENAI_BASE_URL || ""} required /><label>{t("endpointAuth")}<select name="auth_env"><option value="">{t("none")}</option><option value="OPENAI_API_KEY">OPENAI_API_KEY</option></select></label><label>{t("endpointProtocol")}<select name="protocol"><option value="openai-chat-completions">OpenAI chat completions</option></select></label><Field name="timeout_seconds" label={t("endpointTimeout")} type="number" defaultValue={String(projectConfig.local_endpoint_timeout_seconds || 300)} required /><Field name="ca_file" label={t("endpointCa")} defaultValue={(projectConfig.config.container as { runtime_env?: { NODE_EXTRA_CA_CERTS?: string } } | undefined)?.runtime_env?.NODE_EXTRA_CA_CERTS || ""} /><button className="primary" disabled={!!projectPendingConfig || configBusy || pendingReadFailed || isAdmin && !pendingReady}>{settingsCopy[locale].prepare}</button></fieldset></form>}</section>}
-                  {isAdmin && selected && <section className="executor-prices"><h3>{t("estimatedPrices")}</h3><p className="muted">{t("priceHelp")}</p>
-                    {priceModel ? <form key={selected} className="form-grid" onSubmit={savePrice}><FormLegend t={t} /><input type="hidden" name="executor" value={priceExecutor} /><input type="hidden" name="model" value={priceModel} /><label><span>{t("effectiveFrom")}<RequiredMark /></span><input name="effective_from" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required /></label><label><span>{t("inputRate")}<RequiredMark /></span><input name="input_usd_per_million" type="number" min="0" max="1000000" step="0.000001" required /></label><label><span>{t("outputRate")}<RequiredMark /></span><input name="output_usd_per_million" type="number" min="0" max="1000000" step="0.000001" required /></label><button className="primary form-submit" type="submit">{t("save")}</button></form> : <p className="muted">{t("priceNeedsModel")}</p>}
-                    {projectPrices.length > 0 && <PagedTable t={t}><table><thead><tr><th>{t("executor")}</th><th>{t("model")}</th><th>{t("effectiveFrom")}</th><th>{t("inputRate")}</th><th>{t("outputRate")}</th></tr></thead><tbody>{projectPrices.map(price => <tr key={price.id}><td>{price.executor}</td><td>{price.model}</td><td>{price.effective_from}</td><td>{price.input_usd_per_million}</td><td>{price.output_usd_per_million}</td></tr>)}</tbody></table></PagedTable>}
-                  </section>}</>} actions={isAdmin && <RawConfiguration key={`${session.user.id}:${selected}:${projectConfig.revision}`} project={selected} locale={locale} />}>
-            {isAdmin && <>
-            {projectConfig.issues.length > 0 && <div className="alert">{projectConfig.issues.join(" · ")}</div>}
-            {projectPendingConfig && <PendingReview config={projectConfig} candidate={projectPendingConfig} project={selectedProject?.display_name || selected} paused={selectedProject?.paused === true} busy={configBusy} locale={locale} t={t} onApply={applyPendingConfig} onDiscard={discardPendingConfig} />}
-            {pendingReadFailed && <div className="alert"><p>{settingsCopy[locale].readFailed}</p><p>{settingsCopy[locale].discard}</p><button className="ghost" disabled={configBusy} onClick={() => void discardPendingConfig()}>{t("discardChange")}</button></div>}
-            </>}
-          </SettingsList>}
-          </>}
-          {projectTab === "access" && isAdmin && selected && <ProjectAccess key={selected + ":" + viewRefresh} project={selected} csrf={session?.csrf} locale={locale} t={t} onError={setError} onNotice={setNotice} />}
-          </div>
-        </>}
-
-        {page === "jobs" && projectsState === "ready" && projects.length > 0 && <JobWorkspace reporting={{ from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }} reportingQuery={metricSuffix} admin={isAdmin} {...workspaceProps} mode="jobs" run={requestedRun} />}
-
-        {page === "metrics" && projectsState === "ready" && projects.length > 0 && <>
-        <section className="panel compact metrics-period"><div className="panel-heading"><h2>{t("reportingPeriod")}</h2>{(selected || isAdmin) && reportingDataState === "ready" && <details className="metrics-export"><summary className="ghost metrics-export-trigger">{t("exportCsv")}</summary><div className="metrics-export-links">{!allProjectScope && selected && <><a href={`/api/v1/projects/${encodeURIComponent(selected)}/metrics.csv${metricSuffix}`}>{t("projectMetricsExport")}</a><a href={`/api/v1/projects/${encodeURIComponent(selected)}/usage.csv${usageSuffix}`}>{t("projectUsageExport")}</a><a href={`/api/v1/projects/${encodeURIComponent(selected)}/jobs-usage.csv${metricSuffix}`}>{statisticsText.jobs}</a></>}{allProjectScope && <><a href={`/api/v1/metrics.csv${metricSuffix}`}>{t("allMetricsExport")}</a><a href={`/api/v1/usage.csv${usageSuffix}`}>{t("allUsageExport")}</a><a href={`/api/v1/jobs-usage.csv${metricSuffix}`}>{statisticsText.jobs}</a></>}</div></details>}</div><button className="ghost" type="button" onClick={() => { setMetricFrom(""); setMetricTo(""); }}>{statisticsText.allTime}</button><div className="job-filters">{projects.length > 0 && <label className="metrics-project-filter" htmlFor="metrics-project">{t("project")}<select id="metrics-project" value={allProjectScope ? "" : selected} onChange={event => { setMetricAllProjects(event.target.value === ""); if (event.target.value) setSelected(event.target.value); }}>{isAdmin && <option value="">{t("metricsAllProjects")}</option>}{projects.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}<label>{t("dateFromLocal")}<input type="date" value={metricFrom} max={metricTo || undefined} onChange={event => setMetricFrom(event.target.value)} /></label><label>{t("dateToLocal")}<input type="date" value={metricTo} min={metricFrom || undefined} onChange={event => setMetricTo(event.target.value)} /></label><label>{t("reportingTimezone")}<select value={metricTimezone} onChange={event => setMetricTimezone(event.target.value)}><option value="UTC">UTC</option><option value="Europe/Bucharest">Europe/Bucharest</option><option value="Europe/Paris">Europe/Paris</option><option value="Europe/Berlin">Europe/Berlin</option><option value="America/New_York">America/New_York</option></select></label><label>{t("trendGranularity")}<select value={metricGranularity} onChange={event => setMetricGranularity(event.target.value as "day" | "week" | "month")}><option value="day">{t("byDay")}</option><option value="week">{t("byWeek")}</option><option value="month">{t("byMonth")}</option></select></label></div><p className="muted">{t("metricsScopeHelp")} {statisticsText.boundaries}</p><p className="field-hint">{statisticsText.legend}</p></section>
+  /** Statistics content; `fixed` keeps the project chosen by the project hub instead of offering a selector. */
+  const statisticsView = (fixed: boolean) => <>
+        <section className="panel compact metrics-period"><div className="panel-heading"><h2>{t("reportingPeriod")}</h2>{(selected || isAdmin) && reportingDataState === "ready" && <details className="metrics-export"><summary className="ghost metrics-export-trigger">{t("exportCsv")}</summary><div className="metrics-export-links">{!allProjectScope && selected && <><a href={`/api/v1/projects/${encodeURIComponent(selected)}/metrics.csv${metricSuffix}`}>{t("projectMetricsExport")}</a><a href={`/api/v1/projects/${encodeURIComponent(selected)}/usage.csv${usageSuffix}`}>{t("projectUsageExport")}</a><a href={`/api/v1/projects/${encodeURIComponent(selected)}/jobs-usage.csv${metricSuffix}`}>{statisticsText.jobs}</a></>}{allProjectScope && <><a href={`/api/v1/metrics.csv${metricSuffix}`}>{t("allMetricsExport")}</a><a href={`/api/v1/usage.csv${usageSuffix}`}>{t("allUsageExport")}</a><a href={`/api/v1/jobs-usage.csv${metricSuffix}`}>{statisticsText.jobs}</a></>}</div></details>}</div><button className="ghost" type="button" onClick={() => { setMetricFrom(""); setMetricTo(""); }}>{statisticsText.allTime}</button><div className="job-filters">{!fixed && projects.length > 0 && <label className="metrics-project-filter" htmlFor="metrics-project">{t("project")}<select id="metrics-project" value={allProjectScope ? "" : selected} onChange={event => { setMetricAllProjects(event.target.value === ""); if (event.target.value) setSelected(event.target.value); }}>{isAdmin && <option value="">{t("metricsAllProjects")}</option>}{projects.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}<label>{t("dateFromLocal")}<input type="date" value={metricFrom} max={metricTo || undefined} onChange={event => setMetricFrom(event.target.value)} /></label><label>{t("dateToLocal")}<input type="date" value={metricTo} min={metricFrom || undefined} onChange={event => setMetricTo(event.target.value)} /></label><label>{t("reportingTimezone")}<select value={metricTimezone} onChange={event => setMetricTimezone(event.target.value)}><option value="UTC">UTC</option><option value="Europe/Bucharest">Europe/Bucharest</option><option value="Europe/Paris">Europe/Paris</option><option value="Europe/Berlin">Europe/Berlin</option><option value="America/New_York">America/New_York</option></select></label><label>{t("trendGranularity")}<select value={metricGranularity} onChange={event => setMetricGranularity(event.target.value as "day" | "week" | "month")}><option value="day">{t("byDay")}</option><option value="week">{t("byWeek")}</option><option value="month">{t("byMonth")}</option></select></label></div><p className="muted">{t("metricsScopeHelp")} {statisticsText.boundaries}</p><p className="field-hint">{statisticsText.legend}</p></section>
         <div className="metrics-tabs" role="tablist" aria-label={t("metrics")}>
           {metricsTabs.map(tab => <button key={tab} id={`metrics-tab-${tab}`} type="button" role="tab" aria-controls="metrics-tab-panel" aria-selected={metricsTab === tab} tabIndex={metricsTab === tab ? 0 : -1} onClick={() => setMetricsTab(tab)} onKeyDown={event => onMetricsTabKeyDown(event, tab)}>{t(metricsTabLabels[tab])}</button>)}
         </div>
@@ -1160,7 +1057,119 @@ export default function App() {
           <PagedTable t={t}><table><thead><tr><th>{t("date")}</th><th>{t("estimatedCost")}</th></tr></thead><tbody>{metrics?.daily.map(day => <tr key={day.date}><td>{day.date}</td><td>{formatMoney(day.estimated_cost_usd)}</td></tr>)}</tbody></table></PagedTable>
         </section>}</>}
         </>}
-        </div></>}
+        </div></>;
+
+  return <DashboardShell t={t} title={pageTitle} links={nav.map(shellLink)} adminLinks={isAdmin ? adminPages.map(shellLink) : []}
+    account={shellLink("settings")} username={session.user.username} role={t(session.user.role)}
+    menuOpen={menuOpen} onMenu={() => setMenuOpen(open => !open)} adminOpen={adminMenuOpen} onAdmin={() => setAdminMenuOpen(open => !open)}
+    onSignOut={signOut} context={projectContext}
+    controls={page === "overview" && projectsState === "ready" && projects.length > 0 && <label className="overview-header-scope" htmlFor="overview-project">{t("project")}<select id="overview-project" aria-label={t("project")} value={jobScope} onChange={event => workspaceProps.onScope(event.target.value)}><option value="">{jc.allProjects}</option>{projects.map(item => <option key={item.id} value={item.id}>{item.display_name || item.name}</option>)}</select></label>}
+    actions={<>{page !== "overview" && <span className="refresh-stamp">{lastRefresh && t("lastRefresh") + ": " + formatDate(lastRefresh.toISOString())}</span>}
+      <button className="ghost" onClick={() => { void refreshProjects().catch(setError); void refreshSelected();  setUsageRefresh(value => value + 1); setViewRefresh(value => value + 1); }}>{t("refresh")}</button>
+      <button className="ghost" ref={aboutTrigger} onClick={() => request<typeof about>("/about").then(setAbout).catch(cause => setError(cause))}>{t("about")}</button><DeliveryGlossary t={t} /></>}
+    modal={about && <div className="modal-backdrop" onClick={closeAbout}><section role="dialog" aria-modal="true" aria-labelledby="adore-about-heading" className="modal" onClick={event => event.stopPropagation()} onKeyDown={event => { if (event.key === "Escape") closeAbout(); if (event.key === "Tab") { event.preventDefault(); aboutClose.current?.focus(); } }}><button className="ghost modal-close" ref={aboutClose} autoFocus onClick={closeAbout}>{t("close")}</button><div className="brand-mark">A</div><h2 id="adore-about-heading">{t("about")} ADORE</h2><p>{t("version")}: {about.version}</p><p>{t("license")}: {about.license}</p><pre className="license-text">{about.license_text}</pre><h3>{t("thirdPartyNotices")}</h3><pre className="license-text">{about.third_party_notices}</pre></section></div>}>
+
+        {error ? <div className="alert" role="alert">{describeError(locale, error)}<button onClick={() => setError("")} aria-label={t("close")}>×</button></div> : null}
+        {(notice || (operationVisible && operation)) && <div className="notice" role="status">
+          {notice || (operation && <>{t("operationStatus")}: #{operation.id} · {operation.status}{operation.result && operation.result !== "completed" ? ` · ${operation.result}` : ""}</>)}
+          <button onClick={() => { setNotice(""); setOperationVisible(false); }} aria-label={t("close")}>×</button>
+        </div>}
+        {["overview", "projects", "projectDetails", "jobs", "metrics"].includes(page) && projectsState !== "ready" && <DataFeedback state={projectsState} t={t} />}
+        {["overview", "projects", "projectDetails", "jobs", "metrics"].includes(page) && projectsState === "ready" && projects.length === 0 && <ProjectEmpty isAdmin={isAdmin} t={t} />}
+        {page === "overview" && projectsState === "ready" && projects.length > 0 && <JobWorkspace reporting={{ from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }} reportingQuery={metricSuffix} admin={isAdmin} {...workspaceProps} mode="overview" />}
+
+        {page === "projects" && projectsState === "ready" && <>
+          <div className="section-actions">{isAdmin && <><button className="primary" onClick={() => { setError(""); setPage("createProject"); }}>{t("createProject")}</button><button className="ghost" onClick={() => { setError(""); setPage("importProject"); }}>{t("importProject")}</button></>}</div>
+          <section className="panel">
+            {projects.length ? <PagedTable key={`${projectSortKey}-${projectSortDescending}`} t={t}><table className="projects-table"><thead><tr>
+              <SortHeader label={t("project")} sortKey="name" activeKey={projectSortKey} descending={projectSortDescending} onSort={changeProjectSort} />
+              <SortHeader label={t("repository")} sortKey="repo" activeKey={projectSortKey} descending={projectSortDescending} onSort={changeProjectSort} />
+              <th>Repo</th><th>{jc.pickup}</th>
+              <SortHeader label={t("jobs")} sortKey="runs" activeKey={projectSortKey} descending={projectSortDescending} onSort={changeProjectSort} />
+              <SortHeader label={t("lastActivity")} sortKey="last_activity" activeKey={projectSortKey} descending={projectSortDescending} onSort={changeProjectSort} />
+            </tr></thead><tbody>{sortedProjects.map(item => <tr key={item.id}>
+              <td className="strong"><RouteLink to={formatRoute({ view: "projectDetails", project: item.id, tab: "overview" })} onNavigate={() => openProject(item.id)}>{item.display_name}</RouteLink></td><td>{item.repo}</td>
+              <td>{({ gitea: "Gitea", github: "GitHub", gitlab: "GitLab" } as Record<string, string>)[item.platform] || item.platform}</td>
+              <td><StatusBadge code={item.archived ? "archived" : item.paused ? "paused" : "working"}>{item.archived ? t("archived") : item.paused ? jc.pickupStopped : jc.pickupActive}</StatusBadge></td>
+              <td>{item.runs}</td><td>{item.last_activity ? formatDate(item.last_activity) : "\u2014"}</td>
+            </tr>)}</tbody></table></PagedTable> : null}
+          </section>
+        </>}
+
+        {page === "createProject" && isAdmin && <TransferWizard locale={locale} csrf={session.csrf} t={t}
+          projects={projects} onExact={() => setPage("importProject")}
+          registerGuard={guard => { enrollmentGuard.current = guard; }}
+          onCancel={() => { setError(""); setPage("projects"); }}
+          onCreated={() => { void refreshProjects(); }} onOpen={id => openProject(id)} />}
+
+        {page === "importProject" && isAdmin && <ImportWizard locale={locale} csrf={session.csrf} t={t}
+          registerGuard={guard => { enrollmentGuard.current = guard; }}
+          onCancel={() => { setError(""); setPage("projects"); }}
+          onCreated={() => { void refreshProjects(); }} onOpen={id => openProject(id)} />}
+
+        {page === "projectDetails" && projectsState === "ready" && selectedProject && <>
+          <div id="project-tab-panel" role="tabpanel" aria-labelledby={`project-tab-${projectTab}`}>
+          {projectTab === "overview" && <>
+          <JobWorkspace reporting={{ from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }} reportingQuery={metricSuffix} admin={isAdmin} {...hubWorkspaceProps} mode="overview" fixedScope summaryHeader={evidence => <section className="panel project-summary">
+            <dl className="summary-facts">
+              <div className="summary-fact"><dt>{t("containerType")}</dt><dd>{({ docker: "Docker", podman: "Podman" } as Record<string, string>)[selectedProject.runtime] || selectedProject.runtime}</dd></div>
+              <div className="summary-fact"><dt>{t("executor")}</dt><dd>{({ pi: "Pi", codex: "Codex", opencode: "OpenCode", qwen: "Qwen Code" } as Record<string, string>)[selectedProject.executor] || selectedProject.executor || "—"}</dd></div>
+              <div className="summary-fact"><dt>{jc.pickup}</dt><dd><StatusBadge code={selectedProject.archived ? "archived" : selectedProject.paused ? "paused" : "working"}>{selectedProject.archived ? t("archived") : selectedProject.paused ? jc.pickupStopped : jc.pickupActive}</StatusBadge></dd></div>
+              <div className="summary-fact"><dt>{jc.verification}</dt><dd>{verificationLabel(selectedProject)}</dd></div>
+              {[{ label: t("activeJobs"), value: evidence?.groups.active }, { label: jc.waiting, value: evidence?.groups.waiting }, { label: t("inReviewStatus"), value: evidence ? evidence.counts["in-review"] || 0 : undefined }, { label: t("failedJobs"), value: evidence ? evidence.counts.failed || 0 : undefined }].map(fact => <div className="summary-fact" key={fact.label}><dt>{fact.label}</dt><dd>{fact.value === undefined ? "—" : new Intl.NumberFormat(locale).format(fact.value)}</dd></div>)}
+            </dl>
+            {isAdmin && <div className="summary-actions button-row">{!selectedProject.archived && <button className="ghost" onClick={() => void operate(selectedProject.paused ? "resume" : "pause", "", selectedProject.id)}>{selectedProject.paused ? jc.startPickup : jc.stopPickup}</button>}
+              <button className="ghost" onClick={() => void setProjectArchive(!selectedProject.archived, selectedProject.id)}>{t(selectedProject.archived ? "restoreProject" : "archiveProject")}</button>
+              {selectedProject.archived && <button className="danger" onClick={() => { setError(""); setDeleteName(""); setDeleteTarget(selectedProject); }}>{t("deleteProject")}</button>}
+              <button ref={readinessTrigger} type="button" className="ghost" aria-disabled={readinessBusy} aria-controls="host-check-details" aria-expanded={readinessExpanded} onClick={() => void checkProjectReadiness()}>{t("checkHostPrerequisites")}</button>
+
+            {!selectedProject.archived && <RepositoryConnection key={`${session.user.id}:${selectedProject.id}`} project={selectedProject.id} provider={selectedProject.platform} repository={selectedProject.repo} locale={locale}
+              connect={body => request(`/projects/${encodeURIComponent(selectedProject.id)}/repository-connection`, "POST", body, session.csrf)}
+              onConnected={() => { setProjectReadiness(null); setProjects(items => items.map(item => item.id === selectedProject.id ? { ...item, verification: { status: "unverified" } } : item)); }} />}
+            </div>}
+            <section id="host-check-details" hidden={!readinessExpanded} aria-busy={readinessBusy} aria-labelledby="host-check-title">
+              <div className="panel-heading"><h3 id="host-check-title">{readinessDetailsLabel(locale)}</h3><button type="button" className="ghost" onClick={() => { setReadinessExpanded(false); readinessTrigger.current?.focus(); }}>{readinessCloseLabel(locale)}</button></div>
+              {readinessBusy && <p role="status">{t("workerChecking")}</p>}
+              {readinessError !== null && <p role="alert" className="alert">{describeError(locale, readinessError)}</p>}
+              {projectReadiness && <ReadinessEvidence modelEvidence={projectConfig?.model_connection} evidence={projectReadiness} locale={locale} modelReason={modelReason(projectReadiness.model_probe.reason)} />}
+            </section>
+          </section>} />
+          {isAdmin && deleteTarget?.id === selectedProject.id && <ProjectDeleteDialog onClose={() => setDeleteTarget(null)}><section className="delete-confirm">
+            <h2 id="delete-project-title">{t("deleteProjectTitle").replace("{project}", deleteTarget.name)}</h2>
+            <p>{t("deleteProjectRemoves")}</p>
+            <p className="muted">{t("deleteProjectKeeps")}</p>
+            <form className="form-stack" onSubmit={deleteProject}><FormLegend t={t} />
+              <label><span>{t("deleteProjectConfirm").replace("{project}", deleteTarget.name)}<RequiredMark /></span><input value={deleteName} onChange={event => setDeleteName(event.target.value)} autoComplete="off" spellCheck={false} required /></label>
+              <div className="button-row"><button className="danger" type="submit" disabled={deleteName !== deleteTarget.name}>{t("deleteProject")}</button><button className="ghost" type="button" onClick={() => setDeleteTarget(null)}>{t("cancel")}</button></div>
+            </form>
+          </section></ProjectDeleteDialog>}
+          </>}
+          {projectTab === "history" && selectedProject?.id && <AuditHistory key={`${session.user.id}:${selected}`} locale={locale} projects={projects} fixedProject={selectedProject?.id} read={path => request(path)} />}
+          {projectTab === "jobs" && <JobWorkspace reporting={{ from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }} reportingQuery={metricSuffix} admin={isAdmin} {...hubWorkspaceProps} mode="jobs" run={requestedRun} fixedScope />}
+          {projectTab === "statistics" && statisticsView(true)}
+          {projectTab === "history" && <JobWorkspace reporting={{ from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }} reportingQuery={metricSuffix} admin={isAdmin} {...hubWorkspaceProps} mode="history" fixedScope />}
+          {projectTab === "configuration" && <>
+          {configDataState !== "ready" && <DataFeedback state={configDataState} t={t} />}
+          {projectConfig && <SettingsList key={`${selected}-${projectConfig.revision}`} project={selected} revision={projectConfig.revision} csrf={session.csrf} branchCandidate={projectPendingConfig} config={projectConfig.config} settings={projectConfig.settings || []} t={t} locale={locale} canEdit={isAdmin} disabled={!!projectPendingConfig || configBusy || pendingReadFailed || isAdmin && !pendingReady} onStage={stageSetting} executorBefore={selectedProject && <><ModelConnection heading={agentSettingsCopy[locale].connection} key={`${session.user.id}:${selected}:${projectConfig.revision}:${projectConfig.model_connection?.checked_at || "untested"}`} project={selectedProject.id} revision={projectConfig.revision} executor={selectedProject.executor} model={String(settingValue(projectConfig.config,`executor.commands.${selectedProject.executor}.model`))} locale={locale} saved={projectConfig.model_connection} readOnly={!isAdmin || selectedProject.archived} onResult={value=>setConfig(current=>current?{...current,model_connection:value}:current)} test={()=>request(`/projects/${encodeURIComponent(selected)}/model-connection-test`,"POST",{},session.csrf)} />
+                  <p className="muted">{executorCopy[locale].modelHelp}</p></>} executorAuthentication={selectedProject && <>{isAdmin && !selectedProject.archived && <ExecutorCredentials embedded key={`${session.user.id}:${selected}:${projectConfig.revision}`} project={selectedProject.id} revision={projectConfig.revision} executor={selectedProject.executor} locale={locale} disabled={!!projectPendingConfig || configBusy || pendingReadFailed || !pendingReady || !selectedProject.paused} read={() => request(`/projects/${encodeURIComponent(selected)}/executor-credentials`)} write={(method,body)=>request(`/projects/${encodeURIComponent(selected)}/executor-credentials`,method,body,session.csrf)} onChanged={()=>setConfig(current=>current?{...current,model_connection:null}:current)} />}</>} executorAfter={selectedProject && <><ExecutorEnvironment environment={projectConfig.executor_environment} executor={selectedProject.executor} locale={locale} />{isAdmin && selected && projectConfig && !projectConfig.local_execution && (projectConfig.config.executor as { default?: string } | undefined)?.default === "opencode" && <section className="executor-endpoint"><h2>{t("localEndpoint")}</h2><p className="muted">{t("localEndpointHelp")}</p><p className="muted">{t("localProviderHelp")}</p>{(projectConfig.config.executor as { default?: string } | undefined)?.default === "opencode" && <form key={`${selected}-${projectConfig.revision}`} className="inline-form config-form" onSubmit={saveEndpoint}><fieldset className="endpoint-fields" disabled={!!projectPendingConfig || configBusy || pendingReadFailed || isAdmin && !pendingReady}><FormLegend t={t} /><input type="hidden" name="model" value={(projectConfig.config.executor as { commands?: { opencode?: { model?: string } } }).commands?.opencode?.model || ""} /><Field name="endpoint" label={t("localEndpoint")} type="url" defaultValue={(projectConfig.config.container as { runtime_env?: { OPENAI_BASE_URL?: string } } | undefined)?.runtime_env?.OPENAI_BASE_URL || ""} required /><label>{t("endpointAuth")}<select name="auth_env"><option value="">{t("none")}</option><option value="OPENAI_API_KEY">OPENAI_API_KEY</option></select></label><label>{t("endpointProtocol")}<select name="protocol"><option value="openai-chat-completions">OpenAI chat completions</option></select></label><Field name="timeout_seconds" label={t("endpointTimeout")} type="number" defaultValue={String(projectConfig.local_endpoint_timeout_seconds || 300)} required /><Field name="ca_file" label={t("endpointCa")} defaultValue={(projectConfig.config.container as { runtime_env?: { NODE_EXTRA_CA_CERTS?: string } } | undefined)?.runtime_env?.NODE_EXTRA_CA_CERTS || ""} /><button className="primary" disabled={!!projectPendingConfig || configBusy || pendingReadFailed || isAdmin && !pendingReady}>{settingsCopy[locale].prepare}</button></fieldset></form>}</section>}
+                  {isAdmin && selected && <section className="executor-prices"><h3>{t("estimatedPrices")}</h3><p className="muted">{t("priceHelp")}</p>
+                    {priceModel ? <form key={selected} className="form-grid" onSubmit={savePrice}><FormLegend t={t} /><input type="hidden" name="executor" value={priceExecutor} /><input type="hidden" name="model" value={priceModel} /><label><span>{t("effectiveFrom")}<RequiredMark /></span><input name="effective_from" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required /></label><label><span>{t("inputRate")}<RequiredMark /></span><input name="input_usd_per_million" type="number" min="0" max="1000000" step="0.000001" required /></label><label><span>{t("outputRate")}<RequiredMark /></span><input name="output_usd_per_million" type="number" min="0" max="1000000" step="0.000001" required /></label><button className="primary form-submit" type="submit">{t("save")}</button></form> : <p className="muted">{t("priceNeedsModel")}</p>}
+                    {projectPrices.length > 0 && <PagedTable t={t}><table><thead><tr><th>{t("executor")}</th><th>{t("model")}</th><th>{t("effectiveFrom")}</th><th>{t("inputRate")}</th><th>{t("outputRate")}</th></tr></thead><tbody>{projectPrices.map(price => <tr key={price.id}><td>{price.executor}</td><td>{price.model}</td><td>{price.effective_from}</td><td>{price.input_usd_per_million}</td><td>{price.output_usd_per_million}</td></tr>)}</tbody></table></PagedTable>}
+                  </section>}</>} actions={isAdmin && <RawConfiguration key={`${session.user.id}:${selected}:${projectConfig.revision}`} project={selected} locale={locale} />}>
+            {isAdmin && <>
+            {projectConfig.issues.length > 0 && <div className="alert">{projectConfig.issues.join(" · ")}</div>}
+            {projectPendingConfig && <PendingReview config={projectConfig} candidate={projectPendingConfig} project={selectedProject?.display_name || selected} paused={selectedProject?.paused === true} busy={configBusy} locale={locale} t={t} onApply={applyPendingConfig} onDiscard={discardPendingConfig} />}
+            {pendingReadFailed && <div className="alert"><p>{settingsCopy[locale].readFailed}</p><p>{settingsCopy[locale].discard}</p><button className="ghost" disabled={configBusy} onClick={() => void discardPendingConfig()}>{t("discardChange")}</button></div>}
+            </>}
+          </SettingsList>}
+          </>}
+          {projectTab === "access" && isAdmin && selected && <ProjectAccess key={selected + ":" + viewRefresh} project={selected} csrf={session?.csrf} locale={locale} t={t} onError={setError} onNotice={setNotice} />}
+          </div>
+        </>}
+
+        {page === "jobs" && projectsState === "ready" && projects.length > 0 && <JobWorkspace reporting={{ from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }} reportingQuery={metricSuffix} admin={isAdmin} {...workspaceProps} mode="jobs" run={requestedRun} />}
+
+        {page === "metrics" && projectsState === "ready" && projects.length > 0 && statisticsView(false)}
 
         {page === "administration" && isAdmin && <div className="two-column">
           <section className="panel wide-panel"><h2>{t("auditRetention")}</h2><p className="muted">{t("auditRetentionHelp")}</p><p>{auditCopy[locale].impact}</p>{auditPolicy && <form key={`${auditPolicy.retention_days}-${auditPolicy.max_bytes}`} className="inline-form audit-policy-form" onSubmit={saveAuditPolicy}><label>{t("auditDays")}<input name="retention_days" type="number" min="0" max="36500" step="1" defaultValue={auditPolicy.retention_days ?? 0} /></label><label>{t("auditMib")}<input name="max_mib" type="number" min="0" max="1024" step="any" defaultValue={auditPolicy.max_bytes == null ? 0 : auditPolicy.max_bytes / 1024**2} /></label><button className="primary" type="submit">{t("save")}</button></form>}</section>

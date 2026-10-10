@@ -45,8 +45,8 @@ Environment verification records explicit checks against the saved configuration
 revision; Unverified means no current evidence, not an observed failure. Use
 Project details â†’ Summary â†’ Check host prerequisites for the administrator check.
 Pause semantics are available in header help instead of repeated row guidance.
-The dedicated header combines name/repository and Summary, Settings, Access, Jobs, Statistics, History; Access is Admin-only. Jobs/Statistics
-are scoped links. Administrators record estimated prices in Settings > Agent and model. Deletion confirmation clears on page or project changes.
+The dedicated header combines name/repository and Summary, Settings, Access, Jobs, Statistics, History tabs; Access is Admin-only.
+Jobs and Statistics render inside the hub; the identity band appears only there. Administrators record estimated prices in Settings > Agent and model. Deletion confirmation clears on page or project changes.
 
 Implementation settings support reviewed edits for human-answer waiting time (positive integer plus seconds/minutes/hours/days), positive question-round count, a nonempty retry schedule (one nonnegative integer per line), and the complete stage-timeout map. The six stage rows choose either the general attempt limit or a positive custom limit in seconds; choosing general removes the override. Retry and timeout collections accept only safe integers and their declared keys; other lists/maps remain read-only except the existing reviewer list. Admins prepare, inspect active/proposed values and apply only at the existing idle boundary; developers remain read-only. Names, help and controls share four locales. The answer deadline is independent of the reserved reminder; reminder format is still checked and no reminder is sent.
 
@@ -314,7 +314,7 @@ SQLite bytes, authorization, scope and financial redaction.
   decisive. Scope changes discard ticket drafts and superseded command results.
 - Projects show display labels, independent pickup and explicit revision/time-bound
   verification, counts/activity and scoped actions. Summary includes the same
-  evidence and Jobs/Statistics links; Settings stays read-only for Dev, Access is
+  evidence; Jobs and Statistics are hub tabs; Settings stays read-only for Dev, Access is
   Admin-only, and History selects terminal jobs. Legacy configuration, executor
   and prices routes open Settings. Missing legacy update times remain unknown in
   project summaries; nonempty corrupt timestamps fail closed.
@@ -614,7 +614,7 @@ blocks; a stopped, stale or corrupt heartbeat does not claim readiness.
 Administration expands into System status, Users and Change history sidebar pages;
 both roles reach a top-level My account page. Every view has a path URL
 (`web/src/routes.ts`) kept in sync with view state; project details uses
-Summary/Settings/Access/History tabs and Jobs/Statistics links. Project details shows effective
+Summary/Settings/Access/Jobs/Statistics/History tabs (`/projects/<id>/jobs?run=`, `/projects/<id>/statistics?tab=&from=`). Project details shows effective
 configuration in six purpose categories plus closed Technical details with frequent settings first within each,
 with a Default badge for inherited values, field type, domain and permanent purpose guidance; administrators edit settings on their rows and stage
 endpoint changes there. The Agent and model group also holds the Admin-only estimated-price form, which asks for the

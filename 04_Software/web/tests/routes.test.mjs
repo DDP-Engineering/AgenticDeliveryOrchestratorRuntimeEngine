@@ -32,6 +32,10 @@ const table = [
   [`/projects/${ID}`, { view: "projectDetails", project: ID, tab: "overview" }],
   [`/projects/${ID}/configuration`, { view: "projectDetails", project: ID, tab: "configuration" }],
   [`/projects/${ID}/access`, { view: "projectDetails", project: ID, tab: "access" }],
+  [`/projects/${ID}/jobs`, { view: "projectDetails", project: ID, tab: "jobs" }],
+  [`/projects/${ID}/jobs?run=run-26`, { view: "projectDetails", project: ID, tab: "jobs", run: "run-26" }],
+  [`/projects/${ID}/statistics`, { view: "projectDetails", project: ID, tab: "statistics" }],
+  [`/projects/${ID}/statistics?tab=usage&from=2026-10-01&granularity=week`, { view: "projectDetails", project: ID, tab: "statistics", metricsTab: "usage", reporting: { from: "2026-10-01", through: "", timezone: "UTC", granularity: "week" } }],
   ["/jobs", { view: "jobs" }],
   [`/jobs?project=${ID}`, { view: "jobs", project: ID }],
   [`/jobs?project=${ID}&run=run-26`, { view: "jobs", project: ID, run: "run-26" }],
@@ -92,6 +96,16 @@ test("identifiers follow the API alphabet and a run needs its project", () => {
 
 test("legacy executor links redirect to Settings for both roles", () => {
  for (const isAdmin of [true,false]) assert.deepEqual(normalizeRoute(parseRoute(`/projects/${ID}/executor`),{isAdmin}),{route:{view:"projectDetails",project:ID,tab:"configuration"},replaced:true});
+});
+
+test("project tab queries are kept only where they belong and validated", () => {
+  assert.deepEqual(parseRoute(`/projects/${ID}/jobs`, "?run=run+1"), { view: "projectDetails", project: ID, tab: "jobs" });
+  assert.deepEqual(parseRoute(`/projects/${ID}/configuration`, "?run=run-26&tab=usage"), { view: "projectDetails", project: ID, tab: "configuration" });
+  assert.deepEqual(parseRoute(`/projects/${ID}/statistics`, "?tab=projects"), { view: "projectDetails", project: ID, tab: "statistics" });
+  assert.equal(parseRoute(`/projects/${ID}/statistics`, "?from=10/01/2026"), null);
+  assert.equal(formatRoute({ view: "projectDetails", project: ID, tab: "history", run: "run-26" }), `/projects/${ID}/history`);
+  for (const isAdmin of [true, false]) for (const tab of ["jobs", "statistics"]) assert.deepEqual(
+    normalizeRoute({ view: "projectDetails", project: ID, tab }, { isAdmin }), { route: { view: "projectDetails", project: ID, tab }, replaced: false });
 });
 
 test("legacy price links open Settings, where prices live, for both roles", () => {
