@@ -31,7 +31,6 @@ const table = [
   ["/projects/import", { view: "importProject" }],
   [`/projects/${ID}`, { view: "projectDetails", project: ID, tab: "overview" }],
   [`/projects/${ID}/configuration`, { view: "projectDetails", project: ID, tab: "configuration" }],
-  [`/projects/${ID}/prices`, { view: "projectDetails", project: ID, tab: "prices" }],
   [`/projects/${ID}/access`, { view: "projectDetails", project: ID, tab: "access" }],
   ["/jobs", { view: "jobs" }],
   [`/jobs?project=${ID}`, { view: "jobs", project: ID }],
@@ -72,7 +71,7 @@ test("normalization replaces unknown and role-restricted routes", () => {
   }
   assert.deepEqual(
     normalizeRoute({ view: "projectDetails", project: ID, tab: "prices" }, { isAdmin: false }),
-    { route: { view: "projectDetails", project: ID, tab: "overview" }, replaced: true });
+    { route: { view: "projectDetails", project: ID, tab: "configuration" }, replaced: true });
   assert.deepEqual(
     normalizeRoute({ view: "projectDetails", project: ID, tab: "access" }, { isAdmin: false }),
     { route: { view: "projectDetails", project: ID, tab: "overview" }, replaced: true });
@@ -93,4 +92,10 @@ test("identifiers follow the API alphabet and a run needs its project", () => {
 
 test("legacy executor links redirect to Settings for both roles", () => {
  for (const isAdmin of [true,false]) assert.deepEqual(normalizeRoute(parseRoute(`/projects/${ID}/executor`),{isAdmin}),{route:{view:"projectDetails",project:ID,tab:"configuration"},replaced:true});
+});
+
+test("legacy price links open Settings, where prices live, for both roles", () => {
+  for (const isAdmin of [true, false]) assert.deepEqual(
+    normalizeRoute(parseRoute(`/projects/${ID}/prices`), { isAdmin }),
+    { route: { view: "projectDetails", project: ID, tab: "configuration" }, replaced: true }, String(isAdmin));
 });

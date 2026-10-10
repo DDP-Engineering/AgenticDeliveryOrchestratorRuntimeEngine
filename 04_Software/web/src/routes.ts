@@ -23,7 +23,9 @@ const PLAIN: Record<string, PlainView> = {
 const PLAIN_PATHS = Object.fromEntries(Object.entries(PLAIN).map(([path, view]) => [view, path])) as Record<PlainView, string>;
 const ADMIN_ONLY = new Set<string>(["createProject", "importProject", "administration", "adminUsers", "adminAudit"]);
 const PROJECT_TABS: ProjectTab[] = ["overview", "configuration", "executor", "prices", "access", "history"];
-const ADMIN_PROJECT_TABS = new Set<ProjectTab>(["prices", "access"]);
+const ADMIN_PROJECT_TABS = new Set<ProjectTab>(["access"]);
+/** Retired tab paths whose content now lives in Settings; links to them open Settings. */
+const SETTINGS_ALIASES = new Set<ProjectTab>(["executor", "prices"]);
 const METRICS_TABS: MetricsTabRoute[] = ["summary", "usage", "quality", "trends", "projects"];
 const IDENTIFIER = /^[A-Za-z0-9._-]{1,160}$/;
 
@@ -89,7 +91,7 @@ export function formatRoute(route: Route): string {
 /** Apply role rules; `replaced` means the browser entry must be replaced, not added. */
 export function normalizeRoute(route: Route | null, context: { isAdmin: boolean }): { route: Route; replaced: boolean } {
   if (route === null) return { route: { view: "overview" }, replaced: true };
-  if (route.view === "projectDetails" && route.tab === "executor") return {route:{...route,tab:"configuration"},replaced:true};
+  if (route.view === "projectDetails" && SETTINGS_ALIASES.has(route.tab)) return { route: { ...route, tab: "configuration" }, replaced: true };
   if (context.isAdmin) return { route, replaced: false };
   if (ADMIN_ONLY.has(route.view)) return { route: { view: "overview" }, replaced: true };
   if (route.view === "projectDetails" && ADMIN_PROJECT_TABS.has(route.tab)) return { route: { ...route, tab: "overview" }, replaced: true };

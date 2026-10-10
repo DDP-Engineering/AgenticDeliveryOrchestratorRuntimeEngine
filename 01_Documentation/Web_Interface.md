@@ -343,7 +343,7 @@ and repository comparison tables. Opening Statistics from project details select
 that project. Developers choose only their assigned projects.
 The top bar names the current page and provides common actions. Project details
 retains the project opened from Projects. Its Summary, Settings, History and, for
-administrators, Prices and Access tabs switch content within the page; Jobs
+administrators, Access tabs switch content within the page; Jobs
 and Statistics are links to those pages for the project. Access lists every
 developer account with whether it can access the project, and an
 administrator grants or removes one developer's access with a button; the
@@ -721,16 +721,20 @@ to **All authorized projects**; Statistics keeps its independent scope and
 so colliding run IDs remain distinct after reload. Closing detail clears its ID.
 
 The dedicated project header displays its name and repository path beside
-Summary, Settings, Prices, Access, Jobs, Statistics and History navigation.
-Jobs and Statistics links preserve project scope; Prices/Access are Admin-only.
+Summary, Settings, Access, Jobs, Statistics and History navigation.
+Jobs and Statistics links preserve project scope; Access is Admin-only.
 Summary holds monitoring actions and revision-bound environment verification.
 Paused monitoring prevents new work and allows active jobs to continue.
 Verification is explicit and tied to saved configuration revision and check time:
 unverified, stale, failed, partial or verified. Invalid configuration is separate.
 Settings remains redacted
-read-only for Dev and editable through existing Admin controls. Prices/Access
-are Admin-only; History shows terminal project jobs. Existing `/configuration`
-and `/prices` addresses remain valid.
+read-only for Dev and editable through existing Admin controls. Administrators
+record estimated token prices under Settings > Agent and model: enter the
+effective date and input/output rates, and ADORE records them for the selected
+coding agent and its configured model (set the model first when none is
+configured). The table below lists the project's prices. Access is Admin-only; History shows terminal project jobs.
+`/configuration` is the Settings address; older `/executor` and `/prices`
+addresses open Settings.
 
 Detail leads with exact lifecycle and saved stage, the observed reason and action
 location. Saved question/candidate/draft references open the forge. Publication

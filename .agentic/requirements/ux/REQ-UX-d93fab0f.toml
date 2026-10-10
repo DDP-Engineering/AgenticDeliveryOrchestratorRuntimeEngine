@@ -9,19 +9,19 @@ schema = 1
 
 id = "REQ-UX-d93fab0f"
 
-title = "Default the price executor to the project's executor"
+title = "Record estimated prices for the applied executor and model"
 
 status = "active"
 
 requirement = """
-When an administrator opens a project's Prices tab, the estimated-price form shall preselect the executor configured for that project and shall reset to the newly opened project's executor when the project changes.
+When an administrator records an estimated price in a project's Agent and model settings, the form shall ask only for the effective date and the input and output rates and shall save the price for the project's applied coding agent and that agent's configured model; while that agent has no configured model, the section shall show guidance to set the model instead of the form.
 """
 
-verification = "Manual: open Prices for a project using opencode and confirm opencode is preselected; open Prices for a project using codex and confirm codex; for a project without a recorded executor confirm the first executor option is selected."
+verification = "Automated: e2e opens Settings > Agent and model as administrator, confirms the price form has no executor or model field, fills effective date and rates, saves, and sees a table row with the applied agent and its configured model. Manual: for a project whose applied agent has no configured model, the section shows the set-a-model guidance and no form."
 
-affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/styles.css", "04_Software/web/src/i18n.ts", "04_Software/adore/web/static/"]
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/i18n.ts", "04_Software/adore/web/static/"]
 
-linked_tests = []
+linked_tests = ["04_Software/web/e2e/executor-config.spec.ts"]
 
 
 spec = ""
@@ -30,4 +30,4 @@ priority = "normal"   # low | normal | high
 rationale = ""        # why this behavior exists, if not obvious
 
 created = 2026-10-03
-updated = 2026-10-03
+updated = 2026-10-10

@@ -103,7 +103,7 @@ test("hub separates pickup and verification and keeps role-appropriate navigatio
   await expect(page.locator(".project-summary-window .summary-job-window")).toContainText("Working");
   const hub = page.locator(".project-hub");
   await expect(hub.locator("strong")).toHaveText("alpha");
-  await expect(hub.locator("button, a")).toHaveText(["Summary", "Settings", "Prices", "Access", "Jobs", "Statistics", "History"]);
+  await expect(hub.locator("button, a")).toHaveText(["Summary", "Settings", "Access", "Jobs", "Statistics", "History"]);
   await expect(page.locator(".project-links")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "alpha", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Pause monitoring|Activate monitoring/ })).toBeVisible();

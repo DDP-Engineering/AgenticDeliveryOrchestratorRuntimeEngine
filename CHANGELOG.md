@@ -20,6 +20,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Move Admin estimated prices from their own project tab into Settings → Agent and model; prices are recorded for the selected coding agent and its configured model, so the form asks only for effective date and input/output rates; older `/prices` links open Settings.
+
 - Show pending settings above category groups with changed values and adjacent Apply/Discard; fold complete review/technical evidence and clearly block unchanged simple candidates.
 
 - Consolidate executor configuration in Settings → Agent and model, with atomic reviewed selection of OpenCode/Pi/Codex/Qwen, selected-agent launch/model labels and names-only provider authentication controls.

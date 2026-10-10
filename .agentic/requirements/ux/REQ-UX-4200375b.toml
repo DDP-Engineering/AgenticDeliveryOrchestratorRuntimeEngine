@@ -30,4 +30,4 @@ priority = "normal"   # low | normal | high
 rationale = "Links can be shared and refresh or Back no longer lose the user's place."        # why this behavior exists, if not obvious
 
 created = 2026-10-03
-updated = 2026-10-03
+updated = 2026-10-10

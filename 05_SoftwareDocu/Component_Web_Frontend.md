@@ -267,8 +267,8 @@ The Projects directory lists authorized projects in a sortable, paged table
 with project, repository path, Repo forge provider (Gitea/GitHub/GitLab),
 Monitoring, job count and saved last activity. Project-name links open the hub.
 The dedicated hub has one identity/navigation band: name, repository path,
-Summary, Settings, Prices, Access, Jobs, Statistics, History. Prices and Access
-are Admin-only; Jobs/Statistics retain selected project scope.
+Summary, Settings, Access, Jobs, Statistics, History. Access is
+Admin-only; Jobs/Statistics retain selected project scope.
 Summary holds Monitoring Active/Paused status, runtime/executor and explicit
 revision-bound verification evidence. Administrators use Summary to pause or
 activate monitoring, archive/restore, and delete archived idle projects using
@@ -288,7 +288,7 @@ a developer's projects are edited together under Users, and one project's
 developers on its Access tab. My account holds account
 appearance and password controls. Project details groups this content into
 Summary (pickup, host verification and project jobs), Settings (read-only settings
-and administrator editors), History (terminal jobs), and administrator-only Prices and Access tabs with
+and administrator editors), History (terminal jobs), and the administrator-only Access tab with
 keyboard tab navigation; Jobs and Statistics are real links. Access
 (`ProjectAccess` in `App.tsx`) lists the project's developers from
 `GET /projects/{name}/access` and grants or removes one with
@@ -499,10 +499,13 @@ revision-bound server paging and locally paged observed timelines; `ServerPager`
 continues to serve Audit. Common guided forms keep required markers and localized
 examples. `.table-scroll` keeps wide data within its own scroll container.
 Project names and ticket numbers are semantic links with owning-project URLs.
-Project tabs support arrow keys, Home and End; `/configuration` and `/prices`
-remain valid, while `/history` selects terminal jobs in the same authorized hub.
-The Prices form preselects the project's configured executor and remounts per
-project. A successful empty Statistics response shows the measured lifecycle counts and explicit unavailable consumption with an empty job table; Quality and Trends show localized empty feedback. Loading or failed reads withhold numeric cards and CSV actions.
+Project tabs support arrow keys, Home and End; `/configuration` is Settings and
+the older `/executor` and `/prices` paths open it, while `/history` selects
+terminal jobs in the same authorized hub. The Admin-only estimated-price form sits
+in the Agent and model settings group (`executorAfter` slot of `SettingsList`),
+asks only for effective date and rates, submits the applied `executor.default` and
+its configured model as hidden fields, shows set-a-model guidance when that model
+is empty, and remounts per project and configuration revision. A successful empty Statistics response shows the measured lifecycle counts and explicit unavailable consumption with an empty job table; Quality and Trends show localized empty feedback. Loading or failed reads withhold numeric cards and CSV actions.
 An account whose password an administrator reset signs in to a dedicated
 change-password card with the reason, language, theme and Sign out controls;
 the dashboard and its polling stay inactive until the change succeeds, after

@@ -642,3 +642,5 @@ td.strong { font-weight: 800; }
 .credential-names-editor li code { overflow-wrap: anywhere; }
 .credential-names-editor li button { min-width: 2rem; }
 .executor-endpoint { margin-top: 1.5rem; min-width: 0; }
+.executor-prices { margin-top: 1.5rem; min-width: 0; }
+.executor-prices h3 { margin: 0 0 0.75rem; }

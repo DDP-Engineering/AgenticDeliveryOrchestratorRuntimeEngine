@@ -45,8 +45,8 @@ Environment verification records explicit checks against the saved configuration
 revision; Unverified means no current evidence, not an observed failure. Use
 Project details â†’ Summary â†’ Check host prerequisites for the administrator check.
 Pause semantics are available in header help instead of repeated row guidance.
-The dedicated header combines name/repository and Summary, Settings, Prices, Access, Jobs, Statistics, History; Prices/Access are Admin-only. Jobs/Statistics
-are scoped links. Deletion confirmation clears on page or project changes.
+The dedicated header combines name/repository and Summary, Settings, Access, Jobs, Statistics, History; Access is Admin-only. Jobs/Statistics
+are scoped links. Administrators record estimated prices in Settings > Agent and model. Deletion confirmation clears on page or project changes.
 
 Implementation settings support reviewed edits for human-answer waiting time (positive integer plus seconds/minutes/hours/days), positive question-round count, a nonempty retry schedule (one nonnegative integer per line), and the complete stage-timeout map. The six stage rows choose either the general attempt limit or a positive custom limit in seconds; choosing general removes the override. Retry and timeout collections accept only safe integers and their declared keys; other lists/maps remain read-only except the existing reviewer list. Admins prepare, inspect active/proposed values and apply only at the existing idle boundary; developers remain read-only. Names, help and controls share four locales. The answer deadline is independent of the reserved reminder; reminder format is still checked and no reminder is sent.
 
@@ -314,9 +314,9 @@ SQLite bytes, authorization, scope and financial redaction.
   decisive. Scope changes discard ticket drafts and superseded command results.
 - Projects show display labels, independent pickup and explicit revision/time-bound
   verification, counts/activity and scoped actions. Summary includes the same
-  evidence and Jobs/Statistics links; Settings stays read-only for Dev, Prices and
-  Access are Admin-only, and History selects terminal jobs. Legacy configuration
-  and prices routes remain valid. Missing legacy update times remain unknown in
+  evidence and Jobs/Statistics links; Settings stays read-only for Dev, Access is
+  Admin-only, and History selects terminal jobs. Legacy configuration, executor
+  and prices routes open Settings. Missing legacy update times remain unknown in
   project summaries; nonempty corrupt timestamps fail closed.
   Administrators open Add project as a six-step guided page with visible localized
   instructions. Clone paths identify existing Git clones on the ADORE host;
@@ -614,10 +614,12 @@ blocks; a stopped, stale or corrupt heartbeat does not claim readiness.
 Administration expands into System status, Users and Change history sidebar pages;
 both roles reach a top-level My account page. Every view has a path URL
 (`web/src/routes.ts`) kept in sync with view state; project details uses
-Summary/Settings/Prices/Access/History tabs and Jobs/Statistics links. Project details shows effective
+Summary/Settings/Access/History tabs and Jobs/Statistics links. Project details shows effective
 configuration in six purpose categories plus closed Technical details with frequent settings first within each,
 with a Default badge for inherited values, field type, domain and permanent purpose guidance; administrators edit settings on their rows and stage
-endpoint and price changes there. The
+endpoint changes there. The Agent and model group also holds the Admin-only estimated-price form, which asks for the
+effective date and input/output rates and records them for the applied coding agent and its configured model
+(guidance replaces the form while no model is set), and the project's price table. The
 settings response is scoped to the current project identity so switching
 projects cannot briefly show another project's values. Audit policy defaults to unlimited
 and its System status form displays saved day/MiB limits, representing unlimited as zero.
