@@ -269,8 +269,16 @@ with project, repository path, Repo forge provider (Gitea/GitHub/GitLab),
 Monitoring, job count and saved last activity. Project-name links open the hub.
 The dedicated hub has one identity/navigation band: name, repository path,
 Summary, Settings, Access, Jobs, Statistics, History, all tabs. Access is
-Admin-only. The Jobs tab renders `JobWorkspace` in jobs mode with a fixed scope
-and the hub's `onOpen`, so job detail stays in the tab; Statistics renders the
+Admin-only. The Jobs tab has Tickets and Jobs sub-tabs (`/projects/<id>/jobs`,
+`?view=jobs`, `?run=`). Tickets (`TicketWorkspace.tsx`, copy in `ticketCopy.ts`)
+reads open tickets only when Read tickets is pressed, validates the response,
+shows eligibility, the blocking rule or job state with Start (confirming and
+choosing a priority when it must add labels), Retry for a failed job, confirmed Stop
+and Details (description plus comments loaded on first expand), and starts work only
+from the table (disabled actions are visibly dimmed); forge text is
+rendered as React text and only http(s) links open, with `noopener noreferrer`.
+The Jobs sub-tab renders `JobWorkspace` in jobs mode with a fixed scope, no start
+form and the hub's `onOpen`, so job detail stays in the tab; Statistics renders the
 shared `statisticsView(true)` without the project selector or the cross-project tab.
 Summary holds Monitoring Active/Paused status, runtime/executor and explicit
 revision-bound verification evidence. Administrators use Summary to pause or

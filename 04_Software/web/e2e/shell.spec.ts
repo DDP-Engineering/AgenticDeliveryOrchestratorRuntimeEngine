@@ -42,8 +42,8 @@ test("shell links, project context, keyboard and deep links preserve supported n
   await context.getByRole("tab", { name: "Jobs", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/projects/${betaId}/jobs$`));
   await expect(context).toContainText("beta");
-  await expect(page.locator("#job-ticket-number")).toHaveAttribute("aria-describedby", "job-ticket-number-help");
-  await expect(page.locator("#job-ticket-number-help")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Read tickets", exact: true })).toBeVisible();
+  await expect(page.locator("#job-ticket-number")).toHaveCount(0);
   await nav(page).getByRole("link", { name: "Statistics", exact: true }).click();
   await expect(page).toHaveURL(/\/metrics\?project=/);
   await expect(context).toHaveCount(0);

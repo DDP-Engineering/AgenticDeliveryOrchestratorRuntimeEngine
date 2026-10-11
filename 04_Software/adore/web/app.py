@@ -54,6 +54,7 @@ from adore.config import (
     validate_config,
 )
 from adore.config_edit import ConfigEditLockedError, config_edit_lock
+from adore.forge import ForgeError, ForgeResponseError
 from adore.isolation import ContainerManager, IsolationError
 from adore.portable_settings import (
     MAX_SOURCE_BYTES,
@@ -77,6 +78,7 @@ from adore.repository_auth import (
     save_connection,
     verify_connection,
 )
+from adore.selection import start_blocker, start_preparation
 from adore.state import StateError, StateStore
 from adore.util import CommandRunner, force_rmtree, run_command, strict_json_loads
 from adore.web import analytics
@@ -102,6 +104,17 @@ from adore.web.implementation_settings import COLLECTION_KEYS, set_collection, v
 from adore.web.jobs import JobReadError, read_jobs
 from adore.web.model_connection import probe_model_connection
 from adore.web.store import WebStore, WebStoreError
+from adore.web.tickets import (
+    RunReadError,
+    TicketReadError,
+    comment_view,
+    existing_job,
+    open_forge,
+    read_ticket,
+    remove_ready_label,
+    ticket_view,
+    unfinished_run,
+)
 from adore.wizard import ScriptedAsker, WizardError, WizardSetup, run_wizard
 
 # CONSTANTS
@@ -393,6 +406,19 @@ class ProjectDeleteInput(BaseModel):
     """@brief Typed-name confirmation for deleting an archived project."""
 
     confirm_name: str = Field(min_length=1, max_length=64)
+    idempotency_key: str = Field(min_length=8, max_length=128)
+
+
+class TicketStartInput(BaseModel):
+    """@brief A ticket start request: idempotency key and an optional priority label."""
+
+    idempotency_key: str = Field(min_length=8, max_length=128)
+    priority: str = Field(default="", max_length=128)
+
+
+class TicketStopInput(BaseModel):
+    """@brief A ticket stop request including an idempotency key."""
+
     idempotency_key: str = Field(min_length=8, max_length=128)
 
 
@@ -4255,6 +4281,160 @@ def create_app(home: str | Path | None = None,
         except WebStoreError as exc:
             raise _store_error(409, exc) from exc
         return {"id": operation["id"], "status": operation["status"]}
+
+    def ticket_config(item):
+        """@brief Load a project's validated config for one ticket request."""
+        try:
+            config = _config_from_bytes(profiles.config_path(item.name).read_bytes())
+        except (OSError, AttributeError, UnicodeError, TypeError, ValueError,
+                tomllib.TOMLDecodeError) as exc:
+            raise _error(503, "config_corrupt") from exc
+        if _config_findings(config):
+            raise _error(409, "invalid_config")
+        return config
+
+    def ticket_forge(item, config):
+        """@brief Build the project's bounded, credential-scoped forge for one request."""
+        try:
+            runner = project_runner(profiles.profile_dir(item.name), config, probe_runner)
+            return open_forge(config, runner)
+        except RepositoryAuthError as exc:
+            raise _error(503, exc.code) from exc
+        except ForgeError as exc:
+            raise _error(503, "forge_read_failed") from exc
+
+    def ticket_read(read):
+        """@brief Run one forge read, mapping failures to typed API errors."""
+        try:
+            return read()
+        except (TicketReadError, ForgeResponseError) as exc:
+            raise _error(502, "forge_response_invalid") from exc
+        except RunReadError as exc:
+            raise _error(503, "run_state_corrupt") from exc
+        except RepositoryAuthError as exc:
+            raise _error(503, exc.code) from exc
+        except (ForgeError, TimeoutError, OSError) as exc:
+            raise _error(503, "forge_read_failed") from exc
+
+    @app.get("/api/v1/projects/{name}/tickets")
+    def project_tickets(name: str, user: Annotated[dict, Depends(principal)]) -> dict:
+        """@brief Read a project's open forge tickets with pickup eligibility on request."""
+        item = project(name, user)
+        config = ticket_config(item)
+        forge = ticket_forge(item, config)
+        value = ticket_read(lambda: ticket_view(forge, config, _store_for(profiles, item)))
+        return {"project_id": item.project_id, **value}
+
+    @app.get("/api/v1/projects/{name}/tickets/{iid}/comments")
+    def ticket_comments(name: str, iid: int, user: Annotated[dict, Depends(principal)]) -> dict:
+        """@brief Read one ticket's human comments on explicit request."""
+        item = project(name, user)
+        if iid < 1:
+            raise _error(404, "ticket_not_found")
+        forge = ticket_forge(item, ticket_config(item))
+        value = ticket_read(lambda: comment_view(forge, iid))
+        if value is None:
+            raise _error(404, "ticket_not_found")
+        return value
+
+    @app.post("/api/v1/projects/{name}/tickets/{iid}/start")
+    def start_ticket(name: str, iid: int, body: TicketStartInput,
+                     user: Annotated[dict, Depends(mutation)]) -> dict:
+        """@brief Add a ticket's missing ready/priority labels, then queue its start."""
+        item = project(name, user)
+        if item.archived:
+            raise _error(409, "project_archived")
+        if iid < 1:
+            raise _error(404, "ticket_not_found")
+        # A replayed key returns its original operation, even after the worker created the run.
+        replayed = web.operation_for_key(user["id"], body.idempotency_key)
+        if replayed is not None:
+            binding = (replayed["action"], replayed["run_id"], replayed["project"])
+            if binding != ("start", str(iid), item.name):
+                raise _error(409, "idempotency_conflict")
+            return {"operation_id": replayed["id"], "status": replayed["status"],
+                    "labels_added": []}
+        config = ticket_config(item)
+        job = ticket_read(lambda: existing_job(_store_for(profiles, item), config, iid))
+        forge = ticket_forge(item, config)
+        ticket = ticket_read(lambda: read_ticket(forge, iid))
+        if ticket is None:
+            raise _error(404, "ticket_not_found")
+        preparation = start_preparation(ticket, config, has_run=job is not None)
+        if preparation is None:
+            reason = start_blocker(ticket, config, has_run=job is not None) or "not_startable"
+            raise _error(409, "ticket_not_startable", reason)
+        adds_ready, needs_priority = preparation
+        added = [config.labels.lifecycle.ready] if adds_ready else []
+        if needs_priority:
+            if body.priority not in config.labels.selection.priority_order():
+                raise _error(400, "priority_required")
+            added.append(body.priority)
+        def uncertain() -> None:
+            """@brief Record a start whose forge labels may have changed without a queued job."""
+            web.audit(user["id"], "ticket-start-prepared", item.name, f"#{iid}",
+                      resource_type="operation", resource_id=str(iid), result="uncertain")
+
+        if added:
+            try:
+                forge.add_labels(iid, added)
+            except RepositoryAuthError as exc:
+                uncertain()
+                raise _error(503, exc.code) from exc
+            except (ForgeError, TimeoutError, OSError) as exc:
+                uncertain()
+                raise _error(503, "forge_write_failed") from exc
+        try:
+            operation = web.enqueue(user["id"], item.name, "start", str(iid), body.idempotency_key)
+        except WebStoreError as exc:
+            if added:
+                uncertain()
+            raise _store_error(409, exc) from exc
+        web.audit(user["id"], "ticket-start-prepared", item.name, f"#{iid}",
+                  resource_type="operation", resource_id=str(iid), operation_id=operation["id"])
+        return {"operation_id": operation["id"], "status": operation["status"],
+                "labels_added": added}
+
+    @app.post("/api/v1/projects/{name}/tickets/{iid}/stop")
+    def stop_ticket(name: str, iid: int, body: TicketStopInput,
+                    user: Annotated[dict, Depends(mutation)]) -> dict:
+        """@brief Cancel a ticket's unfinished job and remove its ready label from the forge."""
+        item = project(name, user)
+        if item.archived:
+            raise _error(409, "project_archived")
+        if iid < 1:
+            raise _error(404, "ticket_not_found")
+        config = ticket_config(item)
+        run_id = ticket_read(lambda: unfinished_run(_store_for(profiles, item), config, iid))
+        operation_id = None
+        if run_id is not None:
+            # Cancelling local work comes first: it must not wait on, or be lost to, a forge outage.
+            try:
+                operation_id = web.enqueue(
+                    user["id"], item.name, "cancel", run_id, body.idempotency_key
+                )["id"]
+            except WebStoreError as exc:
+                raise _store_error(409, exc) from exc
+        # The forge is built only now, so unusable credentials never block the local cancel.
+        label, label_error, ticket = "absent", None, None
+        try:
+            runner = project_runner(profiles.profile_dir(item.name), config, probe_runner)
+            ticket, removed = remove_ready_label(open_forge(config, runner), config, iid)
+            label = "removed" if removed else "absent"
+        except RepositoryAuthError as exc:
+            label, label_error = "failed", exc.code
+        except ForgeResponseError:
+            label, label_error = "failed", "forge_response_invalid"
+        except (ForgeError, TimeoutError, OSError):
+            label, label_error = "failed", "forge_write_failed"
+        if ticket is None and label_error is None and operation_id is None:
+            raise _error(404, "ticket_not_found")
+        web.audit(user["id"], "ticket-stopped", item.name,
+                  f"#{iid} cancel={'queued' if operation_id else 'none'} ready_label={label}",
+                  resource_type="operation", resource_id=str(iid), operation_id=operation_id,
+                  result="applied" if label_error is None else "uncertain")
+        return {"cancel_operation_id": operation_id, "ready_label": label,
+                "ready_label_error": label_error}
 
     @app.get("/api/v1/operations/{operation_id}")
     def operation_status(operation_id: int,

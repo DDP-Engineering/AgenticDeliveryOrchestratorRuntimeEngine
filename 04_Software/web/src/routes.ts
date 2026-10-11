@@ -11,7 +11,7 @@ export type ReportingRoute = { from: string; through: string; timezone: string; 
 export type Route =
   | { view: "overview"; project?: string }
   | { view: PlainView }
-  | { view: "projectDetails"; project: string; tab: ProjectTab; run?: string; metricsTab?: MetricsTabRoute; reporting?: ReportingRoute }
+  | { view: "projectDetails"; project: string; tab: ProjectTab; run?: string; jobsView?: "jobs"; metricsTab?: MetricsTabRoute; reporting?: ReportingRoute }
   | { view: "jobs"; project?: string; run?: string; reporting?: ReportingRoute }
   | { view: "metrics"; project?: string; tab?: MetricsTabRoute; reporting?: ReportingRoute };
 
@@ -63,7 +63,11 @@ export function parseRoute(pathname: string, search = ""): Route | null {
     const tab = (match[2] ?? "overview") as ProjectTab;
     if (!IDENTIFIER.test(id) || !PROJECT_TABS.includes(tab) || match[2] === "overview") return null;
     // Only the Jobs tab carries a selected run, and only Statistics carries its sub-tab and reporting period.
-    if (tab === "jobs") { const run = identifier(query.get("run")); return { view: "projectDetails", project: id, tab, ...(run ? { run } : {}) }; }
+    if (tab === "jobs") {
+      // A selected run always shows the Jobs sub-tab; otherwise `view=jobs` selects it over Tickets.
+      const run = identifier(query.get("run"));
+      return { view: "projectDetails", project: id, tab, ...(run ? { run } : query.get("view") === "jobs" ? { jobsView: "jobs" as const } : {}) };
+    }
     if (tab === "statistics") {
       const metricsTab = query.get("tab") as MetricsTabRoute | null;
       return { view: "projectDetails", project: id, tab, ...(reporting ? { reporting } : {}), ...(metricsTab && PROJECT_METRICS_TABS.includes(metricsTab) ? { metricsTab } : {}) };
@@ -90,7 +94,7 @@ export function formatRoute(route: Route): string {
     case "overview": return withQuery("/", { project: route.project });
     case "projectDetails": {
       const path = `/projects/${encodeURIComponent(route.project)}${route.tab === "overview" ? "" : `/${route.tab}`}`;
-      if (route.tab === "jobs") return withQuery(path, { run: route.run });
+      if (route.tab === "jobs") return withQuery(path, route.run ? { run: route.run } : { view: route.jobsView });
       if (route.tab === "statistics") return withQuery(path, { tab: route.metricsTab, ...reportingParams });
       return path;
     }

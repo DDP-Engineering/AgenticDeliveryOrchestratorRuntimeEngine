@@ -17,7 +17,7 @@
 from __future__ import annotations
 
 # IMPORTS
-from adore.forge.base import Comment, Forge, ForgeError, MergeRequest, Ticket
+from adore.forge.base import Comment, Forge, ForgeError, ForgeResponseError, MergeRequest, Ticket
 from adore.forge.gitea import GiteaForge
 from adore.forge.github import GitHubForge
 from adore.forge.gitlab import GitLabForge
@@ -29,6 +29,7 @@ __all__ = [
     "Comment",
     "Forge",
     "ForgeError",
+    "ForgeResponseError",
     "GiteaForge",
     "GitHubForge",
     "GitLabForge",

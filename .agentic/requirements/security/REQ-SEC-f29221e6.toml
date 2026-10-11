@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-SEC-f29221e6"
+
+title = "Display forge ticket text as inert plain text"
+
+status = "active"
+
+requirement = """
+When the web interface displays a forge ticket's title, labels, description, author or comments, it shall render them as plain text with no HTML or markup interpretation, and shall link to the ticket only when its web link is an http or https URL, opening it without giving the target page access to ADORE.
+"""
+
+verification = "Automated: e2e renders a fixture ticket whose title, description and comment contain HTML/script markup and confirms the markup appears as literal text with no injected element; a javascript: web link renders no link; an https link opens with noopener noreferrer."
+
+affected_paths = ["04_Software/web/src/TicketWorkspace.tsx"]
+
+linked_tests = ["04_Software/web/e2e/tickets.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = "Ticket text is written by anyone who can comment on the forge and is untrusted input."        # why this behavior exists, if not obvious
+
+created = 2026-10-10
+updated = 2026-10-10

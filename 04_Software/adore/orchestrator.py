@@ -78,6 +78,7 @@ from adore.isolation import (
 from adore.polling import PollCadence
 from adore.preparation import PreparationError, execution_policy, resolve_plan
 from adore.repository_auth import project_runner
+from adore.selection import ineligibility
 from adore.state import (
     RunState,
     StateError,
@@ -742,18 +743,10 @@ class Orchestrator:
         for ticket in self.forge.list_ready(labels.lifecycle.ready):
             if ticket_iid is not None and ticket.iid != ticket_iid:
                 continue
-            if ticket.state != "opened":
-                # GitHub and Gitea ask the server for open tickets explicitly;
-                # glab is left on its default. Conducting a closed ticket would
-                # be worse than missing one, so the state is confirmed here too.
-                continue
-            if labels.lifecycle.ready not in ticket.labels:
-                continue
-            if labels.control.hold in ticket.labels:
-                continue
-            if labels.control.exclude in ticket.labels:
-                continue
-            if self.store.exists(self._run_id(ticket.iid)) or not self._ready(ticket):
+            # The shared rules also confirm the open state, the ready label and
+            # the hold/exclude controls the forge filter cannot be trusted with.
+            has_run = self.store.exists(self._run_id(ticket.iid))
+            if ineligibility(ticket, self.config, has_run=has_run) is not None:
                 continue
             candidates.append(ticket)
         order = labels.selection.priority_order()
@@ -766,19 +759,6 @@ class Orchestrator:
             return priority, ticket.iid
 
         return min(candidates, key=rank) if candidates else None
-
-    def _ready(self, ticket: Ticket) -> bool:
-        """@brief Enforce deterministic pickup prerequisites."""
-        readiness = self.config.readiness
-        if readiness.require_priority_label:
-            order = self.config.labels.selection.priority_order()
-            if not any(label in ticket.labels for label in order):
-                return False
-        if readiness.require_acceptance_criteria:
-            body = ticket.description.lower()
-            if "acceptance criteria" not in body and "- [ ]" not in ticket.description:
-                return False
-        return True
 
     @staticmethod
     def _ticket_snapshot(ticket: Ticket) -> dict[str, Any]:

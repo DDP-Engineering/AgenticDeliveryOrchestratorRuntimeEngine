@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-FUNC-6e125b14"
+
+title = "Prepare and start a ticket from the ticket browser"
+
+status = "active"
+
+requirement = """
+When an authorized user starts a ticket of an active project from the ticket browser, ADORE shall re-read the ticket from the forge and, when its only unmet pickup rules are the missing ready label or the missing priority label, add the ready label and the chosen configured priority label to the forge issue, record the action in the audit trail and queue the start operation; a ticket that is not open, is held or excluded, lacks required acceptance criteria or already has a run shall return 409 with the unmet rule and change nothing, a missing priority choice shall return 400 priority_required, and a failed label write shall return a typed error without queuing the start.
+"""
+
+verification = "Automated: web API tests start an eligible ticket (no forge write, start queued), a ticket missing the ready label (label added, start queued, audit), a ticket missing ready and priority labels with a chosen priority (both added) and without one (400 priority_required, no write), held/excluded/closed/no acceptance criteria/existing run tickets (409 with reason, no write, nothing queued), a failing label write (503 forge_write_failed, nothing queued), 409 project_archived, 403 csrf_required and 404 project_not_found for an unassigned developer."
+
+affected_paths = ["04_Software/adore/web/app.py", "04_Software/adore/web/tickets.py", "04_Software/adore/selection.py", "04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/ticketCopy.ts", "04_Software/web/src/errors.ts"]
+
+linked_tests = ["04_Software/tests/test_web_tickets.py", "04_Software/tests/test_selection.py", "04_Software/web/e2e/tickets.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = "Operators choose work in ADORE without first editing labels in the forge."        # why this behavior exists, if not obvious
+
+created = 2026-10-11
+updated = 2026-10-11

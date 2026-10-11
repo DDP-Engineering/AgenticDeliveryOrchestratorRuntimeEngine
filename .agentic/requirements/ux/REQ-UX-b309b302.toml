@@ -14,10 +14,10 @@ title = "Show project jobs inside the project hub"
 status = "active"
 
 requirement = """
-While a user views an authorized project's details, the Jobs tab shall show that project's start-job form, job filters, job table and the selected job's detail within the project hub, opening a job chosen from the Summary, Jobs or History tab in that tab, with the job addressable as /projects/<id>/jobs?run=<run_id>, and showing worker status only when the worker is unavailable or failing.
+While a user views an authorized project's details, the Jobs tab shall show that project's job filters, job table and the selected job's detail in its Jobs sub-tab within the project hub, opening a job chosen from the Summary, Jobs or History tab in that tab, with the job addressable as /projects/<id>/jobs?run=<run_id>, and showing worker status only when the worker is unavailable or failing.
 """
 
-verification = "Automated: e2e opens a project's Jobs tab and sees the start-job form, filters and table under the project hub with no Job scope selector or scope panel; opening a job keeps the hub, shows its detail and the run URL; reloading that URL shows the same detail; closing removes run from the URL; unit tests parse/format the run URL."
+verification = "Automated: e2e opens a project's Jobs tab, selects the Jobs sub-tab and sees the filters and table under the project hub with no Job scope selector or scope panel; opening a job keeps the hub, shows its detail and the run URL; reloading that URL shows the same detail; closing removes run from the URL; unit tests parse/format the run URL."
 
 affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/routes.ts", "04_Software/adore/web/static/"]
 

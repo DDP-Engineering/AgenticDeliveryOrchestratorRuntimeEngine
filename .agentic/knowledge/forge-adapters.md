@@ -23,7 +23,8 @@ draft or ready MR/PRs.
 
 ## Public interface
 
-The `Forge` interface normalizes ticket selection, claims, comments, labels,
+The `Forge` interface normalizes ticket selection, open-ticket browsing
+(`list_open(limit)`), claims, comments, labels,
 branch state, push, and draft or ready MR/PR operations. Concrete GitHub, GitLab, and
 Gitea adapters translate their CLIs through an injectable command runner and
 return typed domain data, leaving orchestration policy above the boundary.
@@ -31,7 +32,8 @@ return typed domain data, leaving orchestration policy above the boundary.
 ## Invariants
 
 All CLI output, URLs, status lines, and JSON are parsed as untrusted input and
-malformed responses raise `ForgeError`. Adapters expose no merge action and
+malformed responses raise `ForgeError`; well-formed CLI exits with malformed
+output raise its subclass `ForgeResponseError`. Adapters expose no merge action and
 cannot use a human comment without a valid ADORE marker as mutable state.
 
 ## Key behaviors

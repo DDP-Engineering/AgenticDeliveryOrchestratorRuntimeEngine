@@ -25,6 +25,8 @@ type Props = {
   csrf: string; request: Request; t: (key: MessageKey) => string; refresh: number;
   onScope: (scope: string) => void; onOpen: (project: string, run: string) => void; onClose: () => void;
   fixedScope?: boolean;
+  /** False hides the start-by-number form where another view owns starting work. */
+  startForm?: boolean;
   summaryHeader?: (evidence: JobPage | null) => ReactNode;
   reporting: ReportingSelection; reportingQuery: string; admin: boolean;
 };
@@ -253,7 +255,7 @@ export function JobWorkspace(props: Props) {
       <span className="worker-evidence" role="status">{worker === "ready" ? copy.workerReady : worker === "checking" ? copy.workerChecking : worker === "unavailable" ? copy.workerUnavailable : copy.workerError}</span></div>
       <p className="muted"><span>{scope ? copy.scopedHelp : copy.scopeHelp}</span> <span>{copy.workerHelp}</span></p>
     </section>}
-    {mode === "jobs" && project && !project.archived && <section className="panel compact"><form className="inline-form job-start-form" onSubmit={submit}>
+    {mode === "jobs" && props.startForm !== false && project && !project.archived && <section className="panel compact"><form className="inline-form job-start-form" onSubmit={submit}>
       <p className="form-legend"><span className="required-mark" aria-hidden="true">*</span> {t("requiredLegend")}</p><label htmlFor="job-ticket-number">{t("ticketNumber")}<span className="required-mark" aria-hidden="true"> *</span><input id="job-ticket-number" type="number" min="1" step="1" placeholder={`${t("examplePrefix")} 42`} value={ticket} onChange={event => setTicket(event.target.value)} required aria-describedby="job-ticket-number-help" /></label><button className="primary" disabled={busy} type="submit">{t("start")}</button>
       <p id="job-ticket-number-help" className="field-hint"><span>{t("ticketNumberHelp")}</span> <span>{copy.startHelp}</span></p>
     </form></section>}

@@ -34,6 +34,7 @@ const table = [
   [`/projects/${ID}/access`, { view: "projectDetails", project: ID, tab: "access" }],
   [`/projects/${ID}/jobs`, { view: "projectDetails", project: ID, tab: "jobs" }],
   [`/projects/${ID}/jobs?run=run-26`, { view: "projectDetails", project: ID, tab: "jobs", run: "run-26" }],
+  [`/projects/${ID}/jobs?view=jobs`, { view: "projectDetails", project: ID, tab: "jobs", jobsView: "jobs" }],
   [`/projects/${ID}/statistics`, { view: "projectDetails", project: ID, tab: "statistics" }],
   [`/projects/${ID}/statistics?tab=usage&from=2026-10-01&granularity=week`, { view: "projectDetails", project: ID, tab: "statistics", metricsTab: "usage", reporting: { from: "2026-10-01", through: "", timezone: "UTC", granularity: "week" } }],
   ["/jobs", { view: "jobs" }],
@@ -100,6 +101,10 @@ test("legacy executor links redirect to Settings for both roles", () => {
 
 test("project tab queries are kept only where they belong and validated", () => {
   assert.deepEqual(parseRoute(`/projects/${ID}/jobs`, "?run=run+1"), { view: "projectDetails", project: ID, tab: "jobs" });
+  assert.deepEqual(parseRoute(`/projects/${ID}/jobs`, "?view=tickets"), { view: "projectDetails", project: ID, tab: "jobs" });
+  assert.deepEqual(parseRoute(`/projects/${ID}/jobs`, "?view=jobs&run=run-26"), { view: "projectDetails", project: ID, tab: "jobs", run: "run-26" });
+  assert.equal(formatRoute({ view: "projectDetails", project: ID, tab: "jobs", jobsView: "jobs", run: "run-26" }), `/projects/${ID}/jobs?run=run-26`);
+  assert.deepEqual(parseRoute(`/projects/${ID}/statistics`, "?view=jobs"), { view: "projectDetails", project: ID, tab: "statistics" });
   assert.deepEqual(parseRoute(`/projects/${ID}/configuration`, "?run=run-26&tab=usage"), { view: "projectDetails", project: ID, tab: "configuration" });
   assert.deepEqual(parseRoute(`/projects/${ID}/statistics`, "?tab=projects"), { view: "projectDetails", project: ID, tab: "statistics" });
   assert.equal(parseRoute(`/projects/${ID}/statistics`, "?from=10/01/2026"), null);

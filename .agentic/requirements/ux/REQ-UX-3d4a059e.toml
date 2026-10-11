@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-3d4a059e"
+
+title = "Split the project Jobs tab into Tickets and Jobs sub-tabs"
+
+status = "active"
+
+requirement = """
+While a user views a project's Jobs tab, the web interface shall offer a Tickets sub-tab, selected by default, that reads the project's open tickets only when the user presses Read tickets and lists them with number, title, labels, eligibility or job state, per-row Start (asking for confirmation and a priority when it must add labels), Retry for a failed job, Stop, and an expandable description with on-demand comments, with unavailable actions visibly disabled, and a Jobs sub-tab with the existing job search, filters, table and job detail.
+"""
+
+verification = "Automated: e2e opens a project's Jobs tab, sees the Tickets sub-tab selected with no tickets until Read tickets is pressed, then a table of fixture tickets with eligibility; expands a ticket to see its description and comments; Start queues an operation for an eligible ticket, ineligible tickets cannot be started, Stop reports cancel and label outcomes; the Jobs sub-tab shows the job table and a job detail URL opens it; unit tests parse/format the sub-tab URL."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/ticketCopy.ts", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/errors.ts", "04_Software/web/src/routes.ts", "04_Software/web/src/styles.css", "04_Software/adore/web/static/"]
+
+linked_tests = ["04_Software/web/e2e/tickets.spec.ts", "04_Software/web/e2e/jobs.spec.ts", "04_Software/web/tests/routes.test.mjs"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-10
+updated = 2026-10-11

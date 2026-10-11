@@ -17,7 +17,8 @@ The conductor performs leased post-merge branch cleanup through host Git on all 
 
 ## 2. Responsibilities
 
-- list/read tickets and comments;
+- list/read tickets and comments, including every open ticket for browsing
+  (`list_open(limit)`, at most `limit` tickets, no label filter);
 - post/edit marker-owned ticket comments;
 - add/remove ticket labels;
 - read draft or ready MR/PR state and discussion;
@@ -31,6 +32,11 @@ Gitea combine their issue-comment surface with the submitted reviews and inline
 diff comments, merged onto one timeline, so the revise loop sees the feedback a
 reviewer left from the diff view. CLI JSON, URLs, HTTP statuses and not-found
 behavior fail closed through `ForgeError` or an explicit missing resource.
+Output that a CLI returned successfully but in the wrong shape (invalid JSON,
+an unexpected top-level type, or an open-ticket record without a positive
+number, list labels and text fields) raises `ForgeResponseError`, a
+`ForgeError` subclass, so callers can tell malformed forge data from an
+unavailable CLI.
 
 `pipeline_status(mr_iid)` is the one deliberate exception to failing closed. It
 normalizes each platform's own vocabulary onto `PIPELINE_STATES` and is

@@ -46,7 +46,9 @@ revision; Unverified means no current evidence, not an observed failure. Use
 Project details â†’ Summary â†’ Check host prerequisites for the administrator check.
 Pause semantics are available in header help instead of repeated row guidance.
 The dedicated header combines name/repository and Summary, Settings, Access, Jobs, Statistics, History tabs; Access is Admin-only.
-Jobs and Statistics render inside the hub; the identity band appears only there. Administrators record estimated prices in Settings > Agent and model. Deletion confirmation clears on page or project changes.
+Jobs and Statistics render inside the hub; the identity band appears only there.
+The Jobs tab opens on a Tickets sub-tab (read on request, Start that can add the
+ready/priority labels, Retry, Stop and Details per ticket) beside a Jobs sub-tab with the job table and detail. Administrators record estimated prices in Settings > Agent and model. Deletion confirmation clears on page or project changes.
 
 Implementation settings support reviewed edits for human-answer waiting time (positive integer plus seconds/minutes/hours/days), positive question-round count, a nonempty retry schedule (one nonnegative integer per line), and the complete stage-timeout map. The six stage rows choose either the general attempt limit or a positive custom limit in seconds; choosing general removes the override. Retry and timeout collections accept only safe integers and their declared keys; other lists/maps remain read-only except the existing reviewer list. Admins prepare, inspect active/proposed values and apply only at the existing idle boundary; developers remain read-only. Names, help and controls share four locales. The answer deadline is independent of the reserved reminder; reminder format is still checked and no reminder is sent.
 

@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-FUNC-2c8ef18a"
+
+title = "Read one ticket's comments on demand"
+
+status = "active"
+
+requirement = """
+When an authorized user asks the web API for one ticket's comments, ADORE shall read that issue's comments from the project's forge within a bounded time and return each human comment's author, creation time and body in chronological order, omitting forge system notes; a missing issue shall return 404 ticket_not_found and a forge failure or malformed record shall return a typed error.
+"""
+
+verification = "Automated: web API tests return ordered human comments without system notes for an authorized user, 404 ticket_not_found for a missing issue, 404 project_not_found for an unassigned developer and typed 503/502 errors for failing or malformed forge output."
+
+affected_paths = ["04_Software/adore/web/app.py", "04_Software/adore/web/tickets.py"]
+
+linked_tests = ["04_Software/tests/test_web_tickets.py"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = "The ticket description and discussion explain what a job will do before it starts."        # why this behavior exists, if not obvious
+
+created = 2026-10-10
+updated = 2026-10-10

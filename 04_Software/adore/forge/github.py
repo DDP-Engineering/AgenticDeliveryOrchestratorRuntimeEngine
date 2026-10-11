@@ -94,6 +94,24 @@ class GitHubForge(Forge):
         )
         return [self._to_ticket(item) for item in self._parse_json(result, list)]
 
+    def list_open(self, limit: int) -> list[Ticket]:
+        """
+        @brief      List open issues without a label filter via `gh issue list`.
+        @param[in]  limit Maximum number of tickets (gh paginates up to it).
+        @return     Open tickets, at most `limit`.
+        @exception  ForgeError When gh fails or a record is malformed.
+        """
+        result = self._run(
+            [
+                "gh", "issue", "list",
+                "--repo", self.repo,
+                "--state", "open",
+                "--json", _ISSUE_JSON_FIELDS,
+                "--limit", str(limit),
+            ]
+        )
+        return self._open_tickets(self._parse_json(result, list), limit)
+
     def get_ticket(self, iid: int) -> Ticket | None:
         """
         @brief      Fetch one issue; None when it was deleted.

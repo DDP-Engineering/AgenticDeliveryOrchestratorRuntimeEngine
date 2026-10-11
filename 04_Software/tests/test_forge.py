@@ -1073,4 +1073,100 @@ def test_gitea_mr_comments_include_review_bodies_and_inline_comments() -> None:
     assert comments[1].author == "rev"
 
 
+# PUBLIC API / TESTS - open ticket listing
+
+
+def _gitlab_issue(iid: int, **extra: object) -> dict[str, object]:
+    """
+    @brief      One glab issue JSON record for listing tests.
+    @param[in]  iid Issue number.
+    @param[in]  extra Field overrides.
+    @return     The raw record.
+    """
+    record: dict[str, object] = {
+        "iid": iid, "title": f"Ticket {iid}", "description": "Body", "labels": ["P2"],
+        "author": {"username": "dev"}, "state": "opened",
+        "web_url": f"https://gitlab.example/i/{iid}",
+        "created_at": "2026-10-01T10:00:00Z", "updated_at": "2026-10-02T10:00:00Z",
+    }
+    record.update(extra)
+    return record
+
+
+def test_gitlab_list_open_pages_without_label_and_stops_at_limit() -> None:
+    """
+    @brief   Open listing asks for every open issue and returns at most limit.
+    """
+    first = json.dumps([_gitlab_issue(i) for i in range(1, 101)])
+    second = json.dumps([_gitlab_issue(i) for i in range(101, 151)])
+    runner = FakeRunner(_ok(first), _ok(second))
+    tickets = GitLabForge("grp/proj", runner).list_open(120)
+    assert [ticket.iid for ticket in tickets] == list(range(1, 121))
+    assert all("--label" not in call for call in runner.calls)
+    assert runner.calls[0][:3] == ["glab", "issue", "list"]
+    assert "--state" in runner.calls[0] and "opened" in runner.calls[0]
+    assert runner.calls[1][runner.calls[1].index("--page") + 1] == "2"
+
+
+def test_github_list_open_requests_limit_without_label() -> None:
+    """
+    @brief   gh listing is bounded by --limit and maps open issues.
+    """
+    payload = json.dumps([{
+        "number": 7, "title": "Docs", "body": None, "labels": [{"name": "agent-ready"}],
+        "author": {"login": "dev"}, "state": "OPEN", "url": "https://github.example/i/7",
+        "createdAt": "2026-10-01T10:00:00Z", "updatedAt": "2026-10-02T10:00:00Z",
+    }])
+    runner = FakeRunner(_ok(payload))
+    tickets = GitHubForge("owner/repo", runner).list_open(501)
+    shown = [(t.iid, t.state, t.labels, t.description) for t in tickets]
+    assert shown == [(7, "opened", ["agent-ready"], "")]
+    call = runner.calls[0]
+    assert call[:3] == ["gh", "issue", "list"] and "--label" not in call
+    assert call[call.index("--limit") + 1] == "501" and call[call.index("--state") + 1] == "open"
+
+
+def test_gitea_list_open_asks_issues_only_and_stops_at_limit() -> None:
+    """
+    @brief   tea listing excludes pull requests, has no label filter and is bounded.
+    """
+    page = json.dumps([
+        {"number": n, "title": f"T{n}", "body": "", "labels": [], "user": {"login": "dev"},
+         "state": "open", "html_url": f"https://gitea.example/i/{n}"}
+        for n in range(1, 51)
+    ])
+    total = "X-Total-Count: 120\n"
+    runner = FakeRunner(_api_ok(page, headers=total), _api_ok(page, headers=total))
+    tickets = GiteaForge("owner/repo", runner).list_open(60)
+    assert len(tickets) == 60
+    assert len(runner.calls) == 2
+    assert "type=issues" in runner.calls[0][-1] and "state=open" in runner.calls[0][-1]
+    assert "labels=" not in runner.calls[0][-1]
+
+
+@pytest.mark.parametrize("record", [
+    {"title": "missing number"},
+    {"iid": "not-a-number", "title": "bad"},
+    {"iid": 3, "title": {"html": "<b>"}},
+    {"iid": 4, "title": "labels", "labels": "agent-ready"},
+])
+def test_list_open_rejects_malformed_records(record: dict[str, object]) -> None:
+    """
+    @brief   A malformed issue record fails closed with ForgeError, never a partial list.
+    @param[in]  record Corrupt glab record.
+    """
+    runner = FakeRunner(_ok(json.dumps([_gitlab_issue(1), record])))
+    with pytest.raises(ForgeError, match="malformed issue record"):
+        GitLabForge("grp/proj", runner).list_open(10)
+
+
+def test_list_open_rejects_non_list_payload() -> None:
+    """
+    @brief   A non-list response is a ForgeError.
+    """
+    runner = FakeRunner(_ok(json.dumps({"message": "oops"})))
+    with pytest.raises(ForgeError):
+        GitLabForge("grp/proj", runner).list_open(10)
+
+
 # END OF FILE

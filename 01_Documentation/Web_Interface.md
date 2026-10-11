@@ -188,7 +188,8 @@ and forward the original scheme securely. Do not expose a plain-HTTP login
 listener on a network interface. Browser sessions use HttpOnly, SameSite cookies
 and a CSRF token. Five failed login attempts per username and client are blocked
 for ten minutes. Administrators create users and assign projects. Developers see
-only assigned projects, can start a ready ticket and retry/cancel their runs,
+only assigned projects, can start tickets (including adding the ready and
+priority labels), stop tickets and retry/cancel their runs,
 and never receive financial fields. Administrators can pause or resume new
 ticket pickup for a project; in-flight work continues. A cancel request is
 queued. While the worker runs a blocking command or project poll, it
@@ -720,8 +721,18 @@ so colliding run IDs remain distinct after reload. Closing detail clears its ID.
 
 The dedicated project header displays its name and repository path beside
 Summary, Settings, Access, Jobs, Statistics and History tabs; Access is
-Admin-only. **Jobs** starts and lists that project's jobs and opens a job's
-detail in the same tab (`/projects/<id>/jobs?run=<run_id>`), including jobs
+Admin-only. **Jobs** has two sub-tabs. **Tickets** (the default) reads the
+project's open tickets from its repository only when you press **Read tickets**,
+then lists number, title, labels and whether ADORE can start the ticket (or
+which rule blocks it, or its job's state). **Start** queues a job; when the
+ticket lacks the ready label or a priority label, it first asks you to confirm
+and to pick a priority, then adds those labels in the repository. A closed, held
+or excluded ticket, one without required acceptance criteria, or one that
+already has a job cannot be started; **Retry** re-runs a failed job; **Stop** asks for confirmation, cancels the ticket's unfinished
+job and removes its ready label so monitoring does not pick it up again;
+**Details** shows the description and loads the comments. Ticket text is shown
+as plain text. The **Jobs** sub-tab (`?view=jobs`) searches and lists the project's jobs and opens a
+job's detail in the same tab (`/projects/<id>/jobs?run=<run_id>`), including jobs
 chosen from Summary or History. **Statistics** shows that project's reporting
 period, statistics tabs and CSV exports (`/projects/<id>/statistics`). Neither
 tab repeats a project selector; worker status appears only when the worker is

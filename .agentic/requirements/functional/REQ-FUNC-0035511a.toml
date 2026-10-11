@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-FUNC-0035511a"
+
+title = "Stop a ticket by cancelling its job and removing its ready label"
+
+status = "active"
+
+requirement = """
+When an authorized user stops a ticket of an active project, ADORE shall queue cancellation of that ticket's unfinished job when one exists and remove the configured ready label from the forge issue when it is present, record the action in the audit trail, and report the queued cancellation and the label outcome separately, so that a label removal failure is reported explicitly while an already queued cancellation stays queued.
+"""
+
+verification = "Automated: web API tests stop a ticket with an active job (cancel queued, ready label removed via the forge, audit row), a ticket without a job (label only), a ticket without the ready label (nothing removed), a forge label failure after queueing (cancel queued, label failure code reported), 409 project_archived, 403 csrf_required and 404 project_not_found for an unassigned developer."
+
+affected_paths = ["04_Software/adore/web/app.py", "04_Software/adore/web/tickets.py"]
+
+linked_tests = ["04_Software/tests/test_web_tickets.py"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = "Stopping must both end current work and prevent automatic monitoring from picking the ticket up again."        # why this behavior exists, if not obvious
+
+created = 2026-10-10
+updated = 2026-10-10

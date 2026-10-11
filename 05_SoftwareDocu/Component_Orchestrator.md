@@ -18,7 +18,9 @@ After observing a human merge, the shared CLI/web conductor honors `delivery.rem
 
 ## 2. Responsibilities
 
-- select/claim forge tickets and provision worktree/container isolation;
+- select/claim forge tickets with the shared `adore.selection.ineligibility`
+  rules (open, ready label, no hold/exclude, no existing run, priority and
+  acceptance-criteria readiness) and provision worktree/container isolation;
 - create and bind active/historical AEGIS tasks;
 - launch a fresh executor session for each stage attempt;
 - journal a versioned telemetry observation for every executor launch, including

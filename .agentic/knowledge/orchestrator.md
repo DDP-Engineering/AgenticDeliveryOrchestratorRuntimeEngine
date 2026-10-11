@@ -44,7 +44,9 @@ guarded progress checkpoints default to enabled and stay on the owned ticket bra
 not open an MR/PR. Drift forces re-conduction. Failed and handed-off resources
 remain available for recovery. Cleanup works only on this project's run IDs and
 keeps active, failed, human-owned and corrupt runs' resources. Selected-ticket
-requests retain readiness, hold and exclude checks.
+requests retain readiness, hold and exclude checks. Pickup eligibility is the
+shared `adore.selection.ineligibility` rule set, which the web ticket browser
+also reports, so a ticket shown as startable is one the conductor selects.
 Worker-authorized cancellation markers interrupt a working executor gate;
 the conductor alone finalizes cancellation and clears the marker.
 At a safe boundary, a requested handoff stops autonomous work, preserves the

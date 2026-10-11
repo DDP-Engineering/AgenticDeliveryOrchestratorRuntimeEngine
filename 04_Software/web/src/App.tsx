@@ -40,6 +40,8 @@ import { jobCopy } from "./jobCopy";
 import { UserCreation, AccountAccessEditor, AccessReview, validAccount, type Account } from "./UserCreation";
 import { userCopy } from "./userCopy";
 import { DashboardShell, type ShellLink } from "./DashboardShell";
+import { TicketWorkspace } from "./TicketWorkspace";
+import { ticketCopy } from "./ticketCopy";
 import { DataFeedback, ProjectEmpty, StatusBadge, DeliveryGlossary, type DataState, type ScopedState } from "./Presentation";
 
 type User = { id: number; username: string; role: "admin" | "developer"; disabled: boolean; password_change_required?: boolean; projects?: string[] };
@@ -141,6 +143,7 @@ export default function App() {
   const [error, setError] = useState<unknown>("");
   const [passwordSession, setPasswordSession] = useState<Session | null>(null);
   const [projectTab, setProjectTab] = useState<ProjectTab>("overview");
+  const [jobsView, setJobsView] = useState<"tickets" | "jobs">("tickets");
   const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
   const [deleteName, setDeleteName] = useState("");
   const [projectsLoaded, setProjectsLoaded] = useState(false);
@@ -210,7 +213,21 @@ export default function App() {
   };
   const projectTabs: ProjectTab[] = isAdmin ? ["overview", "configuration", "access", "jobs", "statistics", "history"] : ["overview", "configuration", "jobs", "statistics", "history"];
   // Leaving a tab closes any job detail opened in the Jobs tab.
-  const selectProjectTab = (tab: ProjectTab) => { setRequestedRun(""); if (tab === "statistics" && tab !== projectTab) setMetricsTab("summary"); setProjectTab(tab); };
+  const selectProjectTab = (tab: ProjectTab) => {
+    setRequestedRun("");
+    if (tab === "statistics" && tab !== projectTab) setMetricsTab("summary");
+    // The Jobs tab opens on Tickets; job detail links select the Jobs sub-tab explicitly.
+    if (tab === "jobs" && tab !== projectTab) setJobsView("tickets");
+    setProjectTab(tab);
+  };
+  const selectJobsView = (view: "tickets" | "jobs") => { setRequestedRun(""); setJobsView(view); };
+  const onJobsViewKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const next = event.key === "Home" ? "tickets" : event.key === "End" ? "jobs" : jobsView === "tickets" ? "jobs" : "tickets";
+    selectJobsView(next);
+    document.getElementById(`jobs-subtab-${next}`)?.focus();
+  };
   const onProjectTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, tab: ProjectTab) => {
     const current = projectTabs.indexOf(tab);
     const next = event.key === "ArrowRight" ? (current + 1) % projectTabs.length :
@@ -608,7 +625,7 @@ export default function App() {
     switch (page) {
       case "overview": return jobScope ? { view: "overview", project: jobScope } : { view: "overview" };
       case "projectDetails": return selected ? { view: "projectDetails", project: selected, tab: projectTab,
-        ...(projectTab === "jobs" && requestedRun ? { run: requestedRun } : {}),
+        ...(projectTab === "jobs" ? requestedRun ? { run: requestedRun } : jobsView === "jobs" ? { jobsView: "jobs" as const } : {} : {}),
         ...(projectTab === "statistics" ? { ...reportingRoute, ...(metricsTab !== "summary" && metricsTab !== "projects" ? { metricsTab } : {}) } : {}) } : { view: "projects" };
       case "jobs": return { view: "jobs", ...reportingRoute, ...(jobScope ? { project: jobScope } : {}), ...(jobScope && requestedRun ? { run: requestedRun } : {}) };
       case "metrics": return { view: "metrics", ...reportingRoute, ...(selected && !(isAdmin && metricAllProjects) ? { project: selected } : {}), ...(metricsTab !== "summary" ? { tab: metricsTab } : {}) };
@@ -622,6 +639,7 @@ export default function App() {
     if (route.view === "jobs" || route.view === "overview") setJobScope(route.project || "");
     if ("project" in route && route.project) { routedProject.current = route.project; setSelected(route.project); }
     if (route.view === "projectDetails") setProjectTab(route.tab);
+    if (route.view === "projectDetails" && route.tab === "jobs") setJobsView(route.run || route.jobsView === "jobs" ? "jobs" : "tickets");
     if (route.view === "metrics" || route.view === "jobs" || route.view === "projectDetails" && route.tab === "statistics") {
       setMetricFrom(route.reporting?.from ?? ""); setMetricTo(route.reporting?.through ?? "");
       setMetricTimezone(route.reporting?.timezone ?? "UTC"); setMetricGranularity((route.reporting?.granularity ?? "day") as "day" | "week" | "month");
@@ -658,7 +676,7 @@ export default function App() {
     if (target === here) return;
     if (target.split("?")[0] === window.location.pathname) window.history.replaceState(null, "", target);
     else window.history.pushState(null, "", target);
-  }, [session, routeReady, page, selected, projectTab, metricsTab, metricAllProjects, requestedRun, jobScope, isAdmin, metricFrom, metricTo, metricTimezone, metricGranularity]);
+  }, [session, routeReady, page, selected, projectTab, jobsView, metricsTab, metricAllProjects, requestedRun, jobScope, isAdmin, metricFrom, metricTo, metricTimezone, metricGranularity]);
 
   useEffect(() => {
     const wanted = routedProject.current;
@@ -946,7 +964,7 @@ export default function App() {
     onOpen: (id: string, runId: string) => { setSelected(id); setJobScope(id); setRequestedRun(runId); setPage("jobs"); },
     onClose: () => setRequestedRun("") };
   const hubWorkspaceProps = { ...workspaceProps, scope: selected,
-    onOpen: (id: string, runId: string) => { setSelected(id); setRequestedRun(runId); setProjectTab("jobs"); } };
+    onOpen: (id: string, runId: string) => { setSelected(id); setRequestedRun(runId); setJobsView("jobs"); setProjectTab("jobs"); } };
   const nav: Page[] = ["overview", "projects", "jobs", "metrics"];
   const adminPages: Page[] = ["administration", "adminUsers", "adminAudit"];
 
@@ -1145,7 +1163,15 @@ export default function App() {
           </section></ProjectDeleteDialog>}
           </>}
           {projectTab === "history" && selectedProject?.id && <AuditHistory key={`${session.user.id}:${selected}`} locale={locale} projects={projects} fixedProject={selectedProject?.id} read={path => request(path)} />}
-          {projectTab === "jobs" && <JobWorkspace reporting={{ from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }} reportingQuery={metricSuffix} admin={isAdmin} {...hubWorkspaceProps} mode="jobs" run={requestedRun} fixedScope />}
+          {projectTab === "jobs" && selectedProject && <>
+            <div className="metrics-tabs jobs-subtabs" role="tablist" aria-label={ticketCopy[locale].sections}>
+              {(["tickets", "jobs"] as const).map(view => <button key={view} id={`jobs-subtab-${view}`} type="button" role="tab" aria-controls="jobs-subtab-panel" aria-selected={jobsView === view} tabIndex={jobsView === view ? 0 : -1} onClick={() => selectJobsView(view)} onKeyDown={onJobsViewKeyDown}>{ticketCopy[locale][view]}</button>)}
+            </div>
+            <div id="jobs-subtab-panel" role="tabpanel" aria-labelledby={`jobs-subtab-${jobsView}`}>
+              {jobsView === "tickets" ? <TicketWorkspace key={`${session.user.id}:${selectedProject.id}`} project={selectedProject} locale={locale} csrf={session.csrf} request={request} />
+                : <JobWorkspace reporting={{ from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }} reportingQuery={metricSuffix} admin={isAdmin} {...hubWorkspaceProps} mode="jobs" run={requestedRun} fixedScope startForm={false} />}
+            </div>
+          </>}
           {projectTab === "statistics" && statisticsView(true)}
           {projectTab === "history" && <JobWorkspace reporting={{ from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }} reportingQuery={metricSuffix} admin={isAdmin} {...hubWorkspaceProps} mode="history" fixedScope />}
           {projectTab === "configuration" && <>

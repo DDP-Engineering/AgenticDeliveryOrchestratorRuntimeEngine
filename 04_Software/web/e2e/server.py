@@ -25,7 +25,7 @@ from threading import Event, Thread
 from time import sleep
 
 from adore.profiles import ProfileStore
-from adore.state import RunState, StateStore
+from adore.state import RunState, StateStore, derive_run_id
 from adore.util import CommandResult
 import adore.web.app as web_app
 from adore.web.commands import CommandWorker
@@ -91,6 +91,9 @@ def main() -> None:
             state = StateStore(root)
             state.pause()
             state.save(RunState(run_id="historical-job", ticket_iid=1, lifecycle="done"))
+            # A failed job for fixture ticket 24, so the ticket browser offers Retry.
+            state.save(RunState(run_id=derive_run_id("gitlab", "group/subgroup/project", 24),
+                                ticket_iid=24, lifecycle="failed"))
 
         web_app._STATIC = SOFTWARE / "web" / ".e2e-dist"
         web_app.run_wizard = offline_wizard
@@ -106,11 +109,66 @@ def main() -> None:
                 "LicenseRef-PolyForm-Noncommercial-1.0.0\n", encoding="utf-8")
         probe_mode = {"mode": "failed"}
         image_runtime = ImageRuntime()
+        # Offline forge tickets shared by the fixture projects (their configs keep the
+        # example repository); Stop really removes the ready label here.
+        forge_issues = [
+                {"iid": 21, "title": "Add export button", "description": "Export the table.\n- [ ] CSV",
+                 "labels": ["agent-ready", "P2"], "author": {"username": "ana"}, "state": "opened",
+                 "web_url": "https://gitlab.example/offline/alpha/-/issues/21",
+                 "created_at": "2026-10-01T10:00:00Z", "updated_at": "2026-10-02T10:00:00Z"},
+                {"iid": 22, "title": "<img src=x onerror=alert(1)> Fix login",
+                 "description": "<script>window.__ticketInjected = true</script>Steps",
+                 "labels": ["P2"], "author": {"username": "ion"}, "state": "opened",
+                 "web_url": "javascript:alert(1)",
+                 "created_at": "2026-10-01T11:00:00Z", "updated_at": "2026-10-03T10:00:00Z"},
+                {"iid": 23, "title": "Paused migration", "description": "Waiting.", "labels": ["agent-hold"],
+                 "author": {"username": "ana"}, "state": "opened", "web_url": "",
+                 "created_at": "2026-10-01T12:00:00Z", "updated_at": "2026-10-03T11:00:00Z"},
+                {"iid": 24, "title": "Retry the flaky build", "description": "Failed once.", "labels": ["P2"],
+                 "author": {"username": "ion"}, "state": "opened", "web_url": "",
+                 "created_at": "2026-10-01T13:00:00Z", "updated_at": "2026-10-03T12:00:00Z"},
+                {"iid": 25, "title": "Unlabelled idea", "description": "Try it.", "labels": [],
+                 "author": {"username": "ana"}, "state": "opened", "web_url": "",
+                 "created_at": "2026-10-01T14:00:00Z", "updated_at": "2026-10-03T13:00:00Z"},
+        ]
+        forge_notes = {
+            21: [{"id": 1, "body": "Please keep **bold** headers", "author": {"username": "ana"},
+                  "created_at": "2026-10-02T09:00:00Z"},
+                 {"id": 2, "body": "added ~agent-ready label", "author": {"username": "bot"},
+                  "created_at": "2026-10-02T09:01:00Z", "system": True}],
+            22: [{"id": 3, "body": "<b onclick=alert(1)>urgent</b>", "author": {"username": "ion"},
+                  "created_at": "2026-10-03T09:00:00Z"}],
+        }
+
+        def fixture_forge(argv):
+            """@brief Answer glab issue reads and label edits from the offline fixture."""
+            issues = forge_issues
+            if argv[:3] == ["glab", "issue", "list"]:
+                return CommandResult(argv=argv, stdout=json.dumps(issues))
+            if argv[:3] in (["glab", "issue", "view"], ["glab", "issue", "update"]):
+                match = [item for item in issues if item["iid"] == int(argv[3])]
+                if not match:
+                    return CommandResult(argv=argv, exit_code=1, stderr="404 Not Found")
+                if argv[2] == "update":
+                    removed = {argv[i + 1] for i, word in enumerate(argv) if word == "--unlabel"}
+                    added = [argv[i + 1] for i, word in enumerate(argv) if word == "--label"]
+                    labels = [label for label in match[0]["labels"] if label not in removed]
+                    match[0]["labels"] = labels + [label for label in added if label not in labels]
+                    return CommandResult(argv=argv, stdout="")
+                return CommandResult(argv=argv, stdout=json.dumps(match[0]))
+            if argv[:2] == ["glab", "api"] and "/notes" in argv[2]:
+                iid = int(argv[2].split("/issues/")[1].split("/")[0])
+                return CommandResult(argv=argv, stdout=json.dumps(forge_notes.get(iid, [])))
+            return None
 
         def fixture_probe(argv, **_kwargs):
             """@brief Simulate explicit readiness without any external services."""
             if "image-build" in Path(_kwargs.get("cwd") or ".").parts:
                 return image_runtime(argv, **_kwargs)
+            if argv[:1] == ["glab"]:
+                answer = fixture_forge(list(argv))
+                if answer is not None:
+                    return answer
             if argv[:1] == ["git"] and "-C" in argv:
                 recipe = ("jobs:\n  setup:\n    container:\n"
                           "      image: adore-executor-project:latest\n    steps:\n"

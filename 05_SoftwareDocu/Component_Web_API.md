@@ -645,6 +645,41 @@ login. Authentication requires a successful HTTP status and a valid, unique JSON
 login identity. This supports tea versions whose whoami command has no login flag.
 
 
+## Project tickets
+
+Ticket reads happen only on explicit requests from the project Jobs tab.
+`GET /api/v1/projects/{name}/tickets` (any user with project access) reads up
+to 500 open forge issues through the project's scoped credentials within a
+60-second request deadline (30 s per CLI call) and returns `read_at`,
+`truncated`, `ready_label` and tickets with number, title, description,
+labels, author, web link, update time, `startable`/`reason` from the shared
+eligibility rules, `can_start`/`blocked_by`/`adds_ready_label`/`needs_priority`
+(what an explicit Start may add, or the rule labels cannot fix), any existing
+run's `run_id` and `lifecycle`, and the configured `priority_labels`.
+`POST /api/v1/projects/{name}/tickets/{iid}/start` (CSRF, idempotency key,
+optional `priority`; 409 `project_archived`) re-reads the ticket, adds the
+missing ready label and the chosen configured priority label, then queues the
+`start` operation and audits `ticket-start-prepared`; it returns
+`operation_id`, `status` and `labels_added`. Rules labels cannot fix return
+409 `ticket_not_startable` with the rule as message, a missing priority choice
+400 `priority_required`, and a failed label write 503 `forge_write_failed`
+with nothing queued (audited `uncertain`). Replaying the same idempotency key
+returns the original start operation; a malformed ticket record returns 502
+`forge_response_invalid`.
+`GET /api/v1/projects/{name}/tickets/{iid}/comments` returns human comments
+in forge order without system notes, or 404 `ticket_not_found`.
+`POST /api/v1/projects/{name}/tickets/{iid}/stop` (CSRF, idempotency key;
+409 `project_archived`) queues `cancel` for the ticket's unfinished run first,
+then removes the configured ready label when present, audits
+`ticket-stopped` (result `uncertain` when the label write failed) and returns
+`cancel_operation_id`, `ready_label` (`removed`/`absent`/`failed`) and
+`ready_label_error` (`forge_write_failed`, `forge_response_invalid` or a
+repository-auth code; the forge is built only after the cancel is queued).
+Forge CLI failures map to 503 `forge_read_failed`, credential problems to their
+repository-auth code, malformed forge output to 502 `forge_response_invalid`
+and an unreadable run to 503 `run_state_corrupt`; no partial list is returned. Implementation:
+`adore/web/tickets.py`; tests: `tests/test_web_tickets.py`.
+
 ## Explicit AI connection test
 
 Administrators use **Settings → Agent and model → Test AI connection** for the configured OpenCode, Pi, Codex or Qwen model. Each explicit click sends one short request in a temporary container and may incur provider charges. The project must be idle with valid saved settings and no pending configuration/operations; its installed image must contain Python and the agent.

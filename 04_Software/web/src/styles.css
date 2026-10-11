@@ -643,4 +643,18 @@ td.strong { font-weight: 800; }
 .credential-names-editor li button { min-width: 2rem; }
 .executor-endpoint { margin-top: 1.5rem; min-width: 0; }
 .executor-prices { margin-top: 1.5rem; min-width: 0; }
+.jobs-subtabs { margin-bottom: 18px; }
+.ticket-workspace { display: grid; gap: 18px; min-width: 0; }
+.ticket-toolbar { justify-content: flex-start; gap: 12px; }
+.ticket-table td { vertical-align: top; }
+.ticket-labels { display: flex; flex-wrap: wrap; gap: 6px; }
+.ticket-label { padding: 2px 8px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-alt); font-size: 0.85rem; white-space: nowrap; }
+.ticket-actions { flex-wrap: nowrap; }
+.ticket-actions button:disabled { opacity: .5; cursor: not-allowed; }
+.ticket-detail { display: grid; gap: 8px; padding: 4px 0 8px; }
+.ticket-detail h3 { margin: 8px 0 0; font-size: 1rem; }
+.ticket-text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.ticket-comments { display: grid; gap: 12px; margin: 0; padding-left: 1.2rem; }
+.ticket-stop-confirm { margin: 12px 0; padding: 12px 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-alt); }
+@media (max-width: 720px) { .ticket-actions { flex-wrap: wrap; } }
 .executor-prices h3 { margin: 0 0 0.75rem; }

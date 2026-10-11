@@ -726,10 +726,13 @@ test("project hub shows jobs and statistics as tabs without duplicated scope", a
   await hub.getByRole("tab", { name: "Jobs", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/projects/${alpha}/jobs$`));
   await expect(hub.getByRole("tab", { name: "Jobs", exact: true })).toHaveAttribute("aria-selected", "true");
-  await expect(page.locator("#job-ticket-number")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Read tickets", exact: true })).toBeVisible();
+  await expect(page.locator("#job-ticket-number")).toHaveCount(0);
   await expect(page.locator("#jobs-project")).toHaveCount(0);
   await expect(page.getByText("Jobs shown here belong to the selected project.")).toHaveCount(0);
   await expect(page.locator(".project-context")).toHaveCount(1);
+  await page.locator(".jobs-subtabs").getByRole("tab", { name: "Jobs", exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/projects/${alpha}/jobs\\?view=jobs$`));
   await expect(page.locator("#job-search")).toBeVisible();
   const firstJob = page.locator(".action-jobs-table tbody tr").first().locator("td:first-child a");
   await expect(firstJob).toHaveAttribute("href", new RegExp(`^/projects/${alpha}/jobs\\?run=`));
@@ -740,7 +743,7 @@ test("project hub shows jobs and statistics as tabs without duplicated scope", a
   await page.reload();
   await expect(page.locator(".detail-panel")).toBeVisible();
   await page.locator(".detail-panel").getByRole("button", { name: "Close", exact: true }).click();
-  await expect(page).toHaveURL(new RegExp(`/projects/${alpha}/jobs$`));
+  await expect(page).toHaveURL(new RegExp(`/projects/${alpha}/jobs\\?view=jobs$`));
   await hub.getByRole("tab", { name: "Summary", exact: true }).click();
   await page.locator(".overview-jobs-table tbody tr").first().locator("a").first().click();
   await expect(page).toHaveURL(new RegExp(`/projects/${alpha}/jobs\\?run=`));

@@ -117,6 +117,34 @@ class GitLabForge(Forge):
                 return tickets
             page += 1
 
+    def list_open(self, limit: int) -> list[Ticket]:
+        """
+        @brief      List open issues without a label filter, page by page.
+        @details    Walks pages of `_PAGE_SIZE` until a short page, `limit` items
+                    or `_MAX_LIST_PAGES`; the state is explicit as in `list_ready`.
+        @param[in]  limit Maximum number of tickets to return.
+        @return     Open tickets, at most `limit`.
+        @exception  ForgeError When glab fails or a record is malformed.
+        """
+        items: list[Any] = []
+        page = 1
+        while True:
+            result = self._run(
+                [
+                    "glab", "issue", "list",
+                    "--repo", self.repo,
+                    "--state", "opened",
+                    "--output", "json",
+                    "--per-page", str(_PAGE_SIZE),
+                    "--page", str(page),
+                ]
+            )
+            batch = self._parse_json(result, list)
+            items.extend(batch)
+            if len(batch) < _PAGE_SIZE or len(items) >= limit or page >= _MAX_LIST_PAGES:
+                return self._open_tickets(items, limit)
+            page += 1
+
     def get_ticket(self, iid: int) -> Ticket | None:
         """
         @brief      Fetch one issue; None when it was deleted.

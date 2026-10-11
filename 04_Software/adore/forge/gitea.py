@@ -469,7 +469,21 @@ class GiteaForge(Forge):
                              result.argv, result.stdout or result.stderr)
         return result
 
-    def _get_paged(self, path: str, query: dict[str, str]) -> list[dict[str, Any]]:
+    def list_open(self, limit: int) -> list[Ticket]:
+        """
+        @brief      List open issues (never pull requests) without a label filter.
+        @param[in]  limit Maximum number of tickets to return.
+        @return     Open tickets, at most `limit`.
+        @exception  ForgeError When tea fails or a record is malformed.
+        """
+        items = self._get_paged(
+            f"repos/{self.repo}/issues", {"state": "open", "type": "issues"}, max_items=limit
+        )
+        return self._open_tickets(items, limit)
+
+    def _get_paged(
+        self, path: str, query: dict[str, str], max_items: int | None = None
+    ) -> list[dict[str, Any]]:
         """
         @brief      GET a list endpoint page by page until it is exhausted.
         @details    Pages are `_PAGE_SIZE` (the Gitea MAX_RESPONSE_ITEMS floor).
@@ -479,6 +493,7 @@ class GiteaForge(Forge):
                     the header is absent, and `_MAX_LIST_PAGES` bounds runaways.
         @param[in]  path Endpoint path (no query string, no leading /).
         @param[in]  query Extra query parameters (page/limit are added here).
+        @param[in]  max_items Optional bound: stop once this many items are read.
         @return     The concatenated item list.
         @exception  ForgeError When tea fails or a page is malformed.
         """
@@ -489,7 +504,8 @@ class GiteaForge(Forge):
             result = self._api("GET", f"{path}?{urllib.parse.urlencode(params)}")
             batch = self._parse_json(result, list)
             items.extend(batch)
-            if not batch or page >= _MAX_LIST_PAGES:
+            enough = max_items is not None and len(items) >= max_items
+            if not batch or page >= _MAX_LIST_PAGES or enough:
                 return items
             total_match = _TOTAL_COUNT_RE.search(result.stderr)
             if total_match is not None:
