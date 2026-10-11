@@ -14,10 +14,10 @@ title = "Apply one project scope across Metrics tabs and exports"
 status = "active"
 
 requirement = """
-Metrics shall apply one authorized project scope across Summary, Usage, Quality, Trends, comparison tables and CSV exports. Administrators initially see All projects with pooled totals and a paginated project breakdown; selecting a project restricts all categories and exports to it while retaining period and usage filters. Developers select assigned projects only and receive no financial or global data. Aggregate quality rates use pooled cohort denominators, duration uses individual measured samples, and absent monetary evidence remains unavailable.
+Metrics shall apply one authorized project scope across Summary, Usage, Quality, Trends, comparison tables and CSV exports. Administrators initially see All projects with pooled totals and a paginated project breakdown; selecting a project restricts all categories and exports to it while retaining the reporting period. Developers select assigned projects only and receive no financial or global data. Aggregate quality rates use pooled cohort denominators, duration uses individual measured samples, and absent monetary evidence remains unavailable.
 """
 
-verification = "Manual: Compare All projects and a selected empty/nonempty project in every tab and CSV menu, check retained filters and phone layout. Offline frontend tests prove pooled cohorts, duration/timezone boundaries, nullable evidence and corrupt input; existing API RBAC tests prove developer privacy."
+verification = "Manual: Compare All projects and a selected empty/nonempty project in every tab and CSV menu, check the retained period and phone layout. Offline frontend tests prove pooled cohorts, duration/timezone boundaries, nullable evidence and corrupt input; existing API RBAC tests prove developer privacy."
 
 affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/metrics.ts", "04_Software/web/src/i18n.ts"]
 
@@ -30,4 +30,4 @@ priority = "normal"   # low | normal | high
 rationale = ""        # why this behavior exists, if not obvious
 
 created = 2026-10-01
-updated = 2026-10-01
+updated = 2026-10-11

@@ -317,15 +317,14 @@ test("statistics labels scoped evidence and shares DST scope with CSV", async ({
   await signIn(page);
   const projects = await (await page.request.get("/api/v1/projects")).json();
   const projectId = projects.find((item: { name: string }) => item.name === "alpha").id;
-  await page.goto(`/metrics?project=${projectId}`);
+  await page.goto(`/metrics?project=${projectId}&timezone=Europe%2FBucharest`);
   const tokenCard = page.locator(".stat-card").filter({ has: page.getByText("Input tokens", { exact: true }) });
   await expect(tokenCard).toContainText("\u2014");
   await page.getByLabel("From", { exact: true }).fill("2026-10-25");
-  await page.getByLabel("Through", { exact: true }).fill("2026-10-25");
   const response = page.waitForResponse(response => new URL(response.url()).pathname ===
     `/api/v1/projects/${projectId}/metrics` &&
-    response.url().includes("timezone=Europe%2FBucharest"));
-  await page.getByRole("combobox", { name: "Time zone", exact: true }).selectOption("Europe/Bucharest");
+    response.url().includes("timezone=Europe%2FBucharest") && response.url().includes("day_to=2026-10-25"));
+  await page.getByLabel("Through", { exact: true }).fill("2026-10-25");
   const scoped = await (await response).json();
   expect(scoped.scope.interval_seconds).toBe(25 * 3600);
   expect(scoped.totals.tokens_in).toBeNull();

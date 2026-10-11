@@ -6,6 +6,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 */
 import { Children, cloneElement, isValidElement, useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactElement, type ReactNode } from "react";
 import { aggregateMetrics, aggregateUsage, type Metrics, type Usage } from "./metrics";
+import { sortUsageRows, type UsageSortKey } from "./usageSort";
 import { messages, type Locale, type MessageKey } from "./i18n";
 import { ModelConnection, validModelEvidence, type ModelEvidence } from "./ModelConnection";
 import { agentSettingsCopy, executorSettingLabel, executorSelectionDraft, validExecutorSelection, validCredentialNames, credentialEditorCopy } from "./executorSettings";
@@ -115,8 +116,8 @@ export default function App() {
   const [metricAllProjects, setMetricAllProjects] = useState(true);
   const [metricsScope, setMetricsScope] = useState("");
   const [metricsTab, setMetricsTab] = useState<MetricsTab>("summary");
-  const [usageExecutor, setUsageExecutor] = useState("");
-  const [usageModel, setUsageModel] = useState("");
+  const [usageSortKey, setUsageSortKey] = useState<UsageSortKey>("date");
+  const [usageSortDescending, setUsageSortDescending] = useState(false);
   const [selectedUsage, setUsage] = useState<Usage | null>(null);
   const [usageScope, setUsageScope] = useState("");
   const [allUsage, setAllUsage] = useState<Record<string, Usage> | null>(null);
@@ -252,6 +253,10 @@ export default function App() {
     if (key === projectSortKey) setProjectSortDescending(value => !value);
     else { setProjectSortKey(key); setProjectSortDescending(false); }
   };
+  const changeUsageSort = (key: UsageSortKey) => {
+    if (key === usageSortKey) setUsageSortDescending(value => !value);
+    else { setUsageSortKey(key); setUsageSortDescending(false); }
+  };
   const selectedProject = projects.find(item => item.id === selected);
   useEffect(() => {
     if (selectedProject?.verification.status === "stale") setProjectReadiness(null);
@@ -288,10 +293,7 @@ export default function App() {
   metricParams.set("granularity", metricGranularity);
   const metricSuffix = metricParams.toString() ? `?${metricParams}` : "";
   const trendTitle = t(metricGranularity === "day" ? "dailyTrends" : metricGranularity === "week" ? "weeklyTrends" : "monthlyTrends");
-  const usageParams = new URLSearchParams(metricParams);
-  if (usageExecutor.trim()) usageParams.set("executor", usageExecutor.trim());
-  if (usageModel.trim()) usageParams.set("model", usageModel.trim());
-  const usageSuffix = usageParams.toString() ? `?${usageParams}` : "";
+  const usageSuffix = metricSuffix;
   const allProjectScope = isAdmin && metricAllProjects && page === "metrics";
   const statisticsVisible = page === "metrics" || page === "projectDetails" && projectTab === "statistics";
   // The cross-project comparison tab exists only on the global Statistics page.
@@ -708,7 +710,7 @@ export default function App() {
     setProjectSortKey("name"); setProjectSortDescending(false);
     setMetrics(null); setAllMetrics(null); setMetricFrom(""); setMetricTo("");
     setMetricAllProjects(true); setMetricsScope(""); setMetricTimezone("UTC"); setMetricGranularity("day"); setMetricsTab("summary");
-    setUsage(null); setUsageScope(""); setAllUsage(null); setUsageExecutor(""); setUsageModel("");
+    setUsage(null); setUsageScope(""); setAllUsage(null); setUsageSortKey("date"); setUsageSortDescending(false);
     setConfig(null); setPendingConfig(null); setPrices([]);
     setUsers([]); setAuditPolicy(null); setOperation(null); setOperationVisible(false);
     setWorkerStatus("checking");
@@ -831,16 +833,6 @@ export default function App() {
       return true;
     } catch (cause) { if (current()) { setError(cause); if (cause instanceof ApiError && ["unexpected_response", "network_error", "pending_config_exists"].includes(cause.code)) setPendingReadFailed(true); } return false; }
     finally { configMutation.current = false; setConfigBusy(false); }
-  };
-
-  const rebuildUsage = async () => {
-    setError("");
-    try {
-      const result = await request<{ projects: number; runs: number; usage_events: number }>(
-        "/usage/rebuild", "POST", {}, session?.csrf);
-      setNotice(`${t("usageRebuilt")}: ${formatNumber(result.usage_events)}`);
-      setUsageRefresh(current => current + 1);
-    } catch (cause) { setError(cause); }
   };
 
   const saveEndpoint = async (event: FormEvent<HTMLFormElement>) => {
@@ -994,29 +986,32 @@ export default function App() {
       </div>
     </section> : page === "metrics" && allProjectScope ? <p className="scope-note">{t("metricsAllProjects")} · {t("globalScopeHelp")}</p> : null;
 
+  const elapsed = (value: number | null) => value == null ? statisticsText.unavailable : `${formatNumber(value)} s`;
+  const usageTotals: Array<[string, string]> = usage ? [[t("usageEvents"), formatNumber(usage.totals.events)], [t("tokensIn"), formatNumber(usage.totals.tokens_in)],
+    [t("tokensOut"), formatNumber(usage.totals.tokens_out)], [t("cacheRead"), formatNumber(usage.totals.cache_read_tokens)], [t("cacheWrite"), formatNumber(usage.totals.cache_write_tokens)],
+    ...(isAdmin ? [[t("cost"), formatMoney(usage.totals.reported_cost_usd)], [t("estimatedCost"), formatMoney(usage.totals.estimated_cost_usd)]] as Array<[string, string]> : []),
+    ...(metrics ? [[t("measuredJobs"), formatNumber(metrics.duration.sampled_runs)], [t("averageSpan"), elapsed(metrics.duration.avg_span_seconds)],
+      [t("medianSpan"), elapsed(metrics.duration.median_span_seconds)]] as Array<[string, string]> : [])] : [];
+  const usageColumns: Array<[UsageSortKey, MessageKey]> = [["date", "date"], ["executor", "executor"], ["model", "model"], ["events", "usageEvents"], ["tokens_in", "tokensIn"],
+    ["tokens_out", "tokensOut"], ["cache_read_tokens", "cacheRead"], ["cache_write_tokens", "cacheWrite"], ...(isAdmin ? [["reported_cost_usd", "cost"], ["estimated_cost_usd", "estimatedCost"]] as Array<[UsageSortKey, MessageKey]> : [])];
+
   /** Statistics content; `fixed` keeps the project chosen by the project hub instead of offering a selector. */
   const statisticsView = (fixed: boolean) => <>
-        <section className="panel compact metrics-period"><div className="panel-heading"><h2>{t("reportingPeriod")}</h2>{(selected || isAdmin) && reportingDataState === "ready" && <details className="metrics-export"><summary className="ghost metrics-export-trigger">{t("exportCsv")}</summary><div className="metrics-export-links">{!allProjectScope && selected && <><a href={`/api/v1/projects/${encodeURIComponent(selected)}/metrics.csv${metricSuffix}`}>{t("projectMetricsExport")}</a><a href={`/api/v1/projects/${encodeURIComponent(selected)}/usage.csv${usageSuffix}`}>{t("projectUsageExport")}</a><a href={`/api/v1/projects/${encodeURIComponent(selected)}/jobs-usage.csv${metricSuffix}`}>{statisticsText.jobs}</a></>}{allProjectScope && <><a href={`/api/v1/metrics.csv${metricSuffix}`}>{t("allMetricsExport")}</a><a href={`/api/v1/usage.csv${usageSuffix}`}>{t("allUsageExport")}</a><a href={`/api/v1/jobs-usage.csv${metricSuffix}`}>{statisticsText.jobs}</a></>}</div></details>}</div><button className="ghost" type="button" onClick={() => { setMetricFrom(""); setMetricTo(""); }}>{statisticsText.allTime}</button><div className="job-filters">{!fixed && projects.length > 0 && <label className="metrics-project-filter" htmlFor="metrics-project">{t("project")}<select id="metrics-project" value={allProjectScope ? "" : selected} onChange={event => { setMetricAllProjects(event.target.value === ""); if (event.target.value) setSelected(event.target.value); }}>{isAdmin && <option value="">{t("metricsAllProjects")}</option>}{projects.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}<label>{t("dateFromLocal")}<input type="date" value={metricFrom} max={metricTo || undefined} onChange={event => setMetricFrom(event.target.value)} /></label><label>{t("dateToLocal")}<input type="date" value={metricTo} min={metricFrom || undefined} onChange={event => setMetricTo(event.target.value)} /></label><label>{t("reportingTimezone")}<select value={metricTimezone} onChange={event => setMetricTimezone(event.target.value)}><option value="UTC">UTC</option><option value="Europe/Bucharest">Europe/Bucharest</option><option value="Europe/Paris">Europe/Paris</option><option value="Europe/Berlin">Europe/Berlin</option><option value="America/New_York">America/New_York</option></select></label><label>{t("trendGranularity")}<select value={metricGranularity} onChange={event => setMetricGranularity(event.target.value as "day" | "week" | "month")}><option value="day">{t("byDay")}</option><option value="week">{t("byWeek")}</option><option value="month">{t("byMonth")}</option></select></label></div><p className="muted">{t("metricsScopeHelp")} {statisticsText.boundaries}</p><p className="field-hint">{statisticsText.legend}</p></section>
+        <section className="panel compact metrics-period"><div className="metrics-period-row"><h2>{t("reportingPeriod")}</h2>{!fixed && projects.length > 0 && <label className="metrics-project-filter" htmlFor="metrics-project">{t("project")}<select id="metrics-project" value={allProjectScope ? "" : selected} onChange={event => { setMetricAllProjects(event.target.value === ""); if (event.target.value) setSelected(event.target.value); }}>{isAdmin && <option value="">{t("metricsAllProjects")}</option>}{projects.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}<label>{t("dateFromLocal")}<input type="date" value={metricFrom} max={metricTo || undefined} onChange={event => setMetricFrom(event.target.value)} /></label><label>{t("dateToLocal")}<input type="date" value={metricTo} min={metricFrom || undefined} onChange={event => setMetricTo(event.target.value)} /></label><label>{t("trendGranularity")}<select value={metricGranularity} onChange={event => setMetricGranularity(event.target.value as "day" | "week" | "month")}><option value="day">{t("byDay")}</option><option value="week">{t("byWeek")}</option><option value="month">{t("byMonth")}</option></select></label><button className="ghost" type="button" onClick={() => { setMetricFrom(""); setMetricTo(""); }}>{statisticsText.allTime}</button>{(selected || isAdmin) && reportingDataState === "ready" && <details className="metrics-export"><summary className="ghost metrics-export-trigger">{t("exportCsv")}</summary><div className="metrics-export-links">{!allProjectScope && selected && <><a href={`/api/v1/projects/${encodeURIComponent(selected)}/metrics.csv${metricSuffix}`}>{t("projectMetricsExport")}</a><a href={`/api/v1/projects/${encodeURIComponent(selected)}/usage.csv${usageSuffix}`}>{t("projectUsageExport")}</a><a href={`/api/v1/projects/${encodeURIComponent(selected)}/jobs-usage.csv${metricSuffix}`}>{statisticsText.jobs}</a></>}{allProjectScope && <><a href={`/api/v1/metrics.csv${metricSuffix}`}>{t("allMetricsExport")}</a><a href={`/api/v1/usage.csv${usageSuffix}`}>{t("allUsageExport")}</a><a href={`/api/v1/jobs-usage.csv${metricSuffix}`}>{statisticsText.jobs}</a></>}</div></details>}</div></section>
         <div className="metrics-tabs" role="tablist" aria-label={t("metrics")}>
           {metricsTabs.map(tab => <button key={tab} id={`metrics-tab-${tab}`} type="button" role="tab" aria-controls="metrics-tab-panel" aria-selected={metricsTab === tab} tabIndex={metricsTab === tab ? 0 : -1} onClick={() => setMetricsTab(tab)} onKeyDown={event => onMetricsTabKeyDown(event, tab)}>{t(metricsTabLabels[tab])}</button>)}
         </div>
         <div id="metrics-tab-panel" role="tabpanel" aria-labelledby={`metrics-tab-${metricsTab}`} tabIndex={0}>
         {reportingDataState !== "ready" ? <DataFeedback state={reportingDataState} t={t} /> : <>
         {metricsTab === "usage" && <>
-        <section className="panel"><div className="panel-heading usage-heading"><h2>{t("attributedUsage")}</h2>{isAdmin && <button className="ghost" onClick={() => void rebuildUsage()}>{t("rebuildUsage")}</button>}</div>
-          <div className="job-filters"><label>{t("executor")}<input type="search" maxLength={200} value={usageExecutor} onChange={event => setUsageExecutor(event.target.value)} /></label><label>{t("model")}<input type="search" maxLength={200} value={usageModel} onChange={event => setUsageModel(event.target.value)} /></label></div>
-          <p className="muted">{t("attributedUsageHelp")}</p>
-          {usage && <p className="muted">{t("usageEvents")}: {formatNumber(usage.totals.events)} · {t("tokensIn")}: {formatNumber(usage.totals.tokens_in)} · {t("tokensOut")}: {formatNumber(usage.totals.tokens_out)} / {t("cacheRead")}: {usage.totals.cache_read_tokens == null ? "\u2014" : formatNumber(usage.totals.cache_read_tokens)} / {t("cacheWrite")}: {usage.totals.cache_write_tokens == null ? "\u2014" : formatNumber(usage.totals.cache_write_tokens)}{isAdmin && <> · {t("cost")}: {formatMoney(usage.totals.reported_cost_usd)} · {t("estimatedCost")}: {formatMoney(usage.totals.estimated_cost_usd)}</>}</p>}
-          {usage?.daily.length ? <PagedTable t={t}><table><thead><tr><th>{t("date")}</th><th>{t("executor")}</th><th>{t("model")}</th><th>{t("usageEvents")}</th><th>{t("tokensIn")}</th><th>{t("tokensOut")}</th><th>{t("cacheRead")}</th><th>{t("cacheWrite")}</th>{isAdmin && <th>{t("cost")}</th>}{isAdmin && <th>{t("estimatedCost")}</th>}</tr></thead><tbody>{usage.daily.map((row, index) => <tr key={`${row.date}-${row.executor}-${row.model}-${index}`}><td>{row.date}</td><td>{row.executor || "—"}</td><td>{row.model || "—"}</td><td>{formatNumber(row.events)}</td><td>{formatNumber(row.tokens_in)}</td><td>{formatNumber(row.tokens_out)}</td><td>{row.cache_read_tokens == null ? "\u2014" : formatNumber(row.cache_read_tokens)}</td><td>{row.cache_write_tokens == null ? "\u2014" : formatNumber(row.cache_write_tokens)}</td>{isAdmin && <td>{formatMoney(row.reported_cost_usd)}</td>}{isAdmin && <td>{formatMoney(row.estimated_cost_usd)}</td>}</tr>)}</tbody></table></PagedTable> : <Empty label={t("noMatchingMetrics")} />}
+        <section className="panel"><h2>{t("attributedUsage")}</h2>
+          {usage && <dl className="usage-totals">{usageTotals.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>}
+          {usage?.daily.length ? <PagedTable key={`${usageSortKey}-${usageSortDescending}`} t={t}><table className="usage-table"><thead><tr>{usageColumns.map(([key, label]) => <SortHeader key={key} label={t(label)} sortKey={key} activeKey={usageSortKey} descending={usageSortDescending} onSort={changeUsageSort} />)}</tr></thead><tbody>{sortUsageRows(usage.daily, usageSortKey, usageSortDescending, locale).map((row, index) => <tr key={`${row.date}-${row.executor}-${row.model}-${index}`}><td>{row.date}</td><td>{row.executor || "—"}</td><td>{row.model || "—"}</td><td>{formatNumber(row.events)}</td><td>{formatNumber(row.tokens_in)}</td><td>{formatNumber(row.tokens_out)}</td><td>{row.cache_read_tokens == null ? "\u2014" : formatNumber(row.cache_read_tokens)}</td><td>{row.cache_write_tokens == null ? "\u2014" : formatNumber(row.cache_write_tokens)}</td>{isAdmin && <td>{formatMoney(row.reported_cost_usd)}</td>}{isAdmin && <td>{formatMoney(row.estimated_cost_usd)}</td>}</tr>)}</tbody></table></PagedTable> : <Empty label={t("noMatchingMetrics")} />}
           {allProjectScope && allUsage && <><h3>{t("allProjects")}</h3><PagedTable t={t}><table><thead><tr><th>{t("project")}</th><th>{t("usageEvents")}</th><th>{t("tokensIn")}</th><th>{t("tokensOut")}</th><th>{t("cost")}</th><th>{t("estimatedCost")}</th></tr></thead><tbody>{scopedUsageRows.map(([name, item]) => <tr key={name}><td>{name}</td><td>{formatNumber(item.totals.events)}</td><td>{formatNumber(item.totals.tokens_in)}</td><td>{formatNumber(item.totals.tokens_out)}</td><td>{formatMoney(item.totals.reported_cost_usd)}</td><td>{formatMoney(item.totals.estimated_cost_usd)}</td></tr>)}</tbody></table></PagedTable></>}
-        </section></>}
+        </section>
+        </>}
         {metricsTab === "summary" && metrics && <>
-          <StatisticsEvidence reporting={{ from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }} metrics={metrics} locale={locale} admin={isAdmin} t={t} />
-          <section className="panel"><h2>{t("jobDuration")}</h2><div className="stats-grid">
-            <Stat label={t("measuredJobs")} value={formatNumber(metrics.duration.sampled_runs)} hint={statisticsText.interval} />
-            <Stat label={t("averageSpan")} value={metrics.duration.avg_span_seconds == null ? statisticsText.unavailable : `${formatNumber(metrics.duration.avg_span_seconds)} s`} hint={statisticsText.interval} />
-            <Stat label={t("medianSpan")} value={metrics.duration.median_span_seconds == null ? statisticsText.unavailable : `${formatNumber(metrics.duration.median_span_seconds)} s`} hint={statisticsText.interval} />
-          </div></section>
+          <StatisticsEvidence metrics={metrics} locale={locale} admin={isAdmin} t={t} />
           {allProjectScope && <section className="panel"><h2>{t("projectComparison")}</h2><PagedTable t={t}><table><thead><tr><th>{t("project")}</th><th>{statisticsText.started}</th><th>{statisticsText.completed}</th><th>{statisticsText.failed}</th><th>{t("tokensIn")}</th><th>{t("tokensOut")}</th></tr></thead><tbody>{globalRows.map(([name, item]) => <tr key={name}><td>{name}<small>{item.scope?.project_ids[0]}</small></td><td>{item.period.started}</td><td>{item.period.completed}</td><td>{item.period.failed}</td><td>{formatNumber(item.period.tokens_in)}</td><td>{formatNumber(item.period.tokens_out)}</td></tr>)}</tbody></table></PagedTable></section>}
         </>}
         {metricsTab === "quality" && metricsEmpty && <section className="panel"><Empty label={t("metricsNoJobs")} /></section>}{metricsTab === "quality" && !metricsEmpty && <>
@@ -1227,12 +1222,12 @@ export default function App() {
   </DashboardShell>;
 }
 
-function Stat({ label, value, hint }: { label: string; value: string; hint: string }) {
-  return <div className="stat-card"><span>{label}</span><strong>{value}</strong><small>{hint}</small></div>;
+function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return <div className="stat-card"><span>{label}</span><strong>{value}</strong>{hint && <small>{hint}</small>}</div>;
 }
 
 
-function SortHeader({ label, sortKey, activeKey, descending, onSort }: { label: string; sortKey: ProjectSortKey; activeKey: ProjectSortKey; descending: boolean; onSort: (key: ProjectSortKey) => void }) {
+function SortHeader<K extends string>({ label, sortKey, activeKey, descending, onSort }: { label: string; sortKey: K; activeKey: K; descending: boolean; onSort: (key: K) => void }) {
   const active = sortKey === activeKey;
   return <th aria-sort={active ? descending ? "descending" : "ascending" : undefined}><button type="button" className="sort-heading" onClick={() => onSort(sortKey)}>{label}<span aria-hidden="true">{active ? descending ? "↓" : "↑" : "↕"}</span></button></th>;
 }

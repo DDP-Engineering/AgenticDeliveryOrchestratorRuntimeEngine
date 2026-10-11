@@ -270,6 +270,10 @@ rendered as React text and only http(s) links open, with `noopener noreferrer`.
 The Jobs sub-tab renders `JobWorkspace` in jobs mode with a fixed scope, no start
 form and the hub's `onOpen`, so job detail stays in the tab; Statistics renders the
 shared `statisticsView(true)` without the project selector or the cross-project tab.
+`statisticsView` lays the reporting period out as one `.metrics-period-row` (project
+selector on the global page, From, Through, Group by, All time, Export CSV) with no
+time zone control (UTC unless the URL supplies one), and `StatisticsEvidence` shows no
+current-stock panel.
 Summary holds Monitoring Active/Paused status, runtime/executor and explicit
 revision-bound verification evidence. Administrators use Summary to pause or
 activate monitoring, archive/restore, and delete archived idle projects using
@@ -321,8 +325,8 @@ and estimated USD values, displays unpriced-event coverage, groups project
 totals by non-empty repository label, shows global reported/estimated daily
 amounts separately, adds a combined daily view for the selected repository,
 and links to administrator global CSV.
-The Statistics page keeps its authorized project selector, inclusive date range, IANA reporting timezone,
-day/week/month grouping and CSV export menu above five category tabs: Summary,
+The Statistics page keeps its authorized project selector, inclusive date range,
+day/week/month grouping, All time and CSV export menu in one row above five category tabs: Summary,
 Usage, Quality, Trends and administrator-only Projects. Administrators initially
 see All projects, with pooled headline totals and a paginated project breakdown
 in Summary. Selecting one project scopes every category, project/repository
@@ -331,28 +335,29 @@ project. Developers select assigned projects and receive operational data only.
 The export menu offers metrics, usage and composite job-consumption CSV files for the current scope;
 global choices appear only in administrator All projects scope. Arrow keys, Home and End switch tabs,
 and the shared controls retain their values when categories change. On compact
-screens project selection spans a full row above the four period controls in
-two rows. Switching projects retains the category and reporting parameters;
+screens the heading spans a full row and the project, date and grouping controls
+wrap below it. Switching projects retains the category and reporting parameters;
 selected-project metric/usage requests and CSV links use the new project ID.
 The filters are shared by the scoped tables and CSV links.
 The same selected interval supplies headlines, project/repository breakdowns,
 trends, quality and duration. Blank bounds explicitly select All-time. Unknown
 individual token values remain unavailable; measured zero renders zero.
 Coverage distinguishes unallocated usage and missing launch telemetry.
-Open review cards explicitly label current state. Exact usage identity filters
-remain independent of job counts. Requests discard stale responses after scope
+Open review cards explicitly label current state. Usage has no identity filters;
+`usageSort.ts` sorts its table by any column (unknown values last) through the
+shared generic `SortHeader`, and `.usage-totals` chips combine usage totals with
+job elapsed time. Requests discard stale responses after scope
 or session changes. CSV links retain identical reporting options.
 
 
-`StatisticsEvidence.tsx` explains initial started/completed/failed events, known
-input/output/total token subtotals, terminal duration samples and measurement
-coverage. Current-state active jobs are a separate stock panel. Null is Not
+`StatisticsEvidence.tsx` renders the Summary measure cards only: started/completed/
+failed events and known input/output/total token subtotals, without heading or
+explanatory text; job elapsed time appears among the Usage totals. Null is Not
 available, explicit zero is Measured zero, and known amounts with missing
 observations are labeled partial. Reported and estimated Admin money have
-separate labels and provenance. Messages remain explicitly Not available.
+separate labels.
 `TrendEvidence` displays labeled lifecycle bars and a captioned accessible table
-from the same server buckets. Four-locale `statisticsCopy.ts` explains inclusive
-local dates, exclusive next-midnight boundaries, DST and unallocated evidence.
+from the same server buckets. `statisticsCopy.ts` holds the four-locale labels.
 
 `statistics.ts` validates scope, immutable project/run IDs, nullable amounts,
 financial absence for Dev, quality counts and exact server duration samples.
@@ -362,7 +367,7 @@ values. Current metric and usage scopes must agree before presentation/export.
 The `/metrics` and `/jobs` URLs retain selected `from`, `through`, `timezone`
 and `granularity`; blank dates and the explicit All time button select all-time.
 
-The Statistics job table and Jobs list/detail identify `(project_id,run_id)`
+Jobs list/detail (not Statistics) identify `(project_id,run_id)`
 and distinguish lifetime, selected-period and unallocated evidence. Jobs reads
 usage once per visible authorized project and a separately validated all-time
 projection when dates are selected. Lifetime stays available for jobs outside
@@ -507,7 +512,7 @@ terminal jobs in the same authorized hub. The Admin-only estimated-price form si
 in the Agent and model settings group (`executorAfter` slot of `SettingsList`),
 asks only for effective date and rates, submits the applied `executor.default` and
 its configured model as hidden fields, shows set-a-model guidance when that model
-is empty, and remounts per project and configuration revision. A successful empty Statistics response shows the measured lifecycle counts and explicit unavailable consumption with an empty job table; Quality and Trends show localized empty feedback. Loading or failed reads withhold numeric cards and CSV actions.
+is empty, and remounts per project and configuration revision. A successful empty Statistics response shows the measured zero lifecycle counts and explicit unavailable consumption; Quality and Trends show localized empty feedback. Loading or failed reads withhold numeric cards and CSV actions.
 An account whose password an administrator reset signs in to a dedicated
 change-password card with the reason, language, theme and Sign out controls;
 the dashboard and its polling stay inactive until the change succeeds, after

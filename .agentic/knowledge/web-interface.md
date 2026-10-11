@@ -342,7 +342,8 @@ SQLite bytes, authorization, scope and financial redaction.
 - Shared analytical scope and contracts:
 
 Reporting scope is the authorized immutable project set, a half-open UTC
-instant interval `[from,to)`, the selected IANA timezone and day/week/month
+instant interval `[from,to)`, the reporting IANA timezone (UTC unless the URL
+supplies one; there is no time zone control) and day/week/month
 granularity. Inclusive date controls resolve each local midnight independently;
 the upper bound is midnight after `day_to`, including 23/25-hour DST days.
 Omitted bounds are unbounded; both omitted explicitly select `all_time`.
@@ -392,9 +393,9 @@ Project `/api/v1/projects/{name}/jobs-usage.csv` and Admin global
 The browser validates scoped metrics/usage before presenting evidence. Captured
 project/date/timezone/group and authorized-project keys suppress stale reads;
 metric and usage canonical scopes must agree before cards or CSV links appear.
-Summary distinguishes measured zero, unavailable and partial subtotals, lifecycle
-events, current active stock, duration samples and reported/estimated money.
-Messages remain unavailable until a genuine source exists. Server buckets feed
+Summary shows only measure cards (lifecycle events, measured zero, unavailable and
+partial token subtotals, reported/estimated money); job elapsed time is in Usage
+and per-job consumption only in Jobs. Server buckets feed
 labeled bars and the same captioned accessible table in all four locales/themes.
 Composite job consumption exposes lifetime, selected-period and undated amounts;
 Jobs/detail reads once per visible project and independently reads all-time data
@@ -655,7 +656,7 @@ administration/account pages use their own controls. Responsive rows
 keep these controls visible while content begins with page data. Metric hints,
 usage actions and account rows wrap on narrow screens.
 Statistics keeps its authorized project selector with the common reporting range,
-timezone, grouping and CSV menu above keyboard-operable Summary, Usage, Quality,
+grouping, All time and CSV menu in one row above keyboard-operable Summary, Usage, Quality,
 Trends and administrator-only Projects tabs. Administrators use All projects
 scope for pooled totals and comparisons.
 Every category and CSV menu follows that scope; single-project mode limits
@@ -663,8 +664,9 @@ comparison rows and developer mode exposes assigned-project operational data.
 Summary includes a paginated project breakdown in All projects scope.
 `04_Software/web/src/metrics.ts` pools counters, nullable evidence, quality cohorts and
 terminal duration samples; `04_Software/web/tests/metrics.test.mjs` verifies it offline.
-Developer export choices remain project-scoped and omit money; usage
-exports also carry the Usage tab's executor/model filters. Compact layouts put
+Developer export choices remain project-scoped and omit money. The Usage tab
+has no executor/model filters (the API parameters remain); its table sorts by
+column and its totals row includes job elapsed time. Compact layouts put
 the shared reporting controls in two rows.
 Session clearing also returns the shell to Overview, preventing a blank
 administrator-only page after a developer signs in. Successful asynchronous

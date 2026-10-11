@@ -334,7 +334,9 @@ states. A queued command is waiting for the worker. Its actual operation result
 then shows completed, failed or uncertain; unreadable status leaves completion
 unknown. A completed command alone does not establish a successful job or merge.
 
-Statistics places its scope selector with the common reporting period controls.
+Statistics shows its reporting period in one row: the project selector (on the
+global page), From, Through, Group by, **All time** and **Export CSV**. Periods
+use UTC; a statistics link may carry another IANA time zone.
 Changing projects retains the reporting period and category tab. Administrators
 start with **All projects**, showing overall Summary totals and a project table.
 Selecting one project applies to every category and export, including project
@@ -677,8 +679,9 @@ test reachability or add cloud fallback. An acceptance probe using OpenCode
 OpenAI-compatible server on an internal Docker network with no Internet route.
 Your deployment still needs a URL reachable from its own executor container.
 Other executors and protocols require their own configuration and image preparation.
-On Statistics, an administrator can select **Rebuild usage history** to reconcile
-retained journal usage and launch coverage into the local SQLite projection.
+Every Statistics read reconciles retained journal usage and launch coverage into
+the local SQLite projection; administrators can also call
+`POST /api/v1/usage/rebuild` to reconcile every project at once.
 The per-run cursor records the ingested journal length and digest. Repeating
 the action does not add duplicate events or alter jobs; changed or missing journal
 evidence returns an error for operator review. Archived projects are included.
@@ -793,26 +796,29 @@ fields for the observed timeline. Existing project run API routes remain compati
 [the job component contract](../05_SoftwareDocu/Component_Web_Jobs.md) for field
 coverage, strict URL validation and source-change semantics.
 
-Statistics keeps shared project, date, timezone and grouping controls above
+Statistics keeps shared project, date and grouping controls above
 Summary, Usage, Quality, Trends and Projects. Use **All time** to clear both date bounds; blank dates select All-time;
-selected dates apply to every statistic and export. Usage additionally supports
-exact executor/model filters; job counts remain independent of those identities.
+selected dates apply to every statistic and export. Usage shows its totals and
+job elapsed time (measured jobs, average, median) as one row of compact values;
+click any usage table column heading to sort it, again to reverse; unknown values
+stay last.
 Unknown values show a dash, measured zero shows 0, source errors show failed
 load, and unallocated usage is explicitly counted. Open reviews are current
 state. These controls preserve four-language guidance.
 
-Summary starts with jobs started, completed and failed, known input/output/total
-tokens, coverage and measured duration samples. Completed includes all terminal
-outcomes, and each lifecycle count uses its actual event time. **Current state ·
-active now** is separate from interval events. **Not available**, **Measured zero**
+Summary shows only the measure cards: jobs started, completed and failed and
+known input/output/total tokens. Completed includes all terminal
+outcomes, and each lifecycle count uses its actual event time; jobs active right
+now are shown on the project Summary and Overview. **Not available**, **Measured zero**
 and **Partial · known subtotal** distinguish unavailable, observed zero and known
 amounts with incomplete coverage. A total requires both known token directions;
 known subtotals and observation counts do not assert a complete bill. Reported
 cost is observed evidence; estimated cost uses saved executor/model prices and
 remains separate. All financial evidence and exports remain Admin-only.
 
-Job consumption shows immutable Project ID and Run ID, lifetime, selected period,
-unallocated observations and source. Jobs list/details reuse the reporting dates,
+Usage adds job elapsed time (measured jobs, average and median elapsed).
+Per-job consumption appears in Jobs: the list and job details show lifetime and
+selected-period amounts by immutable Project ID and Run ID, reusing the reporting dates,
 timezone and grouping, with a link back to Statistics. A separate all-time read
 retains lifetime evidence outside a selected period; absent period projections
 show Not available. The export menu includes **Job consumption** CSV for the
@@ -823,11 +829,10 @@ Trends displays readable lifecycle bars and a captioned accessible table of the
 same server rows. Empty periods have explicit empty feedback. Loading, failed,
 malformed or incompatible responses withhold numerical presentations and exports;
 old responses cannot overwrite a newer selection or removed project access.
-**Messages** explicitly says **Not available** while real message collection is
-unavailable; executor launches do not supply message counts.
 
 Reporting scope is the authorized immutable project set, a half-open UTC
-instant interval `[from,to)`, the selected IANA timezone and day/week/month
+instant interval `[from,to)`, the reporting IANA timezone (UTC unless the link
+supplies one) and day/week/month
 granularity. Inclusive date controls resolve each local midnight independently;
 the upper bound is midnight after `day_to`, including 23/25-hour DST days.
 Omitted bounds are unbounded; both omitted explicitly select `all_time`.

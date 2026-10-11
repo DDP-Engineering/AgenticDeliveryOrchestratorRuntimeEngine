@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-aa9f0f6c"
+
+title = "Show the statistics reporting period as one compact row"
+
+status = "active"
+
+requirement = """
+While a user views statistics, the reporting period shall occupy one compact row holding its heading, the project selector on the global page, the From and Through dates, the grouping, an All time action aligned with those fields and the CSV export, without a time zone selector or explanatory paragraphs; the period uses UTC unless the statistics URL supplies another IANA time zone, and the Summary shows only the measure cards (no current-state panel, heading, scope line or explanatory text).
+"""
+
+verification = "Automated: e2e opens project and global statistics, finds From, Through, Group by, All time and Export CSV in one row of the reporting period with All time aligned to the fields, no Time zone control, no boundary/legend paragraphs and no Current state panel; a URL with timezone=Europe/Bucharest still scopes the requests and CSV links to that zone."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/StatisticsEvidence.tsx", "04_Software/web/src/styles.css", "04_Software/web/src/i18n.ts", "04_Software/web/src/statisticsCopy.ts", "04_Software/adore/web/static/"]
+
+linked_tests = ["04_Software/web/e2e/statistics.spec.ts", "04_Software/web/e2e/shell.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-11
+updated = 2026-10-11

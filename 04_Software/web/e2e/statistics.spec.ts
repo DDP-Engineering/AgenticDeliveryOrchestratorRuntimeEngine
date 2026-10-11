@@ -41,32 +41,100 @@ function analytical(value: any, input = 7) {
   Object.assign(result.coverage, { usage_events_with_tokens: 1, usage_events_without_tokens: 1, usage_events_unallocated: 1 });
   return result;
 }
-test("statistics initial measures, explicit all-time, scope hints and message availability", async ({ page }) => {
+test("statistics summary shows only measures, compact period and job elapsed time in Usage", async ({ page }) => {
   await signIn(page);
   await page.goto("/metrics");
   await expect(page.getByRole("button", { name: "All time", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Selected-period evidence", exact: true })).toBeVisible();
   await expect(page.locator(".statistics-evidence").getByText("Started jobs", { exact: true })).toBeVisible();
   await expect(page.locator(".statistics-evidence").getByText("Failed jobs", { exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Current state · active now" })).toBeVisible();
-  await expect(page.getByRole("region", { name: "Messages" })).toContainText("Not available");
-  await expect(page.getByText(/next local midnight/)).toBeVisible();
+  // Summary keeps only the measures: no heading, scope line, explanations, Messages, consumption or duration.
+  await expect(page.getByRole("heading", { name: "Selected-period evidence", exact: true })).toHaveCount(0);
+  await expect(page.getByText(/^All time · UTC$/)).toHaveCount(0);
+  await expect(page.getByText(/Started means/)).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Messages" })).toHaveCount(0);
+  await expect(page.locator(".job-consumption")).toHaveCount(0);
+  await expect(page.getByText("Average elapsed", { exact: true })).toHaveCount(0);
+  // Usage totals carry job elapsed time; per-job consumption lives only in the Jobs tab.
+  await page.getByRole("tab", { name: "Usage", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Job elapsed time", exact: true })).toHaveCount(0);
+  await expect(page.getByText("Average elapsed", { exact: true })).toBeVisible();
+  // Usage has no identity filters, filter help or rebuild action; totals are compact chips.
+  await expect(page.getByLabel("Executor", { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel("Model", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Rebuild usage history", exact: true })).toHaveCount(0);
+  await expect(page.getByText(/Executor and model filters/)).toHaveCount(0);
+  await expect(page.locator(".usage-totals").first().getByText("Usage events", { exact: true })).toBeVisible();
+  await expect(page.locator(".usage-totals").first().getByText("Median elapsed", { exact: true })).toBeVisible();
+  await expect(page.locator(".job-consumption")).toHaveCount(0);
+  await page.getByRole("tab", { name: "Summary", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Current state · active now" })).toHaveCount(0);
+  await expect(page.getByText(/next local midnight/)).toHaveCount(0);
+  await expect(page.getByText(/= Measured zero/)).toHaveCount(0);
+  await expect(page.getByRole("combobox", { name: "Time zone", exact: true })).toHaveCount(0);
+  // The reporting period is one compact row with All time aligned to the fields.
+  const row = page.locator(".metrics-period-row");
+  for (const control of [row.getByLabel("From", { exact: true }), row.getByLabel("Through", { exact: true }),
+    row.getByRole("combobox", { name: "Group by", exact: true }), row.getByRole("button", { name: "All time", exact: true }),
+    row.getByText("Export CSV", { exact: true })]) await expect(control).toBeVisible();
+  const field = (await row.getByLabel("From", { exact: true }).boundingBox())!;
+  const allTime = (await row.getByRole("button", { name: "All time", exact: true }).boundingBox())!;
+  expect(Math.abs(field.y + field.height - (allTime.y + allTime.height))).toBeLessThan(4);
+  const period = (await page.locator(".metrics-period").boundingBox())!;
+  expect(period.height).toBeLessThan(140);
+  await expect(row.locator("#metrics-project")).toBeVisible();
+  // The project hub Statistics tab uses the same compact row without a project selector.
+  const alpha = (await (await page.request.get("/api/v1/projects")).json()).find((item: any) => item.name === "alpha").id;
+  await page.goto(`/projects/${alpha}/statistics`);
+  const hubRow = page.locator(".metrics-period-row");
+  await expect(hubRow.getByRole("button", { name: "All time", exact: true })).toBeVisible();
+  await expect(hubRow.locator("#metrics-project")).toHaveCount(0);
+  await expect(page.getByRole("combobox", { name: "Time zone", exact: true })).toHaveCount(0);
+  expect((await page.locator(".metrics-period").boundingBox())!.height).toBeLessThan(140);
+});
+
+test("usage table sorts by column with unknown values last", async ({ page }) => {
+  await signIn(page);
+  const alpha = (await (await page.request.get("/api/v1/projects")).json()).find((item: any) => item.name === "alpha").id;
+  const row = (date: string, executor: string | null, input: number) => ({ date, executor, model: executor && "m", events: 1, tokens_in: input,
+    tokens_out: 0, cache_read_tokens: null, cache_write_tokens: null, reported_cost_usd: null, estimated_cost_usd: null });
+  await page.route("**/api/v1/projects/*/usage?*", async route => {
+    const value = await (await route.fetch()).json();
+    value.daily = [row("2026-10-01", "pi", 30), row("2026-10-02", null, 10), row("2026-10-03", "codex", 20)];
+    await route.fulfill({ json: value });
+  });
+  await page.goto(`/projects/${alpha}/statistics?tab=usage`);
+  const inputs = page.locator(".usage-table tbody td:nth-child(5)"), executors = page.locator(".usage-table tbody td:nth-child(2)");
+  await expect(page.getByRole("columnheader", { name: "Date", exact: true })).toHaveAttribute("aria-sort", "ascending");
+  await expect(inputs).toHaveText(["30", "10", "20"]);
+  const input = page.getByRole("columnheader", { name: "Input tokens", exact: true });
+  await input.getByRole("button").click();
+  await expect(input).toHaveAttribute("aria-sort", "ascending"); await expect(inputs).toHaveText(["10", "20", "30"]);
+  await input.getByRole("button").click();
+  await expect(input).toHaveAttribute("aria-sort", "descending"); await expect(inputs).toHaveText(["30", "20", "10"]);
+  const executor = page.getByRole("columnheader", { name: "Executor", exact: true });
+  await executor.getByRole("button").click(); await expect(executors).toHaveText(["codex", "pi", "—"]);
+  await executor.getByRole("button").click(); await expect(executors).toHaveText(["pi", "codex", "—"]);
 });
 
 test("captured scope follows project, inclusive dates, DST, grouping, CSV and reload", async ({ page }) => {
   await signIn(page); const projects = await (await page.request.get("/api/v1/projects")).json();
   const alpha = projects.find((item: any) => item.name === "alpha").id, beta = projects.find((item: any) => item.name === "beta").id;
-  await page.goto(`/metrics?project=${alpha}`);
+  // The time zone comes only from the URL now; UTC is the default.
+  await page.goto(`/metrics?project=${alpha}&timezone=Europe%2FBucharest`);
   await page.getByLabel("From", { exact: true }).fill("2026-10-25"); await page.getByLabel("Through", { exact: true }).fill("2026-10-25");
-  await page.getByRole("combobox", { name: "Time zone", exact: true }).selectOption("Europe/Bucharest");
+  const read = (id: string, part: string) => page.waitForResponse(response => new URL(response.url()).pathname ===
+    `/api/v1/projects/${id}/metrics` && response.url().includes(part));
+  const weekly = read(alpha, "granularity=week");
   await page.getByRole("combobox", { name: "Group by", exact: true }).selectOption("week");
-  await expect(page.locator(".canonical-scope")).toContainText("90000 s");
+  expect((await (await weekly).json()).scope.interval_seconds).toBe(90000);
+  const betaRead = read(beta, "day_to=2026-10-25");
   await page.locator("#metrics-project").selectOption(beta);
+  expect((await (await betaRead).json()).scope.from).toBe("2026-10-24T21:00:00+00:00");
+  await page.getByRole("tab", { name: "Trends", exact: true }).click();
+  await expect(page.getByText(messages.en.metricsNoJobs, { exact: true })).toBeVisible();
+  await page.getByRole("tab", { name: "Summary", exact: true }).click();
   await expect(page.locator(".statistics-evidence .stat-card").filter({ has: page.getByText("Started jobs", { exact: true }) })).toContainText("0");
   await expect(page.locator(".statistics-evidence .stat-card").filter({ has: page.getByText("Input tokens", { exact: true }) })).toContainText("—Not available");
-  await expect(page.getByText(statisticsCopy.en.empty, { exact: true })).toBeVisible();
-  await expect(page.locator(".current-stock")).toContainText("active now");
-  await expect(page.locator(".canonical-scope")).toContainText("2026-10-24T21:00:00+00:00");
   await page.getByText("Export CSV", { exact: true }).click();
   for (const name of ["Project metrics", "Project usage", "Job consumption"]) {
     const href = (await page.getByRole("link", { name, exact: true }).getAttribute("href"))!;
@@ -78,7 +146,7 @@ test("captured scope follows project, inclusive dates, DST, grouping, CSV and re
     const scoped = JSON.parse(exported.headers()["x-adore-scope"])[0]; expect(scoped.project_ids).toEqual([beta]); expect(scoped.interval_seconds).toBe(90000);
   }
   await page.reload(); await expect(page.getByLabel("From", { exact: true })).toHaveValue("2026-10-25");
-  await expect(page.getByRole("combobox", { name: "Time zone", exact: true })).toHaveValue("Europe/Bucharest");
+  await expect(page).toHaveURL(/timezone=Europe%2FBucharest/);
   await expect(page.getByRole("combobox", { name: "Group by", exact: true })).toHaveValue("week");
   await page.getByRole("button", { name: "All time", exact: true }).click();
   await expect(page.getByLabel("From", { exact: true })).toHaveValue(""); await expect(page.getByLabel("Through", { exact: true })).toHaveValue("");
@@ -125,7 +193,7 @@ test("corrupt and aborted responses expose error without false zero or stale exp
   await expect(page.locator(".statistics-evidence")).toHaveCount(0); await expect(page.getByRole("alert").first()).toBeVisible();
 });
 
-test("composite jobs, known zero, partial coverage and chart table parity work in four locales and themes at 390px", async ({ page }) => {
+test("known zero, partial coverage, job duration and chart table parity work in four locales and themes at 390px", async ({ page }) => {
   const errors: string[] = []; page.on("pageerror", error => errors.push(error.message));
   await signIn(page);
   await page.route("**/api/v1/metrics?*", async route => {
@@ -138,11 +206,10 @@ test("composite jobs, known zero, partial coverage and chart table parity work i
     const copy = statisticsCopy[locale];
     expect((await page.request.patch("/api/v1/me/preferences", { headers: { "X-CSRF-Token": me.csrf }, data: { language: locale, theme } })).ok()).toBe(true);
     await page.setViewportSize({ width: 390, height: 900 }); await page.goto("/metrics");
-    await expect(page.getByRole("heading", { name: copy.evidence, exact: true })).toBeVisible();
     await expect(page.locator(".statistics-evidence")).toContainText(copy.partial);
-    const rows = page.locator(".consumption-table tbody tr"); await expect(rows).toHaveCount(cohort);
-    const identities = await page.locator(".consumption-table .job-consumption").evaluateAll(nodes => nodes.map(node => node.getAttribute("data-identity")));
-    expect(new Set(identities).size).toBe(cohort); await expect(rows.first()).toContainText(copy.zero);
+    await page.getByRole("tab", { name: messages[locale].metricsTabUsage, exact: true }).click();
+    await expect(page.locator(".usage-totals").first()).toContainText(messages[locale].averageSpan);
+    await expect(page.locator(".job-consumption")).toHaveCount(0);
     await page.getByRole("tab", { name: messages[locale].metricsTabTrends, exact: true }).click();
     const chart = page.getByRole("figure", { name: copy.trend }); await expect(chart).toBeVisible();
     const table = page.getByRole("table", { name: copy.table }); await expect(table).toBeVisible();
@@ -162,13 +229,6 @@ test("job list and direct detail share selected-period and lifetime consumption 
     const value = await (await route.fetch()).json(); const id = value.scope.project_ids[0]; value.jobs = new URL(route.request().url()).searchParams.has("day_from") ? [] : [consumption(id, id.startsWith("a") ? 0 : 7)]; await route.fulfill({ json: value });
   });
   const alpha = (await (await page.request.get("/api/v1/projects")).json()).find((item: any) => item.name === "alpha").id;
-  await page.route("**/api/v1/projects/*/metrics?*", async route => route.fulfill({ json: analytical(await (await route.fetch()).json()) }));
-  await page.goto(`/metrics?project=${alpha}&from=2026-10-25&through=2026-10-25&timezone=Europe%2FBucharest&granularity=week`);
-  const destination = page.locator(".consumption-table").getByRole("link", { name: "ux-working", exact: true });
-  await expect(destination).toBeVisible();
-  const selection = new URL((await destination.getAttribute("href"))!, "http://localhost").searchParams;
-  expect(selection.get("from")).toBe("2026-10-25"); expect(selection.get("through")).toBe("2026-10-25");
-  expect(selection.get("timezone")).toBe("Europe/Bucharest"); expect(selection.get("granularity")).toBe("week");
   await page.goto("/jobs");
   await page.getByRole("combobox", { name: "Rows per page", exact: true }).selectOption("all");
   const collisions = page.locator('.action-jobs-table .job-consumption').filter({ hasText: "ux-working" }); await expect(collisions).toHaveCount(2);
@@ -196,7 +256,6 @@ test("Dev direct statistics and CSV remain nonfinancial and denied project route
   expect((await page.request.get("/api/v1/metrics.csv")).status()).toBe(403);
   expect((await page.request.get("/api/v1/projects/beta/usage.csv")).status()).toBe(404);
   await page.goto("/metrics?project=beta"); await expect(page.getByRole("alert").first()).toBeVisible();
-  await expect(page.locator(".consumption-table")).not.toContainText("beta");
 });
 
 test("revoked Dev grant hides earlier values and discards an authorized response captured before revocation", async ({ page, request }) => {

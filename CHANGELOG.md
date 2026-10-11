@@ -22,6 +22,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Compact Statistics: the reporting period is one row (project, From, Through, Group by, All time, Export CSV) without the time zone selector or explanatory text, and Summary shows only the measure cards (no current-state count, heading, scope line, explanations or Messages); job elapsed time joins the Usage totals as compact values and the per-job consumption table is removed because Jobs already shows it; the Usage table sorts by column instead of executor/model filters, and the redundant Rebuild usage history button is removed (reads already reconcile usage); periods use UTC unless the link supplies a time zone.
+
 - Order project hub tabs Summary, Settings, Jobs, Statistics, History, Access.
 
 - Show a project's Jobs and Statistics as tabs inside its project hub, with job detail opening in the Jobs tab and no repeated project selector or scope panel; Overview, Jobs and Statistics pages identify their scope only through their own Project selector.

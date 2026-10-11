@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-e9787971"
+
+title = "Sort and summarize Statistics usage compactly"
+
+status = "active"
+
+requirement = """
+While a user views the Statistics Usage tab, the interface shall show the period usage totals and the job elapsed-time values (measured jobs, average and median) together as one row of compact label and bold-value items, and shall let the user sort the usage table by any column in both directions with unknown values last, without executor or model filter inputs, filter explanations or a rebuild action.
+"""
+
+verification = "Automated: unit tests sort numeric and text usage columns both ways with unknown values last and the input unchanged; e2e opens Usage, finds usage events and elapsed-time items in .usage-totals, no Executor/Model inputs, filter help, Rebuild button or separate elapsed-time section, and sorts a mocked table by Input tokens and Executor with aria-sort and unknown executors last."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/usageSort.ts", "04_Software/web/src/i18n.ts", "04_Software/web/src/styles.css", "04_Software/adore/web/static/"]
+
+linked_tests = ["04_Software/web/tests/usageSort.test.mjs", "04_Software/web/e2e/statistics.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-11
+updated = 2026-10-11

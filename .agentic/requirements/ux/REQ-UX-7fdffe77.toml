@@ -14,10 +14,10 @@ title = "Distinguish successful empty statistics from unavailable measurements"
 status = "active"
 
 requirement = """
-When a successfully validated Statistics scope contains no jobs, Summary shall explain the empty job evidence while retaining measured lifecycle counts, separately named current stock and unavailable token/duration evidence. Quality and Trends shall show localized empty feedback. Reporting controls, Usage and Projects remain available. Pending, failed or corrupt reads shall hide numeric presentations and exports.
+When a successfully validated Statistics scope contains no jobs, Summary shall retain measured zero lifecycle counts and unavailable token evidence without explanatory text, and Quality and Trends shall show localized empty feedback. Reporting controls, Usage and Projects remain available. Pending, failed or corrupt reads shall hide numeric presentations and exports.
 """
 
-verification = "Offline Chromium selects an empty local interval, asserts zero lifecycle versus unavailable tokens, empty job evidence and independent current stock, then selects nonempty evidence; abort/corrupt response tests require errors without totals or exports."
+verification = "Offline Chromium selects an empty local interval, asserts zero lifecycle versus unavailable tokens and the Trends empty feedback, then selects nonempty evidence; abort/corrupt response tests require errors without totals or exports."
 
 affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/StatisticsEvidence.tsx", "04_Software/web/src/statisticsCopy.ts", "04_Software/adore/web/static/"]
 
@@ -30,4 +30,4 @@ priority = "normal"   # low | normal | high
 rationale = ""        # why this behavior exists, if not obvious
 
 created = 2026-10-03
-updated = 2026-10-06
+updated = 2026-10-11

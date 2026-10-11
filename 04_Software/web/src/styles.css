@@ -165,12 +165,20 @@ summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 .sort-heading { display: inline-flex; align-items: center; gap: 6px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer; white-space: nowrap; }
 .sort-heading:hover { color: var(--accent-deep); }
 .sort-heading:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.usage-totals { display: flex; flex-wrap: wrap; gap: 6px 8px; margin: 0 0 14px; }
+.usage-totals div { display: flex; align-items: baseline; gap: 6px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-alt); }
+.usage-totals dt { color: var(--muted); font-size: .82rem; }
+.usage-totals dd { margin: 0; font-weight: 700; }
 .project-row-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-width: 250px; }
 .project-row-actions .text-button { white-space: nowrap; }
 .panel { padding: 22px; margin-bottom: 20px; min-width: 0; }
 .panel.compact { padding: 16px 22px; }
 .panel-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; }
 .metrics-export { position: relative; flex: none; }
+.metrics-period-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+.metrics-period-row h2 { margin: 0 4px 0 0; align-self: center; font-size: 1.05rem; white-space: nowrap; }
+.metrics-period-row label { flex: 1 1 125px; min-width: 0; max-width: 190px; }
+.metrics-period-row .metrics-export { margin-left: auto; }
 .metrics-export-trigger { cursor: pointer; list-style: none; }
 .metrics-export-trigger::-webkit-details-marker { display: none; }
 .metrics-export-links { position: absolute; z-index: 3; right: 0; top: calc(100% + 6px); display: grid; min-width: min(245px, 75vw); padding: 6px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); box-shadow: var(--shadow); }
@@ -180,7 +188,6 @@ summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 .metrics-tabs button { min-height: 42px; padding: 9px 15px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--muted); font-size: .88rem; font-weight: 700; cursor: pointer; }
 .metrics-tabs button[aria-selected="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-deep); }
 .metrics-tabs button:focus-visible, .metrics-export-trigger:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-.metrics-period .job-filters label { flex: 1 1 185px; width: auto; min-width: 0; max-width: 220px; }
 .metrics-project-heading { flex-wrap: wrap; }
 .job-filters { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
 .job-filters label { width: min(220px, 100%); }
@@ -351,12 +358,9 @@ td.strong { font-weight: 800; }
   .topbar-title { color: var(--text); font-size: .95rem; }
   .topbar-title span { display: none; }
   .top-actions { flex-wrap: wrap; justify-content: flex-end; }
-  .usage-heading { flex-wrap: wrap; }
-  .usage-heading h2 { flex: 1 0 100%; }
-  .metrics-period .job-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-  .metrics-period .job-filters label { width: auto; min-width: 0; }
-  .metrics-period .job-filters .metrics-project-filter { grid-column: 1 / -1; max-width: none; }
   .metrics-period input, .metrics-period select { min-width: 0; padding-inline: 7px; }
+  .metrics-period-row label { flex: 1 1 140px; }
+  .metrics-period-row h2 { flex-basis: 100%; }
   .metrics-tabs { gap: 6px; }
   .metrics-tabs button { padding: 8px 11px; }
   .user-row { display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: center; }
@@ -450,8 +454,6 @@ td.strong { font-weight: 800; }
 .measurement small, .job-consumption > small { display: block; color: var(--muted); font-size: .8rem; }
 .job-consumption { display: grid; gap: .6rem; overflow-wrap: anywhere; }
 .job-amount { display: grid; gap: .3rem; }
-.canonical-scope { overflow-wrap: anywhere; }
-.current-stock > strong { font-size: 2rem; }
 .statistics-trend { margin: 1rem 0; }
 .statistics-trend figcaption, table caption { text-align: left; font-weight: 600; padding: .6rem 0; }
 .trend-bucket { display: grid; gap: .3rem; padding: .75rem 0; border-bottom: 1px solid var(--border); }
@@ -460,8 +462,6 @@ td.strong { font-weight: 800; }
 .trend-track i { display: block; height: 100%; background: var(--accent); }
 .trend-failed .trend-track i { background: #b45309; }
 .trend-completed .trend-track i { background: #43846d; }
-.consumption-table td { min-width: 9rem; vertical-align: top; }
-.consumption-table td:last-child { min-width: 21rem; }
 @media (max-width: 600px) {
   .trend-series { grid-template-columns: 1fr; }
   .statistics-evidence .stats-grid { grid-template-columns: 1fr; }

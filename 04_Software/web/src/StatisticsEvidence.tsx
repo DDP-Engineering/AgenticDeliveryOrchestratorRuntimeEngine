@@ -8,9 +8,8 @@ import type { Locale, MessageKey } from "./i18n";
 import type { Amounts, JobConsumption, Metrics } from "./metrics";
 import { consumptionIdentity, totalTokens } from "./statistics";
 import { statisticsCopy } from "./statisticsCopy";
-import { formatRoute } from "./routes";
 
-type Props = { reporting?: import("./statistics").ReportingSelection; metrics: Metrics; locale: Locale; admin: boolean; t: (key: MessageKey) => string };
+type Props = { metrics: Metrics; locale: Locale; admin: boolean; t: (key: MessageKey) => string };
 /** Nullable measurements retain their visible status; zero is observed evidence. */
 export function Measurement({ value, locale, partial = false, money = false }: { value: number | null | undefined; locale: Locale; partial?: boolean; money?: boolean }) {
   const copy = statisticsCopy[locale];
@@ -26,24 +25,17 @@ export function JobAmounts({ job, locale, admin, t, compact = false, periodAvail
     {amount(copy.lifetime, job.lifetime)}{periodAvailable ? amount(copy.selected, job.in_period) : <div><b>{copy.selected}</b><p>{copy.unavailable} · {copy.missingJob}</p></div>}{!compact && amount(copy.undated, job.unallocated)}<small>{copy.source}: {{ journal: copy.sourceJournal, summary: copy.sourceSummary, unavailable: copy.sourceUnavailable }[job.source]}</small></div>;
 }
 
-/** Explain initial measures, stock and immutable job consumption from the server-selected interval. */
-export function StatisticsEvidence({ metrics, locale, admin, t, reporting }: Props) {
+/** Summary measures for the server-selected interval; per-job consumption lives in Jobs. */
+export function StatisticsEvidence({ metrics, locale, admin, t }: Props) {
   const copy = statisticsCopy[locale], partial = (metrics.coverage.usage_events_without_tokens ?? 0) > 0;
   const period = metrics.period;
   const cards = [[copy.started, period.started], [copy.completed, period.completed], [copy.failed, period.failed],
     [t("tokensIn"), period.tokens_in], [t("tokensOut"), period.tokens_out], [copy.total, totalTokens(period)]] as const;
-  return <>
-    <section className="panel statistics-evidence"><h2>{copy.evidence}</h2><p className="muted">{metrics.scope?.mode === "all_time" ? copy.allTime : copy.interval} · {metrics.scope?.timezone}</p>
-      <div className="stats-grid">{cards.map(([label, value], index) => <div className="stat-card" key={label}><span>{label}</span>{index < 3 ? <strong>{value}</strong> : <Measurement value={value} locale={locale} partial={partial} />}</div>)}
-        {admin && <><div className="stat-card"><span>{copy.reported}</span><Measurement value={period.cost_usd} locale={locale} money /></div><div className="stat-card"><span>{copy.estimated}</span><Measurement value={period.estimated_cost_usd} locale={locale} money /></div></>}
-      </div><p>{copy.lifecycle}</p><h3>{copy.coverage}</h3><p>{copy.coverageHelp}</p><p>{copy.events}: {metrics.coverage.usage_events_with_tokens ?? 0} {copy.measured} · {metrics.coverage.usage_events_without_tokens ?? 0} {copy.unavailable} · {metrics.coverage.usage_events_unallocated ?? 0} {copy.undated}</p>
-      <p>{copy.unallocatedHelp}</p>{admin && <p>{copy.moneyHelp}</p>}<p>{copy.duration}</p>
-      <p className="canonical-scope"><code>{metrics.scope?.interval} {metrics.scope?.from ?? "−∞"} → {metrics.scope?.to ?? "+∞"}</code>{metrics.scope?.interval_seconds != null && <> · {metrics.scope.interval_seconds} s</>}</p>
-    </section>
-    <section className="panel current-stock"><h2>{copy.stock}</h2><strong>{metrics.current_stock?.active_now}</strong><p>{copy.stockHelp}</p></section>
-    <section className="panel" role="region" aria-label={copy.messages}><h2>{copy.messages}</h2><strong>{copy.unavailable}</strong><p>{copy.messageHelp}</p></section>
-    <section className="panel"><h2>{copy.jobs}</h2><p>{copy.jobHelp}</p>{metrics.jobs?.length ? <div className="table-scroll"><table className="consumption-table"><caption>{copy.jobs} · {metrics.scope?.mode === "all_time" ? copy.allTime : copy.interval}</caption><thead><tr><th>{copy.projectId}</th><th>{copy.runId}</th><th>{copy.lifetime} / {copy.selected} / {copy.undated}</th></tr></thead><tbody>{metrics.jobs.map(job => <tr key={consumptionIdentity(job)}><td>{job.project_id}</td><td><a href={formatRoute({ view: "jobs", project: job.project_id, run: job.run_id, reporting })}>{job.run_id}</a></td><td><JobAmounts job={job} locale={locale} admin={admin} t={t} /></td></tr>)}</tbody></table></div> : <p>{copy.empty}</p>}</section>
-  </>;
+  return <section className="panel statistics-evidence">
+    <div className="stats-grid">{cards.map(([label, value], index) => <div className="stat-card" key={label}><span>{label}</span>{index < 3 ? <strong>{value}</strong> : <Measurement value={value} locale={locale} partial={partial} />}</div>)}
+      {admin && <><div className="stat-card"><span>{copy.reported}</span><Measurement value={period.cost_usd} locale={locale} money /></div><div className="stat-card"><span>{copy.estimated}</span><Measurement value={period.estimated_cost_usd} locale={locale} money /></div></>}
+    </div>
+  </section>;
 }
 
 /** Bars and accessible table use exactly the same server buckets and series. */
