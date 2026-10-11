@@ -14,7 +14,7 @@ title = "Organize project details into tabs with consistent navigation"
 status = "active"
 
 requirement = """
-When a user opens a project's details, the web interface shall present Summary, Settings, Jobs, Statistics and History and, for administrators, Access as tabs with a visible selected state, so that every project section opens within Project details.
+When a user opens a project's details, the web interface shall present Summary, Settings, Jobs, Statistics and History and, for administrators, Access last, as tabs with a visible selected state, so that every project section opens within Project details.
 """
 
 verification = "Manual: as administrator and developer at desktop and 390px widths, open a project, switch each tab and confirm only that tab's content and selected state; confirm the hub never shows a Prices tab and developers see no Access tab or editing controls; open Jobs and Statistics and confirm they stay within the project hub; confirm the tab is reflected in the URL."
@@ -30,4 +30,4 @@ priority = "normal"   # low | normal | high
 rationale = ""        # why this behavior exists, if not obvious
 
 created = 2026-10-03
-updated = 2026-10-10
+updated = 2026-10-11

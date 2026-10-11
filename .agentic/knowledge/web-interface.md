@@ -45,7 +45,7 @@ Environment verification records explicit checks against the saved configuration
 revision; Unverified means no current evidence, not an observed failure. Use
 Project details â†’ Summary â†’ Check host prerequisites for the administrator check.
 Pause semantics are available in header help instead of repeated row guidance.
-The dedicated header combines name/repository and Summary, Settings, Access, Jobs, Statistics, History tabs; Access is Admin-only.
+The dedicated header combines name/repository and Summary, Settings, Jobs, Statistics, History, Access tabs; Access is Admin-only.
 Jobs and Statistics render inside the hub; the identity band appears only there.
 The Jobs tab opens on a Tickets sub-tab (read on request, Start that can add the
 ready/priority labels, Retry, Stop and Details per ticket) beside a Jobs sub-tab with the job table and detail. Administrators record estimated prices in Settings > Agent and model. Deletion confirmation clears on page or project changes.
@@ -157,7 +157,7 @@ SQLite bytes, authorization, scope and financial redaction.
 
 
 - `/api/v1/jobs-page` provides complete globally ordered authorized current and
-  archived job history, optional project/search/attention/status/executor/outcome/UTC date filters and optimistic
+  archived job history, optional project/search/attention/status filters and optimistic
   content revisions. `/api/v1/jobs/{project_id}/{run_id}` uses composite identity.
   `adore/web/jobs.py` strictly validates schema-1 state, saved ticket metadata and
   JSONL bytes without altering operational journal recovery. See
@@ -471,7 +471,7 @@ Native control/auth route to local-execution.md. Focused proof:
 
 - `REQ-UX-b758d2b7`, `REQ-UX-78923e00`, `REQ-UX-a7969a9d`,
   `REQ-FUNC-25dc0271` â€” complete authorized action workspace, pickup/verification
-  project hubs, observed safe timeline/advanced filters and actual queued outcomes.
+  project hubs, observed safe timeline and actual queued outcomes.
 
 
 - `REQ-FUNC-e8455ab6`, `REQ-DATA-0ba9e469`, `REQ-SEC-5d0f86e7` â€” complete

@@ -39,25 +39,19 @@ provided by `app.py`. There is no new runtime dependency or persisted schema.
 
 ## 5. Inputs And Outputs
 
-`GET /api/v1/jobs-page` accepts `project_id`, `q`, `status_group`, `lifecycle`,
-`stage`, `attention`, `executor`, `outcome`, `updated_from`, `updated_to`,
-`limit`, `offset` and `snapshot`. `project_id` is an immutable 32-hex
+`GET /api/v1/jobs-page` accepts `project_id`, `q`, `status_group`, `attention`,
+`limit`, `offset` and `snapshot`; other query parameters are ignored. `project_id` is an immutable 32-hex
 identity. `q` is a trimmed case-insensitive substring of 1–80 characters;
 search covers project name/display name, run ID, ticket number/actual title,
 lifecycle, stage and outcome. `limit` is 1–100 or `all`, default 25; offset
-is nonnegative. Lifecycle and stage filters accept exact persisted vocabulary,
-including `stale`, `done` and the legacy `publishing` stage.
-`attention=true` selects clarification, approval, in-review, failed, stale and
-handoff-pending. Executor is an exact case-sensitive journal identity (1–200
-characters); outcome is a trimmed case-insensitive fragment (1–80).
-Update dates are inclusive UTC stored-update days; missing timestamps do not
-match. Reversed dates or whitespace-only text filters return 422.
+is nonnegative. `attention=true` selects clarification, approval, in-review,
+failed, stale and handoff-pending. Whitespace-only search text returns 422.
 
 The response contains `items`, matching `total`, `counts`, `groups`, `limit`,
 `offset`, `complete: true`, `snapshot` and
 `snapshot_semantics: "optimistic-source-revision"`. Counts and groups describe
-the authorized, project-filtered, searched population before lifecycle/stage/group
-selection and before attention/executor/outcome/date filters. Archived jobs are included and each row carries `project_archived`.
+the authorized, project-filtered, searched population before status-group and
+attention selection. Archived jobs are included and each row carries `project_archived`.
 
 `GET /api/v1/jobs/{project_id}/{run_id}` returns
 `{job, complete: true, snapshot}` for the composite identity. Its strict read
@@ -99,10 +93,9 @@ API detail URL locates the safe local evidence view without disclosing host path
 
 Strict composite detail additionally exposes `timeline`: saved events in append
 order with only normalized UTC `ts` (or null), redacted `event`, and validated
-persisted `stage` (or null). Missing stages remain unknown. Internal observed
-executor identities are used only for matching; neither those identities nor
-the timeline are added to list rows. Malformed recorded stage/executor identities
-fail closed before any filter, including an unrelated filter.
+persisted `stage` (or null). Missing stages remain unknown. The timeline is not
+added to list rows. Malformed recorded stage/executor identities in a journal
+fail closed before any result is returned.
 
 HTTP(S) source links require valid host/port and exclude credentials, query/fragment,
 controls and backslashes, including percent-decoded forms. Free text redacts

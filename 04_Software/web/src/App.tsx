@@ -211,7 +211,7 @@ export default function App() {
     setMetricsTab(metricsTabs[next]);
     document.getElementById(`metrics-tab-${metricsTabs[next]}`)?.focus();
   };
-  const projectTabs: ProjectTab[] = isAdmin ? ["overview", "configuration", "access", "jobs", "statistics", "history"] : ["overview", "configuration", "jobs", "statistics", "history"];
+  const projectTabs: ProjectTab[] = isAdmin ? ["overview", "configuration", "jobs", "statistics", "history", "access"] : ["overview", "configuration", "jobs", "statistics", "history"];
   // Leaving a tab closes any job detail opened in the Jobs tab.
   const selectProjectTab = (tab: ProjectTab) => {
     setRequestedRun("");

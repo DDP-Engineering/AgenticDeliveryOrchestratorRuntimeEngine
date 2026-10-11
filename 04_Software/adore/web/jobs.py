@@ -359,8 +359,6 @@ def _view(item: Profile, run_id: str, sources: dict) -> dict:
                          "fingerprint": run.execution["plan"]["fingerprint"],
                          "steps": run.execution["steps"]}
                         if run.execution and run.execution["plan"]["selection"] else None),
-        "observed_executors": sorted({event["executor"] for event in events
-                                      if "executor" in event}),
         "timeline": [{"ts": _stamp(event.get("ts", ""), "run_journal_corrupt"),
                       "event": _text(event["event"], "run_journal_corrupt"),
                       "stage": event.get("stage")} for event in events],

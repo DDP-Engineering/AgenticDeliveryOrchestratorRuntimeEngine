@@ -17,7 +17,7 @@ requirement = """
 While the Jobs page is narrower than 760 CSS pixels, the web interface shall collapse the history filters behind a localized Filters control that shows the number of active filters, so that job results appear in the first screen; expanding the control shows the existing filters unchanged.
 """
 
-verification = "Manual: at 390px open Jobs with job history; confirm the result table starts within the first screen and the Filters control shows 0; expand it, set a status and an outcome filter, collapse it and confirm the count shows 2 and results are filtered; at 1440px confirm filters are shown without the control."
+verification = "Manual: at 390px open Jobs with job history; confirm the result table starts within the first screen and the Filters control shows 0; expand it, set a status and a search term, collapse it and confirm the count shows 2 and results are filtered; at 1440px confirm filters are shown without the control."
 
 affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/styles.css", "04_Software/web/src/i18n.ts", "04_Software/adore/web/static/"]
 
@@ -30,4 +30,4 @@ priority = "normal"   # low | normal | high
 rationale = ""        # why this behavior exists, if not obvious
 
 created = 2026-10-03
-updated = 2026-10-03
+updated = 2026-10-11

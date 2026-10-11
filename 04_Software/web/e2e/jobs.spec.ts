@@ -103,7 +103,7 @@ test("hub separates pickup and verification and keeps role-appropriate navigatio
   await expect(page.locator(".project-summary-window .summary-job-window")).toContainText("Working");
   const hub = page.locator(".project-hub");
   await expect(hub.locator("strong")).toHaveText("alpha");
-  await expect(hub.locator("button, a")).toHaveText(["Summary", "Settings", "Access", "Jobs", "Statistics", "History"]);
+  await expect(hub.locator("button, a")).toHaveText(["Summary", "Settings", "Jobs", "Statistics", "History", "Access"]);
   await expect(page.locator(".project-links")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "alpha", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Pause monitoring|Activate monitoring/ })).toBeVisible();
@@ -219,7 +219,7 @@ test("missing evidence and stale worker activity do not fabricate telemetry or a
   await expect(page.locator(".detail-panel")).toContainText("over 15 minutes old");
 });
 
-test("global complete search paging advanced filters and source revision conflicts", async ({ page }) => {
+test("global complete search paging basic filters and source revision conflicts", async ({ page }) => {
   await signIn(page); await page.goto("/jobs");
   await expect(page.locator("#jobs-project")).toHaveValue("");
   await expect(page.locator(".action-jobs-table tbody tr")).toHaveCount(10);
@@ -239,11 +239,10 @@ test("global complete search paging advanced filters and source revision conflic
   await page.getByLabel("Search jobs", { exact: true }).fill("no-such-ticket");
   await expect(page.getByText("No jobs match these filters", { exact: true })).toBeVisible();
   await page.getByLabel("Search jobs", { exact: true }).fill("");
-  await page.getByRole("button", { name: "Advanced filters", exact: true }).click();
-  await page.getByLabel("Observed executor", { exact: true }).fill("pi");
-  await expect(page.locator(".action-jobs-table")).not.toContainText("Actual beta collision");
-  await page.getByLabel("Observed executor", { exact: true }).fill("PI");
-  await expect(page.getByText("No jobs match these filters", { exact: true })).toBeVisible();
+  // Only search and the status group filter jobs; there is no advanced filter panel.
+  await expect(page.getByRole("button", { name: "Advanced filters", exact: true })).toHaveCount(0);
+  await expect(page.locator("#job-advanced-filters, .job-text-filters")).toHaveCount(0);
+  await expect(page.getByLabel("Observed executor", { exact: true })).toHaveCount(0);
 });
 
 test("composite colliding IDs and reload preserve the owning project", async ({ page }) => {
@@ -350,8 +349,9 @@ test("keyboard 390px both themes and localized evidence remain usable", async ({
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
     await page.screenshot({ path: info.outputPath(`project-hub-${theme}-390.png`), fullPage: true });
     const summary = page.getByRole("tab", { name: "Summary", exact: true }); await summary.focus(); await page.keyboard.press("End");
-    await expect(page.getByRole("tab", { name: "History", exact: true })).toBeFocused();
-    await expect(page.getByRole("tab", { name: "History", exact: true })).toHaveAttribute("aria-selected", "true");
+    // End moves to the last hub tab, which is Access for administrators.
+    await expect(page.getByRole("tab", { name: "Access", exact: true })).toBeFocused();
+    await expect(page.getByRole("tab", { name: "Access", exact: true })).toHaveAttribute("aria-selected", "true");
     await page.setViewportSize({ width: 1440, height: 900 });
   }
   for (const [locale, heading] of [["fr", "Que se passe-t-il maintenant"], ["de", "Was gerade geschieht"], ["ro", "Ce se întâmplă acum"], ["en", "What is happening now"]]) {

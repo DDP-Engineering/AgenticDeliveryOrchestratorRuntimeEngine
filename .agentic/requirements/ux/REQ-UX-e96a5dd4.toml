@@ -11,9 +11,10 @@ id = "REQ-UX-e96a5dd4"
 
 title = "Explain and align Jobs text filters"
 
-status = "active"
+status = "retired"
 
 requirement = """
+Retired 2026-10-11: the Jobs Observed executor and Outcome contains filters were removed with the other advanced job filters at the user's request.
 Jobs shall present Observed executor and Outcome contains as two wider aligned text fields with localized Help and example placeholders. Help shall distinguish the exact case-sensitive executor name recorded in ADORE's journal from the case-insensitive substring search of ADORE's saved outcome, including possible AEGIS-related error details. Both fields shall stack at narrow widths with no clipping. Clearing filters restores matching history under the existing project authorization and input bounds.
 """
 
@@ -30,4 +31,4 @@ priority = "normal"   # low | normal | high
 rationale = ""        # why this behavior exists, if not obvious
 
 created = 2026-10-01
-updated = 2026-10-01
+updated = 2026-10-11

@@ -7,13 +7,13 @@
 
 schema = 1
 id = "REQ-FUNC-25dc0271"
-title = "apply bounded observed-executor, outcome"
+title = "Return a validated redacted observed timeline in job detail"
 status = "active"
-requirement = "When a caller requests global job filtering or detail, the API shall apply bounded observed-executor, outcome and inclusive UTC update-date filters before slicing complete authorized history and return a validated redacted observed timeline in composite detail, preserving absent legacy summary activity as unknown while rejecting corrupt nonempty times."
-verification = "Offline test_web_jobs API tests cover matching global filters and observed timeline, invalid bounds/dates/identities, unsafe links, redaction, authorization and changed revision; corrupt input fails closed without partial totals."
+requirement = "When a caller requests a job's composite detail, the API shall return a validated redacted observed timeline, preserving absent legacy summary activity as unknown while rejecting corrupt nonempty times."
+verification = "Offline test_web_jobs API tests cover the observed timeline, invalid identities, unsafe links, redaction, authorization and changed revision; corrupt input fails closed without partial totals."
 affected_paths = ["04_Software/adore/web/app.py", "04_Software/adore/web/jobs.py", "04_Software/tests/test_web_jobs.py"]
-linked_tests = ["04_Software/tests/test_web_jobs.py::test_global_advanced_filters_and_safe_observed_timeline", "04_Software/tests/test_web_jobs.py::test_global_projected_timeline_corruption_fails_closed", "04_Software/tests/test_web_jobs.py::test_project_summary_preserves_legacy_missing_activity"]
+linked_tests = ["04_Software/tests/test_web_jobs.py::test_job_list_has_no_advanced_filters_and_detail_keeps_safe_timeline", "04_Software/tests/test_web_jobs.py::test_global_projected_timeline_corruption_fails_closed", "04_Software/tests/test_web_jobs.py::test_project_summary_preserves_legacy_missing_activity"]
 spec = "specs/REQ-UX-b758d2b7.md"
 priority = "high"
 created = 2026-10-05
-updated = 2026-10-05
+updated = 2026-10-11

@@ -182,8 +182,7 @@ Overview skips consumption reads and reporting/date/technical prose. Only worker
 faults appear above the job tables. Details retains the existing composite Jobs route
 and browser-local timestamp formatting. Source errors or
 incomplete responses hide rows and totals; a changed continuation offers explicit
-Reload first page. Search/project/status group remain visible in Jobs; exact
-lifecycle, stage, observed executor, outcome and UTC dates are in Advanced filters.
+Reload first page. Jobs filters by search, project and status group only.
 Selected detail precedes the job list and explains current lifecycle, exact saved
 stage, observed reason, who acts, where and what conditionally follows. Safe saved
 question/candidate/MR links locate the action; named people, duration and consumption
@@ -203,15 +202,6 @@ worker recheck authority and lifecycle; the browser does not claim job success
 from command acceptance.
 
 Administration's account section is labelled Users in every locale.
-Jobs aligns Observed executor and Outcome contains in two equal-width fields
-below the basic filters, stacking them at narrow widths. Each has visible localized
-instructions. Executor matches the exact case-sensitive
-name recorded in the ADORE job journal; jobs with no recorded name are excluded
-by that filter. Outcome matches a case-insensitive fragment of ADORE's saved
-result or error explanation, which may contain AEGIS error details. These
-fields search recorded ADORE data rather than full AEGIS/executor logs.
-Inputs retain the 200-character executor and 80-character outcome bounds;
-blank values omit that filter.
 The About dialog constrains its width and height to the viewport, with internal
 scrolling for the license and notice content and an accessible Close button.
 Add project opens the administrator-only `EnrollmentWizard` from Projects.
@@ -268,7 +258,7 @@ The Projects directory lists authorized projects in a sortable, paged table
 with project, repository path, Repo forge provider (Gitea/GitHub/GitLab),
 Monitoring, job count and saved last activity. Project-name links open the hub.
 The dedicated hub has one identity/navigation band: name, repository path,
-Summary, Settings, Access, Jobs, Statistics, History, all tabs. Access is
+Summary, Settings, Jobs, Statistics, History, Access, all tabs. Access is
 Admin-only. The Jobs tab has Tickets and Jobs sub-tabs (`/projects/<id>/jobs`,
 `?view=jobs`, `?run=`). Tickets (`TicketWorkspace.tsx`, copy in `ticketCopy.ts`)
 reads open tickets only when Read tickets is pressed, validates the response,

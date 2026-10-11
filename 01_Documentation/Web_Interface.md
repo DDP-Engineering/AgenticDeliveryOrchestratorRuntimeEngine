@@ -321,9 +321,8 @@ networks, and verify the HTTPS login cookie is `Secure`. The host supplies and
 rotates its certificate and key; the offline bundle does not fetch them.
 On Jobs, search complete authorized retained history by saved ticket title or
 number, project, job ID, lifecycle, stage or outcome. **Job scope** selects one
-project; status groups remain visible, while **Advanced filters** offers exact
-lifecycle/stage/executor, outcome text and inclusive UTC last-update dates.
-Executor matches a case-sensitive saved identity; missing identities do not match.
+project, and **Status** narrows the list to active, waiting, in-review or
+finished jobs; there are no further filters.
 A changed page revision hides previous results and offers **Reload first page**.
 
 To start an existing ticket, first select its current project. Enter a positive
@@ -352,9 +351,8 @@ audited. Administrators always have access.
 Metadata rows have breathing room, with a clear gap before the links. System
 status, Users and Audit operate at platform scope and My account at account
 scope; a developer's projects can also be managed together on Users. On a phone, wide tables show
-an edge shadow where more columns can be scrolled into view. Jobs keeps search
-and status visible, with additional controls under Advanced filters;
-use Menu to switch pages.
+an edge shadow where more columns can be scrolled into view. Jobs shows search
+and status; use Menu to switch pages.
 
 Project names and job ticket numbers are links, so a job opens in Jobs from
 any table. When the selected Statistics scope has no jobs yet, Summary, Quality
@@ -618,18 +616,6 @@ each project's run-state root. It warns when any measured volume has less than
 1 GiB free. A failed measurement is shown as a failed check, not as available
 space. This check does not remove data; with indefinite non-audit retention, operators
 must size storage and back it up.
-Jobs can be filtered by an exact observed executor. Older jobs whose journals
-did not record executor identity will not match this filter.
-The wider **Observed executor** and **Outcome contains** fields share one row
-and stack on narrow screens. Each has Help with examples and matching rules.
-Observed executor takes the case-sensitive name recorded in ADORE's job
-journal, such as `pi`, `codex`, `opencode` or `qwen` (up to 200 characters).
-Outcome contains searches a fragment of ADORE's saved result or error text,
-ignoring case (up to 80 characters): examples include `EXECUTOR_TIMEOUT`,
-`ticket closed` and `merged by human`. Saved outcomes can include AEGIS error
-details; the filter does not search the full AEGIS or executor log. Leave
-either field empty to remove that filter.
-
 In Project details > Settings, administrators prepare **one setting at a time**.
 The categories are Repository, Tickets, Implementation, PR/MR and review, Statistics, and Agent and model, followed by closed informational Technical details. Frequent settings appear first within their category.
 Each row gives an understandable label, visible purpose/units/consequence guidance,
@@ -720,7 +706,7 @@ keeps its independent scope and `/metrics` URLs. A selected job URL includes bot
 so colliding run IDs remain distinct after reload. Closing detail clears its ID.
 
 The dedicated project header displays its name and repository path beside
-Summary, Settings, Access, Jobs, Statistics and History tabs; Access is
+Summary, Settings, Jobs, Statistics, History and Access tabs; Access is
 Admin-only. **Jobs** has two sub-tabs. **Tickets** (the default) reads the
 project's open tickets from its repository only when you press **Read tickets**,
 then lists number, title, labels and whether ADORE can start the ticket (or
@@ -781,9 +767,8 @@ Administrators receive all current and archived project history; developers
 receive only assigned projects. Add `project_id=<immutable project ID>` to read
 one authorized project. Search `q` matches actual project labels, run/ticket IDs,
 saved ticket titles, lifecycle, exact stage and outcome. `status_group` accepts
-`active`, `waiting`, `review` or `terminal`; exact lifecycle/stage filters are
-also available. Attention, exact observed executor, outcome fragment and inclusive
-UTC stored-update date filters are supported. `limit` is 1–100 or `all` (default 25); `offset` starts at zero.
+`active`, `waiting`, `review` or `terminal`, and `attention=true` selects jobs
+awaiting intervention or recovery. `limit` is 1–100 or `all` (default 25); `offset` starts at zero.
 
 The server validates all selected history before reporting complete results.
 Counts/groups cover searched jobs before secondary filters;

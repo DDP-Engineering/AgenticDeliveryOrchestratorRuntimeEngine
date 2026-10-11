@@ -22,6 +22,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Order project hub tabs Summary, Settings, Jobs, Statistics, History, Access.
+
 - Show a project's Jobs and Statistics as tabs inside its project hub, with job detail opening in the Jobs tab and no repeated project selector or scope panel; Overview, Jobs and Statistics pages identify their scope only through their own Project selector.
 
 - Move Admin estimated prices from their own project tab into Settings → Agent and model; prices are recorded for the selected coding agent and its configured model, so the form asks only for effective date and input/output rates; older `/prices` links open Settings.
@@ -659,6 +661,8 @@ This project follows Keep a Changelog and Semantic Versioning.
   container mounted it first and break the next run.
 
 ### Removed
+
+- Remove the Jobs Advanced filters (exact status, stage, observed executor, outcome text and update dates) and their `/api/v1/jobs-page` parameters; Jobs keeps search and the status group.
 
 - Omit standalone CLI ticket checking mode from GUI settings while preserving its TOML/CLI behavior and web cadence controls.
 

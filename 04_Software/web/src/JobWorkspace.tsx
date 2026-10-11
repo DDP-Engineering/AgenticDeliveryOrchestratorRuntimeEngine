@@ -9,7 +9,7 @@ import { ApiError, describeError } from "./errors";
 import type { Locale, MessageKey } from "./i18n";
 import { jobCopy, lifecycleExplanation } from "./jobCopy";
 import { PreparationResults } from "./ExecutionPlanReview";
-import { activityAge, commandAllowed, IncompleteJobs, lifecycles, readJobDetail, readJobPage, stages, type Job, type JobPage } from "./jobModel";
+import { activityAge, commandAllowed, IncompleteJobs, readJobDetail, readJobPage, type Job, type JobPage } from "./jobModel";
 import { DataFeedback, StatusBadge } from "./Presentation";
 import { startVisiblePolling } from "./polling";
 import { formatRoute } from "./routes";
@@ -32,8 +32,8 @@ type Props = {
 };
 type ReadState = "loading" | "ready" | "error" | "incomplete" | "changed";
 type Operation = { id: number; status: "pending" | "running" | "succeeded" | "failed" | "uncertain"; result?: string };
-type Filters = { q: string; group: string; lifecycle: string; stage: string; executor: string; outcome: string; from: string; to: string; size: 10 | 25 | 50 | "all"; offset: number };
-const initialFilters = (mode: Props["mode"]): Filters => ({ q: "", group: mode === "history" ? "terminal" : "", lifecycle: "", stage: "", executor: "", outcome: "", from: "", to: "", size: 10, offset: 0 });
+type Filters = { q: string; group: string; size: 10 | 25 | 50 | "all"; offset: number };
+const initialFilters = (mode: Props["mode"]): Filters => ({ q: "", group: mode === "history" ? "terminal" : "", size: 10, offset: 0 });
 const lifecycleKeys: Record<string, MessageKey> = {
   working: "working", publishing: "publishingStatus", "parked-clarification": "parkedClarificationStatus",
   "awaiting-approval": "awaitingApprovalStatus", "in-review": "inReviewStatus", "handoff-pending": "handoffPendingStatus",
@@ -56,7 +56,6 @@ export function JobWorkspace(props: Props) {
   const copy = jobCopy[locale];
   const compactOverview = mode === "overview";
   const [filters, setFilters] = useState<Filters>(() => initialFilters(mode));
-  const [advanced, setAdvanced] = useState(false);
   const [page, setPage] = useState<JobPage | null>(null);
   const [activePage, setActivePage] = useState<JobPage | null>(null);
   const [state, setState] = useState<ReadState>("loading");
@@ -135,8 +134,7 @@ export function JobWorkspace(props: Props) {
       const query = new URLSearchParams({ limit: String(filters.size), offset: String(offset) });
       if (scope) query.set("project_id", scope);
       if (mode === "overview") query.set("attention", "true");
-      for (const [key, value] of Object.entries({ q: filters.q.trim(), status_group: filters.group, lifecycle: filters.lifecycle,
-        stage: filters.stage, executor: filters.executor.trim(), outcome: filters.outcome.trim(), updated_from: filters.from, updated_to: filters.to })) if (value) query.set(key, value);
+      for (const [key, value] of Object.entries({ q: filters.q.trim(), status_group: filters.group })) if (value) query.set(key, value);
       if (offset > 0) query.set("snapshot", revision.current.snapshot);
       try {
         const result = readJobPage(await request(`/jobs-page?${query}`), ids.split(","));
@@ -262,14 +260,6 @@ export function JobWorkspace(props: Props) {
     {!!operationError && <p className="alert" role="alert">{describeError(locale, operationError)}</p>}
     {operation && <div className={`notice command-result command-${operation.status}`} role="status">#{operation.id} · {copy[operation.status === "pending" ? "queued" : operation.status]}{operation.result && <p>{operation.result}</p>}{commandStatusError && <p>{copy.commandError}</p>}</div>}
     {mode !== "overview" && <section className="panel compact"><div className="job-filters job-basic-filters"><label htmlFor="job-search">{copy.search}<input id="job-search" type="search" maxLength={80} value={filters.q} onChange={event => change("q", event.target.value)} aria-describedby="job-search-help" /></label><label>{t("status")}<select value={filters.group} onChange={event => change("group", event.target.value)}><option value="">{t("all")}</option>{["active", "waiting", "review", "terminal"].map(group => <option key={group} value={group}>{group === "active" ? t("activeJobs") : group === "waiting" ? copy.waiting : group === "review" ? t("inReviewStatus") : copy.terminal}</option>)}</select></label></div><p id="job-search-help" className="field-hint">{copy.searchHelp}</p>
-      <button className="ghost" aria-expanded={advanced} aria-controls="job-advanced-filters" onClick={() => setAdvanced(value => !value)}>{copy.advanced}</button>
-      {advanced && <div id="job-advanced-filters" className="job-filters job-text-filters">
-        <label>{t("status")}<select value={filters.lifecycle} onChange={event => change("lifecycle", event.target.value)}><option value="">{t("all")}</option>{lifecycles.map(value => <option key={value} value={value}>{label(value, lifecycleKeys, t)}</option>)}</select></label>
-        <label>{t("stage")}<select value={filters.stage} onChange={event => change("stage", event.target.value)}><option value="">{t("all")}</option>{stages.map(value => <option key={value} value={value}>{label(value, stageKeys, t)}</option>)}</select></label>
-        <label>{t("observedExecutor")}<input aria-label={t("observedExecutor")} type="search" maxLength={200} value={filters.executor} onChange={event => change("executor", event.target.value)} /><small className="field-hint">{t("observedExecutorHelp")}</small></label>
-        <label>{t("outcomeContains")}<input aria-label={t("outcomeContains")} type="search" maxLength={80} value={filters.outcome} onChange={event => change("outcome", event.target.value)} /><small className="field-hint">{t("outcomeContainsHelp")}</small></label>
-        <label>{t("updatedFrom")}<input type="date" value={filters.from} max={filters.to || undefined} onChange={event => change("from", event.target.value)} /></label><label>{t("updatedTo")}<input type="date" value={filters.to} min={filters.from || undefined} onChange={event => change("to", event.target.value)} /></label>
-      </div>}
     </section>}
     {run && !visibleDetail && state !== "changed" && feedback(loadedDetailKey === detailKey ? detailState : "loading", detailFailure)}
     {visibleDetail && <section className="panel detail-panel" aria-label={`${t("ticket")} #${visibleDetail.ticket_iid}`}>
@@ -289,7 +279,7 @@ export function JobWorkspace(props: Props) {
     <section className="panel" aria-label={mode === "overview" ? copy.attention : mode === "history" ? copy.history : t("jobs")}>
       {mode !== "jobs" && <h2>{mode === "overview" ? copy.attention : copy.history}</h2>}
       {mode === "history" && <p className="muted">{copy.historyHelp}</p>}
-      {!visible ? feedback(dataKey === renderKey ? state : "loading", failure) : <>{visible.items.length ? compactOverview ? compactTable(visible.items) : table(visible.items) : <div className="empty-state" role="status">{mode === "overview" ? copy.noAttention : Object.values(selection).some(value => typeof value === "string" && value) ? t("noMatchingJobs") : t("noJobs")}</div>}{(!compactOverview || visible.total > 10) && pager}</>}
+      {!visible ? feedback(dataKey === renderKey ? state : "loading", failure) : <>{visible.items.length ? compactOverview ? compactTable(visible.items) : table(visible.items) : <div className="empty-state" role="status">{mode === "overview" ? copy.noAttention : (selection.q.trim() || selection.group !== initialFilters(mode).group) ? t("noMatchingJobs") : t("noJobs")}</div>}{(!compactOverview || visible.total > 10) && pager}</>}
     </section>
     {compactOverview && visible && activePage && <section className="panel" aria-label={t("activeJobs")}><h2>{t("activeJobs")}</h2>{activePage.items.length ? compactTable(activePage.items) : <div className="empty-state" role="status">{copy.noActive}</div>}</section>}
 

@@ -69,33 +69,28 @@ def _get(client, query=""):
 
 
 # PUBLIC CONTRACT TESTS
-def test_global_advanced_filters_and_safe_observed_timeline(tmp_path):
-    """@brief Global filtering retains exact saved identities and safe event evidence."""
+def test_job_list_has_no_advanced_filters_and_detail_keeps_safe_timeline(tmp_path):
+    """@brief Removed advanced filter parameters are ignored; detail keeps safe event evidence."""
     _, items, stores, app = _fixture(tmp_path)
     stores[1].journal("same", "gate-started", stage="build", executor="pi",
                            model="SECRET_MODEL", password="SECRET_PASSWORD")
     stores[1].journal("same", "gate-passed", stage="validate")
     with TestClient(app) as client:
         _login(client)
-        page = _get(client, "?executor=pi&stage=build&updated_from=2026-10-05"
-                    "&updated_to=2026-10-05")
-        assert page["total"] == 1
-        assert page["items"][0]["project_id"] == items[1].project_id
-        assert "timeline" not in page["items"][0]
-        assert "observed_executors" not in page["items"][0]
-        assert _get(client, "?executor=PI")["total"] == 0
-        assert _get(client, "?outcome=MERGED")["total"] == 2
+        everything = _get(client)
+        for query in ("?executor=pi&stage=build&updated_from=2026-10-05&updated_to=2026-10-05",
+                      "?executor=%20", "?outcome=MERGED", "?lifecycle=working",
+                      "?updated_from=wrong", "?updated_from=2026-10-06&updated_to=2026-10-05"):
+            page = _get(client, query)
+            assert page["total"] == everything["total"], query
+        assert "timeline" not in everything["items"][0]
+        assert "observed_executors" not in everything["items"][0]
         assert _get(client, "?attention=true")["total"] == 0
-        assert _get(client, "?updated_to=2026-10-04")["total"] == 0
         detail = client.get(f"/api/v1/jobs/{items[1].project_id}/same").json()["job"]
         assert [row["stage"] for row in detail["timeline"]] == ["build", "validate"]
         assert all(set(row) == {"ts", "event", "stage"} for row in detail["timeline"])
         assert "SECRET_" not in str(detail)
         assert "observed_executors" not in detail
-        for query in ("?executor=%20", "?outcome=%20", "?outcome=" + "x" * 81,
-                      "?executor=" + "x" * 201, "?updated_from=wrong",
-                      "?updated_from=2026-10-06&updated_to=2026-10-05"):
-            assert client.get("/api/v1/jobs-page" + query).status_code == 422
 
 
 @pytest.mark.parametrize("field,value", [("executor", 12), ("executor", ""),
@@ -106,7 +101,7 @@ def test_global_projected_timeline_corruption_fails_closed(tmp_path, field, valu
     stores[0].journal("same", "gate-started", **{field: value})
     with TestClient(app) as client:
         _login(client)
-        response = client.get("/api/v1/jobs-page?executor=other")
+        response = client.get("/api/v1/jobs-page")
         assert response.status_code == 503
         assert response.json() == {"detail": {"code": "run_journal_corrupt"}}
 
@@ -148,7 +143,6 @@ def test_global_pages_search_groups_and_collision_identity(tmp_path):
         assert search["total"] == 1 and search["items"][0]["ticket_title"] == "Actual beta"
         assert _get(client, "?q=missing")["total"] == 0
         assert _get(client, "?q=merged&status_group=terminal")["total"] == 2
-        assert _get(client, "?lifecycle=working&stage=build")["total"] == 2
         assert _get(client, "?status_group=waiting")["total"] == 0
         assert _get(client, "?offset=50")["items"] == []
         assert _get(client, f"?project_id={items[0].project_id}")["total"] == 2
@@ -253,8 +247,8 @@ def test_page_revision_rejects_source_changes(tmp_path, change):
 
 
 @pytest.mark.parametrize("query", ["limit=0", "limit=101", "limit=abc", "offset=-1",
-                                    "q=%20", "q=" + "x" * 81, "stage=bogus",
-                                    "lifecycle=bogus", "status_group=bogus", "snapshot=no"])
+                                    "q=%20", "q=" + "x" * 81,
+                                    "status_group=bogus", "snapshot=no"])
 def test_invalid_job_queries_fail_closed(tmp_path, query):
     """@brief Query trust boundaries reject ambiguous or invalid selection."""
     _, _, _, app = _fixture(tmp_path)
