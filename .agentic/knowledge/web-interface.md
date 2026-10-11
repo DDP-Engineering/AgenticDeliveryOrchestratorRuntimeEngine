@@ -371,7 +371,7 @@ Review cohorts use first MR opening/adoption in scope; validation cohorts use
 first strict verdict in scope. Human merge uses reviewed jobs with actual done
 in scope and `merged by human`. Rework requires reviewer-requested revision;
 pipeline repair is separate. Each rate exposes numerator/denominator; empty is
-null. Open reviews are labeled current state. Monetary efficiency uses only
+null. Review still open counts reviews open now, independent of the period. Monetary efficiency uses only
 period consumption for the completed/human-merged cohort and separate known
 reported/estimated samples.
 

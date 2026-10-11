@@ -337,5 +337,5 @@ test("statistics labels scoped evidence and shares DST scope with CSV", async ({
   await page.getByLabel("From", { exact: true }).fill("");
   await page.getByLabel("Through", { exact: true }).fill("");
   await page.getByRole("tab", { name: "Quality", exact: true }).click();
-  await expect(page.locator(".stat-card").filter({ hasText: "Review still open" })).toContainText("Current state");
+  await expect(page.locator(".metric-chips").first().getByText("Review still open", { exact: true })).toBeVisible();
 });

@@ -165,10 +165,11 @@ summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 .sort-heading { display: inline-flex; align-items: center; gap: 6px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer; white-space: nowrap; }
 .sort-heading:hover { color: var(--accent-deep); }
 .sort-heading:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-.usage-totals { display: flex; flex-wrap: wrap; gap: 6px 8px; margin: 0 0 14px; }
-.usage-totals div { display: flex; align-items: baseline; gap: 6px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-alt); }
-.usage-totals dt { color: var(--muted); font-size: .82rem; }
-.usage-totals dd { margin: 0; font-weight: 700; }
+.metric-chips { display: flex; flex-wrap: wrap; gap: 6px 8px; margin: 0 0 14px; }
+.metric-chips div { display: flex; align-items: baseline; gap: 6px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-alt); }
+.metric-chips dt { color: var(--muted); font-size: .82rem; }
+.metric-chips dd { margin: 0; font-weight: 700; }
+.metric-chips dd small { margin-left: 5px; color: var(--muted); font-size: .78rem; font-weight: 400; }
 .project-row-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-width: 250px; }
 .project-row-actions .text-button { white-space: nowrap; }
 .panel { padding: 22px; margin-bottom: 20px; min-width: 0; }

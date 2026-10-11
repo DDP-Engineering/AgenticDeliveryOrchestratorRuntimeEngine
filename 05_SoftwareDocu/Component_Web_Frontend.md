@@ -343,7 +343,7 @@ The same selected interval supplies headlines, project/repository breakdowns,
 trends, quality and duration. Blank bounds explicitly select All-time. Unknown
 individual token values remain unavailable; measured zero renders zero.
 Coverage distinguishes unallocated usage and missing launch telemetry.
-Open review cards explicitly label current state. Usage has no identity filters;
+Review still open counts reviews open now, independent of the period. Usage has no identity filters;
 `usageSort.ts` sorts its table by any column (unknown values last) through the
 shared generic `SortHeader`, and `.usage-totals` chips combine usage totals with
 job elapsed time. Requests discard stale responses after scope
@@ -422,10 +422,12 @@ read offers explicit refresh/discard and prevents edits or Apply. Assigned Dev s
 read-only groups with financial/secret fields omitted. Existing jobs retain their
 configuration; the UI explicitly describes the one-setting candidate contract.
 Statistics also shows reviewer-requested MR/PR revisions and automatic pipeline
-repairs as distinct counts; unknown revision triggers appear in coverage.
-The Delivery quality panel shows reviewer-rework, first-validation, and
+repairs as distinct counts; unknown revision triggers appear as an Unclassified
+revisions value. Quality panels use the shared `Chips` (`.metric-chips`) row: the
+Delivery quality panel shows reviewer-rework, first-validation, and
 first-pass human-merge rates with visible numerators and denominators, plus a
-still-open review count. Empty cohorts display unavailable instead of zero.
+still-open review count; the daily revision table lists only days with a revision
+or repair. Empty cohorts display unavailable instead of zero.
 It shows stage failures and operator retries separately. Administrators also
 see reported and estimated USD per completed and human-merged job, each with
 the count of jobs carrying that kind of cost evidence.

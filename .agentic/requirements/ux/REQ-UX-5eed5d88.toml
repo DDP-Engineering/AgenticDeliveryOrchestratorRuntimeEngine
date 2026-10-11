@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-5eed5d88"
+
+title = "Show Statistics quality as compact values"
+
+status = "active"
+
+requirement = """
+While a user views the Statistics Quality tab, the interface shall show delivery quality, administrator cost per job with evidence and MR/PR revision and pipeline repair totals as rows of compact label and bold-value items (rates keep their numerator/denominator), list daily revisions only for days with at least one revision or repair, and omit explanatory paragraphs and period or time zone side labels.
+"""
+
+verification = "Automated: e2e opens Quality with analytical fixtures and finds the quality, cost and revision values in .metric-chips, no cohort or cost explanation, no All-time totals label, and a daily revision table with only the active day; Dev sees no cost values."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/i18n.ts", "04_Software/web/src/styles.css", "04_Software/adore/web/static/"]
+
+linked_tests = ["04_Software/web/e2e/statistics.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-11
+updated = 2026-10-11

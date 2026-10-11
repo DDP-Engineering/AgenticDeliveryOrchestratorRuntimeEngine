@@ -116,6 +116,36 @@ test("usage table sorts by column with unknown values last", async ({ page }) =>
   await executor.getByRole("button").click(); await expect(executors).toHaveText(["pi", "codex", "—"]);
 });
 
+test("quality shows compact delivery, cost and active-day revision values", async ({ page }) => {
+  await signIn(page);
+  const alpha = (await (await page.request.get("/api/v1/projects")).json()).find((item: any) => item.name === "alpha").id;
+  await page.route("**/api/v1/projects/*/metrics?*", async route => {
+    const value = analytical(await (await route.fetch()).json());
+    value.daily = [{ ...value.daily[0], date: "2026-10-24", mr_revisions: 0, pipeline_repairs: 0 }, { ...value.daily[0], mr_revisions: 2, pipeline_repairs: 1 }];
+    Object.assign(value.totals, { mr_revisions: 2, pipeline_repairs: 1 });
+    await route.fulfill({ json: value });
+  });
+  await page.goto(`/projects/${alpha}/statistics?tab=quality`);
+  const chips = page.locator(".metric-chips");
+  await expect(chips).toHaveCount(3);
+  for (const label of ["Reviewer rework", "First validation pass", "Review still open", "Stage failures", "Operator retries"])
+    await expect(chips.nth(0).getByText(label, { exact: true })).toBeVisible();
+  await expect(chips.nth(1).getByText("Reported / completed", { exact: true })).toBeVisible();
+  await expect(chips.nth(2).getByText("MR/PR reviewer revisions", { exact: true })).toBeVisible();
+  await expect(chips.nth(2).getByText("Unclassified revisions", { exact: true })).toBeVisible();
+  await expect(chips.nth(0).locator("div").filter({ has: page.getByText("Reviewer rework", { exact: true }) })).toContainText(/\d+\/\d+ reviewed jobs/);
+  await expect(chips.nth(1).locator("div").filter({ has: page.getByText("Reported / completed", { exact: true }) })).toContainText("jobs with evidence");
+  await expect(chips.nth(2).locator("div").filter({ has: page.getByText("MR/PR reviewer revisions", { exact: true }) })).toHaveText(/^MR\/PR reviewer revisions\s*2$/);
+  await expect(chips.nth(2).locator("div").filter({ has: page.getByText("Pipeline repairs", { exact: true }) })).toHaveText(/^Pipeline repairs\s*1$/);
+  await expect(page.getByText(/Job cohorts selected by/)).toHaveCount(0);
+  await expect(page.getByText(/Each figure divides known USD/)).toHaveCount(0);
+  await expect(page.getByText("All-time totals", { exact: true })).toHaveCount(0);
+  const days = page.locator(".revision-days tbody tr"); await expect(days).toHaveCount(1); await expect(days).toContainText("2026-10-25");
+  await expect(page.locator(".stats-grid")).toHaveCount(0);
+  await page.unroute("**/api/v1/projects/*/metrics?*"); await page.context().clearCookies(); await signIn(page, "developer"); await page.goto(`/projects/${alpha}/statistics?tab=quality`);
+  await expect(page.locator(".metric-chips")).toHaveCount(2); await expect(page.getByText("Reported / completed", { exact: true })).toHaveCount(0);
+});
+
 test("captured scope follows project, inclusive dates, DST, grouping, CSV and reload", async ({ page }) => {
   await signIn(page); const projects = await (await page.request.get("/api/v1/projects")).json();
   const alpha = projects.find((item: any) => item.name === "alpha").id, beta = projects.find((item: any) => item.name === "beta").id;

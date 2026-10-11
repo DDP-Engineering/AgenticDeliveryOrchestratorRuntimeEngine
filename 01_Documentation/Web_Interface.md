@@ -801,7 +801,9 @@ Summary, Usage, Quality, Trends and Projects. Use **All time** to clear both dat
 selected dates apply to every statistic and export. Usage shows its totals and
 job elapsed time (measured jobs, average, median) as one row of compact values;
 click any usage table column heading to sort it, again to reverse; unknown values
-stay last.
+stay last. Quality shows delivery quality, administrator cost per job and MR/PR
+revision and pipeline repair totals in the same compact form; rates keep their
+numerator/denominator, and the daily revision table lists only active days.
 Unknown values show a dash, measured zero shows 0, source errors show failed
 load, and unallocated usage is explicitly counted. Open reviews are current
 state. These controls preserve four-language guidance.
@@ -860,7 +862,7 @@ Review cohorts use first MR opening/adoption in scope; validation cohorts use
 first strict verdict in scope. Human merge uses reviewed jobs with actual done
 in scope and `merged by human`. Rework requires reviewer-requested revision;
 pipeline repair is separate. Each rate exposes numerator/denominator; empty is
-null. Open reviews are labeled current state. Monetary efficiency uses only
+null. Review still open counts reviews open now, independent of the period. Monetary efficiency uses only
 period consumption for the completed/human-merged cohort and separate known
 reported/estimated samples.
 

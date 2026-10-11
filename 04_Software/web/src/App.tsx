@@ -987,11 +987,22 @@ export default function App() {
     </section> : page === "metrics" && allProjectScope ? <p className="scope-note">{t("metricsAllProjects")} · {t("globalScopeHelp")}</p> : null;
 
   const elapsed = (value: number | null) => value == null ? statisticsText.unavailable : `${formatNumber(value)} s`;
-  const usageTotals: Array<[string, string]> = usage ? [[t("usageEvents"), formatNumber(usage.totals.events)], [t("tokensIn"), formatNumber(usage.totals.tokens_in)],
+  const usageTotals: Chip[] = usage ? [[t("usageEvents"), formatNumber(usage.totals.events)], [t("tokensIn"), formatNumber(usage.totals.tokens_in)],
     [t("tokensOut"), formatNumber(usage.totals.tokens_out)], [t("cacheRead"), formatNumber(usage.totals.cache_read_tokens)], [t("cacheWrite"), formatNumber(usage.totals.cache_write_tokens)],
-    ...(isAdmin ? [[t("cost"), formatMoney(usage.totals.reported_cost_usd)], [t("estimatedCost"), formatMoney(usage.totals.estimated_cost_usd)]] as Array<[string, string]> : []),
+    ...(isAdmin ? [[t("cost"), formatMoney(usage.totals.reported_cost_usd)], [t("estimatedCost"), formatMoney(usage.totals.estimated_cost_usd)]] as Chip[] : []),
     ...(metrics ? [[t("measuredJobs"), formatNumber(metrics.duration.sampled_runs)], [t("averageSpan"), elapsed(metrics.duration.avg_span_seconds)],
-      [t("medianSpan"), elapsed(metrics.duration.median_span_seconds)]] as Array<[string, string]> : [])] : [];
+      [t("medianSpan"), elapsed(metrics.duration.median_span_seconds)]] as Chip[] : [])] : [];
+  const ratio = (numerator: number | undefined, denominator: number | undefined) => `${formatNumber(numerator || 0)}/${formatNumber(denominator || 0)}`;
+  const qualityChips: Chip[] = metrics ? [[t("reviewReworkRate"), formatPercent(metrics.quality.review_rework_rate), `${ratio(metrics.quality.reworked_jobs, metrics.quality.reviewed_jobs)} ${t("reviewedJobs")}`],
+    [t("firstValidationRate"), formatPercent(metrics.quality.first_validation_rate), `${ratio(metrics.quality.first_pass_validations, metrics.quality.validated_jobs)} ${t("validatedJobs")}`],
+    [t("firstPassMergeRate"), formatPercent(metrics.quality.first_pass_merge_rate), `${ratio(metrics.quality.first_pass_merges, metrics.quality.human_merged_jobs)} ${t("humanMergedJobs")}`],
+    [t("openReviews"), formatNumber(metrics.quality.open_review_jobs || 0)], [t("attempts"), formatNumber(metrics.quality.stage_failures || 0)],
+    [t("operatorRetries"), formatNumber(metrics.quality.operator_retries || 0)]] : [];
+  const costChips: Chip[] = metrics ? ([["reported_per_completed", "reportedCompleted"], ["estimated_per_completed", "estimatedCompleted"], ["reported_per_human_merged", "reportedMerged"], ["estimated_per_human_merged", "estimatedMerged"]] as const)
+    .map(([key, label]) => [t(label), formatMoney(metrics.quality.cost_efficiency?.[key]?.usd_per_job), `${formatNumber(metrics.quality.cost_efficiency?.[key]?.jobs_with_evidence || 0)} ${t("jobsWithEvidence")}`]) : [];
+  const revisionChips: Chip[] = metrics ? [[t("mrRevisions"), formatNumber(metrics.totals.mr_revisions || 0)], [t("pipelineRepairs"), formatNumber(metrics.totals.pipeline_repairs || 0)],
+    [t("unclassifiedRevisions"), formatNumber(metrics.coverage.revision_events_unclassified || 0)]] : [];
+  const revisionDays = metrics?.daily.filter(day => day.mr_revisions || day.pipeline_repairs) || [];
   const usageColumns: Array<[UsageSortKey, MessageKey]> = [["date", "date"], ["executor", "executor"], ["model", "model"], ["events", "usageEvents"], ["tokens_in", "tokensIn"],
     ["tokens_out", "tokensOut"], ["cache_read_tokens", "cacheRead"], ["cache_write_tokens", "cacheWrite"], ...(isAdmin ? [["reported_cost_usd", "cost"], ["estimated_cost_usd", "estimatedCost"]] as Array<[UsageSortKey, MessageKey]> : [])];
 
@@ -1005,7 +1016,7 @@ export default function App() {
         {reportingDataState !== "ready" ? <DataFeedback state={reportingDataState} t={t} /> : <>
         {metricsTab === "usage" && <>
         <section className="panel"><h2>{t("attributedUsage")}</h2>
-          {usage && <dl className="usage-totals">{usageTotals.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>}
+          {usage && <Chips items={usageTotals} className="usage-totals" />}
           {usage?.daily.length ? <PagedTable key={`${usageSortKey}-${usageSortDescending}`} t={t}><table className="usage-table"><thead><tr>{usageColumns.map(([key, label]) => <SortHeader key={key} label={t(label)} sortKey={key} activeKey={usageSortKey} descending={usageSortDescending} onSort={changeUsageSort} />)}</tr></thead><tbody>{sortUsageRows(usage.daily, usageSortKey, usageSortDescending, locale).map((row, index) => <tr key={`${row.date}-${row.executor}-${row.model}-${index}`}><td>{row.date}</td><td>{row.executor || "—"}</td><td>{row.model || "—"}</td><td>{formatNumber(row.events)}</td><td>{formatNumber(row.tokens_in)}</td><td>{formatNumber(row.tokens_out)}</td><td>{row.cache_read_tokens == null ? "\u2014" : formatNumber(row.cache_read_tokens)}</td><td>{row.cache_write_tokens == null ? "\u2014" : formatNumber(row.cache_write_tokens)}</td>{isAdmin && <td>{formatMoney(row.reported_cost_usd)}</td>}{isAdmin && <td>{formatMoney(row.estimated_cost_usd)}</td>}</tr>)}</tbody></table></PagedTable> : <Empty label={t("noMatchingMetrics")} />}
           {allProjectScope && allUsage && <><h3>{t("allProjects")}</h3><PagedTable t={t}><table><thead><tr><th>{t("project")}</th><th>{t("usageEvents")}</th><th>{t("tokensIn")}</th><th>{t("tokensOut")}</th><th>{t("cost")}</th><th>{t("estimatedCost")}</th></tr></thead><tbody>{scopedUsageRows.map(([name, item]) => <tr key={name}><td>{name}</td><td>{formatNumber(item.totals.events)}</td><td>{formatNumber(item.totals.tokens_in)}</td><td>{formatNumber(item.totals.tokens_out)}</td><td>{formatMoney(item.totals.reported_cost_usd)}</td><td>{formatMoney(item.totals.estimated_cost_usd)}</td></tr>)}</tbody></table></PagedTable></>}
         </section>
@@ -1015,26 +1026,12 @@ export default function App() {
           {allProjectScope && <section className="panel"><h2>{t("projectComparison")}</h2><PagedTable t={t}><table><thead><tr><th>{t("project")}</th><th>{statisticsText.started}</th><th>{statisticsText.completed}</th><th>{statisticsText.failed}</th><th>{t("tokensIn")}</th><th>{t("tokensOut")}</th></tr></thead><tbody>{globalRows.map(([name, item]) => <tr key={name}><td>{name}<small>{item.scope?.project_ids[0]}</small></td><td>{item.period.started}</td><td>{item.period.completed}</td><td>{item.period.failed}</td><td>{formatNumber(item.period.tokens_in)}</td><td>{formatNumber(item.period.tokens_out)}</td></tr>)}</tbody></table></PagedTable></section>}
         </>}
         {metricsTab === "quality" && metricsEmpty && <section className="panel"><Empty label={t("metricsNoJobs")} /></section>}{metricsTab === "quality" && !metricsEmpty && <>
-        <section className="panel"><div className="panel-heading"><h2>{t("deliveryQuality")}</h2><span className="muted">{t(metricFrom || metricTo ? "periodTotals" : "allTimeTotals")}</span></div>
-          <p className="muted">{t("qualityHelp")}</p><div className="stats-grid">
-            <Stat label={t("reviewReworkRate")} value={formatPercent(metrics?.quality.review_rework_rate)} hint={`${formatNumber(metrics?.quality.reworked_jobs || 0)} / ${formatNumber(metrics?.quality.reviewed_jobs || 0)} ${t("reviewedJobs")}`} />
-            <Stat label={t("firstValidationRate")} value={formatPercent(metrics?.quality.first_validation_rate)} hint={`${formatNumber(metrics?.quality.first_pass_validations || 0)} / ${formatNumber(metrics?.quality.validated_jobs || 0)} ${t("validatedJobs")}`} />
-            <Stat label={t("firstPassMergeRate")} value={formatPercent(metrics?.quality.first_pass_merge_rate)} hint={`${formatNumber(metrics?.quality.first_pass_merges || 0)} / ${formatNumber(metrics?.quality.human_merged_jobs || 0)} ${t("humanMergedJobs")}`} />
-            <Stat label={t("openReviews")} value={formatNumber(metrics?.quality.open_review_jobs || 0)} hint={t("currentState")} />
-            <Stat label={t("attempts")} value={formatNumber(metrics?.quality.stage_failures || 0)} hint={t("jobs")} />
-            <Stat label={t("operatorRetries")} value={formatNumber(metrics?.quality.operator_retries || 0)} hint={t("jobs")} />
-          </div>
-        </section>
-        {isAdmin && <section className="panel"><div className="panel-heading"><h2>{t("qualityEfficiency")}</h2><span className="muted">USD</span></div>
-          <p className="muted">{t("costEvidenceHelp")}</p><div className="stats-grid">
-            {([ ["reported_per_completed", "reportedCompleted"], ["estimated_per_completed", "estimatedCompleted"], ["reported_per_human_merged", "reportedMerged"], ["estimated_per_human_merged", "estimatedMerged"] ] as const).map(([key, label]) => <Stat key={key} label={t(label)} value={formatMoney(metrics?.quality.cost_efficiency?.[key]?.usd_per_job)} hint={`${formatNumber(metrics?.quality.cost_efficiency?.[key]?.jobs_with_evidence || 0)} ${t("jobsWithEvidence")}`} />)}
-          </div>
-        </section>}
-        <section className="panel"><div className="panel-heading"><h2>{t("mrRevisions")} / {t("pipelineRepairs")}</h2><span className="muted">{metricTimezone}</span></div>
-          <PagedTable t={t}><table><thead><tr><th>{t("date")}</th><th>{t("mrRevisions")}</th><th>{t("pipelineRepairs")}</th></tr></thead><tbody>
-            {metrics?.daily.map(day => <tr key={day.date}><td>{day.date}</td><td>{formatNumber(day.mr_revisions)}</td><td>{formatNumber(day.pipeline_repairs)}</td></tr>)}
-          </tbody></table></PagedTable>
-          <p className="muted coverage-note">{t("unclassifiedRevisions")}: {formatNumber(metrics?.coverage.revision_events_unclassified || 0)}</p>
+        <section className="panel"><h2>{t("deliveryQuality")}</h2><Chips items={qualityChips} /></section>
+        {isAdmin && <section className="panel"><h2>{t("qualityEfficiency")}</h2><Chips items={costChips} /></section>}
+        <section className="panel"><h2>{t("mrRevisions")} / {t("pipelineRepairs")}</h2><Chips items={revisionChips} />
+          {revisionDays.length > 0 && <PagedTable t={t}><table className="revision-days"><thead><tr><th>{t("date")}</th><th>{t("mrRevisions")}</th><th>{t("pipelineRepairs")}</th></tr></thead><tbody>
+            {revisionDays.map(day => <tr key={day.date}><td>{day.date}</td><td>{formatNumber(day.mr_revisions)}</td><td>{formatNumber(day.pipeline_repairs)}</td></tr>)}
+          </tbody></table></PagedTable>}
         </section>
         {allProjectScope && <section className="panel"><div className="panel-heading"><h2>{t("metricsAllProjects")} · {t("mrRevisions")} / {t("pipelineRepairs")}</h2></div>
           <PagedTable t={t}><table><thead><tr><th>{t("project")}</th><th>{t("mrRevisions")}</th><th>{t("pipelineRepairs")}</th></tr></thead><tbody>
@@ -1222,10 +1219,10 @@ export default function App() {
   </DashboardShell>;
 }
 
-function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
-  return <div className="stat-card"><span>{label}</span><strong>{value}</strong>{hint && <small>{hint}</small>}</div>;
+type Chip = [label: string, value: string, context?: string];
+function Chips({ items, className }: { items: Chip[]; className?: string }) {
+  return <dl className={className ? `metric-chips ${className}` : "metric-chips"}>{items.map(([label, value, context]) => <div key={label}><dt>{label}</dt><dd>{value}{context && <small>{context}</small>}</dd></div>)}</dl>;
 }
-
 
 function SortHeader<K extends string>({ label, sortKey, activeKey, descending, onSort }: { label: string; sortKey: K; activeKey: K; descending: boolean; onSort: (key: K) => void }) {
   const active = sortKey === activeKey;
