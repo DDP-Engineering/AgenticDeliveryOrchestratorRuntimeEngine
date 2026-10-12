@@ -4,7 +4,7 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { messages, type Locale } from "./i18n";
 import { auditCopy } from "./auditCopy";
 
@@ -47,6 +47,9 @@ function validRow(value: unknown): value is Row {
     safeValue(row.before) && safeValue(row.after);
 }
 
+/** Like a short Git hash: the first 12 characters, with the full value on hover. */
+const short = (hex: string) => <code title={hex}>{hex.slice(0, 12)}</code>;
+
 /** Filtered server pages are isolated by principal and project via the parent key. */
 export function AuditHistory({ locale, projects, fixedProject, read }: {
   locale: Locale; projects: Array<{ id: string; name: string; display_name?: string }>;
@@ -55,6 +58,7 @@ export function AuditHistory({ locale, projects, fixedProject, read }: {
   const c = auditCopy[locale];
   const [draft, setDraft] = useState<Filters>({ ...empty, project: fixedProject || "" });
   const [filters, setFilters] = useState(draft);
+  const [open, setOpen] = useState<number[]>([]);
   const [size, setSize] = useState("10");
   const [offset, setOffset] = useState(0);
   const [refresh, setRefresh] = useState(0);
@@ -100,13 +104,16 @@ export function AuditHistory({ locale, projects, fixedProject, read }: {
     {invalid && <p role="alert">{c.invalid}</p>}
     {state === "loading" ? <p role="status">{c.loading}</p> : state === "error" ? <div role="alert"><p>{messages[locale].dataFailed}</p><p>{c.error}</p></div> : <>
       <p role="status">{total} {c.matched}</p>
-      {rows.length ? <div className="table-scroll"><table><thead><tr><th>{c.who}</th><th>{c.what}</th><th>{c.when}</th><th>{c.result}</th><th>{c.evidence}</th></tr></thead><tbody>{rows.map(row => <tr key={row.id}>
+      {rows.length ? <div className="table-scroll"><table><thead><tr><th>{c.who}</th><th>{c.what}</th><th>{c.when}</th><th>{c.result}</th><th>{c.evidence}</th></tr></thead><tbody>{rows.map(row => { const expanded = open.includes(row.id), detailId = `audit-detail-${row.id}`; return <Fragment key={row.id}><tr>
         <td>{row.actor || c.unknown}{row.actor_id && <small>#{row.actor_id}</small>}</td>
         <td>{row.action}<small>{row.project || row.project_id || c.unknown}</small><small>{row.resource_type} {row.resource_id}</small></td>
         <td><time dateTime={row.created_at}>{new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(row.created_at))}</time></td>
         <td><strong>{row.result ? c[row.result] : c.unknown}</strong><small>{row.phase ? c[{prepare: "preparePhase", apply: "applyPhase", discard: "discardPhase"}[row.phase] || "unknown"] : c.unknown}</small></td>
-        <td><details><summary>{c.evidence}</summary><dl><dt>{c.before}</dt><dd>{row.before === null ? c.beforeMissing : JSON.stringify(row.before)}</dd><dt>{c.after}</dt><dd>{row.after === null ? c.afterMissing : JSON.stringify(row.after)}</dd><dt>{c.operation}</dt><dd>{row.operation_id ?? row.correlation ?? c.unknown}</dd><dt>{c.base}</dt><dd>{row.base_revision || c.unknown}</dd><dt>{c.candidate}</dt><dd>{row.candidate_revision || c.unknown}</dd></dl></details></td>
-      </tr>)}</tbody></table></div> : <p className="empty">{c.empty}</p>}
+        <td><button type="button" className="text-button audit-toggle" aria-expanded={expanded} aria-controls={detailId} onClick={() => setOpen(items => expanded ? items.filter(id => id !== row.id) : [...items, row.id])}>{c.evidence}</button></td>
+      </tr>
+      {/* Evidence opens on its own full-width row so the table columns keep their widths. */}
+      {expanded && <tr className="audit-detail-row"><td colSpan={5} id={detailId}><dl><dt>{c.before}</dt><dd>{row.before === null ? c.beforeMissing : JSON.stringify(row.before)}</dd><dt>{c.after}</dt><dd>{row.after === null ? c.afterMissing : JSON.stringify(row.after)}</dd><dt>{c.operation}</dt><dd>{row.operation_id ? `#${row.operation_id}` : row.correlation ? short(row.correlation) : c.unknown}</dd>{row.base_revision && <><dt>{c.base}</dt><dd>{short(row.base_revision)}</dd></>}{row.candidate_revision && <><dt>{c.candidate}</dt><dd>{short(row.candidate_revision)}</dd></>}</dl></td></tr>}
+      </Fragment>; })}</tbody></table></div> : <p className="empty">{c.empty}</p>}
       <div className="table-pager"><label>{c.pageSize}<select value={size} onChange={event => { setSize(event.target.value); setOffset(0); }}>{["10", "25", "50", "all"].map(value => <option key={value} value={value}>{value === "all" ? c.all : value}</option>)}</select></label><button type="button" className="ghost" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - Number(size)))}>{c.previous}</button><button type="button" className="ghost" disabled={size === "all" || offset + rows.length >= total} onClick={() => setOffset(offset + Number(size))}>{c.next}</button></div>
     </>}
   </section>;

@@ -227,7 +227,10 @@ Filter by the actor ID displayed with the account name, a stable project, exact
 change-type action code and UTC period. Blank bounds search all retained time;
 **From** includes its instant and **Until** excludes it. Apply filters resets the
 page. Counts and 10/25/50/All choices cover the complete matched server history.
-**Evidence** expands known before/after values, operation correlation and revisions.
+**Evidence** opens a row below the event with known before/after values and the
+operation correlation, plus the base and candidate configuration revisions when a
+configuration change recorded them; identifiers show their first 12 characters
+(hover for the full value) and the table columns do not move.
 A preparation shows a candidate, with **Prepared** rather than an applied result.
 Discard records removal of a durable pending configuration. **Uncertain** means
 the host could not confirm completion; inspect/reconcile the actual resource

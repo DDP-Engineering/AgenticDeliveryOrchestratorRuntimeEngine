@@ -61,6 +61,32 @@ test("change evidence is scannable, server filtered and retention stays in admin
   await expect(page.getByText(/share this volume/)).toHaveCount(0);
 });
 
+test("expanding evidence keeps the columns still and shortens identifiers", async ({ page }) => {
+  const correlation = "ab".repeat(32), base = "cd".repeat(32);
+  await page.route("**/api/v1/audit-page?*", async route => {
+    const value = await (await route.fetch()).json();
+    Object.assign(value.items[0], { operation_id: null, correlation, base_revision: base, candidate_revision: null });
+    await route.fulfill({ json: value });
+  });
+  await page.goto("/admin/audit");
+  const headers = page.locator(".audit-evidence thead th");
+  await expect(headers).toHaveCount(5);
+  const before = await headers.evaluateAll(cells => cells.map(cell => Math.round(cell.getBoundingClientRect().left)));
+  await page.getByRole("cell").getByText("Evidence", { exact: true }).first().click();
+  const detail = page.locator(".audit-detail-row").first();
+  await expect(detail).toBeVisible();
+  expect(await headers.evaluateAll(cells => cells.map(cell => Math.round(cell.getBoundingClientRect().left)))).toEqual(before);
+  await expect(detail.locator(`code[title="${correlation}"]`)).toHaveText(correlation.slice(0, 12));
+  await expect(detail.locator(`code[title="${base}"]`)).toHaveText(base.slice(0, 12));
+  await expect(detail).not.toContainText("Candidate revision");
+  await expect(detail).not.toContainText(correlation);
+  // At phone width the fixed table keeps readable columns and scrolls inside its container.
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(Math.min(...await headers.evaluateAll(cells => cells.map(cell => cell.getBoundingClientRect().width)))).toBeGreaterThanOrEqual(90);
+  expect(await page.locator(".audit-evidence .table-scroll").evaluate(node => node.scrollWidth > node.clientWidth)).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+});
+
 test("malformed or failed projections hide evidence and retry recovers", async ({ page }) => {
   await page.goto("/admin/audit");
   await expect(page.getByRole("columnheader", { name: "Result", exact: true })).toBeVisible();

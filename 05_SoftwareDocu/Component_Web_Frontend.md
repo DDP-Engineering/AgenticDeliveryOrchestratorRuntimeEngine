@@ -138,7 +138,9 @@ and filters. Project History includes assigned-project change evidence alongside
 its job history. `AuditHistory.tsx` requests exact actor/project/action/half-open
 UTC filters, matched counts and 10/25/50/All pages from `/audit-page`. Filters reset
 the offset. The view shows Who/What/When/Result and expandable known before/after,
-operation correlation and revision evidence. Missing legacy values say Before
+operation correlation and revision evidence in a full-width `audit-detail-row` under
+the event (fixed table layout; 12-character ids with the full value as title;
+revisions only when recorded). Missing legacy values say Before
 value not recorded; candidate preparation and uncertain application attempts are
 labeled separately from applied results. `auditCopy.ts` supplies four locales.
 Strict transport/value checks withhold malformed, mismatched or failed evidence

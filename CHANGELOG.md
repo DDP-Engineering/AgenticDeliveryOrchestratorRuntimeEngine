@@ -22,6 +22,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Steady change history evidence: Evidence opens on a full-width row below the event so the table columns no longer resize, operation correlations and configuration revisions show their first 12 characters (full value on hover), and base/candidate revisions appear only when recorded.
+
 - Tidy user project access: Assigned projects opens full width below the account, each project is one checkbox row with its name and its forge and repository path in columns (the unique name is added when display names repeat), and creation choices use the same rows; reviews and results keep the stable project IDs.
 
 - Compact System status: audit retention shows the current limits (Unlimited when none) above the prefilled form with one short impact sentence, the control worker and storage are compact indicators in one row, and storage is grouped by physical volume (`volume_id` in `/api/v1/system/storage`) - one line for a shared disk, a table only for several.
