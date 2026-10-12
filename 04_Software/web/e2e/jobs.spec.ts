@@ -52,16 +52,13 @@ test("overview uses compact attention and active tables without reporting noise"
   await expect(active).toContainText("Working");
   await expect(page.getByRole("link", { name: "View all jobs", exact: false })).toHaveCount(0);
   await expect(nav(page).getByRole("link", { name: "Jobs", exact: true })).toHaveAttribute("href", `/jobs?project=${alpha}`);
-  const help = page.locator(".top-actions summary");
-  await expect(help).toHaveText("How ADORE works");
+  // How ADORE works opens the help center by keyboard; Back returns to the scoped Overview.
+  const help = page.locator(".top-actions").getByRole("link", { name: "How ADORE works", exact: true });
+  await expect(help).toHaveAttribute("href", "/help");
   await help.focus(); await page.keyboard.press("Enter");
-  await expect(page.locator(".delivery-glossary dl")).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(page.locator(".delivery-glossary dl")).not.toBeVisible();
-  await expect(help).toBeFocused();
-  await help.click();
-  await page.getByRole("heading", { name: "Overview", exact: true }).click();
-  await expect(page.locator(".delivery-glossary dl")).not.toBeVisible();
+  await expect(page).toHaveURL(/\/help$/);
+  await page.goBack();
+  await expect(page.getByRole("heading", { name: "Overview", exact: true })).toBeVisible();
   await attention.getByRole("link", { name: "Details", exact: true }).first().click();
   await expect(page.locator(".detail-panel")).toBeVisible();
   await expect(page.getByRole("button", { name: /merge|approve|pause job|resume job/i })).toHaveCount(0);

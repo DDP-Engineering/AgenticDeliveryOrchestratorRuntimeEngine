@@ -34,9 +34,19 @@ configuration values, type/domain hints and field help use 0.875rem text with
 On narrow screens, setting labels, values and help stack vertically.
 
 
-The header help button **How ADORE works**, beside About (and Refresh where shown), opens
-the localized delivery glossary. Activate it again, press Escape or click outside
-to close it. Full job history is reached through the sidebar Jobs link; Overview
+The header link **How ADORE works**, beside About (and Refresh where shown), opens the
+help center route `/help[/<topic>]` (`HelpCenter.tsx`). Topics are bundled
+Markdown files `src/help/content/<locale>/<topic>.md` loaded with
+`import.meta.glob` (`src/help/content.ts`) and parsed by `src/help/markdown.ts`
+into blocks rendered as React elements (headings with explicit ids, paragraphs,
+lists, tables, notes, code, bold, code spans and internal links; no HTML).
+The page lists topics with an accent- and case-insensitive search, shows the
+article with an On this page outline of `##` sections, routes internal links in
+the app and scrolls to `#id` sections. `HelpLink` renders the contextual **?**
+link (Tickets toolbar, Add project step heading, project Settings heading) that
+opens its topic in a new tab. `tests/help.test.mjs` checks the Markdown subset,
+locale parity of structure and links, link and route targets, contextual
+targets and the glossary terms. Full job history is reached through the sidebar Jobs link; Overview
 keeps job-specific Details links.
 
 Implementation settings support reviewed edits for human-answer waiting time (positive integer plus seconds/minutes/hours/days), positive question-round count, a nonempty retry schedule (one nonnegative integer per line), and the complete stage-timeout map. The six stage rows choose either the general attempt limit or a positive custom limit in seconds; choosing general removes the override. Retry and timeout collections accept only safe integers and their declared keys; other lists/maps remain read-only except the existing reviewer list. Admins prepare, inspect active/proposed values and apply only at the existing idle boundary; developers remain read-only. Names, help and controls share four locales. The answer deadline is independent of the reserved reminder; reminder format is still checked and no reminder is sent.
@@ -118,9 +128,9 @@ generation guards prevent the previous account from refilling data.
 
 The keyboard skip link focuses content. Primary links mark the current page;
 navigation and disclosure controls have visible focus. Route changes move
-focus to content. A localized How ADORE works disclosure defines job, enrolled
-project, pickup stopped, waiting for clarification, waiting for approval and
-draft review. Stopping pickup affects new issues; active jobs continue.
+focus to content. The Glossary topic of the localized help center defines job,
+enrolled project, pickup stopped, waiting for clarification, waiting for approval
+and draft review. Stopping pickup affects new issues; active jobs continue.
 Publication approval occurs on the forge; merge remains a human decision.
 Essential guided-field instructions stay visible and are associated through
 `aria-describedby`; settings and the glossary retain progressive disclosure.

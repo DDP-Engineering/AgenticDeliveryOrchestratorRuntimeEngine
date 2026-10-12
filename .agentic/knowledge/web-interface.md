@@ -37,9 +37,13 @@ What's new renders `release_notes` from `/api/v1/about` (packaged
 development); agents maintain it under AGENTS.md "Release notes rules" and
 `02_Tools/check_release_notes.py` checks it.
 
-The header help button **How ADORE works**, beside About (and Refresh where shown), opens
-the localized delivery glossary. Activate it again, press Escape or click outside
-to close it. Full job history is reached through the sidebar Jobs link; Overview
+**How ADORE works** opens the in-app help center (`/help`, `/help/<topic>`):
+ten bundled Markdown topics per locale under `src/help/content/`, parsed by
+`src/help/markdown.ts` (subset, explicit heading ids, no HTML), with search, an
+outline and contextual **?** links (`HelpLink`) on the Tickets view, the Add
+project wizard and project Settings. Agents keep it current under AGENTS.md
+"Help content rules"; `tests/help.test.mjs` enforces parity and links. The
+glossary is the Glossary topic. Full job history is reached through the sidebar Jobs link; Overview
 keeps job-specific Details links.
 
 

@@ -195,10 +195,12 @@ test("failed projects and corrupt metrics fail closed instead of empty or zero",
 test("glossary defines supported human actions with essential field help visible", async ({ page }) => {
   await signIn(page);
   await page.getByText("How ADORE works", { exact: true }).click();
-  await expect(page.getByText("Pickup stopped", { exact: true })).toBeVisible();
-  await expect(page.getByText(/does not pause an active job/)).toBeVisible();
-  await expect(page.getByText(/Approval is recorded on the forge/)).toBeVisible();
-  await expect(page.getByText(/Merge remains a human decision/)).toBeVisible();
+  await page.getByRole("navigation", { name: "Help topics", exact: true }).getByRole("link", { name: "Glossary", exact: true }).click();
+  const glossary = page.locator(".help-article");
+  await expect(glossary.getByRole("cell", { name: "Pickup stopped", exact: true })).toBeVisible();
+  await expect(glossary).toContainText("does not pause an active job");
+  await expect(glossary).toContainText("recorded on the forge");
+  await expect(glossary).toContainText("human decision");
   await nav(page).getByRole("link", { name: "Projects", exact: true }).click();
   await page.getByRole("button", { name: "Add project", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Enrollment method", exact: true })).toBeVisible();

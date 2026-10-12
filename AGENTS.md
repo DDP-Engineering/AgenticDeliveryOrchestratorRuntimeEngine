@@ -176,6 +176,25 @@ need to remember them.
   list `adore/release_notes.toml` in `REQUIRED_BUNDLE_FILES` of
   `02_Tools/check_release_consistency.py` if it is not there yet.
 
+### Help content rules
+
+The in-app help center (`/help`, header **How ADORE works**) renders
+`04_Software/web/src/help/content/<locale>/<topic>.md`; the format and topic
+list are in `04_Software/web/src/help/README.md`. Agents keep it current.
+
+- In the same change as any interface or workflow change, update every help
+  topic that describes it: screen, tab, button or setting names, steps, labels,
+  defaults and limits. Add a topic only with its entry in `src/help/topics.ts`.
+- Update all four locales (`en`, `fr`, `de`, `ro`) together with the same
+  headings, ids, tables, lists, notes and link targets; use the interface's own
+  terms in each language.
+- Describe only behavior that exists, taken from the code and
+  `01_Documentation/`.
+- Record the decision as one task journal Log line at build:
+  `help: updated | none (<reason>)`.
+- `node --test tests/help.test.mjs` (part of `npm test`) fails on a missing
+  locale, structure drift, unsupported Markdown or a broken link.
+
 ## Documentation Rules
 
 - **After every component creation or update, create or update that component's

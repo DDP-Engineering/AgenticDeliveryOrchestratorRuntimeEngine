@@ -38,7 +38,7 @@ text = { en = "Administrators create accounts and choose the projects each devel
 [[release.entry]]
 category = "new"
 topic = { en = "Executors", fr = "Exécuteurs", de = "Ausführung", ro = "Executori" }
-text = { en = "Build a project's executor image from a short Dockerfile, right from Settings.", fr = "Construisez l'image d'exécution d'un projet à partir d'un court Dockerfile, depuis Paramètres.", de = "Das Ausführungsimage eines Projekts aus einem kurzen Dockerfile in Einstellungen bauen.", ro = "Construiți imaginea de execuție a unui proiect dintr-un Dockerfile scurt, din Setări." }
+text = { en = "Prepare a project's executor image from a short Dockerfile kept in its repository.", fr = "Préparez l'image d'exécution d'un projet à partir d'un court Dockerfile de son dépôt.", de = "Das Ausführungsimage eines Projekts aus einem kurzen Dockerfile im Repository vorbereiten.", ro = "Pregătiți imaginea de execuție a unui proiect dintr-un Dockerfile scurt din depozitul său." }
 
 [[release.entry]]
 category = "new"
@@ -54,6 +54,11 @@ text = { en = "ADORE watches the pipeline of a published draft and can repair it
 category = "new"
 topic = { en = "Delivery", fr = "Livraison", de = "Auslieferung", ro = "Livrare" }
 text = { en = "Merge requests can open ready for review after human approval, not only as drafts.", fr = "Les demandes de fusion peuvent s'ouvrir prêtes à relire après approbation humaine.", de = "Merge-Requests können nach menschlicher Freigabe direkt prüfbereit geöffnet werden.", ro = "Cererile de îmbinare se pot deschide gata de revizie după aprobarea umană." }
+
+[[release.entry]]
+category = "new"
+topic = { en = "Help", fr = "Aide", de = "Hilfe", ro = "Ajutor" }
+text = { en = "How ADORE works opens a help center that explains the interface and the workflow.", fr = "Comment fonctionne ADORE ouvre un centre d'aide sur l'interface et le flux de travail.", de = "So funktioniert ADORE öffnet eine Hilfe zu Oberfläche und Arbeitsablauf.", ro = "Cum funcționează ADORE deschide un ajutor despre interfață și fluxul de lucru." }
 
 [[release.entry]]
 category = "new"

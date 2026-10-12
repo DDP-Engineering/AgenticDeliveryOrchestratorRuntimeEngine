@@ -4,6 +4,8 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
+import { isHelpTopic, type HelpTopic } from "./help/topics.ts";
+
 export type ProjectTab = "overview" | "configuration" | "executor" | "prices" | "access" | "jobs" | "statistics" | "history";
 export type MetricsTabRoute = "summary" | "usage" | "quality" | "trends" | "projects";
 type PlainView = "projects" | "createProject" | "importProject" | "administration" | "adminUsers" | "adminAudit" | "settings";
@@ -13,7 +15,8 @@ export type Route =
   | { view: PlainView }
   | { view: "projectDetails"; project: string; tab: ProjectTab; run?: string; jobsView?: "jobs"; metricsTab?: MetricsTabRoute; reporting?: ReportingRoute }
   | { view: "jobs"; project?: string; run?: string; jobsView?: "jobs"; reporting?: ReportingRoute }
-  | { view: "metrics"; project?: string; tab?: MetricsTabRoute; reporting?: ReportingRoute };
+  | { view: "metrics"; project?: string; tab?: MetricsTabRoute; reporting?: ReportingRoute }
+  | { view: "help"; topic?: HelpTopic };
 
 const PLAIN: Record<string, PlainView> = {
   "/projects": "projects", "/projects/new": "createProject", "/projects/import": "importProject",
@@ -48,6 +51,9 @@ export function parseRoute(pathname: string, search = ""): Route | null {
   }
   if (path === "/" || path === "") return project ? { view: "overview", project } : { view: "overview" };
   if (path in PLAIN) return { view: PLAIN[path] };
+  if (path === "/help") return { view: "help" };
+  const help = /^\/help\/([^/]+)$/.exec(path);
+  if (help) return isHelpTopic(help[1]) ? { view: "help", topic: help[1] } : null;
   if (path === "/jobs") {
     const run = identifier(query.get("run"));
     return { view: "jobs", ...(reporting ? { reporting } : {}), ...(project ? { project } : {}), ...(project && run ? { run } : query.get("view") === "jobs" ? { jobsView: "jobs" as const } : {}) };
@@ -100,6 +106,7 @@ export function formatRoute(route: Route): string {
     }
     case "jobs": return withQuery("/jobs", { project: route.project, run: route.project ? route.run : undefined, view: route.project && route.run ? undefined : route.jobsView, ...reportingParams });
     case "metrics": return withQuery("/metrics", { project: route.project, tab: route.tab, ...reportingParams });
+    case "help": return route.topic ? `/help/${route.topic}` : "/help";
     default: return PLAIN_PATHS[route.view];
   }
 }

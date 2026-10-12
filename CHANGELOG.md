@@ -14,6 +14,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Added
 
+- How ADORE works now opens an in-app help center at `/help`: ten topics (what ADORE does, interface tour, adding a repository, project settings, executors and models, tickets for automatic pickup, job lifecycle, statistics and costs, administration, glossary) in English, French, German and Romanian, with search, an outline, `/help/<topic>` addresses and contextual **?** links on the Tickets view, the Add project wizard and project Settings. Content is bundled Markdown checked by `tests/help.test.mjs` for locale parity, a safe Markdown subset and valid links; AGENTS.md "Help content rules" keeps it current. The dropdown glossary became the Glossary topic.
+
 - About > What's new lists each release's user-facing notes in the user's language, newest first and grouped New/Improved/Fixed by topic. Notes live in `04_Software/adore/release_notes.toml` with all four locales per entry, are maintained by agents under the new AGENTS.md "Release notes rules" (journal line `release-notes: ...`) and are checked by `02_Tools/check_release_notes.py` (contract, changelog dates, current version; `--since` warns on changelog-only changes); `/api/v1/about` returns them as `release_notes`.
 
 - Browse a project's open forge tickets from its Jobs tab: a Tickets sub-tab reads them on request with ADORE pickup eligibility and job state, starts a ticket (adding its missing ready and chosen priority labels after confirmation), retries a failed job, stops a ticket (cancels its unfinished job and removes the ready label) and shows its description and comments as plain text; the job table moves to a Jobs sub-tab.

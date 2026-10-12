@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-77d9307c"
+
+title = "Link key pages to their help topic"
+
+status = "active"
+
+requirement = """
+While a user works in a project's Tickets view, the Add project wizard or project Settings, the page shall offer a help link that opens the matching help topic (tickets for automatic pickup, adding a repository, project settings) in a new tab, leaving the current page and any unsaved input in place.
+"""
+
+verification = "Automated: e2e checks each contextual help link targets its topic and opens in a new tab; node help tests check every contextual target is an existing topic."
+
+affected_paths = ["04_Software/web/src/HelpCenter.tsx", "04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/EnrollmentWizard.tsx", "04_Software/web/src/App.tsx"]
+
+linked_tests = ["04_Software/web/e2e/help.spec.ts", "04_Software/web/tests/help.test.mjs"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-12
+updated = 2026-10-12

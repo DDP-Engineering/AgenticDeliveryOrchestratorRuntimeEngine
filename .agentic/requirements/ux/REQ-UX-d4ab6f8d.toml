@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-d4ab6f8d"
+
+title = "Open a localized help center from How ADORE works"
+
+status = "active"
+
+requirement = """
+When a signed-in user presses How ADORE works, the interface shall open a help center page at /help with a table of contents and a search field, and each of its ten topics (what ADORE does, interface tour, adding a repository, project settings, executors and models, tickets for automatic pickup, job lifecycle, statistics and costs, administration, glossary) shall have its own /help/<topic> address and be shown in the user's language with an on-this-page outline.
+"""
+
+verification = "Automated: e2e opens help from the header, follows the table of contents and an in-article link, filters with search, reloads a /help/<topic> address and sees French content after switching language; node help tests parse every topic."
+
+affected_paths = ["04_Software/web/src/HelpCenter.tsx", "04_Software/web/src/help/", "04_Software/web/e2e/help.spec.ts", "04_Software/web/src/routes.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/styles.css", "04_Software/web/src/i18n.ts"]
+
+linked_tests = ["04_Software/web/e2e/help.spec.ts", "04_Software/web/tests/help.test.mjs", "04_Software/web/tests/routes.test.mjs"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-12
+updated = 2026-10-12

@@ -24,6 +24,11 @@ four-locale entry in `04_Software/adore/release_notes.toml` in the same change,
 and the journal records `release-notes: added | updated | none (<reason>)`; see
 `AGENTS.md` "Release notes rules".
 
+Help: an interface or workflow change also updates the affected in-app help
+topics in `04_Software/web/src/help/content/` (all four locales) in the same
+change, and the journal records `help: updated | none (<reason>)`; see
+`AGENTS.md` "Help content rules".
+
 ## AEGIS workflow
 
 The full contract is `.agentic/AGENTS.md` - read it before starting work.

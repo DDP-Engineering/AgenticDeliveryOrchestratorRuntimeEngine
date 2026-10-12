@@ -87,9 +87,14 @@ configuration values, type/domain hints and field help use 0.875rem text with
 On narrow screens, setting labels, values and help stack vertically.
 
 
-The header help button **How ADORE works**, beside About (and Refresh where shown), opens
-the localized delivery glossary. Activate it again, press Escape or click outside
-to close it. Full job history is reached through the sidebar Jobs link; Overview
+The header button **How ADORE works**, beside About (and Refresh where shown), opens
+the in-app help center at `/help`: ten topics (what ADORE does, interface tour,
+adding a repository, project settings, executors and models, tickets for
+automatic pickup, job lifecycle, statistics and costs, administration, glossary)
+in your language, each with its own `/help/<topic>` address, a search field and
+an On this page outline. A project's Tickets view, the Add project wizard and
+project Settings show a **?** link that opens the matching topic in a new tab.
+Full job history is reached through the sidebar Jobs link; Overview
 keeps job-specific Details links.
 
 
@@ -761,7 +766,7 @@ The timeline shows only saved events, including stages actually visited on a
 quick path. Old recorded activity does not prove executor failure; the separately
 shown heartbeat describes the control worker only.
 
-Use **How ADORE works** for delivery vocabulary:
+The help center's **Glossary** topic (How ADORE works) defines the delivery vocabulary:
 
 - A **job** is work and verification for one repository issue.
 - An **enrolled project** is an existing repository configured on the ADORE host.

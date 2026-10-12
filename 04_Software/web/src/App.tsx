@@ -29,7 +29,7 @@ import { ExecutionPlanReview } from "./ExecutionPlanReview";
 import { type ExecutionPlan } from "./executionPlan";
 import { settingHelp } from "./settingHelp";
 import { durationParts, executionStages, implementationDraft, implementationEditorCopy } from "./implementationSettings";
-import { compactReviewCopy, settingsCopy, technicalSettingsHelp, settingLabel, statisticsDatabaseCopy, publicationCopy, publicationValue, pipelineFailureCopy, pipelineFailureValue, reviewerCopy, targetBranchCopy, excludeLabelCopy, lifecycleCopy, branchNamingCopy, branchSettingLabel, implementationSettingLabel } from "./settingsCopy";
+import { compactReviewCopy, settingsCopy, technicalSettingsHelp, settingLabel, statisticsDatabaseCopy, publicationCopy, publicationValue, pipelineFailureCopy, pipelineFailureValue, reviewerCopy, targetBranchCopy, excludeLabelCopy, lifecycleCopy, branchNamingCopy, branchSettingLabel, implementationSettingLabel, localizedSettingLabel } from "./settingsCopy";
 import { ImportWizard } from "./ImportWizard";
 import { RawConfiguration } from "./RawConfiguration";
 import { TransferWizard } from "./TransferWizard";
@@ -44,7 +44,9 @@ import { userCopy } from "./userCopy";
 import { companyLogo, DashboardShell, type ShellLink } from "./DashboardShell";
 import { TicketWorkspace } from "./TicketWorkspace";
 import { ticketCopy } from "./ticketCopy";
-import { DataFeedback, ProjectEmpty, StatusBadge, DeliveryGlossary, type DataState, type ScopedState } from "./Presentation";
+import { DataFeedback, ProjectEmpty, StatusBadge, type DataState, type ScopedState } from "./Presentation";
+import { HelpCenter, HelpLink } from "./HelpCenter";
+import { CONTEXT_TOPICS, type HelpTopic } from "./help/topics.ts";
 
 type User = { id: number; username: string; role: "admin" | "developer"; disabled: boolean; password_change_required?: boolean; projects?: string[] };
 type AccountUser = User & Account;
@@ -54,7 +56,7 @@ type Project = { display_name: string; pickup_state: string; verification: { sta
 type Config = { executor_environment?: ExecutorEnvironmentInfo; local_execution?: { machine: string; account: string; system: string } | null; execution_plan?: ExecutionPlan | null; model_connection?: ModelEvidence | null; config: Record<string, unknown>; revision: string; issues: string[]; local_endpoint_timeout_seconds?: number | null; local_endpoint?: { protocol: string; auth_env: string | null } | null; settings?: SettingMeta[] };
 type Operation = { id: number; status: string; result?: string; action?: string };
 type Price = { id: number; executor: string; model: string; effective_from: string; input_usd_per_million: string; output_usd_per_million: string };
-type Page = "overview" | "projects" | "createProject" | "importProject" | "projectDetails" | "jobs" | "metrics" | "administration" | "adminUsers" | "adminAudit" | "settings";
+type Page = "overview" | "projects" | "createProject" | "importProject" | "projectDetails" | "jobs" | "metrics" | "administration" | "adminUsers" | "adminAudit" | "settings" | "help";
 type MetricsTab = "summary" | "usage" | "quality" | "trends" | "projects";
 type ProjectSortKey = "name" | "repo" | "readiness" | "runs" | "last_activity";
 const metricsTabLabels: Record<MetricsTab, MessageKey> = {
@@ -141,6 +143,7 @@ export default function App() {
   const readinessTrigger = useRef<HTMLButtonElement>(null);
   const [about, setAbout] = useState<{ name: string; version: string; license: string; license_text: string; third_party_notices: string; release_notes?: Release[] } | null>(null);
   const [aboutView, setAboutView] = useState<"about" | "whatsNew">("about");
+  const [helpTopic, setHelpTopic] = useState<HelpTopic | undefined>();
   const [aboutOpen, setAboutOpen] = useState({ license: false, notices: false });
   const [error, setError] = useState<unknown>("");
   const [passwordSession, setPasswordSession] = useState<Session | null>(null);
@@ -605,6 +608,7 @@ export default function App() {
         ...(projectTab === "statistics" ? { ...reportingRoute, ...(metricsTab !== "summary" && metricsTab !== "projects" ? { metricsTab } : {}) } : {}) } : { view: "projects" };
       case "jobs": return { view: "jobs", ...reportingRoute, ...(jobScope ? { project: jobScope } : {}), ...(jobScope && requestedRun ? { run: requestedRun } : jobsView === "jobs" ? { jobsView: "jobs" as const } : {}) };
       case "metrics": return { view: "metrics", ...reportingRoute, ...(selected && !(isAdmin && metricAllProjects) ? { project: selected } : {}), ...(metricsTab !== "summary" ? { tab: metricsTab } : {}) };
+      case "help": return helpTopic ? { view: "help", topic: helpTopic } : { view: "help" };
       default: return { view: page };
     }
   };
@@ -615,6 +619,7 @@ export default function App() {
     if (route.view === "jobs" || route.view === "overview") setJobScope(route.project || "");
     if ("project" in route && route.project) { routedProject.current = route.project; setSelected(route.project); }
     if (route.view === "projectDetails") setProjectTab(route.tab);
+    if (route.view === "help") setHelpTopic(route.topic);
     if (route.view === "jobs" || route.view === "projectDetails" && route.tab === "jobs") setJobsView(route.run || route.jobsView === "jobs" ? "jobs" : "tickets");
     if (route.view === "metrics" || route.view === "jobs" || route.view === "projectDetails" && route.tab === "statistics") {
       setMetricFrom(route.reporting?.from ?? ""); setMetricTo(route.reporting?.through ?? "");
@@ -652,7 +657,7 @@ export default function App() {
     if (target === here) return;
     if (target.split("?")[0] === window.location.pathname) window.history.replaceState(null, "", target);
     else window.history.pushState(null, "", target);
-  }, [session, routeReady, page, selected, projectTab, jobsView, metricsTab, metricAllProjects, requestedRun, jobScope, isAdmin, metricFrom, metricTo, metricTimezone, metricGranularity]);
+  }, [session, routeReady, page, selected, projectTab, jobsView, metricsTab, metricAllProjects, requestedRun, jobScope, isAdmin, metricFrom, metricTo, metricTimezone, metricGranularity, helpTopic]);
 
   useEffect(() => {
     const wanted = routedProject.current;
@@ -937,6 +942,12 @@ export default function App() {
   const adminPages: Page[] = ["administration", "adminUsers", "adminAudit"];
 
 
+  // Help links name an address; route it like the browser would, inside the app.
+  const navigateHref = (href: string) => {
+    const url = new URL(href, window.location.origin);
+    if (enrollmentGuard.current && !enrollmentGuard.current()) return;
+    applyRoute(normalizeRoute(parseRoute(url.pathname, url.search), { isAdmin }).route);
+  };
   const navigatePage = (target: Page) => {
     if (target !== page && enrollmentGuard.current && !enrollmentGuard.current()) return;
     setRequestedRun("");
@@ -1054,7 +1065,7 @@ export default function App() {
     controls={page === "overview" && projectsState === "ready" && projects.length > 0 && <label className="overview-header-scope" htmlFor="overview-project">{t("project")}<select id="overview-project" aria-label={t("project")} value={jobScope} onChange={event => workspaceProps.onScope(event.target.value)}><option value="">{jc.allProjects}</option>{projects.map(item => <option key={item.id} value={item.id}>{item.display_name || item.name}</option>)}</select></label>}
     actions={<>{manualRefresh && <><span className="refresh-stamp">{lastRefresh && t("lastRefresh") + ": " + formatDate(lastRefresh.toISOString())}</span>
       <button className="ghost" onClick={() => { void refreshProjects().catch(setError); setViewRefresh(value => value + 1); }}>{t("refresh")}</button></>}
-      <button className="ghost" ref={aboutTrigger} onClick={() => request<typeof about>("/about").then(setAbout).catch(cause => setError(cause))}>{t("about")}</button><DeliveryGlossary t={t} /></>}
+      <button className="ghost" ref={aboutTrigger} onClick={() => request<typeof about>("/about").then(setAbout).catch(cause => setError(cause))}>{t("about")}</button><a className="ghost link-button" href="/help" onClick={event => { if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); navigateHref("/help"); }}>{t("glossary")}</a></>}
     modal={about && <div className="modal-backdrop" onClick={closeAbout}><section role="dialog" aria-modal="true" aria-labelledby="adore-about-heading" className={"modal about-modal" + (aboutView === "whatsNew" ? " about-wide" : "")} onClick={event => event.stopPropagation()} onKeyDown={event => {
       if (event.key === "Escape") closeAbout();
       if (event.key !== "Tab") return;
@@ -1235,6 +1246,7 @@ export default function App() {
 
         {page === "adminAudit" && isAdmin && <AuditHistory key={`${session.user.id}:${viewRefresh}`} locale={locale} projects={projects} read={path => request(path)} />}
 
+        {page === "help" && <HelpCenter locale={locale} topic={helpTopic} onNavigate={navigateHref} />}
         {page === "settings" && <div className="two-column"><section className="panel"><h2>{t("appearance")}</h2><div className="form-stack"><label>{t("language")}<select aria-label={t("language")} value={locale} onChange={event => updatePreference("language", event.target.value)}>{Object.entries(localeNames).map(([key, value]) => <option key={key} value={key}>{value}</option>)}</select></label><label>{t("theme")}<select aria-label={t("theme")} value={theme} onChange={event => updatePreference("theme", event.target.value)}><option value="system">{t("system")}</option><option value="light">{t("light")}</option><option value="dark">{t("dark")}</option></select></label></div></section><section className="panel"><h2>{t("changePassword")}</h2><form className="form-stack" onSubmit={changePassword}><FormLegend t={t} /><Field name="current" label={t("currentPassword")} type="password" required /><Field name="replacement" label={t("newPassword")} type="password" required minLength={8} hint={t("passwordRule")} /><button className="primary">{t("save")}</button></form></section>
         </div>}
   </DashboardShell>;
@@ -1335,7 +1347,7 @@ function PendingReview({ config, candidate, project, paused, busy, locale, t, on
   const meta = config.settings?.find(item => item.edit_key === candidate.key);
   const active = settingValue(config.config, meta?.key || candidate.key);
   const show = (value: unknown) => candidate.key === "review.on_pipeline_failure" && pipelineFailureValue(value, locale) !== null ? pipelineFailureValue(value, locale) : candidate.key === "delivery.draft" && publicationValue(value, locale) !== null ? publicationValue(value, locale) : value == null ? copy.unknown : value === "" ? t("settingNoDefault") : typeof value === "object" ? JSON.stringify(value) : String(value);
-  const rows: Array<{ label: string; active: unknown; proposed: unknown }> = [{ label: executorSettingLabel(meta?.key || candidate.key,locale) || branchSettingLabel(candidate.key, locale) || implementationSettingLabel(candidate.key, locale) || lifecycleCopy[locale].labels[candidate.key] || (candidate.key === "review.on_pipeline_failure" ? pipelineFailureCopy[locale].label : candidate.key === "labels.control.exclude" ? excludeLabelCopy[locale].label : candidate.key === "delivery.target_branch" ? targetBranchCopy[locale].label : candidate.key === "delivery.reviewers" ? reviewerCopy[locale].label : candidate.key === "delivery.draft" ? publicationCopy[locale].label : locale === "en" ? settingLabel(meta?.key || candidate.key) : t("config")), active, proposed: candidate.proposed_value }];
+  const rows: Array<{ label: string; active: unknown; proposed: unknown }> = [{ label: executorSettingLabel(meta?.key || candidate.key,locale) || branchSettingLabel(candidate.key, locale) || implementationSettingLabel(candidate.key, locale) || localizedSettingLabel(candidate.key, locale) || lifecycleCopy[locale].labels[candidate.key] || (candidate.key === "review.on_pipeline_failure" ? pipelineFailureCopy[locale].label : candidate.key === "labels.control.exclude" ? excludeLabelCopy[locale].label : candidate.key === "delivery.target_branch" ? targetBranchCopy[locale].label : candidate.key === "delivery.reviewers" ? reviewerCopy[locale].label : candidate.key === "delivery.draft" ? publicationCopy[locale].label : locale === "en" ? settingLabel(meta?.key || candidate.key) : t("config")), active, proposed: candidate.proposed_value }];
   if (candidate.key === "executor.selection" && validExecutorSelection(candidate.proposed_value)) {
     const selected=candidate.proposed_value, current=executorSelectionDraft(config.config), c=agentSettingsCopy[locale];
     rows.splice(0,1,{label:c.agent,active:current.agent,proposed:selected.agent},{label:c.command,active:current.command,proposed:selected.command},{label:c.model,active:current.model,proposed:selected.model});
@@ -1405,7 +1417,7 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
   const copy = settingsCopy[locale];
   const shown = (value: unknown) => value == null || value === "" ? "—" :
     Array.isArray(value) || typeof value === "object" ? JSON.stringify(value) : String(value);
-  const label = (row: SettingRow) => executorSettingLabel(row.key,locale) || branchSettingLabel(row.key, locale) || implementationSettingLabel(row.key, locale) || lifecycleCopy[locale].labels[row.key] || (row.key === "metrics.db_path" ? statisticsDatabaseCopy[locale].label : row.key === "review.on_pipeline_failure" ? pipelineFailureCopy[locale].label : row.key === "labels.control.exclude" ? excludeLabelCopy[locale].label : row.key === "delivery.target_branch" ? targetBranchCopy[locale].label : row.key === "delivery.reviewers" ? reviewerCopy[locale].label : row.key === "delivery.draft" ? publicationCopy[locale].label : locale === "en" ? settingLabel(row.key) : row.label ? t(row.label) : (settingHelp(row.key, locale)?.split(". ")[0] || settingLabel(row.key)));
+  const label = (row: SettingRow) => executorSettingLabel(row.key,locale) || branchSettingLabel(row.key, locale) || implementationSettingLabel(row.key, locale) || localizedSettingLabel(row.key, locale) || lifecycleCopy[locale].labels[row.key] || (row.key === "metrics.db_path" ? statisticsDatabaseCopy[locale].label : row.key === "review.on_pipeline_failure" ? pipelineFailureCopy[locale].label : row.key === "labels.control.exclude" ? excludeLabelCopy[locale].label : row.key === "delivery.target_branch" ? targetBranchCopy[locale].label : row.key === "delivery.reviewers" ? reviewerCopy[locale].label : row.key === "delivery.draft" ? publicationCopy[locale].label : locale === "en" ? settingLabel(row.key) : row.label ? t(row.label) : (settingHelp(row.key, locale)?.split(". ")[0] || settingLabel(row.key)));
   const editorCopy = implementationEditorCopy[locale];
   const typedKinds = ["duration", "retry-delays", "stage-timeouts"];
   const typedValue = (row: SettingRow) => {
@@ -1458,7 +1470,7 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
 
       </div>;
   return <section className="panel" id="project-settings">
-    {header ?? <div className="panel-heading"><h2>{executorOnly ? executorCopy[locale].tab : t("projectSettings")}</h2>{actions}</div>}
+    {header ?? <div className="panel-heading"><div className="heading-with-help"><h2>{executorOnly ? executorCopy[locale].tab : t("projectSettings")}</h2>{!executorOnly && <HelpLink topic={CONTEXT_TOPICS.projectSettings} locale={locale} />}</div>{actions}</div>}
     {!canEdit && <p className="muted">{copy.readOnly}</p>}
     {children}
     {groups.length === 0 ? <Empty label={t("settingsNoneSet")} /> : <div className="setting-groups">{groups.map(group => {

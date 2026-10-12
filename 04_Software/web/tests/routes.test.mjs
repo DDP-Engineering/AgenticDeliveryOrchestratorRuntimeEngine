@@ -48,6 +48,8 @@ const table = [
   ["/admin/users", { view: "adminUsers" }],
   ["/admin/audit", { view: "adminAudit" }],
   ["/account", { view: "settings" }],
+  ["/help", { view: "help" }],
+  ["/help/tickets", { view: "help", topic: "tickets" }],
 ];
 
 test("every route parses from and formats to its URL", () => {
@@ -65,7 +67,7 @@ test("trailing slashes and unknown query parameters are ignored", () => {
 });
 
 test("unknown or malformed paths are not routes", () => {
-  for (const path of ["/nope", "/projects/a/b/c", "/projects/bad%20id", "/admin", "/Projects", "/projects/x/settings"]) {
+  for (const path of ["/nope", "/projects/a/b/c", "/projects/bad%20id", "/admin", "/Projects", "/projects/x/settings", "/help/nope", "/help/tickets/x"]) {
     assert.equal(parseRoute(path, ""), null, path);
   }
 });

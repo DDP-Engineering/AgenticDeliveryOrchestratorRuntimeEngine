@@ -10,6 +10,8 @@ import type { Locale } from "./i18n";
 import { safeEvidenceLink } from "./jobModel";
 import { startVisiblePolling } from "./polling";
 import { fill, ticketCopy } from "./ticketCopy";
+import { HelpLink } from "./HelpCenter";
+import { CONTEXT_TOPICS } from "./help/topics.ts";
 
 type Request = <T>(path: string, method?: string, body?: unknown, csrf?: string) => Promise<T>;
 type TicketJob = { run_id: string; lifecycle: string };
@@ -206,6 +208,7 @@ export function TicketWorkspace({ projects, showProject = false, locale, csrf, r
       <div className="panel-heading ticket-toolbar">
         <button className="primary" type="button" onClick={() => void read()} disabled={reading || projects.length === 0} aria-busy={reading}>{reading ? copy.reading : copy.read}</button>
         {latestRead && <span className="muted">{fill(copy.lastRead, { time: when(latestRead) })}</span>}
+        <HelpLink topic={CONTEXT_TOPICS.tickets} locale={locale} />
       </div>
       {readErrors.map(({ project, error }) => <p className="alert" role="alert" key={project.id}>{showProject ? `${projectName(project)}: ` : ""}{describeError(locale, error)}</p>)}
       {actionError !== null && <p className="alert" role="alert">{showProject ? `${projectName(actionError.project)}: ` : ""}{describeError(locale, actionError.error)}</p>}

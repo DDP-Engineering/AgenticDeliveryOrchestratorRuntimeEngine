@@ -143,6 +143,40 @@ export const settingsCopy: Record<Locale, typeof en> = {
  ro: { readFailed: "Candidatul salvat nu a putut fi verificat. Reîncărcați sau eliminați-l explicit.", repository: "Repository", tickets: "Tichete", implementation: "Implementare", reviews: "PR/MR și review", statistics: "Statistici", authentication: "Autentificare", technical: "Detalii tehnice", executor: "Agent și model", environment: "Mediu de execuție", clarification: "Clarificări", recovery: "Recuperare după erori", stageLimits: "Limite avansate de timp pe etapă", statisticsFiles: "Căi avansate pentru statistici", integrationBranch: "Ramura de integrare", integrationBranchLink: "Vezi în Repository", integrationBranchHelp: "PR/MR-urile au această ramură ca destinație. Configureaz-o în Repository.", single: "Pregătiți o singură setare odată. Aplicați sau eliminați candidatul înainte de altă modificare.", active: "Valoare activă", proposed: "Valoare propusă", effect: "Efect după aplicare", project: "Proiect afectat", prepared: "Pregătit la", actor: "Pregătit de: neînregistrat", stale: "Configurația activă s-a schimbat. Eliminați candidatul, reîncărcați și pregătiți schimbarea din nou.", idle: "Aplicarea cere lipsa unei lucrări active, a blocării conductorului și a operațiilor neterminate. Serverul reverifică aceste condiții.", pause: "Opriți preluarea și așteptați terminarea lucrărilor înainte de această schimbare de identitate sau mediu.", discard: "Eliminarea șterge doar candidatul. Configurația activă rămâne neschimbată.", copy: "Copiază recenzia fără secrete", copied: "Recenzie copiată", details: "Detalii tehnice", base: "Revizie de bază revizuită", candidate: "Revizia candidatului", unknown: "Neînregistrat", minimum: "Minim", maximum: "Maxim", prepare: "Pregătește candidatul", readOnly: "Setări doar pentru citire", future: "Se aplică execuțiilor următoare; lucrările existente își păstrează configurația.", endpoint: "Schimbarea actualizează împreună modelul afișat și opțiunile conexiunii." },
 };
 
+/** French, German and Romanian names for settings that had only an English label; the help uses the same names. */
+const localizedSettingLabels: Partial<Record<Locale, Record<string, string>>> = {
+  fr: {
+    "readiness.require_priority_label": "Exiger une étiquette de priorité sur le ticket",
+    "readiness.require_acceptance_criteria": "Exiger des critères d’acceptation sur le ticket",
+    "delivery.remove_source_branch": "Supprimer la branche après la fusion humaine",
+    "metrics.enabled": "Enregistrer les mesures des tâches terminées",
+    "metrics.capture_tokens": "Enregistrer les jetons déclarés par l’agent",
+    "executor.stage_host_auth": "Utiliser la connexion de l’agent de l’hôte",
+    "review.max_review_rounds": "Nombre maximal de tours de révision",
+  },
+  de: {
+    "readiness.require_priority_label": "Prioritätslabel am Ticket verlangen",
+    "readiness.require_acceptance_criteria": "Akzeptanzkriterien im Ticket verlangen",
+    "delivery.remove_source_branch": "Branch nach menschlichem Merge entfernen",
+    "metrics.enabled": "Messwerte abgeschlossener Aufträge erfassen",
+    "metrics.capture_tokens": "Vom Agenten gemeldete Token erfassen",
+    "executor.stage_host_auth": "Host-Anmeldung des Agenten verwenden",
+    "review.max_review_rounds": "Maximale Überarbeitungsrunden",
+  },
+  ro: {
+    "readiness.require_priority_label": "Cere etichetă de prioritate pentru tichet",
+    "readiness.require_acceptance_criteria": "Cere criterii de acceptare pentru tichet",
+    "delivery.remove_source_branch": "Șterge ramura după integrarea făcută de o persoană",
+    "metrics.enabled": "Înregistrează măsurătorile lucrărilor finalizate",
+    "metrics.capture_tokens": "Înregistrează tokenurile raportate de agent",
+    "executor.stage_host_auth": "Folosește autentificarea agentului de pe gazdă",
+    "review.max_review_rounds": "Numărul maxim de runde de revizie",
+  },
+};
+
+/** A setting's name in a non-English locale, when the catalog has one. */
+export const localizedSettingLabel = (key: string, locale: Locale): string | undefined => localizedSettingLabels[locale]?.[key];
+
 /** Understandable English catalog labels, including named entries. */
 export function settingLabel(key: string): string {
  if (key === "metrics.db_path") return statisticsDatabaseCopy.en.label;

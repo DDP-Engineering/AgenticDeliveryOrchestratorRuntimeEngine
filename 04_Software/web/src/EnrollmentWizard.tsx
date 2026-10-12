@@ -12,6 +12,8 @@ import { transferCopy, validTransferSettings, type TransferSource } from "./tran
 import { portableFields } from "./portable";
 import { externalEnvironmentCopy } from "./ExecutorEnvironment";
 import { localCopy } from "./localExecution";
+import { HelpLink } from "./HelpCenter";
+import { CONTEXT_TOPICS } from "./help/topics.ts";
 
 type Draft = {
   name: string; display_name: string; description: string; kind: string; repo: string;
@@ -319,7 +321,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
       <li key={index} aria-current={index === step ? "step" : undefined}>
         <span>{index + 1}. {label}</span>
       </li>)}</ol></nav>
-    <h2 tabIndex={-1} ref={heading}>{c.steps[step]}</h2>
+    <div className="heading-with-help"><h2 tabIndex={-1} ref={heading}>{c.steps[step]}</h2><HelpLink topic={CONTEXT_TOPICS.addProject} locale={locale} /></div>
     {(failure || findings.length > 0) && <div ref={summary} tabIndex={-1} role="alert" className="enrollment-errors">
       <h3>{c.errorTitle}</h3>{!!failure && <p>{describeError(locale, failure)} {c.failed}</p>}
       <ul>{findings.map((item, index) => <li key={index}>

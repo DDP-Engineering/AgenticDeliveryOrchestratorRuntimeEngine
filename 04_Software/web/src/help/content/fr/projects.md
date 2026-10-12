@@ -1,0 +1,53 @@
+# Ajouter un dépôt
+
+Ajoutez un dépôt comme projet pour qu’ADORE puisse prendre en charge ses tickets prêts, lancer un agent de programmation dessus et publier des demandes de fusion ou de tirage en brouillon que des personnes relisent. Seuls les administrateurs ajoutent des projets, et ADORE ne fusionne jamais.
+
+## Avant de commencer {#before-you-start}
+
+Préparez ces éléments :
+
+- Un clone Git du dépôt sur le serveur ADORE, avec un `origin` et une branche cible existante. L’ajout d’un projet ne clone jamais ; le chemin est sur le serveur, pas sur votre ordinateur.
+- AEGIS installé dans ce clone (`.agentic/aegis.py` et `.agentic/aegis.toml`). ADORE l’utilise tel quel et ne le modifie jamais. Ses commandes de test s’exécutent dans le conteneur Linux ; écrivez-les donc pour le conteneur.
+- Un compte GitLab, GitHub ou Gitea qui peut lire et mettre à jour les tickets et créer des revues en brouillon.
+- Les noms des étiquettes de disponibilité et d’approbation. Une personne ajoute l’étiquette de disponibilité pour rendre un ticket éligible ; voir [Tickets et prise en charge automatique](/help/tickets#labels).
+- L’agent de programmation, l’identifiant de son modèle et une image de conteneur sur le serveur qui contient l’agent. Voir [Exécuteurs et modèles](/help/executors).
+
+## Ajouter un projet {#add-project}
+
+Choisissez **Ajouter un projet** dans [Projets](/projects). **Nouveau projet guidé** comporte six étapes, et la modification d’une réponse rend périmées les validations et vérifications précédentes.
+
+| Étape | Ce qui est demandé |
+|---|---|
+| Méthode d'inscription | Rien à saisir. Elle confirme que le clone existe déjà sur le serveur. |
+| Dépôt et identité | **Nom affiché**, **Identifiant stable du projet** (lettres minuscules, chiffres, point, soulignement ou tiret, 64 caractères au maximum), **Description** facultative, **Forge**, **Dépôt** sous la forme propriétaire/dépôt (pas une URL), **Gitea tea login** (Gitea uniquement), **Chemin du clone local** et **Branche cible**. |
+| Agent et modèle | **Exécuteur** (opencode, codex, pi ou qwen), **Modèle**, **Authentification du modèle** (api-key, ou host-auth pour OpenCode et Codex uniquement) et **Références d'environnement des identifiants** : des noms de variables comme LOCAL_API_KEY, jamais des valeurs. |
+| Éligibilité, relecteurs et limites | **Label prêt**, **Label d'approbation**, **Réviseurs (séparés par des virgules)** (au moins un) et quatre limites par tâche : lancements de l’exécuteur, secondes actives, coût déclaré en USD et fichiers modifiés. Un plafond de coût à 0 désactive ce plafond ; cela ne signifie pas gratuit. |
+| Vérification | **Valider la configuration** contrôle la structure et les dossiers du serveur. **Vérifier l'environnement** teste ensuite Git, l’outil de la forge et la connexion, le moteur de conteneur, l’agent dans l’image, les fichiers AEGIS et, quand c’est possible, le point d’accès du modèle. Rien n’est publié. |
+| Révision et création | Affiche le candidat exact et les emplacements sur le serveur. **Modifier** revient à une étape. **Créer avec prise de tickets arrêtée** l’enregistre ; **Ouvrir le projet** suit. |
+
+L’assistant utilise le profil de conteneur standard. L’exécution locale native et les configurations de conteneur spécialisées passent par la méthode TOML serveur avancée ci-dessous.
+
+## Importer un projet {#import-project}
+
+La même page propose trois autres méthodes.
+
+- **Importer les paramètres portables** lit un fichier JSON portable (jusqu’à 64 Kio) de la même version d’ADORE. **Copier les paramètres du projet** lit un autre projet auquel vous avez accès. Les deux ne transportent que 15 règles de fonctionnement (scrutation, préparation, reprise, budgets des tâches) ; l’identité, le dépôt, les étiquettes, les identifiants, les points d’accès, les images et l’historique ne sont jamais copiés. Choisissez **Examiner les règles source**, puis **Configurer la nouvelle cible** et répondez aux étapes guidées. Examinez les fichiers inconnus : la somme de contrôle détecte les modifications mais ne prouve pas l’auteur.
+- **Avancé : copie TOML serveur inchangée** ouvre [Inscrire une configuration existante pour ce serveur ADORE](/projects/import). Elle prend un `config.toml` ADORE existant (UTF-8, jusqu’à 512 Kio) avec des chemins serveur absolus et sans secrets, le copie octet par octet et se termine par **Inscrire avec la sélection arrêtée**. L’historique n’apparaît que si ses données existent déjà dans le dossier d’état déclaré.
+
+## Après la création {#after-creation}
+
+Un nouveau projet démarre avec la surveillance arrêtée. Les développeurs le voient une fois qu’un administrateur leur donne accès dans son onglet **Accès**. Dans l’onglet **Résumé** :
+
+1. Choisissez **Connecter le dépôt**. Saisissez l’adresse du serveur de la forge et un jeton d’accès créé sur la forge, puis **Vérifier et connecter**. Cela confirme le compte et l’accès en lecture au dépôt. Le jeton reste sur le serveur, jamais dans le navigateur. Vous pouvez aussi connecter l’outil de la forge sous le compte de service d’ADORE.
+2. Choisissez **Vérifier les prérequis de l’hôte**. Le détail couvre Git, l’outil de commande du dépôt, la connexion au dépôt, le moteur de conteneur, l’agent dans l’image, les fichiers AEGIS et la connexion au modèle IA. Ce n’est pas une tâche complète et cela ne prouve pas l’autorisation de poussée.
+3. Lancez **Tester la connexion IA** dans Paramètres, comme décrit dans [Exécuteurs et modèles](/help/executors#test-connection).
+4. Choisissez **Activer la surveillance**. La tuile Surveillance passe de En pause à Active et ADORE commence à prendre en charge les tickets qui portent l’étiquette de disponibilité. **Suspendre la surveillance** arrête les nouvelles prises en charge mais n’interrompt pas une tâche en cours.
+
+## Archiver, restaurer et supprimer {#lifecycle}
+
+Les administrateurs trouvent ces boutons dans l’onglet Résumé.
+
+- **Archiver le projet** fonctionne une fois les tâches terminées et les demandes en file traitées. Il conserve les paramètres, l’historique, les statistiques et les enregistrements d’audit, et arrête tout nouveau travail. **Restaurer le projet** le ramène.
+- **Supprimer le projet** n’apparaît que pour les projets archivés et demande de saisir le nom du projet. Il supprime les paramètres ADORE du projet, l’historique des tâches, les statistiques, les conteneurs et les worktrees. Il conserve le dépôt et ses branches, les worktrees des tâches confiées à une personne, un dossier d’état de tâche situé hors du répertoire ADORE et la piste d’audit. La suppression est refusée tant que du travail est en file ou inachevé.
+
+> La suppression est irréversible. Pour ajuster un projet ensuite, voir [Paramètres du projet](/help/settings).

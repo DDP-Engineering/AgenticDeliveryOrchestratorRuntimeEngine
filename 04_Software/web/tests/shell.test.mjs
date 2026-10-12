@@ -11,8 +11,8 @@ import { createHash } from "node:crypto";
 import { messages } from "../src/i18n.ts";
 
 test("delivery glossary and feedback are complete in every supported locale", () => {
-  const keys = ["glossary", "jobDefinition", "enrolledProjectDefinition", "pickupStoppedDefinition",
-    "clarificationDefinition", "approvalDefinition", "draftReviewDefinition", "loadingData",
+  // The delivery term definitions live in the Glossary help topic (tests/help.test.mjs).
+  const keys = ["glossary", "help", "helpTopics", "searchHelp", "helpNoMatch", "onThisPage", "helpFor", "loadingData",
     "dataFailed", "noProjectAccess", "noProjectAccessHelp", "noEnrolledProjectsHelp", "skipToContent",
     "primaryNavigation", "projectContext", "jobsScopeHelp", "overviewScopeHelp"];
   for (const [locale, catalog] of Object.entries(messages)) {
@@ -22,9 +22,6 @@ test("delivery glossary and feedback are complete in every supported locale", ()
   assert.equal(messages.en.metrics, "Statistics");
   assert.equal(messages.en.paused, "Pickup stopped");
   assert.equal(messages.en.inReviewStatus, "Human review");
-  assert.match(messages.en.pickupStoppedDefinition, /active job/i);
-  assert.match(messages.en.approvalDefinition, /forge/i);
-  assert.match(messages.en.draftReviewDefinition, /human/i);
 });
 
 test("production branding is the exact approved transparent PNG", () => {
