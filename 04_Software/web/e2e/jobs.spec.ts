@@ -337,19 +337,23 @@ test("composite colliding IDs and reload preserve the owning project", async ({ 
 
 test("incomplete corrupt and failed job reads hide totals and stale details", async ({ page }) => {
   await signIn(page);
+  // One handler for the whole test: swapping handlers with unroute while a background
+  // Overview poll is still inside the old one made its fulfill hit an already-handled route.
+  let mode: "incomplete" | "malformed" | "server" = "incomplete";
   await page.route("**/api/v1/jobs-page?*", async route => {
+    if (mode === "server") return route.fallback();
+    if (mode === "malformed") return route.fulfill({ status: 200, contentType: "application/json", body: '{"complete":true,"items":[],"total":-1}' });
     const response = await route.fetch(); const value = await response.json(); value.complete = false;
     await route.fulfill({ response, json: value });
   });
   await page.getByRole("button", { name: "Refresh", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Incomplete job response", exact: true })).toBeVisible();
   await expect(page.locator(".overview-jobs-table")).toHaveCount(0);
-  await page.unroute("**/api/v1/jobs-page?*");
-  await page.route("**/api/v1/jobs-page?*", route => route.fulfill({ status: 200, contentType: "application/json", body: '{"complete":true,"items":[],"total":-1}' }));
+  mode = "malformed";
   await page.getByRole("button", { name: "Refresh", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Could not load data", exact: true })).toBeVisible();
   await expect(page.locator(".overview-jobs-table")).toHaveCount(0);
-  await page.unroute("**/api/v1/jobs-page?*");
+  mode = "server";
   await page.request.post("/__e2e__/jobs?mode=corrupt", { headers: { "X-ADORE-E2E": "local-test" } });
   await page.goto("/jobs?view=jobs");
   await expect(page.getByRole("heading", { name: "Could not load data", exact: true })).toBeVisible();
