@@ -188,7 +188,7 @@ SQLite bytes, authorization, scope and financial redaction.
   compares the reviewed revision before existing atomic stopped publication.
   All require Admin/CSRF. Setup includes supported labels, run limits and credential
   environment names. Gitea probes honor the selected tea login.
-- `EnrollmentWizard` owns six-step memory state, localized visible guidance,
+- `EnrollmentWizard` owns five-step memory state (starting at repository/identity), localized visible guidance,
   corrective findings/focus, generation invalidation, loss guards and frozen review.
   The immediate creation ref lock prevents double submit. Completion explains
   stopped pickup and separate activation; persistent project readiness is checked
@@ -334,7 +334,9 @@ SQLite bytes, authorization, scope and financial redaction.
   Admin-only, and History selects terminal jobs. Legacy configuration, executor
   and prices routes open Settings. Missing legacy update times remain unknown in
   project summaries; nonempty corrupt timestamps fail closed.
-  Administrators open Add project as a six-step guided page with visible localized
+  Projects offers Enroll new project, Import project config and Clone project config
+  as separate pages (/projects/new, /projects/import, /projects/clone).
+  Administrators open Enroll new project as a five-step guided page with visible localized
   instructions. Clone paths identify existing Git clones on the ADORE host;
   executor/model values describe the selected agent; environment setup is external. Back retains
   the memory draft, Cancel warns about loss, and completion confirms stopped pickup

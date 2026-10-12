@@ -189,6 +189,8 @@ test("late preview after cancellation, browser Back and refresh respect draft lo
   await upload(page, "e2e-import-loss");
   page.once("dialog", dialog => dialog.dismiss()); await page.evaluate(() => history.back());
   await expect(page.getByLabel("Existing UTF-8 TOML file")).not.toHaveValue("");
+  // A refused Back keeps the import page address.
+  await expect(page).toHaveURL(/\/projects\/import$/);
   page.once("dialog", dialog => dialog.accept()); await page.reload();
   await expect(page.getByLabel("Existing UTF-8 TOML file")).toHaveValue("");
 });

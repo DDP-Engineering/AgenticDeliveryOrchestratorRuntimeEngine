@@ -22,13 +22,15 @@ async function enter(page: Page, username = "admin") {
   await page.goto("/projects/new");
 }
 
-test("guided enrollment begins with a supported method and visible step navigation", async ({ page }) => {
+test("guided enrollment begins at repository and identity with visible step navigation", async ({ page }) => {
   await enter(page);
-  await expect(page.getByRole("heading", { name: "Enrollment method", exact: true })).toBeVisible();
-  await expect(page.getByText("Existing repository clone", { exact: true })).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "Enrollment steps" })).toBeVisible();
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Repository and identity", exact: true })).toBeFocused();
+  await expect(page.getByRole("heading", { name: "Repository and identity", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Enrollment method", exact: true })).toHaveCount(0);
+  const steps = page.getByRole("navigation", { name: "Enrollment steps" });
+  await expect(steps.getByRole("listitem")).toHaveText(["1. Repository and identity", "2. Agent and model",
+    "3. Eligibility, reviewers and limits", "4. Verification", "5. Review and create"]);
+  await expect(steps.locator('[aria-current="step"]')).toHaveText("1. Repository and identity");
+  await expect(page.getByRole("button", { name: "Back", exact: true })).toHaveCount(0);
   await expect(page.getByText(/already exist on the ADORE server/)).toBeVisible();
 });
 
@@ -50,7 +52,6 @@ async function fixture(page: Page, mode = "failed") {
 }
 async function repository(page: Page, name = "e2e-valid") {
   const clone = await fixture(page);
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page.getByLabel("Display name", { exact: false }).fill("Offline service");
   await page.getByLabel("Stable project ID", { exact: false }).fill(name);
   await page.getByLabel("Forge", { exact: false }).selectOption("gitea");
@@ -121,7 +122,6 @@ test("complete reviewed draft creates once with stopped pickup and honest failed
 
 test("field summary focus, malformed fields, collision and invalid server clone recover", async ({ page }) => {
   await enter(page);
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(page.getByRole("alert")).toBeFocused();
   await page.getByRole("button", { name: /Stable project ID — Correct/ }).focus();
@@ -221,14 +221,13 @@ test("draft loss warning protects shell, history and refresh; draft never enters
   page.once("dialog", dialog => { refreshWarned = dialog.type() === "beforeunload"; return dialog.accept(); });
   await page.reload();
   expect(refreshWarned).toBe(true);
-  await expect(page.getByRole("heading", { name: "Enrollment method", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Repository and identity", exact: true })).toBeVisible();
   await expect(page.getByLabel("Stable project ID", { exact: false })).toHaveValue("");
 });
 
 test("Dev is denied setup routes and sees no enrollment controls", async ({ page }) => {
   await enter(page, "developer");
-  await expect(page.getByRole("heading", { name: "Enrollment method", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Repository and identity", exact: true })).toHaveCount(0);
   const me = await (await page.request.get("/api/v1/me")).json();
   for (const route of ["setup-preview", "setup-check", "setup-create"]) {
     const response = await page.request.post("/api/v1/projects/" + route, {
@@ -286,8 +285,6 @@ for (const locale of ["en", "fr", "de", "ro"] as Locale[]) {
       headers: { "X-CSRF-Token": me.csrf }, data: { language: locale } });
     await page.goto("/projects/new");
     await expect(page.getByRole("heading", { name: enrollmentCopy[locale].steps[0], exact: true })).toBeVisible();
-    await expect(page.getByText(enrollmentCopy[locale].intro, { exact: true })).toBeVisible();
-    await page.getByRole("button", { name: enrollmentCopy[locale].continue, exact: true }).click();
     await expect(page.getByText(enrollmentCopy[locale].clone, { exact: true })).toBeVisible();
     await expect(page.getByLabel(messages[locale].clonePath, { exact: false })).toBeVisible();
     // Leave the shared fixture account in the baseline language.

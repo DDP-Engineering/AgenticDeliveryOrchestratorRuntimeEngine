@@ -67,6 +67,11 @@ text = { en = "What's new lists the notes of each release in your language.", fr
 
 [[release.entry]]
 category = "improved"
+topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
+text = { en = "Projects offers three clear actions: enroll a new project, import a config, clone a config.", fr = "Projets propose trois actions : inscrire un projet, importer ou cloner une configuration.", de = "Projekte bietet drei Aktionen: Projekt registrieren, Konfiguration importieren oder klonen.", ro = "Proiecte oferă trei acțiuni: înrolează un proiect, importă sau clonează o configurație." }
+
+[[release.entry]]
+category = "improved"
 topic = { en = "Statistics", fr = "Statistiques", de = "Statistiken", ro = "Statistici" }
 text = { en = "Statistics is compact: one period row, each figure shown once, trends in one table.", fr = "Statistiques est compact : une ligne de période, chaque valeur une fois, tendances en un tableau.", de = "Statistiken sind kompakt: eine Zeitraumzeile, jeder Wert einmal, Trends in einer Tabelle.", ro = "Statistici e compact: un rând de perioadă, fiecare valoare o dată, tendințe într-un tabel." }
 

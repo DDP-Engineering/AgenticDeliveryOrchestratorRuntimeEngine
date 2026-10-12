@@ -106,13 +106,13 @@ test("target change/back invalidates review; actual source edit requires source 
 
 test("invalid file and corrupt or superseded source transport never unlock target", async ({ page }) => {
   await enter(page);
-  await page.getByRole("button", { name: "Import portable settings", exact: true }).click();
+  await page.getByRole("button", { name: "From a portable settings file", exact: true }).click();
   await page.getByLabel("Portable JSON file").setInputFiles({ name: "bad.json", mimeType: "application/json", buffer: Buffer.from('{"secret":"fixture-value"}') });
   await page.getByRole("button", { name: "Review source rules", exact: true }).click();
   await expect(page.getByRole("alert")).toBeFocused();
   await expect(page.getByRole("button", { name: "Set up new target", exact: true })).toHaveCount(0);
   page.once("dialog", dialog => dialog.accept());
-  await page.getByRole("button", { name: "Copy project settings", exact: true }).click();
+  await page.getByRole("button", { name: "From a project on this server", exact: true }).click();
   await page.getByLabel("Source project", { exact: true }).selectOption({ label: "alpha" });
   await page.route("**/transfer-source", route => route.fulfill({ status: 200, contentType: "application/json", body: '{"source_revision":"broken","settings":{}}' }));
   await page.getByRole("button", { name: "Review source rules", exact: true }).click();
@@ -149,7 +149,7 @@ test("changed selected file rejects confirmation", async ({ page }) => {
   const home = dirname((await fixture.json()).clone), filePath = join(home, "transfer-selected.json");
   const raw = await (await page.request.get("/api/v1/projects/alpha/config/portable-settings")).body();
   await writeFile(filePath, raw);
-  await page.getByRole("button", { name: "Import portable settings", exact: true }).click();
+  await page.getByRole("button", { name: "From a portable settings file", exact: true }).click();
   await page.getByLabel("Portable JSON file").setInputFiles(filePath);
   await page.getByRole("button", { name: "Review source rules", exact: true }).click();
   await expect(page.getByText("polling.poll_interval_seconds", { exact: true })).toBeVisible();
@@ -195,8 +195,8 @@ test("Dev cannot discover portable enrollment controls or invoke either method",
   await page.getByLabel("Password", { exact: false }).fill("test-password");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Overview", exact: true })).toBeVisible();
-  await page.goto("/projects/new");
-  await expect(page.getByRole("button", { name: "Copy project settings", exact: true })).toHaveCount(0);
+  await page.goto("/projects/clone");
+  await expect(page.getByRole("button", { name: "From a project on this server", exact: true })).toHaveCount(0);
   const me = await (await page.request.get("/api/v1/me")).json();
   for (const method of ["file", "project"]) {
     const response = await page.request.post("/api/v1/projects/transfer-source", {
@@ -212,12 +212,12 @@ async function enter(page: Page) {
   await page.getByLabel("Password", { exact: false }).fill("admin");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Overview", exact: true })).toBeVisible();
-  await page.goto("/projects/new");
+  await page.goto("/projects/clone");
 }
 
 test("portable methods explain recognized rules and independent target setup", async ({ page }) => {
   await enter(page);
-  await page.getByRole("button", { name: "Copy project settings", exact: true }).click();
+  await page.getByRole("button", { name: "From a project on this server", exact: true }).click();
   await expect(page.getByText(/No jobs, history, users, grants, audit/)).toBeVisible();
   await page.getByLabel("Source project", { exact: true }).selectOption({ label: "alpha" });
   await page.getByRole("button", { name: "Review source rules", exact: true }).click();

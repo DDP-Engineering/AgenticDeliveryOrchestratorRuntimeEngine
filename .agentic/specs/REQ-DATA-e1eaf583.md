@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Guided enrollment contract
 
-Status: active. The UX sequence is method, repository/identity,
+Status: active. The UX sequence is repository/identity,
 environment, eligibility/reviewers/limits, verification, review/create.
 
 ## Candidate boundary

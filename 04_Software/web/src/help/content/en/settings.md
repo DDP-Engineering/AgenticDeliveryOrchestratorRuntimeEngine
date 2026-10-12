@@ -44,4 +44,4 @@ Rules that apply:
 
 ## Original TOML {#toml}
 
-Beside the Project settings heading, administrators have **Preview raw configuration** and **Download raw configuration**. Preview opens a closable dialog and keeps the text only in memory. Download gives the saved `config.toml` exactly as stored, with comments, formatting and any inline secrets, so handle it as a secret. Neither includes a pending candidate, resolved defaults, separate `.env` files or external credentials. Developers cannot use them.
+Beside the Project settings heading, administrators have **Preview raw configuration** and **Download raw configuration**. Preview opens a closable dialog and keeps the text only in memory. Download gives the saved `config.toml` exactly as stored, with comments, formatting and any inline secrets, so handle it as a secret. Neither includes a pending candidate, resolved defaults, separate `.env` files or external credentials. Developers cannot use them. A downloaded file can be enrolled again with [Import project config](/help/projects#import-project) once its secrets are replaced with environment references.

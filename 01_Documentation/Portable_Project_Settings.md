@@ -16,9 +16,9 @@ Developers and invalid sessions cannot export or discover project metadata
 through this endpoint. No live forge, container or credential check runs.
 
 The package transfers working rules as defaults for a **new project** on a
-compatible ADORE installation. In **Add project**, choose **Import portable
-settings** for a JSON file, or **Copy project settings** for an authorized source
-project. Review recognized rules and exclusions, then **Set up new target**.
+compatible ADORE installation. On Projects, choose **Clone project config**, then
+**From a portable settings file** for a JSON file or **From a project on this
+server** for an authorized source project. Review recognized rules and exclusions, then **Set up new target**.
 Supply a new display name/stable ID, repository identifier and existing server
 clone, runtime/image/model, reviewers/labels and target credential environment
 names or supported host authentication. Reconfirm the target environment,

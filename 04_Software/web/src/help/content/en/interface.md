@@ -7,7 +7,7 @@ The interface has a dark sidebar for moving between pages and a top bar that nam
 | Page | What you do there |
 |---|---|
 | Overview | See **Needs attention** and **Active jobs** for the projects you can access. **Details** opens a job in Jobs. |
-| [Projects](/projects) | Browse enrolled projects with their repository, forge, Monitoring state, job count and last activity. Open a project to reach its hub. Administrators also see **Add project** and **Enroll an existing configuration for this ADORE server**. |
+| [Projects](/projects) | Browse enrolled projects with their repository, forge, Monitoring state, job count and last activity. Open a project to reach its hub. Administrators also see **Enroll new project**, **Import project config** and **Clone project config**. |
 | [Jobs](/jobs) | Pick a **Job scope**, then use the **Tickets** sub-tab to read forge tickets and start them, or the **Jobs** sub-tab to search jobs and open their details. |
 | [Statistics](/metrics) | Read usage, quality and trends for a reporting period. See [Statistics and costs](/help/statistics). |
 | Administration | Administrators only. It opens three pages: [System status](/admin/status), [Users](/admin/users) and [Change history](/admin/audit). See [Administration](/help/administration). |

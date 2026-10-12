@@ -7,7 +7,7 @@ Die Oberfläche hat eine dunkle Seitenleiste zum Wechseln zwischen den Seiten un
 | Seite | Was Sie dort tun |
 |---|---|
 | Übersicht | **Handlungsbedarf** und **Aktive Aufträge** für die Projekte sehen, auf die Sie Zugriff haben. **Details** öffnet einen Auftrag unter Aufträge. |
-| [Projekte](/projects) | Eingerichtete Projekte mit Repository, Forge, Überwachungsstatus, Anzahl der Aufträge und letzter Aktivität durchsuchen. Ein Projekt öffnen, um seine Zentrale zu erreichen. Administratoren sehen außerdem **Projekt hinzufügen** und **Eine vorhandene Konfiguration für diesen ADORE-Server registrieren**. |
+| [Projekte](/projects) | Eingerichtete Projekte mit Repository, Forge, Überwachungsstatus, Anzahl der Aufträge und letzter Aktivität durchsuchen. Ein Projekt öffnen, um seine Zentrale zu erreichen. Administratoren sehen außerdem **Neues Projekt registrieren**, **Projektkonfiguration importieren** und **Projektkonfiguration klonen**. |
 | [Aufträge](/jobs) | Einen **Jobbereich** wählen und dann im Unterreiter **Tickets** Forge-Tickets lesen und starten oder im Unterreiter **Aufträge** Aufträge suchen und ihre Details öffnen. |
 | [Statistiken](/metrics) | Nutzung, Qualität und Trends für einen Berichtszeitraum lesen. Siehe [Statistiken und Kosten](/help/statistics). |
 | Verwaltung | Nur für Administratoren. Sie öffnet drei Seiten: [Systemstatus](/admin/status), [Benutzer](/admin/users) und [Änderungsverlauf](/admin/audit). Siehe [Verwaltung](/help/administration). |

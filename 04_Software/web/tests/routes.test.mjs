@@ -29,6 +29,7 @@ const table = [
   ["/projects", { view: "projects" }],
   ["/projects/new", { view: "createProject" }],
   ["/projects/import", { view: "importProject" }],
+  ["/projects/clone", { view: "cloneProject" }],
   [`/projects/${ID}`, { view: "projectDetails", project: ID, tab: "overview" }],
   [`/projects/${ID}/configuration`, { view: "projectDetails", project: ID, tab: "configuration" }],
   [`/projects/${ID}/access`, { view: "projectDetails", project: ID, tab: "access" }],
@@ -74,7 +75,7 @@ test("unknown or malformed paths are not routes", () => {
 
 test("normalization replaces unknown and role-restricted routes", () => {
   assert.deepEqual(normalizeRoute(null, { isAdmin: true }), { route: { view: "overview" }, replaced: true });
-  for (const view of ["createProject", "importProject", "administration", "adminUsers", "adminAudit"]) {
+  for (const view of ["createProject", "importProject", "cloneProject", "administration", "adminUsers", "adminAudit"]) {
     assert.deepEqual(normalizeRoute({ view }, { isAdmin: false }), { route: { view: "overview" }, replaced: true }, view);
     assert.deepEqual(normalizeRoute({ view }, { isAdmin: true }), { route: { view }, replaced: false }, view);
   }

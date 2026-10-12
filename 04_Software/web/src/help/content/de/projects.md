@@ -12,13 +12,12 @@ Halten Sie Folgendes bereit:
 - Die Namen des Bereitschafts- und des Freigabelabels. Ein Mensch setzt das Bereitschaftslabel, damit ein Ticket aufgenommen werden kann; siehe [Tickets für die automatische Aufnahme](/help/tickets#labels).
 - Den Coding-Agenten, seine Modell-ID und ein Container-Image auf dem Server, das den Agenten enthält. Siehe [Executor und Modelle](/help/executors).
 
-## Projekt hinzufügen {#add-project}
+## Neues Projekt registrieren {#add-project}
 
-Wählen Sie unter [Projekte](/projects) **Projekt hinzufügen**. **Neues Projekt mit Anleitung** besteht aus sechs Schritten; jede Änderung einer Angabe macht frühere Validierungen und Prüfungen ungültig.
+Wählen Sie unter [Projekte](/projects) **Neues Projekt registrieren**. Der geführte Assistent beginnt mit Repository und Identität und besteht aus fünf Schritten; jede Änderung einer Angabe macht frühere Validierungen und Prüfungen ungültig.
 
 | Schritt | Was abgefragt wird |
 |---|---|
-| Registrierungsmethode | Nichts einzugeben. Der Schritt bestätigt, dass der Klon bereits auf dem Server liegt. |
 | Repository und Identität | **Anzeigename**, **Stabile Projekt-ID** (Kleinbuchstaben, Ziffern, Punkt, Unterstrich oder Bindestrich, bis zu 64 Zeichen), optional **Beschreibung**, **Forge**, **Repository** als Eigentümer/Repository (keine URL), **Gitea tea login** (nur Gitea), **Lokaler Klonpfad** und **Zielbranch**. |
 | Agent und Modell | **Executor** (opencode, codex, pi oder qwen), **Modell**, **Modell-Anmeldung** (api-key oder host-auth, Letzteres nur für OpenCode und Codex) und **Umgebungsreferenzen für Zugangsdaten**: Variablennamen wie LOCAL_API_KEY, nie Werte. |
 | Eignung, Prüfer und Grenzen | **Bereitschaftslabel**, **Freigabelabel**, **Prüfende (kommagetrennt)** (mindestens eine Person) und vier Auftragslimits: Executor-Starts, aktive Sekunden, gemeldete Kosten in USD und geänderte Dateien. Ein Kostenlimit von 0 schaltet dieses Limit ab; es bedeutet nicht kostenlos. |
@@ -27,12 +26,13 @@ Wählen Sie unter [Projekte](/projects) **Projekt hinzufügen**. **Neues Projekt
 
 Der Assistent verwendet das Standard-Containerprofil. Native lokale Ausführung und spezialisierte Container-Setups verwenden die erweiterte Server-TOML-Methode weiter unten.
 
-## Projekt importieren {#import-project}
+## Projektkonfiguration importieren {#import-project}
 
-Dieselbe Seite bietet drei weitere Methoden.
+Wählen Sie unter [Projekte](/projects) **Projektkonfiguration importieren**, um eine vorhandene ADORE-`config.toml` unverändert zu registrieren, etwa eine per Kommandozeile erstellte oder früher mit **Originalkonfiguration herunterladen** in den Einstellungen eines Projekts gespeicherte. Die Datei (UTF-8, bis 512 KiB) braucht absolute Serverpfade und keine eingebetteten Geheimnisse: Die Prüfung listet gefundene auf, ersetzen Sie sie zuerst durch Umgebungsreferenzen. Ihre Projekt-ID und ihr Statusordner dürfen keinem registrierten Projekt gehören. ADORE kopiert die Datei bytegenau und endet mit **Mit gestoppter Aufnahme registrieren**. Ein Verlauf erscheint nur, wenn seine Daten bereits im deklarierten Statusordner liegen.
 
-- **Portable Einstellungen importieren** liest eine portable JSON-Datei (bis 64 KiB) derselben ADORE-Version. **Projekteinstellungen kopieren** liest ein anderes Projekt, auf das Sie Zugriff haben. Beide übertragen nur 15 Arbeitsregeln (Abfrage, Bereitschaft, Wiederherstellung, Auftragsbudgets); Identität, Repository, Labels, Zugangsdaten, Endpunkte, Images und Verlauf werden nie kopiert. Wählen Sie **Quellregeln prüfen**, dann **Neues Ziel einrichten** und beantworten Sie die Schritte der Anleitung. Prüfen Sie unbekannte Dateien: Die Prüfsumme erkennt Änderungen, belegt aber nicht die Urheberschaft.
-- **Erweitert: unveränderte Server-TOML-Kopie** öffnet [Eine vorhandene Konfiguration für diesen ADORE-Server registrieren](/projects/import). Sie nimmt eine vorhandene ADORE-`config.toml` (UTF-8, bis 512 KiB) mit absoluten Serverpfaden und ohne Geheimnisse, kopiert sie bytegenau und endet mit **Mit gestoppter Aufnahme registrieren**. Ein Verlauf erscheint nur, wenn seine Daten bereits im deklarierten Statusordner liegen.
+## Projektkonfiguration klonen {#clone-project}
+
+Wählen Sie unter [Projekte](/projects) **Projektkonfiguration klonen**, um ein neues Projekt mit den Arbeitsregeln eines anderen zu beginnen. **Aus einem Projekt auf diesem Server** liest ein Projekt, auf das Sie Zugriff haben; **Aus einer portablen Einstellungsdatei** liest eine portable JSON-Datei (bis 64 KiB) derselben ADORE-Version. Übernommen werden nur 15 Arbeitsregeln (Abfrage, Bereitschaft, Wiederherstellung, Auftragsbudgets); Identität, Repository, Labels, Zugangsdaten, Endpunkte, Images und Verlauf werden nie kopiert. Wählen Sie **Quellregeln prüfen**, dann **Neues Ziel einrichten** und beantworten Sie die Schritte der Anleitung. Prüfen Sie unbekannte Dateien: Die Prüfsumme erkennt Änderungen, belegt aber nicht die Urheberschaft.
 
 ## Nach der Erstellung {#after-creation}
 

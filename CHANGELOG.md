@@ -26,6 +26,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Projects offers three separate actions, each on its own page: **Enroll new project** (guided wizard starting directly at Repository and identity, five steps), **Import project config** (upload an existing `config.toml`, such as one saved with Download raw configuration once its inline secrets are replaced) and **Clone project config** (`/projects/clone`, rules from a project on this server or a portable settings file). The duplicate Enroll an existing configuration button and the in-wizard method buttons are gone; help topics follow in four locales, and a refused browser Back keeps the current page address.
+
 - Redesign About: the DDP Engineering logo on a dark band, ADORE and its version as the largest text, and What's new, License and Third-party notices buttons with both license texts folded until pressed; Tab cycles inside the dialog.
 
 - Show the header Refresh and last-refresh time only on pages that do not update themselves (Users, Change history and a project's Settings, Access and History); Overview, Projects, Jobs, Statistics and System status refresh automatically.

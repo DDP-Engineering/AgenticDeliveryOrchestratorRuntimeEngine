@@ -74,7 +74,8 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
   const tc = transferCopy[locale];
   const [draft, setDraft] = useState<Draft>(() => ({ ...initial, ...(transfer ?
     Object.fromEntries(numeric.map(key => [key, String(transfer.settings.budgets[key])])) : {}) }));
-  const [step, setStep] = useState(transfer ? 1 : 0);
+  // Enrollment starts at Repository and identity; the clone requirement is that step's clone-path help.
+  const [step, setStep] = useState(1);
   const [referencesConfirmed, setReferencesConfirmed] = useState(false);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [verification, setVerification] = useState<Verification | null>(null);
@@ -140,7 +141,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
     if (finding.field === "references_confirmed") { move(2); return; }
     const field = fieldFor(finding.field);
     const target = field ? fields.findIndex(group => group.includes(field)) : 4;
-    move(Math.max(0, target), field);
+    move(Math.max(1, target), field);
   };
   const change = (field: FieldName, value: string) => {
     dirty.current = true; generation.current++;
@@ -318,15 +319,15 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
   </section>;
   return <section className="panel enrollment">
     <nav aria-label={c.stepsLabel}><ol className="enrollment-steps">{c.steps.map((label, index) =>
-      <li key={index} aria-current={index === step ? "step" : undefined}>
+      <li key={index} aria-current={index + 1 === step ? "step" : undefined}>
         <span>{index + 1}. {label}</span>
       </li>)}</ol></nav>
-    <div className="heading-with-help"><h2 tabIndex={-1} ref={heading}>{c.steps[step]}</h2><HelpLink topic={CONTEXT_TOPICS.addProject} locale={locale} /></div>
+    <div className="heading-with-help"><h2 tabIndex={-1} ref={heading}>{c.steps[step - 1]}</h2><HelpLink topic={CONTEXT_TOPICS.addProject} locale={locale} /></div>
     {(failure || findings.length > 0) && <div ref={summary} tabIndex={-1} role="alert" className="enrollment-errors">
       <h3>{c.errorTitle}</h3>{!!failure && <p>{describeError(locale, failure)} {c.failed}</p>}
       <ul>{findings.map((item, index) => <li key={index}>
         <button className="text-button" onClick={() => correct(item)}>{item.field === "references_confirmed" ? tc.confirm : fieldFor(item.field) ?
-          labels[fieldFor(item.field)!] : c.steps[4]} — {c.correction}</button>
+          labels[fieldFor(item.field)!] : c.steps[3]} — {c.correction}</button>
         <p>{item.code === "project_exists" ? c.idExists :
           item.code === "reserved_project_name" ? c.idReserved :
           item.code === "invalid_input" ? c.invalid : fieldFor(item.field) ?
@@ -340,8 +341,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
     </div>}
     <form onSubmit={submit} noValidate>
       <fieldset disabled={busy === "create"} className="enrollment-fields">
-        {step === 0 && <><p>{c.intro}</p><div className="enrollment-method"><strong>{c.method}</strong><p>{c.clone}</p></div></>}
-        {step > 0 && step < 4 && <>
+        {step < 4 && <>
           {(step === 1 ? ["identity", "forge", "clone", "login"] : step === 2 ? ["credentials"] :
             ["rules", "limits"]).map(key => <p id={"enrollment-help-" + key} key={key}>{step === 2 && draft.execution_backend === "local" ? (key === "environment" ? localCopy[locale].notice : c.noSecrets) : c[key as
               "identity" | "forge" | "clone" | "login" | "environment" | "credentials" | "rules" | "limits"]}</p>)}
@@ -376,7 +376,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
           {transfer && <><p>{tc.exclusions}</p><p>{tc.confirm}</p><Mapping preview={reviewed.preview} locale={locale} /></>}
           {reviewed.draft.execution_backend === "local" && <section className="enrollment-review"><h3>{localCopy[locale].title}</h3><p>{localCopy[locale].notice}</p><p>{localCopy[locale].machine}: {String((reviewed.preview.review?.local_execution as Record<string, unknown>)?.machine ?? "—")} · {localCopy[locale].account}: {String((reviewed.preview.review?.local_execution as Record<string, unknown>)?.account ?? "—")}</p></section>}
           {fields.slice(1).map((group, index) => <section className="enrollment-review" key={index}>
-            <h3>{c.steps[index + 1]}</h3><button type="button" className="text-button" onClick={() => move(index + 1)}>{c.change} — {c.steps[index + 1]}</button>
+            <h3>{c.steps[index]}</h3><button type="button" className="text-button" onClick={() => move(index + 1)}>{c.change} — {c.steps[index]}</button>
             <dl>{group.filter(key => reviewed.draft.execution_backend === "local" ? !["runtime", "image"].includes(key) : !key.startsWith("local_") && key !== "executor_command").map(key => <div key={key}><dt>{labels[key]}</dt><dd>{Array.isArray(reviewed.preview.review?.[key]) ?
               (reviewed.preview.review?.[key] as string[]).join(", ") : String(reviewed.preview.review?.[key] ?? "—")}</dd></div>)}
               {(index === 0 ? [["branch_template", c.branches]] : index === 1 ? [] :
@@ -394,7 +394,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
       </fieldset>
       {busy && <p role="status">{c.busy} {c.checkingHelp}</p>}
       <div className="enrollment-actions">
-        {step > 0 && <button type="button" className="ghost" disabled={busy === "create"} onClick={() => transfer && step === 1 ? onSourceReview?.() : move(step - 1)}>{c.back}</button>}
+        {(step > 1 || transfer) && <button type="button" className="ghost" disabled={busy === "create"} onClick={() => transfer && step === 1 ? onSourceReview?.() : move(step - 1)}>{c.back}</button>}
         {step < 4 && <button className="primary" type="submit">{c.continue}</button>}
         <button type="button" className="ghost" disabled={busy === "create"} onClick={() => { if (guard()) onCancel(); }}>{c.cancel}</button>
       </div>

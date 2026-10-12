@@ -11,14 +11,14 @@ import { ApiError, describeError } from "./errors";
 import { enrollmentCopy } from "./enrollmentCopy";
 
 type Props = ComponentProps<typeof EnrollmentWizard> & {
-  projects: { id: string; display_name: string }[]; onExact: () => void;
+  projects: { id: string; display_name: string }[]; mode: "enroll" | "clone";
 };
 
-/** Source review and method selection; target corrections remain owned by the guided wizard. */
+/** Enroll runs the guided wizard; clone reviews a source's rules first. Target corrections stay with the guided wizard. */
 export function TransferWizard(props: Props) {
   const c = transferCopy[props.locale];
-  const [method, setMethod] = useState<"guided" | "file" | "project">("guided");
-  const [selection, setSelection] = useState<TransferSelection>({ method: "file" });
+  const [method, setMethod] = useState<"guided" | "file" | "project">(props.mode === "enroll" ? "guided" : "project");
+  const [selection, setSelection] = useState<TransferSelection>({ method: props.mode === "clone" ? "project" : "file" });
   const [source, setSource] = useState<TransferSource | null>(null);
   const [target, setTarget] = useState(false);
   const [failure, setFailure] = useState<unknown>(null);
@@ -53,10 +53,11 @@ export function TransferWizard(props: Props) {
       document.removeEventListener("click", click, true); };
   }, [method, target, props.locale, props.registerGuard]);
   useEffect(() => { if (failure) error.current?.focus(); }, [failure]);
-  useEffect(() => { heading.current?.focus(); }, [method, target]);
+  // Focus the heading on entry and on review/target switches; a source change keeps focus on its pressed button.
+  useEffect(() => { heading.current?.focus(); }, [target]);
 
   const select = (next: typeof method) => {
-    if (!guard()) return;
+    if (next === method || !guard()) return;
     generation.current++; operation.current = false; childGuard.current = null; dirty.current = false;
     setBusy(false); setMethod(next); setTarget(false); setSource(null); setFailure(null);
     selectedFile.current = null;
@@ -99,12 +100,12 @@ export function TransferWizard(props: Props) {
     finally { if (alive.current && token === generation.current) { operation.current = false; setBusy(false); } }
   };
   return <>
-    <section className="panel" aria-label={c.method}>
-      <div className="enrollment-actions">{(["guided", "file", "project"] as const).map(value =>
+    {props.mode === "clone" && !target && <section className="panel clone-sources">
+      <strong id="clone-sources-label">{c.sources}</strong>
+      <div className="enrollment-actions" role="group" aria-labelledby="clone-sources-label">{(["project", "file"] as const).map(value =>
         <button type="button" key={value} className="ghost" aria-pressed={method === value} onClick={() => select(value)}>{c[value]}</button>)}
-        <button type="button" className="ghost" onClick={() => { if (guard()) props.onExact(); }}>{c.exact}</button>
       </div>
-    </section>
+    </section>}
     {method === "guided" ? <EnrollmentWizard {...props} registerGuard={value => { childGuard.current = value; props.registerGuard(value); }} /> :
       target && source ? <EnrollmentWizard {...props} transfer={source}
         checkSource={async () => {

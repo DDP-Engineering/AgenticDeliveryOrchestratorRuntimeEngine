@@ -8,8 +8,8 @@ import type { Locale } from "./i18n";
 import { portableFields } from "./portable";
 
 const en = {
-  guided: "Guided new project", file: "Import portable settings", project: "Copy project settings",
-  exact: "Advanced: unchanged server TOML copy", source: "Source project", choose: "Choose a source project",
+  sources: "Clone from", file: "From a portable settings file", project: "From a project on this server",
+  source: "Source project", choose: "Choose a source project",
   upload: "Portable JSON file", review: "Review source rules", target: "Set up new target", back: "Review source again",
   title: "Portable rules for a new project", recognized: "Recognized working rules",
   help: "Transfer rules only. Supply a new identity, repository clone and target environment. The server allocates independent state, worktree and metrics locations; no repository is cloned.",
@@ -20,14 +20,14 @@ const en = {
   revision: "Source revision", confirm: "I reconfirm this target environment, credential references and endpoint setup.",
   references: "Enter target credential environment names or select supported host authentication. No source credentials or endpoints transfer. Standard provider connections use the selected model; custom endpoint setup is a separate target Settings action while pickup remains stopped.",
   blocked: "Select and review a supported source before continuing.", changed: "Source or candidate changed. Review the source again, then validate a new target review.",
-  paths: "Independent target locations", method: "Enrollment methods", cancel: "Cancel", loading: "Reading source…",
+  paths: "Independent target locations", cancel: "Cancel", loading: "Reading source…",
 };
 
 export const transferCopy: Record<Locale, typeof en> = {
   en,
   fr: {
-    guided: "Nouveau projet guidé", file: "Importer les paramètres portables", project: "Copier les paramètres du projet",
-    exact: "Avancé : copie TOML serveur inchangée", source: "Projet source", choose: "Choisir un projet source",
+    sources: "Cloner depuis", file: "Depuis un fichier de paramètres portables", project: "Depuis un projet de ce serveur",
+    source: "Projet source", choose: "Choisir un projet source",
     upload: "Fichier JSON portable", review: "Examiner les règles source", target: "Configurer la nouvelle cible", back: "Revoir la source",
     title: "Règles portables pour un nouveau projet", recognized: "Règles reconnues",
     help: "Seules les règles sont transférées. Saisissez une nouvelle identité, un clone existant et un environnement cible. Le serveur attribue des emplacements indépendants pour les données, worktrees et métriques ; aucun dépôt n’est cloné.",
@@ -38,11 +38,11 @@ export const transferCopy: Record<Locale, typeof en> = {
     revision: "Révision source", confirm: "Je reconfirme l’environnement cible, les références d’identifiants et les connexions.",
     references: "Saisissez les noms de variables cible ou l’authentification hôte prise en charge. Aucun identifiant ni endpoint source n’est transféré. Les connexions standard utilisent le modèle sélectionné ; les endpoints personnalisés se configurent ensuite dans Paramètres, collecte arrêtée.",
     blocked: "Sélectionnez et examinez une source compatible.", changed: "Source ou candidat modifié. Revoyez la source puis validez la cible.",
-    paths: "Emplacements cible indépendants", method: "Méthodes d’inscription", cancel: "Annuler", loading: "Lecture de la source…",
+    paths: "Emplacements cible indépendants", cancel: "Annuler", loading: "Lecture de la source…",
   },
   de: {
-    guided: "Neues Projekt mit Anleitung", file: "Portable Einstellungen importieren", project: "Projekteinstellungen kopieren",
-    exact: "Erweitert: unveränderte Server-TOML-Kopie", source: "Quellprojekt", choose: "Quellprojekt wählen",
+    sources: "Klonen aus", file: "Aus einer portablen Einstellungsdatei", project: "Aus einem Projekt auf diesem Server",
+    source: "Quellprojekt", choose: "Quellprojekt wählen",
     upload: "Portable JSON-Datei", review: "Quellregeln prüfen", target: "Neues Ziel einrichten", back: "Quelle erneut prüfen",
     title: "Portable Regeln für ein neues Projekt", recognized: "Erkannte Arbeitsregeln",
     help: "Nur Regeln werden übertragen. Neue Identität, vorhandenen Repository-Klon und Zielumgebung angeben. Der Server vergibt unabhängige Zustands-, Worktree- und Metrikpfade; kein Repository wird geklont.",
@@ -53,11 +53,11 @@ export const transferCopy: Record<Locale, typeof en> = {
     revision: "Quellrevision", confirm: "Ich bestätige Zielumgebung, Zugangsdatenreferenzen und Endpunkte erneut.",
     references: "Zielvariablen oder unterstützte Hostanmeldung angeben. Quellzugangsdaten und Endpunkte werden nicht übertragen. Standardverbindungen verwenden das gewählte Modell; eigene Endpunkte später unter Einstellungen bei gestopptem Abruf einrichten.",
     blocked: "Eine unterstützte Quelle wählen und prüfen.", changed: "Quelle oder Kandidat geändert. Quelle erneut prüfen, dann das Ziel validieren.",
-    paths: "Unabhängige Zielpfade", method: "Aufnahmemethoden", cancel: "Abbrechen", loading: "Quelle wird gelesen…",
+    paths: "Unabhängige Zielpfade", cancel: "Abbrechen", loading: "Quelle wird gelesen…",
   },
   ro: {
-    guided: "Proiect nou ghidat", file: "Importă setări portabile", project: "Copiază setările proiectului",
-    exact: "Avansat: copie TOML de server neschimbată", source: "Proiect sursă", choose: "Alege proiectul sursă",
+    sources: "Clonează din", file: "Dintr-un fișier de setări portabile", project: "Dintr-un proiect de pe acest server",
+    source: "Proiect sursă", choose: "Alege proiectul sursă",
     upload: "Fișier JSON portabil", review: "Revizuiește regulile sursei", target: "Configurează ținta nouă", back: "Revizuiește sursa din nou",
     title: "Reguli portabile pentru un proiect nou", recognized: "Reguli recunoscute",
     help: "Se transferă doar reguli. Introdu o identitate nouă, o clonă existentă și mediul țintă. Serverul alocă locații independente pentru stare, worktree și metrici; nu clonează depozitul.",
@@ -68,7 +68,7 @@ export const transferCopy: Record<Locale, typeof en> = {
     revision: "Revizia sursei", confirm: "Reconfirm mediul țintă, referințele de credențiale și configurarea endpointurilor.",
     references: "Introdu numele variabilelor țintă sau autentificarea pe gazdă acceptată. Nu se transferă credențiale sau endpointuri sursă. Conexiunile standard folosesc modelul ales; endpointurile personalizate se configurează separat în Setări, cu preluarea oprită.",
     blocked: "Selectează și revizuiește o sursă compatibilă.", changed: "Sursa sau candidatul s-a schimbat. Revizuiește sursa, apoi validează ținta din nou.",
-    paths: "Locații țintă independente", method: "Metode de înrolare", cancel: "Anulează", loading: "Se citește sursa…",
+    paths: "Locații țintă independente", cancel: "Anulează", loading: "Se citește sursa…",
   },
 };
 

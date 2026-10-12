@@ -12,13 +12,12 @@ Pregătiți următoarele:
 - Numele etichetelor ready și de aprobare. O persoană adaugă eticheta ready pentru ca un tichet să devină eligibil; vezi [Tichete pentru preluare automată](/help/tickets#labels).
 - Agentul de programare, ID-ul modelului său și o imagine de container de pe server care conține agentul. Vezi [Executori și modele](/help/executors).
 
-## Adăugarea unui proiect {#add-project}
+## Înrolarea unui proiect nou {#add-project}
 
-Alegeți **Adaugă proiect** în [Proiecte](/projects). **Proiect nou ghidat** are șase pași, iar schimbarea oricărui răspuns face ca validările și verificările anterioare să devină învechite.
+Alegeți **Înrolează un proiect nou** în [Proiecte](/projects). Asistentul ghidat începe cu Repository și identitate și are cinci pași, iar schimbarea oricărui răspuns face ca validările și verificările anterioare să devină învechite.
 
 | Pas | Ce cere |
 |---|---|
-| Metoda de înrolare | Nu cere nimic de introdus. Confirmă că clona există deja pe server. |
 | Repository și identitate | **Nume afișat**, **ID stabil al proiectului** (litere mici, cifre, punct, liniuță de subliniere sau cratimă, până la 64 de caractere), **Descriere** opțională, **Forge**, **Depozit** ca proprietar/repository (nu un URL), **Gitea tea login** (doar Gitea), **Calea clonei locale** și **Ramură țintă**. |
 | Agent și model | **Executor** (opencode, codex, pi sau qwen), **Model**, **Autentificare model** (api-key sau host-auth, doar pentru OpenCode și Codex) și **Referințe de mediu pentru credențiale**: nume de variabile precum LOCAL_API_KEY, niciodată valori. |
 | Eligibilitate, recenzori și limite | **Etichetă ready**, **Etichetă de aprobare**, **Revizori (separați prin virgulă)** (cel puțin unul) și patru limite per lucrare: lansări ale executorului, secunde active, cost raportat în USD și fișiere modificate. O limită de cost 0 dezactivează acea limită; nu înseamnă gratuit. |
@@ -27,12 +26,13 @@ Alegeți **Adaugă proiect** în [Proiecte](/projects). **Proiect nou ghidat** a
 
 Asistentul folosește profilul standard de container. Execuția locală nativă și configurările specializate de container folosesc metoda avansată cu TOML de server de mai jos.
 
-## Importul unui proiect {#import-project}
+## Importul configurației unui proiect {#import-project}
 
-Aceeași pagină oferă încă trei metode.
+Alegeți **Importă configurația proiectului** în [Proiecte](/projects) pentru a înrola un `config.toml` ADORE existent exact așa cum este, de exemplu unul creat din linia de comandă sau salvat anterior cu **Descarcă configurația originală** în Setările unui proiect. Fișierul (UTF-8, până la 512 KiB) trebuie să aibă căi absolute pe server și niciun secret inclus: revizuirea le listează pe cele găsite, deci înlocuiți-le mai întâi cu referințe la variabile de mediu. ID-ul proiectului și dosarul de stare nu trebuie să aparțină unui proiect înrolat. ADORE copiază fișierul octet cu octet și se încheie cu **Înrolează cu preluarea oprită**. Istoricul apare doar dacă datele lui există deja în dosarul de stare declarat.
 
-- **Importă setări portabile** citește un fișier JSON portabil (până la 64 KiB) din aceeași versiune ADORE. **Copiază setările proiectului** citește un alt proiect la care aveți acces. Ambele transferă doar 15 reguli de lucru (interogare periodică, pregătire, recuperare, bugete ale lucrărilor); identitatea, repository-ul, etichetele, credențialele, endpointurile, imaginile și istoricul nu se copiază niciodată. Alegeți **Revizuiește regulile sursei**, apoi **Configurează ținta nouă** și parcurgeți pașii ghidați. Verificați fișierele necunoscute: suma de control detectează modificările, dar nu dovedește autorul.
-- **Avansat: copie TOML de server neschimbată** deschide [Înrolează o configurație existentă pentru acest server ADORE](/projects/import). Primește un `config.toml` ADORE existent (UTF-8, până la 512 KiB) cu căi absolute pe server și fără secrete, îl copiază octet cu octet și se încheie cu **Înrolează cu preluarea oprită**. Istoricul apare doar dacă datele lui există deja în dosarul de stare declarat.
+## Clonarea configurației unui proiect {#clone-project}
+
+Alegeți **Clonează configurația proiectului** în [Proiecte](/projects) pentru a porni un proiect nou cu regulile de lucru ale altuia. **Dintr-un proiect de pe acest server** citește un proiect la care aveți acces; **Dintr-un fișier de setări portabile** citește un fișier JSON portabil (până la 64 KiB) din aceeași versiune ADORE. Se preiau doar 15 reguli de lucru (interogare periodică, pregătire, recuperare, bugete ale lucrărilor); identitatea, repository-ul, etichetele, credențialele, endpointurile, imaginile și istoricul nu se copiază niciodată. Alegeți **Revizuiește regulile sursei**, apoi **Configurează ținta nouă** și parcurgeți pașii ghidați. Verificați fișierele necunoscute: suma de control detectează modificările, dar nu dovedește autorul.
 
 ## După creare {#after-creation}
 

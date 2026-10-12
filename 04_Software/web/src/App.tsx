@@ -56,7 +56,7 @@ type Project = { display_name: string; pickup_state: string; verification: { sta
 type Config = { executor_environment?: ExecutorEnvironmentInfo; local_execution?: { machine: string; account: string; system: string } | null; execution_plan?: ExecutionPlan | null; model_connection?: ModelEvidence | null; config: Record<string, unknown>; revision: string; issues: string[]; local_endpoint_timeout_seconds?: number | null; local_endpoint?: { protocol: string; auth_env: string | null } | null; settings?: SettingMeta[] };
 type Operation = { id: number; status: string; result?: string; action?: string };
 type Price = { id: number; executor: string; model: string; effective_from: string; input_usd_per_million: string; output_usd_per_million: string };
-type Page = "overview" | "projects" | "createProject" | "importProject" | "projectDetails" | "jobs" | "metrics" | "administration" | "adminUsers" | "adminAudit" | "settings" | "help";
+type Page = "overview" | "projects" | "createProject" | "importProject" | "cloneProject" | "projectDetails" | "jobs" | "metrics" | "administration" | "adminUsers" | "adminAudit" | "settings" | "help";
 type MetricsTab = "summary" | "usage" | "quality" | "trends" | "projects";
 type ProjectSortKey = "name" | "repo" | "readiness" | "runs" | "last_activity";
 const metricsTabLabels: Record<MetricsTab, MessageKey> = {
@@ -170,6 +170,8 @@ export default function App() {
   const [operationVisible, setOperationVisible] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const enrollmentGuard = useRef<(() => boolean) | null>(null);
+  // The address of the page shown now, restored when a guarded wizard refuses browser Back.
+  const shownUrl = useRef("");
   const [resetTarget, setResetTarget] = useState<number | null>(null);
   const aboutTrigger = useRef<HTMLButtonElement>(null);
   // Switching About views removes the pressed button; focus its counterpart so Escape and Tab keep working.
@@ -641,7 +643,7 @@ export default function App() {
     setRouteReady(true);
     const onPop = () => {
       if (enrollmentGuard.current && !enrollmentGuard.current()) {
-        window.history.pushState(null, "", formatRoute({ view: "createProject" }));
+        window.history.pushState(null, "", shownUrl.current || formatRoute({ view: "createProject" }));
         return;
       }
       applyLocation();
@@ -653,6 +655,7 @@ export default function App() {
   useEffect(() => {
     if (!session || !routeReady) return;
     const target = formatRoute(currentRoute());
+    shownUrl.current = target;
     const here = window.location.pathname + window.location.search;
     if (target === here) return;
     if (target.split("?")[0] === window.location.pathname) window.history.replaceState(null, "", target);
@@ -962,7 +965,7 @@ export default function App() {
     id: target, label: t(target === "settings" ? "myAccount" : target === "administration" ? "systemStatus" : target),
     href: target === "overview" ? formatRoute({ view: "overview" }) : formatRoute(target === "jobs" || target === "metrics" ?
       { view: target, ...(target === "jobs" ? (jobScope ? { project: jobScope } : ["projectDetails", "metrics"].includes(page) && selectedProject ? { project: selectedProject.id } : {}) : selectedProject ? { project: selectedProject.id } : {}) } : { view: target as Exclude<Page, "overview" | "jobs" | "metrics" | "projectDetails"> }),
-    active: target === page || (target === "projects" && ["createProject", "importProject", "projectDetails"].includes(page)),
+    active: target === page || (target === "projects" && ["createProject", "importProject", "cloneProject", "projectDetails"].includes(page)),
     onNavigate: () => navigatePage(target),
   });
   const pageTitle = isAdmin && adminPages.includes(page) ? t(page === "administration" ? "systemStatus" : page) : t(page === "settings" ? "myAccount" : page);
@@ -1109,7 +1112,7 @@ export default function App() {
         {page === "overview" && projectsState === "ready" && projects.length > 0 && <JobWorkspace admin={isAdmin} {...workspaceProps} mode="overview" />}
 
         {page === "projects" && projectsState === "ready" && <>
-          <div className="section-actions">{isAdmin && <><button className="primary" onClick={() => { setError(""); setPage("createProject"); }}>{t("createProject")}</button><button className="ghost" onClick={() => { setError(""); setPage("importProject"); }}>{t("importProject")}</button></>}</div>
+          <div className="section-actions">{isAdmin && <><button className="primary" onClick={() => { setError(""); setPage("createProject"); }}>{t("createProject")}</button><button className="ghost" onClick={() => { setError(""); setPage("importProject"); }}>{t("importProject")}</button><button className="ghost" onClick={() => { setError(""); setPage("cloneProject"); }}>{t("cloneProject")}</button></>}</div>
           <section className="panel">
             {projects.length ? <PagedTable key={`${projectSortKey}-${projectSortDescending}`} t={t}><table className="projects-table"><thead><tr>
               <SortHeader label={t("project")} sortKey="name" activeKey={projectSortKey} descending={projectSortDescending} onSort={changeProjectSort} />
@@ -1126,8 +1129,8 @@ export default function App() {
           </section>
         </>}
 
-        {page === "createProject" && isAdmin && <TransferWizard locale={locale} csrf={session.csrf} t={t}
-          projects={projects} onExact={() => setPage("importProject")}
+        {(page === "createProject" || page === "cloneProject") && isAdmin && <TransferWizard key={page} mode={page === "createProject" ? "enroll" : "clone"} locale={locale} csrf={session.csrf} t={t}
+          projects={projects}
           registerGuard={guard => { enrollmentGuard.current = guard; }}
           onCancel={() => { setError(""); setPage("projects"); }}
           onCreated={() => { void refreshProjects(); }} onOpen={id => openProject(id)} />}

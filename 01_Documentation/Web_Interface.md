@@ -35,8 +35,11 @@ worker needs no banner. Overview reads no consumption and displays no reporting
 period, dates or timezone. Jobs holds technical evidence and Statistics owns
 reporting filters; displayed timestamps use the browser/device local timezone.
 
-Administrators open Add project from Projects to enroll an existing server clone
-through six steps: method, repository/identity, agent/model,
+Projects offers administrators three separate actions: **Enroll new project**
+(`/projects/new`, the guided wizard), **Import project config** (`/projects/import`,
+an existing `config.toml`) and **Clone project config** (`/projects/clone`, the
+working rules of a project on this server or of a portable settings file).
+Enroll new project takes an existing server clone through five steps: repository/identity, agent/model,
 eligibility/reviewers/limits, verification, review/create. AEGIS is the repository's
 workflow for framing, building, testing and reviewing changes; ADORE conducts that
 workflow for eligible issues and publishes draft or ready MR/PRs according to `delivery.draft` for human review.
@@ -92,7 +95,7 @@ the in-app help center at `/help`: ten topics (what ADORE does, interface tour,
 adding a repository, project settings, executors and models, tickets for
 automatic pickup, job lifecycle, statistics and costs, administration, glossary)
 in your language, each with its own `/help/<topic>` address, a search field and
-an On this page outline. A project's Tickets view, the Add project wizard and
+an On this page outline. A project's Tickets view, the Enroll new project wizard and
 project Settings show a **?** link that opens the matching topic in a new tab.
 Full job history is reached through the sidebar Jobs link; Overview
 keeps job-specific Details links.
@@ -517,7 +520,7 @@ are not supported.
 Administrators use **Preview raw configuration** or **Download raw configuration** beside Project settings. Preview opens a closable dialog; download preserves original saved `config.toml` bytes including comments, formatting and inline secrets. Pending changes, resolved defaults, separate `.env` files and external credentials are excluded. Preview is memory-only and cleared on dismissal or project/session change. Developers retain redacted read-only settings and cannot access raw configuration. Candidate review/apply/discard remains inside Settings.
 
 Portable working rules remain available through the transfer API.
-**Add project** offers portable import/copy, with recognized rules,
+**Clone project config** offers both portable sources, with recognized rules,
 independent target setup and mandatory reference reconfirmation. See
 [Portable project settings](Portable_Project_Settings.md) for the enumerated
 allowlist, source/parser rejection rules, target-host limitations and API.
@@ -554,9 +557,11 @@ Its CLI cost number is an estimate and is not presented as billed cost;
 administrator price rules can provide a separate estimate. A subscription
 therefore still needs iteration and wall-clock limits because a monetary
 budget cannot be enforced from a provider charge that is not reported.
-To enroll an existing configuration, open **Enroll an existing configuration for
-this ADORE server** from Projects. This advanced exact mode uses `config.toml`
-from an existing ADORE profile or an operator-prepared `config.example.toml`.
+To enroll an existing configuration, open **Import project config** from
+Projects. This exact mode uses `config.toml` from an existing ADORE profile, a
+file saved earlier with **Download raw configuration** (once no enrolled project
+owns its ID or state folder and its inline secrets are replaced with environment
+references) or an operator-prepared `config.example.toml`.
 Prepare it for this server before selecting the UTF-8 file (maximum 512 KiB).
 
 1. Select the file. The browser keeps it in memory and preserves its exact bytes,
@@ -932,13 +937,13 @@ reconciliation rather than being blindly replayed.
 
 ## Backend project enrollment and verification
 
-**Add project** offers **Import portable settings** and **Copy project settings**.
+**Clone project config** offers **From a project on this server** and **From a portable settings file**.
 Sources supply only the strict 15-rule allowlist. The localized wizard requires
 fresh target identity/repository/environment/references, shows source/default/effect
 mapping and independently allocated locations, and confirms pickup-stopped
 creation. Exact source/candidate revisions, Admin/CSRF, current source authority,
 ownership collision checks and rollback/replay guards remain server-enforced.
-**Advanced: unchanged server TOML copy** retains host-specific exact-copy behavior.
+**Import project config** retains host-specific exact-copy behavior.
 See [Portable project settings](Portable_Project_Settings.md) for the workflow,
 format, exclusions, error recovery and target endpoint setup.
 

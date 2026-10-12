@@ -7,7 +7,7 @@ Interfața are o bară laterală întunecată pentru navigarea între pagini și
 | Pagină | Ce faceți acolo |
 |---|---|
 | Prezentare generală | Vedeți **Necesită intervenție** și **Lucrări active** pentru proiectele la care aveți acces. **Detalii** deschide o lucrare în Lucrări. |
-| [Proiecte](/projects) | Parcurgeți proiectele înrolate cu repository-ul, forge-ul, starea monitorizării, numărul de lucrări și ultima activitate. Deschideți un proiect pentru a ajunge la pagina lui. Administratorii văd și **Adaugă proiect** și **Înrolează o configurație existentă pentru acest server ADORE**. |
+| [Proiecte](/projects) | Parcurgeți proiectele înrolate cu repository-ul, forge-ul, starea monitorizării, numărul de lucrări și ultima activitate. Deschideți un proiect pentru a ajunge la pagina lui. Administratorii văd și **Înrolează un proiect nou**, **Importă configurația proiectului** și **Clonează configurația proiectului**. |
 | [Lucrări](/jobs) | Alegeți din **Domeniul joburilor**, apoi folosiți sub-fila **Tichete** pentru a citi tichetele de pe forge și a le porni, sau sub-fila **Lucrări** pentru a căuta lucrări și a deschide detaliile lor. |
 | [Statistici](/metrics) | Citiți utilizarea, calitatea și tendințele pentru o perioadă de raportare. Vezi [Statistici și costuri](/help/statistics). |
 | Administrare | Doar pentru administratori. Deschide trei pagini: [Starea sistemului](/admin/status), [Utilizatori](/admin/users) și [Istoricul modificărilor](/admin/audit). Vezi [Administrare](/help/administration). |

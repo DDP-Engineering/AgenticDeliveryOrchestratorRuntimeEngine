@@ -14,10 +14,10 @@ title = "Open project creation on a separate page"
 status = "active"
 
 requirement = """
-When an administrator selects Add project from Projects, the web interface shall open a dedicated creation page without the Projects table or project selector, and successful creation shall open the new project's details. Back to projects and Cancel return to Projects without creating a project.
+When an administrator selects Enroll new project from Projects, the web interface shall open a dedicated creation page without the Projects table or project selector, and successful creation shall open the new project's details. Back to projects and Cancel return to Projects without creating a project.
 """
 
-verification = "Manual: Sign in as administrator, open Add project, inspect the dedicated page, return with Back and Cancel, then create a disposable project and confirm its details open. Confirm a developer has no creation action."
+verification = "Manual: Sign in as administrator, open Enroll new project, inspect the dedicated page, return with Back and Cancel, then create a disposable project and confirm its details open. Confirm a developer has no creation action."
 
 affected_paths = ["04_Software/web/src/App.tsx"]
 
@@ -30,4 +30,4 @@ priority = "normal"   # low | normal | high
 rationale = "Keep the directory visible as a directory and give setup a focused workflow."
 
 created = 2026-10-01
-updated = 2026-10-01
+updated = 2026-10-12

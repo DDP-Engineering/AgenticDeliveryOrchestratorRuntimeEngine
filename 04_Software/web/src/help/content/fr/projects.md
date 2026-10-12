@@ -12,13 +12,12 @@ Préparez ces éléments :
 - Les noms des étiquettes de disponibilité et d’approbation. Une personne ajoute l’étiquette de disponibilité pour rendre un ticket éligible ; voir [Tickets et prise en charge automatique](/help/tickets#labels).
 - L’agent de programmation, l’identifiant de son modèle et une image de conteneur sur le serveur qui contient l’agent. Voir [Exécuteurs et modèles](/help/executors).
 
-## Ajouter un projet {#add-project}
+## Inscrire un nouveau projet {#add-project}
 
-Choisissez **Ajouter un projet** dans [Projets](/projects). **Nouveau projet guidé** comporte six étapes, et la modification d’une réponse rend périmées les validations et vérifications précédentes.
+Choisissez **Inscrire un nouveau projet** dans [Projets](/projects). L’assistant guidé commence par Dépôt et identité et comporte cinq étapes, et la modification d’une réponse rend périmées les validations et vérifications précédentes.
 
 | Étape | Ce qui est demandé |
 |---|---|
-| Méthode d'inscription | Rien à saisir. Elle confirme que le clone existe déjà sur le serveur. |
 | Dépôt et identité | **Nom affiché**, **Identifiant stable du projet** (lettres minuscules, chiffres, point, soulignement ou tiret, 64 caractères au maximum), **Description** facultative, **Forge**, **Dépôt** sous la forme propriétaire/dépôt (pas une URL), **Gitea tea login** (Gitea uniquement), **Chemin du clone local** et **Branche cible**. |
 | Agent et modèle | **Exécuteur** (opencode, codex, pi ou qwen), **Modèle**, **Authentification du modèle** (api-key, ou host-auth pour OpenCode et Codex uniquement) et **Références d'environnement des identifiants** : des noms de variables comme LOCAL_API_KEY, jamais des valeurs. |
 | Éligibilité, relecteurs et limites | **Label prêt**, **Label d'approbation**, **Réviseurs (séparés par des virgules)** (au moins un) et quatre limites par tâche : lancements de l’exécuteur, secondes actives, coût déclaré en USD et fichiers modifiés. Un plafond de coût à 0 désactive ce plafond ; cela ne signifie pas gratuit. |
@@ -27,12 +26,13 @@ Choisissez **Ajouter un projet** dans [Projets](/projects). **Nouveau projet gui
 
 L’assistant utilise le profil de conteneur standard. L’exécution locale native et les configurations de conteneur spécialisées passent par la méthode TOML serveur avancée ci-dessous.
 
-## Importer un projet {#import-project}
+## Importer une configuration de projet {#import-project}
 
-La même page propose trois autres méthodes.
+Choisissez **Importer une configuration de projet** dans [Projets](/projects) pour inscrire un `config.toml` ADORE existant tel quel, par exemple créé en ligne de commande ou enregistré auparavant avec **Télécharger la configuration brute** dans les Paramètres d’un projet. Le fichier (UTF-8, jusqu’à 512 Kio) doit contenir des chemins serveur absolus et aucun secret en clair : la revue liste ceux qu’elle trouve, remplacez-les d’abord par des références d’environnement. Son identifiant de projet et son dossier d’état ne doivent appartenir à aucun projet inscrit. ADORE copie le fichier octet par octet et termine par **Inscrire avec la sélection arrêtée**. L’historique n’apparaît que si ses données existent déjà dans le dossier d’état déclaré.
 
-- **Importer les paramètres portables** lit un fichier JSON portable (jusqu’à 64 Kio) de la même version d’ADORE. **Copier les paramètres du projet** lit un autre projet auquel vous avez accès. Les deux ne transportent que 15 règles de fonctionnement (scrutation, préparation, reprise, budgets des tâches) ; l’identité, le dépôt, les étiquettes, les identifiants, les points d’accès, les images et l’historique ne sont jamais copiés. Choisissez **Examiner les règles source**, puis **Configurer la nouvelle cible** et répondez aux étapes guidées. Examinez les fichiers inconnus : la somme de contrôle détecte les modifications mais ne prouve pas l’auteur.
-- **Avancé : copie TOML serveur inchangée** ouvre [Inscrire une configuration existante pour ce serveur ADORE](/projects/import). Elle prend un `config.toml` ADORE existant (UTF-8, jusqu’à 512 Kio) avec des chemins serveur absolus et sans secrets, le copie octet par octet et se termine par **Inscrire avec la sélection arrêtée**. L’historique n’apparaît que si ses données existent déjà dans le dossier d’état déclaré.
+## Cloner une configuration de projet {#clone-project}
+
+Choisissez **Cloner une configuration de projet** dans [Projets](/projects) pour démarrer un nouveau projet avec les règles de fonctionnement d’un autre. **Depuis un projet de ce serveur** lit un projet auquel vous avez accès ; **Depuis un fichier de paramètres portables** lit un fichier JSON portable (jusqu’à 64 Kio) de la même version d’ADORE. Seules 15 règles de fonctionnement (scrutation, préparation, reprise, budgets des tâches) sont reprises ; l’identité, le dépôt, les étiquettes, les identifiants, les points d’accès, les images et l’historique ne sont jamais copiés. Choisissez **Examiner les règles source**, puis **Configurer la nouvelle cible** et répondez aux étapes guidées. Examinez les fichiers inconnus : la somme de contrôle détecte les modifications mais ne prouve pas l’auteur.
 
 ## Après la création {#after-creation}
 

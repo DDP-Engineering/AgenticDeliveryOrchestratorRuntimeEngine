@@ -202,9 +202,8 @@ test("glossary defines supported human actions with essential field help visible
   await expect(glossary).toContainText("recorded on the forge");
   await expect(glossary).toContainText("human decision");
   await nav(page).getByRole("link", { name: "Projects", exact: true }).click();
-  await page.getByRole("button", { name: "Add project", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Enrollment method", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.getByRole("button", { name: "Enroll new project", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Repository and identity", exact: true })).toBeVisible();
   await expect(page.locator("#enrollment-help-forge")).toBeVisible();
   await expect(page.locator("#enrollment-help-clone")).toBeVisible();
   await expect(page.getByLabel("Local clone path", { exact: false })).toHaveAttribute("aria-describedby", "enrollment-help-clone");
@@ -367,13 +366,56 @@ test("closing a job removes its deep-link identity and refresh cannot reopen it"
 });
 
 
+test("Projects offers separate Enroll, Import and Clone project actions", async ({ page }) => {
+  await signIn(page);
+  const projects = async () => { await page.goto("/projects"); return page.locator(".section-actions"); };
+  let actions = await projects();
+  await expect(actions.getByRole("button")).toHaveText(["Enroll new project", "Import project config", "Clone project config"]);
+  // Enroll starts the guided wizard directly, without a method chooser.
+  await actions.getByRole("button", { name: "Enroll new project", exact: true }).click();
+  await expect(page).toHaveURL(/\/projects\/new$/);
+  await expect(page.getByRole("heading", { name: "Repository and identity", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Enrollment method", exact: true })).toHaveCount(0);
+  for (const old of ["Guided new project", "Import portable settings", "Copy project settings", "Advanced: unchanged server TOML copy"]) {
+    await expect(page.getByRole("button", { name: old, exact: true })).toHaveCount(0);
+  }
+  actions = await projects();
+  await actions.getByRole("button", { name: "Import project config", exact: true }).click();
+  await expect(page).toHaveURL(/\/projects\/import$/);
+  await expect(page.getByRole("heading", { name: "Import project config", exact: true })).toBeVisible();
+  await expect(page.locator("#import-file")).toHaveAttribute("type", "file");
+  actions = await projects();
+  await actions.getByRole("button", { name: "Clone project config", exact: true }).click();
+  await expect(page).toHaveURL(/\/projects\/clone$/);
+  const sources = page.getByRole("group", { name: "Clone from", exact: true });
+  await expect(sources.getByRole("button")).toHaveText(["From a project on this server", "From a portable settings file"]);
+  await expect(sources.getByRole("button", { name: "From a project on this server", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByLabel("Source project", { exact: true })).toBeVisible();
+  // Pressing the active source keeps the choice; a refused Back keeps the clone page and its input.
+  await page.getByLabel("Source project", { exact: true }).selectOption({ label: "alpha" });
+  // An accepted loss prompt would reset the form, so record whether one is shown.
+  let asked = false;
+  const accept = (dialog: import("@playwright/test").Dialog) => { asked = true; void dialog.accept(); };
+  page.once("dialog", accept);
+  await sources.getByRole("button", { name: "From a project on this server", exact: true }).click();
+  await expect(page.getByLabel("Source project", { exact: true })).not.toHaveValue("");
+  expect(asked).toBe(false);
+  page.off("dialog", accept);
+  page.once("dialog", dialog => dialog.dismiss()); await page.evaluate(() => history.back());
+  await expect(page).toHaveURL(/\/projects\/clone$/);
+  await expect(page.getByLabel("Source project", { exact: true })).not.toHaveValue("");
+  page.once("dialog", dialog => dialog.accept());
+  await sources.getByRole("button", { name: "From a portable settings file", exact: true }).click();
+  await expect(page.getByLabel("Portable JSON file", { exact: true })).toBeVisible();
+});
+
 test("empty administrator enrollment has an actionable explanation", async ({ page }) => {
   await page.route("**/api/v1/projects", route => route.fulfill({ status: 200, contentType: "application/json", body: "[]" }));
   await signIn(page);
   await expect(page.getByText("No projects available", { exact: true })).toBeVisible();
-  await expect(page.getByText("Enroll an existing repository from Projects using Add project or Import project.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Add a repository from Projects with Enroll new project, Import project config or Clone project config.", { exact: true })).toBeVisible();
   await nav(page).getByRole("link", { name: "Projects", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Add project", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Enroll new project", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Start job", exact: true })).toHaveCount(0);
 });
 

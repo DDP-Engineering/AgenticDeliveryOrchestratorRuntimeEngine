@@ -14,7 +14,7 @@ title = "Link key pages to their help topic"
 status = "active"
 
 requirement = """
-While a user works in a project's Tickets view, the Add project wizard or project Settings, the page shall offer a help link that opens the matching help topic (tickets for automatic pickup, adding a repository, project settings) in a new tab, leaving the current page and any unsaved input in place.
+While a user works in a project's Tickets view, the Enroll new project wizard or project Settings, the page shall offer a help link that opens the matching help topic (tickets for automatic pickup, adding a repository, project settings) in a new tab, leaving the current page and any unsaved input in place.
 """
 
 verification = "Automated: e2e checks each contextual help link targets its topic and opens in a new tab; node help tests check every contextual target is an existing topic."

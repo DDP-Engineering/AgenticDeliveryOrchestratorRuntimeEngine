@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 import type { Locale } from "./i18n";
 
 const en = {
-  title: "Enroll an existing configuration for this ADORE server",
+  title: "Import project config",
   steps: ["Choose a file", "Declared identity and paths", "Structural validation", "Environment verification", "Review and enroll", "Enrollment complete"],
   source: "Choose config.toml from an existing ADORE profile, or a file prepared by an operator from config.example.toml. This advanced mode requires a configuration already prepared for this ADORE server.",
   exact: "The UTF-8 file is copied as exact unchanged bytes, including comments and unknown keys. Correct settings in the source file and select it again; enrollment never rewrites paths.",
@@ -28,7 +28,7 @@ type Copy = { [K in keyof typeof en]: typeof en[K] };
 export const importCopy: Record<Locale, Copy> = {
   en,
   fr: {
-    title: "Inscrire une configuration existante pour ce serveur ADORE",
+    title: "Importer une configuration de projet",
     steps: ["Choisir un fichier", "Identité et chemins déclarés", "Validation structurelle", "Vérification de l’environnement", "Vérifier et inscrire", "Inscription terminée"],
     source: "Choisissez config.toml d’un profil ADORE existant ou un fichier préparé par un opérateur à partir de config.example.toml. Ce mode avancé exige une configuration préparée pour ce serveur ADORE.",
     exact: "Le fichier UTF-8 est copié octet par octet, sans modification des commentaires ni des clés inconnues. Corrigez le fichier source et sélectionnez-le à nouveau ; les chemins ne sont jamais réécrits.",
@@ -46,7 +46,7 @@ export const importCopy: Record<Locale, Copy> = {
     selected: "Fichier sélectionné", loss: "Abandonner cette inscription exacte ? Le fichier et l’identité sont conservés uniquement en mémoire et seront perdus.",
   },
   de: {
-    title: "Eine vorhandene Konfiguration für diesen ADORE-Server registrieren",
+    title: "Projektkonfiguration importieren",
     steps: ["Datei auswählen", "Deklarierte Identität und Pfade", "Strukturprüfung", "Umgebungsprüfung", "Prüfen und registrieren", "Registrierung abgeschlossen"],
     source: "Wählen Sie config.toml aus einem vorhandenen ADORE-Profil oder eine vom Betreiber aus config.example.toml erstellte Datei. Dieser erweiterte Modus erfordert eine für diesen ADORE-Server vorbereitete Konfiguration.",
     exact: "Die UTF-8-Datei wird bytegenau unverändert kopiert, einschließlich Kommentaren und unbekannten Schlüsseln. Korrigieren Sie die Quelldatei und wählen Sie sie erneut; Pfade werden niemals umgeschrieben.",
@@ -64,7 +64,7 @@ export const importCopy: Record<Locale, Copy> = {
     selected: "Ausgewählte Datei", loss: "Diesen Registrierungsentwurf verwerfen? Datei und Identität bleiben nur im Speicher und gehen verloren.",
   },
   ro: {
-    title: "Înrolează o configurație existentă pentru acest server ADORE",
+    title: "Importă configurația proiectului",
     steps: ["Alege fișierul", "Identitate și căi declarate", "Validare structurală", "Verificarea mediului", "Revizuiește și înrolează", "Înrolare finalizată"],
     source: "Alege config.toml dintr-un profil ADORE existent sau un fișier pregătit de operator din config.example.toml. Acest mod avansat necesită o configurație pregătită pentru acest server ADORE.",
     exact: "Fișierul UTF-8 este copiat exact, octet cu octet, inclusiv comentariile și cheile necunoscute. Corectează fișierul sursă și selectează-l din nou; căile nu sunt rescrise.",

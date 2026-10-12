@@ -43,7 +43,7 @@ lists, tables, notes, code, bold, code spans and internal links; no HTML).
 The page lists topics with an accent- and case-insensitive search, shows the
 article with an On this page outline of `##` sections, routes internal links in
 the app and scrolls to `#id` sections. `HelpLink` renders the contextual **?**
-link (Tickets toolbar, Add project step heading, project Settings heading) that
+link (Tickets toolbar, Enroll new project step heading, project Settings heading) that
 opens its topic in a new tab. `tests/help.test.mjs` checks the Markdown subset,
 locale parity of structure and links, link and route targets, contextual
 targets and the glossary terms. Full job history is reached through the sidebar Jobs link; Overview
@@ -230,9 +230,14 @@ dialog with Back: each release from `/api/v1/about` `release_notes`, newest
 first (`Unreleased` as In development, released ones with version and date),
 grouped New, Improved, Fixed and by topic in the user's locale with English
 fallback (`src/releaseNotes.ts`).
-Add project opens the administrator-only `EnrollmentWizard` from Projects.
-It presents six ordered steps with shared visible, associated guidance for method,
-repository/identity, environment, eligibility/reviewers/limits, verification and
+Projects shows three administrator actions: Enroll new project (`/projects/new`,
+`TransferWizard` mode `enroll`, the guided `EnrollmentWizard` directly), Import
+project config (`/projects/import`, `ImportWizard`) and Clone project config
+(`/projects/clone`, `TransferWizard` mode `clone` with a Clone from group of two
+sources). A browser Back refused by a guarded wizard restores the URL of the page
+shown (`shownUrl`). Enroll new project opens the administrator-only `EnrollmentWizard`.
+It presents five ordered steps, starting at repository/identity, with shared visible,
+associated guidance for repository/identity, environment, eligibility/reviewers/limits, verification and
 review/create. `enrollmentCopy.ts` supplies complete EN/FR/DE/RO catalogs.
 The local clone belongs to the ADORE server and already contains Git/AEGIS.
 Actual provider/model and local image values are entered explicitly; host-auth
@@ -263,7 +268,7 @@ About displays, on request, the project license text and the bundled third-party
 Projects show archived state and let administrators archive or restore a
 quiescent project. Archived jobs and metrics stay visible, while job and pickup
 controls are hidden until restore.
-Enroll an existing configuration for this ADORE server opens the administrator
+Import project config opens the administrator
 `ImportWizard` from Projects. `importCopy.ts` supplies EN/FR/DE/RO source,
 unchanged-copy, server-path and existing-data-only history guidance. Ordered steps
 cover file, declared identity/paths, structural validation, explicit environment
@@ -474,8 +479,8 @@ those views after the switch.
 
 ## 3. Implementation Overview
 
-`TransferWizard.tsx` presents guided creation, portable file import, settings copy
-and the separately worded advanced unchanged server TOML copy. File/source selection
+`TransferWizard.tsx` runs guided creation (mode `enroll`) or cloning (mode `clone`:
+from a project on this server or a portable settings file). File/source selection
 reviews all 15 recognized rules and explicit exclusions before target setup.
 `EnrollmentWizard` receives optional memory-only source context and uses the same
 identity/repository/environment/eligibility/verification/review steps. Copied

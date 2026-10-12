@@ -12,13 +12,12 @@ Have these ready:
 - The ready and approval label names. A person adds the ready label to make a ticket eligible; see [Tickets for automatic pickup](/help/tickets#labels).
 - The coding agent, its model ID and a container image on the server that contains the agent. See [Executors and models](/help/executors).
 
-## Add a project {#add-project}
+## Enroll new project {#add-project}
 
-Choose **Add project** on [Projects](/projects). **Guided new project** takes six steps, and changing any answer makes earlier validation and checks stale.
+Choose **Enroll new project** on [Projects](/projects). The guided wizard starts at Repository and identity and takes five steps, and changing any answer makes earlier validation and checks stale.
 
 | Step | What it asks |
 |---|---|
-| Enrollment method | Nothing to enter. It confirms the clone already exists on the server. |
 | Repository and identity | **Display name**, **Stable project ID** (lowercase letters, digits, dot, underscore or hyphen, up to 64 characters), optional **Description**, **Forge**, **Repository** as owner/repository (not a URL), **Gitea tea login** (Gitea only), **Local clone path** and **Target branch**. |
 | Agent and model | **Executor** (opencode, codex, pi or qwen), **Model**, **Model authentication** (api-key, or host-auth for OpenCode and Codex only) and **Credential environment references**: variable names such as LOCAL_API_KEY, never values. |
 | Eligibility, reviewers and limits | **Ready label**, **Approval label**, **Reviewers (comma-separated)** (at least one) and four job limits: executor launches, active seconds, reported cost in USD and changed files. A cost cap of 0 switches that cap off; it does not mean free. |
@@ -27,12 +26,13 @@ Choose **Add project** on [Projects](/projects). **Guided new project** takes si
 
 The wizard uses the standard container profile. Native local execution and specialized container setups use the advanced server TOML method below.
 
-## Import project {#import-project}
+## Import project config {#import-project}
 
-The same page offers three more methods.
+Choose **Import project config** on [Projects](/projects) to enroll an existing ADORE `config.toml` exactly as it is, for example one created with the command line or saved earlier with **Download raw configuration** in a project's Settings. The file (UTF-8, up to 512 KiB) needs absolute server paths and no inline secrets: the review lists any it finds, so replace them with environment references first. Its project ID and state folder must not belong to an enrolled project. ADORE copies the file byte for byte and ends with **Enroll with pickup stopped**. History appears only if its data already exists at the declared state folder.
 
-- **Import portable settings** reads a portable JSON file (up to 64 KiB) from the same ADORE version. **Copy project settings** reads another project you can access. Both carry only 15 working rules (polling, readiness, recovery, job budgets); identity, repository, labels, credentials, endpoints, images and history are never copied. Choose **Review source rules**, then **Set up new target** and answer the guided steps. Review unknown files: the checksum detects edits but does not prove authorship.
-- **Advanced: unchanged server TOML copy** opens [Enroll an existing configuration for this ADORE server](/projects/import). It takes an existing ADORE `config.toml` (UTF-8, up to 512 KiB) with absolute server paths and no secrets, copies it byte for byte and ends with **Enroll with pickup stopped**. History appears only if its data already exists at the declared state folder.
+## Clone project config {#clone-project}
+
+Choose **Clone project config** on [Projects](/projects) to start a new project with the working rules of another. **From a project on this server** reads a project you can access; **From a portable settings file** reads a portable JSON file (up to 64 KiB) from the same ADORE version. Only 15 working rules (polling, readiness, recovery, job budgets) are carried; identity, repository, labels, credentials, endpoints, images and history are never copied. Choose **Review source rules**, then **Set up new target** and answer the guided steps. Review unknown files: the checksum detects edits but does not prove authorship.
 
 ## After creation {#after-creation}
 

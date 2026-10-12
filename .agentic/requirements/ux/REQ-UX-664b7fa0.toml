@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-664b7fa0"
+
+title = "Offer Enroll, Import and Clone project actions on Projects"
+
+status = "active"
+
+requirement = """
+When an administrator opens Projects, the page shall offer three separate actions - Enroll new project (the guided wizard for a new configuration), Import project config (upload an existing ADORE config.toml, such as one saved with Download raw configuration, copied unchanged) and Clone project config (start a new project from the working rules of a project on this server or of a portable settings file) - each on its own page (/projects/new, /projects/import, /projects/clone) without a further method chooser.
+"""
+
+verification = "Automated: e2e checks the three Projects buttons open their pages, /projects/new starts the guided wizard with no method buttons, /projects/clone offers the project and file sources, Dev cannot reach them; node routes test for /projects/clone."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/TransferWizard.tsx", "04_Software/web/src/routes.ts", "04_Software/web/src/i18n.ts", "04_Software/web/src/transferCopy.ts", "04_Software/web/src/importCopy.ts", "04_Software/web/src/help/content/"]
+
+linked_tests = ["04_Software/web/e2e/shell.spec.ts", "04_Software/web/e2e/transfer.spec.ts", "04_Software/web/tests/routes.test.mjs"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-12
+updated = 2026-10-12

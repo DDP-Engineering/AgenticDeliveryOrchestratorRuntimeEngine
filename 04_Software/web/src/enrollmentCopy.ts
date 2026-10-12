@@ -7,10 +7,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 import type { Locale } from "./i18n";
 
 const en = {
-  steps: ["Enrollment method", "Repository and identity", "Agent and model", "Eligibility, reviewers and limits", "Verification", "Review and create"],
-  stepsLabel: "Enrollment steps", method: "Existing repository clone",
-  intro: "Enroll a repository so ADORE can select eligible issues, ask an executor to work through the repository's AEGIS stages, validate the result and publish a draft MR/PR for human review. ADORE never merges. AEGIS is the repository workflow for scoping, building, testing and reviewing a change.",
-  clone: "The repository clone must already exist on the ADORE server, with Git metadata and its repository-installed AEGIS workflow. This path is not a folder on your browser computer. Enrollment does not clone a repository.",
+  steps: ["Repository and identity", "Agent and model", "Eligibility, reviewers and limits", "Verification", "Review and create"],
+  stepsLabel: "Enrollment steps", clone: "The repository clone must already exist on the ADORE server, with Git metadata and its repository-installed AEGIS workflow. This path is not a folder on your browser computer. Enrollment does not clone a repository.",
   identity: "Choose a stable lowercase ID (letters, digits, dot, underscore or hyphen, up to 64 characters). It identifies server folders and URLs. The display name is a separate human label (1–120 characters).",
   forge: "Select the repository's actual GitLab, GitHub or Gitea platform. Enter its owner/repository identifier, not a URL; GitLab may include subgroups. The target branch already exists and receives draft changes.",
   login: "For Gitea, enter the existing tea login name configured on the ADORE server; leave blank to use its default login. Other forges use the server CLI's existing authentication.",
@@ -58,10 +56,8 @@ type Copy = { [K in keyof typeof en]: typeof en[K] extends string[] ? string[] :
 export const enrollmentCopy: Record<Locale, Copy> = {
   en,
   fr: {
-    steps: ["Méthode d'inscription", "Dépôt et identité", "Agent et modèle", "Éligibilité, relecteurs et limites", "Vérification", "Révision et création"],
-    stepsLabel: "Étapes d'inscription", method: "Clone de dépôt existant",
-    intro: "Inscrivez un dépôt pour qu'ADORE sélectionne les tickets éligibles, confie les étapes AEGIS à un exécuteur, valide le résultat et publie une MR/PR en brouillon pour révision humaine. ADORE ne fusionne jamais. AEGIS est le workflow du dépôt pour cadrer, réaliser, tester et réviser une modification.",
-    clone: "Le clone doit déjà exister sur le serveur ADORE avec ses métadonnées Git et son workflow AEGIS. Ce chemin n'est pas un dossier de l'ordinateur du navigateur. L'inscription ne clone pas de dépôt.",
+    steps: ["Dépôt et identité", "Agent et modèle", "Éligibilité, relecteurs et limites", "Vérification", "Révision et création"],
+    stepsLabel: "Étapes d'inscription", clone: "Le clone doit déjà exister sur le serveur ADORE avec ses métadonnées Git et son workflow AEGIS. Ce chemin n'est pas un dossier de l'ordinateur du navigateur. L'inscription ne clone pas de dépôt.",
     identity: "Choisissez un identifiant stable en minuscules (lettres, chiffres, point, soulignement ou tiret, 64 caractères maximum), utilisé pour les dossiers et URL. Le nom affiché est distinct (1–120 caractères).",
     forge: "Choisissez la plateforme réelle GitLab, GitHub ou Gitea. Saisissez propriétaire/dépôt, pas une URL ; GitLab accepte les sous-groupes. La branche cible existe déjà et reçoit les modifications en brouillon.",
     login: "Pour Gitea, indiquez le nom de connexion tea existant sur le serveur ADORE ; vide utilise la connexion par défaut. Les autres forges utilisent l'authentification CLI du serveur.",
@@ -97,10 +93,8 @@ export const enrollmentCopy: Record<Locale, Copy> = {
     },
   },
   de: {
-    steps: ["Registrierungsmethode", "Repository und Identität", "Agent und Modell", "Eignung, Prüfer und Grenzen", "Überprüfung", "Prüfen und erstellen"],
-    stepsLabel: "Registrierungsschritte", method: "Vorhandener Repository-Klon",
-    intro: "Registrieren Sie ein Repository: ADORE wählt geeignete Issues, beauftragt einen Executor mit den AEGIS-Schritten, validiert das Ergebnis und veröffentlicht einen MR/PR-Entwurf zur menschlichen Prüfung. ADORE führt nie einen Merge aus. AEGIS ist der Repositoryablauf für Planung, Umsetzung, Tests und Prüfung einer Änderung.",
-    clone: "Der Klon muss bereits auf dem ADORE-Server liegen, mit Git-Metadaten und installiertem AEGIS-Workflow. Dies ist kein Ordner des Browsercomputers. Die Registrierung klont kein Repository.",
+    steps: ["Repository und Identität", "Agent und Modell", "Eignung, Prüfer und Grenzen", "Überprüfung", "Prüfen und erstellen"],
+    stepsLabel: "Registrierungsschritte", clone: "Der Klon muss bereits auf dem ADORE-Server liegen, mit Git-Metadaten und installiertem AEGIS-Workflow. Dies ist kein Ordner des Browsercomputers. Die Registrierung klont kein Repository.",
     identity: "Wählen Sie eine stabile ID in Kleinbuchstaben (Buchstaben, Ziffern, Punkt, Unterstrich oder Bindestrich, höchstens 64 Zeichen) für Serverordner und URLs. Der Anzeigename ist getrennt (1–120 Zeichen).",
     forge: "Wählen Sie die tatsächliche Plattform GitLab, GitHub oder Gitea. Geben Sie Besitzer/Repository ein, keine URL; GitLab erlaubt Untergruppen. Der Zielbranch existiert bereits und erhält Entwurfsänderungen.",
     login: "Für Gitea geben Sie den vorhandenen tea-Login auf dem ADORE-Server an; leer verwendet den Standardlogin. Andere Plattformen verwenden die vorhandene Server-CLI-Anmeldung.",
@@ -133,10 +127,8 @@ export const enrollmentCopy: Record<Locale, Copy> = {
     },
   },
   ro: {
-    steps: ["Metoda de înrolare", "Repository și identitate", "Agent și model", "Eligibilitate, recenzori și limite", "Verificare", "Revizuire și creare"],
-    stepsLabel: "Pașii înrolării", method: "Clonă existentă a repository-ului",
-    intro: "Înrolează un repository pentru ca ADORE să selecteze tichete eligibile, să ceară unui executor parcurgerea etapelor AEGIS, să valideze rezultatul și să publice un MR/PR draft pentru revizuire umană. ADORE nu face merge. AEGIS este workflow-ul repository-ului pentru definirea, implementarea, testarea și revizuirea unei modificări.",
-    clone: "Clona trebuie să existe deja pe serverul ADORE, cu metadatele Git și workflow-ul AEGIS instalat în repository. Calea nu este un folder de pe calculatorul browserului. Înrolarea nu clonează repository-ul.",
+    steps: ["Repository și identitate", "Agent și model", "Eligibilitate, recenzori și limite", "Verificare", "Revizuire și creare"],
+    stepsLabel: "Pașii înrolării", clone: "Clona trebuie să existe deja pe serverul ADORE, cu metadatele Git și workflow-ul AEGIS instalat în repository. Calea nu este un folder de pe calculatorul browserului. Înrolarea nu clonează repository-ul.",
     identity: "Alege un ID stabil cu litere mici (litere, cifre, punct, underscore sau cratimă, maximum 64 de caractere) pentru foldere și URL-uri. Numele afișat este separat (1–120 de caractere).",
     forge: "Selectează platforma reală GitLab, GitHub sau Gitea. Introdu proprietar/repository, nu un URL; GitLab acceptă subgrupuri. Ramura țintă există deja și primește modificările draft.",
     login: "Pentru Gitea, introdu numele loginului tea existent pe serverul ADORE; gol folosește loginul implicit. Celelalte platforme folosesc autentificarea CLI existentă pe server.",

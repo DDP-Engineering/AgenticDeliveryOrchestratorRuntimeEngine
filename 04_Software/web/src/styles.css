@@ -469,6 +469,8 @@ td.strong { font-weight: 800; }
 .enrollment-field [aria-invalid="true"] { border: 2px solid var(--danger); }
 .enrollment-errors { border: 2px solid var(--danger); border-radius: 8px; padding: 12px; margin-bottom: 20px; }
 .enrollment-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+.clone-sources .enrollment-actions { margin-top: 10px; }
+.clone-sources [aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-deep); }
 .enrollment-review { border-top: 1px solid var(--border); padding-block: 16px; }
 .enrollment-review dl > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 12px; margin-block: 8px; }
 .enrollment-review dt { font-weight: 600; }

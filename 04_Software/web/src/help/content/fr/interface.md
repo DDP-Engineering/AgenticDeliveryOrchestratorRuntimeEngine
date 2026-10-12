@@ -7,7 +7,7 @@ L’interface comprend une barre latérale sombre pour passer d’une page à l�
 | Page | Ce que vous y faites |
 |---|---|
 | Vue d'ensemble | Consulter **À traiter** et **Tâches actives** pour les projets auxquels vous avez accès. **Détails** ouvre une tâche dans Tâches. |
-| [Projets](/projects) | Parcourir les projets inscrits avec leur dépôt, leur forge, l’état de la surveillance, le nombre de tâches et la dernière activité. Ouvrez un projet pour accéder à son hub. Les administrateurs voient aussi **Ajouter un projet** et **Inscrire une configuration existante pour ce serveur ADORE**. |
+| [Projets](/projects) | Parcourir les projets inscrits avec leur dépôt, leur forge, l’état de la surveillance, le nombre de tâches et la dernière activité. Ouvrez un projet pour accéder à son hub. Les administrateurs voient aussi **Inscrire un nouveau projet**, **Importer une configuration de projet** et **Cloner une configuration de projet**. |
 | [Tâches](/jobs) | Choisir un **Périmètre des travaux**, puis utiliser le sous-onglet **Tickets** pour lire les tickets de la forge et les démarrer, ou le sous-onglet **Tâches** pour rechercher des tâches et ouvrir leurs détails. |
 | [Statistiques](/metrics) | Consulter l’utilisation, la qualité et les tendances sur une période de rapport. Voir [Statistiques et coûts](/help/statistics). |
 | Administration | Réservée aux administrateurs. Elle ouvre trois pages : [État du système](/admin/status), [Utilisateurs](/admin/users) et [Historique des changements](/admin/audit). Voir [Administration](/help/administration). |
