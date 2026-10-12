@@ -22,6 +22,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Tidy user project access: Assigned projects opens full width below the account, each project is one checkbox row with its name and its forge and repository path in columns (the unique name is added when display names repeat), and creation choices use the same rows; reviews and results keep the stable project IDs.
+
 - Compact System status: audit retention shows the current limits (Unlimited when none) above the prefilled form with one short impact sentence, the control worker and storage are compact indicators in one row, and storage is grouped by physical volume (`volume_id` in `/api/v1/system/storage`) - one line for a shared disk, a table only for several.
 
 - Show each Statistics per-project family once: the All projects scope line, the Projects tab and the Repository table are removed; Summary lists job counts and average elapsed per project, Usage consumption, costs and unpriced events per project, and Quality rework, revisions, repairs and review rounds per project, each with the repository under the project name.

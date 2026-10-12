@@ -131,7 +131,8 @@ SQLite bytes, authorization, scope and financial redaction.
   memory-only identity/access/secret-free review, corrections, focus and one-submit
   guards; `AccountAccessEditor`/`ProjectAccess` review before/after and show actual
   results. Tests: `test_web_user_creation.py`, existing auth/access/RBAC and
-  `web/e2e/users.spec.ts`; layout wraps stable IDs and controls at 390px.
+  `web/e2e/users.spec.ts`; project choices are named checkbox rows in columns and the account editor opens
+  full width below its row.
 
 - Admin/CSRF `transfer-source/preview/check/create` create fresh stopped projects
   from strict portable files or immutable authorized source identities. Exact source

@@ -49,7 +49,10 @@ test("Dev creation corrects review and commits exact stable grants once without 
   await creation.getByRole("checkbox", { name: /beta/ }).check();
   await creation.getByRole("button", { name: "Review account", exact: true }).click();
   const review = await creation.innerText();
+  expect(review).toContain("alpha"); expect(review).toContain("beta");
   expect(review).toMatch(/[0-9a-f]{32}/);
+  const alphaRepo = (await (await page.request.get("/api/v1/projects")).json()).find((item: { name: string }) => item.name === "alpha").repo;
+  expect(review).toContain(alphaRepo);
   let calls = 0;
   page.on("request", request => { if (request.url().endsWith("/users/with-access")) calls++; });
   await creation.getByRole("button", { name: "Create reviewed account", exact: true }).dblclick();
@@ -124,6 +127,22 @@ test("malformed account result fails closed and unmounted creation ignores a lat
   await expect(page.getByRole("status").filter({ hasText: "Account created" })).toHaveCount(0);
   await page.getByRole("navigation", { name: "Primary navigation", exact: true }).getByRole("link", { name: "Users", exact: true }).click();
   await expect(page.getByLabel("Username", { exact: true })).toHaveValue("");
+});
+
+test("assigned projects open below the account as aligned named rows", async ({ page }) => {
+  const row = page.locator(".user-row").filter({ has: page.getByText("developer", { exact: true }) }).first();
+  await row.getByText("Assigned projects", { exact: true }).click();
+  const editor = row.locator(".membership-editor");
+  const choice = editor.locator("label.access-choice").filter({ hasText: "alpha" });
+  const box = (await choice.getByRole("checkbox").boundingBox())!, text = (await choice.locator("span").boundingBox())!;
+  expect(Math.abs((box.y + box.height / 2) - (text.y + text.height / 2))).toBeLessThan(6);
+  expect(text.x).toBeGreaterThan(box.x);
+  const buttons = (await row.getByRole("button", { name: "Disable", exact: true }).boundingBox())!;
+  expect((await editor.boundingBox())!.y).toBeGreaterThan(buttons.y + buttons.height - 1);
+  expect(await editor.innerText()).not.toMatch(/[0-9a-f]{32}/);
+  // Each choice names its forge and repository so the grant is unmistakable.
+  const alpha = (await (await page.request.get("/api/v1/projects")).json()).find((item: { name: string }) => item.name === "alpha");
+  await expect(choice.locator(".access-repo")).toHaveText(`${alpha.platform} · ${alpha.repo}`);
 });
 
 test("failed access apply retains the reviewed choice for correction", async ({ page }) => {

@@ -9,7 +9,7 @@ import { ApiError, describeError } from "./errors";
 import type { Locale } from "./i18n";
 import { userCopy, type UserCopy } from "./userCopy";
 
-export type AccessProject = { id: string; name: string; display_name: string; archived: boolean };
+export type AccessProject = { id: string; name: string; display_name: string; archived: boolean; platform?: string; repo?: string };
 export type Account = { id: number; username: string; role: "admin" | "developer"; project_ids: string[] };
 export type UserTransport = (path: string, method: string, body: unknown) => Promise<unknown>;
 type Intent = { username: string; password: string; role: "admin" | "developer"; project_ids: string[]; allow_no_projects: boolean };
@@ -21,10 +21,22 @@ export const validAccount = (value: unknown): value is Account => !!value && typ
   "role" in value && ["admin", "developer"].includes(String(value.role)) &&
   "project_ids" in value && validIds(value.project_ids);
 const sameIds = (a: string[], b: string[]) => [...a].sort().join() === [...b].sort().join();
+/** Choice text: the display name, plus the unique name when another project shows the same text. */
+const choiceName = (project: AccessProject, projects: AccessProject[]) => {
+  const shown = project.display_name || project.name;
+  return projects.some(other => other.id !== project.id && (other.display_name || other.name) === shown) ? `${shown} · ${project.name}` : shown;
+};
+/** Forge and repository path, so a grant names the code it opens. */
+const repository = (project: AccessProject) => [project.platform, project.repo].filter(Boolean).join(" · ");
+/** Reviews and results keep the repository and the immutable identifier that defines each grant. */
 const labels = (ids: string[], projects: AccessProject[]) => ids.map(id => {
   const project = projects.find(p => p.id === id);
-  return `${project?.display_name || project?.name || id} · ${id}`;
+  if (!project) return id;
+  const where = repository(project);
+  return `${choiceName(project, projects)}${where ? ` (${where})` : ""} · ${id}`;
 });
+const ChoiceText = ({ project, projects }: { project: AccessProject; projects: AccessProject[] }) =>
+  <span>{choiceName(project, projects)}{repository(project) && <small className="access-repo">{repository(project)}</small>}</span>;
 
 /** Transient credential draft; only the reviewed identity/role/IDs are rendered. */
 export function UserCreation({ projects, ready, locale, usernameLabel, passwordLabel, roleLabel, createLabel, requiredLegend, send, onCreated }: {
@@ -74,13 +86,13 @@ export function UserCreation({ projects, ready, locale, usernameLabel, passwordL
       <p>{draft.role === "admin" ? copy.adminHelp : copy.devHelp}</p>
       {draft.role === "admin" ? <strong>{copy.global}</strong> : <fieldset><legend>{copy.projects}</legend>
         {!ready && <p role="status">{copy.loading}</p>}
-        {ready && projects.filter(p => !p.archived).map(p => <label key={p.id} className="muted"><input type="checkbox" checked={draft.project_ids.includes(p.id)} onChange={e => setDraft({ ...draft, allow_no_projects: false, project_ids: e.target.checked ? [...draft.project_ids, p.id] : draft.project_ids.filter(id => id !== p.id) })} />{p.display_name || p.name} · <code>{p.id}</code></label>)}
-        <label><input type="checkbox" checked={draft.allow_no_projects} onChange={e => setDraft({ ...draft, project_ids: [], allow_no_projects: e.target.checked })} />{copy.emptyChoice}</label>
+        {ready && <div className="access-choices">{projects.filter(p => !p.archived).map(p => <label key={p.id} className="access-choice"><input type="checkbox" checked={draft.project_ids.includes(p.id)} onChange={e => setDraft({ ...draft, allow_no_projects: false, project_ids: e.target.checked ? [...draft.project_ids, p.id] : draft.project_ids.filter(id => id !== p.id) })} /><ChoiceText project={p} projects={projects} /></label>)}</div>}
+        <label className="access-choice"><input type="checkbox" checked={draft.allow_no_projects} onChange={e => setDraft({ ...draft, project_ids: [], allow_no_projects: e.target.checked })} /><span>{copy.emptyChoice}</span></label>
       </fieldset>}
       <div className="actions"><button className="ghost" onClick={() => correction("identity")}>{copy.correctIdentity}</button><button className="primary" disabled={!accessValid} onClick={() => { setReviewed({ username: draft.username, role: draft.role, project_ids: [...draft.project_ids], allow_no_projects: draft.allow_no_projects }); setStep("review"); }}>{copy.review}</button></div>
     </div>}
     {step === "review" && reviewed && <div className="form-stack">
-      <dl><dt>{usernameLabel}</dt><dd>{reviewed.username}</dd><dt>{roleLabel}</dt><dd>{reviewed.role === "admin" ? "Admin" : "Dev"}</dd><dt>{copy.projects}</dt><dd>{reviewed.role === "admin" ? copy.global : reviewed.project_ids.length ? <ul>{labels(reviewed.project_ids, projects).map(label => <li key={label}>{label}</li>)}</ul> : copy.empty}</dd></dl>
+      <dl><dt>{usernameLabel}</dt><dd>{reviewed.username}</dd><dt>{roleLabel}</dt><dd>{reviewed.role === "admin" ? "Admin" : "Dev"}</dd><dt>{copy.projects}</dt><dd>{reviewed.role === "admin" ? copy.global : reviewed.project_ids.length ? <ul>{reviewed.project_ids.map((id, index) => <li key={id}>{labels(reviewed.project_ids, projects)[index]}</li>)}</ul> : copy.empty}</dd></dl>
       <p>{reviewed.role === "admin" ? copy.adminHelp : copy.devHelp}</p>
       <div className="actions"><button className="ghost" disabled={busy} onClick={() => correction("identity")}>{copy.correctIdentity}</button><button className="ghost" disabled={busy} onClick={() => correction("access")}>{copy.correctAccess}</button><button className="primary" disabled={busy || !ready} onClick={() => void submit()}>{copy.submit}</button></div>
       {busy && <p role="status">{copy.creating}</p>}
@@ -131,7 +143,7 @@ export function AccountAccessEditor({ account, projects, ready, locale, saveLabe
     finally { if (active.current) { lock.current = false; setBusy(false); } }
   };
   return <div className="form-stack user-access">
-    {projects.map(p => <label key={p.id}><input type="checkbox" disabled={!ready || busy || review !== null} checked={ids.includes(p.id)} onChange={e => setIds(e.target.checked ? [...ids, p.id] : ids.filter(id => id !== p.id))} />{p.display_name || p.name} · <code>{p.id}</code></label>)}
+    <div className="access-choices">{projects.map(p => <label key={p.id} className="access-choice"><input type="checkbox" disabled={!ready || busy || review !== null} checked={ids.includes(p.id)} onChange={e => setIds(e.target.checked ? [...ids, p.id] : ids.filter(id => id !== p.id))} /><ChoiceText project={p} projects={projects} /></label>)}</div>
     <button className="ghost" disabled={!ready || busy || review !== null} onClick={() => setReview([...ids])}>{saveLabel}</button>
     {review && <AccessReview subject={account.username} before={labels(account.project_ids, projects).join(", ") || copy.none} after={labels(review, projects).join(", ") || copy.none} copy={copy} busy={busy} apply={() => void apply()} correct={() => setReview(null)} />}
   </div>;

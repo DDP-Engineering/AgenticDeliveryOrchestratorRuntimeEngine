@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-4b0b0d5f"
+
+title = "Show user project access choices as compact named rows"
+
+status = "active"
+
+requirement = """
+While an administrator chooses a developer's projects on the Users page, the interface shall show each project as one row with its checkbox beside its name, arranged in columns, open the assigned-projects editor as a full-width area below the account row, and name projects in those choices with their forge and repository path but without their identifiers (adding the unique project name when display names repeat), while reviews and results show name, forge and repository and keep the immutable identifier.
+"""
+
+verification = "Automated: e2e opens a developer's Assigned projects and finds each checkbox vertically aligned with its project name, the editor below the account buttons, no 32-hex project identifier among the editor or creation choices, each choice showing its forge and repository path, and the creation review showing the repository path and the identifier."
+
+affected_paths = ["04_Software/web/src/UserCreation.tsx", "04_Software/web/src/styles.css", "04_Software/adore/web/static/"]
+
+linked_tests = ["04_Software/web/e2e/users.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-12
+updated = 2026-10-12

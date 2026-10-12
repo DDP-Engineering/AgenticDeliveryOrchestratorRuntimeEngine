@@ -259,8 +259,10 @@ access changes and pickup completion have their own actual results.
 
 In **Users**, enter the username and password, then continue to role and project
 access. **Admin** explicitly grants all current and future projects, system
-administration and costs. **Dev** grants only the selected projects; labels help
-recognition while the displayed stable IDs identify grants. To create Dev with
+administration and costs. **Dev** grants only the selected projects, listed by name with their forge and
+repository path (one checkbox row each, with the unique project name added when
+display names repeat); reviews and results add the stable IDs that identify grants. **Assigned projects** on an account opens
+the same list below it. To create Dev with
 no project access, deliberately select **Create Dev without project access**.
 
 Review identity and exact access before **Create reviewed account**. The review

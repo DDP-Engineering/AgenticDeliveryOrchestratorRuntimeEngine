@@ -543,7 +543,9 @@ is dark text on the light accent in both system-dark and explicit Dark themes.
 role/projects and review stages. Admin explicitly receives all current/future
 projects, system and cost access; Dev selects immutable IDs and receives project
 access only. A deliberate checkbox confirms Dev without grants. Review shows
-username, role and display labels plus stable IDs, with correction controls and
+username, role and display labels with forge/repository plus stable IDs (choices are
+`access-choice` rows with a muted `access-repo` line, without IDs, disambiguated by
+unique name), with correction controls and
 focused stage headings. The password remains in transient credential state and
 is absent from the review model/render, browser storage and result. Unmount and
 successful creation clear the draft; failed creation retains correction.
