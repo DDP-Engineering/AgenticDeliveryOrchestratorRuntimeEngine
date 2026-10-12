@@ -37,6 +37,7 @@ import { readStatistics, readConsumption } from "./statistics";
 import { StatisticsEvidence, TrendEvidence } from "./StatisticsEvidence";
 import { statisticsCopy } from "./statisticsCopy";
 import { JobWorkspace } from "./JobWorkspace";
+import { SortHeader } from "./SortHeader";
 import { jobCopy } from "./jobCopy";
 import { UserCreation, AccountAccessEditor, AccessReview, validAccount, type Account } from "./UserCreation";
 import { userCopy } from "./userCopy";
@@ -94,7 +95,6 @@ async function request<T>(path: string, method = "GET", body?: unknown, csrf?: s
   }
   return response.json() as Promise<T>;
 }
-
 
 export default function App() {
   const [locale, setLocale] = useState<Locale>(initialLocale);
@@ -1088,7 +1088,7 @@ export default function App() {
         </div>}
         {["overview", "projects", "projectDetails", "jobs", "metrics"].includes(page) && projectsState !== "ready" && <DataFeedback state={projectsState} t={t} />}
         {["overview", "projects", "projectDetails", "jobs", "metrics"].includes(page) && projectsState === "ready" && projects.length === 0 && <ProjectEmpty isAdmin={isAdmin} t={t} />}
-        {page === "overview" && projectsState === "ready" && projects.length > 0 && <JobWorkspace reporting={{ from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }} reportingQuery={metricSuffix} admin={isAdmin} {...workspaceProps} mode="overview" />}
+        {page === "overview" && projectsState === "ready" && projects.length > 0 && <JobWorkspace admin={isAdmin} {...workspaceProps} mode="overview" />}
 
         {page === "projects" && projectsState === "ready" && <>
           <div className="section-actions">{isAdmin && <><button className="primary" onClick={() => { setError(""); setPage("createProject"); }}>{t("createProject")}</button><button className="ghost" onClick={() => { setError(""); setPage("importProject"); }}>{t("importProject")}</button></>}</div>
@@ -1122,7 +1122,7 @@ export default function App() {
         {page === "projectDetails" && projectsState === "ready" && selectedProject && <>
           <div id="project-tab-panel" role="tabpanel" aria-labelledby={`project-tab-${projectTab}`}>
           {projectTab === "overview" && <>
-          <JobWorkspace reporting={{ from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }} reportingQuery={metricSuffix} admin={isAdmin} {...hubWorkspaceProps} mode="overview" fixedScope summaryHeader={evidence => <section className="panel project-summary">
+          <JobWorkspace admin={isAdmin} {...hubWorkspaceProps} mode="overview" fixedScope summaryHeader={evidence => <section className="panel project-summary">
             <dl className="summary-facts">
               <div className="summary-fact"><dt>{t("containerType")}</dt><dd>{({ docker: "Docker", podman: "Podman" } as Record<string, string>)[selectedProject.runtime] || selectedProject.runtime}</dd></div>
               <div className="summary-fact"><dt>{t("executor")}</dt><dd>{({ pi: "Pi", codex: "Codex", opencode: "OpenCode", qwen: "Qwen Code" } as Record<string, string>)[selectedProject.executor] || selectedProject.executor || "—"}</dd></div>
@@ -1161,11 +1161,11 @@ export default function App() {
             {jobsSubtabs}
             <div id="jobs-subtab-panel" role="tabpanel" aria-labelledby={`jobs-subtab-${jobsView}`}>
               {jobsView === "tickets" ? <TicketWorkspace key={`${session.user.id}:${selectedProject.id}`} projects={[selectedProject]} locale={locale} csrf={session.csrf} request={request} />
-                : <JobWorkspace reporting={{ from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }} reportingQuery={metricSuffix} admin={isAdmin} {...hubWorkspaceProps} mode="jobs" run={requestedRun} fixedScope />}
+                : <JobWorkspace admin={isAdmin} {...hubWorkspaceProps} mode="jobs" run={requestedRun} fixedScope />}
             </div>
           </>}
           {projectTab === "statistics" && statisticsView(true)}
-          {projectTab === "history" && <JobWorkspace reporting={{ from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }} reportingQuery={metricSuffix} admin={isAdmin} {...hubWorkspaceProps} mode="history" fixedScope />}
+          {projectTab === "history" && <JobWorkspace admin={isAdmin} {...hubWorkspaceProps} mode="history" fixedScope />}
           {projectTab === "configuration" && <>
           {configDataState !== "ready" && <DataFeedback state={configDataState} t={t} />}
           {projectConfig && <SettingsList key={`${selected}-${projectConfig.revision}`} project={selected} revision={projectConfig.revision} csrf={session.csrf} branchCandidate={projectPendingConfig} config={projectConfig.config} settings={projectConfig.settings || []} t={t} locale={locale} canEdit={isAdmin} disabled={!!projectPendingConfig || configBusy || pendingReadFailed || isAdmin && !pendingReady} onStage={stageSetting} executorBefore={selectedProject && <><ModelConnection heading={agentSettingsCopy[locale].connection} key={`${session.user.id}:${selected}:${projectConfig.revision}:${projectConfig.model_connection?.checked_at || "untested"}`} project={selectedProject.id} revision={projectConfig.revision} executor={selectedProject.executor} model={String(settingValue(projectConfig.config,`executor.commands.${selectedProject.executor}.model`))} locale={locale} saved={projectConfig.model_connection} readOnly={!isAdmin || selectedProject.archived} onResult={value=>setConfig(current=>current?{...current,model_connection:value}:current)} test={()=>request(`/projects/${encodeURIComponent(selected)}/model-connection-test`,"POST",{},session.csrf)} />
@@ -1190,7 +1190,7 @@ export default function App() {
           {jobsSubtabs}
             <div id="jobs-subtab-panel" role="tabpanel" aria-labelledby={`jobs-subtab-${jobsView}`}>
               {jobsView === "tickets" ? <TicketWorkspace key={`${session.user.id}:${jobScopeProject?.id ?? ""}`} projects={jobScopeProject ? [jobScopeProject] : projects.filter(item => !item.archived)} showProject={!jobScopeProject} locale={locale} csrf={session.csrf} request={request} />
-                : <JobWorkspace reporting={{ from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }} reportingQuery={metricSuffix} admin={isAdmin} {...workspaceProps} mode="jobs" run={requestedRun} />}
+                : <JobWorkspace admin={isAdmin} {...workspaceProps} mode="jobs" run={requestedRun} />}
             </div>
         </>}
 
@@ -1231,11 +1231,6 @@ function Chips({ items, className }: { items: Chip[]; className?: string }) {
   return <dl className={className ? `metric-chips ${className}` : "metric-chips"}>{items.map(([label, value, context]) => <div key={label}><dt>{label}</dt><dd>{value}{context && <small>{context}</small>}</dd></div>)}</dl>;
 }
 
-function SortHeader<K extends string>({ label, sortKey, activeKey, descending, onSort }: { label: string; sortKey: K; activeKey: K; descending: boolean; onSort: (key: K) => void }) {
-  const active = sortKey === activeKey;
-  return <th aria-sort={active ? descending ? "descending" : "ascending" : undefined}><button type="button" className="sort-heading" onClick={() => onSort(sortKey)}>{label}<span aria-hidden="true">{active ? descending ? "↓" : "↑" : "↕"}</span></button></th>;
-}
-
 function Empty({ label }: { label: string }) { return <p className="empty">{label}</p>; }
 
 function PagedTable({ t, children }: { t: (key: MessageKey) => string; children: ReactElement<{ children?: ReactNode }> }) {
@@ -1250,7 +1245,6 @@ function PagedTable({ t, children }: { t: (key: MessageKey) => string; children:
   const table = body ? cloneElement(children, undefined, ...sections.map(section => section === body ? cloneElement(body, undefined, ...visible) : section)) : children;
   return <><div className="table-scroll">{table}</div>{rows.length > 10 && <div className="page-controls"><label>{t("rowsPerPage")}<select value={size} onChange={event => { setSize(event.target.value === "all" ? "all" : Number(event.target.value) as 10 | 25 | 50); setRequestedPage(0); }}><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="all">{t("all")}</option></select></label>{size !== "all" && <><button className="ghost" disabled={page === 0} onClick={() => setRequestedPage(page - 1)}>{t("previous")}</button><span>{page * size + 1}–{Math.min((page + 1) * size, rows.length)} / {rows.length}</span><button className="ghost" disabled={page + 1 >= pageCount} onClick={() => setRequestedPage(page + 1)}>{t("next")}</button></>}</div>}</>;
 }
-
 
 function RouteLink({ to, onNavigate, children }: { to: string; onNavigate: () => void; children: ReactNode }) {
   return <a className="text-button" href={to} onClick={event => {
@@ -1271,7 +1265,6 @@ function FormLegend({ t }: { t: (key: MessageKey) => string }) {
 function Field({ name, label, type = "text", required = false, defaultValue, hint, minLength }: { name: string; label: string; type?: string; required?: boolean; defaultValue?: string; hint?: string; minLength?: number }) {
   return <label><span>{label}{required && <RequiredMark />}</span><input name={name} type={type} required={required} defaultValue={defaultValue} minLength={minLength} />{hint && <small className="field-hint">{hint}</small>}</label>;
 }
-
 
 type ProjectDeveloper = { id: number; username: string; disabled: boolean; granted: boolean };
 const validDevelopers = (value: unknown): value is { developers: ProjectDeveloper[] } => !!value && typeof value === "object" && "developers" in value && Array.isArray(value.developers) && value.developers.every(row => row && Number.isSafeInteger(row.id) && row.id > 0 && typeof row.username === "string" && typeof row.disabled === "boolean" && typeof row.granted === "boolean") && new Set(value.developers.map(row => row.id)).size === value.developers.length;

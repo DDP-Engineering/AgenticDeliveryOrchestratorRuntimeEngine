@@ -400,8 +400,8 @@ and per-job consumption only in Jobs. Server buckets feed one Trends table whose
 count cells carry bars, in all four locales/themes; Admin unpriced events are a
 Usage total and estimated cost per project is a Projects column.
 Composite job consumption exposes lifetime, selected-period and undated amounts;
-Jobs/detail reads once per visible project and independently reads all-time data
-when the selected interval lacks a job. Reporting deep links retain selection.
+Jobs/detail show lifetime only (one all-time read per visible project) and the Jobs
+table sorts on the server (`jobs-page` sort/order). Statistics deep links retain selection.
 
 Offline proof: `test_web_scoped_metrics.py`, `test_web_metrics.py`,
 `test_web_pricing.py`, and `web/tests/metrics.test.mjs`, followed by native

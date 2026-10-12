@@ -101,7 +101,7 @@ from adore.web.executor_settings import (
 )
 from adore.web.image_build import ImageBuildError, ImageBuildService, dockerfile_template
 from adore.web.implementation_settings import COLLECTION_KEYS, set_collection, valid_collection
-from adore.web.jobs import JobReadError, read_jobs
+from adore.web.jobs import JobReadError, read_jobs, sort_jobs
 from adore.web.model_connection import probe_model_connection
 from adore.web.store import WebStore, WebStoreError
 from adore.web.tickets import (
@@ -3823,6 +3823,8 @@ def create_app(home: str | Path | None = None,
         limit: str = "25",
         offset: Annotated[int, Query(ge=0)] = 0,
         snapshot: Annotated[str | None, Query(pattern=r"^[0-9a-f]{64}$")] = None,
+        sort: Literal["activity", "ticket", "project", "status"] = "activity",
+        order: Literal["asc", "desc"] | None = None,
     ) -> dict:
         """
         @brief Globally search/order/page complete authorized local job evidence.
@@ -3834,6 +3836,8 @@ def create_app(home: str | Path | None = None,
         @param[in] limit Bounded page size or all.
         @param[in] offset Nonnegative matched-row offset.
         @param[in] snapshot Optional expected source-content revision.
+        @param[in] sort Column ordering every matched job before paging.
+        @param[in] order Direction; newest activity first, otherwise ascending, by default.
         @return Complete matched page, scoped counts and source revision.
         """
         if limit != "all" and (len(limit) > 3 or not limit.isascii() or not limit.isdecimal()
@@ -3860,6 +3864,8 @@ def create_app(home: str | Path | None = None,
                        "parked-clarification", "awaiting-approval", "in-review", "failed",
                        "stale", "handoff-pending",
                    })]
+        descending = (order or ("desc" if sort == "activity" else "asc")) == "desc"
+        matched = sort_jobs(matched, sort, descending)
         page_limit = len(matched) if limit == "all" else int(limit)
         visible = [{key: value for key, value in row.items() if key != "timeline"}
                    for row in matched[offset:offset + page_limit]]

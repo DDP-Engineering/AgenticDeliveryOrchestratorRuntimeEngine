@@ -371,11 +371,11 @@ values. Current metric and usage scopes must agree before presentation/export.
 The `/metrics` and `/jobs` URLs retain selected `from`, `through`, `timezone`
 and `granularity`; blank dates and the explicit All time button select all-time.
 
-Jobs list/detail (not Statistics) identify `(project_id,run_id)`
-and distinguish lifetime, selected-period and unallocated evidence. Jobs reads
-usage once per visible authorized project and a separately validated all-time
-projection when dates are selected. Lifetime stays available for jobs outside
-the period; absent selected-period projections stay unavailable. Observation
+Jobs list/detail (not Statistics) key consumption by `(project_id,run_id)` and
+show lifetime amounts only: `JobWorkspace` reads all-time usage once per visible
+authorized project, and `JobAmounts` renders plain values (dash for unknown). The
+Jobs table sorts through `jobs-page` `sort`/`order` with the shared `SortHeader`
+(Ticket, Project, Status, Last activity). Observation
 counts identify source coverage without claiming complete measurements. Actual
 server filters and boundaries remain authoritative; browser aggregation uses
 server-selected evidence. Existing job/state persistence and API remain intact.

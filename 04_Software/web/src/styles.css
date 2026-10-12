@@ -448,7 +448,6 @@ td.strong { font-weight: 800; }
 .measurement { display: inline-flex; flex-direction: column; vertical-align: top; }
 .measurement small, .job-consumption > small { display: block; color: var(--muted); font-size: .8rem; }
 .job-consumption { display: grid; gap: .6rem; overflow-wrap: anywhere; }
-.job-amount { display: grid; gap: .3rem; }
 .trend-count { min-width: 7rem; }
 .trend-count i { display: block; height: 6px; min-width: 0; margin-top: 4px; border-radius: 3px; background: var(--accent); }
 .trend-failed i { background: #b45309; }

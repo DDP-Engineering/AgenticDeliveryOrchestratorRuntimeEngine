@@ -824,11 +824,12 @@ cost is observed evidence; estimated cost uses saved executor/model prices and
 remains separate. All financial evidence and exports remain Admin-only.
 
 Usage adds job elapsed time (measured jobs, average and median elapsed).
-Per-job consumption appears in Jobs: the list and job details show lifetime and
-selected-period amounts by immutable Project ID and Run ID, reusing the reporting dates,
-timezone and grouping, with a link back to Statistics. A separate all-time read
-retains lifetime evidence outside a selected period; absent period projections
-show Not available. The export menu includes **Job consumption** CSV for the
+Per-job consumption appears in Jobs as lifetime input/output tokens (details add
+the total, administrator costs and observation count); Jobs has no reporting
+period. The Jobs table shows Ticket, Project, Status, Last activity and
+Consumption; click Ticket, Project, Status or Last activity to sort the whole
+list on the server (again to reverse). Project and run identifiers appear in job
+details. The Statistics export menu includes **Job consumption** CSV for the
 same project/date/timezone/grouping selection. Scope controls are encoded in
 Statistics and Jobs URLs for direct links, reload and browser Back.
 

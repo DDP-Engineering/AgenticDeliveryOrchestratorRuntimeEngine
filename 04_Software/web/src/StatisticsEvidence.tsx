@@ -5,7 +5,7 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
 import type { Locale, MessageKey } from "./i18n";
-import type { Amounts, JobConsumption, Metrics } from "./metrics";
+import type { JobConsumption, Metrics } from "./metrics";
 import { consumptionIdentity, totalTokens } from "./statistics";
 import { statisticsCopy } from "./statisticsCopy";
 
@@ -16,13 +16,14 @@ export function Measurement({ value, locale, partial = false, money = false }: {
   const label = value == null ? copy.unavailable : partial ? copy.partial : value === 0 ? copy.zero : copy.measured;
   return <span className="measurement"><strong>{value == null ? "—" : new Intl.NumberFormat(locale, money ? { style: "currency", currency: "USD" } : {}).format(value)}</strong><small>{label}</small></span>;
 }
-/** Each value carries direction, scope and provenance rather than an inferred complete total. */
-export function JobAmounts({ job, locale, admin, t, compact = false, periodAvailable = true }: { job: JobConsumption; locale: Locale; admin: boolean; t: Props["t"]; compact?: boolean; periodAvailable?: boolean }) {
-  const copy = statisticsCopy[locale];
-  const amount = (label: string, value: Amounts) => <div className="job-amount"><b>{label}</b><span>{t("tokensIn")}: <Measurement value={value.tokens_in} locale={locale} partial={value.tokens_in !== null && value.tokens_out === null} /> · {t("tokensOut")}: <Measurement value={value.tokens_out} locale={locale} partial={value.tokens_out !== null && value.tokens_in === null} /></span>
-    {!compact && <><span>{copy.total}: <Measurement value={totalTokens(value)} locale={locale} /></span>{admin && <span>{copy.reported}: <Measurement value={value.reported_cost_usd} locale={locale} money /> · {copy.estimated}: <Measurement value={value.estimated_cost_usd} locale={locale} money /></span>}</>}<small>{copy.events}: {value.events}</small></div>;
-  return <div className="job-consumption" data-identity={consumptionIdentity(job)}><small>{copy.projectId}: {job.project_id} · {copy.runId}: {job.run_id}</small>
-    {amount(copy.lifetime, job.lifetime)}{periodAvailable ? amount(copy.selected, job.in_period) : <div><b>{copy.selected}</b><p>{copy.unavailable} · {copy.missingJob}</p></div>}{!compact && amount(copy.undated, job.unallocated)}<small>{copy.source}: {{ journal: copy.sourceJournal, summary: copy.sourceSummary, unavailable: copy.sourceUnavailable }[job.source]}</small></div>;
+/** Lifetime consumption of one job; unknown stays a dash and measured zero stays 0. */
+export function JobAmounts({ job, locale, admin, t, compact = false }: { job: JobConsumption; locale: Locale; admin: boolean; t: Props["t"]; compact?: boolean }) {
+  const copy = statisticsCopy[locale], value = job.lifetime;
+  const amount = (number: number | null | undefined, money = false) => <strong>{number == null ? "—" : new Intl.NumberFormat(locale, money ? { style: "currency", currency: "USD" } : {}).format(number)}</strong>;
+  return <div className="job-consumption" data-identity={consumptionIdentity(job)}>
+    <span>{t("tokensIn")}: {amount(value.tokens_in)}</span><span>{t("tokensOut")}: {amount(value.tokens_out)}</span>
+    {!compact && <><span>{copy.total}: {amount(totalTokens(value))}</span>{admin && <><span>{copy.reported}: {amount(value.reported_cost_usd, true)}</span><span>{copy.estimated}: {amount(value.estimated_cost_usd, true)}</span></>}<small>{copy.events}: {value.events}</small></>}
+  </div>;
 }
 
 /** Summary measures for the server-selected interval; per-job consumption lives in Jobs. */

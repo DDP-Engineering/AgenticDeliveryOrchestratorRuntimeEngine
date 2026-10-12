@@ -275,25 +275,20 @@ test("known zero, partial coverage, job duration and trend table bars work in fo
   expect(errors).toEqual([]);
 });
 
-test("job list and direct detail share selected-period and lifetime consumption without same-run collisions", async ({ page }) => {
+test("job list and direct detail show lifetime consumption without same-run collisions", async ({ page }) => {
   await signIn(page);
   await page.route("**/api/v1/projects/*/usage?*", async route => {
-    const value = await (await route.fetch()).json(); const id = value.scope.project_ids[0]; value.jobs = new URL(route.request().url()).searchParams.has("day_from") ? [] : [consumption(id, id.startsWith("a") ? 0 : 7)]; await route.fulfill({ json: value });
+    const value = await (await route.fetch()).json(); const id = value.scope.project_ids[0]; value.jobs = [consumption(id, id.startsWith("a") ? 0 : 7)]; await route.fulfill({ json: value });
   });
   const alpha = (await (await page.request.get("/api/v1/projects")).json()).find((item: any) => item.name === "alpha").id;
   await page.goto("/jobs?view=jobs");
   await page.getByRole("combobox", { name: "Rows per page", exact: true }).selectOption("all");
-  const collisions = page.locator('.action-jobs-table .job-consumption').filter({ hasText: "ux-working" }); await expect(collisions).toHaveCount(2);
+  const collisions = page.locator('.action-jobs-table .job-consumption[data-identity*="ux-working"]'); await expect(collisions).toHaveCount(2);
   expect(new Set(await collisions.evaluateAll(nodes => nodes.map(node => node.getAttribute("data-identity")))).size).toBe(2);
-  await page.goto(`/jobs?project=${alpha}&run=ux-working&from=2026-10-25&through=2026-10-25&timezone=Europe%2FBucharest`);
-  const detail = page.locator(".detail-panel"); await expect(detail).toContainText("2026-10-25");
-  await expect(detail.locator(".job-consumption").first()).toContainText("Lifetime"); await expect(detail.locator(".job-consumption").first()).toContainText("Selected period");
-  await expect(detail.locator(".job-consumption").first()).toContainText(statisticsCopy.en.missingJob);
-  await expect(detail.locator(".job-consumption").first()).toContainText("12"); await expect(detail.locator(".job-consumption").first()).toContainText(alpha);
-  await page.reload(); await expect(detail).toContainText("Europe/Bucharest");
-  await page.getByLabel("Search jobs", { exact: true }).fill("ux-working");
-  const jobHref = (await page.locator('.action-jobs-table td:first-child a[href*="run=ux-working"]').getAttribute("href"))!;
-  expect(new URL(jobHref, "http://localhost").searchParams.get("from")).toBe("2026-10-25");
+  await page.goto(`/jobs?project=${alpha}&run=ux-working`);
+  const detail = page.locator(".detail-panel"); await expect(detail.locator(".job-consumption").first()).toContainText("12");
+  await expect(detail).not.toContainText("Selected period");
+  await expect(detail.locator("details")).toContainText(alpha);
 });
 
 test("Dev direct statistics and CSV remain nonfinancial and denied project routes fail closed", async ({ page }) => {

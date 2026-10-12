@@ -400,4 +400,34 @@ def read_jobs(profiles: ProfileStore, items: list[Profile]) -> tuple[list[dict],
     return rows, digest.hexdigest()
 
 
+_GROUP_ORDER = ("active", "waiting", "review", "terminal")
+
+
+def _instant(value: str | None) -> datetime | None:
+    """@brief Compare activity as UTC instants; textual ISO offsets do not order."""
+    return datetime.fromisoformat(value) if value else None
+
+
+def sort_jobs(rows: list[dict], key: str, descending: bool) -> list[dict]:
+    """
+    @brief Order jobs by one column with unknown values last in both directions.
+    @param[in] rows Authorized job rows from read_jobs.
+    @param[in] key One of activity, ticket, project or status.
+    @param[in] descending Reverse the known values.
+    @return New list; project and run identity break ties deterministically.
+    """
+    values = {
+        "activity": lambda row: _instant(row["last_activity_at"]),
+        "ticket": lambda row: None if row["ticket_iid"] is None else (
+            row["ticket_iid"], row["ticket_title"] is None, (row["ticket_title"] or "").casefold()),
+        "project": lambda row: (
+            row["project_display_name"] or row["project_name"] or "").casefold() or None,
+        "status": lambda row: (_GROUP_ORDER.index(row["status_group"]), row["lifecycle"]),
+    }[key]
+    ordered = sorted(rows, key=lambda row: (row["project_id"], row["run_id"]))
+    known = [row for row in ordered if values(row) is not None]
+    unknown = [row for row in ordered if values(row) is None]
+    return sorted(known, key=values, reverse=descending) + unknown
+
+
 # END OF FILE

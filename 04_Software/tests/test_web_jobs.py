@@ -246,9 +246,35 @@ def test_page_revision_rejects_source_changes(tmp_path, change):
         assert _get(client)["snapshot"] != first["snapshot"]
 
 
+def test_job_list_sorts_by_requested_column_before_paging(tmp_path):
+    """@brief The server orders every matched job by the chosen column, then pages."""
+    _, _, stores, app = _fixture(tmp_path)
+    _state(stores[1], "old", updated_at="2026-10-06T09:00:00+00:00")
+    with TestClient(app) as client:
+        _login(client)
+        first = _get(client)["items"][0]
+        assert (first["project_name"], first["run_id"]) == ("beta", "old")
+        ascending = _get(client, "?sort=project&order=asc&limit=2")
+        assert [row["project_name"] for row in ascending["items"]] == ["alpha", "alpha"]
+        assert ascending["total"] == 4
+        second = _get(client, "?sort=project&order=asc&limit=2&offset=2"
+                      f"&snapshot={ascending['snapshot']}")
+        assert [row["project_name"] for row in second["items"]] == ["beta", "beta"]
+        descending = _get(client, "?sort=project&order=desc")["items"]
+        assert [row["project_name"] for row in descending[:2]] == ["beta", "beta"]
+        groups = [row["status_group"] for row in _get(client, "?sort=status")["items"]]
+        assert groups == sorted(groups, key=["active", "waiting", "review", "terminal"].index)
+        reverse = _get(client, "?sort=status&order=desc")["items"]
+        assert [row["status_group"] for row in reverse] == groups[::-1]
+        tickets = _get(client, "?sort=ticket")["items"]
+        assert [(row["project_name"], row["run_id"]) for row in tickets[:2]] == [
+            ("alpha", "same"), ("beta", "same")]
+        assert _get(client, "?sort=activity&order=asc")["items"][-1]["run_id"] == "old"
+
+
 @pytest.mark.parametrize("query", ["limit=0", "limit=101", "limit=abc", "offset=-1",
                                     "q=%20", "q=" + "x" * 81,
-                                    "status_group=bogus", "snapshot=no"])
+                                    "status_group=bogus", "snapshot=no", "sort=bogus", "order=up"])
 def test_invalid_job_queries_fail_closed(tmp_path, query):
     """@brief Query trust boundaries reject ambiguous or invalid selection."""
     _, _, _, app = _fixture(tmp_path)

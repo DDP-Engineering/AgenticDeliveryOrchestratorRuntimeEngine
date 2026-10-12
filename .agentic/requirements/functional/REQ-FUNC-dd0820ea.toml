@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-FUNC-dd0820ea"
+
+title = "Sort the job list on the server before paging"
+
+status = "active"
+
+requirement = """
+When an authorized client requests the job list with a sort of activity, ticket, project or status and an ascending or descending order, the web API shall order every matched job by that column before paging, keeping unknown values last and project and run identity as tie-breakers, defaulting to newest activity first, and reject other sort or order values with 422.
+"""
+
+verification = "Automated: pytest pages the two-project fixture by project ascending/descending, status group order, ticket and activity ascending, checks the default newest-first order and 422 for sort=bogus and order=up."
+
+affected_paths = ["04_Software/adore/web/app.py", "04_Software/adore/web/jobs.py"]
+
+linked_tests = ["04_Software/tests/test_web_jobs.py"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-12
+updated = 2026-10-12

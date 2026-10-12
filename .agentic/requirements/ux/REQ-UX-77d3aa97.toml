@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-77d3aa97"
+
+title = "Show the Jobs table as compact sortable columns"
+
+status = "active"
+
+requirement = """
+While a user views the Jobs list, the interface shall show one row per job with the ticket number and title, the project name, the status badge with its stage and any next-action link, the last activity time and the job's lifetime input and output tokens, let the user sort by ticket, project, status or last activity in both directions, and omit run and project identifiers, outcome text, activity-age hints and reporting-period text and consumption.
+"""
+
+verification = "Automated: e2e opens the Jobs list, finds the five columns, no Selected period text or identifiers in rows, sorts by Project ascending then descending through the server request (aria-sort and first-row order) and sees lifetime tokens in the row and the job detail without a selected period."
+
+affected_paths = ["04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/SortHeader.tsx", "04_Software/web/src/StatisticsEvidence.tsx", "04_Software/web/src/App.tsx", "04_Software/web/src/statisticsCopy.ts", "04_Software/adore/web/static/"]
+
+linked_tests = ["04_Software/web/e2e/jobs.spec.ts", "04_Software/web/e2e/statistics.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-12
+updated = 2026-10-12

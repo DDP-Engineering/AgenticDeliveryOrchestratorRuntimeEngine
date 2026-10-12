@@ -40,7 +40,10 @@ provided by `app.py`. There is no new runtime dependency or persisted schema.
 ## 5. Inputs And Outputs
 
 `GET /api/v1/jobs-page` accepts `project_id`, `q`, `status_group`, `attention`,
-`limit`, `offset` and `snapshot`; other query parameters are ignored. `project_id` is an immutable 32-hex
+`limit`, `offset`, `snapshot`, `sort` (`activity`, `ticket`, `project`, `status`;
+default `activity`) and `order` (`asc`/`desc`; default newest activity first,
+otherwise ascending); every matched job is sorted before paging, unknown values
+last, and other `sort`/`order` values return 422. Other query parameters are ignored. `project_id` is an immutable 32-hex
 identity. `q` is a trimmed case-insensitive substring of 1–80 characters;
 search covers project name/display name, run ID, ticket number/actual title,
 lifecycle, stage and outcome. `limit` is 1–100 or `all`, default 25; offset

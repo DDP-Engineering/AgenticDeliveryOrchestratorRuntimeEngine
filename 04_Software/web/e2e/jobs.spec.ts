@@ -137,6 +137,28 @@ test("hub separates pickup and verification and keeps role-appropriate navigatio
   await expect(hub).toBeVisible();
 });
 
+test("jobs table shows compact columns and sorts on the server", async ({ page }) => {
+  await signIn(page); await page.goto("/jobs?view=jobs");
+  const table = page.locator(".action-jobs-table");
+  await expect(table.getByRole("columnheader")).toHaveText([/^Ticket/, /^Project/, /^Status/, /^Last activity/, /^Consumption/]);
+  await expect(page.getByText(/Selected period/)).toHaveCount(0);
+  await expect(page.locator(".statistics-job-scope")).toHaveCount(0);
+  await expect(table.locator("tbody tr").first()).not.toContainText("Project ID");
+  await expect(table.locator("tbody tr").first()).not.toContainText("Run ID");
+  await expect(table.locator("tbody tr").first()).not.toContainText("Known measurement");
+  await expect(table.locator("tbody tr").first().locator(".job-consumption")).toContainText(/Input tokens: [\d,—]+Output tokens: [\d,—]+/);
+  const header = table.getByRole("columnheader", { name: "Project", exact: true });
+  const firstProject = () => table.locator("tbody tr").first().locator("td").nth(1).innerText();
+  const request = (order: string) => page.waitForResponse(response => response.url().includes("/jobs-page?") &&
+    new URL(response.url()).searchParams.get("sort") === "project" && new URL(response.url()).searchParams.get("order") === order);
+  let response = request("asc"); await header.getByRole("button").click(); await response;
+  await expect(header).toHaveAttribute("aria-sort", "ascending");
+  await expect.poll(firstProject).toMatch(/^alpha/);
+  response = request("desc"); await header.getByRole("button").click(); await response;
+  await expect(header).toHaveAttribute("aria-sort", "descending");
+  await expect.poll(firstProject).not.toMatch(/^alpha/);
+});
+
 test("manual start from Tickets reports queueing and the asynchronous worker failure", async ({ page }) => {
   await signIn(page);
   await page.goto("/jobs?project=alpha");
@@ -264,9 +286,8 @@ test("missing evidence and stale worker activity do not fabricate telemetry or a
   await expect(detail).toContainText("No activity timestamp recorded.");
   await expect(detail).toContainText("saved evidence does not identify an action location");
   await expect(detail.locator(".next-action-panel a")).toHaveCount(0);
-  await detail.getByText("Technical details", { exact: true }).click();
-  await expect(detail.locator(".job-consumption").first()).toContainText("Input tokens: —Not available");
-  await expect(detail.locator(".job-consumption").first()).toContainText("Output tokens: —Not available");
+  await expect(detail.locator(".job-consumption").first()).toContainText("Input tokens: —");
+  await expect(detail.locator(".job-consumption").first()).not.toContainText("Not available");
   await page.goto("/jobs?project=alpha&run=ux-working");
   await expect(page.locator(".detail-panel")).toContainText("over 15 minutes old");
 });

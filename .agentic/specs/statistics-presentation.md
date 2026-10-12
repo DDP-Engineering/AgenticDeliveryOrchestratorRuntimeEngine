@@ -19,7 +19,7 @@ Presentation: Summary shows only measure cards: started/completed/failed and kno
 
 Trends: server buckets render once, as rows of one labeled table whose started/completed/failed cells carry proportional bars; token and money cells show plain values or a dash; no separate chart, time zone label or estimated-cost section. Empty/error/pending remain explicit. Quality/recovery remains secondary in existing tabs. Project breakdown retains authorized project ID as well as display name.
 
-Jobs integration: consume strict project usage/metrics JSON once per visible project rather than one request per row. Show selected period and lifetime under immutable identity in list and detail. Missing selected job evidence remains unavailable, never reconstructed from defaults. Selection filters reuse statistics query; default all-time is explicit. Route/unmount/grant/query changes invalidate displayed consumption. Existing runtime/job persistence and commands remain untouched.
+Jobs integration: consume strict project usage/metrics JSON once per visible project rather than one request per row. Show lifetime consumption under immutable identity in list and detail; Jobs has no reporting period. Missing job evidence remains unavailable, never reconstructed from defaults. Route/unmount/grant/query changes invalidate displayed consumption. Existing runtime/job persistence and commands remain untouched.
 
 ## Deterministic proof
 
