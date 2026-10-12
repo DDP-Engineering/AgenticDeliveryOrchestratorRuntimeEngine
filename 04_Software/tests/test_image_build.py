@@ -461,7 +461,8 @@ def test_image_runtime_rejects_remote_environment_and_linked_storage(tmp_path, m
     monkeypatch.setenv("DOCKER_HOST", "tcp://remote:2376")
     assert service.run("alpha", operation["id"])["phase"] == "failed"
     assert not runner.calls
-    monkeypatch.setattr(Path, "is_junction", lambda self: self == store.root)
+    # Python 3.11 has no Path.is_junction; the product reads it through getattr.
+    monkeypatch.setattr(Path, "is_junction", lambda self: self == store.root, raising=False)
     with pytest.raises(module.ImageBuildError):
         store.read()
 

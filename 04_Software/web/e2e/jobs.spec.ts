@@ -188,16 +188,19 @@ test("global Jobs mirrors the project hub with a compact scope and Tickets/Jobs 
   await page.route(betaTickets, route => route.abort());
   await page.getByRole("button", { name: "Read tickets", exact: true }).click();
   const rows = page.locator(".ticket-table tbody tr.ticket-row");
+  // Other specs may add projects whose forge reads fail too, so alerts are matched per project.
+  const alerts = page.locator(".ticket-workspace .alert");
+  const projectRows = (name: string) => rows.filter({ has: page.getByRole("cell", { name, exact: true }) });
   await expect(page.getByRole("columnheader", { name: "Project", exact: true })).toBeVisible();
-  await expect(page.locator(".ticket-workspace .alert")).toHaveCount(1);
-  await expect(page.locator(".ticket-workspace .alert")).toContainText(/^beta: /);
-  await expect(rows.filter({ hasText: "alpha" }).filter({ hasText: "#44" })).toHaveCount(1);
-  await expect(rows.filter({ hasText: "beta" })).toHaveCount(0);
+  await expect(alerts.filter({ hasText: /^beta: / })).toHaveCount(1);
+  await expect(alerts.filter({ hasText: /^alpha: / })).toHaveCount(0);
+  await expect(projectRows("alpha").filter({ hasText: "#44" })).toHaveCount(1);
+  await expect(projectRows("beta")).toHaveCount(0);
   await page.unroute(betaTickets);
   await page.getByRole("button", { name: "Read tickets", exact: true }).click();
-  await expect(page.locator(".ticket-workspace .alert")).toHaveCount(0);
-  await expect(rows.filter({ hasText: "alpha" }).filter({ hasText: "#44" })).toHaveCount(1);
-  const betaRow = rows.filter({ hasText: "beta" }).filter({ hasText: "#44" });
+  await expect(alerts.filter({ hasText: /^beta: / })).toHaveCount(0);
+  await expect(projectRows("alpha").filter({ hasText: "#44" })).toHaveCount(1);
+  const betaRow = projectRows("beta").filter({ hasText: "#44" });
   await expect(betaRow).toHaveCount(1);
   const started = page.waitForRequest(request => request.method() === "POST" && new URL(request.url()).pathname === `/api/v1/projects/${beta}/tickets/44/start`);
   await betaRow.getByRole("button", { name: "Start", exact: true }).click();
