@@ -43,11 +43,12 @@ def test_admin_storage_warns_for_low_project_volume(tmp_path, monkeypatch):
         data = response.json()
         assert data["threshold_bytes"] == 1024**3
         assert data["low"] is True
+        device = str(tmp_path.stat().st_dev)
         assert data["volumes"] == [
             {"scope": "home", "project": None, "free_bytes": 2 * 1024**3,
-             "total_bytes": 10 * 1024**3, "low": False},
+             "total_bytes": 10 * 1024**3, "low": False, "volume_id": device},
             {"scope": "project", "project": "alpha", "free_bytes": 512 * 1024 * 1024,
-             "total_bytes": 10 * 1024**3, "low": True},
+             "total_bytes": 10 * 1024**3, "low": True, "volume_id": device},
         ]
         assert len(checked) == 2
 

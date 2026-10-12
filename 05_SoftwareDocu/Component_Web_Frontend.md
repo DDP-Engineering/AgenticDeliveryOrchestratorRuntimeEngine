@@ -311,8 +311,10 @@ live readiness.
 Administration polls `/api/v1/ready` every five seconds and shows whether the
 control worker is ready, unavailable or could not be checked. Its explanation
 keeps forge, executor and model readiness separate.
-It polls the administrator-only storage check every 30 seconds and shows free
-space for ADORE home and project state roots. Less than 1 GiB is marked low;
+It polls the administrator-only storage check every 30 seconds and groups ADORE
+home and project state roots by `volume_id`: one line for a shared disk, a table for
+several. Worker and storage appear as one row of `readiness` indicators, and the
+audit limits as `Chips` (Unlimited when absent). Less than 1 GiB is marked low;
 a failed measurement is shown as an error.
 The Jobs view starts at ten rows from complete authorized history. Search and
 secondary filters run before slicing; counts/groups retain the searched scope

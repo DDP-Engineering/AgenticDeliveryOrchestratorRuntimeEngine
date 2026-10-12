@@ -2440,7 +2440,8 @@ def create_app(home: str | Path | None = None,
                 volumes.append({"scope": scope, "project": name,
                                 "free_bytes": reading.free,
                                 "total_bytes": reading.total,
-                                "low": reading.free < _LOW_STORAGE_BYTES})
+                                "low": reading.free < _LOW_STORAGE_BYTES,
+                                "volume_id": str(path.stat().st_dev)})
         except HTTPException:
             raise
         except (OSError, ValueError, ProfileError) as exc:

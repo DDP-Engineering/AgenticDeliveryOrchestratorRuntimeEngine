@@ -219,6 +219,8 @@ td.strong { font-weight: 800; }
 .readiness { border-radius: 999px; padding: 7px 12px; background: var(--surface-alt); font-size: .8rem; }
 .readiness-ready { color: var(--accent-deep); background: var(--accent-soft); }
 .readiness-unavailable, .readiness-error { color: var(--danger); background: var(--danger-soft); }
+.system-status-row { display: flex; flex-wrap: wrap; gap: 10px 24px; align-items: center; }
+.system-indicator { display: inline-flex; align-items: center; gap: 10px; font-weight: 700; }
 .empty { color: var(--muted); text-align: center; padding: 36px 12px; margin: 0; }
 .project-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(235px, 1fr)); gap: 15px; }
 .project-card { min-height: 178px; padding: 21px; text-align: left; color: var(--text); display: flex; flex-direction: column; align-items: flex-start; gap: 7px; }

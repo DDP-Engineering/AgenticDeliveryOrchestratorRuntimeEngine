@@ -266,8 +266,9 @@ returns account or project data.
 Administrator-only `GET /api/v1/system/storage` measures the local volumes
 holding ADORE home and each registered project's run-state root. A root that
 does not yet exist is measured at its nearest existing parent. The response
-identifies home or project, total/free bytes and a low-space flag; it does not
-return host paths. Less than 1 GiB free raises a warning in Administration.
+identifies home or project, total/free bytes, a low-space flag and a `volume_id`
+(the filesystem device number) so the browser can group entries on one disk; it does
+not return host paths. Less than 1 GiB free raises a warning in Administration.
 The check is read-only and does not prune indefinite history. Disk measurement
 or corrupt project metadata returns a typed 503 rather than a healthy result.
 Administrator-only `GET /api/v1/audit-policy` returns nullable day and UTF-8

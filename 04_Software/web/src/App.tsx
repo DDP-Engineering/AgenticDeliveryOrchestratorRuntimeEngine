@@ -17,7 +17,6 @@ import { RepositoryConnection } from "./RepositoryConnection";
 import { ReadinessEvidence, readinessDetailsLabel, readinessCloseLabel } from "./ReadinessEvidence";
 import { readReadiness, type ProjectReadiness } from "./readiness";
 import { AuditHistory } from "./AuditHistory";
-import { auditCopy } from "./auditCopy";
 import { auditPolicyPayload } from "./auditPolicy";
 import { ApiError, describeError } from "./errors";
 import { startVisiblePolling } from "./polling";
@@ -62,7 +61,7 @@ const metricsTabLabels: Record<MetricsTab, MessageKey> = {
   trends: "metricsTabTrends", projects: "metricsTabProjects",
 };
 type WorkerStatus = "checking" | "ready" | "unavailable" | "error";
-type StorageStatus = { threshold_bytes: number; low: boolean; volumes: Array<{ scope: "home" | "project"; project: string | null; free_bytes: number; total_bytes: number; low: boolean }> };
+type StorageStatus = { threshold_bytes: number; low: boolean; volumes: Array<{ scope: "home" | "project"; project: string | null; free_bytes: number; total_bytes: number; low: boolean; volume_id: string }> };
 type AuditPolicy = { retention_days: number | null; max_bytes: number | null };
 
 const localeNames: Record<Locale, string> = { en: "English", fr: "Français", de: "Deutsch", ro: "Română" };
@@ -986,6 +985,17 @@ export default function App() {
   </div>;
   const jobScopeProject = projects.find(item => item.id === jobScope);
 
+  // Storage measurements share a row per physical volume, so one disk is described once.
+  const gib = (bytes: number) => new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(bytes / 1024**3);
+  // A Map keeps the server order (home first); numeric-looking ids would reorder a plain object.
+  const storageGroups = [...(storageStatus?.volumes ?? []).reduce((groups, volume) => {
+    const group = groups.get(volume.volume_id) ?? { id: volume.volume_id, names: [] as string[], free: volume.free_bytes, total: volume.total_bytes, low: false };
+    group.names.push(volume.scope === "home" ? t("storageHome") : volume.project || "");
+    group.free = Math.min(group.free, volume.free_bytes);
+    group.low ||= volume.low;
+    return groups.set(volume.volume_id, group);
+  }, new Map<string, { id: string; names: string[]; free: number; total: number; low: boolean }>()).values()];
+
   /** Statistics content; `fixed` keeps the project chosen by the project hub instead of offering a selector. */
   const statisticsView = (fixed: boolean) => <>
         <section className="panel compact metrics-period"><div className="metrics-period-row"><h2>{t("reportingPeriod")}</h2>{!fixed && projects.length > 0 && <label className="metrics-project-filter" htmlFor="metrics-project">{t("project")}<select id="metrics-project" value={allProjectScope ? "" : selected} onChange={event => { setMetricAllProjects(event.target.value === ""); if (event.target.value) setSelected(event.target.value); }}>{isAdmin && <option value="">{t("metricsAllProjects")}</option>}{projects.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}<label>{t("dateFromLocal")}<input type="date" value={metricFrom} max={metricTo || undefined} onChange={event => setMetricFrom(event.target.value)} /></label><label>{t("dateToLocal")}<input type="date" value={metricTo} min={metricFrom || undefined} onChange={event => setMetricTo(event.target.value)} /></label><label>{t("trendGranularity")}<select value={metricGranularity} onChange={event => setMetricGranularity(event.target.value as "day" | "week" | "month")}><option value="day">{t("byDay")}</option><option value="week">{t("byWeek")}</option><option value="month">{t("byMonth")}</option></select></label><button className="ghost" type="button" onClick={() => { setMetricFrom(""); setMetricTo(""); }}>{statisticsText.allTime}</button>{(selected || isAdmin) && reportingDataState === "ready" && <details className="metrics-export"><summary className="ghost metrics-export-trigger">{t("exportCsv")}</summary><div className="metrics-export-links">{!allProjectScope && selected && <><a href={`/api/v1/projects/${encodeURIComponent(selected)}/metrics.csv${metricSuffix}`}>{t("projectMetricsExport")}</a><a href={`/api/v1/projects/${encodeURIComponent(selected)}/usage.csv${usageSuffix}`}>{t("projectUsageExport")}</a><a href={`/api/v1/projects/${encodeURIComponent(selected)}/jobs-usage.csv${metricSuffix}`}>{statisticsText.jobs}</a></>}{allProjectScope && <><a href={`/api/v1/metrics.csv${metricSuffix}`}>{t("allMetricsExport")}</a><a href={`/api/v1/usage.csv${usageSuffix}`}>{t("allUsageExport")}</a><a href={`/api/v1/jobs-usage.csv${metricSuffix}`}>{statisticsText.jobs}</a></>}</div></details>}</div></section>
@@ -1157,10 +1167,17 @@ export default function App() {
         {page === "metrics" && projectsState === "ready" && projects.length > 0 && statisticsView(false)}
 
         {page === "administration" && isAdmin && <div className="two-column">
-          <section className="panel wide-panel"><h2>{t("auditRetention")}</h2><p className="muted">{t("auditRetentionHelp")}</p><p>{auditCopy[locale].impact}</p>{auditPolicy && <form key={`${auditPolicy.retention_days}-${auditPolicy.max_bytes}`} className="inline-form audit-policy-form" onSubmit={saveAuditPolicy}><label>{t("auditDays")}<input name="retention_days" type="number" min="0" max="36500" step="1" defaultValue={auditPolicy.retention_days ?? 0} /></label><label>{t("auditMib")}<input name="max_mib" type="number" min="0" max="1024" step="any" defaultValue={auditPolicy.max_bytes == null ? 0 : auditPolicy.max_bytes / 1024**2} /></label><button className="primary" type="submit">{t("save")}</button></form>}</section>
-
-          <section className="panel wide-panel" role="status" aria-live="polite"><div className="panel-heading"><h2>{t("workerReadiness")}</h2><strong className={`readiness readiness-${workerStatus}`}>{t(workerStatus === "ready" ? "workerReady" : workerStatus === "unavailable" ? "workerUnavailable" : workerStatus === "error" ? "workerCheckFailed" : "workerChecking")}</strong></div><p className="muted">{t("workerReadinessHelp")}</p></section>
-          <section className="panel wide-panel" role="status" aria-live="polite"><div className="panel-heading"><h2>{t("storageStatus")}</h2><strong className={`readiness readiness-${storageError ? "error" : storageStatus?.low ? "unavailable" : storageStatus ? "ready" : "checking"}`}>{t(storageError ? "storageCheckFailed" : storageStatus?.low ? "storageLow" : storageStatus ? "storageHealthy" : "workerChecking")}</strong></div><p className="muted">{t("storageHelp")}</p>{storageStatus && <PagedTable t={t}><table><thead><tr><th>{t("storageVolume")}</th><th>{t("storageFree")}</th><th>{t("status")}</th></tr></thead><tbody>{storageStatus.volumes.map((volume, index) => <tr key={`${volume.scope}-${volume.project || index}`}><td>{volume.scope === "home" ? t("storageHome") : volume.project}</td><td>{new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(volume.free_bytes / 1024**3)} GiB</td><td>{t(volume.low ? "storageLow" : "storageHealthy")}</td></tr>)}</tbody></table></PagedTable>}</section>
+          <section className="panel wide-panel"><h2>{t("auditRetention")}</h2><p className="muted">{t("auditRetentionShort")}</p>{auditPolicy && <>
+            <Chips className="audit-limits" items={[[t("auditDays"), auditPolicy.retention_days == null ? t("unlimitedValue") : formatNumber(auditPolicy.retention_days)], [t("auditMib"), auditPolicy.max_bytes == null ? t("unlimitedValue") : formatNumber(auditPolicy.max_bytes / 1024**2)]]} />
+            <form key={`${auditPolicy.retention_days}-${auditPolicy.max_bytes}`} className="inline-form audit-policy-form" onSubmit={saveAuditPolicy}><label>{t("auditDays")}<input name="retention_days" type="number" min="0" max="36500" step="1" defaultValue={auditPolicy.retention_days ?? 0} /></label><label>{t("auditMib")}<input name="max_mib" type="number" min="0" max="1024" step="any" defaultValue={auditPolicy.max_bytes == null ? 0 : auditPolicy.max_bytes / 1024**2} /></label><button className="primary" type="submit">{t("save")}</button></form></>}</section>
+          <section className="panel wide-panel" role="status" aria-live="polite">
+            <div className="system-status-row">
+              <span className="system-indicator"><span>{t("workerReadiness")}</span><strong className={`readiness readiness-${workerStatus}`}>{t(workerStatus === "ready" ? "workerReady" : workerStatus === "unavailable" ? "workerUnavailable" : workerStatus === "error" ? "workerCheckFailed" : "workerChecking")}</strong></span>
+              <span className="system-indicator"><span>{t("storageStatus")}</span><strong className={`readiness readiness-${storageError ? "error" : storageStatus?.low ? "unavailable" : storageStatus ? "ready" : "checking"}`}>{t(storageError ? "storageCheckFailed" : storageStatus?.low ? "storageLow" : storageStatus ? "storageHealthy" : "workerChecking")}</strong></span>
+            </div>
+            {storageGroups.length === 1 ? <p className="muted">{t("storageShared").replace("{free}", gib(storageGroups[0].free)).replace("{total}", gib(storageGroups[0].total))}</p>
+              : storageGroups.length > 1 && <PagedTable t={t}><table><thead><tr><th>{t("storageVolume")}</th><th>{t("storageFree")}</th><th>{t("status")}</th></tr></thead><tbody>{storageGroups.map(group => <tr key={group.id}><td>{group.names.join(", ")}</td><td>{gib(group.free)} GiB</td><td>{t(group.low ? "storageLow" : "storageHealthy")}</td></tr>)}</tbody></table></PagedTable>}
+          </section>
         </div>}
 
         {page === "adminUsers" && isAdmin && <div className="two-column">

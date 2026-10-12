@@ -34,7 +34,31 @@ test("change evidence is scannable, server filtered and retention stays in admin
   await expect(page.getByText("No changes match these filters.", { exact: true })).toBeVisible();
   await page.getByRole("navigation", { name: "Primary navigation", exact: true }).getByRole("link", { name: "System status", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Audit retention" })).toBeVisible();
-  await expect(page.getByText(/Deleting audit events does not delete jobs/)).toBeVisible();
+  await expect(page.getByText(/jobs, run journals and identity data are kept/)).toBeVisible();
+  await expect(page.getByText(/Deleting audit events does not delete jobs|Saved limits appear below/)).toHaveCount(0);
+  // Current limits are named, not just zeros in the form.
+  const limits = page.locator(".audit-limits");
+  await expect(limits.locator("div").filter({ has: page.getByText("Keep for days", { exact: true }) })).toContainText("Unlimited");
+  await expect(limits.locator("div").filter({ has: page.getByText("Audit data limit (MiB)", { exact: true }) })).toContainText("Unlimited");
+  await expect(page.locator(".audit-policy-form input[name=retention_days]")).toHaveValue("0");
+  // Worker and storage are compact indicators in one row; one shared volume is one line.
+  const row = page.locator(".system-status-row");
+  await expect(row.getByText("Control worker", { exact: true })).toBeVisible();
+  await expect(row.getByText("Storage", { exact: true })).toBeVisible();
+  await expect(page.getByText(/Shows whether the command worker|Shows free space where ADORE/)).toHaveCount(0);
+  await expect(page.getByText(/share this volume/)).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Volume", exact: true })).toHaveCount(0);
+  // Separate disks get one table row each, in server order (home first), with what they hold.
+  const gib = 1024 ** 3, volume = (scope: string, project: string | null, id: string, free: number) => ({ scope, project, free_bytes: free * gib, total_bytes: 100 * gib, low: free < 1, volume_id: id });
+  await page.route("**/api/v1/system/storage", route => route.fulfill({ json: { threshold_bytes: gib, low: true, volumes: [
+    volume("home", null, "100", 40), volume("project", "alpha", "9", 0.5), volume("project", "beta", "100", 40)] } }));
+  await page.reload();
+  const rows = page.locator("table").filter({ has: page.getByRole("columnheader", { name: "Volume", exact: true }) }).locator("tbody tr");
+  await expect(rows).toHaveCount(2);
+  await expect(rows.nth(0)).toContainText("ADORE home, beta");
+  await expect(rows.nth(1)).toContainText("alpha");
+  await expect(rows.nth(1)).toContainText("Low disk space");
+  await expect(page.getByText(/share this volume/)).toHaveCount(0);
 });
 
 test("malformed or failed projections hide evidence and retry recovers", async ({ page }) => {

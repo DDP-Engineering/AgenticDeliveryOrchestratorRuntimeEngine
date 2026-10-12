@@ -646,7 +646,8 @@ so a newly deployed endpoint cannot be masked by stale HTML.
 The Administration System status page polls readiness every five seconds and labels worker
 status separately from forge, executor and model reachability.
 It also polls administrator-only storage status every 30 seconds. The API reads
-free space for home and each project state root, warns below 1 GiB and returns
+free space for home and each project state root with a `volume_id` (the UI groups
+one line per physical volume), warns below 1 GiB and returns
 an explicit service error if measurement fails, without exposing host paths.
 The React About dialog makes the surrounding shell inert, keeps keyboard focus
 on its Close button, and restores focus to About when closed. Narrow layouts

@@ -22,6 +22,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Compact System status: audit retention shows the current limits (Unlimited when none) above the prefilled form with one short impact sentence, the control worker and storage are compact indicators in one row, and storage is grouped by physical volume (`volume_id` in `/api/v1/system/storage`) - one line for a shared disk, a table only for several.
+
 - Show each Statistics per-project family once: the All projects scope line, the Projects tab and the Repository table are removed; Summary lists job counts and average elapsed per project, Usage consumption, costs and unpriced events per project, and Quality rework, revisions, repairs and review rounds per project, each with the repository under the project name.
 
 - Simplify the Jobs table: Ticket, Project, Status, Last activity and lifetime token Consumption, sortable on the server by Ticket, Project, Status or Last activity (`/api/v1/jobs-page` `sort`/`order`); the Selected period line, selected-period consumption, project/run identifiers, outcome text and activity-age hints leave the rows (identifiers and outcome stay in job details).

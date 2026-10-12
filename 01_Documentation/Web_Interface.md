@@ -242,7 +242,8 @@ Dev visibility. Revoked or replaced grants cannot expose another project's event
 An empty filter result explains that no changes match; failed reads hide data and
 can be retried with **Refresh**. There is no audit download/export action.
 
-In **System status**, administrators set **Audit retention**. Zero/blank means
+In **System status**, administrators set **Audit retention**; the current limits
+are shown above the prefilled form (Unlimited when no limit is set). Zero/blank means
 unlimited; age and stored-text MiB bounds apply independently and remove oldest
 visible events. Saving reports actual deletions. The text bound includes structured
 evidence and correlations and does not cap the database file on disk. Removing
@@ -618,9 +619,11 @@ action also launches a disposable container using the project image and egress
 policy, then checks a streamed tool call against the selected model. The
 result names the executor-container context and a redacted failure reason.
 The probe requires the image to be present locally and does not execute AEGIS.
-Administration > System status also shows free disk space for ADORE's account database and
-each project's run-state root. It warns when any measured volume has less than
-1 GiB free. A failed measurement is shown as a failed check, not as available
+Administration > System status shows the control worker and storage as compact
+indicators. Storage measures free disk space for ADORE's account database and each
+project's run-state root, grouped by physical volume: one line when they share a disk,
+a table only when project state roots (`state.store_root`) live on different disks.
+It warns when any measured volume has less than 1 GiB free. A failed measurement is shown as a failed check, not as available
 space. This check does not remove data; with indefinite non-audit retention, operators
 must size storage and back it up.
 In Project details > Settings, administrators prepare **one setting at a time**.
