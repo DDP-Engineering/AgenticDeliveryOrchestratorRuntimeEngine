@@ -162,13 +162,13 @@ test("worker processes queued requests and preserves a rejected engine exit", as
   await page.getByRole("navigation", { name: "Primary navigation", exact: true }).getByRole("link", { name: "Jobs", exact: true }).click();
   const assigned = await (await page.request.get("/api/v1/projects")).json();
   await page.locator("#jobs-project").selectOption(assigned[0].id);
-  await page.getByRole("spinbutton", { name: "Ticket number", exact: true }).fill("42");
-  const submitted = page.waitForResponse(response => response.url().endsWith("/operations/start") &&
+  await page.getByRole("button", { name: "Read tickets", exact: true }).click();
+  const submitted = page.waitForResponse(response => response.url().endsWith("/tickets/44/start") &&
     response.request().method() === "POST");
-  await page.getByRole("button", { name: "Start job", exact: true }).click();
+  await page.locator(".ticket-table tbody tr.ticket-row").filter({ hasText: "#44" }).getByRole("button", { name: "Start", exact: true }).click();
   const response = await submitted;
   expect(response.status()).toBe(200);
-  const operation = await response.json();
+  const operation = { id: (await response.json()).operation_id };
   await expect.poll(async () => (await (await page.request.get(
     `/api/v1/operations/${operation.id}`)).json()).status).toBe("succeeded");
   const csrf = (await (await page.request.get("/api/v1/me")).json()).csrf;

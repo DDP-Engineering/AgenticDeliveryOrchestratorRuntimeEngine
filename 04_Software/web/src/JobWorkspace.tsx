@@ -4,7 +4,7 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ApiError, describeError } from "./errors";
 import type { Locale, MessageKey } from "./i18n";
 import { jobCopy, lifecycleExplanation } from "./jobCopy";
@@ -23,10 +23,8 @@ type Request = <T>(path: string, method?: string, body?: unknown, csrf?: string)
 type Props = {
   mode: "overview" | "jobs" | "history"; locale: Locale; projects: JobProject[]; scope: string; run?: string;
   csrf: string; request: Request; t: (key: MessageKey) => string; refresh: number;
-  onScope: (scope: string) => void; onOpen: (project: string, run: string) => void; onClose: () => void;
+  onOpen: (project: string, run: string) => void; onClose: () => void;
   fixedScope?: boolean;
-  /** False hides the start-by-number form where another view owns starting work. */
-  startForm?: boolean;
   summaryHeader?: (evidence: JobPage | null) => ReactNode;
   reporting: ReportingSelection; reportingQuery: string; admin: boolean;
 };
@@ -52,7 +50,7 @@ const readOperation = (value: unknown): Operation => {
 
 /** Own complete scoped jobs and observed evidence; the server owns permissions and command execution. */
 export function JobWorkspace(props: Props) {
-  const { mode, locale, projects, scope, run, csrf, request, t, refresh, onScope, onOpen, onClose, fixedScope } = props;
+  const { mode, locale, projects, scope, run, csrf, request, t, refresh, onOpen, onClose, fixedScope } = props;
   const copy = jobCopy[locale];
   const compactOverview = mode === "overview";
   const [filters, setFilters] = useState<Filters>(() => initialFilters(mode));
@@ -63,7 +61,6 @@ export function JobWorkspace(props: Props) {
   const [detail, setDetail] = useState<Job | null>(null);
   const [detailState, setDetailState] = useState<ReadState>("loading");
   const [detailFailure, setDetailFailure] = useState<unknown>(null);
-  const [ticket, setTicket] = useState("");
   const [operation, setOperation] = useState<Operation | null>(null);
   const [operationError, setOperationError] = useState<unknown>(null);
   const [commandStatusError, setCommandStatusError] = useState(false);
@@ -122,7 +119,7 @@ export function JobWorkspace(props: Props) {
     void fetchUsage(); const stop = startVisiblePolling(() => void fetchUsage(), 30000);
     return () => { active = false; stop(); };
   }, [consumptionKey, refresh, reload]);
-  useEffect(() => { commandGeneration.current += 1; setTicket(""); setOperation(null); setOperationError(null); setCommandStatusError(false); submitLock.current = false; setSubmitting(false); }, [scope]);
+  useEffect(() => { commandGeneration.current += 1; setOperation(null); setOperationError(null); setCommandStatusError(false); submitLock.current = false; setSubmitting(false); }, [scope]);
 
   useEffect(() => {
     let active = true, sequence = 0;
@@ -207,19 +204,17 @@ export function JobWorkspace(props: Props) {
     return () => { active = false; stop(); };
   }, [operation?.id, operation?.status]);
 
-  const command = async (action: "start" | "retry" | "cancel", job?: Job) => {
-    if (submitLock.current || busy || !project || project.archived || action !== "start" && (!job || !commandAllowed(job, action))) return;
+  const command = async (action: "retry" | "cancel", job: Job) => {
+    if (submitLock.current || busy || !project || project.archived || !commandAllowed(job, action)) return;
     submitLock.current = true; setSubmitting(true); setOperationError(null); setCommandStatusError(false);
     const generation = commandGeneration.current;
     try {
-      const body = action === "start" ? { ticket_iid: Number(ticket) } : { run_id: job!.run_id };
       const current = readOperation(await request(`/projects/${encodeURIComponent(scope)}/operations/${action}`, "POST",
-        { ...body, idempotency_key: crypto.randomUUID() }, csrf));
-      if (mounted.current && generation === commandGeneration.current) { setOperation(current); if (action === "start") setTicket(""); }
+        { run_id: job.run_id, idempotency_key: crypto.randomUUID() }, csrf));
+      if (mounted.current && generation === commandGeneration.current) setOperation(current);
     } catch (cause) { if (mounted.current && generation === commandGeneration.current) setOperationError(cause); }
     finally { if (mounted.current && generation === commandGeneration.current) { submitLock.current = false; setSubmitting(false); } }
   };
-  const submit = (event: FormEvent) => { event.preventDefault(); void command("start"); };
   const feedback = (status: ReadState, cause: unknown) => status === "incomplete" || status === "changed" ?
     <section className="panel data-feedback" role="alert"><div><h2>{status === "incomplete" ? copy.incomplete : copy.changed}</h2><p>{status === "incomplete" ? copy.incompleteHelp : copy.changedHelp}</p><button className="ghost" onClick={() => { revision.current = { key: "", snapshot: "" }; setFilters(current => ({ ...current, offset: 0 })); setReload(value => value + 1); }}>{copy.reload}</button></div></section> :
     <><DataFeedback state={status === "loading" ? "loading" : "error"} t={t} />{cause && status !== "loading" ? <p className="muted">{describeError(locale, cause)}</p> : null}</>;
@@ -247,16 +242,8 @@ export function JobWorkspace(props: Props) {
 
   return <div className={`job-workspace${compactOverview ? " overview-workspace" : ""}${props.summaryHeader ? " project-summary-window" : ""}`}>
     {props.summaryHeader?.(visible)}
-    {/* The project hub already names the project, so fixed scopes show worker status only when it needs attention. */}
-    {compactOverview || fixedScope ? ["unavailable", "error"].includes(worker) && <div className="overview-controls"><span className="worker-evidence alert" role="status">{worker === "unavailable" ? copy.workerUnavailable : copy.workerError}</span></div> :
-    <section className="panel compact"><div className="workspace-controls"><label htmlFor="jobs-project">{copy.scope}<select id="jobs-project" aria-label={copy.scope} value={scope} onChange={event => onScope(event.target.value)}><option value="">{copy.all}</option>{projects.map(item => <option key={item.id} value={item.id}>{item.display_name || item.name}</option>)}</select></label>
-      <span className="worker-evidence" role="status">{worker === "ready" ? copy.workerReady : worker === "checking" ? copy.workerChecking : worker === "unavailable" ? copy.workerUnavailable : copy.workerError}</span></div>
-      <p className="muted"><span>{scope ? copy.scopedHelp : copy.scopeHelp}</span> <span>{copy.workerHelp}</span></p>
-    </section>}
-    {mode === "jobs" && props.startForm !== false && project && !project.archived && <section className="panel compact"><form className="inline-form job-start-form" onSubmit={submit}>
-      <p className="form-legend"><span className="required-mark" aria-hidden="true">*</span> {t("requiredLegend")}</p><label htmlFor="job-ticket-number">{t("ticketNumber")}<span className="required-mark" aria-hidden="true"> *</span><input id="job-ticket-number" type="number" min="1" step="1" placeholder={`${t("examplePrefix")} 42`} value={ticket} onChange={event => setTicket(event.target.value)} required aria-describedby="job-ticket-number-help" /></label><button className="primary" disabled={busy} type="submit">{t("start")}</button>
-      <p id="job-ticket-number-help" className="field-hint"><span>{t("ticketNumberHelp")}</span> <span>{copy.startHelp}</span></p>
-    </form></section>}
+    {/* Scope selection lives with the page; worker status appears only when it needs attention. */}
+    {["unavailable", "error"].includes(worker) && <div className="overview-controls"><span className="worker-evidence alert" role="status">{worker === "unavailable" ? copy.workerUnavailable : copy.workerError}</span></div>}
     {!!operationError && <p className="alert" role="alert">{describeError(locale, operationError)}</p>}
     {operation && <div className={`notice command-result command-${operation.status}`} role="status">#{operation.id} · {copy[operation.status === "pending" ? "queued" : operation.status]}{operation.result && <p>{operation.result}</p>}{commandStatusError && <p>{copy.commandError}</p>}</div>}
     {mode !== "overview" && <section className="panel compact"><div className="job-filters job-basic-filters"><label htmlFor="job-search">{copy.search}<input id="job-search" type="search" maxLength={80} value={filters.q} onChange={event => change("q", event.target.value)} aria-describedby="job-search-help" /></label><label>{t("status")}<select value={filters.group} onChange={event => change("group", event.target.value)}><option value="">{t("all")}</option>{["active", "waiting", "review", "terminal"].map(group => <option key={group} value={group}>{group === "active" ? t("activeJobs") : group === "waiting" ? copy.waiting : group === "review" ? t("inReviewStatus") : copy.terminal}</option>)}</select></label></div><p id="job-search-help" className="field-hint">{copy.searchHelp}</p>

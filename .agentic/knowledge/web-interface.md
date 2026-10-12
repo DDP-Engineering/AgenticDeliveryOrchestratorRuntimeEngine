@@ -308,8 +308,9 @@ SQLite bytes, authorization, scope and financial redaction.
   activity and the separately polled control-worker heartbeat express different
   evidence. Timeline contains only redacted saved events, locally reverse-paged
   at 10/25/50/All without inferring unvisited stages.
-- Manual start requires a current authorized selected project and visible effect
-  guidance. Retry/cancel mirror conservative existing lifecycle guards, excluding
+- Global Jobs mirrors the hub: compact project selector and Tickets/Jobs sub-tabs
+  (`view=jobs`); All projects Tickets reads every active project into one table with
+  a Project column and per-project errors; manual start goes through Tickets Start. Retry/cancel mirror conservative existing lifecycle guards, excluding
   pending/completed handoff cancellation. A ref lock prevents repeated submission;
   the existing queue is polled for pending/running/succeeded/failed/uncertain.
   Unreadable status leaves completion unknown; server/worker authority remains

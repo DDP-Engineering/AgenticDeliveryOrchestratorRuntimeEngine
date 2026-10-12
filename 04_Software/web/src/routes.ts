@@ -12,7 +12,7 @@ export type Route =
   | { view: "overview"; project?: string }
   | { view: PlainView }
   | { view: "projectDetails"; project: string; tab: ProjectTab; run?: string; jobsView?: "jobs"; metricsTab?: MetricsTabRoute; reporting?: ReportingRoute }
-  | { view: "jobs"; project?: string; run?: string; reporting?: ReportingRoute }
+  | { view: "jobs"; project?: string; run?: string; jobsView?: "jobs"; reporting?: ReportingRoute }
   | { view: "metrics"; project?: string; tab?: MetricsTabRoute; reporting?: ReportingRoute };
 
 const PLAIN: Record<string, PlainView> = {
@@ -50,7 +50,7 @@ export function parseRoute(pathname: string, search = ""): Route | null {
   if (path in PLAIN) return { view: PLAIN[path] };
   if (path === "/jobs") {
     const run = identifier(query.get("run"));
-    return { view: "jobs", ...(reporting ? { reporting } : {}), ...(project ? { project } : {}), ...(project && run ? { run } : {}) };
+    return { view: "jobs", ...(reporting ? { reporting } : {}), ...(project ? { project } : {}), ...(project && run ? { run } : query.get("view") === "jobs" ? { jobsView: "jobs" as const } : {}) };
   }
   if (path === "/metrics") {
     const tab = query.get("tab") as MetricsTabRoute | null;
@@ -98,7 +98,7 @@ export function formatRoute(route: Route): string {
       if (route.tab === "statistics") return withQuery(path, { tab: route.metricsTab, ...reportingParams });
       return path;
     }
-    case "jobs": return withQuery("/jobs", { project: route.project, run: route.project ? route.run : undefined, ...reportingParams });
+    case "jobs": return withQuery("/jobs", { project: route.project, run: route.project ? route.run : undefined, view: route.project && route.run ? undefined : route.jobsView, ...reportingParams });
     case "metrics": return withQuery("/metrics", { project: route.project, tab: route.tab, ...reportingParams });
     default: return PLAIN_PATHS[route.view];
   }

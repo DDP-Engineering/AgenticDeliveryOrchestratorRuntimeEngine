@@ -629,7 +629,7 @@ export default function App() {
       case "projectDetails": return selected ? { view: "projectDetails", project: selected, tab: projectTab,
         ...(projectTab === "jobs" ? requestedRun ? { run: requestedRun } : jobsView === "jobs" ? { jobsView: "jobs" as const } : {} : {}),
         ...(projectTab === "statistics" ? { ...reportingRoute, ...(metricsTab !== "summary" && metricsTab !== "projects" ? { metricsTab } : {}) } : {}) } : { view: "projects" };
-      case "jobs": return { view: "jobs", ...reportingRoute, ...(jobScope ? { project: jobScope } : {}), ...(jobScope && requestedRun ? { run: requestedRun } : {}) };
+      case "jobs": return { view: "jobs", ...reportingRoute, ...(jobScope ? { project: jobScope } : {}), ...(jobScope && requestedRun ? { run: requestedRun } : jobsView === "jobs" ? { jobsView: "jobs" as const } : {}) };
       case "metrics": return { view: "metrics", ...reportingRoute, ...(selected && !(isAdmin && metricAllProjects) ? { project: selected } : {}), ...(metricsTab !== "summary" ? { tab: metricsTab } : {}) };
       default: return { view: page };
     }
@@ -641,7 +641,7 @@ export default function App() {
     if (route.view === "jobs" || route.view === "overview") setJobScope(route.project || "");
     if ("project" in route && route.project) { routedProject.current = route.project; setSelected(route.project); }
     if (route.view === "projectDetails") setProjectTab(route.tab);
-    if (route.view === "projectDetails" && route.tab === "jobs") setJobsView(route.run || route.jobsView === "jobs" ? "jobs" : "tickets");
+    if (route.view === "jobs" || route.view === "projectDetails" && route.tab === "jobs") setJobsView(route.run || route.jobsView === "jobs" ? "jobs" : "tickets");
     if (route.view === "metrics" || route.view === "jobs" || route.view === "projectDetails" && route.tab === "statistics") {
       setMetricFrom(route.reporting?.from ?? ""); setMetricTo(route.reporting?.through ?? "");
       setMetricTimezone(route.reporting?.timezone ?? "UTC"); setMetricGranularity((route.reporting?.granularity ?? "day") as "day" | "week" | "month");
@@ -953,7 +953,7 @@ export default function App() {
 
   const workspaceProps = { locale, projects, scope: jobScope, csrf: session.csrf, request, t, refresh: viewRefresh,
     onScope: (id: string) => { setJobScope(id); if (id) setSelected(id); setRequestedRun(""); },
-    onOpen: (id: string, runId: string) => { setSelected(id); setJobScope(id); setRequestedRun(runId); setPage("jobs"); },
+    onOpen: (id: string, runId: string) => { setSelected(id); setJobScope(id); setRequestedRun(runId); setJobsView("jobs"); setPage("jobs"); },
     onClose: () => setRequestedRun("") };
   const hubWorkspaceProps = { ...workspaceProps, scope: selected,
     onOpen: (id: string, runId: string) => { setSelected(id); setRequestedRun(runId); setJobsView("jobs"); setProjectTab("jobs"); } };
@@ -967,6 +967,7 @@ export default function App() {
     if (target !== page) setMetricsTab("summary");
     if (target === "overview") { routedProject.current = null; setJobScope(""); }
     if (target === "jobs" && ["projectDetails", "metrics"].includes(page)) setJobScope(selected);
+    if (target === "jobs" && page !== "jobs") setJobsView("tickets");
     setPage(target); setMenuOpen(false);
     if (target === "metrics") setMetricAllProjects(false);
   };
@@ -1007,6 +1008,12 @@ export default function App() {
     [t("unallocatedUsage"), formatNumber(metrics.coverage.usage_events_unallocated || 0)]] : [];
   const usageColumns: Array<[UsageSortKey, MessageKey]> = [["date", "date"], ["executor", "executor"], ["model", "model"], ["events", "usageEvents"], ["tokens_in", "tokensIn"],
     ["tokens_out", "tokensOut"], ["cache_read_tokens", "cacheRead"], ["cache_write_tokens", "cacheWrite"], ...(isAdmin ? [["reported_cost_usd", "cost"], ["estimated_cost_usd", "estimatedCost"]] as Array<[UsageSortKey, MessageKey]> : [])];
+
+  /** Tickets/Jobs sub-tabs shared by the project hub and the global Jobs page. */
+  const jobsSubtabs = <div className="metrics-tabs jobs-subtabs" role="tablist" aria-label={ticketCopy[locale].sections}>
+    {(["tickets", "jobs"] as const).map(view => <button key={view} id={`jobs-subtab-${view}`} type="button" role="tab" aria-controls="jobs-subtab-panel" aria-selected={jobsView === view} tabIndex={jobsView === view ? 0 : -1} onClick={() => selectJobsView(view)} onKeyDown={onJobsViewKeyDown}>{ticketCopy[locale][view]}</button>)}
+  </div>;
+  const jobScopeProject = projects.find(item => item.id === jobScope);
 
   /** Statistics content; `fixed` keeps the project chosen by the project hub instead of offering a selector. */
   const statisticsView = (fixed: boolean) => <>
@@ -1151,12 +1158,10 @@ export default function App() {
           </>}
           {projectTab === "history" && selectedProject?.id && <AuditHistory key={`${session.user.id}:${selected}`} locale={locale} projects={projects} fixedProject={selectedProject?.id} read={path => request(path)} />}
           {projectTab === "jobs" && selectedProject && <>
-            <div className="metrics-tabs jobs-subtabs" role="tablist" aria-label={ticketCopy[locale].sections}>
-              {(["tickets", "jobs"] as const).map(view => <button key={view} id={`jobs-subtab-${view}`} type="button" role="tab" aria-controls="jobs-subtab-panel" aria-selected={jobsView === view} tabIndex={jobsView === view ? 0 : -1} onClick={() => selectJobsView(view)} onKeyDown={onJobsViewKeyDown}>{ticketCopy[locale][view]}</button>)}
-            </div>
+            {jobsSubtabs}
             <div id="jobs-subtab-panel" role="tabpanel" aria-labelledby={`jobs-subtab-${jobsView}`}>
-              {jobsView === "tickets" ? <TicketWorkspace key={`${session.user.id}:${selectedProject.id}`} project={selectedProject} locale={locale} csrf={session.csrf} request={request} />
-                : <JobWorkspace reporting={{ from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }} reportingQuery={metricSuffix} admin={isAdmin} {...hubWorkspaceProps} mode="jobs" run={requestedRun} fixedScope startForm={false} />}
+              {jobsView === "tickets" ? <TicketWorkspace key={`${session.user.id}:${selectedProject.id}`} projects={[selectedProject]} locale={locale} csrf={session.csrf} request={request} />
+                : <JobWorkspace reporting={{ from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }} reportingQuery={metricSuffix} admin={isAdmin} {...hubWorkspaceProps} mode="jobs" run={requestedRun} fixedScope />}
             </div>
           </>}
           {projectTab === "statistics" && statisticsView(true)}
@@ -1180,7 +1185,14 @@ export default function App() {
           </div>
         </>}
 
-        {page === "jobs" && projectsState === "ready" && projects.length > 0 && <JobWorkspace reporting={{ from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }} reportingQuery={metricSuffix} admin={isAdmin} {...workspaceProps} mode="jobs" run={requestedRun} />}
+        {page === "jobs" && projectsState === "ready" && projects.length > 0 && <>
+          <section className="panel compact"><div className="workspace-controls"><label htmlFor="jobs-project">{jc.scope}<select id="jobs-project" aria-label={jc.scope} value={jobScope} onChange={event => workspaceProps.onScope(event.target.value)}><option value="">{jc.all}</option>{projects.map(item => <option key={item.id} value={item.id}>{item.display_name || item.name}</option>)}</select></label></div></section>
+          {jobsSubtabs}
+            <div id="jobs-subtab-panel" role="tabpanel" aria-labelledby={`jobs-subtab-${jobsView}`}>
+              {jobsView === "tickets" ? <TicketWorkspace key={`${session.user.id}:${jobScopeProject?.id ?? ""}`} projects={jobScopeProject ? [jobScopeProject] : projects.filter(item => !item.archived)} showProject={!jobScopeProject} locale={locale} csrf={session.csrf} request={request} />
+                : <JobWorkspace reporting={{ from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }} reportingQuery={metricSuffix} admin={isAdmin} {...workspaceProps} mode="jobs" run={requestedRun} />}
+            </div>
+        </>}
 
         {page === "metrics" && projectsState === "ready" && projects.length > 0 && statisticsView(false)}
 

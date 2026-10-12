@@ -281,7 +281,7 @@ test("job list and direct detail share selected-period and lifetime consumption 
     const value = await (await route.fetch()).json(); const id = value.scope.project_ids[0]; value.jobs = new URL(route.request().url()).searchParams.has("day_from") ? [] : [consumption(id, id.startsWith("a") ? 0 : 7)]; await route.fulfill({ json: value });
   });
   const alpha = (await (await page.request.get("/api/v1/projects")).json()).find((item: any) => item.name === "alpha").id;
-  await page.goto("/jobs");
+  await page.goto("/jobs?view=jobs");
   await page.getByRole("combobox", { name: "Rows per page", exact: true }).selectOption("all");
   const collisions = page.locator('.action-jobs-table .job-consumption').filter({ hasText: "ux-working" }); await expect(collisions).toHaveCount(2);
   expect(new Set(await collisions.evaluateAll(nodes => nodes.map(node => node.getAttribute("data-identity")))).size).toBe(2);

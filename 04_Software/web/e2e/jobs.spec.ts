@@ -137,14 +137,66 @@ test("hub separates pickup and verification and keeps role-appropriate navigatio
   await expect(hub).toBeVisible();
 });
 
-test("manual start explains queue effect and reports asynchronous worker failure", async ({ page }) => {
+test("manual start from Tickets reports queueing and the asynchronous worker failure", async ({ page }) => {
   await signIn(page);
   await page.goto("/jobs?project=alpha");
-  await expect(page.getByText("The worker will attempt this existing ticket through the configured selection, readiness and approval gates.", { exact: true })).toBeVisible();
-  await page.locator("#job-ticket-number").fill("43");
-  await page.getByRole("button", { name: "Start job", exact: true }).click();
-  await expect(page.getByRole("status").filter({ hasText: "Command failed" })).toContainText("engine rejected operation");
-  await expect(page.getByText("Command completed", { exact: false })).toHaveCount(0);
+  await page.getByRole("button", { name: "Read tickets", exact: true }).click();
+  await page.locator(".ticket-table tbody tr.ticket-row").filter({ hasText: "#43" }).getByRole("button", { name: "Start", exact: true }).click();
+  const notice = page.locator(".ticket-notice");
+  await expect(notice).toContainText("Start for #43 queued");
+  await expect(notice).toContainText("The worker will attempt this existing ticket through the configured selection, readiness and approval gates.");
+  await expect(notice).toContainText("failed · engine rejected operation");
+  await expect(notice).not.toContainText("finished");
+});
+
+test("global Jobs mirrors the project hub with a compact scope and Tickets/Jobs sub-tabs", async ({ page }) => {
+  await signIn(page);
+  await page.goto("/jobs");
+  await expect(page.locator("#jobs-project")).toHaveValue("");
+  const tabs = page.locator(".jobs-subtabs");
+  await expect(tabs.getByRole("tab", { name: "Tickets", exact: true })).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator("#job-ticket-number")).toHaveCount(0);
+  await expect(page.getByText("Worker available", { exact: true })).toHaveCount(0);
+  await expect(page.getByText(/Jobs shown here belong|The heartbeat describes/)).toHaveCount(0);
+  const projects = await (await page.request.get("/api/v1/projects")).json();
+  const alpha = projects.find((item: { name: string }) => item.name === "alpha").id, beta = projects.find((item: { name: string }) => item.name === "beta").id;
+  // All projects reads every authorized project's tickets into one table with a Project column;
+  // a failed project read reports only that project and keeps the others.
+  const betaTickets = `**/api/v1/projects/${beta}/tickets`;
+  await page.route(betaTickets, route => route.abort());
+  await page.getByRole("button", { name: "Read tickets", exact: true }).click();
+  const rows = page.locator(".ticket-table tbody tr.ticket-row");
+  await expect(page.getByRole("columnheader", { name: "Project", exact: true })).toBeVisible();
+  await expect(page.locator(".ticket-workspace .alert")).toHaveCount(1);
+  await expect(page.locator(".ticket-workspace .alert")).toContainText(/^beta: /);
+  await expect(rows.filter({ hasText: "alpha" }).filter({ hasText: "#44" })).toHaveCount(1);
+  await expect(rows.filter({ hasText: "beta" })).toHaveCount(0);
+  await page.unroute(betaTickets);
+  await page.getByRole("button", { name: "Read tickets", exact: true }).click();
+  await expect(page.locator(".ticket-workspace .alert")).toHaveCount(0);
+  await expect(rows.filter({ hasText: "alpha" }).filter({ hasText: "#44" })).toHaveCount(1);
+  const betaRow = rows.filter({ hasText: "beta" }).filter({ hasText: "#44" });
+  await expect(betaRow).toHaveCount(1);
+  const started = page.waitForRequest(request => request.method() === "POST" && new URL(request.url()).pathname === `/api/v1/projects/${beta}/tickets/44/start`);
+  await betaRow.getByRole("button", { name: "Start", exact: true }).click();
+  await started;
+  await expect(page.locator(".ticket-notice")).toContainText("beta · Start for #44 queued");
+  await tabs.getByRole("tab", { name: "Jobs", exact: true }).click();
+  await expect(page).toHaveURL(/view=jobs/);
+  await expect(page.locator(".action-jobs-table")).toBeVisible();
+  await page.locator("#jobs-project").selectOption(alpha);
+  await tabs.getByRole("tab", { name: "Tickets", exact: true }).click();
+  await page.getByRole("button", { name: "Read tickets", exact: true }).click();
+  await expect(rows.first()).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Project", exact: true })).toHaveCount(0);
+  await tabs.getByRole("tab", { name: "Jobs", exact: true }).click();
+  await expect(page).toHaveURL(/view=jobs/);
+  await expect(page.locator(".action-jobs-table")).toBeVisible();
+  await page.reload();
+  await expect(tabs.getByRole("tab", { name: "Jobs", exact: true })).toHaveAttribute("aria-selected", "true");
+  await page.goto(`/jobs?project=${alpha}&run=ux-working`);
+  await expect(tabs.getByRole("tab", { name: "Jobs", exact: true })).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator(".detail-panel")).toBeVisible();
 });
 
 test("all real lifecycle groups explain exact stage evidence and protected handoffs", async ({ page }) => {
@@ -220,7 +272,7 @@ test("missing evidence and stale worker activity do not fabricate telemetry or a
 });
 
 test("global complete search paging basic filters and source revision conflicts", async ({ page }) => {
-  await signIn(page); await page.goto("/jobs");
+  await signIn(page); await page.goto("/jobs?view=jobs");
   await expect(page.locator("#jobs-project")).toHaveValue("");
   await expect(page.locator(".action-jobs-table tbody tr")).toHaveCount(10);
   const continuation = page.waitForRequest(request => request.url().includes("jobs-page?") && new URL(request.url()).searchParams.get("offset") === "10");
@@ -247,7 +299,7 @@ test("global complete search paging basic filters and source revision conflicts"
 
 test("composite colliding IDs and reload preserve the owning project", async ({ page }) => {
   await signIn(page);
-  await page.goto("/jobs");
+  await page.goto("/jobs?view=jobs");
   await page.getByLabel("Search jobs", { exact: true }).fill("ux-working");
   await expect(page.locator(".action-jobs-table tbody tr")).toHaveCount(2);
   const links = await page.locator(".action-jobs-table tbody td:first-child a").evaluateAll(nodes => nodes.map(node => (node as HTMLAnchorElement).href));
@@ -278,7 +330,7 @@ test("incomplete corrupt and failed job reads hide totals and stale details", as
   await expect(page.locator(".overview-jobs-table")).toHaveCount(0);
   await page.unroute("**/api/v1/jobs-page?*");
   await page.request.post("/__e2e__/jobs?mode=corrupt", { headers: { "X-ADORE-E2E": "local-test" } });
-  await page.goto("/jobs");
+  await page.goto("/jobs?view=jobs");
   await expect(page.getByRole("heading", { name: "Could not load data", exact: true })).toBeVisible();
   await expect(page.locator(".action-jobs-table")).toHaveCount(0);
   await expect(page.locator("body")).not.toContainText("BROKEN_FIXTURE_SECRET");
@@ -288,7 +340,7 @@ test("developer search counts navigation direct routes and command CSRF exclude 
   await signIn(page, "developer");
   await expect(page.locator("#overview-project option")).toHaveCount(2);
   await expect(page.getByRole("region", { name: "Active jobs", exact: true })).not.toContainText("Actual beta collision");
-  await page.goto("/jobs");
+  await page.goto("/jobs?view=jobs");
   await expect(page.locator("#jobs-project option")).toHaveCount(2);
   await page.getByLabel("Search jobs", { exact: true }).fill("beta");
   await expect(page.locator(".action-jobs-table")).toHaveCount(0);
@@ -314,15 +366,17 @@ test("queued pending and final successful commands do not predict job outcome", 
   await signIn(page); await page.goto("/jobs?project=alpha");
   let release!: () => void; const pending = new Promise<void>(resolve => { release = resolve; });
   await page.route("**/api/v1/operations/*", async route => { const response = await route.fetch(); await pending; await route.fulfill({ response }); });
-  let submits = 0; page.on("request", request => { if (request.method() === "POST" && request.url().endsWith("/operations/start")) submits++; });
-  await page.locator("#job-ticket-number").fill("42");
-  await page.getByRole("button", { name: "Start job", exact: true }).click();
-  await expect(page.getByRole("status").filter({ hasText: "Command queued" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Start job", exact: true })).toBeDisabled();
+  let submits = 0; page.on("request", request => { if (request.method() === "POST" && request.url().endsWith("/tickets/44/start")) submits++; });
+  await page.getByRole("button", { name: "Read tickets", exact: true }).click();
+  const row = page.locator(".ticket-table tbody tr.ticket-row").filter({ hasText: "#44" });
+  await row.getByRole("button", { name: "Start", exact: true }).click();
+  const notice = page.locator(".ticket-notice");
+  await expect(notice).toContainText("Start for #44 queued");
+  await expect(row.getByRole("button", { name: "Start", exact: true })).toBeDisabled();
   expect(submits).toBe(1);
-  await expect(page.getByText("Command completed", { exact: false })).toHaveCount(0);
+  await expect(notice).not.toContainText("finished");
   release();
-  await expect(page.getByRole("status").filter({ hasText: "Command completed" })).toBeVisible();
+  await expect(notice).toContainText("finished");
   await page.goto("/jobs?project=alpha&run=ux-failed");
   await expect(page.locator(".detail-panel")).toContainText("does not bypass validation or approval");
   await page.locator(".detail-panel").getByRole("button", { name: "Retry", exact: true }).click();

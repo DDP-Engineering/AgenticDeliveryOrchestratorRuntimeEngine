@@ -35,7 +35,7 @@ test("tickets sub-tab reads open tickets on request and controls them safely", a
 
   await page.getByRole("button", { name: "Read tickets", exact: true }).click();
   const rows = page.locator(".ticket-table tbody tr.ticket-row");
-  await expect(rows).toHaveCount(5);
+  await expect(rows).toHaveCount(7);
   expect(reads).toHaveLength(1);
   const ready = rows.filter({ hasText: "#21" });
   const unsafe = rows.filter({ hasText: "#22" });

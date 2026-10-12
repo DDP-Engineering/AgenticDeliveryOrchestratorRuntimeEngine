@@ -190,9 +190,13 @@ remain unknown when the projection does not provide them. Old recorded activity 
 separate from the control worker heartbeat. Completed never implies human merge.
 The observed timeline marks only actual events, including quick paths.
 
-Manual start requires one selected current project. Visible instructions explain
-existing ticket numbers and the worker's selection/readiness/approval gates.
-Changing scope clears the ticket draft. Archived projects retain history and hide
+The global Jobs page renders its own compact `#jobs-project` selector and the hub's
+shared `jobsSubtabs` (Tickets via `TicketWorkspace`, Jobs via `JobWorkspace`);
+`routes.ts` carries `view=jobs`. `TicketWorkspace` takes `projects`: for All
+projects it reads each active project with `Promise.allSettled`, keys rows by
+project and ticket, adds a Project column and reports read failures per project. `JobWorkspace` has no
+scope panel or ticket-number form and shows worker status only as an alert.
+Manual start goes through Tickets Start. Archived projects retain history and hide
 start. Retry is available for failed current jobs; cancel excludes terminal and
 pending/completed human handoffs. Effects stay visible beside each control.
 An immediate submission lock prevents duplicate commands; existing operation

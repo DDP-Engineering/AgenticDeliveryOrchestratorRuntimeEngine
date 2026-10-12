@@ -319,16 +319,21 @@ with Uvicorn's SSL certificate and key arguments and `proxy_headers=False`.
 Bind only a trusted LAN/VPN address, restrict its firewall port to those
 networks, and verify the HTTPS login cookie is `Secure`. The host supplies and
 rotates its certificate and key; the offline bundle does not fetch them.
-On Jobs, search complete authorized retained history by saved ticket title or
-number, project, job ID, lifecycle, stage or outcome. **Job scope** selects one
-project, and **Status** narrows the list to active, waiting, in-review or
-finished jobs; there are no further filters.
+The global **Jobs** page starts with one compact **Job scope** selector and the
+same **Tickets** (default) and **Jobs** (`view=jobs`) sub-tabs as the project hub;
+a job link opens the Jobs sub-tab. With **All projects**, Read tickets reads the
+open tickets of every authorized active project into one table with a Project
+column; each row's actions act on its project, and a project whose forge read
+fails shows its own error. Worker status appears
+only when the worker is unavailable or failing. In the job list, search complete
+authorized retained history by saved ticket title or number, project, job ID,
+lifecycle, stage or outcome; **Status** narrows the list to active, waiting,
+in-review or finished jobs; there are no further filters.
 A changed page revision hides previous results and offers **Reload first page**.
 
-To start an existing ticket, first select its current project. Enter a positive
-integer such as `42` for `/issues/42`, without `#` or a URL. The worker applies
-existing readiness, ready/hold/exclude and approval gates. Switching scope clears
-the ticket draft; archived projects retain history with start hidden.
+To start an existing ticket, use **Start** in the Tickets sub-tab, for one
+project or for All projects. The worker applies existing readiness, ready/hold/exclude and
+approval gates; archived projects retain history with start hidden.
 Retry and Cancel explain their effects and appear only for supported current
 states. A queued command is waiting for the worker. Its actual operation result
 then shows completed, failed or uncertain; unreadable status leaves completion

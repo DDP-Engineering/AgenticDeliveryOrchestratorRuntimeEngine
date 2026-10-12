@@ -22,6 +22,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Align the global Jobs page with the project hub: a compact project selector and the same Tickets/Jobs sub-tabs (`view=jobs`), with All projects Tickets reading every authorized active project into one table with a Project column; the ticket-number start form and the scope/worker explanations are removed (start a ticket from Tickets), and worker status appears only when it needs attention.
+
 - Compact the Statistics Trends tab: one table with a row per period bucket and inline bars replaces the chart plus its duplicate table, time zone labels and measurement labels are gone, coverage shows as compact values, and the separate Estimated cost section is removed (administrators find unpriced usage events among the Usage totals and estimated cost per project in Projects).
 
 - Compact the Statistics Quality tab: delivery quality, administrator cost per job and MR/PR revision/pipeline repair totals use the compact Usage-style values without explanatory paragraphs, and the daily revision table lists only days with activity.

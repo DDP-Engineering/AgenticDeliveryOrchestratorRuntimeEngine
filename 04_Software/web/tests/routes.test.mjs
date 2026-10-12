@@ -40,6 +40,8 @@ const table = [
   ["/jobs", { view: "jobs" }],
   [`/jobs?project=${ID}`, { view: "jobs", project: ID }],
   [`/jobs?project=${ID}&run=run-26`, { view: "jobs", project: ID, run: "run-26" }],
+  [`/jobs?project=${ID}&view=jobs`, { view: "jobs", project: ID, jobsView: "jobs" }],
+  ["/jobs?view=jobs", { view: "jobs", jobsView: "jobs" }],
   ["/metrics", { view: "metrics" }],
   [`/metrics?project=${ID}&tab=usage`, { view: "metrics", project: ID, tab: "usage" }],
   ["/admin/status", { view: "administration" }],

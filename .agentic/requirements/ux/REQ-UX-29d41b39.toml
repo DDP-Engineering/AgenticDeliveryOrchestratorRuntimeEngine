@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-29d41b39"
+
+title = "Show the global Jobs page like the project hub Jobs tab"
+
+status = "active"
+
+requirement = """
+While a user views the global Jobs page, the interface shall show one compact project selector row and the same Tickets and Jobs sub-tabs as the project hub (Tickets by default, the Jobs sub-tab addressable with view=jobs and opened by a run link); for All projects, Read tickets reads every authorized active project's open tickets into one table with a Project column whose actions act on that row's project and reports a failed project read per project, without a ticket-number start form or scope and worker explanations, showing worker status only when the worker is unavailable or failing.
+"""
+
+verification = "Automated: e2e opens /jobs (All projects: Tickets sub-tab selected, no ticket-number form, no Worker available or scope help), fails one project's ticket read and sees only that project's error beside the other project's rows, reads All projects tickets (Project column, rows from several projects, Start posts to the row's project), switches to Jobs (view=jobs, table) and reloads, selects a project (Tickets without a Project column), and opens a run link in the Jobs sub-tab; manual start, queue and asynchronous outcome tests start tickets from the Tickets sub-tab; unit tests parse/format view=jobs."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/routes.ts", "04_Software/web/src/i18n.ts", "04_Software/web/src/jobModel.ts", "04_Software/web/src/styles.css", "04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/ticketCopy.ts", "04_Software/adore/web/static/"]
+
+linked_tests = ["04_Software/web/e2e/jobs.spec.ts", "04_Software/web/e2e/dashboard.spec.ts", "04_Software/web/tests/routes.test.mjs"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-12
+updated = 2026-10-12

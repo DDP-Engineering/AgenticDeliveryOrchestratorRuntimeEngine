@@ -5,7 +5,7 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import type { Locale } from "./i18n";
+import { messages, type Locale } from "./i18n";
 import { ApiError } from "./errors";
 
 const copy = {
@@ -73,7 +73,7 @@ export function RepositoryConnection({ project, provider, repository, locale, co
       <p><strong>{provider === "github" ? "GitHub" : provider === "gitlab" ? "GitLab" : "Gitea"}</strong> · {repository}</p>
       <p className="muted">{text.help}</p>
       <fieldset disabled={busy} className="form-stack">
-        <label>{text.server}<input type="url" required maxLength={512} value={server} onChange={event => { setServer(event.target.value); setAllowHttp(false); }} autoComplete="off" placeholder="https://git.example.com" /></label>
+        <label>{text.server}<input type="url" required maxLength={512} value={server} onChange={event => { setServer(event.target.value); setAllowHttp(false); }} autoComplete="off" placeholder={`${messages[locale].examplePrefix} https://git.example.com`} /></label>
         <label>{text.token}<input type="password" required maxLength={4096} value={token} onChange={event => setToken(event.target.value)} autoComplete="off" spellCheck={false} /></label>
         {server.startsWith("http:") && <label className="repository-http"><input type="checkbox" checked={allowHttp} onChange={event => setAllowHttp(event.target.checked)} /> {text.http}</label>}
         <div className="button-row"><button className="primary" type="submit" disabled={!token || server.startsWith("http:") && !allowHttp}>{text.submit}</button><button className="ghost" type="button" onClick={close}>{text.cancel}</button></div>

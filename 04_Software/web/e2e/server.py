@@ -55,13 +55,13 @@ def simulated_command(argv: list[str], _env: dict[str, str]) -> int:
 
     @param[in] argv Fixed conductor command produced by the real worker.
     @param[in] _env Isolated environment supplied by the worker.
-    @return Zero for ticket 42 and idle polls; seven for ticket 43.
+    @return Zero for tickets 42 and 44 and idle polls; seven for ticket 43.
     @exception ValueError An unexpected command reaches the fake boundary.
     """
     if argv[-2:] == ["run", "--once"]:
         return 0
     if argv[-4:-1] == ["run", "--once", "--ticket"]:
-        if argv[-1] == "42":
+        if argv[-1] in {"42", "44"}:
             return 0
         if argv[-1] == "43":
             return 7
@@ -130,6 +130,12 @@ def main() -> None:
                 {"iid": 25, "title": "Unlabelled idea", "description": "Try it.", "labels": [],
                  "author": {"username": "ana"}, "state": "opened", "web_url": "",
                  "created_at": "2026-10-01T14:00:00Z", "updated_at": "2026-10-03T13:00:00Z"},
+                {"iid": 43, "title": "Rejected by the engine", "description": "Fails.", "labels": ["agent-ready", "P2"],
+                 "author": {"username": "ana"}, "state": "opened", "web_url": "",
+                 "created_at": "2026-10-01T15:00:00Z", "updated_at": "2026-10-03T14:00:00Z"},
+                {"iid": 44, "title": "Queue me", "description": "Succeeds.", "labels": ["agent-ready", "P2"],
+                 "author": {"username": "ion"}, "state": "opened", "web_url": "",
+                 "created_at": "2026-10-01T16:00:00Z", "updated_at": "2026-10-03T15:00:00Z"},
         ]
         forge_notes = {
             21: [{"id": 1, "body": "Please keep **bold** headers", "author": {"username": "ana"},
