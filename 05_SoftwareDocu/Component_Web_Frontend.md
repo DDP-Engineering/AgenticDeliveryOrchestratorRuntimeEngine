@@ -212,6 +212,14 @@ from command acceptance.
 Administration's account section is labelled Users in every locale.
 The About dialog constrains its width and height to the viewport, with internal
 scrolling for the license and notice content and an accessible Close button.
+It opens with the DDP Engineering logo on a dark band, ADORE and its version
+as the largest text, the license name, and What's new, License and Third-party
+notices buttons; License and Third-party notices expand their texts only on
+request (`aria-expanded`). What's new replaces the content in the same, wider
+dialog with Back: each release from `/api/v1/about` `release_notes`, newest
+first (`Unreleased` as In development, released ones with version and date),
+grouped New, Improved, Fixed and by topic in the user's locale with English
+fallback (`src/releaseNotes.ts`).
 Add project opens the administrator-only `EnrollmentWizard` from Projects.
 It presents six ordered steps with shared visible, associated guidance for method,
 repository/identity, environment, eligibility/reviewers/limits, verification and
@@ -241,7 +249,7 @@ ref lock to prevent double clicks; failure requires a deliberate new review.
 Completion displays stopped pickup and separate activation guidance, then offers
 Open project. Draft probe evidence is ephemeral; persisted project readiness
 starts unverified and is checked separately.
-About displays the project license text and the bundled third-party notices.
+About displays, on request, the project license text and the bundled third-party notices.
 Projects show archived state and let administrators archive or restore a
 quiescent project. Archived jobs and metrics stay visible, while job and pickup
 controls are hidden until restore.
@@ -325,8 +333,9 @@ secondary filters run before slicing; counts/groups retain the searched scope
 before secondary selection. Continuations pass the returned optimistic snapshot.
 Scope/filter/session generations suppress superseded responses. Status and stage
 labels and all action guidance are available in EN/FR/DE/RO.
-The About dialog traps keyboard focus and returns it to the opening button on
-close. A compact top-bar Sign out control remains available when the sidebar
+The About dialog traps keyboard focus, cycling Tab through its buttons and
+license regions, moves focus to What's new or Back when the view switches, and
+returns focus to the opening button on close. A compact top-bar Sign out control remains available when the sidebar
 account controls are hidden on narrow screens.
 Project selection and project API routes use the immutable profile ID, so a
 profile rename preserves the selected project and does not retarget actions to

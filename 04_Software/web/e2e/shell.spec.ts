@@ -271,6 +271,50 @@ test("header Refresh appears only on pages that do not refresh themselves", asyn
   }
 });
 
+test("About shows the logo and version with folded licenses and a What's new window", async ({ page }) => {
+  await signIn(page);
+  const about = await (await page.request.get("/api/v1/about")).json();
+  const trigger = page.locator(".topbar").getByRole("button", { name: "About", exact: true });
+  await trigger.click();
+  const dialog = page.getByRole("dialog", { name: "ADORE" });
+  await expect(dialog.getByRole("img", { name: "DDP Engineering" })).toBeVisible();
+  await expect(dialog.locator(".about-version")).toHaveText(`Version ${about.version}`);
+  // Licenses stay folded until their button is pressed.
+  const license = dialog.getByRole("button", { name: "License", exact: true });
+  const notices = dialog.getByRole("button", { name: "Third-party notices", exact: true });
+  await expect(license).toHaveAttribute("aria-expanded", "false");
+  await expect(dialog.locator(".about-license-name")).toHaveText("PolyForm Noncommercial License 1.0.0");
+  await expect(dialog.locator("pre")).toHaveCount(0);
+  await license.click();
+  await expect(license).toHaveAttribute("aria-expanded", "true");
+  await expect(dialog.locator("#about-license")).toContainText("Required Notice");
+  await notices.click();
+  await expect(dialog.locator("#about-notices")).toContainText("React");
+  await license.click();
+  await expect(dialog.locator("#about-license")).toHaveCount(0);
+  // Keyboard focus cycles inside the dialog.
+  for (let step = 0; step < 8; step += 1) {
+    await page.keyboard.press("Tab");
+    expect(await page.evaluate(() => !!document.activeElement?.closest("[role=dialog]"))).toBe(true);
+  }
+  // What's new lists the release notes, newest first, and Back returns to About.
+  await dialog.getByRole("button", { name: "What's new", exact: true }).click();
+  const whatsNew = page.getByRole("dialog", { name: "What's new" });
+  // Switching views moves focus to the counterpart button so the keyboard stays in the dialog.
+  await expect(whatsNew.getByRole("button", { name: "Back", exact: true })).toBeFocused();
+  const releases = about.release_notes as Array<{ version: string; entries: Array<{ category: string; text: { en: string } }> }>;
+  await expect(whatsNew.locator(".release-notes > section > h3").first()).toContainText(releases[0].version === "Unreleased" ? "In development" : releases[0].version);
+  await expect(whatsNew.getByRole("heading", { name: { new: "New", improved: "Improved", fixed: "Fixed" }[releases[0].entries[0].category] as string, exact: true }).first()).toBeVisible();
+  await expect(whatsNew.getByText(releases[0].entries[0].text.en, { exact: true })).toBeVisible();
+  await expect(whatsNew.getByRole("heading", { name: `Version ${about.version}`, exact: false })).toBeVisible();
+  await whatsNew.getByRole("button", { name: "Back", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "ADORE" }).locator(".about-version")).toBeVisible();
+  await expect(page.getByRole("button", { name: "What's new", exact: true })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+});
+
 test("localized shell and assigned Dev remain usable in both themes and widths", async ({ page }, info) => {
   await signIn(page, "developer");
   for (const theme of ["light", "dark"]) {

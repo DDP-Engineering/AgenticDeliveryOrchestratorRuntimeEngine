@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-REL-982702d6"
+
+title = "Keep agent-maintained checked release notes beside the changelog"
+
+status = "active"
+
+requirement = """
+While ADORE is developed, its user-facing release notes shall live in one structured file beside the changelog with every entry in English, French, German and Romanian, and the repository check shall fail when an entry lacks a locale or topic, uses a category other than new, improved or fixed, exceeds 100 characters, names files, paths, endpoints, ids or components, a release holds more than ten entries in one category, releases are out of order, a released version lacks a changelog section with the same date, or the current version has no release section; with a base revision it shall warn, without failing, when the changelog changed but the release notes did not.
+"""
+
+verification = "Automated: pytest test_release_notes runs 02_Tools/check_release_notes.py on the repository (pass) and on fixtures for each failure and the --since warning."
+
+affected_paths = ["04_Software/adore/release_notes.py", "04_Software/adore/release_notes.toml", "02_Tools/check_release_notes.py", "AGENTS.md", "CLAUDE.md"]
+
+linked_tests = ["04_Software/tests/test_release_notes.py"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-12
+updated = 2026-10-12

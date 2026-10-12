@@ -30,6 +30,13 @@ configuration values, type/domain hints and field help use 0.875rem text with
 On narrow screens, setting labels, values and help stack vertically.
 
 
+About shows the DDP Engineering logo band, ADORE and its version, and What's
+new / License / Third-party notices buttons; licenses stay folded until pressed.
+What's new renders `release_notes` from `/api/v1/about` (packaged
+`adore/release_notes.toml`, four locales, English fallback, `Unreleased` as In
+development); agents maintain it under AGENTS.md "Release notes rules" and
+`02_Tools/check_release_notes.py` checks it.
+
 The header help button **How ADORE works**, beside About (and Refresh where shown), opens
 the localized delivery glossary. Activate it again, press Escape or click outside
 to close it. Full job history is reached through the sidebar Jobs link; Overview

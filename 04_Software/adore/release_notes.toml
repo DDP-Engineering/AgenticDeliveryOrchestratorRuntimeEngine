@@ -1,0 +1,145 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+#
+# User-facing release notes shown in About > What's new. Rules: AGENTS.md
+# "Release notes rules"; check: python 02_Tools/check_release_notes.py.
+# One [[release]] per release, "Unreleased" first, then released versions
+# newest first with the date of their CHANGELOG.md heading. Each entry has a
+# category (new | improved | fixed), a short topic and a text of at most 100
+# characters in en, fr, de and ro, in plain user language.
+
+schema = 1
+
+[[release]]
+version = "Unreleased"
+
+[[release.entry]]
+category = "new"
+topic = { en = "Dashboard", fr = "Tableau de bord", de = "Dashboard", ro = "Panou web" }
+text = { en = "Follow projects, jobs and statistics in a web dashboard, in four languages.", fr = "Suivez projets, tâches et statistiques dans un tableau de bord web, en quatre langues.", de = "Projekte, Aufträge und Statistiken in einem Web-Dashboard verfolgen, in vier Sprachen.", ro = "Urmăriți proiecte, lucrări și statistici într-un panou web, în patru limbi." }
+
+[[release.entry]]
+category = "new"
+topic = { en = "Tickets", fr = "Tickets", de = "Tickets", ro = "Tichete" }
+text = { en = "Browse a project's open tickets and start a job on one from its Jobs tab.", fr = "Parcourez les tickets ouverts d'un projet et lancez une tâche depuis l'onglet Tâches.", de = "Offene Tickets eines Projekts durchsuchen und im Tab Aufträge einen Auftrag starten.", ro = "Răsfoiți tichetele deschise ale unui proiect și porniți o lucrare din fila Lucrări." }
+
+[[release.entry]]
+category = "new"
+topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
+text = { en = "Add or import a project with guided steps that explain every value.", fr = "Ajoutez ou importez un projet avec des étapes guidées qui expliquent chaque valeur.", de = "Projekte mit geführten Schritten hinzufügen oder importieren, die jeden Wert erklären.", ro = "Adăugați sau importați un proiect cu pași ghidați care explică fiecare valoare." }
+
+[[release.entry]]
+category = "new"
+topic = { en = "Accounts", fr = "Comptes", de = "Konten", ro = "Conturi" }
+text = { en = "Administrators create accounts and choose the projects each developer can use.", fr = "Les administrateurs créent les comptes et choisissent les projets de chaque développeur.", de = "Administratoren legen Konten an und wählen die Projekte jedes Entwicklers.", ro = "Administratorii creează conturi și aleg proiectele fiecărui dezvoltator." }
+
+[[release.entry]]
+category = "new"
+topic = { en = "Executors", fr = "Exécuteurs", de = "Ausführung", ro = "Executori" }
+text = { en = "Build a project's executor image from a short Dockerfile, right from Settings.", fr = "Construisez l'image d'exécution d'un projet à partir d'un court Dockerfile, depuis Paramètres.", de = "Das Ausführungsimage eines Projekts aus einem kurzen Dockerfile in Einstellungen bauen.", ro = "Construiți imaginea de execuție a unui proiect dintr-un Dockerfile scurt, din Setări." }
+
+[[release.entry]]
+category = "new"
+topic = { en = "Executors", fr = "Exécuteurs", de = "Ausführung", ro = "Executori" }
+text = { en = "Run coding agents directly on the host, reusing their existing sign-in.", fr = "Exécutez les agents de code directement sur l'hôte, avec leur connexion existante.", de = "Coding-Agenten direkt auf dem Host ausführen, mit ihrer bestehenden Anmeldung.", ro = "Rulați agenții de cod direct pe gazdă, folosind autentificarea lor existentă." }
+
+[[release.entry]]
+category = "new"
+topic = { en = "Delivery", fr = "Livraison", de = "Auslieferung", ro = "Livrare" }
+text = { en = "ADORE watches the pipeline of a published draft and can repair its failures.", fr = "ADORE surveille le pipeline d'un brouillon publié et peut réparer ses échecs.", de = "ADORE beobachtet die Pipeline eines veröffentlichten Entwurfs und kann Fehler beheben.", ro = "ADORE urmărește pipeline-ul unei schițe publicate și îi poate repara eșecurile." }
+
+[[release.entry]]
+category = "new"
+topic = { en = "Delivery", fr = "Livraison", de = "Auslieferung", ro = "Livrare" }
+text = { en = "Merge requests can open ready for review after human approval, not only as drafts.", fr = "Les demandes de fusion peuvent s'ouvrir prêtes à relire après approbation humaine.", de = "Merge-Requests können nach menschlicher Freigabe direkt prüfbereit geöffnet werden.", ro = "Cererile de îmbinare se pot deschide gata de revizie după aprobarea umană." }
+
+[[release.entry]]
+category = "new"
+topic = { en = "About", fr = "À propos", de = "Über ADORE", ro = "Despre" }
+text = { en = "What's new lists the notes of each release in your language.", fr = "Nouveautés présente les notes de chaque version dans votre langue.", de = "Neuigkeiten zeigt die Hinweise jeder Version in Ihrer Sprache.", ro = "Noutăți prezintă notele fiecărei versiuni în limba dumneavoastră." }
+
+[[release.entry]]
+category = "improved"
+topic = { en = "Statistics", fr = "Statistiques", de = "Statistiken", ro = "Statistici" }
+text = { en = "Statistics is compact: one period row, each figure shown once, trends in one table.", fr = "Statistiques est compact : une ligne de période, chaque valeur une fois, tendances en un tableau.", de = "Statistiken sind kompakt: eine Zeitraumzeile, jeder Wert einmal, Trends in einer Tabelle.", ro = "Statistici e compact: un rând de perioadă, fiecare valoare o dată, tendințe într-un tabel." }
+
+[[release.entry]]
+category = "improved"
+topic = { en = "Jobs", fr = "Tâches", de = "Aufträge", ro = "Lucrări" }
+text = { en = "The Jobs table shows ticket, project, status, activity and tokens; sort by any column.", fr = "Le tableau Tâches montre ticket, projet, statut, activité et jetons ; triez par colonne.", de = "Die Auftragstabelle zeigt Ticket, Projekt, Status, Aktivität und Tokens; nach Spalte sortierbar.", ro = "Tabelul Lucrări arată tichet, proiect, stare, activitate și tokeni; sortați după coloană." }
+
+[[release.entry]]
+category = "improved"
+topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
+text = { en = "Each project opens as one hub with Summary, Settings, Jobs, Statistics, History and Access.", fr = "Chaque projet s'ouvre en un espace avec Résumé, Paramètres, Tâches, Statistiques, Historique, Accès.", de = "Jedes Projekt bündelt Übersicht, Einstellungen, Aufträge, Statistik, Verlauf und Zugriff.", ro = "Fiecare proiect se deschide cu Rezumat, Setări, Lucrări, Statistici, Istoric și Acces." }
+
+[[release.entry]]
+category = "improved"
+topic = { en = "Settings", fr = "Paramètres", de = "Einstellungen", ro = "Setări" }
+text = { en = "Settings follow the delivery flow and explain every value in four languages.", fr = "Les paramètres suivent le flux de livraison et expliquent chaque valeur en quatre langues.", de = "Einstellungen folgen dem Lieferablauf und erklären jeden Wert in vier Sprachen.", ro = "Setările urmează fluxul de livrare și explică fiecare valoare în patru limbi." }
+
+[[release.entry]]
+category = "improved"
+topic = { en = "Administration", fr = "Administration", de = "Verwaltung", ro = "Administrare" }
+text = { en = "System status shows the current retention limits and a compact storage summary.", fr = "État du système affiche les limites de conservation actuelles et un résumé du stockage.", de = "Systemstatus zeigt die aktuellen Aufbewahrungsgrenzen und eine kompakte Speicherübersicht.", ro = "Starea sistemului arată limitele de păstrare curente și un rezumat compact al stocării." }
+
+[[release.entry]]
+category = "improved"
+topic = { en = "Administration", fr = "Administration", de = "Verwaltung", ro = "Administrare" }
+text = { en = "Users lists each account's projects with their forge and repository path.", fr = "Utilisateurs liste les projets de chaque compte avec leur forge et leur dépôt.", de = "Benutzer listet die Projekte jedes Kontos mit Forge und Repository-Pfad.", ro = "Utilizatori listează proiectele fiecărui cont cu forge-ul și calea depozitului." }
+
+[[release.entry]]
+category = "improved"
+topic = { en = "Change history", fr = "Historique des changements", de = "Änderungsverlauf", ro = "Istoricul modificărilor" }
+text = { en = "Evidence opens below its event without moving the table columns.", fr = "Les preuves s'ouvrent sous leur événement sans déplacer les colonnes du tableau.", de = "Nachweise öffnen sich unter ihrem Ereignis, ohne die Tabellenspalten zu verschieben.", ro = "Dovezile se deschid sub eveniment, fără să mute coloanele tabelului." }
+
+[[release.entry]]
+category = "improved"
+topic = { en = "Navigation", fr = "Navigation", de = "Navigation", ro = "Navigare" }
+text = { en = "Refresh appears only on pages that do not update themselves.", fr = "Actualiser n'apparaît que sur les pages qui ne se mettent pas à jour seules.", de = "Aktualisieren erscheint nur auf Seiten, die sich nicht selbst aktualisieren.", ro = "Reîmprospătează apare doar pe paginile care nu se actualizează singure." }
+
+[[release.entry]]
+category = "improved"
+topic = { en = "About", fr = "À propos", de = "Über ADORE", ro = "Despre" }
+text = { en = "About shows the DDP Engineering logo and the version, with licenses folded.", fr = "À propos affiche le logo DDP Engineering et la version, licences repliées.", de = "Über ADORE zeigt das DDP-Engineering-Logo und die Version, Lizenzen eingeklappt.", ro = "Despre afișează sigla DDP Engineering și versiunea, cu licențele pliate." }
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Delivery", fr = "Livraison", de = "Auslieferung", ro = "Livrare" }
+text = { en = "GitHub and GitLab can open draft merge requests again.", fr = "GitHub et GitLab peuvent de nouveau ouvrir des demandes de fusion brouillons.", de = "GitHub und GitLab können wieder Entwurfs-Merge-Requests öffnen.", ro = "GitHub și GitLab pot deschide din nou cereri de îmbinare schiță." }
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Delivery", fr = "Livraison", de = "Auslieferung", ro = "Livrare" }
+text = { en = "A job waiting on a busy ticket now resumes.", fr = "Une tâche en attente sur un ticket occupé reprend désormais.", de = "Ein Auftrag, der auf ein belegtes Ticket wartet, wird jetzt fortgesetzt.", ro = "O lucrare care așteaptă un tichet ocupat se reia acum." }
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Delivery", fr = "Livraison", de = "Auslieferung", ro = "Livrare" }
+text = { en = "A brief push failure no longer ends a fully validated job.", fr = "Un bref échec d'envoi n'interrompt plus une tâche entièrement validée.", de = "Ein kurzer Push-Fehler beendet keinen vollständig geprüften Auftrag mehr.", ro = "Un eșec scurt de push nu mai încheie o lucrare complet validată." }
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Messages", fr = "Messages", de = "Meldungen", ro = "Mesaje" }
+text = { en = "Errors appear as sentences in your language instead of raw codes.", fr = "Les erreurs s'affichent en phrases dans votre langue au lieu de codes bruts.", de = "Fehler erscheinen als Sätze in Ihrer Sprache statt als rohe Codes.", ro = "Erorile apar ca propoziții în limba dumneavoastră, nu drept coduri brute." }
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Settings", fr = "Paramètres", de = "Einstellungen", ro = "Setări" }
+text = { en = "Edits from the web or the command line keep the file's line endings.", fr = "Les modifications depuis le web ou la ligne de commande gardent les fins de ligne du fichier.", de = "Änderungen über Web oder Kommandozeile behalten die Zeilenenden der Datei.", ro = "Modificările din web sau din linia de comandă păstrează terminațiile de linie ale fișierului." }
+
+[[release]]
+version = "0.13.0"
+date = "2026-09-12"
+
+[[release.entry]]
+category = "improved"
+topic = { en = "AEGIS", fr = "AEGIS", de = "AEGIS", ro = "AEGIS" }
+text = { en = "The version number names the newest AEGIS release ADORE was verified against.", fr = "Le numéro de version nomme la dernière version d'AEGIS avec laquelle ADORE a été vérifié.", de = "Die Versionsnummer nennt die neueste AEGIS-Version, gegen die ADORE geprüft wurde.", ro = "Numărul versiunii indică cea mai nouă versiune AEGIS cu care ADORE a fost verificat." }
+
+[[release.entry]]
+category = "improved"
+topic = { en = "AEGIS", fr = "AEGIS", de = "AEGIS", ro = "AEGIS" }
+text = { en = "Works with AEGIS 0.9.1 to 0.13.0, including its new checkpoint mode.", fr = "Fonctionne avec AEGIS 0.9.1 à 0.13.0, y compris son nouveau mode par étapes.", de = "Funktioniert mit AEGIS 0.9.1 bis 0.13.0, auch mit dem neuen Checkpoint-Modus.", ro = "Funcționează cu AEGIS 0.9.1 până la 0.13.0, inclusiv noul mod cu puncte de control." }

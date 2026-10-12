@@ -24,6 +24,9 @@ The implemented tools are the release checker and the runtime-bundle packager:
 - `create_portable_zip.py` - shared standard-library ZIP writer used by both
   packagers; rejects links/unsafe placement and always writes POSIX member
   names so Windows-built ZIPs extract to the documented tree on Linux.
+- `check_release_notes.py` - checks the four-locale user-facing release notes
+  in `04_Software/adore/release_notes.toml` (contract, changelog dates, current
+  version); `--since <rev>` warns when `CHANGELOG.md` changed without them.
 - `stamp_web_assets.py` - stamps built JS/CSS with the project license and
   copies license/third-party notices. Its default is `adore/web/static`;
   `--output <directory>` selects an existing isolated build containing
@@ -44,6 +47,7 @@ Examples:
 ```powershell
 python .\02_Tools\check_release_consistency.py
 python .\02_Tools\check_release_consistency.py --require-artifacts
+python .\02_Tools\check_release_notes.py --since master
 ```
 
 ```powershell

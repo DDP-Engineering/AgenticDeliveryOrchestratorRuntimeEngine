@@ -17,6 +17,7 @@ import { RepositoryConnection } from "./RepositoryConnection";
 import { ReadinessEvidence, readinessDetailsLabel, readinessCloseLabel } from "./ReadinessEvidence";
 import { readReadiness, type ProjectReadiness } from "./readiness";
 import { AuditHistory } from "./AuditHistory";
+import { groupRelease, type Release } from "./releaseNotes";
 import { auditPolicyPayload } from "./auditPolicy";
 import { ApiError, describeError } from "./errors";
 import { startVisiblePolling } from "./polling";
@@ -40,7 +41,7 @@ import { SortHeader } from "./SortHeader";
 import { jobCopy } from "./jobCopy";
 import { UserCreation, AccountAccessEditor, AccessReview, validAccount, type Account } from "./UserCreation";
 import { userCopy } from "./userCopy";
-import { DashboardShell, type ShellLink } from "./DashboardShell";
+import { companyLogo, DashboardShell, type ShellLink } from "./DashboardShell";
 import { TicketWorkspace } from "./TicketWorkspace";
 import { ticketCopy } from "./ticketCopy";
 import { DataFeedback, ProjectEmpty, StatusBadge, DeliveryGlossary, type DataState, type ScopedState } from "./Presentation";
@@ -138,7 +139,9 @@ export default function App() {
   const [readinessError, setReadinessError] = useState<unknown>(null);
   const readinessPending = useRef(false);
   const readinessTrigger = useRef<HTMLButtonElement>(null);
-  const [about, setAbout] = useState<{ name: string; version: string; license: string; license_text: string; third_party_notices: string } | null>(null);
+  const [about, setAbout] = useState<{ name: string; version: string; license: string; license_text: string; third_party_notices: string; release_notes?: Release[] } | null>(null);
+  const [aboutView, setAboutView] = useState<"about" | "whatsNew">("about");
+  const [aboutOpen, setAboutOpen] = useState({ license: false, notices: false });
   const [error, setError] = useState<unknown>("");
   const [passwordSession, setPasswordSession] = useState<Session | null>(null);
   const [projectTab, setProjectTab] = useState<ProjectTab>("overview");
@@ -166,7 +169,8 @@ export default function App() {
   const enrollmentGuard = useRef<(() => boolean) | null>(null);
   const [resetTarget, setResetTarget] = useState<number | null>(null);
   const aboutTrigger = useRef<HTMLButtonElement>(null);
-  const aboutClose = useRef<HTMLButtonElement>(null);
+  // Switching About views removes the pressed button; focus its counterpart so Escape and Tab keep working.
+  const aboutSwitch = useRef<HTMLButtonElement>(null);
   const selectedMetricsRequest = useRef(0);
   const projectsRequest = useRef(0);
   const globalMetricsRequest = useRef(0);
@@ -186,8 +190,9 @@ export default function App() {
   const preferenceRequest = useRef({ language: 0, theme: 0 });
   const viewGeneration = useRef(0);
 
+  useEffect(() => { aboutSwitch.current?.focus(); }, [aboutView]);
   const closeAbout = () => {
-    setAbout(null);
+    setAbout(null); setAboutView("about"); setAboutOpen({ license: false, notices: false });
     window.requestAnimationFrame(() => aboutTrigger.current?.focus());
   };
 
@@ -1050,7 +1055,38 @@ export default function App() {
     actions={<>{manualRefresh && <><span className="refresh-stamp">{lastRefresh && t("lastRefresh") + ": " + formatDate(lastRefresh.toISOString())}</span>
       <button className="ghost" onClick={() => { void refreshProjects().catch(setError); setViewRefresh(value => value + 1); }}>{t("refresh")}</button></>}
       <button className="ghost" ref={aboutTrigger} onClick={() => request<typeof about>("/about").then(setAbout).catch(cause => setError(cause))}>{t("about")}</button><DeliveryGlossary t={t} /></>}
-    modal={about && <div className="modal-backdrop" onClick={closeAbout}><section role="dialog" aria-modal="true" aria-labelledby="adore-about-heading" className="modal" onClick={event => event.stopPropagation()} onKeyDown={event => { if (event.key === "Escape") closeAbout(); if (event.key === "Tab") { event.preventDefault(); aboutClose.current?.focus(); } }}><button className="ghost modal-close" ref={aboutClose} autoFocus onClick={closeAbout}>{t("close")}</button><div className="brand-mark">A</div><h2 id="adore-about-heading">{t("about")} ADORE</h2><p>{t("version")}: {about.version}</p><p>{t("license")}: {about.license}</p><pre className="license-text">{about.license_text}</pre><h3>{t("thirdPartyNotices")}</h3><pre className="license-text">{about.third_party_notices}</pre></section></div>}>
+    modal={about && <div className="modal-backdrop" onClick={closeAbout}><section role="dialog" aria-modal="true" aria-labelledby="adore-about-heading" className={"modal about-modal" + (aboutView === "whatsNew" ? " about-wide" : "")} onClick={event => event.stopPropagation()} onKeyDown={event => {
+      if (event.key === "Escape") closeAbout();
+      if (event.key !== "Tab") return;
+      // Keep keyboard focus cycling inside the dialog.
+      const items = [...event.currentTarget.querySelectorAll<HTMLElement>("button, [tabindex='0']")];
+      const index = items.indexOf(document.activeElement as HTMLElement);
+      const next = event.shiftKey ? (index <= 0 ? items.length - 1 : index - 1) : (index + 1) % items.length;
+      event.preventDefault(); items[next]?.focus();
+    }}>
+      <div className="about-banner"><img src={companyLogo} alt="DDP Engineering" width="630" height="300" /><button className="ghost modal-close" autoFocus onClick={closeAbout}>{t("close")}</button></div>
+      {aboutView === "about" ? <div className="about-body">
+        <h2 id="adore-about-heading" className="about-name">ADORE</h2>
+        <p className="about-version">{t("version")} {about.version}</p>
+        <p className="about-license-name">{about.license}</p>
+        <div className="about-actions">
+          <button type="button" className="primary" ref={aboutSwitch} onClick={() => setAboutView("whatsNew")}>{t("whatsNew")}</button>
+          <button type="button" className="ghost" aria-expanded={aboutOpen.license} aria-controls="about-license" onClick={() => setAboutOpen(value => ({ ...value, license: !value.license }))}>{t("license")}</button>
+          <button type="button" className="ghost" aria-expanded={aboutOpen.notices} aria-controls="about-notices" onClick={() => setAboutOpen(value => ({ ...value, notices: !value.notices }))}>{t("thirdPartyNotices")}</button>
+        </div>
+        {aboutOpen.license && <pre id="about-license" className="license-text" tabIndex={0} aria-label={t("license")}>{about.license_text}</pre>}
+        {aboutOpen.notices && <pre id="about-notices" className="license-text" tabIndex={0} aria-label={t("thirdPartyNotices")}>{about.third_party_notices}</pre>}
+      </div> : <div className="about-body">
+        <div className="about-heading-row"><h2 id="adore-about-heading">{t("whatsNew")}</h2><button type="button" className="ghost" ref={aboutSwitch} onClick={() => setAboutView("about")}>{t("back")}</button></div>
+        {about.release_notes?.some(release => release.entries.length) ? <div className="release-notes">{about.release_notes.filter(release => release.entries.length).map(release => <section key={release.version}>
+          <h3>{release.version === "Unreleased" ? t("inDevelopment") : `${t("version")} ${release.version}`}{release.date && <small>{release.date}</small>}</h3>
+          {groupRelease(release, locale).map(group => <div key={group.category} className="release-category">
+            <h4>{t(({ new: "releaseNew", improved: "releaseImproved", fixed: "releaseFixed" } as const)[group.category])}</h4>
+            {group.topics.map(topic => <div key={topic.topic}><h5>{topic.topic}</h5><ul>{topic.texts.map(text => <li key={text}>{text}</li>)}</ul></div>)}
+          </div>)}
+        </section>)}</div> : <p className="muted">{t("noReleaseNotes")}</p>}
+      </div>}
+    </section></div>}>
 
         {error ? <div className="alert" role="alert">{describeError(locale, error)}<button onClick={() => setError("")} aria-label={t("close")}>×</button></div> : null}
         {(notice || (operationVisible && operation)) && <div className="notice" role="status">

@@ -150,6 +150,32 @@ documentation conventions. Use the referenced
   contracts, MINOR for backward-compatible capabilities, and PATCH for fixes
   with no contract change.
 
+### Release notes rules
+
+`04_Software/adore/release_notes.toml` holds the user-facing release notes shown
+in the web About > What's new window. Agents maintain them; developers never
+need to remember them.
+
+- In the same change as any `CHANGELOG.md` entry, decide whether the change is
+  visible to a user (web interface, CLI behavior or a setting a user sets). If
+  it is, add or update an entry under the `Unreleased` release; if not, write
+  none. Internal refactoring, tests, tooling and documentation are not notes.
+- Each entry has a category (`new`, `improved` or `fixed`), a short `topic`
+  (the area a user knows, such as Statistics or Jobs) and a `text`, both in
+  `en`, `fr`, `de` and `ro`. Use the interface's own terms in each language.
+- Text is plain user language of at most 100 characters: no file names, paths,
+  endpoints, REQ/TASK ids, component or code identifiers. Keep at most 10
+  entries per category in a release; merge or rewrite related notes instead.
+- Record the decision as one task journal Log line at build:
+  `release-notes: added | updated | none (<reason>)`.
+- Before validate, run `python 02_Tools/check_release_notes.py --since <task
+  base>`. It fails on contract errors and warns when `CHANGELOG.md` changed
+  without the release notes; resolve the warning or justify it in the journal.
+- When cutting a release, rename `Unreleased` to the new version with the date
+  of its changelog heading, in the same change as the other release steps, and
+  list `adore/release_notes.toml` in `REQUIRED_BUNDLE_FILES` of
+  `02_Tools/check_release_consistency.py` if it is not there yet.
+
 ## Documentation Rules
 
 - **After every component creation or update, create or update that component's

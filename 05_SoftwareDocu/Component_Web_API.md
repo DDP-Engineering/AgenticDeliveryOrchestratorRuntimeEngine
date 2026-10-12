@@ -259,7 +259,9 @@ session check and before CSRF and role checks. Account objects include
 `password_change_required`. `/api/v1/about` reports the running version and
 full bundled license text.
 It also returns the bundled third-party component notices, compiled from the
-locked web dependencies. About remains available before login.
+locked web dependencies, and `release_notes` from the packaged
+`adore/release_notes.toml` (empty when unreadable). About remains available
+before login.
 `/api/v1/health` reports HTTP liveness; `/api/v1/ready` requires a recent
 worker heartbeat and returns 503 when it is missing or stale. Neither endpoint
 returns account or project data.

@@ -6,7 +6,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 */
 import { useEffect, useRef, type ReactNode } from "react";
 import type { MessageKey } from "./i18n";
-const companyLogo = new URL("./assets/DDP_Engineering_logo_dark.png", import.meta.url).href;
+export const companyLogo = new URL("./assets/DDP_Engineering_logo_dark.png", import.meta.url).href;
 
 export type ShellLink = { id: string; label: string; href: string; active: boolean; onNavigate: () => void };
 

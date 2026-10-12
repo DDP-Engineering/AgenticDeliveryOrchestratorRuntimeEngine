@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-2cace5dd"
+
+title = "Show a compact About window with collapsed licenses"
+
+status = "active"
+
+requirement = """
+When a user opens About, the dialog shall show the DDP Engineering logo on a dark band, ADORE and its version as the most prominent text, and What's new, License and Third-party notices buttons; the license and third-party notice texts shall stay hidden until their button is pressed, and keyboard focus shall cycle within the dialog until it closes.
+"""
+
+verification = "Automated: e2e shell.spec About test checks the logo, the version from /api/v1/about, hidden license and notices until their buttons expand them, Tab focus staying inside the dialog, and Escape restoring focus to About."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/styles.css", "04_Software/web/src/i18n.ts", "04_Software/adore/web/static/"]
+
+linked_tests = ["04_Software/web/e2e/shell.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-12
+updated = 2026-10-12

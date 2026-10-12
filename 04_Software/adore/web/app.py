@@ -23,6 +23,7 @@ from datetime import UTC, date, datetime, timedelta
 from hashlib import sha256
 from io import StringIO
 import json
+import logging
 import math
 import os
 from pathlib import Path
@@ -71,6 +72,7 @@ from adore.preparation import (
     validate_plan,
 )
 from adore.profiles import ProfileError, ProfileStore, validate_display_name, validate_profile_id
+from adore.release_notes import ReleaseNotesError, load_release_notes
 from adore.repository_auth import (
     RepositoryAuthError,
     connection_view,
@@ -2453,7 +2455,14 @@ def create_app(home: str | Path | None = None,
     def about() -> dict:
         license_path = _STATIC / "LICENSE.txt"
         notices_path = _STATIC / "THIRD_PARTY_NOTICES.md"
-        return {"name": "ADORE", "version": __version__,
+        try:
+            release_notes = load_release_notes()
+        except (OSError, UnicodeError, ReleaseNotesError):
+            # About stays available; the repository check guards the file's content. Standard
+            # logging (stderr via the last-resort handler) suffices for this one server warning.
+            logging.getLogger("adore.web").warning("release notes unavailable", exc_info=True)
+            release_notes = []
+        return {"name": "ADORE", "version": __version__, "release_notes": release_notes,
                 "license": "PolyForm Noncommercial License 1.0.0",
                 "license_text": license_path.read_text(encoding="utf-8")
                 if license_path.is_file() else "",

@@ -19,6 +19,11 @@ for example `/documentation-audit`.
 
 <!-- AEGIS:BEGIN (managed by .agentic/aegis.py init) -->
 
+Release notes: every user-visible `CHANGELOG.md` entry gets a matching
+four-locale entry in `04_Software/adore/release_notes.toml` in the same change,
+and the journal records `release-notes: added | updated | none (<reason>)`; see
+`AGENTS.md` "Release notes rules".
+
 ## AEGIS workflow
 
 The full contract is `.agentic/AGENTS.md` - read it before starting work.

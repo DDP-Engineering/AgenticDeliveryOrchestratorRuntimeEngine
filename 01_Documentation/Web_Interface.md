@@ -914,9 +914,12 @@ retain an export when a point-in-time estimate is needed. Prices are estimates,
 not invoices or spending caps, and follow immutable project identity.
 
 The UI ships English, French, German, and Romanian translations with light,
-dark, and system themes. The About dialog displays the runtime version and
-bundled license plus notices for locked third-party web dependencies, keeps keyboard focus inside until closed, and restores focus
-to About. On narrow screens, the Menu button expands the primary navigation
+dark, and system themes. The About dialog shows the DDP Engineering logo and
+the runtime version; License and Third-party notices (for locked web
+dependencies) expand only when pressed. What's new lists each release's notes in
+your language, newest first, grouped New, Improved and Fixed; the release still
+in development appears as In development. The dialog keeps keyboard focus
+inside until closed and restores focus to About. On narrow screens, the Menu button expands the primary navigation
 and a page choice closes it; Sign out remains in the top bar. The worker queue
 is durable and idempotent per actor/key;
 operations interrupted during a worker stop become `uncertain` for operator

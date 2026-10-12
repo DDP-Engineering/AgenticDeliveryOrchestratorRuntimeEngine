@@ -14,6 +14,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Added
 
+- About > What's new lists each release's user-facing notes in the user's language, newest first and grouped New/Improved/Fixed by topic. Notes live in `04_Software/adore/release_notes.toml` with all four locales per entry, are maintained by agents under the new AGENTS.md "Release notes rules" (journal line `release-notes: ...`) and are checked by `02_Tools/check_release_notes.py` (contract, changelog dates, current version; `--since` warns on changelog-only changes); `/api/v1/about` returns them as `release_notes`.
+
 - Browse a project's open forge tickets from its Jobs tab: a Tickets sub-tab reads them on request with ADORE pickup eligibility and job state, starts a ticket (adding its missing ready and chosen priority labels after confirmation), retries a failed job, stops a ticket (cancels its unfinished job and removes the ready label) and shows its description and comments as plain text; the job table moves to a Jobs sub-tab.
 
 - Compact project Dockerfile definition, durable bounded image build/verification, redacted owned runtime evidence and revision-bound image/tool selection through existing configuration review.
@@ -21,6 +23,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 - Native local executor profiles reuse installed account authentication with pinned machine/environment identity, verified Windows Job/Linux cgroup ownership, native AEGIS/gate evidence, backend-aware setup/settings/readiness and user-owned tooling guidance.
 
 ### Changed
+
+- Redesign About: the DDP Engineering logo on a dark band, ADORE and its version as the largest text, and What's new, License and Third-party notices buttons with both license texts folded until pressed; Tab cycles inside the dialog.
 
 - Show the header Refresh and last-refresh time only on pages that do not update themselves (Users, Change history and a project's Settings, Access and History); Overview, Projects, Jobs, Statistics and System status refresh automatically.
 
