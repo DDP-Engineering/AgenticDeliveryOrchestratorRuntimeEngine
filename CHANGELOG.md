@@ -22,6 +22,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Show the header Refresh and last-refresh time only on pages that do not update themselves (Users, Change history and a project's Settings, Access and History); Overview, Projects, Jobs, Statistics and System status refresh automatically.
+
 - Steady change history evidence: Evidence opens on a full-width row below the event so the table columns no longer resize, operation correlations and configuration revisions show their first 12 characters (full value on hover), and base/candidate revisions appear only when recorded.
 
 - Tidy user project access: Assigned projects opens full width below the account, each project is one checkbox row with its name and its forge and repository path in columns (the unique name is added when display names repeat), and creation choices use the same rows; reviews and results keep the stable project IDs.

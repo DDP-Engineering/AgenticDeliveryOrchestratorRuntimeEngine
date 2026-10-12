@@ -304,7 +304,7 @@ test("global complete search paging basic filters and source revision conflicts"
   expect(new URL((await continuation).url()).searchParams.get("snapshot")).toMatch(/^[a-f0-9]{64}$/);
   await expect(page.locator(".action-jobs-table tbody tr")).not.toHaveCount(10);
   await page.request.post("/__e2e__/jobs?mode=mutate", { headers: { "X-ADORE-E2E": "local-test" } });
-  await page.getByRole("button", { name: "Refresh", exact: true }).click();
+  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
   await expect(page.getByRole("heading", { name: "Job sources changed", exact: true })).toBeVisible();
   await expect(page.locator(".action-jobs-table")).toHaveCount(0);
   await page.getByRole("button", { name: "Reload first page", exact: true }).click();
@@ -349,11 +349,12 @@ test("incomplete corrupt and failed job reads hide totals and stale details", as
     const response = await route.fetch(); const value = await response.json(); value.complete = false;
     await route.fulfill({ response, json: value });
   });
-  await page.getByRole("button", { name: "Refresh", exact: true }).click();
+  // Overview refreshes itself; a visibilitychange runs its poll at once.
+  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
   await expect(page.getByRole("heading", { name: "Incomplete job response", exact: true })).toBeVisible();
   await expect(page.locator(".overview-jobs-table")).toHaveCount(0);
   mode = "malformed";
-  await page.getByRole("button", { name: "Refresh", exact: true }).click();
+  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
   await expect(page.getByRole("heading", { name: "Could not load data", exact: true })).toBeVisible();
   await expect(page.locator(".overview-jobs-table")).toHaveCount(0);
   mode = "server";
@@ -493,7 +494,7 @@ test("project hub shows verification state and rejects corrupt stamps", async ({
   // The compact summary presents status; API evidence stamps are still validated.
   await expect(page.locator(".project-verification-evidence")).toHaveCount(0);
   corrupt = true;
-  await page.getByRole("button", { name: "Refresh", exact: true }).click();
+  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
   await expect(page.getByRole("alert").first()).toBeVisible();
   await expect(verification).toHaveCount(0);
   // Drain in-flight rewrites before fixture teardown disposes their API responses.

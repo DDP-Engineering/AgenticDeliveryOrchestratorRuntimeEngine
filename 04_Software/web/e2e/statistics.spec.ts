@@ -345,7 +345,7 @@ test("revoked Dev grant hides earlier values and discards an authorized response
   await page.getByRole("combobox", { name: "Group by", exact: true }).selectOption("week"); await started;
   try {
     expect((await request.put(`/api/v1/projects/${alpha}/access/${developer}`, { headers: { "X-CSRF-Token": session.csrf }, data: { granted: false } })).ok()).toBe(true);
-    await page.getByRole("button", { name: "Refresh", exact: true }).click();
+    await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
     await expect(page.locator("#metrics-project")).toHaveCount(0); release();
     await expect(page.locator(".statistics-evidence")).toHaveCount(0); await expect(page.getByText("Export CSV", { exact: true })).toHaveCount(0);
     expect((await page.request.get(`/api/v1/projects/${alpha}/usage.csv`)).status()).toBe(404);

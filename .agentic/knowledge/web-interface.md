@@ -30,7 +30,7 @@ configuration values, type/domain hints and field help use 0.875rem text with
 On narrow screens, setting labels, values and help stack vertically.
 
 
-The header help button **How ADORE works**, beside Refresh and About, opens
+The header help button **How ADORE works**, beside About (and Refresh where shown), opens
 the localized delivery glossary. Activate it again, press Escape or click outside
 to close it. Full job history is reached through the sidebar Jobs link; Overview
 keeps job-specific Details links.
@@ -221,7 +221,7 @@ SQLite bytes, authorization, scope and financial redaction.
   Essential field instructions remain visible and associated with controls.
 - App keys data by project/filter and guards completions by request/session
   identity. Numeric totals render from successful reads; failed reads hide
-  stale totals. Refresh retries current-view reads. Closing a job clears its
+  stale totals until the next automatic update. Closing a job clears its
   URL identity. Jobs/Overview default to complete all-authorized current/archived
   history or an explicit selected project. JobWorkspace guards render keys and
   composite detail identity; changed continuations hide totals/detail and require
@@ -298,7 +298,8 @@ SQLite bytes, authorization, scope and financial redaction.
   context and tables. Primary Overview href/action defaults all authorized projects;
   explicit scoped reload/Back retain URL identity. Visible15s background polling
   retains validated same-scope rows while pending and clears them on failed reads;
-  manual refresh shows loading. Overview's timestamp is omitted. Strict complete active reads and scope/render guards withhold
+  the header Refresh and stamp appear only on non-polled pages (Users, Change history,
+  project Settings/Access/History). Strict complete active reads and scope/render guards withhold
   invalid data; Overview performs no usage reads. Worker faults are visible and
   Details opens the existing composite Jobs route; browser-local dates and
   reporting/technical evidence belong to dedicated views.

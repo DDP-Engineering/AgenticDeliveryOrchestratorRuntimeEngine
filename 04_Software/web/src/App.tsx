@@ -120,7 +120,6 @@ export default function App() {
   const [selectedUsage, setUsage] = useState<Usage | null>(null);
   const [usageScope, setUsageScope] = useState("");
   const [allUsage, setAllUsage] = useState<Record<string, Usage> | null>(null);
-  const [usageRefresh, setUsageRefresh] = useState(0);
   const [config, setConfig] = useState<Config | null>(null);
   const [configScope, setConfigScope] = useState("");
   const [pendingConfig, setPendingConfig] = useState<PendingConfig | null>(null);
@@ -379,7 +378,7 @@ export default function App() {
         !Number.isSafeInteger(item.runs) || item.runs < 0) || new Set(items.map(item => item.id)).size !== items.length) throw new ApiError("unexpected_response");
       setProjects(items);
       setSelected(current => items.some(item => item.id === current) || routedProject.current ? current : (items[0]?.id || ""));
-      setProjectsLoaded(true); setProjectsState("ready"); setLastRefresh(new Date());
+      setProjectsLoaded(true); setProjectsState("ready");
     } catch (cause) {
       if (generation === viewGeneration.current && revision === projectsRequest.current) {
         setProjectsState("error"); setError(cause);
@@ -433,7 +432,7 @@ export default function App() {
     void refresh();
     const stopPolling = startVisiblePolling(() => void refresh(), 30000);
     return () => { usageRequest.current += 1; stopPolling(); };
-  }, [session, selected, statisticsVisible, usageSuffix, isAdmin, usageRefresh, authorizedMetricsKey, projectsState]);
+  }, [session, selected, statisticsVisible, usageSuffix, isAdmin, authorizedMetricsKey, projectsState]);
 
   const refreshSelected = useCallback(async () => {
     const revision = ++selectedMetricsRequest.current;
@@ -447,7 +446,6 @@ export default function App() {
       readStatistics(metricData, selected, { from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }, isAdmin);
       setSelectedState({ key, state: "ready" });
       setMetrics(metricData); setMetricsScope(selected);
-      setLastRefresh(new Date());
     } catch (cause) {
       if (generation === viewGeneration.current && revision === selectedMetricsRequest.current) {
         setSelectedState({ key, state: "error" }); setMetrics(null); setError(cause);
@@ -462,6 +460,7 @@ export default function App() {
   }, [refreshSelected]);
 
   useEffect(() => {
+    setLastRefresh(new Date());
     if (page === "adminUsers" && isAdmin) {
       const generation = viewGeneration.current;
       let active = true;
@@ -546,7 +545,7 @@ export default function App() {
     void refresh();
     const stopPolling = startVisiblePolling(() => void refresh(), 30000);
     return () => { globalMetricsRequest.current += 1; stopPolling(); };
-  }, [page, isAdmin, metricSuffix, usageRefresh, authorizedMetricsKey, projectsState]);
+  }, [page, isAdmin, metricSuffix, authorizedMetricsKey, projectsState]);
 
   // Presentation expires independently of worker polling and persisted outcomes.
   useEffect(() => {
@@ -927,6 +926,8 @@ export default function App() {
     onClose: () => setRequestedRun("") };
   const hubWorkspaceProps = { ...workspaceProps, scope: selected,
     onOpen: (id: string, runId: string) => { setSelected(id); setRequestedRun(runId); setJobsView("jobs"); setProjectTab("jobs"); } };
+  // Pages that poll while visible need no manual Refresh; these load only on open or on Refresh.
+  const manualRefresh = page === "adminUsers" || page === "adminAudit" || page === "projectDetails" && ["configuration", "access", "history"].includes(projectTab);
   const nav: Page[] = ["overview", "projects", "jobs", "metrics"];
   const adminPages: Page[] = ["administration", "adminUsers", "adminAudit"];
 
@@ -1046,8 +1047,8 @@ export default function App() {
     menuOpen={menuOpen} onMenu={() => setMenuOpen(open => !open)} adminOpen={adminMenuOpen} onAdmin={() => setAdminMenuOpen(open => !open)}
     onSignOut={signOut} context={projectContext}
     controls={page === "overview" && projectsState === "ready" && projects.length > 0 && <label className="overview-header-scope" htmlFor="overview-project">{t("project")}<select id="overview-project" aria-label={t("project")} value={jobScope} onChange={event => workspaceProps.onScope(event.target.value)}><option value="">{jc.allProjects}</option>{projects.map(item => <option key={item.id} value={item.id}>{item.display_name || item.name}</option>)}</select></label>}
-    actions={<>{page !== "overview" && <span className="refresh-stamp">{lastRefresh && t("lastRefresh") + ": " + formatDate(lastRefresh.toISOString())}</span>}
-      <button className="ghost" onClick={() => { void refreshProjects().catch(setError); void refreshSelected();  setUsageRefresh(value => value + 1); setViewRefresh(value => value + 1); }}>{t("refresh")}</button>
+    actions={<>{manualRefresh && <><span className="refresh-stamp">{lastRefresh && t("lastRefresh") + ": " + formatDate(lastRefresh.toISOString())}</span>
+      <button className="ghost" onClick={() => { void refreshProjects().catch(setError); setViewRefresh(value => value + 1); }}>{t("refresh")}</button></>}
       <button className="ghost" ref={aboutTrigger} onClick={() => request<typeof about>("/about").then(setAbout).catch(cause => setError(cause))}>{t("about")}</button><DeliveryGlossary t={t} /></>}
     modal={about && <div className="modal-backdrop" onClick={closeAbout}><section role="dialog" aria-modal="true" aria-labelledby="adore-about-heading" className="modal" onClick={event => event.stopPropagation()} onKeyDown={event => { if (event.key === "Escape") closeAbout(); if (event.key === "Tab") { event.preventDefault(); aboutClose.current?.focus(); } }}><button className="ghost modal-close" ref={aboutClose} autoFocus onClick={closeAbout}>{t("close")}</button><div className="brand-mark">A</div><h2 id="adore-about-heading">{t("about")} ADORE</h2><p>{t("version")}: {about.version}</p><p>{t("license")}: {about.license}</p><pre className="license-text">{about.license_text}</pre><h3>{t("thirdPartyNotices")}</h3><pre className="license-text">{about.third_party_notices}</pre></section></div>}>
 
@@ -1126,7 +1127,7 @@ export default function App() {
             </form>
           </section></ProjectDeleteDialog>}
           </>}
-          {projectTab === "history" && selectedProject?.id && <AuditHistory key={`${session.user.id}:${selected}`} locale={locale} projects={projects} fixedProject={selectedProject?.id} read={path => request(path)} />}
+          {projectTab === "history" && selectedProject?.id && <AuditHistory key={`${session.user.id}:${selected}:${viewRefresh}`} locale={locale} projects={projects} fixedProject={selectedProject?.id} read={path => request(path)} />}
           {projectTab === "jobs" && selectedProject && <>
             {jobsSubtabs}
             <div id="jobs-subtab-panel" role="tabpanel" aria-labelledby={`jobs-subtab-${jobsView}`}>

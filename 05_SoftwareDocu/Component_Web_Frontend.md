@@ -34,7 +34,7 @@ configuration values, type/domain hints and field help use 0.875rem text with
 On narrow screens, setting labels, values and help stack vertically.
 
 
-The header help button **How ADORE works**, beside Refresh and About, opens
+The header help button **How ADORE works**, beside About (and Refresh where shown), opens
 the localized delivery glossary. Activate it again, press Escape or click outside
 to close it. Full job history is reached through the sidebar Jobs link; Overview
 keeps job-specific Details links.
@@ -110,7 +110,7 @@ existing exports and query parameters.
 
 Loading and failed requests have separate status/error panels. Numeric
 cards and data tables render after successful scoped responses. A failed
-refresh withholds prior totals; Refresh retries current reads. A successful
+refresh withholds prior totals until the next automatic update. A successful
 empty project list explains enrollment for administrators and access requests
 for Dev users, while My account remains available. Pending detail responses
 are checked against both project identity and request revision. Session
@@ -179,7 +179,9 @@ scope; the primary Overview URL/action resets it to all authorized projects.
 Explicit scoped deep links remain supported. Overview's visible15s job polling
 retains validated same-render-key rows until a successful replacement; failures,
 incomplete evidence and scope/access changes still hide them. Its refresh timestamp
-is omitted; manual Refresh retains its loading feedback.
+is omitted. The header Refresh and stamp render only when `manualRefresh` holds
+(Users, Change history, project Settings/Access/History); polled pages recover on
+their next visible poll.
 Overview skips consumption reads and reporting/date/technical prose. Only worker
 faults appear above the job tables. Details retains the existing composite Jobs route
 and browser-local timestamp formatting. Source errors or
@@ -399,8 +401,8 @@ administrator-only view cannot remain selected for a developer. Config staging
 keeps its form reference until the request completes, allowing the form to reset
 after a successful response. User creation owns its staged
 transient draft and clears credentials after confirmed creation.
-Administrators can trigger a replay of retained usage journals from Statistics;
-the button reports the reconciled event count and refreshes attributed views.
+Statistics reads reconcile retained usage journals; administrators can also call
+`POST /api/v1/usage/rebuild` (no UI button).
 The local endpoint form is shown for OpenCode profiles. It saves model ID and
 URL in one request and explains the required provider package in the executor
 image. An optional allowlisted environment-variable name references an API

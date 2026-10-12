@@ -165,7 +165,7 @@ test("pending and failed data hide false totals and refresh recovers", async ({ 
   await expect(page.getByText("Could not load data", { exact: true })).toBeVisible();
   await expect(page.getByRole("region", { name: "Active jobs", exact: true })).toHaveCount(0);
   failing = false;
-  await page.getByRole("button", { name: "Refresh", exact: true }).click();
+  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
   await expect(page.getByRole("region", { name: "Active jobs", exact: true })).toBeVisible();
   let release!: () => void;
   const pending = new Promise<void>(resolve => { release = resolve; });
@@ -252,6 +252,25 @@ test("configuration and administration request failures have explicit feedback",
   await expect(page.getByText("Could not load data", { exact: true })).toHaveCount(0);
 });
 
+test("header Refresh appears only on pages that do not refresh themselves", async ({ page }) => {
+  await signIn(page);
+  const alpha = (await (await page.request.get("/api/v1/projects")).json()).find((item: { name: string }) => item.name === "alpha").id;
+  const refresh = page.locator(".topbar").getByRole("button", { name: "Refresh", exact: true });
+  for (const path of ["/admin/users", "/admin/audit", `/projects/${alpha}/configuration`, `/projects/${alpha}/access`, `/projects/${alpha}/history`]) {
+    await page.goto(path); await expect(refresh, path).toBeVisible();
+    await expect(page.locator(".topbar .refresh-stamp"), path).toContainText("Last refreshed");
+  }
+  // On History the header Refresh re-reads the change history, which does not poll.
+  let reads = 0;
+  page.on("request", request => { if (request.url().includes("/api/v1/audit-page?") && request.url().includes(`project_id=${alpha}`)) reads += 1; });
+  await page.reload(); await expect.poll(() => reads).toBe(1);
+  await refresh.click(); await expect.poll(() => reads).toBeGreaterThan(1);
+  for (const path of ["/", "/projects", "/jobs", "/metrics", "/admin/status", `/projects/${alpha}`, `/projects/${alpha}/jobs`, `/projects/${alpha}/statistics`]) {
+    await page.goto(path); await expect(page.locator(".topbar").getByRole("button", { name: "About", exact: true }), path).toBeVisible();
+    await expect(refresh, path).toHaveCount(0);
+  }
+});
+
 test("localized shell and assigned Dev remain usable in both themes and widths", async ({ page }, info) => {
   await signIn(page, "developer");
   for (const theme of ["light", "dark"]) {
@@ -297,7 +316,7 @@ test("closing a job removes its deep-link identity and refresh cannot reopen it"
   await expect(page.locator(".detail-panel")).toBeVisible();
   await page.locator(".detail-panel").getByRole("button", { name: "Close", exact: true }).click();
   await expect(page).not.toHaveURL(/run=/);
-  await page.locator(".topbar").getByRole("button", { name: "Refresh", exact: true }).click();
+  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
   await expect(page.locator(".detail-panel")).toHaveCount(0);
 });
 

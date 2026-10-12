@@ -27,8 +27,8 @@ and **Active jobs** from the ADORE/Overview header, followed by the job tables. 
 **Overview** link resets to all authorized projects; a scoped URL/reload retains
 its explicit selection. Automatic job reads run every 15 seconds while visible,
 retaining validated current-scope rows while the background response is pending.
-A failed or malformed update hides the rows. Manual Refresh remains available;
-Overview displays no refresh timestamp. Compact rows show the job title, project/ticket, observed
+A failed or malformed update hides the rows until the next automatic update;
+Overview displays no Refresh or refresh timestamp. Compact rows show the job title, project/ticket, observed
 status and **Details**. Details opens Jobs with the owning project and run.
 The sidebar **Jobs** link retains the selected scope. Worker faults are visible; a healthy
 worker needs no banner. Overview reads no consumption and displays no reporting
@@ -87,7 +87,7 @@ configuration values, type/domain hints and field help use 0.875rem text with
 On narrow screens, setting labels, values and help stack vertically.
 
 
-The header help button **How ADORE works**, beside Refresh and About, opens
+The header help button **How ADORE works**, beside About (and Refresh where shown), opens
 the localized delivery glossary. Activate it again, press Escape or click outside
 to close it. Full job history is reached through the sidebar Jobs link; Overview
 keeps job-specific Details links.
@@ -772,7 +772,9 @@ Use **How ADORE works** for delivery vocabulary:
 
 Guided fields display essential instructions beside the control.
 Loading, an empty result and a failed request have distinct presentations.
-Failed requests withhold totals; use **Refresh** to retry. Missing measurements
+Failed requests withhold totals until the next automatic update. The header
+**Refresh** (with the last refresh time) appears only on pages that do not update
+themselves: Users, Change history and a project's Settings, Access and History. Missing measurements
 remain unavailable. A successful empty Projects result provides enrollment or
 access guidance according to your role.
 

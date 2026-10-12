@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-183b80f6"
+
+title = "Show the header Refresh only on pages without automatic updates"
+
+status = "active"
+
+requirement = """
+While a user views a page whose data the interface does not refresh automatically - Administration Users and Change history and a project's Settings, Access and History tabs - the header shall offer Refresh with the last refresh time, and on pages that refresh themselves (Overview, Projects, Jobs, Statistics, System status and the project Summary, Jobs and Statistics tabs) it shall show neither.
+"""
+
+verification = "Automated: e2e finds the header Refresh on /admin/users, /admin/audit, /projects/<alpha>/configuration, /access and /history, and none on /, /projects, /jobs, /metrics, /admin/status and the project Summary, Jobs and Statistics tabs; tests that relied on Refresh for auto-refreshing pages trigger the visible-page poll instead."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/adore/web/static/"]
+
+linked_tests = ["04_Software/web/e2e/shell.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-12
+updated = 2026-10-12
