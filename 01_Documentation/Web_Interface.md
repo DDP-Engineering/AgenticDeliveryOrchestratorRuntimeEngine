@@ -802,7 +802,10 @@ fields for the observed timeline. Existing project run API routes remain compati
 coverage, strict URL validation and source-change semantics.
 
 Statistics keeps shared project, date and grouping controls above
-Summary, Usage, Quality, Trends and Projects. Use **All time** to clear both date bounds; blank dates select All-time;
+Summary, Usage, Quality and Trends. With **All projects**, each tab ends with one
+per-project table for its own data (Summary: job counts and average elapsed;
+Usage: consumption and costs; Quality: rework, revisions, repairs and review rounds),
+with each repository shown under its project name. Use **All time** to clear both date bounds; blank dates select All-time;
 selected dates apply to every statistic and export. Usage shows its totals and
 job elapsed time (measured jobs, average, median) as one row of compact values;
 click any usage table column heading to sort it, again to reverse; unknown values

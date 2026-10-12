@@ -201,7 +201,7 @@ export default function App() {
     if (saved.theme) setTheme(saved.theme);
   };
   const isAdmin = session?.user.role === "admin";
-  const metricsTabs: MetricsTab[] = isAdmin && page === "metrics" ? ["summary", "usage", "quality", "trends", "projects"] : ["summary", "usage", "quality", "trends"];
+  const metricsTabs: MetricsTab[] = ["summary", "usage", "quality", "trends"];
   const onMetricsTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, tab: MetricsTab) => {
     const current = metricsTabs.indexOf(tab);
     const next = event.key === "ArrowRight" ? (current + 1) % metricsTabs.length :
@@ -297,9 +297,10 @@ export default function App() {
   const allProjectScope = isAdmin && metricAllProjects && page === "metrics";
   const statisticsVisible = page === "metrics" || page === "projectDetails" && projectTab === "statistics";
   // The cross-project comparison tab exists only on the global Statistics page.
-  useEffect(() => { if (page === "projectDetails" && metricsTab === "projects") setMetricsTab("summary"); }, [page, metricsTab]);
+  useEffect(() => { if (metricsTab === "projects") setMetricsTab("summary"); }, [metricsTab]);
+  // Per-project rows name the project and hint its repository instead of its identifier.
+  const projectCell = (name: string) => { const repo = projects.find(item => item.name === name)?.repo; return <td>{name}{repo && <small className="field-hint">{repo}</small>}</td>; };
   const scopeLabel = allProjectScope ? t("metricsAllProjects") : selectedProject?.name || "";
-  const scopeProjects = allProjectScope ? projects : projects.filter(project => project.id === selected);
   const globalRows = allProjectScope ? Object.entries(allMetrics || {}) :
     selectedMetrics && metricsScope === selected && selectedProject ? [[selectedProject.name, selectedMetrics] as [string, Metrics]] : [];
   const selectedKey = JSON.stringify([selected, metricSuffix, authorizedMetricsKey]);
@@ -320,36 +321,6 @@ export default function App() {
   const metricsEmpty = metrics !== null && !((metrics.totals.runs || 0) > 0);
   const usage = reportingDataState !== "ready" ? null : allProjectScope ? (allUsage ? aggregateUsage(Object.values(allUsage)) : null) : usageScope === selected ? selectedUsage : null;
   const scopedUsageRows = allProjectScope ? Object.entries(allUsage || {}) : selectedUsage && selectedProject ? [[selectedProject.name, selectedUsage] as [string, Usage]] : [];
-  const globalTokensIn = metrics?.totals.tokens_in;
-  const globalTokensOut = metrics?.totals.tokens_out;
-  const globalReportedCost = globalRows.reduce((sum, [, item]) => sum + (item.totals.cost_usd || 0), 0);
-  const globalReviewRounds = globalRows.reduce((sum, [, item]) => sum + item.runs.reduce((runSum, run) => runSum + Number(run.review_rounds || 0), 0), 0);
-  const repositoryRows = Object.entries(scopeProjects.reduce<Record<string, {
-    projects: number; jobs: number; tokensIn: number | null; tokensOut: number | null; mrRevisions: number; pipelineRepairs: number;
-    reported: number; estimated: number; hasReported: boolean; hasEstimated: boolean;
-  }>>((acc, project) => {
-    if (!project.repo.trim()) return acc;
-    const row = acc[project.repo] || (acc[project.repo] = {
-      projects: 0, jobs: 0, tokensIn: null, tokensOut: null, mrRevisions: 0, pipelineRepairs: 0,
-      reported: 0, estimated: 0, hasReported: false, hasEstimated: false,
-    });
-    const item = globalRows.find(([name]) => name === project.name)?.[1];
-    row.projects += 1;
-    row.jobs += item?.totals.runs || 0;
-    if (item?.totals.tokens_in != null) row.tokensIn = (row.tokensIn || 0) + item.totals.tokens_in;
-    if (item?.totals.tokens_out != null) row.tokensOut = (row.tokensOut || 0) + item.totals.tokens_out;
-    row.mrRevisions += item?.totals.mr_revisions || 0;
-    row.pipelineRepairs += item?.totals.pipeline_repairs || 0;
-    if (item?.totals.cost_usd != null) {
-      row.reported += item.totals.cost_usd;
-      row.hasReported = true;
-    }
-    if (item?.totals.estimated_cost_usd != null) {
-      row.estimated += item.totals.estimated_cost_usd;
-      row.hasEstimated = true;
-    }
-    return acc;
-  }, {})).sort(([a], [b]) => a.localeCompare(b));
   const formatNumber = (value: number | null | undefined) => value == null ? "—" : new Intl.NumberFormat(locale).format(value);
   const formatPercent = (value: number | null | undefined) => value == null ? "—" : new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 1 }).format(value);
   const formatMoney = (value: number | null | undefined) => value == null ? "—" : new Intl.NumberFormat(locale, { style: "currency", currency: "USD" }).format(value);
@@ -985,7 +956,7 @@ export default function App() {
       <div className="metrics-tabs project-tabs" role="tablist" aria-label={t("projectSections")}>
         {projectTabs.map(tab => <button key={tab} id={`project-tab-${tab}`} type="button" role="tab" aria-controls="project-tab-panel" aria-selected={projectTab === tab} tabIndex={projectTab === tab ? 0 : -1} onClick={() => selectProjectTab(tab)} onKeyDown={event => onProjectTabKeyDown(event, tab)}>{tab === "overview" ? jc.summary : tab === "configuration" ? jc.settings : tab === "jobs" ? t("jobs") : tab === "statistics" ? t("metrics") : tab === "history" ? jc.history : t("projectAccessTab")}</button>)}
       </div>
-    </section> : page === "metrics" && allProjectScope ? <p className="scope-note">{t("metricsAllProjects")} · {t("globalScopeHelp")}</p> : null;
+    </section> : null;
 
   const elapsed = (value: number | null) => value == null ? statisticsText.unavailable : `${formatNumber(value)} s`;
   const usageTotals: Chip[] = usage ? [[t("usageEvents"), formatNumber(usage.totals.events)], [t("tokensIn"), formatNumber(usage.totals.tokens_in)],
@@ -1027,12 +998,12 @@ export default function App() {
         <section className="panel"><h2>{t("attributedUsage")}</h2>
           {usage && <Chips items={usageTotals} className="usage-totals" />}
           {usage?.daily.length ? <PagedTable key={`${usageSortKey}-${usageSortDescending}`} t={t}><table className="usage-table"><thead><tr>{usageColumns.map(([key, label]) => <SortHeader key={key} label={t(label)} sortKey={key} activeKey={usageSortKey} descending={usageSortDescending} onSort={changeUsageSort} />)}</tr></thead><tbody>{sortUsageRows(usage.daily, usageSortKey, usageSortDescending, locale).map((row, index) => <tr key={`${row.date}-${row.executor}-${row.model}-${index}`}><td>{row.date}</td><td>{row.executor || "—"}</td><td>{row.model || "—"}</td><td>{formatNumber(row.events)}</td><td>{formatNumber(row.tokens_in)}</td><td>{formatNumber(row.tokens_out)}</td><td>{row.cache_read_tokens == null ? "\u2014" : formatNumber(row.cache_read_tokens)}</td><td>{row.cache_write_tokens == null ? "\u2014" : formatNumber(row.cache_write_tokens)}</td>{isAdmin && <td>{formatMoney(row.reported_cost_usd)}</td>}{isAdmin && <td>{formatMoney(row.estimated_cost_usd)}</td>}</tr>)}</tbody></table></PagedTable> : <Empty label={t("noMatchingMetrics")} />}
-          {allProjectScope && allUsage && <><h3>{t("allProjects")}</h3><PagedTable t={t}><table><thead><tr><th>{t("project")}</th><th>{t("usageEvents")}</th><th>{t("tokensIn")}</th><th>{t("tokensOut")}</th><th>{t("cost")}</th><th>{t("estimatedCost")}</th><th>{t("unpricedEvents")}</th></tr></thead><tbody>{scopedUsageRows.map(([name, item]) => <tr key={name}><td>{name}</td><td>{formatNumber(item.totals.events)}</td><td>{formatNumber(item.totals.tokens_in)}</td><td>{formatNumber(item.totals.tokens_out)}</td><td>{formatMoney(item.totals.reported_cost_usd)}</td><td>{formatMoney(item.totals.estimated_cost_usd)}</td><td>{formatNumber(item.totals.unpriced_events)}</td></tr>)}</tbody></table></PagedTable></>}
+          {allProjectScope && allUsage && <><h3>{t("allProjects")}</h3><PagedTable t={t}><table><thead><tr><th>{t("project")}</th><th>{t("usageEvents")}</th><th>{t("tokensIn")}</th><th>{t("tokensOut")}</th><th>{t("cost")}</th><th>{t("estimatedCost")}</th><th>{t("unpricedEvents")}</th></tr></thead><tbody>{scopedUsageRows.map(([name, item]) => <tr key={name}>{projectCell(name)}<td>{formatNumber(item.totals.events)}</td><td>{formatNumber(item.totals.tokens_in)}</td><td>{formatNumber(item.totals.tokens_out)}</td><td>{formatMoney(item.totals.reported_cost_usd)}</td><td>{formatMoney(item.totals.estimated_cost_usd)}</td><td>{formatNumber(item.totals.unpriced_events)}</td></tr>)}</tbody></table></PagedTable></>}
         </section>
         </>}
         {metricsTab === "summary" && metrics && <>
           <StatisticsEvidence metrics={metrics} locale={locale} admin={isAdmin} t={t} />
-          {allProjectScope && <section className="panel"><h2>{t("projectComparison")}</h2><PagedTable t={t}><table><thead><tr><th>{t("project")}</th><th>{statisticsText.started}</th><th>{statisticsText.completed}</th><th>{statisticsText.failed}</th><th>{t("tokensIn")}</th><th>{t("tokensOut")}</th></tr></thead><tbody>{globalRows.map(([name, item]) => <tr key={name}><td>{name}<small>{item.scope?.project_ids[0]}</small></td><td>{item.period.started}</td><td>{item.period.completed}</td><td>{item.period.failed}</td><td>{formatNumber(item.period.tokens_in)}</td><td>{formatNumber(item.period.tokens_out)}</td></tr>)}</tbody></table></PagedTable></section>}
+          {allProjectScope && <section className="panel"><h2>{t("projectComparison")}</h2><PagedTable t={t}><table><thead><tr><th>{t("project")}</th><th>{statisticsText.started}</th><th>{statisticsText.completed}</th><th>{statisticsText.failed}</th><th>{t("averageSpan")}</th></tr></thead><tbody>{globalRows.map(([name, item]) => <tr key={name}>{projectCell(name)}<td>{item.period.started}</td><td>{item.period.completed}</td><td>{item.period.failed}</td><td>{elapsed(item.duration.avg_span_seconds)}</td></tr>)}</tbody></table></PagedTable></section>}
         </>}
         {metricsTab === "quality" && metricsEmpty && <section className="panel"><Empty label={t("metricsNoJobs")} /></section>}{metricsTab === "quality" && !metricsEmpty && <>
         <section className="panel"><h2>{t("deliveryQuality")}</h2><Chips items={qualityChips} /></section>
@@ -1042,9 +1013,9 @@ export default function App() {
             {revisionDays.map(day => <tr key={day.date}><td>{day.date}</td><td>{formatNumber(day.mr_revisions)}</td><td>{formatNumber(day.pipeline_repairs)}</td></tr>)}
           </tbody></table></PagedTable>}
         </section>
-        {allProjectScope && <section className="panel"><div className="panel-heading"><h2>{t("metricsAllProjects")} · {t("mrRevisions")} / {t("pipelineRepairs")}</h2></div>
-          <PagedTable t={t}><table><thead><tr><th>{t("project")}</th><th>{t("mrRevisions")}</th><th>{t("pipelineRepairs")}</th></tr></thead><tbody>
-            {globalRows.map(([name, item]) => <tr key={name}><td>{name}</td><td>{formatNumber(item.totals.mr_revisions || 0)}</td><td>{formatNumber(item.totals.pipeline_repairs || 0)}</td></tr>)}
+        {allProjectScope && <section className="panel"><h2>{t("projectComparison")}</h2>
+          <PagedTable t={t}><table><thead><tr><th>{t("project")}</th><th>{t("reviewReworkRate")}</th><th>{t("mrRevisions")}</th><th>{t("pipelineRepairs")}</th><th>{t("reviewRounds")}</th></tr></thead><tbody>
+            {globalRows.map(([name, item]) => <tr key={name}>{projectCell(name)}<td>{formatPercent(item.quality.review_rework_rate)} <small className="field-hint">{ratio(item.quality.reworked_jobs, item.quality.reviewed_jobs)}</small></td><td>{formatNumber(item.totals.mr_revisions || 0)}</td><td>{formatNumber(item.totals.pipeline_repairs || 0)}</td><td>{formatNumber(item.runs.reduce((sum, run) => sum + Number(run.review_rounds || 0), 0))}</td></tr>)}
           </tbody></table></PagedTable>
         </section>}
         {isAdmin && !allProjectScope && selected && (metrics?.revisions?.length || 0) > 0 && <section className="panel"><div className="panel-heading"><h2>{t("revisionCosts")}</h2><span className="muted">{scopeLabel}</span></div>
@@ -1052,17 +1023,6 @@ export default function App() {
             {metrics?.revisions?.map(row => <tr key={`${row.run_id}-${row.revision}`}><td>{row.run_id}</td><td>{row.revision}</td><td>{row.date || "—"}</td><td>{row.trigger === "revise-label" ? t("mrRevisions") : row.trigger === "pipeline-failed" ? t("pipelineRepairs") : t("unclassifiedRevisions")}</td><td>{formatNumber(row.tokens_in)}</td><td>{formatNumber(row.tokens_out)}</td><td>{formatMoney(row.reported_cost_usd)}</td><td>{formatMoney(row.estimated_cost_usd)}</td></tr>)}
           </tbody></table></PagedTable>
         </section>}
-        </>}
-        {metricsTab === "projects" && isAdmin && <>
-        <section className="panel"><div className="panel-heading metrics-project-heading"><h2>{t("projectComparison")}</h2><span className="muted">{scopeProjects.length} {t("projects")} · {repositoryRows.length} {t("repository")}</span></div>
-          <PagedTable t={t}><table><thead><tr><th>{t("project")}</th><th>{t("repository")}</th><th>{t("jobs")}</th><th>{t("measuredJobs")}</th><th>{t("averageSpan")}</th><th>{t("reviewReworkRate")}</th><th>{t("tokensIn")}</th><th>{t("tokensOut")}</th><th>{t("reviewRounds")}</th><th>{t("cost")}</th><th>{t("estimatedCost")}</th></tr></thead><tbody>
-            {globalRows.map(([name, item]) => <tr key={name}><td>{name}</td><td>{projects.find(project => project.name === name)?.repo || "—"}</td><td>{formatNumber(item.totals.runs || 0)}</td><td>{formatNumber(item.duration.sampled_runs)}</td><td>{item.duration.avg_span_seconds == null ? "—" : `${formatNumber(item.duration.avg_span_seconds)} s`}</td><td>{formatPercent(item.quality.review_rework_rate)} ({formatNumber(item.quality.reworked_jobs)}/{formatNumber(item.quality.reviewed_jobs)})</td><td>{formatNumber(item.totals.tokens_in)}</td><td>{formatNumber(item.totals.tokens_out)}</td><td>{formatNumber(item.runs.reduce((sum, run) => sum + Number(run.review_rounds || 0), 0))}</td><td>{item.totals.cost_usd == null ? "—" : new Intl.NumberFormat(locale, { style: "currency", currency: "USD" }).format(item.totals.cost_usd)}</td><td>{formatMoney(item.totals.estimated_cost_usd)}</td></tr>)}
-            {allProjectScope && <tr><th>{t("metricsAllProjects")}</th><th>{repositoryRows.length}</th><th>{formatNumber(metrics?.totals.runs || 0)}</th><th>{formatNumber(globalRows.reduce((sum, [, item]) => sum + item.duration.sampled_runs, 0))}</th><th>—</th><th>—</th><th>{formatNumber(globalTokensIn)}</th><th>{formatNumber(globalTokensOut)}</th><th>{formatNumber(globalReviewRounds)}</th><th>{globalRows.some(([, item]) => item.totals.cost_usd != null) ? new Intl.NumberFormat(locale, { style: "currency", currency: "USD" }).format(globalReportedCost) : "—"}</th><th>{formatMoney(metrics?.totals.estimated_cost_usd)}</th></tr>}
-          </tbody></table></PagedTable></section>
-        {isAdmin && repositoryRows.length > 0 && <section className="panel"><div className="panel-heading"><h2>{t("repository")}</h2><span className="muted">{repositoryRows.length}</span></div>
-          <PagedTable t={t}><table><thead><tr><th>{t("repository")}</th><th>{t("projects")}</th><th>{t("jobs")}</th><th>{t("tokensIn")}</th><th>{t("tokensOut")}</th><th>{t("cost")}</th><th>{t("estimatedCost")}</th></tr></thead><tbody>
-            {repositoryRows.map(([repo, row]) => <tr key={repo}><td>{repo}</td><td>{formatNumber(row.projects)}</td><td>{formatNumber(row.jobs)}</td><td>{formatNumber(row.tokensIn)}</td><td>{formatNumber(row.tokensOut)}</td><td>{formatMoney(row.hasReported ? row.reported : null)}</td><td>{formatMoney(row.hasEstimated ? row.estimated : null)}</td></tr>)}
-          </tbody></table></PagedTable></section>}
         </>}
         {metricsTab === "trends" && metricsEmpty && <section className="panel"><Empty label={t("metricsNoJobs")} /></section>}{metricsTab === "trends" && !metricsEmpty && <>
         <section className="panel"><h2>{trendTitle}</h2><Chips items={trendChips} />

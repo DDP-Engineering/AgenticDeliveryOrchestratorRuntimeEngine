@@ -108,9 +108,10 @@ export function formatRoute(route: Route): string {
 export function normalizeRoute(route: Route | null, context: { isAdmin: boolean }): { route: Route; replaced: boolean } {
   if (route === null) return { route: { view: "overview" }, replaced: true };
   if (route.view === "projectDetails" && SETTINGS_ALIASES.has(route.tab)) return { route: { ...route, tab: "configuration" }, replaced: true };
+  // The global Projects tab is gone; old links land on Summary for every role.
+  if (route.view === "metrics" && route.tab === "projects") return { route: { ...route, tab: "summary" }, replaced: true };
   if (context.isAdmin) return { route, replaced: false };
   if (ADMIN_ONLY.has(route.view)) return { route: { view: "overview" }, replaced: true };
   if (route.view === "projectDetails" && ADMIN_PROJECT_TABS.has(route.tab)) return { route: { ...route, tab: "overview" }, replaced: true };
-  if (route.view === "metrics" && route.tab === "projects") return { route: { ...route, tab: "summary" }, replaced: true };
   return { route, replaced: false };
 }

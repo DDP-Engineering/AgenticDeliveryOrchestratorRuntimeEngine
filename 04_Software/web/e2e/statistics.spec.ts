@@ -53,11 +53,12 @@ test("statistics summary shows only measures, compact period and job elapsed tim
   await expect(page.getByText(/Started means/)).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Messages" })).toHaveCount(0);
   await expect(page.locator(".job-consumption")).toHaveCount(0);
-  await expect(page.getByText("Average elapsed", { exact: true })).toHaveCount(0);
+  await expect(page.locator(".statistics-evidence").getByText("Average elapsed", { exact: true })).toHaveCount(0);
+  await expect(page.locator(".usage-totals")).toHaveCount(0);
   // Usage totals carry job elapsed time; per-job consumption lives only in the Jobs tab.
   await page.getByRole("tab", { name: "Usage", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Job elapsed time", exact: true })).toHaveCount(0);
-  await expect(page.getByText("Average elapsed", { exact: true })).toBeVisible();
+  await expect(page.locator(".usage-totals").getByText("Average elapsed", { exact: true })).toBeVisible();
   // Usage has no identity filters, filter help or rebuild action; totals are compact chips.
   await expect(page.getByLabel("Executor", { exact: true })).toHaveCount(0);
   await expect(page.getByLabel("Model", { exact: true })).toHaveCount(0);
@@ -160,10 +161,34 @@ test("trends show one compact table and estimated cost appears once per place", 
   await expect(page.locator(".usage-totals").getByText("Unpriced usage events", { exact: true })).toBeVisible();
   await page.goto("/metrics"); await page.getByRole("tab", { name: "Usage", exact: true }).click();
   await expect(page.locator(".usage-totals div").filter({ has: page.getByText("Unpriced usage events", { exact: true }) })).toHaveText(/\d$/);
-  await expect(page.getByRole("columnheader", { name: "Unpriced usage events", exact: true })).toBeVisible();
-  await page.getByRole("tab", { name: "Projects", exact: true }).click();
-  const comparison = page.locator("section", { has: page.getByRole("heading", { name: "Project comparison", exact: true }) });
-  await expect(comparison.getByRole("columnheader", { name: "Estimated cost (USD)", exact: true })).toBeVisible();
+  const perProject = page.locator('h3:has-text("Enrolled projects") + .table-scroll');
+  await expect(perProject.getByRole("columnheader", { name: "Unpriced usage events", exact: true })).toBeVisible();
+  await expect(perProject.getByRole("columnheader", { name: "Estimated cost (USD)", exact: true })).toBeVisible();
+});
+
+test("all-project statistics show each per-project family once, in its own tab", async ({ page }) => {
+  await signIn(page);
+  const alpha = (await (await page.request.get("/api/v1/projects")).json()).find((item: any) => item.name === "alpha");
+  await page.goto("/metrics");
+  await expect(page.locator(".statistics-evidence")).toBeVisible();
+  await expect(page.locator(".scope-note")).toHaveCount(0);
+  await expect(page.getByText(/Statistics cover all projects you can access/)).toHaveCount(0);
+  await expect(page.getByRole("tablist", { name: "Statistics", exact: true }).getByRole("tab")).toHaveText(["Summary", "Usage", "Quality", "Trends"]);
+  const table = page.locator("#metrics-tab-panel table").first();
+  await expect(table.getByRole("columnheader")).toHaveText(["Project", "Started jobs", "Completed jobs", "Failed jobs", "Average elapsed"]);
+  const alphaRow = table.locator("tbody tr").filter({ hasText: "alpha" });
+  await expect(alphaRow).toContainText(alpha.repo);
+  await expect(alphaRow).not.toContainText(alpha.id);
+  await page.getByRole("tab", { name: "Usage", exact: true }).click();
+  const perProject = page.locator('h3:has-text("Enrolled projects") + .table-scroll');
+  for (const name of ["Estimated cost (USD)", "Unpriced usage events"])
+    await expect(perProject.getByRole("columnheader", { name, exact: true })).toBeVisible();
+  await page.getByRole("tab", { name: "Quality", exact: true }).click();
+  for (const name of ["Reviewer rework", "MR/PR reviewer revisions", "Pipeline repairs", "Review rounds"])
+    await expect(page.getByRole("columnheader", { name, exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Repository", exact: true })).toHaveCount(0);
+  await page.goto("/metrics?tab=projects");
+  await expect(page.getByRole("tab", { name: "Summary", exact: true })).toHaveAttribute("aria-selected", "true");
 });
 
 test("captured scope follows project, inclusive dates, DST, grouping, CSV and reload", async ({ page }) => {

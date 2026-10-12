@@ -398,7 +398,7 @@ Summary shows only measure cards (lifecycle events, measured zero, unavailable a
 partial token subtotals, reported/estimated money); job elapsed time is in Usage
 and per-job consumption only in Jobs. Server buckets feed one Trends table whose
 count cells carry bars, in all four locales/themes; Admin unpriced events are a
-Usage total and estimated cost per project is a Projects column.
+Usage total and estimated cost per project is in the All projects Usage table.
 Composite job consumption exposes lifetime, selected-period and undated amounts;
 Jobs/detail show lifetime only (one all-time read per visible project) and the Jobs
 table sorts on the server (`jobs-page` sort/order). Statistics deep links retain selection.
@@ -659,8 +659,8 @@ keep these controls visible while content begins with page data. Metric hints,
 usage actions and account rows wrap on narrow screens.
 Statistics keeps its authorized project selector with the common reporting range,
 grouping, All time and CSV menu in one row above keyboard-operable Summary, Usage, Quality,
-Trends and administrator-only Projects tabs. Administrators use All projects
-scope for pooled totals and comparisons.
+Trends tabs (old ?tab=projects links land on Summary). Administrators use All projects
+scope for pooled totals and one per-project table per family in Summary, Usage and Quality.
 Every category and CSV menu follows that scope; single-project mode limits
 comparison rows and developer mode exposes assigned-project operational data.
 Summary includes a paginated project breakdown in All projects scope.

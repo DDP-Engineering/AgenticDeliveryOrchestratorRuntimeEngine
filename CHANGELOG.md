@@ -22,6 +22,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Show each Statistics per-project family once: the All projects scope line, the Projects tab and the Repository table are removed; Summary lists job counts and average elapsed per project, Usage consumption, costs and unpriced events per project, and Quality rework, revisions, repairs and review rounds per project, each with the repository under the project name.
+
 - Simplify the Jobs table: Ticket, Project, Status, Last activity and lifetime token Consumption, sortable on the server by Ticket, Project, Status or Last activity (`/api/v1/jobs-page` `sort`/`order`); the Selected period line, selected-period consumption, project/run identifiers, outcome text and activity-age hints leave the rows (identifiers and outcome stay in job details).
 
 - Align the global Jobs page with the project hub: a compact project selector and the same Tickets/Jobs sub-tabs (`view=jobs`), with All projects Tickets reading every authorized active project into one table with a Project column; the ticket-number start form and the scope/worker explanations are removed (start a ticket from Tickets), and worker status appears only when it needs attention.

@@ -82,8 +82,8 @@ test("normalization replaces unknown and role-restricted routes", () => {
   assert.deepEqual(
     normalizeRoute({ view: "projectDetails", project: ID, tab: "access" }, { isAdmin: false }),
     { route: { view: "projectDetails", project: ID, tab: "overview" }, replaced: true });
-  assert.deepEqual(
-    normalizeRoute({ view: "metrics", tab: "projects" }, { isAdmin: false }),
+  for (const isAdmin of [false, true]) assert.deepEqual(
+    normalizeRoute({ view: "metrics", tab: "projects" }, { isAdmin }),
     { route: { view: "metrics", tab: "summary" }, replaced: true });
   assert.deepEqual(normalizeRoute({ view: "settings" }, { isAdmin: false }), { route: { view: "settings" }, replaced: false });
 });

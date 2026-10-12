@@ -128,7 +128,6 @@ a.text-button:hover { text-decoration: underline; }
 .project-context nav { display: flex; flex-wrap: wrap; gap: 4px; }
 .project-context .nav-item { color: var(--accent-deep); width: auto; padding: 8px 12px; border: 1px solid var(--border); }
 .project-context .nav-item.active, .project-context .nav-item:hover { background: var(--accent-soft); color: var(--accent-deep); }
-.scope-note { color: var(--muted); line-height: 1.5; }
 .data-feedback { display: flex; gap: 16px; align-items: flex-start; }
 .data-feedback p { margin: 10px 0 0; line-height: 1.5; }
 .feedback-icon { border-radius: 50%; background: var(--accent-soft); color: var(--accent-deep); width: 32px; height: 32px; flex: none; display: grid; place-items: center; font-weight: 800; }
@@ -189,7 +188,6 @@ summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 .metrics-tabs button { min-height: 42px; padding: 9px 15px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--muted); font-size: .88rem; font-weight: 700; cursor: pointer; }
 .metrics-tabs button[aria-selected="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-deep); }
 .metrics-tabs button:focus-visible, .metrics-export-trigger:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-.metrics-project-heading { flex-wrap: wrap; }
 .job-filters { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
 .job-filters label { width: min(220px, 100%); }
 .job-basic-filters { display: grid; align-items: start; }

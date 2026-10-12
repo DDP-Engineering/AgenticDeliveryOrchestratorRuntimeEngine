@@ -326,12 +326,13 @@ Project selection and project API routes use the immutable profile ID, so a
 profile rename preserves the selected project and does not retarget actions to
 a different profile that later uses the old name. Settings also presents administrator price versions; Statistics separates reported
 and estimated USD values, shows unpriced usage events among the Usage totals,
-adds estimated cost to the Projects comparison, groups project totals by
-non-empty repository label and links to administrator global CSV.
+keeps per-project estimated cost in the All projects Usage table and links to
+administrator global CSV.
 The Statistics page keeps its authorized project selector, inclusive date range,
-day/week/month grouping, All time and CSV export menu in one row above five category tabs: Summary,
-Usage, Quality, Trends and administrator-only Projects. Administrators initially
-see All projects, with pooled headline totals and a paginated project breakdown
+day/week/month grouping, All time and CSV export menu in one row above four category tabs: Summary,
+Usage, Quality and Trends. Administrators initially see All projects, with pooled
+headline totals and one per-project table per family (`projectCell` adds the
+repository hint) in Summary, Usage and Quality, starting with a paginated project breakdown
 in Summary. Selecting one project scopes every category, project/repository
 comparison and export to that project. Project details opens Statistics for that
 project. Developers select assigned projects and receive operational data only.
