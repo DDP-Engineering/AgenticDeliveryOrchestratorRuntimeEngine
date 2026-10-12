@@ -989,7 +989,7 @@ export default function App() {
   const elapsed = (value: number | null) => value == null ? statisticsText.unavailable : `${formatNumber(value)} s`;
   const usageTotals: Chip[] = usage ? [[t("usageEvents"), formatNumber(usage.totals.events)], [t("tokensIn"), formatNumber(usage.totals.tokens_in)],
     [t("tokensOut"), formatNumber(usage.totals.tokens_out)], [t("cacheRead"), formatNumber(usage.totals.cache_read_tokens)], [t("cacheWrite"), formatNumber(usage.totals.cache_write_tokens)],
-    ...(isAdmin ? [[t("cost"), formatMoney(usage.totals.reported_cost_usd)], [t("estimatedCost"), formatMoney(usage.totals.estimated_cost_usd)]] as Chip[] : []),
+    ...(isAdmin ? [[t("cost"), formatMoney(usage.totals.reported_cost_usd)], [t("estimatedCost"), formatMoney(usage.totals.estimated_cost_usd)], [t("unpricedEvents"), formatNumber(usage.totals.unpriced_events)]] as Chip[] : []),
     ...(metrics ? [[t("measuredJobs"), formatNumber(metrics.duration.sampled_runs)], [t("averageSpan"), elapsed(metrics.duration.avg_span_seconds)],
       [t("medianSpan"), elapsed(metrics.duration.median_span_seconds)]] as Chip[] : [])] : [];
   const ratio = (numerator: number | undefined, denominator: number | undefined) => `${formatNumber(numerator || 0)}/${formatNumber(denominator || 0)}`;
@@ -1003,6 +1003,8 @@ export default function App() {
   const revisionChips: Chip[] = metrics ? [[t("mrRevisions"), formatNumber(metrics.totals.mr_revisions || 0)], [t("pipelineRepairs"), formatNumber(metrics.totals.pipeline_repairs || 0)],
     [t("unclassifiedRevisions"), formatNumber(metrics.coverage.revision_events_unclassified || 0)]] : [];
   const revisionDays = metrics?.daily.filter(day => day.mr_revisions || day.pipeline_repairs) || [];
+  const trendChips: Chip[] = metrics ? [[t("coverage"), `${formatNumber(metrics.coverage.runs_with_usage || 0)}/${formatNumber(metrics.totals.runs || 0)}`, t("jobs")],
+    [t("unallocatedUsage"), formatNumber(metrics.coverage.usage_events_unallocated || 0)]] : [];
   const usageColumns: Array<[UsageSortKey, MessageKey]> = [["date", "date"], ["executor", "executor"], ["model", "model"], ["events", "usageEvents"], ["tokens_in", "tokensIn"],
     ["tokens_out", "tokensOut"], ["cache_read_tokens", "cacheRead"], ["cache_write_tokens", "cacheWrite"], ...(isAdmin ? [["reported_cost_usd", "cost"], ["estimated_cost_usd", "estimatedCost"]] as Array<[UsageSortKey, MessageKey]> : [])];
 
@@ -1018,7 +1020,7 @@ export default function App() {
         <section className="panel"><h2>{t("attributedUsage")}</h2>
           {usage && <Chips items={usageTotals} className="usage-totals" />}
           {usage?.daily.length ? <PagedTable key={`${usageSortKey}-${usageSortDescending}`} t={t}><table className="usage-table"><thead><tr>{usageColumns.map(([key, label]) => <SortHeader key={key} label={t(label)} sortKey={key} activeKey={usageSortKey} descending={usageSortDescending} onSort={changeUsageSort} />)}</tr></thead><tbody>{sortUsageRows(usage.daily, usageSortKey, usageSortDescending, locale).map((row, index) => <tr key={`${row.date}-${row.executor}-${row.model}-${index}`}><td>{row.date}</td><td>{row.executor || "—"}</td><td>{row.model || "—"}</td><td>{formatNumber(row.events)}</td><td>{formatNumber(row.tokens_in)}</td><td>{formatNumber(row.tokens_out)}</td><td>{row.cache_read_tokens == null ? "\u2014" : formatNumber(row.cache_read_tokens)}</td><td>{row.cache_write_tokens == null ? "\u2014" : formatNumber(row.cache_write_tokens)}</td>{isAdmin && <td>{formatMoney(row.reported_cost_usd)}</td>}{isAdmin && <td>{formatMoney(row.estimated_cost_usd)}</td>}</tr>)}</tbody></table></PagedTable> : <Empty label={t("noMatchingMetrics")} />}
-          {allProjectScope && allUsage && <><h3>{t("allProjects")}</h3><PagedTable t={t}><table><thead><tr><th>{t("project")}</th><th>{t("usageEvents")}</th><th>{t("tokensIn")}</th><th>{t("tokensOut")}</th><th>{t("cost")}</th><th>{t("estimatedCost")}</th></tr></thead><tbody>{scopedUsageRows.map(([name, item]) => <tr key={name}><td>{name}</td><td>{formatNumber(item.totals.events)}</td><td>{formatNumber(item.totals.tokens_in)}</td><td>{formatNumber(item.totals.tokens_out)}</td><td>{formatMoney(item.totals.reported_cost_usd)}</td><td>{formatMoney(item.totals.estimated_cost_usd)}</td></tr>)}</tbody></table></PagedTable></>}
+          {allProjectScope && allUsage && <><h3>{t("allProjects")}</h3><PagedTable t={t}><table><thead><tr><th>{t("project")}</th><th>{t("usageEvents")}</th><th>{t("tokensIn")}</th><th>{t("tokensOut")}</th><th>{t("cost")}</th><th>{t("estimatedCost")}</th><th>{t("unpricedEvents")}</th></tr></thead><tbody>{scopedUsageRows.map(([name, item]) => <tr key={name}><td>{name}</td><td>{formatNumber(item.totals.events)}</td><td>{formatNumber(item.totals.tokens_in)}</td><td>{formatNumber(item.totals.tokens_out)}</td><td>{formatMoney(item.totals.reported_cost_usd)}</td><td>{formatMoney(item.totals.estimated_cost_usd)}</td><td>{formatNumber(item.totals.unpriced_events)}</td></tr>)}</tbody></table></PagedTable></>}
         </section>
         </>}
         {metricsTab === "summary" && metrics && <>
@@ -1046,9 +1048,9 @@ export default function App() {
         </>}
         {metricsTab === "projects" && isAdmin && <>
         <section className="panel"><div className="panel-heading metrics-project-heading"><h2>{t("projectComparison")}</h2><span className="muted">{scopeProjects.length} {t("projects")} · {repositoryRows.length} {t("repository")}</span></div>
-          <PagedTable t={t}><table><thead><tr><th>{t("project")}</th><th>{t("repository")}</th><th>{t("jobs")}</th><th>{t("measuredJobs")}</th><th>{t("averageSpan")}</th><th>{t("reviewReworkRate")}</th><th>{t("tokensIn")}</th><th>{t("tokensOut")}</th><th>{t("reviewRounds")}</th><th>{t("cost")}</th></tr></thead><tbody>
-            {globalRows.map(([name, item]) => <tr key={name}><td>{name}</td><td>{projects.find(project => project.name === name)?.repo || "—"}</td><td>{formatNumber(item.totals.runs || 0)}</td><td>{formatNumber(item.duration.sampled_runs)}</td><td>{item.duration.avg_span_seconds == null ? "—" : `${formatNumber(item.duration.avg_span_seconds)} s`}</td><td>{formatPercent(item.quality.review_rework_rate)} ({formatNumber(item.quality.reworked_jobs)}/{formatNumber(item.quality.reviewed_jobs)})</td><td>{formatNumber(item.totals.tokens_in)}</td><td>{formatNumber(item.totals.tokens_out)}</td><td>{formatNumber(item.runs.reduce((sum, run) => sum + Number(run.review_rounds || 0), 0))}</td><td>{item.totals.cost_usd == null ? "—" : new Intl.NumberFormat(locale, { style: "currency", currency: "USD" }).format(item.totals.cost_usd)}</td></tr>)}
-            {allProjectScope && <tr><th>{t("metricsAllProjects")}</th><th>{repositoryRows.length}</th><th>{formatNumber(metrics?.totals.runs || 0)}</th><th>{formatNumber(globalRows.reduce((sum, [, item]) => sum + item.duration.sampled_runs, 0))}</th><th>—</th><th>—</th><th>{formatNumber(globalTokensIn)}</th><th>{formatNumber(globalTokensOut)}</th><th>{formatNumber(globalReviewRounds)}</th><th>{globalRows.some(([, item]) => item.totals.cost_usd != null) ? new Intl.NumberFormat(locale, { style: "currency", currency: "USD" }).format(globalReportedCost) : "—"}</th></tr>}
+          <PagedTable t={t}><table><thead><tr><th>{t("project")}</th><th>{t("repository")}</th><th>{t("jobs")}</th><th>{t("measuredJobs")}</th><th>{t("averageSpan")}</th><th>{t("reviewReworkRate")}</th><th>{t("tokensIn")}</th><th>{t("tokensOut")}</th><th>{t("reviewRounds")}</th><th>{t("cost")}</th><th>{t("estimatedCost")}</th></tr></thead><tbody>
+            {globalRows.map(([name, item]) => <tr key={name}><td>{name}</td><td>{projects.find(project => project.name === name)?.repo || "—"}</td><td>{formatNumber(item.totals.runs || 0)}</td><td>{formatNumber(item.duration.sampled_runs)}</td><td>{item.duration.avg_span_seconds == null ? "—" : `${formatNumber(item.duration.avg_span_seconds)} s`}</td><td>{formatPercent(item.quality.review_rework_rate)} ({formatNumber(item.quality.reworked_jobs)}/{formatNumber(item.quality.reviewed_jobs)})</td><td>{formatNumber(item.totals.tokens_in)}</td><td>{formatNumber(item.totals.tokens_out)}</td><td>{formatNumber(item.runs.reduce((sum, run) => sum + Number(run.review_rounds || 0), 0))}</td><td>{item.totals.cost_usd == null ? "—" : new Intl.NumberFormat(locale, { style: "currency", currency: "USD" }).format(item.totals.cost_usd)}</td><td>{formatMoney(item.totals.estimated_cost_usd)}</td></tr>)}
+            {allProjectScope && <tr><th>{t("metricsAllProjects")}</th><th>{repositoryRows.length}</th><th>{formatNumber(metrics?.totals.runs || 0)}</th><th>{formatNumber(globalRows.reduce((sum, [, item]) => sum + item.duration.sampled_runs, 0))}</th><th>—</th><th>—</th><th>{formatNumber(globalTokensIn)}</th><th>{formatNumber(globalTokensOut)}</th><th>{formatNumber(globalReviewRounds)}</th><th>{globalRows.some(([, item]) => item.totals.cost_usd != null) ? new Intl.NumberFormat(locale, { style: "currency", currency: "USD" }).format(globalReportedCost) : "—"}</th><th>{formatMoney(metrics?.totals.estimated_cost_usd)}</th></tr>}
           </tbody></table></PagedTable></section>
         {isAdmin && repositoryRows.length > 0 && <section className="panel"><div className="panel-heading"><h2>{t("repository")}</h2><span className="muted">{repositoryRows.length}</span></div>
           <PagedTable t={t}><table><thead><tr><th>{t("repository")}</th><th>{t("projects")}</th><th>{t("jobs")}</th><th>{t("tokensIn")}</th><th>{t("tokensOut")}</th><th>{t("cost")}</th><th>{t("estimatedCost")}</th></tr></thead><tbody>
@@ -1056,16 +1058,9 @@ export default function App() {
           </tbody></table></PagedTable></section>}
         </>}
         {metricsTab === "trends" && metricsEmpty && <section className="panel"><Empty label={t("metricsNoJobs")} /></section>}{metricsTab === "trends" && !metricsEmpty && <>
-        <section className="panel"><div className="panel-heading"><h2>{trendTitle}</h2><span className="muted">{metricTimezone}</span></div>
+        <section className="panel"><h2>{trendTitle}</h2><Chips items={trendChips} />
           {metrics && <TrendEvidence metrics={metrics} locale={locale} admin={isAdmin} t={t} />}
-          <p className="muted coverage-note">{t("unallocatedUsage")}: {formatNumber(metrics?.coverage.usage_events_unallocated || 0)} · {t("coverage")}: {formatNumber(metrics?.coverage.runs_with_usage || 0)} / {formatNumber(metrics?.totals.runs || 0)} {t("jobs")}</p>
-        </section>
-        {isAdmin && <section className="panel"><div className="panel-heading"><h2>{t("estimatedCost")}</h2><strong>{formatMoney(metrics?.totals.estimated_cost_usd)} {scopeLabel}</strong></div>
-          <p className="muted">{t("priceHelp")}</p>
-          <PagedTable t={t}><table><thead><tr><th>{t("project")}</th><th>{t("estimatedCost")}</th><th>{t("unpricedEvents")}</th></tr></thead><tbody>{globalRows.map(([name, item]) => <tr key={name}><td>{name}</td><td>{formatMoney(item.totals.estimated_cost_usd)}</td><td>{formatNumber(item.coverage.usage_events_unpriced || 0)}</td></tr>)}</tbody></table></PagedTable>
-          <h3>{scopeLabel} {trendTitle}</h3>
-          <PagedTable t={t}><table><thead><tr><th>{t("date")}</th><th>{t("estimatedCost")}</th></tr></thead><tbody>{metrics?.daily.map(day => <tr key={day.date}><td>{day.date}</td><td>{formatMoney(day.estimated_cost_usd)}</td></tr>)}</tbody></table></PagedTable>
-        </section>}</>}
+        </section></>}
         </>}
         </div></>;
 

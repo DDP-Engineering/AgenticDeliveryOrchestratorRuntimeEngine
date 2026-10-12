@@ -321,10 +321,9 @@ account controls are hidden on narrow screens.
 Project selection and project API routes use the immutable profile ID, so a
 profile rename preserves the selected project and does not retarget actions to
 a different profile that later uses the old name. Settings also presents administrator price versions; Statistics separates reported
-and estimated USD values, displays unpriced-event coverage, groups project
-totals by non-empty repository label, shows global reported/estimated daily
-amounts separately, adds a combined daily view for the selected repository,
-and links to administrator global CSV.
+and estimated USD values, shows unpriced usage events among the Usage totals,
+adds estimated cost to the Projects comparison, groups project totals by
+non-empty repository label and links to administrator global CSV.
 The Statistics page keeps its authorized project selector, inclusive date range,
 day/week/month grouping, All time and CSV export menu in one row above five category tabs: Summary,
 Usage, Quality, Trends and administrator-only Projects. Administrators initially
@@ -356,8 +355,9 @@ explanatory text; job elapsed time appears among the Usage totals. Null is Not
 available, explicit zero is Measured zero, and known amounts with missing
 observations are labeled partial. Reported and estimated Admin money have
 separate labels.
-`TrendEvidence` displays labeled lifecycle bars and a captioned accessible table
-from the same server buckets. `statisticsCopy.ts` holds the four-locale labels.
+`TrendEvidence` renders one `table.trend-table` (named Trend data) with a row
+per server bucket; count cells carry aria-hidden bars scaled to the largest count
+and token/money cells show plain values or a dash. `statisticsCopy.ts` holds the four-locale labels.
 
 `statistics.ts` validates scope, immutable project/run IDs, nullable amounts,
 financial absence for Dev, quality counts and exact server duration samples.
@@ -585,7 +585,7 @@ cost and account/config screens.
 `tests/statistics.test.mjs`, `tests/metrics.test.mjs`, `tests/routes.test.mjs` and
 `e2e/statistics.spec.ts` cover strict analytical transport, scope/exports/stale
 responses and grant revocation, per-job collision/null/zero/partial values,
-canonical mismatches, four locales/themes, keyboard and chart/table parity at
+canonical mismatches, four locales/themes, keyboard and trend table values and bars at
 390px. The browser server uses disposable profiles and fake command boundaries.
 
 

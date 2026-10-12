@@ -149,4 +149,11 @@ test("pooling retains failure counters and does not invent developer financial f
   const usage = aggregateUsage([{ totals: { events: 1, tokens_in: 0, tokens_out: null,
     cache_read_tokens: null, cache_write_tokens: null }, daily: [] }]);
   assert.equal(JSON.stringify(usage).includes("cost"), false);
+  assert.equal("unpriced_events" in usage.totals, false);
+});
+
+test("pooled administrator usage sums unpriced events across projects", () => {
+  const item = unpriced => ({ totals: { events: 1, tokens_in: 0, tokens_out: 0, cache_read_tokens: null, cache_write_tokens: null,
+    reported_cost_usd: null, estimated_cost_usd: null, unpriced_events: unpriced }, daily: [] });
+  assert.equal(aggregateUsage([item(2), item(3), item(0)]).totals.unpriced_events, 5);
 });

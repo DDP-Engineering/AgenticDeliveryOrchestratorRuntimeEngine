@@ -146,6 +146,26 @@ test("quality shows compact delivery, cost and active-day revision values", asyn
   await expect(page.locator(".metric-chips")).toHaveCount(2); await expect(page.getByText("Reported / completed", { exact: true })).toHaveCount(0);
 });
 
+test("trends show one compact table and estimated cost appears once per place", async ({ page }) => {
+  await signIn(page);
+  const alpha = (await (await page.request.get("/api/v1/projects")).json()).find((item: any) => item.name === "alpha").id;
+  await page.route("**/api/v1/projects/*/metrics?*", async route => route.fulfill({ json: analytical(await (await route.fetch()).json()) }));
+  await page.goto(`/projects/${alpha}/statistics?tab=trends`);
+  await expect(page.getByRole("heading", { name: "Daily activity", exact: true })).toBeVisible();
+  await expect(page.locator(".metric-chips").getByText("Usage coverage", { exact: true })).toBeVisible();
+  await expect(page.locator(".metric-chips").getByText("Usage without a consumption date", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Estimated cost (USD)", exact: true })).toHaveCount(0);
+  await expect(page.locator("#metrics-tab-panel")).not.toContainText("UTC");
+  await page.getByRole("tab", { name: "Usage", exact: true }).click();
+  await expect(page.locator(".usage-totals").getByText("Unpriced usage events", { exact: true })).toBeVisible();
+  await page.goto("/metrics"); await page.getByRole("tab", { name: "Usage", exact: true }).click();
+  await expect(page.locator(".usage-totals div").filter({ has: page.getByText("Unpriced usage events", { exact: true }) })).toHaveText(/\d$/);
+  await expect(page.getByRole("columnheader", { name: "Unpriced usage events", exact: true })).toBeVisible();
+  await page.getByRole("tab", { name: "Projects", exact: true }).click();
+  const comparison = page.locator("section", { has: page.getByRole("heading", { name: "Project comparison", exact: true }) });
+  await expect(comparison.getByRole("columnheader", { name: "Estimated cost (USD)", exact: true })).toBeVisible();
+});
+
 test("captured scope follows project, inclusive dates, DST, grouping, CSV and reload", async ({ page }) => {
   await signIn(page); const projects = await (await page.request.get("/api/v1/projects")).json();
   const alpha = projects.find((item: any) => item.name === "alpha").id, beta = projects.find((item: any) => item.name === "beta").id;
@@ -223,7 +243,7 @@ test("corrupt and aborted responses expose error without false zero or stale exp
   await expect(page.locator(".statistics-evidence")).toHaveCount(0); await expect(page.getByRole("alert").first()).toBeVisible();
 });
 
-test("known zero, partial coverage, job duration and chart table parity work in four locales and themes at 390px", async ({ page }) => {
+test("known zero, partial coverage, job duration and trend table bars work in four locales and themes at 390px", async ({ page }) => {
   const errors: string[] = []; page.on("pageerror", error => errors.push(error.message));
   await signIn(page);
   await page.route("**/api/v1/metrics?*", async route => {
@@ -241,11 +261,13 @@ test("known zero, partial coverage, job duration and chart table parity work in 
     await expect(page.locator(".usage-totals").first()).toContainText(messages[locale].averageSpan);
     await expect(page.locator(".job-consumption")).toHaveCount(0);
     await page.getByRole("tab", { name: messages[locale].metricsTabTrends, exact: true }).click();
-    const chart = page.getByRole("figure", { name: copy.trend }); await expect(chart).toBeVisible();
+    await expect(page.getByRole("figure")).toHaveCount(0);
     const table = page.getByRole("table", { name: copy.table }); await expect(table).toBeVisible();
     await expect(table.locator("tbody tr")).toHaveCount(1); await expect(table.locator("tbody tr")).toContainText("2026-10-25");
     await expect(table.locator("tbody tr td").nth(1)).toHaveText("0"); await expect(table.locator("tbody tr td").nth(2)).toHaveText(String(cohort)); await expect(table.locator("tbody tr td").nth(3)).toHaveText(String(cohort));
-    await expect(chart).toContainText(`${copy.completed}: ${cohort}`); await expect(chart).toContainText(`${copy.failed}: ${cohort}`);
+    await expect(table.locator("tbody tr td").nth(2).locator("i")).toHaveCount(1);
+    await expect(table).not.toContainText(copy.measured);
+    await expect(page.locator("#metrics-tab-panel")).not.toContainText("UTC");
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
     await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
   }

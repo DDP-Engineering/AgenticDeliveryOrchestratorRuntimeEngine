@@ -115,8 +115,9 @@ export function aggregateUsage(items: Usage[]): Usage {
     for (const field of ["tokens_in", "tokens_out"] as const) row[field] = sum([row[field], day[field]]);
     for (const field of ["cache_read_tokens", "cache_write_tokens", "reported_cost_usd", "estimated_cost_usd"] as const) row[field] = sum([row[field], day[field]]);
   }
+  if (items.some(item => "unpriced_events" in item.totals)) totals.unpriced_events = items.reduce((total, item) => total + (item.totals.unpriced_events || 0), 0);
   if (!items.some(item => "reported_cost_usd" in item.totals)) {
-    delete totals.reported_cost_usd; delete totals.estimated_cost_usd;
+    delete totals.reported_cost_usd; delete totals.estimated_cost_usd; delete totals.unpriced_events;
     for (const row of buckets.values()) { delete row.reported_cost_usd; delete row.estimated_cost_usd; }
   }
   return { totals, daily: [...buckets.values()].sort((a, b) => a.date.localeCompare(b.date) ||

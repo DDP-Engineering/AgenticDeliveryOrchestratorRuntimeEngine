@@ -254,7 +254,6 @@ td.strong { font-weight: 800; }
 .job-start-form .guided-label label { width: auto; }
 .config-form { margin: 16px 0; flex-wrap: wrap; }
 .config-form label { width: min(260px, 100%); }
-.coverage-note { font-size: .78rem; margin: 15px 0 0; }
 .detail-grid { display: flex; flex-wrap: wrap; gap: 12px 25px; padding: 14px 0 19px; font-size: .87rem; }
 .detail-panel .button-row { border-bottom: 1px solid var(--border); padding-bottom: 18px; }
 .two-column { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 17px; }
@@ -455,16 +454,12 @@ td.strong { font-weight: 800; }
 .measurement small, .job-consumption > small { display: block; color: var(--muted); font-size: .8rem; }
 .job-consumption { display: grid; gap: .6rem; overflow-wrap: anywhere; }
 .job-amount { display: grid; gap: .3rem; }
-.statistics-trend { margin: 1rem 0; }
-.statistics-trend figcaption, table caption { text-align: left; font-weight: 600; padding: .6rem 0; }
-.trend-bucket { display: grid; gap: .3rem; padding: .75rem 0; border-bottom: 1px solid var(--border); }
-.trend-series { display: grid; grid-template-columns: minmax(10rem, 1fr) 2fr; gap: .5rem; align-items: center; }
-.trend-track { height: .8rem; border: 1px solid var(--border); border-radius: .2rem; }
-.trend-track i { display: block; height: 100%; background: var(--accent); }
-.trend-failed .trend-track i { background: #b45309; }
-.trend-completed .trend-track i { background: #43846d; }
+.trend-count { min-width: 7rem; }
+.trend-count i { display: block; height: 6px; min-width: 0; margin-top: 4px; border-radius: 3px; background: var(--accent); }
+.trend-failed i { background: #b45309; }
+.trend-completed i { background: #43846d; }
+table caption { text-align: left; font-weight: 600; padding: .6rem 0; }
 @media (max-width: 600px) {
-  .trend-series { grid-template-columns: 1fr; }
   .statistics-evidence .stats-grid { grid-template-columns: 1fr; }
   .job-consumption { min-width: 0; }
 }

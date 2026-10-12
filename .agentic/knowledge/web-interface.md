@@ -395,8 +395,9 @@ project/date/timezone/group and authorized-project keys suppress stale reads;
 metric and usage canonical scopes must agree before cards or CSV links appear.
 Summary shows only measure cards (lifecycle events, measured zero, unavailable and
 partial token subtotals, reported/estimated money); job elapsed time is in Usage
-and per-job consumption only in Jobs. Server buckets feed
-labeled bars and the same captioned accessible table in all four locales/themes.
+and per-job consumption only in Jobs. Server buckets feed one Trends table whose
+count cells carry bars, in all four locales/themes; Admin unpriced events are a
+Usage total and estimated cost per project is a Projects column.
 Composite job consumption exposes lifetime, selected-period and undated amounts;
 Jobs/detail reads once per visible project and independently reads all-time data
 when the selected interval lacks a job. Reporting deep links retain selection.
@@ -543,7 +544,7 @@ flowchart LR
     Analytics --> api
     App --> StatisticsReader[statistics strict scope amounts identity]
     JobWorkspace --> StatisticsReader
-    StatisticsReader --> Evidence[StatisticsEvidence measures jobs bars and table]
+    StatisticsReader --> Evidence[StatisticsEvidence measures and trend table]
     Evidence --> StatisticsCopy[statisticsCopy four locale definitions]
     App --> DashboardShell[DashboardShell links branding focus]
     App --> Presentation[Presentation feedback glossary status]

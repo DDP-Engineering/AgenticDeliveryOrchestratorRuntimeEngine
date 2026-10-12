@@ -38,15 +38,12 @@ export function StatisticsEvidence({ metrics, locale, admin, t }: Props) {
   </section>;
 }
 
-/** Bars and accessible table use exactly the same server buckets and series. */
+/** One table per server bucket; count cells carry bars scaled to the largest count. */
 export function TrendEvidence({ metrics, locale, admin, t }: Props) {
   const copy = statisticsCopy[locale], rows = metrics.daily;
   const maximum = Math.max(1, ...rows.flatMap(row => [row.started, row.completed, row.failed ?? 0]));
   const series = [["started", copy.started], ["completed", copy.completed], ["failed", copy.failed]] as const;
-  return rows.length ? <>
-    <figure className="statistics-trend" aria-label={copy.trend}><figcaption>{copy.trend} · {metrics.scope?.timezone} · {metrics.scope?.granularity}</figcaption>
-      <div aria-hidden="true">{rows.map(row => <div className="trend-bucket" key={row.date}><b>{row.date}</b>{series.map(([key, label]) => <div className={`trend-series trend-${key}`} key={key}><span>{label}: {row[key] ?? 0}</span><div className="trend-track"><i style={{ width: `${100 * (row[key] ?? 0) / maximum}%` }} /></div></div>)}</div>)}</div>
-    </figure><div className="table-scroll"><table><caption>{copy.table}</caption><thead><tr><th>{t("date")}</th>{series.map(([key, label]) => <th key={key}>{label}</th>)}<th>{t("tokensIn")}</th><th>{t("tokensOut")}</th>{admin && <><th>{copy.reported}</th><th>{copy.estimated}</th></>}</tr></thead>
-      <tbody>{rows.map(row => <tr key={row.date}><td>{row.date}</td><td>{row.started}</td><td>{row.completed}</td><td>{row.failed ?? 0}</td><td><Measurement value={row.tokens_in} locale={locale} /></td><td><Measurement value={row.tokens_out} locale={locale} /></td>{admin && <><td><Measurement value={row.cost_usd} locale={locale} money /></td><td><Measurement value={row.estimated_cost_usd} locale={locale} money /></td></>}</tr>)}</tbody></table></div>
-  </> : <p>{copy.empty}</p>;
+  const amount = (value: number | null | undefined, money = false) => value == null ? "—" : new Intl.NumberFormat(locale, money ? { style: "currency", currency: "USD" } : {}).format(value);
+  return rows.length ? <div className="table-scroll"><table className="trend-table" aria-label={copy.table}><thead><tr><th>{t("date")}</th>{series.map(([key, label]) => <th key={key}>{label}</th>)}<th>{t("tokensIn")}</th><th>{t("tokensOut")}</th>{admin && <><th>{copy.reported}</th><th>{copy.estimated}</th></>}</tr></thead>
+    <tbody>{rows.map(row => <tr key={row.date}><td>{row.date}</td>{series.map(([key]) => <td key={key} className={`trend-count trend-${key}`}>{row[key] ?? 0}<i aria-hidden="true" style={{ width: `${100 * (row[key] ?? 0) / maximum}%` }} /></td>)}<td>{amount(row.tokens_in)}</td><td>{amount(row.tokens_out)}</td>{admin && <><td>{amount(row.cost_usd, true)}</td><td>{amount(row.estimated_cost_usd, true)}</td></>}</tr>)}</tbody></table></div> : <p>{copy.empty}</p>;
 }

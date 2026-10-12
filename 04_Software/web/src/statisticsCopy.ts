@@ -12,7 +12,7 @@ const en = {
   sourceJournal: "Recorded usage observations", sourceSummary: "Legacy recorded summary · date unavailable", sourceUnavailable: "No reported consumption",
   missingJob: "No consumption projection is available for this job in the selected scope.",
   reported: "Reported cost", estimated: "Estimated cost", 
-  trend: "Job trend chart", table: "Trend data · accessible equivalent", empty: "No dated events in this scope.",
+  table: "Trend data", empty: "No dated events in this scope.",
   periodHelp: "Change the reporting period in Statistics. This job uses the same dates, timezone and grouping.",
 };
 type Copy = typeof en;
@@ -22,7 +22,7 @@ const fr: Copy = {
   jobs: "Consommation du job", lifetime: "Durée de vie", selected: "Période sélectionnée", undated: "Non attribué", source: "Source", events: "Observations d'utilisation", projectId: "ID du projet", runId: "ID du job",
   sourceJournal: "Observations enregistrées", sourceSummary: "Résumé historique · date indisponible", sourceUnavailable: "Aucune consommation déclarée",
   missingJob: "Aucune projection de consommation pour ce job dans ce périmètre.", reported: "Coût déclaré", estimated: "Coût estimé",
-  trend: "Graphique des jobs", table: "Données de tendance · équivalent accessible", empty: "Aucun événement daté dans ce périmètre.",
+  table: "Données de tendance", empty: "Aucun événement daté dans ce périmètre.",
   periodHelp: "Modifiez la période dans Statistiques. Ce job utilise les mêmes dates, fuseau et regroupement.",
 };
 const de: Copy = {
@@ -31,7 +31,7 @@ const de: Copy = {
   jobs: "Jobverbrauch", lifetime: "Gesamtlaufzeit", selected: "Gewählter Zeitraum", undated: "Nicht zugeordnet", source: "Quelle", events: "Verbrauchsbeobachtungen", projectId: "Projekt-ID", runId: "Job-ID",
   sourceJournal: "Aufgezeichnete Verbrauchsbeobachtungen", sourceSummary: "Historische Zusammenfassung · Datum nicht verfügbar", sourceUnavailable: "Kein gemeldeter Verbrauch",
   missingJob: "Für diesen Job ist im gewählten Bereich kein Verbrauchsnachweis verfügbar.", reported: "Gemeldete Kosten", estimated: "Geschätzte Kosten",
-  trend: "Jobtrend-Diagramm", table: "Trenddaten · zugängliche Entsprechung", empty: "Keine datierten Ereignisse in diesem Bereich.",
+  table: "Trenddaten", empty: "Keine datierten Ereignisse in diesem Bereich.",
   periodHelp: "Ändern Sie den Berichtszeitraum unter Statistik. Dieser Job nutzt dieselben Daten, Zeitzone und Gruppierung.",
 };
 const ro: Copy = {
@@ -40,7 +40,7 @@ const ro: Copy = {
   jobs: "Consumul jobului", lifetime: "Tot istoricul jobului", selected: "Perioada selectată", undated: "Nealocat", source: "Sursă", events: "Observații de consum", projectId: "ID proiect", runId: "ID job",
   sourceJournal: "Observații de consum înregistrate", sourceSummary: "Sumar istoric · dată indisponibilă", sourceUnavailable: "Niciun consum raportat",
   missingJob: "Nu există o proiecție de consum pentru acest job în selecția curentă.", reported: "Cost raportat", estimated: "Cost estimat",
-  trend: "Graficul joburilor", table: "Date de tendință · echivalent accesibil", empty: "Nu există evenimente datate în selecție.",
+  table: "Date de tendință", empty: "Nu există evenimente datate în selecție.",
   periodHelp: "Schimbă perioada în Statistici. Acest job folosește aceleași date, fus orar și grupare.",
 };
 export const statisticsCopy: Record<Locale, Copy> = { en, fr, de, ro };

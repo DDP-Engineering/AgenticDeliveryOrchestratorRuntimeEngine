@@ -827,8 +827,11 @@ show Not available. The export menu includes **Job consumption** CSV for the
 same project/date/timezone/grouping selection. Scope controls are encoded in
 Statistics and Jobs URLs for direct links, reload and browser Back.
 
-Trends displays readable lifecycle bars and a captioned accessible table of the
-same server rows. Empty periods have explicit empty feedback. Loading, failed,
+Trends shows usage coverage and undated usage as compact values and one table
+with a row per period bucket: started, completed and failed counts carry
+proportional bars, and tokens and administrator money show plain values or a
+dash. Administrators find unpriced usage events among the Usage totals and
+estimated cost per project in Projects. Empty periods have explicit empty feedback. Loading, failed,
 malformed or incompatible responses withhold numerical presentations and exports;
 old responses cannot overwrite a newer selection or removed project access.
 
