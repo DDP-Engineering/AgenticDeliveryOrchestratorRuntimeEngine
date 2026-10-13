@@ -33,3 +33,16 @@ test("production branding is the exact approved transparent PNG", () => {
   assert.equal(bytes.readUInt32BE(20), 300);
   assert.equal(bytes[25], 6, "PNG uses RGBA color type");
 });
+
+test("localized labels keep their accented letters", () => {
+  // A lossy encoding round trip once turned letters such as Ü, ä, é and î into "?".
+  for (const [locale, catalog] of Object.entries(messages)) {
+    for (const [key, value] of Object.entries(catalog)) {
+      if (typeof value !== "string") continue;
+      assert.ok(!/(^|[\s\p{L}])\?\p{L}/u.test(value) && !value.includes(String.fromCharCode(0xfffd)), `${locale}: ${key} = ${value}`);
+    }
+  }
+  assert.deepEqual([messages.de.handoffPendingStatus, messages.de.handedOffStatus], ["Übergabe läuft", "Übergeben"]);
+  assert.deepEqual([messages.fr.handoffPendingStatus, messages.fr.handedOffStatus], ["Transfert en cours", "Transféré"]);
+  assert.deepEqual([messages.ro.handoffPendingStatus, messages.ro.handedOffStatus], ["Predare în curs", "Predat"]);
+});

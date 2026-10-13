@@ -117,6 +117,11 @@ text = { en = "About shows the DDP Engineering logo and the version, with licens
 
 [[release.entry]]
 category = "fixed"
+topic = { en = "Jobs", fr = "Tâches", de = "Aufträge", ro = "Lucrări" }
+text = { en = "Handoff statuses show their accented letters again in German, French and Romanian.", fr = "Les statuts de transfert affichent à nouveau leurs lettres accentuées.", de = "Übergabe-Status zeigen ihre Umlaute wieder korrekt an.", ro = "Stările de predare își afișează din nou diacriticele." }
+
+[[release.entry]]
+category = "fixed"
 topic = { en = "Delivery", fr = "Livraison", de = "Auslieferung", ro = "Livrare" }
 text = { en = "GitHub and GitLab can open draft merge requests again.", fr = "GitHub et GitLab peuvent de nouveau ouvrir des demandes de fusion brouillons.", de = "GitHub und GitLab können wieder Entwurfs-Merge-Requests öffnen.", ro = "GitHub și GitLab pot deschide din nou cereri de îmbinare schiță." }
 

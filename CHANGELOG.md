@@ -98,6 +98,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Restore the accented letters in the German, French and Romanian handoff status labels (Übergabe läuft / Übergeben, Transféré, Predare în curs), which showed "?" instead.
 - Preserve inline setting action placement when validation appears after changing the coding agent.
 
 - Align coding-agent Prepare/Cancel actions beside the selector using the ordinary responsive setting-editor layout.
