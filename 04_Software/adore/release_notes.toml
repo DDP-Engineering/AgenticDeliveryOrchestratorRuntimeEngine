@@ -23,7 +23,7 @@ text = { en = "Follow projects, jobs and statistics in a web dashboard, in four 
 [[release.entry]]
 category = "new"
 topic = { en = "Tickets", fr = "Tickets", de = "Tickets", ro = "Tichete" }
-text = { en = "Browse a project's open tickets and start a job on one from its Jobs tab.", fr = "Parcourez les tickets ouverts d'un projet et lancez une tâche depuis l'onglet Tâches.", de = "Offene Tickets eines Projekts durchsuchen und im Tab Aufträge einen Auftrag starten.", ro = "Răsfoiți tichetele deschise ale unui proiect și porniți o lucrare din fila Lucrări." }
+text = { en = "Browse a project's open tickets page by page and start a job on one from its Jobs tab.", fr = "Parcourez page par page les tickets ouverts d'un projet et lancez une tâche depuis Tâches.", de = "Offene Tickets eines Projekts seitenweise durchsuchen und im Tab Aufträge einen Auftrag starten.", ro = "Răsfoiți pe pagini tichetele deschise ale unui proiect și porniți o lucrare din fila Lucrări." }
 
 [[release.entry]]
 category = "new"

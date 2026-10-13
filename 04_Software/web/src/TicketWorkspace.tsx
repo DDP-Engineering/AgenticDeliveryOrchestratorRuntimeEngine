@@ -6,7 +6,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 */
 import { Fragment, useEffect, useRef, useState } from "react";
 import { ApiError, describeError } from "./errors";
-import type { Locale } from "./i18n";
+import { messages, type Locale } from "./i18n";
 import { safeEvidenceLink } from "./jobModel";
 import { startVisiblePolling } from "./polling";
 import { fill, ticketCopy } from "./ticketCopy";
@@ -91,6 +91,7 @@ function readStop(value: unknown): StopResult {
 /** Tickets sub-tab: reads open forge tickets only on request and starts or stops one at a time. */
 export function TicketWorkspace({ projects, showProject = false, locale, csrf, request }: Props) {
   const copy = ticketCopy[locale];
+  const t = messages[locale];
   const [lists, setLists] = useState<Array<{ project: Project; list: TicketList }> | null>(null);
   const [reading, setReading] = useState(false);
   const [readErrors, setReadErrors] = useState<Array<{ project: Project; error: unknown }>>([]);
@@ -99,6 +100,9 @@ export function TicketWorkspace({ projects, showProject = false, locale, csrf, r
   const [confirm, setConfirm] = useState<Row | null>(null);
   const [starting, setStarting] = useState<StartRequest | null>(null);
   const [priority, setPriority] = useState("");
+  // A read returns up to 500 tickets; they are shown a page at a time.
+  const [size, setSize] = useState<number | "all">(10);
+  const [offset, setOffset] = useState(0);
   // Tickets started since the last read stay unavailable for Start until the next read.
   const [queued, setQueued] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
@@ -122,11 +126,14 @@ export function TicketWorkspace({ projects, showProject = false, locale, csrf, r
     if (mounted.current) {
       setLists(results.flatMap(result => result.status === "fulfilled" ? [result.value] : []));
       setReadErrors(results.flatMap((result, index) => result.status === "rejected" ? [{ project: projects[index], error: result.reason }] : []));
-      setComments({}); setExpanded([]); setQueued([]); setReading(false);
+      setComments({}); setExpanded([]); setQueued([]); setOffset(0); setReading(false);
     }
   };
   const rows: Row[] = (lists ?? []).flatMap(({ project, list }) => list.tickets.map(ticket => ({ key: `${project.id}:${ticket.iid}`, project, list, ticket })));
   const latestRead = (lists ?? []).map(item => item.list.read_at).sort().at(-1);
+  const pages = size === "all" ? 1 : Math.max(1, Math.ceil(rows.length / size));
+  const first = size === "all" ? 0 : Math.min(offset, (pages - 1) * size);
+  const shown = size === "all" ? rows : rows.slice(first, first + size);
 
   const toggle = async (row: Row) => {
     if (expanded.includes(row.key)) { setExpanded(items => items.filter(item => item !== row.key)); return; }
@@ -227,7 +234,7 @@ export function TicketWorkspace({ projects, showProject = false, locale, csrf, r
       {(lists ?? []).filter(item => item.list.truncated).map(({ project }) => <p className="muted" key={project.id}>{showProject ? `${projectName(project)}: ` : ""}{copy.truncated}</p>)}
       {rows.length > 0 && <div className="table-scroll"><table className="ticket-table">
         <thead><tr><th>{copy.number}</th>{showProject && <th>{copy.project}</th>}<th>{copy.title}</th><th>{copy.labels}</th><th>{copy.status}</th><th>{copy.actions}</th></tr></thead>
-        <tbody>{rows.map(row => {
+        <tbody>{shown.map(row => {
           const { ticket, project } = row;
           const link = safeEvidenceLink(ticket.web_url);
           const open = expanded.includes(row.key);
@@ -263,6 +270,19 @@ export function TicketWorkspace({ projects, showProject = false, locale, csrf, r
           </Fragment>;
         })}</tbody>
       </table></div>}
+      {rows.length > 10 && <div className="table-pagination ticket-pagination">
+        <label>{t.rowsPerPage}<select value={size} onChange={event => { setSize(event.target.value === "all" ? "all" : Number(event.target.value)); setOffset(0); }}>
+          {[10, 25, 50].map(value => <option key={value} value={value}>{value}</option>)}<option value="all">{t.all}</option>
+        </select></label>
+        <span>{first + 1}–{first + shown.length} / {rows.length}</span>
+        {size !== "all" && <>
+          <span>{fill(copy.page, { page: first / size + 1, pages })}</span>
+          <div className="button-row">
+            <button className="ghost" type="button" disabled={first === 0} onClick={() => setOffset(first - size)}>{t.previous}</button>
+            <button className="ghost" type="button" disabled={first + shown.length >= rows.length} onClick={() => setOffset(first + size)}>{t.next}</button>
+          </div>
+        </>}
+      </div>}
     </section>
   </div>;
 }

@@ -750,7 +750,10 @@ Summary, Settings, Jobs, Statistics, History and Access tabs; Access is
 Admin-only. **Jobs** has two sub-tabs. **Tickets** (the default) reads the
 project's open tickets from its repository only when you press **Read tickets**,
 then lists number, title, labels and whether ADORE can start the ticket (or
-which rule blocks it, or its job's state). **Start** queues a job; when the
+which rule blocks it, or its job's state). More than 10 tickets are paged: 10 per
+page by default, **Rows per page** 10, 25, 50 or All, the visible range, the page
+number of the page count and **Previous**/**Next**; a new read returns to page 1.
+**Start** queues a job; when the
 ticket lacks the ready label or a priority label, it first asks you to confirm
 and to pick a priority, then adds those labels in the repository. A closed, held
 or excluded ticket, one without required acceptance criteria, or one that

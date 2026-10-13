@@ -301,6 +301,8 @@ Summary, Settings, Jobs, Statistics, History, Access, all tabs. Access is
 Admin-only. The Jobs tab has Tickets and Jobs sub-tabs (`/projects/<id>/jobs`,
 `?view=jobs`, `?run=`). Tickets (`TicketWorkspace.tsx`, copy in `ticketCopy.ts`)
 reads open tickets only when Read tickets is pressed, validates the response,
+pages more than 10 rows on the client (10/25/50/All, range, page X of Y,
+Previous/Next; a new read resets to the first page),
 shows eligibility, the blocking rule or job state with Start (confirming and
 choosing a priority when it must add labels), Retry for a failed job, confirmed Stop
 and Details (description plus comments loaded on first expand), and starts work only

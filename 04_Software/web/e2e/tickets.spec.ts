@@ -116,3 +116,46 @@ test("tickets sub-tab reads open tickets on request and controls them safely", a
   await page.reload();
   await expect(sections.getByRole("tab", { name: "Jobs", exact: true })).toHaveAttribute("aria-selected", "true");
 });
+
+test("many tickets are paged with a rows-per-page selector", async ({ page }) => {
+  // 23 open tickets: the fixture's seven plus sixteen numbered copies.
+  await page.route("**/api/v1/projects/*/tickets", async route => {
+    const response = await route.fetch(); const list = await response.json();
+    const extra = Array.from({ length: 16 }, (_, index) => ({ ...list.tickets[0], iid: 100 + index, title: `Bulk ticket ${100 + index}`, job: null }));
+    await route.fulfill({ response, json: { ...list, tickets: [...extra.reverse(), ...list.tickets] } });
+  });
+  await signIn(page);
+  const projects = await (await page.request.get("/api/v1/projects")).json();
+  const alpha = projects.find((row: { name: string }) => row.name === "alpha").id;
+  await page.goto(`/projects/${alpha}/jobs`);
+  await page.getByRole("button", { name: "Read tickets", exact: true }).click();
+  const rows = page.locator(".ticket-table tbody tr.ticket-row");
+  const pager = page.locator(".ticket-pagination");
+  await expect(rows).toHaveCount(10);
+  await expect(pager).toContainText("1–10 / 23");
+  await expect(pager).toContainText("Page 1 of 3");
+  await expect(rows.first()).toContainText("#115");
+  await expect(pager.getByRole("button", { name: "Previous", exact: true })).toBeDisabled();
+  await pager.getByRole("button", { name: "Next", exact: true }).click();
+  await expect(pager).toContainText("Page 2 of 3");
+  await expect(rows.first()).toContainText("#105");
+  await pager.getByRole("button", { name: "Next", exact: true }).click();
+  await expect(rows).toHaveCount(3);
+  await expect(pager).toContainText("21–23 / 23");
+  await expect(pager.getByRole("button", { name: "Next", exact: true })).toBeDisabled();
+  await pager.getByLabel("Rows per page").selectOption("25");
+  await expect(rows).toHaveCount(23);
+  await expect(pager).toContainText("Page 1 of 1");
+  await pager.getByLabel("Rows per page").selectOption("10");
+  await pager.getByRole("button", { name: "Next", exact: true }).click();
+  // A new read starts again on the first page.
+  await page.getByRole("button", { name: "Read tickets", exact: true }).click();
+  await expect(pager).toContainText("Page 1 of 3");
+  await pager.getByLabel("Rows per page").selectOption("all");
+  await expect(rows).toHaveCount(23);
+  await expect(pager.getByRole("button", { name: "Next", exact: true })).toHaveCount(0);
+  await page.unroute("**/api/v1/projects/*/tickets");
+  await page.getByRole("button", { name: "Read tickets", exact: true }).click();
+  await expect(rows).toHaveCount(7);
+  await expect(pager).toHaveCount(0);
+});

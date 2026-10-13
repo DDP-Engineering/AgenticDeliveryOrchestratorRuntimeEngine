@@ -196,6 +196,8 @@ test("global Jobs mirrors the project hub with a compact scope and Tickets/Jobs 
   await page.unroute(betaTickets);
   await page.getByRole("button", { name: "Read tickets", exact: true }).click();
   await expect(alerts.filter({ hasText: /^beta: / })).toHaveCount(0);
+  // Both projects' tickets exceed one page of 10; show them all.
+  await page.locator(".ticket-pagination").getByLabel("Rows per page").selectOption("all");
   await expect(projectRows("alpha").filter({ hasText: "#44" })).toHaveCount(1);
   const betaRow = projectRows("beta").filter({ hasText: "#44" });
   await expect(betaRow).toHaveCount(1);
