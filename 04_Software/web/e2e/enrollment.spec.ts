@@ -75,12 +75,41 @@ test("enrollment reads a repository URL, derives the ID and clones at creation",
   await page.getByRole("button", { name: "Review candidate", exact: true }).click();
   await expect(page.locator(".enrollment-review").first()).toContainText("ssh://git@forge.e2e.invalid:2222/team/url-service.git");
   await expect(page.locator(".enrollment-review").first()).toContainText(custom);
+  // Creating the ADORE labels in the repository is on by default.
+  await expect(page.getByRole("checkbox", { name: /Create the ADORE labels in the repository/ })).toBeChecked();
   await page.getByRole("button", { name: "Create project with pickup stopped", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Enrollment complete", exact: true })).toBeFocused();
+  const labels = page.getByRole("region", { name: "Labels in the repository" });
+  await expect(labels).toContainText("Already in the repository (1)");
+  await expect(labels).toContainText("agent-done");
   const projects = await (await page.request.get("/api/v1/projects")).json();
   const created = projects.find((item: { name: string }) => item.name === "url-service");
   expect(created.paused).toBe(true);
 });
+
+test("label creation can be skipped and its failure keeps the project", async ({ page }) => {
+  const ensures: string[] = [];
+  page.on("request", request => { if (request.url().endsWith("/labels/ensure")) ensures.push(request.url()); });
+  await enter(page); await verification(page, "labels-skip");
+  await validate(page);
+  await page.getByRole("button", { name: "Review candidate", exact: true }).click();
+  await page.getByRole("checkbox", { name: /Create the ADORE labels in the repository/ }).uncheck();
+  await page.getByRole("button", { name: "Create project with pickup stopped", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Enrollment complete", exact: true })).toBeFocused();
+  await expect(page.getByRole("region", { name: "Labels in the repository" })).toHaveCount(0);
+  expect(ensures).toEqual([]);
+  // A repository whose labels cannot be read: the project stays created and the error is shown.
+  await page.goto("/projects/new");
+  await verification(page, "labels-fail");
+  await validate(page);
+  await page.getByRole("button", { name: "Review candidate", exact: true }).click();
+  await page.getByRole("button", { name: "Create project with pickup stopped", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Enrollment complete", exact: true })).toBeFocused();
+  await expect(page.getByRole("region", { name: "Labels in the repository" }).getByRole("alert")).toBeVisible();
+  const projects = await (await page.request.get("/api/v1/projects")).json();
+  expect(projects.map((item: { name: string }) => item.name)).toEqual(expect.arrayContaining(["labels-skip", "labels-fail"]));
+});
+
 
 test("agent and model chooses where the executor runs", async ({ page }) => {
   await enter(page); await repository(page, "env-choice");

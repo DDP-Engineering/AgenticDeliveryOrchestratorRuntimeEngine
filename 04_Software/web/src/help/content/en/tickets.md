@@ -10,7 +10,7 @@ An administrator can use **Pause monitoring** and **Activate monitoring** on the
 
 ## Create the labels first {#labels}
 
-ADORE adds and removes labels but never creates them. GitHub and Gitea reject an unknown label name, so a missing label makes status updates fail. Create all labels below in the forge repository before the first run. The names are defaults; rename one only together with its project setting.
+GitHub and Gitea reject an unknown label name, so a missing label makes status updates fail. All labels below must exist in the forge repository before the first run. ADORE creates the missing ones when you add a project (**Create the ADORE labels in the repository**, ticked by default in Review and create) or when you press **Create missing labels** in Settings → Repository; it never changes or deletes existing labels, and lists what it created, what already existed and what failed (for example when the server's forge account may not create labels). The names are defaults; rename one only together with its project setting.
 
 | Label | Purpose |
 |---|---|

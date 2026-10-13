@@ -10,7 +10,7 @@ Ein Administrator kann auf dem Reiter Zusammenfassung des Projekts **Überwachun
 
 ## Zuerst die Labels anlegen {#labels}
 
-ADORE setzt und entfernt Labels, legt sie aber nie an. GitHub und Gitea lehnen einen unbekannten Labelnamen ab, sodass ein fehlendes Label Statusaktualisierungen fehlschlagen lässt. Legen Sie alle folgenden Labels im Forge-Repository an, bevor Sie zum ersten Mal starten. Die Namen sind Standardwerte; benennen Sie eines nur gemeinsam mit seiner Projekteinstellung um.
+GitHub und Gitea lehnen einen unbekannten Labelnamen ab, sodass ein fehlendes Label Statusaktualisierungen fehlschlagen lässt. Alle folgenden Labels müssen vor dem ersten Start im Forge-Repository existieren. ADORE legt fehlende Labels beim Hinzufügen eines Projekts an (**ADORE-Labels im Repository anlegen**, in Prüfen und erstellen standardmäßig aktiviert) oder wenn Sie in Einstellungen → Repository **Fehlende Labels anlegen** drücken; vorhandene Labels werden nie geändert oder gelöscht, und ADORE zeigt, was angelegt wurde, was schon existierte und was fehlschlug (etwa wenn das Forge-Konto des Servers keine Labels anlegen darf). Die Namen sind Standardwerte; benennen Sie eines nur gemeinsam mit seiner Projekteinstellung um.
 
 | Label | Zweck |
 |---|---|

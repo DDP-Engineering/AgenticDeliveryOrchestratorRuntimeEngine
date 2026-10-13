@@ -19,6 +19,7 @@ from contextlib import asynccontextmanager
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 from tempfile import TemporaryDirectory
 from threading import Event, Thread
@@ -175,6 +176,18 @@ def main() -> None:
                 answer = fixture_forge(list(argv))
                 if answer is not None:
                     return answer
+            if argv[:2] in (["glab", "api"], ["tea", "api"]) and any(
+                    re.fullmatch(r"(repos/[^/]+/[^/]+|projects/[^/]+)/labels", part.split("?")[0])
+                    for part in argv):
+                # Repository labels: agent-ready exists, every other label is created;
+                # a repository named labels-fail cannot be read.
+                if any("labels-fail" in part for part in argv):
+                    return CommandResult(argv=argv, exit_code=1, stderr="503 Service Unavailable")
+                status = "HTTP/1.1 200 OK"
+                if "--method" in argv and argv[argv.index("--method") + 1] == "POST":
+                    return CommandResult(argv=argv, stdout="{}", stderr=status)
+                return CommandResult(argv=argv, stdout=json.dumps([{"name": "agent-ready"}]),
+                                     stderr=status)
             if argv[1:2] == ["images"]:
                 # The server's images: docker lists three, podman cannot be queried.
                 if argv[0] != "docker":

@@ -47,6 +47,7 @@ import { ticketCopy } from "./ticketCopy";
 import { DataFeedback, ProjectEmpty, StatusBadge, type DataState, type ScopedState } from "./Presentation";
 import { HelpCenter, HelpLink } from "./HelpCenter";
 import { readServerImages, type ServerImages } from "./serverImages";
+import { ForgeLabelsAction } from "./ForgeLabels";
 import { enrollmentCopy } from "./enrollmentCopy";
 import { DeleteCloneOption } from "./DeleteCloneOption";
 import { CONTEXT_TOPICS, type HelpTopic } from "./help/topics.ts";
@@ -1540,6 +1541,8 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
         </details>}
       </div>
       {group.name === "executor" && <div className="executor-settings-content">{executorAfter}</div>}
+      {group.name === "repository" && canEdit && project && csrf && <ForgeLabelsAction locale={locale} disabled={disabled}
+        run={() => request(`/projects/${encodeURIComponent(project)}/labels/ensure`, "POST", undefined, csrf)} />}
     </details>})}</div>}
   </section>;
 }

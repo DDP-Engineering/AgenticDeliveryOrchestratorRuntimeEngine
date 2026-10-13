@@ -439,6 +439,25 @@ class GitLabForge(Forge):
                 return notes
             page += 1
 
+    def list_labels(self) -> list[str]:
+        """@brief Project label names, read page by page."""
+        names: list[str] = []
+        page = 1
+        while True:
+            endpoint = f"projects/{self._project_enc}/labels?per_page={_PAGE_SIZE}&page={page}"
+            batch = self._parse_json(self._run(["glab", "api", endpoint]), list)
+            names.extend(str(item["name"]) for item in batch
+                         if isinstance(item, dict) and item.get("name"))
+            if len(batch) < _PAGE_SIZE or page >= _MAX_LIST_PAGES:
+                return names
+            page += 1
+
+    def create_label(self, name: str, color: str, description: str) -> None:
+        """@brief Create a project label (GitLab takes the colour with #)."""
+        self._run(["glab", "api", "--method", "POST", f"projects/{self._project_enc}/labels",
+                   "--raw-field", f"name={name}", "--raw-field", f"color=#{color}",
+                   "--raw-field", f"description={description}"])
+
     @property
     def _project_enc(self) -> str:
         """

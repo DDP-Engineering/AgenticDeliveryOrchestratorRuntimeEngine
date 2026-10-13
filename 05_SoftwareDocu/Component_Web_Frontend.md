@@ -254,6 +254,9 @@ and a free-text **Executor image** whose suggestions come from `serverImages.ts`
 (`GET /api/v1/executor-images`), and Installed shows the native command and local
 account fields. Host-auth is supported for OpenCode/Codex, while Pi/Qwen use API-key
 mode, where credential references are optional.
+`ForgeLabels.tsx` offers the label option on Review and create (ticked by default; after
+creation the wizard calls `labels/ensure` and shows the report, a failure leaving the project
+created) and **Create missing labels** in Settings → Repository.
 The separate human display name and stable profile ID are reviewed with forge
 identity, target branch, selected Gitea tea login, credential environment names,
 ready/approval labels, reviewers, four run limits and canonical server paths.

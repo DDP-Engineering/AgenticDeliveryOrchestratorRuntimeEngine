@@ -432,6 +432,17 @@ class GitHubForge(Forge):
 
     # -- internals ------------------------------------------------------------------
 
+    def list_labels(self) -> list[str]:
+        """@brief Repository label names, read page by page."""
+        return [str(item["name"]) for item in self._paged(f"repos/{self.repo}/labels")
+                if isinstance(item, dict) and item.get("name")]
+
+    def create_label(self, name: str, color: str, description: str) -> None:
+        """@brief Create a repository label (GitHub takes the colour without #)."""
+        self._run(["gh", "api", "--method", "POST", f"repos/{self.repo}/labels",
+                   "-f", f"name={name}", "-f", f"color={color}",
+                   "-f", f"description={description}"])
+
     def _paged(self, path: str) -> list[dict[str, Any]]:
         """
         @brief      GET every page of a REST list endpoint.

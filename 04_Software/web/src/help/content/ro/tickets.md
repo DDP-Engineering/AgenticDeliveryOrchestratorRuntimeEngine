@@ -10,7 +10,7 @@ Un administrator poate folosi **Pune monitorizarea în pauză** și **Activează
 
 ## Creați mai întâi etichetele {#labels}
 
-ADORE adaugă și elimină etichete, dar nu le creează niciodată. GitHub și Gitea resping un nume de etichetă necunoscut, așa că o etichetă lipsă face ca actualizările de stare să eșueze. Creați toate etichetele de mai jos în repository-ul de pe forge înainte de prima rulare. Numele sunt cele implicite; redenumiți una doar împreună cu setarea ei din proiect.
+GitHub și Gitea resping un nume de etichetă necunoscut, așa că o etichetă lipsă face ca actualizările de stare să eșueze. Toate etichetele de mai jos trebuie să existe în repository-ul de pe forge înainte de prima rulare. ADORE le creează pe cele lipsă la adăugarea unui proiect (**Creează etichetele ADORE în repository**, bifată implicit în Revizuire și creare) sau când apăsați **Creează etichetele lipsă** în Setări → Repository; nu modifică și nu șterge niciodată etichetele existente și arată ce a creat, ce exista deja și ce a eșuat (de exemplu când contul de forge al serverului nu poate crea etichete). Numele sunt cele implicite; redenumiți una doar împreună cu setarea ei din proiect.
 
 | Etichetă | Scop |
 |---|---|

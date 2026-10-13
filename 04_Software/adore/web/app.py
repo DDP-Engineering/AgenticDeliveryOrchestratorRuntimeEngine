@@ -57,6 +57,7 @@ from adore.config import (
 )
 from adore.config_edit import ConfigEditLockedError, config_edit_lock
 from adore.forge import ForgeError, ForgeResponseError
+from adore.forge_labels import ensure_labels, project_labels
 from adore.isolation import ContainerManager, IsolationError
 from adore.portable_settings import (
     MAX_SOURCE_BYTES,
@@ -2927,6 +2928,24 @@ def create_app(home: str | Path | None = None,
         return {"name": body.name, "available": available,
                 "issues": [] if available else [
                     _finding("project_exists", "name", "Choose another available ID.")]}
+
+    @app.post("/api/v1/projects/{name}/labels/ensure")
+    def ensure_project_labels(name: str,
+                              user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+        """
+        @brief Create the project's missing ADORE labels in its repository.
+        @details Reads the repository's labels once and creates only the missing ones;
+                 existing labels are never changed. Per-label failures are reported.
+        """
+        item = project(name, user)
+        config = ticket_config(item)
+        forge = ticket_forge(item, config)
+        # Same failure mapping as ticket reads: malformed data 502, unavailable forge 503.
+        report = ticket_read(lambda: ensure_labels(forge, project_labels(config)))
+        web.audit(user["id"], "labels-ensured", item.name,
+                  f"created={len(report['created'])} existing={len(report['existing'])} "
+                  f"failed={len(report['failed'])}")
+        return report
 
     @app.get("/api/v1/executor-images")
     def executor_images(runtime: Literal["docker", "podman"],

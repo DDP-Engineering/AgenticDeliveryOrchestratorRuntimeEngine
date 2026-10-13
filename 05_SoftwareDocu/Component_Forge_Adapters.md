@@ -21,6 +21,12 @@ The conductor performs leased post-merge branch cleanup through host Git on all 
   (`list_open(limit)`, at most `limit` tickets, no label filter);
 - post/edit marker-owned ticket comments;
 - add/remove ticket labels;
+- list repository label names and create a label (`list_labels()`, `create_label(name,
+  color, description)`): GitHub `gh api repos/<repo>/labels` (colour without `#`), GitLab
+  `glab api projects/<id>/labels` and Gitea `tea api repos/<repo>/labels` (colour with `#`),
+  read page by page; the base class raises `ForgeError` for adapters without them.
+  `adore/forge_labels.py` builds the project's label list from its settings and creates only
+  the missing ones (`ensure_labels`), never changing existing labels;
 - read draft or ready MR/PR state and discussion;
 - post/edit marker-owned MR/PR comments;
 - remove review-trigger labels;

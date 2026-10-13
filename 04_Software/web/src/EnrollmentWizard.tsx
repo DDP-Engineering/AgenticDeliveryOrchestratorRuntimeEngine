@@ -12,6 +12,7 @@ import { transferCopy, validTransferSettings, type TransferSource } from "./tran
 import { portableFields } from "./portable";
 import { localCopy } from "./localExecution";
 import { proposeImage, readServerImages, type ServerImages } from "./serverImages";
+import { forgeLabelsCopy, LabelReportView, validLabelReport, type LabelReport } from "./ForgeLabels";
 import { HelpLink } from "./HelpCenter";
 import { CONTEXT_TOPICS } from "./help/topics.ts";
 
@@ -106,6 +107,9 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
   const [failure, setFailure] = useState<unknown>(null);
   const [busy, setBusy] = useState<"preview" | "probe" | "create" | null>(null);
   const [created, setCreated] = useState<Created | null>(null);
+  // Create the project's labels in the repository right after creation (on by default).
+  const [createLabels, setCreateLabels] = useState(true);
+  const [labelResult, setLabelResult] = useState<{ report?: LabelReport; error?: unknown } | null>(null);
   const generation = useRef(0);
   const operation = useRef<"preview" | "probe" | "create" | null>(null);
   const dirty = useRef(false);
@@ -210,8 +214,8 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
     setFindings(errors); setFailure(null);
     return errors.length === 0;
   };
-  const call = async (path: string, body: unknown): Promise<unknown> => {
-    if (transfer) await checkSource?.();
+  const call = async (path: string, body: unknown, recheckSource = true): Promise<unknown> => {
+    if (transfer && recheckSource) await checkSource?.();
     let response: Response;
     try {
       response = await fetch("/api/v1/projects/" + path, { method: "POST", credentials: "same-origin",
@@ -331,6 +335,13 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
         value.display_name !== reviewed.draft.display_name || !value.paused || value.pickup_state !== "stopped")
         throw new ApiError("unexpected_response");
       dirty.current = false; setCreated(value); onCreated();
+      if (createLabels) {
+        // A label failure is shown; the project stays created.
+        // The project exists now; a changed clone source must not block its labels.
+        void call(encodeURIComponent(value.id) + "/labels/ensure", {}, false)
+          .then(result => { if (alive.current) setLabelResult(validLabelReport(result) ? { report: result } : { error: new ApiError("unexpected_response") }); })
+          .catch(cause => { if (alive.current) setLabelResult({ error: cause }); });
+      }
     } catch (cause) { if (alive.current && token === generation.current) { setReviewed(null); reject(cause); } }
     finally { if (alive.current && token === generation.current) { operation.current = null; setBusy(null); } }
   };
@@ -388,6 +399,12 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
   if (created) return <section className="panel enrollment" role="status">
     <h2 tabIndex={-1} ref={heading}>{c.completion}</h2>
     <p><strong>{created.display_name}</strong> · {created.name}</p><p>{c.stopped}</p>
+    {createLabels && <section className="forge-labels" aria-label={forgeLabelsCopy[locale].result}>
+      <h3>{forgeLabelsCopy[locale].result}</h3>
+      {!labelResult ? <p className="muted">{forgeLabelsCopy[locale].working}</p>
+        : labelResult.report ? <LabelReportView report={labelResult.report} locale={locale} />
+        : <p className="alert" role="alert">{describeError(locale, labelResult.error)}</p>}
+    </section>}
     <button className="primary" onClick={() => onOpen(created.id)}>{c.open}</button>
   </section>;
   return <section className="panel enrollment">
@@ -484,6 +501,8 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
               worktree_root: c.worktrees, repo_path: t("clonePath"), metrics_db: "metrics.db", metrics_jsonl: "metrics JSONL", metrics_html: "metrics HTML" }[key]}</dt>
               <dd>{String(reviewed.preview.review?.[key] ?? "—")}</dd></div>)}</dl></section>
           <p className="enrollment-digest">{c.revision}: {reviewed.preview.revision}</p><p>{c.createEffect}</p>
+          <label className="forge-labels-option"><input type="checkbox" checked={createLabels} onChange={event => setCreateLabels(event.target.checked)} />
+            <span>{forgeLabelsCopy[locale].option}</span></label>
           <button type="button" className="primary" onClick={() => void confirm()} disabled={!!busy}>{c.create}</button>
         </>}
       </fieldset>

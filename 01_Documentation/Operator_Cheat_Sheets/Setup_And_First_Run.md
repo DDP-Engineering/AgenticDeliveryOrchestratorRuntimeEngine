@@ -47,9 +47,11 @@ Applies to ADORE 0.13.0 and AEGIS schema 1.
    Confirm `[review] on_pipeline_failure` deliberately: the default `revise`
    lets a newly red pipeline on a published draft open a repair round without
    asking. Set it to `notify` while you are still proving the project.
-6. Create every configured label in the repository before the first poll.
-   ADORE applies and removes labels but never creates them, and the forge
-   rejects a name that does not exist. The rejection lands at claim time,
+6. Make sure every configured label exists in the repository before the first
+   poll: enrolling in the web interface creates the missing ones (ticked by
+   default), Settings → Repository → **Create missing labels** does the same
+   later, and the polling loop never creates labels. The forge rejects a name
+   that does not exist. The rejection lands at claim time,
    before ADORE can comment anywhere, so the ticket simply sits there still
    wearing its ready label while the reason goes only to the console and
    `adore.log`. See

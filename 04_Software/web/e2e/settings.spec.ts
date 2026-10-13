@@ -595,6 +595,16 @@ test("administrators choose the executor image in Agent and model through review
   expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).revision).toBe(before.revision);
 });
 
+test("administrators create the missing ADORE labels from Repository settings", async ({ page }) => {
+  await openSettings(page);
+  const labels = page.locator(".forge-labels");
+  await labels.getByRole("button", { name: "Create missing labels", exact: true }).click();
+  const report = labels.getByRole("status");
+  await expect(report).toContainText("Already in the repository (1)");
+  await expect(report).toContainText("agent-ready");
+  await expect(report).toContainText("agent-working");
+});
+
 test("environment recipe selection is external", async ({page}) => {
   await openSettings(page);
   await expect(page.getByRole("button",{name:"Edit Reviewed preparation recipe",exact:true})).toHaveCount(0);

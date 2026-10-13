@@ -240,6 +240,23 @@ class Forge(ABC):
         @param[in]  labels Label names to add.
         """
 
+    def list_labels(self) -> list[str]:
+        """
+        @brief      Names of the labels defined in the repository.
+        @exception  ForgeError When the adapter cannot list labels.
+        """
+        raise ForgeError("this forge cannot list labels")
+
+    def create_label(self, name: str, color: str, description: str) -> None:
+        """
+        @brief      Create one repository label.
+        @param[in]  name Label name.
+        @param[in]  color Six hexadecimal digits, without #.
+        @param[in]  description Short explanation shown by the forge.
+        @exception  ForgeError When the forge refuses or the adapter cannot create labels.
+        """
+        raise ForgeError("this forge cannot create labels")
+
     @abstractmethod
     def remove_labels(self, iid: int, labels: list[str]) -> None:
         """

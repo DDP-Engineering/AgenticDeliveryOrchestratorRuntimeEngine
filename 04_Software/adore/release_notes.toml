@@ -32,6 +32,11 @@ text = { en = "Add a project from its repository URL; ADORE clones it and can re
 
 [[release.entry]]
 category = "new"
+topic = { en = "Labels", fr = "Étiquettes", de = "Labels", ro = "Etichete" }
+text = { en = "ADORE creates its missing labels in the repository when you add a project, or from Settings.", fr = "ADORE crée ses étiquettes manquantes dans le dépôt à l'ajout d'un projet ou depuis Paramètres.", de = "ADORE legt fehlende Labels im Repository beim Hinzufügen oder über Einstellungen an.", ro = "ADORE își creează etichetele lipsă în repository la adăugarea proiectului sau din Setări." }
+
+[[release.entry]]
+category = "new"
 topic = { en = "Accounts", fr = "Comptes", de = "Konten", ro = "Conturi" }
 text = { en = "Administrators create accounts and choose the projects each developer can use.", fr = "Les administrateurs créent les comptes et choisissent les projets de chaque développeur.", de = "Administratoren legen Konten an und wählen die Projekte jedes Entwicklers.", ro = "Administratorii creează conturi și aleg proiectele fiecărui dezvoltator." }
 
@@ -58,12 +63,7 @@ text = { en = "Merge requests can open ready for review after human approval, no
 [[release.entry]]
 category = "new"
 topic = { en = "Help", fr = "Aide", de = "Hilfe", ro = "Ajutor" }
-text = { en = "How ADORE works opens a help center that explains the interface and the workflow.", fr = "Comment fonctionne ADORE ouvre un centre d'aide sur l'interface et le flux de travail.", de = "So funktioniert ADORE öffnet eine Hilfe zu Oberfläche und Arbeitsablauf.", ro = "Cum funcționează ADORE deschide un ajutor despre interfață și fluxul de lucru." }
-
-[[release.entry]]
-category = "new"
-topic = { en = "About", fr = "À propos", de = "Über ADORE", ro = "Despre" }
-text = { en = "What's new lists the notes of each release in your language.", fr = "Nouveautés présente les notes de chaque version dans votre langue.", de = "Neuigkeiten zeigt die Hinweise jeder Version in Ihrer Sprache.", ro = "Noutăți prezintă notele fiecărei versiuni în limba dumneavoastră." }
+text = { en = "How ADORE works opens a help center; What's new lists each release's notes in your language.", fr = "Comment fonctionne ADORE ouvre l'aide ; Nouveautés liste les notes de chaque version.", de = "So funktioniert ADORE öffnet die Hilfe; Neuigkeiten zeigt die Hinweise jeder Version.", ro = "Cum funcționează ADORE deschide ajutorul; Noutăți arată notele fiecărei versiuni." }
 
 [[release.entry]]
 category = "improved"

@@ -94,11 +94,15 @@ run_args = ["--userns=keep-id"]
 
 ## Create the Labels First
 
-ADORE applies and removes labels but never creates them. GitHub and Gitea
-reject an unknown label name, so the very first poll fails before it can post
-anything to the ticket; the reason is printed to the console and `adore.log`.
-Create all of these in the forge repository before the first run, renaming them
-here only if you also change the matching configuration key:
+GitHub and Gitea reject an unknown label name, so a missing label makes the
+very first poll fail before it can post anything to the ticket; the reason is
+printed to the console and `adore.log`. All of these must exist in the forge
+repository before the first run. The web interface creates the missing ones when
+you enroll a project (**Create the ADORE labels in the repository**, ticked by
+default) or from Settings → Repository → **Create missing labels**; it never
+changes existing labels. `adore init` does not create them, so after a CLI setup
+create them in the forge or use that Settings button. Rename them here only if you
+also change the matching configuration key:
 
 | Label | Config key |
 | --- | --- |

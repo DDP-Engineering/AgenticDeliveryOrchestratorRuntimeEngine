@@ -412,6 +412,24 @@ class GiteaForge(Forge):
 
     # -- internals ------------------------------------------------------------------
 
+    def list_labels(self) -> list[str]:
+        """@brief Repository label names, read page by page through `tea api`."""
+        names: list[str] = []
+        page = 1
+        while True:
+            result = self._api("GET", f"repos/{self.repo}/labels?limit={_PAGE_SIZE}&page={page}")
+            batch = self._parse_json(result, list)
+            names.extend(str(item["name"]) for item in batch
+                         if isinstance(item, dict) and item.get("name"))
+            if len(batch) < _PAGE_SIZE or page >= _MAX_LIST_PAGES:
+                return names
+            page += 1
+
+    def create_label(self, name: str, color: str, description: str) -> None:
+        """@brief Create a repository label (Gitea takes the colour with #)."""
+        self._api("POST", f"repos/{self.repo}/labels", fields=[
+            ("name", name), ("color", f"#{color}"), ("description", description)])
+
     def _login_argv(self) -> list[str]:
         """
         @brief   The `--login` argv fragment when a login is configured.

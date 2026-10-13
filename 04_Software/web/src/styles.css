@@ -475,6 +475,15 @@ td.strong { font-weight: 800; }
 .inline-field { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; }
 .inline-field input { flex: 1 1 18rem; min-width: 0; }
 .detected-source { margin: 6px 0 14px; }
+/* Repository labels: the report and the enrollment option. */
+.forge-labels { margin-top: 18px; display: grid; gap: 8px; }
+.forge-labels h3 { margin: 0; }
+.label-report { display: grid; gap: 6px; margin: 0; }
+.label-report dt { font-weight: 650; }
+.label-report dd { margin: 0; display: flex; flex-wrap: wrap; gap: 4px 8px; }
+.label-report ul { margin: 0; padding-left: 18px; }
+.forge-labels-option { flex-direction: row; align-items: flex-start; gap: .6rem; font-weight: 400; margin: 6px 0 12px; }
+.forge-labels-option input[type="checkbox"] { width: 1.05rem; height: 1.05rem; min-height: 0; margin: .1rem 0 0; padding: 0; flex: none; }
 /* Checkbox beside its title; the clone path in a lighter line below the title. */
 .delete-clone { flex-direction: row; align-items: flex-start; gap: .6rem; }
 .delete-clone input[type="checkbox"] { width: 1.05rem; height: 1.05rem; min-height: 0; margin: .1rem 0 0; padding: 0; flex: none; }

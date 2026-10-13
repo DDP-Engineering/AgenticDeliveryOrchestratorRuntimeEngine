@@ -80,9 +80,11 @@ The authoritative state lives locally under the profile state root; the
 ticket mirrors it through one status comment, edited in place, plus these
 labels.
 
-**Create every label before the first run.** ADORE applies and removes labels
-but never creates them, and GitHub and Gitea reject a name that does not exist
-in the repository. The failure lands at claim time, before ADORE can post
+**Every label must exist before the first run.** GitHub and Gitea reject a
+name that does not exist in the repository. The web interface creates the missing
+ADORE labels when you enroll a project (ticked by default) or from Settings →
+Repository → **Create missing labels**, never changing existing ones; the polling
+loop and `adore init` do not create labels. The failure lands at claim time, before ADORE can post
 anything to the ticket, so the ticket simply sits there still wearing its ready
 label while the reason goes to the console and `adore.log`.
 

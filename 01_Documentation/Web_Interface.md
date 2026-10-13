@@ -52,7 +52,13 @@ with the same origin), requires the installed AEGIS files and the target branch,
 removes a fresh clone if creation fails. The clone uses the ADORE service account's git
 credentials, the same ones publication uses. There is no separate existing-clone mode:
 an existing clone is reused when its path is the clone location and its origin matches. The wizard has five steps: repository/identity, agent/model,
-eligibility/reviewers/limits, verification, review/create. AEGIS is the repository's
+eligibility/reviewers/limits, verification, review/create. Review and create offers
+**Create the ADORE labels in the repository (missing ones only)**, ticked by default:
+after creation ADORE reads the repository's labels and creates the missing labels the
+project's settings name (lifecycle, hold/exclude, priorities, bug type, approval, revise,
+quick-path and task-type labels) with a colour and description, never changing existing
+ones, and lists created, existing and failed labels; a failure leaves the project created.
+Settings → Repository offers the same as **Create missing labels**. AEGIS is the repository's
 workflow for framing, building, testing and reviewing changes; ADORE conducts that
 workflow for eligible issues and publishes draft or ready MR/PRs according to `delivery.draft` for human review.
 Reviewers are optional: an empty list opens the MR/PR without requesting a review.

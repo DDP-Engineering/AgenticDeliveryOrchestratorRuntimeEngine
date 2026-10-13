@@ -25,7 +25,9 @@ draft or ready MR/PRs.
 
 The `Forge` interface normalizes ticket selection, open-ticket browsing
 (`list_open(limit)`), claims, comments, labels,
-branch state, push, and draft or ready MR/PR operations. Concrete GitHub, GitLab, and
+branch state, push, and draft or ready MR/PR operations, plus repository label listing and
+creation (`list_labels`, `create_label`) used by `adore/forge_labels.py` to create a project's
+missing ADORE labels (`REQ-FUNC-a6884923`). Concrete GitHub, GitLab, and
 Gitea adapters translate their CLIs through an injectable command runner and
 return typed domain data, leaving orchestration policy above the boundary.
 
