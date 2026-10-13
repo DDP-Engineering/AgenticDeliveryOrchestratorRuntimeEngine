@@ -117,6 +117,11 @@ text = { en = "About shows the DDP Engineering logo and the version, with licens
 
 [[release.entry]]
 category = "fixed"
+topic = { en = "Interface", fr = "Interface", de = "Oberfläche", ro = "Interfață" }
+text = { en = "Disabled buttons look disabled; enrolling starts with a clear Read repository button.", fr = "Les boutons désactivés en ont l'air ; l'inscription commence par Lire le dépôt.", de = "Deaktivierte Schaltflächen wirken deaktiviert; Registrierung beginnt mit Repository lesen.", ro = "Butoanele dezactivate arată dezactivate; înrolarea începe clar cu Citește repository-ul." }
+
+[[release.entry]]
+category = "fixed"
 topic = { en = "Jobs", fr = "Tâches", de = "Aufträge", ro = "Lucrări" }
 text = { en = "Handoff statuses show their accented letters again in German, French and Romanian.", fr = "Les statuts de transfert affichent à nouveau leurs lettres accentuées.", de = "Übergabe-Status zeigen ihre Umlaute wieder korrekt an.", ro = "Stările de predare își afișează din nou diacriticele." }
 

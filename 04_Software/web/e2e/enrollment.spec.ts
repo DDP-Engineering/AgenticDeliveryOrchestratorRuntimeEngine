@@ -172,11 +172,31 @@ test("field summary focus, malformed fields, collision and invalid server clone 
   page.on("request", request => { if (request.url().endsWith("/setup-preview")) previewName = request.postDataJSON().name; });
   await enter(page);
   await fixture(page);
-  await expect(page.getByRole("button", { name: "Continue", exact: true })).toBeDisabled();
+  const continueButton = page.getByRole("button", { name: "Continue", exact: true });
+  const readButton = page.getByRole("button", { name: "Read repository", exact: true });
+  const opacity = (button: typeof readButton) => button.evaluate(el => Number(getComputedStyle(el).opacity));
+  // Until the repository is read, Read repository is the primary action and Continue looks disabled.
+  await expect(continueButton).toBeDisabled();
+  expect(await opacity(continueButton)).toBeLessThan(0.7);
+  await expect(readButton).toHaveClass(/\bprimary\b/);
+  await expect(continueButton).not.toHaveClass(/\bprimary\b/);
   // A taken ID is never offered: the repository alpha derives alpha-2.
   await page.getByLabel("Repository URL", { exact: false }).fill("ssh://git@forge.e2e.invalid:2222/offline/alpha.git");
-  await page.getByRole("button", { name: "Read repository", exact: true }).click();
+  await readButton.click();
   await expect(page.getByRole("region", { name: "Detected from the repository" })).toBeVisible();
+  // After a successful read the roles swap.
+  await expect(continueButton).toBeEnabled();
+  await expect(continueButton).toHaveClass(/\bprimary\b/);
+  await expect(readButton).toHaveClass(/\bghost\b/);
+  expect(await opacity(continueButton)).toBe(1);
+  // Editing the URL asks for a new read, so the roles swap back.
+  const url = page.getByLabel("Repository URL", { exact: false });
+  await url.fill("ssh://git@forge.e2e.invalid:2222/offline/alpha-edited.git");
+  await expect(readButton).toHaveClass(/primary/);
+  await expect(continueButton).toBeDisabled();
+  await url.fill("ssh://git@forge.e2e.invalid:2222/offline/alpha.git");
+  await readButton.click();
+  await expect(continueButton).toBeEnabled();
   await expect(page.getByRole("region", { name: "Detected from the repository" })).toContainText("alpha-2");
   const clonePath = page.getByLabel("Local clone path", { exact: false });
   const proposed = await clonePath.inputValue();

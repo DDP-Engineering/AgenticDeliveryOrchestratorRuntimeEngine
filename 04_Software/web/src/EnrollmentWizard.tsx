@@ -403,7 +403,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
                   aria-invalid={findings.some(item => fieldFor(item.field) === "clone_url") || undefined}
                   onChange={event => change("clone_url", event.target.value)}
                   onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); void readRepository(); } }} />
-                <button type="button" className="ghost" onClick={() => void readRepository()} disabled={detecting} aria-busy={detecting}>{detecting ? c.reading : c.read}</button>
+                <button type="button" className={detected ? "ghost" : "primary"} onClick={() => void readRepository()} disabled={detecting} aria-busy={detecting}>{detecting ? c.reading : c.read}</button>
               </div>
             </div>
             {detected && <section className="enrollment-review detected-source" aria-label={c.detected}>
@@ -467,7 +467,8 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
       <div className="enrollment-actions">
         {(step > 1 || transfer) && <button type="button" className="ghost" disabled={busy === "create"} onClick={() => transfer && step === 1 ? onSourceReview?.() : move(step - 1)}>{c.back}</button>}
         {/* From a URL, the wizard cannot continue until the repository has been read. */}
-        {step < 4 && <button className="primary" type="submit" disabled={step === 1 && !detected}>{c.continue}</button>}
+        {/* Until the repository is read, Read repository is the primary action. */}
+        {step < 4 && <button className={step === 1 && !detected ? "ghost" : "primary"} type="submit" disabled={step === 1 && !detected}>{c.continue}</button>}
         <button type="button" className="ghost" disabled={busy === "create"} onClick={() => { if (guard()) onCancel(); }}>{c.cancel}</button>
       </div>
     </form>

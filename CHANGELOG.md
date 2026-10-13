@@ -100,6 +100,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Disabled buttons now look unavailable everywhere (dimmed, not-allowed cursor); on Enroll new project, **Read repository** is the primary action and **Continue** stays visibly disabled until the repository has been read.
 - Restore the accented letters in the German, French and Romanian handoff status labels (Übergabe läuft / Übergeben, Transféré, Predare în curs), which showed "?" instead.
 - Preserve inline setting action placement when validation appears after changing the coding agent.
 
