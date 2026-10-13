@@ -90,6 +90,9 @@ guides belong in `01_Documentation/`.
 - `Component_Web_Endpoint_Probe.md` - disposable executor-context local-model readiness.
 - `Component_Web_Worker.md` - authorized queued CLI operations and scheduling.
 - `Component_Web_Frontend.md` - React views, locale catalogs and themes.
+- `Component_Repository_Source.md` - enrollment from a repository URL: address
+  validation, forge detection and the clone made at creation
+  (`adore/web/repository_source.py`).
 - `Component_Release_Notes.md` - four-locale user-facing release notes, their
   repository check and the What's new payload (`adore/release_notes.py`).
 

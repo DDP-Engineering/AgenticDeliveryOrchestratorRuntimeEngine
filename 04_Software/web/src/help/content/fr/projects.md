@@ -6,8 +6,8 @@ Ajoutez un dépôt comme projet pour qu’ADORE puisse prendre en charge ses tic
 
 Préparez ces éléments :
 
-- Un clone Git du dépôt sur le serveur ADORE, avec un `origin` et une branche cible existante. L’ajout d’un projet ne clone jamais ; le chemin est sur le serveur, pas sur votre ordinateur.
-- AEGIS installé dans ce clone (`.agentic/aegis.py` et `.agentic/aegis.toml`). ADORE l’utilise tel quel et ne le modifie jamais. Ses commandes de test s’exécutent dans le conteneur Linux ; écrivez-les donc pour le conteneur.
+- L’adresse du dépôt (https ou ssh) que le compte du serveur ADORE peut lire. ADORE le clone dans son propre dossier à la création du projet.
+- AEGIS installé dans le dépôt (`.agentic/aegis.py` et `.agentic/aegis.toml`). ADORE l’utilise tel quel et ne le modifie jamais. Ses commandes de test s’exécutent dans le conteneur Linux ; écrivez-les donc pour le conteneur.
 - Un compte GitLab, GitHub ou Gitea qui peut lire et mettre à jour les tickets et créer des revues en brouillon.
 - Les noms des étiquettes de disponibilité et d’approbation. Une personne ajoute l’étiquette de disponibilité pour rendre un ticket éligible ; voir [Tickets et prise en charge automatique](/help/tickets#labels).
 - L’agent de programmation, l’identifiant de son modèle et une image de conteneur sur le serveur qui contient l’agent. Voir [Exécuteurs et modèles](/help/executors).
@@ -18,11 +18,11 @@ Choisissez **Inscrire un nouveau projet** dans [Projets](/projects). L’assista
 
 | Étape | Ce qui est demandé |
 |---|---|
-| Dépôt et identité | **Nom affiché**, **Identifiant stable du projet** (lettres minuscules, chiffres, point, soulignement ou tiret, 64 caractères au maximum), **Description** facultative, **Forge**, **Dépôt** sous la forme propriétaire/dépôt (pas une URL), **Gitea tea login** (Gitea uniquement), **Chemin du clone local** et **Branche cible**. |
+| Dépôt et identité | **URL du dépôt** et **Lire le dépôt** : ADORE remplit **Forge**, **Dépôt**, **Gitea tea login**, **Branche cible** et l’identifiant du projet, à confirmer, et propose un **Chemin du clone local** modifiable. **Continuer** reste désactivé tant que le dépôt n’a pas été lu. **Nom affiché** reprend le nom du dépôt ; **Description** est facultative. |
 | Agent et modèle | **Exécuteur** (opencode, codex, pi ou qwen), **Modèle**, **Authentification du modèle** (api-key, ou host-auth pour OpenCode et Codex uniquement) et **Références d'environnement des identifiants** : des noms de variables comme LOCAL_API_KEY, jamais des valeurs. |
-| Éligibilité, relecteurs et limites | **Label prêt**, **Label d'approbation**, **Réviseurs (séparés par des virgules)** (au moins un) et quatre limites par tâche : lancements de l’exécuteur, secondes actives, coût déclaré en USD et fichiers modifiés. Un plafond de coût à 0 désactive ce plafond ; cela ne signifie pas gratuit. |
+| Éligibilité, relecteurs et limites | **Label prêt**, **Label d'approbation**, **Réviseurs (séparés par des virgules)** facultatifs et quatre limites par tâche : lancements de l’exécuteur, secondes actives, coût déclaré en USD et fichiers modifiés. Un plafond de coût à 0 désactive ce plafond ; cela ne signifie pas gratuit. |
 | Vérification | **Valider la configuration** contrôle la structure et les dossiers du serveur. **Vérifier l'environnement** teste ensuite Git, l’outil de la forge et la connexion, le moteur de conteneur, l’agent dans l’image, les fichiers AEGIS et, quand c’est possible, le point d’accès du modèle. Rien n’est publié. |
-| Révision et création | Affiche le candidat exact et les emplacements sur le serveur. **Modifier** revient à une étape. **Créer avec prise de tickets arrêtée** l’enregistre ; **Ouvrir le projet** suit. |
+| Révision et création | Affiche le candidat exact et les emplacements sur le serveur. **Modifier** revient à une étape. **Créer avec prise de tickets arrêtée** clone d’abord le dépôt (depuis une URL), vérifie AEGIS et la branche cible, puis enregistre le projet ; **Ouvrir le projet** suit. |
 
 L’assistant utilise le profil de conteneur standard. L’exécution locale native et les configurations de conteneur spécialisées passent par la méthode TOML serveur avancée ci-dessous.
 

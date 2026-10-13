@@ -5,8 +5,9 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
 import { test, expect, type Page } from "@playwright/test";
+import { dirname, join } from "node:path";
 import { enrollmentCopy } from "../src/enrollmentCopy";
-import { messages, type Locale } from "../src/i18n";
+import { type Locale } from "../src/i18n";
 
 test.beforeEach(async ({ context }) => {
   await context.route("**/*", route => new URL(route.request().url()).origin ===
@@ -31,7 +32,54 @@ test("guided enrollment begins at repository and identity with visible step navi
     "3. Eligibility, reviewers and limits", "4. Verification", "5. Review and create"]);
   await expect(steps.locator('[aria-current="step"]')).toHaveText("1. Repository and identity");
   await expect(page.getByRole("button", { name: "Back", exact: true })).toHaveCount(0);
-  await expect(page.getByText(/already exist on the ADORE server/)).toBeVisible();
+  await expect(page.getByText(/git clone/)).toBeVisible();
+  await expect(page.getByLabel("Stable project ID", { exact: false })).toHaveCount(0);
+  // One flow: a repository URL; there is no existing-clone mode.
+  await expect(page.getByRole("button", { name: "Use an existing clone on this server", exact: true })).toHaveCount(0);
+});
+
+test("enrollment reads a repository URL, derives the ID and clones at creation", async ({ page }) => {
+  await enter(page);
+  const home = dirname(await fixture(page, "partial"));
+  const proceed = page.getByRole("button", { name: "Continue", exact: true });
+  const url = page.getByLabel("Repository URL", { exact: false });
+  // Without a successful read the wizard cannot continue.
+  await expect(proceed).toBeDisabled();
+  await expect(url).toHaveAttribute("placeholder", "e.g. https://github.com/owner/repository");
+  await url.fill("ssh://git@unreachable.e2e.invalid:2222/team/url-service.git");
+  await page.getByRole("button", { name: "Read repository", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText(/could not read this repository/);
+  await expect(proceed).toBeDisabled();
+  await url.fill("ssh://git@forge.e2e.invalid:2222/team/url-service.git");
+  await expect(proceed).toBeDisabled();
+  await page.getByRole("button", { name: "Read repository", exact: true }).click();
+  await expect(proceed).toBeEnabled();
+  const detected = page.getByRole("region", { name: "Detected from the repository" });
+  await expect(detected).toContainText("team/url-service");
+  await expect(detected).toContainText("url-service");
+  // The clone folder is prefilled and can be changed.
+  const clonePath = page.getByLabel("Local clone path", { exact: false });
+  await expect(clonePath).toHaveValue(/repos[\\/]url-service$/);
+  const custom = join(home, "repos", "custom-url-service");
+  await clonePath.fill(custom);
+  await expect(page.locator("#enrollment-clone-note")).toContainText("You can change the folder.");
+  await expect(page.getByLabel("Forge", { exact: false })).toHaveValue("gitea");
+  await expect(page.getByLabel("Gitea tea login", { exact: false })).toHaveValue("fixture");
+  await expect(page.getByLabel("Target branch", { exact: false })).toHaveValue("main");
+  await expect(page.getByLabel("Display name", { exact: false })).toHaveValue("url-service");
+  await environment(page);
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.getByLabel("Reviewers", { exact: false }).fill("fixture-reviewer");
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await validate(page);
+  await page.getByRole("button", { name: "Review candidate", exact: true }).click();
+  await expect(page.locator(".enrollment-review").first()).toContainText("ssh://git@forge.e2e.invalid:2222/team/url-service.git");
+  await expect(page.locator(".enrollment-review").first()).toContainText(custom);
+  await page.getByRole("button", { name: "Create project with pickup stopped", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Enrollment complete", exact: true })).toBeFocused();
+  const projects = await (await page.request.get("/api/v1/projects")).json();
+  const created = projects.find((item: { name: string }) => item.name === "url-service");
+  expect(created.paused).toBe(true);
 });
 
 test("guided enrollment delegates environment setup to the server operator",async({page})=>{
@@ -51,14 +99,13 @@ async function fixture(page: Page, mode = "failed") {
   return (await response.json()).clone as string;
 }
 async function repository(page: Page, name = "e2e-valid") {
-  const clone = await fixture(page);
+  await fixture(page);
+  // The project ID is derived from the repository name; the clone path is the proposed one.
+  await page.getByLabel("Repository URL", { exact: false }).fill(`ssh://git@forge.e2e.invalid:2222/offline/${name}.git`);
+  await page.getByRole("button", { name: "Read repository", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Detected from the repository" })).toBeVisible();
   await page.getByLabel("Display name", { exact: false }).fill("Offline service");
-  await page.getByLabel("Stable project ID", { exact: false }).fill(name);
-  await page.getByLabel("Forge", { exact: false }).selectOption("gitea");
-  await page.getByLabel("Repository", { exact: false }).fill("offline/service");
-  await page.getByLabel("Gitea tea login", { exact: false }).fill("fixture");
-  await page.getByLabel("Local clone path", { exact: false }).fill(clone);
-  return clone;
+  return await page.getByLabel("Local clone path", { exact: false }).inputValue();
 }
 async function environment(page: Page) {
   await page.getByRole("button", { name: "Continue", exact: true }).click();
@@ -121,35 +168,37 @@ test("complete reviewed draft creates once with stopped pickup and honest failed
 });
 
 test("field summary focus, malformed fields, collision and invalid server clone recover", async ({ page }) => {
+  let previewName = "";
+  page.on("request", request => { if (request.url().endsWith("/setup-preview")) previewName = request.postDataJSON().name; });
   await enter(page);
+  await fixture(page);
+  await expect(page.getByRole("button", { name: "Continue", exact: true })).toBeDisabled();
+  // A taken ID is never offered: the repository alpha derives alpha-2.
+  await page.getByLabel("Repository URL", { exact: false }).fill("ssh://git@forge.e2e.invalid:2222/offline/alpha.git");
+  await page.getByRole("button", { name: "Read repository", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Detected from the repository" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Detected from the repository" })).toContainText("alpha-2");
+  const clonePath = page.getByLabel("Local clone path", { exact: false });
+  const proposed = await clonePath.inputValue();
+  await page.getByLabel("Display name", { exact: false }).fill("");
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(page.getByRole("alert")).toBeFocused();
-  await page.getByRole("button", { name: /Stable project ID — Correct/ }).focus();
+  await page.getByRole("button", { name: /^Display name — Correct/ }).focus();
   await page.keyboard.press("Enter");
-  await expect(page.getByLabel("Stable project ID", { exact: false })).toBeFocused();
+  await expect(page.getByLabel("Display name", { exact: false })).toBeFocused();
   await page.getByLabel("Display name", { exact: false }).fill("Service");
-  await page.getByLabel("Stable project ID", { exact: false }).fill("BAD ID");
-  await page.getByLabel("Repository", { exact: false }).fill("https://unsupported/repository");
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await expect(page.getByLabel("Stable project ID", { exact: false })).toHaveAttribute("aria-invalid", "true");
-  await page.getByLabel("Stable project ID", { exact: false }).fill("alpha");
-  await page.getByLabel("Repository", { exact: false }).fill("offline/service");
-  await page.getByLabel("Local clone path", { exact: false }).fill(await fixture(page));
+  await clonePath.fill("relative/clone");
   await environment(page);
+  // Reviewers are optional.
   await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await page.getByLabel("Reviewers", { exact: false }).fill("fixture-reviewer");
+  await expect(page.getByLabel("Reviewers", { exact: false })).toHaveValue("");
   await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await page.getByRole("button", { name: "Validate setup", exact: true }).click();
-  await expect(page.getByRole("alert")).toContainText("project_exists");
-  await page.getByRole("button", { name: /Stable project ID — Correct/ }).click();
-  await page.getByLabel("Stable project ID", { exact: false }).fill("e2e-corrections");
-  await page.getByLabel("Local clone path", { exact: false }).fill("/missing-offline-clone");
-  for(let i=0;i<3;i++) await page.getByRole("button",{name:"Continue",exact:true}).click();
   await page.getByRole("button",{name:"Validate setup",exact:true}).click();
   await expect(page.getByRole("alert")).toContainText("setup_field_invalid");
+  expect(previewName).toBe("alpha-2");
   await page.getByRole("button",{name:/Local clone path — Correct/}).click();
   await expect(page.getByLabel("Local clone path",{exact:false})).toBeFocused();
-  await page.getByLabel("Local clone path",{exact:false}).fill(await fixture(page));
+  await page.getByLabel("Local clone path",{exact:false}).fill(proposed);
   for(let i=0;i<3;i++) await page.getByRole("button",{name:"Continue",exact:true}).click();
   await validate(page);
 });
@@ -209,12 +258,12 @@ test("draft loss warning protects shell, history and refresh; draft never enters
   await enter(page); await repository(page, "e2e-memory");
   page.once("dialog", dialog => dialog.dismiss());
   await page.getByRole("navigation", { name: "Primary navigation", exact: true }).getByRole("link", { name: "Projects", exact: true }).click();
-  await expect(page.getByLabel("Stable project ID", { exact: false })).toHaveValue("e2e-memory");
+  await expect(page.getByLabel("Repository URL", { exact: false })).toHaveValue(/offline\/e2e-memory/);
   const historyDialog = page.waitForEvent("dialog");
   await page.evaluate(() => history.back());
   await (await historyDialog).dismiss();
   await expect(page).toHaveURL(/\/projects\/new$/);
-  await expect(page.getByLabel("Stable project ID", { exact: false })).toHaveValue("e2e-memory");
+  await expect(page.getByLabel("Repository URL", { exact: false })).toHaveValue(/offline\/e2e-memory/);
   const keys = await page.evaluate(() => ({ local: { ...localStorage }, session: { ...sessionStorage } }));
   expect(JSON.stringify(keys)).not.toContain("e2e-memory");
   let refreshWarned = false;
@@ -222,7 +271,7 @@ test("draft loss warning protects shell, history and refresh; draft never enters
   await page.reload();
   expect(refreshWarned).toBe(true);
   await expect(page.getByRole("heading", { name: "Repository and identity", exact: true })).toBeVisible();
-  await expect(page.getByLabel("Stable project ID", { exact: false })).toHaveValue("");
+  await expect(page.getByLabel("Repository URL", { exact: false })).toHaveValue("");
 });
 
 test("Dev is denied setup routes and sees no enrollment controls", async ({ page }) => {
@@ -285,8 +334,8 @@ for (const locale of ["en", "fr", "de", "ro"] as Locale[]) {
       headers: { "X-CSRF-Token": me.csrf }, data: { language: locale } });
     await page.goto("/projects/new");
     await expect(page.getByRole("heading", { name: enrollmentCopy[locale].steps[0], exact: true })).toBeVisible();
-    await expect(page.getByText(enrollmentCopy[locale].clone, { exact: true })).toBeVisible();
-    await expect(page.getByLabel(messages[locale].clonePath, { exact: false })).toBeVisible();
+    await expect(page.getByText(enrollmentCopy[locale].urlHelp, { exact: true })).toBeVisible();
+    await expect(page.getByLabel(enrollmentCopy[locale].url, { exact: false })).toBeVisible();
     // Leave the shared fixture account in the baseline language.
     await page.request.patch("/api/v1/me/preferences", {
       headers: { "X-CSRF-Token": me.csrf }, data: { language: "en" } });

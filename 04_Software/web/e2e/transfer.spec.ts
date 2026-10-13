@@ -29,15 +29,11 @@ async function selectSource(page: Page, method: "file" | "project") {
 async function target(page: Page, name: string) {
   const response = await page.request.post("/__e2e__/enrollment", { headers: { "X-ADORE-E2E": "local-test" } });
   const home = dirname((await response.json()).clone);
-  const clone = join(home, "transfer-clone-" + name);
-  await mkdir(join(clone, ".git"), { recursive: true });
   await page.getByRole("button", { name: "Set up new target", exact: true }).click();
+  await page.getByLabel("Repository URL", { exact: false }).fill(`ssh://git@forge.e2e.invalid:2222/transfer/${name}.git`);
+  await page.getByRole("button", { name: "Read repository", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Detected from the repository" })).toBeVisible();
   await page.getByLabel("Display name", { exact: false }).fill("Transfer " + name);
-  await page.getByLabel("Stable project ID", { exact: false }).fill(name);
-  await page.getByLabel("Forge", { exact: false }).selectOption("gitea");
-  await page.getByLabel("Repository", { exact: false }).fill("transfer/" + name);
-  await page.getByLabel("Gitea tea login", { exact: false }).fill("fixture");
-  await page.getByLabel("Local clone path", { exact: false }).fill(clone);
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page.getByLabel(/^Model \*/).fill("openai/fixture-model");
   await expect(page.getByLabel("Executor image", { exact: false })).toHaveCount(0);

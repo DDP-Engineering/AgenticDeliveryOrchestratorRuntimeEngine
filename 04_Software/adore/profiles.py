@@ -136,7 +136,9 @@ def validate_profile_id(name: object) -> str:
             or re.fullmatch(r"[0-9a-f]{32}", name)
             or name in {"import", "import-preview", "setup-preview", "setup-check",
                         "setup-create", "id-availability", "transfer-source",
-                        "transfer-preview", "transfer-check", "transfer-create"}):
+                        "transfer-preview", "transfer-check", "transfer-create",
+                        # Page and API routes beside /projects/<id>.
+                        "new", "clone", "repository-source"}):
         raise ProfileError("reserved profile ID", code="reserved_project_name")
     return name
 

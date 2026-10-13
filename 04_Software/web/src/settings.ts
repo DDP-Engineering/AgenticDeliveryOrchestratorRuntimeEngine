@@ -250,7 +250,7 @@ export function validPendingConfig(value: unknown): value is PendingConfig | nul
   const item = value as PendingConfig;
   const digest = (part: unknown) => typeof part === "string" && /^[a-f0-9]{64}$/.test(part);
   const reviewerList = item.key === "delivery.reviewers" && Array.isArray(item.proposed_value)
-    && item.proposed_value.length > 0 && item.proposed_value.every(name => typeof name === "string"
+    && item.proposed_value.every(name => typeof name === "string"
       && name.length > 0 && name.length <= 255 && !name.startsWith("-") && !/[\s\u0000-\u001f\u007f]/.test(name));
   const agentSelection = item.key === "executor.selection" && validExecutorSelection(item.proposed_value);
   const credentials = item.key === "executor.env_keys" && validCredentialNames(item.proposed_value);

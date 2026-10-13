@@ -6,8 +6,8 @@ Add a repository as a project so ADORE can pick up its ready tickets, run a codi
 
 Have these ready:
 
-- A Git clone of the repository on the ADORE server, with an `origin` and an existing target branch. Adding a project never clones; the path is on the server, not your computer.
-- AEGIS installed in that clone (`.agentic/aegis.py` and `.agentic/aegis.toml`). ADORE uses it as installed and never edits it. Its test commands run inside the Linux container, so write them for the container.
+- The repository address (https or ssh) that the ADORE server account can read. ADORE clones it into its own folder when you create the project.
+- AEGIS installed in the repository (`.agentic/aegis.py` and `.agentic/aegis.toml`). ADORE uses it as installed and never edits it. Its test commands run inside the Linux container, so write them for the container.
 - A GitLab, GitHub or Gitea account that can read and update issues and create draft reviews.
 - The ready and approval label names. A person adds the ready label to make a ticket eligible; see [Tickets for automatic pickup](/help/tickets#labels).
 - The coding agent, its model ID and a container image on the server that contains the agent. See [Executors and models](/help/executors).
@@ -18,11 +18,11 @@ Choose **Enroll new project** on [Projects](/projects). The guided wizard starts
 
 | Step | What it asks |
 |---|---|
-| Repository and identity | **Display name**, **Stable project ID** (lowercase letters, digits, dot, underscore or hyphen, up to 64 characters), optional **Description**, **Forge**, **Repository** as owner/repository (not a URL), **Gitea tea login** (Gitea only), **Local clone path** and **Target branch**. |
+| Repository and identity | **Repository URL** and **Read repository**: ADORE fills in **Forge**, **Repository**, **Gitea tea login**, **Target branch** and the project ID for you to confirm, and proposes a **Local clone path** you can change. **Continue** stays disabled until the repository has been read. **Display name** starts as the repository name; **Description** is optional. |
 | Agent and model | **Executor** (opencode, codex, pi or qwen), **Model**, **Model authentication** (api-key, or host-auth for OpenCode and Codex only) and **Credential environment references**: variable names such as LOCAL_API_KEY, never values. |
-| Eligibility, reviewers and limits | **Ready label**, **Approval label**, **Reviewers (comma-separated)** (at least one) and four job limits: executor launches, active seconds, reported cost in USD and changed files. A cost cap of 0 switches that cap off; it does not mean free. |
+| Eligibility, reviewers and limits | **Ready label**, **Approval label**, optional **Reviewers (comma-separated)** and four job limits: executor launches, active seconds, reported cost in USD and changed files. A cost cap of 0 switches that cap off; it does not mean free. |
 | Verification | **Validate setup** checks structure and server folders. **Check environment** then tests Git, the forge tool and sign-in, the container engine, the agent in the image, the AEGIS files and, where possible, the model endpoint. Nothing is published. |
-| Review and create | Shows the exact candidate and server locations. **Change** returns to a step. **Create project with pickup stopped** saves it; **Open project** follows. |
+| Review and create | Shows the exact candidate and server locations. **Change** returns to a step. **Create project with pickup stopped** first clones the repository (from a URL), checks AEGIS and the target branch, then saves the project; **Open project** follows. |
 
 The wizard uses the standard container profile. Native local execution and specialized container setups use the advanced server TOML method below.
 

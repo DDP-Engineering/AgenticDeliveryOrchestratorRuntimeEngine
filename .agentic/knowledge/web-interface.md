@@ -334,6 +334,13 @@ SQLite bytes, authorization, scope and financial redaction.
   Admin-only, and History selects terminal jobs. Legacy configuration, executor
   and prices routes open Settings. Missing legacy update times remain unknown in
   project summaries; nonempty corrupt timestamps fail closed.
+  Enroll new project (and Clone project config) start from a repository URL: Read
+  repository (`/api/v1/projects/repository-source`, `adore/web/repository_source.py`)
+  fills forge, repository, login, branch and the derived ID and prefills an editable
+  clone path `<home>/repos/<ID>`; Continue waits for a successful read; the clone is
+  made only at creation (exclusive folder, reused if its origin matches, removed on failure);
+  no existing-clone mode (a matching clone at the path is reused); no Stable project ID field;
+  reviewers are optional (empty list = no review request) in the wizard and Settings.
   Projects offers Enroll new project, Import project config and Clone project config
   as separate pages (/projects/new, /projects/import, /projects/clone).
   Administrators open Enroll new project as a five-step guided page with visible localized

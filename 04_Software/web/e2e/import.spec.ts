@@ -43,7 +43,7 @@ async function upload(page: Page, name: string, bad = false) {
 const next = (page: Page) => page.getByRole("button", { name: "Continue", exact: true }).click();
 async function identity(page: Page, id: string) {
   await next(page);
-  await page.getByLabel("Stable project ID", { exact: false }).fill(id);
+  await page.getByLabel("Project ID", { exact: false }).fill(id);
   await page.getByLabel("Display name", { exact: false }).fill("Exact service");
   await next(page);
 }

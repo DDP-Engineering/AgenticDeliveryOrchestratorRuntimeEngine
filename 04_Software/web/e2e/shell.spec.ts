@@ -204,9 +204,9 @@ test("glossary defines supported human actions with essential field help visible
   await nav(page).getByRole("link", { name: "Projects", exact: true }).click();
   await page.getByRole("button", { name: "Enroll new project", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Repository and identity", exact: true })).toBeVisible();
-  await expect(page.locator("#enrollment-help-forge")).toBeVisible();
-  await expect(page.locator("#enrollment-help-clone")).toBeVisible();
-  await expect(page.getByLabel("Local clone path", { exact: false })).toHaveAttribute("aria-describedby", "enrollment-help-clone");
+  await expect(page.locator("#enrollment-help-url")).toBeVisible();
+  await expect(page.locator("#enrollment-help-identity")).toBeVisible();
+  await expect(page.getByLabel("Repository URL", { exact: false })).toHaveAttribute("aria-describedby", "enrollment-help-url");
 });
 
 test("pending job details cannot refill another project's view", async ({ page }) => {

@@ -105,6 +105,21 @@ from adore.web.image_build import ImageBuildError, ImageBuildService, dockerfile
 from adore.web.implementation_settings import COLLECTION_KEYS, set_collection, valid_collection
 from adore.web.jobs import JobReadError, read_jobs, sort_jobs
 from adore.web.model_connection import probe_model_connection
+from adore.web.repository_source import (
+    RepositorySourceError,
+    branch_exists,
+    default_branch,
+    detect_kind,
+    ls_remote,
+    origin_matches,
+    parse_repository_url,
+    read_origin,
+    suggest_id,
+    tea_logins,
+)
+from adore.web.repository_source import (
+    clone as clone_repository,
+)
 from adore.web.store import WebStore, WebStoreError
 from adore.web.tickets import (
     RunReadError,
@@ -264,7 +279,7 @@ class ProjectInput(BaseModel):
     kind: str
     repo: str
     repo_path: str
-    reviewers: str
+    reviewers: str = ""
     executor_cli: str = "opencode"
     execution_backend: Literal["container", "local"] = "container"
     executor_command: str = ""
@@ -286,6 +301,14 @@ class ProjectInput(BaseModel):
     max_wall_clock_seconds: int = Field(default=5400, ge=1, le=31536000, strict=True)
     max_cost_usd: float = Field(default=5.0, ge=0, le=1000000, allow_inf_nan=False)
     max_files_touched: int = Field(default=120, ge=1, le=1000000, strict=True)
+    clone_url: str = Field(default="", max_length=512)
+
+
+class RepositorySourceInput(BaseModel):
+    """@brief A repository address to read before enrollment."""
+
+    model_config = ConfigDict(extra="forbid")
+    url: str = Field(max_length=512)
 
 
 class ReviewedProjectInput(ProjectInput):
@@ -722,15 +745,16 @@ def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, 
         raise _identity_error(exc) from exc
     issues = [] if available else [
         _finding("project_exists", "name", "Choose another available ID.")]
-    answers = body.model_dump(exclude={"name", "display_name", "env_keys", "revision"})
+    answers = body.model_dump(exclude={"name", "display_name", "env_keys", "revision", "clone_url"})
     answers["budgets_choice"] = "custom"
     if not answers["executor_command"]:
         answers.pop("executor_command")
     elif body.execution_backend != "local":
         issues.append(_finding("setup_field_invalid", "executor_command",
                                "Custom native argv is available only for local execution."))
+    # Reviewers are optional: an empty list requests no review on the MR/PR.
     for field in ("ready_label", "approval_label", "kind", "repo", "repo_path",
-                  "reviewers", "runtime", "target_branch", "auth_mode", "executor_cli"):
+                  "runtime", "target_branch", "auth_mode", "executor_cli"):
         if not str(answers[field]).strip():
             issues.append(_finding("setup_field_invalid", field,
                                    "Supply a non-empty supported value."))
@@ -740,8 +764,49 @@ def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, 
         if field in body.model_fields_set and not str(answers[field]).strip():
             issues.append(_finding("setup_field_invalid", field,
                                    "Supply an explicit supported value."))
+    pending_clone = False
+    if body.clone_url:
+        # From a repository URL: the clone (proposed at <home>/repos/<ID>, editable) is made at
+        # creation. Inside ADORE home only the repos folder may hold it.
+        home = profiles.home.resolve()
+        expected = Path(body.repo_path)  # As typed: no ~ expansion, so preview and clone agree.
+        try:
+            source = parse_repository_url(body.clone_url)
+        except RepositorySourceError:
+            source = None
+            issues.append(_finding(
+                "repository_url_invalid", "clone_url",
+                "Use an https, http or ssh repository address without credentials."))
+        if source is not None and source.repo.casefold() != body.repo.strip().casefold():
+            issues.append(_finding("setup_field_invalid", "repo",
+                                   "Use the repository named by the repository URL."))
+        located = expected.is_absolute() and (
+            not expected.resolve().is_relative_to(home)
+            or expected.resolve().is_relative_to(home / "repos")
+            and expected.resolve() != home / "repos")
+        if not located:
+            issues.append(_finding(
+                "setup_field_invalid", "repo_path",
+                "Use an absolute clone folder outside ADORE home or under its repos folder."))
+        elif not expected.resolve().is_relative_to(home) and not expected.parent.is_dir():
+            issues.append(_finding("setup_field_invalid", "repo_path",
+                                   "Choose a folder whose parent already exists."))
+        elif _cloning_marker(expected).exists() and (
+                _cloning_active(_cloning_marker(expected)) or expected.exists()):
+            # A running clone, or the folder an interrupted one left behind: never reuse it.
+            issues.append(_finding("clone_path_occupied", "repo_path",
+                                   "A clone into this folder is running or was interrupted; "
+                                   "remove the partial folder and its .adore-cloning marker."))
+        elif expected.exists():
+            if not (expected / ".git").exists() or not origin_matches(
+                    read_origin(expected) or "", body.clone_url):
+                issues.append(_finding("clone_path_occupied", "repo_path",
+                                       "Move the existing folder away or use an existing clone."))
+        else:
+            pending_clone = True
     clone = Path(body.repo_path).expanduser()
-    if not clone.is_absolute() or not (clone / ".git").exists():
+    if not pending_clone and not any(issue["field"] == "repo_path" for issue in issues) and (
+            not clone.is_absolute() or not (clone / ".git").exists()):
         issues.append(_finding("setup_field_invalid", "repo_path",
                                "Use an absolute existing repository clone on the ADORE server."))
     if body.env_keys is not None and (not body.env_keys and body.auth_mode == "api-key"
@@ -759,7 +824,8 @@ def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, 
     if not issues:
         try:
             candidate = run_wizard(profiles, asker=ScriptedAsker(answers, interactive=False),
-                                   name=body.name, out=lambda _message: None, prepare_only=True)
+                                   name=body.name, out=lambda _message: None, prepare_only=True,
+                                   pending_clone=pending_clone)
             if not isinstance(candidate, WizardSetup):
                 raise WizardError("invalid setup candidate")
             candidate.metadata["display_name"] = display
@@ -788,7 +854,8 @@ def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, 
     if candidate is not None and not issues:
         config = _config_from_bytes(candidate.document.encode("utf-8"))
         snapshot = {"document": candidate.document, "name": body.name,
-                    "display_name": display, "description": body.description}
+                    "display_name": display, "description": body.description,
+                    "clone_url": body.clone_url}
         preview["revision"] = sha256(json.dumps(snapshot, sort_keys=True,
                                                ensure_ascii=False).encode("utf-8")).hexdigest()
         preview["config_revision"] = sha256(candidate.document.encode("utf-8")).hexdigest()
@@ -804,6 +871,7 @@ def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, 
             "branch_template": config.worktree.branch_template,
             "config_path": str(profiles.config_path(body.name).resolve()),
             "store_root": config.state.store_root, "worktree_root": config.worktree.root,
+            "clone": ("new" if pending_clone else "existing") if body.clone_url else None,
         }
         if config.execution.backend == "local":
             from adore.local_process import native_context
@@ -917,6 +985,114 @@ def _prepare_transfer(profiles: ProfileStore, body: TransferInput,
         preview.update(revision=None, config_revision=None, review=None)
         candidate = None
     return preview, candidate
+
+
+def _cloning_marker(dest: Path) -> Path:
+    """@brief Sibling marker that keeps a clone in progress from looking reusable."""
+    return dest.parent / f".{dest.name}.adore-cloning"
+
+
+_STALE_CLONING_SECONDS = 15 * 60  # Longer than a clone may run; left behind by a restart.
+
+
+def _cloning_active(marker: Path) -> bool:
+    """@brief True for a marker younger than the clone bound (an older one outlived its request)."""
+    try:
+        age = datetime.now(UTC).timestamp() - marker.stat().st_mtime
+        return -60 <= age < _STALE_CLONING_SECONDS  # A future time is stale too (clock moved).
+    except OSError:
+        return False
+
+
+def _pending_clone(body: ProjectInput) -> bool:
+    """@brief True when an enrollment from a repository URL still has to make its clone."""
+    return bool(body.clone_url) and not Path(body.repo_path).exists()
+
+
+def _clone_rejection(status: int, code: str, field: str, remediation: str) -> HTTPException:
+    """@brief A coded clone failure with one field finding."""
+    return HTTPException(status_code=status, detail={
+        "code": code, "message": remediation, "issues": [_finding(code, field, remediation)]})
+
+
+def _materialize_clone(body: ProjectInput, runner: CommandRunner, home: Path) -> Path | None:
+    """
+    @brief      Make a pending clone just before publication and verify it.
+    @param[in]  body Reviewed answers whose clone location was validated by preview.
+    @param[in]  runner Injectable command boundary.
+    @param[in]  home ADORE home; parent folders are created only under its repos folder.
+    @return     The fresh clone (the caller removes it if publication fails), or None.
+    @exception  HTTPException The clone failed, lacks AEGIS or lacks the target branch (removed).
+    """
+    if not _pending_clone(body):
+        return None
+    dest = Path(body.repo_path)
+    if dest.resolve().is_relative_to(home.resolve() / "repos"):
+        dest.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        # An exclusive empty folder: a concurrent enrollment can never have its clone removed here.
+        dest.mkdir()
+    except FileExistsError as exc:
+        raise _clone_rejection(409, "clone_path_occupied", "repo_path",
+                               "Another enrollment is using this clone location.") from exc
+    except OSError as exc:
+        raise _clone_rejection(409, "setup_field_invalid", "repo_path",
+                               "The server could not create the clone folder (permissions or "
+                               "disk space).") from exc
+    if not clone_repository(body.clone_url, dest, runner).ok:
+        force_rmtree(dest)
+        raise _clone_rejection(502, "repository_clone_failed", "clone_url",
+                               "Check that the server account can read the repository.")
+    aegis = dest / ".agentic"
+    try:
+        if not ((aegis / "aegis.py").is_file() and (aegis / "aegis.toml").is_file()):
+            raise _clone_rejection(409, "repository_aegis_missing", "clone_url",
+                                   "Install AEGIS in the repository before enrolling it.")
+        if not branch_exists(dest, body.target_branch, runner):
+            raise _clone_rejection(409, "repository_branch_missing", "target_branch",
+                                   "Choose a branch that exists in the repository.")
+    except HTTPException:
+        force_rmtree(dest)
+        raise
+    return dest
+
+
+def _publish_with_clone(body: ProjectInput, runner: CommandRunner, home: Path,
+                        publish: Callable[[], dict]) -> dict:
+    """@brief Clone a pending repository, publish, and remove a fresh clone if publication fails."""
+    if not _pending_clone(body):
+        return publish()
+    marker = _cloning_marker(Path(body.repo_path))
+    if Path(body.repo_path).resolve().is_relative_to(home.resolve() / "repos"):
+        marker.parent.mkdir(parents=True, exist_ok=True)
+    for attempt in (1, 2):
+        try:
+            marker.touch(exist_ok=False)
+            break
+        except FileExistsError as exc:
+            if attempt == 1 and not _cloning_active(marker):
+                try:
+                    marker.unlink(missing_ok=True)  # Left behind by an interrupted request.
+                    continue
+                except OSError:
+                    pass
+            raise _clone_rejection(
+                409, "clone_path_occupied", "repo_path",
+                f"Another enrollment is cloning into this folder ({marker.name}).") from exc
+        except OSError as exc:
+            raise _clone_rejection(409, "setup_field_invalid", "repo_path",
+                                   "The server could not prepare the clone folder; check that its "
+                                   "parent exists and is writable.") from exc
+    try:
+        fresh = _materialize_clone(body, runner, home)
+        try:
+            return publish()
+        except BaseException:
+            if fresh is not None:
+                force_rmtree(fresh)
+            raise
+    finally:
+        marker.unlink(missing_ok=True)
 
 
 def _publish_paused(profiles: ProfileStore, web: WebStore, actor: int, name: str,
@@ -2754,6 +2930,48 @@ def create_app(home: str | Path | None = None,
                 "issues": [] if available else [
                     _finding("project_exists", "name", "Choose another available ID.")]}
 
+    @app.post("/api/v1/projects/repository-source")
+    def repository_source(body: RepositorySourceInput,
+                          _user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+        """
+        @brief      Read a repository address: forge, repository, branch, ID and clone location.
+        @param[in]  body Repository URL typed by the administrator.
+        @param[in]  _user Authorized administrator after CSRF validation.
+        @return     Detected values for confirmation; nothing is written on the server.
+        @exception  HTTPException Unsupported address, unreachable remote or no free ID.
+        """
+        try:
+            parsed = parse_repository_url(body.url)
+        except RepositorySourceError as exc:
+            raise _error(400, "repository_url_invalid") from exc
+        listing = ls_remote(parsed.url, probe_runner)
+        if not listing.ok:
+            raise _error(502, "repository_unreachable")
+        kind, login = detect_kind(parsed.host, tea_logins(probe_runner))
+
+        def location(name: str) -> Path:
+            return (profiles.home / "repos" / name).resolve()
+
+        def usable(name: str) -> bool:
+            # Free, unreserved ID whose clone location is empty or already holds this repository.
+            path = location(name)
+            try:
+                available = profiles.id_availability(name)
+            except ProfileError:
+                return False
+            return available and (
+                not path.exists() or origin_matches(read_origin(path) or "", parsed.url))
+
+        try:
+            name = suggest_id(parsed.name, usable)
+        except (RepositorySourceError, ProfileError) as exc:
+            raise _error(409, "project_exists") from exc
+        path = location(name)
+        return {"url": parsed.url, "kind": kind, "login": login, "repo": parsed.repo,
+                "default_branch": default_branch(listing.stdout), "name": name,
+                "display_name": parsed.name, "repo_path": str(path),
+                "clone": "existing" if path.exists() else "new"}
+
     @app.post("/api/v1/projects/setup-preview")
     def preview_project_setup(
         body: ProjectInput, _user: Annotated[dict, Depends(admin_mutation)]
@@ -2854,6 +3072,8 @@ def create_app(home: str | Path | None = None,
         evidence = _probe_setup(_config_from_bytes(candidate.document.encode()), probe_runner)
         reviewed_transfer(body, request)
         checks = evidence["checks"]
+        if _pending_clone(body.target):
+            checks["aegis_files"] = "not-checked"  # The clone is made at creation.
         status = ("failed" if any(value is False for value in checks.values()) else
                   "partial" if any(type(value) is not bool for value in checks.values())
                   else "verified")
@@ -2881,11 +3101,14 @@ def create_app(home: str | Path | None = None,
                                    origin="project-cloned" if body.method == "project"
                                    else "settings-imported", base_revision=body.source_revision)
 
-        if body.method == "project":
-            item = project(body.source_id, user)
-            with _web_config_edit_lock(profiles.config_path(item.name)):
-                return publish()
-        return publish()
+        def locked() -> dict:
+            if body.method == "project":
+                item = project(body.source_id, user)
+                with _web_config_edit_lock(profiles.config_path(item.name)):
+                    return publish()
+            return publish()
+
+        return _publish_with_clone(body.target, probe_runner, profiles.home, locked)
 
     def reviewed_setup(body: ReviewedProjectInput):
         """@brief Rebuild and compare an exact memory draft before acting on it.
@@ -2919,6 +3142,8 @@ def create_app(home: str | Path | None = None,
         config = _config_from_bytes(candidate.document.encode("utf-8"))
         evidence = _probe_setup(config, probe_runner)
         checks = evidence["checks"]
+        if _pending_clone(body):
+            checks["aegis_files"] = "not-checked"  # The clone is made at creation.
         status = ("failed" if any(value is False for value in checks.values()) else
                   "partial" if any(type(value) is not bool for value in checks.values())
                   else "verified")
@@ -2937,8 +3162,9 @@ def create_app(home: str | Path | None = None,
         @exception HTTPException Invalid, stale or conflicting setup is rejected.
         """
         _preview, candidate = reviewed_setup(body)
-        return _publish_paused(profiles, web, user["id"], body.name,
-                               candidate.document.encode("utf-8"), candidate.metadata)
+        return _publish_with_clone(body, probe_runner, profiles.home, lambda: _publish_paused(
+            profiles, web, user["id"], body.name, candidate.document.encode("utf-8"),
+            candidate.metadata))
 
     @app.post("/api/v1/projects")
     def add_project(body: ProjectInput,
@@ -2951,8 +3177,9 @@ def create_app(home: str | Path | None = None,
                                 detail={"code": code, "issues": preview["issues"],
                                         "message": "; ".join(issue["remediation"]
                                                              for issue in preview["issues"])})
-        return _publish_paused(profiles, web, user["id"], body.name,
-                               candidate.document.encode("utf-8"), candidate.metadata)
+        return _publish_with_clone(body, probe_runner, profiles.home, lambda: _publish_paused(
+            profiles, web, user["id"], body.name, candidate.document.encode("utf-8"),
+            candidate.metadata))
 
     @app.post("/api/v1/projects/import-preview")
     def preview_project_import(

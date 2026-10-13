@@ -469,6 +469,11 @@ td.strong { font-weight: 800; }
 .enrollment-field [aria-invalid="true"] { border: 2px solid var(--danger); }
 .enrollment-errors { border: 2px solid var(--danger); border-radius: 8px; padding: 12px; margin-bottom: 20px; }
 .enrollment-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+/* Enroll from a repository URL: the address with Read repository, then what was detected. */
+.enrollment-url { margin-bottom: 14px; }
+.inline-field { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; }
+.inline-field input { flex: 1 1 18rem; min-width: 0; }
+.detected-source { margin: 6px 0 14px; }
 .clone-sources .enrollment-actions { margin-top: 10px; }
 .clone-sources [aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-deep); }
 .enrollment-review { border-top: 1px solid var(--border); padding-block: 16px; }

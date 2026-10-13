@@ -16,7 +16,7 @@ verify with `04_Software/tests/test_config.py`. Web config edits belong to
 `web-interface.md` and assisted prompts to `wizard.md`.
 
 
-`REQ-UX-34718dd6`: Reviewer configuration is a nonempty account list with bounded names and rejection of whitespace, controls and option prefixes; reviewers request forge review independently of publication approval and merge policy.
+`REQ-UX-34718dd6`: Reviewer configuration is an account list (empty requests no review) with bounded names and rejection of whitespace, controls and option prefixes; reviewers request forge review independently of publication approval and merge policy.
 
 ## Purpose and boundaries
 

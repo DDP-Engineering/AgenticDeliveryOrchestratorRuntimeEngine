@@ -6,8 +6,8 @@ Adăugați un repository ca proiect pentru ca ADORE să poată prelua tichetele 
 
 Pregătiți următoarele:
 
-- O clonă Git a repository-ului pe serverul ADORE, cu un `origin` și o ramură țintă existentă. Adăugarea unui proiect nu clonează niciodată; calea este pe server, nu pe calculatorul dumneavoastră.
-- AEGIS instalat în acea clonă (`.agentic/aegis.py` și `.agentic/aegis.toml`). ADORE îl folosește așa cum este instalat și nu îl modifică niciodată. Comenzile sale de test rulează în containerul Linux, așa că scrieți-le pentru container.
+- Adresa repository-ului (https sau ssh) pe care contul serverului ADORE o poate citi. ADORE îl clonează în propriul dosar când creați proiectul.
+- AEGIS instalat în repository (`.agentic/aegis.py` și `.agentic/aegis.toml`). ADORE îl folosește așa cum este instalat și nu îl modifică niciodată. Comenzile sale de test rulează în containerul Linux, așa că scrieți-le pentru container.
 - Un cont GitLab, GitHub sau Gitea care poate citi și actualiza tichetele și poate crea cereri de revizuire ciornă.
 - Numele etichetelor ready și de aprobare. O persoană adaugă eticheta ready pentru ca un tichet să devină eligibil; vezi [Tichete pentru preluare automată](/help/tickets#labels).
 - Agentul de programare, ID-ul modelului său și o imagine de container de pe server care conține agentul. Vezi [Executori și modele](/help/executors).
@@ -18,11 +18,11 @@ Alegeți **Înrolează un proiect nou** în [Proiecte](/projects). Asistentul gh
 
 | Pas | Ce cere |
 |---|---|
-| Repository și identitate | **Nume afișat**, **ID stabil al proiectului** (litere mici, cifre, punct, liniuță de subliniere sau cratimă, până la 64 de caractere), **Descriere** opțională, **Forge**, **Depozit** ca proprietar/repository (nu un URL), **Gitea tea login** (doar Gitea), **Calea clonei locale** și **Ramură țintă**. |
+| Repository și identitate | **URL-ul repository-ului** și **Citește repository-ul**: ADORE completează **Forge**, **Depozit**, **Gitea tea login**, **Ramură țintă** și ID-ul proiectului, pentru confirmare, și propune o **Calea clonei locale** pe care o puteți schimba. **Continuă** rămâne dezactivat până când repository-ul a fost citit. **Nume afișat** pornește de la numele repository-ului; **Descriere** este opțională. |
 | Agent și model | **Executor** (opencode, codex, pi sau qwen), **Model**, **Autentificare model** (api-key sau host-auth, doar pentru OpenCode și Codex) și **Referințe de mediu pentru credențiale**: nume de variabile precum LOCAL_API_KEY, niciodată valori. |
-| Eligibilitate, recenzori și limite | **Etichetă ready**, **Etichetă de aprobare**, **Revizori (separați prin virgulă)** (cel puțin unul) și patru limite per lucrare: lansări ale executorului, secunde active, cost raportat în USD și fișiere modificate. O limită de cost 0 dezactivează acea limită; nu înseamnă gratuit. |
+| Eligibilitate, recenzori și limite | **Etichetă ready**, **Etichetă de aprobare**, **Revizori (separați prin virgulă)** opționali și patru limite per lucrare: lansări ale executorului, secunde active, cost raportat în USD și fișiere modificate. O limită de cost 0 dezactivează acea limită; nu înseamnă gratuit. |
 | Verificare | **Validează configurarea** verifică structura și folderele de pe server. **Verifică mediul** testează apoi Git, instrumentul forge și autentificarea, motorul de containere, agentul din imagine, fișierele AEGIS și, unde este posibil, endpointul modelului. Nu se publică nimic. |
-| Revizuire și creare | Afișează candidatul exact și locațiile de pe server. **Modifică** revine la un pas. **Creează cu preluarea oprită** îl salvează; urmează **Deschide proiectul**. |
+| Revizuire și creare | Afișează candidatul exact și locațiile de pe server. **Modifică** revine la un pas. **Creează cu preluarea oprită** clonează întâi repository-ul (dintr-un URL), verifică AEGIS și ramura țintă, apoi salvează proiectul; urmează **Deschide proiectul**. |
 
 Asistentul folosește profilul standard de container. Execuția locală nativă și configurările specializate de container folosesc metoda avansată cu TOML de server de mai jos.
 

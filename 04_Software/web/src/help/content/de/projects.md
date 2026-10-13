@@ -6,8 +6,8 @@ Fügen Sie ein Repository als Projekt hinzu, damit ADORE seine bereiten Tickets 
 
 Halten Sie Folgendes bereit:
 
-- Einen Git-Klon des Repositorys auf dem ADORE-Server mit einem `origin` und einem vorhandenen Zielbranch. Das Hinzufügen eines Projekts klont nie; der Pfad liegt auf dem Server, nicht auf Ihrem Computer.
-- AEGIS, installiert in diesem Klon (`.agentic/aegis.py` und `.agentic/aegis.toml`). ADORE verwendet es so, wie es installiert ist, und ändert es nie. Seine Testbefehle laufen im Linux-Container, schreiben Sie sie also für den Container.
+- Die Repository-Adresse (https oder ssh), die das Konto des ADORE-Servers lesen kann. ADORE klont das Repository beim Erstellen des Projekts in einen eigenen Ordner.
+- AEGIS, installiert im Repository (`.agentic/aegis.py` und `.agentic/aegis.toml`). ADORE verwendet es so, wie es installiert ist, und ändert es nie. Seine Testbefehle laufen im Linux-Container, schreiben Sie sie also für den Container.
 - Ein GitLab-, GitHub- oder Gitea-Konto, das Tickets lesen und aktualisieren und Review-Entwürfe erstellen darf.
 - Die Namen des Bereitschafts- und des Freigabelabels. Ein Mensch setzt das Bereitschaftslabel, damit ein Ticket aufgenommen werden kann; siehe [Tickets für die automatische Aufnahme](/help/tickets#labels).
 - Den Coding-Agenten, seine Modell-ID und ein Container-Image auf dem Server, das den Agenten enthält. Siehe [Executor und Modelle](/help/executors).
@@ -18,11 +18,11 @@ Wählen Sie unter [Projekte](/projects) **Neues Projekt registrieren**. Der gef�
 
 | Schritt | Was abgefragt wird |
 |---|---|
-| Repository und Identität | **Anzeigename**, **Stabile Projekt-ID** (Kleinbuchstaben, Ziffern, Punkt, Unterstrich oder Bindestrich, bis zu 64 Zeichen), optional **Beschreibung**, **Forge**, **Repository** als Eigentümer/Repository (keine URL), **Gitea tea login** (nur Gitea), **Lokaler Klonpfad** und **Zielbranch**. |
+| Repository und Identität | **Repository-URL** und **Repository lesen**: ADORE füllt **Forge**, **Repository**, **Gitea tea login**, **Zielbranch** und die Projekt-ID zur Bestätigung aus und schlägt einen änderbaren **Lokaler Klonpfad** vor. **Weiter** bleibt deaktiviert, bis das Repository gelesen wurde. **Anzeigename** beginnt mit dem Repository-Namen; **Beschreibung** ist optional. |
 | Agent und Modell | **Executor** (opencode, codex, pi oder qwen), **Modell**, **Modell-Anmeldung** (api-key oder host-auth, Letzteres nur für OpenCode und Codex) und **Umgebungsreferenzen für Zugangsdaten**: Variablennamen wie LOCAL_API_KEY, nie Werte. |
-| Eignung, Prüfer und Grenzen | **Bereitschaftslabel**, **Freigabelabel**, **Prüfende (kommagetrennt)** (mindestens eine Person) und vier Auftragslimits: Executor-Starts, aktive Sekunden, gemeldete Kosten in USD und geänderte Dateien. Ein Kostenlimit von 0 schaltet dieses Limit ab; es bedeutet nicht kostenlos. |
+| Eignung, Prüfer und Grenzen | **Bereitschaftslabel**, **Freigabelabel**, optional **Prüfende (kommagetrennt)** und vier Auftragslimits: Executor-Starts, aktive Sekunden, gemeldete Kosten in USD und geänderte Dateien. Ein Kostenlimit von 0 schaltet dieses Limit ab; es bedeutet nicht kostenlos. |
 | Überprüfung | **Konfiguration validieren** prüft Struktur und Serverordner. **Umgebung prüfen** testet anschließend Git, das Forge-Werkzeug und die Anmeldung, die Container-Engine, den Agenten im Image, die AEGIS-Dateien und, wo möglich, den Modell-Endpunkt. Es wird nichts veröffentlicht. |
-| Prüfen und erstellen | Zeigt den exakten Kandidaten und die Serverorte. **Ändern** führt zu einem Schritt zurück. **Mit gestoppter Aufnahme erstellen** speichert das Projekt; danach folgt **Projekt öffnen**. |
+| Prüfen und erstellen | Zeigt den exakten Kandidaten und die Serverorte. **Ändern** führt zu einem Schritt zurück. **Mit gestoppter Aufnahme erstellen** klont zuerst das Repository (aus einer URL), prüft AEGIS und den Zielbranch und speichert dann das Projekt; danach folgt **Projekt öffnen**. |
 
 Der Assistent verwendet das Standard-Containerprofil. Native lokale Ausführung und spezialisierte Container-Setups verwenden die erweiterte Server-TOML-Methode weiter unten.
 

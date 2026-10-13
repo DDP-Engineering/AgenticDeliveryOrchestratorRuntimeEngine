@@ -15,8 +15,7 @@
 #     environment or a gitignored `.env` (template: `.env.example`).
 #   - Every key shown here has a sensible default; you can delete any line or
 #     whole section you do not want to override. The only values you MUST set
-#     are [platform] repo, [executor.<name>] command/model, and
-#     [delivery] reviewers.
+#     are [platform] repo and [executor.<name>] command/model.
 #   - Full reference with all defaults and rationale:
 #     ../01_Documentation/Configuration_Reference.md
 # =============================================================================
@@ -373,7 +372,7 @@ max_files_touched        = 120    # includes AEGIS forms/evidence + product file
 target_branch = "develop"
 # Default true: create a draft. Set false to create a PR/MR ready for review.
 draft = true
-# Human reviewer(s) assigned to the MR/PR. REQUIRED - at least one.
+# Human reviewer(s) assigned to the MR/PR. Optional - [] requests no review.
 reviewers = ["reviewer.one"]
 # Delete the run branch when the human merges (GitLab option).
 remove_source_branch = true

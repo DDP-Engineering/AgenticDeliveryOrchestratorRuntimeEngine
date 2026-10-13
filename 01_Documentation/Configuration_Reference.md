@@ -219,9 +219,9 @@ the pipeline read. All three obey `max_review_rounds`, which bounds repairs and
 human-requested revisions together. Only a changed verdict is a signal, and an
 unreadable verdict is silent.
 
-`reviewers` lists at least one forge account to request a review from when a new
-PR/MR is created. Each account is 1–255 characters without whitespace, controls
-or a leading `-`. In GUI, **Request review from** accepts one account per line;
+`reviewers` lists the forge accounts to request a review from when a new
+PR/MR is created; an empty list requests no review. Each account is 1–255
+characters without whitespace, controls or a leading `-`. In GUI, **Request review from** accepts one account per line;
 an administrator prepares the candidate, reviews the old/new lists and applies
 it through the existing configuration flow. Review requests grant no publication
 approval or merge permissions. GitHub/GitLab submit reviewers at creation;

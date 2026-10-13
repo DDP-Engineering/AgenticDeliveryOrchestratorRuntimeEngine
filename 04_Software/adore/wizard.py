@@ -387,6 +387,7 @@ def run_wizard(
     name: str | None = None,
     force: bool = False,
     prepare_only: bool = False,
+    pending_clone: bool = False,
 ) -> Profile | WizardSetup:
     """
     @brief      Run the assisted-config flow and save a validated profile.
@@ -403,6 +404,7 @@ def run_wizard(
     @param[in]  os_key Host OS key (defaults to doctor.detect_os()).
     @param[in]  name Profile name (asked when None).
     @param[in]  force Overwrite an existing profile.
+    @param[in]  pending_clone Accept a clone path that ADORE creates only at creation.
     @param[in]  prepare_only Return a validated candidate without writes or probes.
     @return     The saved Profile, or WizardSetup when preparation is requested.
     @exception  WizardError On abort, an existing profile without --force, or a
@@ -467,9 +469,10 @@ def run_wizard(
         "repo_path", "Absolute path to the local clone:",
         "ADORE creates per-run worktrees from it and mounts it into the container",
         "D:/projects/sample-project  (Windows)  |  /home/you/sample-project  (Linux)",
-        validate=_existing_dir,
+        # A web enrollment from a repository URL clones only at creation.
+        validate=_require if pending_clone else _existing_dir,
     ), asker, out)
-    if not (Path(repo_path).expanduser() / ".git").exists():
+    if not pending_clone and not (Path(repo_path).expanduser() / ".git").exists():
         out("  note: that path has no .git - make sure it is the clone root.")
     if not prepare_only:
         _report_aegis(out, runner, repo_path, key)
@@ -614,11 +617,9 @@ def run_wizard(
 
     # -- Phase G (delivery) -------------------------------------------------------
     reviewers_raw = ask(FieldSpec(
-        "reviewers", "Reviewer username(s) for the draft MR (comma-separated):",
-        "at least one; the MR is always a DRAFT and ADORE never merges",
-        "reviewer.one, reviewer.two",
-        validate=lambda v: None if [p for p in v.split(",") if p.strip()]
-        else "at least one reviewer is required",
+        "reviewers", "Reviewer username(s) for the draft MR (comma-separated, blank = none):",
+        "optional; the MR is always a DRAFT and ADORE never merges",
+        "reviewer.one, reviewer.two", default="",
     ), asker, out)
     reviewers = [part.strip() for part in reviewers_raw.split(",") if part.strip()]
     approval_label = ask(FieldSpec(

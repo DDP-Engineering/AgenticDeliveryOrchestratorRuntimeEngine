@@ -28,7 +28,7 @@ text = { en = "Browse a project's open tickets and start a job on one from its J
 [[release.entry]]
 category = "new"
 topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
-text = { en = "Add or import a project with guided steps that explain every value.", fr = "Ajoutez ou importez un projet avec des étapes guidées qui expliquent chaque valeur.", de = "Projekte mit geführten Schritten hinzufügen oder importieren, die jeden Wert erklären.", ro = "Adăugați sau importați un proiect cu pași ghidați care explică fiecare valoare." }
+text = { en = "Add a project from its repository URL; ADORE fills in the details and clones it.", fr = "Ajoutez un projet depuis l'URL de son dépôt ; ADORE remplit les détails et le clone.", de = "Ein Projekt über seine Repository-URL hinzufügen; ADORE ergänzt die Angaben und klont es.", ro = "Adăugați un proiect din URL-ul repository-ului; ADORE completează detaliile și îl clonează." }
 
 [[release.entry]]
 category = "new"
@@ -88,7 +88,7 @@ text = { en = "Each project opens as one hub with Summary, Settings, Jobs, Stati
 [[release.entry]]
 category = "improved"
 topic = { en = "Settings", fr = "Paramètres", de = "Einstellungen", ro = "Setări" }
-text = { en = "Settings follow the delivery flow and explain every value in four languages.", fr = "Les paramètres suivent le flux de livraison et expliquent chaque valeur en quatre langues.", de = "Einstellungen folgen dem Lieferablauf und erklären jeden Wert in vier Sprachen.", ro = "Setările urmează fluxul de livrare și explică fiecare valoare în patru limbi." }
+text = { en = "Settings follow the delivery flow and explain every value in four languages; reviewers are optional.", fr = "Les paramètres suivent le flux de livraison, expliqués en quatre langues ; réviseurs facultatifs.", de = "Einstellungen folgen dem Lieferablauf, in vier Sprachen erklärt; Prüfende sind optional.", ro = "Setările urmează fluxul de livrare, explicate în patru limbi; revizorii sunt opționali." }
 
 [[release.entry]]
 category = "improved"

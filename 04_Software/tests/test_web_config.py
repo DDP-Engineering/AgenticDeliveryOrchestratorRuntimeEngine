@@ -63,7 +63,23 @@ def test_reviewer_list_candidate_applies_without_changing_other_settings(tmp_pat
     assert b"\r\n" in path.read_bytes()
 
 
-@pytest.mark.parametrize("value", ['[]', '[1]', '[true]', '["alice", 1]', '"alice"',
+def test_reviewer_list_accepts_an_empty_list(tmp_path):
+    """@brief An empty reviewer list is a valid candidate: the MR/PR requests no review."""
+    profiles = ProfileStore(tmp_path / "home")
+    profiles.create("alpha")
+    path = profiles.config_path("alpha")
+    path.write_bytes((Path(__file__).resolve().parents[1] / "config.example.toml").read_bytes())
+    with TestClient(create_app(profiles.home)) as client:
+        login = client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
+        headers = {"X-CSRF-Token": login.json()["csrf"]}
+        revision = client.get("/api/v1/projects/alpha/config").json()["revision"]
+        response = client.post("/api/v1/projects/alpha/config/pending", headers=headers,
+                               json={"key": "delivery.reviewers", "value": "[]",
+                                     "revision": revision})
+        assert response.status_code == 200, response.text
+
+
+@pytest.mark.parametrize("value", ['[1]', '[true]', '["alice", 1]', '"alice"',
                                  '[""]', '["two names"]', '["--repo"]',
                                  '["alice\\nother"]', '["' + "a" * 256 + '"]'])
 def test_reviewer_list_rejects_invalid_input(tmp_path, value):

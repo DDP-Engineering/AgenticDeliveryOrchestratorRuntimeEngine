@@ -239,7 +239,15 @@ shown (`shownUrl`). Enroll new project opens the administrator-only `EnrollmentW
 It presents five ordered steps, starting at repository/identity, with shared visible,
 associated guidance for repository/identity, environment, eligibility/reviewers/limits, verification and
 review/create. `enrollmentCopy.ts` supplies complete EN/FR/DE/RO catalogs.
-The local clone belongs to the ADORE server and already contains Git/AEGIS.
+Step 1 reads a repository URL by default: **Read repository** calls
+`/api/v1/projects/repository-source` and fills forge, repository, Gitea login,
+target branch and the derived project ID (`name`, never an input), and prefills an
+editable clone location (`repo_path`) with a note on whether it is cloned or reused;
+Display name starts as the repository name and is cleared with the URL that filled it.
+Continue is disabled until the read succeeds. There is no existing-clone mode; the server
+reuses a clone at the chosen path when its origin matches. Every text field shows an example
+placeholder. Reviewers are optional (an empty list requests no review), in the wizard and
+in the Settings reviewer editor.
 Actual provider/model and local image values are entered explicitly; host-auth
 is supported for OpenCode/Codex, while Pi/Qwen require API-key references.
 The separate human display name and stable profile ID are reviewed with forge

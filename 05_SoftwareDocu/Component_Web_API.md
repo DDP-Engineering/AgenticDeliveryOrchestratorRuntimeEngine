@@ -543,7 +543,8 @@ All routes below require administrator authorization and mutation CSRF:
 | Route | Input | Result |
 | --- | --- | --- |
 | `POST /api/v1/projects/id-availability` | `name` | Advisory `available` plus structured `issues`; never reserves an ID |
-| `POST /api/v1/projects/setup-preview` | Existing guided fields, optional `display_name` | Local `structural_valid`, findings, `pickup: stopped-on-create`, unverified environment; no writes/probes |
+| `POST /api/v1/projects/repository-source` | `url` | Detected `kind` (or null), `login`, `repo`, `default_branch`, derived `name`, `display_name`, `repo_path` (`<home>/repos/<name>`) and `clone` (`new`/`existing`); `repository_url_invalid` 400, `repository_unreachable` 502; no writes |
+| `POST /api/v1/projects/setup-preview` | Existing guided fields, optional `display_name` and `clone_url` | Local `structural_valid`, findings, `pickup: stopped-on-create`, unverified environment; no writes/probes |
 | `POST /api/v1/projects` | Same guided fields | Complete profile with pickup already stopped |
 | `POST /api/v1/projects/import-preview` | Exact TOML and identity | Full candidate revision, config digest, structured validation and safe review |
 | `POST /api/v1/projects/import` | Exact TOML plus preview revision | Stopped complete profile; existing server history retained |
@@ -593,7 +594,18 @@ state and worktree paths. Invalid candidates keep null review/digests and struct
   UTC time and status. Failed checks yield failed; unprobed model or WSL yields partial.
   Gitea auth uses the selected tea login. No draft, readiness record or profile persists.
 - `POST /api/v1/projects/setup-create`: rebuild, compare revision, publish the exact
-  candidate using the existing locked stopped-pickup boundary. Duplicate IDs are
+  candidate using the existing locked stopped-pickup boundary. With `clone_url` and no
+  clone yet, it first clones (`repository_source.clone`), requires the AEGIS files and
+  `origin/<target_branch>` (`repository_aegis_missing` / `repository_branch_missing` 409,
+  `repository_clone_failed` 502) and removes the fresh clone if anything fails; the
+  same applies to `transfer-create` and `POST /projects`. `clone_url` is part of the
+  draft revision; preview requires an absolute `repo_path` outside ADORE home or under
+  `<home>/repos` (proposed `<home>/repos/<name>`) and a matching repository, refuses an
+  occupied location (`clone_path_occupied`), reserves the folder with an exclusive mkdir
+  and a sibling `.<name>.adore-cloning` marker (an in-progress clone is never treated as
+  reusable or removed by another request; parents are created only under `<home>/repos`,
+  elsewhere they must exist; `repo_path` is used as typed, without `~`), and runs the wizard
+  with `pending_clone`; checks report `aegis_files: "not-checked"` until the clone exists. Duplicate IDs are
   rechecked under its lock; stale drafts return 409 before publication.
 
 Existing `POST projects` retains its request/publication contract; exact import revisions bind complete identity and inspected ownership/state.

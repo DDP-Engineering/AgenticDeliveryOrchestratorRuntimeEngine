@@ -97,7 +97,7 @@ def test_minimal_config_is_valid_with_defaults(tmp_path: Path) -> None:
     assert config.review.trigger == "label"
 
 
-@pytest.mark.parametrize("reviewers", ["alice", [1], [], ["--repo"], ["two names"]])
+@pytest.mark.parametrize("reviewers", ["alice", [1], ["--repo"], ["two names"]])
 def test_reviewer_config_requires_account_list(tmp_path, reviewers):
     """@brief Human-authored reviewer configuration fails closed before forge invocation."""
     config = load_config(_write_config(tmp_path, MINIMAL_VALID))

@@ -175,6 +175,24 @@ def main() -> None:
                 answer = fixture_forge(list(argv))
                 if answer is not None:
                     return answer
+            if argv[:2] == ["git", "ls-remote"]:
+                # A repository URL read: unreachable hosts fail, others report a main branch.
+                if "unreachable" in argv[-2]:
+                    return CommandResult(argv=argv, exit_code=128, stderr="Permission denied")
+                return CommandResult(argv=argv, stdout="ref: refs/heads/main\tHEAD\n" + "c" * 40 + "\tHEAD\n")
+            if argv[:3] == ["tea", "logins", "list"]:
+                return CommandResult(argv=argv, stdout=json.dumps(
+                    [{"name": "fixture", "url": "http://forge.e2e.invalid:3000"}]))
+            if argv[:2] == ["git", "clone"]:
+                # The clone made at creation: a repository with AEGIS installed.
+                dest = Path(argv[-1])
+                (dest / ".git").mkdir(parents=True)
+                (dest / ".git" / "config").write_text(
+                    f'[remote "origin"]\n\turl = {argv[-2]}\n', encoding="utf-8")
+                (dest / ".agentic").mkdir()
+                for item in ("aegis.py", "aegis.toml"):
+                    (dest / ".agentic" / item).write_text("", encoding="utf-8")
+                return CommandResult(argv=argv)
             if argv[:1] == ["git"] and "-C" in argv:
                 recipe = ("jobs:\n  setup:\n    container:\n"
                           "      image: adore-executor-project:latest\n    steps:\n"

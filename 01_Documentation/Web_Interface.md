@@ -39,13 +39,23 @@ Projects offers administrators three separate actions: **Enroll new project**
 (`/projects/new`, the guided wizard), **Import project config** (`/projects/import`,
 an existing `config.toml`) and **Clone project config** (`/projects/clone`, the
 working rules of a project on this server or of a portable settings file).
-Enroll new project takes an existing server clone through five steps: repository/identity, agent/model,
+Enroll new project starts from the repository URL (https or ssh): **Read repository**
+detects the forge (github.com, gitlab.com or a matching server `tea` login), the
+repository, the Gitea login and the default branch, derives the project ID from the
+repository name and proposes the clone location `<ADORE home>/repos/<project ID>`,
+which you can change to another absolute folder (outside ADORE home, where its parent
+must already exist, or under its `repos` folder; `~` is not expanded). If the server
+stops during a clone, the location reports a running or interrupted clone: remove the
+partial folder and its `.<folder>.adore-cloning` marker, then create again. **Continue** stays disabled until the repository has been read.
+Nothing is written until creation, which clones the repository there (or reuses a clone
+with the same origin), requires the installed AEGIS files and the target branch, and
+removes a fresh clone if creation fails. The clone uses the ADORE service account's git
+credentials, the same ones publication uses. There is no separate existing-clone mode:
+an existing clone is reused when its path is the clone location and its origin matches. The wizard has five steps: repository/identity, agent/model,
 eligibility/reviewers/limits, verification, review/create. AEGIS is the repository's
 workflow for framing, building, testing and reviewing changes; ADORE conducts that
 workflow for eligible issues and publishes draft or ready MR/PRs according to `delivery.draft` for human review.
-The clone must already exist at an absolute path on the ADORE server with Git
-metadata and its installed AEGIS workflow. Enter the forge's owner/repository
-identifier and existing target branch; Gitea can select an existing tea login.
+Reviewers are optional: an empty list opens the MR/PR without requesting a review.
 Choose the actual executor, provider/model, installed runtime and local image.
 Image/provider choices are explicit values, not an installed-software inventory.
 In API-key mode, enter uppercase credential environment names separated by commas;
@@ -531,7 +541,7 @@ Exact server TOML enrollment and statistics CSV remain separate formats.
 An administrator can create a profile in Projects, edit validated scalar
 configuration keys and the requested reviewer list in Project details, and use the CLI for other complex settings.
 **Request review from** is an administrator-editable list with one forge account
-per line and at least one account. Prepare the change, compare active/proposed
+per line; leave it empty to request no review. Prepare the change, compare active/proposed
 reviewers, then apply it. Requests affect subsequent PR/MR creation and confer
 no publication approval or merge permission. Other list settings keep their
 individual supported-editing rules.
