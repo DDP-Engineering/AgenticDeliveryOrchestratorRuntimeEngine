@@ -973,7 +973,7 @@ def test_local_aegis_preserves_the_existing_json_exchange_bound(tmp_path, monkey
 
 
 def test_local_review_apply_rechecks_native_identity_and_permissions(tmp_path, monkeypatch):
-    """@brief Local configuration stays external while read-only context remains accurate."""
+    """@brief Local account fields change only through review; read-only context stays accurate."""
     import re
 
     from adore.web.app import create_app
@@ -997,13 +997,13 @@ def test_local_review_apply_rechecks_native_identity_and_permissions(tmp_path, m
         body = {"key": "local.account", "value": context["account"],
                 "revision": current.json()["revision"]}
         assert client.post("/api/v1/projects/alpha/config/pending", json=body).status_code == 403
-        for method, route in [("PUT", "/config"), ("POST", "/config/pending")]:
-            response = client.request(method, "/api/v1/projects/alpha" + route,
-                                      json=body, headers=headers)
-            assert response.status_code == 400
-            assert response.json()["detail"]["code"] == "environment_managed_externally"
+        direct = client.put("/api/v1/projects/alpha/config", json=body, headers=headers)
+        assert direct.status_code == 409
+        assert direct.json()["detail"]["code"] == "pending_config_required"
+        staged = client.post("/api/v1/projects/alpha/config/pending", json=body, headers=headers)
+        assert staged.status_code == 200, staged.text
+        # Staging writes nothing until the reviewed apply.
         assert path.read_bytes() == original
-        assert not (profiles.profile_dir("alpha") / "pending_config.json").exists()
 
 
 # END OF FILE

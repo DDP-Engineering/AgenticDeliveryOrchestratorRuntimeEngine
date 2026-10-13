@@ -36,7 +36,7 @@ async function target(page: Page, name: string) {
   await page.getByLabel("Display name", { exact: false }).fill("Transfer " + name);
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page.getByLabel(/^Model \*/).fill("openai/fixture-model");
-  await expect(page.getByLabel("Executor image", { exact: false })).toHaveCount(0);
+  await expect(page.getByLabel(/^Executor image/)).toBeVisible();
   await page.getByLabel("Credential environment references", { exact: false }).fill("TARGET_API_KEY");
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(page.getByRole("alert")).toBeFocused();

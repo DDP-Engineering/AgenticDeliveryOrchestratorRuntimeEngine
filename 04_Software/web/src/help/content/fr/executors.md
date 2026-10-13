@@ -20,7 +20,7 @@ Ouvrez **Authentification** dans le même groupe. Un projet peut s’authentifie
 - **Abonnement ou connexion de l’hôte.** L’agent utilise sa propre connexion sur le serveur ADORE sous le compte de service, configurée en dehors de l’interface web (le volet **Connexion par abonnement ou navigateur** indique la commande). **Utiliser la connexion de l’agent de l’hôte** est une passerelle pilote qui copie cette connexion dans le conteneur, pour OpenCode et Codex uniquement. Un abonnement ChatGPT n’est pas une clé API OpenAI.
 - **Valeurs gérées par l’environnement.** Une variable déjà définie dans l’environnement du serveur ADORE porte la mention **Définie sur le serveur ADORE ; gestion externe**. L’interface web ne peut pas l’écraser.
 
-Les valeurs d’identifiants n’apparaissent jamais dans les revues, les enregistrements d’audit ou les exports. Une liste de variables vide est valide avec une connexion existante sur le serveur.
+Les valeurs d’identifiants n’apparaissent jamais dans les revues, les enregistrements d’audit ou les exports. Une liste de variables vide est valide avec une connexion existante sur le serveur, et aussi en mode api-key quand l’image ou l’exécuteur installé se connecte seul.
 
 ## Tester la connexion IA {#test-connection}
 
@@ -36,17 +36,19 @@ Le résultat est **Modèle IA connecté** ou **Connexion IA non vérifiée**, av
 | Environnement | Une image de projet préparée par l’administrateur | Les outils, versions et bibliothèques que vous installez vous-même sur ce serveur |
 | Connexion | Clés API listées ou connexion de l’hôte | La connexion existante de l’agent sur ce compte, réutilisée telle quelle |
 | Isolation | Conteneur avec une politique réseau | Uniquement le worktree ; les commandes peuvent atteindre tout ce que le compte peut atteindre, utilisez donc un compte dédié aux privilèges minimaux |
-| Choisi | Par défaut pour les projets ajoutés ici | En dehors de l’interface web, dans le profil du serveur ou par inscription TOML |
+| Choisi | **Exécution** → **Conteneur**, par défaut, à l’étape 2 de l’inscription ou dans Paramètres → Agent et modèle | **Exécution** → **Installé sur le serveur**, ou le profil du serveur ou l’inscription TOML |
+
+Les modifications dans Paramètres passent par **Préparer le candidat**, la revue et **Appliquer**. **Installé sur le serveur** affiche la commande native de l’exécuteur et les champs du compte local (compte `current`, dossier personnel, PATH et, sous Linux, la racine cgroup) avec l’avis d’exécution locale.
 
 Les contrôles de l’hôte pour un projet local ignorent le moteur de conteneur et vérifient l’agent natif et sa connexion.
 
 ## Image du projet {#project-image}
 
-Pour un projet en conteneur, Paramètres → Agent et modèle affiche **L’exécuteur fonctionne dans un conteneur**, l’**Image utilisée** et un volet **Instructions de préparation de l’environnement**. L’interface web ne définit, ne construit ni ne sélectionne l’image, et l’ajout d’un Dockerfile au dépôt ne lance aucune construction. L’administrateur procède ainsi sur le serveur :
+Pour un projet en conteneur, Paramètres → Agent et modèle affiche **L’exécuteur fonctionne dans un conteneur**, l’**Image utilisée** et un volet **Instructions de préparation de l’environnement**. L’interface web ne définit ni ne construit l’image, et l’ajout d’un Dockerfile au dépôt ne lance aucune construction. L’administrateur la prépare sur le serveur :
 
 1. Créer `executor/Dockerfile` dans le dépôt, à partir de l’image de base d’ADORE, sans identifiants. L’image a besoin de Python, de sh et de l’agent choisi.
 2. La construire avec Docker ou Podman du serveur et vérifier les versions de l’agent et des outils.
-3. Avec la surveillance en pause et aucune tâche active, définir `execution.backend`, `container.image` et `container.required_tool_checks` dans le `config.toml` du projet (les administrateurs en voient le chemin dans le volet), puis valider le profil.
+3. Sélectionner l’image dans l’interface web comme décrit ci-dessous ou, avec la surveillance en pause et aucune tâche active, définir `execution.backend`, `container.image` et `container.required_tool_checks` dans le `config.toml` du projet (les administrateurs en voient le chemin dans le volet), puis valider le profil.
 
 ```
 FROM adore-executor-base:1.0.0
@@ -54,6 +56,8 @@ USER root
 # RUN ... install the project's system tools
 USER adore
 ```
+
+Pour utiliser l’image, choisissez le **Moteur de conteneur** (Docker ou Podman) et l’**Image de l'exécuteur** à l’étape 2 de l’inscription, ou modifiez ces mêmes lignes dans Paramètres. L’image est un champ libre avec des suggestions tirées des images du serveur ADORE pour ce moteur (administrateurs uniquement) ; un avis s’affiche quand l’image saisie n’est pas sur le serveur, un autre quand la liste ne peut pas être lue. Le choix d’un exécuteur propose une image dont l’étiquette commence par le nom de l’exécuteur suivi d’un tiret (par exemple `pi-`), de préférence `adore-executor-base:` ; elle ne remplace que l’ancienne valeur par défaut ou une proposition précédente, jamais une valeur saisie.
 
 Confirmez ensuite avec **Vérifier les prérequis de l’hôte** et **Tester la connexion IA**.
 

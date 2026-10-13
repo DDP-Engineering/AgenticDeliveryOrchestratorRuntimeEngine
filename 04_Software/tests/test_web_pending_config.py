@@ -45,18 +45,19 @@ def _headers(client):
 
 
 def test_legacy_environment_candidate_is_readable_discardable_but_not_applicable(tmp_path):
-    """@brief A valid pre-upgrade persisted image candidate remains recoverable."""
+    """@brief A valid pre-upgrade candidate for a still-external key remains recoverable."""
     from hashlib import sha256
 
     profiles, path, _state = _project(tmp_path)
     original = path.read_bytes()
-    current = load_config(path).container.image
-    candidate = original.decode("utf-8").replace('image = "' + current + '"',
-                                                'image = "legacy-image:1"')
+    current = load_config(path).container.uv_cache_volume
+    candidate = original.decode("utf-8").replace('uv_cache_volume  = "' + current + '"',
+                                                'uv_cache_volume  = "legacy-cache"')
     assert candidate.encode() != original
     pending = {"schema": 1, "base_revision": sha256(original).hexdigest(),
                "candidate_revision": sha256(candidate.encode()).hexdigest(),
-               "candidate_text": candidate, "key": "container.image", "value": "legacy-image:1",
+               "candidate_text": candidate, "key": "container.uv_cache_volume",
+               "value": "legacy-cache",
                "created_at": "2026-10-07T20:00:00+00:00", "restart_required": True}
     retained = path.parent / "pending_config.json"
     retained.write_text(json.dumps(pending), encoding="utf-8")

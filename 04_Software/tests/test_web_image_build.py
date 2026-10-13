@@ -56,8 +56,10 @@ def test_executor_environment_guidance_is_truthful_and_role_scoped(tmp_path):
     assert client.get("/api/v1/projects/alpha/config").status_code == 404
 
 
-@pytest.mark.parametrize("key", ["execution.backend", "execution.preparation", "local.home",
-                                  "container.image", "container.runtime", "worktree.root"])
+# The backend, runtime, image and local account fields are chosen in the web
+# (tests/test_executor_environment_choice.py); every other environment key stays external.
+@pytest.mark.parametrize("key", ["execution.preparation", "container.uv_cache_volume",
+                                  "container.run_args", "worktree.root"])
 @pytest.mark.parametrize("route", ["/config", "/config/pending"])
 def test_web_environment_edits_are_external(tmp_path, key, route):
     """@brief Both edit surfaces reject environment ownership before writes or probes."""

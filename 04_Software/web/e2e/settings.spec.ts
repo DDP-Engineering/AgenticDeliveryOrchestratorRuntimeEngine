@@ -569,6 +569,32 @@ for (const user of ["admin", "developer"]) {
 }
 
 
+test("administrators choose the executor image in Agent and model through review", async ({ page }) => {
+  await openSettings(page);
+  const before = await (await page.request.get("/api/v1/projects/alpha/config")).json();
+  const agent = page.locator("#project-settings > .setting-groups > details").filter({ has: page.locator("summary").filter({ hasText: /^Agent and model / }) });
+  for (const key of ["execution.backend", "container.runtime", "container.image"]) await expect(agent.locator(`[id="setting-${key}"]`)).toHaveCount(1);
+  // A container project shows no local-account rows.
+  await expect(agent.locator('[id="setting-local.home"]')).toHaveCount(0);
+  const row = agent.locator('[id="setting-container.image"]');
+  await row.getByRole("button", { name: "Edit Agent container image", exact: true }).click();
+  // With suggestions the field is a combobox, so match it by its label instead of its role.
+  const input = row.getByLabel("Agent container image", { exact: true });
+  await expect(input).toHaveAttribute("list", "setting-image-options");
+  await expect(row.locator("#setting-image-options option")).toHaveCount(3);
+  await input.fill("missing-image:1");
+  await expect(row.getByText(/not on the ADORE server/)).toBeVisible();
+  await input.fill("adore-executor-base:pi-0.87.1");
+  await expect(row.getByText(/not on the ADORE server/)).toHaveCount(0);
+  await row.getByRole("button", { name: "Prepare candidate" }).click();
+  const review = page.locator(".candidate-review");
+  await expect(review).toContainText("adore-executor-base:pi-0.87.1");
+  await expect(review.getByText(/managed externally|prepared externally/)).toHaveCount(0);
+  await review.getByRole("button", { name: "Discard change", exact: true }).click();
+  await expect(review).toHaveCount(0);
+  expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).revision).toBe(before.revision);
+});
+
 test("environment recipe selection is external", async ({page}) => {
   await openSettings(page);
   await expect(page.getByRole("button",{name:"Edit Reviewed preparation recipe",exact:true})).toHaveCount(0);
@@ -593,7 +619,7 @@ for (const user of ["admin", "developer"]) {
    Implementation: ["budgets.max_cost_usd", "polling.max_concurrent_runs", "delivery.publish_checkpoints", "clarification.max_rounds", "recovery.max_stage_failures"],
    "PR/MR and review": ["review.max_review_rounds", "review.revise_label", "delivery.reviewers"],
    Statistics: ["metrics.enabled", "metrics.capture_tokens", "metrics.db_path"],
-   "Agent and model": ["executor.default", "executor.commands.opencode.command", "executor.commands.opencode.model", "executor.env_keys", "executor.stage_host_auth", "executor.questions_file"],
+   "Agent and model": ["executor.default", "executor.commands.opencode.command", "executor.commands.opencode.model", "executor.env_keys", "executor.stage_host_auth", "executor.questions_file", "execution.backend", "container.runtime", "container.image"],
    "Technical details": ["state.store_root", "agent.slug", "worktree.repo_path", "worktree.root", "workflow.aegis_python"],
   };
   for (const [name, keys] of Object.entries(placements)) for (const key of keys) {
@@ -603,7 +629,7 @@ for (const user of ["admin", "developer"]) {
   }
   await expect(panel.locator('[id="setting-polling.mode"], [id="help-polling.mode"]')).toHaveCount(0);
   expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).config.polling.mode).toBe(before.config.polling.mode);
-  for (const key of ["review.trigger", "review.review_reminder_after", "metrics.capture_resource", "clarification.reminder_after", "clarification.timeout_state", "reconcile.on_ticket_closed", "labels.selection.type_feature", "execution.backend", "container.image"]) await expect(panel.locator(`[id="help-${key}"]`)).toHaveCount(0);
+  for (const key of ["review.trigger", "review.review_reminder_after", "metrics.capture_resource", "clarification.reminder_after", "clarification.timeout_state", "reconcile.on_ticket_closed", "labels.selection.type_feature", "execution.preparation", "container.uv_cache_volume", "local.home"]) await expect(panel.locator(`[id="help-${key}"]`)).toHaveCount(0);
   for (const key of ["worktree.repo_path", "worktree.root", "agent.slug", "workflow.aegis_python"]) await expect(panel.locator(`[id="setting-${key}"]`).getByRole("button")).toHaveCount(0);
   for (const key of ["metrics.export_jsonl", "metrics.html_out"]) await expect(panel.locator(`[id="setting-${key}"]`)).toHaveCount(0);
   const database = panel.locator('[id="setting-metrics.db_path"]');

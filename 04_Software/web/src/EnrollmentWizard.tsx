@@ -10,8 +10,8 @@ import { ApiError, describeError } from "./errors";
 import { enrollmentCopy } from "./enrollmentCopy";
 import { transferCopy, validTransferSettings, type TransferSource } from "./transferCopy";
 import { portableFields } from "./portable";
-import { externalEnvironmentCopy } from "./ExecutorEnvironment";
 import { localCopy } from "./localExecution";
+import { proposeImage, readServerImages, type ServerImages } from "./serverImages";
 import { HelpLink } from "./HelpCenter";
 import { CONTEXT_TOPICS } from "./help/topics.ts";
 
@@ -56,7 +56,8 @@ const initial: Draft = { clone_url: "", name: "", display_name: "", description:
   auth_mode: "api-key", env_keys: "", reviewers: "", ready_label: "agent-ready", approval_label: "agent-approved",
   max_iterations: "12", max_wall_clock_seconds: "5400", max_cost_usd: "5", max_files_touched: "120" };
 const fields: FieldName[][] = [[], ["clone_url", "display_name", "name", "description", "kind", "repo", "login", "repo_path", "target_branch"],
-  ["executor_cli", "model", "auth_mode", "env_keys"],
+  ["executor_cli", "model", "execution_backend", "runtime", "image", "executor_command", "local_account",
+    "local_home", "local_path", "local_cgroup_root", "auth_mode", "env_keys"],
   ["ready_label", "approval_label", "reviewers", "max_iterations", "max_wall_clock_seconds", "max_cost_usd", "max_files_touched"]];
 const numeric = ["max_iterations", "max_wall_clock_seconds", "max_cost_usd", "max_files_touched"] as const;
 const digest = (value: unknown): value is string => typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
@@ -94,6 +95,9 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
   // Step 1 reads a repository URL; an existing clone is reused when its path is the clone path.
   const [detected, setDetected] = useState<Detected | null>(null);
   const [detecting, setDetecting] = useState(false);
+  // Tagged images on the server for the chosen runtime (suggestions, never a limit).
+  const [images, setImages] = useState<ServerImages | null>(null);
+  const proposedImage = useRef("");
   const [preview, setPreview] = useState<Preview | null>(null);
   const [verification, setVerification] = useState<Verification | null>(null);
   const [stale, setStale] = useState(false);
@@ -182,6 +186,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
     for (const key of groups.flatMap(index => fields[index])) {
       if (["description", "login", "executor_command", "local_home", "local_path", "local_cgroup_root", "name"].includes(key)
           || key === "reviewers" && !draft.reviewers.trim()
+          || key === "env_keys" && !draft.env_keys.trim()
           || key === "repo"
           || key.startsWith("local_") && draft.execution_backend !== "local"
           || ["runtime", "image"].includes(key) && draft.execution_backend === "local"
@@ -230,6 +235,20 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
     setFailure(cause);
     setFindings(cause instanceof SetupError ? cause.findings : []);
   };
+  useEffect(() => {
+    if (step !== 2 || draft.execution_backend !== "container") return;
+    let active = true;
+    setImages(null);
+    void readServerImages(draft.runtime).then(value => { if (active) setImages(value); });
+    return () => { active = false; };
+  }, [step, draft.execution_backend, draft.runtime]);
+  useEffect(() => {
+    // Replace only the built-in default or an earlier proposal, never a typed image.
+    if (!images?.available || ![initial.image, "", proposedImage.current].includes(draft.image)) return;
+    const next = proposeImage(images.images, draft.executor_cli);
+    // A proposal is not a user edit: it keeps confirmations and is skipped once a preview exists.
+    if (next && next !== draft.image && !preview) { proposedImage.current = next; setDraft(current => ({ ...current, image: next })); }
+  }, [images, draft.executor_cli]);
   const readRepository = async () => {
     if (detecting) return;
     if (!draft.clone_url.trim()) { setFindings([{ code: "invalid_input", field: "clone_url", remediation: c.readFirst }]); return; }
@@ -316,7 +335,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
     finally { if (alive.current && token === generation.current) { operation.current = null; setBusy(null); } }
   };
   const labels: Record<FieldName, string> = {
-    execution_backend: localCopy[locale].backend, local_account: localCopy[locale].account,
+    execution_backend: c.runsIn, local_account: localCopy[locale].account,
     executor_command: localCopy[locale].argv,
     local_home: localCopy[locale].home, local_path: localCopy[locale].path, local_cgroup_root: localCopy[locale].cgroup,
     clone_url: c.url, name: c.id, display_name: c.display, description: t("description"), kind: t("forge"), repo: t("repository"),
@@ -335,7 +354,8 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
         || key === "executor_command" && draft.execution_backend !== "local"
         || ["runtime", "image"].includes(key) && draft.execution_backend === "local") return null;
     const options: Partial<Record<FieldName, string[]>> = { kind: [...(draft.kind ? [] : [""]), "gitlab", "github", "gitea"],
-      execution_backend: ["container", "local"],
+      // A cloned WSL-wrapped runtime stays selectable instead of silently showing docker.
+      execution_backend: ["container", "local"], runtime: ["docker", "podman", ...(draft.runtime && !["docker", "podman"].includes(draft.runtime) ? [draft.runtime] : [])],
       executor_cli: ["opencode", "codex", "pi", "qwen"],
       auth_mode: draft.execution_backend === "local" ? ["existing", "api-key"] : ["api-key", ...(["opencode", "codex"].includes(draft.executor_cli) ? ["host-auth"] : [])] };
     const error = findings.some(item => fieldFor(item.field) === key);
@@ -343,13 +363,18 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
       "aria-describedby": "enrollment-help-" + helpId(key) + (error ? " error-" + key : ""),
       "aria-invalid": error || undefined, onChange: (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => change(key, event.target.value) };
     return <div className="enrollment-field" key={key}>
-      <label htmlFor={common.id}>{labels[key]}{!["description", "login", "local_home", "local_path", "local_cgroup_root", "executor_command", "reviewers"].includes(key) && <span aria-hidden="true"> *</span>}</label>
-      {options[key] ? <select {...common}>{options[key]?.map(value => <option value={value} key={value}>{value === "existing" ? localCopy[locale].existing : value === "" ? c.chooseForge : value}</option>)}</select> :
+      <label htmlFor={common.id}>{labels[key]}{!["description", "login", "local_home", "local_path", "local_cgroup_root", "executor_command", "reviewers", "env_keys"].includes(key) && <span aria-hidden="true"> *</span>}</label>
+      {options[key] ? <select {...common}>{options[key]?.map(value => <option value={value} key={value}>{value === "existing" ? localCopy[locale].existing : value === "" ? c.chooseForge
+        : key === "execution_backend" ? (value === "local" ? c.installed : c.container) : value}</option>)}</select> :
         <input {...common} readOnly={!!transfer && numeric.includes(key as typeof numeric[number])} type={numeric.includes(key as typeof numeric[number]) ? "number" : "text"}
           step={key === "max_cost_usd" ? "any" : "1"} autoComplete="off"
           placeholder={(key === "display_name" ? c.exampleDisplay : key === "description" ? c.exampleDescription : examples[key]) ? t("examplePrefix") + " " +
             (key === "display_name" ? c.exampleDisplay : key === "description" ? c.exampleDescription : examples[key]) : undefined}
-          maxLength={key === "display_name" ? 120 : key === "name" ? 64 : 1024} />}
+          maxLength={key === "display_name" ? 120 : key === "name" ? 64 : 1024}
+          list={key === "image" && images?.available ? "enroll-image-options" : undefined} />}
+      {key === "image" && images?.available && <datalist id="enroll-image-options">{images.images.map(name => <option value={name} key={name} />)}</datalist>}
+      {key === "image" && images && (!images.available ? <p className="field-hint">{c.imagesUnavailable}</p>
+        : draft.image.trim() && !images.images.includes(draft.image.trim()) && <p className="field-hint" role="status">{c.imageMissing}</p>)}
       {error && <p className="field-hint" id={"error-" + key}><strong>{c.invalid}</strong></p>}
     </div>;
   };
@@ -390,10 +415,9 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
     <form onSubmit={submit} noValidate>
       <fieldset disabled={busy === "create"} className="enrollment-fields">
         {step < 4 && <>
-          {(step === 1 ? ["url", "identity", ...(draft.kind === "gitea" ? ["login"] : [])] : step === 2 ? ["credentials"] :
+          {(step === 1 ? ["url", "identity", ...(draft.kind === "gitea" ? ["login"] : [])] : step === 2 ? ["environment", "credentials"] :
             ["rules", "limits"]).map(key => <p id={"enrollment-help-" + key} key={key}>{step === 2 && draft.execution_backend === "local" ? (key === "environment" ? localCopy[locale].notice : c.noSecrets) : key === "url" ? c.urlHelp : c[key as
               "identity" | "login" | "environment" | "credentials" | "rules" | "limits"]}</p>)}
-          {step === 2 && <p role="note">{externalEnvironmentCopy[locale].enrollment}</p>}
           {step === 1 ? <>
             <div className="enrollment-field enrollment-url">
               <label htmlFor="enroll-clone_url">{c.url}<span aria-hidden="true"> *</span></label>

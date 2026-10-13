@@ -6,7 +6,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 -->
 
 > Historical design: associated GUI image capabilities retired on 2026-10-08.
-> Current external ownership contract: REQ-UX-01d189b8 and REQ-FUNC-6b8494a7.
+> Current external ownership contract: REQ-UX-01d189b8 and REQ-FUNC-6b8494a7;
+> backend, runtime and image selection: REQ-UX-23a72bde and REQ-FUNC-dc5daff1.
 
 # Project executor image definition and build
 

@@ -17,9 +17,9 @@ Provide a single project executor/model workspace and protected provider key lif
 
 ## 3. Implementation Overview
 
-**Project → Settings → Agent and model** owns the default coding agent, the selected agent's launch command/model, AI connection testing and external container guidance. Its **Authentication** disclosure groups allowed credential variable names, host sign-in reuse and **Provider API keys**. The agent editor offers OpenCode, Pi, Codex and Qwen Code even when their command tables are absent. Selecting an agent loads its saved command/model or the documented command preset; a new model ID must be supplied explicitly. Prepare reviews changed fields above the settings, with all three agent/command/model values available in the complete Technical details comparison. Apply writes one complete paused/idle candidate; unchanged simple candidates show a notice with disabled Apply. The generic launch-command/model labels follow the selected agent. Edit keeps agent, command and model controls inside their existing description/value rows; the default-agent row owns Prepare/Cancel for the complete draft, beside its dropdown using the shared editor layout and normal responsive wrapping. Grouped-edit guidance stays in the description column. Validation occupies its own line after the controls, keeping selector/actions aligned when the selected agent needs a model; Prepare remains disabled until the complete draft is valid. Credential names are added through a dropdown and remain visible as individually removable selections. Installed agents and runtime preparation remain external. The old `/executor` URL redirects to Settings. Developers read non-secret settings/results without mutation actions.
+**Project → Settings → Agent and model** owns the default coding agent, the selected agent's launch command/model, AI connection testing, `execution.backend`, the container runtime and image (and the local account, home, PATH and cgroup root for local projects) and external container guidance. Its **Authentication** disclosure groups allowed credential variable names, host sign-in reuse and **Provider API keys**. The agent editor offers OpenCode, Pi, Codex and Qwen Code even when their command tables are absent. Selecting an agent loads its saved command/model or the documented command preset; a new model ID must be supplied explicitly. Prepare reviews changed fields above the settings, with all three agent/command/model values available in the complete Technical details comparison. Apply writes one complete paused/idle candidate; unchanged simple candidates show a notice with disabled Apply. The generic launch-command/model labels follow the selected agent. Edit keeps agent, command and model controls inside their existing description/value rows; the default-agent row owns Prepare/Cancel for the complete draft, beside its dropdown using the shared editor layout and normal responsive wrapping. Grouped-edit guidance stays in the description column. Validation occupies its own line after the controls, keeping selector/actions aligned when the selected agent needs a model; Prepare remains disabled until the complete draft is valid. Credential names are added through a dropdown and remain visible as individually removable selections. Backend, runtime and image edits go only through the reviewed flow (prepare candidate, review, apply). While the image row is edited it offers the same server image suggestions. Installed agents and runtime preparation remain external. The old `/executor` URL redirects to Settings. Developers read non-secret settings/results without mutation actions.
 
-The names-only credential selector offers known provider names and retained custom names, independently of coding agent. Empty lists support existing server sign-in. Applying names does not delete saved `.env` values. Provider API keys offers private Save/Disconnect for known allowed variables and shows sources only; key changes require paused pickup and idle/pending-free state. Explicit Test AI connection remains the evidence of model access and may incur provider charges. Subscription login retains the installed CLI's external service-account workflow.
+The names-only credential selector offers known provider names and retained custom names, independently of coding agent. Empty lists support existing server sign-in, including in API-key mode when the image or the installed executor signs in by itself (`env_keys = []`). Applying names does not delete saved `.env` values. Provider API keys offers private Save/Disconnect for known allowed variables and shows sources only; key changes require paused pickup and idle/pending-free state. Explicit Test AI connection remains the evidence of model access and may incur provider charges. Subscription login retains the installed CLI's external service-account workflow.
 
 Save API key / Disconnect project API key operate on the selected profile's `.env`. `executor.env_keys` is the authoritative existing allowlist; the form offers known provider API names already in it. Ambient variables (including explicitly empty values) take precedence and are managed externally. Source indicators distinguish missing, project and environment. Saving is not authentication success; explicit Test AI connection provides that evidence.
 
@@ -78,7 +78,29 @@ uses these values without forwarding or exporting them. Missing .env is empty;
 corrupt stored bytes fail closed. Image definition/runtime secret tests and
 existing provider credential tests cover this shared read.
 
-## External environment guidance
+## Environment selection and external guidance
+
+Administrators choose `execution.backend` (container | local), `container.runtime`,
+`container.image` and, for local projects, `local.account`, `local.home`, `local.path`
+and `local.cgroup_root` at enrollment (step 2) and in Settings → Agent and model. Settings
+edits use only the reviewed flow (prepare candidate, review, apply); a direct PUT of
+these keys returns 409 `pending_config_required`. Every other environment key
+(`execution.preparation`, `container.uv_cache_volume`, `container.run_args`, egress,
+SELinux, `worktree.*` roots) stays refused from the web with 400
+`environment_managed_externally`. The `_CHOSEN_ENVIRONMENT_KEYS` set in
+`web/app.py` and `CHOSEN_ENVIRONMENT_KEYS` in `settings.ts` name the chosen keys.
+
+`GET /api/v1/executor-images?runtime=docker|podman` (Admin, read-only) runs
+`<runtime> images --format {{.Repository}}:{{.Tag}}` with a 15 s timeout, drops
+`<none>` entries and returns `{runtime, available, images}`; a runtime that cannot be
+queried yields `available: false` with no images. The image fields in enrollment and
+Settings offer these as suggestions (`serverImages.ts`) and show a notice when the typed
+image is not on the server or the list cannot be read. Choosing an executor proposes an
+image whose tag starts with `<executor>-`, preferring `adore-executor-base:`, and replaces
+only the old default or an earlier proposal, never a typed value.
+
+Credential variable names are optional in API-key mode: leave them empty when the image
+or the installed executor signs in by itself (`env_keys = []`).
 
 `ExecutorEnvironment.tsx` is a read-only four-locale notice in Settings → Agent and model,
 rendered only for container profiles. Config GET `executor_environment` has
@@ -88,8 +110,9 @@ text. Otherwise it is container.image. Only Admin receives the resolved profile
 path; Dev receives null and contact guidance. A native details disclosure explains
 executor/Dockerfile, executor/README.md, non-root structure, external build/check
 and server config fields. It neither reads repository Dockerfiles nor issues
-mutation requests. Settings/enrollment omit environment controls. Legacy pending
-environment Apply is disabled while Discard remains. API guards preserve the
+mutation requests. The image itself (Dockerfile and build) stays prepared on the server
+by the administrator. Settings/enrollment omit controls for image definition and build.
+Legacy pending environment Apply is disabled while Discard remains. API guards preserve the
 existing dedicated AI endpoint exception. Proof: test_web_image_build.py and
 web/e2e/images.spec.ts; operator steps: Project_Executor_Images.md.
 

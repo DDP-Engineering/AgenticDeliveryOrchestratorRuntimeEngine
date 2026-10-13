@@ -16,7 +16,7 @@
 
 # IMPORTS
 from collections.abc import Callable
-from contextlib import contextmanager, nullcontext
+from contextlib import contextmanager
 import csv
 from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
@@ -766,6 +766,12 @@ def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, 
         if field in body.model_fields_set and not str(answers[field]).strip():
             issues.append(_finding("setup_field_invalid", field,
                                    "Supply an explicit supported value."))
+    if body.execution_backend != "local":
+        for field, key in (("image", "container.image"), ("runtime", "container.runtime")):
+            if str(answers[field]).strip() and not _valid_environment_value(key, answers[field]):
+                issues.append(_finding("setup_field_invalid", field,
+                                       "Use an image name:tag or docker/podman (optionally "
+                                       "wrapped by wsl ... --)."))
     pending_clone = False
     if body.clone_url:
         # From a repository URL: the clone (proposed at <home>/repos/<ID>, editable) is made at
@@ -811,8 +817,9 @@ def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, 
             not clone.is_absolute() or not (clone / ".git").exists()):
         issues.append(_finding("setup_field_invalid", "repo_path",
                                "Use an absolute existing repository clone on the ADORE server."))
-    if body.env_keys is not None and (not body.env_keys and body.auth_mode == "api-key"
-            or len(body.env_keys) > 32 or len(set(body.env_keys)) != len(body.env_keys)
+    # An executor whose image or service signs in by itself needs no forwarded names.
+    if body.env_keys is not None and (
+            len(body.env_keys) > 32 or len(set(body.env_keys)) != len(body.env_keys)
             or any(not re.fullmatch(r"[A-Z][A-Z0-9_]{0,63}", key) for key in body.env_keys)
             or body.auth_mode in {"host-auth", "existing"} and body.env_keys):
         issues.append(_finding("setup_field_invalid", "env_keys",
@@ -1451,6 +1458,8 @@ def _valid_candidate_scalar(key: str, proposed: object, backend: str = "containe
         return valid_collection(key, proposed)
     if key == "delivery.reviewers":
         return valid_reviewers(proposed)
+    if key in {"container.image", "container.runtime"}:
+        return _valid_environment_value(key, proposed)
     if key.endswith(".command"):
         return isinstance(proposed, str) and (backend == "local" and bool(proposed.strip())
                                               or proposed in _LAUNCH_PRESETS.get(key, ()))
@@ -1636,41 +1645,6 @@ def _read_pending_config(path: Path) -> dict | None:
     return value
 
 
-def _image_candidate_checks(text: str, checks: list[str]) -> str:
-    """@brief Replace one complete tool-check array while preserving other settings.
-    @param[in] text Existing validated candidate TOML.
-    @param[in] checks Explicit verified project-image tool checks.
-    @return Candidate with the complete array replaced, including multiline values.
-    @exception ImageBuildError Unsupported configuration spelling fails closed.
-    """
-    lines = text.splitlines(keepends=True)
-    newline = _newline(text)
-    inside = False
-    header = None
-    for index, line in enumerate(lines):
-        if re.match(r'^\s*\[', line):
-            inside = line.strip() == "[container]"
-            if inside:
-                header = index
-        if inside and re.match(
-                r'^\s*(?:required_tool_checks|"required_tool_checks"|\'required_tool_checks\')\s*=',
-                line):
-            for end in range(index + 1, len(lines) + 1):
-                try:
-                    fragment = tomllib.loads("".join(lines[index:end]))
-                except tomllib.TOMLDecodeError:
-                    continue
-                if set(fragment) != {"required_tool_checks"}:
-                    raise ImageBuildError("image_checks_config_unsupported")
-                lines[index:end] = ["required_tool_checks = " + json.dumps(checks) + newline]
-                return "".join(lines)
-            raise ImageBuildError("image_checks_config_unsupported")
-    if header is None:
-        raise ImageBuildError("image_checks_config_unsupported")
-    lines.insert(header + 1, "required_tool_checks = " + json.dumps(checks) + newline)
-    return "".join(lines)
-
-
 def _public_pending_config(value: dict, *, active_text: str | None = None) -> dict:
     """@brief Return review metadata without exposing the full TOML document."""
     public = {key: value[key] for key in (
@@ -1794,6 +1768,27 @@ def _restart_required(key: str) -> bool:
                            "container.", "execution.", "local.", "executor."))
 
 
+# Environment settings an administrator chooses in the web (reviewed edits only).
+_CHOSEN_ENVIRONMENT_KEYS = frozenset({
+    "execution.backend", "container.runtime", "container.image",
+    "local.account", "local.home", "local.path", "local.cgroup_root",
+})
+_IMAGE_LIST_TIMEOUT = 15
+_IMAGE_LIST_LIMIT = 1000
+# An image reference (never an option or argv); the runtime is the bare command or a WSL wrapper.
+_IMAGE_REFERENCE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._/:@-]{0,254}")
+_RUNTIME_COMMAND = re.compile(r"(?:wsl(?: -[A-Za-z] [A-Za-z0-9._-]+)* -- )?(?:docker|podman)")
+
+
+def _valid_environment_value(key: str, value: object) -> bool:
+    """@brief Web-written image and runtime values; other keys are not checked here."""
+    if key == "container.image":
+        return isinstance(value, str) and bool(_IMAGE_REFERENCE.fullmatch(value))
+    if key == "container.runtime":
+        return isinstance(value, str) and bool(_RUNTIME_COMMAND.fullmatch(value))
+    return True
+
+
 def _external_environment_key(key: str, *, endpoint: bool = False) -> bool:
     """@brief Identify externally owned environment keys at web mutation boundaries.
     @param[in] key Dotted configuration key.
@@ -1802,6 +1797,7 @@ def _external_environment_key(key: str, *, endpoint: bool = False) -> bool:
     @note Legacy pending readers retain their original validation and discard contract.
     """
     return (not endpoint and key not in {"worktree.branch_template", "worktree.branch_rule"}
+            and key not in _CHOSEN_ENVIRONMENT_KEYS
             and not _is_secret_key(key)
             and key.startswith(("container.", "execution.", "local.", "worktree.")))
 
@@ -2932,6 +2928,23 @@ def create_app(home: str | Path | None = None,
                 "issues": [] if available else [
                     _finding("project_exists", "name", "Choose another available ID.")]}
 
+    @app.get("/api/v1/executor-images")
+    def executor_images(runtime: Literal["docker", "podman"],
+                        _user: Annotated[dict, Depends(administrator)]) -> dict:
+        """
+        @brief Tagged container images on the ADORE server, for image suggestions.
+        @details Read-only and bounded; a runtime that cannot be queried is reported
+                 as unavailable rather than as an error.
+        """
+        result = probe_runner([runtime, "images", "--format", "{{.Repository}}:{{.Tag}}"],
+                              timeout=_IMAGE_LIST_TIMEOUT)
+        if not result.ok:
+            return {"runtime": runtime, "available": False, "images": []}
+        images = {line.strip() for line in result.stdout.splitlines()}
+        return {"runtime": runtime, "available": True, "images": sorted(
+            image for image in images if image and "<none>" not in image
+            and len(image) <= 255)[:_IMAGE_LIST_LIMIT]}
+
     @app.post("/api/v1/projects/repository-source")
     def repository_source(body: RepositorySourceInput,
                           _user: Annotated[dict, Depends(admin_mutation)]) -> dict:
@@ -3697,7 +3710,7 @@ def create_app(home: str | Path | None = None,
             raise _error(400, "environment_managed_externally")
         if not _editable_setting_key(body.key, endpoint=endpoint_key):
             raise _error(400, "setting_not_editable")
-        if body.key.startswith(("execution.", "local.")):
+        if body.key.startswith(("execution.", "local.")) or body.key in _CHOSEN_ENVIRONMENT_KEYS:
             raise _error(409, "pending_config_required")
         if endpoint_key:
             if body.ca_file and (
@@ -3842,19 +3855,13 @@ def create_app(home: str | Path | None = None,
             raise _error(400, "environment_managed_externally")
         path = profiles.config_path(item.name)
         pending_path = profiles.profile_dir(item.name) / "pending_config.json"
-        if body.image_build_id and body.key != "container.image":
-            raise ImageBuildError("image_selection_invalid")
-        with config_lock, _web_config_edit_lock(path), (guard_direct_config_apply(
-                item, path, "container.image") if body.image_build_id else nullcontext()):
+        if body.image_build_id:
+            # Selecting a built image would also rewrite the required tool checks.
+            raise _error(400, "environment_managed_externally")
+        with config_lock, _web_config_edit_lock(path):
             if _read_pending_config(pending_path) is not None:
                 raise _error(409, "pending_config_exists")
             raw, changed = _candidate_config_edit(path, body)
-            binding = None
-            if body.image_build_id:
-                binding = images.review(item.name, body.image_build_id)
-                if binding["image_id"] != body.value:
-                    raise ImageBuildError("image_selection_invalid")
-                changed = _image_candidate_checks(changed, binding["verified_checks"][1:])
             if sha256(path.read_bytes()).digest() != sha256(raw).digest():
                 raise _error(409, "stale_config_revision")
             value = {
@@ -3868,8 +3875,6 @@ def create_app(home: str | Path | None = None,
                 "restart_required": _restart_required(body.key),
             }
             candidate_config = _config_from_bytes(changed.encode())
-            if binding is not None:
-                value["image_build"] = binding
             if (candidate_config.execution.preparation
                     or candidate_config.execution.backend == "local"):
                 try:
@@ -3909,7 +3914,7 @@ def create_app(home: str | Path | None = None,
             if pending is None:
                 raise _error(404, "pending_config_not_found")
             _public_pending_config(pending)
-            if _external_environment_key(
+            if "image_build" in pending or _external_environment_key(
                     pending["key"],
                     endpoint=pending["key"] == "container.runtime_env.OPENAI_BASE_URL"):
                 raise _error(400, "environment_managed_externally")
@@ -3966,14 +3971,6 @@ def create_app(home: str | Path | None = None,
                     ),
                 )
                 try:
-                    if "image_build" in pending:
-                        binding = images.review(
-                            item.name, pending["image_build"]["id"],
-                            applied_revision=(
-                                pending["candidate_revision"] if already_applied else None))
-                        if (binding != pending["image_build"]
-                                or binding["project_id"] != item.project_id):
-                            raise ImageBuildError("image_revision_stale")
                     if already_applied:
                         if validate_config(current):
                             raise _error(503, "config_corrupt")

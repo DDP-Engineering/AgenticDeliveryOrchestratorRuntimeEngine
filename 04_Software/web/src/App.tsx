@@ -22,7 +22,7 @@ import { auditPolicyPayload } from "./auditPolicy";
 import { ApiError, describeError } from "./errors";
 import { startVisiblePolling } from "./polling";
 import { formatRoute, normalizeRoute, parseRoute, type ProjectTab, type Route } from "./routes";
-import { editValue, hasDefault, settingGroups, settingRows, type SettingMeta, type SettingRow, settingValue, validSettingCatalog, validPendingConfig, type PendingConfig, settingVisible, settingSubgroup, STATUS_LABEL_KEYS, BRANCH_NAMING_KEYS, validBranchPreview, type BranchPreview } from "./settings";
+import { editValue, hasDefault, settingGroups, settingRows, type SettingMeta, type SettingRow, settingValue, validSettingCatalog, validPendingConfig, type PendingConfig, settingVisible, settingSubgroup, STATUS_LABEL_KEYS, BRANCH_NAMING_KEYS, CHOSEN_ENVIRONMENT_KEYS, validBranchPreview, type BranchPreview } from "./settings";
 import { ExecutorEnvironment, externalEnvironmentCopy, type ExecutorEnvironmentInfo } from "./ExecutorEnvironment";
 import { imageCopy } from "./imageBuild";
 import { ExecutionPlanReview } from "./ExecutionPlanReview";
@@ -46,6 +46,8 @@ import { TicketWorkspace } from "./TicketWorkspace";
 import { ticketCopy } from "./ticketCopy";
 import { DataFeedback, ProjectEmpty, StatusBadge, type DataState, type ScopedState } from "./Presentation";
 import { HelpCenter, HelpLink } from "./HelpCenter";
+import { readServerImages, type ServerImages } from "./serverImages";
+import { enrollmentCopy } from "./enrollmentCopy";
 import { DeleteCloneOption } from "./DeleteCloneOption";
 import { CONTEXT_TOPICS, type HelpTopic } from "./help/topics.ts";
 
@@ -1375,7 +1377,8 @@ function PendingReview({ config, candidate, project, paused, busy, locale, t, on
   const compact = compactReviewCopy[locale];
   const comparison = (items: typeof rows, className: string) => <table className={`candidate-table ${className}`}><thead><tr><th scope="col">{compact.setting}</th><th scope="col">{copy.active}</th><th scope="col">{copy.proposed}</th></tr></thead><tbody>{items.map(row => <tr key={row.label}><th scope="row">{row.label}</th><td data-label={copy.active}>{show(row.active)}</td><td data-label={copy.proposed}>{show(row.proposed)}</td></tr>)}</tbody></table>;
   const stale = candidate.base_revision !== config.revision;
-  const external = !candidate.endpoint && !BRANCH_NAMING_KEYS.has(candidate.key) && ["container.", "execution.", "local.", "worktree."].some(prefix => candidate.key.startsWith(prefix));
+  // A retained image-build selection stays external like the other environment keys.
+  const external = !!candidate.image_build || !candidate.endpoint && !BRANCH_NAMING_KEYS.has(candidate.key) && !CHOSEN_ENVIRONMENT_KEYS.has(candidate.key) && ["container.", "execution.", "local.", "worktree."].some(prefix => candidate.key.startsWith(prefix));
   const blocked = unchanged || external || stale || candidate.restart_required && !paused;
   const reviewText = [copy.project + ": " + project, ...rows.map(row => `${row.label}: ${copy.active}: ${show(row.active)} → ${copy.proposed}: ${show(row.proposed)}`), copy.base + ": " + candidate.base_revision, copy.candidate + ": " + candidate.candidate_revision].join("\n");
   return <div className="import-preview candidate-review"><h3 ref={heading} tabIndex={-1}>{t("pendingChange")}</h3>
@@ -1384,7 +1387,7 @@ function PendingReview({ config, candidate, project, paused, busy, locale, t, on
     {unchanged && <p role="status">{compact.unchanged}</p>}
     {candidate.execution_plan && <ExecutionPlanReview plan={candidate.execution_plan} locale={locale} />}
     {candidate.restart_required && <p className={!paused ? "alert" : "muted"}>{copy.pause}</p>}{stale && <p className="alert">{copy.stale}</p>}
-    {external && <p role="note">{externalEnvironmentCopy[locale].notice}</p>}
+    {external && <p role="note">{externalEnvironmentCopy[locale].external}</p>}
     <div className="button-row candidate-actions"><button className="primary" disabled={busy || blocked} onClick={() => void onApply()}>{t("apply")}</button><button className="ghost" disabled={busy} onClick={() => void onDiscard()}>{t("discardChange")}</button></div>
     <details className="candidate-details"><summary>{copy.details}</summary>
       <h4>{compact.complete}</h4>{comparison(rows, "candidate-complete")}
@@ -1400,6 +1403,15 @@ function PendingReview({ config, candidate, project, paused, busy, locale, t, on
 
 function SettingsList({ executorOnly=false, project, revision, csrf, branchCandidate, config, settings, t, locale, canEdit, disabled, onStage, actions, children, header, executorBefore, executorAfter, executorAuthentication }: { executorBefore?:ReactNode; executorAfter?:ReactNode; executorAuthentication?:ReactNode; project?: string; revision?: string; csrf?: string; branchCandidate?: PendingConfig | null; header?: ReactNode; actions?: ReactNode; children?: ReactNode; executorOnly?:boolean; config: Record<string, unknown>; settings: SettingMeta[]; t: (key: MessageKey) => string; locale: Locale; canEdit: boolean; disabled: boolean; onStage: (key: string, value: string) => Promise<boolean> }) {
   const [editing, setEditing] = useState("");
+  // Image suggestions from the server while the image row is being edited.
+  const [serverImages, setServerImages] = useState<ServerImages | null>(null);
+  useEffect(() => {
+    if (editing !== "container.image") return;
+    let active = true;
+    setServerImages(null);
+    void readServerImages(String(settingValue(config, "container.runtime") ?? "docker")).then(value => { if (active) setServerImages(value); });
+    return () => { active = false; };
+  }, [editing, config]);
   const [draft, setDraft] = useState("");
   const [branchPreview, setBranchPreview] = useState<BranchPreview | null>(null);
   const [branchFailure, setBranchFailure] = useState("");
@@ -1419,7 +1431,7 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
     }, 250);
     return () => { current = false; window.clearTimeout(timer); };
   }, [executorOnly, project, revision, csrf, template, rule, branchIdentity]);
-  const groups = settingGroups(settingRows(config, settings).filter(row => settingVisible(row.key, executorOnly, String(settingValue(config,"executor.default")))), false);
+  const groups = settingGroups(settingRows(config, settings).filter(row => settingVisible(row.key, executorOnly, String(settingValue(config,"executor.default")), String(settingValue(config,"execution.backend") ?? "container"))), false);
   const copy = settingsCopy[locale];
   const shown = (value: unknown) => value == null || value === "" ? "—" :
     Array.isArray(value) || typeof value === "object" ? JSON.stringify(value) : String(value);
@@ -1458,7 +1470,11 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
           })}</div> : row.input === "retry-delays" ? <><textarea rows={6} aria-label={label(row)} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)} required /><p className="muted">{editorCopy.schedule}</p></> : row.input === "boolean" || row.input === "choice"
             ? <select aria-label={label(row)} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)}>{row.input === "choice" && !row.choices.includes(draft) && <option value={draft} disabled>{draft}</option>}{(row.input === "boolean" ? ["true", "false"] : row.choices).map(option => <option key={option} value={option}>{row.key === "review.on_pipeline_failure" ? pipelineFailureValue(option, locale) ?? option : row.key === "delivery.draft" ? publicationValue(option, locale) : option}</option>)}</select>
             : row.input === "reviewers" ? <textarea rows={6} aria-label={label(row)} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)} />
-            : <input aria-label={label(row)} type={row.input === "number" ? "number" : "text"} step={row.step} min={row.minimum ?? undefined} max={row.maximum ?? undefined} maxLength={BRANCH_NAMING_KEYS.has(row.key) ? 512 : undefined} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)} required={row.input === "number"} />}
+            : <input aria-label={label(row)} type={row.input === "number" ? "number" : "text"} step={row.step} min={row.minimum ?? undefined} max={row.maximum ?? undefined} maxLength={BRANCH_NAMING_KEYS.has(row.key) ? 512 : undefined} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)} required={row.input === "number"}
+              list={row.key === "container.image" && serverImages?.images.length ? "setting-image-options" : undefined} />}
+          {row.key === "container.image" && !!serverImages?.images.length && <datalist id="setting-image-options">{serverImages.images.map(name => <option value={name} key={name} />)}</datalist>}
+          {row.key === "container.image" && serverImages && (!serverImages.available ? <p className="field-hint">{enrollmentCopy[locale].imagesUnavailable}</p>
+            : draft.trim() && !serverImages.images.includes(draft.trim()) && <p className="field-hint" role="status">{enrollmentCopy[locale].imageMissing}</p>)}
           <div className="button-row"><button className="primary" disabled={disabled || typedValue(row) === null || BRANCH_NAMING_KEYS.has(row.key) && !currentPreview?.valid || row.input === "choice" && !row.choices.includes(draft)}>{copy.prepare}</button><button type="button" className="ghost" onClick={() => setEditing("")}>{t("cancel")}</button></div>
           {typedValue(row) === null && <p role="alert">{editorCopy.invalid}</p>}
         </form>;

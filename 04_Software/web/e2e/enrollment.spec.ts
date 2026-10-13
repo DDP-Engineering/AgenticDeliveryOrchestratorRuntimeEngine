@@ -82,14 +82,37 @@ test("enrollment reads a repository URL, derives the ID and clones at creation",
   expect(created.paused).toBe(true);
 });
 
-test("guided enrollment delegates environment setup to the server operator",async({page})=>{
-  await enter(page);await repository(page,"external-env");
-  await page.getByRole("button",{name:"Continue",exact:true}).click();
-  await expect(page.getByRole("heading",{name:"Agent and model",exact:true})).toBeVisible();
-  await expect(page.getByLabel("Execution backend",{exact:false})).toHaveCount(0);
-  await expect(page.getByLabel("Executor image",{exact:false})).toHaveCount(0);
-  await expect(page.getByLabel("Container runtime",{exact:false})).toHaveCount(0);
-  await expect(page.getByText(/environment is prepared externally/)).toBeVisible();
+test("agent and model chooses where the executor runs", async ({ page }) => {
+  await enter(page); await repository(page, "env-choice");
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Agent and model", exact: true })).toBeVisible();
+  const runsIn = page.getByLabel(/^Runs in/);
+  const image = page.getByLabel(/^Executor image/);
+  await expect(runsIn).toHaveValue("container");
+  await expect(page.getByLabel(/^Container runtime/)).toHaveValue("docker");
+  // Images come from the server; choosing Pi proposes its image instead of the old default.
+  await expect(page.locator("#enroll-image-options option")).toHaveCount(3);
+  await page.getByLabel(/^Executor \*/).selectOption("pi");
+  await expect(image).toHaveValue("adore-executor-base:pi-0.87.1");
+  await image.fill("missing-image:1");
+  await expect(page.getByText(/not on the ADORE server/)).toBeVisible();
+  await image.fill("adore-executor-base:pi-0.87.1");
+  await expect(page.getByText(/not on the ADORE server/)).toHaveCount(0);
+  // A runtime the server cannot list falls back to a typed image.
+  await page.getByLabel(/^Container runtime/).selectOption("podman");
+  await expect(page.getByText(/could not be listed/)).toBeVisible();
+  await page.getByLabel(/^Container runtime/).selectOption("docker");
+  // Installed on the server swaps the container fields for the native ones.
+  await runsIn.selectOption("local");
+  await expect(image).toHaveCount(0);
+  await expect(page.getByLabel(/^Installed native executor argv/)).toBeVisible();
+  await expect(page.getByText(/runs on the ADORE server under its current OS account/)).toBeVisible();
+  await runsIn.selectOption("container");
+  // Credential names are optional: an image that signs in by itself needs none.
+  await page.getByLabel(/^Model \*/).fill("openai-codex/gpt-6-sol");
+  await expect(page.getByLabel("Credential environment references", { exact: false })).toHaveValue("");
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Eligibility, reviewers and limits", exact: true })).toBeVisible();
 });
 
 async function fixture(page: Page, mode = "failed") {
@@ -233,7 +256,7 @@ test("Back and review changes retain values and invalidate dependent checks", as
   await expect(page.getByLabel("Display name", { exact: false })).toHaveValue("Offline service");
   await page.getByLabel("Display name", { exact: false }).fill("Changed display");
   await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await expect(page.getByLabel("Executor image", { exact: false })).toHaveCount(0);
+  await expect(page.getByLabel(/^Executor image/)).toBeVisible();
   await page.getByRole("button", { name: "Back", exact: true }).click();
   await expect(page.getByLabel("Display name", { exact: false })).toHaveValue("Changed display");
   for (let i = 0; i < 3; i++) await page.getByRole("button", { name: "Continue", exact: true }).click();
@@ -315,7 +338,7 @@ test("390px keyboard guidance and review wrap in both themes", async ({ page }, 
     const change = page.getByRole("button", { name: "Change — Agent and model", exact: true });
     await change.focus(); await page.keyboard.press("Enter");
     await expect(page.getByRole("heading", { name: "Agent and model", exact: true })).toBeFocused();
-    await expect(page.getByLabel("Executor image", { exact: false })).toHaveCount(0);
+    await expect(page.getByLabel(/^Executor image/)).toBeVisible();
     await page.screenshot({ path: info.outputPath("enrollment-environment-" + theme + "-390.png"), fullPage: true });
     await page.getByRole("button", { name: "Continue", exact: true }).click();
     await page.getByRole("button", { name: "Continue", exact: true }).click();

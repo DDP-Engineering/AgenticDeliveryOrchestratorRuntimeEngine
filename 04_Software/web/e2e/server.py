@@ -175,6 +175,13 @@ def main() -> None:
                 answer = fixture_forge(list(argv))
                 if answer is not None:
                     return answer
+            if argv[1:2] == ["images"]:
+                # The server's images: docker lists three, podman cannot be queried.
+                if argv[0] != "docker":
+                    return CommandResult(argv=argv, exit_code=125, stderr="no podman")
+                return CommandResult(argv=argv, stdout="adore-executor-base:1.0.0\n"
+                                     "adore-executor-base:pi-0.87.1\n<none>:<none>\n"
+                                     "adore-test:latest\n")
             if argv[:2] == ["git", "ls-remote"]:
                 # A repository URL read: unreachable hosts fail, others report a main branch.
                 if "unreachable" in argv[-2]:

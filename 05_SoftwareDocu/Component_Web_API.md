@@ -24,7 +24,7 @@ Implementation settings support reviewed edits for human-answer waiting time (po
 
 `POST /api/v1/projects/{name}/config/branch-preview` accepts the closed strict body `{template, rule, revision}` (512-character text bounds, SHA-256 revision). Scoped users supply CSRF; the shared config lock coordinates preview reads with application, and project grants and before/after revision checks precede evidence release. The route returns the shared config preview plus inspected revision and performs no writes or Git operations. Corrupt source returns `config_corrupt`, stale input returns `stale_config_revision`, and malformed transport fails request validation. Scoped developer reads hide inaccessible project identity with the existing 404 policy.
 
-Only `worktree.branch_template` and `worktree.branch_rule` are exceptions to the external environment edit restriction. Both advertise text editability/restart and retain administrator, validated single-setting candidate, lock, revision, paused/idle and replay integrity gates. Every other worktree/container/execution/local setting keeps external ownership. Focused proof: `tests/test_web_branch_naming.py`, `tests/test_web_config.py`, `tests/test_web_pending_config.py`.
+Only `worktree.branch_template` and `worktree.branch_rule` (text) and the administrator-chosen `execution.backend`, `container.runtime`, `container.image`, `local.account`, `local.home`, `local.path` and `local.cgroup_root` are exceptions to the external environment edit restriction. They advertise editability/restart and retain administrator, validated single-setting candidate, lock, revision, paused/idle and replay integrity gates; a direct PUT of the chosen environment keys returns 409 `pending_config_required`. Every other worktree/container/execution/local setting (for example `execution.preparation`, `container.uv_cache_volume`, `container.run_args`, egress, SELinux, `worktree.*` roots) keeps external ownership and returns 400 `environment_managed_externally`; image definition and builds return 410. Focused proof: `tests/test_web_branch_naming.py`, `tests/test_web_config.py`, `tests/test_web_pending_config.py`.
 
 ## 1. Purpose
 
@@ -548,6 +548,7 @@ All routes below require administrator authorization and mutation CSRF:
 | Route | Input | Result |
 | --- | --- | --- |
 | `POST /api/v1/projects/id-availability` | `name` | Advisory `available` plus structured `issues`; never reserves an ID |
+| `GET /api/v1/executor-images?runtime=docker\|podman` | `runtime` | Read-only; runs `<runtime> images --format {{.Repository}}:{{.Tag}}` with a 15 s timeout, drops `<none>` entries and returns `{runtime, available, images}` for image suggestions |
 | `POST /api/v1/projects/repository-source` | `url` | Detected `kind` (or null), `login`, `repo`, `default_branch`, derived `name`, `display_name`, `repo_path` (`<home>/repos/<name>`) and `clone` (`new`/`existing`); `repository_url_invalid` 400, `repository_unreachable` 502; no writes |
 | `POST /api/v1/projects/setup-preview` | Existing guided fields, optional `display_name` and `clone_url` | Local `structural_valid`, findings, `pickup: stopped-on-create`, unverified environment; no writes/probes |
 | `POST /api/v1/projects` | Same guided fields | Complete profile with pickup already stopped |
@@ -581,7 +582,7 @@ Existing identity/status/paused fields remain. No read or setup preview probes t
 
 `ProjectInput` adds typed bounded run budgets, ready/approval labels and optional
 credential environment names while preserving legacy defaults. Unknown fields are
-forbidden; malformed/duplicate/empty API-key names and host-auth references are rejected
+forbidden; malformed/duplicate API-key names and host-auth references are rejected (an empty API-key list is allowed)
 with value-free findings. Server clones are absolute existing Git roots.
 Preparation uses the existing wizard in prepare-only mode and its configuration validator.
 The generated comment is deterministic for web setup, so identical drafts yield identical

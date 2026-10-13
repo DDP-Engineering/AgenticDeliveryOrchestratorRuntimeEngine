@@ -20,7 +20,7 @@ Administratoren wählen **Bearbeiten** in der Zeile Standard-Coding-Agent und w�
 - **Abo- oder Host-Anmeldung.** Der Agent verwendet seine eigene Anmeldung auf dem ADORE-Server unter dem Dienstkonto, die außerhalb der Weboberfläche eingerichtet wird (der Aufklapper **Abo- oder Browser-Anmeldung** nennt den Befehl). **Host-Anmeldung des Agenten verwenden** ist eine Pilotbrücke, die diese Anmeldung in den Container kopiert, nur für OpenCode und Codex. Ein ChatGPT-Abonnement ist kein OpenAI-API-Schlüssel.
 - **Von der Umgebung verwaltete Werte.** Eine Variable, die bereits in der Umgebung des ADORE-Servers gesetzt ist, trägt den Hinweis **Auf dem ADORE-Server gesetzt; extern verwalten**. Die Weboberfläche kann sie nicht überschreiben.
 
-Werte von Zugangsdaten erscheinen nie in Prüfungen, Audit-Einträgen oder Exporten. Eine leere Variablenliste ist bei vorhandener Server-Anmeldung gültig.
+Werte von Zugangsdaten erscheinen nie in Prüfungen, Audit-Einträgen oder Exporten. Eine leere Variablenliste ist bei vorhandener Server-Anmeldung gültig, ebenso im api-key-Modus, wenn sich das Image oder der installierte Executor selbst anmeldet.
 
 ## KI-Verbindung testen {#test-connection}
 
@@ -36,17 +36,19 @@ Das Ergebnis lautet **KI-Modell verbunden** oder **KI-Verbindung nicht bestätig
 | Umgebung | Einem vom Administrator vorbereiteten Projekt-Image | Werkzeugen, Versionen und Bibliotheken, die Sie selbst auf diesem Server installieren |
 | Anmeldung | Aufgeführte API-Schlüssel oder Host-Anmeldung | Die vorhandene Anmeldung des Agenten auf diesem Konto, an Ort und Stelle weiterverwendet |
 | Isolation | Container mit Netzwerkrichtlinie | Nur der Worktree; Befehle erreichen alles, was das Konto erreicht, verwenden Sie daher ein eigenes Konto mit minimalen Rechten |
-| Gewählt | Standard für hier hinzugefügte Projekte | Außerhalb der Weboberfläche, im Serverprofil oder per TOML-Registrierung |
+| Gewählt | **Ausführung** → **Container**, Standard, in Schritt 2 der Registrierung oder unter Einstellungen → Agent und Modell | **Ausführung** → **Auf dem Server installiert**, oder im Serverprofil oder per TOML-Registrierung |
+
+Änderungen in den Einstellungen laufen über **Kandidat vorbereiten**, Prüfung und **Anwenden**. **Auf dem Server installiert** zeigt den nativen Executor-Befehl und die Felder des lokalen Kontos (Konto `current`, Home-Verzeichnis, PATH und unter Linux die cgroup-Wurzel) zusammen mit dem Hinweis zur lokalen Ausführung.
 
 Host-Prüfungen für ein lokales Projekt überspringen die Container-Engine und prüfen den nativen Agenten und seine Anmeldung.
 
 ## Projekt-Image {#project-image}
 
-Für ein Container-Projekt zeigt Einstellungen → Agent und Modell **Executor läuft in einem Container**, die Angabe **Verwendetes Image** und einen Aufklapper **Anleitung zur Vorbereitung der Umgebung**. Die Weboberfläche definiert, baut oder wählt das Image nicht, und eine Dockerfile im Repository startet keinen Build. Der Administrator erledigt das auf dem Server:
+Für ein Container-Projekt zeigt Einstellungen → Agent und Modell **Executor läuft in einem Container**, die Angabe **Verwendetes Image** und einen Aufklapper **Anleitung zur Vorbereitung der Umgebung**. Die Weboberfläche definiert oder baut das Image nicht, und eine Dockerfile im Repository startet keinen Build. Der Administrator bereitet es auf dem Server vor:
 
 1. Erstellen Sie `executor/Dockerfile` im Repository, ausgehend vom ADORE-Basis-Image und ohne Zugangsdaten. Das Image braucht Python, sh und den gewählten Agenten.
 2. Bauen Sie es mit Docker oder Podman des Servers und prüfen Sie die Versionen von Agent und Werkzeugen.
-3. Setzen Sie bei pausierter Überwachung und ohne aktive Aufträge `execution.backend`, `container.image` und `container.required_tool_checks` in der `config.toml` des Projekts (Administratoren sehen ihren Pfad im Aufklapper) und validieren Sie dann das Profil.
+3. Wählen Sie das Image in der Weboberfläche wie unten beschrieben oder setzen Sie bei pausierter Überwachung und ohne aktive Aufträge `execution.backend`, `container.image` und `container.required_tool_checks` in der `config.toml` des Projekts (Administratoren sehen ihren Pfad im Aufklapper) und validieren Sie dann das Profil.
 
 ```
 FROM adore-executor-base:1.0.0
@@ -54,6 +56,8 @@ USER root
 # RUN ... install the project's system tools
 USER adore
 ```
+
+Um das Image zu verwenden, wählen Sie in Schritt 2 der Registrierung die **Container-Laufzeit** (Docker oder Podman) und das **Executor-Image**, oder bearbeiten Sie dieselben Zeilen in den Einstellungen. Das Image ist ein freies Textfeld mit Vorschlägen aus den Images auf dem ADORE-Server für diese Laufzeit (nur für Administratoren); ein Hinweis erscheint, wenn das eingegebene Image nicht auf dem Server ist, ein weiterer, wenn die Liste nicht gelesen werden kann. Die Wahl eines Executors schlägt ein Image vor, dessen Tag mit dem Executor-Namen und einem Bindestrich beginnt (zum Beispiel `pi-`), bevorzugt `adore-executor-base:`; es ersetzt nur den alten Standard oder einen früheren Vorschlag, nie einen eingegebenen Wert.
 
 Bestätigen Sie anschließend mit **Host-Voraussetzungen prüfen** und **KI-Verbindung testen**.
 

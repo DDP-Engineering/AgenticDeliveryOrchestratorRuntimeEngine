@@ -20,7 +20,7 @@ Open **Authentication** in the same group. A project can authenticate in three w
 - **Subscription or host sign-in.** The agent uses its own login on the ADORE server under the service account, set up outside the web interface (the **Subscription or browser sign-in** disclosure names the command). **Use host agent sign-in** is a pilot bridge that copies that login into the container, for OpenCode and Codex only. A ChatGPT subscription is not an OpenAI API key.
 - **Environment-managed values.** A variable already set in the ADORE server environment is labelled **Set on the ADORE server; manage it externally**. The web interface cannot overwrite it.
 
-Credential values never appear in reviews, audit records or exports. An empty variable list is valid with existing server sign-in.
+Credential values never appear in reviews, audit records or exports. An empty variable list is valid with existing server sign-in, and also in api-key mode when the image or the installed executor signs in by itself.
 
 ## Test AI connection {#test-connection}
 
@@ -36,17 +36,19 @@ The result is **AI model connected** or **AI connection could not be verified**,
 | Environment | A project image prepared by the administrator | Tools, versions and libraries you install yourself on that server |
 | Sign-in | Listed API keys or host sign-in | The agent's existing login on that account, reused in place |
 | Isolation | Container with a network policy | Only the worktree; commands can reach whatever the account can, so use a dedicated least-privilege account |
-| Chosen | Default for projects added here | Outside the web interface, in the server profile or by TOML enrollment |
+| Chosen | **Runs in** → **Container**, the default, on enrollment step 2 or in Settings → Agent and model | **Runs in** → **Installed on the server**, or the server profile or TOML enrollment |
+
+Edits in Settings go through **Prepare candidate**, review and **Apply change**. **Installed on the server** shows the native executor command and the local account fields (account `current`, home, PATH and, on Linux, the cgroup root) together with the local execution notice.
 
 Host checks for a local project skip the container engine and check the native agent and its sign-in.
 
 ## Project image {#project-image}
 
-For a container project, Settings → Agent and model shows **Executor runs in a container**, the **Image used** and an **Environment preparation instructions** disclosure. The web interface does not define, build or select the image, and adding a Dockerfile to the repository starts no build. The administrator does this on the server:
+For a container project, Settings → Agent and model shows **Executor runs in a container**, the **Image used** and an **Environment preparation instructions** disclosure. The web interface does not define or build the image, and adding a Dockerfile to the repository starts no build. The administrator prepares it on the server:
 
 1. Create `executor/Dockerfile` in the repository, starting from the ADORE base image, with no credentials. The image needs Python, sh and the selected agent.
 2. Build it with the server's Docker or Podman and verify the agent and tool versions.
-3. With monitoring paused and no active jobs, set `execution.backend`, `container.image` and `container.required_tool_checks` in the project's `config.toml` (administrators see its path in the disclosure), then validate the profile.
+3. Select the image in the web interface as described below or, with monitoring paused and no active jobs, set `execution.backend`, `container.image` and `container.required_tool_checks` in the project's `config.toml` (administrators see its path in the disclosure), then validate the profile.
 
 ```
 FROM adore-executor-base:1.0.0
@@ -54,6 +56,8 @@ USER root
 # RUN ... install the project's system tools
 USER adore
 ```
+
+To use the image, choose the **Container runtime** (Docker or Podman) and the **Executor image** on step 2 of enrollment, or edit **Container runtime command** and **Agent container image** in Settings. The image is free text with suggestions read from the images on the ADORE server for that runtime (administrators only); a notice appears when the typed image is not on the server and another when the list cannot be read. Choosing an executor proposes an image whose tag starts with the executor name and a hyphen (for example `pi-`), preferring `adore-executor-base:`; it replaces only the old default or an earlier proposal, never a value you typed.
 
 Then confirm with **Check host prerequisites** and **Test AI connection**.
 

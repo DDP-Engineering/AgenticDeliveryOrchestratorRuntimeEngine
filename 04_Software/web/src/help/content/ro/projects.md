@@ -19,12 +19,12 @@ Alegeți **Înrolează un proiect nou** în [Proiecte](/projects). Asistentul gh
 | Pas | Ce cere |
 |---|---|
 | Repository și identitate | **URL-ul repository-ului** și **Citește repository-ul**: ADORE completează **Forge**, **Depozit**, **Gitea tea login**, **Ramură țintă** și ID-ul proiectului, pentru confirmare, și propune o **Calea clonei locale** pe care o puteți schimba. **Continuă** rămâne dezactivat până când repository-ul a fost citit. **Nume afișat** pornește de la numele repository-ului; **Descriere** este opțională. |
-| Agent și model | **Executor** (opencode, codex, pi sau qwen), **Model**, **Autentificare model** (api-key sau host-auth, doar pentru OpenCode și Codex) și **Referințe de mediu pentru credențiale**: nume de variabile precum LOCAL_API_KEY, niciodată valori. |
+| Agent și model | **Executor** (opencode, codex, pi sau qwen), **Model**, **Rulează în** (**Container** sau **Instalat pe server**), **Autentificare model** (api-key sau host-auth, doar pentru OpenCode și Codex) și **Referințe de mediu pentru credențiale**: nume de variabile precum LOCAL_API_KEY, niciodată valori; lăsați-le goale când imaginea sau executorul instalat se autentifică singur. Pentru Container urmează **Motor de containere** (docker sau podman) și **Imagine executor**: text liber cu sugestii din imaginile de pe serverul ADORE și un aviz când imaginea introdusă nu este acolo. Pentru Instalat pe server apar comanda nativă a executorului și câmpurile contului local. |
 | Eligibilitate, recenzori și limite | **Etichetă ready**, **Etichetă de aprobare**, **Revizori (separați prin virgulă)** opționali și patru limite per lucrare: lansări ale executorului, secunde active, cost raportat în USD și fișiere modificate. O limită de cost 0 dezactivează acea limită; nu înseamnă gratuit. |
 | Verificare | **Validează configurarea** verifică structura și folderele de pe server. **Verifică mediul** testează apoi Git, instrumentul forge și autentificarea, motorul de containere, agentul din imagine, fișierele AEGIS și, unde este posibil, endpointul modelului. Nu se publică nimic. |
 | Revizuire și creare | Afișează candidatul exact și locațiile de pe server. **Modifică** revine la un pas. **Creează cu preluarea oprită** clonează întâi repository-ul (dintr-un URL), verifică AEGIS și ramura țintă, apoi salvează proiectul; urmează **Deschide proiectul**. |
 
-Asistentul folosește profilul standard de container. Execuția locală nativă și configurările specializate de container folosesc metoda avansată cu TOML de server de mai jos.
+Pentru execuția locală nativă alegeți **Rulează în → Instalat pe server**. Configurările specializate de container folosesc metoda avansată cu TOML de server de mai jos.
 
 ## Importul configurației unui proiect {#import-project}
 

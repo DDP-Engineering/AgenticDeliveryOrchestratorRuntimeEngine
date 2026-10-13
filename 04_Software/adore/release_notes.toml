@@ -67,6 +67,11 @@ text = { en = "What's new lists the notes of each release in your language.", fr
 
 [[release.entry]]
 category = "improved"
+topic = { en = "Agents", fr = "Agents", de = "Agenten", ro = "Agenți" }
+text = { en = "Choose whether the agent runs in an image on the server or installed on it, with image suggestions.", fr = "Choisissez si l'agent tourne dans une image du serveur ou y est installé, avec suggestions d'images.", de = "Wählen Sie, ob der Agent in einem Server-Image läuft oder dort installiert ist; mit Vorschlägen.", ro = "Alegeți dacă agentul rulează într-o imagine de pe server sau instalat pe el, cu sugestii de imagini." }
+
+[[release.entry]]
+category = "improved"
 topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
 text = { en = "Projects offers three clear actions: enroll a new project, import a config, clone a config.", fr = "Projets propose trois actions : inscrire un projet, importer ou cloner une configuration.", de = "Projekte bietet drei Aktionen: Projekt registrieren, Konfiguration importieren oder klonen.", ro = "Proiecte oferă trei acțiuni: înrolează un proiect, importă sau clonează o configurație." }
 
@@ -102,13 +107,8 @@ text = { en = "Users lists each account's projects with their forge and reposito
 
 [[release.entry]]
 category = "improved"
-topic = { en = "Change history", fr = "Historique des changements", de = "Änderungsverlauf", ro = "Istoricul modificărilor" }
-text = { en = "Evidence opens below its event without moving the table columns.", fr = "Les preuves s'ouvrent sous leur événement sans déplacer les colonnes du tableau.", de = "Nachweise öffnen sich unter ihrem Ereignis, ohne die Tabellenspalten zu verschieben.", ro = "Dovezile se deschid sub eveniment, fără să mute coloanele tabelului." }
-
-[[release.entry]]
-category = "improved"
 topic = { en = "Navigation", fr = "Navigation", de = "Navigation", ro = "Navigare" }
-text = { en = "Refresh appears only on pages that do not update themselves.", fr = "Actualiser n'apparaît que sur les pages qui ne se mettent pas à jour seules.", de = "Aktualisieren erscheint nur auf Seiten, die sich nicht selbst aktualisieren.", ro = "Reîmprospătează apare doar pe paginile care nu se actualizează singure." }
+text = { en = "Refresh appears only where pages do not update themselves; evidence opens below its event.", fr = "Actualiser n'apparaît que sur les pages non automatiques ; les preuves s'ouvrent sous l'événement.", de = "Aktualisieren nur auf Seiten ohne Selbstaktualisierung; Nachweise öffnen sich unter dem Ereignis.", ro = "Reîmprospătează apare doar unde paginile nu se actualizează; dovezile se deschid sub eveniment." }
 
 [[release.entry]]
 category = "improved"

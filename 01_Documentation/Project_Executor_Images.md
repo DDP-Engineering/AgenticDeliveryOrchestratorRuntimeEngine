@@ -7,8 +7,11 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Project executor images
 
-Executor environments are prepared by the server administrator outside ADORE.
-For a container project, **Project → Settings → Agent and model** displays the effective
+The server administrator prepares the executor image outside ADORE: the Dockerfile
+and the build stay on the server. Choosing the image is done in ADORE: enrollment
+step 2 and **Project → Settings → Agent and model** offer **Runs in**, **Container
+runtime** and **Executor image**, with suggestions read from the images present on
+the server. For a container project, Settings also displays the effective
 image and expandable **Environment preparation instructions**. The administrator
 also sees the resolved server profile `config.toml` path; authorized developers
 see guidance to contact the administrator. Local projects omit this notice.
@@ -60,8 +63,16 @@ The suggested location is an operator convention, not a watched file contract.
 
 ## Select the prepared image
 
-Pause pickup and ensure there are no active jobs. Update the existing server
-profile at the path displayed to the administrator in Settings → Agent and model:
+In the web interface, choose the image in **Executor image** on enrollment step 2, or
+edit **Agent container image** in Settings → Agent and model. The field is free text
+and suggests the images present on the ADORE server (`<runtime> images`, for the
+selected **Container runtime**); a notice appears when the typed image is not on the
+server or the list cannot be read. Settings edits go through the reviewed
+configuration flow: prepare candidate, review, apply.
+
+To select the image in the server profile instead, pause pickup and ensure there are
+no active jobs. Update the existing server profile at the path displayed to the
+administrator in Settings → Agent and model:
 
 ```toml
 # Copyright (c) 2026 DDP Engineering
@@ -82,9 +93,10 @@ Run `adore --profile <name> config validate`, then the explicit host/model check
 as appropriate before resuming pickup. Image/tool availability, preparation,
 model access and full job readiness retain their separate evidence.
 
-For native execution, externally select `execution.backend = "local"` and follow
-[Local execution](Local_Execution.md). Guided creation uses the standard container
-profile; specialized profiles use existing server TOML enrollment.
+For native execution, choose **Installed on the server** in **Runs in** (or set
+`execution.backend = "local"` in the server profile) and follow
+[Local execution](Local_Execution.md). Specialized profiles use existing server
+TOML enrollment.
 
 ## Historical evidence and recovery
 
@@ -92,7 +104,9 @@ Existing image-build records remain in each profile. Authorized scoped read,
 export, status and cancel routes retain evidence and owned interrupted cleanup.
 Definition saves and build submissions return HTTP 410
 `environment_managed_externally`. Environment setting edits/staging/application
-return HTTP 400 with the same code; existing dedicated AI endpoint edits remain
-available. Retained queued image-build requests fail without launching a runtime.
-Old pending environment candidates remain readable and discardable; they cannot
-be applied. Existing profiles, installed images and database schema are retained.
+return HTTP 400 with the same code, except `execution.backend`, `container.runtime`,
+`container.image` and the `local.*` account keys, which use the reviewed
+configuration flow; existing dedicated AI endpoint edits remain available.
+Retained queued image-build requests fail without launching a runtime.
+Old pending candidates for other environment keys remain readable and discardable;
+they cannot be applied. Existing profiles, installed images and database schema are retained.

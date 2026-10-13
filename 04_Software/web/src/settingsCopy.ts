@@ -186,7 +186,7 @@ export function settingLabel(key: string): string {
  const labels: Record<string, string> = {
  "labels.lifecycle.ready": "Ready for pickup label", "labels.lifecycle.answered": "Clarification answered label",
  "labels.control.exclude": "Exclude from pickup label",
- "execution.backend": "Execution backend",
+ "execution.backend": "Runs in",
  "execution.preparation": "Reviewed preparation recipe",
  "execution.preparation_step_timeout_seconds": "Preparation step limit (seconds)",
  "execution.preparation_total_timeout_seconds": "Preparation total limit (seconds)",

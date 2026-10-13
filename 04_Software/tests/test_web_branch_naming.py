@@ -127,7 +127,7 @@ def test_preview_http_and_external_environment_boundaries(project):
     for invalid in [{"template": 1}, {"rule": None}, {"extra": "forbidden"},
                     {"template": "x" * 513}, {"rule": "x" * 513}, {"revision": "bad"}]:
         assert client.post(target, headers=headers, json={**body, **invalid}).status_code == 422
-    for key in ("worktree.root", "worktree.repo_path", "container.image", "execution.backend"):
+    for key in ("worktree.root", "worktree.repo_path", "container.uv_cache_volume"):
         for method, route in [(client.post, "config/pending"), (client.put, "config")]:
             response = method(f"/api/v1/projects/alpha/{route}", headers=headers,
                               json={"key": key, "value": "anything", "revision": revision})

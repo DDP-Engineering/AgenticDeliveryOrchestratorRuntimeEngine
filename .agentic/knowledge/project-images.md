@@ -10,7 +10,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 ## Routing
 
 Start at web/app.py config/image routes and CommandWorker for external-ownership
-boundaries; ExecutorEnvironment.tsx owns read-only guidance. Artifact retention and
+boundaries; ExecutorEnvironment.tsx owns read-only guidance; serverImages.ts owns
+server image suggestions. Artifact retention and
 owned cleanup start at image_build.py/image_build_runner.py. Runtime execution
 belongs to execution.py; recipes to preparation.md; native execution to
 local-execution.md.
@@ -18,14 +19,19 @@ local-execution.md.
 ## Purpose and boundaries
 
 Preserve historical scoped image records, exports and owned interruption recovery.
-External administrator owns Dockerfile/build/image selection. Web GUI displays
-instructions/current effective image; no build or environment editor is exposed.
+External administrator owns Dockerfile/build. Backend, runtime and image selection
+are administrator choices at enrollment and in reviewed Settings edits. Web GUI
+displays instructions/current effective image; no image definition or build editor is
+exposed.
 
 ## Public interface
 
 Historical scoped GET/export/status/cancel remain. Authorized definition PUT and
 operation POST return 410 environment_managed_externally; config environment
-PUT/stage/old apply return400. Config GET executor_environment contains backend,
+PUT/stage/old apply return400, except execution.backend, container.runtime,
+container.image and local.account/home/path/cgroup_root (reviewed flow; direct PUT 409
+pending_config_required). GET /api/v1/executor-images (Admin, read-only) lists server
+images per runtime. Config GET executor_environment contains backend,
 effective image (or null if unresolvable), and resolved config_path only for Admin.
 
 ## Invariants
@@ -39,7 +45,7 @@ schema migration. The dedicated AI endpoint remains supported independently.
 
 REQ-UX-01d189b8: conditional four-locale Dockerfile/profile guidance, real Admin
 path, Dev omission and responsive disclosure. REQ-FUNC-6b8494a7: all web environment
-mutation paths fail before writes/builds; old candidates remain readable and
+mutation paths for the other environment keys fail before writes/builds; old candidates remain readable and
 can be discarded. Runtime/readiness/preparation retain their own authority.
 
 ## Architecture

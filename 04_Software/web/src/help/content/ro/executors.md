@@ -20,7 +20,7 @@ Deschideți **Autentificare** în același grup. Un proiect se poate autentifica
 - **Abonament sau autentificare pe gazdă.** Agentul folosește propria autentificare de pe serverul ADORE, sub contul de serviciu, configurată în afara interfeței web (secțiunea **Autentificare prin abonament sau browser** indică comanda). **Folosește autentificarea agentului de pe gazdă** este o punte pilot care copiază acea autentificare în container, doar pentru OpenCode și Codex. Un abonament ChatGPT nu este o cheie API OpenAI.
 - **Valori gestionate de mediu.** O variabilă deja setată în mediul serverului ADORE este etichetată **Setată pe serverul ADORE; administrată extern**. Interfața web nu o poate suprascrie.
 
-Valorile credențialelor nu apar niciodată în revizuiri, înregistrări de audit sau exporturi. O listă goală de variabile este validă cu autentificarea existentă pe server.
+Valorile credențialelor nu apar niciodată în revizuiri, înregistrări de audit sau exporturi. O listă goală de variabile este validă cu autentificarea existentă pe server, precum și în modul api-key când imaginea sau executorul instalat se autentifică singur.
 
 ## Testarea conexiunii AI {#test-connection}
 
@@ -36,17 +36,19 @@ Rezultatul este **Model AI conectat** sau **Conexiunea AI nu a putut fi verifica
 | Mediu | O imagine de proiect pregătită de administrator | Unelte, versiuni și biblioteci pe care le instalați singuri pe acel server |
 | Autentificare | Chei API listate sau autentificare pe gazdă | Autentificarea existentă a agentului pe acel cont, reutilizată pe loc |
 | Izolare | Container cu politică de rețea | Doar worktree-ul; comenzile pot ajunge oriunde poate ajunge contul, deci folosiți un cont dedicat cu privilegii minime |
-| Alegere | Implicit pentru proiectele adăugate aici | În afara interfeței web, în profilul serverului sau prin înrolare TOML |
+| Alegere | **Rulează în** → **Container**, implicit, la pasul 2 al înrolării sau în Setări → Agent și model | **Rulează în** → **Instalat pe server**, sau în profilul serverului ori prin înrolare TOML |
+
+Modificările din Setări trec prin **Pregătește candidatul**, revizuire și **Aplică**. **Instalat pe server** afișează comanda nativă a executorului și câmpurile contului local (contul `current`, directorul home, PATH și, pe Linux, rădăcina cgroup), împreună cu avizul despre execuția locală.
 
 Verificările gazdei pentru un proiect local omit motorul de containere și verifică agentul nativ și autentificarea lui.
 
 ## Imaginea proiectului {#project-image}
 
-Pentru un proiect cu container, Setări → Agent și model afișează **Executorul rulează într-un container**, **Imagine utilizată** și o secțiune **Instrucțiuni pentru pregătirea mediului**. Interfața web nu definește, nu construiește și nu selectează imaginea, iar adăugarea unui Dockerfile în repository nu pornește nicio construire. Administratorul face aceasta pe server:
+Pentru un proiect cu container, Setări → Agent și model afișează **Executorul rulează într-un container**, **Imagine utilizată** și o secțiune **Instrucțiuni pentru pregătirea mediului**. Interfața web nu definește și nu construiește imaginea, iar adăugarea unui Dockerfile în repository nu pornește nicio construire. Administratorul o pregătește pe server:
 
 1. Creați `executor/Dockerfile` în repository, pornind de la imaginea de bază ADORE, fără credențiale. Imaginea are nevoie de Python, sh și agentul selectat.
 2. Construiți-o cu Docker sau Podman de pe server și verificați versiunile agentului și ale uneltelor.
-3. Cu monitorizarea în pauză și fără lucrări active, setați `execution.backend`, `container.image` și `container.required_tool_checks` în `config.toml` al proiectului (administratorii văd calea lui în secțiunea de instrucțiuni), apoi validați profilul.
+3. Selectați imaginea în interfața web, așa cum este descris mai jos, sau, cu monitorizarea în pauză și fără lucrări active, setați `execution.backend`, `container.image` și `container.required_tool_checks` în `config.toml` al proiectului (administratorii văd calea lui în secțiunea de instrucțiuni), apoi validați profilul.
 
 ```
 FROM adore-executor-base:1.0.0
@@ -54,6 +56,8 @@ USER root
 # RUN ... install the project's system tools
 USER adore
 ```
+
+Pentru a folosi imaginea, alegeți **Motor de containere** (Docker sau Podman) și **Imagine executor** la pasul 2 al înrolării sau modificați aceleași rânduri în Setări. Imaginea este un câmp liber cu sugestii citite din imaginile de pe serverul ADORE pentru acel motor (doar administratori); apare un aviz când imaginea introdusă nu este pe server și altul când lista nu poate fi citită. Alegerea unui executor propune o imagine a cărei etichetă începe cu numele executorului urmat de cratimă (de exemplu `pi-`), de preferat `adore-executor-base:`; înlocuiește doar vechea valoare implicită sau o propunere anterioară, niciodată o valoare introdusă.
 
 Apoi confirmați cu **Verifică cerințele gazdei** și **Testează conexiunea AI**.
 

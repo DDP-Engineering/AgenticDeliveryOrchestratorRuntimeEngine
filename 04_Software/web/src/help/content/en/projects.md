@@ -19,12 +19,12 @@ Choose **Enroll new project** on [Projects](/projects). The guided wizard starts
 | Step | What it asks |
 |---|---|
 | Repository and identity | **Repository URL** and **Read repository**: ADORE fills in **Forge**, **Repository**, **Gitea tea login**, **Target branch** and the project ID for you to confirm, and proposes a **Local clone path** you can change. **Continue** stays disabled until the repository has been read. **Display name** starts as the repository name; **Description** is optional. |
-| Agent and model | **Executor** (opencode, codex, pi or qwen), **Model**, **Model authentication** (api-key, or host-auth for OpenCode and Codex only) and **Credential environment references**: variable names such as LOCAL_API_KEY, never values. |
+| Agent and model | **Executor** (opencode, codex, pi or qwen), **Model**, **Runs in** (**Container** or **Installed on the server**), **Model authentication** (api-key, or host-auth for OpenCode and Codex only) and **Credential environment references**: variable names such as LOCAL_API_KEY, never values; leave them empty when the image or the installed executor signs in by itself. For Container, **Container runtime** (docker or podman) and **Executor image** follow: free text with suggestions from the images on the ADORE server, and a notice when the typed image is not there. For Installed on the server, the native executor command and the local account fields appear. |
 | Eligibility, reviewers and limits | **Ready label**, **Approval label**, optional **Reviewers (comma-separated)** and four job limits: executor launches, active seconds, reported cost in USD and changed files. A cost cap of 0 switches that cap off; it does not mean free. |
 | Verification | **Validate setup** checks structure and server folders. **Check environment** then tests Git, the forge tool and sign-in, the container engine, the agent in the image, the AEGIS files and, where possible, the model endpoint. Nothing is published. |
 | Review and create | Shows the exact candidate and server locations. **Change** returns to a step. **Create project with pickup stopped** first clones the repository (from a URL), checks AEGIS and the target branch, then saves the project; **Open project** follows. |
 
-The wizard uses the standard container profile. Native local execution and specialized container setups use the advanced server TOML method below.
+For native local execution choose **Runs in → Installed on the server**. Specialized container setups use the advanced server TOML method below.
 
 ## Import project config {#import-project}
 

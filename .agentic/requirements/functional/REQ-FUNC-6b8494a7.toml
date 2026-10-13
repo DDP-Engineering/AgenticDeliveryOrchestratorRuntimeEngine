@@ -7,10 +7,12 @@ schema = 1
 id = "REQ-FUNC-6b8494a7"
 title = "Keep executor environment mutations outside the web application"
 status = "active"
-requirement = "When a web request or retained queued operation attempts to change execution/environment settings or define/build an image, ADORE shall refuse it before configuration, artifact or runtime mutation, preserving scoped historical evidence, discard/recovery and existing executor/model/readiness operations."
-verification = "Authorized API tests refuse environment direct/stage/old candidate apply and image definition/build submissions without side effects; worker rejects retained queued builds without runtime calls; existing non-environment edits, historical reads and discard work."
+requirement = """
+When a web request or retained queued operation attempts to define or build an image, or to change an environment setting other than execution.backend, container.runtime, container.image and local.account, local.home, local.path and local.cgroup_root, ADORE shall refuse it before configuration, artifact or runtime mutation, preserving scoped historical evidence, discard/recovery and existing executor/model/readiness operations; the listed settings change only through reviewed, validated configuration.
+"""
+verification = "Authorized API tests refuse other environment keys (direct, staged and legacy candidates) and image definition/build submissions without side effects, accept reviewed edits of the listed keys with validation, and the worker rejects retained queued builds without runtime calls."
 affected_paths = ["04_Software/adore/web/app.py", "04_Software/adore/web/commands.py"]
-linked_tests = ["04_Software/tests/test_web_image_build.py", "04_Software/tests/test_web_pending_config.py::test_legacy_environment_candidate_is_readable_discardable_but_not_applicable"]
+linked_tests = ["04_Software/tests/test_web_image_build.py", "04_Software/tests/test_web_pending_config.py::test_legacy_environment_candidate_is_readable_discardable_but_not_applicable", "04_Software/tests/test_executor_environment_choice.py"]
 priority = "high"
 created = 2026-10-08
-updated = 2026-10-08
+updated = 2026-10-13

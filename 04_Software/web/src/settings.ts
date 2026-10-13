@@ -34,6 +34,7 @@ type CommonKind = "text" | "positive" | "forge" | "runtime" | "executor";
 export const COMMON_SETTINGS: Array<{ key: string; label: MessageKey; kind: CommonKind }> = [
   { key: "platform.repo", label: "repository", kind: "text" },
   { key: "platform.kind", label: "forge", kind: "forge" },
+  { key: "execution.backend", label: "runsIn", kind: "text" },
   { key: "container.runtime", label: "runtime", kind: "runtime" },
   { key: "container.image", label: "image", kind: "text" },
   { key: "executor.default", label: "executor", kind: "executor" },
@@ -142,15 +143,21 @@ export function settingPurpose(key: string): string {
   if (["labels", "polling", "readiness"].includes(key.split(".")[0]) || key === "workflow.default_kind" || key.startsWith("workflow.kind_labels")) return "tickets";
   if (key.startsWith("delivery.") || key.startsWith("review.")) return "reviews";
   if (key.startsWith("metrics.")) return "statistics";
-  if (key.startsWith("executor.")) return "executor";
+  if (key.startsWith("executor.") || CHOSEN_ENVIRONMENT_KEYS.has(key)) return "executor";
   if (key.startsWith("container.") || key.startsWith("execution.") || key.startsWith("local.")) return "environment";
   return "technical";
 }
 
+/** Environment settings administrators choose in Agent and model; the rest stays external. */
+export const CHOSEN_ENVIRONMENT_KEYS = new Set(["execution.backend", "container.runtime", "container.image",
+  "local.account", "local.home", "local.path", "local.cgroup_root"]);
+
 /** Only known informational worktree fields accompany the external environment. */
-export function settingVisible(key: string, executorOnly = false, agent?:string): boolean {
+export function settingVisible(key: string, executorOnly = false, agent?:string, backend = "container"): boolean {
   if (agent && key.startsWith("executor.commands.") && key.split(".")[2] !== agent) return false;
   if (HIDDEN_SETTING_KEYS.has(key)) return false;
+  // Container rows for container projects, local-account rows for local ones.
+  if (CHOSEN_ENVIRONMENT_KEYS.has(key)) return key === "execution.backend" || key.startsWith("local.") === (backend === "local");
   if (["container.", "execution.", "local."].some(prefix => key.startsWith(prefix))) return false;
   if (key.startsWith("worktree.") && !["worktree.repo_path", "worktree.root", "worktree.branch_template", "worktree.branch_rule"].includes(key)) return false;
   return !executorOnly || key.startsWith("executor.");

@@ -10,8 +10,9 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 ## 1. Purpose
 
 Preserve historical project image evidence and owned interruption recovery while
-executor environment definition, build and selection are operator actions outside
-ADORE. Executor configuration explains that external workflow.
+executor image definition and build are operator actions outside ADORE; backend,
+container runtime and image selection are administrator choices at enrollment and in
+reviewed Settings edits. Executor configuration explains both.
 
 ## 2. Responsibilities
 

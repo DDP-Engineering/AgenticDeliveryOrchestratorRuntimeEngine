@@ -142,7 +142,8 @@ compatible binary for rollback. No earlier run-state schema is migrated.
 `ExecutionBackend` supplies paths/shell, executor homes/auth destinations,
 provisioning, tool checks, identity, bound commands, stop/interrupt and owned
 cleanup. `ContainerBackend` and `LocalBackend` supply their respective transports.
-Executor image definition/build and environment selection are external operator
-actions; container recipes retain normalized image/command authority. Portable rule
-exports keep their existing narrow allowlist and never carry executable selection,
+Executor image definition/build and the other environment settings (preparation,
+cache volume, run arguments) are external operator actions; backend, container runtime
+and image selection use enrollment or the reviewed settings flow. Container recipes
+retain normalized image/command authority. Portable rule exports keep their existing narrow allowlist and never carry executable selection,
 runtime environment, credentials or recipes.
