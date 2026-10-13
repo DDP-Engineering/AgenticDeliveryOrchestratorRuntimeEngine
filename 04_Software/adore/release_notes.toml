@@ -67,6 +67,11 @@ text = { en = "How ADORE works opens a help center; What's new lists each releas
 
 [[release.entry]]
 category = "improved"
+topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
+text = { en = "Before you create a project, see which settings keep their defaults.", fr = "Avant de créer un projet, voyez quels paramètres gardent leur valeur par défaut.", de = "Vor dem Anlegen sehen Sie, welche Einstellungen ihre Standardwerte behalten.", ro = "Înainte de a crea un proiect, vedeți ce setări își păstrează valorile implicite." }
+
+[[release.entry]]
+category = "improved"
 topic = { en = "Agents", fr = "Agents", de = "Agenten", ro = "Agenți" }
 text = { en = "Choose whether the agent runs in an image on the server or installed on it, with image suggestions.", fr = "Choisissez si l'agent tourne dans une image du serveur ou y est installé, avec suggestions d'images.", de = "Wählen Sie, ob der Agent in einem Server-Image läuft oder dort installiert ist; mit Vorschlägen.", ro = "Alegeți dacă agentul rulează într-o imagine de pe server sau instalat pe el, cu sugestii de imagini." }
 
@@ -98,12 +103,7 @@ text = { en = "Settings follow the delivery flow and explain every value in four
 [[release.entry]]
 category = "improved"
 topic = { en = "Administration", fr = "Administration", de = "Verwaltung", ro = "Administrare" }
-text = { en = "System status shows the current retention limits and a compact storage summary.", fr = "État du système affiche les limites de conservation actuelles et un résumé du stockage.", de = "Systemstatus zeigt die aktuellen Aufbewahrungsgrenzen und eine kompakte Speicherübersicht.", ro = "Starea sistemului arată limitele de păstrare curente și un rezumat compact al stocării." }
-
-[[release.entry]]
-category = "improved"
-topic = { en = "Administration", fr = "Administration", de = "Verwaltung", ro = "Administrare" }
-text = { en = "Users lists each account's projects with their forge and repository path.", fr = "Utilisateurs liste les projets de chaque compte avec leur forge et leur dépôt.", de = "Benutzer listet die Projekte jedes Kontos mit Forge und Repository-Pfad.", ro = "Utilizatori listează proiectele fiecărui cont cu forge-ul și calea depozitului." }
+text = { en = "System status shows retention and storage; Users lists each account's projects.", fr = "État du système montre conservation et stockage ; Utilisateurs liste les projets de chaque compte.", de = "Systemstatus zeigt Aufbewahrung und Speicher; Benutzer listet die Projekte jedes Kontos.", ro = "Starea sistemului arată păstrarea și stocarea; Utilizatori listează proiectele fiecărui cont." }
 
 [[release.entry]]
 category = "improved"

@@ -13,6 +13,9 @@ import { portableFields } from "./portable";
 import { localCopy } from "./localExecution";
 import { proposeImage, readServerImages, type ServerImages } from "./serverImages";
 import { forgeLabelsCopy, LabelReportView, validLabelReport, type LabelReport } from "./ForgeLabels";
+import { settingDisplayLabel } from "./settingLabels";
+import { settingPurpose, settingVisible, PURPOSE_GROUPS } from "./settings";
+import { pipelineFailureValue, publicationValue, settingsCopy } from "./settingsCopy";
 import { HelpLink } from "./HelpCenter";
 import { CONTEXT_TOPICS } from "./help/topics.ts";
 
@@ -29,7 +32,8 @@ type FieldName = keyof Draft;
 type Finding = { code: string; field: string; remediation: string };
 type Preview = { structural_valid: boolean; issues: Finding[]; revision: string | null;
   config_revision: string | null; review: Record<string, unknown> | null; source_revision?: string;
-  mapping?: { key: string; source_value: unknown; server_value: unknown; effect: string }[] };
+  mapping?: { key: string; source_value: unknown; server_value: unknown; effect: string }[];
+  defaults?: { key: string; value: unknown }[] };
 type Verification = { status: "failed" | "partial" | "verified"; draft_revision: string; revision: string;
   checked_at: string; checks: Record<string, boolean | null | "not-checked"> };
 type Created = { id: string; name: string; display_name: string; pickup_state: string; paused: boolean };
@@ -43,6 +47,34 @@ const validDetected = (value: unknown): value is Detected => {
     && /^[a-z0-9][a-z0-9._-]{0,63}$/.test(item.name) && typeof item.display_name === "string" && typeof item.repo_path === "string"
     && ["new", "existing"].includes(item.clone);
 };
+/** A default value as Settings shows it. */
+function shownValue(key: string, value: unknown, locale: Locale): string {
+  if (key === "delivery.draft") return publicationValue(value, locale) ?? String(value);
+  const failure = key === "review.on_pipeline_failure" ? pipelineFailureValue(value, locale) : null;
+  if (failure !== null) return failure;
+  if (value === "" || value === null || value === undefined) return "—";
+  return typeof value === "object" ? JSON.stringify(value) : String(value);
+}
+
+/** Read-only list of the settings that keep ADORE's defaults, grouped like Settings. */
+function DefaultSettings({ defaults, locale, agent, backend }: {
+  defaults?: { key: string; value: unknown }[]; locale: Locale; agent: string; backend: string;
+}) {
+  const c = enrollmentCopy[locale];
+  // Same visibility as Settings for this project's agent and backend.
+  const rows = (Array.isArray(defaults) ? defaults : []).filter(item => typeof item?.key === "string" && settingVisible(item.key, false, agent, backend));
+  if (!rows.length) return null;
+  return <details className="enrollment-review enrollment-defaults">
+    <summary>{c.defaultsTitle} ({rows.length})</summary>
+    <p className="muted">{c.defaultsHelp}</p>
+    {PURPOSE_GROUPS.map(group => {
+      const items = rows.filter(item => settingPurpose(item.key) === group);
+      return items.length > 0 && <section key={group}><h4>{settingsCopy[locale][group as keyof typeof settingsCopy.en] as string}</h4>
+        <dl>{items.map(item => <div key={item.key}><dt>{settingDisplayLabel(item.key, locale)}</dt><dd>{shownValue(item.key, item.value, locale)}</dd></div>)}</dl></section>;
+    })}
+  </details>;
+}
+
 /** Locale-neutral example values shown in empty fields. */
 const examples: Partial<Record<string, string>> = { clone_url: "https://github.com/owner/repository",
   login: "gitea-main", repo_path: "/home/adore/repos/payments", target_branch: "main", model: "provider/model-name",
@@ -502,6 +534,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
               worktree_root: c.worktrees, repo_path: t("clonePath"), metrics_db: "metrics.db", metrics_jsonl: "metrics JSONL", metrics_html: "metrics HTML" }[key]}</dt>
               <dd>{String(reviewed.preview.review?.[key] ?? "—")}</dd></div>)}</dl></section>
           <p className="enrollment-digest">{c.revision}: {reviewed.preview.revision}</p><p>{c.createEffect}</p>
+          <DefaultSettings defaults={reviewed.preview.defaults} locale={locale} agent={reviewed.draft.executor_cli} backend={reviewed.draft.execution_backend} />
           <label className="forge-labels-option"><input type="checkbox" checked={createLabels} onChange={event => setCreateLabels(event.target.checked)} />
             <span>{forgeLabelsCopy[locale].option}</span></label>
         </>}

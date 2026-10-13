@@ -75,6 +75,12 @@ test("enrollment reads a repository URL, derives the ID and clones at creation",
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(page.locator(".enrollment-review").first()).toContainText("ssh://git@forge.e2e.invalid:2222/team/url-service.git");
   await expect(page.locator(".enrollment-review").first()).toContainText(custom);
+  // Settings left at ADORE's defaults are listed read-only, grouped like Settings.
+  const defaults = page.locator(".enrollment-defaults");
+  await defaults.locator("summary").click();
+  await expect(defaults).toContainText("Ticket check interval (seconds)");
+  await expect(defaults).toContainText("change any of them in Settings");
+  await expect(defaults.getByRole("textbox")).toHaveCount(0);
   // Creating the ADORE labels in the repository is on by default.
   await expect(page.getByRole("checkbox", { name: /Create the ADORE labels in the repository/ })).toBeChecked();
   await page.getByRole("button", { name: "Create project with pickup stopped", exact: true }).click();

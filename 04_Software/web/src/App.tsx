@@ -29,7 +29,7 @@ import { ExecutionPlanReview } from "./ExecutionPlanReview";
 import { type ExecutionPlan } from "./executionPlan";
 import { settingHelp } from "./settingHelp";
 import { durationParts, executionStages, implementationDraft, implementationEditorCopy } from "./implementationSettings";
-import { compactReviewCopy, settingsCopy, technicalSettingsHelp, settingLabel, statisticsDatabaseCopy, publicationCopy, publicationValue, pipelineFailureCopy, pipelineFailureValue, reviewerCopy, targetBranchCopy, excludeLabelCopy, lifecycleCopy, branchNamingCopy, branchSettingLabel, implementationSettingLabel, localizedSettingLabel } from "./settingsCopy";
+import { compactReviewCopy, settingsCopy, technicalSettingsHelp, settingLabel, publicationCopy, publicationValue, pipelineFailureCopy, pipelineFailureValue, reviewerCopy, targetBranchCopy, excludeLabelCopy, lifecycleCopy, branchNamingCopy, branchSettingLabel, implementationSettingLabel, localizedSettingLabel } from "./settingsCopy";
 import { ImportWizard } from "./ImportWizard";
 import { RawConfiguration } from "./RawConfiguration";
 import { TransferWizard } from "./TransferWizard";
@@ -48,6 +48,7 @@ import { DataFeedback, ProjectEmpty, StatusBadge, type DataState, type ScopedSta
 import { HelpCenter, HelpLink } from "./HelpCenter";
 import { readServerImages, type ServerImages } from "./serverImages";
 import { ForgeLabelsAction } from "./ForgeLabels";
+import { settingDisplayLabel } from "./settingLabels";
 import { enrollmentCopy } from "./enrollmentCopy";
 import { DeleteCloneOption } from "./DeleteCloneOption";
 import { CONTEXT_TOPICS, type HelpTopic } from "./help/topics.ts";
@@ -1436,7 +1437,7 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
   const copy = settingsCopy[locale];
   const shown = (value: unknown) => value == null || value === "" ? "—" :
     Array.isArray(value) || typeof value === "object" ? JSON.stringify(value) : String(value);
-  const label = (row: SettingRow) => executorSettingLabel(row.key,locale) || branchSettingLabel(row.key, locale) || implementationSettingLabel(row.key, locale) || localizedSettingLabel(row.key, locale) || lifecycleCopy[locale].labels[row.key] || (row.key === "metrics.db_path" ? statisticsDatabaseCopy[locale].label : row.key === "review.on_pipeline_failure" ? pipelineFailureCopy[locale].label : row.key === "labels.control.exclude" ? excludeLabelCopy[locale].label : row.key === "delivery.target_branch" ? targetBranchCopy[locale].label : row.key === "delivery.reviewers" ? reviewerCopy[locale].label : row.key === "delivery.draft" ? publicationCopy[locale].label : locale === "en" ? settingLabel(row.key) : row.label ? t(row.label) : (settingHelp(row.key, locale)?.split(". ")[0] || settingLabel(row.key)));
+  const label = (row: SettingRow) => settingDisplayLabel(row.key, locale);
   const editorCopy = implementationEditorCopy[locale];
   const typedKinds = ["duration", "retry-delays", "stage-timeouts"];
   const typedValue = (row: SettingRow) => {

@@ -495,6 +495,8 @@ td.strong { font-weight: 800; }
 .action-result.warn { background: var(--warning-soft); color: var(--warning); border-color: var(--warning); }
 .action-result.fail { background: var(--danger-soft); color: var(--danger); border-color: var(--danger); }
 .action-result.muted { background: var(--surface-alt); color: var(--muted); border-color: var(--border); font-weight: 400; }
+.enrollment-defaults summary { cursor: pointer; font-weight: 650; }
+.enrollment-defaults h4 { margin: 14px 0 6px; }
 .enrollment-complete .forge-labels { margin: 18px 0 20px; }
 .forge-labels-option { flex-direction: row; align-items: flex-start; gap: .6rem; font-weight: 400; margin: 6px 0 12px; }
 .forge-labels-option input[type="checkbox"] { width: 1.05rem; height: 1.05rem; min-height: 0; margin: .1rem 0 0; padding: 0; flex: none; }

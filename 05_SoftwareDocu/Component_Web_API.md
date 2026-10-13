@@ -589,7 +589,9 @@ Preparation uses the existing wizard in prepare-only mode and its configuration 
 The generated comment is deterministic for web setup, so identical drafts yield identical
 config bytes across requests. No external commands or profile writes occur during preview.
 
-`setup-preview` returns `revision`, `config_revision` and canonical `review` for a valid
+`setup-preview` returns `revision`, `config_revision`, canonical `review` and `defaults` (every
+editable setting whose effective value equals ADORE's built-in default, as `[{key, value}]`,
+shown read-only on Review and create) for a valid
 candidate. The draft SHA-256 binds exact config bytes, profile name, display name and
 description. Review includes complete setup, resolved env-key names and absolute config,
 state and worktree paths. Invalid candidates keep null review/digests and structured findings.

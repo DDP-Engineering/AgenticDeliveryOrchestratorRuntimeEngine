@@ -711,4 +711,23 @@ def test_readiness_rejects_tampered_valid_record_fields(tmp_path, field, value):
         assert result.json()["detail"]["issues"][0]["code"] == "readiness_corrupt"
 
 
+def test_preview_lists_the_settings_that_keep_their_defaults(tmp_path):
+    """@brief Review and create shows every editable setting still at ADORE's default."""
+    app = create_app(tmp_path / "home", probe_runner=_no_probe)
+    with TestClient(app) as client:
+        headers = _login(client)
+        kept = client.post("/api/v1/projects/setup-preview", json=_body(tmp_path),
+                           headers=headers).json()
+        changed = client.post("/api/v1/projects/setup-preview",
+                              json=_body(tmp_path, max_cost_usd=2.5), headers=headers).json()
+    defaults = {item["key"]: item["value"] for item in kept["defaults"]}
+    assert defaults["polling.poll_interval_seconds"] == 60
+    assert defaults["labels.lifecycle.working"] == "agent-working"
+    assert defaults["budgets.max_cost_usd"] == 5.0
+    assert all(set(item) == {"key", "value"} for item in kept["defaults"])
+    # A value changed in the wizard is no longer a default.
+    assert "budgets.max_cost_usd" not in {item["key"] for item in changed["defaults"]}
+
+
 # END OF FILE
+

@@ -257,6 +257,9 @@ mode, where credential references are optional.
 `ForgeLabels.tsx` offers the label option on Review and create (ticked by default; after
 creation the wizard calls `labels/ensure` and shows the report, a failure leaving the project
 created) and **Create missing labels** in Settings → Repository.
+Review and create also shows `DefaultSettings`: the preview's `defaults` grouped by
+`settingPurpose`, named by `settingLabels.ts` (`settingDisplayLabel`, the label function
+Settings uses too) and formatted like Settings values, read-only.
 The separate human display name and stable profile ID are reviewed with forge
 identity, target branch, selected Gitea tea login, credential environment names,
 ready/approval labels, reviewers, four run limits and canonical server paths.

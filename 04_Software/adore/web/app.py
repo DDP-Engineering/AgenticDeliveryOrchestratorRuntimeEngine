@@ -860,7 +860,7 @@ def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, 
     preview = {"name": body.name, "display_name": display, "structural_valid": not issues,
                "issues": issues, "pickup": "stopped-on-create",
                "verification": {"status": "unverified"}, "revision": None,
-               "config_revision": None, "review": None}
+               "config_revision": None, "review": None, "defaults": []}
     if candidate is not None and not issues:
         config = _config_from_bytes(candidate.document.encode("utf-8"))
         snapshot = {"document": candidate.document, "name": body.name,
@@ -869,6 +869,7 @@ def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, 
         preview["revision"] = sha256(json.dumps(snapshot, sort_keys=True,
                                                ensure_ascii=False).encode("utf-8")).hexdigest()
         preview["config_revision"] = sha256(candidate.document.encode("utf-8")).hexdigest()
+        preview["defaults"] = _preview_defaults(candidate.document)
         preview["review"] = {
             **body.model_dump(exclude={"revision", "env_keys"}),
             "display_name": display,
@@ -890,6 +891,26 @@ def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, 
             preview["review"]["local_execution"] = {
                 key: context[key] for key in ("machine", "account", "system")}
     return preview, candidate
+
+
+def _preview_defaults(document: str) -> list[dict]:
+    """
+    @brief      Editable settings of a candidate that stay at ADORE's default.
+    @param[in]  document Candidate configuration TOML (after every copied rule).
+    @return     [{key, value}] shown read-only on Review and create.
+    """
+    try:
+        effective = _redact_config(_config_from_bytes(document.encode("utf-8")).to_dict())
+        effective.pop("raw", None)
+        metadata = _setting_metadata(effective, document.encode("utf-8"))
+    except (ValueError, TypeError, AttributeError, tomllib.TOMLDecodeError):
+        return []  # an informational list never blocks the review
+    listed = []
+    for item in metadata:
+        value = _value_at(effective, item["key"])
+        if item["editable"] and item["default"] is not None and value == item["default"]:
+            listed.append({"key": item["key"], "value": value})
+    return listed
 
 
 def _transfer_paths(profiles: ProfileStore, config, name: str, *, own_target: bool = False) -> None:
@@ -976,9 +997,12 @@ def _prepare_transfer(profiles: ProfileStore, body: TransferInput,
                 key + " = " + json.dumps(settings[section][key]) for key in keys) + "\n"
         config = _config_from_bytes(document.encode("utf-8"))
         preview["issues"].extend(_config_findings(config))
+        preview["defaults"] = []  # only a valid clone gets its (recomputed) defaults list
         if not preview["issues"]:
             _transfer_paths(profiles, config, body.target.name)
             candidate.document = document
+            # The copied rules are no longer defaults.
+            preview["defaults"] = _preview_defaults(document)
             preview["config_revision"] = sha256(document.encode("utf-8")).hexdigest()
             preview["revision"] = sha256(json.dumps({
                 "config_revision": preview["config_revision"],

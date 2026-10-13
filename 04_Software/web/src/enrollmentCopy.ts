@@ -39,6 +39,7 @@ const en = {
   idExists: "This ID already belongs to a project. Choose another stable ID.",
   idReserved: "This ID is reserved for server routes or system use. Choose another stable ID.",
   checkPassed: "Passed", checkFailed: "Failed", notChecked: "Unverified",
+  defaultsTitle: "Settings left at their defaults", defaultsHelp: "These settings keep ADORE's default values. You can change any of them in Settings after the project is created.",
   aegisAtCreate: "Checked when the repository is cloned at creation.",
   checkHelp: {
     git: "Install Git on the ADORE server, then check again.",
@@ -80,6 +81,7 @@ export const enrollmentCopy: Record<Locale, Copy> = {
     idExists: "Cet identifiant appartient déjà à un projet. Choisissez un autre identifiant stable.",
     idReserved: "Cet identifiant est réservé aux routes serveur ou au système. Choisissez-en un autre.",
     checkPassed: "Réussi", checkFailed: "Échec", notChecked: "Non vérifié",
+    defaultsTitle: "Paramètres laissés par défaut", defaultsHelp: "Ces paramètres gardent les valeurs par défaut d'ADORE. Vous pourrez les modifier dans Paramètres après la création du projet.",
     aegisAtCreate: "Vérifié lors du clonage du dépôt à la création.",
     checkHelp: {
       git: "Installez Git sur le serveur ADORE, puis revérifiez.", forge_cli: "Installez le CLI de la forge choisie sur le serveur.",
@@ -113,6 +115,7 @@ export const enrollmentCopy: Record<Locale, Copy> = {
     idExists: "Diese ID gehört bereits zu einem Projekt. Wählen Sie eine andere stabile ID.",
     idReserved: "Diese ID ist für Serverrouten oder Systemzwecke reserviert. Wählen Sie eine andere.",
     checkPassed: "Bestanden", checkFailed: "Fehlgeschlagen", notChecked: "Ungeprüft",
+    defaultsTitle: "Auf Standard belassene Einstellungen", defaultsHelp: "Diese Einstellungen behalten die ADORE-Standardwerte. Sie können jede davon nach dem Erstellen des Projekts in den Einstellungen ändern.",
     aegisAtCreate: "Wird geprüft, wenn das Repository beim Erstellen geklont wird.",
     checkHelp: {
       git: "Git auf dem ADORE-Server installieren und erneut prüfen.", forge_cli: "CLI der gewählten Plattform auf dem Server installieren.",
@@ -146,6 +149,7 @@ export const enrollmentCopy: Record<Locale, Copy> = {
     idExists: "Acest ID aparține deja unui proiect. Alege un alt ID stabil.",
     idReserved: "Acest ID este rezervat pentru rutele serverului sau sistem. Alege un alt ID.",
     checkPassed: "Trecut", checkFailed: "Eșuat", notChecked: "Neverificat",
+    defaultsTitle: "Setări lăsate la valorile implicite", defaultsHelp: "Aceste setări păstrează valorile implicite ADORE. Le puteți schimba pe oricare în Setări după crearea proiectului.",
     aegisAtCreate: "Se verifică la clonarea repository-ului, la creare.",
     checkHelp: {
       git: "Instalează Git pe serverul ADORE, apoi verifică din nou.", forge_cli: "Instalează CLI-ul platformei selectate pe server.",

@@ -233,7 +233,8 @@ def test_transfer_target_boundaries(tmp_path, boundary):
         if boundary == "unconfirmed":
             body["references_confirmed"] = False
         elif boundary == "reference":
-            body["target"]["env_keys"] = []
+            # Empty credential names are valid (no forwarded variables); a malformed one is not.
+            body["target"]["env_keys"] = ["not-an-env-name"]
         elif boundary == "clone":
             body["target"]["repo_path"] = _body(tmp_path)["repo_path"]
         elif boundary == "repository":
@@ -405,4 +406,18 @@ def test_transfer_source_selection_and_active_corruption(tmp_path, bad):
         assert not app.state.profiles.profile_dir("target").exists()
 
 
+def test_clone_preview_defaults_reflect_the_copied_rules(tmp_path):
+    """@brief Settings copied from the source are not listed as defaults."""
+    app = create_app(tmp_path / "home", probe_runner=_no_probe)
+    with TestClient(app) as client:
+        headers, body, _source_item, _raw = _source(client, app, tmp_path, "file")
+        _reviewed, preview = _review(client, body, headers)
+    defaults = {item["key"]: item["value"] for item in preview["defaults"]}
+    copied = {row["key"]: row["source_value"] for row in preview["mapping"]}
+    for key, value in copied.items():
+        if value != next(row["server_value"] for row in preview["mapping"] if row["key"] == key):
+            assert key not in defaults, key
+
+
 # END OF FILE
+
