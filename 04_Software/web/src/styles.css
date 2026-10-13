@@ -727,15 +727,16 @@ table caption { text-align: left; font-weight: 600; padding: .6rem 0; }
 .setting-editor .stage-timeout-row input, .setting-editor .stage-timeout-row select { flex: 0 0 auto; width: 100%; min-width: 0; }
 
 /* Reviewed coding-agent and names-only credential editors. */
-.executor-settings-content { margin: 1rem 0; min-width: 0; display: grid; gap: 10px; font-size: .875rem; line-height: 1.5; }
-.executor-settings-content p { margin: 0; }
+.executor-settings-content { margin: 1rem 0; min-width: 0; }
+.executor-connection-area { display: grid; gap: 10px; font-size: .875rem; line-height: 1.5; }
+.executor-connection-area p { margin: 0; }
 /* The model ID note follows the test description and its result. */
-.executor-settings-content > p { order: 3; }
-.executor-settings-content .panel-heading { margin-bottom: 0; }
+.executor-connection-area > p { order: 3; }
+.executor-connection-area .panel-heading { margin-bottom: 0; }
 /* One test result box: outcome, then agent and model, then guidance. */
-.executor-settings-content .model-connection > [role] { display: grid; gap: 2px; margin: 0; padding: 10px 14px; border-radius: 9px; font-size: inherit; }
-.executor-settings-content .model-connection > .success { background: var(--accent-soft); color: var(--text); }
-.executor-settings-content .model-connection > .success p { color: var(--muted); }
+.executor-connection-area .model-connection > [role] { display: grid; gap: 2px; margin: 0; padding: 10px 14px; border-radius: 9px; font-size: inherit; }
+.executor-connection-area .model-connection > .success { background: var(--accent-soft); color: var(--text); }
+.executor-connection-area .model-connection > .success p { color: var(--muted); }
 .executor-related-editor > small { flex-basis: 100%; }
 .credential-names-editor { min-width: 0; flex-basis: 100%; width: 100%; }
 .credential-names-editor select, .executor-related-editor input, .executor-related-editor select { width: 100%; min-width: 0; max-width: 100%; }
@@ -744,6 +745,14 @@ table caption { text-align: left; font-weight: 600; padding: .6rem 0; }
 .credential-names-editor li code { overflow-wrap: anywhere; }
 .credential-names-editor li button { min-width: 2rem; }
 .executor-endpoint { margin-top: 1.5rem; min-width: 0; }
+.executor-endpoint h3 { margin: 0 0 .75rem; }
+.executor-endpoint > p { margin: 0 0 .25rem; font-size: .875rem; line-height: 1.5; }
+/* Same two-column grid as Estimated prices; the submit button gets its own row. */
+.endpoint-form.config-form { margin: 18px 0 0; }
+.endpoint-form.config-form label { width: auto; }
+.endpoint-form .form-submit, .executor-prices .form-submit { grid-column: 1 / -1; justify-self: start; }
+/* Container, endpoint and price descriptions share one text size. */
+.executor-environment p, .executor-prices > p { font-size: .875rem; line-height: 1.5; }
 .executor-prices { margin-top: 1.5rem; min-width: 0; }
 .jobs-subtabs { margin-bottom: 18px; }
 .ticket-workspace { display: grid; gap: 18px; min-width: 0; }
