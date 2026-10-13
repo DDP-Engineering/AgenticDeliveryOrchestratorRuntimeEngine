@@ -727,7 +727,15 @@ table caption { text-align: left; font-weight: 600; padding: .6rem 0; }
 .setting-editor .stage-timeout-row input, .setting-editor .stage-timeout-row select { flex: 0 0 auto; width: 100%; min-width: 0; }
 
 /* Reviewed coding-agent and names-only credential editors. */
-.executor-settings-content { margin: 1rem 0; min-width: 0; }
+.executor-settings-content { margin: 1rem 0; min-width: 0; display: grid; gap: 10px; font-size: .875rem; line-height: 1.5; }
+.executor-settings-content p { margin: 0; }
+/* The model ID note follows the test description and its result. */
+.executor-settings-content > p { order: 3; }
+.executor-settings-content .panel-heading { margin-bottom: 0; }
+/* One test result box: outcome, then agent and model, then guidance. */
+.executor-settings-content .model-connection > [role] { display: grid; gap: 2px; margin: 0; padding: 10px 14px; border-radius: 9px; font-size: inherit; }
+.executor-settings-content .model-connection > .success { background: var(--accent-soft); color: var(--text); }
+.executor-settings-content .model-connection > .success p { color: var(--muted); }
 .executor-related-editor > small { flex-basis: 100%; }
 .credential-names-editor { min-width: 0; flex-basis: 100%; width: 100%; }
 .credential-names-editor select, .executor-related-editor input, .executor-related-editor select { width: 100%; min-width: 0; max-width: 100%; }

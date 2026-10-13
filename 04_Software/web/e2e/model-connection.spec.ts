@@ -24,7 +24,7 @@ for (const invalid of [false, true]) {
    await route.fulfill({json:{project_id:project.id, revision:invalid ? "0".repeat(64) : configuration.revision, checked_at:new Date().toISOString(), executor:"opencode", model:configuration.config.executor.commands.opencode.model, ready:true, reason:"ready"}});
   });
   await page.getByRole("tab",{name:"Settings",exact:true}).click();
-  await page.getByText("Agent and model (6)",{exact:true}).click();
+  await page.getByText(/^Agent and model \(\d+\)$/).click();
   const button = page.getByRole("button", {name:"Test AI connection",exact:true});
   await expect(button).toBeVisible();
   await expect(page.getByText(/Provider charges may apply/)).toBeVisible();

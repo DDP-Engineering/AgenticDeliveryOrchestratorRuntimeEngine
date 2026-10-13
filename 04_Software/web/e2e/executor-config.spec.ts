@@ -16,7 +16,7 @@ test("executor workspace owns model, credentials and coherent evidence", async (
  await page.goto(`/projects/${id}/executor`);
  await expect(page.getByRole("tab",{name:"Settings",exact:true})).toHaveAttribute("aria-selected","true");
  await expect(page.getByRole("tab",{name:"Executor configuration",exact:true})).toHaveCount(0);
- await page.getByText("Agent and model (6)",{exact:true}).click();
+ await page.getByText(/^Agent and model \(\d+\)$/).click();
  await page.locator('[data-setting-topic="authentication"] > summary').click();
  await expect(page.getByRole("button",{name:"Edit Executor model identifier",exact:true})).toBeVisible();
  await expect(page.getByRole("heading",{name:"Provider API keys",exact:true})).toBeVisible();
@@ -68,7 +68,7 @@ for (const user of ["admin", "developer"]) {
   await page.route("**/projects/*/config", route=>route.fulfill({json:config}));
   await page.goto(`/projects/${id}/executor`);
   await expect(page.getByRole("tab",{name:"Agent and model",exact:true})).toHaveCount(0);
-  await page.getByText("Agent and model (6)",{exact:true}).click();
+  await page.getByText(/^Agent and model \(\d+\)$/).click();
   const panel=page.locator("#project-settings");
   await expect(panel.getByRole("heading",{name:"AI connection",exact:true})).toBeVisible();
   await expect(panel).toContainText(current);
@@ -112,7 +112,7 @@ test("current model evidence remains coherent in Summary and host check details"
  await expect(page.getByText(result.model,{exact:true})).toHaveCount(0);
  await expect(page.locator(".readiness-verdict")).toHaveCount(0);
  await page.getByRole("tab",{name:"Settings",exact:true}).click();
- await page.getByText("Agent and model (6)",{exact:true}).click();
+ await page.getByText(/^Agent and model \(\d+\)$/).click();
  await expect(page.getByText("AI model connected",{exact:true})).toBeVisible();
  await page.getByRole("tab",{name:"Summary",exact:true}).click();
  await expect(page.getByText("AI model connected",{exact:true})).toHaveCount(0);
@@ -124,7 +124,7 @@ test("agent and provider drafts have complete review and fit mobile",async({page
  await page.goto("/"); await page.getByLabel("Username",{exact:false}).fill("admin"); await page.getByLabel("Password",{exact:false}).fill("admin"); await page.getByRole("button",{name:"Sign in",exact:true}).click();
  await expect(page.getByRole("navigation",{name:"Primary navigation",exact:true})).toBeVisible();
  const projects=await(await page.request.get("/api/v1/projects")).json(); const id=projects.find((p:{name:string})=>p.name==="alpha").id;
- await page.goto(`/projects/${id}/configuration`); await page.getByText("Agent and model (6)",{exact:true}).click();
+ await page.goto(`/projects/${id}/configuration`); await page.getByText(/^Agent and model \(\d+\)$/).click();
  await page.getByRole("button",{name:"Edit Default coding agent",exact:true}).click();
  await expect(page.getByLabel("Default coding agent",{exact:true}).locator("option")).toHaveText(["OpenCode","Pi","Codex","Qwen Code"]);
  await page.getByLabel("Default coding agent",{exact:true}).selectOption("codex");
@@ -150,7 +150,7 @@ test("inline executor editors retain columns and use a credential dropdown",asyn
  await page.goto("/");await page.getByLabel("Username",{exact:false}).fill("admin");await page.getByLabel("Password",{exact:false}).fill("admin");await page.getByRole("button",{name:"Sign in",exact:true}).click();
  await expect(page.getByRole("navigation",{name:"Primary navigation",exact:true})).toBeVisible();
  const projects=await(await page.request.get("/api/v1/projects")).json();const id=projects.find((p:{name:string})=>p.name==="alpha").id;
- await page.goto(`/projects/${id}/configuration`);await page.getByText("Agent and model (6)",{exact:true}).click();
+ await page.goto(`/projects/${id}/configuration`);await page.getByText(/^Agent and model \(\d+\)$/).click();
  const row=page.locator('[id="setting-executor.default"]');
  const before=await row.locator(':scope > div').nth(1).boundingBox();
  await row.getByRole("button",{name:"Edit Default coding agent",exact:true}).click();
@@ -226,7 +226,7 @@ test("compact review shows only differences above settings and blocks unchanged 
  await page.goto("/");await page.getByLabel("Username",{exact:false}).fill("admin");await page.getByLabel("Password",{exact:false}).fill("admin");await page.getByRole("button",{name:"Sign in",exact:true}).click();
  await expect(page.getByRole("navigation",{name:"Primary navigation",exact:true})).toBeVisible();
  const projects=await(await page.request.get("/api/v1/projects")).json();const id=projects.find((p:{name:string})=>p.name==="alpha").id;
- await page.goto(`/projects/${id}/configuration`);await page.getByText("Agent and model (6)",{exact:true}).click();
+ await page.goto(`/projects/${id}/configuration`);await page.getByText(/^Agent and model \(\d+\)$/).click();
  const before=await(await page.request.get(`/api/v1/projects/${id}/config`)).json();
  await page.getByRole("button",{name:"Edit Default coding agent",exact:true}).click();
  await page.getByLabel("Executor model identifier",{exact:true}).fill("offline-review-model");
