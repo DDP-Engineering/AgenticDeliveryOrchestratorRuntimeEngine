@@ -93,6 +93,8 @@ guides belong in `01_Documentation/`.
 - `Component_Repository_Source.md` - enrollment from a repository URL: address
   validation, forge detection and the clone made at creation
   (`adore/web/repository_source.py`).
+- `Component_Clone_Cleanup.md` - optional removal of the ADORE-made local clone when a
+  project is deleted (`adore/clone_cleanup.py`).
 - `Component_Release_Notes.md` - four-locale user-facing release notes, their
   repository check and the What's new payload (`adore/release_notes.py`).
 

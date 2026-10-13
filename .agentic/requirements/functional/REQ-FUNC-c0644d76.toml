@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-FUNC-c0644d76"
+
+title = "Optionally remove the ADORE-made local clone when deleting a project"
+
+status = "active"
+
+requirement = """
+When an administrator deletes an archived project and explicitly chooses to remove its local clone, ADORE shall remove that clone after deleting the profile only when it lies under <ADORE home>/repos (not through a symlink), is a git clone whose origin is the project's repository, is not the clone path of another project, has no linked worktree and no uncommitted changes; otherwise the dialog and the CLI shall keep the clone and state the reason, and without the choice the clone is kept.
+"""
+
+verification = "Automated: pytest test_clone_cleanup covers each keep reason, the preview, the 409 refusal, the worker argument and CLI removal/retention; e2e delete dialog shows the unchecked option and sends remove_clone. Manual: delete an ADORE-made clone project on DCP with the option."
+
+affected_paths = ["04_Software/adore/clone_cleanup.py", "04_Software/adore/cli.py", "04_Software/adore/web/app.py", "04_Software/adore/web/commands.py", "04_Software/web/src/DeleteCloneOption.tsx", "04_Software/web/src/App.tsx"]
+
+linked_tests = ["04_Software/tests/test_clone_cleanup.py", "04_Software/web/e2e/jobs.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = "Enrollment now clones into ADORE home; without an opt-in cleanup those clones accumulate after deletion."
+
+created = 2026-10-13
+updated = 2026-10-13

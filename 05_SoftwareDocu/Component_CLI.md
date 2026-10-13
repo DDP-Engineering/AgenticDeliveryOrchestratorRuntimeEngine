@@ -57,12 +57,16 @@ the `adore` package. An optional web API also exposes selected controls.
     without `--force` (resetting may repeat orchestration work: executor cost,
     ticket churn), then tells the operator to `adore retry`. It moves only
     ADORE's pointer; AEGIS still owns the governed stage;
-  - `adore profile delete <name> --force --remove-resources` - under the
+  - `adore profile delete <name> --force --remove-resources [--remove-clone]` - under the
     conductor lock, refuses unfinished or corrupt runs, removes the containers,
     egress resources and worktrees recorded for the project's own runs except
     human-owned ones, then
     deletes the profile and prints a JSON report (an external state root is
     kept and reported);
+    With `--remove-clone` (requires `--remove-resources`) the clone decision of
+    `adore/clone_cleanup.py` runs before the sweep (an unsafe clone deletes
+    nothing), again after `git worktree prune`, and the clone is removed after
+    the profile; the report adds `clone_removed` and `clone_retained`;
   - `adore cleanup` - reclaims a provably stale local instance lock and removes
     the selected project's finished and orphaned containers, proxies, networks
     and worktree directories and leaves other projects' resources in place;

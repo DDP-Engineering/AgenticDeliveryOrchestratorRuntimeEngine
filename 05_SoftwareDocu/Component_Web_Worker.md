@@ -24,7 +24,8 @@ results, and polls project profiles between queued operations.
 `run_pending()` claims one operation atomically. Start uses `run --once
 --ticket IID`; retry and cancel use existing run commands. Administrator-only
 pause/resume commands control project ticket pickup. A `delete` operation
-runs `profile delete <name> --force --remove-resources` only when the actor is
+runs `profile delete <name> --force --remove-resources` (plus `--remove-clone`
+when the queued target is `remove-clone`) only when the actor is
 an administrator and the project is still archived with the queued identity;
 it audits `project-deleted` on success. The default runner
 rejects an operation when its project was archived after queueing, and

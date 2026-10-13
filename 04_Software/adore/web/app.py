@@ -46,6 +46,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from adore import __version__, doctor, metrics
 from adore.aegis import RUN_KINDS
 from adore.cli import _NOT_SECRET_KEYS, _SECRET_KEY_RE, _is_secret_key, _newline, _set_toml_scalar
+from adore.clone_cleanup import project_clone_decision
 from adore.config import (
     SELINUX_RELABEL_MODES,
     branch_naming_preview,
@@ -432,6 +433,7 @@ class ProjectDeleteInput(BaseModel):
 
     confirm_name: str = Field(min_length=1, max_length=64)
     idempotency_key: str = Field(min_length=8, max_length=128)
+    remove_clone: bool = False
 
 
 class TicketStartInput(BaseModel):
@@ -3496,13 +3498,32 @@ def create_app(home: str | Path | None = None,
                 web.audit(user["id"], "project-restored", item.name)
             return _profile_view(profiles, item)
 
+    def clone_view(item) -> dict:
+        """@brief The removal decision for an archived project's local clone."""
+        try:
+            config = load_config(profiles.config_path(item.name))
+            runs = _store_for(profiles, item).list_runs()
+            return project_clone_decision(profiles, item.name, config, runs, probe_runner).view()
+        except (OSError, ValueError, TypeError, AttributeError, tomllib.TOMLDecodeError,
+                StateError):
+            return {"path": "", "removable": False, "reason": "unknown"}
+
+    @app.get("/api/v1/projects/{name}/delete-preview")
+    def delete_preview(name: str, user: Annotated[dict, Depends(administrator)]) -> dict:
+        """@brief What Delete project would do with the local clone of an archived project."""
+        item = project(name, user)
+        if not item.archived:
+            raise _error(409, "project_not_archived")
+        return {"clone": clone_view(item)}
+
     @app.post("/api/v1/projects/{name}/delete")
     def delete_project(name: str, body: ProjectDeleteInput,
                        user: Annotated[dict, Depends(admin_mutation)]) -> dict:
         """
         @brief Queue deletion of a confirmed, archived and idle project.
         @details The command worker rechecks role, archive state and identity,
-                 then runs `adore profile delete <name> --force --remove-resources`.
+                 then runs `adore profile delete <name> --force --remove-resources`
+                 (plus `--remove-clone` when chosen and the clone is removable now).
         """
         item = project(name, user)
         if not item.archived:
@@ -3516,8 +3537,11 @@ def create_app(home: str | Path | None = None,
             raise _error(503, "run_state_corrupt")
         if any(run.lifecycle not in _DELETABLE_RUN_LIFECYCLES for run in state.list_runs()):
             raise _error(409, "project_has_active_work")
+        if body.remove_clone and not clone_view(item)["removable"]:
+            raise _error(409, "clone_not_removable")
         try:
-            operation = web.enqueue(user["id"], item.name, "delete", "",
+            operation = web.enqueue(user["id"], item.name, "delete",
+                                    "remove-clone" if body.remove_clone else "",
                                     body.idempotency_key)
         except WebStoreError as exc:
             raise _store_error(409, exc) from exc

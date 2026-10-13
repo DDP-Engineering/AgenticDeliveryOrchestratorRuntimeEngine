@@ -64,7 +64,7 @@ the worker can then run from any process working directory without changing
 the path used by a retry.
 Administrators can archive or restore projects without deleting their profiles,
 run state, metrics, prices or audit history. `POST /api/v1/projects/{name}/delete`
-(administrator, CSRF, `{"confirm_name", "idempotency_key"}`) queues a worker
+(administrator, CSRF, `{"confirm_name", "idempotency_key", "remove_clone"}`) queues a worker
 `delete` operation only for an archived project whose exact name is confirmed
 and that has no queued, running or unfinished work; otherwise it returns
 409 `project_not_archived`, 422 `delete_confirmation_mismatch`, 409
@@ -77,6 +77,11 @@ Run pages accept `handoff-pending` and `handed-off` as lifecycle filters.
 Pending handoff blocks cancellation and archive while ownership is moving;
 completed handoff remains readable and is terminal for cancellation and
 archive checks. Human-owned worktrees remain protected by conductor cleanup.
+`GET /api/v1/projects/{name}/delete-preview` (administrator, archived project) returns
+`{"clone": {"path", "removable", "reason"}}` from `adore/clone_cleanup.py`; reasons are
+`outside-repos`, `missing`, `not-a-clone`, `origin-mismatch`, `shared`, `worktrees` (including a
+handed-off run's worktree that deletion keeps), `uncommitted` and `unknown`. `remove_clone: true`
+rechecks it (409 `clone_not_removable`) and queues the delete with target `remove-clone`.
 
 ## 3. Implementation Overview
 

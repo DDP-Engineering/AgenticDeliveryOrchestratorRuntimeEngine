@@ -51,7 +51,9 @@ Projects labels new-ticket pickup as **Monitoring**, with Active/Paused states.
 The directory shows project, repository path, Repo (Gitea/GitHub/GitLab),
 Monitoring, jobs and last activity. Open the project to use Summary actions
 for pause/activate monitoring and archive/restore;
-delete is available for an archived idle project after exact-name confirmation.
+delete is available for an archived idle project after exact-name confirmation;
+an unticked option also removes the ADORE-owned local clone (delete-preview says why
+a clone stays).
 Environment verification records explicit checks against the saved configuration
 revision; Unverified means no current evidence, not an observed failure. Use
 Project details â†’ Summary â†’ Check host prerequisites for the administrator check.

@@ -126,9 +126,10 @@ class CommandWorker:
             if run.lifecycle in ("done", "failed", "handoff-pending", "handed-off"):
                 self.web.finish(operation["id"], "failed", "run already finished")
                 return 1
-        if action == "delete" and not target:
+        if action == "delete" and target in ("", "remove-clone"):
+            # The delete target carries only the explicit clone-removal choice.
             argv = [sys.executable, "-m", "adore", "profile", "delete", project,
-                    "--force", "--remove-resources"]
+                    "--force", "--remove-resources", *(["--remove-clone"] if target else [])]
         elif action == "start" and target.isdigit() and int(target) > 0:
             argv.extend(["run", "--once", "--ticket", target])
         elif action in ("retry", "cancel") and target:

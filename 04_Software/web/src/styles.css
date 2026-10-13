@@ -474,6 +474,9 @@ td.strong { font-weight: 800; }
 .inline-field { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; }
 .inline-field input { flex: 1 1 18rem; min-width: 0; }
 .detected-source { margin: 6px 0 14px; }
+.delete-clone { display: flex; gap: .5rem; align-items: flex-start; }
+.delete-clone input[type="checkbox"] { width: auto; min-height: 0; margin: .2rem 0 0; flex: none; }
+.delete-clone code, .delete-clone-kept code { overflow-wrap: anywhere; }
 .clone-sources .enrollment-actions { margin-top: 10px; }
 .clone-sources [aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-deep); }
 .enrollment-review { border-top: 1px solid var(--border); padding-block: 16px; }

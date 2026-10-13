@@ -46,6 +46,7 @@ import { TicketWorkspace } from "./TicketWorkspace";
 import { ticketCopy } from "./ticketCopy";
 import { DataFeedback, ProjectEmpty, StatusBadge, type DataState, type ScopedState } from "./Presentation";
 import { HelpCenter, HelpLink } from "./HelpCenter";
+import { DeleteCloneOption } from "./DeleteCloneOption";
 import { CONTEXT_TOPICS, type HelpTopic } from "./help/topics.ts";
 
 type User = { id: number; username: string; role: "admin" | "developer"; disabled: boolean; password_change_required?: boolean; projects?: string[] };
@@ -151,6 +152,7 @@ export default function App() {
   const [jobsView, setJobsView] = useState<"tickets" | "jobs">("tickets");
   const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
   const [deleteName, setDeleteName] = useState("");
+  const [deleteClone, setDeleteClone] = useState(false);
   const [projectsLoaded, setProjectsLoaded] = useState(false);
   const [configState, setConfigState] = useState<ScopedState>({ key: "", state: "loading" });
   const [usersState, setUsersState] = useState<DataState>("loading");
@@ -742,7 +744,7 @@ export default function App() {
     if (!deleteTarget || !session || !isAdmin || page !== "projectDetails" || deleteTarget.id !== selected || deleteName !== deleteTarget.name || !deleteTarget.archived || !selectedProject?.archived) return;
     try {
       const op = await request<Operation>(`/projects/${encodeURIComponent(deleteTarget.id)}/delete`, "POST",
-        { confirm_name: deleteName, idempotency_key: crypto.randomUUID() }, session.csrf);
+        { confirm_name: deleteName, idempotency_key: crypto.randomUUID(), remove_clone: deleteClone }, session.csrf);
       setOperation(op);
       setOperationVisible(true);
       setDeleteTarget(null); setDeleteName("");
@@ -1172,6 +1174,7 @@ export default function App() {
             <p>{t("deleteProjectRemoves")}</p>
             <p className="muted">{t("deleteProjectKeeps")}</p>
             <form className="form-stack" onSubmit={deleteProject}><FormLegend t={t} />
+              <DeleteCloneOption locale={locale} project={deleteTarget.id} read={path => request(path)} checked={deleteClone} onChange={setDeleteClone} />
               <label><span>{t("deleteProjectConfirm").replace("{project}", deleteTarget.name)}<RequiredMark /></span><input value={deleteName} onChange={event => setDeleteName(event.target.value)} autoComplete="off" spellCheck={false} required /></label>
               <div className="button-row"><button className="danger" type="submit" disabled={deleteName !== deleteTarget.name}>{t("deleteProject")}</button><button className="ghost" type="button" onClick={() => setDeleteTarget(null)}>{t("cancel")}</button></div>
             </form>

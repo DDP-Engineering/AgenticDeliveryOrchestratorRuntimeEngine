@@ -28,7 +28,7 @@ text = { en = "Browse a project's open tickets and start a job on one from its J
 [[release.entry]]
 category = "new"
 topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
-text = { en = "Add a project from its repository URL; ADORE fills in the details and clones it.", fr = "Ajoutez un projet depuis l'URL de son dépôt ; ADORE remplit les détails et le clone.", de = "Ein Projekt über seine Repository-URL hinzufügen; ADORE ergänzt die Angaben und klont es.", ro = "Adăugați un proiect din URL-ul repository-ului; ADORE completează detaliile și îl clonează." }
+text = { en = "Add a project from its repository URL; ADORE clones it and can remove the clone on delete.", fr = "Ajoutez un projet depuis l'URL de son dépôt ; ADORE le clone et peut supprimer le clone.", de = "Projekt über seine Repository-URL hinzufügen; ADORE klont es, Löschen kann den Klon entfernen.", ro = "Adăugați un proiect din URL-ul repository-ului; ADORE îl clonează și poate șterge clona." }
 
 [[release.entry]]
 category = "new"

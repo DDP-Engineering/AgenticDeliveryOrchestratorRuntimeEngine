@@ -34,6 +34,7 @@ import tomllib
 
 from adore import __version__, metrics
 from adore.branding import PACKAGE_NAME, PRODUCT_NAME
+from adore.clone_cleanup import clone_decision, project_clone_decision
 from adore.config import Config, load_config, validate_config
 from adore.config_edit import ConfigEditLockedError, config_edit_lock
 from adore.orchestrator import LockHeldError, Orchestrator
@@ -41,7 +42,7 @@ from adore.preparation import PreparationError, preview_plan, public_plan
 from adore.process_log import ProcessLogger, process_log_path
 from adore.profiles import ProfileError, ProfileStore, resolve_config_path
 from adore.state import StateError, StateStore
-from adore.util import parse_duration, run_command
+from adore.util import force_rmtree, parse_duration, run_command
 from adore.wizard import ConsoleAsker, ScriptedAsker, WizardError, run_wizard
 
 # CONSTANTS
@@ -159,6 +160,9 @@ def _build_parser() -> argparse.ArgumentParser:
     p_delete.add_argument("--remove-resources", action="store_true",
                           help="Also remove the project's containers and worktrees, "
                                "keeping human-owned ones")
+    p_delete.add_argument("--remove-clone", action="store_true",
+                          help="With --remove-resources, also remove the local clone when "
+                               "it is ADORE's own under <ADORE home>/repos")
     p_path = prof_sub.add_parser("path", help="Print a profile's config.toml path")
     p_path.add_argument("name", nargs="?", help="Defaults to the active profile")
 
@@ -862,6 +866,9 @@ def _cmd_profile(args: argparse.Namespace) -> int:
             print("delete removes the profile and its state irrecoverably; "
                   "re-run with --force")
             return EXIT_ERROR
+        if getattr(args, "remove_clone", False) and not getattr(args, "remove_resources", False):
+            print("error: --remove-clone requires --remove-resources")
+            return EXIT_ERROR
         if getattr(args, "remove_resources", False):
             return _delete_profile_with_resources(store, args)
         store.delete(args.name)
@@ -885,7 +892,11 @@ def _delete_profile_with_resources(store: ProfileStore, args: argparse.Namespace
     @details    Human-owned worktrees/containers and a state folder outside the
                 profile directory are kept and reported. Nothing is deleted when
                 the configuration is invalid, the conductor lock is held, run
-                state is corrupt or any run is unfinished.
+                state is corrupt or any run is unfinished. With --remove-clone
+                the local clone is checked first (an unsafe clone deletes
+                nothing), rechecked after the purge, and removed after the
+                profile; a clone that became unsafe or cannot be removed is
+                kept and reported.
     @param[in]  store Profile store holding the profile.
     @param[in]  args Parsed `profile delete` arguments.
     @return     Process exit code.
@@ -894,7 +905,9 @@ def _delete_profile_with_resources(store: ProfileStore, args: argparse.Namespace
     built = _engine(engine_args)
     if built is None:
         return EXIT_ERROR
-    _config, engine = built
+    config, engine = built
+    remove_clone = bool(getattr(args, "remove_clone", False))
+    clone = None
     try:
         with _operator_lock(engine.store):
             if engine.store.invalid_runs():
@@ -905,7 +918,19 @@ def _delete_profile_with_resources(store: ProfileStore, args: argparse.Namespace
             if unfinished:
                 print(f"error: unfinished runs block deletion: {', '.join(sorted(unfinished))}")
                 return EXIT_ERROR
+            if remove_clone:
+                clone = project_clone_decision(store, args.name, config,
+                                               engine.store.list_runs())
+                if not clone.removable:
+                    print(f"error: the local clone cannot be removed ({clone.reason}): "
+                          f"{clone.path}")
+                    return EXIT_ERROR
             report = engine.purge_resources()
+            if clone is not None:
+                # Purge may leave stale worktree records; live linked worktrees stay.
+                run_command(["git", "-C", clone.path, "worktree", "prune"], timeout=30)
+                clone = clone_decision(store, args.name, config.worktree.repo_path,
+                                       config.platform.repo)
     except LockHeldError as exc:
         print(f"error: {exc}")
         return EXIT_ERROR
@@ -916,10 +941,22 @@ def _delete_profile_with_resources(store: ProfileStore, args: argparse.Namespace
         store.delete(args.name)
     except OSError as exc:
         print(json.dumps({"deleted": None, **report, "state_retained": retained,
+                          "clone_removed": None, "clone_retained": None,
                           "error": f"profile removal failed: {exc}"},
                          indent=2, ensure_ascii=False))
         return EXIT_ERROR
-    print(json.dumps({"deleted": args.name, **report, "state_retained": retained},
+    removed, kept = None, None
+    if clone is not None and clone.removable:
+        # force_rmtree tolerates errors; only a folder that is really gone counts.
+        force_rmtree(clone.path)
+        if Path(clone.path).exists():
+            kept = {"path": clone.path, "reason": "removal-failed"}
+        else:
+            removed = clone.path
+    elif clone is not None:
+        kept = {"path": clone.path, "reason": clone.reason}
+    print(json.dumps({"deleted": args.name, **report, "state_retained": retained,
+                      "clone_removed": removed, "clone_retained": kept},
                      indent=2, ensure_ascii=False))
     return EXIT_OK
 

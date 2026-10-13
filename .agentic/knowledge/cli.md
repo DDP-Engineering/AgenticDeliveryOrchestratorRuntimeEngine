@@ -61,7 +61,8 @@ Invalid/missing configuration produces a clear nonzero result rather than a
 traceback. Destructive state operations require `--force`; mutations acquire
 the single-conductor lock; `profile delete --remove-resources` releases the
 containers and worktrees recorded for the project's own runs, except human-owned
-ones, before deleting the profile;
+ones, before deleting the profile; `--remove-clone` also removes an ADORE-owned
+clone under <home>/repos after the profile (checked before and after the sweep);
 cleanup removes only a provably stale local lock and the selected project's
 own finished and orphaned run resources, and reports corrupt runs while keeping
 their resources. `run` additionally tees output to

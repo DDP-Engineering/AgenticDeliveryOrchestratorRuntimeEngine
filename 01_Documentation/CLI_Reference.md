@@ -50,6 +50,7 @@ responsibility of the host `gh`, `glab`, or `tea` CLI.
 | `adore profile rename <old-name> <new-name>` | Rename a profile and update the active pointer when necessary. |
 | `adore profile delete <profile-name> --force` | Irreversibly delete a profile and its state. |
 | `adore profile delete <profile-name> --force --remove-resources` | Also remove the project's executor containers, egress proxies/networks and worktrees, keeping those of handed-off or handoff-pending runs and any state folder outside ADORE home; refuses unfinished runs, a held lock or an invalid configuration; prints a JSON report. |
+| `adore profile delete <profile-name> --force --remove-resources --remove-clone` | Also remove the local clone after the profile, only when it lies under `<ADORE home>/repos` (not through a symlink), is a git clone of the project's repository, is not another project's clone and has no linked worktree that deletion keeps (ADORE's own job worktrees are removed first) and no uncommitted changes; otherwise nothing is deleted and the reason is printed. A clone that becomes unsafe during the resource sweep, or cannot be removed, is kept and reported as `clone_retained`; a removed one as `clone_removed`. |
 | `adore profile path [<profile-name>]` | Print the profile's `config.toml` path; without a name, use the active profile. |
 
 Profile homes are `%APPDATA%\adore` on Windows and `~/.config/adore` on Linux,

@@ -626,6 +626,10 @@ project name. The web worker runs `adore profile delete <name> --force
 metrics, containers and worktrees. The repository and its branches, worktrees
 of jobs handed to a person, a state folder outside ADORE home and the audit
 trail are kept. Deletion is refused while work is queued or unfinished.
+The local clone is kept too unless you tick **Also remove the local clone** (unticked
+by default). The dialog offers it only when it lies under `<ADORE home>/repos` (not through a symlink), is a git clone of the project's repository, is not another project's clone and has no linked worktree that deletion keeps (ADORE's own job worktrees are removed first) and no uncommitted changes;
+otherwise it says why the clone stays. Deletion then adds `--remove-clone` and
+removes the clone after the profile.
 The Projects page lists authorized projects in a sortable table with
 10, 25, 50 and All row choices when needed. Administrators can pause or resume
 pickup and archive or restore a project directly from its row; all authorized

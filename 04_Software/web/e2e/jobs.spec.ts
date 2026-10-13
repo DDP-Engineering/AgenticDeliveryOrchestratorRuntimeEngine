@@ -563,6 +563,9 @@ test("project hub lifecycle actions keep scoped CSRF and exact-name deletion", a
     writes.push({ path: new URL(route.request().url()).pathname, csrf: route.request().headers()["x-csrf-token"], data: null });
     archived = false; return route.fulfill({ status: 200, json: {} });
   });
+  // The clone of alpha is ADORE's own until the preview says it is not.
+  let clonePreview: Record<string, unknown> = { path: "/srv/adore/repos/alpha", removable: true, reason: "" };
+  await page.route("**/api/v1/projects/*/delete-preview", route => route.fulfill({ status: 200, json: { clone: clonePreview } }));
   await page.route("**/api/v1/projects/*/delete", route => {
     writes.push({ path: new URL(route.request().url()).pathname, csrf: route.request().headers()["x-csrf-token"], data: route.request().postDataJSON() });
     return route.fulfill({ status: 202, json: { id: 9001, status: "pending" } });
@@ -584,9 +587,13 @@ test("project hub lifecycle actions keep scoped CSRF and exact-name deletion", a
   await expect(page.getByRole("button", { name: "Delete project", exact: true })).toBeFocused();
   await page.getByRole("button", { name: "Delete project", exact: true }).click();
   await expect(confirm.getByRole("button", { name: "Delete project", exact: true })).toBeDisabled();
-  await confirm.locator("input").fill("wrong-project");
+  const removeClone = confirm.getByRole("checkbox", { name: /Also remove the local clone/ });
+  await expect(removeClone).not.toBeChecked();
+  await expect(confirm.getByText("/srv/adore/repos/alpha", { exact: true })).toBeVisible();
+  await removeClone.check();
+  await confirm.getByRole("textbox").fill("wrong-project");
   await expect(confirm.getByRole("button", { name: "Delete project", exact: true })).toBeDisabled();
-  await confirm.locator("input").fill("alpha");
+  await confirm.getByRole("textbox").fill("alpha");
   await expect(confirm.getByRole("button", { name: "Delete project", exact: true })).toBeEnabled();
   await page.keyboard.press("Escape");
   await nav(page).getByRole("link", { name: "Projects", exact: true }).click();
@@ -595,13 +602,23 @@ test("project hub lifecycle actions keep scoped CSRF and exact-name deletion", a
   expect(writes.filter(write => write.path.endsWith("/delete"))).toEqual([]);
   await nav(page).getByRole("link", { name: "Projects", exact: true }).click();
   await page.getByRole("link", { name: "alpha", exact: true }).click();
+  // A clone that is not removable explains why it stays and offers no choice.
+  clonePreview = { path: "/srv/adore/repos/alpha", removable: false, reason: "uncommitted" };
   await page.getByRole("button", { name: "Delete project", exact: true }).click();
-  await confirm.locator("input").fill("alpha");
+  await expect(confirm.getByText(/The local clone stays:.*uncommitted changes/)).toBeVisible();
+  await expect(confirm.getByRole("checkbox")).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  clonePreview = { path: "/srv/adore/repos/alpha", removable: true, reason: "" };
+  await page.getByRole("button", { name: "Delete project", exact: true }).click();
+  await expect(removeClone).not.toBeChecked();
+  await removeClone.check();
+  await confirm.getByRole("textbox").fill("alpha");
   await confirm.getByRole("button", { name: "Delete project", exact: true }).click();
   await expect(confirm).toHaveCount(0);
   expect(writes.map(write => write.path)).toEqual(["archive", "restore", "archive", "delete"].map(action => `/api/v1/projects/${id}/${action}`));
   expect(writes.every(write => !!write.csrf)).toBe(true);
   expect(writes.at(-1)?.data?.confirm_name).toBe("alpha");
+  expect(writes.at(-1)?.data?.remove_clone).toBe(true);
 });
 
 
