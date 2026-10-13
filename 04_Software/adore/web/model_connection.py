@@ -24,8 +24,9 @@ import tempfile
 from time import monotonic
 from uuid import uuid4
 
-from adore.branding import CONTAINER_CODEX_HOME, CONTAINER_OPENCODE_AUTH_DIR
+from adore.branding import CONTAINER_CODEX_HOME, CONTAINER_IO_MOUNT, CONTAINER_OPENCODE_AUTH_DIR
 from adore.isolation import ContainerManager, IsolationError
+from adore.opencode_catalogue import catalogue_path, refresh, stage
 from adore.preparation import PreparationError, effective_probe_config
 from adore.util import load_env_file
 
@@ -312,6 +313,14 @@ def probe_model_connection(config, runner, env_file: Path) -> dict:
                 ).ok:
                     raise IsolationError("auth staging failed")
                 staged.unlink()
+            if kind == "opencode":
+                # Newer models need a current catalogue: reuse the saved one, then refresh it
+                # and save it for jobs. Best effort; the test never fails because of it.
+                saved = catalogue_path(config.state.store_root)
+                in_container = lambda argv, timeout=None: runtime.exec(  # noqa: E731
+                    name, argv, env=env, timeout=timeout or 8)
+                stage(in_container, saved, root / "io", CONTAINER_IO_MOUNT)
+                refresh(in_container, saved, root / "io", CONTAINER_IO_MOUNT)
             checked = runtime.exec(
                 name,
                 ["python", "/adore/io/probe.py", kind, model, "ADORE_OK_" + uuid4().hex],

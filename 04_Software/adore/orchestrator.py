@@ -75,6 +75,7 @@ from adore.isolation import (
     WorktreeManager,
     build_container_env,
 )
+from adore.opencode_catalogue import catalogue_path, stage_or_refresh
 from adore.polling import PollCadence
 from adore.preparation import PreparationError, execution_policy, resolve_plan
 from adore.repository_auth import project_runner
@@ -2955,6 +2956,8 @@ class Orchestrator:
         )
         if self.config.executor.stage_host_auth:
             self._stage_host_auth(run)
+        if self.config.executor.default == "opencode" and self.config.execution.backend != "local":
+            self._stage_opencode_catalogue(run)
         if recipe and record["status"] != "success":
             self._prepare_execution(run)
         self.store.save(run)
@@ -3126,6 +3129,22 @@ class Orchestrator:
                 raise IsolationError("executor auth staging failed", copied.argv, copied.stderr)
         finally:
             staged.unlink(missing_ok=True)
+
+    def _stage_opencode_catalogue(self, run: RunState) -> None:
+        """@brief Give the container an OpenCode catalogue that knows the project's model."""
+        io_dir = self._io_dir(run.run_id)
+        io_dir.mkdir(parents=True, exist_ok=True)
+        execute = self._execute(run)
+        try:
+            outcome = stage_or_refresh(
+                lambda argv, timeout=None: execute(argv, timeout=timeout),
+                catalogue_path(self.store.root), io_dir, self.backend.paths.io,
+                self.config.executor.commands["opencode"].model)
+        except (OSError, IsolationError, KeyError):
+            outcome = "built-in"
+        if outcome == "built-in":
+            self.log(f"{run.run_id}: OpenCode model catalogue could not be refreshed; "
+                     "using the one built into OpenCode")
 
     def _cost_spent(self, run: RunState) -> float:
         """@brief Sum durable per-launch executor cost records."""

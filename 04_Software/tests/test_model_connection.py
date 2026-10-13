@@ -297,3 +297,34 @@ def test_environment_selection_and_runtime_failure(tmp_path, monkeypatch, mode):
         assert "GITEA_TOKEN" not in invocation["env"]
     else:
         assert not any("run" in argv for argv, _ in calls)
+
+
+@pytest.mark.parametrize("kind", ["opencode", "pi"])
+def test_connection_test_refreshes_the_opencode_catalogue(tmp_path, monkeypatch, kind):
+    """@brief OpenCode's catalogue is refreshed in the test container and saved for jobs."""
+    profiles = project(tmp_path, kind=kind)
+    config = load_config(profiles.config_path("alpha"))
+    saved = Path(config.state.store_root) / "opencode-models.json"
+    commands, roots = [], []
+
+    def runner(argv, **kwargs):
+        """@brief Simulate the runtime: the refresh fills OpenCode's cache, cp copies it out."""
+        argv = list(argv)
+        commands.append(argv)
+        if "inspect" in argv and "image" not in argv:
+            return CommandResult(argv, 1, stderr="No such container")
+        if "run" in argv:
+            mounts = [arg for arg in argv if ":/adore/io" in arg]
+            roots.append(Path(mounts[0].split(":/adore/io")[0]))
+        if "cp" in argv and argv[-1] == "/adore/io/opencode-models.json":
+            (roots[0] / "opencode-models.json").write_text(
+                '{"openai": {"models": {"gpt-6.1-sol": {}}}}', encoding="utf-8")
+        if "/adore/io/probe.py" in argv:
+            return CommandResult(argv, stdout='{"ready": true, "reason": "ready"}')
+        return CommandResult(argv)
+
+    result = probe_model_connection(config, runner, profiles.profile_dir("alpha") / ".env")
+    assert result["ready"] is True
+    refreshed = any(argv[-3:] == ["opencode", "models", "--refresh"] for argv in commands)
+    assert refreshed is (kind == "opencode")
+    assert saved.is_file() is (kind == "opencode")
