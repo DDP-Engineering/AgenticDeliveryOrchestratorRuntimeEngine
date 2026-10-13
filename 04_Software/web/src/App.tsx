@@ -4,7 +4,7 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
-import { Children, cloneElement, isValidElement, useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactElement, type ReactNode } from "react";
+import { Children, Fragment, cloneElement, isValidElement, useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactElement, type ReactNode } from "react";
 import { aggregateMetrics, aggregateUsage, type Metrics, type Usage } from "./metrics";
 import { sortUsageRows, type UsageSortKey } from "./usageSort";
 import { messages, type Locale, type MessageKey } from "./i18n";
@@ -1175,7 +1175,7 @@ export default function App() {
             <p className="muted">{t("deleteProjectKeeps")}</p>
             <form className="form-stack" onSubmit={deleteProject}><FormLegend t={t} />
               <DeleteCloneOption locale={locale} project={deleteTarget.id} read={path => request(path)} checked={deleteClone} onChange={setDeleteClone} />
-              <label><span>{t("deleteProjectConfirm").replace("{project}", deleteTarget.name)}<RequiredMark /></span><input value={deleteName} onChange={event => setDeleteName(event.target.value)} autoComplete="off" spellCheck={false} required /></label>
+              <label><span className="delete-confirm-label">{t("deleteProjectConfirm").split("{project}").map((part, index) => <Fragment key={index}>{index > 0 && <strong className="delete-confirm-name">{deleteTarget.name}</strong>}{part}</Fragment>)}<RequiredMark /></span><input value={deleteName} onChange={event => setDeleteName(event.target.value)} autoComplete="off" spellCheck={false} required /></label>
               <div className="button-row"><button className="danger" type="submit" disabled={deleteName !== deleteTarget.name}>{t("deleteProject")}</button><button className="ghost" type="button" onClick={() => setDeleteTarget(null)}>{t("cancel")}</button></div>
             </form>
           </section></ProjectDeleteDialog>}

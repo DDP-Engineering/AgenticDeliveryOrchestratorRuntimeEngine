@@ -474,9 +474,15 @@ td.strong { font-weight: 800; }
 .inline-field { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; }
 .inline-field input { flex: 1 1 18rem; min-width: 0; }
 .detected-source { margin: 6px 0 14px; }
-.delete-clone { display: flex; gap: .5rem; align-items: flex-start; }
-.delete-clone input[type="checkbox"] { width: auto; min-height: 0; margin: .2rem 0 0; flex: none; }
+/* Checkbox beside its title; the clone path in a lighter line below the title. */
+.delete-clone { flex-direction: row; align-items: flex-start; gap: .6rem; }
+.delete-clone input[type="checkbox"] { width: 1.05rem; height: 1.05rem; min-height: 0; margin: .1rem 0 0; padding: 0; flex: none; }
+.delete-clone-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.delete-clone-text code { font-size: .8rem; font-weight: 400; color: var(--muted); }
 .delete-clone code, .delete-clone-kept code { overflow-wrap: anywhere; }
+/* Only the name to type stands out in the confirmation label. */
+.delete-confirm-label { font-weight: 400; }
+.delete-confirm-name { font-weight: 700; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; background: var(--danger-soft); color: var(--text); border-radius: 5px; padding: 1px 6px; overflow-wrap: anywhere; }
 .clone-sources .enrollment-actions { margin-top: 10px; }
 .clone-sources [aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-deep); }
 .enrollment-review { border-top: 1px solid var(--border); padding-block: 16px; }

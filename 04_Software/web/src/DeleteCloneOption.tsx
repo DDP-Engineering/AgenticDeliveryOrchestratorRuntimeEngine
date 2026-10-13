@@ -31,7 +31,7 @@ export function DeleteCloneOption({ locale, project, read, checked, onChange }: 
   if (!clone) return null;
   if (clone.removable) return <label className="delete-clone">
     <input type="checkbox" checked={checked} onChange={event => onChange(event.target.checked)} />
-    <span>{c.remove} <code>{clone.path}</code></span>
+    <span className="delete-clone-text"><span className="delete-clone-title">{c.remove}</span>{" "}<code>{clone.path}</code></span>
   </label>;
   return <p className="muted delete-clone-kept">{c.kept} {clone.path && <><code>{clone.path}</code> — </>}{c.reasons[clone.reason as CloneReason]}</p>;
 }

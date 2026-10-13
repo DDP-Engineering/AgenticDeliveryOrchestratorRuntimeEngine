@@ -592,6 +592,19 @@ test("project hub lifecycle actions keep scoped CSRF and exact-name deletion", a
   const removeClone = confirm.getByRole("checkbox", { name: /Also remove the local clone/ });
   await expect(removeClone).not.toBeChecked();
   await expect(confirm.getByText("/srv/adore/repos/alpha", { exact: true })).toBeVisible();
+  // The checkbox sits on the line of its title; the clone path follows below the title.
+  const box = await removeClone.boundingBox();
+  const title = await confirm.locator(".delete-clone-title").boundingBox();
+  const path = await confirm.locator(".delete-clone code").boundingBox();
+  expect(box && title && path).toBeTruthy();
+  expect(Math.abs(box!.y + box!.height / 2 - (title!.y + title!.height / 2))).toBeLessThan(6);
+  expect(box!.x + box!.width).toBeLessThanOrEqual(title!.x);
+  expect(path!.y).toBeGreaterThanOrEqual(title!.y + title!.height - 1);
+  expect(Math.abs(path!.x - title!.x)).toBeLessThan(2);
+  // Only the name to type is emphasized in the confirmation label.
+  await expect(confirm.locator(".delete-confirm-name")).toHaveText("alpha");
+  expect(await confirm.locator(".delete-confirm-label").evaluate(el => Number(getComputedStyle(el).fontWeight))).toBeLessThan(600);
+  expect(await confirm.locator(".delete-confirm-name").evaluate(el => Number(getComputedStyle(el).fontWeight))).toBeGreaterThanOrEqual(700);
   await removeClone.check();
   await confirm.getByRole("textbox").fill("wrong-project");
   await expect(confirm.getByRole("button", { name: "Delete project", exact: true })).toBeDisabled();
