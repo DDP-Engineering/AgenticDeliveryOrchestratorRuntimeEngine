@@ -72,7 +72,7 @@ test("enrollment reads a repository URL, derives the ID and clones at creation",
   await page.getByLabel("Reviewers", { exact: false }).fill("fixture-reviewer");
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await validate(page);
-  await page.getByRole("button", { name: "Review candidate", exact: true }).click();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(page.locator(".enrollment-review").first()).toContainText("ssh://git@forge.e2e.invalid:2222/team/url-service.git");
   await expect(page.locator(".enrollment-review").first()).toContainText(custom);
   // Creating the ADORE labels in the repository is on by default.
@@ -92,7 +92,7 @@ test("label creation can be skipped and its failure keeps the project", async ({
   page.on("request", request => { if (request.url().endsWith("/labels/ensure")) ensures.push(request.url()); });
   await enter(page); await verification(page, "labels-skip");
   await validate(page);
-  await page.getByRole("button", { name: "Review candidate", exact: true }).click();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page.getByRole("checkbox", { name: /Create the ADORE labels in the repository/ }).uncheck();
   await page.getByRole("button", { name: "Create project with pickup stopped", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Enrollment complete", exact: true })).toBeFocused();
@@ -102,14 +102,13 @@ test("label creation can be skipped and its failure keeps the project", async ({
   await page.goto("/projects/new");
   await verification(page, "labels-fail");
   await validate(page);
-  await page.getByRole("button", { name: "Review candidate", exact: true }).click();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page.getByRole("button", { name: "Create project with pickup stopped", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Enrollment complete", exact: true })).toBeFocused();
   await expect(page.getByRole("region", { name: "Labels in the repository" }).getByRole("alert")).toBeVisible();
   const projects = await (await page.request.get("/api/v1/projects")).json();
   expect(projects.map((item: { name: string }) => item.name)).toEqual(expect.arrayContaining(["labels-skip", "labels-fail"]));
 });
-
 
 test("agent and model chooses where the executor runs", async ({ page }) => {
   await enter(page); await repository(page, "env-choice");
@@ -200,7 +199,7 @@ test("complete reviewed draft creates once with stopped pickup and honest failed
   await page.getByRole("button", { name: "Recheck environment", exact: true }).click();
   await expect(page.getByText(/Failed — correct/).first()).toBeVisible();
   await expect(page.getByText("git", {exact:true}).locator("..")).toContainText("Passed");
-  await page.getByRole("button", { name: "Review candidate", exact: true }).click();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Review and create", exact: true })).toBeFocused();
   await expect(page.locator(".enrollment-review")).toContainText(["Offline service", "LOCAL_API_KEY"]);
   await expect(page.getByText(clone, { exact: true })).toHaveCount(2);
@@ -280,7 +279,7 @@ test("Back and review changes retain values and invalidate dependent checks", as
   await validate(page);
   await page.getByRole("button", { name: "Check environment", exact: true }).click();
   await expect(page.getByText(/Failed — correct/).first()).toBeVisible();
-  await page.getByRole("button", { name: "Review candidate", exact: true }).click();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page.getByRole("button", { name: "Change — Repository and identity", exact: true }).click();
   await expect(page.getByLabel("Display name", { exact: false })).toHaveValue("Offline service");
   await page.getByLabel("Display name", { exact: false }).fill("Changed display");
@@ -290,10 +289,10 @@ test("Back and review changes retain values and invalidate dependent checks", as
   await expect(page.getByLabel("Display name", { exact: false })).toHaveValue("Changed display");
   for (let i = 0; i < 3; i++) await page.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(page.getByText(/Stale — the draft changed/)).toBeVisible();
-  await expect(page.getByRole("button", { name: "Review candidate", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Continue", exact: true })).toBeDisabled();
   await validate(page);
   await expect(page.getByText(/Unverified — no environment/)).toBeVisible();
-  await page.getByRole("button", { name: "Review candidate", exact: true }).click();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(page.locator(".enrollment-review")).toContainText(["Changed display"]);
 });
 
@@ -307,7 +306,7 @@ test("pending preview becomes stale on upstream edit; corrupt or stale readiness
   await page.getByLabel("Maximum executor launches", { exact: false }).fill("8");
   release();
   await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Review candidate", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Continue", exact: true })).toBeDisabled();
   await page.unroute("**/setup-preview");
   await validate(page);
   await page.route("**/setup-check", route => route.fulfill({ status: 409, contentType: "application/json",
@@ -359,7 +358,7 @@ test("Dev is denied setup routes and sees no enrollment controls", async ({ page
 
 test("390px keyboard guidance and review wrap in both themes", async ({ page }, info) => {
   await enter(page); await verification(page, "e2e-mobile");
-  await validate(page); await page.getByRole("button", { name: "Review candidate", exact: true }).click();
+  await validate(page); await page.getByRole("button", { name: "Continue", exact: true }).click();
   for (const theme of ["light", "dark"]) {
     await page.evaluate(value => document.documentElement.dataset.theme = value, theme);
     await page.setViewportSize({ width: 390, height: 844 });
@@ -371,14 +370,14 @@ test("390px keyboard guidance and review wrap in both themes", async ({ page }, 
     await page.screenshot({ path: info.outputPath("enrollment-environment-" + theme + "-390.png"), fullPage: true });
     await page.getByRole("button", { name: "Continue", exact: true }).click();
     await page.getByRole("button", { name: "Continue", exact: true }).click();
-    await page.getByRole("button", { name: "Review candidate", exact: true }).click();
+    await page.getByRole("button", { name: "Continue", exact: true }).click();
     await page.screenshot({ path: info.outputPath("enrollment-review-" + theme + "-390.png"), fullPage: true });
   }
 });
 
 test("failed creation requires a deliberate new review and never automatically resubmits", async ({ page }) => {
   await enter(page); await verification(page, "e2e-create-failure"); await validate(page);
-  await page.getByRole("button", { name: "Review candidate", exact: true }).click();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
   let attempts = 0;
   await page.route("**/setup-create", route => {
     attempts++;

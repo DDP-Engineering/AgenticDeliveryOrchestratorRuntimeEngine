@@ -396,7 +396,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
     if (step >= 4 || step === 1 && !detected || !validateLocal([step])) return;
     move(step + 1);
   };
-  if (created) return <section className="panel enrollment" role="status">
+  if (created) return <section className="panel enrollment enrollment-complete" role="status">
     <h2 tabIndex={-1} ref={heading}>{c.completion}</h2>
     <p><strong>{created.display_name}</strong> · {created.name}</p><p>{c.stopped}</p>
     {createLabels && <section className="forge-labels" aria-label={forgeLabelsCopy[locale].result}>
@@ -467,21 +467,22 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
         </>}
         {step === 4 && <>
           <p>{draft.execution_backend === "local" ? localCopy[locale].notice : c.effects}</p><p>{c.noSecrets}</p>
-          <button type="button" className="primary" disabled={!!busy} onClick={() => void runPreview()}>{c.validate}</button>
-          {preview?.structural_valid && <><p role="status">{c.valid}</p>
-            <button type="button" className="ghost" disabled={!!busy} onClick={() => void runProbe()}>{verification ? c.recheck : c.check}</button>
-          </>}
+          <div className="verify-action">
+            <button type="button" className="primary" disabled={!!busy} onClick={() => void runPreview()}>{c.validate}</button>
+            <span role="status">{preview?.structural_valid && <span className="action-result ok">{c.valid}</span>}</span>
+          </div>
+          {/* The check needs a valid setup first; its status stays visible meanwhile. */}
+          <div className="verify-action">
+            <button type="button" className="ghost" disabled={!!busy || !preview?.structural_valid} onClick={() => void runProbe()}>{verification ? c.recheck : c.check}</button>
+            <span role="status"><span className={"action-result " + (stale ? "warn" : !verification ? "muted"
+              : verification.status === "failed" ? "fail" : verification.status === "partial" ? "warn" : "ok")}>{status}</span></span>
+          </div>
           {transfer && preview?.structural_valid && <Mapping preview={preview} locale={locale} />}
-          <p role="status">{status}</p>
           {verification && <><p>{c.checked}: {verification.checked_at}</p><ul>{Object.entries(verification.checks).filter(([key]) => draft.execution_backend !== "local" || key !== "container_runtime").map(([key, result]) =>
             <li key={key}><strong>{key}</strong>: {result === true ? "✓" : result === false ? "✕" : "?"} {result === true ? c.checkPassed : result === false ? c.checkFailed : c.notChecked}
               {result !== true && <p>{key === "aegis_files" && result === "not-checked" ? c.aegisAtCreate : c.checkHelp[key as keyof typeof c.checkHelp]}</p>}
               {result !== true && result !== "not-checked" && <button type="button" className="text-button" onClick={() => move(["git", "aegis_files", "forge_cli", "forge_auth"].includes(key) ? 1 : 2)}>{c.correction}</button>}
             </li>)}</ul></>}
-          <button type="button" className="primary" disabled={!!busy || !preview?.structural_valid} onClick={() => {
-            if (!preview?.structural_valid || !preview.revision) return;
-            setReviewed({ draft: structuredClone(targetPayload()), preview: structuredClone(preview) }); move(5);
-          }}>{c.review}</button>
         </>}
         {step === 5 && reviewed && <>
           <p>{c.reviewHelp}</p><p>{c.status}: {status}</p>
@@ -503,7 +504,6 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
           <p className="enrollment-digest">{c.revision}: {reviewed.preview.revision}</p><p>{c.createEffect}</p>
           <label className="forge-labels-option"><input type="checkbox" checked={createLabels} onChange={event => setCreateLabels(event.target.checked)} />
             <span>{forgeLabelsCopy[locale].option}</span></label>
-          <button type="button" className="primary" onClick={() => void confirm()} disabled={!!busy}>{c.create}</button>
         </>}
       </fieldset>
       {busy && <p role="status">{c.busy} {c.checkingHelp}</p>}
@@ -512,6 +512,12 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
         {/* From a URL, the wizard cannot continue until the repository has been read. */}
         {/* Until the repository is read, Read repository is the primary action. */}
         {step < 4 && <button className={step === 1 && !detected ? "ghost" : "primary"} type="submit" disabled={step === 1 && !detected}>{c.continue}</button>}
+        {/* Every step reads Back, Continue (Create on the last step), Cancel in one row. */}
+        {step === 4 && <button type="button" className="primary" disabled={!!busy || !preview?.structural_valid} onClick={() => {
+          if (!preview?.structural_valid || !preview.revision) return;
+          setReviewed({ draft: structuredClone(targetPayload()), preview: structuredClone(preview) }); move(5);
+        }}>{c.continue}</button>}
+        {step === 5 && reviewed && <button type="button" className="primary" onClick={() => void confirm()} disabled={!!busy}>{c.create}</button>}
         <button type="button" className="ghost" disabled={busy === "create"} onClick={() => { if (guard()) onCancel(); }}>{c.cancel}</button>
       </div>
     </form>

@@ -23,6 +23,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
   --scroll-shadow: rgba(24, 41, 38, .22);
   --danger: #b23b3b;
   --danger-soft: #fff0ed;
+  --warning: #7a4f00;
+  --warning-soft: #fff4dc;
   --shadow: 0 3px 16px rgba(25, 48, 37, .045);
 }
 
@@ -33,7 +35,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
     --text: #e9f1ec; --muted: #bac9c0; --border: #32423e;
     --accent: #67c9a5; --accent-deep: #9adfbe; --accent-soft: #183e32; --on-accent: #09251b;
     --placeholder: #8fa197; --scroll-shadow: rgba(0, 0, 0, .55);
-    --danger: #f29b92; --danger-soft: #4c2827; --shadow: none;
+    --danger: #f29b92; --danger-soft: #4c2827; --shadow: none; --warning: #f0c36b; --warning-soft: #3b3017;
   }
 }
 
@@ -43,7 +45,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
   --text: #e9f1ec; --muted: #bac9c0; --border: #32423e;
   --accent: #67c9a5; --accent-deep: #9adfbe; --accent-soft: #183e32; --on-accent: #09251b;
   --placeholder: #8fa197; --scroll-shadow: rgba(0, 0, 0, .55);
-  --danger: #f29b92; --danger-soft: #4c2827; --shadow: none;
+  --danger: #f29b92; --danger-soft: #4c2827; --shadow: none; --warning: #f0c36b; --warning-soft: #3b3017;
 }
 
 * { box-sizing: border-box; }
@@ -478,10 +480,22 @@ td.strong { font-weight: 800; }
 /* Repository labels: the report and the enrollment option. */
 .forge-labels { margin-top: 18px; display: grid; gap: 8px; }
 .forge-labels h3 { margin: 0; }
-.label-report { display: grid; gap: 6px; margin: 0; }
-.label-report dt { font-weight: 650; }
-.label-report dd { margin: 0; display: flex; flex-wrap: wrap; gap: 4px 8px; }
+.label-report { display: grid; gap: 12px; margin: 0; }
+.label-report dt { font-weight: 650; margin-bottom: 6px; }
+.label-report dd { margin: 0; display: flex; flex-wrap: wrap; gap: 6px 8px; }
 .label-report ul { margin: 0; padding-left: 18px; }
+/* Enrollment: an action with its result beside it, and the completion screen spacing. */
+.verify-action { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 10px 0; }
+.action-result { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px; font-size: .86rem; font-weight: 650; border: 1px solid transparent; }
+.action-result.ok { background: var(--accent-soft); color: var(--accent-deep); border-color: var(--accent); }
+/* Decorative icons: the badge text already says the result. */
+.action-result.ok::before { content: "✓" / ""; }
+.action-result.fail::before { content: "✕" / ""; }
+.action-result.warn::before { content: "!" / ""; }
+.action-result.warn { background: var(--warning-soft); color: var(--warning); border-color: var(--warning); }
+.action-result.fail { background: var(--danger-soft); color: var(--danger); border-color: var(--danger); }
+.action-result.muted { background: var(--surface-alt); color: var(--muted); border-color: var(--border); font-weight: 400; }
+.enrollment-complete .forge-labels { margin: 18px 0 20px; }
 .forge-labels-option { flex-direction: row; align-items: flex-start; gap: .6rem; font-weight: 400; margin: 6px 0 12px; }
 .forge-labels-option input[type="checkbox"] { width: 1.05rem; height: 1.05rem; min-height: 0; margin: .1rem 0 0; padding: 0; flex: none; }
 /* Checkbox beside its title; the clone path in a lighter line below the title. */

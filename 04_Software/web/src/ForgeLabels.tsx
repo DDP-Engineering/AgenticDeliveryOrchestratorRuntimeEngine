@@ -49,12 +49,12 @@ export const forgeLabelsCopy: Record<Locale, {
 /** The created / existing / not created lists of a label report. */
 export function LabelReportView({ report, locale }: { report: LabelReport; locale: Locale }) {
   const c = forgeLabelsCopy[locale];
-  const list = (items: string[]) => items.length ? items.map(name => <code key={name}>{name}</code>) : <span className="muted">{c.none}</span>;
+  const list = (items: string[]) => items.length ? items.map(name => <span className="ticket-label" key={name}>{name}</span>) : <span className="muted">{c.none}</span>;
   return <dl className="label-report">
     <div><dt>{c.created} ({report.created.length})</dt><dd>{list(report.created)}</dd></div>
     <div><dt>{c.existing} ({report.existing.length})</dt><dd>{list(report.existing)}</dd></div>
     {report.failed.length > 0 && <div><dt>{c.failed} ({report.failed.length})</dt><dd><ul>{report.failed.map(item =>
-      <li key={item.name}><code>{item.name}</code> — {item.reason}</li>)}</ul></dd></div>}
+      <li key={item.name}><span className="ticket-label">{item.name}</span> — {item.reason}</li>)}</ul></dd></div>}
   </dl>;
 }
 

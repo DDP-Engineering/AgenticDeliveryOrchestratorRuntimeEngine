@@ -50,7 +50,7 @@ async function target(page: Page, name: string) {
   await expect(page.getByText("Structural setup valid", { exact: true })).toBeVisible();
   await expect(page.getByText("Source value", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("This server value", { exact: true }).first()).toBeVisible();
-  await page.getByRole("button", { name: "Review candidate", exact: true }).click();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
   return home;
 }
 
@@ -85,9 +85,9 @@ test("target change/back invalidates review; actual source edit requires source 
   await page.getByLabel(transferCopy.en.confirm).check();
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Review candidate", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Continue", exact: true })).toBeDisabled();
   await page.getByRole("button", { name: "Validate setup", exact: true }).click();
-  await page.getByRole("button", { name: "Review candidate", exact: true }).click();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
   const sourcePath = join(home, "profiles", "alpha", "config.toml"), raw = await readFile(sourcePath);
   try {
     await writeFile(sourcePath, Buffer.concat([raw, Buffer.from("\n# changed after review\n")]));
@@ -168,7 +168,7 @@ test("malformed installed-default mapping blocks review", async ({ page }) => {
   });
   await page.getByRole("button", { name: "Validate setup", exact: true }).click();
   await expect(page.getByRole("alert")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Review candidate", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Continue", exact: true })).toBeDisabled();
 });
 
 for (const locale of ["en", "fr", "de", "ro"] as Locale[]) {
