@@ -32,7 +32,7 @@ eligible ticket
   -> human review and merge
 ```
 
-A full task runs `frame -> specify -> design -> build -> validate -> deliver`;
+A full task runs `frame -> specify -> design -> build -> validate -> done`;
 a small fix or change may take the quick path without `specify` and `design`.
 The executor decides and justifies the path in the AEGIS journal; the ticket
 label is only a hint.

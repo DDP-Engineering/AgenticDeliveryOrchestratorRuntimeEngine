@@ -86,8 +86,3 @@ strict_promote = []
 run = ["test", "lint", "frontend"]
 # run = ["test", "lint"]   # restrict what `check --run` executes; without
 #                          # this, side-effect-looking names are skipped
-
-[codegraph]
-# Optional code navigation through the add-on in .agentic/plugins/codegraph/.
-# Indexes the Python files under [layout] source and tests.
-enabled = true
