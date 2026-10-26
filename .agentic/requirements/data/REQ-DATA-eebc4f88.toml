@@ -1,0 +1,32 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-DATA-eebc4f88"
+
+title = "Reject stage-timeout overrides outside the current stages"
+
+status = "active"
+
+requirement = """
+If `[workflow] stage_timeout_overrides` names a key other than frame, specify, design, build or validate, then configuration validation shall report that key as not an AEGIS stage.
+"""
+
+verification = "Offline configuration tests accept positive overrides for the five stages and report deliver and an unknown key as not an AEGIS stage, listing the five accepted stages."
+
+affected_paths = ["04_Software/adore/config.py"]
+
+linked_tests = ["04_Software/tests/test_config.py::test_stage_timeout_overrides_accept_five_stages_and_refuse_deliver", "04_Software/tests/test_config.py::test_stage_timeout_overrides_must_name_stages_and_positive_seconds"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = "Configuration typed by humans fails closed, and AEGIS 0.15.0 has no deliver stage to bound."
+
+created = 2026-10-25
+updated = 2026-10-25

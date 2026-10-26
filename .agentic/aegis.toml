@@ -56,6 +56,15 @@ autopilot = false
 enabled = true
 max_fix_cycles = 5
 
+[diagrams]
+# Design ends by drawing Mermaid diagrams of the proposed implementation into
+# .agentic/tasks/diagram_TASK-<id>.md, as .agentic/steps/diagrams.md
+# describes. All three types are drawn: structure (components and how they
+# connect), sequence (the primary call flow) and state (lifecycles and
+# transitions). No stage, review or check finding depends on a diagram.
+enabled = true
+types = ["structure", "sequence", "state"]
+
 [records]
 # Anchor and evolution sidecars under .agentic/tasks/ are local evidence.
 # false keeps them out of git through a managed block in .gitignore that
@@ -66,10 +75,8 @@ commit_fingerprints = false
 [zones]
 # What each stage may write besides `.agentic/`, which every stage may
 # always write. Values name the globs above: "source", "tests". A stage
-# left out entirely may write anywhere - that is why build, validate, and
-# deliver are not listed. Deliver is publish-only by instruction, but the
-# merge-base diff cannot attribute an edit to one stage without false hits.
-# Advisory like everything else: check reports an edit
+# left out entirely may write anywhere - that is why build and validate are
+# not listed. Advisory like everything else: check reports an edit
 # outside the zone, it never stops one. The defaults are shown; uncomment
 # and change a line to widen or narrow one stage.
 # frame = []

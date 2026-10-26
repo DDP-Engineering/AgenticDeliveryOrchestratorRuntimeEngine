@@ -130,12 +130,12 @@ stage_timeout_overrides = { build = 5400, validate = 3600 }
   `default_kind` is used only when no configured label matches.
 - `quick_label` is only a framing hint. ADORE does not select the path.
 - `aegis_python` is the one-token executable used with `.agentic/aegis.py`.
-- timeout override keys are `frame`, `specify`, `design`, `build`, `validate`,
-  or `deliver`. Each positive override bounds one executor attempt, replacing the general stage-attempt limit. In the GUI, all six stages offer General or Custom seconds; General removes that stage’s entry.
+- timeout override keys are `frame`, `specify`, `design`, `build`, or
+  `validate`; any other key, `deliver` included, fails validation as not an AEGIS stage. Each positive override bounds one executor attempt, replacing the general stage-attempt limit. In the GUI, all five stages offer General or Custom seconds; General removes that stage’s entry.
 
-ADORE conducts AEGIS major 0 from 0.5.0 upward over JSON schema `1`; a
+ADORE conducts AEGIS major 0 from 0.15.0 upward over JSON schema `1`; a
 different major, a payload below the floor, or any other contract is refused
-at probe.
+at probe. From 0.15.0 validate closes the AEGIS task; there is no deliver stage.
 
 ## Recovery
 

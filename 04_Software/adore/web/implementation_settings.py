@@ -26,7 +26,9 @@ from adore.web.executor_settings import PROVIDER_KEYS
 # CONSTANTS
 COLLECTION_KEYS = frozenset({"recovery.retry_backoff_seconds", "workflow.stage_timeout_overrides",
                              "executor.env_keys"})
-STAGES = ("frame", "specify", "design", "build", "validate", "deliver")
+#: The stages whose executor launch a timeout override bounds, matching
+#: `adore.config.AEGIS_STAGES`; AEGIS 0.15.0 has no deliver stage.
+STAGES = ("frame", "specify", "design", "build", "validate")
 MAX_SAFE_INTEGER = 9007199254740991
 
 

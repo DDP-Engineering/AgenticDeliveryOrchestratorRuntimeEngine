@@ -154,7 +154,6 @@ class FakeWorktrees:
     def __init__(self) -> None:
         self.target = "a" * 40
         self.fingerprint = "b" * 64
-        self.product_fingerprint = "c" * 64
         self.progress_fingerprint = "initial"
         self.checkpoints: list[str] = []
         self.pushes: list[str] = []
@@ -196,9 +195,6 @@ class FakeWorktrees:
 
     def candidate_fingerprint(self, run_id, base_ref):
         return self.fingerprint
-
-    def product_diff_fingerprint(self, run_id, base_ref):
-        return self.product_fingerprint
 
     def worktree_progress_fingerprint(self, run_id):
         return self.progress_fingerprint
@@ -493,7 +489,7 @@ def task(stage: str, *, path="full", task_type="feature") -> AegisTask:
     steps = {
         "frame": "1_frame.md", "specify": "2_specify.md", "design": "3_design.md",
         "build": "4_build.md", "validate": "5_validate.md",
-        "deliver": "6_deliver.md", "done": "6_deliver.md",
+        "done": None,
     }
     return AegisTask(
         task_id=TASK_ID,
@@ -541,7 +537,7 @@ def sequence(*stages: str, path="full", task_type="feature") -> list[AegisTask]:
             task(current, path=path, task_type=task_type),
             task(following, path=path, task_type=task_type),
         ])
-    # Strict verification and the next loop each read deliver once more.
+    # Strict verification and the next loop each read done once more.
     result.extend([
         task(stages[-1], path=path, task_type=task_type),
         task(stages[-1], path=path, task_type=task_type),
@@ -555,9 +551,9 @@ def sequence(*stages: str, path="full", task_type="feature") -> list[AegisTask]:
 @pytest.mark.parametrize(
     ("stages", "path", "task_type"),
     [
-        (("frame", "specify", "design", "build", "validate", "deliver"),
+        (("frame", "specify", "design", "build", "validate", "done"),
          "full", "feature"),
-        (("frame", "build", "validate", "deliver"), "quick", "fix"),
+        (("frame", "build", "validate", "done"), "quick", "fix"),
     ],
 )
 def test_clean_full_and_quick_paths_stop_for_fresh_approval(
@@ -572,7 +568,7 @@ def test_clean_full_and_quick_paths_stop_for_fresh_approval(
 
     saved = engine.store.load(run.run_id)
     assert saved.lifecycle == "awaiting-approval"
-    assert saved.stage == "deliver"
+    assert saved.stage == "done"
     assert saved.validation_evidence["passed"] is True
     observations = [event for event in engine.store.read_journal(run.run_id)
                     if event.get("event") == "usage-observation"]
@@ -584,6 +580,9 @@ def test_clean_full_and_quick_paths_stop_for_fresh_approval(
     assert saved.validation_evidence["deviations"] == []
     assert "Deviations recorded: 0" in forge.ticket_comments[saved.approval_comment_id]
     assert len(executor.prompts) == len(stages) - 1
+    strict = [event for event in engine.store.read_journal(run.run_id)
+              if event.get("event") == "strict-verification"]
+    assert len(strict) == 1
     assert not forge.opened
     assert containers.stopped
     stage_commits = [item for item in worktrees.checkpoints if "ADORE checkpoint" in item]
@@ -598,7 +597,7 @@ def test_launch_telemetry_distinguishes_observed_and_disabled_capture(tmp_path):
         tmp_path / "observed", executor=FakeExecutor(first))
     run = make_run(engine)
     engine._conduct_task(run, forge.ticket,
-                         FakeAegis(sequence("frame", "build", "validate", "deliver")), "")
+                         FakeAegis(sequence("frame", "build", "validate", "done")), "")
     journal = engine.store.read_journal(run.run_id)
     observed = [event for event in journal if event.get("event") == "usage-observation"]
     usage = [event for event in journal if event.get("event") == "usage"]
@@ -617,7 +616,7 @@ def test_launch_telemetry_distinguishes_observed_and_disabled_capture(tmp_path):
     disabled.config.metrics.capture_tokens = False
     run = make_run(disabled)
     disabled._conduct_task(run, forge.ticket,
-                           FakeAegis(sequence("frame", "build", "validate", "deliver")), "")
+                           FakeAegis(sequence("frame", "build", "validate", "done")), "")
     journal = disabled.store.read_journal(run.run_id)
     observed = [event for event in journal if event.get("event") == "usage-observation"]
     assert observed[0]["token_status"] == "disabled"
@@ -633,7 +632,7 @@ def test_launch_telemetry_preserves_reported_zero(tmp_path):
         tmp_path, executor=FakeExecutor(result))
     run = make_run(engine)
     engine._conduct_task(run, forge.ticket,
-                         FakeAegis(sequence("frame", "build", "validate", "deliver")), "")
+                         FakeAegis(sequence("frame", "build", "validate", "done")), "")
     observations = [event for event in engine.store.read_journal(run.run_id)
                     if event.get("event") == "usage-observation"]
     assert observations[0]["token_status"] == "reported"
@@ -648,7 +647,7 @@ def test_partial_telemetry_does_not_write_numeric_usage(tmp_path):
         tmp_path, executor=FakeExecutor(result))
     run = make_run(engine)
     engine._conduct_task(run, forge.ticket,
-                         FakeAegis(sequence("frame", "build", "validate", "deliver")), "")
+                         FakeAegis(sequence("frame", "build", "validate", "done")), "")
     journal = engine.store.read_journal(run.run_id)
     observations = [event for event in journal
                     if event.get("event") == "usage-observation"]
@@ -737,7 +736,7 @@ def test_approval_presentation_lists_recorded_deviations(tmp_path: Path) -> None
     """@brief Journal deviations reach the approver as a count plus full text."""
     engine, forge, _, _, _ = make_engine(tmp_path)
     run = make_run(engine, task_type="fix", path="quick")
-    stages = sequence("frame", "build", "validate", "deliver", path="quick", task_type="fix")
+    stages = sequence("frame", "build", "validate", "done", path="quick", task_type="fix")
     stages[-1] = replace(stages[-1], log=(
         "2026-09-13 build: DEVIATION build - accepted one check warning",
         "2026-09-13 build: the DEVIATION policy is one line, said aloud",
@@ -1089,7 +1088,7 @@ def test_approval_observation_refreshes_ticket_without_invalidating(
     engine, forge, worktrees, _, _ = make_engine(tmp_path)
     run = make_run(engine)
     run.lifecycle = "awaiting-approval"
-    run.stage = "deliver"
+    run.stage = "done"
     run.validation_evidence = engine._validation_payload(passing_check())
     run.candidate_fingerprint = worktrees.fingerprint
     run.candidate_base_ref = worktrees.target
@@ -1133,7 +1132,7 @@ def test_many_strict_findings_count_as_one_failed_invocation(tmp_path: Path) -> 
         passed=False,
         runs=(AegisCommandRun("test", "failed", 1, 1.0),),
     )
-    client = FakeAegis([task("deliver")], failed)
+    client = FakeAegis([task("done")], failed)
     engine._launch_stage = lambda *args, **kwargs: GateRun(  # type: ignore[method-assign]
         exit_code=0, has_questions=True, questions="Need policy decision"
     )
@@ -1226,7 +1225,7 @@ def test_approval_rejects_stale_label_and_invalidates_on_target_drift(tmp_path: 
     forge.ticket.labels.append("agent-approved")
     engine, _, worktrees, _, _ = make_engine(tmp_path, forge=forge)
     run = make_run(engine)
-    run.stage = "deliver"
+    run.stage = "done"
     run.validation_evidence = engine._validation_payload(passing_check())
     run.candidate_fingerprint = worktrees.fingerprint
     run.candidate_base_ref = worktrees.target
@@ -1251,7 +1250,7 @@ def test_approval_invalidation_rearms_clock_and_stage_failures(
     engine.config.budgets.max_wall_clock_seconds = 60
     run = make_run(engine)
     run.lifecycle = "awaiting-approval"
-    run.stage = "deliver"
+    run.stage = "done"
     run.validation_evidence = engine._validation_payload(passing_check())
     run.candidate_fingerprint = worktrees.fingerprint
     run.candidate_base_ref = worktrees.target
@@ -1289,7 +1288,7 @@ def test_retry_rechecks_missing_approval_before_publication(
     engine.config.delivery.draft = draft
     run = make_run(engine)
     run.lifecycle = "failed"
-    run.stage = "deliver"
+    run.stage = "done"
     run.outcome = "PUSH_FAILED: unavailable"
     run.validation_evidence = engine._validation_payload(passing_check())
     run.candidate_fingerprint = worktrees.fingerprint
@@ -1331,7 +1330,7 @@ def test_retry_drift_reconducts_only_once(
     engine, forge, worktrees, _, _ = make_engine(tmp_path)
     run = make_run(engine)
     run.lifecycle = "failed"
-    run.stage = "deliver"
+    run.stage = "done"
     run.outcome = "PUSH_FAILED: unavailable"
     run.validation_evidence = engine._validation_payload(passing_check())
     run.candidate_fingerprint = worktrees.fingerprint
@@ -1362,7 +1361,7 @@ def test_executor_prompt_forbids_remote_and_uses_quick_only_as_hint(tmp_path: Pa
     prompt = engine._stage_prompt(
         run, forge.ticket, task("frame", path="quick", task_type="fix"), "", ""
     )
-    assert "autopilot-to-deliver" in prompt
+    assert "runs in autopilot" in prompt
     assert "quick-path hint" in prompt
     assert "Never commit, push, open or merge" in prompt
     assert "python .agentic/aegis.py" in prompt
@@ -1386,11 +1385,31 @@ def test_executor_prompt_declares_autopilot_on_every_stage(tmp_path: Path) -> No
     """
     engine, forge, _, _, _ = make_engine(tmp_path)
     run = make_run(engine)
-    for stage in ("frame", "specify", "design", "build", "validate", "deliver"):
+    for stage in ("frame", "specify", "design", "build", "validate", "done"):
         prompt = engine._stage_prompt(run, forge.ticket, task(stage), "", "")
-        assert "autopilot-to-deliver" in prompt
+        assert "runs in autopilot" in prompt
         assert "interaction: autopilot" in prompt
         assert "never pause to present" in prompt
+
+
+def test_executor_prompt_names_the_aegis_journal_writers(tmp_path: Path) -> None:
+    """
+    @brief   Every stage prompt names the AEGIS 0.15.0 journal writers only.
+    @details AEGIS 0.15.0 writes the journal state through its CLI: `advance`
+             finishes a stage, `log` records evidence and `pause` stops. The
+             Handoff and Stage report sections it replaced, and the deliver
+             stage it removed, must not reach an executor.
+    """
+    engine, forge, _, _, _ = make_engine(tmp_path)
+    run = make_run(engine)
+    for stage in ("frame", "specify", "design", "build", "validate", "done"):
+        prompt = engine._stage_prompt(run, forge.ticket, task(stage), "", "")
+        assert f"python .agentic/aegis.py advance {TASK_ID}" in prompt
+        assert f"python .agentic/aegis.py log {TASK_ID}" in prompt
+        assert f"python .agentic/aegis.py pause {TASK_ID}" in prompt
+        assert "--blocked" in prompt
+        assert "Handoff" not in prompt and "Stage report" not in prompt
+        assert "deliver" not in prompt.lower()
 
 
 def test_executor_prompt_does_not_contradict_itself_about_stopping(
@@ -1410,7 +1429,7 @@ def test_executor_prompt_does_not_contradict_itself_about_stopping(
     """
     engine, forge, _, _, _ = make_engine(tmp_path)
     prompt = engine._stage_prompt(make_run(engine), forge.ticket, task("frame"), "", "")
-    autopilot, _, rest = prompt.partition("autopilot-to-deliver")
+    autopilot, _, rest = prompt.partition("runs in autopilot")
     clause = rest.split("\n\n")[0]
     assert "never stop" not in clause.lower()
     assert "pause" in clause.lower()          # it is about human pauses only
@@ -1418,17 +1437,17 @@ def test_executor_prompt_does_not_contradict_itself_about_stopping(
     assert "end the session" in prompt
 
 
-@pytest.mark.parametrize("draft", [True, False])
-def test_approved_publication_opens_draft_and_pushes_close_out(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, draft: bool,
-) -> None:
-    """@brief Approved publication uses the configured state and requires task done."""
-    engine, forge, worktrees, _, executor = make_engine(
-        tmp_path, executor=FakeExecutor(GateRun(0), GateRun(0))
-    )
+class _NoAegis:
+    """@brief AEGIS client stand-in proving publication runs no AEGIS command."""
+
+    def __init__(self, *args, **kwargs):
+        raise AssertionError("publication must not run an AEGIS command")
+
+
+def _approved_run(engine: Orchestrator, worktrees: FakeWorktrees) -> RunState:
+    """@brief Persist a verified candidate at stage done whose approval is fresh."""
     run = make_run(engine)
-    run.stage = "deliver"
-    engine.config.delivery.draft = draft
+    run.stage = "done"
     run.lifecycle = "awaiting-approval"
     run.validation_evidence = engine._validation_payload(passing_check())
     run.candidate_fingerprint = worktrees.fingerprint
@@ -1436,77 +1455,43 @@ def test_approved_publication_opens_draft_and_pushes_close_out(
     run.approval_label_removed = True
     run.approval_presented_at = utc_now_iso()
     engine.store.save(run)
+    return run
 
-    class PublishClient:
-        """@brief Script delivery/task completion for the publication boundary."""
 
-        statuses = deque([task("deliver"), task("deliver"), task("deliver"), task("done")])
-
-        def __init__(self, *args, **kwargs):
-            pass
-
-        def probe(self):
-            return None
-
-        def task_status(self, task_id):
-            return self.statuses.popleft()
-
-        def report(self, task_id):
-            return None
-
-        def evolution(self, task_id):
-            return {}
-
-    monkeypatch.setattr(orchestrator_module, "AegisClient", PublishClient)
+@pytest.mark.parametrize("draft", [True, False])
+def test_approved_publication_opens_draft_without_an_executor_session(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, draft: bool,
+) -> None:
+    """
+    @brief   An approved candidate reaches the forge exactly as verified.
+    @details AEGIS 0.15.0 closes the task in validate, so publication is Git
+             and forge work only: one push, the configured draft or ready
+             MR/PR, and review at stage done, with no executor session and no
+             AEGIS command after the human approved.
+    """
+    engine, forge, worktrees, _, executor = make_engine(tmp_path)
+    engine.config.delivery.draft = draft
+    run = _approved_run(engine, worktrees)
+    monkeypatch.setattr(orchestrator_module, "AegisClient", _NoAegis)
 
     engine._publish(run, forge.ticket)
 
     saved = engine.store.load(run.run_id)
     assert saved.lifecycle == "in-review" and saved.stage == "done"
     assert forge.opened and forge.opened[0]["draft"] is draft
-    assert len(worktrees.pushes) == 2
-    assert len(executor.prompts) == 2
+    assert worktrees.pushes == [run.branch]
+    assert executor.prompts == []
+    assert saved.mr_iid == forge.mr.iid and saved.mr_url == forge.mr.web_url
 
 
 def test_publication_adopts_existing_open_mr_before_create(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """@brief Crash recovery adopts a branch MR and never attempts a duplicate."""
-    engine, forge, worktrees, _, _ = make_engine(
-        tmp_path, executor=FakeExecutor(GateRun(0), GateRun(0))
-    )
+    engine, forge, worktrees, _, executor = make_engine(tmp_path)
     forge.branch_mr_exists = True
-    run = make_run(engine)
-    run.stage = "deliver"
-    run.lifecycle = "awaiting-approval"
-    run.validation_evidence = engine._validation_payload(passing_check())
-    run.candidate_fingerprint = worktrees.fingerprint
-    run.candidate_base_ref = worktrees.target
-    run.approval_label_removed = True
-    run.approval_presented_at = utc_now_iso()
-    engine.store.save(run)
-
-    class AdoptClient:
-        """@brief Script delivery completion after an existing MR is adopted."""
-
-        statuses = deque([task("deliver"), task("deliver"), task("deliver"), task("done")])
-
-        def __init__(self, *args, **kwargs):
-            pass
-
-        def probe(self):
-            return None
-
-        def task_status(self, task_id):
-            return self.statuses.popleft()
-
-        def report(self, task_id):
-            return None
-
-        def evolution(self, task_id):
-            return {}
-
-    monkeypatch.setattr(orchestrator_module, "AegisClient", AdoptClient)
+    run = _approved_run(engine, worktrees)
+    monkeypatch.setattr(orchestrator_module, "AegisClient", _NoAegis)
 
     engine._publish(run, forge.ticket)
 
@@ -1519,7 +1504,8 @@ def test_publication_adopts_existing_open_mr_before_create(
     assert saved.mr_url == forge.mr.web_url
     assert saved.lifecycle == "in-review"
     assert forge.opened == []
-    assert len(worktrees.pushes) == 2
+    assert worktrees.pushes == [run.branch]
+    assert executor.prompts == []
     assert adopted[-1]["iid"] == forge.mr.iid
 
 
@@ -1527,39 +1513,11 @@ def test_publication_fails_closed_on_malformed_existing_mr(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """@brief Missing branch-MR identity blocks creation instead of risking a duplicate."""
-    engine, forge, worktrees, _, _ = make_engine(
-        tmp_path, executor=FakeExecutor(GateRun(0))
-    )
+    engine, forge, worktrees, _, _ = make_engine(tmp_path)
     forge.branch_mr_exists = True
     forge.mr.web_url = ""
-    run = make_run(engine)
-    run.stage = "deliver"
-    run.validation_evidence = engine._validation_payload(passing_check())
-    run.candidate_fingerprint = worktrees.fingerprint
-    run.candidate_base_ref = worktrees.target
-    engine.store.save(run)
-
-    class MalformedAdoptClient:
-        """@brief Reach publication lookup with valid local delivery evidence."""
-
-        statuses = deque([task("deliver"), task("deliver")])
-
-        def __init__(self, *args, **kwargs):
-            pass
-
-        def probe(self):
-            return None
-
-        def task_status(self, task_id):
-            return self.statuses.popleft()
-
-        def report(self, task_id):
-            return None
-
-        def evolution(self, task_id):
-            return {}
-
-    monkeypatch.setattr(orchestrator_module, "AegisClient", MalformedAdoptClient)
+    run = _approved_run(engine, worktrees)
+    monkeypatch.setattr(orchestrator_module, "AegisClient", _NoAegis)
 
     engine._publish(run, forge.ticket)
 
@@ -1569,25 +1527,454 @@ def test_publication_fails_closed_on_malformed_existing_mr(
     assert forge.opened == []
 
 
-def test_done_task_with_mr_recovers_close_out_before_review(tmp_path: Path) -> None:
-    """@brief A done journal is checkpointed and pushed before leaving working."""
-    engine, forge, worktrees, containers, _ = make_engine(tmp_path)
-    run = make_run(engine)
-    run.stage = "deliver"
-    run.mr_iid = forge.mr.iid
-    run.mr_url = forge.mr.web_url
-    engine.store.save(run)
+@pytest.mark.parametrize("pointer", ["done", "publishing"])
+def test_failed_publication_push_keeps_the_approval_for_retry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pointer: str,
+) -> None:
+    """
+    @brief   A refused push fails the run but keeps the verified candidate.
+    @details The approval stays bound to the stored evidence, so `retry` from
+             stage done, or after `reset --to publishing`, rechecks freshness
+             and publishes the same candidate without new validation.
+    """
+    engine, forge, worktrees, _, executor = make_engine(tmp_path)
+    engine.config.recovery.max_transient_retries = 1
+    run = _approved_run(engine, worktrees)
+    monkeypatch.setattr(orchestrator_module, "AegisClient", _NoAegis)
+    refused = CommandResult(exit_code=1, stderr="remote: protected branch")
+    monkeypatch.setattr(worktrees, "push", lambda run_id, branch: refused)
 
-    engine._conduct_task(run, forge.ticket, FakeAegis([task("done")]), "")
+    engine._publish(run, forge.ticket)
+
+    failed = engine.store.load(run.run_id)
+    assert failed.lifecycle == "failed" and failed.outcome.startswith("PUSH_FAILED")
+    assert failed.stage == "done"
+    assert failed.validation_evidence and failed.approval_presented_at
+    assert forge.opened == []
+
+    if pointer == "publishing":
+        assert engine.reset(run.run_id, "publishing")
+    pushed: list[str] = []
+    monkeypatch.setattr(worktrees, "push",
+                        lambda run_id, branch: pushed.append(branch) or CommandResult())
+    forge.ticket.labels.append("agent-approved")
+
+    assert engine.retry(run.run_id)
 
     saved = engine.store.load(run.run_id)
-    assert saved.lifecycle == "in-review"
-    assert saved.stage == "done"
+    assert saved.lifecycle == "in-review" and saved.stage == "done"
+    assert pushed == [run.branch] and forge.opened
+    assert executor.prompts == []
+
+
+@pytest.mark.parametrize("change", ["target", "label"])
+def test_retry_after_publication_returns_to_review(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, change: str,
+) -> None:
+    """
+    @brief   A run that fails in review after publication returns to review.
+    @details Stage done spans approval, publication and review, so retry tells a
+             published candidate by its recorded fingerprint. A target that
+             moved or an approval label removed during review must not reopen
+             the AEGIS task or ask for a new approval.
+    """
+    engine, forge, worktrees, _, executor = make_engine(tmp_path)
+    run = _approved_run(engine, worktrees)
+    monkeypatch.setattr(orchestrator_module, "AegisClient", _NoAegis)
+    engine._publish(run, forge.ticket)
+    published = engine.store.load(run.run_id)
+    assert published.lifecycle == "in-review"
+    published.lifecycle = "failed"
+    published.outcome = "REVIEW_START_FAILED: forge unavailable"
+    engine.store.save(published)
+    if change == "target":
+        forge.ticket.labels.append("agent-approved")
+        worktrees.target = "d" * 40
+
+    assert engine.retry(run.run_id)
+
+    saved = engine.store.load(run.run_id)
+    assert saved.lifecycle == "in-review" and saved.stage == "done"
     assert worktrees.pushes == [run.branch]
-    assert worktrees.checkpoints[-1] == f"ADORE recover close-out {TASK_ID}"
-    assert containers.stopped[-1] == run.container
-    engine._reconcile_stale_working(saved)
+    assert executor.prompts == []
+    assert saved.validation_evidence and saved.approval_presented_at
+    assert ("agent-approved" in forge.ticket.labels) is (change == "target")
+    assert not any(event["event"] == "approval-invalidated"
+                   for event in engine.store.read_journal(run.run_id))
+
+
+def test_retry_after_publishing_reset_without_approval_conducts_from_done(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    @brief   The publishing pointer has no AEGIS stage of its own.
+    @details Without a fresh approval, retry conducts the run from the closed
+             task at done instead of reporting the pointer as an AEGIS move.
+    """
+    engine, _, worktrees, _, _ = make_engine(tmp_path)
+    run = _approved_run(engine, worktrees)
+    run.lifecycle = "failed"
+    run.outcome = "PUSH_FAILED: protected branch"
+    engine.store.save(run)
+    assert engine.reset(run.run_id, "publishing")
+    conducted: list[str] = []
+    monkeypatch.setattr(engine, "_conduct",
+                        lambda state, ticket, thread="": conducted.append(state.stage))
+
+    assert engine.retry(run.run_id)
+
+    saved = engine.store.load(run.run_id)
+    assert conducted == ["done"]
+    assert saved.stage == "done" and saved.approval_presented_at == ""
+
+
+def test_retry_of_a_run_failed_at_done_before_verification_conducts_from_done(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    @brief   A run ADORE never verified holds no published candidate.
+    @details Both fingerprints are empty and so equal; retry must conduct the
+             run from done instead of sending it to review with no MR/PR.
+    """
+    engine, _, _, _, _ = make_engine(tmp_path)
+    run = make_run(engine)
+    run.stage = "done"
+    run.lifecycle = "failed"
+    run.outcome = "REVALIDATION_ROUTE_MISSING: task remained at done; expected validate"
+    engine.store.save(run)
+    conducted: list[str] = []
+    monkeypatch.setattr(engine, "_conduct",
+                        lambda state, ticket, thread="": conducted.append(state.stage))
+
+    assert engine.retry(run.run_id)
+
+    saved = engine.store.load(run.run_id)
+    assert conducted == ["done"]
+    assert saved.lifecycle == "working" and saved.mr_iid is None
+
+
+def test_retry_conducts_a_published_run_reset_to_an_earlier_stage(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    @brief   The return to review applies only at done or publishing.
+    @details An operator who resets a published run to validate asks for AEGIS
+             work again, so retry conducts from validate although the
+             candidate still equals the published one.
+    """
+    engine, forge, worktrees, _, _ = make_engine(tmp_path)
+    run = _approved_run(engine, worktrees)
+    monkeypatch.setattr(orchestrator_module, "AegisClient", _NoAegis)
+    engine._publish(run, forge.ticket)
     assert engine.store.load(run.run_id).lifecycle == "in-review"
+    assert engine.reset(run.run_id, "validate")
+    conducted: list[str] = []
+    monkeypatch.setattr(engine, "_conduct",
+                        lambda state, ticket, thread="": conducted.append(state.stage))
+
+    assert engine.retry(run.run_id)
+
+    saved = engine.store.load(run.run_id)
+    assert conducted == ["validate"]
+    assert saved.lifecycle == "working" and saved.stage == "validate"
+
+
+def test_publication_refuses_a_run_outside_the_done_stage(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """@brief A run recorded at the removed deliver stage is history, never published."""
+    engine, forge, worktrees, _, executor = make_engine(tmp_path)
+    run = _approved_run(engine, worktrees)
+    run.stage = "deliver"
+    engine.store.save(run)
+    forge.ticket.labels.append("agent-approved")
+    monkeypatch.setattr(orchestrator_module, "AegisClient", _NoAegis)
+
+    engine._reconcile_approval(run, {"approved": 0})
+
+    saved = engine.store.load(run.run_id)
+    assert saved.lifecycle == "failed"
+    assert saved.outcome.startswith("PUBLICATION_STAGE")
+    assert worktrees.pushes == [] and forge.opened == []
+    assert executor.prompts == []
+
+
+def test_target_drift_invalidates_approval_and_revalidates_from_done(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    @brief   Target drift voids the approval and the task returns to validate.
+    @details The approval check sees the moved target, clears the evidence and
+             conducts again: the done task is routed back with `advance --to
+             validate`, validated after integration, verified once and
+             presented anew against the new target.
+    """
+    from types import SimpleNamespace
+
+    engine, forge, worktrees, _, executor = make_engine(tmp_path)
+    run = _approved_run(engine, worktrees)
+    forge.ticket.labels.append("agent-approved")
+    worktrees.target = "d" * 40
+
+    class ReopenedClient(FakeAegis):
+        """@brief The done task, routed back, validated and closed again."""
+
+        def __init__(self, *args, **kwargs):
+            super().__init__([task("done"), task("validate"), task("validate"),
+                              task("done"), task("done"), task("done")])
+
+        def probe(self):
+            return SimpleNamespace(version="0.15.0", schema=1)
+
+    monkeypatch.setattr(orchestrator_module, "AegisClient", ReopenedClient)
+
+    engine._reconcile_approval(run, {"approved": 0})
+
+    saved = engine.store.load(run.run_id)
+    journal = engine.store.read_journal(run.run_id)
+    assert any(event["event"] == "approval-invalidated" for event in journal)
+    assert saved.lifecycle == "awaiting-approval" and saved.stage == "done"
+    assert len(executor.prompts) == 2
+    assert f"advance {TASK_ID} --to validate" in executor.prompts[0]
+    assert "current stage: validate" in executor.prompts[1]
+    assert len([event for event in journal if event["event"] == "strict-verification"]) == 1
+    assert saved.candidate_base_ref == worktrees.target
+
+
+def test_failed_strict_check_remediation_conducts_again(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    @brief   After the remediation session returns the task, conduction goes on.
+    @details The failed check counts once; the fresh session returns the done
+             task, validation runs again, and a passing check presents the
+             candidate.
+    """
+    engine, forge, _, _, executor = make_engine(tmp_path)
+    engine.config.recovery.max_stage_failures = 2
+    run = make_run(engine)
+    run.stage = "validate"
+    engine.store.save(run)
+    failed = replace(passing_check(), exit_code=1, errors=1, passed=False,
+                     findings=(AegisFinding("ERROR", "command-failed", "(run)", "test exit 1"),),
+                     runs=(AegisCommandRun("test", "failed", 1, 1.0),))
+
+    class RemediatedClient(FakeAegis):
+        """@brief The task the remediation session returned, validated and closed."""
+
+        def __init__(self, *args, **kwargs):
+            super().__init__([task("validate"), task("done"), task("done"), task("done")])
+
+    monkeypatch.setattr(orchestrator_module, "AegisClient", RemediatedClient)
+
+    engine._conduct_task(run, forge.ticket, FakeAegis(sequence("validate", "done"), failed), "")
+
+    saved = engine.store.load(run.run_id)
+    assert saved.lifecycle == "awaiting-approval" and saved.stage == "done"
+    assert [event["code"] for event in saved.failure_history] == ["STRICT_VERIFICATION_FAILED"]
+    assert len(executor.prompts) == 3
+    assert "current stage: done" in executor.prompts[1]
+    strict = [event for event in engine.store.read_journal(run.run_id)
+              if event["event"] == "strict-verification"]
+    assert [event["passed"] for event in strict] == [False, True]
+
+
+def test_retry_publishes_a_review_round_candidate_not_yet_published(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    @brief   A revision's candidate waits at done with the earlier MR/PR open.
+    @details Its fingerprint differs from the one ADORE last published, so a
+             retry after a refused push publishes it instead of returning the
+             run to review unpushed.
+    """
+    engine, forge, worktrees, _, executor = make_engine(tmp_path)
+    run = _approved_run(engine, worktrees)
+    run.mr_iid = forge.mr.iid
+    run.mr_url = forge.mr.web_url
+    run.published_fingerprint = "e" * 64
+    run.lifecycle = "failed"
+    run.outcome = "PUSH_FAILED: protected branch"
+    engine.store.save(run)
+    forge.ticket.labels.append("agent-approved")
+    monkeypatch.setattr(orchestrator_module, "AegisClient", _NoAegis)
+
+    assert engine.retry(run.run_id)
+
+    saved = engine.store.load(run.run_id)
+    assert worktrees.pushes == [run.branch]
+    assert saved.lifecycle == "in-review"
+    assert saved.published_fingerprint == worktrees.fingerprint
+    assert executor.prompts == []
+
+
+@pytest.mark.parametrize("target", orchestrator_module.RESETTABLE_STAGES)
+def test_reset_refuses_every_target_for_a_run_recorded_at_deliver(
+    tmp_path: Path, target: str,
+) -> None:
+    """
+    @brief   A run recorded at the removed deliver stage is never reset.
+    @details Its old approval stays in the run state, so a reset to validate
+             followed by one to publishing would publish it without the
+             current flow's verification.
+    """
+    engine, _, _, _, _ = make_engine(tmp_path)
+    run = make_run(engine)
+    run.stage = "deliver"
+    run.lifecycle = "failed"
+    engine.store.save(run)
+
+    assert not engine.reset(run.run_id, target)
+
+    saved = engine.store.load(run.run_id)
+    assert saved.stage == "deliver" and saved.lifecycle == "failed"
+
+
+def test_done_task_without_evidence_returns_to_validate_before_approval(
+    tmp_path: Path,
+) -> None:
+    """
+    @brief   A stale approval reopens the done task through AEGIS.
+    @details Approval invalidation leaves ADORE at validate while the journal
+             is done. One fresh session returns the task with `advance --to
+             validate`; validation then runs after target integration, and
+             ADORE verifies once before presenting the candidate again.
+    """
+    engine, forge, _, _, executor = make_engine(tmp_path)
+    run = make_run(engine)
+    run.stage = "validate"
+    engine.store.save(run)
+    client = FakeAegis([task("done"), task("validate"), task("validate"),
+                        task("done"), task("done"), task("done")])
+
+    engine._conduct_task(run, forge.ticket, client, "")
+
+    saved = engine.store.load(run.run_id)
+    assert saved.lifecycle == "awaiting-approval" and saved.stage == "done"
+    assert len(executor.prompts) == 2
+    route, validate = executor.prompts
+    assert "current stage: done" in route
+    assert f"python .agentic/aegis.py advance {TASK_ID} --to validate" in route
+    assert "current stage: validate" in validate
+    journal = engine.store.read_journal(run.run_id)
+    assert len([e for e in journal if e["event"] == "strict-verification"]) == 1
+    assert any(e["event"] == "stage-advanced" and e["previous"] == "done"
+               and e["current"] == "validate" for e in journal)
+
+
+def test_evidenced_jump_to_done_is_revalidated_before_approval(tmp_path: Path) -> None:
+    """
+    @brief   A session that ran build and validate together is not presented.
+    @details The journal evidences both stages, so the jump is accepted, but
+             ADORE never verified a validate -> done advance of its own. The
+             task returns to validate and is verified there first.
+    """
+    engine, forge, _, _, executor = make_engine(tmp_path)
+    run = make_run(engine)
+    run.stage = "build"
+    engine.store.save(run)
+    jumped = replace(task("done"), log=(
+        "2026-10-25 build: completed; next validate",
+        "2026-10-25 validate: completed; next done",
+    ))
+    client = FakeAegis([task("build"), jumped, jumped, task("validate"),
+                        task("validate"), task("done"), task("done"), task("done")])
+
+    engine._conduct_task(run, forge.ticket, client, "")
+
+    saved = engine.store.load(run.run_id)
+    assert saved.lifecycle == "awaiting-approval" and saved.stage == "done"
+    assert len(executor.prompts) == 3
+    assert "--to validate" in executor.prompts[1]
+    journal = engine.store.read_journal(run.run_id)
+    assert any(e["event"] == "stages-run-ahead" for e in journal)
+    assert len([e for e in journal if e["event"] == "strict-verification"]) == 1
+
+
+def test_route_session_that_leaves_the_task_done_is_a_validate_failure(
+    tmp_path: Path,
+) -> None:
+    """@brief A route session that does not return the task counts against validate."""
+    engine, forge, _, _, executor = make_engine(tmp_path)
+    engine.config.recovery.max_stage_failures = 1
+    run = make_run(engine)
+    run.stage = "validate"
+    engine.store.save(run)
+
+    engine._conduct_task(run, forge.ticket, FakeAegis([task("done"), task("done")]), "")
+
+    saved = engine.store.load(run.run_id)
+    assert saved.lifecycle == "failed"
+    assert saved.failure_history[-1]["code"] == "REVALIDATION_ROUTE_MISSING"
+    assert saved.failure_history[-1]["stage"] == "validate"
+    assert len(executor.prompts) == 1
+    assert not saved.approval_presented_at
+
+
+def test_failed_strict_check_returns_the_task_from_done(tmp_path: Path) -> None:
+    """
+    @brief   A failing independent check is routed back through AEGIS.
+    @details The failure counts once against validate and clears the evidence;
+             the remediation session sees the done task and is told to return
+             it with `advance --to`. Nothing is presented for approval.
+    """
+    engine, forge, _, _, _ = make_engine(tmp_path)
+    engine.config.recovery.max_stage_failures = 2
+    run = make_run(engine)
+    run.stage = "validate"
+    engine.store.save(run)
+    failed = replace(passing_check(), exit_code=1, errors=1, passed=False,
+                     findings=(AegisFinding("ERROR", "command-failed", "(run)", "test exit 1"),),
+                     runs=(AegisCommandRun("test", "failed", 1, 1.0),))
+    launched: list[tuple[AegisTask, str]] = []
+    original = engine._launch_stage
+
+    def launch(state, ticket, current, **kwargs):
+        if current.stage == "validate":
+            return original(state, ticket, current, **kwargs)
+        launched.append((current, kwargs.get("failure_context", "")))
+        return GateRun(exit_code=0, has_questions=True, questions="Which fix applies?")
+
+    engine._launch_stage = launch  # type: ignore[method-assign]
+
+    engine._conduct_task(run, forge.ticket, FakeAegis(sequence("validate", "done"), failed), "")
+
+    saved = engine.store.load(run.run_id)
+    assert saved.failure_history[-1]["code"] == "STRICT_VERIFICATION_FAILED"
+    assert saved.failure_history[-1]["stage"] == "validate"
+    assert saved.validation_evidence == {} and not saved.approval_presented_at
+    assert saved.lifecycle == "parked-clarification"
+    (remediation, context), = launched
+    assert remediation.stage == "done" and remediation.step_file is None
+    assert "from done" in context and "advance" in context and "--to" in context
+
+
+@pytest.mark.parametrize("target", ["frame", "validate", "publishing"])
+def test_reset_accepts_current_stages_and_publishing(tmp_path: Path, target: str) -> None:
+    """@brief Reset moves ADORE's pointer to a conducted stage or to publication."""
+    engine, _, _, _, _ = make_engine(tmp_path)
+    run = make_run(engine)
+    run.stage = "build"
+    engine.store.save(run)
+
+    assert engine.reset(run.run_id, target)
+
+    saved = engine.store.load(run.run_id)
+    assert saved.stage == target and saved.lifecycle == "failed"
+
+
+@pytest.mark.parametrize("target", ["deliver", "done", "intake"])
+def test_reset_refuses_other_targets_and_keeps_the_run(tmp_path: Path, target: str) -> None:
+    """@brief A pointer to a stage ADORE does not conduct is refused unchanged."""
+    engine, _, _, _, _ = make_engine(tmp_path)
+    run = make_run(engine)
+    run.stage = "build"
+    engine.store.save(run)
+
+    assert not engine.reset(run.run_id, target)
+
+    saved = engine.store.load(run.run_id)
+    assert saved.stage == "build" and saved.lifecycle == "working"
 
 
 def test_review_round_creates_new_aegis_task_on_same_branch(
@@ -1632,8 +2019,8 @@ def test_review_round_creates_new_aegis_task_on_same_branch(
 
 def test_strict_verification_runs_once_per_successful_run(tmp_path: Path) -> None:
     """
-    @brief   The validate -> deliver transition verifies, and the next pass of
-             the conduct loop reads the task back at deliver. Both call sites
+    @brief   The validate -> done transition verifies, and the next pass of
+             the conduct loop reads the task back at done. Both call sites
              used to fire, so the whole strict catalogue AND every configured
              command ran twice on every successful run - a doubled test suite
              on a real repository (live finding 2026-09-18).
@@ -1641,7 +2028,7 @@ def test_strict_verification_runs_once_per_successful_run(tmp_path: Path) -> Non
     engine, forge, _, _, _ = make_engine(tmp_path)
     run = make_run(engine)
     client = FakeAegis(sequence("frame", "specify", "design", "build",
-                                "validate", "deliver"))
+                                "validate", "done"))
 
     engine._conduct_task(run, forge.ticket, client, "")
 
@@ -1722,26 +2109,25 @@ def test_explicit_ticket_start_keeps_readiness_boundary(
     assert selected == [forge.ticket.iid]
 
 
-def test_publication_retry_survives_a_dirty_worktree(tmp_path: Path) -> None:
+def test_retry_settles_a_dirty_worktree_before_freshness(tmp_path: Path) -> None:
     """
-    @brief   `_publish` retries itself after a bookkeeping stage failure, but a
-             failed attempt can leave the worktree dirty and fingerprinting
-             refuses a dirty candidate. The retry then died instantly as
-             PUBLICATION_SETUP, so a failure budgeted for three attempts got
-             one (live finding 2026-09-18, GitHub pilot). Leftover work is now
-             checkpointed and the retry proceeds.
+    @brief   Fingerprinting refuses a dirty candidate, and `retry` checks
+             approval freshness by fingerprint before it publishes again.
+             Leftover work is checkpointed first, so a dirty tree reaches the
+             freshness check as a changed candidate that invalidates the
+             approval, never as a terminal fingerprint failure (live finding
+             2026-09-18, GitHub pilot).
     """
     engine, _, worktrees, _, _ = make_engine(tmp_path)
     run = make_run(engine)
-    run.approved_product = "a" * 64          # publication already began
     run.worktree = str(tmp_path / "wt")
     engine.store.save(run)
     worktrees.dirty = True
 
-    engine._settle_worktree(run, "publication retry")
+    engine._settle_worktree(run, "retry")
 
-    # the leftover work is committed, so the fingerprints that follow - in
-    # `_publish` and in `retry`'s freshness check - no longer meet a dirty tree
+    # the leftover work is committed, so the freshness fingerprint that
+    # follows in `retry` no longer meets a dirty tree
     assert not worktrees.dirty
     assert any(
         e["event"] == "checkpoint" and "settle" in e["message"]
@@ -1751,46 +2137,20 @@ def test_publication_retry_survives_a_dirty_worktree(tmp_path: Path) -> None:
 
 def test_settle_is_a_no_op_on_a_clean_worktree(tmp_path: Path) -> None:
     """
-    @brief   Settling must not manufacture an empty commit on the first entry
-             into publication, where validation already guarantees a clean tree.
+    @brief   Settling must not manufacture an empty commit on a retry whose
+             tree validation already left clean.
     """
     engine, _, worktrees, _, _ = make_engine(tmp_path)
     run = make_run(engine)
     run.worktree = str(tmp_path / "wt")
     worktrees.dirty = False
 
-    engine._settle_worktree(run, "publication retry")
+    engine._settle_worktree(run, "retry")
 
     assert not any(
         "settle" in e.get("message", "")
         for e in engine.store.read_journal(run.run_id)
     )
-
-
-def test_approved_product_baseline_is_captured_once_and_reused(
-    tmp_path: Path,
-) -> None:
-    """
-    @brief   Recapturing the baseline on a retry would adopt whatever the
-             failed attempt left as "approved", letting an unapproved product
-             change pass the CANDIDATE_MUTATION guard meant to catch it. It is
-             captured once and reused, so the comparison keeps referring to
-             what the human actually approved.
-    """
-    engine, _, worktrees, _, _ = make_engine(tmp_path)
-    run = make_run(engine)
-    captures: list[int] = []
-    original = worktrees.product_diff_fingerprint
-
-    def counting(run_id, base_ref):
-        captures.append(1)
-        return original(run_id, base_ref)
-
-    worktrees.product_diff_fingerprint = counting
-    first = engine._approved_product(run)
-    second = engine._approved_product(engine.store.load(run.run_id))
-
-    assert first == second and len(captures) == 1
 
 
 def test_push_retries_a_transient_remote_failure(tmp_path: Path) -> None:
@@ -2369,7 +2729,9 @@ def test_partial_stage_requires_candidate_and_append_only_evidence(tmp_path, mon
         assert run.stage_failures == 0
         assert len(worktrees.checkpoints) == 2
         assert "browser work remains" in executor.prompts[1]
-        assert "Handoff" in executor.prompts[1]
+        assert "aegis.py brief" in executor.prompts[1]
+        assert "State" in executor.prompts[1]
+        assert "Handoff" not in executor.prompts[1]
     else:
         assert len(executor.prompts) == 1
         assert run.failure_history[-1]["code"] == "NO_STAGE_PROGRESS"
@@ -2409,7 +2771,7 @@ def test_partial_stage_eventually_advances_and_requests_approval(tmp_path, monke
         return original(*args, **kwargs)
     monkeypatch.setattr(executor, "run_gate", execute)
     client = FakeAegis([before, after, after, task("validate"),
-                        task("validate"), task("deliver"), task("deliver")])
+                        task("validate"), task("done"), task("done")])
     engine._conduct_task(run, forge.ticket, client, "")
     assert run.lifecycle == "awaiting-approval"
     assert not run.failure_history
@@ -2489,7 +2851,7 @@ def test_reported_cost_cap_controls_validation_resume_without_erasing_usage(tmp_
     run = make_run(engine)
     run.stage = "validate"
     engine.store.journal(run.run_id, "usage", cost_usd=6.22)
-    engine._conduct_task(run, forge.ticket, FakeAegis(sequence("validate", "deliver")), "")
+    engine._conduct_task(run, forge.ticket, FakeAegis(sequence("validate", "done")), "")
     assert run.lifecycle == ("awaiting-approval" if cap == 0 else "failed")
     assert any(e.get("cost_usd") == 6.22 for e in engine.store.read_journal(run.run_id))
     assert bool(executor.prompts) == (cap == 0)

@@ -29,7 +29,9 @@ Focused public-contract proof: `04_Software/tests/test_branch_naming.py`, existi
 
 `WorkflowConfig` maps ticket labels to `feature`, `fix`, or `change`, carries a
 quick-path hint, selects the one-token Python executable, and permits timeout
-overrides only for the six working AEGIS stages. Mapping values accept only
+overrides only for the five AEGIS stages that launch an executor (`frame`,
+`specify`, `design`, `build`, `validate`); `deliver` is refused like any
+unknown stage. Mapping values accept only
 those three task kinds. Bug/fix mappings win over change, configured feature
 labels follow, and an unmatched ticket uses `default_kind`.
 

@@ -388,15 +388,23 @@ class Orchestrator:
         if ticket is None:
             self.log(f"retry {run_id}: ticket #{run.ticket_iid} no longer exists")
             return False
+        if run.stage in {"done", "publishing"} and self._published(run):
+            # The candidate already reached review: a later failure returns
+            # there with no new validation, approval or AEGIS command.
+            run.outcome = ""
+            self.store.journal(run_id, "operator-retry", stage="done")
+            self._enter_review(run)
+            return True
+        # An approved candidate waits at done; `reset --to publishing` points
+        # retry at the same publication.
         resume_publication = (
-            run.stage == "deliver"
+            run.stage in {"done", "publishing"}
             and bool(run.validation_evidence)
             and bool(run.approval_presented_at)
         )
         if resume_publication:
-            # A failed publication attempt can leave work behind, and EVERY
-            # fingerprint refuses a dirty tree - including the freshness check
-            # just below, which runs before `_publish` can settle anything.
+            # EVERY fingerprint refuses a dirty tree, including the freshness
+            # check just below, so leftover work is committed first.
             self._settle_worktree(run, "retry")
             approval_absent = (
                 not run.approval_label_removed
@@ -414,6 +422,9 @@ class Orchestrator:
         if not resume_publication:
             run.approval_presented_at = ""
             run.approval_label_removed = False
+            if run.stage == "publishing":
+                # The pointer has no AEGIS stage: conduct from the closed task.
+                run.stage = "done"
         self.store.save(run)
         self.store.journal(run_id, "operator-retry", stage=run.stage)
         if resume_publication:
@@ -433,6 +444,12 @@ class Orchestrator:
             return False
         if run.lifecycle in {"handed-off", "handoff-pending"}:
             self.log("human-owned run cannot be reset for automatic execution")
+            return False
+        if run.stage == "deliver":
+            # deliver is history from AEGIS before 0.15.0. Its old approval stays
+            # in the run state, so any reset could lead on to publishing it.
+            self.log("a run recorded at the removed deliver stage cannot be reset; "
+                     "cancel or delete it")
             return False
         run.stage = stage
         run.lifecycle = "failed"
@@ -692,7 +709,9 @@ class Orchestrator:
             f"Remote checkpoint: `{run.checkpoint_remote_commit or 'not verified'}`\n"
             f"Local worktree: `{run.worktree}`\n"
             f"AEGIS task: `{run.active_task_id or 'not created'}`\n\n"
-            "Read AGENTS.md, the full task journal and Handoff before continuing. "
+            "Read AGENTS.md, run `python .agentic/aegis.py brief "
+            f"{run.active_task_id or 'TASK-<id>'}` and read the full task journal before "
+            "continuing. "
             "Fetch the branch only when the remote checkpoint is current; local files "
             "and uncommitted changes remain authoritative when publication failed.\n"
             + (f"Recovery limitation: {_sanitize(run.checkpoint_error)}\n"
@@ -905,7 +924,15 @@ class Orchestrator:
         client: AegisClient,
         thread: str,
     ) -> None:
-        """@brief Run fresh, journal-authoritative stage attempts until deliver."""
+        """
+        @brief      Run fresh, journal-authoritative stage attempts until approval.
+        @details    Validate closes the AEGIS task by advancing to done. ADORE
+                    verifies that advance itself and presents the candidate. A
+                    step that finds the task at done without verification
+                    evidence sends it back to validate through one fresh session
+                    first; evidence that no longer matches the candidate is
+                    checked again with the strict check at done.
+        """
         failure_context = ""
         while run.lifecycle == "working":
             if self._handoff_at_boundary(run) or self._cancel_if_requested(run):
@@ -921,9 +948,6 @@ class Orchestrator:
                     return
                 failure_context = _sanitize(exc)
                 continue
-            if task.done:
-                self._recover_done_publication(run)
-                return
             run.aegis_path = task.path
             previous = run.stage
             if not self._transition_accepted(run, previous, task):
@@ -934,16 +958,18 @@ class Orchestrator:
             run.stage = task.stage
             self.store.save(run)
             self._status(run)
-            if task.stage == "deliver":
+            if task.done:
                 if not run.validation_evidence:
                     result = self._launch_stage(
                         run,
                         ticket,
                         task,
                         failure_context=(
-                            "The previously presented validation is invalid. Route the AEGIS "
-                            "task from deliver back to validate, record why revalidation is "
-                            "required, and stop. Do not publish."
+                            "ADORE holds no current verification for this done task: the "
+                            "presented validation is invalid or was never made. Return the "
+                            "task with `python .agentic/aegis.py advance "
+                            f"{task.task_id} --to validate --reason \"<why revalidation is "
+                            "required>\"` and stop. Do not change the candidate."
                         ),
                         thread=thread,
                     )
@@ -975,7 +1001,7 @@ class Orchestrator:
                     self._checkpoint(
                         run, f"ADORE route {run.active_task_id} to validation"
                     )
-                    self._successful_transition(run, "deliver", "validate")
+                    self._successful_transition(run, "done", "validate")
                     continue
                 if self._already_verified(run):
                     self._refresh_deviations(run, task)
@@ -1043,10 +1069,11 @@ class Orchestrator:
                     )
                     failure_context = (
                         "The preceding session made candidate progress and appended work "
-                        "evidence, but this stage remains unfinished. Read the full task "
-                        "journal, Handoff and Stage report; complete the remaining stage "
-                        "work and legally advance it. Do not repeat completed work or "
-                        "fabricate a stage transition. Recent work evidence:\n"
+                        "evidence, but this stage remains unfinished. Run `python "
+                        f".agentic/aegis.py brief {task.task_id}`, read the full task "
+                        "journal and its State; complete the remaining stage work and "
+                        "legally advance it. Do not repeat completed work or fabricate a "
+                        "stage transition. Recent work evidence:\n"
                         + _sanitize("\n".join(added))
                     )
                     continue
@@ -1064,7 +1091,7 @@ class Orchestrator:
             self._successful_transition(run, task.stage, updated.stage)
             if (
                 task.stage == "validate"
-                and updated.stage == "deliver"
+                and updated.done
                 and not self._strict_verification(run, client)
             ):
                 return
@@ -1144,7 +1171,6 @@ class Orchestrator:
         *,
         failure_context: str = "",
         thread: str = "",
-        close_out: str = "",
     ) -> GateRun:
         """@brief Launch exactly one fresh executor session for one attempt."""
         if self._handoff_at_boundary(run):
@@ -1184,9 +1210,7 @@ class Orchestrator:
                 self._execute(run),
                 run.worktree,
                 self._io_dir(run.run_id),
-                self._stage_prompt(
-                    run, ticket, task, failure_context, thread, close_out=close_out
-                ),
+                self._stage_prompt(run, ticket, task, failure_context, thread),
                 timeout=timeout,
                 archive_stem=f"{run.stage}-attempt-{run.stage_failures + 1}",
             )
@@ -1208,10 +1232,9 @@ class Orchestrator:
         task: AegisTask,
         failure_context: str,
         thread: str,
-        *,
-        close_out: str = "",
     ) -> str:
         """@brief Compose a stage-bounded prompt without duplicating AEGIS procedure."""
+        aegis = "python .agentic/aegis.py"
         parts = [
             "You are a fresh executor session for one AEGIS task stage.",
             f"Ticket #{ticket.iid}: {ticket.title}\n\n{ticket.description.strip()}",
@@ -1219,18 +1242,22 @@ class Orchestrator:
             "Use `python .agentic/aegis.py`. Read AGENTS.md and the current AEGIS "
             "step file, then update the task journal and governed artifacts exactly as "
             "AEGIS documents. The durable task journal, not prior model memory, is authority.",
-            "This task runs autopilot-to-deliver by explicit conductor instruction, which "
+            "This task runs in autopilot by explicit conductor instruction, which "
             "overrides the repository's configured `[interaction]` default: set "
             "`interaction: autopilot` in the journal header when it is not already. "
             "Autopilot governs WHO decides, not how much you do: never pause to present "
             "choices to a human or wait for an answer, because no human is reading. It "
             "does not ask you to carry on past this stage. ADORE supervises every stage "
-            "and owns the pre-publication approval.",
+            "and owns the approval before publication.",
             "Complete all required work of the current stage before returning. A zero "
-            "exit alone does not complete a stage. If a context handoff is necessary, "
-            "preserve actual candidate changes and append concise evidence of completed "
-            "and remaining work to the Log, Handoff and Stage report; ADORE can continue "
-            "that work in a bounded fresh session. Never advance unfinished work.",
+            "exit alone does not complete a stage. Finish a completed stage with "
+            f"`{aegis} advance {task.task_id}`; validate finishes this way after its "
+            "final strict check and `report`, which closes the task. If you must stop "
+            "before the stage is finished, preserve actual candidate changes, record "
+            f"completed and remaining work with `{aegis} log {task.task_id} \"<evidence>\"`, "
+            f"and end with `{aegis} pause {task.task_id} --next \"<remaining work>\"`; "
+            "ADORE can continue that work in a bounded fresh session. Never advance "
+            "unfinished work.",
             "Do exactly ONE stage in this session: the current one. The moment the AEGIS "
             "journal shows that stage advanced or legally routed backward, end the "
             "session and return. Do not begin the next stage, however small it looks. "
@@ -1252,15 +1279,15 @@ class Orchestrator:
             parts.append("Recovery or continuation context:\n" + _sanitize(failure_context))
         if thread:
             parts.append("Human clarification thread:\n" + thread)
-        if close_out:
-            parts.append("Successful MR/PR outcome:\n" + close_out)
         parts.append(
             "Never commit, push, open or merge an MR/PR, access forge credentials, or "
             "modify AEGIS source/payload files. You may edit only executor-owned journal "
             "content and ticket-scoped repository files. Never create a child task "
             "journal (`task --parent`): this run conducts exactly one pinned task, and "
             "work in an unsupervised child is invisible to its conductor. Ask blocking "
-            f"questions in {self.questions_file}; questions are not failures."
+            f"questions in {self.questions_file} and record the stop with "
+            f"`{aegis} pause {task.task_id} --blocked --next \"<question>\"`; questions "
+            "are not failures."
         )
         return "\n\n".join(parts)
 
@@ -1409,7 +1436,7 @@ class Orchestrator:
             task = self._task(client, run)
         except AegisTaskError as exc:
             return self._validation_failure(run, "JOURNAL_INVALID", exc)
-        if task.stage != "deliver":
+        if not task.done:
             return self._validation_failure(
                 run, "STRICT_STAGE_MISMATCH", f"strict pass left task at {task.stage}"
             )
@@ -1424,21 +1451,18 @@ class Orchestrator:
         run.validation_evidence = evidence
         run.candidate_fingerprint = fingerprint
         run.candidate_base_ref = target
-        run.stage = "deliver"
+        run.stage = "done"
         self.store.save(run)
         return True
 
     def _refresh_deviations(self, run: RunState, task: AegisTask) -> None:
         """
         @brief      Re-harvest recorded deviations into the stored evidence.
-        @details    Verification happens on the validate -> deliver transition,
-                    before the executor has written its final journal entries,
-                    so the deviations captured there can already be stale when
-                    the candidate is presented. While the strict check ran twice
-                    the second pass hid this, because it re-read the journal. It
-                    costs nothing to do properly: the conduct loop has already
-                    read the current task, so the approval presentation keeps
-                    showing what the journal actually records.
+        @details    The conduct loop reads the task again before it presents the
+                    candidate, so the approval presentation shows what the
+                    journal records at that moment rather than what it recorded
+                    when the strict check ran. It costs nothing: the task is
+                    already read.
         @param[in]  run The run about to be presented for approval.
         @param[in]  task The task document the conduct loop just read.
         """
@@ -1448,19 +1472,19 @@ class Orchestrator:
     def _already_verified(self, run: RunState) -> bool:
         """
         @brief      Whether the exact candidate on disk was already verified.
-        @details    The validate -> deliver transition verifies, and the next
-                    pass of the conduct loop reads the task back at deliver and
-                    would verify again. That ran the whole strict catalogue AND
-                    every configured command a SECOND time on every successful
-                    run - six seconds on a toy repository, a doubled test suite
-                    on a real one (live finding 2026-09-18).
+        @details    The validate -> done transition verifies, and the next pass
+                    of the conduct loop reads the task back at done and would
+                    verify again. That ran the whole strict catalogue AND every
+                    configured command a SECOND time on every successful run -
+                    six seconds on a toy repository, a doubled test suite on a
+                    real one (live finding 2026-09-18).
 
                     Re-verification is skipped only when the candidate hashes
                     identically to the one the stored evidence describes, so a
                     tree that moved for any reason is verified again. A
                     fingerprint failure, including a dirty worktree, answers
                     "not verified" and the full check runs.
-        @param[in]  run The run sitting at the deliver stage.
+        @param[in]  run The run sitting at the done stage.
         @return     True when the stored evidence still describes this exact
                     candidate.
         """
@@ -1509,20 +1533,21 @@ class Orchestrator:
         run.validation_evidence = {}
         run.candidate_fingerprint = ""
         self.store.save(run)
-        # The journal may still say deliver. A fresh remediation launch must
-        # route it back legally before another validation can pass.
+        # The journal may still say done. A fresh remediation launch must
+        # return it legally before another validation can pass.
         ticket = self._ticket_from_snapshot(run)
+        task_id = run.active_task_id or "TASK-unknown"
         task = AegisTask(
-            task_id=run.active_task_id or "TASK-unknown",
+            task_id=task_id,
             title=ticket.title,
             file=f".agentic/tasks/{run.active_task_id}.md",
             header={
-                "stage": "deliver", "type": run.aegis_type, "path": run.aegis_path,
+                "stage": "done", "type": run.aegis_type, "path": run.aegis_path,
                 "requirements": "", "branch": run.branch, "base": "", "opened": "",
             },
-            stage="deliver",
-            step_file="6_deliver.md",
-            done=False,
+            stage="done",
+            step_file=None,
+            done=True,
             checklist=(),
             log=(),
         )
@@ -1531,9 +1556,10 @@ class Orchestrator:
             ticket,
             task,
             failure_context=(
-                "Independent strict verification failed. Route the AEGIS journal from "
-                "deliver back to validate, build, design, or specify as documented; fix "
-                "the evidence below, and stop after that legal route.\n" + _sanitize(evidence)
+                "Independent strict verification failed. Return the AEGIS task from done "
+                f"with `python .agentic/aegis.py advance {task_id} --to <validate, build, "
+                "design or specify> --reason \"<why>\"` as AEGIS documents, fix the "
+                "evidence below, and stop after that return.\n" + _sanitize(evidence)
             ),
         )
         if self._cancel_if_requested(run):
@@ -1670,7 +1696,6 @@ class Orchestrator:
         run.validation_evidence = {}
         run.candidate_fingerprint = ""
         run.candidate_base_ref = ""
-        run.approved_product = ""
         run.approval_presented_at = ""
         run.approval_label_removed = False
         run.stage_failures = 0
@@ -1692,94 +1717,32 @@ class Orchestrator:
         """@brief Publish approved delivery while honoring safe ownership transfer."""
         if self._handoff_at_boundary(run):
             return
-        try:
-            self._publish_impl(run, ticket)
-        except _CheckpointHalted:
-            return
+        self._publish_impl(run, ticket)
 
     def _publish_impl(self, run: RunState, ticket: Ticket) -> None:
-        """@brief Finish AEGIS bookkeeping and publish the configured review state."""
+        """
+        @brief      Push the approved candidate and open or adopt its MR/PR.
+        @details    AEGIS 0.15.0 closes the task in validate, so publication is
+                    Git and forge work only: no executor session and no AEGIS
+                    command runs after the human approved. `_approval_ready`
+                    fetched and re-checked the target commit and the candidate
+                    fingerprint just before every call, so the pushed branch is
+                    exactly the candidate the approval names.
+        @param[in]  run The approved run at stage done.
+        @param[in]  ticket The source ticket, for the MR/PR title.
+        """
         if self._cancel_if_requested(run):
             return
+        if run.stage not in {"done", "publishing"}:
+            self._fail_immediately(
+                run, "PUBLICATION_STAGE",
+                f"publication starts from stage done; this run is at {run.stage}",
+            )
+            return
         run.lifecycle = "publishing"
-        run.stage = "deliver"
         self.store.save(run)
         self._status(run)
         try:
-            self._transient(run, "publication-provision", lambda: self._provision(run))
-            execute = self._execute(run)
-            client = AegisClient(
-                execute,
-                self.config.workflow.aegis_python,
-                self._io_dir(run.run_id),
-            )
-            client.probe()
-            task = self._task(client, run)
-            if task.done:
-                self._recover_done_publication(run)
-                return
-            if run.approved_product:
-                self._settle_worktree(run, "publication retry")
-            approved_product = self._approved_product(run)
-        except (AegisError, IsolationError) as exc:
-            self._fail_immediately(run, "PUBLICATION_SETUP", exc)
-            return
-        result = self._launch_stage(
-            run,
-            ticket,
-            task,
-            failure_context=(
-                "Human approval is bound to the stored candidate fingerprint. Record that "
-                "approval and prepare only AEGIS delivery report/journal bookkeeping. Do not "
-                "change product code and do not mark the task done yet."
-            ),
-        )
-        if result.has_questions:
-            self._park(run, result.questions)
-            return
-        if not result.ok:
-            if self._stage_failure(
-                run, "DELIVERY_EXECUTOR_EXIT", result.stderr or result.output
-            ):
-                self._publish(run, ticket)
-            return
-        try:
-            if self.worktrees.is_dirty(run.run_id):
-                self._checkpoint(run, f"ADORE delivery bookkeeping {run.active_task_id}")
-            current_product = self.worktrees.product_diff_fingerprint(
-                run.run_id, run.base_ref
-            )
-            if current_product != approved_product:
-                retry = self._stage_failure(
-                    run,
-                    "CANDIDATE_MUTATION",
-                    "delivery executor changed product files after validation",
-                    stage="validate",
-                )
-                if retry:
-                    self._invalidate_approval(
-                        run, ticket, "candidate mutated during delivery bookkeeping"
-                    )
-                return
-            client.report(run.active_task_id or "")
-            client.evolution(run.active_task_id or "")
-            requirements = self._task(client, run).requirements
-            req_text = ", ".join(requirements) if requirements else "no requirement ids"
-            self._checkpoint(run, f"ADORE deliver {run.active_task_id}: {req_text}")
-            self._transient(run, "pre-push-fetch", self.worktrees.fetch)
-            if self.worktrees.ref_head(run.base_ref) != run.candidate_base_ref:
-                self._invalidate_approval(run, ticket, "target branch drifted before push")
-                return
-            if self.worktrees.is_dirty(run.run_id):
-                if self._stage_failure(
-                    run, "DIRTY_DELIVERY", "delivery left a dirty worktree"
-                ):
-                    self._publish(run, ticket)
-                return
-            run.candidate_fingerprint = self.worktrees.candidate_fingerprint(
-                run.run_id, run.base_ref
-            )
-            self.store.save(run)
             push = self._push_branch(run)
             if not push.ok:
                 self._fail_immediately(run, "PUSH_FAILED", push.stderr or push.stdout)
@@ -1819,58 +1782,26 @@ class Orchestrator:
                     run.run_id, mr_event, url=run.mr_url, iid=run.mr_iid
                 )
             self.store.save(run)
-            close_task = self._task(client, run)
-            close = self._launch_stage(
-                run,
-                ticket,
-                close_task,
-                close_out=f"MR/PR #{run.mr_iid}: {run.mr_url}",
-            )
-            if close.has_questions or not close.ok:
-                if self._stage_failure(
-                    run,
-                    "CLOSE_OUT_FAILED",
-                    close.questions or close.stderr or close.output,
-                ):
-                    self._publish(run, ticket)
-                return
-            final = self._task(client, run)
-            if final.stage != "done":
-                if self._stage_failure(
-                    run, "CLOSE_OUT_NOT_DONE", f"task remained at {final.stage}"
-                ):
-                    self._publish(run, ticket)
-                return
-            self._checkpoint(run, f"ADORE close {run.active_task_id} MR {run.mr_iid}")
-            push = self._push_branch(run)
-            if not push.ok:
-                self._fail_immediately(run, "CLOSE_OUT_PUSH_FAILED", push.stderr or push.stdout)
-                return
         except ForgeError as exc:
             self._fail_immediately(run, "MR_CREATE_FAILED", exc)
             return
-        except (AegisError, IsolationError) as exc:
+        except IsolationError as exc:
             self._fail_immediately(run, "PUBLICATION_FAILED", exc)
             return
         self._enter_review(run)
 
     def _settle_worktree(self, run: RunState, reason: str) -> None:
         """
-        @brief      Commit work a failed publication attempt left behind.
+        @brief      Commit leftover work before a retry fingerprints the candidate.
         @details    EVERY fingerprint refuses a dirty tree, by design: a
-                    candidate cannot be hashed mid-edit. That precondition was
-                    written for the first entry into publication, where
-                    validation guarantees a clean tree, and it turns hostile on
-                    the paths that re-enter afterwards - the `_publish` retry
-                    and the approval-freshness check in `retry` - where a
-                    part-finished bookkeeping attempt has left files touched.
-                    Both then failed terminally on a condition they could have
-                    cleared (live finding 2026-09-18, GitHub pilot).
-
-                    Settling is safe because the mutation guard compares against
-                    the baseline captured when publication began, not against
-                    whatever is on disk now, so committing leftover work cannot
-                    launder an unapproved product change into the baseline.
+                    candidate cannot be hashed mid-edit. `retry` checks approval
+                    freshness by fingerprint before it publishes again, and a
+                    tree left dirty there once failed terminally on a condition
+                    it could have cleared (live finding 2026-09-18, GitHub
+                    pilot). Committed leftover work changes the fingerprint, so
+                    the freshness check invalidates the approval and the
+                    candidate is validated again: settling can never launder an
+                    unapproved change into publication.
         @param[in]  run The run whose worktree may carry leftover work.
         @param[in]  reason Short phrase naming the path, used in the message.
         """
@@ -1882,63 +1813,23 @@ class Orchestrator:
                     run, f"ADORE settle {reason} {run.active_task_id}"
                 )
 
-    def _approved_product(self, run: RunState) -> str:
+    @staticmethod
+    def _published(run: RunState) -> bool:
         """
-        @brief      The product digest the human approved, captured once.
-        @details    `_publish` retries itself after a bookkeeping stage failure,
-                    and a failed attempt can leave the worktree dirty. Two
-                    things then went wrong: fingerprinting refuses a dirty
-                    candidate, so the retry died instantly as
-                    PUBLICATION_SETUP and a failure budgeted for three attempts
-                    got one (live finding 2026-09-18, GitHub pilot); and
-                    recapturing the baseline would have adopted whatever the
-                    failed attempt left as "approved", so an unapproved product
-                    change could pass the CANDIDATE_MUTATION guard it is meant
-                    to catch.
-
-                    Capturing once and persisting fixes both: leftover work is
-                    checkpointed so the tree is clean, while the comparison
-                    still refers to the state the human actually approved, which
-                    makes the guard stricter across retries rather than weaker.
-        @param[in]  run The run entering or retrying publication.
-        @return     The stored product digest.
-        @exception  IsolationError When the first capture finds a dirty tree.
+        @brief      Whether the run's current candidate already reached review.
+        @param[in]  run The run being retried.
+        @return     True when the verified candidate is the one last published.
         """
-        if not run.approved_product:
-            run.approved_product = self.worktrees.product_diff_fingerprint(
-                run.run_id, run.base_ref
-            )
-            self.store.save(run)
-        return run.approved_product
-
-    def _recover_done_publication(self, run: RunState) -> None:
-        """
-        @brief Recover a done AEGIS task without skipping its final checkpoint/push.
-        """
-        if run.mr_iid is None:
-            self._fail_immediately(
-                run, "PREMATURE_DONE", "done task has no published MR/PR"
-            )
-            return
-        try:
-            self._checkpoint(run, f"ADORE recover close-out {run.active_task_id}")
-            push = self._push_branch(run)
-        except IsolationError as exc:
-            self._fail_immediately(run, "PUBLICATION_SETUP", exc)
-            return
-        if not push.ok:
-            self._fail_immediately(
-                run, "CLOSE_OUT_PUSH_FAILED", push.stderr or push.stdout
-            )
-            return
-        self._enter_review(run)
+        return bool(run.candidate_fingerprint) and (
+            run.published_fingerprint == run.candidate_fingerprint
+        )
 
     def _enter_review(self, run: RunState) -> None:
         """@brief Persist the post-publication review state and release execution."""
         run.lifecycle = "in-review"
         run.stage = "done"
         run.stage_failures = 0
-        run.approved_product = ""
+        run.published_fingerprint = run.candidate_fingerprint
         self.store.save(run)
         self._status(run)
         with contextlib.suppress(IsolationError):
@@ -2628,7 +2519,6 @@ class Orchestrator:
         run.validation_evidence = {}
         run.candidate_fingerprint = ""
         run.candidate_base_ref = ""
-        run.approved_product = ""
         run.approval_presented_at = ""
         run.approval_label_removed = False
         run.lifecycle = "working"

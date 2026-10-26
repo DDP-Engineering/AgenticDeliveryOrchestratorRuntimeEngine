@@ -28,10 +28,13 @@ After observing a human merge, the shared CLI/web conductor honors `delivery.rem
   `usage` event only when capture produced values, linked to the observation
   by the run/attempt event ID; an explicit complete zero-token report remains
   `reported`, while partial or absent token evidence is `unavailable`;
-- compose each stage prompt as an explicit autopilot-to-deliver instruction
-  that has the executor record `interaction: autopilot` in the journal and
-  forbids commit, push, MR/PR creation, merge, and child task journals;
-- validate full/quick progression and documented validation rollback;
+- compose each stage prompt as an explicit autopilot instruction that has the
+  executor record `interaction: autopilot` in the journal, finish the stage
+  with `advance`, record unfinished work with `log` and `pause` (`pause
+  --blocked` for questions), and forbids commit, push, MR/PR creation, merge,
+  and child task journals; a continuation names `brief` and the journal State;
+- validate full/quick progression to done, documented validation rollback, and
+  the return from done to validate;
 - create an unpushed local checkpoint commit after every successful stage,
   using the configured agent identity even when the host clone has no
   repository or global Git identity;
@@ -48,7 +51,8 @@ After observing a human merge, the shared CLI/web conductor honors `delivery.rem
 - integrate the target, run independent strict verification and fingerprint the
   candidate/target/commit series;
 - require a fresh approval-label transition after presentation;
-- push and open/update a draft MR/PR, then require journal close-out at done;
+- push the approved candidate once and open or update the configured draft or
+  ready MR/PR, with no executor session and no AEGIS command after approval;
 - adopt an existing open branch MR/PR before attempting draft creation;
 - create a new AEGIS task before consuming each bounded review request;
 - reconcile parked, approval, review, stale-working and outbox states;
@@ -140,19 +144,30 @@ included in a later integration checkpoint.
 
 ## 5. Validation and Approval
 
-The conductor integrates `origin/<target>`, runs the validation executor, then
-calls `check --task <id> --strict --run --json`. It requires at least one
-executed successful verification command and a task at deliver. The deviations
+The conductor integrates `origin/<target>` and runs the validation executor,
+whose session closes the AEGIS task with its own final strict check, `report`
+and `advance` to done. On that validate -> done advance the conductor calls
+`check --task <id> --strict --run --json` itself. It requires at least one
+executed successful verification command and a task at done. The deviations
 that journal recorded are copied into the validation evidence and lead the
 approval presentation; they inform the approver and never block. Approval is
-bound to the candidate fingerprint and target commit. Any drift or product
-mutation invalidates approval.
+bound to the candidate fingerprint and target commit. Any candidate or target
+drift invalidates approval. A done task the conductor holds no verification
+evidence for (an invalidated approval, a run-ahead session) gets one fresh
+session that returns it with `advance --to validate`; a failed independent
+check counts one validate failure and a remediation session returns the task
+from done to validate, build, design or specify. The run keeps the stage done
+while it awaits approval, publishes and is in review.
 On clarification resume and approval observation, title/body drift refreshes
 the persisted ticket snapshot and content hash and records `ticket content
 changed since pickup`; the observation alone does not invalidate the candidate.
-Publication retry rechecks approval freshness. Existing open branch MRs are
-adopted before creation, and a task already at `done` still receives the shared
-close-out checkpoint/push recovery before entering review.
+Publication retry, from stage done or after `reset --to publishing`, rechecks
+approval freshness and publishes the same candidate; without a fresh approval
+it conducts the run from done. A run whose candidate already reached review
+(its fingerprint equals the recorded `published_fingerprint`) returns to
+review on retry. Publication refuses a run outside stage done or publishing
+with `PUBLICATION_STAGE`, and reset refuses every target for a run
+recorded at `deliver`. Existing open branch MRs are adopted before creation.
 
 Two triggers feed one governed revision path: the revise label a human applies,
 and a newly `failed` forge pipeline when `[review] on_pipeline_failure` is
@@ -186,7 +201,8 @@ collaborators are injectable for offline tests.
 checkpointing, two failures then success, exact third-attempt abort,
 finding-count semantics, one-time question handoff and cleanup, incident
 editing, outbox outage/replay, closed-ticket cancellation, ticket-content
-refresh, MR fallback/adoption, approval retry freshness, close-out recovery,
+refresh, MR fallback/adoption, approval retry freshness, publication without
+an executor session or AEGIS command, the return from done to validate,
 revise-label ordering, AEGIS timeout handling, typed executor-timeout
 classification, clarification duration forms, live-lock-safe cleanup,
 failed-resource preservation, egress companion GC, configured task-kind

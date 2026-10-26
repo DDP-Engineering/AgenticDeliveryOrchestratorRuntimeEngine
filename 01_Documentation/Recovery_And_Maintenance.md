@@ -38,11 +38,10 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 The first retry attempt is a fresh model session and re-reads durable artifacts.
 An interrupted publication retry also rechecks fresh approval. If the label was
-removed, ADORE returns to validation/presentation instead of publishing. Work a
-failed publication attempt left in the worktree is committed before the retry
-proceeds, so a half-finished bookkeeping attempt does not block the next one;
-the candidate-mutation guard still compares against the state the human
-approved.
+removed, ADORE returns to validation/presentation instead of publishing. Work
+left in the worktree is committed before the freshness check, so it changes
+the candidate fingerprint and invalidates the approval instead of failing the
+retry; the candidate is then validated again.
 
 ## When Retry Cannot Help
 
@@ -68,8 +67,8 @@ the stage you chose rather than trusting the executor's claim.
 
 With the default threshold of three, the third failed attempt aborts. One
 executor nonzero/timeout, no-progress outcome, repairable journal failure,
-strict-check invocation, unresolved conflict, or post-validation mutation is
-one attempt regardless of the number of findings it contains.
+strict-check invocation, or unresolved conflict is one attempt regardless of
+the number of findings it contains.
 
 Questions do not count. Temporary container, fetch or forge transport failures
 use the independent transient counter.
@@ -114,8 +113,11 @@ idempotency key, inspect `revision-task-created` for a possible orphan task
 after a crash in the narrow create/remove/state-save boundary.
 
 If publication created an MR/PR but failed to persist its identity, retry adopts
-the existing open branch MR/PR. If the AEGIS task is already done, recovery
-still checkpoints and pushes close-out changes before returning to review.
+the existing open branch MR/PR. The AEGIS task closed in validate, so a retry
+after a failed push or MR/PR creation publishes the same approved candidate. A
+run that fails after its candidate reached review returns to review on retry,
+with no new validation or approval; after `reset --to publishing` without a
+fresh approval, retry conducts the run from the closed task.
 
 ## State Surgery and Cleanup
 

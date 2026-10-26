@@ -756,11 +756,11 @@ test("typed Implementation controls review and apply human duration, rounds, ret
  await show("stageLimits");
  const stages = row("workflow.stage_timeout_overrides");
  await stages.getByRole("button").click();
- await expect(stages.getByRole("combobox")).toHaveCount(6);
+ await expect(stages.getByRole("combobox")).toHaveCount(5);
  for (const width of [1280,390]) {
   await page.setViewportSize({width,height:844});
   for (const control of await stages.getByRole("combobox").all()) expect((await control.boundingBox())!.height).toBeLessThanOrEqual(60);
-  const last = await stages.getByRole("combobox", {name:"Delivery",exact:true}).boundingBox();
+  const last = await stages.getByRole("combobox", {name:"Validation",exact:true}).boundingBox();
   const action = await stages.getByRole("button", {name:"Prepare candidate"}).boundingBox();
   expect(action!.y).toBeGreaterThan(last!.y + last!.height);
  }

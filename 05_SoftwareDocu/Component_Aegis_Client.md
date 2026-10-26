@@ -16,12 +16,13 @@ only the Python companion CLI shipped by AEGIS and JSON schema 1.
 
 - invoke the host pre-pick probe with direct argv and every run-container
   operation through a shell-quoted file exchange;
-- probe exact version series and schema before governed work;
+- probe the version (major 0 at 0.15.0 or later) and schema before governed
+  work, naming 0.15.0 when it refuses an older release;
 - create/list/read task journals and pin exact task identity;
 - expose the journal's recorded `DEVIATION <stage>` entries with the same
   marker rule AEGIS applies to its delivery report;
-- expose advisory/strict check, evolution and report operations; the executor
-  runs `anchor` and `test` itself during its stages;
+- expose advisory and strict check operations; the executor runs `anchor`,
+  `test`, `evolution` and `report` itself during its stages;
 - validate bounded JSON, UTF-8, contained POSIX paths, headers, stage/path/type,
   checklist/log data, finding counts and verification command results;
 - distinguish typed protocol, timeout and task failures;
@@ -61,10 +62,12 @@ and Python runtime.
 - supported version: a supported `aegis` version;
 - supported JSON schema: integer `1`;
 - task ids: `TASK-<hex>` and exact `.agentic/tasks/<id>.md` path;
-- repository status-list stages: the seven conduction stages plus AEGIS
+- repository status-list stages: the six conducted stages, the legacy
+  `deliver` stage AEGIS 0.15.0 still reports for older journals, and the
   adoption stages `survey`, `components`, and `close`;
 - active ADORE task stages: exactly `frame`, `specify`, `design`, `build`,
-  `validate`, `deliver`, or `done`;
+  `validate`, or `done`, with the step files AEGIS 0.15.0 names (none for
+  `done`); a task at `deliver` fails closed;
 - paths: `full` or eligible `quick`;
 - strict exit 0 must agree with `strict.passed=true`;
 - non-skipped command runs require numeric duration and integer exit.
@@ -78,8 +81,9 @@ stage/schema/version, timeout, and unexpected exit fail closed.
 ## 6. Workflow Integration
 
 The orchestrator creates a task after branch creation, rereads status before
-and after each executor attempt, runs strict verification at the validation
-boundary, and invokes report/evolution only after approval.
+and after each executor attempt, and runs strict verification when the
+executor's validate session advances the task to done. Validate closes the
+task, so no AEGIS command runs after approval.
 
 ## 7. Validation and Tests
 

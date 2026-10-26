@@ -14,14 +14,16 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 | `working` | A fresh stage attempt may run. | Advance, park, or fail within budgets. |
 | `parked-clarification` | A human answer is required. | Comment plus `agent-answered`, or timeout. |
 | `awaiting-approval` | Validated candidate is presented. | Freshly add the approval label, or candidate/target drift invalidates it. |
-| `publishing` | Approved delivery bookkeeping and remote publication. | Reach draft MR/PR or fail loudly. |
+| `publishing` | The approved candidate is pushed and its MR/PR opened or adopted. | Reach draft MR/PR or fail loudly. |
 | `in-review` | Draft MR/PR awaits human action. | Merge, close, or request a bounded revision. |
 | `failed` | Execution stopped with preserved evidence. | Fix cause, clear pending notification, then explicit retry. |
 | `done` | A human merged the draft. | Cleanup is complete/auditable. |
 | `cancelled` | An operator or closed source ticket ended the run. | Audit state remains; delete explicitly if no longer needed. |
 
 AEGIS stage is recorded separately as `frame`, `specify`, `design`, `build`,
-`validate`, `deliver`, or `done`. Quick tasks omit specify/design.
+`validate`, or `done`. Quick tasks omit specify/design. Validate closes the
+AEGIS task, so a run stays at `done` while it awaits approval, publishes and
+is in review; history from before AEGIS 0.15.0 may still show `deliver`.
 If the source ticket is closed while a run is parked for clarification,
 awaiting approval, or still has an open MR/PR in review, the next poll cancels
 it with outcome `ticket closed` and releases its resources. A merged MR/PR takes
@@ -95,9 +97,10 @@ a duplicate or orphan AEGIS task because AEGIS has no idempotency key; inspect
 the `revision-task-created` journal event before manual recovery.
 
 During publication ADORE first adopts an existing open MR/PR for the task
-branch, avoiding duplicate creation after a crash or failed read-back. Recovery
-from an already-done task still checkpoints and pushes close-out changes before
-entering `in-review`.
+branch, avoiding duplicate creation after a crash or failed read-back.
+Publication pushes the approved candidate once and runs no executor session
+or AEGIS command before entering `in-review`; it refuses a run that is neither
+at stage `done` nor at the `publishing` reset pointer with `PUBLICATION_STAGE`.
 
 ADORE has no merge operation. The human review/merge path remains protected by
 forge permissions and branch rules.

@@ -38,6 +38,12 @@ The schema also carries a verified remote checkpoint commit and a checkpoint
 error. Older schema-1 records load with empty defaults; malformed commit
 digests fail closed. `handoff-pending` and `handed-off` are explicit lifecycle
 states. `handed-off` is terminal for metrics while cleanup protects its worktree.
+The stage is `frame`, `specify`, `design`, `build`, `validate`, `done` or the
+reset pointer `publishing`; `deliver`, which runs recorded before AEGIS 0.15.0
+may carry, still loads for history, while any other stage fails closed.
+`published_fingerprint` records the candidate fingerprint of the last
+publication that reached review and loads empty from older records;
+`approved_product` is no longer written and stays readable.
 
 Writes use temporary-file replacement. JSONL is append-only; a torn trailing
 line may be skipped because `state.json`, not the log, drives decisions.

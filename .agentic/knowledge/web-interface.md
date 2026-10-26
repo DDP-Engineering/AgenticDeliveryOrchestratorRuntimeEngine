@@ -63,9 +63,9 @@ Jobs and Statistics render inside the hub; the identity band appears only there.
 The Jobs tab opens on a Tickets sub-tab (read on request, Start that can add the
 ready/priority labels, Retry, Stop and Details per ticket; more than 10 tickets are paged 10/25/50/All with page X of Y) beside a Jobs sub-tab with the job table and detail. Administrators record estimated prices in Settings > Agent and model. Deletion confirmation clears on page or project changes.
 
-Implementation settings support reviewed edits for human-answer waiting time (positive integer plus seconds/minutes/hours/days), positive question-round count, a nonempty retry schedule (one nonnegative integer per line), and the complete stage-timeout map. The six stage rows choose either the general attempt limit or a positive custom limit in seconds; choosing general removes the override. Retry and timeout collections accept only safe integers and their declared keys; other lists/maps remain read-only except the existing reviewer list. Admins prepare, inspect active/proposed values and apply only at the existing idle boundary; developers remain read-only. Names, help and controls share four locales. The answer deadline is independent of the reserved reminder; reminder format is still checked and no reminder is sent.
+Implementation settings support reviewed edits for human-answer waiting time (positive integer plus seconds/minutes/hours/days), positive question-round count, a nonempty retry schedule (one nonnegative integer per line), and the complete stage-timeout map. The five stage rows (frame, specify, design, build, validate) choose either the general attempt limit or a positive custom limit in seconds; choosing general removes the override. Retry and timeout collections accept only safe integers and their declared keys; other lists/maps remain read-only except the existing reviewer list. Admins prepare, inspect active/proposed values and apply only at the existing idle boundary; developers remain read-only. Names, help and controls share four locales. The answer deadline is independent of the reserved reminder; reminder format is still checked and no reminder is sent.
 
-`REQ-FUNC-d67a1d33` / `REQ-UX-66547cbf`: `web/implementation_settings.py` validates only retry delays and the complete six-stage map and verifies a single semantic TOML edit. `web/src/implementationSettings.ts` supplies safe draft serialization and editor copy. Typed groups fill the editor width with normal-height nested controls and action buttons below the stack. Metadata emits one parent stage-map row for empty or populated maps; reviewed values and unchanged-base candidate meaning are checked again before apply. `test_web_pending_config.py`, `web/tests/settings.test.mjs` and typed Implementation/locale/Dev journeys in `web/e2e/settings.spec.ts` prove this seam.
+`REQ-FUNC-d67a1d33` / `REQ-UX-66547cbf`: `web/implementation_settings.py` validates only retry delays and the complete five-stage map and verifies a single semantic TOML edit. `web/src/implementationSettings.ts` supplies safe draft serialization and editor copy. Typed groups fill the editor width with normal-height nested controls and action buttons below the stack. Metadata emits one parent stage-map row for empty or populated maps; reviewed values and unchanged-base candidate meaning are checked again before apply. `test_web_pending_config.py`, `web/tests/settings.test.mjs` and typed Implementation/locale/Dev journeys in `web/e2e/settings.spec.ts` prove this seam.
 
 ## Branch naming presentation
 
@@ -453,184 +453,6 @@ Python/Ruff and frontend validation. CLI summary/export semantics are preserved.
   closes after page selection. Narrow panels wrap text while data tables keep
   their own horizontal scrolling.
 
-## Change map
-
-| Change requested | Start with | Focused verification |
-|---|---|---|
-| Atomic reviewed accounts and access edits | `UserCreation.tsx`, `userCopy.ts`, `create_user_with_access`, `/users/with-access` | `test_web_user_creation.py`, auth/access/RBAC suites, `web/e2e/users.spec.ts` |
-| Authorized global job evidence, paging, revisions | `adore/web/jobs.py`, `jobs_page` and `job_detail` in `app.py` | `test_web_jobs.py`, `test_web_paging.py`, `test_web_rbac.py` |
-| Portable new-project file/copy, mapping and source revision | `TransferWizard.tsx`, `EnrollmentWizard.tsx`, `_prepare_transfer`, `transfer_source` | `test_web_transfer.py`, `web/e2e/transfer.spec.ts` |
-| Enrollment, display identity, readiness evidence | `adore/profiles.py`, `adore/wizard.py`, `adore/web/app.py` | `test_web_enrollment.py`, `test_web_errors.py` |
-| Exact TOML enrollment, safe review and probe | `web/src/ImportWizard.tsx`, `importCopy.ts`, `_inspect_project_import` | `test_web_import.py`, `web/e2e/import.spec.ts` |
-| Guided enrollment steps, correction, draft loss and review | `web/src/EnrollmentWizard.tsx`, `web/src/enrollmentCopy.ts`, `App.tsx` | `web/e2e/enrollment.spec.ts` |
-| Accounts, sessions, queue | `adore/web/store.py` | `test_web_auth.py`, `test_web_commands.py` |
-| Statistics evidence, selection, exports and job consumption | `web/src/statistics.ts`, `StatisticsEvidence.tsx`, `App.tsx`, `JobWorkspace.tsx` | `web/tests/statistics.test.mjs`, `web/e2e/statistics.spec.ts` |
-| API permissions/config/metrics | `adore/web/app.py` | `test_web_rbac.py`, `test_web_config.py`, `test_web_pending_config.py`, `test_web_readiness.py`, `test_web_metrics.py` |
-| Worker execution | `adore/web/commands.py` | `test_web_commands.py` |
-| Action workspace, next action and observed history | `web/src/JobWorkspace.tsx`, `jobModel.ts`, `jobCopy.ts` | `web/tests/jobs.test.mjs`, `web/e2e/jobs.spec.ts`, `test_web_jobs.py` |
-| Language, theme, views | `web/src/App.tsx`, `web/src/i18n.ts` | `npm run validate`, isolated Chromium journeys |
-| Shell, branding, scope, request feedback | `web/src/DashboardShell.tsx`, `web/src/Presentation.tsx`, `web/src/App.tsx` | `web/e2e/shell.spec.ts`, `web/tests/shell.test.mjs` |
-| URLs, tabs, navigation | `web/src/routes.ts`, `web/src/App.tsx` | `npm test` (`routes.test.mjs`), browser check |
-| Background refresh and paging | `web/src/polling.ts`, `JobWorkspace`, `ServerPager` in `App.tsx`, `/api/v1/audit-page` | `npm test` (`polling.test.mjs`), `test_web_paging.py` |
-| Error codes and messages | `adore/web/app.py` (`_error`, `_STORE_ERROR_CODES`), `web/src/errors.ts` | `test_web_errors.py`, `npm test` (`errors.test.mjs`) |
-| Project developer access | `/api/v1/projects/{name}/access` routes in `adore/web/app.py`, `project_members` and `set_membership` in `adore/web/store.py`, `ProjectAccess` in `App.tsx`, `web/src/routes.ts` | `test_web_project_access.py`, `npm test` (`routes.test.mjs`), browser check |
-| Project settings list and row editing | `_setting_metadata` in `adore/web/app.py`, `web/src/settings.ts`, `SettingsList` in `App.tsx` | `test_web_config.py`, `npm test` (`settings.test.mjs`), browser check |
-| Setting help texts and catalog | `web/src/settingHelp.ts`, `web/src/settingKeys.json`, `default_config()` in `adore/config.py` | `test_web_setting_catalog.py`, `npm test` (`settingHelp.test.mjs`), browser check |
-| Offline media | `02_Tools/*web*.py` | `test_web_package.py`, installed HTTP smoke |
-
-## Key behaviors
-
-- REQ-UX-b75e1df8: ProjectInput accepts execution_backend and local account/home/path/cgroup/native argv. Review/config show actual machine/account/system; metadata reports runtime=local. Reviewed candidates recheck pinned native plans. Host checks avoid container detection.
-
-Native control/auth route to local-execution.md. Focused proof:
-`04_Software/tests/test_local_execution.py`.
-
-
-- `REQ-UX-94a97e70`: CLI validates external execution selections and previews complete image/source/commands. Web reads expose effective image and retained preparation evidence; environment mutations are refused. Host/model probes normalize image without setup; jobs project validated timestamp/exit/timeout/cancel evidence. Portable rule allowlists stay unchanged.
-
-- `REQ-DATA-5a620f4e` / `REQ-REL-6564a3b2` / `REQ-FUNC-83da8d95` - composite measured job consumption, strict sources and server-selected analytical samples.
-
-
-- `REQ-FUNC-20010f79`, `REQ-SEC-934b2dca`, `REQ-UX-7d0b71c3`: isolated stopped portable enrollment, exact authorized source binding and explanatory mapping/reconfirmation.
-
-- `REQ-SEC-f96d80d4`: authoritative portable transfer API with no enrollment writes.
-- `REQ-UX-34ca5d39` / `REQ-SEC-3cf6cde4`: compact Settings and Admin original TOML reads, memory-only preview and exact download.
-
-- `REQ-UX-b758d2b7`, `REQ-UX-78923e00`, `REQ-UX-a7969a9d`,
-  `REQ-FUNC-25dc0271` â€” complete authorized action workspace, pickup/verification
-  project hubs, observed safe timeline and actual queued outcomes.
-
-
-- `REQ-FUNC-e8455ab6`, `REQ-DATA-0ba9e469`, `REQ-SEC-5d0f86e7` â€” complete
-  authorized job pages, actual persisted evidence/unknowns and strict trusted sources.
-
-- `REQ-UX-3b5b2257`, `REQ-FUNC-c987bc4a`, `REQ-REL-39c1b197`, `REQ-DATA-71853fbc` - explanatory exact enrollment, explicit ephemeral checks, locked candidate publication and memory correction/loss guards.
-
-- `REQ-UX-072cf049`, `REQ-UX-3609c9ed`, `REQ-UX-002cbd25`, `REQ-UX-7f8fde2c` - guided supported steps, memory correction/loss protection, field focus and stopped completion.
-- `REQ-FUNC-702b0fce`, `REQ-FUNC-49e89542`, `REQ-DATA-e1eaf583`, `REQ-SEC-dc4bd0c3` - complete canonical preview, explicit ephemeral probe, exact guarded creation and reference-only Admin/CSRF draft boundaries.
-
-- `REQ-DATA-d893df33`, `REQ-FUNC-e8e0e304` - stable display identity and portable advisory ID checks.
-- `REQ-REL-c598b075`, `REQ-FUNC-3d8f6f5e` - metadata-last stopped enrollment and offline findings.
-- `REQ-DATA-70e5e3bb`, `REQ-SEC-61fb8552` - revision-bound evidence and guarded secret-free setup.
-
-- `REQ-UX-955615bd` / `REQ-UX-aa5e358e` - authorized accessible shell and approved branding.
-- `REQ-UX-8031b8eb` / `REQ-UX-0713852d` - localized delivery vocabulary and explicit project context.
-- `REQ-UX-257ab3f0` / `REQ-UX-9a8b409d` - scoped request feedback and role-specific empty access guidance.
-
-- `REQ-SEC-9ee171c9` - local accounts and durable, fail-closed sessions.
-- `REQ-SEC-59d97c68` - project scope and developer financial privacy.
-- `REQ-FUNC-7ce5b17a` - project setup, config and status.
-- `REQ-FUNC-f9946b6b` - durable selected-ticket operations and admin pickup.
-- `REQ-FUNC-448cbde7` - observed usage, reported/estimated costs and coverage.
-- `REQ-UX-749d37c8` - four locales, themes and responsive UI.
-- `REQ-SEC-676d284c` / `REQ-UX-309a6b3f` - administrator reset requires a new
-  password; the browser shows only the change-password card meanwhile.
-- `REQ-FUNC-9c1f728e` / `REQ-UX-e6ed7168` - stable API error codes and their
-  localized banner text.
-- `REQ-UX-359f8cbf` - browser-side project-name validation.
-- `REQ-UX-94dc4e69` - error banners reflect only the latest user action.
-- `REQ-UX-4200375b` - every view has a stable path URL with history support.
-- `REQ-UX-d88d3d7f` - project details tabs and project links.
-- `REQ-UX-3dda4965` / `REQ-UX-02f35869` - example placeholders, required
-  markers and the stated password rule.
-- `REQ-UX-5b0fa167` / `REQ-UX-48d6a55d` - phone table scroll cue and Jobs
-  filter toggle.
-- `REQ-SEC-a514d0b2` / `REQ-UX-772cb418` / `REQ-FUNC-bcaf01be` - delete
-  an archived, idle project after typed-name confirmation; the worker runs the
-  resource-removing CLI delete and human-owned worktrees are kept.
-- `REQ-UX-205e5379` / `REQ-UX-deb101f5` / `REQ-UX-48fb199d` /
-  `REQ-UX-0c03fc93` / `REQ-UX-d93fab0f` / `REQ-UX-7fdffe77` - name and ticket
-  links, scoped card hints, SVG icons, heading spacing, project-executor price
-  default and the empty-metrics message.
-- `REQ-NFR-da638732` / `REQ-NFR-46c98d6c` / `REQ-FUNC-a83c4cd3` - no polling
-  while hidden and server-paged Audit/Overview tables.
-- `REQ-UX-2bea4ff1` / `REQ-UX-84025a2c` - purpose categories, visible setting
-  guidance, catalog control domains and exact single-candidate safe review, with
-  explicit apply/discard, recorded evidence fallbacks and scoped request guards.
-- `REQ-UX-66e6f3f5` - project details presents collapsible, guided settings with administrator editing.
-- `REQ-FUNC-49b766fe` / `REQ-UX-9a625fc5` / `REQ-UX-a62e69a9` - per-setting source, editability and
-  restart metadata; Default badges for inherited values, row editing and permanent per-row descriptions.
-- `REQ-UX-b0e9a434` / `REQ-FUNC-c6c71dbd` - every setting's help text in EN/FR/DE/RO and
-  its ADORE default; the catalog test keeps texts in step with the configuration keys.
-- `REQ-SEC-3ce206e4` / `REQ-UX-7ca5687c` - administrators grant or remove one developer's access to one
-  project from its Access tab; other grants stay; developers see no tab.
-- `REQ-SEC-c2298428` - redacted project configuration reads follow grants; edits remain administrator-only.
-- `REQ-PLAT-a1b60ff9` - host-specific offline installation.
-- `REQ-REL-94e653aa` - checkpoint-bearing state and handoff lifecycles remain
-  readable and protected after replacement of the DCP runtime.
-
-## Architecture
-
-```mermaid
-flowchart LR
-    browser([Browser]) --> App[App session routes scoped requests]
-    Journals[(Raw journals)] --> Analytics[Strict analytics scope usage cohorts samples]
-    Summaries[(Read-only terminal summaries)] --> Analytics
-    Analytics --> api
-    App --> StatisticsReader[statistics strict scope amounts identity]
-    JobWorkspace --> StatisticsReader
-    StatisticsReader --> Evidence[StatisticsEvidence measures and trend table]
-    Evidence --> StatisticsCopy[statisticsCopy four locale definitions]
-    App --> DashboardShell[DashboardShell links branding focus]
-    App --> Presentation[Presentation feedback glossary status]
-    App --> JobWorkspace[JobWorkspace attention jobs detail commands]
-    JobWorkspace --> jobModel[jobModel evidence validation]
-    JobWorkspace --> jobCopy[jobCopy four locale guidance]
-    JobWorkspace --> api
-    App --> ImportWizard[ImportWizard exact memory draft]
-    ImportWizard --> importCopy[importCopy localized source effects]
-    ImportWizard --> api
-    App --> TransferWizard[TransferWizard file or project source rules]
-    TransferWizard --> EnrollmentWizard[EnrollmentWizard memory draft focus guards]
-    TransferWizard --> transferSource[Strict portable source revision]
-    transferSource --> portableSource
-    EnrollmentWizard --> transferTarget[Source target binding independent ownership]
-    transferTarget --> publication
-    EnrollmentWizard --> enrollmentCopy[enrollmentCopy localized guidance]
-    EnrollmentWizard --> api
-    api --> draftProbe[Shared bounded draft and project probe]
-    DashboardShell --> routes[routes.ts]
-    DashboardShell --> logo[Approved transparent logo]
-    App --> SettingsList[SettingsList catalog guidance]
-    App --> PendingReview[PendingReview safe single candidate]
-    SettingsList --> settings[settings.ts domains grouping]
-    PendingReview --> ExecutionPlanReview[ExecutionPlanReview image source commands]
-    ExecutionPlanReview --> executionPlan[Closed executionPlan validators]
-    JobWorkspace --> PreparationResults[PreparationResults persisted outcomes]
-    PendingReview --> settings
-    SettingsList --> settingsCopy[settingsCopy.ts localized guidance]
-    PendingReview --> settingsCopy
-    App --> RawConfiguration[RawConfiguration original TOML actions and dialog]
-    RawConfiguration --> api
-    api --> portableSource[portable_settings validated active rules]
-    App --> UserCreation[UserCreation memory credentials and secret-free review]
-    App --> AccessReview[AccountAccessEditor and ProjectAccess before after result]
-    UserCreation --> userCopy[userCopy four locale access guidance]
-    AccessReview --> userCopy
-    UserCreation --> api
-    AccessReview --> api
-    App --> i18n[i18n catalogs]
-    Presentation --> i18n
-    App --> api[create_app]
-    api --> audit[Closed audit.py evidence]
-    audit --> identity[(web.db audit and replay receipts)]
-    AuditHistory[AuditHistory who what when result] --> api
-    api --> preparation[Offline WizardSetup]
-    preparation --> publication[Enrollment and conductor locks]
-    publication --> profiles[(Config then pause then metadata)]
-    api --> profiles
-    api --> verification[(Revision-bound readiness.json)]
-    api --> state[(StateStore)]
-    api --> jobs[Strict authorized job projection]
-    jobs --> sources[(State ticket journal bytes)]
-    jobs --> profiles
-    api --> assets[(Bundled React assets)]
-    worker[CommandWorker] --> identity
-    worker --> cli([ADORE CLI])
-    cli --> conductor[Orchestrator]
-    conductor --> state
-```
-
 One web worker owns command ordering for one home. During any blocking engine
 command or project poll, the worker watches queued cancellations across projects and
 signals the active conductor after rechecking grants. Other queued operations
@@ -706,6 +528,114 @@ renders it in the active locale, and each user action or view change clears
 it. `web/src/projectName.ts` supplies the `v`-flag-safe project-name pattern
 for Add and Import project. Primary buttons take their text colour from the
 `--on-accent` theme token.
+
+## Change map
+
+| Change requested | Start with | Focused verification |
+|---|---|---|
+| Atomic reviewed accounts and access edits | `UserCreation.tsx`, `userCopy.ts`, `create_user_with_access`, `/users/with-access` | `test_web_user_creation.py`, auth/access/RBAC suites, `web/e2e/users.spec.ts` |
+| Authorized global job evidence, paging, revisions | `adore/web/jobs.py`, `jobs_page` and `job_detail` in `app.py` | `test_web_jobs.py`, `test_web_paging.py`, `test_web_rbac.py` |
+| Portable new-project file/copy, mapping and source revision | `TransferWizard.tsx`, `EnrollmentWizard.tsx`, `_prepare_transfer`, `transfer_source` | `test_web_transfer.py`, `web/e2e/transfer.spec.ts` |
+| Enrollment, display identity, readiness evidence | `adore/profiles.py`, `adore/wizard.py`, `adore/web/app.py` | `test_web_enrollment.py`, `test_web_errors.py` |
+| Exact TOML enrollment, safe review and probe | `web/src/ImportWizard.tsx`, `importCopy.ts`, `_inspect_project_import` | `test_web_import.py`, `web/e2e/import.spec.ts` |
+| Guided enrollment steps, correction, draft loss and review | `web/src/EnrollmentWizard.tsx`, `web/src/enrollmentCopy.ts`, `App.tsx` | `web/e2e/enrollment.spec.ts` |
+| Accounts, sessions, queue | `adore/web/store.py` | `test_web_auth.py`, `test_web_commands.py` |
+| Statistics evidence, selection, exports and job consumption | `web/src/statistics.ts`, `StatisticsEvidence.tsx`, `App.tsx`, `JobWorkspace.tsx` | `web/tests/statistics.test.mjs`, `web/e2e/statistics.spec.ts` |
+| API permissions/config/metrics | `adore/web/app.py` | `test_web_rbac.py`, `test_web_config.py`, `test_web_pending_config.py`, `test_web_readiness.py`, `test_web_metrics.py` |
+| Worker execution | `adore/web/commands.py` | `test_web_commands.py` |
+| Action workspace, next action and observed history | `web/src/JobWorkspace.tsx`, `jobModel.ts`, `jobCopy.ts` | `web/tests/jobs.test.mjs`, `web/e2e/jobs.spec.ts`, `test_web_jobs.py` |
+| Language, theme, views | `web/src/App.tsx`, `web/src/i18n.ts` | `npm run validate`, isolated Chromium journeys |
+| Shell, branding, scope, request feedback | `web/src/DashboardShell.tsx`, `web/src/Presentation.tsx`, `web/src/App.tsx` | `web/e2e/shell.spec.ts`, `web/tests/shell.test.mjs` |
+| URLs, tabs, navigation | `web/src/routes.ts`, `web/src/App.tsx` | `npm test` (`routes.test.mjs`), browser check |
+| Background refresh and paging | `web/src/polling.ts`, `JobWorkspace`, `ServerPager` in `App.tsx`, `/api/v1/audit-page` | `npm test` (`polling.test.mjs`), `test_web_paging.py` |
+| Error codes and messages | `adore/web/app.py` (`_error`, `_STORE_ERROR_CODES`), `web/src/errors.ts` | `test_web_errors.py`, `npm test` (`errors.test.mjs`) |
+| Project developer access | `/api/v1/projects/{name}/access` routes in `adore/web/app.py`, `project_members` and `set_membership` in `adore/web/store.py`, `ProjectAccess` in `App.tsx`, `web/src/routes.ts` | `test_web_project_access.py`, `npm test` (`routes.test.mjs`), browser check |
+| Project settings list and row editing | `_setting_metadata` in `adore/web/app.py`, `web/src/settings.ts`, `SettingsList` in `App.tsx` | `test_web_config.py`, `npm test` (`settings.test.mjs`), browser check |
+| Setting help texts and catalog | `web/src/settingHelp.ts`, `web/src/settingKeys.json`, `default_config()` in `adore/config.py` | `test_web_setting_catalog.py`, `npm test` (`settingHelp.test.mjs`), browser check |
+| Offline media | `02_Tools/*web*.py` | `test_web_package.py`, installed HTTP smoke |
+
+## Key behaviors
+
+- REQ-UX-b75e1df8: ProjectInput accepts execution_backend and local account/home/path/cgroup/native argv. Review/config show actual machine/account/system; metadata reports runtime=local. Reviewed candidates recheck pinned native plans. Host checks avoid container detection.
+
+Native control/auth route to local-execution.md. Focused proof:
+`04_Software/tests/test_local_execution.py`.
+
+
+- `REQ-UX-94a97e70`: CLI validates external execution selections and previews complete image/source/commands. Web reads expose effective image and retained preparation evidence; environment mutations are refused. Host/model probes normalize image without setup; jobs project validated timestamp/exit/timeout/cancel evidence. Portable rule allowlists stay unchanged.
+
+- `REQ-DATA-5a620f4e` / `REQ-REL-6564a3b2` / `REQ-FUNC-83da8d95` - composite measured job consumption, strict sources and server-selected analytical samples.
+
+
+- `REQ-FUNC-20010f79`, `REQ-SEC-934b2dca`, `REQ-UX-7d0b71c3`: isolated stopped portable enrollment, exact authorized source binding and explanatory mapping/reconfirmation.
+
+- `REQ-SEC-f96d80d4`: authoritative portable transfer API with no enrollment writes.
+- `REQ-UX-34ca5d39` / `REQ-SEC-3cf6cde4`: compact Settings and Admin original TOML reads, memory-only preview and exact download.
+
+- `REQ-UX-b758d2b7`, `REQ-UX-78923e00`, `REQ-UX-a7969a9d`,
+  `REQ-FUNC-25dc0271` â€” complete authorized action workspace, pickup/verification
+  project hubs, observed safe timeline and actual queued outcomes.
+
+
+- `REQ-FUNC-e8455ab6`, `REQ-DATA-0ba9e469`, `REQ-SEC-5d0f86e7` â€” complete
+  authorized job pages, actual persisted evidence/unknowns and strict trusted sources.
+
+- `REQ-UX-3b5b2257`, `REQ-FUNC-c987bc4a`, `REQ-REL-39c1b197`, `REQ-DATA-71853fbc` - explanatory exact enrollment, explicit ephemeral checks, locked candidate publication and memory correction/loss guards.
+
+- `REQ-UX-072cf049`, `REQ-UX-3609c9ed`, `REQ-UX-002cbd25`, `REQ-UX-7f8fde2c` - guided supported steps, memory correction/loss protection, field focus and stopped completion.
+- `REQ-FUNC-702b0fce`, `REQ-FUNC-49e89542`, `REQ-DATA-e1eaf583`, `REQ-SEC-dc4bd0c3` - complete canonical preview, explicit ephemeral probe, exact guarded creation and reference-only Admin/CSRF draft boundaries.
+
+- `REQ-DATA-d893df33`, `REQ-FUNC-e8e0e304` - stable display identity and portable advisory ID checks.
+- `REQ-REL-c598b075`, `REQ-FUNC-3d8f6f5e` - metadata-last stopped enrollment and offline findings.
+- `REQ-DATA-70e5e3bb`, `REQ-SEC-61fb8552` - revision-bound evidence and guarded secret-free setup.
+
+- `REQ-UX-955615bd` / `REQ-UX-aa5e358e` - authorized accessible shell and approved branding.
+- `REQ-UX-8031b8eb` / `REQ-UX-0713852d` - localized delivery vocabulary and explicit project context.
+- `REQ-UX-257ab3f0` / `REQ-UX-9a8b409d` - scoped request feedback and role-specific empty access guidance.
+
+- `REQ-SEC-9ee171c9` - local accounts and durable, fail-closed sessions.
+- `REQ-SEC-59d97c68` - project scope and developer financial privacy.
+- `REQ-FUNC-7ce5b17a` - project setup, config and status.
+- `REQ-FUNC-f9946b6b` - durable selected-ticket operations and admin pickup.
+- `REQ-FUNC-448cbde7` - observed usage, reported/estimated costs and coverage.
+- `REQ-REL-2e67fc6d` - job lists, details and timelines read history that
+  names the removed deliver stage and label it Deliver.
+- `REQ-UX-749d37c8` - four locales, themes and responsive UI.
+- `REQ-SEC-676d284c` / `REQ-UX-309a6b3f` - administrator reset requires a new
+  password; the browser shows only the change-password card meanwhile.
+- `REQ-FUNC-9c1f728e` / `REQ-UX-e6ed7168` - stable API error codes and their
+  localized banner text.
+- `REQ-UX-359f8cbf` - browser-side project-name validation.
+- `REQ-UX-94dc4e69` - error banners reflect only the latest user action.
+- `REQ-UX-4200375b` - every view has a stable path URL with history support.
+- `REQ-UX-d88d3d7f` - project details tabs and project links.
+- `REQ-UX-3dda4965` / `REQ-UX-02f35869` - example placeholders, required
+  markers and the stated password rule.
+- `REQ-UX-5b0fa167` / `REQ-UX-48d6a55d` - phone table scroll cue and Jobs
+  filter toggle.
+- `REQ-SEC-a514d0b2` / `REQ-UX-772cb418` / `REQ-FUNC-bcaf01be` - delete
+  an archived, idle project after typed-name confirmation; the worker runs the
+  resource-removing CLI delete and human-owned worktrees are kept.
+- `REQ-UX-205e5379` / `REQ-UX-deb101f5` / `REQ-UX-48fb199d` /
+  `REQ-UX-0c03fc93` / `REQ-UX-d93fab0f` / `REQ-UX-7fdffe77` - name and ticket
+  links, scoped card hints, SVG icons, heading spacing, project-executor price
+  default and the empty-metrics message.
+- `REQ-NFR-da638732` / `REQ-NFR-46c98d6c` / `REQ-FUNC-a83c4cd3` - no polling
+  while hidden and server-paged Audit/Overview tables.
+- `REQ-UX-2bea4ff1` / `REQ-UX-84025a2c` - purpose categories, visible setting
+  guidance, catalog control domains and exact single-candidate safe review, with
+  explicit apply/discard, recorded evidence fallbacks and scoped request guards.
+- `REQ-UX-66e6f3f5` - project details presents collapsible, guided settings with administrator editing.
+- `REQ-FUNC-49b766fe` / `REQ-UX-9a625fc5` / `REQ-UX-a62e69a9` - per-setting source, editability and
+  restart metadata; Default badges for inherited values, row editing and permanent per-row descriptions.
+- `REQ-UX-b0e9a434` / `REQ-FUNC-c6c71dbd` - every setting's help text in EN/FR/DE/RO and
+  its ADORE default; the catalog test keeps texts in step with the configuration keys.
+- `REQ-SEC-3ce206e4` / `REQ-UX-7ca5687c` - administrators grant or remove one developer's access to one
+  project from its Access tab; other grants stay; developers see no tab.
+- `REQ-SEC-c2298428` - redacted project configuration reads follow grants; edits remain administrator-only.
+- `REQ-PLAT-a1b60ff9` - host-specific offline installation.
+- `REQ-REL-94e653aa` - checkpoint-bearing state and handoff lifecycles remain
+  readable and protected after replacement of the DCP runtime.
 
 ## Files
 

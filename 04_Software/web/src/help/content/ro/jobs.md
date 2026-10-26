@@ -12,10 +12,9 @@ ADORE parcurge etapele AEGIS pe rând, fiecare încercare într-o sesiune nouă 
 | Specificare | Se scrie cerința. |
 | Proiectare | Se scrie o notă scurtă de proiectare pentru lucrările netriviale. |
 | Construire | Mai întâi un test care eșuează, apoi implementarea, până când testele trec. |
-| Validare | Revizuire, suita completă de teste și o verificare strictă, pe care ADORE o repetă apoi singur. |
-| Livrare | După aprobarea dumneavoastră, aprobarea și încheierea se înregistrează, iar MR/PR-ul este publicat. |
+| Validare | Revizuire, suita completă de teste, o verificare strictă și raportul AEGIS; sarcina AEGIS se închide. ADORE repetă apoi singur verificarea strictă înainte să ceară aprobarea. |
 
-Calea rapidă parcurge Încadrare, Construire, Validare și Livrare. Pe calea completă, validarea poate trimite o lucrare înapoi la Specificare, Proiectare sau Construire; pe calea rapidă, doar înapoi la Construire. O etapă primește implicit trei încercări eșuate (**Încercări eșuate permise per etapă**).
+Calea rapidă parcurge Încadrare, Construire și Validare. După Validare, lucrarea afișează etapa **Finalizată** cât timp așteaptă aprobarea, este publicată și se află în revizie umană. Pe calea completă, validarea poate trimite o lucrare înapoi la Specificare, Proiectare sau Construire; pe calea rapidă, doar înapoi la Construire. O etapă primește implicit trei încercări eșuate (**Încercări eșuate permise per etapă**).
 
 ## Clarificare {#clarification}
 

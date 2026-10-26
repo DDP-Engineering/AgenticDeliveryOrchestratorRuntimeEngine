@@ -12,10 +12,9 @@ ADORE führt die AEGIS-Phasen nacheinander aus, jeden Versuch in einer neuen Exe
 | Spezifikation | Die Anforderung wird geschrieben. |
 | Entwurf | Für nicht triviale Arbeit wird eine kurze Entwurfsnotiz geschrieben. |
 | Umsetzung | Zuerst kommt ein fehlschlagender Test, dann die Implementierung, bis die Tests bestehen. |
-| Validierung | Review, die vollständige Testsuite und eine strenge Prüfung, die ADORE anschließend selbst wiederholt. |
-| Lieferung | Nach Ihrer Freigabe werden Freigabe und Abschluss festgehalten und der MR/PR wird veröffentlicht. |
+| Validierung | Review, die vollständige Testsuite, eine strenge Prüfung und der AEGIS-Bericht; die AEGIS-Aufgabe wird abgeschlossen. ADORE wiederholt die strenge Prüfung danach selbst, bevor es um Freigabe bittet. |
 
-Der schnelle Pfad durchläuft Rahmen, Umsetzung, Validierung und Lieferung. Auf dem vollständigen Pfad kann die Validierung einen Auftrag zurück zu Spezifikation, Entwurf oder Umsetzung schicken, auf dem schnellen Pfad nur zurück zur Umsetzung. Eine Phase erhält standardmäßig drei Fehlversuche (**Erlaubte Fehlversuche je Phase**).
+Der schnelle Pfad durchläuft Rahmen, Umsetzung und Validierung. Nach der Validierung zeigt der Auftrag die Phase **Fertig**, während er auf Freigabe wartet, veröffentlicht wird und in menschlicher Prüfung ist. Auf dem vollständigen Pfad kann die Validierung einen Auftrag zurück zu Spezifikation, Entwurf oder Umsetzung schicken, auf dem schnellen Pfad nur zurück zur Umsetzung. Eine Phase erhält standardmäßig drei Fehlversuche (**Erlaubte Fehlversuche je Phase**).
 
 ## Klärung {#clarification}
 

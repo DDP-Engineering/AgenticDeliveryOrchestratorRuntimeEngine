@@ -102,9 +102,9 @@ def test_checkpoint_handoff_progress_push_retains_approval_boundary(tmp_path, en
         task("build"),
         task("validate"),
         task("validate"),
-        task("deliver"),
-        task("deliver"),
-        task("deliver"),
+        task("done"),
+        task("done"),
+        task("done"),
     ]
     engine._conduct_task(run, forge.ticket, FakeAegis(snapshots), "")
     saved = engine.store.load(run.run_id)
@@ -132,9 +132,9 @@ def test_checkpoint_handoff_transport_failure_is_visible_and_recovers(tmp_path):
                 task("build"),
                 task("validate"),
                 task("validate"),
-                task("deliver"),
-                task("deliver"),
-                task("deliver"),
+                task("done"),
+                task("done"),
+                task("done"),
             ]
         ),
         "",
@@ -421,6 +421,9 @@ def test_checkpoint_handoff_comment_has_forge_branch_link(tmp_path, kind, url, f
     assert engine.handoff(run.run_id)
     body = "\n".join(forge.ticket_comments.values())
     assert fragment + "adore%2Fgithub-owner-repo-7" in body
+    # the takeover note names the AEGIS 0.15.0 resume view, not a Handoff section
+    assert "python .agentic/aegis.py brief" in body
+    assert "and Handoff" not in body
 
 
 def test_checkpoint_handoff_metrics_records_human_ownership(tmp_path):
@@ -459,17 +462,15 @@ def test_checkpoint_handoff_owner_not_announced_before_git_finishes(tmp_path):
 
 
 def test_checkpoint_handoff_delivery_still_requires_fresh_approval(tmp_path, monkeypatch):
-    """@brief WIP visibility preserves normal approved draft publication and close-out tracking."""
-    from collections import deque
-
+    """@brief WIP visibility preserves normal approved draft publication without AEGIS."""
     import adore.orchestrator as conductor
     from adore.util import utc_now_iso
 
     from .test_orchestrator import passing_check
 
-    engine, run, forge, worktrees, _, _ = setup_run(tmp_path)
+    engine, run, forge, worktrees, _, executor = setup_run(tmp_path)
     engine.config.delivery.publish_checkpoints = True
-    run.stage = "deliver"
+    run.stage = "done"
     run.lifecycle = "awaiting-approval"
     run.validation_evidence = engine._validation_payload(passing_check())
     run.candidate_fingerprint = worktrees.fingerprint
@@ -482,30 +483,19 @@ def test_checkpoint_handoff_delivery_still_requires_fresh_approval(tmp_path, mon
     assert not forge.opened and not worktrees.pushes
     forge.ticket.labels.append("agent-approved")
 
-    class PublishClient:
-        statuses = deque([task("deliver"), task("deliver"), task("deliver"), task("done")])
+    class NoAegis:
+        """@brief Publication runs no AEGIS command after approval."""
 
         def __init__(self, *args, **kwargs):
-            pass
+            raise AssertionError("publication must not run an AEGIS command")
 
-        def probe(self):
-            return None
-
-        def task_status(self, task_id):
-            return self.statuses.popleft()
-
-        def report(self, task_id):
-            return None
-
-        def evolution(self, task_id):
-            return {}
-
-    monkeypatch.setattr(conductor, "AegisClient", PublishClient)
+    monkeypatch.setattr(conductor, "AegisClient", NoAegis)
     engine.poll_once()
     saved = engine.store.load(run.run_id)
     assert saved.lifecycle == "in-review" and forge.opened[0]["draft"] is True
     assert saved.checkpoint_remote_commit == worktrees.head
-    assert len(worktrees.pushes) == 2
+    assert worktrees.pushes == [run.branch]
+    assert executor.prompts == []
 
 
 @pytest.mark.parametrize("lifecycle", ["done", "cancelled"])

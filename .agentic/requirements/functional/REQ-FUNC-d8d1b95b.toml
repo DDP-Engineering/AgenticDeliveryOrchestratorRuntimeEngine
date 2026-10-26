@@ -1,0 +1,32 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-FUNC-d8d1b95b"
+
+title = "Route a retry at the publication boundary"
+
+status = "active"
+
+requirement = """
+When an operator retries a failed run at stage done or publishing, the conductor shall return a candidate it already published to review, resume publication of an approved unpublished candidate, and conduct any other run from done.
+"""
+
+verification = "Offline tests retry a run that failed in review after its candidate was published, with the target moved or the approval label removed, and observe review again with no push, executor session, approval invalidation or AEGIS command; retry a failed push and observe publication of the same candidate; and retry after reset --to publishing without a fresh approval and observe conduction from stage done; and retry a run that failed at done before ADORE verified it, and a published run reset to validate, and observe conduction instead of review."
+
+affected_paths = ["04_Software/adore/orchestrator.py", "04_Software/adore/state.py"]
+
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_retry_after_publication_returns_to_review", "04_Software/tests/test_orchestrator.py::test_failed_publication_push_keeps_the_approval_for_retry", "04_Software/tests/test_orchestrator.py::test_retry_after_publishing_reset_without_approval_conducts_from_done", "04_Software/tests/test_orchestrator.py::test_retry_publishes_a_review_round_candidate_not_yet_published", "04_Software/tests/test_state.py::test_state_written_before_published_fingerprint_loads_it_empty", "04_Software/tests/test_state.py::test_schema_4_state_trust_boundary_rejects_corrupt_fields", "04_Software/tests/test_orchestrator.py::test_retry_of_a_run_failed_at_done_before_verification_conducts_from_done", "04_Software/tests/test_orchestrator.py::test_retry_conducts_a_published_run_reset_to_an_earlier_stage"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = "Validate closes the AEGIS task, so stage done spans approval, publication and review; only a recorded published fingerprint tells a published candidate from one still waiting to publish."
+
+created = 2026-10-26
+updated = 2026-10-26

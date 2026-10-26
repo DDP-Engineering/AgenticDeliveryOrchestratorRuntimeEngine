@@ -1,0 +1,32 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-FUNC-faab24b2"
+
+title = "Return an unverified done task to validate"
+
+status = "active"
+
+requirement = """
+If a conduct step starts with the pinned AEGIS task at done while the conductor holds no verification evidence for it, as after an invalidated approval or after one session advanced the task from an earlier stage through validate to done, then the conductor shall launch one fresh executor session that returns the task to validate with `advance --to validate` before it verifies again.
+"""
+
+verification = "Offline conductor tests invalidate an approval on target drift and conduct an evidenced build -> done jump; each launches one route session whose journal reaches validate before the validate session and the strict check run, and a route session that leaves the task at done counts one REVALIDATION_ROUTE_MISSING validate failure."
+
+affected_paths = ["04_Software/adore/aegis.py", "04_Software/adore/orchestrator.py"]
+
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_done_task_without_evidence_returns_to_validate_before_approval", "04_Software/tests/test_orchestrator.py::test_evidenced_jump_to_done_is_revalidated_before_approval", "04_Software/tests/test_orchestrator.py::test_route_session_that_leaves_the_task_done_is_a_validate_failure", "04_Software/tests/test_aegis.py::test_transition_allowlist", "04_Software/tests/test_orchestrator.py::test_target_drift_invalidates_approval_and_revalidates_from_done"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = "A done journal that ADORE has not verified, or whose approval became stale, is revalidated after target integration instead of being presented."
+
+created = 2026-10-25
+updated = 2026-10-26

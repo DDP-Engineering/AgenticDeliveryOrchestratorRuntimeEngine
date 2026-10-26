@@ -51,11 +51,15 @@ executor/staging pairs fail validation before a run starts.
 `delivery.publish_checkpoints` is a strict boolean, enabled by default for CLI
 and web with explicit false respected; candidate-bound MR/PR
 approval remains mandatory. The reported-cost cap accepts finite nonnegative
-USD amounts, with zero disabling only that cap.
+USD amounts, with zero disabling only that cap. Stage timeout overrides name
+only `frame`, `specify`, `design`, `build` or `validate`, the stages that
+launch an executor; any other key, `deliver` included, fails validation.
 
 Shared CLI/web defaults are acceptance=false, priority=true and maximum additional revision rounds=5 (minimum one), with explicit overrides retained. The typed readiness model contains acceptance, priority and reserved scope hint.
 
 `REQ-FUNC-c6c694cc`: Human-answer timeout is a positive parsed duration independent of reserved reminder timing. Both duration formats remain checked; runtime clarification expiry/round semantics are unchanged. Focused proof: `tests/test_config.py` and clarification cases in `tests/test_orchestrator.py`.
+
+Both CLI and web use the same validated model before changing runtime policy.
 
 ## Key behaviors
 
@@ -72,22 +76,7 @@ Native ownership/auth route to `local-execution.md`; focused proof is
 - `REQ-FUNC-7ce5b17a` - web-created and imported profiles share the typed
   validator.
 - `REQ-REL-94e653aa` - checkpoint publication defaults to enabled and respects explicit overrides.
-
-## Architecture
-
-```mermaid
-flowchart LR
-    toml[(config.toml)] --> load[load_config]
-    load --> model[Typed Config]
-    model --> validate[validate_config]
-    validate --> branch[branch_naming_preview]
-    preview([Scoped web preview]) --> branch
-    branch --> regex([Bounded Python regex process])
-    validate --> conductor([Orchestrator])
-    validate --> web([Web configuration API])
-```
-
-Both CLI and web use the same validated model before changing runtime policy.
+- `REQ-DATA-eebc4f88` - stage timeout overrides accept only the five executor stages.
 
 ## Files
 

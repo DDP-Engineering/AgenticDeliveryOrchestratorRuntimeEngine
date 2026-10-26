@@ -149,8 +149,9 @@ container, and releases the slot. Review the evidence, then freshly add
 `agent-approved`. The next poll rechecks the exact candidate and target before
 publication.
 
-ADORE pushes only after approval, opens the configured draft or ready MR/PR, records close-out in the
-AEGIS task, and stops in `in-review`. A human reviews and merges.
+ADORE pushes only after approval, opens the configured draft or ready MR/PR,
+and stops in `in-review`; the AEGIS task already closed in validate. A human
+reviews and merges.
 
 ## Failure and Recovery
 

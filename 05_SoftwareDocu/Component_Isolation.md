@@ -47,8 +47,7 @@ guardrails, not a sandbox.
   `is_dirty`; `ref_head`, `commit_series`, and
   `candidate_fingerprint` bind approval to the target, tree and exact commit
   sequence; `worktree_progress_fingerprint` detects source progress across an
-  executor gate; `product_diff_fingerprint` detects product mutation while allowing
-  expected `.agentic/` delivery bookkeeping; and `list_dirs` (every directory under the
+  executor gate; and `list_dirs` (every directory under the
   worktrees root, including husks deregistered but not deleted after the WSL
   bind-mount teardown race - which `adore cleanup` reads to find the project's
   state-less run IDs).
@@ -290,9 +289,10 @@ result = containers.exec("adore-run-gitlab-x-14", ["opencode", "--version"])
   provision idempotency, absent-vs-error status, idempotent-but-fail-closed
   stop/remove, volume creation, and exec-returns-data; Windows drive-path
   translation and wrapped-runtime mount construction on both host OSes.
-- `tests/test_orchestrator.py` covers the delivery integration case where
-  conductor-owned task/report commands generate final workflow artifacts,
-  fingerprint approval and commit them before push.
+- `tests/test_orchestrator.py` covers the conductor's use of these seams:
+  checkpoint commits after each stage and after its own verification, the
+  candidate fingerprint that binds approval, and one push of the approved
+  candidate at publication.
 - Minimum validation after a change: `uv run --group dev pytest tests/test_isolation.py`.
 - `docker/verify-runtime.sh` is the LIVE compatibility pass for a runtime. Its
   open-egress path covers 17 steps and its allowlist-proxy path covers 21,

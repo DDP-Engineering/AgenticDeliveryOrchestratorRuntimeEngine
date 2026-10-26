@@ -96,8 +96,9 @@ def task_payload(
         "design": "3_design.md",
         "build": "4_build.md",
         "validate": "5_validate.md",
-        "deliver": "6_deliver.md",
-        "done": "6_deliver.md",
+        # AEGIS 0.15.0 maps a legacy deliver journal to the validate step.
+        "deliver": "5_validate.md",
+        "done": None,
     }
     return {
         "schema": 1,
@@ -171,16 +172,16 @@ def check_payload(*, passed: bool = True, warnings: int = 0, runs=None):
 
 def test_probe_accepts_any_supported_minor_and_schema_1() -> None:
     """@brief Version and schema are both proved before work."""
-    execute = FakeExec(result(stdout="aegis 0.6.9\n"), result(status_list()))
+    execute = FakeExec(result(stdout="aegis 0.15.2\n"), result(status_list()))
     probe = AegisClient(execute).probe()
-    assert probe.version == "0.6.9" and probe.schema == 1
+    assert probe.version == "0.15.2" and probe.schema == 1
     assert execute.calls == [
         ["python", ".agentic/aegis.py", "--version"],
         ["python", ".agentic/aegis.py", "status", "--all", "--json"],
     ]
 
 
-@pytest.mark.parametrize("version", ["aegis 0.5.0", "aegis 0.6.0", "aegis 0.99.7"])
+@pytest.mark.parametrize("version", ["aegis 0.15.0", "aegis 0.16.0", "aegis 0.99.7"])
 def test_probe_accepts_the_whole_supported_major_from_the_floor_up(
     version: str,
 ) -> None:
@@ -197,20 +198,23 @@ def test_probe_accepts_the_whole_supported_major_from_the_floor_up(
 @pytest.mark.parametrize("version", ["aegis 1.0.0", "aegis 2.3.4"])
 def test_probe_rejects_a_different_major(version: str) -> None:
     """@brief A major bump means the companion contract itself changed."""
-    with pytest.raises(AegisProtocolError, match="unsupported"):
+    with pytest.raises(AegisProtocolError, match=r"unsupported.*from 0\.15\.0"):
         AegisClient(FakeExec(result(stdout=version))).probe()
 
 
-@pytest.mark.parametrize("version", ["aegis 0.4.9", "aegis 0.0.1"])
-def test_probe_rejects_below_the_command_floor(version: str) -> None:
+@pytest.mark.parametrize("version", ["aegis 0.14.9", "aegis 0.5.0", "aegis 0.0.1"])
+def test_probe_refuses_releases_older_than_0_15_0(version: str) -> None:
     """
-    @brief   A payload older than the floor fails at probe, not mid-stage.
-    @details `evolution` arrived in AEGIS 0.5.0 and this client calls it at
-             delivery, so an older payload would satisfy a bare major check
-             and then fail at the end of a task.
+    @brief   A payload older than the floor fails at probe, before any status read.
+    @details AEGIS before 0.15.0 ends in a deliver stage that asks the agent to
+             wait for a human and to commit, a flow ADORE no longer conducts.
+             The refusal names the minimum so the operator knows what to
+             install.
     """
-    with pytest.raises(AegisProtocolError, match="at least"):
-        AegisClient(FakeExec(result(stdout=version))).probe()
+    execute = FakeExec(result(stdout=version))
+    with pytest.raises(AegisProtocolError, match=r"at least 0\.15\.0"):
+        AegisClient(execute).probe()
+    assert execute.calls == [["python", ".agentic/aegis.py", "--version"]]
 
 
 @pytest.mark.parametrize("version", ["0.6.0", "", "aegis", "aegis 0.6"])
@@ -224,7 +228,7 @@ def test_probe_rejects_wrong_schema_and_unreadable_journal() -> None:
     """@brief A bad schema or any corrupt journal prevents pickup."""
     with pytest.raises(AegisProtocolError, match="schema"):
         AegisClient(FakeExec(
-            result(stdout="aegis 0.6.0"), result(status_list(schema=2)),
+            result(stdout="aegis 0.15.0"), result(status_list(schema=2)),
         )).probe()
 
 
@@ -232,8 +236,22 @@ def test_probe_rejects_wrong_schema_and_unreadable_journal() -> None:
 def test_probe_accepts_authoritative_adoption_stages(stage: str) -> None:
     """@brief Repository probing accepts AEGIS adoption journals as foreign work."""
     execute = FakeExec(
-        result(stdout="aegis 0.6.0"),
+        result(stdout="aegis 0.15.0"),
         result(status_list(stage=stage)),
+    )
+    assert AegisClient(execute).probe().schema == 1
+
+
+def test_probe_accepts_a_listed_legacy_deliver_journal() -> None:
+    """
+    @brief   A journal another task left at deliver does not block the project.
+    @details AEGIS 0.15.0 still lists a legacy deliver journal in `status --all
+             --json`. ADORE conducts no deliver stage, but refusing the listing
+             would fail every probe, and so every run, of that repository.
+    """
+    execute = FakeExec(
+        result(stdout="aegis 0.15.0"),
+        result(status_list(stage="deliver")),
     )
     assert AegisClient(execute).probe().schema == 1
 
@@ -242,12 +260,12 @@ def test_status_probe_still_rejects_an_unknown_stage() -> None:
     """@brief Status-list widening remains bounded to AEGIS's documented stages."""
     with pytest.raises(AegisProtocolError, match="unknown stage"):
         AegisClient(FakeExec(
-            result(stdout="aegis 0.6.0"),
+            result(stdout="aegis 0.15.0"),
             result(status_list(stage="invented")),
         )).probe()
     with pytest.raises(AegisProtocolError, match="unreadable"):
         AegisClient(FakeExec(
-            result(stdout="aegis 0.6.0"),
+            result(stdout="aegis 0.15.0"),
             result(status_list(unreadable=[{"file": "bad.md"}])),
         )).probe()
 
@@ -291,23 +309,58 @@ def test_task_journal_trust_boundary_fails_closed(mutation, error: str) -> None:
 
 
 def test_task_deviations_follow_the_aegis_marker_rule() -> None:
-    """@brief Only `DEVIATION <stage>:` or its ` - ` spelling is a deviation."""
-    payload = task_payload(stage="deliver")
+    """
+    @brief   Only `DEVIATION <stage>:` or its ` - ` spelling is a deviation.
+    @details The stage is any stage AEGIS 0.15.0 itself knows, so a legacy
+             `DEVIATION deliver:` line is harvested exactly as AEGIS does.
+    """
+    payload = task_payload(stage="done")
     payload["task"]["log"] = [
         "2026-08-21 frame: DEVIATION frame: branch not created - opened ahead of work",
         "2026-08-22 build: DEVIATION build - accepted two check warnings",
         "2026-08-22 build: the DEVIATION policy: one line, said aloud",
         "2026-08-23 validate: full suite green",
+        "2026-08-23 validate: DEVIATION deliver: legacy marker kept by AEGIS",
     ]
     task = AegisClient(FakeExec(result(payload))).task_status(TASK_ID)
     assert task.deviations == (
         "frame: branch not created - opened ahead of work",
         "build - accepted two check warnings",
+        "deliver: legacy marker kept by AEGIS",
     )
 
 
+@pytest.mark.parametrize(
+    ("stage", "step_file"),
+    [
+        ("frame", "1_frame.md"), ("specify", "2_specify.md"), ("design", "3_design.md"),
+        ("build", "4_build.md"), ("validate", "5_validate.md"), ("done", None),
+    ],
+)
+def test_task_status_accepts_the_0_15_0_stages_and_step_files(
+    stage: str, step_file: str | None,
+) -> None:
+    """@brief Every conducted stage decodes with the step file AEGIS 0.15.0 names."""
+    task = AegisClient(FakeExec(result(task_payload(stage=stage)))).task_status(TASK_ID)
+    assert task.stage == stage and task.step_file == step_file
+    assert task.done is (stage == "done")
+
+
+def test_task_status_refuses_a_task_at_the_removed_deliver_stage() -> None:
+    """
+    @brief   The pinned task is never conducted at deliver.
+    @details AEGIS 0.15.0 still reports a legacy deliver journal, pointing it at
+             the validate step file. ADORE conducts only the 0.15.0 paths, so
+             its own task at deliver fails closed as an unconducted stage.
+    """
+    payload = task_payload(stage="deliver")
+    assert payload["task"]["step_file"] == "5_validate.md"
+    with pytest.raises(AegisTaskError, match="invalid/disagreeing stage 'deliver'"):
+        AegisClient(FakeExec(result(payload))).task_status(TASK_ID)
+
+
 def test_active_task_decoder_rejects_adoption_stage() -> None:
-    """@brief ADORE conducts only its seven stages even though probing is wider."""
+    """@brief ADORE conducts only its six stages even though probing is wider."""
     payload = task_payload()
     payload["task"]["stage"] = "survey"
     payload["task"]["header"]["stage"] = "survey"
@@ -449,21 +502,6 @@ def test_check_rejects_malformed_run_evidence_and_summary_mismatch() -> None:
         AegisClient(FakeExec(result(mismatch))).check(TASK_ID, strict=True)
 
 
-def test_evolution_and_report_command_shapes() -> None:
-    """@brief Every remaining supported AEGIS operation has one exact command."""
-    execute = FakeExec(
-        result({"schema": 1, "command": "evolution", "task": TASK_ID}),
-        result(stdout=f"report appended to .agentic/tasks/{TASK_ID}.md\n"),
-    )
-    client = AegisClient(execute)
-    assert client.evolution(TASK_ID)["command"] == "evolution"
-    client.report(TASK_ID)
-    assert execute.calls == [
-        ["python", ".agentic/aegis.py", "evolution", "--task", TASK_ID, "--json"],
-        ["python", ".agentic/aegis.py", "report", TASK_ID],
-    ]
-
-
 @pytest.mark.parametrize("stdout", ["", "not-json", "[]", '{"schema":1'])
 def test_json_protocol_rejects_empty_malformed_or_non_object(stdout: str) -> None:
     """@brief The JSON boundary never guesses or accepts partial output."""
@@ -488,14 +526,25 @@ def test_protocol_rejects_invalid_utf8_marker_timeout_and_unexpected_exit() -> N
         ("frame", "build", "quick", True),
         ("validate", "build", "full", True),
         ("validate", "specify", "full", True),
-        ("deliver", "validate", "full", True),
+        ("validate", "done", "full", True),
+        ("validate", "done", "quick", True),
+        ("done", "validate", "full", True),
+        ("done", "validate", "quick", True),
         ("frame", "design", "full", False),
         ("build", "frame", "quick", False),
-        ("deliver", "build", "full", False),
+        ("done", "build", "full", False),
+        ("validate", "deliver", "full", False),
+        ("deliver", "done", "full", False),
+        ("deliver", "validate", "full", False),
     ],
 )
 def test_transition_allowlist(previous: str, current: str, path: str, expected: bool) -> None:
-    """@brief Only documented progression and validation rollback are legal."""
+    """
+    @brief   Only the AEGIS 0.15.0 progression and its returns are legal.
+    @details Validate closes the task by advancing to done; done returns to
+             validate when ADORE must revalidate. The removed deliver stage
+             takes part in no conducted transition.
+    """
     assert allowed_transition(previous, current, path) is expected
 
 
@@ -516,8 +565,8 @@ def test_evidenced_jump_accepts_an_executor_that_ran_the_whole_task() -> None:
              (live finding 2026-09-18). Every crossed stage carries a Log
              entry, so the jump is accepted.
     """
-    assert allowed_transition("frame", "deliver", "full") is False
-    assert evidenced_transition("frame", "deliver", "full", _RAN_AHEAD_LOG) is True
+    assert allowed_transition("frame", "done", "full") is False
+    assert evidenced_transition("frame", "done", "full", _RAN_AHEAD_LOG) is True
 
 
 def test_evidenced_jump_still_refuses_a_genuine_skip() -> None:
@@ -526,8 +575,8 @@ def test_evidenced_jump_still_refuses_a_genuine_skip() -> None:
              did not run, so the jump stays refused however far it reaches.
     """
     missing_build = tuple(e for e in _RAN_AHEAD_LOG if not e.startswith("2026-09-18 build"))
-    assert evidenced_transition("frame", "deliver", "full", missing_build) is False
-    assert evidenced_transition("frame", "deliver", "full", ()) is False
+    assert evidenced_transition("frame", "done", "full", missing_build) is False
+    assert evidenced_transition("frame", "done", "full", ()) is False
 
 
 def test_evidenced_jump_ignores_prose_that_merely_names_a_stage() -> None:
@@ -553,7 +602,7 @@ def test_evidenced_jump_declines_what_allowed_transition_already_rules_on() -> N
              this function answers only for forward jumps of more than one.
     """
     assert evidenced_transition("frame", "specify", "full", _RAN_AHEAD_LOG) is False
-    assert evidenced_transition("deliver", "validate", "full", _RAN_AHEAD_LOG) is False
+    assert evidenced_transition("done", "validate", "full", _RAN_AHEAD_LOG) is False
 
 
 # END OF FILE

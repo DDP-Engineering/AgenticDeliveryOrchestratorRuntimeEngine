@@ -49,14 +49,14 @@ When AEGIS returns task or strict-check data, the client shall accept only the p
 # "Inspection:" and name the method, and `check` records the requirement
 # as verified by hand instead of counting it among the tests still owed.
 # The prefix alone is not enough — it has to say what someone does.
-verification = "Automated AEGIS tests validate pinned task status, reject corrupt journals and path escapes, and reject contradictory strict checks."
+verification = "Automated AEGIS tests validate pinned task status on the frame, specify, design, build, validate and done stages with their AEGIS 0.15.0 step files, reject a task at deliver or another unknown stage, corrupt journals and path escapes, and reject contradictory strict checks."
 
 # Repo-relative, forward slashes. The source files this behavior lives in.
 affected_paths = ["04_Software/adore/aegis.py"]
 
 # "tests/path/test_file.py::test_name" entries. Kept current during build;
 # these select the impacted regression set.
-linked_tests = ["04_Software/tests/test_aegis.py::test_task_creation_and_status_are_pinned_and_validated", "04_Software/tests/test_aegis.py::test_task_journal_trust_boundary_fails_closed", "04_Software/tests/test_aegis.py::test_failed_strict_check_is_data_but_contradiction_is_protocol_error", "04_Software/tests/test_aegis.py::test_transition_allowlist"]
+linked_tests = ["04_Software/tests/test_aegis.py::test_task_creation_and_status_are_pinned_and_validated", "04_Software/tests/test_aegis.py::test_task_journal_trust_boundary_fails_closed", "04_Software/tests/test_aegis.py::test_failed_strict_check_is_data_but_contradiction_is_protocol_error", "04_Software/tests/test_aegis.py::test_transition_allowlist", "04_Software/tests/test_aegis.py::test_task_status_accepts_the_0_15_0_stages_and_step_files", "04_Software/tests/test_aegis.py::test_task_status_refuses_a_task_at_the_removed_deliver_stage", "04_Software/tests/test_aegis.py::test_probe_accepts_a_listed_legacy_deliver_journal"]
 
 # --- optional below this line ---
 
@@ -67,4 +67,4 @@ priority = "normal"   # low | normal | high
 rationale = "The conductor cannot safely act on another task or contradictory governance evidence."
 
 created = 2026-08-15
-updated = 2026-08-15
+updated = 2026-10-25

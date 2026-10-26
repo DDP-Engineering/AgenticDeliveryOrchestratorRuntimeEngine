@@ -12,10 +12,9 @@ ADORE exécute les étapes AEGIS une à une, chaque tentative dans une session d
 | Spécification | L’exigence est rédigée. |
 | Conception | Une courte note de conception est rédigée pour les travaux non triviaux. |
 | Développement | Un test en échec vient d’abord, puis l’implémentation, jusqu’à ce que les tests passent. |
-| Validation | Revue, suite de tests complète et contrôle strict, qu’ADORE répète ensuite lui-même. |
-| Livraison | Après votre approbation, l’approbation et la clôture sont consignées et la MR/PR est publiée. |
+| Validation | Revue, suite de tests complète, contrôle strict et rapport AEGIS ; la tâche AEGIS se clôt. ADORE répète ensuite lui-même le contrôle strict avant de demander l’approbation. |
 
-Le chemin rapide exécute Cadrage, Développement, Validation et Livraison. Sur le chemin complet, la validation peut renvoyer une tâche vers Spécification, Conception ou Développement ; sur le chemin rapide, seulement vers Développement. Une étape dispose par défaut de trois tentatives échouées (**Tentatives échouées autorisées par étape**).
+Le chemin rapide exécute Cadrage, Développement et Validation. Après la Validation, la tâche affiche l’étape **Terminée** pendant l’attente d’approbation, la publication et la revue humaine. Sur le chemin complet, la validation peut renvoyer une tâche vers Spécification, Conception ou Développement ; sur le chemin rapide, seulement vers Développement. Une étape dispose par défaut de trois tentatives échouées (**Tentatives échouées autorisées par étape**).
 
 ## Clarification {#clarification}
 

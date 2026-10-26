@@ -762,6 +762,31 @@ design = "long"
     assert not any("stage_timeout_overrides.build" in i for i in issues)
 
 
+def test_stage_timeout_overrides_accept_five_stages_and_refuse_deliver(
+    tmp_path: Path,
+) -> None:
+    """
+    @brief   AEGIS 0.15.0 conducts five stages; deliver is no longer one.
+    @details Validate closes the task, so an override for deliver bounds
+             nothing and is reported like any other unknown stage.
+    """
+    accepted = validate_config(load_config(_write_config(tmp_path, MINIMAL_VALID + """
+[workflow.stage_timeout_overrides]
+frame = 600
+specify = 600
+design = 600
+build = 5400
+validate = 3600
+""")))
+    assert not any("stage_timeout_overrides" in i for i in accepted)
+    refused = validate_config(load_config(_write_config(tmp_path, MINIMAL_VALID + """
+[workflow.stage_timeout_overrides]
+deliver = 900
+""")))
+    message = next(i for i in refused if "stage_timeout_overrides.deliver" in i)
+    assert "is not an AEGIS stage (frame, specify, design, build, validate)" in message
+
+
 def test_recovery_and_approval_settings_fail_closed(tmp_path: Path) -> None:
     """@brief Retry limits, backoff and approval identity are validated."""
     text = MINIMAL_VALID.replace(

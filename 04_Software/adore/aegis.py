@@ -38,10 +38,12 @@ AEGIS_CLI = ".agentic/aegis.py"
 #: The AEGIS major line ADORE speaks. A major bump is the signal that the
 #: companion contract itself changed, so it is refused rather than guessed at.
 SUPPORTED_MAJOR = 0
-#: Oldest AEGIS release exposing every command this client calls. `evolution`
-#: arrived in 0.5.0, so an older payload would parse here and then fail at
-#: delivery; the floor turns that into an honest refusal at probe.
-MINIMUM_SERIES = (0, 5)
+#: Oldest AEGIS release whose flow ADORE conducts. 0.15.0 removed the deliver
+#: stage: validate closes the task with its final strict check, `report` and
+#: `advance` to done, and commit, push and review creation belong to ADORE.
+#: An older payload ends in a deliver stage that asks the agent to wait for a
+#: human and to commit, so it is refused at probe instead of half-conducted.
+MINIMUM_SERIES = (0, 15)
 #: The real compatibility contract. Version is metadata; this is the promise.
 JSON_SCHEMA = 1
 DEFAULT_TIMEOUT = 300
@@ -59,18 +61,24 @@ VERSION_RE = re.compile(r"^aegis\s+(\d+)\.(\d+)\.(\d+)$")
 
 RUN_KINDS = ("feature", "fix", "change")
 QUICK_KINDS = ("fix", "change")
-FULL_STAGES = ("frame", "specify", "design", "build", "validate", "deliver", "done")
-QUICK_STAGES = ("frame", "build", "validate", "deliver", "done")
+#: The stages ADORE conducts, in AEGIS 0.15.0 path order. Validate closes the
+#: task by advancing to done; no stage follows it.
+FULL_STAGES = ("frame", "specify", "design", "build", "validate", "done")
+QUICK_STAGES = ("frame", "build", "validate", "done")
 ALL_STAGES = FULL_STAGES
 ADOPTION_STAGES = ("survey", "components", "close")
-STATUS_STAGES = (*ALL_STAGES, *ADOPTION_STAGES)
+#: Every stage AEGIS 0.15.0 reports for a journal: the conducted stages, the
+#: legacy deliver stage older journals still hold, and adoption's phases.
+#: Listings and deviation markers accept it all, so a journal another task
+#: left behind never blocks a probe; the pinned task decodes against
+#: ALL_STAGES only.
+STATUS_STAGES = (*ALL_STAGES, "deliver", *ADOPTION_STAGES)
 STAGE_STEP_FILES = {
     "frame": "1_frame.md",
     "specify": "2_specify.md",
     "design": "3_design.md",
     "build": "4_build.md",
     "validate": "5_validate.md",
-    "deliver": "6_deliver.md",
     "done": None,
 }
 #: A Log entry opens with the stage it reports on, after an optional list
@@ -250,8 +258,9 @@ def allowed_transition(previous: str, current: str, path: str) -> bool:
     @brief Decide whether an executor-authored stage transition is documented.
     @details A stage may remain current while work continues, advance exactly
              once on the selected path, or route backward from validation to
-             specify/design/build. Delivery may return to validation when the
-             candidate changed. All other skips and regressions fail closed.
+             specify/design/build. Validate closes the task by advancing to
+             done, and done returns to validation when ADORE must revalidate
+             the candidate. All other skips and regressions fail closed.
     """
     sequence = QUICK_STAGES if path == "quick" else FULL_STAGES
     if previous not in sequence or current not in sequence:
@@ -262,7 +271,7 @@ def allowed_transition(previous: str, current: str, path: str) -> bool:
         return True
     if previous == "validate" and current in {"specify", "design", "build"}:
         return path == "full" or current == "build"
-    return previous == "deliver" and current == "validate"
+    return previous == "done" and current == "validate"
 
 
 def logged_stages(log: Sequence[str]) -> frozenset[str]:
@@ -356,12 +365,13 @@ class AegisClient:
         if major != SUPPORTED_MAJOR:
             raise AegisProtocolError(
                 f"AEGIS {major}.{minor}.{patch} is unsupported; ADORE speaks the "
-                f"AEGIS {SUPPORTED_MAJOR}.x line"
+                f"AEGIS {SUPPORTED_MAJOR}.x line from {minimum}"
             )
         if (major, minor) < MINIMUM_SERIES:
             raise AegisProtocolError(
                 f"AEGIS {major}.{minor}.{patch} is unsupported; ADORE requires at "
-                f"least {minimum} for the evolution command"
+                f"least {minimum}, where validate closes the task; upgrade the "
+                "repository's .agentic payload"
             )
         payload, _ = self._json(["status", "--all", "--json"])
         self._status_list(payload)
@@ -434,19 +444,6 @@ class AegisClient:
             allowed=(0, 1) if strict else (0,),
         )
         return self._decode_check(payload, result.exit_code, task_id, strict)
-
-    def evolution(self, task_id: str) -> Mapping[str, Any]:
-        """@brief Persist and return the task's final evolution record."""
-        self._task_id(task_id)
-        payload, _ = self._json(["evolution", "--task", task_id, "--json"])
-        return payload
-
-    def report(self, task_id: str) -> None:
-        """@brief Append the AEGIS delivery report to the task journal."""
-        self._task_id(task_id)
-        result = self._run(["report", task_id])
-        if "report appended to " not in result.stdout:
-            raise AegisProtocolError("AEGIS report did not identify the appended report")
 
     # LOCAL HELPERS
 

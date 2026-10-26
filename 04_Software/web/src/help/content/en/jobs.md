@@ -12,10 +12,9 @@ ADORE runs the AEGIS stages one at a time, each attempt in a fresh executor sess
 | Specify | The requirement is written. |
 | Design | A short design note is written for non-trivial work. |
 | Build | A failing test comes first, then the implementation, until the tests pass. |
-| Validate | Review, the full test suite and a strict check, which ADORE then repeats itself. |
-| Deliver | After your approval, approval and close-out are recorded and the MR/PR is published. |
+| Validate | Review, the full test suite, a strict check and the AEGIS report; the AEGIS task closes. ADORE then repeats the strict check itself before it asks for approval. |
 
-The quick path runs Frame, Build, Validate and Deliver. On the full path validation can send a job back to Specify, Design or Build; on the quick path only back to Build. A stage gets three failed attempts by default (**Failed attempts allowed per stage**).
+The quick path runs Frame, Build and Validate. After Validate the job shows the stage **Done** while it waits for approval, is published and is in human review. On the full path validation can send a job back to Specify, Design or Build; on the quick path only back to Build. A stage gets three failed attempts by default (**Failed attempts allowed per stage**).
 
 ## Clarification {#clarification}
 

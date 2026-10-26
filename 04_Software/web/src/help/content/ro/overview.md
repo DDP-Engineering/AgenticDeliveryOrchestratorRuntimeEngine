@@ -7,7 +7,7 @@ ADORE transformă un tichet pregătit de pe forge-ul de cod într-un MR/PR ciorn
 ADORE urmărește proiectele înrolate de un administrator. Când un tichet de pe forge (GitHub, GitLab sau Gitea) este pregătit pentru preluare, ADORE pornește pentru el o **lucrare**:
 
 - Rulează un agent de programare (executorul) într-un mediu izolat: o ramură dedicată, un folder de lucru și un container.
-- Agentul urmează fluxul AEGIS al repository-ului, o etapă pe rând: Încadrare, Specificare, Proiectare, Construire, Validare și Livrare. O modificare mică poate urma o cale rapidă, fără Specificare și Proiectare.
+- Agentul urmează fluxul AEGIS al repository-ului, o etapă pe rând: Încadrare, Specificare, Proiectare, Construire și Validare. O modificare mică poate urma o cale rapidă, fără Specificare și Proiectare.
 - ADORE verifică independent rezultatul și cere unei persoane să îl aprobe.
 - După aprobare, ADORE publică un MR/PR ciornă pe care oamenii îl revizuiesc. Un proiect poate fi setat să publice în schimb un MR/PR pregătit pentru review.
 

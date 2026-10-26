@@ -7,7 +7,7 @@ ADORE macht aus einem vorbereiteten Ticket in Ihrer Code-Forge einen Entwurf fü
 ADORE beobachtet die Projekte, die ein Administrator eingerichtet hat. Ist ein Ticket in der Forge (GitHub, GitLab oder Gitea) zur Aufnahme vorbereitet, startet ADORE dafür einen **Auftrag**:
 
 - Es führt einen Coding-Agenten (den Executor) in einer isolierten Umgebung aus: mit eigenem Branch, eigenem Arbeitsordner und eigenem Container.
-- Der Agent folgt dem AEGIS-Workflow des Repositorys Phase für Phase: Rahmen, Spezifikation, Entwurf, Umsetzung, Validierung und Lieferung. Eine kleine Änderung kann einen Schnellpfad ohne Spezifikation und Entwurf nehmen.
+- Der Agent folgt dem AEGIS-Workflow des Repositorys Phase für Phase: Rahmen, Spezifikation, Entwurf, Umsetzung und Validierung. Eine kleine Änderung kann einen Schnellpfad ohne Spezifikation und Entwurf nehmen.
 - ADORE prüft das Ergebnis unabhängig und bittet einen Menschen um die Freigabe.
 - Nach der Freigabe veröffentlicht ADORE einen MR/PR-Entwurf, den Menschen prüfen. Ein Projekt kann stattdessen so eingestellt werden, dass ein fertiger MR/PR veröffentlicht wird.
 

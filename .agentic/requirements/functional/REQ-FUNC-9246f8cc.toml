@@ -1,0 +1,32 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-FUNC-9246f8cc"
+
+title = "Verify the candidate when validate closes the task"
+
+status = "active"
+
+requirement = """
+When an executor session advances the pinned AEGIS task from validate to done, the conductor shall run `check --task <id> --strict --run` and present the candidate for approval only after that check passes.
+"""
+
+verification = "Offline conductor tests drive the full path (frame, specify, design, build, validate, done) and the quick path (frame, build, validate, done) with one executor session per stage before done, and observe one strict check after validate -> done and an awaiting-approval run at stage done with passed evidence; a failing check presents nothing."
+
+affected_paths = ["04_Software/adore/aegis.py", "04_Software/adore/orchestrator.py"]
+
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_clean_full_and_quick_paths_stop_for_fresh_approval", "04_Software/tests/test_orchestrator.py::test_strict_verification_runs_once_per_successful_run", "04_Software/tests/test_orchestrator.py::test_failed_strict_check_returns_the_task_from_done", "04_Software/tests/test_checkpoint_handoff.py::test_checkpoint_handoff_progress_push_retains_approval_boundary"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = "AEGIS 0.15.0 closes the task in validate, so the validate -> done advance is the last point where ADORE verifies independently before a human approves."
+
+created = 2026-10-25
+updated = 2026-10-25

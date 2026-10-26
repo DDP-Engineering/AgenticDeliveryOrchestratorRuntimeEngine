@@ -12,7 +12,7 @@ Installation settings in Technical details are informational and configured in s
 
 Shared CLI/web configuration defaults optional acceptance checking to false and additional revision rounds to five; the typed readiness and portable contracts contain supported fields only.
 
-Implementation settings support reviewed edits for human-answer waiting time (positive integer plus seconds/minutes/hours/days), positive question-round count, a nonempty retry schedule (one nonnegative integer per line), and the complete stage-timeout map. The six stage rows choose either the general attempt limit or a positive custom limit in seconds; choosing general removes the override. Retry and timeout collections accept only safe integers and their declared keys; other lists/maps remain read-only except the existing reviewer list. Admins prepare, inspect active/proposed values and apply only at the existing idle boundary; developers remain read-only. Names, help and controls share four locales. The answer deadline is independent of the reserved reminder; reminder format is still checked and no reminder is sent.
+Implementation settings support reviewed edits for human-answer waiting time (positive integer plus seconds/minutes/hours/days), positive question-round count, a nonempty retry schedule (one nonnegative integer per line), and the complete stage-timeout map. The five stage rows (frame, specify, design, build, validate) choose either the general attempt limit or a positive custom limit in seconds; choosing general removes the override. Retry and timeout collections accept only safe integers and their declared keys; other lists/maps remain read-only except the existing reviewer list. Admins prepare, inspect active/proposed values and apply only at the existing idle boundary; developers remain read-only. Names, help and controls share four locales. The answer deadline is independent of the reserved reminder; reminder format is still checked and no reminder is sent.
 
 ## Purpose and users
 
@@ -94,7 +94,10 @@ each component to its source and tests.
 One conductor per state root polls in a loop or in externally scheduled single
 passes, on Windows 11 through Task Scheduler or on Ubuntu 22+ through systemd.
 Run lifecycle states (`working`, parked, awaiting approval, publishing, in
-review, terminal) are separate from the AEGIS stage. A stage receives a bounded
+review, terminal) are separate from the AEGIS stage. The executor's validate
+session closes the AEGIS task; ADORE verifies that advance itself, and the run
+stays at stage done while it awaits approval, publishes and is in review.
+A stage receives a bounded
 number of failed attempts, questions park the run without consuming that
 budget, and required forge notifications pass through a persisted outbox.
 Publication requires a fresh `agent-approved` label bound to the exact
@@ -110,7 +113,7 @@ protects the worktree from routine cleanup and further autonomous execution.
 
 - The CLI runtime is standard-library Python 3.11+ with no runtime dependencies.
   The optional `web` extra adds FastAPI, Uvicorn and Argon2id support.
-- ADORE conducts AEGIS major 0 at 0.5 or later over JSON schema 1, declared
+- ADORE conducts AEGIS major 0 at 0.15.0 or later over JSON schema 1, declared
   once in `adore/aegis.py`. It never edits the AEGIS payload, and the ADORE
   release number names the AEGIS release the contract was last re-verified
   against.

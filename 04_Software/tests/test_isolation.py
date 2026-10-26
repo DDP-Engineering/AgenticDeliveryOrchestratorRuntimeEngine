@@ -240,28 +240,6 @@ def test_changed_files_counts_renames_and_quoted_paths_once(tmp_path: Path) -> N
     assert manager.changed_files("run-1", "origin/develop") == 4
 
 
-def test_product_fingerprint_ignores_tool_regenerated_paths(tmp_path: Path) -> None:
-    """
-    @brief   A target repo without a matching .gitignore carries its own
-             bytecode in the candidate, and the delivery gate reruns the
-             configured commands, which rewrites it. Counting that as the
-             delivery executor mutating product code would invalidate an
-             approval a human already gave, for a file nobody edited (live
-             finding 2026-09-18). Governed and generated paths are both
-             excluded; real product changes are not.
-    """
-    runner = FakeRunner(_ok(), _ok(), _ok("diff --git a/calc/core.py"))
-    manager = WorktreeManager(tmp_path / "repo", tmp_path / "wt", runner)
-    manager.product_diff_fingerprint("run-1", "origin/master")
-    argv = runner.calls[-1]
-    assert ":(exclude).agentic/**" in argv
-    assert ":(exclude)**/__pycache__/**" in argv
-    assert ":(exclude)**/*.pyc" in argv
-    assert ":(exclude)**/.ruff_cache/**" in argv
-    # the product itself is still what gets hashed
-    assert "." in argv and "--binary" in argv
-
-
 def test_worktree_remove_missing_is_not_an_error(tmp_path: Path) -> None:
     """
     @brief   Removing an already-gone worktree only prunes (idempotent).

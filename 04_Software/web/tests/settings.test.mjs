@@ -18,7 +18,8 @@ test("technical guidance covers external ownership and existing data in all loca
  }
  assert.match(technicalSettingsHelp.en, /Changing a path does not move existing/);
 });
-import { durationParts, implementationDraft } from "../src/implementationSettings.ts";
+import { durationParts, executionStages, implementationDraft, implementationEditorCopy } from "../src/implementationSettings.ts";
+import { SETTING_HELP } from "../src/settingHelp.ts";
 
 test("Settings owns executor rows and accepts only complete agent selection review", async () => {
  const {settingVisible} = await import("../src/settings.ts");
@@ -43,8 +44,17 @@ test("implementation drafts serialize only complete valid human values", () => {
   assert.equal(implementationDraft("duration", value), null);
  for (const value of ["", "true", "-1", "1.5", "9007199254740992", "5\nabc"])
   assert.equal(implementationDraft("retry-delays", value), null);
- for (const value of ["null", "[]", "{bad", '{"build":0}', '{"build":true}', '{"unknown":10}'])
+ for (const value of ["null", "[]", "{bad", '{"build":0}', '{"build":true}', '{"unknown":10}', '{"deliver":900}'])
   assert.equal(implementationDraft("stage-timeouts", value), null);
+});
+
+test("stage timeouts cover the five AEGIS 0.15.0 stages in every locale", () => {
+ assert.deepEqual([...executionStages], ["frame", "specify", "design", "build", "validate"]);
+ for (const [locale, copy] of Object.entries(implementationEditorCopy)) {
+  assert.equal(copy.stages.length, executionStages.length, locale);
+  const help = SETTING_HELP[locale];
+  assert.doesNotMatch(help["workflow.stage_timeout_overrides.*"], /deliver/, locale);
+ }
 });
 
 test("publication state names exact booleans in every locale", () => {

@@ -8,32 +8,52 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # Doctor
 
-## Purpose
+## Routing
 
-`04_Software/adore/doctor.py` performs read-only, injectable readiness checks
-used by assisted setup. It tells an operator whether host tools, a container
-runtime, forge CLI authentication, executor availability, and the target's
-AEGIS payload are suitable before delivery begins.
+Use this page for read-only readiness checks during assisted setup: host tools,
+container runtime, forge CLI authentication, executor availability and the
+target repository's AEGIS payload. Start at `04_Software/adore/doctor.py`;
+focused proof is `04_Software/tests/test_doctor.py`. The AEGIS version range
+itself is declared in `aegis-client.md`; guided setup flows belong to
+`wizard.md`.
 
-## AEGIS contract
+## Purpose and boundaries
 
-`detect_aegis()` requires `.agentic/aegis.py`, accepts only `aegis 0.5.x`,
-runs `status --all --json`, and requires schema `1`, a status envelope, task
-list, and unreadable-task list. Missing Python/payload, nonzero exit, malformed
-JSON, wrong shape/version/schema, or unreadable tasks returns a not-ready
-`AegisStatus` with bounded diagnostic text rather than an exception that
-pretends the target is compatible.
+`04_Software/adore/doctor.py` tells an operator whether the host and the target
+repository are suitable before delivery begins. It changes nothing on the
+workstation or in the repository; all subprocess work flows through an injected
+`CommandRunner`.
 
-## Requirement coverage
+## Public interface
 
-- `REQ-FUNC-69bfe896` - AEGIS 0.5/schema-1 readiness acceptance only.
-- `REQ-FUNC-8a2e5904` - injected host, forge, runtime, and executor readiness reporting.
+`detect_aegis()` returns an `AegisStatus`, `aegis_version_supported()` answers
+for one `aegis --version` text, and `guidance_for()` returns the per-platform
+remedy text, which names the supported range (`AEGIS_SUPPORTED_TEXT`) and
+schema 1.
 
-## Boundaries and verification
+## Invariants
 
-All subprocess work flows through an injected `CommandRunner`, making tests
-offline and preventing doctor from changing the workstation or repository.
-GitLab/GitHub guidance reminds operators that the active/default CLI host is
-the routing authority; Gitea routes through the selected `tea` login.
-`04_Software/tests/test_doctor.py` covers readiness, absent payloads, invalid
-responses, unsupported version/schema cases, and guidance.
+- `detect_aegis()` requires `.agentic/aegis.py`, accepts only an `aegis`
+  release at 0.15.0 or later within major 0, read from the client's
+  `SUPPORTED_MAJOR` and `MINIMUM_SERIES`, then runs `status --all --json` and
+  requires schema `1`, a status envelope, a task list and an empty
+  unreadable-task list.
+- A missing Python or payload, a nonzero exit, malformed JSON, or a wrong
+  shape, version or schema returns a not-ready `AegisStatus` with bounded
+  diagnostic text instead of an exception that pretends the target is
+  compatible.
+- GitLab and GitHub guidance names the active/default CLI host as the routing
+  authority; Gitea routes through the selected `tea` login.
+
+## Key behaviors
+
+- `REQ-FUNC-69bfe896` - only an AEGIS 0.15.0-or-later, major-0, schema-1
+  payload is ready.
+- `REQ-FUNC-8a2e5904` - injected host, forge, runtime and executor readiness
+  reporting.
+
+## Files
+
+- `04_Software/adore/doctor.py` - readiness probes and guidance.
+- `04_Software/tests/test_doctor.py` - readiness, absent payloads, invalid
+  responses, unsupported version or schema, and guidance.
