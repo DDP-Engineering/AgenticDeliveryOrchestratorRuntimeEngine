@@ -275,8 +275,8 @@ def main() -> None:
             if mode == "reset":
                 return ids
             stamp = "2026-10-05T01:00:00Z"
-            cases = {"working": "build", "publishing": "deliver", "parked-clarification": "build",
-                     "awaiting-approval": "deliver", "in-review": "done",
+            cases = {"working": "build", "publishing": "done", "parked-clarification": "build",
+                     "awaiting-approval": "done", "in-review": "done",
                      "handoff-pending": "build",
                      "handed-off": "build", "done": "done", "failed": "build",
                      "cancelled": "build", "stale": "build"}

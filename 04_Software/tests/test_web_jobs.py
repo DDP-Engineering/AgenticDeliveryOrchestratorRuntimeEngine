@@ -93,6 +93,25 @@ def test_job_list_has_no_advanced_filters_and_detail_keeps_safe_timeline(tmp_pat
         assert "observed_executors" not in detail
 
 
+def test_history_naming_the_removed_deliver_stage_stays_readable(tmp_path):
+    """
+    @brief   Job history from before AEGIS 0.15.0 keeps its deliver stage.
+    @details ADORE no longer conducts deliver, but a saved run and its journal
+             events that name it are history: the list and detail read them as
+             they were recorded.
+    """
+    _, items, stores, app = _fixture(tmp_path)
+    _state(stores[1], "same", lifecycle="in-review", stage="deliver")
+    stores[1].journal("same", "stage-launch", stage="deliver")
+    with TestClient(app) as client:
+        _login(client)
+        page = _get(client)
+        assert any(row["stage"] == "deliver" for row in page["items"])
+        detail = client.get(f"/api/v1/jobs/{items[1].project_id}/same").json()["job"]
+        assert detail["stage"] == "deliver"
+        assert detail["timeline"][-1]["stage"] == "deliver"
+
+
 @pytest.mark.parametrize("field,value", [("executor", 12), ("executor", ""),
                                          ("stage", "unknown-stage")])
 def test_global_projected_timeline_corruption_fails_closed(tmp_path, field, value):
@@ -214,7 +233,7 @@ def test_persisted_wait_evidence_unknowns_archive_and_last_activity(tmp_path):
         assert legacy["waiting"]["availability"] == "unknown"
         assert page["items"][-1]["run_id"] == "old"
         # A stage alone must never create an action.
-        _state(stores[0], "old", lifecycle="awaiting-approval", stage="deliver")
+        _state(stores[0], "old", lifecycle="awaiting-approval", stage="done")
         assert client.get(f"/api/v1/jobs/{items[0].project_id}/old").json()["job"][
             "waiting"]["next_action"] is None
 

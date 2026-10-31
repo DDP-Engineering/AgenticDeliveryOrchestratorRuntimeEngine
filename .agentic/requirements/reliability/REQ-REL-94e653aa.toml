@@ -12,4 +12,4 @@ verification = "Offline tests load old and checkpoint-bearing state, reject malf
 affected_paths = ["04_Software/adore/state.py", "04_Software/adore/config.py", "04_Software/adore/isolation.py", "04_Software/adore/orchestrator.py", "04_Software/adore/cli.py", "04_Software/adore/wizard.py", "04_Software/adore/metrics.py", "04_Software/adore/web/app.py", "04_Software/adore/web/commands.py", "04_Software/web/src/App.tsx", "04_Software/web/src/i18n.ts", "04_Software/web/src/styles.css", "04_Software/config.example.toml"]
 linked_tests = ["04_Software/tests/test_checkpoint_handoff.py", "04_Software/tests/test_config.py", "04_Software/tests/test_isolation.py", "04_Software/tests/test_orchestrator.py", "04_Software/tests/test_state.py", "04_Software/tests/test_web_archive.py", "04_Software/tests/test_web_commands.py", "04_Software/tests/test_web_metrics.py"]
 created = 2026-10-01
-updated = 2026-10-08
+updated = 2026-10-25

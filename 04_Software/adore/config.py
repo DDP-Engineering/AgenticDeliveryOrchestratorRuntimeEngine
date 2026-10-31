@@ -93,10 +93,11 @@ _FORGE_CREDENTIAL_ENV = frozenset({
 SELINUX_RELABEL_OPTIONS = {"off": "", "shared": "z"}
 SELINUX_RELABEL_MODES = tuple(SELINUX_RELABEL_OPTIONS)
 
-# The AEGIS task stages a per-stage timeout override may target. Declared
-# here rather than imported from the orchestrator so configuration validation
-# stays free of the engine.
-AEGIS_STAGES = ("frame", "specify", "design", "build", "validate", "deliver")
+# The AEGIS task stages a per-stage timeout override may target: the stages
+# that launch an executor session. Validate closes the task in AEGIS 0.15.0,
+# so no deliver stage remains to bound. Declared here rather than imported
+# from the orchestrator so configuration validation stays free of the engine.
+AEGIS_STAGES = ("frame", "specify", "design", "build", "validate")
 _HOST_LABEL_RE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$")
 
 KNOWN_SECTIONS = frozenset(

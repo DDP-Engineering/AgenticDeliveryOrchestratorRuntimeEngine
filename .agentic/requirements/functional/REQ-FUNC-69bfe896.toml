@@ -38,7 +38,7 @@ status = "active"
 # Do not contort prose to fit a pattern - a constraint that reads better
 # plainly is better plainly.
 requirement = """
-When a target repository is assessed for governance readiness, doctor shall accept only an AEGIS 0.5 payload that reports schema-1 status data.
+When a target repository is assessed for governance readiness, doctor shall accept only an AEGIS payload at 0.15.0 or later within major 0 that reports schema-1 status data.
 """
 
 # The observation that settles whether the behavior holds — not a
@@ -49,14 +49,14 @@ When a target repository is assessed for governance readiness, doctor shall acce
 # "Inspection:" and name the method, and `check` records the requirement
 # as verified by hand instead of counting it among the tests still owed.
 # The prefix alone is not enough — it has to say what someone does.
-verification = "Automated doctor tests accept a valid 0.5/schema-1 payload and reject missing, malformed, wrong-version, and wrong-schema responses."
+verification = "Automated doctor tests accept a valid 0.15.0/schema-1 payload and reject missing, malformed, older-than-0.15.0, wrong-major, and wrong-schema responses."
 
 # Repo-relative, forward slashes. The source files this behavior lives in.
-affected_paths = ["04_Software/adore/doctor.py"]
+affected_paths = ["04_Software/adore/doctor.py", "04_Software/adore/aegis.py"]
 
 # "tests/path/test_file.py::test_name" entries. Kept current during build;
 # these select the impacted regression set.
-linked_tests = ["04_Software/tests/test_doctor.py::test_aegis_probe_accepts_a_valid_05_schema_1_payload", "04_Software/tests/test_doctor.py::test_aegis_probe_reports_a_missing_payload", "04_Software/tests/test_doctor.py::test_aegis_probe_rejects_wrong_schema_or_version"]
+linked_tests = ["04_Software/tests/test_doctor.py::test_aegis_probe_accepts_a_valid_015_schema_1_payload", "04_Software/tests/test_doctor.py::test_aegis_probe_reports_a_missing_payload", "04_Software/tests/test_doctor.py::test_aegis_probe_rejects_wrong_schema_or_version", "04_Software/tests/test_doctor.py::test_aegis_doctor_shares_one_gate_with_the_client"]
 
 # --- optional below this line ---
 
@@ -67,4 +67,4 @@ priority = "normal"   # low | normal | high
 rationale = "ADORE must not pretend an incompatible governance payload can conduct a run."
 
 created = 2026-08-15
-updated = 2026-08-15
+updated = 2026-10-25

@@ -8,6 +8,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { safeEvidenceLink, readJobPage, readJobDetail, activityAge, commandAllowed } from "../src/jobModel.ts";
 import { parseRoute, formatRoute } from "../src/routes.ts";
+import { messages } from "../src/i18n.ts";
 
 const id = "a".repeat(32), snapshot = "b".repeat(64);
 const job = () => ({ project_id: id, project_name: "alpha", project_display_name: "Alpha",
@@ -29,6 +30,15 @@ test("complete projection preserves unknowns and composite identity", () => {
   assert.equal(activityAge(null, 0), "unknown");
   assert.equal(activityAge("2026-10-05T00:00:00Z", Date.parse("2026-10-05T00:16:00Z")), "old");
   assert.equal(activityAge("2026-10-05T00:00:00Z", Date.parse("2026-10-05T00:01:00Z")), "recent");
+});
+
+test("history that names the removed deliver stage stays readable and labelled", () => {
+  const detail = readJobDetail({ job: { ...job(), stage: "deliver",
+    timeline: [{ ts: null, event: "stage-launch", stage: "deliver" }] }, complete: true, snapshot }, id, "one");
+  assert.equal(detail.stage, "deliver");
+  assert.deepEqual(detail.timeline.map(row => row.stage), ["deliver"]);
+  assert.equal(messages.en.deliverStage, "Deliver");
+  for (const locale of ["fr", "de", "ro"]) assert.ok(messages[locale].deliverStage, locale);
 });
 
 test("incomplete malformed unauthorized and colliding duplicates fail closed", () => {

@@ -86,6 +86,44 @@ This project follows Keep a Changelog and Semantic Versioning.
   Windows and Linux installers resolve `04_Software/` in a checkout and the
   runtime root in a delivery bundle; both packagers copy deployment resources
   from the tools directory and keep bundled `deploy/` commands working.
+- **BREAKING: ADORE conducts AEGIS 0.15.0, where validate closes the task, and
+  requires AEGIS 0.15.0 or newer.** The conducted paths are frame, specify,
+  design, build, validate and done, and the quick path frame, build, validate
+  and done; the deliver stage and `6_deliver.md` are gone. The executor's
+  validate session ends with AEGIS's final `check --strict --run`, `report` and
+  `advance` to done, and that validate -> done advance triggers ADORE's own
+  strict check and the candidate-bound approval. After approval ADORE only
+  pushes the branch and opens or adopts the draft or ready MR/PR: no executor
+  session and no AEGIS command runs, and the branch is pushed once. A done task
+  ADORE holds no verification evidence for (an invalidated approval, a run-ahead
+  session) gets one fresh session that returns it with `advance --to
+  validate`; a failed independent check counts one validate failure and a
+  remediation session returns the task from done to validate, build, design or
+  specify.
+  A run keeps the stage done while it waits for approval, publishes and is in
+  review; ADORE records the fingerprint it published, so `retry` returns a run
+  that failed after publication to review, resumes publication of an approved
+  unpublished candidate (also after `reset --to publishing`) and conducts any
+  other run from done; publication refuses a run outside stage done or the
+  publishing pointer with `PUBLICATION_STAGE`, and `reset` refuses every
+  target for a run recorded at deliver. The probe and the readiness check refuse an older AEGIS with a
+  message naming 0.15.0, so runs begun under the deliver flow, including runs
+  already in review, are not carried over; run records and run-journal events that name deliver still load for
+  history. Stage prompts name `advance`, `log` and `pause` (`pause --blocked`
+  for questions), the continuation context names `brief` and the journal State,
+  and the human handoff note names `brief` and the full task journal instead of
+  the retired Handoff and Stage report sections. Re-verified against the installed 0.15.0 CLI: the version line,
+  schema 1, the `status` list and task documents (a legacy deliver journal is
+  listed with the validate step file; the State block is not part of the JSON),
+  the `check` document and `--run` records, the single-path `task` output and
+  the `report appended to` confirmation.
+- `[workflow] stage_timeout_overrides` and the Settings stage-limit editor cover
+  the five stages frame, specify, design, build and validate; a deliver key now
+  fails configuration validation as not an AEGIS stage.
+- Refreshed this repository's own `.agentic/` companion to AEGIS 0.15.0, removed
+  its CodeGraph plugin and enabled structure, sequence and state design
+  diagrams. The companion governs how ADORE is developed and does not ship in
+  the runtime bundle.
 
 - Projects offers three separate actions, each on its own page: **Enroll new project** (guided wizard starting directly at Repository and identity, five steps), **Import project config** (upload an existing `config.toml`, such as one saved with Download raw configuration once its inline secrets are replaced) and **Clone project config** (`/projects/clone`, rules from a project on this server or a portable settings file). The duplicate Enroll an existing configuration button and the in-wizard method buttons are gone; help topics follow in four locales, and a refused browser Back keeps the current page address.
 
@@ -155,6 +193,9 @@ This project follows Keep a Changelog and Semantic Versioning.
 - Simplified project Settings and added administrator preview/download of original TOML, including inline secrets, in place of the portable export panel.
 
 ### Fixed
+
+- Integrate the current AEGIS workflow with native retry, backward stage routing,
+  independent container package permission, Git context and timeout recovery.
 
 - Quiesce timed-out container commands before retry, preserve the same installed environment, and fail closed when safe recovery is unconfirmed.
 
@@ -800,6 +841,16 @@ This project follows Keep a Changelog and Semantic Versioning.
   container mounted it first and break the next run.
 
 ### Removed
+
+- `AegisClient.report()`, `AegisClient.evolution()` and
+  `WorktreeManager.product_diff_fingerprint()`: publication no longer runs the
+  delivery bookkeeping and close-out sessions they served, so the
+  `PREMATURE_DONE`, `PUBLICATION_SETUP`, `DELIVERY_EXECUTOR_EXIT`,
+  `CANDIDATE_MUTATION`, `DIRTY_DELIVERY`, `CLOSE_OUT_FAILED`,
+  `CLOSE_OUT_NOT_DONE` and `CLOSE_OUT_PUSH_FAILED` failures are gone with them,
+  and `deliver` is no longer a reset target or a stage-timeout key.
+  `RunState.approved_product` stays readable in schema-1 state and is no
+  longer written.
 
 - Remove the Jobs Advanced filters (exact status, stage, observed executor, outcome text and update dates) and their `/api/v1/jobs-page` parameters; Jobs keeps search and the status group.
 

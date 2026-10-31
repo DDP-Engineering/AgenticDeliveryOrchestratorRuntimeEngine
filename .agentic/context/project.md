@@ -12,7 +12,7 @@ Installation settings in Technical details are informational and configured in s
 
 Shared CLI/web configuration defaults optional acceptance checking to false and additional revision rounds to five; the typed readiness and portable contracts contain supported fields only.
 
-Implementation settings support reviewed edits for human-answer waiting time (positive integer plus seconds/minutes/hours/days), positive question-round count, a nonempty retry schedule (one nonnegative integer per line), and the complete stage-timeout map. The six stage rows choose either the general attempt limit or a positive custom limit in seconds; choosing general removes the override. Retry and timeout collections accept only safe integers and their declared keys; other lists/maps remain read-only except the existing reviewer list. Admins prepare, inspect active/proposed values and apply only at the existing idle boundary; developers remain read-only. Names, help and controls share four locales. The answer deadline is independent of the reserved reminder; reminder format is still checked and no reminder is sent.
+Implementation settings support reviewed edits for human-answer waiting time (positive integer plus seconds/minutes/hours/days), positive question-round count, a nonempty retry schedule (one nonnegative integer per line), and the complete stage-timeout map. The five stage rows (frame, specify, design, build, validate) choose either the general attempt limit or a positive custom limit in seconds; choosing general removes the override. Retry and timeout collections accept only safe integers and their declared keys; other lists/maps remain read-only except the existing reviewer list. Admins prepare, inspect active/proposed values and apply only at the existing idle boundary; developers remain read-only. Names, help and controls share four locales. The answer deadline is independent of the reserved reminder; reminder format is still checked and no reminder is sent.
 
 ## Purpose and users
 
@@ -94,7 +94,10 @@ each component to its source and tests.
 One conductor per state root polls in a loop or in externally scheduled single
 passes, on Windows 11 through Task Scheduler or on Ubuntu 22+ through systemd.
 Run lifecycle states (`working`, parked, awaiting approval, publishing, in
-review, terminal) are separate from the AEGIS stage. A stage receives a bounded
+review, terminal) are separate from the AEGIS stage. The executor's validate
+session closes the AEGIS task; ADORE verifies that advance itself, and the run
+stays at stage done while it awaits approval, publishes and is in review.
+A stage receives a bounded
 number of failed attempts, questions park the run without consuming that
 budget, and required forge notifications pass through a persisted outbox.
 Publication requires a fresh `agent-approved` label bound to the exact
@@ -139,7 +142,7 @@ protects the worktree from routine cleanup and further autonomous execution.
   `04_Software/docker/` holds the executor base and egress-proxy images.
 - `01_Documentation/` is operator documentation, `05_SoftwareDocu/` holds
   component contracts, `02_Tools/` holds release tooling, `07_Delivery/` holds
-  generated runtime bundles and `00_Planning/` holds design history.
+  final portable archives and optional hashes; `00_Planning/` holds design history.
 - `.agentic/requirements/functional/` is the behavior register;
   `.agentic/tasks/` holds task journals.
 
@@ -291,10 +294,11 @@ progress and cumulative budgets. CLI returns failure for immediate failed rearmi
 web operations display the saved terminal cause with bound run/exit evidence.
 
 
-The rebuilt AEGIS 0.14.0 companion command/schema contract is covered by captured
-release-output replay in test_aegis_014_compatibility.py. Every stage prompt names
-the installed journal authoring guide and preserves task identity, legal content
-and history. Companion updates do not renumber ADORE or replace project payloads.
+The installed AEGIS companion contract is covered by captured CLI replay in
+test_aegis_compatibility.py, including refusal of the older captured release.
+Every stage prompt names the installed journal authoring guide and preserves
+task identity, legal content and history through the companion CLI writers.
+Companion updates do not renumber ADORE or replace project payloads.
 
 ## Agent-controlled container packages
 

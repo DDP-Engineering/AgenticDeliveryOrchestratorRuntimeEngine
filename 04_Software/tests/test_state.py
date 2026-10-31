@@ -113,6 +113,33 @@ def test_save_load_round_trip(tmp_path: Path) -> None:
     assert loaded.created_at == state.created_at
 
 
+def test_run_saved_at_the_removed_deliver_stage_loads_for_history(tmp_path: Path) -> None:
+    """
+    @brief   A run persisted before AEGIS 0.15.0 still loads.
+    @details AEGIS 0.15.0 removed the deliver stage and ADORE no longer conducts
+             it, but run history saved at deliver, with the approved product
+             that flow recorded, must stay readable: rejecting it would mark the
+             project's whole job history corrupt. An invented stage still fails
+             closed.
+    """
+    store = _store(tmp_path)
+    store.save(RunState(run_id="gitlab-g-p-15", ticket_iid=15, stage="deliver",
+                        lifecycle="in-review", approved_product="a" * 64))
+    loaded = store.load("gitlab-g-p-15")
+    assert loaded.stage == "deliver" and loaded.approved_product == "a" * 64
+    payload = RunState(run_id="run-1", ticket_iid=1).to_dict()
+    payload["stage"] = "delivered"
+    with pytest.raises(StateError, match="unknown stage"):
+        RunState.from_dict(payload)
+
+
+def test_state_written_before_published_fingerprint_loads_it_empty() -> None:
+    """@brief The additive published fingerprint loads empty from older records."""
+    payload = RunState(run_id="run-1", ticket_iid=1).to_dict()
+    del payload["published_fingerprint"]
+    assert RunState.from_dict(payload).published_fingerprint == ""
+
+
 def test_from_dict_rejects_unknown_keys() -> None:
     """
     @brief   Schema-4 state is closed so ambiguous future data fails loudly.
@@ -177,6 +204,7 @@ def test_adore_3_state_is_rejected_with_hard_break_diagnostic(
         {"lifecycle": "validated"},
         {"task_ids": ["not-a-task"]},
         {"candidate_fingerprint": "not-hex"},
+        {"published_fingerprint": "not-hex"},
         {"notification_outbox": ["bad"]},
     ],
 )

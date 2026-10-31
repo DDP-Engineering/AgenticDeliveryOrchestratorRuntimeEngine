@@ -134,10 +134,10 @@ _TEARDOWN_RACE_MARKERS = (
 _TEARDOWN_RETRY_DELAYS = (1.0, 2.0, 4.0)  # ~7s ceiling; the race clears in seconds
 
 # Paths a TOOL regenerates rather than a person editing them. Excluded from the
-# PRODUCT fingerprint only: rerunning a configured command rewrites them, and
-# that must never read as the delivery executor changing product code after a
-# human approved the candidate. Deliberately narrow - anything whose content a
-# person could meaningfully author stays inside the fingerprint.
+# stage PROGRESS fingerprint only: rerunning a configured command rewrites them,
+# and that must never read as a session having made candidate progress.
+# Deliberately narrow - anything whose content a person could meaningfully
+# author stays inside the fingerprint.
 _GENERATED_PATHSPECS = (
     ":(exclude)**/__pycache__/**",
     ":(exclude)**/*.pyc",
@@ -675,7 +675,7 @@ class WorktreeManager:
     def is_dirty(self, run_id: str) -> bool:
         """
         @brief      Whether the run's worktree has uncommitted changes.
-        @details    Conductor check before delivery: a validated run with a
+        @details    Conductor check before fingerprinting: a validated run with a
                     dirty tree has work that would never reach the MR
                     (pilot finding 2026-07-03).
         @param[in]  run_id Stable run identifier.
@@ -784,40 +784,6 @@ class WorktreeManager:
                 digest.update(value)
         return digest.hexdigest()
 
-    def product_diff_fingerprint(self, run_id: str, base_ref: str) -> str:
-        """
-        @brief      Fingerprint candidate content outside `.agentic/`.
-        @details    Delivery bookkeeping is expected to change governed
-                    journal/report files. Product code is not; this digest lets
-                    the conductor detect that prohibited candidate mutation.
-
-                    Tool-regenerated paths are excluded too. A target
-                    repository without a matching `.gitignore` carries its own
-                    bytecode and tool caches in the candidate, and the delivery
-                    gate reruns the configured commands, which rewrites them.
-                    Counting that as the delivery executor mutating product
-                    code would invalidate an approval a human had already
-                    given, for a file nobody edited (live finding 2026-09-18).
-                    They stay in the diff and in `changed_files`: the candidate
-                    really does contain them and the reviewer should see that.
-        @param[in]  run_id Stable run identifier.
-        @param[in]  base_ref Integrated target ref.
-        @return     SHA-256 of the binary product diff.
-        """
-        if self.is_dirty(run_id):
-            raise IsolationError("cannot fingerprint a dirty product candidate")
-        result = self._run_wt(
-            str(self.path_for(run_id)),
-            "diff",
-            "--binary",
-            f"{base_ref}...HEAD",
-            "--",
-            ".",
-            ":(exclude).agentic/**",
-            *_GENERATED_PATHSPECS,
-        )
-        return hashlib.sha256(result.stdout.encode("utf-8")).hexdigest()
-
     def commit_series(self, run_id: str, base_ref: str) -> list[str]:
         """@brief Return the ordered SHA and subject series over the target."""
         result = self._run_wt(
@@ -850,11 +816,10 @@ class WorktreeManager:
 
     def commit_all_if_dirty(self, run_id: str, message: str) -> bool:
         """
-        @brief      Commit pending worktree changes when delivery checks
-                    generated artifacts after the last executor commit.
-        @details    Used by the conductor after its own delivery gates/report
-                    commands. `git add -A` includes non-ignored workflow
-                    artifacts (for example `.agentic/.../report.md`) while
+        @brief      Commit pending worktree changes as one checkpoint.
+        @details    Used by the conductor after each executor stage and after
+                    its own verification. `git add -A` includes non-ignored
+                    workflow artifacts (for example the AEGIS task journal) while
                     naturally leaving ignored dependency caches out of the
                     branch. Empty status is a no-op.
         @param[in]  run_id Stable run identifier.

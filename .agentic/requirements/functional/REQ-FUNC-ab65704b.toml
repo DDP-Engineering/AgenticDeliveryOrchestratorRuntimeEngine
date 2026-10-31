@@ -30,4 +30,4 @@ priority = "normal"   # low | normal | high
 rationale = "The approval gate is the one moment a human is guaranteed to read; judgement calls made on their behalf must be visible there."
 
 created = 2026-09-13
-updated = 2026-09-13
+updated = 2026-10-25

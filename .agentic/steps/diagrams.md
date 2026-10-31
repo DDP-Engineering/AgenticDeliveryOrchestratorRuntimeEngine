@@ -9,19 +9,16 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Design diagrams (optional)
 
 **Purpose:** Show the human operator the proposed implementation before
-build writes code. Read this file only when `.agentic/aegis.toml` sets
-`[diagrams] enabled = true`. A task with no design note (quick path, or a
-design recorded as skipped) draws nothing.
+build writes code. Read this file only when the `Diagrams:` line of
+`python .agentic/aegis.py brief TASK-<id>` says `draw`. A task with no design
+note (quick path, or a design recorded as skipped) draws nothing.
 
 **Steps:**
 
-1. Confirm enabled is the TOML boolean `true` and Design is substantive, then
-   read `[diagrams] types` in `.agentic/aegis.toml`. When the key is missing,
-   use `["structure"]`. A non-list value counts as missing. An empty list draws
-   nothing: write no file and no link. An unknown name is ignored.
-   A list with no known name counts as an empty list. Apply this gate before
-   writing any diagram heading, block, file or link. In particular, `types=[]`
-   is an explicit request for none, never a request for defaults or all types.
+1. Draw exactly the types the `Diagrams:` line names. `brief` applies
+   `[diagrams]` already: only `enabled = true` draws, a missing or non-list
+   `types` means `structure`, and an empty or unknown-only list draws
+   nothing, with no file and no link.
 2. From the final `## Design` text and the source you already read, draw one
    Mermaid diagram for each listed type that the design covers:
 
@@ -72,14 +69,15 @@ design recorded as skipped) draws nothing.
    `Diagrams: [diagram_TASK-<id>.md](diagram_TASK-<id>.md)`.
 
 6. **Checkpoint presentation:** when this stage wrote diagrams in checkpoint
-   mode, assemble the final response as: actual summary in a text fence; then
-   each saved heading and complete Mermaid fence copied verbatim; then all
-   Design boundary choices. Include the blocks even when unresolved Design
-   decisions prevent Build. A link does not display a proposal. Read the saved
-   file and check the outgoing response for every block before sending it.
-7. **Autopilot presentation:** save and report the file path in `changed`;
-   omit diagram display and add no stop. An explicit stop at Design still
-   completes the configured artifacts and leaves the header at Design.
+   mode, assemble the final response as: the summary `pause` printed, in a
+   text fence; then each saved heading and complete Mermaid fence copied
+   verbatim; then the design choices. Include the blocks even when unresolved
+   Design decisions prevent build. A link does not display a proposal. Read
+   the saved file and check the outgoing response for every block before
+   sending it.
+7. **Autopilot presentation:** name the file in `--changed`; omit the diagram
+   display and add no stop. An explicit stop at design still completes the
+   diagrams and leaves the task at design.
 
 **Drawing rules:**
 

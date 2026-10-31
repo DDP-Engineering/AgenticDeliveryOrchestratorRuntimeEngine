@@ -202,6 +202,32 @@ def test_cli_reset_guardrail_and_cleanup_report(
     assert '"lock_cleared": false' in capsys.readouterr().out
 
 
+@pytest.mark.parametrize(("target", "code"), [
+    ("publishing", EXIT_OK), ("validate", EXIT_OK), ("deliver", EXIT_ERROR), ("done", EXIT_ERROR),
+])
+def test_cli_reset_accepts_only_current_stages_and_publishing(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], target: str, code: int,
+) -> None:
+    """
+    @brief   `reset --to` names a conducted AEGIS stage or publishing.
+    @details AEGIS 0.15.0 has no deliver stage and done is no reset target, so
+             the CLI refuses both and the saved run keeps its pointer.
+    """
+    config_path = _config_file(tmp_path)
+    config = load_config(config_path)
+    store = StateStore(config.state.store_root, config.agent.slug)
+    store.save(RunState(run_id="run-1", ticket_iid=1, stage="build", lifecycle="failed"))
+
+    assert main(["-c", config_path, "reset", "run-1", "--to", target, "--force"]) == code
+
+    saved = store.load("run-1")
+    if code == EXIT_OK:
+        assert saved.stage == target
+    else:
+        assert saved.stage == "build"
+        assert "cannot reset run-1" in capsys.readouterr().out
+
+
 def test_cli_config_set_updates_existing_key_and_preserves_comments(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

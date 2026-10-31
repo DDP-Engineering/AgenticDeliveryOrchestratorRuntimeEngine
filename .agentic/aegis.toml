@@ -67,7 +67,7 @@ commit_fingerprints = false
 # What each stage may write besides `.agentic/`, which every stage may
 # always write. Values name the globs above: "source", "tests". A stage
 # left out entirely may write anywhere - that is why build, validate, and
-# deliver are not listed. Deliver is publish-only by instruction, but the
+# are not listed. Git publication follows the repository rules; the
 # merge-base diff cannot attribute an edit to one stage without false hits.
 # Advisory like everything else: check reports an edit
 # outside the zone, it never stops one. The defaults are shown; uncomment
@@ -86,11 +86,6 @@ strict_promote = []
 run = ["test", "lint", "frontend"]
 # run = ["test", "lint"]   # restrict what `check --run` executes; without
 #                          # this, side-effect-looking names are skipped
-
-[codegraph]
-# Optional code navigation through the add-on in .agentic/plugins/codegraph/.
-# Indexes the Python files under [layout] source and tests.
-enabled = true
 
 # Generate all supported Mermaid diagram types during AEGIS Design.
 [diagrams]

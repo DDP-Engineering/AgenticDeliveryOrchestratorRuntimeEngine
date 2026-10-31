@@ -71,9 +71,8 @@ focused verification; do not duplicate a call graph or full test inventory.
 
 ## Files
 
-- `src/<component>/<file>.py` — one line on its implementation role.
-- `tests/<component>/test_<behavior>.py` — one line on the behavior seam it
-  verifies.
+- `<source file>` — one line on its implementation role.
+- `<test file>` — one line on the behavior seam it verifies.
 
 Keep the owned implementation and focused test list complete: it is how a
 reader confirms the route, and stale entries are the first sign the page has

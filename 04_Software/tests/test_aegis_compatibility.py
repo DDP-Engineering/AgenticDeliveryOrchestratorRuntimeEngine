@@ -8,9 +8,9 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # -----------------------------------------------------------------------------
 """
-@file test_aegis_014_compatibility.py
-@brief Replay captured AEGIS 0.14 CLI evidence at the existing client boundary.
-@details Frozen release output with source hashes; all command execution is injected.
+@file test_aegis_compatibility.py
+@brief Replay captured AEGIS CLI evidence at the supported client boundary.
+@details Frozen CLI output with source hashes; all command execution is injected.
          Tests do not depend on a sibling checkout, host CLIs, network or models.
 """
 
@@ -26,17 +26,18 @@ import pytest
 from tests.test_aegis import FakeExec
 
 # CONSTANTS
-FIXTURE = Path(__file__).parent / "fixtures/aegis_0_14_0.json"
-TASK = "TASK-1234abcd"
+FIXTURE = Path(__file__).parent / "fixtures/aegis_0_15_0.json"
+LEGACY_FIXTURE = Path(__file__).parent / "fixtures/aegis_0_14_0.json"
 
 # PUBLIC CONTRACT TESTS
 
 
-def test_rebuilt_aegis_014_public_cli_is_compatible():
+def test_aegis_015_public_cli_is_compatible():
     """@brief Consume actual new-release responses with the existing typed client."""
     data = json.loads(FIXTURE.read_text(encoding="utf-8"))
+    task = data["task_id"]
     records = data["records"]
-    order = ["version", "list", "create", "frame", "validate", "check", "evolution", "report"]
+    order = ["version", "list", "create", "frame", "validate", "check"]
     runner = FakeExec(
         *(
             CommandResult(
@@ -48,23 +49,22 @@ def test_rebuilt_aegis_014_public_cli_is_compatible():
         )
     )
     client = AegisClient(runner)
-    assert client.probe().version == "0.14.0"
-    assert client.create_task("Compatibility fixture", "change") == TASK
-    assert client.task_status(TASK).stage == "frame"
-    assert client.task_status(TASK).stage == "validate"
-    check = client.check(TASK, strict=True, run=True)
+    assert client.probe().version == "0.15.0"
+    assert client.create_task("Compatibility fixture", "change") == task
+    assert client.task_status(task).stage == "frame"
+    assert client.task_status(task).stage == "validate"
+    check = client.check(task, strict=True, run=True)
     assert check.passed and len(check.executed_runs) == 1
-    assert client.evolution(TASK)["schema"] == 1
-    client.report(TASK)
     assert runner.calls == [["python", ".agentic/aegis.py", *records[key]["argv"]] for key in order]
-    assert ".agentic/templates/task.md" in data["journal"]
-    assert "SPDX-License-Identifier:" in data["journal"]
+    assert "advance, pause, log, ruling, verdict" in data["journal"]
+    assert "## State" in data["journal"]
 
 
 @pytest.mark.parametrize("change", ["schema", "task", "path", "strict", "counts"])
-def test_rebuilt_aegis_014_corrupt_output_still_fails_closed(change):
+def test_aegis_015_corrupt_output_still_fails_closed(change):
     """@brief Compatibility does not accept corrupt task/check evidence."""
     data = json.loads(FIXTURE.read_text(encoding="utf-8"))
+    task = data["task_id"]
     key = "frame" if change in {"schema", "task", "path"} else "check"
     payload = deepcopy(json.loads(data["records"][key]["stdout"]))
     if change == "schema":
@@ -80,9 +80,19 @@ def test_rebuilt_aegis_014_corrupt_output_still_fails_closed(change):
     client = AegisClient(FakeExec(CommandResult(exit_code=0, stdout=json.dumps(payload))))
     with pytest.raises(AegisTaskError if change == "task" else AegisProtocolError):
         if change in {"schema", "task", "path"}:
-            client.task_status(TASK)
+            client.task_status(task)
         else:
-            client.check(TASK, strict=True, run=True)
+            client.check(task, strict=True, run=True)
+
+
+def test_captured_aegis_014_is_refused_before_status():
+    """@brief Historical serialization cannot authorize an unsupported stage flow."""
+    data = json.loads(LEGACY_FIXTURE.read_text(encoding="utf-8"))
+    record = data["records"]["version"]
+    runner = FakeExec(CommandResult(exit_code=0, stdout=record["stdout"]))
+    with pytest.raises(AegisProtocolError, match="0.15.0"):
+        AegisClient(runner).probe()
+    assert len(runner.calls) == 1
 
 
 # END OF FILE

@@ -39,7 +39,15 @@ Cancellation markers identify one run and are consumed by the active conductor;
 the web worker cannot write an arbitrary terminal lifecycle into run state.
 Checkpoint fields load additively within schema 1, but malformed remote commit
 identities fail closed. A pending or completed handoff refuses new cancellation;
-the human-owned worktree remains protected from routine cleanup.
+the human-owned worktree remains protected from routine cleanup. A run's stage
+is `frame`, `specify`, `design`, `build`, `validate`, `done` or the reset
+pointer `publishing`; `deliver`, recorded before AEGIS 0.15.0, still loads for
+history, and any other stage fails closed. `published_fingerprint` records the
+candidate fingerprint of the last publication that reached review and loads
+empty from older records.
+
+The durable store preserves recovery evidence and refuses corrupt or uncertain
+ownership instead of resetting it.
 
 ## Key behaviors
 
@@ -61,6 +69,7 @@ Native ownership/auth route to `local-execution.md`; focused proof is
 - `REQ-REL-94e653aa` - checkpoint evidence and exact handoff requests survive
   restart without treating foreign state as a valid run.
 
+- `REQ-REL-2e67fc6d` - runs saved at the removed deliver stage load for history.
 
 ## Files
 

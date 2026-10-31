@@ -16,18 +16,19 @@ only the Python companion CLI shipped by AEGIS and JSON schema 1.
 
 - invoke the host pre-pick probe with direct argv and every run-container
   operation through a shell-quoted file exchange;
-- probe exact version series and schema before governed work;
+- probe the version (major 0 at 0.15.0 or later) and schema before governed
+  work, naming 0.15.0 when it refuses an older release;
 - create/list/read task journals and pin exact task identity;
 - expose the journal's recorded `DEVIATION <stage>` entries with the same
   marker rule AEGIS applies to its delivery report;
-- expose advisory/strict check, evolution and report operations; the executor
-  runs `anchor` and `test` itself during its stages;
+- expose advisory and strict check operations; the executor runs `anchor`,
+  `test`, `evolution` and `report` itself during its stages;
 - validate bounded JSON, UTF-8, contained POSIX paths, headers, stage/path/type,
   checklist/log data, finding counts and verification command results;
 - distinguish typed protocol, timeout and task failures;
 - accept same-stage work, adjacent forward progress and any backward route on
-  the selected full/quick path; completed tasks stay terminal and forward jumps
-  require existing journal evidence.
+  the selected full/quick path; a done task returns only to validate for governed
+  revalidation, and forward jumps require existing journal evidence.
 
 It does not edit journals, transition stages, approve delivery, commit, push or
 call a forge.
@@ -63,10 +64,12 @@ and Python runtime.
 - supported version: a supported `aegis` version;
 - supported JSON schema: integer `1`;
 - task ids: `TASK-<hex>` and exact `.agentic/tasks/<id>.md` path;
-- repository status-list stages: the seven conduction stages plus AEGIS
+- repository status-list stages: the six conducted stages, the legacy
+  `deliver` stage AEGIS 0.15.0 still reports for older journals, and the
   adoption stages `survey`, `components`, and `close`;
 - active ADORE task stages: exactly `frame`, `specify`, `design`, `build`,
-  `validate`, `deliver`, or `done`;
+  `validate`, or `done`, with the step files AEGIS 0.15.0 names (none for
+  `done`); a task at `deliver` fails closed;
 - paths: `full` or eligible `quick`;
 - strict exit 0 must agree with `strict.passed=true`;
 - non-skipped command runs require numeric duration and integer exit.
@@ -80,8 +83,9 @@ stage/schema/version, timeout, and unexpected exit fail closed.
 ## 6. Workflow Integration
 
 The orchestrator creates a task after branch creation, rereads status before
-and after each executor attempt, runs strict verification at the validation
-boundary, and invokes report/evolution only after approval.
+and after each executor attempt, and runs strict verification when the
+executor's validate session advances the task to done. Validate closes the
+task, so no AEGIS command runs after approval.
 
 ## 7. Validation and Tests
 
@@ -108,14 +112,14 @@ See [Local execution](../01_Documentation/Local_Execution.md) and
 `04_Software/tests/test_local_execution.py`.
 
 
-## Rebuilt AEGIS 0.14 compatibility evidence
+## Captured companion compatibility evidence
 
-The 2026-10-22 AEGIS 0.14.0 delivery retains the client-used version/task/status/
-check/evolution/report API and schema 1. tests/fixtures/aegis_0_14_0.json records
-actual official-archive CLI output and generated journal text with source/archive
-hashes. Capture ran in automatically cleaned temporary storage with Git and the
-configured verification runner injected; the fixture proves serialization and
-client consumption, not a live product suite. Tests replay every called surface
-and reject changed schema, identity/path and contradictory check evidence, without
-a sibling checkout or host CLI. The client needs no alternate-parser fallback.
+`tests/fixtures/aegis_0_15_0.json` captures actual managed CLI version, task,
+status and strict-check serialization in a disposable repository. Its configured
+command runs only Python's version probe; this is schema evidence, not a product
+suite. `test_aegis_compatibility.py` replays these responses through injected
+execution and rejects corrupt schema, identity/path and contradictory checks.
+The historical 0.14 fixture verifies refusal before any status call. Unit tests
+use no sibling checkout, external CLI or network. The executor owns evolution
+and report; the conductor consumes the task/check API.
 See [AEGIS compatibility](../01_Documentation/AEGIS_Compatibility.md).

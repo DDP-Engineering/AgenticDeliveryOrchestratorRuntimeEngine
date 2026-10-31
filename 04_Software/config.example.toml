@@ -321,7 +321,7 @@ branch_template = "{slug}/{run_id}"
 branch_rule = ""
 
 # ----- AEGIS workflow ------------------------------------------------------------
-# How a ticket becomes an AEGIS task journal (AEGIS 0.5+, schema 1). ADORE creates the task after
+# How a ticket becomes an AEGIS task journal (AEGIS 0.15.0+, schema 1). ADORE creates the task after
 # creating the task branch; the frame executor chooses and justifies its path.
 # All of them are optional - the defaults below are what ADORE uses when the
 # section is absent.
@@ -338,8 +338,9 @@ quick_label = "agent-quick"
 # Python executable used for `python .agentic/aegis.py ...`.
 aegis_python = "python"
 # Optional per-stage override of [budgets] per_gate_timeout_seconds, for the
-# stages that legitimately need more room than intake does. Keys must be AEGIS
-# stage names; values are whole seconds.
+# stages that legitimately need more room than intake does. Keys are the AEGIS
+# stages that launch an executor: frame, specify, design, build, validate;
+# values are whole seconds.
 # stage_timeout_overrides = { build = 5400, validate = 3600 }
 stage_timeout_overrides = {}
 
@@ -358,8 +359,8 @@ retry_backoff_seconds = [5, 30, 120]
 # the counters and continues from where AEGIS says the run stands (it never
 # redoes closed stages).
 [budgets]
-# Executor LAUNCHES per run: six working stages for a full path, four for quick,
-# plus remediation, delivery bookkeeping and close-out launches. The default
+# Executor LAUNCHES per run: five working stages for a full path, three for
+# quick, plus continuation, remediation and revalidation launches. The default
 # provides bounded unattended headroom.
 max_iterations           = 20
 max_wall_clock_seconds   = 3600   # total wall-clock per run (whole-run ceiling)

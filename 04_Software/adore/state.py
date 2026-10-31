@@ -55,6 +55,9 @@ PAUSE_FILE = "paused"
 STATE_SCHEMA_VERSION = 1
 _TASK_ID_RE = re.compile(r"^TASK-[0-9a-f]{8,64}$")
 _RUN_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+#: Stages a persisted run may name. ADORE conducts frame to done and points at
+#: publishing; deliver is history from AEGIS before 0.15.0, kept so those runs
+#: stay readable, and no conduct, reset or setting path accepts it.
 _STAGES = {"frame", "specify", "design", "build", "validate", "deliver", "done",
            "publishing"}
 _LIFECYCLES = {
@@ -122,11 +125,14 @@ class RunState:
     notification_outbox: list[dict[str, Any]] = field(default_factory=list)
     candidate_fingerprint: str = ""
     candidate_base_ref: str = ""
-    #: Product digest of the candidate a human approved, captured ONCE when
-    #: publication begins and reused by every retry. Without it a retry
-    #: recaptured the baseline from whatever the failed attempt left behind,
-    #: which would let an unapproved product change become the new baseline.
+    #: No longer written: the delivery bookkeeping it guarded is gone. Kept so
+    #: schema-1 state recorded before AEGIS 0.15.0 still loads.
     approved_product: str = ""
+    #: Candidate fingerprint of the last publication that reached review.
+    #: Stage done spans approval, publication and review, so this is what
+    #: tells a published candidate from one still waiting to publish.
+    #: Additive with a default, so state written before it existed loads.
+    published_fingerprint: str = ""
     approval_presented_at: str = ""
     approval_comment_id: int | None = None
     approval_label_removed: bool = False
@@ -215,7 +221,8 @@ class RunState:
             and re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", state.checkpoint_remote_commit) is None
         ):
             raise StateError("run-state checkpoint_remote_commit must be a commit digest")
-        for name in ("candidate_fingerprint", "candidate_base_ref", "approved_product"):
+        for name in ("candidate_fingerprint", "candidate_base_ref", "approved_product",
+                     "published_fingerprint"):
             value = getattr(state, name)
             if value and re.fullmatch(r"[0-9a-f]{40,64}", value) is None:
                 raise StateError(f"run-state {name} must be a hexadecimal digest")

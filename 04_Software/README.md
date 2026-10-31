@@ -33,8 +33,8 @@ python -m pytest -q
 python -m ruff check adore tests
 ```
 
-Target repositories must carry unchanged `.agentic/aegis.py` from AEGIS 0.5 or
-later within major 0 (a major bump is refused at probe) and return schema 1
+Target repositories must carry unchanged `.agentic/aegis.py` from AEGIS 0.15.0
+or later within major 0 (an older release or a major bump is refused at probe) and return schema 1
 from `status --all --json`. Executors own journal
 transitions but never Git/forge publication. ADORE owns local commits, push and
 draft MR/PR creation after fresh fingerprint-bound human approval. Neither the

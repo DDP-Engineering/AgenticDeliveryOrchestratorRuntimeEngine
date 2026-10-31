@@ -40,8 +40,6 @@ Thumbs.db
 07_Delivery/portable-unit-*/
 07_Delivery/portable-python-*/
 07_Delivery/ui-smoke-home-*/
-# AEGIS CodeGraph index (local derived data, never committed)
-.agentic/knowledge/codegraph/
 # AEGIS:BEGIN (managed by .agentic/aegis.py init)
 .agentic/tasks/*.anchor.json
 .agentic/tasks/*.evolution.json

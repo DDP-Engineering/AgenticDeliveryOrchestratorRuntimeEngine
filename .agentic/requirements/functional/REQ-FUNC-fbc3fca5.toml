@@ -1,0 +1,32 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-FUNC-fbc3fca5"
+
+title = "Direct stage sessions to the AEGIS journal writers"
+
+status = "active"
+
+requirement = """
+When the conductor launches a stage session, its prompt shall direct the executor to finish the stage with `advance` and to record unfinished work with `log` and `pause` instead of Handoff and Stage report sections.
+"""
+
+verification = "Offline prompt tests for every stage find advance, log and pause guidance and no Handoff, Stage report or deliver wording; after a partial session that appended Log lines, the continuation context directs the next session to `brief` and the journal State."
+
+affected_paths = ["04_Software/adore/orchestrator.py"]
+
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_executor_prompt_names_the_aegis_journal_writers", "04_Software/tests/test_orchestrator.py::test_executor_prompt_declares_autopilot_on_every_stage", "04_Software/tests/test_orchestrator.py::test_partial_stage_requires_candidate_and_append_only_evidence"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = "AEGIS 0.15.0 writes journal state only through its CLI; a prompt naming retired sections leaves sessions writing records no reader uses."
+
+created = 2026-10-25
+updated = 2026-10-25

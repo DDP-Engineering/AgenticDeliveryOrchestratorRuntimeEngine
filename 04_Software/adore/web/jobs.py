@@ -234,6 +234,7 @@ def _journal(raw: bytes | None) -> list[dict]:
         for key in ("questions", "stage"):
             if key in event:
                 _text(event[key], "run_journal_corrupt")
+        # deliver is history from AEGIS before 0.15.0; old journals still name it.
         if "stage" in event and event["stage"] not in {
             "frame", "specify", "design", "build", "validate", "deliver", "done", "publishing",
         }:

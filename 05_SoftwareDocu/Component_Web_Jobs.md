@@ -96,7 +96,8 @@ API detail URL locates the safe local evidence view without disclosing host path
 
 Strict composite detail additionally exposes `timeline`: saved events in append
 order with only normalized UTC `ts` (or null), redacted `event`, and validated
-persisted `stage` (or null). Missing stages remain unknown. The timeline is not
+persisted `stage` (or null), including a `deliver` stage recorded before AEGIS
+0.15.0. Missing stages remain unknown. The timeline is not
 added to list rows. Malformed recorded stage/executor identities in a journal
 fail closed before any result is returned.
 

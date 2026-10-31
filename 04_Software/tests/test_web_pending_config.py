@@ -492,6 +492,9 @@ def test_execution_setting_direct_write_requires_review(tmp_path):
     ("recovery.retry_backoff_seconds", "[0,10,45]", [0, 10, 45]),
     ("workflow.stage_timeout_overrides", '{"build":5400,"validate":3600}',
      {"build": 5400, "validate": 3600}),
+    ("workflow.stage_timeout_overrides",
+     '{"frame":600,"specify":600,"design":600,"build":5400,"validate":3600}',
+     {"frame": 600, "specify": 600, "design": 600, "build": 5400, "validate": 3600}),
 ])
 def test_implementation_settings_review_and_apply_exact_value(tmp_path, key, value, expected):
     """@brief New typed controls retain reviewed apply and every unrelated config value."""
@@ -515,6 +518,25 @@ def test_implementation_settings_review_and_apply_exact_value(tmp_path, key, val
         section, name = key.split('.')
         before[section][name] = expected
         assert load_config(path).to_dict() == before
+
+
+def test_stored_deliver_timeout_is_not_an_editable_stage_map(tmp_path):
+    """
+    @brief   A stored map naming deliver is outside the closed five-stage editor.
+    @details AEGIS 0.15.0 removed the deliver stage, so the Settings row for a
+             persisted deliver override is shown but not offered for editing.
+    """
+    profiles, path, _ = _project(tmp_path)
+    text = path.read_text(encoding='utf-8')
+    path.write_text(text.replace('stage_timeout_overrides = {}',
+                                 'stage_timeout_overrides = { deliver = 900 }'),
+                    encoding='utf-8')
+    with TestClient(create_app(profiles.home)) as client:
+        _headers(client)
+        response = client.get('/api/v1/projects/alpha/config')
+        assert response.status_code == 200, response.text
+        rows = {row['key']: row for row in response.json()['settings']}
+        assert rows['workflow.stage_timeout_overrides']['editable'] is False
 
 
 @pytest.mark.parametrize('shape', ['inline', 'table', 'quoted', 'missing'])
@@ -566,6 +588,7 @@ def test_stage_timeout_map_handles_human_toml_and_removes_override(tmp_path, sha
     ('workflow.stage_timeout_overrides','{"build":0}'),
     ('workflow.stage_timeout_overrides','{"build":true}'),
     ('workflow.stage_timeout_overrides','{"unknown":30}'),
+    ('workflow.stage_timeout_overrides','{"deliver":900}'),
     ('workflow.stage_timeout_overrides','{"build":30,"build":60}'),
     ('workflow.stage_timeout_overrides','[30]'),
 ])

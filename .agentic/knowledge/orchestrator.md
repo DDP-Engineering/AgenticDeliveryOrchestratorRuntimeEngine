@@ -22,14 +22,17 @@ verify with `04_Software/tests/test_orchestrator.py`. Web queueing belongs to
 
 The orchestrator conducts one agent-operated AEGIS task through isolation,
 bounded stage execution, validation and configured draft or ready publication. AEGIS owns its task
-journal, the executor performs code work, and forge adapters perform remote
-operations. ADORE never merges or gives forge credentials to an executor.
+journal and closes it in validate, the executor performs code work, and forge
+adapters perform remote operations. ADORE verifies the validate -> done advance
+itself, presents the candidate and publishes with Git and forge operations only.
+ADORE never merges or gives forge credentials to an executor.
 
 ## Public interface
 
 `poll_once(ticket_iid=None)` selects an eligible ticket and conducts its run;
-`run_loop()`, `retry(run_id)`, `cancel(run_id)` and `handoff(run_id)` expose
-bounded operations.
+`run_loop()`, `retry(run_id)`, `cancel(run_id)`, `handoff(run_id)` and
+`reset(run_id, stage)` expose bounded operations; reset accepts `frame`,
+`specify`, `design`, `build`, `validate` or `publishing`.
 `Orchestrator.from_config()` constructs the conductor from validated settings
 and binds project-scoped forge credentials through repository-auth.md using
 the env-file directory. Worktree/container/executor credentials stay separate.
@@ -38,8 +41,13 @@ the env-file directory. Worktree/container/executor credentials stay separate.
 
 The conductor owns ticket claiming, worktrees/containers, budgets, retries,
 clarification parking, outbox replay, candidate fingerprinting and human-approved
-MR/PR publication. One AEGIS task is pinned to each run. Strict verification
-and fresh candidate-bound approval precede delivery push or draft creation;
+MR/PR publication. One AEGIS task is pinned to each run. The executor's
+validate -> done advance triggers ADORE's own strict verification; strict
+verification and fresh candidate-bound approval precede the push and draft or
+ready creation, and no executor session or AEGIS command runs after approval.
+A done task without verification evidence returns to validate through
+one fresh session first, and a failed check is routed back from done. A run
+keeps the stage done while it awaits approval, publishes and is in review;
 guarded progress checkpoints default to enabled and stay on the owned ticket branch and do
 not open an MR/PR. Drift forces re-conduction. Failed and handed-off resources
 remain available for recovery. Cleanup works only on this project's run IDs and
@@ -54,7 +62,21 @@ worktree and wins over a concurrent cancellation request. A foreign remote
 checkpoint commit stops execution instead of replacing human work.
 An idle poll republishes failed-run recovery commits only when the local branch
 has advanced or a recorded transport error remains; a verified checkpoint
-does not refresh historical run timestamps.
+does not refresh historical run timestamps. Stage prompts declare autopilot,
+have the executor finish with `advance` and stop with `log` and `pause`, and
+never name a deliver stage. The conductor is the only stage owner; API
+requests do not conduct in the HTTP process.
+
+## Change map
+
+| Change requested | Start with | Focused verification |
+|---|---|---|
+| Stage flow, verification trigger, return to validate | `_conduct_task_impl`, `_strict_verification`, `_validation_failure` | `test_orchestrator.py` path, route and remediation tests |
+| Approval and publication | `_present_for_approval`, `_approval_ready`, `_publish_impl` | `test_orchestrator.py` publication tests, `test_checkpoint_handoff.py` |
+| Executor prompts | `_stage_prompt` | `test_orchestrator.py` prompt tests |
+| Retry and reset | `retry`, `_published`, `reset`, `RESETTABLE_STAGES` | `test_orchestrator.py` reset tests, `test_smoke.py` |
+| Checkpoints and human handoff | `_checkpoint`, `_push_checkpoint`, `handoff` | `test_checkpoint_handoff.py` |
+| Cleanup | `cleanup`, `purge_resources` | `test_orchestrator.py` cleanup tests |
 
 ## Key behaviors
 
@@ -63,7 +85,7 @@ does not refresh historical run timestamps.
 REQ-FUNC-8adb68f9: Every stage prompt points to the installed
 .agentic/templates/task.md before editing a journal, preserving the original
 legal prologue, any retained guide link, same task ID and append-only history.
-Failed edits repair that journal; current checklist/Handoff/report updates follow
+Failed edits repair that journal; current checklist and CLI-owned State updates follow
 installed instructions. One-stage, no-child, budgets and publication limits
 remain authoritative. Optional diagrams and review/proof order belong to AEGIS.
 Focused proof: test_stage_prompt_preserves_aegis_journal_authoring_contract.
@@ -97,6 +119,18 @@ Container profiles without recipes or enabled package permission retain the exis
 - `REQ-FUNC-e5419c07`: Resolve/persist plan, pin base commit, bind identity, provision/check/stage auth, then execute bounded preparation before AEGIS/AI. Immutable receipts and policy/resource IDs guard resume; explicit replay recreates the owned container and retains worktree/history.
 
 - `REQ-FUNC-ff7dad34` - candidate-bound approval and human-approved draft or ready publication.
+- `REQ-FUNC-9246f8cc` - the validate -> done advance triggers the strict check before presentation.
+- `REQ-FUNC-faab24b2` - a conduct step that starts at done without verification evidence
+  returns the task to validate first.
+- `REQ-FUNC-67469d47` - a failed independent check is routed back from done.
+- `REQ-FUNC-67bd56c8` - publication pushes and opens or adopts the MR/PR with no executor session or AEGIS command.
+- `REQ-FUNC-fbc3fca5` - prompts name `advance`, `log` and `pause`; continuations name `brief` and the State.
+- `REQ-FUNC-f9bdb5d2` - reset accepts only the conducted stages and publishing,
+  and refuses every target for a run recorded at deliver.
+- `REQ-FUNC-d8d1b95b` - retry returns a published candidate to review, resumes an
+  approved unpublished one and conducts any other run from done.
+- `REQ-FUNC-40057219` - publication refuses a run outside stage done or publishing.
+- `REQ-FUNC-ab65704b` - recorded deviations lead the approval presentation.
 - `REQ-FUNC-83133b5e` - deterministic stage failure and timeout recovery.
 - `REQ-FUNC-1ec4a21d` - durable notification outbox replay.
 - `REQ-FUNC-f9946b6b` - selected-ticket web start uses the normal conductor.

@@ -24,15 +24,15 @@ eligible ticket
   -> ADORE run state (schema 1)
   -> isolated branch + worktree + container
   -> AEGIS task journal
-  -> one fresh executor session per stage
+  -> one fresh executor session per stage; validate closes the AEGIS task
   -> local checkpoint after each successful transition
   -> target integration + strict independent verification
   -> candidate fingerprint + fresh human approval label
-  -> push + draft MR/PR + AEGIS close-out
+  -> push + draft MR/PR
   -> human review and merge
 ```
 
-A full task runs `frame -> specify -> design -> build -> validate -> deliver`;
+A full task runs `frame -> specify -> design -> build -> validate -> done`;
 a small fix or change may take the quick path without `specify` and `design`.
 The executor decides and justifies the path in the AEGIS journal; the ticket
 label is only a hint.
@@ -66,7 +66,7 @@ label is only a hint.
 - Git with a target clone whose `origin` the run-as account can push to.
 - Docker or rootless Podman, natively or as Docker Engine inside WSL2.
 - An authenticated `gh`, `glab` or `tea` for the target forge.
-- A target repository that carries AEGIS as `.agentic/aegis.py` at 0.5.0 or
+- A target repository that carries AEGIS as `.agentic/aegis.py` at 0.15.0 or
   later on the major-0 line, reporting JSON schema 1.
 - A model-provider key for the chosen executor, kept in the environment or a
   gitignored `.env`.
@@ -150,7 +150,7 @@ called automatically. Setup/deployment scripts do not require automated tests.
 
 AEGIS is a separate project with its own repository. ADORE consumes its companion
 CLI; supported version and schema policy is declared once in
-`04_Software/adore/aegis.py`. The rebuilt AEGIS 0.14.0 contract is covered by
+`04_Software/adore/aegis.py`. The AEGIS 0.15 contract is covered by
 captured offline regression evidence; see [AEGIS compatibility](01_Documentation/AEGIS_Compatibility.md).
 ADORE keeps its own Semantic Versioning and preserves saved job progress across
 compatible companion updates. Run state remains schema 1.

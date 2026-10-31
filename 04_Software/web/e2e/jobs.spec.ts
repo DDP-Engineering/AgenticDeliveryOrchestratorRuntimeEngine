@@ -229,8 +229,8 @@ test("all real lifecycle groups explain exact stage evidence and protected hando
   const projects = await (await page.request.get("/api/v1/projects")).json();
   const id = projects.find((row: { name: string }) => row.name === "alpha").id;
   const cases = [
-    ["working", "Working", "Build", true], ["publishing", "Publishing", "Deliver", true],
-    ["clarification", "Waiting for clarification", "Build", true], ["approval", "Waiting for approval", "Deliver", true],
+    ["working", "Working", "Build", true], ["publishing", "Publishing", "Done", true],
+    ["clarification", "Waiting for clarification", "Build", true], ["approval", "Waiting for approval", "Done", true],
     ["review", "Human review", "Done", true], ["handoff-pending", "Handoff pending", "Build", false],
     ["handed-off", "Handed off", "Build", false], ["done", "Completed", "Done", false],
     ["failed", "Failed", "Build", false], ["cancelled", "Cancelled", "Build", false], ["stale", "Stale", "Build", false],

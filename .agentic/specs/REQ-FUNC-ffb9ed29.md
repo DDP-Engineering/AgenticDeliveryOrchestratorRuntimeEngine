@@ -110,6 +110,6 @@ Installing them on a remote browser laptop is insufficient.
 
 Offline injectable process/runtime boundaries prove happy and negative config,
 identity/PID/scope/control, native argv/path/file/timeout/auth, conductor and UI/
-readiness contracts. Focused regressions only; entire Python/frontend suites,
-aggregate strict --run, complete epic #23 integration and live OS/executor/provider/
-forge acceptance remain explicitly deferred by user instruction.
+readiness contracts. The configured Python/frontend product suites and aggregate
+strict check validate an integrated candidate. Live OS/executor/provider/forge
+acceptance remains a separate operator action.

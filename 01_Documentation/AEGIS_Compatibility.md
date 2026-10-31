@@ -7,73 +7,46 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # AEGIS compatibility
 
-ADORE consumes the target repository's installed AEGIS companion CLI. Supported
+ADORE consumes each target repository's installed AEGIS companion CLI. Supported
 version/schema policy is declared in `04_Software/adore/aegis.py`. ADORE and AEGIS
-have independent release versions; validating a new companion release does not
-itself require changing ADORE's release number or migrating saved jobs.
+have independent release versions. This checkout retains the managed 0.15
+payload and the local executor, container and recovery capabilities.
 
-## Verified delivery
+## Workflow contract
 
-The AEGIS 0.14.0 Windows core delivery rebuilt on 2026-10-22 was inspected against
-the installed companion and replayed through ADORE's existing client. Its source
-commit is `9e3d870cd1fe834a93e785008c69506bda954359`. The local rebuilt artifact is
-used because the Gitea published-release list still names 0.13.0.
+The full path is Frame, Specify, Design, Build, Validate and Done; the quick
+path is Frame, Build, Validate and Done. A working stage may return to an earlier
+stage on its selected path. ADORE saves that stage before checkpointing and
+continues in a fresh bounded executor session. A done task returns to Validate
+when ADORE requires fresh evidence. Older Deliver journals remain readable as
+history and do not authorize new execution.
 
-| Evidence | SHA-256 |
-|---|---|
-| Core Windows ZIP | e58fdaae59a00a4d2d49af0dd16e686104b9c1c9d6ff379adde310835616baff |
-| Companion Python CLI | 87f87d0743555bdf49b2ac90a899e4c47f28383c34de411aa9ff25c126b777f6 |
+Validate finishes with the companion's strict check, report and advance to Done.
+ADORE independently checks the candidate and requests fresh candidate-bound
+human approval. It owns publication; executors never commit, push or open reviews.
 
-| Surface | Result |
-|---|---|
-| Version and JSON schema | Existing supported version policy and schema 1 remain applicable. |
-| Task creation and status | Same arguments and JSON identity/stage/header/checklist/log shapes. New journals retain an authoring-guide link. |
-| Strict check | Same findings, summary, configured-run, dry-run and strict-result fields. |
-| Evolution and report | Existing commands and response conventions remain applicable. |
-| Workflow instructions | Expanded journal preservation, review/proof ordering and recovery guidance are delegated to installed AEGIS files. |
-| Optional diagrams | Governed by the target's installed AEGIS configuration and steps; no additional ADORE gate. |
-
-## Executor behavior
-
-Every stage session reads the installed AEGIS step and `.agentic/templates/task.md`.
-The prompt preserves the task's existing identity, legal prologue, retained
-authoring link and append-only history; an unsuccessful edit repairs the same
-journal. ADORE retains fresh one-stage sessions, bounded recovery and its existing
-human publication approval. The instruction applies to every executor and forge.
+Every stage session reads the installed step and `.agentic/templates/task.md`.
+It preserves existing task identity, legal prologue, retained guide links and
+append-only history. Journal transitions, Log, Rulings and State are written
+through the installed CLI. Failed edits repair the same journal.
 
 ## Verification and boundaries
 
-`04_Software/tests/fixtures/aegis_0_14_0.json` contains captured official CLI output
-and archive/source hashes. Capture uses a temporary isolated payload with injected
-Git and verification boundaries. The captured successful command record is a
-serialization fixture, not evidence that an application suite executed.
-`test_aegis_014_compatibility.py` replays it entirely offline; existing client tests
-cover the remaining version, malformed JSON, transport and timeout boundaries.
+`04_Software/tests/fixtures/aegis_0_15_0.json` records actual managed CLI output
+and its source hash. Capture used automatically cleaned temporary storage and a
+local fixture repository. Its strict-check command runs only Python's version
+probe, so the fixture proves serialization rather than application validation.
+`test_aegis_compatibility.py` replays supported responses entirely offline and
+rejects corrupt identity/schema/path and contradictory check data. The historical
+0.14 fixture and its original provenance remain as evidence for version refusal.
 
-ADORE does not upgrade the managed payload or optional plugins of a target project.
-Install an AEGIS release through its own process, preserving project-owned config,
-requirements, task journals and knowledge. The ADORE development checkout's separate
-CodeGraph extension is retained; it is outside the application companion API.
-Live model, native OS and delivery-package acceptance are separate from these
-targeted tests.
+ADORE never upgrades a target project's payload. Companion installation preserves
+project-owned configuration, requirements, task journals and knowledge. Live model,
+OS and delivery-package acceptance remain separate from these product tests.
 
-## Development checkout workflow
+## Development checkout
 
-This repository's managed `.agentic` payload was upgraded to the rebuilt AEGIS
-0.14.0 delivery on 2026-10-22. Existing configuration values, task journals,
-history, requirements, specs, knowledge, context and plugin files were preserved.
-The requested addition to `.agentic/aegis.toml` enables all supported diagram types:
-
-```toml
-[diagrams]
-enabled = true
-types = ["structure", "sequence", "state"]
-```
-
-During substantive Design stages, AEGIS writes
-`.agentic/tasks/diagram_TASK-<id>.md`. Each configured type is drawn when applicable;
-a type outside the design is recorded as Not drawn with its reason. Quick tasks
-without Design do not generate diagrams. Existing task history is not regenerated.
-The preserved CodeGraph files/configuration remain local; this upstream core
-release no longer exposes the `know_graph*` CLI commands.
-
+The managed payload matches the remote 0.15 payload. Project-owned configuration,
+requirements, tasks and local capabilities are reconciled independently. Optional
+structure, sequence and state diagrams remain enabled for applicable Design
+stages. Quick tasks do not require a Design stage. CodeGraph is absent.

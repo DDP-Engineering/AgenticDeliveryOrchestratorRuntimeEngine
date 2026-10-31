@@ -36,6 +36,8 @@ strict bounded duplicate-free JSON with a valid account login; invalid output
 never authenticates or echoes raw diagnostics. Caller-owned credential authority
 is retained with external_auth=False. GitHub/GitLab use active/default CLI auth.
 AEGIS readiness requires the supported client range, schema 1 and readable journals.
+`detect_aegis`, `aegis_version_supported` and `guidance_for` share the client
+version floor; malformed version/schema/status and nonzero commands fail readiness.
 
 ## Change map
 
@@ -51,24 +53,6 @@ AEGIS readiness requires the supported client range, schema 1 and readable journ
 - REQ-FUNC-8a2e5904: injected host/forge/runtime/executor reporting.
 - REQ-FUNC-cacfa8b2: portable current-account Gitea discovery and verified identity.
 - REQ-UX-163a1c99: safe Connect repository recovery steps.
-
-## Architecture
-
-```mermaid
-flowchart LR
-    caller([CLI or web probe]) --> auth[auth_status]
-    auth --> portable[portable_tea_runner when external]
-    portable --> runner([CommandRunner])
-    auth --> scoped([Caller-owned runner])
-    runner --> identity[Strict HTTP and identity validation]
-    scoped --> identity
-    identity --> result([AuthStatus])
-    caller --> probes[Tool and payload probes]
-    probes --> runner
-```
-
-Web binds configured/scoped credentials before disabling external wrapping.
-CLI authentication uses the shared eight-second bounded recovery directly.
 
 ## Files
 
