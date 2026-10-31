@@ -67,6 +67,30 @@ SYSTEM_ENV_KEYS = frozenset(
         "PI_CODING_AGENT_DIR",
     }
 )
+# Windows machine/system names that platform detection, executable lookup and
+# %SystemDrive%-style folder expansion need; account-derived names stay managed.
+WINDOWS_SYSTEM_ENV_KEYS = frozenset(
+    {
+        "PATHEXT",
+        "PROCESSOR_ARCHITECTURE",
+        "PROCESSOR_ARCHITEW6432",
+        "PROCESSOR_IDENTIFIER",
+        "PROCESSOR_LEVEL",
+        "PROCESSOR_REVISION",
+        "NUMBER_OF_PROCESSORS",
+        "OS",
+        "SYSTEMDRIVE",
+        "PROGRAMDATA",
+        "PROGRAMFILES",
+        "PROGRAMFILES(X86)",
+        "PROGRAMW6432",
+        "COMMONPROGRAMFILES",
+        "COMMONPROGRAMFILES(X86)",
+        "COMMONPROGRAMW6432",
+        "ALLUSERSPROFILE",
+        "PUBLIC",
+    }
+)
 RESOURCE_KEYS = {"kind", "id", "host", "account", "name", "worktree", "io"}
 FORBIDDEN_EXECUTABLES = {
     "cmd",
@@ -137,7 +161,10 @@ def local_environment(config, context: dict, secrets: dict | None = None) -> dic
     if not Path(home).is_dir():
         raise LocalExecutionError("selected local account home is unavailable")
     # Windows environment lookup is case-insensitive; filtering names is explicit.
-    env = {key: value for key, value in os.environ.items() if key.upper() in SYSTEM_ENV_KEYS}
+    allowed = SYSTEM_ENV_KEYS
+    if context["system"] == "Windows":
+        allowed = allowed | WINDOWS_SYSTEM_ENV_KEYS
+    env = {key: value for key, value in os.environ.items() if key.upper() in allowed}
     env.update(config.local.environment)
     env.update(
         HOME=home,

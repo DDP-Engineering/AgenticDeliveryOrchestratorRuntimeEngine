@@ -117,6 +117,11 @@ text = { en = "About shows the DDP Engineering logo and the version, with licens
 
 [[release.entry]]
 category = "fixed"
+topic = { en = "Executors", fr = "Exécuteurs", de = "Ausführung", ro = "Executori" }
+text = { en = "Local jobs on Windows pass verification; finish or cancel local jobs before upgrading.", fr = "Tâches locales Windows vérifiées ; terminez ou annulez les tâches locales avant la mise à jour.", de = "Lokale Aufträge unter Windows bestehen die Prüfung; lokale Aufträge vor dem Update beenden.", ro = "Lucrările locale pe Windows trec verificarea; încheiați-le sau anulați-le înainte de actualizare." }
+
+[[release.entry]]
+category = "fixed"
 topic = { en = "Jobs", fr = "Tâches", de = "Aufträge", ro = "Lucrări" }
 text = { en = "Jobs on projects with AEGIS 0.15.0, now the minimum, reach approval and publish again.", fr = "Les tâches sous AEGIS 0.15.0, désormais le minimum, peuvent à nouveau être approuvées et publiées.", de = "Aufträge mit AEGIS 0.15.0, jetzt Mindestversion, erreichen wieder Freigabe und Veröffentlichung.", ro = "Lucrările cu AEGIS 0.15.0, acum versiunea minimă, ajung din nou la aprobare și publicare." }
 

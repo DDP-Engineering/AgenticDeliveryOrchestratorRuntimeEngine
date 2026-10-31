@@ -15,7 +15,12 @@ conductor owns stages, budgets, questions, approval and draft delivery.
 ## 2. Responsibilities
 
 `local_execution.py` selects/pins actual machine/account/environment/executable,
-binds paths and reuses auth in place. `local_process.py` owns durable leases,
+binds paths and reuses auth in place. `local_environment` builds the explicit
+allowlist: `SYSTEM_ENV_KEYS` on every platform plus `WINDOWS_SYSTEM_ENV_KEYS`
+(PATHEXT, PROCESSOR_*, NUMBER_OF_PROCESSORS, OS, SystemDrive, ProgramData,
+ProgramFiles*, CommonProgramFiles*, ALLUSERSPROFILE, PUBLIC) on Windows; account-
+derived and forge credential names stay out, and the result is pinned as
+`environment_sha256`. `local_process.py` owns durable leases,
 Windows Jobs and Linux delegated cgroups. `local_child.py` joins its scope and
 holds a durable release barrier before project commands. Project tools are user-owned.
 

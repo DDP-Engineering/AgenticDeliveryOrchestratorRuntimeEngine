@@ -35,6 +35,13 @@ Scope assignment and durable ownership precede project code. Confirm descendants
 drained before release; corruption/control failure preserves evidence/worktrees.
 No recovered PID-only kill, login, credential copies, forge env or tool installs.
 Worktrees are not host sandboxes; container egress/recipes cannot be selected.
+Gates and probes share one bound target and one `local_environment` result; the
+conductor remains the stage owner. The environment is an explicit allowlist:
+`SYSTEM_ENV_KEYS` everywhere plus `WINDOWS_SYSTEM_ENV_KEYS` (PATHEXT, PROCESSOR_*,
+NUMBER_OF_PROCESSORS, OS, SystemDrive, ProgramData, ProgramFiles*, CommonProgramFiles*,
+ALLUSERSPROFILE, PUBLIC) on Windows, then `[local].environment`, managed
+account/home/PATH and approved provider keys. Its digest is pinned, so changing the
+allowlist makes runs started earlier drift.
 
 ## Change map
 
@@ -50,31 +57,9 @@ Worktrees are not host sandboxes; container egress/recipes cannot be selected.
 - REQ-FUNC-ffb9ed29: pinned local selection/resource and default container compatibility.
 - REQ-REL-50474528: scoped lifecycle with immutable launch/PID-birth checks.
 - REQ-FUNC-5e2fe079: same fresh gate/AEGIS file contract through native argv.
-- REQ-SEC-f7b9111e: bounded strict/redacted evidence and auth reused in place.
+- REQ-SEC-f7b9111e: allowlisted account environment (Windows system names included),
+  bounded strict/redacted evidence and auth reused in place.
 - REQ-UX-b75e1df8: native probes and actual machine/account/tooling notice.
-
-## Architecture
-
-```mermaid
-flowchart LR
-    Config([Explicit local profile]) --> Policy[local_policy]
-    Policy --> Conductor([Orchestrator])
-    Conductor --> Backend[LocalBackend]
-    Backend --> Target[LocalTarget]
-    Target --> Controller[LocalProcessController]
-    Controller --> Scope[NativeScopes]
-    Scope --> OS([WindowsJobs or delegated Linux cgroup])
-    Controller --> Receipt[(Runtime and launch ownership / active lease)]
-    Receipt --> Release[release marker]
-    Controller --> Child[local_child.main]
-    Release --> Child
-    Child --> CLI([Installed native executor / AEGIS])
-    CLI --> Files[(Bounded native IO)]
-    Files --> Target
-```
-
-Ownership is persisted and scope established before release. Shared gates/probes
-use the same bound target; the existing conductor remains the stage owner.
 
 ## Files
 

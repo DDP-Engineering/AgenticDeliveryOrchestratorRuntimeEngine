@@ -142,6 +142,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Native local execution on Windows passes the standard Windows machine/system variables (`PATHEXT`, `PROCESSOR_ARCHITECTURE` and the other `PROCESSOR_*` names, `NUMBER_OF_PROCESSORS`, `OS`, `SystemDrive`, `ProgramData`, `ProgramFiles`, `ProgramFiles(x86)`, `ProgramW6432`, the `CommonProgramFiles*` names, `ALLUSERSPROFILE`, `PUBLIC`) to executor gates, readiness probes and strict verification. Project tooling detects the platform again (`platform.machine()` was empty) and `%SystemDrive%` no longer turns into a literal folder inside the worktree. Account names (`HOMEDRIVE`, `HOMEPATH`, `USERDOMAIN`) and forge credentials stay excluded. The pinned local environment changes with this fix: finish or cancel local runs before upgrading, because a local run started on the earlier build is treated as drifted.
 - Disabled buttons now look unavailable everywhere (dimmed, not-allowed cursor); on Enroll new project, **Read repository** is the primary action and **Continue** stays visibly disabled until the repository has been read.
 - Restore the accented letters in the German, French and Romanian handoff status labels (Übergabe läuft / Übergeben, Transféré, Predare în curs), which showed "?" instead.
 - Preserve inline setting action placement when validation appears after changing the coding agent.

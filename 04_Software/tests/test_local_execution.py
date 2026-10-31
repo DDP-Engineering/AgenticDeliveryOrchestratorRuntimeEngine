@@ -146,6 +146,31 @@ def test_local_environment_preserves_auth_without_forge_credentials(tmp_path, mo
         local_environment(config, context)
 
 
+def test_local_environment_keeps_windows_system_names(tmp_path, monkeypatch):
+    """@brief Windows machine/system names reach native commands; account names do not."""
+    config, context, *_ = local_fixture(tmp_path, monkeypatch)
+    system = {
+        "PATHEXT": ".COM;.EXE;.BAT;.CMD",
+        "PROCESSOR_ARCHITECTURE": "AMD64",
+        "SystemDrive": "C:",
+        "ProgramData": "C:\\ProgramData",
+        "ProgramFiles(x86)": "C:\\Program Files (x86)",
+    }
+    excluded = {
+        "HOMEDRIVE": "C:",
+        "HOMEPATH": "\\Users\\someone",
+        "COMPUTERNAME": "MACHINE",
+        "GITEA_TOKEN": "forge-secret",
+    }
+    for key, value in {**system, **excluded}.items():
+        monkeypatch.setenv(key, value)
+    env = {key.upper(): value for key, value in local_environment(config, context).items()}
+    assert all(env.get(key.upper()) == value for key, value in system.items())
+    assert not any(key.upper() in env for key in excluded)
+    linux = {key.upper() for key in local_environment(config, {**context, "system": "Linux"})}
+    assert not any(key.upper() in linux for key in system)
+
+
 @pytest.mark.parametrize("change", ["policy", "resource", "auth", "executable"])
 def test_local_identity_and_auth_fail_closed_before_native_commands(tmp_path, monkeypatch, change):
     """@brief Drift and corrupt auth/runtime input cannot authorize native commands."""

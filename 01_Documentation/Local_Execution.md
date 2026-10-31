@@ -103,7 +103,17 @@ Pi at `PI_CODING_AGENT_DIR/auth.json` (default `~/.pi/agent/auth.json`), Qwen at
 credential stores are never copied to worktrees, IO or archives. Known account/
 provider values are redacted from retained output, questions and launch descriptions.
 Commands receive the small system/config-location allowlist, explicit local
-settings, managed account/home/PATH and approved provider variables.
+settings, managed account/home/PATH and approved provider variables. On Windows
+the allowlist also passes the machine/system names that platform detection and
+system-folder lookups need: `PATHEXT`, `PROCESSOR_ARCHITECTURE`,
+`PROCESSOR_ARCHITEW6432`, `PROCESSOR_IDENTIFIER`, `PROCESSOR_LEVEL`,
+`PROCESSOR_REVISION`, `NUMBER_OF_PROCESSORS`, `OS`, `SystemDrive`, `ProgramData`,
+`ProgramFiles`, `ProgramFiles(x86)`, `ProgramW6432`, `CommonProgramFiles`,
+`CommonProgramFiles(x86)`, `CommonProgramW6432`, `ALLUSERSPROFILE` and `PUBLIC`.
+Account names such as `HOMEDRIVE`, `HOMEPATH` and `USERDOMAIN` are not passed.
+A run pins the resulting environment, so finish or cancel local runs before
+upgrading to a build that changes this allowlist; a run started earlier is
+otherwise treated as drifted.
 
 ## Review, readiness and limits
 
