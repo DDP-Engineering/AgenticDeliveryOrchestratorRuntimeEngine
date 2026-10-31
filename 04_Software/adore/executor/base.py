@@ -113,6 +113,7 @@ class Executor(ABC):
         *,
         timeout: float | None = None,
         archive_stem: str = "",
+        package_secrets: dict[str, str] | None = None,
     ) -> GateRun:
         """
         @brief      Launch the executor for a single workflow gate.
@@ -127,6 +128,8 @@ class Executor(ABC):
                            travels through argv).
         @param[in]  timeout Wall-clock bound (run budgets).
         @param[in]  archive_stem Optional immutable archive name stem.
+        @param[in]  package_secrets Optional known credentials for bounded and
+                                   redacted package-enabled gate retention.
         @return     A GateRun describing the outcome.
         """
 

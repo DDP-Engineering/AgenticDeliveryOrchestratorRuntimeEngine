@@ -42,6 +42,16 @@ Modificările din Setări trec prin **Pregătește candidatul**, revizuire și *
 
 Verificările gazdei pentru un proiect local omit motorul de containere și verifică agentul nativ și autentificarea lui.
 
+## Detectarea executorilor instalați {#installed-executors}
+
+Când alegi **Instalat pe server**, ADORE detectează OpenCode, Pi, Codex și Qwen Code pe gazda execuției. **Rulează ca** identifică mașina și contul; într-o instalare portabilă pe desktop, este calculatorul care rulează ADORE. Prima instalare detectată completează o comandă goală sau standard la înrolare. **Instalări detectate** permite alegerea altei instalări. Comenzile deja salvate și editările manuale rămân păstrate.
+
+ADORE folosește automat contul procesului său, directorul acestuia, PATH-ul uneltelor și autentificarea salvată a executorului. Pornește un proces nou al executorului, fără să se conecteze la un terminal deschis. Un serviciu folosește contul serviciului.
+
+Detectarea pornește automat când alegi execuția locală; schimbarea executorului folosește lista detectată. Deschide **Avansate** pentru **Detectează executorii instalați** dacă vrei să o reîmprospătezi. Deschide **Avansate**, introdu **Calea executabilului pe gazda ADORE** și alege **Folosește executabilul** sau editează **Comanda de lansare a executorului**. Windows folosește un `.exe` real; agenții Node necesită comanda Node/JavaScript instalată. Detectarea citește locațiile instalărilor, fără să instaleze unelte, să autentifice sau să testeze modelul.
+
+Deschide **Avansate** pentru comanda completă, calea manuală a executabilului, suprascrierile directorului/PATH și delegarea cgroup Linux. Lasă directorul și PATH goale pentru valorile automate. PATH înseamnă directoare cu unelte, nu fișierul executabil. Numele contului din Setări doar verifică identitatea curentă, fără să schimbe utilizatorul.
+
 ## Imaginea proiectului {#project-image}
 
 Pentru un proiect cu container, Setări → Agent și model afișează **Executorul rulează într-un container**, **Imagine utilizată** și o secțiune **Instrucțiuni pentru pregătirea mediului**. Interfața web nu definește și nu construiește imaginea, iar adăugarea unui Dockerfile în repository nu pornește nicio construire. Administratorul o pregătește pe server:
@@ -59,6 +69,8 @@ USER adore
 
 Pentru a folosi imaginea, alegeți **Motor de containere** (Docker sau Podman) și **Imagine executor** la pasul 2 al înrolării sau modificați aceleași rânduri în Setări. Imaginea este un câmp liber cu sugestii citite din imaginile de pe serverul ADORE pentru acel motor (doar administratori); apare un aviz când imaginea introdusă nu este pe server și altul când lista nu poate fi citită. Alegerea unui executor propune o imagine a cărei etichetă începe cu numele executorului urmat de cratimă (de exemplu `pi-`), de preferat `adore-executor-base:`; înlocuiește doar vechea valoare implicită sau o propunere anterioară, niciodată o valoare introdusă.
 
+Pentru o comandă WSL personalizată, puneți `--` sau `--exec` înaintea comenzii containerului. Opțiunile standard Docker și Podman sunt tratate automat.
+
 Apoi confirmați cu **Verifică cerințele gazdei** și **Testează conexiunea AI**.
 
 ## Endpoint local pentru OpenCode {#local-endpoint}
@@ -66,3 +78,17 @@ Apoi confirmați cu **Verifică cerințele gazdei** și **Testează conexiunea A
 Pentru un proiect cu container care folosește OpenCode, administratorii văd în Agent și model și **URL endpoint compatibil OpenAI**, pentru un model servit în rețeaua dumneavoastră. Introduceți URL-ul, o **Referință la variabila de acreditare** opțională, **Timp limită pentru cerere (secunde)** și, pentru HTTPS cu un CA privat, **Fișier CA în imaginea executorului**. Protocolul este fixat la OpenAI chat completions. **Pregătește candidatul** revizuiește împreună URL-ul și modelul.
 
 URL-ul trebuie să fie accesibil din interiorul containerului executorului, unde localhost este containerul însuși, iar imaginea trebuie să conțină deja pachetul furnizorului. Salvarea nu testează accesibilitatea și nu adaugă nicio alternativă cloud; **Verifică cerințele gazdei** testează un apel de unealtă în flux dintr-un container temporar.
+
+## Rezultatele verificărilor locale {#local-check-results}
+
+În Rezumat, **Verifică cerințele gazdei** verifică versiunea executorului instalat și autentificarea existentă. Rularea locală afișează un scop concis și cauza măsurată: executabil, versiune/cod de ieșire, timeout, cont, credențiale, permisiuni, pregătirea sau închiderea proceselor. Rezultatele vechi fără o cauză salvată cer repetarea verificării.
+
+Folosește separat **Testează conexiunea AI** din Setări → Agent și model. Pentru rularea locală utilizează comanda nativă salvată și autentificarea contului ADORE într-un folder temporar gol. Furnizorul poate percepe un cost. Rezultatul distinge credențialele refuzate, modelul indisponibil, conexiunea/timeout-ul și ieșirea invalidă sau incompletă a executorului. Corectează cauza înainte să repeți verificarea relevantă; conexiunea reușită nu dovedește un job complet sau suportul pentru instrumente.
+
+## Pachetele de sistem ale agentului {#system-packages}
+
+**Permite agentului instalarea pachetelor de sistem**
+
+În Setări → Agent și model, administratorii activează separat permisiunea prin Pregătește candidatul și Aplică schimbarea. Implicit este oprită și apare pentru proiecte în container. Reconstruiți sau alegeți întâi o imagine compatibilă cu sudo, apoi porniți o lucrare nouă. Agentul execută direct comenzile, citește erorile și adaptează pașii în limitele lucrării.
+
+Accesul la rețea rămâne separat: open permite sursele accesibile, allowlist-proxy domeniile HTTP/HTTPS permise, iar none numai sursele locale disponibile. Scripturile pachetelor au drepturi administrative în container; directoarele montate ale proiectului rămân partajate cu serverul. Pachetele de sistem se păstrează la reluarea aceluiași container; un container nou cere reevaluare și instalare.

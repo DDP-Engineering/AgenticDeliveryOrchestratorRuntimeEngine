@@ -121,3 +121,17 @@ web/e2e/images.spec.ts; operator steps: Project_Executor_Images.md.
 `POST config/pending` accepts web-only `key=executor.selection` with a strict JSON-string value containing exactly `agent`, `command`, `model`. It returns the complete map in `proposed_value`. Container commands must match a documented preset or the existing command; native execution retains validated local argv. Apply changes `executor.default` and that selected `executor.<agent>.command/model` together, preserving other TOML meaning. This synthetic key is not a CLI/TOML setting.
 
 `executor.env_keys` candidates accept a complete distinct uppercase name list, bounded to32 entries; known provider names or retained existing custom names only. Forge variables and credential values fail closed. Direct PUT of either selection or variable names refuses with `pending_config_required`. Pending reads/apply reconstruct these candidates against the active base and reject unrelated persisted changes, even with a recomputed candidate hash. Existing role, CSRF, revision, idle and configuration locks remain authoritative.
+
+## Installed launch selection
+
+Local enrollment and command editing use the read-only host discovery and manual
+executable picker described in [Installed Executor Discovery](Component_Executor_Discovery.md).
+Actual execution retains native policy validation, installed identities and existing
+account authentication; discovery does not execute agents or test model access.
+The picker keeps installed choices visible and places the command/manual path in
+closed Advanced. Settings displays the detected current account as read-only and
+groups saved local account assertions, home/PATH and delegation under Advanced.
+
+## Agent-controlled system packages
+
+container.system_packages is a separate reviewed boolean under Agent and model for container projects. Four-locale labels/help distinguish direct agent installation from network access and describe compatible-image/fresh-job prerequisites. See [Package permissions](Component_Package_Permissions.md) and the operator dependency-installation guide.

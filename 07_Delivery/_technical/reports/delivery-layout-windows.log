@@ -1,0 +1,39 @@
+test_failed_config_never_registers_scheduler (test_deployment.DeploymentCommands.test_failed_config_never_registers_scheduler)
+@brief A failed config command stops setup before service changes. ... ok
+test_missing_deployment_file_fails_before_staging (test_deployment.DeploymentCommands.test_missing_deployment_file_fails_before_staging)
+@brief Incomplete deployment resources never produce a package. ... ok
+test_missing_runtime_fails_before_tools (test_deployment.DeploymentCommands.test_missing_runtime_fails_before_tools)
+@brief A detached installer refuses to prepare the caller's directory. ... ok
+test_packages_include_deployment_and_exclude_state (test_deployment.DeploymentCommands.test_packages_include_deployment_and_exclude_state)
+@brief Native archives and directories retain a usable deploy tree. ... ok
+test_prepare_and_scheduler_use_runtime_in_both_layouts (test_deployment.DeploymentCommands.test_prepare_and_scheduler_use_runtime_in_both_layouts)
+@brief Checkout and extracted ZIP target runtime from any cwd. ... ok
+test_complete_inventory_verifies (test_portable.PortableDelivery.test_complete_inventory_verifies)
+@brief A complete, host-matched manifest returns the recorded release. ... ok
+test_corrupt_missing_and_unlisted_files_fail_closed (test_portable.PortableDelivery.test_corrupt_missing_and_unlisted_files_fail_closed)
+@brief Media corruption, absence and unlisted files are explicit errors. ... ok
+test_failed_service_pairs_exhaust_the_explicit_restart_limit (test_portable.PortableDelivery.test_failed_service_pairs_exhaust_the_explicit_restart_limit)
+ADORE data: D:\ProjectsDDP\2026_AgenticDeliveryOrchestratorRuntimeEngine\07_Delivery\_technical\work\portable-unit-tsul_ba1
+Logs: D:\ProjectsDDP\2026_AgenticDeliveryOrchestratorRuntimeEngine\07_Delivery\_technical\work\portable-unit-tsul_ba1\logs\launcher.log
+@brief Public startup stops after two failed pairs with restart limit one. ... ok
+test_invalid_launcher_arguments_fail_before_media_access (test_portable.PortableDelivery.test_invalid_launcher_arguments_fail_before_media_access)
+@brief Invalid external limits fail before package or user-state access. ... ok
+test_invalid_manifest_and_host_fail_closed (test_portable.PortableDelivery.test_invalid_manifest_and_host_fail_closed)
+@brief Corrupt schema, inventory and host metadata never start a service. ... ok
+test_manifest_paths_cannot_escape_bundle (test_portable.PortableDelivery.test_manifest_paths_cannot_escape_bundle)
+@brief External paths, traversal and malformed digests are refused. ... ok
+test_media_links_are_refused (test_portable.PortableDelivery.test_media_links_are_refused)
+@brief A linked payload is rejected even when its bytes match the manifest. ... skipped 'POSIX symlink trust-boundary case'
+test_packager_rejects_output_outside_delivery (test_portable.PortableDelivery.test_packager_rejects_output_outside_delivery)
+@brief An output escape is rejected before network or build operations. ... ok
+test_linked_guide_fails_before_copying (test_portable.PortableDocumentation.test_linked_guide_fails_before_copying)
+@brief A linked guide cannot escape the curated source boundary. ... skipped 'POSIX document-link boundary'
+test_missing_guide_fails_before_copying (test_portable.PortableDocumentation.test_missing_guide_fails_before_copying)
+@brief Incomplete source documentation fails before staging a partial guide set. ... ok
+test_only_curated_user_guides_are_copied (test_portable.PortableDocumentation.test_only_curated_user_guides_are_copied)
+@brief Extra engineering and handoff files never enter the user documentation. ... ok
+
+----------------------------------------------------------------------
+Ran 16 tests in 29.480s
+
+OK (skipped=2)

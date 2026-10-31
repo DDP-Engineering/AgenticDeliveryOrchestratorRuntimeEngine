@@ -5,6 +5,7 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
 import type { Locale } from "./i18n";
+import { systemPackageCopy } from "./executorSettings.ts";
 import { localCopy, localSettingHelp } from "./localExecution.ts";
 
 /**
@@ -51,6 +52,7 @@ export const SETTING_HELP: Record<Locale, Record<string, string>> = {
     "container.runtime_env": "Non-secret environment variables set inside the executor container; this project sets none. Secrets belong in executor.env_keys.",
     "container.runtime_env.*": "Non-secret environment variable set inside the executor container, for example UV_LINK_MODE. Secrets belong in executor.env_keys, never here.",
     "container.selinux_relabel": "off or shared. Use shared on SELinux-enforcing hosts (Fedora, RHEL and similar) so containers can read the clone and worktree; otherwise every stage fails with permission denied.",
+    "container.system_packages": systemPackageCopy.en.help,
     "container.uv_cache_volume": "Named container volume all runs share as the uv (Python package) cache, so dependencies are not downloaded again for each run.",
     "delivery.approval_label": "Label a person adds on the ticket to approve publishing the presented candidate. ADORE removes it before each presentation and accepts only a fresh re-add for that exact candidate.",
     "delivery.draft": "Choose Draft or Ready for review for newly created PR/MRs. Both require fresh human publication approval; ADORE never merges. Existing PR/MRs retain their current state.",
@@ -161,6 +163,7 @@ export const SETTING_HELP: Record<Locale, Record<string, string>> = {
     "container.runtime_env": "Variables d'environnement non secrètes définies dans le conteneur d'exécution ; ce projet n'en définit aucune. Les secrets vont dans executor.env_keys.",
     "container.runtime_env.*": "Variable d'environnement non secrète définie dans le conteneur d'exécution, par exemple UV_LINK_MODE. Les secrets vont dans executor.env_keys, jamais ici.",
     "container.selinux_relabel": "off ou shared. Utilisez shared sur les hôtes où SELinux est appliqué (Fedora, RHEL et similaires) pour que les conteneurs lisent le clone et l'arbre de travail ; sinon chaque étape échoue avec permission denied.",
+    "container.system_packages": systemPackageCopy.fr.help,
     "container.uv_cache_volume": "Volume de conteneur nommé partagé par toutes les exécutions comme cache uv (paquets Python), pour ne pas retélécharger les dépendances à chaque exécution.",
     "delivery.approval_label": "Label qu'une personne ajoute au ticket pour approuver la publication du candidat présenté. ADORE le retire avant chaque présentation et n'accepte qu'un nouvel ajout pour ce candidat précis.",
     "delivery.draft": "Choisissez Brouillon ou Prête pour revue pour les nouvelles PR/MR. Les deux exigent une nouvelle approbation humaine de publication ; ADORE ne fusionne jamais. Les PR/MR existantes conservent leur état.",
@@ -271,6 +274,7 @@ export const SETTING_HELP: Record<Locale, Record<string, string>> = {
     "container.runtime_env": "Nicht geheime Umgebungsvariablen im Executor-Container; dieses Projekt setzt keine. Geheimnisse gehören in executor.env_keys.",
     "container.runtime_env.*": "Nicht geheime Umgebungsvariable im Executor-Container, zum Beispiel UV_LINK_MODE. Geheimnisse gehören in executor.env_keys, nie hierher.",
     "container.selinux_relabel": "off oder shared. Auf Hosts mit erzwungenem SELinux (Fedora, RHEL und ähnliche) shared verwenden, damit Container Klon und Worktree lesen können; sonst scheitert jede Phase mit permission denied.",
+    "container.system_packages": systemPackageCopy.de.help,
     "container.uv_cache_volume": "Benanntes Container-Volume, das alle Läufe als uv-Cache (Python-Pakete) teilen, damit Abhängigkeiten nicht für jeden Lauf neu geladen werden.",
     "delivery.approval_label": "Label, das eine Person am Ticket setzt, um die Veröffentlichung des vorgestellten Kandidaten freizugeben. ADORE entfernt es vor jeder Vorstellung und akzeptiert nur ein erneutes Setzen für genau diesen Kandidaten.",
     "delivery.draft": "Wählen Sie Entwurf oder Bereit zur Prüfung für neue PR/MRs. Beide erfordern eine neue menschliche Veröffentlichungsfreigabe; ADORE führt niemals einen Merge aus. Bestehende PR/MRs behalten ihren Status.",
@@ -381,6 +385,7 @@ export const SETTING_HELP: Record<Locale, Record<string, string>> = {
     "container.runtime_env": "Variabile de mediu nesecrete setate în containerul executorului; acest proiect nu setează niciuna. Secretele merg în executor.env_keys.",
     "container.runtime_env.*": "Variabilă de mediu nesecretă setată în containerul executorului, de exemplu UV_LINK_MODE. Secretele merg în executor.env_keys, niciodată aici.",
     "container.selinux_relabel": "off sau shared. Folosiți shared pe gazdele cu SELinux impus (Fedora, RHEL și similare), ca containerele să poată citi clona și arborele de lucru; altfel fiecare etapă eșuează cu permission denied.",
+    "container.system_packages": systemPackageCopy.ro.help,
     "container.uv_cache_volume": "Volum de container cu nume, folosit în comun de toate rulările drept cache uv (pachete Python), ca dependențele să nu fie descărcate din nou la fiecare rulare.",
     "delivery.approval_label": "Eticheta pe care o persoană o adaugă pe tichet pentru a aproba publicarea candidatului prezentat. ADORE o elimină înaintea fiecărei prezentări și acceptă doar o nouă adăugare pentru exact acel candidat.",
     "delivery.draft": "Alegeți Draft sau Pregătit pentru review pentru PR/MR-urile noi. Ambele cer o aprobare umană nouă pentru publicare; ADORE nu face merge. PR/MR-urile existente își păstrează starea.",

@@ -46,6 +46,10 @@ deviation notice. Reuse unchanged instructions already read in this session.
 2. Split only when responses can vary, fail, change, or be verified
    independently. Keep clauses together when they form one inseparable atomic
    observable outcome. Final requirement prose normally contains one `shall`.
+   Normal and error responses that can fail independently normally get separate
+   requirements. If deliberately grouped, explain their inseparability in the
+   coverage table or linked spec and retain an oracle for each response. The
+   number of occurrences of `shall` alone does not decide atomicity.
 3. Reuse before creating, but compare semantics rather than titles. Reuse only
    when actor/system, trigger or state, response, constraints, and observable
    outcome match. Otherwise create a new requirement or deliberately revise the

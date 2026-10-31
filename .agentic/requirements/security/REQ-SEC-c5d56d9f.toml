@@ -1,0 +1,23 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+id = "REQ-SEC-c5d56d9f"
+title = "Independent package and network authority"
+status = "active"
+requirement = """
+When administrative package installation is enabled for a container, ADORE shall preserve its separately configured open, none or allowlist-proxy egress and host/forge credential boundaries.
+"""
+verification = """
+Offline Docker, Podman and WSL argv tests cover all three egress modes with package authorization; unsafe container overrides and local-backend elevation are refused.
+"""
+affected_paths = ["04_Software/adore/config.py", "04_Software/adore/isolation.py", "04_Software/adore/package_permissions.py"]
+linked_tests = ["04_Software/tests/test_system_packages.py::test_package_permission_rejects_host_or_privilege_overrides", "04_Software/tests/test_system_packages.py::test_package_permission_rejects_native_host_but_accepts_rootless_keep_id", "04_Software/tests/test_system_packages.py::test_package_authority_uses_owned_container_without_network_or_host_installs"]
+spec = "specs/REQ-FUNC-c405688e.md"
+priority = "normal"
+created = 2026-10-30
+updated = 2026-10-30

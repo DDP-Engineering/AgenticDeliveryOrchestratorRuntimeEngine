@@ -15,7 +15,7 @@ ADORE exécute les étapes AEGIS une à une, chaque tentative dans une session d
 | Validation | Revue, suite de tests complète et contrôle strict, qu’ADORE répète ensuite lui-même. |
 | Livraison | Après votre approbation, l’approbation et la clôture sont consignées et la MR/PR est publiée. |
 
-Le chemin rapide exécute Cadrage, Développement, Validation et Livraison. Sur le chemin complet, la validation peut renvoyer une tâche vers Spécification, Conception ou Développement ; sur le chemin rapide, seulement vers Développement. Une étape dispose par défaut de trois tentatives échouées (**Tentatives échouées autorisées par étape**).
+Le chemin rapide suit Cadrage, Développement, Validation et Livraison. AEGIS peut revenir à toute étape précédente du chemin choisi, dont Conception vers Spécification. ADORE enregistre cette étape et continue dans une nouvelle session, dans les limites existantes. Tâches affiche l’étape enregistrée. Les tâches terminées restent finales. Une étape dispose par défaut de trois tentatives échouées (**Tentatives échouées autorisées par étape**).
 
 ## Clarification {#clarification}
 
@@ -42,6 +42,10 @@ Si les vérifications CI échouent sur la MR/PR, **Action en cas d’échec des 
 Lorsqu’une étape échoue, ADORE tient à jour un commentaire d’incident unique sur le ticket avec l’étape, la tentative, le code d’erreur, les preuves et la prochaine action. Après la dernière tentative, il publie un commentaire final, pose `agent-failed`, arrête le conteneur, conserve le worktree et libère l’emplacement. Les autres causes sont un délai de réponse expiré, un ticket source supprimé et une limite dépassée comme le coût ou le nombre de fichiers modifiés. Fermer le ticket source pendant qu’une tâche attend l’annule.
 
 Dans Tâches, une tâche échouée affiche **Échouées**, et son détail explique que les preuves de reprise sont conservées. **Réessayer** demande au worker de récupérer la tâche ; cela ne contourne ni la validation ni l’approbation. Dans la vue Tickets, Relancer remplace Démarrer. Retirer `agent-failed` ne relance rien. **Annuler** apparaît pour les tâches inachevées et demande au worker de s’arrêter et de nettoyer. Les tâches terminées ne peuvent pas être annulées. Les administrateurs et les développeurs attribués peuvent utiliser les deux. Une commande en file affiche sa progression, par exemple Commande en file ou Commande terminée.
+
+Pour les tâches locales, **Relancer** revérifie l’exécuteur installé et accepte un exécutable mis à jour ou un environnement hérité modifié sur le même ordinateur et compte. La tâche, le worktree, la branche, l’historique et les limites cumulées sont conservés. La surveillance automatique ne le fait pas. Les paramètres d’exécution modifiés ou les preuves de récupération corrompues doivent être corrigés. Si le redémarrage échoue, la commande indique l’échec et sa cause enregistrée : exécutable absent, version invalide, échec de commande ou délai dépassé. Ce contrôle de version n’envoie aucune requête au modèle ; utilisez **Tester la connexion IA** pour cela.
+
+Lorsqu’une commande en conteneur dépasse sa limite, ADORE arrête ce conteneur avant toute autre commande. La prochaine tentative autorisée reprend le même conteneur avec ses dépendances et fichiers ; l’accès réseau reste inchangé. Si l’arrêt ou le redémarrage sûr ne peut être confirmé, la tâche échoue et conserve ses preuves à examiner avant de **Relancer**. Une préparation échouée conserve sa procédure de reprise explicite.
 
 ## Suivre les tâches {#following-jobs}
 

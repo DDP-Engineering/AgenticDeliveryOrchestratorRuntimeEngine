@@ -22,9 +22,10 @@ tools and interactive account authentication.
 
 ## Public interface
 
-LocalBackend provision/bind/resource_identity/verify_required_tools/stop/interrupt/remove;
+LocalBackend revalidate_for_retry/provision/bind/resource_identity/verify_required_tools/stop/interrupt/remove;
 LocalTarget run_files/call/read_output/redact/auth_available; local_policy,
-local_environment, local_argv and local_probe. LocalProcessController launch/interrupt/
+local_environment, local_argv and local_probe. probe_local_executor returns closed
+ready/reason/exit_code diagnostics; validate_local_probe protects persisted evidence. LocalProcessController launch/interrupt/
 recover delegates to NativeScopes; child.main enforces scope membership and release.
 
 ## Invariants
@@ -47,36 +48,32 @@ Worktrees are not host sandboxes; container egress/recipes cannot be selected.
 
 ## Key behaviors
 
+Native environments preserve inherited PATHEXT alongside PATH for Windows shell
+command resolution. Missing PATHEXT stays absent; the same allowlist filters forge
+credentials and unrelated secrets. Offline proof uses injected Windows/Linux
+contexts in test_local_environment_preserves_executable_extensions.
+
+Explicit Retry validates the saved plan and same host/account/configuration, then
+revalidate_for_retry recovers the owned scope and atomically refreshes the runtime
+policy receipt. Only environment_sha256, resolved executable and executable_sha256
+may change. Previous/current fingerprints support repeating an interrupted refresh.
+The normal bounded version check precedes AEGIS; automatic resume stays strict.
+All native executors and jobs share this contract. Task/worktree/history and
+cumulative budgets remain intact. Focused proof: test_retry_revalidation.py.
+
+
 - REQ-FUNC-ffb9ed29: pinned local selection/resource and default container compatibility.
 - REQ-REL-50474528: scoped lifecycle with immutable launch/PID-birth checks.
 - REQ-FUNC-5e2fe079: same fresh gate/AEGIS file contract through native argv.
 - REQ-SEC-f7b9111e: bounded strict/redacted evidence and auth reused in place.
 - REQ-UX-b75e1df8: native probes and actual machine/account/tooling notice.
 
-## Architecture
-
-```mermaid
-flowchart LR
-    Config([Explicit local profile]) --> Policy[local_policy]
-    Policy --> Conductor([Orchestrator])
-    Conductor --> Backend[LocalBackend]
-    Backend --> Target[LocalTarget]
-    Target --> Controller[LocalProcessController]
-    Controller --> Scope[NativeScopes]
-    Scope --> OS([WindowsJobs or delegated Linux cgroup])
-    Controller --> Receipt[(Runtime and launch ownership / active lease)]
-    Receipt --> Release[release marker]
-    Controller --> Child[local_child.main]
-    Release --> Child
-    Child --> CLI([Installed native executor / AEGIS])
-    CLI --> Files[(Bounded native IO)]
-    Files --> Target
-```
-
 Ownership is persisted and scope established before release. Shared gates/probes
 use the same bound target; the existing conductor remains the stage owner.
 
 ## Files
+
+- `04_Software/tests/test_retry_revalidation.py`: explicit Retry and bound outcome proof.
 
 - `04_Software/adore/local_execution.py`: policy/account/auth/path and file transport.
 - `04_Software/adore/local_process.py`: OS scopes/durable ownership and bounded control.
@@ -84,3 +81,49 @@ use the same bound target; the existing conductor remains the stage owner.
 - `04_Software/tests/test_local_execution.py`: offline positive/negative boundary proof.
 - `05_SoftwareDocu/Component_Local_Execution.md`: component contract.
 - `01_Documentation/Local_Execution.md`: operator setup/security/recovery.
+
+## Installed executor suggestions
+
+Local enrollment and launch-command editing use the admin-only filesystem
+discovery and manual path picker described in [Installed executor discovery](executor-discovery.md).
+Existing saved/manual commands retain authority; selected paths are revalidated
+by native policy and applied through the existing reviewed configuration flow.
+
+## Simple native setup
+
+Enrollment uses current-account defaults and displays read-only Runs as identity.
+Detected installations remain visible; a closed Advanced disclosure holds full
+command/manual executable and home/PATH/Linux delegation. Settings retains saved
+account assertions and overrides in Advanced. Manual/saved command authority,
+existing authentication and native launch validation remain unchanged.
+
+## Background launch policy
+
+Native account construction and the controller force child-only GIT_PAGER/PAGER
+cat values after caller settings; ordinary executor descendants inherit them.
+Windows supervisor and isolated child request CREATE_NO_WINDOW without changing
+Job ownership/release/timeout handling; Linux retains its cgroup/execve flow.
+Source and public proof remain local_execution.py, local_process.py,
+local_child.py and environment/native launch/child tests in test_local_execution.py.
+Requirements: REQ-PLAT-989c6478, REQ-PLAT-967d0c80.
+
+## Native prerequisite causes
+
+Version checks accept a recognizable version line on stdout or stderr, including
+standard CLI prefixes and ANSI styling, after clean non-timeout exit. Typed
+LocalPrerequisiteError preserves the exit code. probe_local_executor separates
+missing executable, account/home, auth presence/corruption, permissions, version,
+command exit/timeout, scope preparation and cleanup. No raw diagnostics escape;
+failed cleanup prevents success. Schema-1 web readiness optionally carries the
+closed evidence; legacy absence remains explicit. REQ-FUNC-ab8c90b6 and
+REQ-UX-4d08dee5; focused native/API/readiness and source-render Node tests.
+
+## Windows captured streams
+
+The Windows local_child supervisor explicitly passes sys.stdout/sys.stderr to
+the released subprocess and DEVNULL for stdin with CREATE_NO_WINDOW. These are
+the existing parent-owned pipes; the controller still drains, redacts and bounds
+them. Implicit Windows stream inheritance is insufficient for this launch mode.
+Existing Job/release/cancel and exit contracts remain unchanged; Linux uses
+execve. REQ-FUNC-5e2fe079; focused test_windows_supervisor_preserves_redirected_output
+covers clean/nonzero status and both streams, alongside child cancel/envelope proof.

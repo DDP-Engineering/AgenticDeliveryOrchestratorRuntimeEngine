@@ -13,6 +13,8 @@
 @details External command output is faked and never returned to the browser.
 """
 
+import importlib
+import json
 from pathlib import Path
 
 from adore.profiles import ProfileStore
@@ -35,6 +37,50 @@ def _project(tmp_path):
         f'store_root = "{root.as_posix()}"'.encode(),
     ))
     return profiles, path
+
+
+@pytest.mark.parametrize("change", ["roundtrip", "legacy", "reason", "status", "exit",
+                                     "extra", "context", "duplicate"])
+def test_local_diagnostic_persistence_is_closed(tmp_path, monkeypatch, change):
+    """@brief Saved local causes roundtrip; old records work and corrupt records fail closed."""
+    module = importlib.import_module("adore.web.app")
+    profiles, _ = _project(tmp_path)
+    evidence = {"checks": {"git": True, "forge_cli": True, "forge_auth": True,
+                "container_runtime": True, "executor_cli": False, "aegis_files": True,
+                "model_endpoint": "not-checked"},
+                "model_probe": {"context": "executor-local", "ready": False,
+                                "model": "", "reason": "not-configured"},
+                "executor_probe": {"ready": False, "reason": "executor-exit", "exit_code": 7}}
+    monkeypatch.setattr(module, "_probe_setup", lambda *a, **kw: evidence)
+    with TestClient(module.create_app(profiles.home)) as client:
+        csrf = client.post("/api/v1/session", json={"username": "admin", "password": "admin"}
+                           ).json()["csrf"]
+        response = client.post("/api/v1/projects/alpha/readiness-check",
+                               headers={"X-CSRF-Token": csrf})
+        assert response.status_code == 200, response.text
+        assert response.json()["executor_probe"] == evidence["executor_probe"]
+        path = profiles.profile_dir("alpha") / "readiness.json"
+        saved = json.loads(path.read_text(encoding="utf-8"))
+        if change == "legacy":
+            del saved["executor_probe"]
+        elif change == "reason":
+            saved["executor_probe"]["reason"] = "PRIVATE-OUTPUT"
+        elif change == "status":
+            saved["executor_probe"]["ready"] = True
+        elif change == "exit":
+            saved["executor_probe"]["exit_code"] = True
+        elif change == "extra":
+            saved["executor_probe"]["detail"] = "PRIVATE-OUTPUT"
+        elif change == "context":
+            saved["model_probe"]["context"] = "executor-container"
+        text = json.dumps(saved)
+        if change == "duplicate":
+            text = text.replace('"exit_code": 7', '"exit_code": 7, "exit_code": 0')
+        path.write_text(text, encoding="utf-8")
+        loaded = client.get("/api/v1/projects/alpha")
+        expected = 200 if change in {"roundtrip", "legacy"} else 503
+        assert loaded.status_code == expected, loaded.text
+        assert "PRIVATE" not in loaded.text
 
 
 def test_admin_can_probe_host_prerequisites_without_disclosing_cli_output(tmp_path):

@@ -768,3 +768,50 @@ table caption { text-align: left; font-weight: 600; padding: .6rem 0; }
 .ticket-stop-confirm { margin: 12px 0; padding: 12px 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-alt); }
 @media (max-width: 720px) { .ticket-actions { flex-wrap: wrap; } }
 .executor-prices h3 { margin: 0 0 0.75rem; }
+.local-executor-picker { display: grid; gap: 8px; min-width: 0; width: 100%; }
+.local-executor-picker input, .local-executor-picker select { width: 100%; min-width: 0; max-width: 100%; }
+.local-executor-picker button { justify-self: start; max-width: 100%; white-space: normal; }
+.local-executor-picker .field-hint { overflow-wrap: anywhere; }
+.local-executor-advanced { min-width: 0; width: 100%; }
+.local-executor-fields { display: grid; gap: 8px; min-width: 0; margin-top: 12px; }
+.local-executor-fields .enrollment-grid { margin-top: 12px; }
+.clone-location-mode { display: flex; flex-wrap: wrap; gap: 12px; margin: 8px 0; }
+.clone-location-mode label { display: flex; gap: 8px; align-items: center; }
+.clone-location-mode input[type="radio"] { width: 1rem; height: 1rem; min-height: 0; margin: 0; padding: 0; }
+.host-folder-dialog { width: min(680px, calc(100vw - 32px)); height: min(460px, calc(100dvh - 32px)); max-height: calc(100dvh - 32px); box-sizing: border-box; overflow: hidden; padding: 0; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); }
+.host-folder-dialog[open] { display: flex; flex-direction: column; }
+.host-folder-dialog::backdrop { background: rgb(0 0 0 / 45%); }
+.folder-dialog-header { padding: 16px 18px 12px; border-bottom: 1px solid var(--border); }
+.folder-dialog-header h3 { margin: 0 0 3px; font-size: 1rem; }
+.folder-dialog-header small { font-size: .78rem; }
+.folder-toolbar { display: grid; grid-template-columns: 36px 36px minmax(0, 1fr) 36px; gap: 6px; padding: 10px 12px; }
+.folder-toolbar input { min-width: 0; min-height: 36px; height: 36px; border-radius: 5px; padding: 6px 9px; font-size: .85rem; }
+.folder-nav-button { min-height: 36px; height: 36px; padding: 0; border-radius: 5px; font-size: 1.15rem; }
+.folder-browser { display: grid; grid-template-columns: 150px minmax(0, 1fr); flex: 1; min-height: 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.folder-places { min-width: 0; overflow: auto; padding: 6px; background: var(--surface-alt); border-right: 1px solid var(--border); }
+.folder-places button { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 34px; padding: 6px 8px; border-radius: 4px; background: transparent; color: var(--text); font-size: .8rem; text-align: left; }
+.folder-places button:hover, .host-folder-list [role="option"]:hover { background: var(--accent-soft); }
+.folder-places button[aria-current="location"] { background: var(--accent-soft); color: var(--accent-deep); }
+.folder-places span, .host-folder-list span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.folder-icon { width: 19px; height: 19px; flex: none; color: var(--accent-deep); }
+.folder-panel { min-width: 0; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.host-folder-list { list-style: none; margin: 0; padding: 6px; }
+.host-folder-list [role="option"] { display: flex; align-items: center; gap: 9px; min-height: 34px; padding: 5px 9px; border: 1px solid transparent; border-radius: 4px; font-size: .86rem; cursor: default; user-select: none; }
+.host-folder-list [aria-selected="true"] { background: var(--accent-soft); border-color: var(--accent); }
+.host-folder-list [role="option"]:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.folder-status { padding: 18px; margin: 0; font-size: .85rem; overflow-wrap: anywhere; }
+.folder-limit { padding: 6px 14px 0; margin: 0; color: var(--muted); font-size: .75rem; }
+.folder-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 14px; }
+.enrollment-agent-columns { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px; align-items: start; }
+.enrollment-agent-column { display: grid; gap: 16px; align-content: start; min-width: 0; }
+@media (max-width: 720px) {
+  .clone-location .inline-field { flex-direction: column; align-items: stretch; }
+  .clone-location .inline-field input { flex: 0 0 auto; }
+  .enrollment-agent-columns { grid-template-columns: minmax(0,1fr); gap: 16px; }
+  .host-folder-dialog { width: calc(100vw - 20px); height: min(510px, calc(100dvh - 20px)); max-height: calc(100dvh - 20px); }
+  .folder-browser { display: flex; flex-direction: column; }
+  .folder-places { display: flex; gap: 4px; flex: none; overflow: auto; border-right: 0; border-bottom: 1px solid var(--border); }
+  .folder-places button { flex: none; width: auto; max-width: 190px; min-height: 40px; }
+  .folder-panel { flex: 1; }
+  .host-folder-list [role="option"] { min-height: 44px; }
+}

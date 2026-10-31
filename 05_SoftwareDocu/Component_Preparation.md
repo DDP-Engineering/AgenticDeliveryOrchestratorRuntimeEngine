@@ -72,3 +72,7 @@ Local plans use backend=local, empty image/selection/steps and image_source=loca
 See [Local execution](../01_Documentation/Local_Execution.md) and
 [Local execution component](Component_Local_Execution.md). Focused native proof:
 `04_Software/tests/test_local_execution.py`.
+
+## Agent-controlled system packages
+
+Enabled container policies carry canonical system_packages=true; disabled policies omit the field, preserving legacy fingerprints. validate_plan rejects noncanonical booleans and unknown fields. Optional recipe parsing and commands retain their contracts. See [Package permissions](Component_Package_Permissions.md) and the operator dependency-installation guide.

@@ -49,7 +49,22 @@ host-side checkpoint commits, so a new clone needs no local Git identity.
 - Git identity is applied only to ADORE checkpoint commits; it does not
   reconfigure the operator's clone.
 
+## Change map
+
+| Change requested | Start with | Focused verification |
+|---|---|---|
+| Native container Git selection or binding recovery | ContainerManager.provision/exec | test_container_git.py |
+| Git worktree/checkpoint lifecycle | WorktreeManager | test_isolation.py, test_checkpoint_handoff.py |
+| Runtime, egress and pager transport | ContainerManager | test_isolation.py |
+
 ## Key behaviors
+
+- `REQ-FUNC-0d0625e1`: fresh repository containers use a read-only native Git pointer, clear inherited repository selectors and transport WSL arguments through direct execution. Independent and nested Git operations select their own repositories.
+- `REQ-REL-e1ecfbd5`: exact managed metadata, regular pointer bytes, bounded creation-mode JSON and a runtime discovery acknowledgement are required; corrupt evidence raises IsolationError.
+- `REQ-REL-b8c5946a`: warm resources keep their creation-time binding, identity and installed contents; historical containers retain their original environment until normal release.
+
+
+- REQ-FUNC-c405688e / REQ-SEC-c5d56d9f: authorize_system_packages measures the non-root UID and uses fixed root OS-Python code on a container ID to grant package-manager sudo. No installation or network mutation is performed by ADORE.
 
 - `REQ-REL-d8fd134e`: `resource_identity`/`image_identity` validate authoritative bounded runtime output, actual IDs/name/status and duplicate fields. ContainerBackend verifies owned identity before bound commands and lifecycle controls.
 
@@ -61,22 +76,22 @@ host-side checkpoint commits, so a new clone needs no local Git identity.
 - `REQ-REL-94e653aa` - guarded ticket-branch pushes verify exact remote
   identity and ancestry; worktree progress is measured between gates.
 
-## Architecture
-
-```mermaid
-flowchart LR
-    conductor([Orchestrator]) --> worktree[WorktreeManager]
-    conductor --> container[ContainerManager]
-    worktree --> git[(Host Git clone and worktree)]
-    container --> runtime[(Docker, Podman or WSL runtime)]
-    runtime --> gate([Executor gate])
-```
-
-The worktree and container are per run; the conductor alone decides when to
-provision, interrupt or release them.
 
 ## Files
+
+- `04_Software/tests/test_container_git.py`: fresh/warm binding and trust-boundary contracts.
+
+
+- `04_Software/tests/test_system_packages.py`: package authority, independent egress, recovery and reviewed settings contracts.
 
 - `04_Software/adore/isolation.py`
 - `04_Software/tests/test_isolation.py`
 - `04_Software/tests/test_checkpoint_handoff.py`
+
+## Pager-free executor environment
+
+ContainerManager.exec forces GIT_PAGER/PAGER=cat after caller values and forwards
+both inline as non-secret environment. Docker/Podman/WSL commands share the policy;
+executor/preparation/model descendants inherit it. Secret bare-key transport,
+timeouts and isolation remain unchanged. Focused proof: exec/env and WSL cases
+in test_isolation.py. Host runtime commands use the shared background runner.

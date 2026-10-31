@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-REL-e1ecfbd5"
+
+title = "Fail closed on corrupt container Git binding evidence"
+
+status = "active"
+
+requirement = "If container Git binding metadata, pointer evidence or required runtime confirmation is missing, corrupt or contradictory, the runtime shall raise IsolationError before admitting bound execution under that binding."
+
+verification = "Offline public provision tests inject invalid metadata paths, nonregular or mismatched pointer files, malformed or failed label reads, and failed environment confirmation; assert typed failure and no subsequent admitted command."
+
+affected_paths = ["04_Software/adore/isolation.py"]
+
+linked_tests = ["04_Software/tests/test_container_git.py::test_git_binding_rejects_link_evidence_before_open", "04_Software/tests/test_container_git.py::test_git_binding_rejects_invalid_admin_metadata", "04_Software/tests/test_container_git.py::test_git_binding_rejects_contradictory_mount_metadata", "04_Software/tests/test_container_git.py::test_git_binding_preserves_and_rejects_corrupt_pointer", "04_Software/tests/test_container_git.py::test_git_binding_reuse_rejects_untrusted_mode_receipts", "04_Software/tests/test_container_git.py::test_git_binding_requires_exact_runtime_confirmation", "04_Software/tests/test_container_git.py::test_git_binding_new_mode_requires_saved_pointer_before_start"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-30
+updated = 2026-10-30

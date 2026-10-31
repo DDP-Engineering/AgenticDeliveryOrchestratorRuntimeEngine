@@ -147,9 +147,19 @@ class BoundTarget:
         self.paths = backend.paths
 
     def __call__(self, argv: Sequence[str], *, timeout: float | None = None) -> CommandResult:
-        """@brief Execute argv only after verifying the pinned resource identity."""
-        self.backend.verify_identity(self.name, self.expected, running=True)
-        return self.backend.manager.exec(self.name, argv, timeout=timeout, env=self.env)
+        """@brief Execute the admitted immutable ID and settle expired commands.
+        @param[in] argv Command argument vector.
+        @param[in] timeout Maximum command duration.
+        @return Original command result after any required verified interruption.
+        @exception ExecutionRecoveryError When ownership or recovery is unconfirmed.
+        """
+        observed = self.backend._admit_command(self.name, self.expected)
+        result = self.backend.manager.exec(
+            observed["container_id"], argv, timeout=timeout, env=self.env,
+        )
+        if result.timed_out:
+            self.backend._settle_timeout(self.name, observed)
+        return result
 
 
 # PUBLIC API
@@ -162,6 +172,91 @@ class ContainerBackend:
 
     def __init__(self, manager: ContainerManager) -> None:
         self.manager = manager
+        self._pending_resume: dict[str, dict[str, str]] = {}
+        self._blocked: set[str] = set()
+        self._operator_parked: set[str] = set()
+
+    def _checked_identity(
+        self, name: str, expected: dict | None, *, status: str = "running",
+    ) -> dict[str, str]:
+        """@brief Require authoritative ownership and lifecycle before a control.
+        @param[in] name Owned run name used for strict runtime inspection.
+        @param[in] expected Optional durable or invocation identity pins.
+        @param[in] status Required authoritative lifecycle state.
+        @return Validated current container identity.
+        @exception ExecutionRecoveryError When identity or state is unconfirmed.
+        """
+        if expected and (
+            expected.get("kind") == "local"
+            or not {"container_id", "image_id"} <= expected.keys()
+        ):
+            raise ExecutionRecoveryError("execution backend changed; restore the pinned profile")
+        try:
+            observed = self.resource_identity(name)
+        except IsolationError as exc:
+            raise ExecutionRecoveryError("execution resource identity unconfirmed") from exc
+        if observed["status"] != status or expected and any(
+            observed[key] != expected[key] for key in ("container_id", "image_id")
+        ):
+            raise ExecutionRecoveryError("execution resource identity or state changed")
+        return observed
+
+    def _admit_command(self, name: str, expected: dict | None) -> dict[str, str]:
+        """@brief Resume only a proven timed-out resource before command dispatch.
+        @param[in] name Owned run name.
+        @param[in] expected Durable identity pins when available.
+        @return Authoritative running invocation identity.
+        @exception ExecutionRecoveryError When recovery remains unsafe.
+        """
+        if name in self._blocked or name in self._operator_parked:
+            raise ExecutionRecoveryError(
+                "container recovery unconfirmed; explicit recovery required",
+            )
+        pending = self._pending_resume.get(name)
+        if pending is not None:
+            self._blocked.add(name)
+            try:
+                observed = self._checked_identity(name, expected or pending, status="exited")
+                # Reject changed caller pins before any restart effect.
+                if any(pending[key] != observed[key] for key in ("container_id", "image_id")):
+                    raise ExecutionRecoveryError("execution resource identity changed")
+                if name in self._operator_parked:
+                    raise ExecutionRecoveryError("container restart cancelled by operator")
+                self.manager.start(observed["container_id"])
+                if name in self._operator_parked:
+                    self.manager.interrupt(observed["container_id"])
+                    self._checked_identity(name, pending, status="exited")
+                    raise ExecutionRecoveryError("container restart cancelled by operator")
+                self._checked_identity(name, pending)
+            except IsolationError as exc:
+                raise ExecutionRecoveryError("container restart unconfirmed") from exc
+            self._pending_resume.pop(name, None)
+            self._blocked.discard(name)
+        try:
+            observed = self._checked_identity(name, expected)
+            if name in self._operator_parked:
+                raise ExecutionRecoveryError("container execution cancelled by operator")
+        except IsolationError:
+            self._blocked.add(name)
+            raise
+        return observed
+
+    def _settle_timeout(self, name: str, expected: dict[str, str]) -> None:
+        """@brief Confirm all expired command processes stopped before returning.
+        @param[in] name Owned run name.
+        @param[in] expected Immutable identity captured before command dispatch.
+        @exception ExecutionRecoveryError When interruption cannot be confirmed.
+        """
+        self._blocked.add(name)
+        try:
+            self._checked_identity(name, expected)
+            self.manager.interrupt(expected["container_id"])
+            self._checked_identity(name, expected, status="exited")
+        except IsolationError as exc:
+            raise ExecutionRecoveryError("container timeout interruption unconfirmed") from exc
+        if name not in self._operator_parked:
+            self._pending_resume[name] = expected
+        self._blocked.discard(name)
 
     def executor_environment(self, executor: str) -> dict[str, str]:
         """@brief Retain the container Codex home environment contract."""
@@ -184,12 +279,17 @@ class ContainerBackend:
         image: str | None = None,
     ) -> str:
         """@brief Provision using the normalized image while retaining legacy defaults."""
+        resumed = name in self._pending_resume
+        if resumed or name in self._blocked:
+            self._admit_command(name, self._pending_resume.get(name))
         manager = copy(self.manager) if image is not None else self.manager
         if image is not None:
             manager.image = image
             manager.pull_never = True
         manager.ensure_volumes()
-        return manager.provision(name, repo, worktree, io, env)
+        result = manager.provision(name, repo, worktree, io, env)
+        self._operator_parked.discard(name)
+        return "started" if resumed and result == "running" else result
 
     def bind(self, name: str, env: dict[str, str], expected: dict | None = None) -> ExecutionTarget:
         """@brief Bind this adapter's command and target-path contract."""
@@ -200,6 +300,16 @@ class ContainerBackend:
     ) -> None:
         """@brief Retain declared image-tool readiness without any setup effects."""
         self.manager.verify_required_tools(name, checks, env=env)
+
+    def authorize_system_packages(self, name: str, *, expected: dict) -> None:
+        """@brief Grant package-manager sudo only on the verified owned container.
+        @param[in] name Run container name.
+        @param[in] expected Persisted container and image identities.
+        """
+        self.verify_identity(name, expected, running=True)
+        # Address the immutable ID, so a name replacement between inspect and
+        # exec cannot receive the administrative bootstrap.
+        self.manager.authorize_system_packages(expected["container_id"])
 
     def resource_identity(self, name: str) -> dict[str, str]:
         """@brief Return authoritative container/image IDs and current status."""
@@ -229,16 +339,22 @@ class ContainerBackend:
 
     def stop(self, name: str, *, expected: dict | None = None) -> None:
         """@brief Stop the verified run target, retaining its container filesystem."""
+        self._operator_parked.add(name)
+        self._pending_resume.pop(name, None)
         self.verify_identity(name, expected)
         self.manager.stop(name)
 
     def interrupt(self, name: str, *, expected: dict | None = None) -> None:
         """@brief Interrupt only the verified active run target."""
+        self._operator_parked.add(name)
+        self._pending_resume.pop(name, None)
         self.verify_identity(name, expected)
         self.manager.interrupt(name)
 
     def remove(self, name: str, *, expected: dict | None = None) -> None:
         """@brief Release the verified target and its owned egress resources."""
+        self._operator_parked.add(name)
+        self._pending_resume.pop(name, None)
         if expected and (expected.get("kind") == "local"
                          or not {"container_id", "image_id"} <= expected.keys()):
             raise ExecutionRecoveryError(
@@ -247,6 +363,7 @@ class ContainerBackend:
         if expected and self.manager.status(name) != "absent":
             self.verify_identity(name, expected)
         self.manager.remove(name)
+        self._operator_parked.discard(name)
 
 
 def redact_output(text: str, secrets: dict[str, str]) -> str:

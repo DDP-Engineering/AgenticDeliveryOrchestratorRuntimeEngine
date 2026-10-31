@@ -7,6 +7,10 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Software Documentation
 
+The [Portable user distribution](Component_Portable_Distribution.md) documents
+complete Windows/Linux application packages, included Python, native launchers,
+checksum verification and tests of the extracted archives.
+
 Implementation notes, internal contracts, and deeper technical documentation for
 the orchestrator package belong here. Component documents follow
 `component_documentation_template.md` and are created or updated in the same
@@ -69,9 +73,9 @@ guides belong in `01_Documentation/`.
 - `Component_Process_Log.md` - ADORE-owned rotating `run` command log at
   `<store_root>/adore.log` (`adore/process_log.py`).
 - `Component_Deployment.md` - Task Scheduler/systemd deployment scripts and
-  service setup (`04_Software/deploy/`).
+  service setup (`02_Tools/deploy/`).
 - `Component_Packaging.md` - runtime-bundle packaging scripts
-  (`02_Tools/package_runtime.*`).
+  (`02_Tools/create_package.py`).
 
 ## Component documentation (phase 5 - assisted setup and profiles)
 
@@ -109,3 +113,9 @@ documented in `Component_State_Store.md`, `Component_Orchestrator.md`, and
 - [Execution](Component_Execution.md): shared backend, file setup runner and owned recovery.
 
 - [Project images](Component_Project_Images.md): bounded project Dockerfile/build/verification and reviewed selection.
+
+- [Installed executor discovery](Component_Executor_Discovery.md): native launch suggestions and manual paths.
+
+- [Host folder selection](Component_Host_Folders.md): administrator host directory navigation and automatic/custom clone destinations.
+
+- [Package permissions](Component_Package_Permissions.md): direct agent system-package authority, independent egress and resource-bound recovery.

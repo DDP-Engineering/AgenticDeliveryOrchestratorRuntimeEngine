@@ -76,11 +76,17 @@ def _config_file(tmp_path: Path, text: str = VALID_CONFIG) -> str:
 class FakeMutationEngine:
     """@brief Record CLI mutation calls without touching external systems."""
 
-    def __init__(self) -> None:
+    def __init__(self, store=None) -> None:
         self.calls: list[tuple] = []
+        self.store = store
 
     def retry(self, run_id: str) -> bool:
         self.calls.append(("retry", run_id))
+        if self.store is not None:
+            run = self.store.load(run_id)
+            run.lifecycle = "working"
+            run.outcome = ""
+            self.store.save(run)
         return True
 
     def cancel(self, run_id: str, *, outcome: str = "cancelled") -> bool:
@@ -508,7 +514,7 @@ def test_cli_operator_mutations_acquire_and_release_the_lock(
     config = _config_file(tmp_path)
     store = StateStore(tmp_path / ".adore")
     store.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="failed"))
-    engine = FakeMutationEngine()
+    engine = FakeMutationEngine(store)
     monkeypatch.setattr(
         "adore.cli.Orchestrator.from_config", lambda _config, **_kwargs: engine
     )
@@ -670,3 +676,44 @@ def test_cli_init_wizard_error_exits_one(
 
 
 # END OF FILE
+
+
+@pytest.mark.parametrize("reason", ["at_capacity", "workflow_unavailable", "held"])
+def test_cli_manual_start_emits_safe_terminal_reason(tmp_path, monkeypatch, capsys, reason):
+    """@brief The worker receives the concrete admission refusal without raw logs."""
+    import json
+
+    from adore import cli
+    monkeypatch.setattr(cli.Orchestrator, "poll_once", lambda *a, **k: {
+        "picked": None, "start_reason": reason})
+    assert main(["-c", _config_file(tmp_path), "run", "--once", "--ticket", "7"]) == EXIT_ERROR
+    line = capsys.readouterr().out.splitlines()[-1]
+    assert line.startswith("ADORE_START_RESULT ")
+    assert json.loads(line.removeprefix("ADORE_START_RESULT ")) == {
+        "schema": 1, "ticket": 7, "exit_code": 1, "reason": reason}
+
+
+@pytest.mark.parametrize("failure,reason", [
+    (LockHeldError("PRIVATE"), "lock_held"),
+    (ForgeError("PRIVATE"), "repository_unavailable"),
+    (RuntimeError("PRIVATE"), "engine_fault"),
+    (None, "started"),
+])
+def test_cli_manual_start_binds_exceptions_and_success(
+    tmp_path, monkeypatch, capsys, failure, reason,
+):
+    """@brief Terminal evidence identifies the gate while excluding raw fault details."""
+    import json
+
+    from adore import cli
+    def poll(*args, **kwargs):
+        if failure is not None:
+            raise failure
+        return {"picked": 7}
+    monkeypatch.setattr(cli.Orchestrator, "poll_once", poll)
+    code = main(["-c", _config_file(tmp_path), "run", "--once", "--ticket", "7"])
+    assert code == (EXIT_OK if failure is None else EXIT_ERROR)
+    line = capsys.readouterr().out.splitlines()[-1]
+    record = json.loads(line.removeprefix("ADORE_START_RESULT "))
+    assert record == {"schema": 1, "ticket": 7, "exit_code": code, "reason": reason}
+    assert "PRIVATE" not in line

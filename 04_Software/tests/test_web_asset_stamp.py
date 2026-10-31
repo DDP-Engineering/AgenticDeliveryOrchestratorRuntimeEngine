@@ -23,7 +23,7 @@ import pytest
 
 # CONSTANTS
 REPOSITORY = Path(__file__).resolve().parents[2]
-STAMPER = REPOSITORY / "02_Tools" / "stamp_web_assets.py"
+STAMPER = REPOSITORY / "02_Tools" / "internal" / "stamp_web_assets.py"
 
 
 # LOCAL HELPERS

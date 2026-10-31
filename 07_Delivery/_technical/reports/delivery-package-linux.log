@@ -1,0 +1,26 @@
+PASS relocated package verifies with no host tools on PATH
+PASS user documentation contains only three practical guides with valid packaged links
+PASS included CLI runs with no installed Python
+PASS child engine imports preserve immutable media even without the -B flag
+PASS corrupt media fails closed before application startup
+PASS an unrelated occupied port is refused
+PASS automatic browser opens after real API/worker readiness
+PASS browser sees a ready worker, not merely an HTTP listener
+PASS compiled web interface is served from the included application
+PASS installed executor paths require authentication
+PASS host folder navigation requires authentication
+PASS isolated administrator can sign in
+PASS packaged API detects native executor and supplies its command
+PASS packaged API detects installed npm agent with native Node entrypoint
+PASS packaged clone picker lists native host directories without file contents
+PASS host folder navigation does not create the proposed clone destination
+PASS malformed host directory selection fails closed
+PASS second launch reuses the running instance and recorded custom port
+PASS second launch preserves the original service ownership
+PASS corrupt live-instance metadata fails closed
+PASS public stop wrapper accepts the owner's stop request
+PASS API and worker stop cleanly and release launcher ownership
+PASS shutdown preserves user data outside the bundle
+PASS HTTP listener is closed after shutdown
+PASS running the application leaves delivery media unchanged
+All 25 checks passed; evidence: 07_Delivery/_technical/verification/portable-check-linux/result.json

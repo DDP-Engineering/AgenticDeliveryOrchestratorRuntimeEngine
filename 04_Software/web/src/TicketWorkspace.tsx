@@ -9,7 +9,7 @@ import { ApiError, describeError } from "./errors";
 import { messages, type Locale } from "./i18n";
 import { safeEvidenceLink } from "./jobModel";
 import { startVisiblePolling } from "./polling";
-import { fill, ticketCopy } from "./ticketCopy";
+import { fill, ticketCopy, operationResultText } from "./ticketCopy";
 import { HelpLink } from "./HelpCenter";
 import { CONTEXT_TOPICS } from "./help/topics.ts";
 
@@ -228,7 +228,7 @@ export function TicketWorkspace({ projects, showProject = false, locale, csrf, r
         <p>{named(confirm, fill(copy.stopConfirm, { iid: confirm.ticket.iid, label: confirm.list.ready_label }))}</p>
         <div className="button-row"><button className="danger" type="button" disabled={busy} onClick={() => void stop(confirm)}>{copy.stopTicket}</button><button className="ghost" type="button" onClick={() => setConfirm(null)}>{copy.keepRunning}</button></div>
       </div>}
-      {notice && <div className="notice ticket-notice" role="status">{notice.lines.map(line => <p key={line}>{line}</p>)}{notice.operation && <p className="muted">#{notice.operation.id} · {copy.operation[notice.operation.status]}{notice.operation.result ? ` · ${notice.operation.result}` : ""}</p>}</div>}
+      {notice && <div className="notice ticket-notice" role="status">{notice.lines.map(line => <p key={line}>{line}</p>)}{notice.operation && <p className="muted">#{notice.operation.id} · {copy.operation[notice.operation.status]}{notice.operation.result ? ` · ${operationResultText(notice.operation.result, locale)}` : ""}</p>}</div>}
       {!lists && !reading && readErrors.length === 0 && <p className="muted">{copy.notRead}</p>}
       {lists && lists.length > 0 && rows.length === 0 && <p className="muted">{copy.none}</p>}
       {(lists ?? []).filter(item => item.list.truncated).map(({ project }) => <p className="muted" key={project.id}>{showProject ? `${projectName(project)}: ` : ""}{copy.truncated}</p>)}

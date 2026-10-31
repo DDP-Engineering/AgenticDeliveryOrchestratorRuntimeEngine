@@ -38,11 +38,13 @@ MAX_URL = 512
 MAX_ID = 60
 LS_REMOTE_TIMEOUT = 20
 CLONE_TIMEOUT = 600
+MAX_REMOTE_BYTES = 2_000_000
+MAX_REMOTE_BRANCHES = 10_000
 _SEGMENT = re.compile(r"[A-Za-z0-9_.-]+")
 _HOST = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?")
 _USER = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_.-]*")
 _SCP = re.compile(r"(?P<user>[^@\s]+)@(?P<host>[^:\s]+):(?P<path>[^\s]+)")
-_HEAD = re.compile(r"^ref: refs/heads/(\S+)\tHEAD$", re.M)
+_HEAD = re.compile(r"^ref: refs/heads/([^\t\r\n]+)\tHEAD\r?$", re.M)
 _ORIGIN = re.compile(r'^\[remote "origin"\]\s*$(.*?)(?=^\[|\Z)', re.M | re.S)
 _PUBLIC = {"github.com": "github", "gitlab.com": "gitlab"}
 
@@ -186,6 +188,73 @@ def default_branch(text: str) -> str | None:
     return match.group(1) if match else None
 
 
+def valid_branch_name(name: str) -> bool:
+    """
+    @brief      Validate a short remote branch name without executing Git.
+    @param[in]  name Short name below refs/heads/, including nested branches.
+    @return     True for a bounded Git branch name suitable for enrollment.
+    """
+    return (
+        isinstance(name, str) and 0 < len(name) <= 1024
+        and name != "@" and not name.startswith(("-", "/"))
+        and not name.endswith(("/", "."))
+        and not any(part in name for part in ("..", "//", "@{", "\\", "\ufffd"))
+        and not re.search(r"[\x00-\x20\x7f~^:?*\[]", name)
+        and all(not part.startswith(".") and not part.endswith(".lock")
+                for part in name.split("/"))
+    )
+
+
+def remote_branches(text: str) -> list[str]:
+    """
+    @brief      Validate a bounded remote advertisement and list its branches.
+    @param[in]  text Git ls-remote --symref output for HEAD and refs/heads/*.
+    @return     Sorted short names; an empty repository returns an empty list.
+    @exception  RepositorySourceError Corrupt, duplicate, inconsistent or oversized refs.
+    @note       Symbolic HEAD supplies the default; its absence never implies main/master.
+    """
+    if not isinstance(text, str) or len(text) > MAX_REMOTE_BYTES:
+        raise RepositorySourceError("repository_branches_invalid")
+    try:
+        if len(text.encode("utf-8")) > MAX_REMOTE_BYTES:
+            raise ValueError("oversized remote advertisement")
+        branches: set[str] = set()
+        symbolic: str | None = None
+        head_seen = False
+        for raw in text.split("\n"):
+            line = raw[:-1] if raw.endswith("\r") else raw
+            if not line:
+                continue
+            if line.startswith("ref: "):
+                match = _HEAD.fullmatch(line)
+                if symbolic is not None or not match or not valid_branch_name(match[1]):
+                    raise ValueError("invalid symbolic HEAD")
+                symbolic = match[1]
+                continue
+            match = re.fullmatch(r"(?:[0-9a-f]{40}|[0-9a-f]{64})\t(.+)", line)
+            if not match:
+                raise ValueError("invalid remote ref")
+            ref = match[1]
+            if ref == "HEAD":
+                if head_seen:
+                    raise ValueError("duplicate HEAD")
+                head_seen = True
+                continue
+            if not ref.startswith("refs/heads/"):
+                raise ValueError("unexpected remote ref")
+            branch = ref[len("refs/heads/"):]
+            if not valid_branch_name(branch) or branch in branches:
+                raise ValueError("invalid or duplicate branch")
+            branches.add(branch)
+            if len(branches) > MAX_REMOTE_BRANCHES:
+                raise ValueError("too many remote branches")
+        if symbolic is not None and symbolic not in branches:
+            raise ValueError("default branch missing from advertisement")
+    except ValueError as exc:
+        raise RepositorySourceError("repository_branches_invalid") from exc
+    return sorted(branches)
+
+
 def suggest_id(name: str, available: Callable[[str], bool]) -> str:
     """
     @brief      Derive a unique project ID from a repository name.
@@ -227,18 +296,32 @@ def read_origin(clone: Path) -> str | None:
 
 
 def ls_remote(url: str, runner: CommandRunner) -> CommandResult:
-    """@brief Read the remote's HEAD reference without cloning."""
+    """@brief Read every forge's HEAD and branch refs without cloning."""
     return runner(
-        ["git", "ls-remote", "--symref", "--", url, "HEAD"],
+        ["git", "ls-remote", "--symref", "--", url, "HEAD", "refs/heads/*"],
         timeout=LS_REMOTE_TIMEOUT,
         env=_git_env(),
     )
 
 
 def tea_logins(runner: CommandRunner) -> dict[str, str]:
-    """@brief Server tea logins by host; empty when tea is absent or fails."""
-    result = runner(["tea", "logins", "list", "--output", "json"], timeout=8)
-    return tea_login_hosts(result.stdout) if result.ok else {}
+    """@brief Portable host suggestions; ambiguous or unavailable accounts need explicit choice."""
+    from adore.gitea_auth import GiteaAuthError, discover_tea_logins
+
+    try:
+        rows, _ = discover_tea_logins(runner)
+    except GiteaAuthError:
+        return {}
+    groups = {}
+    for row in rows:
+        for host in {urlsplit(row.url).hostname, row.ssh_host or None} - {None}:
+            groups.setdefault(host.lower(), []).append(row)
+    hosts = {}
+    for host, logins in groups.items():
+        candidates = [row for row in logins if row.default] or logins
+        if len(candidates) == 1:
+            hosts[host] = candidates[0].name
+    return hosts
 
 
 def clone(url: str, dest: Path, runner: CommandRunner) -> CommandResult:

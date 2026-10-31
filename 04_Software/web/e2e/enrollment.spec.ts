@@ -7,6 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 import { test, expect, type Page } from "@playwright/test";
 import { dirname, join } from "node:path";
 import { enrollmentCopy } from "../src/enrollmentCopy";
+import { setupCopy } from "../src/setupCopy";
 import { type Locale } from "../src/i18n";
 
 test.beforeEach(async ({ context }) => {
@@ -38,6 +39,142 @@ test("guided enrollment begins at repository and identity with visible step navi
   await expect(page.getByRole("button", { name: "Use an existing clone on this server", exact: true })).toHaveCount(0);
 });
 
+for (const host of ["github.com", "gitlab.com", "forge.e2e.invalid", "github.enterprise.invalid", "gitlab.enterprise.invalid"]) {
+  test(`remote target branch choices use the forge default and preserve selection: ${host}`, async ({ page }) => {
+    await enter(page);
+    await fixture(page);
+    let branches = ["develop", "main", "task/interface"];
+    await page.route("**/api/v1/projects/repository-source", async route => {
+      const response = await route.fetch();
+      const data = await response.json();
+      await route.fulfill({ response, json: { ...data, default_branch: "develop",
+        branches } });
+    });
+    const url = page.getByLabel("Repository URL", { exact: false });
+    await url.fill(`ssh://git@${host}/team/branch-choice.git`);
+    const read = page.getByRole("button", { name: "Read repository", exact: true });
+    await read.click();
+    const branch = page.getByRole("combobox", { name: "Target branch", exact: false });
+    await expect(branch).toHaveValue("develop");
+    await expect(branch.getByRole("option")).toHaveText(["develop (default)", "main", "task/interface"]);
+    await branch.selectOption("task/interface");
+    await read.click();
+    await expect(branch).toHaveValue("task/interface");
+    // Editing another answer preserves the selected remote branch.
+    await page.getByLabel("Display name", { exact: false }).fill("Other display name");
+    await expect(branch).toHaveValue("task/interface");
+    // A removed branch cannot remain selected after refresh.
+    branches = ["develop", "main"];
+    await read.click();
+    await expect(branch).toHaveValue("develop");
+    await expect(branch.getByRole("option")).toHaveCount(2);
+    // A different repository gets its own default, with no stale selection.
+    await url.fill(`ssh://git@${host}/team/other-branch-choice.git`);
+    await expect(branch).toHaveCount(0);
+    await read.click();
+    await expect(branch).toHaveValue("develop");
+  });
+}
+
+for (const locale of ["en", "ro", "fr", "de"] as Locale[]) {
+  test(`remote default branch marker is localized: ${locale}`, async ({ page }) => {
+    await enter(page);
+    const session = await (await page.request.get("/api/v1/me")).json();
+    try {
+      await page.request.patch("/api/v1/me/preferences", {
+        headers: { "X-CSRF-Token": session.csrf }, data: { language: locale },
+      });
+      await page.goto("/projects/new");
+      await fixture(page);
+      await page.locator("#enroll-clone_url").fill("https://github.com/team/localized-branch.git");
+      await page.getByRole("button", { name: enrollmentCopy[locale].read, exact: true }).click();
+      const branch = page.locator("#enroll-target_branch");
+      await expect(branch).toHaveValue("main");
+      await expect(branch.getByRole("option", { name: `main (${setupCopy[locale].defaultBranch})`, exact: true })).toHaveCount(1);
+    } finally {
+      // Browser contexts share this server-side account preference.
+      const restored = await page.request.patch("/api/v1/me/preferences", {
+        headers: { "X-CSRF-Token": session.csrf }, data: { language: "en" },
+      });
+      expect(restored.ok()).toBeTruthy();
+    }
+  });
+}
+
+test("a stale read or failed refresh cannot reuse another repository's branches", async ({ page }) => {
+  await enter(page);
+  await fixture(page);
+  let release!: () => void;
+  let started!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  const reading = new Promise<void>(resolve => { started = resolve; });
+  await page.route("**/api/v1/projects/repository-source", async route => {
+    const response = await route.fetch();
+    started();
+    await gate;
+    await route.fulfill({ response });
+  });
+  const url = page.locator("#enroll-clone_url");
+  await url.fill("https://github.com/team/old-branches.git");
+  const read = page.getByRole("button", { name: "Read repository", exact: true });
+  await read.click();
+  await reading;
+  await url.fill("https://gitlab.com/team/new-branches.git");
+  release();
+  await expect(read).toBeEnabled();
+  await expect(page.locator("#enroll-target_branch")).toHaveCount(0);
+  await page.unroute("**/api/v1/projects/repository-source");
+  await read.click();
+  await expect(page.locator("#enroll-target_branch")).toHaveValue("main");
+  await page.route("**/api/v1/projects/repository-source", route => route.fulfill({
+    status: 502, json: { detail: { code: "repository_unreachable" } },
+  }));
+  await read.click();
+  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(page.locator("#enroll-target_branch")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Continue", exact: true })).toBeDisabled();
+});
+
+test("remote branch discovery handles missing defaults and empty repositories explicitly", async ({ page }) => {
+  await enter(page);
+  await fixture(page);
+  let branches: string[] = ["develop", "release/2.0"];
+  await page.route("**/api/v1/projects/repository-source", async route => {
+    const response = await route.fetch();
+    await route.fulfill({ response, json: { ...await response.json(), default_branch: null, branches } });
+  });
+  await page.getByLabel("Repository URL", { exact: false }).fill("https://github.com/team/no-default.git");
+  const read = page.getByRole("button", { name: "Read repository", exact: true });
+  await read.click();
+  const branch = page.getByRole("combobox", { name: "Target branch", exact: false });
+  await expect(branch).toHaveValue("");
+  await branch.selectOption("release/2.0");
+  await expect(branch).toHaveValue("release/2.0");
+  branches = [];
+  await read.click();
+  await expect(branch).toBeDisabled();
+  await expect(branch).toHaveValue("");
+  await expect(page.getByText("No remote branches found. Add a branch to the repository, then read it again.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Continue", exact: true })).toBeDisabled();
+});
+
+for (const bad of [{ branches: ["main", "main"] }, { branches: ["bad..branch"] },
+  { branches: ["main"], default_branch: "missing" }, { branches: "main" }]) {
+  test(`malformed remote branch choices are rejected: ${JSON.stringify(bad)}`, async ({ page }) => {
+    await enter(page);
+    await fixture(page);
+    await page.route("**/api/v1/projects/repository-source", async route => {
+      const response = await route.fetch();
+      await route.fulfill({ response, json: { ...await response.json(), ...bad } });
+    });
+    await page.getByLabel("Repository URL", { exact: false }).fill("https://github.com/team/bad-branches.git");
+    await page.getByRole("button", { name: "Read repository", exact: true }).click();
+    await expect(page.getByRole("alert")).toBeVisible();
+    await expect(page.getByRole("combobox", { name: "Target branch", exact: false })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Continue", exact: true })).toBeDisabled();
+  });
+}
+
 test("enrollment reads a repository URL, derives the ID and clones at creation", async ({ page }) => {
   await enter(page);
   const home = dirname(await fixture(page, "partial"));
@@ -61,6 +198,7 @@ test("enrollment reads a repository URL, derives the ID and clones at creation",
   const clonePath = page.getByLabel("Local clone path", { exact: false });
   await expect(clonePath).toHaveValue(/repos[\\/]url-service$/);
   const custom = join(home, "repos", "custom-url-service");
+  await page.getByLabel("Custom location", { exact: true }).check();
   await clonePath.fill(custom);
   await expect(page.locator("#enrollment-clone-note")).toContainText("You can change the folder.");
   await expect(page.getByLabel("Forge", { exact: false })).toHaveValue("gitea");
@@ -139,7 +277,9 @@ test("agent and model chooses where the executor runs", async ({ page }) => {
   // Installed on the server swaps the container fields for the native ones.
   await runsIn.selectOption("local");
   await expect(image).toHaveCount(0);
-  await expect(page.getByLabel(/^Installed native executor argv/)).toBeVisible();
+  await expect(page.getByLabel("Executor launch command", { exact: true })).not.toBeVisible();
+  await page.locator(".local-executor-advanced > summary").click();
+  await expect(page.getByLabel("Executor launch command", { exact: true })).toBeVisible();
   await expect(page.getByText(/runs on the ADORE server under its current OS account/)).toBeVisible();
   await runsIn.selectOption("container");
   // Credential names are optional: an image that signs in by itself needs none.
@@ -264,6 +404,7 @@ test("field summary focus, malformed fields, collision and invalid server clone 
   await page.keyboard.press("Enter");
   await expect(page.getByLabel("Display name", { exact: false })).toBeFocused();
   await page.getByLabel("Display name", { exact: false }).fill("Service");
+  await page.getByLabel("Custom location", { exact: true }).check();
   await clonePath.fill("relative/clone");
   await environment(page);
   // Reviewers are optional.
@@ -407,14 +548,19 @@ for (const locale of ["en", "fr", "de", "ro"] as Locale[]) {
     await page.getByRole("button", { name: "Sign in", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Overview", exact: true })).toBeVisible();
     const me = await (await page.request.get("/api/v1/me")).json();
-    await page.request.patch("/api/v1/me/preferences", {
-      headers: { "X-CSRF-Token": me.csrf }, data: { language: locale } });
-    await page.goto("/projects/new");
-    await expect(page.getByRole("heading", { name: enrollmentCopy[locale].steps[0], exact: true })).toBeVisible();
-    await expect(page.getByText(enrollmentCopy[locale].urlHelp, { exact: true })).toBeVisible();
-    await expect(page.getByLabel(enrollmentCopy[locale].url, { exact: false })).toBeVisible();
-    // Leave the shared fixture account in the baseline language.
-    await page.request.patch("/api/v1/me/preferences", {
-      headers: { "X-CSRF-Token": me.csrf }, data: { language: "en" } });
+    try {
+      await page.request.patch("/api/v1/me/preferences", {
+        headers: { "X-CSRF-Token": me.csrf }, data: { language: locale } });
+      await page.goto("/projects/new");
+      await expect(page.getByRole("heading", { name: enrollmentCopy[locale].steps[0], exact: true })).toBeVisible();
+      await expect(page.getByText(enrollmentCopy[locale].urlHelp, { exact: true })).toBeVisible();
+      await expect(page.getByLabel(enrollmentCopy[locale].url, { exact: false })).toBeVisible();
+    } finally {
+      // Browser contexts share this server-side account preference.
+      const restored = await page.request.patch("/api/v1/me/preferences", {
+        headers: { "X-CSRF-Token": me.csrf }, data: { language: "en" },
+      });
+      expect(restored.ok()).toBeTruthy();
+    }
   });
 }

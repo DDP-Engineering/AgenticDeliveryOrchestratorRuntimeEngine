@@ -169,7 +169,7 @@ def test_model_evidence_survives_reload_and_invalidates_on_credentials(tmp_path,
         monkeypatch.setattr(
             module,
             "_probe_setup",
-            lambda *args: {
+            lambda *args, **kwargs: {
                 "checks": {
                     "git": True,
                     "forge_cli": True,

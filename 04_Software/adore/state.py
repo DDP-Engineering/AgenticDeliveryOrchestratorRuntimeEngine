@@ -335,7 +335,8 @@ def validate_execution_record(record: object) -> None:
         ):
             raise ValueError("success without complete evidence")
         if record["status"] == "not-required" and (
-            record["plan"]["selection"] or resource or record["attempts"] or record["steps"]
+            record["plan"]["selection"] or record["attempts"] or record["steps"]
+            or resource and not record["plan"]["policy"]["container"].get("system_packages")
         ):
             raise ValueError("legacy preparation mismatch")
         last_attempt = 0

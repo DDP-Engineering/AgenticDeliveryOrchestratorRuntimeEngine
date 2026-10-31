@@ -23,6 +23,7 @@ from __future__ import annotations
 # IMPORTS
 from collections.abc import Callable, Iterator
 import contextlib
+from copy import deepcopy
 from datetime import timedelta
 import json
 import os
@@ -75,9 +76,10 @@ from adore.isolation import (
     WorktreeManager,
     build_container_env,
 )
+from adore.local_process import LocalExecutionError, atomic_record, read_record
 from adore.opencode_catalogue import catalogue_path, stage_or_refresh
 from adore.polling import PollCadence
-from adore.preparation import PreparationError, execution_policy, resolve_plan
+from adore.preparation import PreparationError, execution_policy, resolve_plan, validate_plan
 from adore.repository_auth import project_runner
 from adore.selection import ineligibility
 from adore.state import (
@@ -200,6 +202,7 @@ class Orchestrator:
         self.backend = backend or ContainerBackend(containers)
         self.executor = executor
         self.secrets = secrets or {}
+        self._package_auth_values: dict[str, dict[str, str]] = {}
         self.sleep = sleep
         self.log = log
         self.identity = AgentIdentity(name=config.agent.name, slug=config.agent.slug)
@@ -295,7 +298,12 @@ class Orchestrator:
 
     def poll_once(self, *, dry_run: bool = False, locked: bool = False,
                   ticket_iid: int | None = None) -> dict[str, Any]:
-        """@brief Reconcile durable work before optionally selecting one eligible ticket."""
+        """@brief Reconcile work and admit one ticket; explicit admission preserves pause.
+        @param[in] ticket_iid Positive manual ticket identity, independent of monitoring.
+        @exception ValueError A manual identity is not a positive integer.
+        """
+        if ticket_iid is not None and (type(ticket_iid) is not int or ticket_iid < 1):
+            raise ValueError("manual ticket identity must be a positive integer")
         own_lock = False
         if not dry_run and not locked:
             if not self.store.acquire_lock():
@@ -313,22 +321,37 @@ class Orchestrator:
         try:
             if not dry_run:
                 self._reconcile_runs(summary)
-            if self.store.is_paused():
+            if self.store.is_paused() and ticket_iid is None:
                 summary["paused"] = True
                 return summary
             active = [r for r in self.store.list_runs()
                       if r.lifecycle in {"working", "handoff-pending"}]
             if len(active) >= self.config.polling.max_concurrent_runs:
                 summary["at_capacity"] = True
+                if ticket_iid is not None:
+                    summary["start_reason"] = "at_capacity"
                 return summary
             if not dry_run:
                 try:
                     self._probe_repository_payload()
                 except AegisError as exc:
                     summary["payload_error"] = _sanitize(exc)
+                    if ticket_iid is not None:
+                        summary["start_reason"] = "workflow_unavailable"
                     self.log(f"AEGIS pre-pick probe failed: {_sanitize(exc)}")
                     return summary
-            ticket = self._pick_ticket(ticket_iid=ticket_iid)
+            if ticket_iid is not None:
+                ticket = self.forge.get_ticket(ticket_iid)
+                if ticket is None or ticket.iid != ticket_iid:
+                    summary["start_reason"] = "ticket_unavailable"
+                    return summary
+                reason = ineligibility(ticket, self.config,
+                                       has_run=self.store.exists(self._run_id(ticket.iid)))
+                if reason is not None:
+                    summary["start_reason"] = reason
+                    return summary
+            else:
+                ticket = self._pick_ticket()
             if ticket is None:
                 return summary
             summary["picked"] = ticket.iid
@@ -388,6 +411,11 @@ class Orchestrator:
         if ticket is None:
             self.log(f"retry {run_id}: ticket #{run.ticket_iid} no longer exists")
             return False
+        try:
+            self._revalidate_native_retry(run)
+        except (IsolationError, PreparationError, OSError, ValueError) as exc:
+            self._fail_immediately(run, "RETRY_REVALIDATION_FAILED", exc)
+            return True
         resume_publication = (
             run.stage == "deliver"
             and bool(run.validation_evidence)
@@ -421,6 +449,45 @@ class Orchestrator:
         else:
             self._conduct(run, ticket)
         return True
+
+    def _revalidate_native_retry(self, run: RunState) -> None:
+        """@brief Reconcile volatile native identity only on an explicit Retry.
+        @param[in,out] run Failed job; task, resource, worktree and budgets are retained.
+        @exception ExecutionRecoveryError Stable configuration or saved plan changed.
+        """
+        if self.config.execution.backend != "local" or not run.execution:
+            return
+        previous = validate_plan(run.execution["plan"])
+        try:
+            current = resolve_plan(self.config)
+        except PreparationError as exc:
+            if isinstance(exc.__cause__, LocalExecutionError):
+                raise ExecutionRecoveryError(str(exc.__cause__)) from exc
+            raise
+        policy = deepcopy(previous["policy"])
+        if previous["backend"] != "local":
+            raise ExecutionRecoveryError("Retry cannot change the job execution backend")
+        for key in ("environment_sha256", "executable", "executable_sha256"):
+            policy["local"][key] = current["policy"]["local"][key]
+        if policy != current["policy"]:
+            changed = sorted(key for key in policy if policy[key] != current["policy"].get(key))
+            raise ExecutionRecoveryError(
+                "Retry execution settings changed: " + ", ".join(changed)
+                + "; restore the saved host/account and settings"
+            )
+        plan_file = self.store.run_dir(run.run_id) / "execution-plan.json"
+        saved = validate_plan(read_record(plan_file))
+        if saved not in (previous, current):
+            raise ExecutionRecoveryError("saved execution plan differs from the job")
+        resource = run.execution["resource"]
+        if resource:
+            self.backend.revalidate_for_retry(run.container, resource, previous["policy"]["local"])
+        atomic_record(plan_file, current)
+        run.execution["plan"] = current
+        self.store.save(run)
+        self.store.journal(run.run_id, "native-environment-revalidated",
+                           previous=previous["fingerprint"], current=current["fingerprint"],
+                           executor=self.config.executor.default)
 
     def reset(self, run_id: str, stage: str) -> bool:
         """@brief Reset ADORE state only; the executor still owns the journal."""
@@ -876,6 +943,11 @@ class Orchestrator:
                         client.probe()
                     self._conduct_task(run, ticket, client, thread)
                     return
+                except ExecutionRecoveryError as exc:
+                    if self._cancel_if_requested(run):
+                        return
+                    self._fail_immediately(run, "INFRASTRUCTURE_EXHAUSTED", exc)
+                    return
                 except AegisProtocolError as exc:
                     # Protocol/version/schema/path violations are trust-boundary failures.
                     self._fail_immediately(run, "AEGIS_PROTOCOL", exc)
@@ -1060,17 +1132,24 @@ class Orchestrator:
                 continue
             if not self._transition_accepted(run, task.stage, updated):
                 return
-            self._checkpoint(run, f"ADORE checkpoint {run.active_task_id} {task.stage}")
+            # A validated journal transition is authoritative before Git work:
+            # reads and any checkpoint failure must show the stage actually reached.
+            run.aegis_path = updated.path
             self._successful_transition(run, task.stage, updated.stage)
+            failure_context = ""
+            try:
+                self._checkpoint(run, f"ADORE checkpoint {run.active_task_id} {task.stage}")
+            except _CheckpointHalted:
+                return
+            except IsolationError as exc:
+                self._fail_immediately(run, "CHECKPOINT_FAILED", exc)
+                return
             if (
                 task.stage == "validate"
                 and updated.stage == "deliver"
                 and not self._strict_verification(run, client)
             ):
                 return
-            run.aegis_path = updated.path
-            run.stage = updated.stage
-            self.store.save(run)
 
     def _transition_accepted(
         self, run: RunState, previous: str, task: AegisTask
@@ -1189,6 +1268,9 @@ class Orchestrator:
                 ),
                 timeout=timeout,
                 archive_stem=f"{run.stage}-attempt-{run.stage_failures + 1}",
+                **({"package_secrets": {**self.secrets,
+                                        **self._package_auth_values.get(run.run_id, {})}}
+                   if self.config.container.system_packages else {}),
             )
         finally:
             watch_done.set()
@@ -1219,6 +1301,12 @@ class Orchestrator:
             "Use `python .agentic/aegis.py`. Read AGENTS.md and the current AEGIS "
             "step file, then update the task journal and governed artifacts exactly as "
             "AEGIS documents. The durable task journal, not prior model memory, is authority.",
+            "Before editing the journal, read `.agentic/templates/task.md` and follow "
+            "its installed authoring guidance. Preserve the journal's original legal "
+            "prologue and any retained authoring-guide link. Keep Log and Rulings "
+            "append-only; update current stage fields, checklist, Handoff and Stage "
+            "report as instructed. If an edit fails, reread and repair the same "
+            "journal with the same task ID; never recreate it or discard its history.",
             "This task runs autopilot-to-deliver by explicit conductor instruction, which "
             "overrides the repository's configured `[interaction]` default: set "
             "`interaction: autopilot` in the journal header when it is not already. "
@@ -1254,10 +1342,32 @@ class Orchestrator:
             parts.append("Human clarification thread:\n" + thread)
         if close_out:
             parts.append("Successful MR/PR outcome:\n" + close_out)
+        if self.config.execution.backend == "container":
+            permission = (
+                "System package installation is enabled. You may directly run `sudo -n` "
+                "with the image's supported package manager (for example apt-get). "
+                "Inspect command output and exits, diagnose missing dependencies and adapt "
+                "within this stage and the existing job limits. Install project libraries "
+                "as the normal user; avoid root-owned repository/cache files. Respect "
+                "lockfiles and justify any product dependency changes within ticket scope. "
+                "Package scripts have container-root authority; never modify the host. "
+                "A fresh container requires rechecking and reinstalling dependencies."
+                if self.config.container.system_packages else
+                "ADORE has not granted administrative system-package installation. "
+                "Project libraries may be installed in user-owned directories when allowed."
+            )
+            parts.append(
+                permission + " Network policy is independently configured as "
+                + self.config.container.egress.mode + ". Installation permission never "
+                "opens the network; with none use only available local sources, and with "
+                "allowlist-proxy respect the allowed HTTP/HTTPS proxy."
+            )
         parts.append(
             "Never commit, push, open or merge an MR/PR, access forge credentials, or "
             "modify AEGIS source/payload files. You may edit only executor-owned journal "
-            "content and ticket-scoped repository files. Never create a child task "
+            "content and ticket-scoped repository files; authorized container environment "
+            "installations described above are separate from repository edits. "
+            "Never create a child task "
             "journal (`task --parent`): this run conducts exactly one pinned task, and "
             "work in an unsupervised child is invisible to its conductor. Ask blocking "
             f"questions in {self.questions_file}; questions are not failures."
@@ -1271,6 +1381,7 @@ class Orchestrator:
             "stage-advanced",
             previous=previous,
             current=current,
+            stage=current,
             failed_attempts=run.stage_failures,
         )
         run.stage_failures = 0
@@ -2799,14 +2910,18 @@ class Orchestrator:
         """@brief Provision the pinned target and prepare once per verified resource."""
         recipe = bool(self.config.execution.preparation)
         local = self.config.execution.backend == "local"
+        packages = self.config.container.system_packages is True
+        managed_container = recipe or packages
+        if packages and local:
+            raise ExecutionRecoveryError("system_packages is available only in containers")
         record = run.execution
         plan = {}
-        if recipe or local or record:
+        if managed_container or local or record:
             try:
                 if not run.execution:
-                    if (recipe or local) and run.active_task_id:
+                    if (managed_container or local) and run.active_task_id:
                         raise PreparationError(
-                            "active legacy run requires explicit fresh recipe run"
+                            "active legacy run requires an explicit fresh execution run"
                         )
                     if recipe and not self.worktrees.exists(run.run_id):
                         self.worktrees.fetch()
@@ -2851,7 +2966,11 @@ class Orchestrator:
                 plan_file = self.store.run_dir(run.run_id) / "execution-plan.json"
                 serialized = json.dumps(plan, sort_keys=True, ensure_ascii=False, indent=2).encode()
                 if plan_file.exists():
-                    if plan_file.is_symlink() or plan_file.read_bytes() != serialized:
+                    if plan_file.is_symlink():
+                        raise PreparationError("execution plan is linked")
+                    differs = (read_record(plan_file) != plan if local
+                               else plan_file.read_bytes() != serialized)
+                    if differs:
                         raise PreparationError("immutable execution plan differs from state")
                 else:
                     with plan_file.open("xb") as handle:
@@ -2919,6 +3038,15 @@ class Orchestrator:
                 raise ExecutionRecoveryError(
                     "prepared image identity changed; explicit recovery required"
                 )
+        if packages and not recipe:
+            image_id = self.backend.image_identity(plan["image"])
+            if record["resource"]:
+                observed = self.backend.resource_identity(run.container)
+                if (any(observed[key] != record["resource"][key]
+                        for key in ("container_id", "image_id"))
+                        or image_id != record["resource"]["image_id"]):
+                    raise ExecutionRecoveryError(
+                        "package-enabled environment changed; start a fresh run to reinstall")
         if not recipe and not self.worktrees.exists(run.run_id):
             self.worktrees.fetch()
         worktree = self.worktrees.create(
@@ -2934,9 +3062,9 @@ class Orchestrator:
             worktree,
             self._io_dir(run.run_id),
             env,
-            image=plan["image"] if recipe else None,
+            image=plan["image"] if managed_container else None,
         )
-        if recipe:
+        if managed_container:
             observed = self.backend.resource_identity(run.container)
             resource = {key: observed[key] for key in ("container_id", "image_id")}
             if (observed["status"] != "running" or resource["image_id"] != image_id
@@ -2951,6 +3079,10 @@ class Orchestrator:
                 raise ExecutionRecoveryError("local native target identity changed")
             record["resource"] = resource
             self.store.save(run)
+        if packages:
+            self.backend.authorize_system_packages(run.container, expected=record["resource"])
+            self.store.journal(run.run_id, "system-package-permission",
+                               container_id=record["resource"]["container_id"], enabled=True)
         self.backend.verify_required_tools(
             run.container, self.config.container.required_tool_checks, env=env
         )
@@ -3106,15 +3238,23 @@ class Orchestrator:
     def _stage_host_auth(self, run: RunState) -> None:
         """@brief Stage only executor authentication; forge credentials stay absent."""
         if not self.host_auth_path.is_file():
+            if self.config.container.system_packages:
+                raise IsolationError("package-enabled staged executor auth is unavailable")
             self.log(f"{run.run_id}: configured executor auth file is missing")
             return
         io_dir = self._io_dir(run.run_id)
         io_dir.mkdir(parents=True, exist_ok=True)
         staged = io_dir / "host-auth.json"
+        if self.config.container.system_packages and staged.is_symlink():
+            raise IsolationError("staged executor auth snapshot is linked")
         shutil.copy2(self.host_auth_path, staged)
         with contextlib.suppress(OSError):
             staged.chmod(0o644)
         try:
+            if self.config.container.system_packages:
+                from adore.package_permissions import staged_auth_redactions
+
+                self._package_auth_values[run.run_id] = staged_auth_redactions(staged)
             execute = self._execute(run)
             auth_directory = self.backend.auth_directory(self.config.executor.default)
             created = execute(["mkdir", "-p", auth_directory])
@@ -3267,6 +3407,7 @@ class Orchestrator:
 
     def _teardown(self, run: RunState, *, remove_worktree: bool) -> None:
         """@brief Remove execution resources while retaining local state evidence."""
+        self._package_auth_values.pop(run.run_id, None)
         if (self.config.execution.backend == "local"
                 or run.execution.get("plan", {}).get("backend") == "local"):
             self.backend.remove(run.container, expected=run.execution.get("resource") or None)

@@ -72,45 +72,43 @@ ones are not.
    tests** — the tests are the primary evidence of intended behavior.
 6. Write `.agentic/knowledge/<component>.md` from the template. Derive
    `## Routing`, `## Purpose and boundaries`, `## Public interface`,
-   `## Invariants`, `## Key behaviors`, `## Architecture`, and `## Files`
+   `## Invariants`, `## Key behaviors`, and `## Files`
    from the exact source and tests. Add `## Change map` when multiple
    independent edit-and-test seams would otherwise require broad discovery.
    The page is an orientation route; the exact source and tests remain the
-   authority for future changes.
-7. Draw the component's `## Architecture` diagram while its source is still
-   in front of you — this session is the cheapest this drawing will ever
-   be. Draw what the code does, not what it should do: an odd shape you
-   cannot explain is a finding for the log, not something to tidy away in
-   the picture. Where you cannot tell which way a dependency points, leave
-   the arrow out and record the uncertainty in the Log rather than guessing.
-8. Derive requirements from the behavior you found: `status = "active"`,
+   authority for future changes. Compare existing active requirements with the
+   implementation before describing the interface. Label a normative interface
+   as the agreed contract when code disagrees, and describe actual behavior
+   separately with source/test evidence. Keep the defect and investigation in
+   the journal; adoption neither fixes it nor changes the active contract.
+7. Derive requirements from the behavior you found: `status = "active"`,
    `affected_paths` = the component's files, `linked_tests` = the
    existing tests that already verify each behavior. Adoption mostly
    *links* tests; it does not write them.
-9. Add a spec only where a requirement alone would not be buildable.
-10. Real behavior with no test: write a characterization test now if the
-    behavior is load-bearing; otherwise leave `linked_tests` empty. `check`
-    will flag it on every run — that standing list is the post-adoption
-    test backlog, and it is meant to stay visible. A behavior no test
-    could ever settle is different: start its `verification` with
-    `Manual:` or `Inspection:` and name the method, and it is recorded as
-    verified by hand instead of joining that backlog. Keep the two apart
-    honestly — a test you have not written yet is not a manual method.
-11. Behavior that looks *wrong*: record the observed behavior and suspected
+8. Add a spec only where a requirement alone would not be buildable.
+9. Real behavior with no test: write a characterization test now if the
+   behavior is load-bearing; otherwise leave `linked_tests` empty. `check`
+   will flag it on every run — that standing list is the post-adoption
+   test backlog, and it is meant to stay visible. A behavior no test
+   could ever settle is different: start its `verification` with
+   `Manual:` or `Inspection:` and name the method, and it is recorded as
+   verified by hand instead of joining that backlog. Keep the two apart
+   honestly — a test you have not written yet is not a manual method.
+10. Behavior that looks *wrong*: record the observed behavior and suspected
     defect in one consolidated component finding or future-task record in the
     Log, with source/test evidence. Confirm intended behavior with the owner
     before activating a new requirement for that disputed behavior. Preserve
     an existing active contract while its mismatch is investigated. Requirement
     prose states only the agreed positive behavior; adoption dates, suspicion,
     and investigation history belong in the journal. The fix is a separate task.
-12. Tick the component off and end the session. Present choices to continue
+11. Tick the component off and end the session. Present choices to continue
     with the next component, revise the current component records, or pause the
     adoption workflow. Commit only under the user's Git authority. The next
     session resumes from the checklist.
 
 *Phase 3 — close.*
 
-13. When the last component is ticked, checkpoint mode presents choices to
+12. When the last component is ticked, checkpoint mode presents choices to
     continue to `close`, revise component records, or pause the adoption
     workflow, then stops. After the user chooses to continue, or immediately
     in autopilot, set `stage: close`. Run `python .agentic/aegis.py check` over
@@ -118,12 +116,12 @@ ones are not.
     Reconcile current context and component pages against the surveyed checkout.
     Keep actual responsibilities and setup, expressed positively; retain unresolved
     findings and historical adoption evidence in the journal.
-14. Run `python .agentic/aegis.py report TASK-<id>`, then present choices to
+13. Run `python .agentic/aegis.py report TASK-<id>`, then present choices to
     approve the stated adoption delivery, revise the records, or pause. Stop
     for explicit publication approval in both interaction modes. After
     approval, tick the checklist except the close-out item, **commit** - journal
     and report inside the adoption commit - and open the PR.
-15. **Close out only after the outcome succeeded**: set `stage: done`,
+14. **Close out only after the outcome succeeded**: set `stage: done`,
     tick the close-out item, and make a small close-out commit on the
     same branch, pushed with it. If the outcome failed — or there is no
     remote, so the commit *is* the outcome, which is fine — log what
@@ -145,8 +143,6 @@ ones are not.
 - [ ] every agreed component has a knowledge page
 - [ ] every knowledge page routes a request to owned source and focused tests,
       with boundaries and invariants derived from current evidence
-- [ ] every knowledge page carries an `## Architecture` diagram of what the
-      code does now
 - [ ] agreed component behaviors are covered by requirements; disputed behavior
       is recorded with evidence in the journal for owner clarification
 - [ ] `linked_tests` point at the existing tests that verify them

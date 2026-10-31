@@ -83,3 +83,7 @@ Schema-1 execution state accepts the closed native resource with not-required st
 See [Local execution](../01_Documentation/Local_Execution.md) and
 [Local execution component](Component_Local_Execution.md). Focused native proof:
 `04_Software/tests/test_local_execution.py`.
+
+## Agent-controlled system packages
+
+A container execution record with not-required recipe status may bind exact container/image IDs when its plan explicitly carries system_packages=true. It records authority and resource identity, not installed-package success; malformed identities and unauthorized resource fields fail closed. See [Package permissions](Component_Package_Permissions.md) and the operator dependency-installation guide.

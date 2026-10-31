@@ -33,12 +33,21 @@ export function validCredentialNames(value:unknown):value is string[] {
 /** Generic labels follow the selected agent rather than embedding its name. */
 export function executorSettingLabel(key:string,locale:Locale):string|null {
  const c=agentSettingsCopy[locale];
+ if (key==="container.system_packages") return systemPackageCopy[locale].label;
  if (["executor.default","executor.selection"].includes(key)) return c.agent;
  if (key==="executor.env_keys") return c.variables;
  if (/^executor\.(?:commands\.)?(opencode|pi|codex|qwen)\.command$/.test(key)) return c.command;
  if (/^executor\.(?:commands\.)?(opencode|pi|codex|qwen)\.model$/.test(key)) return c.model;
  return null;
 }
+
+/** Direct agent installation and network permission are separate operator choices. */
+export const systemPackageCopy = {
+ en:{label:"Allow agent system package installation",help:"The agent installs system packages directly in its container. Network access is configured separately. A compatible image with sudo is required; start a fresh job after changing this permission."},
+ fr:{label:"Autoriser l’installation de paquets système par l’agent",help:"L’agent installe directement les paquets système dans son conteneur. L’accès réseau est distinct. Une image compatible avec sudo est requise ; lancez une nouvelle tâche après modification."},
+ de:{label:"Systempaketinstallation durch den Agenten erlauben",help:"Der Agent installiert Systempakete direkt im Container. Netzwerkzugriff wird separat festgelegt. Ein kompatibles Image mit sudo ist nötig; nach Änderungen einen neuen Auftrag starten."},
+ ro:{label:"Permite agentului instalarea pachetelor de sistem",help:"Agentul instalează direct pachetele de sistem în container. Accesul la rețea se configurează separat. Este necesară o imagine compatibilă cu sudo; porniți o lucrare nouă după schimbarea permisiunii."},
+};
 
 /** Read a complete draft for an existing agent without inventing provider/model defaults. */
 export function executorSelectionDraft(config:Record<string,unknown>,agent?:string):ExecutorSelection {

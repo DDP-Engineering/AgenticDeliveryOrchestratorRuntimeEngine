@@ -11,6 +11,13 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 **Purpose:** Present, report, commit, and publish a validated candidate without
 changing what was proved.
 
+**Before the first delivery response:** decide candidate identity, save the
+corresponding journal records, reread them, run summary, then present. Journal
+records are allowed here; they are distinct from editing the validated source,
+tests, requirements, specs or knowledge. Use the available record-edit tool
+within its declared scope, even when the shell is read-only. Report an actual
+permission refusal if encountered; do not infer one from another tool's mode.
+
 **Read first:**
 
 - The task journal `.agentic/tasks/TASK-<id>.md`, whole file, especially the
@@ -29,25 +36,58 @@ context left; its rules are not safe to work from memory.
 
 **Steps:**
 
-1. Confirm that this stage **does not edit the validated candidate**. Inspect
-   the diff and status before publishing. If source, tests, requirements,
-   specs, or knowledge changed after the recorded proof—or must change now—
-   return to `validate`: set `stage: validate`, replace the checklist with
-   Validate's "Done when" list, log why, and stop for revalidation. On
-   resuming validation, read `.agentic/steps/5_validate.md`.
+1. Inspect the current candidate and the recorded final proof. Use the same
+   candidate-binding method and scope for both observations. Decide once:
+
+   | Observation | Decision |
+   |---|---|
+   | Current binding equals the recorded validated binding | Candidate unchanged within that binding's scope; continue to step 2. |
+   | Bindings differ, or an independently observed relevant edit occurred after proof | Return records to Validate below. |
+   | No comparable binding or other sufficient identity evidence | Record exactly what identity evidence is unavailable; pause without asserting either equality or a post-proof edit. |
+
+   A matching binding covers its included tracked and untracked files. A diff
+   from the task base describes the proposed change set, not changes since
+   validation; it cannot contradict the match by itself. If the binding excludes
+   a relevant path, inspect that path separately and state the actual limit.
+   Do not edit the candidate or rerun proof to resolve this delivery inspection.
+
+   For a return to Validate, read
+   `.agentic/steps/5_validate.md`, save `stage: validate`, replace the checklist
+   with its complete "Done when" list and append the reason once. Refresh
+   Handoff and Stage report with `current: validate` and the concrete next
+   revalidation action. At a requested stop, save waiting/paused and
+   `needs_user: yes`. Clear stale enabled-review verdicts while retaining the
+   consumed round; disabled verdicts remain `disabled`. Reread the saved
+   sections, run `summary TASK-<id>` and show its actual output. A response
+   proposing this return does not save it. This is a journal-only update, not
+   code repair or revalidation. Stop without publishing or running
+   verification outside the user's requested scope.
 2. When explicit review is enabled, confirm both current bound verdicts are
    `approved` for this unchanged candidate. Blank, malformed, stale,
-   `disabled`, or `changes_required` evidence returns to validate. When
+   `disabled`, or `changes_required` evidence uses the same saved return. When
    explicit review is disabled, rely on the existing validation evidence and
    checkpoint; disabled review never skips them.
 3. Keep the journal log append-only. Journal-only delivery records are
-   expected here; never rewrite or delete earlier evidence.
-4. **Stop and present in both interaction modes:** validation commands and
+   expected here. Insert the new entry at the next section heading using the
+   task template's append method; do not include old evidence lines in the
+   replacement. Compare the saved historical Log prefix with the original,
+   including whitespace, and restore any difference before summary. Updating
+   Handoff or Stage report does not authorize normalizing earlier evidence.
+4. **Save the approval pause before presenting**, in both interaction modes.
+   Keep `stage: deliver` and its checklist; mark only observed completed items.
+   Save Handoff `current: deliver`, `status: waiting`, and the concrete delivery
+   decision in `next`. Save Stage report `stage: deliver`, `result: paused`,
+   `current: deliver`, `needs_user: yes`, actual changed/evidence/issues and the
+   same pending decision. Reread, run `summary TASK-<id>` and copy its actual
+   output in a text fence as the first response block.
+
+   Then present validation commands and
    results, accepted warnings and pre-existing failures, the exact diff
    summary, child status and integrated parent evidence when children are
    visible, what will be committed, exclusions, and the intended outcome.
-    Present the `deliver` Stage-boundary choices from `.agentic/AGENTS.md`, refresh the
-    waiting Handoff and paused Stage report, and wait for the human's choice.
+   Present the `deliver` Stage-boundary choices from `.agentic/AGENTS.md` and
+   wait for the human's choice. Keep approval unavailable if identity or proof
+   is unresolved; a human approval cannot make missing proof current.
     Any deviation notices you gave along the
    way were notifications, not approvals: notices supplement this
    presentation and never shorten it, so repeat every deviation here even

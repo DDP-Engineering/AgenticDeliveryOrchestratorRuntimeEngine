@@ -73,6 +73,16 @@ label is only a hint.
 
 ## Quick start
 
+For the packaged web application, extract the platform-specific archive from
+`07_Delivery/`: `adore-<version>-windows-x64.zip` or
+`adore-<version>-linux-x64.tar.gz`. Double-click `Start-ADORE.cmd` on Windows
+or run `./start-adore.sh` on Linux. Python and the web dependencies are included;
+the launcher starts both services and opens the ready interface. See the
+package README for first sign-in, stopping, data and logs. Project tools and
+credentials are configured separately through the interface.
+
+For source/CLI operation:
+
 From `04_Software`:
 
 ```bash
@@ -88,7 +98,7 @@ repository's AEGIS payload and writes a validated profile. Label a small ticket
 `agent-ready` with a priority such as `P2`, run one supervised poll, review the
 presented evidence, add `agent-approved`, and poll again to see the draft MR/PR
 open. Unattended operation on Ubuntu (systemd) or Windows 11 (Task Scheduler)
-is set up by the scripts in `04_Software/deploy/`.
+is set up by the scripts in `02_Tools/deploy/`.
 
 ## Documentation
 
@@ -113,7 +123,7 @@ is set up by the scripts in `04_Software/deploy/`.
 | `02_Tools/` | release-identity checker and runtime-bundle packagers |
 | `04_Software/` | the `adore` package, offline tests, deploy scripts and container images |
 | `05_SoftwareDocu/` | one implementation contract per component |
-| `07_Delivery/` | generated runtime bundles |
+| `07_Delivery/` | final user archives and optional SHA-256 files only |
 | `.agentic/` | this repository's own AEGIS workflow, requirements and task journals |
 
 ## Development
@@ -127,20 +137,23 @@ python -m ruff check adore tests
 
 The suite is fully offline. ADORE's own development follows the AEGIS
 workflow installed in `.agentic/`; read `AGENTS.md` before contributing. A
-release additionally passes `python 02_Tools/check_release_consistency.py
---require-artifacts` and is packaged with `02_Tools/package_runtime.ps1` or
-`package_runtime.sh`.
+release additionally passes `python 02_Tools/internal/check_release_consistency.py
+--require-artifacts`. End-user Windows/Linux archives are built with
+`python 02_Tools/create_package.py`; `07_Delivery/` contains only the two
+archives and their optional adjacent hashes. Temporary build/verification work
+is removed automatically and results are printed without saved reports.
+The three public repository tools are `setup_environment.py`, `create_package.py`
+and `verify_package.py` under `02_Tools/`. Internal release/license helpers are
+called automatically. Setup/deployment scripts do not require automated tests.
 
 ## Versioning and AEGIS compatibility
 
-AEGIS is a separate project with its own repository. ADORE consumes its
-companion CLI and never edits the payload. The supported range, major 0 from
-0.5.0 upward over JSON schema 1, is declared once in
-`04_Software/adore/aegis.py`, so a new AEGIS minor needs no ADORE change. Each
-AEGIS release is still re-verified surface by surface, and the ADORE release
-number names the AEGIS release the contract was last re-proven on. Run state
-is schema 1 and is never migrated from earlier lines. See
-[CHANGELOG.md](CHANGELOG.md).
+AEGIS is a separate project with its own repository. ADORE consumes its companion
+CLI; supported version and schema policy is declared once in
+`04_Software/adore/aegis.py`. The rebuilt AEGIS 0.14.0 contract is covered by
+captured offline regression evidence; see [AEGIS compatibility](01_Documentation/AEGIS_Compatibility.md).
+ADORE keeps its own Semantic Versioning and preserves saved job progress across
+compatible companion updates. Run state remains schema 1.
 
 ## License
 

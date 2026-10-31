@@ -6,7 +6,7 @@ ADORE nimmt Tickets aus Ihrem Forge-Repository (GitHub, GitLab oder Gitea) auf, 
 
 Jedes Projekt hat einen Status der **Überwachung**, der in der Projekttabelle und auf dem Reiter Zusammenfassung des Projekts als **Aktiv** oder **Pausiert** angezeigt wird. Solange die Überwachung Aktiv ist, prüft ADORE das Repository in regelmäßigen Abständen auf bereite Tickets (standardmäßig alle 60 Sekunden; siehe **Abfrageintervall (Sekunden)** unter [Projekteinstellungen](/help/settings)). Es nimmt zuerst das geeignete Ticket mit der höchsten Priorität (P1, dann P2, dann P3), danach mit der niedrigsten Nummer, und bearbeitet jeweils einen Auftrag.
 
-Ein Administrator kann auf dem Reiter Zusammenfassung des Projekts **Überwachung pausieren** und **Überwachung aktivieren** verwenden. Pausierte Überwachung stoppt neue Aufnahmen; laufende Aufträge laufen weiter.
+Ein Administrator kann auf dem Reiter Zusammenfassung des Projekts **Überwachung pausieren** und **Überwachung aktivieren** verwenden. Pausierte Überwachung stoppt automatische Aufnahmen; laufende Aufträge laufen weiter.
 
 ## Zuerst die Labels anlegen {#labels}
 
@@ -58,10 +58,12 @@ Es wird nichts gelesen, bis Sie **Tickets lesen** drücken. Das lädt bis zu 500
 
 **Starten** reiht einen Auftrag ein; der Worker wendet weiterhin die üblichen Prüfungen an. Fehlt dem Ticket das Bereitschafts- oder ein Prioritätslabel, bittet ADORE um Bestätigung, lässt Sie eine Priorität wählen, und **Labels hinzufügen und starten** ergänzt sie zuerst im Repository. Starten ist nicht verfügbar für geschlossene, angehaltene oder ausgeschlossene Tickets, für Tickets ohne erforderliche Akzeptanzkriterien und für Tickets mit einem Auftrag. **Wiederholen** ersetzt Starten, wenn der Auftrag fehlgeschlagen ist. **Stoppen** fragt nach Bestätigung, bricht einen unvollständigen Auftrag ab und entfernt das Bereitschaftslabel, damit die Überwachung das Ticket nicht erneut aufnimmt. **Details** zeigt Beschreibung und Kommentare.
 
+**Starten** startet manuell nur das ausgewählte Ticket, auch bei **Pausierter** **Überwachung**, und lässt die Überwachung pausiert. Kapazität, Repository-Workflow, Eignung, Conductor-Sperren und Freigaben gelten weiterhin. Fehlgeschlagene Vorgänge zeigen den konkreten Grund; prüfen Sie bei ungültigem oder unsicherem Ergebnis vor einem erneuten Versuch die Host-Protokolle.
+
 ## Checkliste für ein erstes Ticket {#checklist}
 
 1. Legen Sie alle neun Labels im Forge-Repository an.
-2. Prüfen Sie, dass die Überwachung Aktiv ist.
+2. Für automatische Aufnahme muss die Überwachung Aktiv sein; für manuelles Starten darf sie Pausiert bleiben.
 3. Schreiben Sie einen klaren Titel und eine Beschreibung mit Akzeptanzkriterien.
 4. Setzen Sie ein Prioritätslabel und optional `bug`, `fix`, `change` oder `agent-quick`.
 5. Setzen Sie `agent-ready` zuletzt.

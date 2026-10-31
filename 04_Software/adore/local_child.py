@@ -60,8 +60,13 @@ def main(path: str) -> int:
         os.chdir(envelope["cwd"])
         os.execve(envelope["argv"][0], envelope["argv"], dict(os.environ))
     # The Windows supervisor remains a member of the non-breakaway Job.
+    # This standalone -I launcher cannot import ADORE's package helpers.
+    # Windows CREATE_NO_WINDOW needs explicit standard handles: implicit
+    # inheritance can exit cleanly while discarding both captured streams.
+    # These are the supervisor's parent-owned pipes, drained by its controller.
     result = subprocess.run(  # noqa: S603 - native argv resolved by the parent
-        envelope["argv"], cwd=envelope["cwd"], check=False
+        envelope["argv"], cwd=envelope["cwd"], check=False, creationflags=0x08000000,
+        stdin=subprocess.DEVNULL, stdout=sys.stdout, stderr=sys.stderr,
     )
     return result.returncode
 

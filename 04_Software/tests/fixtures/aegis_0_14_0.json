@@ -1,0 +1,104 @@
+{
+  "provenance": {
+    "version": "0.14.0",
+    "source_commit": "9e3d870cd1fe834a93e785008c69506bda954359",
+    "archive_sha256": "e58fdaae59a00a4d2d49af0dd16e686104b9c1c9d6ff379adde310835616baff",
+    "cli_sha256": "87f87d0743555bdf49b2ac90a899e4c47f28383c34de411aa9ff25c126b777f6",
+    "capture": "Official CLI in temporary storage; Git and verification runner injected. This is schema evidence, not an executed product suite."
+  },
+  "journal": "<!--\nCopyright (c) 2026 DDP Engineering\nThis software is licensed under the PolyForm Noncommercial License 1.0.0.\nCommercial use requires a separate commercial license.\nSee the LICENSE.txt in the .agentic folder for full license details.\nSPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0\n-->\n\n\n# TASK-1234abcd - Compatibility fixture\n\nstage: frame\ntype: change\npath: full\ninteraction: checkpoint\nrequirements:\nparent:\nbranch: compat/aegis-014\nbase: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nopened: 2026-10-22\n\nBefore editing this journal, read `.agentic/templates/task.md` for record syntax\nand pause/report rules. Reuse its guidance if already read in this intact session.\n\n## Done checklist (current stage)\n\n- [ ] copy the \"Done when\" list from the current step file here\n\n## Frame\n\nProblem:\nDesired outcome:\nActors:\nPrimary scenario:\nExamples:\nCounterexamples:\nIn scope:\nOut of scope:\nConstraints:\nSuccess signals:\nEvidence:\nAssumptions:\nUnknowns:\nDecision-blocking questions:\nProposed behaviors:\nPath and reason:\n\n## Requirement coverage\n\n\n## Design\n\n\n## Log\n\n- 2026-10-22 frame: <scope accepted or pending, exclusions, chosen path and why>\n\n## Rulings\n\n\n## Handoff\n\n\ncurrent:\nstatus:\nnext:\nmust_read:\nblockers:\n\n## Stage report\n\n\nstage:\nresult:\ncurrent:\nchanged:\nevidence:\nissues:\nnext:\nneeds_user:\nspec_compliance:\nimplementation_quality:\nreview_round:\n",
+  "records": {
+    "version": {
+      "argv": [
+        "--version"
+      ],
+      "exit_code": 0,
+      "stdout": "aegis 0.14.0\n",
+      "stderr": ""
+    },
+    "create": {
+      "argv": [
+        "task",
+        "Compatibility fixture",
+        "--type",
+        "change"
+      ],
+      "exit_code": 0,
+      "stdout": ".agentic/tasks/TASK-1234abcd.md\n",
+      "stderr": ""
+    },
+    "list": {
+      "argv": [
+        "status",
+        "--all",
+        "--json"
+      ],
+      "exit_code": 0,
+      "stdout": "{\n  \"schema\": 1,\n  \"command\": \"status\",\n  \"tasks\": [\n    {\n      \"id\": \"TASK-1234abcd\",\n      \"title\": \"Compatibility fixture\",\n      \"file\": \".agentic/tasks/TASK-1234abcd.md\",\n      \"stage\": \"frame\",\n      \"type\": \"change\",\n      \"branch\": \"compat/aegis-014\"\n    }\n  ],\n  \"hidden_done\": 0,\n  \"unreadable\": []\n}\n",
+      "stderr": ""
+    },
+    "frame": {
+      "argv": [
+        "status",
+        "TASK-1234abcd",
+        "--json"
+      ],
+      "exit_code": 0,
+      "stdout": "{\n  \"schema\": 1,\n  \"command\": \"status\",\n  \"task\": {\n    \"id\": \"TASK-1234abcd\",\n    \"title\": \"Compatibility fixture\",\n    \"file\": \".agentic/tasks/TASK-1234abcd.md\",\n    \"header\": {\n      \"stage\": \"frame\",\n      \"type\": \"change\",\n      \"path\": \"full\",\n      \"interaction\": \"checkpoint\",\n      \"requirements\": \"\",\n      \"parent\": \"\",\n      \"branch\": \"compat/aegis-014\",\n      \"base\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\n      \"opened\": \"2026-10-22\"\n    },\n    \"stage\": \"frame\",\n    \"step_file\": \"1_frame.md\",\n    \"done\": false,\n    \"checklist\": [\n      {\n        \"done\": false,\n        \"item\": \"copy the \\\"Done when\\\" list from the current step file here\"\n      }\n    ],\n    \"components\": [],\n    \"log\": [\n      \"2026-10-22 frame: <scope accepted or pending, exclusions, chosen path and why>\"\n    ]\n  }\n}\n",
+      "stderr": ""
+    },
+    "validate": {
+      "argv": [
+        "status",
+        "TASK-1234abcd",
+        "--json"
+      ],
+      "exit_code": 0,
+      "stdout": "{\n  \"schema\": 1,\n  \"command\": \"status\",\n  \"task\": {\n    \"id\": \"TASK-1234abcd\",\n    \"title\": \"Compatibility fixture\",\n    \"file\": \".agentic/tasks/TASK-1234abcd.md\",\n    \"header\": {\n      \"stage\": \"validate\",\n      \"type\": \"change\",\n      \"path\": \"full\",\n      \"interaction\": \"checkpoint\",\n      \"requirements\": \"\",\n      \"parent\": \"\",\n      \"branch\": \"compat/aegis-014\",\n      \"base\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\n      \"opened\": \"2026-10-22\"\n    },\n    \"stage\": \"validate\",\n    \"step_file\": \"5_validate.md\",\n    \"done\": false,\n    \"checklist\": [\n      {\n        \"done\": false,\n        \"item\": \"copy the \\\"Done when\\\" list from the current step file here\"\n      }\n    ],\n    \"components\": [],\n    \"log\": [\n      \"2026-10-22 frame: <scope accepted or pending, exclusions, chosen path and why>\"\n    ]\n  }\n}\n",
+      "stderr": ""
+    },
+    "check": {
+      "argv": [
+        "check",
+        "--task",
+        "TASK-1234abcd",
+        "--strict",
+        "--run",
+        "--json"
+      ],
+      "exit_code": 0,
+      "stdout": "{\n  \"schema\": 1,\n  \"command\": \"check\",\n  \"task\": \"TASK-1234abcd\",\n  \"findings\": [\n    {\n      \"level\": \"NOTE\",\n      \"check\": \"outside-layout\",\n      \"path\": \"(diff)\",\n      \"message\": \"skipped: git executable not found\"\n    },\n    {\n      \"level\": \"NOTE\",\n      \"check\": \"scope-drift\",\n      \"path\": \"(diff)\",\n      \"message\": \"skipped: git executable not found\"\n    },\n    {\n      \"level\": \"NOTE\",\n      \"check\": \"secret-in-diff\",\n      \"path\": \"(diff)\",\n      \"message\": \"skipped: git executable not found\"\n    },\n    {\n      \"level\": \"NOTE\",\n      \"check\": \"source-no-test-changes\",\n      \"path\": \"(diff)\",\n      \"message\": \"skipped: git executable not found\"\n    },\n    {\n      \"level\": \"NOTE\",\n      \"check\": \"stage-zone\",\n      \"path\": \"(diff)\",\n      \"message\": \"skipped: git executable not found\"\n    },\n    {\n      \"level\": \"NOTE\",\n      \"check\": \"uncovered-source\",\n      \"path\": \"(diff)\",\n      \"message\": \"skipped: git executable not found\"\n    },\n    {\n      \"level\": \"WARN\",\n      \"check\": \"config\",\n      \"path\": \".agentic/aegis.toml\",\n      \"message\": \"schema should be the integer 1\"\n    },\n    {\n      \"level\": \"NOTE\",\n      \"check\": \"repo-evolution\",\n      \"path\": \".agentic/tasks/TASK-1234abcd.md\",\n      \"message\": \"no anchor recorded for task\"\n    },\n    {\n      \"level\": \"NOTE\",\n      \"check\": \"fingerprints-tracked\",\n      \"path\": \".gitignore\",\n      \"message\": \"no managed sidecar ignore block - run init\"\n    }\n  ],\n  \"summary\": {\n    \"errors\": 0,\n    \"warnings\": 1,\n    \"notes\": 8\n  },\n  \"result\": \"WARN\",\n  \"run\": [\n    {\n      \"name\": \"test\",\n      \"status\": \"ok\",\n      \"exit\": 0,\n      \"seconds\": 0.001,\n      \"tail\": \"injected offline verification\"\n    }\n  ],\n  \"dry_run\": false,\n  \"strict\": {\n    \"enabled\": true,\n    \"promoted_warnings\": 0,\n    \"passed\": true\n  }\n}\n",
+      "stderr": ""
+    },
+    "anchor": {
+      "argv": [
+        "anchor",
+        "--task",
+        "TASK-1234abcd"
+      ],
+      "exit_code": 0,
+      "stdout": "anchored 0 file(s) for TASK-1234abcd at aaaaaaa (2026-10-22T00:00:00.000000Z)\nsaved .agentic/tasks/TASK-1234abcd.anchor.json\n",
+      "stderr": ""
+    },
+    "evolution": {
+      "argv": [
+        "evolution",
+        "--task",
+        "TASK-1234abcd",
+        "--json"
+      ],
+      "exit_code": 0,
+      "stdout": "{\n  \"schema\": 1,\n  \"command\": \"evolution\",\n  \"task\": \"TASK-1234abcd\",\n  \"file\": \".agentic/tasks/TASK-1234abcd.evolution.json\",\n  \"anchor_id\": \"e8880abf48d8a539\",\n  \"evolved_at\": \"2026-10-22T00:00:00.000000Z\",\n  \"counts\": {\n    \"status\": {\n      \"added\": 0,\n      \"modified\": 0,\n      \"removed\": 0,\n      \"unchanged\": 0\n    },\n    \"area\": {\n      \"source\": {\n        \"added\": 0,\n        \"modified\": 0,\n        \"removed\": 0,\n        \"unchanged\": 0\n      },\n      \"tests\": {\n        \"added\": 0,\n        \"modified\": 0,\n        \"removed\": 0,\n        \"unchanged\": 0\n      },\n      \"other\": {\n        \"added\": 0,\n        \"modified\": 0,\n        \"removed\": 0,\n        \"unchanged\": 0\n      }\n    }\n  },\n  \"changes\": [],\n  \"replaced\": false\n}\n",
+      "stderr": ""
+    },
+    "report": {
+      "argv": [
+        "report",
+        "TASK-1234abcd"
+      ],
+      "exit_code": 0,
+      "stdout": "report appended to .agentic/tasks/TASK-1234abcd.md\n",
+      "stderr": ""
+    }
+  }
+}

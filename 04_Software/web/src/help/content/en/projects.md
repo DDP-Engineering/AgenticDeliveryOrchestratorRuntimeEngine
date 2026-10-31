@@ -19,12 +19,18 @@ Choose **Enroll new project** on [Projects](/projects). The guided wizard starts
 | Step | What it asks |
 |---|---|
 | Repository and identity | **Repository URL** and **Read repository**: ADORE fills in **Forge**, **Repository**, **Gitea tea login**, **Target branch** and the project ID for you to confirm, and proposes a **Local clone path** you can change. **Continue** stays disabled until the repository has been read. **Display name** starts as the repository name; **Description** is optional. |
-| Agent and model | **Executor** (opencode, codex, pi or qwen), **Model**, **Runs in** (**Container** or **Installed on the server**), **Model authentication** (api-key, or host-auth for OpenCode and Codex only) and **Credential environment references**: variable names such as LOCAL_API_KEY, never values; leave them empty when the image or the installed executor signs in by itself. For Container, **Container runtime** (docker or podman) and **Executor image** follow: free text with suggestions from the images on the ADORE server, and a notice when the typed image is not there. For Installed on the server, the native executor command and the local account fields appear. |
+| Agent and model | **Executor** (opencode, codex, pi or qwen), **Model**, **Runs in** (**Container** or **Installed on the server**), **Model authentication** (api-key, or host-auth for OpenCode and Codex only) and **Credential environment references**: variable names such as LOCAL_API_KEY, never values; leave them empty when the image or the installed executor signs in by itself. For Container, **Container runtime** (docker or podman) and **Executor image** follow: free text with suggestions from the images on the ADORE server, and a notice when the typed image is not there. For Installed on the server, choose a detected installation; Runs as shows the account and technical options stay in Advanced. |
 | Eligibility, reviewers and limits | **Ready label**, **Approval label**, optional **Reviewers (comma-separated)** and four job limits: executor launches, active seconds, reported cost in USD and changed files. A cost cap of 0 switches that cap off; it does not mean free. |
 | Verification | **Validate setup** checks structure and server folders. **Check environment** then tests Git, the forge tool and sign-in, the container engine, the agent in the image, the AEGIS files and, where possible, the model endpoint. Nothing is published. Each result appears beside its button; **Continue** opens the review once the setup is valid. |
 | Review and create | Shows the exact candidate and server locations, and a closed **Settings left at their defaults** list of every other setting with its default value (read-only; change them in Settings after creation). **Change** returns to a step. **Create project with pickup stopped** first clones the repository (from a URL), checks AEGIS and the target branch, then saves the project and, unless you untick **Create the ADORE labels in the repository**, creates the missing ADORE labels and lists the result; **Open project** follows. |
 
 For native local execution choose **Runs in → Installed on the server**. Specialized container setups use the advanced server TOML method below.
+
+Detection starts automatically when local execution is selected; switching agents uses the detected list. Open **Advanced** for **Detect installed executors** if you need to refresh it. For local execution, choose a detected installation or enter an executable path; see [Detect installed executors](/help/executors#installed-executors). Open **Advanced** for the full command, a manual executable path, home/PATH overrides and Linux cgroup delegation. Leave home and PATH empty for automatic values. PATH means tool directories, not the executable file. Account names in Settings verify the current identity; they do not switch users.
+
+**Automatic location** keeps the proposed clone path. Choose **Custom location** and **Choose folder…** to browse folders on the ADORE host. Click a row to select it; double-click or press Enter to open it. Use Back or Parent folder to navigate, then **Select folder** to confirm the exact existing folder. Enter a new destination directly in the main clone-path field. The selector creates nothing; links and network paths are refused. **Cancel** preserves the draft.
+
+**Target branch** lists the remote branches for GitHub, GitLab and Gitea, including self-hosted repositories. The repository’s default branch is selected and marked **default**. Choose another branch if needed. **Read repository** refreshes the list and keeps an explicit selection while that branch still exists. Changing the URL clears the previous choices. If no default is reported, choose a branch yourself; if the repository has no branches, add one there and read it again. This uses the ADORE account’s Git access; unknown forge types still need manual selection.
 
 ## Import project config {#import-project}
 
@@ -38,7 +44,7 @@ Choose **Clone project config** on [Projects](/projects) to start a new project 
 
 A new project starts with monitoring stopped. Developers see it once an administrator grants access on its **Access** tab. On the **Summary** tab:
 
-1. Choose **Connect repository**. Enter the forge server address and an access token created on the forge, then **Verify and connect**. This confirms the account and read access to the repository. The token stays on the server, never in the browser. Alternatively, sign in the forge tool under the ADORE service account.
+1. Choose **Connect repository**. Enter the forge server address and an access token created on the forge, then **Verify and connect**. This confirms the account and read access to the repository. The token stays on the server, never in the browser. Alternatively, sign in the forge tool under the ADORE service account. **Cancel** closes the dialog and clears the draft token; Escape does the same.
 2. Choose **Check host prerequisites**. The details cover Git, the repository command tool, repository sign-in, the container engine, the agent in the image, the AEGIS files and the AI model connection. This is not a full job and does not prove push permission.
 3. Run **Test AI connection** in Settings, as described in [Executors and models](/help/executors#test-connection).
 4. Choose **Activate monitoring**. The Monitoring tile changes from Paused to Active and ADORE starts picking up tickets that carry the ready label. **Pause monitoring** stops new pickups but does not interrupt a running job.
@@ -51,3 +57,17 @@ Administrators find these buttons on the Summary tab.
 - **Delete project** appears only for archived projects and asks you to type the project name. It removes the project's ADORE settings, job history, metrics, containers and worktrees. It keeps the repository and its branches, worktrees of jobs handed to a person, a job-state folder outside ADORE home and the audit trail. Deletion is refused while work is queued or unfinished. **Also remove the local clone** (unticked) also deletes the clone ADORE made under its `repos` folder; it is offered only for a clean clone of this project's repository that no other project uses and no worktree kept by the deletion still needs, otherwise the dialog says why the clone stays.
 
 > Deletion cannot be undone. To adjust a project afterwards, see [Project settings](/help/settings).
+
+## Gitea sign-in on this computer {#gitea-sign-in}
+
+ADORE uses the saved project connection first. Otherwise it reuses the current account’s tea configuration. If tea reports a missing login, ADORE checks standard Windows or Linux configuration locations and selects the configured login, a single default, or the only available login. Multiple accounts without a clear selection require an explicit connection.
+
+Discovery respects `XDG_CONFIG_HOME`. On Windows it also checks the account’s Local AppData, Roaming AppData and home `.config` directories; on Linux it checks the home `.config` directory. It does not search private application caches or copy credentials between computers.
+
+1. Open the project’s **Summary** tab and choose **Connect repository**.
+2. Enter the Gitea origin, including its port when needed, in **Repository server**.
+3. Create a token on that Gitea server for the account allowed to read/update issues and create draft reviews, and enter it in **Access token**.
+4. Choose **Verify and connect**. An HTTP server requires the displayed acknowledgement. A failed check preserves the saved connection.
+5. Choose **Check host prerequisites** again. Git clone/push credentials are configured separately.
+
+On another computer, prepare that computer’s own CLI sign-in or use this connection form. The delivery archive contains no user tokens.

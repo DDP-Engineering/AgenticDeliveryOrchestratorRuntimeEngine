@@ -31,7 +31,13 @@ CSRF/admin/immutable identity/config and conductor locks/pause/idle/pending guar
 
 ## Key behaviors
 
+- REQ-UX-812acd4b: container.system_packages is a separate reviewed boolean, with four-locale container-only labels/help and existing admin/pause/idle/revision authority.
+
 - REQ-UX-b75e1df8: Local installed native argv is editable through validated reviewed candidates. Container editors retain standard presets. Subscription login stays external; local stores are reused in place. Protected provider edits/current model evidence keep project-bound contracts.
+
+REQ-UX-ec09a60a: installed launch choices display the actual process account.
+Command/manual path editors and saved local environment/assertion rows use closed
+Advanced disclosures. Existing candidate selection and apply authority persist.
 
 Native control/auth route to local-execution.md. Focused proof:
 `04_Software/tests/test_local_execution.py`.
@@ -43,27 +49,14 @@ The names-only credential selector offers known provider names and retained cust
 
 REQ-FUNC-c829c366 owns atomic supported-agent enrollment; REQ-FUNC-08cc2676 owns reviewed names-only lists. executor_configuration.py validates exact selection and full TOML meaning. implementation_settings.py retains scoped collection writes; app.py reconstructs selection/list pending records against their base before use. Direct PUT requires candidate review.
 
-## Architecture
-
-```mermaid
-flowchart TD
-    Tab[Settings / Agent and model] --> Guide[Read-only external environment instructions]
-    Tab --> Candidate[Atomic agent / names-only config apply]
-    Tab --> Credentials[Private credential routes]
-    Credentials --> Env[Project .env]
-    Images[ImageBuildService redaction] --> Reader[credential_values]
-    Reader --> Env
-    Env --> Launcher[Existing launcher / probe]
-    Launcher --> Evidence[model-connection.json]
-    Evidence --> Config[Validated config read]
-    Config --> Summary[Summary / host access / Settings]
-```
 
 ## Change map
 
 Atomic agent/names-only selection: executor_configuration.py, implementation_settings.py, app.py, test_web_executor_configuration.py and settings helper tests. Credential persistence/binding: executor_settings.py, test_executor_settings.py. HTTP permissions/locks: app.py and same tests. GUI ownership: App/routes/ExecutorSelectionEditor/CredentialNamesEditor/ExecutorCredentials/ReadinessEvidence/ModelConnection, executor-config/model-connection/settings Chromium journeys.
 
 ## Files
+
+- `04_Software/tests/test_system_packages.py`: package authority, independent egress, recovery and reviewed settings contracts.
 
 - `04_Software/tests/test_local_execution.py`: native integration/negative proof.
 
@@ -87,3 +80,10 @@ env_keys. All other container/execution/local/worktree keys stay refused (400
 environment_managed_externally). Existing dedicated AI endpoint and
 executor/model/credential operations remain. Focused proof: test_web_image_build.py,
 test_executor_environment_choice.py and images.spec.ts.
+
+## Installed executor suggestions
+
+Local enrollment and launch-command editing use the admin-only filesystem
+discovery and manual path picker described in [Installed executor discovery](executor-discovery.md).
+Existing saved/manual commands retain authority; selected paths are revalidated
+by native policy and applied through the existing reviewed configuration flow.

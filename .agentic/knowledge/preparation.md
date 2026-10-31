@@ -30,6 +30,8 @@ worktree effects and prior attempt receipts. No publication or merging authority
 
 ## Key behaviors
 
+- REQ-REL-6922cfe5: enabled container policies include canonical system_packages=true. Disabled legacy policies omit it and retain fingerprints. Strict persisted validation rejects false, string or numeric opt-in fields.
+
 - REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: Local plans use backend=local, empty image/selection/steps and image_source=local. Closed local policy fingerprints machine/account/environment/executable without commands. Container policy keys and fingerprints retain their established shape.
 
 Native ownership/auth route to `local-execution.md`; focused proof is
@@ -41,26 +43,10 @@ Native ownership/auth route to `local-execution.md`; focused proof is
 - `REQ-REL-d8fd134e`: fail-closed pinned recovery and explicit capped replay.
 - `REQ-FUNC-e397f7f6`: shared backend lifecycle/transport contract.
 
-## Architecture
-
-```mermaid
-flowchart LR
-    Profile([Config selection]) --> Plan[preparation.resolve_plan]
-    Blob[(Exact Git blob)] --> Plan
-    Plan --> Conductor([Orchestrator])
-    Conductor --> Backend[ContainerBackend]
-    Backend --> Runtime([ContainerManager])
-    Conductor --> Native[LocalBackend]
-    Native --> Owned([Native process scopes and file target])
-    Conductor --> Evidence[(StateStore and immutable receipts)]
-    Backend --> Bound[BoundTarget]
-    Bound --> Runner[preparation_runner]
-    Bound --> Gates([AegisClient and FileProtocolExecutor])
-```
-
-Typed selection → exact regular Git blob → complete grammar validation → normalized fingerprinted plan. No install, fetch, model call or image pull occurs in preview.
 
 ## Files
+
+- `04_Software/tests/test_system_packages.py`: package authority, independent egress, recovery and reviewed settings contracts.
 
 - `04_Software/tests/test_local_execution.py`: native integration/negative proof.
 

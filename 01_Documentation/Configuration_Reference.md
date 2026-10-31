@@ -83,7 +83,7 @@ model-provider environment variables copied into a container. Forge credential
 names such as `GITHUB_TOKEN`, `GH_TOKEN`, `GITLAB_TOKEN`, `GLAB_TOKEN`,
 `GITEA_TOKEN`, and `TEA_TOKEN` are rejected.
 
-`container.runtime` is Docker/Podman or a WSL-wrapped equivalent.
+`container.runtime` is Docker/Podman or a WSL-wrapped equivalent. Standard WSL prefixes use direct argument execution internally; custom wrappers place `--` or `--exec` before the container command.
 `container.image`, cache volumes, `run_args`, `runtime_env`,
 `required_tool_checks`, `selinux_relabel`, and the egress mode configure
 isolation. Unit tests remain offline. ADORE never places forge credentials in
@@ -293,3 +293,7 @@ execution.backend accepts container (default) or local. Closed local fields: acc
 
 See [Local execution](Local_Execution.md) for platform prerequisites, configuration,
 authentication, process ownership and acceptance coverage.
+
+## Agent system packages
+
+`container.system_packages` is a strict boolean, false by default, for direct agent installation with noninteractive sudo in a compatible container image. It is independent of `container.egress` and rejected for native execution. See [Agent dependency installation](Agent_Dependency_Installation.md) for image prerequisites, supported package managers, runtime argument restrictions and recovery.

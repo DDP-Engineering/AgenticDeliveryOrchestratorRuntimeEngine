@@ -15,8 +15,10 @@
          object store) mounted into a container (execution isolation). The
          worktree's `.git` pointer file holds an absolute HOST path, invalid
          inside the container, so the repo and worktree are mounted at fixed
-         container paths and git is directed with GIT_DIR / GIT_COMMON_DIR /
-         GIT_WORK_TREE environment variables instead of path discovery. The container
+         container paths with a container-native, read-only `.git` pointer
+         overlay. Git then discovers repositories normally, including independent
+         repositories used by project tests. Selection environment keys transport
+         binding metadata to provisioning rather than leaking to descendants. The container
          runtime may be a wrapped command (for example
          "wsl -d Ubuntu-24.04 -- docker" for Docker Engine inside WSL2); in
          WSL mode mount sources are translated to /mnt/<drive>/ paths and
@@ -53,6 +55,7 @@ from adore.util import (
     DEFAULT_COMMAND_TIMEOUT,
     CommandResult,
     CommandRunner,
+    automatic_environment,
     run_command,
     strict_json_loads,
 )
@@ -78,8 +81,21 @@ _PROXY_SUFFIX = "-egress-proxy"
 _PROXY_NAME_LIMIT = 50
 _NETWORK_NAME_LIMIT = 48
 _NAME_DIGEST_LENGTH = 10
+_GIT_SELECTION_ENV = frozenset({"GIT_DIR", "GIT_COMMON_DIR", "GIT_WORK_TREE"})
+_GIT_BINDING_LABEL = "io.ddp.adore.git-binding"
+_GIT_BINDING_VERSION = "pointer-v1"
+_GIT_BINDING_ACK = "adore-git-binding-v1"
+_GIT_BINDING_CHECK = (
+    'test -z "${GIT_DIR+x}${GIT_COMMON_DIR+x}${GIT_WORK_TREE+x}" && '
+    'test "$(cat /adore/work/.git)" = "$1" && '
+    'test "$(git -C /adore/work rev-parse --absolute-git-dir)" = "$2" && '
+    'test "$(git -C /adore/work rev-parse --show-toplevel)" = /adore/work && '
+    "printf '%s\\n' adore-git-binding-v1"
+)
 PROXY_ALIAS = EGRESS_PROXY_ALIAS
 _INLINE_ENV_KEYS = frozenset({
+    "GIT_PAGER",
+    "PAGER",
     "HOME",
     "GIT_DIR",
     "GIT_COMMON_DIR",
@@ -195,14 +211,13 @@ def wsl_mount_path(path: str | Path) -> str:
 
 def build_container_env(git_dir_name: str, git_name: str, git_email: str) -> dict[str, str]:
     """
-    @brief      Compose the git environment injected into a run's container.
+    @brief      Compose Git binding metadata and container identity environment.
     @details    GIT_DIR points at the worktree's admin dir under the mounted
                 repo, GIT_COMMON_DIR at the mounted repository's common
                 object/config store, and GIT_WORK_TREE at the mounted
-                worktree. This bypasses the worktree's `.git` pointer file,
-                whose absolute host path is meaningless inside the container,
-                while keeping linked-worktree git discovery stable for CLIs
-                that inspect the repository deeply. The identity variables
+                worktree. ContainerManager consumes these selection keys to
+                mount a native pointer and filters them from fresh container
+                configuration and explicit exec environment. The identity variables
                 give commits the configured bot authorship
                 (Security_And_Credentials.md).
     @param[in]  git_dir_name The worktree admin dir name under
@@ -225,6 +240,113 @@ def build_container_env(git_dir_name: str, git_name: str, git_email: str) -> dic
         "GIT_COMMITTER_NAME": git_name,
         "GIT_COMMITTER_EMAIL": git_email,
     }
+
+
+def _without_git_selection(env: dict[str, str]) -> dict[str, str]:
+    """@brief Keep process environment while removing managed Git selectors.
+    @param[in] env Environment mapping; Windows keys are case insensitive.
+    @return Independent mapping without repository-selection overrides.
+    """
+    return {key: value for key, value in env.items() if key.upper() not in _GIT_SELECTION_ENV}
+
+
+def _container_runtime_prefix(runtime: str) -> tuple[list[str], bool, str]:
+    """@brief Parse runtime transport without interpreting option operands as commands.
+    @param[in] runtime Native container CLI or supported WSL command prefix.
+    @return Direct argument prefix, WSL mode and actual command basename.
+    @exception ValueError For empty, incomplete or ambiguous runtime prefixes.
+    """
+    argv = shlex.split(runtime)
+    if not argv:
+        raise ValueError("container runtime command is empty")
+    wsl = PureWindowsPath(argv[0]).stem.lower() == "wsl"
+    command = 0
+    if wsl:
+        command = 1
+        value_options = {"-d", "--distribution", "--distribution-id", "-u", "--user",
+                         "--cd", "--shell-type"}
+        while command < len(argv):
+            option = argv[command]
+            if option in {"--exec", "-e", "--"}:
+                if option == "--":
+                    argv[command] = "--exec"
+                command += 1
+                break
+            if option in value_options:
+                if command + 1 >= len(argv):
+                    raise ValueError("WSL runtime option requires a value")
+                command += 2
+            elif option == "--system":
+                command += 1
+            elif option.startswith("-"):
+                raise ValueError("unsupported WSL runtime option")
+            else:
+                if PureWindowsPath(option).stem.lower() not in {
+                    "docker", "podman", "podman-remote",
+                }:
+                    raise ValueError(
+                        "WSL runtime requires an explicit -- or --exec command boundary"
+                    )
+                argv.insert(command, "--exec")
+                command += 1
+                break
+        if command >= len(argv):
+            raise ValueError("WSL runtime requires a container command")
+    return argv, wsl, PureWindowsPath(argv[command]).stem.lower()
+
+
+def _git_binding_payload(env: dict[str, str]) -> bytes | None:
+    """@brief Admit exact managed metadata for a native linked-worktree pointer.
+    @param[in] env Provisioning metadata and executor environment.
+    @return Exact pointer bytes, or None for a non-repository probe.
+    @exception IsolationError For incomplete, foreign or malformed metadata.
+    """
+    if not _GIT_SELECTION_ENV.intersection(env):
+        return None
+    git_dir = env.get("GIT_DIR")
+    prefix = f"{CONTAINER_REPO_MOUNT}/.git/worktrees/"
+    if not isinstance(git_dir, str) or not git_dir.startswith(prefix):
+        raise IsolationError("invalid container Git binding metadata")
+    component = git_dir[len(prefix):]
+    if (not component or component in {".", ".."}
+            or any(char in "/\\" or ord(char) < 32 or 127 <= ord(char) < 160 for char in component)
+            or env.get("GIT_COMMON_DIR", f"{CONTAINER_REPO_MOUNT}/.git")
+            != f"{CONTAINER_REPO_MOUNT}/.git"
+            or env.get("GIT_WORK_TREE", CONTAINER_WORKTREE_MOUNT) != CONTAINER_WORKTREE_MOUNT):
+        raise IsolationError("invalid container Git binding metadata")
+    try:
+        return f"gitdir: {git_dir}\n".encode()
+    except UnicodeError as exc:
+        raise IsolationError("invalid container Git binding metadata") from exc
+
+
+def _admit_git_pointer(path: Path, payload: bytes, *, create: bool = False) -> None:
+    """@brief Create or verify bounded regular binding data without overwriting it.
+    @param[in] path Private run IO file, outside the candidate worktree.
+    @param[in] payload Exact expected Git data; its format cannot contain comments.
+    @param[in] create Allow exclusive initial creation, preserving existing evidence.
+    @exception IsolationError For missing, linked, nonregular or mismatched evidence.
+    """
+    try:
+        if create:
+            try:
+                descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL
+                                     | getattr(os, "O_BINARY", 0), 0o644)
+            except FileExistsError:
+                pass
+            else:
+                with os.fdopen(descriptor, "wb") as stream:
+                    stream.write(payload)
+        info = path.lstat()
+        if not stat.S_ISREG(info.st_mode) or info.st_size != len(payload):
+            raise IsolationError("container Git pointer evidence is corrupt")
+        descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+                             | getattr(os, "O_BINARY", 0))
+        with os.fdopen(descriptor, "rb") as stream:
+            if stream.read(len(payload) + 1) != payload:
+                raise IsolationError("container Git pointer evidence is corrupt")
+    except OSError as exc:
+        raise IsolationError("container Git pointer evidence unavailable or corrupt") from exc
 
 
 class CheckpointConflictError(IsolationError):
@@ -882,15 +1004,14 @@ class ContainerManager:
         @param[in]  pull_never Require both executor and proxy images to be
                     present locally. The disposable web readiness probe uses
                     this without changing normal conductor image policy.
-        @exception  ValueError When selinux_relabel is not a known mode.
+        @exception  ValueError For an unknown relabel mode or ambiguous WSL prefix.
         """
         if selinux_relabel not in SELINUX_RELABEL_OPTIONS:
             raise ValueError(
                 f"unsupported selinux_relabel mode: {selinux_relabel!r}"
             )
         self.runtime = runtime
-        self.runtime_argv = shlex.split(runtime)
-        self.wsl_mode = Path(self.runtime_argv[0]).stem.lower() == "wsl"
+        self.runtime_argv, self.wsl_mode, self._runtime_command = _container_runtime_prefix(runtime)
         self.image = image
         self.uv_cache_volume = uv_cache_volume
         self.npm_cache_volume = npm_cache_volume
@@ -1161,13 +1282,13 @@ class ContainerManager:
     ) -> str:
         """
         @brief      Bring the run's container up (create or restart).
-        @details    Idempotent against the current state: running -> no-op;
+        @details    Idempotent against the current state: running -> verify/reuse;
                     stopped/created -> start (keep-warm resume, design 8b);
                     absent -> create fresh with the mounts and env. Secrets
                     never appear in argv: secret env keys are passed as bare
                     `--env KEY` and the values travel via the runtime CLI's
                     own process environment. Safe runtime variables (HOME,
-                    Git mount paths, CODEX_HOME, bot identity) are passed
+                    CODEX_HOME and bot identity) are passed
                     inline so they survive wrapped runtimes consistently. In
                     WSL mode the mount sources are translated to /mnt/<drive>/
                     form and bare env keys are additionally listed in WSLENV
@@ -1182,8 +1303,8 @@ class ContainerManager:
                               at /adore/io; gate scripts in, event streams out
                               - outside the worktree so the executor can
                               never commit them).
-        @param[in]  env Environment for the container (git env from
-                        build_container_env plus the executor's secret subset).
+        @param[in]  env Git binding metadata and identity from build_container_env
+                        plus runtime environment and the executor's secret subset.
         @return     What happened: "running" (no-op), "started" (warm
                     resume), or "created" (fresh container - anything that
                     lived only inside the old one, like executor sessions, is
@@ -1191,14 +1312,27 @@ class ContainerManager:
         @exception  IsolationError When the runtime fails.
         """
         state = self.status(name)
+        git_payload = _git_binding_payload(env)
+        git_pointer = Path(io_path) / "container.git"
+        git_mode = ""
+        if git_payload is not None and state != "absent":
+            git_mode = self._git_binding_mode(name)
+            if git_mode == _GIT_BINDING_VERSION:
+                _admit_git_pointer(git_pointer, git_payload)
         if state == "running":
+            if git_mode == _GIT_BINDING_VERSION:
+                self._verify_git_binding(name, git_payload)
             return "running"
         if self.egress.mode == "allowlist-proxy":
             self._ensure_proxy_context(name, io_path)
         if state != "absent":
             self.start(name)
+            if git_mode == _GIT_BINDING_VERSION:
+                self._verify_git_binding(name, git_payload)
             return "started"
         Path(io_path).mkdir(parents=True, exist_ok=True)
+        if git_payload is not None:
+            _admit_git_pointer(git_pointer, git_payload, create=True)
         argv = [
             *self.runtime_argv, "run", "--detach", *self.run_args,
             *(["--pull=never"] if self.pull_never else []),
@@ -1210,6 +1344,15 @@ class ContainerManager:
             "--volume", f"{self.npm_cache_volume}:{CONTAINER_NPM_CACHE_MOUNT}",
             "--workdir", CONTAINER_WORKTREE_MOUNT,
         ]
+        if git_payload is not None:
+            argv += ["--label", f"{_GIT_BINDING_LABEL}={_GIT_BINDING_VERSION}",
+                     "--volume", self._bind_mount(
+                         git_pointer, f"{CONTAINER_WORKTREE_MOUNT}/.git", "ro")]
+            # Both native and WSL-wrapped Podman provide explicit image-default
+            # removal. Docker's bare-key removal needs a sanitized CLI environment.
+            podman = self._runtime_command in {"podman", "podman-remote"}
+            for key in sorted(_GIT_SELECTION_ENV):
+                argv += ["--unsetenv" if podman else "--env", key]
         if self.egress.mode == "none":
             argv += ["--network", "none"]
         elif self.egress.mode == "allowlist-proxy":
@@ -1219,7 +1362,7 @@ class ContainerManager:
         # bare-key/WSLENV path is brittle across wrapped runtimes (HOME is
         # reset by login shells; CODEX_HOME was dropped by the WSL/Podman
         # path in the Codex pilot). Bare keys stay reserved for secrets.
-        secret_env = dict(env)
+        secret_env = _without_git_selection(env)
         for key in _INLINE_ENV_KEYS:
             value = secret_env.pop(key, None)
             if value is not None:
@@ -1228,6 +1371,8 @@ class ContainerManager:
             argv += ["--env", key]
         argv += [self.image, "sleep", "infinity"]
         process_env = {**os.environ, **secret_env}
+        if git_payload is not None:
+            process_env = _without_git_selection(process_env)
         if self.wsl_mode and secret_env:
             existing = process_env.get("WSLENV", "")
             shared = ":".join(secret_env)
@@ -1235,7 +1380,77 @@ class ContainerManager:
         result = self.runner(argv, env=process_env)
         if not result.ok:
             raise IsolationError(f"{self.runtime} run failed", result.argv, result.stderr)
+        if git_payload is not None:
+            self._verify_git_binding(name, git_payload)
         return "created"
+
+    def _git_binding_mode(self, name: str) -> str:
+        """@brief Read one bounded creation-time binding label without guessing.
+        @param[in] name Exact owned resource selected for reuse.
+        @return Empty for historical mode, otherwise the known pointer version.
+        @exception IsolationError For failed, corrupt or unknown runtime evidence.
+        """
+        result = self.runner([
+            *self.runtime_argv, "inspect", "--format",
+            '{{json (index .Config.Labels "' + _GIT_BINDING_LABEL + '")}}', name,
+        ], timeout=30)
+        try:
+            if (not result.ok or result.timed_out or not isinstance(result.stdout, str)
+                    or len(result.stdout) > 1024):
+                raise ValueError
+            value = strict_json_loads(result.stdout)
+            if value is None or value == "":
+                return ""
+            if isinstance(value, str) and value == _GIT_BINDING_VERSION:
+                return value
+            raise ValueError
+        except (ValueError, TypeError) as exc:
+            raise IsolationError("container Git binding mode unavailable or corrupt") from exc
+
+    def _verify_git_binding(self, name: str, payload: bytes) -> None:
+        """@brief Confirm actual pointer, native discovery and selector absence.
+        @param[in] name Exact owned container.
+        @param[in] payload Admitted pointer bytes.
+        @exception IsolationError If the runtime cannot confirm this binding.
+        """
+        pointer = payload.decode("utf-8").rstrip("\n")
+        result = self.exec(name, [
+            "sh", "-c", _GIT_BINDING_CHECK, "adore-git-binding", pointer,
+            pointer.removeprefix("gitdir: "),
+        ], timeout=30)
+        if (not result.ok or result.timed_out or result.stdout.strip() != _GIT_BINDING_ACK):
+            raise IsolationError("container Git binding confirmation failed",
+                                 result.argv, result.stderr)
+
+    def authorize_system_packages(self, name: str) -> None:
+        """
+        @brief Authorize direct noninteractive package-manager sudo in a container.
+        @param[in] name Exact owned container selected by the conductor.
+        @exception IsolationError For invalid UID, failed/timeout authorization,
+                   incompatible images or missing authoritative confirmation.
+        @note Does not install packages, change egress or inject credentials.
+        """
+        from adore.package_permissions import (
+            PACKAGE_AUTHORIZATION_ACK,
+            PACKAGE_AUTHORIZATION_SCRIPT,
+        )
+
+        identity = self.exec(name, ["/usr/bin/id", "-u"], timeout=15)
+        uid = identity.stdout.strip()
+        if (not identity.ok or identity.timed_out
+                or not re.fullmatch(r"[1-9][0-9]{0,9}", uid)
+                or int(uid) >= 4294967295):
+            raise IsolationError("system_packages requires a verified non-root agent UID")
+        result = self.runner([
+            *self.runtime_argv, "exec", "--user", "0", name,
+            "/usr/bin/python3", "-I", "-c", PACKAGE_AUTHORIZATION_SCRIPT, uid,
+        ], timeout=30)
+        if (not result.ok or result.timed_out
+                or result.stdout.strip() != PACKAGE_AUTHORIZATION_ACK):
+            raise IsolationError(
+                "system_packages authorization failed; image needs OS Python, sudo and a "
+                "supported package manager", result.argv, result.stderr,
+            )
 
     def verify_required_tools(
         self,
@@ -1367,7 +1582,7 @@ class ContainerManager:
         if timeout is None:
             timeout = DEFAULT_COMMAND_TIMEOUT
         full = [*self.runtime_argv, "exec"]
-        exec_env = dict(env or {})
+        exec_env = automatic_environment(_without_git_selection(env or {}))
         if self.egress.mode == "allowlist-proxy":
             exec_env.update(self._proxy_env())
         secret_env = exec_env

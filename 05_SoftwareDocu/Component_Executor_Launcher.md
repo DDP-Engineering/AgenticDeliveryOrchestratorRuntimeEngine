@@ -247,3 +247,9 @@ Native run_files receives argv tokenized before prompt replacement, preserving f
 See [Local execution](../01_Documentation/Local_Execution.md) and
 [Local execution component](Component_Local_Execution.md). Focused native proof:
 `04_Software/tests/test_local_execution.py`.
+
+## Agent-controlled system packages
+
+run_gate accepts optional package_secrets for opted-in container jobs. It bounds retained live and archived stdout/stderr to 64 KiB per stream after completion, redacts known credentials and Bearer tokens, rejects linked output paths and streams complete original usage before truncation so cost/token accounting remains intact. Native and legacy output policy remains unchanged. See [Package permissions](Component_Package_Permissions.md) and the operator dependency-installation guide.
+
+Retained stdout/stderr archives encode the returned text directly as UTF-8 bytes. Host newline conversion cannot enlarge bounded package logs; multiline, redaction-expansion and malformed-UTF-8 cases are covered through the public gate interface. Complete original usage remains independent of text retention.

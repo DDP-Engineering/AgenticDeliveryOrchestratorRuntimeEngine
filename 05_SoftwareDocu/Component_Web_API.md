@@ -550,7 +550,7 @@ All routes below require administrator authorization and mutation CSRF:
 | `POST /api/v1/projects/id-availability` | `name` | Advisory `available` plus structured `issues`; never reserves an ID |
 | `GET /api/v1/executor-images?runtime=docker\|podman` | `runtime` | Read-only; runs `<runtime> images --format {{.Repository}}:{{.Tag}}` with a 15 s timeout, drops `<none>` entries and returns `{runtime, available, images}` for image suggestions |
 | `POST /api/v1/projects/{name}/labels/ensure` | none | Reads the repository's labels once and creates only the project's missing ADORE labels (colour and description); returns `{created, existing, failed[{name, reason}]}` and audits `labels-ensured`; 503 `forge_read_failed` (or the repository-auth code) when the labels cannot be read |
-| `POST /api/v1/projects/repository-source` | `url` | Detected `kind` (or null), `login`, `repo`, `default_branch`, derived `name`, `display_name`, `repo_path` (`<home>/repos/<name>`) and `clone` (`new`/`existing`); `repository_url_invalid` 400, `repository_unreachable` 502; no writes |
+| `POST /api/v1/projects/repository-source` | `url` | Detected `kind` (or null), `login`, `repo`, `default_branch`, validated sorted `branches`, derived `name`, `display_name`, `repo_path` (`<home>/repos/<name>`) and `clone` (`new`/`existing`); `repository_url_invalid` 400, `repository_unreachable` / `repository_branches_invalid` 502; no writes |
 | `POST /api/v1/projects/setup-preview` | Existing guided fields, optional `display_name` and `clone_url` | Local `structural_valid`, findings, `pickup: stopped-on-create`, unverified environment; no writes/probes |
 | `POST /api/v1/projects` | Same guided fields | Complete profile with pickup already stopped |
 | `POST /api/v1/projects/import-preview` | Exact TOML and identity | Full candidate revision, config digest, structured validation and safe review |
@@ -743,3 +743,27 @@ tests/test_web_image_build.py for current identity/failure contracts.
 ## Reviewed executor configuration
 
 The web-only executor.selection candidate owns default agent and its command/model atomically; executor.env_keys owns a complete names-only list. Both require pending review and existing paused/idle apply guards. Public pending values and persisted scope are closed and checked against the unchanged base. Source-only private credential APIs retain their contracts. See [Executor configuration and credentials](Component_Executor_Configuration.md) and test_web_executor_configuration.py.
+
+Reviewed configuration apply retries only Windows replace errors 5/32/33, at most six attempts with 50ms between attempts (250ms maximum scheduled delay). Persistent or other OS write failures return `config_write_failed` (HTTP 503), keep the active configuration and pending review, and clean the temporary candidate. Existing state/config locks and revision checks remain in force.
+
+## Gitea authentication recovery errors
+
+Missing, unavailable configured-name, ambiguous and malformed external Gitea
+login discovery map to the closed `gitea_auth_missing`, `gitea_auth_login_missing`,
+`gitea_auth_ambiguous` and `gitea_auth_invalid` API codes. Responses carry no CLI
+output, paths or credentials. Readiness retains its existing boolean forge_auth
+contract and saved-project credential authority. Existing authorization and
+repository-connection verification/storage guards remain active.
+
+## Local prerequisite evidence
+
+Schema-1 readiness optionally carries `executor_probe` with exactly `ready`,
+`reason`, `exit_code`, only in executor-local context. Legacy absence is accepted.
+The closed native validator checks the cause, boolean agreement with executor_cli,
+integer status and success consistency; duplicate JSON fields fail closed.
+Readiness-check persists and returns this extension, and project reads preserve
+it. Corruption returns readiness_corrupt without exposing stored text.
+
+## Agent-controlled system packages
+
+Reviewed config routes admit container.system_packages as a strict boolean with existing admin/CSRF/revision/pause/idle guards. Direct mutation requires the pending review path. Applying it leaves container.egress unchanged. See [Package permissions](Component_Package_Permissions.md) and the operator dependency-installation guide.

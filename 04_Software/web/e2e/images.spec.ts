@@ -23,7 +23,7 @@ test("image builds stay external and Agent and model gives container instruction
   await expect(page.getByRole("button",{name:"Build and verify",exact:true})).toHaveCount(0);
   await page.getByRole("tab",{name:"Settings",exact:true}).click();
   // Six agent settings plus the chosen backend, runtime and image.
-  await page.getByText("Agent and model (9)",{exact:true}).click();
+  await page.locator('[data-setting-purpose="executor"] > summary').click();
   const panel=page.locator(".executor-environment");
   await expect(panel.getByRole("heading",{name:"Executor runs in a container",exact:true})).toBeVisible();
   const config=await(await page.request.get("/api/v1/projects/"+id+"/config")).json();

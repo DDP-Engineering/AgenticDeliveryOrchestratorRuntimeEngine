@@ -49,8 +49,8 @@ network downloads, or installation beyond existing authorization.
 Update directly affected docstrings, usage examples, and setup instructions
 with the implementation. Keep material discoveries and design changes in the
 task journal; run outcomes and unresolved setup problems also belong there.
-Validate owns comprehensive component knowledge updates, architecture
-reconciliation, and migration of touched legacy pages. If another agent needs
+Validate owns comprehensive component knowledge updates and migration of
+touched legacy pages. If another agent needs
 current component facts before validate, update the relevant sections before
 the handoff.
 

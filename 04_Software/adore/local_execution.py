@@ -33,6 +33,7 @@ import tempfile
 from uuid import uuid4
 
 from adore.execution import ExecutionPaths
+from adore.isolation import IsolationError
 from adore.local_process import (
     LocalExecutionError,
     LocalProcessController,
@@ -41,7 +42,7 @@ from adore.local_process import (
     native_context,
     read_record,
 )
-from adore.util import CommandResult, strict_json_loads
+from adore.util import CommandResult, automatic_environment, strict_json_loads
 
 # CONSTANTS
 SYSTEM_ENV_KEYS = frozenset(
@@ -49,6 +50,7 @@ SYSTEM_ENV_KEYS = frozenset(
         "SYSTEMROOT",
         "WINDIR",
         "COMSPEC",
+        "PATHEXT",
         "APPDATA",
         "LOCALAPPDATA",
         "TEMP",
@@ -82,6 +84,20 @@ FORBIDDEN_EXECUTABLES = {
     "sh",
     "sh.exe",
 }
+LOCAL_PROBE_REASONS = frozenset({
+    "ready", "executable-missing", "credential-missing", "credential-invalid",
+    "executor-exit", "version-invalid", "timeout", "account-mismatch",
+    "permission-denied", "scope-error", "cleanup-failed", "runtime-error",
+})
+
+
+class LocalPrerequisiteError(LocalExecutionError):
+    """@brief Preserve a closed prerequisite cause and the measured process status."""
+
+    def __init__(self, reason: str, exit_code: int | None = None):
+        """@brief Carry safe diagnostic data without retaining command output."""
+        super().__init__(reason)
+        self.reason, self.exit_code = reason, exit_code
 
 # LOCAL HELPERS
 
@@ -151,7 +167,7 @@ def local_environment(config, context: dict, secrets: dict | None = None) -> dic
     env.setdefault("PI_CODING_AGENT_DIR", str(Path(home) / ".pi" / "agent"))
     approved = set(config.executor.env_keys)
     env.update({key: value for key, value in (secrets or {}).items() if key in approved})
-    return env
+    return automatic_environment(env)
 
 
 def resolve_executable(command: str, env: dict[str, str], system: str) -> str:
@@ -335,6 +351,30 @@ class LocalBackend:
             raise LocalExecutionError("native control directory is linked or aliased")
         return control
 
+    def revalidate_for_retry(self, name: str, expected: dict, previous_policy: dict) -> None:
+        """@brief Refresh an owned native receipt after explicit Retry authorization.
+        @param[in] name Persisted resource name.
+        @param[in] expected Unchanged run resource identity.
+        @param[in] previous_policy Previously pinned local policy, checked by the conductor.
+        @exception LocalExecutionError Corrupt receipt or foreign ownership.
+        """
+        control = self._control(expected)
+        receipt = read_record(control / "runtime.json")
+        if (
+            set(receipt) != {"schema", "resource", "policy_sha256"}
+            or type(receipt["schema"]) is not int or receipt["schema"] != 1
+            or receipt["resource"] != expected or expected["name"] != name
+            or receipt["policy_sha256"] not in (
+                fingerprint(previous_policy), fingerprint(self.policy)
+            )
+        ):
+            raise LocalExecutionError("native Retry receipt differs from the saved job")
+        self.controller.recover(control, expected["id"], expected["host"])
+        atomic_record(control / "runtime.json", {
+            "schema": 1, "resource": expected, "policy_sha256": fingerprint(self.policy),
+        })
+        self.targets[name] = expected
+
     def verify_identity(self, name: str, expected: dict) -> dict:
         """@brief Refuse state/config/resource drift before commands or controls.
         @param[in] name Owned native resource or Job name.
@@ -442,8 +482,18 @@ class LocalBackend:
         )
         prefix = argv[:2] if Path(argv[0]).stem.casefold() == "node" else argv[:1]
         checked = target([*prefix, "--version"], timeout=10)
-        if not checked.ok or not re.search(r"\d+\.\d+", checked.stdout):
-            raise LocalExecutionError("local executor availability check failed")
+        if checked.timed_out:
+            raise LocalPrerequisiteError("timeout", checked.exit_code)
+        if not checked.ok:
+            raise LocalPrerequisiteError("executor-exit", checked.exit_code)
+        # Native CLIs may report their version on stderr. Require an actual
+        # version line, rather than accepting digits in an unrelated warning.
+        version = (r"(?:(?:opencode|pi(?:-coding-agent)?|codex(?:-cli)?|qwen(?:-code)?)"
+                   r"(?: version)?:?\s*)?v?\d+\.\d+(?:\.\d+)?(?:[-+][\w.-]+)?")
+        if not any(re.fullmatch(version, line.strip(), re.I)
+                   for line in re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "",
+                                      checked.stdout + "\n" + checked.stderr).splitlines()):
+            raise LocalPrerequisiteError("version-invalid", checked.exit_code)
 
     def interrupt(self, name: str, *, expected: dict | None = None) -> None:
         """@brief Terminate only verified native command scope, never a bare PID.
@@ -656,6 +706,87 @@ def local_probe(config, env_file: Path | None = None):
         if backend is not None and resource is not None:
             backend.remove("probe", expected=resource)
         shutil.rmtree(root)
+
+
+def validate_local_probe(value: object, ready: bool) -> dict:
+    """@brief Refuse corrupt or contradictory optional prerequisite evidence.
+    @param[in] value Untrusted persisted diagnostic object.
+    @param[in] ready Authoritative executor_cli check.
+    @return Closed diagnostic with no external text.
+    @exception ValueError Unknown keys, types, reasons or inconsistent status.
+    """
+    if (not isinstance(value, dict) or set(value) != {"ready", "reason", "exit_code"}
+            or type(value["ready"]) is not bool or value["ready"] is not ready
+            or not isinstance(value["reason"], str) or value["reason"] not in LOCAL_PROBE_REASONS
+            or value["ready"] != (value["reason"] == "ready")
+            or value["exit_code"] is not None and (
+                type(value["exit_code"]) is not int or not -2147483648 <= value["exit_code"]
+                <= 4294967295)
+            or value["reason"] in {"ready", "version-invalid", "credential-missing"}
+            and value["exit_code"] != 0
+            or value["reason"] == "executor-exit" and value["exit_code"] in {None, 0}):
+        raise ValueError("invalid local prerequisite evidence")
+    return value
+
+
+def local_probe_failure(error: Exception, fallback: str = "runtime-error") -> str:
+    """@brief Classify known native failures without exposing arbitrary exception text.
+    @param[in] error Native boundary failure.
+    @param[in] fallback Current failed phase, used for unclassified failures.
+    @return Closed cause; raw provider/OS/credential strings never escape.
+    """
+    if isinstance(error, PermissionError):
+        return "permission-denied"
+    if isinstance(error, LocalPrerequisiteError):
+        return error.reason
+    text = str(error)
+    causes = {
+        "selected local executable is unavailable": "executable-missing",
+        "local Windows requires an executable or explicit node entrypoint": "executable-missing",
+        "local shell and Windows-to-WSL wrappers are unsupported": "executable-missing",
+        "selected local executable is not executable": "permission-denied",
+        "local executor auth store is corrupt or unsafe": "credential-invalid",
+        "local account differs from the ADORE process account": "account-mismatch",
+        "selected local account home is unavailable": "account-mismatch",
+    }
+    if text in causes:
+        return causes[text]
+    if "cleanup" in text or "drain" in text or "recovery" in text:
+        return "cleanup-failed"
+    cause = error.__cause__
+    for _ in range(8):
+        if cause is None:
+            break
+        if isinstance(cause, PermissionError):
+            return "permission-denied"
+        cause = cause.__cause__
+    if text == "native launch ownership failed":
+        return "scope-error"
+    return fallback
+
+
+def probe_local_executor(config, env_file: Path | None = None) -> dict:
+    """@brief Measure installed executor/version/auth and preserve a safe failed phase.
+    @param[in] config Validated current-account configuration.
+    @param[in] env_file Selected approved provider values.
+    @return Closed ready/reason/exit_code evidence after verified cleanup.
+    """
+    value = {"ready": False, "reason": "scope-error", "exit_code": None}
+    phase = "scope-error"
+    try:
+        with local_probe(config, env_file) as (backend, target, _, _):
+            phase = "runtime-error"
+            backend.verify_required_tools("probe", [], env=target.env)
+            value["exit_code"] = 0
+            phase = "credential-invalid"
+            ready = target.auth_available()
+            value.update(ready=ready, reason="ready" if ready else "credential-missing")
+            phase = "cleanup-failed"
+    except (IsolationError, OSError, ValueError) as exc:
+        value.update(ready=False, reason=local_probe_failure(exc, phase))
+        if isinstance(exc, LocalPrerequisiteError):
+            value["exit_code"] = exc.exit_code
+    return validate_local_probe(value, value["ready"])
 
 
 # END OF FILE

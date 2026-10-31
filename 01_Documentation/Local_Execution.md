@@ -12,7 +12,8 @@ current machine/service account in a dedicated ticket worktree. Omitted backend
 keeps container execution. Choose **Runs in → Installed on the server** on enrollment
 step 2 or in Settings → Agent and model (reviewed configuration flow), or use assisted
 CLI setup or external server TOML enrollment; the web shows the native executor command
-and the local account fields (`account`, `home`, `path`, Linux `cgroup_root`).
+and the read-only detected account. Technical controls (`home`, `path`, Linux
+`cgroup_root`) are inside closed **Advanced**; enrollment uses `account = "current"`.
 Readiness evidence identifies the actual server machine/account. Tools installed on the browser
 laptop do not prepare the execution server.
 
@@ -20,18 +21,44 @@ laptop do not prepare the execution server.
 
 You decide and independently install/prep project tools, versions, SDKs and libraries
 on that machine under the effective account. ADORE checks basic selected-executor
-availability and auth state. It supplies no catalogue, discovery, installer,
-bootstrap or required project-tool manifest. Authenticate the installed CLI
+availability and auth state. The web interface discovers installed supported executors and proposes native
+commands; project dependencies and tool installation remain operator-owned. Authenticate the installed CLI
 interactively under the service account before unattended operation. ADORE never
 switches account or starts login. A named `local.account` asserts the actual account
 (qualified name on Windows); `current` uses it directly. Empty home/PATH settings
 use native defaults; explicit values select an already prepared environment.
+The executor is a new child process under the same account, not an attachment to
+an open terminal. Settings keeps existing account assertions/home/PATH/delegation
+under **Advanced**. PATH is the tool directory list, not the executor file path. Windows native
+children also inherit `PATHEXT`, which lets their shells resolve installed
+commands such as `git` and `python` without an explicit `.exe` suffix.
 
 A worktree is not a host sandbox. Project commands can access files, credentials
 and helpers permitted to the OS account. Use a dedicated least-privilege account
 and keep forge publication credentials outside it when possible. Environment
 filtering does not remove filesystem access. Container egress restrictions are
 refused locally; `container.egress.mode` must be `open`.
+
+## Installed executor selection
+
+Enrollment **Agent and model → Runs in → Installed on the server** detects native
+OpenCode, Pi, Codex and Qwen Code from the current ADORE account PATH and conventional
+user/npm directories. The actual host/account is shown. An empty or standard
+command receives the first detected launch; typed commands remain unchanged.
+**Detected installations** selects another executable or installed Node/JS pair.
+**Detect installed executors** refreshes suggestions. Discovery reads files only,
+without executing a CLI, reading credentials or contacting providers.
+
+To choose a server executable manually, open **Advanced**, enter its absolute path in **Executable
+path on the ADORE host**, then select **Use executable**. This generates the standard
+agent arguments; edit **Executor launch command** to keep custom arguments or
+supply an installed Node/JS pair. Windows uses real `.exe` files, including native
+binaries behind npm wrappers. Missing or unusual installations remain manually
+configurable. Settings exposes the same picker while editing a local launch
+command; saved commands are preserved until explicitly changed and use the normal
+Prepare candidate / review / Apply workflow. Detection is a suggestion; execution
+still validates and pins installed file identities. Linux still requires delegated
+cgroup v2. Existing authentication and model checks remain separate.
 
 ## Platform controls
 
@@ -137,9 +164,12 @@ exit also drains descendants. Parking retains worktree/archives without a live g
 Retry/restart reconciles the same pinned resource. Explicit cancel/delete release
 only verified run controls/worktrees; shared tools/home/auth and archives remain.
 Routine cleanup protects active, failed, human-owned and corrupt runs. Container
-profiles protect persisted native worktrees. Restore the pinned backend/account/
-environment after drift or start a fresh run; never edit identity records to force
-recovery. Windows parent death closes its Job; Linux recovery uses durable cgroup
+profiles protect persisted native worktrees. Explicit Retry revalidates an updated
+installed executor or inherited environment on the same machine/account, retaining
+the job/task/worktree and cumulative budgets. It runs the bounded version check
+before AEGIS and reports the saved failure cause if rearming fails. Automatic
+resume keeps pinned identity checks. Changed backend/account or execution settings
+still need correction; never edit identity records to force recovery. Windows parent death closes its Job; Linux recovery uses durable cgroup
 identity. Old binaries reject local records.
 
 The existing conductor retains AEGIS journals, questions, immutable gate archives,
@@ -159,3 +189,38 @@ stdout, stderr and questions remain bounded at 64 KiB. Native stream decoding
 rejects invalid UTF-8; truncated JSON cannot become successful AEGIS evidence.
 The shared drain retains container defaults. Saved local readiness checks reuse
 approved profile .env values in memory through the same native environment.
+
+## Background command output
+
+ADORE supplies `GIT_PAGER=cat` and `PAGER=cat` to automatic commands and native
+executors. Their ordinary child commands inherit these values, so Git output
+is captured directly instead of opening an interactive pager. These launch
+values override pager settings in the account or profile for that invocation.
+Windows console processes started by ADORE use `CREATE_NO_WINDOW`; the native
+supervisor and executor remain in their owned Job with captured output.
+The same pager defaults apply to commands executed inside containers.
+
+These defaults apply to new launches. Existing processes and manually started
+terminals retain their environment. A tool explicitly opening a GUI, requesting
+a new console or replacing its pager environment can override inherited defaults.
+
+## Readiness and model checks
+
+In project Summary, **Check host prerequisites** verifies the installed executor
+version and existing account sign-in. Local execution failures now distinguish
+missing executable, version command exit/timeout, invalid version, absent/corrupt
+authentication, account/home mismatch, permission, process scope and cleanup.
+The numeric exit code is shown when available; credentials and raw command output
+are not displayed. Older results without a cause ask for a fresh check.
+
+**Test AI connection** in **Settings → Agent and model** sends one short request
+through the saved native command in an empty temporary folder under the ADORE
+account. Existing sign-in is reused; a provider charge may apply. The result
+separates authentication rejection, unavailable model, connection/timeout and
+invalid/incomplete executor response. It does not prove a complete job or tool
+support. Correct the reported cause and repeat only the relevant check.
+
+On Windows, background executor commands keep their standard output and errors
+available to ADORE while opening no console window. Host version checks and model
+responses use that same captured native transport. A successful process exit
+alone does not prove a successful check; the captured evidence is still required.

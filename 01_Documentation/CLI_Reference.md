@@ -150,3 +150,24 @@ config validate checks local profiles; config plan reviews pinned native policy 
 
 See [Local execution](Local_Execution.md) for platform prerequisites, configuration,
 authentication, process ownership and acceptance coverage.
+
+## Manual start with paused monitoring
+
+`adore --profile NAME run --once --ticket IID` starts only the named eligible
+ticket, even with monitoring paused, and leaves monitoring paused. Capacity,
+workflow, lock and approval gates still apply. Non-preview manual commands end
+with a secret-free `ADORE_START_RESULT ` JSON record (schema 1, ticket, exit_code,
+reason); exit zero means admitted and nonzero names a closed failure reason.
+Existing human-readable logs remain before the terminal record.
+
+
+Explicit native `retry` accepts installed executor and inherited environment updates
+on the same machine/account while retaining task, worktree, branch, history and
+cumulative budgets. It runs the bounded version prerequisite before AEGIS. A failed
+rearm returns exit 1, including when the conductor accepted Retry but provisioning
+failed. The final `ADORE_RETRY_RESULT` line binds schema, run ID, exit and a closed
+reason; the web worker shows the saved job cause rather than raw process logs.
+
+## Direct agent dependency installation
+
+`adore --profile <name> config set container.system_packages true` opts a container project into direct agent package-manager sudo. Use false to stop granting that permission for future jobs. Network remains independently configured through `container.egress`. Existing managed jobs retain pinned authority and reject policy drift. See [Agent dependency installation](Agent_Dependency_Installation.md).

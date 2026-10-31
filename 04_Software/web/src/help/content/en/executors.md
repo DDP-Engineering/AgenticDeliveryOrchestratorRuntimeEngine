@@ -42,6 +42,16 @@ Edits in Settings go through **Prepare candidate**, review and **Apply change**.
 
 Host checks for a local project skip the container engine and check the native agent and its sign-in.
 
+## Detect installed executors {#installed-executors}
+
+When you choose **Installed on the server**, ADORE detects OpenCode, Pi, Codex and Qwen Code on the execution host. **Runs as** identifies the machine and account; in a portable desktop installation, this is the computer running ADORE. The first detected installation prefills an empty or standard command during enrollment. **Detected installations** lets you choose another installation. Existing saved commands and manual edits stay unchanged.
+
+ADORE automatically uses the account running its process, that account’s home folder and tool PATH, and the executor’s saved sign-in. This is a new executor process, not a connection to an open terminal session. A service uses its service account.
+
+Detection starts automatically when local execution is selected; switching agents uses the detected list. Open **Advanced** for **Detect installed executors** if you need to refresh it. Open **Advanced** to enter **Executable path on the ADORE host** and choose **Use executable**, or edit **Executor launch command**. Windows uses a real `.exe`; Node agents need the installed Node/JavaScript command. Detection reads installation locations only: it does not install tools, sign in or test model access.
+
+Open **Advanced** for the full command, a manual executable path, home/PATH overrides and Linux cgroup delegation. Leave home and PATH empty for automatic values. PATH means tool directories, not the executable file. Account names in Settings verify the current identity; they do not switch users.
+
 ## Project image {#project-image}
 
 For a container project, Settings → Agent and model shows **Executor runs in a container**, the **Image used** and an **Environment preparation instructions** disclosure. The web interface does not define or build the image, and adding a Dockerfile to the repository starts no build. The administrator prepares it on the server:
@@ -59,6 +69,8 @@ USER adore
 
 To use the image, choose the **Container runtime** (Docker or Podman) and the **Executor image** on step 2 of enrollment, or edit **Container runtime command** and **Agent container image** in Settings. The image is free text with suggestions read from the images on the ADORE server for that runtime (administrators only); a notice appears when the typed image is not on the server and another when the list cannot be read. Choosing an executor proposes an image whose tag starts with the executor name and a hyphen (for example `pi-`), preferring `adore-executor-base:`; it replaces only the old default or an earlier proposal, never a value you typed.
 
+For a custom WSL runtime command, place `--` or `--exec` before the container command. Standard Docker and Podman entries are handled automatically.
+
 Then confirm with **Check host prerequisites** and **Test AI connection**.
 
 ## Local endpoint for OpenCode {#local-endpoint}
@@ -66,3 +78,17 @@ Then confirm with **Check host prerequisites** and **Test AI connection**.
 For a container project that uses OpenCode, administrators also see **OpenAI-compatible endpoint URL** in Agent and model, for a model served on your own network. Enter the URL, an optional **Credential environment reference**, the **Request timeout (seconds)** and, for HTTPS with a private CA, the **Custom CA file in executor image**. The protocol is fixed to OpenAI chat completions. **Prepare candidate** reviews the URL and model together.
 
 The URL must be reachable from inside the executor container, where localhost is the container itself, and the image must already contain the provider package. Saving does not test reachability and adds no cloud fallback; **Check host prerequisites** tests a streamed tool call from a temporary container.
+
+## Local check results {#local-check-results}
+
+In Summary, **Check host prerequisites** checks the installed executor version and existing sign-in. Local execution shows a concise purpose and the measured failure cause: executable, version/exit code, timeout, account, credentials, permissions, process setup or cleanup. Older checks without a saved cause ask you to run the check again.
+
+Use **Test AI connection** in Settings → Agent and model separately. For local execution it uses the saved native command and existing ADORE-account sign-in in an empty temporary folder. A provider charge may apply. The result distinguishes rejected credentials, an unavailable model, connection/timeout and invalid or incomplete executor output. Correct that cause before repeating the relevant check; a successful connection does not prove a complete job or tool support.
+
+## Agent system packages {#system-packages}
+
+**Allow agent system package installation**
+
+In Settings → Agent and model, administrators can enable this separate permission through Prepare candidate and Apply change. It is off by default and available for container projects. Rebuild or select a compatible image with sudo first, then start a fresh job. The agent runs package commands directly, reads failures and adapts within job limits.
+
+Network access remains separate: open permits reachable sources, allowlist-proxy permits allowed HTTP/HTTPS domains, and none permits only available local sources. Package scripts have administrative rights inside the container; mounted project folders remain shared with the server. Installed system packages remain when the same container resumes; a fresh container requires reassessment and installation.

@@ -30,9 +30,11 @@ from dataclasses import dataclass, field
 import json
 from pathlib import Path
 import platform
+import re
 
 from adore.aegis import MINIMUM_SERIES, SUPPORTED_MAJOR, VERSION_RE
-from adore.util import CommandRunner, run_command
+from adore.gitea_auth import GiteaAuthError, portable_tea_runner
+from adore.util import CommandRunner, run_command, strict_json_loads
 
 # CONSTANTS
 
@@ -68,11 +70,11 @@ _AUTH_COMPONENT_FOR_KIND = {"gitlab": GLAB_AUTH, "github": GH_AUTH, "gitea": TEA
 # Auth probe argv by kind. Kind-specific on purpose: tea has no `auth status`
 # subcommand - and tea exits 0 for UNKNOWN subcommands ("No help topic"), so a
 # generic `<cli> auth status` would falsely report Gitea as authenticated.
-# `tea whoami` calls the API with the stored token, which is the real check.
+# Gitea requires an HTTP-successful account API response with a valid identity.
 _AUTH_PROBE_FOR_KIND = {
     "gitlab": (GLAB, "auth", "status"),
     "github": (GH, "auth", "status"),
-    "gitea": (TEA, "whoami"),
+    "gitea": (TEA, "api", "-i", "--method", "GET", "user"),
 }
 
 # OS-specific (and a "*" generic) install/setup text. Kept as data so the
@@ -403,30 +405,50 @@ def detect_platform_cli(kind: str, runner: CommandRunner = run_command) -> ToolS
     return _probe(runner, cli, [cli, "--version"])
 
 
-def auth_status(kind: str, runner: CommandRunner = run_command) -> AuthStatus:
+def auth_status(
+    kind: str, runner: CommandRunner = run_command, *, external_auth: bool = True,
+) -> AuthStatus:
     """
-    @brief      Whether the platform CLI is authenticated.
-    @details    Runs the kind-specific probe (`glab auth status` /
-                `gh auth status` / `tea whoami`): exit 127 = CLI missing;
-                exit 0 = authenticated; otherwise present-but-not. The probe
-                argv is per kind because tea has no `auth status` - and tea
-                exits 0 even for unknown subcommands, which would fake success.
+    @brief      Verify platform authentication using its account probe.
+    @details    Gitea shares portable current-account discovery and requires a
+                successful HTTP response with a valid, unambiguous identity.
     @param[in]  kind "gitlab", "github" or "gitea".
     @param[in]  runner Injectable command runner.
-    @return     The AuthStatus.
-    @exception  ValueError When kind is not gitlab/github/gitea.
+    @param[in]  external_auth False when the caller already owns credential authority.
+    @return     Presence and verified authentication, with value-free Gitea guidance.
+    @exception  ValueError When kind is unsupported.
     """
     probe = _AUTH_PROBE_FOR_KIND.get(kind)
     if probe is None:
         raise ValueError(f"unknown platform kind: {kind!r}")
     cli = probe[0]
-    result = runner(list(probe))
+    auth_runner = portable_tea_runner(runner) if kind == "gitea" and external_auth else runner
+    try:
+        result = auth_runner(list(probe), timeout=8)
+    except GiteaAuthError as exc:
+        return AuthStatus(kind, cli, True, False, str(exc))
     if result.exit_code == 127:
         return AuthStatus(kind=kind, cli=cli, present=False, authenticated=False,
                           detail="CLI not installed")
-    detail = (result.stderr.strip() or result.stdout.strip())
-    return AuthStatus(kind=kind, cli=cli, present=True, authenticated=result.ok,
-                      detail=detail)
+    if kind == "gitea":
+        valid = False
+        try:
+            if len(result.stdout.encode("utf-8")) > 1_000_000:
+                raise ValueError("oversized identity")
+            identity = strict_json_loads(result.stdout)
+            statuses = re.findall(r"HTTP/\S+\s+(\d{3})", result.stderr)
+            valid = bool(
+                result.ok and not result.timed_out
+                and statuses and 200 <= int(statuses[-1]) < 300
+                and isinstance(identity, dict) and isinstance(identity.get("login"), str)
+                and re.fullmatch(r"[A-Za-z0-9_.-]{1,128}", identity["login"])
+            )
+        except (ValueError, TypeError, UnicodeError):
+            pass
+        return AuthStatus(kind, cli, True, valid,
+                          "" if valid else str(GiteaAuthError("gitea_auth_invalid")))
+    detail = result.stderr.strip() or result.stdout.strip()
+    return AuthStatus(kind, cli, True, result.ok, detail)
 
 
 def detect_aegis(

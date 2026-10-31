@@ -42,6 +42,16 @@ Les modifications dans Paramètres passent par **Préparer le candidat**, la rev
 
 Les contrôles de l’hôte pour un projet local ignorent le moteur de conteneur et vérifient l’agent natif et sa connexion.
 
+## Détecter les exécuteurs installés {#installed-executors}
+
+Quand vous choisissez **Installé sur le serveur**, ADORE détecte OpenCode, Pi, Codex et Qwen Code sur l’hôte d’exécution. **Exécution sous** identifie la machine et le compte ; pour une installation portable sur ordinateur, il s’agit de l’ordinateur exécutant ADORE. La première installation détectée complète une commande vide ou standard pendant l’inscription. **Installations détectées** permet de choisir une autre installation. Les commandes enregistrées et les modifications manuelles sont conservées.
+
+ADORE utilise automatiquement le compte de son processus, son dossier personnel, le PATH des outils et la connexion enregistrée de l’exécuteur. Il lance un nouveau processus, sans se connecter à un terminal ouvert. Un service utilise son compte de service.
+
+La détection démarre automatiquement lorsque l’exécution locale est choisie ; changer d’agent utilise la liste détectée. Ouvrez **Avancé** puis **Détecter les exécuteurs installés** pour l’actualiser. Ouvrez **Avancé**, saisissez **Chemin de l’exécutable sur l’hôte ADORE** puis **Utiliser l’exécutable**, ou modifiez **Commande de lancement de l’exécuteur**. Windows utilise un vrai `.exe` ; les agents Node nécessitent la commande Node/JavaScript installée. La détection lit les emplacements, sans installation, connexion ni test du modèle.
+
+Ouvrez **Avancé** pour la commande complète, un chemin d’exécutable manuel, les valeurs de dossier/PATH et la délégation cgroup Linux. Laissez dossier et PATH vides pour les valeurs automatiques. PATH désigne les dossiers des outils, pas un exécutable. Les noms de compte dans Paramètres vérifient l’identité actuelle sans changer d’utilisateur.
+
 ## Image du projet {#project-image}
 
 Pour un projet en conteneur, Paramètres → Agent et modèle affiche **L’exécuteur fonctionne dans un conteneur**, l’**Image utilisée** et un volet **Instructions de préparation de l’environnement**. L’interface web ne définit ni ne construit l’image, et l’ajout d’un Dockerfile au dépôt ne lance aucune construction. L’administrateur la prépare sur le serveur :
@@ -59,6 +69,8 @@ USER adore
 
 Pour utiliser l’image, choisissez le **Moteur de conteneur** (Docker ou Podman) et l’**Image de l'exécuteur** à l’étape 2 de l’inscription, ou modifiez ces mêmes lignes dans Paramètres. L’image est un champ libre avec des suggestions tirées des images du serveur ADORE pour ce moteur (administrateurs uniquement) ; un avis s’affiche quand l’image saisie n’est pas sur le serveur, un autre quand la liste ne peut pas être lue. Le choix d’un exécuteur propose une image dont l’étiquette commence par le nom de l’exécuteur suivi d’un tiret (par exemple `pi-`), de préférence `adore-executor-base:` ; elle ne remplace que l’ancienne valeur par défaut ou une proposition précédente, jamais une valeur saisie.
 
+Pour une commande WSL personnalisée, placez `--` ou `--exec` avant la commande du conteneur. Les entrées Docker et Podman standard sont traitées automatiquement.
+
 Confirmez ensuite avec **Vérifier les prérequis de l’hôte** et **Tester la connexion IA**.
 
 ## Point d’accès local pour OpenCode {#local-endpoint}
@@ -66,3 +78,17 @@ Confirmez ensuite avec **Vérifier les prérequis de l’hôte** et **Tester la 
 Pour un projet en conteneur qui utilise OpenCode, les administrateurs voient aussi **URL du serveur compatible OpenAI** dans Agent et modèle, pour un modèle servi sur votre propre réseau. Saisissez l’URL, une **Référence de variable d'identification** facultative, le **Délai maximal de la requête (secondes)** et, pour HTTPS avec une autorité de certification privée, le **Fichier CA dans l'image d'exécution**. Le protocole est fixé à OpenAI chat completions. **Préparer le candidat** examine ensemble l’URL et le modèle.
 
 L’URL doit être joignable depuis l’intérieur du conteneur de l’exécuteur, où localhost désigne le conteneur lui-même, et l’image doit déjà contenir le paquet du fournisseur. L’enregistrement ne teste pas la joignabilité et n’ajoute aucun repli vers le cloud ; **Vérifier les prérequis de l’hôte** teste un appel d’outil en flux depuis un conteneur temporaire.
+
+## Résultats des contrôles locaux {#local-check-results}
+
+Dans Résumé, **Vérifier les prérequis de l’hôte** vérifie la version de l’exécuteur installé et sa connexion existante. L’exécution locale affiche un objectif concis et la cause mesurée : exécutable, version/code de sortie, délai, compte, identifiants, droits, préparation ou arrêt des processus. Les anciens résultats sans cause enregistrée demandent un nouveau contrôle.
+
+Utilisez séparément **Tester la connexion IA** dans Paramètres → Agent et modèle. En local, il utilise la commande native enregistrée et la connexion du compte ADORE dans un dossier temporaire vide. Des frais peuvent s’appliquer. Le résultat distingue identifiants refusés, modèle indisponible, connexion/délai et sortie invalide ou incomplète. Corrigez cette cause avant de répéter le contrôle concerné ; une connexion réussie ne prouve pas une tâche complète ni ses outils.
+
+## Paquets système de l’agent {#system-packages}
+
+**Autoriser l’installation de paquets système par l’agent**
+
+Dans Paramètres → Agent et modèle, les administrateurs activent cette permission distincte avec Préparer le candidat et Appliquer le changement. Désactivée par défaut, elle concerne les projets en conteneur. Reconstruisez ou choisissez une image compatible avec sudo, puis lancez une nouvelle tâche. L’agent exécute directement les commandes, analyse les échecs et s’adapte dans les limites de la tâche.
+
+L’accès réseau reste distinct : open autorise les sources accessibles, allowlist-proxy les domaines HTTP/HTTPS permis, et none uniquement les sources locales disponibles. Les scripts de paquets ont des droits administratifs dans le conteneur ; les dossiers montés restent partagés avec le serveur. Les paquets système restent dans le même conteneur à la reprise ; un nouveau conteneur exige une nouvelle évaluation et installation.

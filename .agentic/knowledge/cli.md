@@ -71,6 +71,14 @@ state only: they do not edit AEGIS journals or cause a merge.
 
 ## Key behaviors
 
+REQ-FUNC-f9946b6b: Retry emits a final bounded ADORE_RETRY_RESULT containing
+schema=1, requested run_id, actual exit_code and closed reason. An accepted Retry
+ending failed exits 1/retry_failed and prints the saved outcome. Successful rearming
+exits 0/retried. Setup/lock/state/repository refusals and known native executable,
+account and permission problems are closed causes. The worker ignores raw logs.
+Focused proof: tests/test_retry_revalidation.py and smoke mutation-lock selectors.
+
+
 - REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: config validate accepts local profiles; config plan resolves pinned native policy without project commands. Local config set resolves the same plan before writing. Existing run/retry/cancel/handoff/cleanup commands retain conductor ownership.
 
 Native ownership/auth route to `local-execution.md`; focused proof is
@@ -96,11 +104,15 @@ flowchart LR
     parser --> engine[Orchestrator]
     parser --> metrics[metrics.py]
     engine --> state[(StateStore)]
+    parser --> Result[Bound Start and Retry terminal result]
+    state --> Result
 ```
 
 The web worker calls the same CLI command boundary with fixed argument vectors.
 
 ## Files
+
+- `04_Software/tests/test_retry_revalidation.py`: explicit Retry and bound outcome proof.
 
 - `04_Software/tests/test_local_execution.py`: native integration/negative proof.
 
@@ -109,3 +121,7 @@ The web worker calls the same CLI command boundary with fixed argument vectors.
 - `04_Software/tests/test_smoke.py` - CLI behavior and failure contracts.
 - `04_Software/tests/test_orchestrator.py` - selected-ticket selection checks.
 - `04_Software/tests/test_checkpoint_handoff.py` - handoff command boundaries.
+
+Manual `run --once --ticket IID` retains paused monitoring and appends a bounded,
+versioned secret-free terminal result through adore/start_result.py. The worker
+validates selected IID, exit code and allowlisted reason; see Component_CLI.md.

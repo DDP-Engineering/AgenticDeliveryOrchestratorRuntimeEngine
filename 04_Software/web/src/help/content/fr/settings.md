@@ -28,6 +28,8 @@ Chaque ligne a un libellé, une description toujours visible, une **Valeur activ
 
 Un badge **Par défaut** signifie que le `config.toml` du projet ne définit pas la valeur : le défaut d’ADORE s’applique. La modifier écrit une valeur pour ce projet seulement. Une ligne marquée **Non modifiable ici** se change dans le `config.toml` sur le serveur. Une ligne marquée **À appliquer seulement avec la sélection suspendue et sans tâche active** exige la condition supplémentaire décrite ci-dessous.
 
+La détection démarre automatiquement lorsque l’exécution locale est choisie ; changer d’agent utilise la liste détectée. Ouvrez **Avancé** puis **Détecter les exécuteurs installés** pour l’actualiser. Pour l’exécution locale, choisissez une installation détectée ou saisissez un chemin ; voir [Détecter les exécuteurs installés](/help/executors#installed-executors). Ouvrez **Avancé** pour la commande complète, un chemin d’exécutable manuel, les valeurs de dossier/PATH et la délégation cgroup Linux. Laissez dossier et PATH vides pour les valeurs automatiques. PATH désigne les dossiers des outils, pas un exécutable. Les noms de compte dans Paramètres vérifient l’identité actuelle sans changer d’utilisateur.
+
 ## Modification {#editing}
 
 1. Choisissez **Modifier** à côté de la valeur active, saisissez la nouvelle valeur et choisissez **Préparer le candidat**. Cela n’écrit qu’un candidat en attente ; la configuration en service reste inchangée.
@@ -42,6 +44,16 @@ Règles applicables :
 - Les paramètres qui changent l’identité ou l’environnement d’exécution exigent aussi que la surveillance soit en pause. Choisissez **Suspendre la surveillance** dans Résumé et laissez le travail actif se terminer ; la suspension n’interrompt pas une tâche en cours.
 - Les nouvelles valeurs s’appliquent aux tâches suivantes. Les tâches existantes conservent leur configuration.
 
+Les blocages brefs de fichier sous Windows sont réessayés automatiquement. Si les réglages ne peuvent toujours pas être enregistrés, la proposition vérifiée reste disponible : vérifiez l’accès au fichier et réessayez **Appliquer**.
+
 ## TOML d’origine {#toml}
 
 À côté du titre Paramètres du projet, les administrateurs disposent de **Voir la configuration brute** et **Télécharger la configuration brute**. L’aperçu ouvre une boîte de dialogue fermable et ne garde le texte qu’en mémoire. Le téléchargement fournit le `config.toml` enregistré exactement tel que stocké, avec ses commentaires, sa mise en forme et d’éventuels secrets en clair : traitez-le comme un secret. Ni l’un ni l’autre n’inclut un candidat en attente, les valeurs par défaut résolues, les fichiers `.env` séparés ou les identifiants externes. Les développeurs ne peuvent pas les utiliser. Un fichier téléchargé peut être inscrit de nouveau avec [Importer une configuration de projet](/help/projects#import-project) une fois ses secrets remplacés par des références d’environnement.
+
+## Paquets système de l’agent {#system-packages}
+
+**Autoriser l’installation de paquets système par l’agent**
+
+Dans Paramètres → Agent et modèle, les administrateurs activent cette permission distincte avec Préparer le candidat et Appliquer le changement. Désactivée par défaut, elle concerne les projets en conteneur. Reconstruisez ou choisissez une image compatible avec sudo, puis lancez une nouvelle tâche. L’agent exécute directement les commandes, analyse les échecs et s’adapte dans les limites de la tâche.
+
+L’accès réseau reste distinct : open autorise les sources accessibles, allowlist-proxy les domaines HTTP/HTTPS permis, et none uniquement les sources locales disponibles. Les scripts de paquets ont des droits administratifs dans le conteneur ; les dossiers montés restent partagés avec le serveur. Les paquets système restent dans le même conteneur à la reprise ; un nouveau conteneur exige une nouvelle évaluation et installation.

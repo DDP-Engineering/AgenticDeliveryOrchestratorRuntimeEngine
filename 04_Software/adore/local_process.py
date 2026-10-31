@@ -35,7 +35,12 @@ from uuid import uuid4
 
 from adore.execution import ExecutionRecoveryError
 from adore.preparation_runner import _drain
-from adore.util import CommandResult, strict_json_loads
+from adore.util import (
+    CommandResult,
+    automatic_environment,
+    background_process_options,
+    strict_json_loads,
+)
 
 # CONSTANTS
 _TOKEN = re.compile(r"[0-9a-f]{32}\Z")
@@ -646,10 +651,11 @@ class LocalProcessController:
                         str(envelope),
                     ],
                     cwd=cwd,
-                    env=env,
+                    env=automatic_environment(env),
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     stdin=subprocess.DEVNULL,
+                    **background_process_options(),
                 )
                 self.scopes.attach(scope, process.pid)
                 birth = self.scopes.birth(process.pid)

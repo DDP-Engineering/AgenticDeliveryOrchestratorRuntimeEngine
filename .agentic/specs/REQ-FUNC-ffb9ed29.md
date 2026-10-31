@@ -43,8 +43,14 @@ host/account identity, exact native worktree/IO paths and normalized policy.
 It never creates a container/image, performs recipe setup or installs tools.
 Machine/account, effective non-secret environment and selected executable identity
 are pinned with the reviewed local plan. Missing/corrupt/replaced records, changed
-backend/config/home/PATH/executable or incompatible active legacy runs fail closed;
-restore the original environment or start a fresh run. Legacy container recovery
+backend/config/account/host or incompatible active legacy runs fail closed. An
+explicit Retry may refresh effective environment and resolved executable identity
+on the same machine/account after verifying the saved plan and runtime ownership.
+The same job, task journal, branch, worktree, history and cumulative budgets remain.
+The existing bounded version check runs before AEGIS; unavailable, timed-out or
+invalid-version executors remain failed with the actual cause. Automatic polling
+and other resume paths retain pinned identity. This applies to every supported
+native executor on Windows/Linux and every forge, without job-specific rules. Legacy container recovery
 retains its previous behavior. Local records are an additive closed alternative
 within schema 1; older binaries reject them. Portable working-rule exports omit
 backend/machine/account/path/runtime identity and local environment.

@@ -226,3 +226,25 @@ config validate accepts local profiles; config plan resolves pinned native polic
 See [Local execution](../01_Documentation/Local_Execution.md) and
 [Local execution component](Component_Local_Execution.md). Focused native proof:
 `04_Software/tests/test_local_execution.py`.
+
+## Manual start result
+
+`run --once --ticket IID` is manual admission and works while automatic pickup
+is paused; it preserves pause. Actual non-preview manual runs append a final
+`ADORE_START_RESULT ` JSON line using `start_result.py`: schema 1, requested
+integer ticket, integer exit_code and allowlisted reason. Ordinary operator logs
+precede it. Exit zero reports `started`; refusal reports its specific closed
+gate (capacity, workflow, eligibility, lock, configuration or engine failure).
+Dry runs retain their existing summary-only preview and produce no terminal
+execution result. No exception/forge/executor text enters the terminal record.
+
+## Explicit Retry result
+
+retry retains its arguments and operator lock. Its final ADORE_RETRY_RESULT line
+contains exactly schema=1, run_id, exit_code and an allowlisted reason. An accepted
+retry which immediately ends failed returns exit 1/retry_failed with the saved
+outcome printed for the operator. Successful rearming returns 0/retried. Setup,
+configuration, lock, repository, state and lifecycle refusals have closed reasons.
+The worker binds this terminal evidence to the requested job and actual exit;
+arbitrary preceding logs and stderr are not a web diagnostic channel.
+Focused proof: tests/test_retry_revalidation.py and CLI mutation-lock tests.

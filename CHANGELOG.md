@@ -14,6 +14,21 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Added
 
+- Opt-in agent-controlled system-package installation in job containers, independent of network access, with reviewed settings and pinned recovery.
+
+- Simpler native setup: detected account and installed agent choice, with command, manual executable, home/PATH and Linux delegation under closed Advanced controls. Clone destinations offer automatic/custom locations and an administrator-only read-only host folder picker with Windows drives, Linux navigation and optional new subfolder names; selection never creates folders.
+
+- Discover installed local OpenCode, Pi, Codex and Qwen executors on Windows and
+  Linux, prefill native commands during enrollment, and offer installed choices
+  or manual executable paths in enrollment and reviewed project Settings.
+
+- Complete portable user distributions: native Windows x64 ZIP and Linux x64
+  TAR.GZ include managed CPython, locked web dependencies, compiled UI and
+  simple start/stop/CLI wrappers. The launcher opens a ready browser interface,
+  reuses the existing instance, bounds restarts and logs, keeps user data outside
+  the extracted application and verifies package checksums. Build and acceptance
+  tooling live in `02_Tools/`; packages and receipts are generated in `07_Delivery/`.
+
 - Enroll a project from its repository URL: **Read repository** detects the forge (github.com, gitlab.com or a matching server tea login), repository, Gitea login and default branch, derives the project ID from the repository name (no Stable project ID field; route names new, clone and repository-source are now reserved IDs) and proposes an editable clone path `<ADORE home>/repos/<ID>`; Continue stays disabled until the repository has been read; creation clones the repository there with the server account's git credentials (or reuses a clone with the same origin), requires AEGIS and the target branch, and removes a fresh clone on failure. There is no separate existing-clone mode (a matching clone at the chosen path is reused), every field shows an example, and Clone project config uses the same step. New `POST /api/v1/projects/repository-source` and optional `clone_url` on setup/transfer requests.
 - Review and create (Enroll new project and Clone project config) lists the settings left at ADORE's defaults, closed and read-only, grouped and named as in Settings, with a note that they can be changed in Settings after creation; for a clone the copied rules are not listed as defaults. The setup and transfer previews return `defaults`.
 - Create the project's ADORE labels in the repository: Review and create offers **Create the ADORE labels in the repository (missing ones only)**, ticked by default, and Settings → Repository offers **Create missing labels**. ADORE reads the repository's labels once and creates only the missing ones named by the project's settings (lifecycle, hold/exclude, priorities, bug type, approval, revise, quick-path and task-type labels) with a colour and description, never changing existing labels, and reports created, existing and failed labels. New `POST /api/v1/projects/{name}/labels/ensure` and label list/create in the GitHub, GitLab and Gitea adapters.
@@ -33,6 +48,44 @@ This project follows Keep a Changelog and Semantic Versioning.
 - Native local executor profiles reuse installed account authentication with pinned machine/environment identity, verified Windows Job/Linux cgroup ownership, native AEGIS/gate evidence, backend-aware setup/settings/readiness and user-owned tooling guidance.
 
 ### Changed
+
+- Update the repository's managed AEGIS payload to the rebuilt 0.14.0 delivery,
+  preserving project configuration and journal/history files. Enable structure,
+  sequence and state diagrams for applicable Design stages. Retain optional
+  CodeGraph files/configuration; upstream no longer exposes its CLI commands.
+
+
+- Connect repository keeps a single Cancel button beside Verify and connect;
+  remove the redundant Close button from the dialog heading.
+
+- Enrollment and Clone project config offer remote target branches in a dropdown
+  with the repository's default selected and marked. GitHub, GitLab and Gitea,
+  including self-hosted remotes, share one bounded Git read. Rereading retains an
+  explicitly chosen still-existing branch; empty or malformed listings cannot
+  silently select a fabricated default.
+
+- Simplify the host folder chooser to compact directory rows, single selection,
+  double-click/keyboard navigation and exact folder confirmation. Agent and model
+  uses independent field columns; automatic executor discovery keeps optional
+  re-detection under Advanced.
+
+- Reserve delivery for the complete Windows/Linux portable archives and optional
+  adjacent hashes only. Build/verification work uses automatically cleaned OS
+  temporary directories; results are printed without retained logs or reports.
+  Three public cross-platform commands cover repository setup, package creation
+  and package verification; release/license helpers are internal and older
+  source-runtime/wheelhouse packaging flows are retired.
+
+- Portable user distributions include three concise usage, administration and
+  troubleshooting guides instead of the entire documentation tree. An explicit
+  packaging allowlist excludes engineering, UX handoff and source reference files;
+  packaged link and inventory checks guard this boundary. Full in-app help remains
+  included in four languages.
+
+- Move host deployment scripts and the systemd template to `02_Tools/deploy/`.
+  Windows and Linux installers resolve `04_Software/` in a checkout and the
+  runtime root in a delivery bundle; both packagers copy deployment resources
+  from the tools directory and keep bundled `deploy/` commands working.
 
 - Projects offers three separate actions, each on its own page: **Enroll new project** (guided wizard starting directly at Repository and identity, five steps), **Import project config** (upload an existing `config.toml`, such as one saved with Download raw configuration once its inline secrets are replaced) and **Clone project config** (`/projects/clone`, rules from a project on this server or a portable settings file). The duplicate Enroll an existing configuration button and the in-wizard method buttons are gone; help topics follow in four locales, and a refused browser Back keeps the current page address.
 
@@ -102,6 +155,54 @@ This project follows Keep a Changelog and Semantic Versioning.
 - Simplified project Settings and added administrator preview/download of original TOML, including inline secrets, in place of the portable export panel.
 
 ### Fixed
+
+- Quiesce timed-out container commands before retry, preserve the same installed environment, and fail closed when safe recovery is unconfirmed.
+
+- Preserve native Git discovery in new job containers with a read-only linked-worktree pointer, clear inherited repository selectors, validate binding evidence and retain warm resources. Use direct WSL argument transport so shell expressions and paths reach the container literally.
+
+
+- Executor output archives preserve the 64 KiB package-log byte limit on Windows without newline expansion.
+
+- Preserve inherited PATHEXT in native executor environments so Windows shell
+  commands resolve installed tools such as Git and Python.
+
+- Align executor journal editing with rebuilt AEGIS 0.14.0 guidance: preserve
+  task identity, original legal content, authoring links and append-only history.
+  Capture and replay its unchanged companion CLI/schema contract with malformed
+  evidence regressions; ADORE and companion releases retain independent versions.
+
+
+- Explicit Retry refreshes the installed native executor and inherited environment
+  on the same host/account for every job and executor, preserving task/worktree,
+  history and cumulative budgets. Failed rearming returns a nonzero CLI result;
+  web operations show the saved failure cause instead of generic rejection.
+
+
+- Accept AEGIS backward stage routing within the selected workflow, including
+  Design to Specify. Save the actual stage before checkpoints and report typed
+  checkpoint failures without leaving an orphaned working job.
+
+- Preserve stdout/stderr through the Windows background supervisor so successful
+  native version and model checks no longer appear to return empty responses.
+
+- Local readiness shows one concise explanation and retains safe failure causes/exit codes;
+  native version checks accept stderr, and OpenCode connection checks recognize completed
+  text plus typed provider/model failures instead of generic invalid-response errors.
+
+- Recover missing external Gitea logins through bounded current-account discovery
+  in standard Windows/Linux configuration roots, preserving scoped credentials
+  and explicit overrides. Missing or ambiguous sign-in now explains the localized
+  Connect repository flow without application-specific paths or credential copies.
+
+- Automatic command launches disable Git/generic pagers per child environment and
+  suppress Windows console allocation, including worker/native executor launches,
+  while retaining captured output, timeouts and process ownership.
+
+- Manual ticket Start now runs the selected ticket while monitoring stays paused,
+  preserving all other admission checks and displaying specific, localized failure reasons.
+
+- Reviewed web settings tolerate brief Windows file-read locks and retain the candidate with an explicit error if saving remains unavailable.
+
 
 - Disabled buttons now look unavailable everywhere (dimmed, not-allowed cursor); on Enroll new project, **Read repository** is the primary action and **Continue** stays visibly disabled until the repository has been read.
 - Restore the accented letters in the German, French and Romanian handoff status labels (Übergabe läuft / Übergeben, Transféré, Predare în curs), which showed "?" instead.

@@ -248,21 +248,18 @@ def _repository_path(value: Any, field: str) -> str:
 def allowed_transition(previous: str, current: str, path: str) -> bool:
     """
     @brief Decide whether an executor-authored stage transition is documented.
-    @details A stage may remain current while work continues, advance exactly
-             once on the selected path, or route backward from validation to
-             specify/design/build. Delivery may return to validation when the
-             candidate changed. All other skips and regressions fail closed.
+    @details AEGIS owns backward routing. A stage may remain current, advance
+             once or return to any earlier stage on the selected path. A
+             completed task stays terminal; forward jumps need separate evidence.
     """
+    if path not in {"full", "quick"}:
+        return False
     sequence = QUICK_STAGES if path == "quick" else FULL_STAGES
     if previous not in sequence or current not in sequence:
         return False
     if current == previous:
         return True
-    if sequence.index(current) == sequence.index(previous) + 1:
-        return True
-    if previous == "validate" and current in {"specify", "design", "build"}:
-        return path == "full" or current == "build"
-    return previous == "deliver" and current == "validate"
+    return previous != "done" and sequence.index(current) <= sequence.index(previous) + 1
 
 
 def logged_stages(log: Sequence[str]) -> frozenset[str]:

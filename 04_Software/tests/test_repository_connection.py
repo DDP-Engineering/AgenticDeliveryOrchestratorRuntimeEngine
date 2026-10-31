@@ -23,6 +23,37 @@ from fastapi.testclient import TestClient
 import pytest
 
 
+@pytest.mark.parametrize("metadata,code", [
+    ([], "gitea_auth_missing"),
+    ([{"name": "a", "url": "https://one.example"},
+      {"name": "b", "url": "https://two.example"}], "gitea_auth_ambiguous"),
+    ({"PRIVATE": "CLI-SECRET"}, "gitea_auth_invalid"),
+])
+def test_portable_gitea_missing_auth_api_is_safe(tmp_path, monkeypatch, metadata, code):
+    """@brief Ticket reads expose a closed recovery cause; readiness remains a failed check."""
+    profiles = project(tmp_path, "gitea")
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "empty-config"))
+
+    def runner(argv, **kwargs):
+        if argv[:3] == ["tea", "logins", "list"]:
+            return CommandResult(stdout=json.dumps(metadata))
+        if argv[:2] == ["tea", "api"]:
+            return CommandResult(exit_code=1, stderr="Error: no available login")
+        return CommandResult(stdout="tool version 1.0")
+
+    with TestClient(create_app(profiles.home, probe_runner=runner)) as client:
+        csrf = client.post(
+            "/api/v1/session", json={"username": "admin", "password": "admin"}
+        ).json()["csrf"]
+        response = client.get("/api/v1/projects/alpha/tickets")
+        assert response.status_code == 503 and response.json()["detail"]["code"] == code
+        assert "PRIVATE" not in response.text and "CLI-SECRET" not in response.text
+        check = client.post(
+            "/api/v1/projects/alpha/readiness-check", headers={"X-CSRF-Token": csrf})
+        assert check.status_code == 200, check.text
+        assert check.json()["checks"]["forge_auth"] is False
+
+
 def project(tmp_path, provider="gitlab"):
     """@brief Create an offline project with real API identity/config storage."""
     profiles = ProfileStore(tmp_path / "home")
@@ -466,9 +497,13 @@ def test_http_requires_acknowledgement_and_keeps_other_projects_unchanged(tmp_pa
         ("{}", "HTTP/1.1 200 OK", False),
         ("not-json", "HTTP/1.1 200 OK", False),
         ('{"login":"alice","login":"other"}', "HTTP/1.1 200 OK", False),
+        ("", "Error: no available login\n", False),
+        ("", "Error: login name 'home' does not exist\n", False),
     ],
 )
-def test_gitea_readiness_uses_supported_scoped_user_api(tmp_path, payload, status, expected):
+def test_gitea_readiness_uses_supported_scoped_user_api(
+    tmp_path, payload, status, expected, caplog
+):
     """@brief Saved named tea login uses a supported API and rejects bad evidence."""
     from adore.config import load_config
     from adore.repository_auth import save_connection
@@ -522,4 +557,16 @@ def test_gitea_readiness_uses_supported_scoped_user_api(tmp_path, payload, statu
         )
         assert result.status_code == 200
         assert result.json()["checks"]["forge_auth"] is expected
+        if not expected:
+            assert "forge_auth_failure" in caplog.text
+            assert "PRIVATE" not in caplog.text
+            if payload:
+                assert payload not in caplog.text
+            if status.startswith("Error:"):
+                expected_reason = (
+                    "login-missing" if "login name" in status else "no-logins"
+                )
+                assert f"reason={expected_reason}" in caplog.text
+                assert "local_config=" in caplog.text
+                assert status.strip() not in caplog.text
         assert any(a[:2] == ["tea", "api"] for a in calls)

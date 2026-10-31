@@ -18,7 +18,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 ## 1. Purpose
 
-The two isolation layers every run gets, both keyed by the stable run-id: a
+The two isolation layers for container-backed runs, both keyed by the stable run-id: a
 **git worktree** (code isolation - one folder and branch per ticket, sharing
 the local clone's object store) mounted into a **container** (execution
 isolation - the real sandbox bounding what the executor can touch). Isolation
@@ -70,8 +70,8 @@ guardrails, not a sandbox.
   from the `targets` executor names and not from `retained`),
   `verify_required_tools` (project-image checks run inside the provisioned
   container), and `exec` (the seam the executor launcher runs commands through).
-- `build_container_env(git_dir_name, git_name, git_email)` - the git
-  environment injected at provision (see section 3).
+- `build_container_env(git_dir_name, git_name, git_email)` supplies managed Git
+  binding metadata and author/committer identity to provision (see section 3).
 - `IsolationError` - typed fail-closed error carrying argv + stderr.
 
 `pull_never=True` adds `--pull=never` to executor and allowlist-proxy container
@@ -96,16 +96,29 @@ operation (push stays with the orchestrator on the host).
 
 ## 3. Implementation Overview
 
-**The worktree-in-container problem and its solution.** A git worktree's
-`.git` is a pointer *file* containing an absolute host path into the main
-repo's `.git/worktrees/<id>` - meaningless inside the container. Instead of
-rewriting pointer files or mirroring host layouts, the repo clone and the
-worktree are mounted at fixed container paths (`/adore/repo`, `/adore/work`)
-and git inside the container is directed by environment:
-`GIT_DIR=/adore/repo/.git/worktrees/<admin-name>` and
-`GIT_WORK_TREE=/adore/work`. Path discovery is bypassed entirely; the host
-side keeps working normally with its absolute paths. The admin dir name is
-*read* from the pointer file (git suffixes it on collision), never assumed.
+**Native Git discovery.** The host worktree keeps its original `.git` pointer.
+Fresh repository containers mount a generated run-IO `container.git` file
+read-only at `/adore/work/.git`; it points to the existing mounted linked-worktree
+administration directory under `/adore/repo/.git/worktrees/`. Native Git then
+honors the current directory, `-C`, nested repositories and temporary repositories.
+The three `GIT_DIR`/`GIT_COMMON_DIR`/`GIT_WORK_TREE` mapping fields are provisioning
+metadata, filtered from fresh container and explicit exec environments. Image
+and runtime defaults for these selectors are cleared at creation. Git author,
+committer, pager and other runtime settings retain their normal scope.
+
+The generated pointer is admitted as bounded exact regular-file data; links,
+foreign paths, control characters, wrong mount metadata and corrupt saved files
+raise `IsolationError`. The data file is outside the candidate worktree, and its
+Git format cannot include a license comment. Provision confirms actual selector
+absence, pointer contents and native worktree discovery with an exact bounded
+runtime receipt. It raises a typed error when confirmation fails.
+
+Creation label `io.ddp.adore.git-binding=pointer-v1` identifies this mode. Warm
+provision reads bounded selected-label JSON, checks saved evidence and confirms
+runtime behavior before reuse. Empty/null labels identify historical containers,
+which retain their original binding and filesystem. Unknown labels fail closed.
+The component preserves container identity and installed dependencies rather than
+replacing resources to change a mount.
 
 - **`WorktreeManager.remove` retries past the WSL2 bind-mount teardown
   race**: `docker/podman rm` returns before the kernel
@@ -131,7 +144,7 @@ side keeps working normally with its absolute paths. The admin dir name is
   `--env KEY` and the values travel via the runtime CLI's own process
   environment, so `docker run` command lines (process listings, journals)
   never contain a key.
-- **Safe runtime values go inline:** ADORE-managed Git/Home/Codex variables
+- **Safe runtime values go inline:** ADORE-managed author/Home/Codex variables
   plus common uv runtime controls (`UV_LINK_MODE`, `UV_CACHE_DIR`,
   `UV_PROJECT_ENVIRONMENT`) are non-secret and are passed as
   `--env KEY=value`. This keeps wrapped Docker/Podman runtimes from dropping
@@ -140,9 +153,13 @@ side keeps working normally with its absolute paths. The admin dir name is
 - **Wrapped runtimes / Docker-in-WSL2:** `[container] runtime` may be a full
   command (e.g. `"wsl -d Ubuntu-24.04 -- docker"` when Docker Engine runs
   inside WSL2 without Docker Desktop). WSL mode is auto-detected from the
-  first token and switches on two boundary fixes: mount sources are
+  first token. Standard prefixes normalize to WSL `--exec` so argument data
+  reaches the command directly. Launch options and their operands are parsed
+  before the command; only that command selects the Docker/Podman dialect.
+  Incomplete or unsupported launch options fail before runtime calls. Custom wrappers use an explicit `--` or
+  `--exec` boundary. Mount sources are
   translated to the WSL view (`D:\x` -> `/mnt/d/x`, via `wsl_mount_path`),
-  and the container env keys are listed in `WSLENV` so their Windows-side
+  and secret container env keys are listed in `WSLENV` so their Windows-side
   values actually cross into the WSL process (wsl.exe forwards no other env
   vars). `wsl_mount_path` normalizes Windows separators explicitly instead of
   relying on the current host's `Path` flavour, so the same Windows path
@@ -214,10 +231,12 @@ side keeps working normally with its absolute paths. The admin dir name is
   clone is shared across runs and with host git, so `Z` would bind the clone to
   one container and break the next run. An operator who accepts that trade can
   still express it through `run_args`.
-- Git env contract inside the container: `GIT_DIR` points at the mounted
-  linked-worktree admin dir, `GIT_COMMON_DIR` at `/adore/repo/.git`, and
-  `GIT_WORK_TREE` at `/adore/work`. This keeps Git usable even though the
-  worktree's `.git` pointer file contains a host path.
+- Fresh repository containers use the read-only native Git pointer and the
+  creation-mode label described above. `build_container_env` retains its three
+  managed selection fields as binding metadata; `provision` and `exec` consume
+  them without forwarding selector values to descendants. Docker clears image
+  defaults with bare unset keys and a sanitized CLI environment; Podman uses
+  `--unsetenv`. No profile option or run-state schema field is added.
 - `status()` returns the runtime's state string (`running`, `exited`,
   `created`, ...) or `"absent"`; "no such container/object" is absence, any
   other failure raises.
@@ -272,7 +291,8 @@ env = build_container_env(worktrees.admin_dir_name("gitlab-x-14"),
 env["UV_LINK_MODE"] = "copy"              # non-secret runtime behavior
 env["ANTHROPIC_API_KEY"] = "..."          # executor's secret subset only
 containers.ensure_volumes()
-containers.provision("adore-run-gitlab-x-14", "../project", path, env)
+containers.provision("adore-run-gitlab-x-14", "../project", path,
+                     ".adore/runs/gitlab-x-14/io", env)
 result = containers.exec("adore-run-gitlab-x-14", ["opencode", "--version"])
 ```
 
@@ -294,20 +314,13 @@ result = containers.exec("adore-run-gitlab-x-14", ["opencode", "--version"])
   conductor-owned task/report commands generate final workflow artifacts,
   fingerprint approval and commit them before push.
 - Minimum validation after a change: `uv run --group dev pytest tests/test_isolation.py`.
-- `docker/verify-runtime.sh` is the LIVE compatibility pass for a runtime. Its
-  open-egress path covers 17 steps and its allowlist-proxy path covers 21,
-  mirroring every runtime CLI call this component makes: mount/env shape,
-  bare-key secrets, HOME inline, executor-base tool usability, proxy allow and
-  deny behavior, optional runtime-project tool checks, in-container git with
-  host-visible commits, park/resume, listing, reap, and absence. The ADORE
-  1.0.0 images passed Docker open mode (17/17), Docker allowlist-proxy mode
-  (21/21), and rootless Podman open mode (17/17) on 2026-07-16.
-- **Live verification done 2026-07-03** (Docker Engine in WSL2, scratch repo,
-  19/19 steps): image build and
-  tooling checks, WSLENV secret propagation, git status/commit **inside** the
-  container via the GIT_DIR/GIT_WORK_TREE model with the commit visible on
-  the host under bot authorship, park -> resume with state intact, full
-  teardown.
+- `tests/test_container_git.py` covers native binding construction, metadata
+  filtering, selected-mode evidence, pointer corruption, exact acknowledgement,
+  Docker/Podman/WSL transport and preservation of warm resources with fake CLIs.
+- Controlled manual Docker acceptance creates disposable source and linked
+  worktree fixtures, commits in independent and nested repositories, checks
+  unchanged main HEAD/index/host pointer, and exercises same-ID running/stopped
+  reuse. Runtime-specific execution evidence belongs in the task journal.
 
 ## 10. Limitations And Future Work
 
@@ -316,9 +329,10 @@ result = containers.exec("adore-run-gitlab-x-14", ["opencode", "--version"])
   the container; opencode denies push), but a misbehaving executor could
   damage the *local* clone - acceptable for v1 since the clone is
   disposable; re-clone recovers it.
-- With `GIT_DIR` set container-wide, git inside the container always targets
-  the run's repo regardless of cwd - harmless for the single-worktree
-  executor, but surprising if a run ever needed a second repo.
+- Historical containers keep their creation-time environment during warm reuse.
+  Their Git selectors continue targeting the managed worktree. The pointer mode
+  applies to newly created repository containers; existing resources are released
+  only through the established lifecycle and operator actions.
 - Container-runtime limits can be supplied through `[container] run_args`, for
   example `--memory=2g` or `--cpus=2`. Egress networking is separately owned
   by `[container.egress]`; dedicated first-class CPU/RAM configuration keys are
@@ -330,20 +344,28 @@ result = containers.exec("adore-run-gitlab-x-14", ["opencode", "--version"])
   UID/GID on the host and the host service cannot read/write the shared per-run
   directories. The Dockerfile defaults to `USER_UID=1000`/`USER_GID=1000`; pass
   the host user's UID and GID at build time.
-- Podman VERIFIED 2026-07-04 (4.9.3 rootless, Ubuntu-24.04/WSL2), re-verified
-  2026-07-06 with a runtime-project image plus required tool checks, and
-  re-verified for the ADORE 1.0.0 executor image on 2026-07-16 (17/17).
-  Rootless mode requires
-  `[container] run_args = ["--userns=keep-id"]` (without it, container uid
-  1000 cannot write the bind-mounted worktree - caught live by the pass).
-  Podman maps the container UID to the host UID at runtime; no image rebuild
-  needed. Remaining: a disposable-ticket pilot with `runtime = "podman"`;
-  SELinux hosts (Fedora/RHEL) may additionally need `:z`/`:Z` mount labels.
-- With a WSL-wrapped runtime, `wsl.exe` re-joins arguments before the WSL
-  shell re-parses them, so argv elements containing spaces can be split. The
-  executor launcher must pass prompts through a file, never through argv
-  (planned anyway for output capture).
+- Rootless Podman commonly uses `[container] run_args = ["--userns=keep-id"]`
+  to map the container user to the host account. SELinux hosts may additionally
+  select shared relabeling. Pointer-mode live acceptance is performed separately
+  on each installed runtime; offline tests exercise Podman CLI construction.
+- WSL commands use direct `--exec` transport. Standard Docker/Podman prefixes
+  normalize automatically; a custom wrapper identifies its command boundary
+  explicitly. Container paths, scripts and argument values stay literal.
 
 ## Authoritative execution identity
 
 `resource_identity(name)` validates bounded inspect JSON, duplicate fields, exact name, actual container ID, image ID and status; foreign/missing/malformed data raises `IsolationError`. `image_identity(image)` reads a local image ID without pulling. `ContainerBackend` supplies shared lifecycle/command ownership and verifies IDs before commands or cleanup. Focused proof: `tests/test_execution.py`.
+
+## Automatic pager environment
+
+`ContainerManager.exec` forces `GIT_PAGER=cat` and `PAGER=cat` after caller
+values. Both non-secret keys use inline `--env KEY=cat` arguments, so native
+Docker/Podman and WSL receive the same policy. Executor, preparation and model
+probe descendants inherit it. Provider secrets retain bare-key forwarding and
+existing redaction/WSL transport. Host runtime commands use the shared hidden
+Windows command runner. Focused proof: container exec/env and WSL tests in
+`tests/test_isolation.py`.
+
+## Agent-controlled system packages
+
+ContainerManager.authorize_system_packages uses fixed code and root-owned OS Python on the exact owned container ID, measures a non-root UID and requires exact success output. It grants direct package-manager sudo without installing packages or modifying egress. See [Package permissions](Component_Package_Permissions.md) and the operator dependency-installation guide.

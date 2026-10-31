@@ -30,26 +30,35 @@ import time
 from adore.config import load_config, validate_config
 from adore.polling import PollCadence
 from adore.profiles import ProfileError, ProfileStore
+from adore.start_result import StartResultError, read_retry_result, read_start_result
 from adore.state import StateError, StateStore
-from adore.util import in_quiet_hours
+from adore.util import (
+    CommandResult,
+    automatic_environment,
+    background_process_options,
+    in_quiet_hours,
+)
 from adore.web.image_build import ImageBuildError, ImageBuildService
 from adore.web.store import WebStore, WebStoreError
 
 # DATA MODELS / TYPEDEFINITIONS
-Runner = Callable[[list[str], dict[str, str]], int]
+Runner = Callable[[list[str], dict[str, str]], int | CommandResult]
 
 
 # HELPER FUNCTIONS
-def _run(argv: list[str], env: dict[str, str]) -> int:
+def _run(argv: list[str], env: dict[str, str]) -> CommandResult:
     """@brief Run a fixed CLI argument vector with a finite timeout."""
     try:
         result = subprocess.run(
-            argv, env=env, capture_output=True, text=True,
-            check=False, timeout=21600,
+            argv, env=automatic_environment(env), capture_output=True,
+            text=True, encoding="utf-8", errors="replace",
+            check=False, timeout=21600, stdin=subprocess.DEVNULL,
+            **background_process_options(),
         )
     except subprocess.TimeoutExpired:
-        return 124
-    return result.returncode
+        return CommandResult(argv=argv, exit_code=124, timed_out=True)
+    return CommandResult(argv=argv, exit_code=result.returncode,
+                         stdout=result.stdout, stderr=result.stderr)
 
 
 # PUBLIC API
@@ -140,10 +149,11 @@ class CommandWorker:
             self.web.finish(operation["id"], "failed", "invalid operation")
             return 1
         try:
-            code = self._run_with_cancel_watch(argv)
+            outcome = self._run_with_cancel_watch(argv)
         except Exception:  # noqa: BLE001 - unexpected outcome needs reconciliation
             self.web.finish(operation["id"], "uncertain", "worker invocation failed")
             return 1
+        code = outcome.exit_code if isinstance(outcome, CommandResult) else outcome
         if type(code) is not int:
             self.web.finish(operation["id"], "uncertain", "invalid engine outcome")
             return 1
@@ -152,6 +162,32 @@ class CommandWorker:
             "completed" if code == 0 else
             "outcome uncertain" if code == 124 else "engine rejected operation"
         )
+        if action == "start" and isinstance(outcome, CommandResult) and code != 124:
+            try:
+                reason = read_start_result(outcome.stdout, ticket=int(target), exit_code=code)
+            except StartResultError:
+                reason = "invalid_result"
+                if code == 0:
+                    status = "uncertain"
+            result = "completed" if reason == "started" else "start:" + reason
+        if action == "retry" and isinstance(outcome, CommandResult) and code != 124:
+            try:
+                reason = read_retry_result(outcome.stdout, run_id=target, exit_code=code)
+            except StartResultError:
+                reason = "invalid_result"
+                if code == 0:
+                    status = "uncertain"
+            result = "completed" if reason == "retried" else "retry:" + reason
+            if reason == "retry_failed":
+                try:
+                    state = StateStore(
+                        profile.store_root or self.profiles.default_store_root(project))
+                    failed = state.load(target)
+                    if failed.lifecycle != "failed" or not failed.outcome:
+                        raise StateError("Retry failure evidence is unavailable")
+                    result = "retry:failed:" + failed.outcome[:2200]
+                except (FileNotFoundError, StateError, OSError):
+                    result = "retry:state_unavailable"
         self.web.finish(operation["id"], status, result)
         if action == "delete" and status == "succeeded":
             self.web.audit(actor["id"], "project-deleted", project)
@@ -197,7 +233,7 @@ class CommandWorker:
                 # The claimed command will report the unavailable run or state.
                 continue
 
-    def _run_with_cancel_watch(self, argv: list[str]) -> int:
+    def _run_with_cancel_watch(self, argv: list[str]) -> int | CommandResult:
         """@brief Watch queued cancellations around one blocking engine command."""
         done = Event()
 
@@ -218,7 +254,7 @@ class CommandWorker:
             done.set()
             watcher.join(timeout=2)
 
-    def poll_project(self, project: str) -> int:
+    def poll_project(self, project: str) -> int | CommandResult:
         """@brief Poll one project while watching for newly authorized cancels."""
         argv = [sys.executable, "-m", "adore", "--profile", project,
                 "run", "--once"]
@@ -287,7 +323,9 @@ class CommandWorker:
                     failed = None
                     if not in_quiet_hours(config.polling.quiet_hours):
                         try:
-                            code = self.poll_project(profile.name)
+                            outcome = self.poll_project(profile.name)
+                            code = (outcome.exit_code if isinstance(outcome, CommandResult)
+                                    else outcome)
                             failed = type(code) is not int or code != 0
                         except Exception:  # noqa: BLE001 - a failed pass must not stop scheduling
                             failed = True

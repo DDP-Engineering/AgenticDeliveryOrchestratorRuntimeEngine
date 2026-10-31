@@ -80,3 +80,71 @@ stdout, stderr and questions remain bounded at 64 KiB. Native stream decoding
 rejects invalid UTF-8; truncated JSON cannot become successful AEGIS evidence.
 The shared drain retains container defaults. Saved local readiness checks reuse
 approved profile .env values in memory through the same native environment.
+
+## Installed launch selection
+
+Local enrollment and command editing use the read-only host discovery and manual
+executable picker described in [Installed Executor Discovery](Component_Executor_Discovery.md).
+Actual execution retains native policy validation, installed identities and existing
+account authentication; discovery does not execute agents or test model access.
+
+## Automatic native setup
+
+Enrollment uses the current process account and displays the discovered account
+as read-only Runs as. Default home and PATH come from the process environment. The system-variable
+allowlist also preserves inherited `PATHEXT` for Windows shell executable
+resolution; absent values stay absent and forge credential variables remain filtered.
+The new executor process reuses saved authentication; open terminal processes
+are independent. Full command, manual executable and home/PATH/delegation
+overrides are under closed Advanced controls. Settings retains saved assertions
+and reviewed overrides. Native policy and platform isolation remain authoritative.
+
+## Background native processes
+
+The selected native account environment forces `GIT_PAGER=cat` and `PAGER=cat`
+after profile/provider selection; the controller reapplies these values to a
+child-only copy. Ordinary executor children inherit them. Both the Windows
+supervisor and its released executor use `CREATE_NO_WINDOW`, preserving the
+non-breakaway Job, ownership receipts, captured streams and timeout/cancel
+handling. Linux keeps its existing cgroup membership and `execve` contract.
+The isolated standalone child carries the stable Win32 flag directly because
+`-I` excludes package imports. Already running operations are unaffected.
+Focused proof: environment, native launch, ownership and child release tests in
+`tests/test_local_execution.py`.
+
+## Native prerequisite diagnostics
+
+`probe_local_executor` returns closed `{ready, reason, exit_code}` after owned
+native cleanup. Version output may be on stdout or stderr, but must be a version
+line from a clean, non-timeout command. `LocalPrerequisiteError` preserves the
+measured command status. Missing executable, account/home mismatch, absent or
+corrupt auth, permission failure, process scope preparation, command/version
+failure, timeout and failed cleanup have separate safe causes. Auth remains
+reused in place; probes install nothing and change no global settings.
+`validate_local_probe` rejects extra/unknown fields, non-integer exit values,
+unknown causes and inconsistent ready/status combinations. No command output,
+provider values or filesystem exception text is persisted in this diagnostic.
+
+## Windows supervisor stream transport
+
+The released Windows child explicitly binds stdin to DEVNULL and stdout/stderr
+to its current parent-owned streams when starting the executor with
+CREATE_NO_WINDOW. Windows implicit stream inheritance with this flag can return
+exit zero while discarding output. Explicit binding preserves version/JSON/error
+bytes for the existing controller drain/redaction/limit checks. Job ownership,
+release/cancel, cwd, argv and real exit propagation remain authoritative; Linux
+continues through execve. Focused proof: Windows supervisor captured-stream,
+child release/cancel and native file-gate contracts in test_local_execution.py.
+
+## Explicit Retry revalidation
+
+For every native job and supported executor, explicit Retry may refresh the inherited
+environment, resolved executable and installed executable identity on the same host
+and account. Stable execution settings, runtime resource, branch and worktree stay
+pinned. The conductor validates the saved plan; revalidate_for_retry validates the
+owned receipt and recovers only its verified scope before atomically updating its
+policy fingerprint. Previous/current receipt fingerprints allow a repeated explicit
+Retry after an interrupted refresh. Automatic resume retains strict drift checks.
+The ordinary bounded --version prerequisite runs before AEGIS; version, exit and
+timeout failures retain their measured cause. No provider request or installation
+is added. Focused proof: tests/test_retry_revalidation.py.

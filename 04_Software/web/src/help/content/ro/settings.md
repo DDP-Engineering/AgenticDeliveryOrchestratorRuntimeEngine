@@ -28,6 +28,8 @@ Fiecare rând are o etichetă, o descriere mereu vizibilă, o **Valoare activă*
 
 O insignă **Implicit** înseamnă că `config.toml` al proiectului nu setează valoarea, deci se aplică valoarea implicită ADORE. Modificarea ei scrie o valoare doar pentru acest proiect. Un rând marcat **Nu se poate modifica aici** se modifică în `config.toml` pe server. Un rând marcat **Se aplică doar cu preluarea în pauză și fără lucrări active** are nevoie de condiția suplimentară descrisă mai jos.
 
+Detectarea pornește automat când alegi execuția locală; schimbarea executorului folosește lista detectată. Deschide **Avansate** pentru **Detectează executorii instalați** dacă vrei să o reîmprospătezi. Pentru execuție locală, alege o instalare detectată sau introdu calea unui executabil; vezi [Detectarea executorilor instalați](/help/executors#installed-executors). Deschide **Avansate** pentru comanda completă, calea manuală a executabilului, suprascrierile directorului/PATH și delegarea cgroup Linux. Lasă directorul și PATH goale pentru valorile automate. PATH înseamnă directoare cu unelte, nu fișierul executabil. Numele contului din Setări doar verifică identitatea curentă, fără să schimbe utilizatorul.
+
 ## Modificarea {#editing}
 
 1. Alegeți **Modifică** lângă valoarea activă, introduceți valoarea nouă și alegeți **Pregătește candidatul**. Aceasta scrie doar un candidat în așteptare; configurația activă rămâne neschimbată.
@@ -42,6 +44,16 @@ Reguli care se aplică:
 - Setările care schimbă identitatea sau mediul de execuție cer și monitorizarea în pauză. Alegeți **Pune monitorizarea în pauză** în Rezumat și lăsați lucrul activ să se încheie; punerea în pauză nu întrerupe o lucrare în curs.
 - Valorile noi se aplică lucrărilor ulterioare. Lucrările existente își păstrează configurația.
 
+Blocajele scurte ale fișierului pe Windows sunt reîncercate automat. Dacă setările tot nu pot fi salvate, propunerea verificată rămâne disponibilă: verificați accesul la fișier și reîncercați **Aplică**.
+
 ## TOML original {#toml}
 
 Lângă titlul Setările proiectului, administratorii au **Previzualizare configurație originală** și **Descarcă configurația originală**. Previzualizarea deschide un dialog care se poate închide și păstrează textul doar în memorie. Descărcarea oferă `config.toml` salvat exact așa cum este stocat, cu comentarii, formatare și eventualele secrete inline, deci tratați-l ca pe un secret. Niciuna nu include un candidat în așteptare, valorile implicite rezolvate, fișiere `.env` separate sau credențiale externe. Dezvoltatorii nu le pot folosi. Un fișier descărcat poate fi înrolat din nou cu [Importă configurația proiectului](/help/projects#import-project) după ce secretele lui sunt înlocuite cu referințe la variabile de mediu.
+
+## Pachetele de sistem ale agentului {#system-packages}
+
+**Permite agentului instalarea pachetelor de sistem**
+
+În Setări → Agent și model, administratorii activează separat permisiunea prin Pregătește candidatul și Aplică schimbarea. Implicit este oprită și apare pentru proiecte în container. Reconstruiți sau alegeți întâi o imagine compatibilă cu sudo, apoi porniți o lucrare nouă. Agentul execută direct comenzile, citește erorile și adaptează pașii în limitele lucrării.
+
+Accesul la rețea rămâne separat: open permite sursele accesibile, allowlist-proxy domeniile HTTP/HTTPS permise, iar none numai sursele locale disponibile. Scripturile pachetelor au drepturi administrative în container; directoarele montate ale proiectului rămân partajate cu serverul. Pachetele de sistem se păstrează la reluarea aceluiași container; un container nou cere reevaluare și instalare.

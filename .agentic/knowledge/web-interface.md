@@ -35,7 +35,7 @@ new / License / Third-party notices buttons; licenses stay folded until pressed.
 What's new renders `release_notes` from `/api/v1/about` (packaged
 `adore/release_notes.toml`, four locales, English fallback, `Unreleased` as In
 development); agents maintain it under AGENTS.md "Release notes rules" and
-`02_Tools/check_release_notes.py` checks it.
+`02_Tools/internal/check_release_notes.py` checks it.
 
 **How ADORE works** opens the in-app help center (`/help`, `/help/<topic>`):
 ten bundled Markdown topics per locale under `src/help/content/`, parsed by
@@ -200,8 +200,8 @@ SQLite bytes, authorization, scope and financial redaction.
   login emits a Secure session cookie.
 - `adore-web-worker --home ...` polls profiles and queued operations.
 - `WebStore(home / "web.db")` owns accounts, sessions, grants, audit and queue.
-- `02_Tools/package_web_offline.py` creates a host-matched delivery directory;
-  `install_web_offline.py` installs from local wheels only.
+- `02_Tools/create_package.py` creates a complete native portable archive;
+  `verify_package.py` checks it using automatically cleaned temporary data.
 
 ## Invariants
 
@@ -480,6 +480,17 @@ Python/Ruff and frontend validation. CLI summary/export semantics are preserved.
 
 ## Key behaviors
 
+- REQ-UX-812acd4b: reviewed configuration admits the container-only system-package boolean. The generic settings row explains direct agent installation, sudo-capable images, fresh jobs and independent network access.
+
+REQ-FUNC-f9946b6b: The worker validates Retry terminal evidence against the
+requested job and actual exit. A bound retry_failed result reads only that job's
+saved failed outcome, already public in Jobs. Corrupt or missing results use closed
+fallbacks, successful exits without valid evidence remain uncertain, and timeouts
+remain uncertain. operationResultText localizes retry reasons and displays saved
+terminal causes in all four locales. No raw CLI/forge/executor output is forwarded.
+Focused proof: tests/test_retry_revalidation.py and web/tests/manualStart.test.mjs.
+
+
 - REQ-UX-b75e1df8: ProjectInput accepts execution_backend and local account/home/path/cgroup/native argv. Review/config show actual machine/account/system; metadata reports runtime=local. Reviewed candidates recheck pinned native plans. Host checks avoid container detection.
 
 Native control/auth route to local-execution.md. Focused proof:
@@ -559,155 +570,12 @@ Native control/auth route to local-execution.md. Focused proof:
 - `REQ-REL-94e653aa` - checkpoint-bearing state and handoff lifecycles remain
   readable and protected after replacement of the DCP runtime.
 
-## Architecture
-
-```mermaid
-flowchart LR
-    browser([Browser]) --> App[App session routes scoped requests]
-    Journals[(Raw journals)] --> Analytics[Strict analytics scope usage cohorts samples]
-    Summaries[(Read-only terminal summaries)] --> Analytics
-    Analytics --> api
-    App --> StatisticsReader[statistics strict scope amounts identity]
-    JobWorkspace --> StatisticsReader
-    StatisticsReader --> Evidence[StatisticsEvidence measures and trend table]
-    Evidence --> StatisticsCopy[statisticsCopy four locale definitions]
-    App --> DashboardShell[DashboardShell links branding focus]
-    App --> Presentation[Presentation feedback glossary status]
-    App --> JobWorkspace[JobWorkspace attention jobs detail commands]
-    JobWorkspace --> jobModel[jobModel evidence validation]
-    JobWorkspace --> jobCopy[jobCopy four locale guidance]
-    JobWorkspace --> api
-    App --> ImportWizard[ImportWizard exact memory draft]
-    ImportWizard --> importCopy[importCopy localized source effects]
-    ImportWizard --> api
-    App --> TransferWizard[TransferWizard file or project source rules]
-    TransferWizard --> EnrollmentWizard[EnrollmentWizard memory draft focus guards]
-    TransferWizard --> transferSource[Strict portable source revision]
-    transferSource --> portableSource
-    EnrollmentWizard --> transferTarget[Source target binding independent ownership]
-    transferTarget --> publication
-    EnrollmentWizard --> enrollmentCopy[enrollmentCopy localized guidance]
-    EnrollmentWizard --> api
-    api --> draftProbe[Shared bounded draft and project probe]
-    DashboardShell --> routes[routes.ts]
-    DashboardShell --> logo[Approved transparent logo]
-    App --> SettingsList[SettingsList catalog guidance]
-    App --> PendingReview[PendingReview safe single candidate]
-    SettingsList --> settings[settings.ts domains grouping]
-    PendingReview --> ExecutionPlanReview[ExecutionPlanReview image source commands]
-    ExecutionPlanReview --> executionPlan[Closed executionPlan validators]
-    JobWorkspace --> PreparationResults[PreparationResults persisted outcomes]
-    PendingReview --> settings
-    SettingsList --> settingsCopy[settingsCopy.ts localized guidance]
-    PendingReview --> settingsCopy
-    App --> RawConfiguration[RawConfiguration original TOML actions and dialog]
-    RawConfiguration --> api
-    api --> portableSource[portable_settings validated active rules]
-    App --> UserCreation[UserCreation memory credentials and secret-free review]
-    App --> AccessReview[AccountAccessEditor and ProjectAccess before after result]
-    UserCreation --> userCopy[userCopy four locale access guidance]
-    AccessReview --> userCopy
-    UserCreation --> api
-    AccessReview --> api
-    App --> i18n[i18n catalogs]
-    Presentation --> i18n
-    App --> api[create_app]
-    api --> audit[Closed audit.py evidence]
-    audit --> identity[(web.db audit and replay receipts)]
-    AuditHistory[AuditHistory who what when result] --> api
-    api --> preparation[Offline WizardSetup]
-    preparation --> publication[Enrollment and conductor locks]
-    publication --> profiles[(Config then pause then metadata)]
-    api --> profiles
-    api --> verification[(Revision-bound readiness.json)]
-    api --> state[(StateStore)]
-    api --> jobs[Strict authorized job projection]
-    jobs --> sources[(State ticket journal bytes)]
-    jobs --> profiles
-    api --> assets[(Bundled React assets)]
-    worker[CommandWorker] --> identity
-    worker --> cli([ADORE CLI])
-    cli --> conductor[Orchestrator]
-    conductor --> state
-```
-
-One web worker owns command ordering for one home. During any blocking engine
-command or project poll, the worker watches queued cancellations across projects and
-signals the active conductor after rechecking grants. Other queued operations
-wait for the current engine command. Administrator metrics attribute usage and
-reported/estimated cost to the most recent revision-started event in each run;
-initial work remains in run totals and developers receive no financial rows.
-API liveness at `/api/v1/health` is separate from readiness at `/api/v1/ready`.
-The worker refreshes a schema-5 SQLite heartbeat even while an engine command
-blocks; a stopped, stale or corrupt heartbeat does not claim readiness.
-Administration expands into System status, Users and Change history sidebar pages;
-both roles reach a top-level My account page. Every view has a path URL
-(`web/src/routes.ts`) kept in sync with view state; project details uses
-Summary/Settings/Access/Jobs/Statistics/History tabs (`/projects/<id>/jobs?run=`, `/projects/<id>/statistics?tab=&from=`). Project details shows effective
-configuration in six purpose categories plus closed Technical details with frequent settings first within each,
-with a Default badge for inherited values, field type, domain and permanent purpose guidance; administrators edit settings on their rows and stage
-endpoint changes there. The Agent and model group also holds the Admin-only estimated-price form, which asks for the
-effective date and input/output rates and records them for the applied coding agent and its configured model
-(guidance replaces the form while no model is set), and the project's price table. The
-settings response is scoped to the current project identity so switching
-projects cannot briefly show another project's values. Audit policy defaults to unlimited
-and its System status form displays saved day/MiB limits, representing unlimited as zero.
-Zero or blank maps to API null; bounded values convert to integer days/bytes
-through `04_Software/web/src/auditPolicy.ts`, covered by offline Node tests.
-Administrators can set day and stored-text byte limits. Schema 14 validates
-closed evidence, upgrades legacy unknowns atomically and prunes oldest visible
-events with structured JSON included in bytes. SQLite mutations and evidence
-share transactions. Filesystem mutations start uncertain and confirm after
-completion; pending config replay preserves original before and finalizes once.
-Separate receipts keep deduplication after audit retention removes visible rows;
-completed receipts clear value payloads. Interrupted commands remain uncertain,
-malformed exit codes cannot claim success and terminal replay creates no event.
-`audit.py` excludes nested credentials/environment/raw errors/arbitrary metadata.
-Browser-local correction/abandonment is not a persisted server mutation.
-Audit and other long tables provide 10/25/50/All paging; Jobs uses
-the complete revision-bound global API for the same choices. API fetches bypass browser cache
-so a newly deployed endpoint cannot be masked by stale HTML.
-The Administration System status page polls readiness every five seconds and labels worker
-status separately from forge, executor and model reachability.
-It also polls administrator-only storage status every 30 seconds. The API reads
-free space for home and each project state root with a `volume_id` (the UI groups
-one line per physical volume), warns below 1 GiB and returns
-an explicit service error if measurement fails, without exposing host paths.
-The React About dialog makes the surrounding shell inert, keeps keyboard focus
-on its Close button, and restores focus to About when closed. Narrow layouts
-expose Sign out in the top bar while the sidebar account row is hidden.
-The top bar supplies the sole page title and common actions on every page.
-Project details keeps the identity opened through authorized Projects rows.
-Its metadata rows use 4px gaps and 18px separation before actions. Platform
-administration/account pages use their own controls. Responsive rows
-keep these controls visible while content begins with page data. Metric hints,
-usage actions and account rows wrap on narrow screens.
-Statistics keeps its authorized project selector with the common reporting range,
-grouping, All time and CSV menu in one row above keyboard-operable Summary, Usage, Quality,
-Trends tabs (old ?tab=projects links land on Summary). Administrators use All projects
-scope for pooled totals and one per-project table per family in Summary, Usage and Quality.
-Every category and CSV menu follows that scope; single-project mode limits
-comparison rows and developer mode exposes assigned-project operational data.
-Summary includes a paginated project breakdown in All projects scope.
-`04_Software/web/src/metrics.ts` pools counters, nullable evidence, quality cohorts and
-terminal duration samples; `04_Software/web/tests/metrics.test.mjs` verifies it offline.
-Developer export choices remain project-scoped and omit money. The Usage tab
-has no executor/model filters (the API parameters remain); its table sorts by
-column and its totals row includes job elapsed time. Compact layouts put
-the shared reporting controls in two rows.
-Session clearing also returns the shell to Overview, preventing a blank
-administrator-only page after a developer signs in. Successful asynchronous
-config staging resets its form without a false error; UserCreation clears its
-transient credentials after confirmed creation.
-A signed-in account with a pending required password change is held outside
-the shell session, so only the change-password card renders and no dashboard
-polling starts. The error banner stores the raw failure; `web/src/errors.ts`
-renders it in the active locale, and each user action or view change clears
-it. `web/src/projectName.ts` supplies the `v`-flag-safe project-name pattern
-for Add and Import project. Primary buttons take their text colour from the
-`--on-accent` theme token.
 
 ## Files
+
+- `04_Software/tests/test_system_packages.py`: package authority, independent egress, recovery and reviewed settings contracts.
+
+- `04_Software/tests/test_retry_revalidation.py`: explicit Retry and bound outcome proof.
 
 - `04_Software/adore/web/implementation_settings.py`: strict retry/map domain and semantic single-setting TOML writer.
 - `04_Software/web/src/implementationSettings.ts`: typed Implementation drafts and localized editor terminology.
@@ -760,8 +628,8 @@ for Add and Import project. Primary buttons take their text colour from the
   (configuration rows and grouping) and `web/src/settingHelp.ts` (per-setting
   help texts for the `web/src/settingKeys.json` catalog) are pure modules tested by
   `web/tests/*.test.mjs`.
-- `02_Tools/{package_web_offline,install_web_offline,launch_web,stamp_web_assets}.py`
-  - offline media and static asset preparation.
+- `02_Tools/create_package.py`, `verify_package.py` and
+  `internal/stamp_web_assets.py` - portable media and static asset preparation.
 - `04_Software/tests/test_web_*.py` - focused API, pricing, worker and packaging tests.
 
 ### Settings edit and review seam
@@ -866,7 +734,7 @@ Project Settings displays the selected project's effective configuration control
 
 Proof: web/e2e/settings.spec.ts project settings keep defaults and single guidance (administrator/developer), plus existing candidate edit/discard journey.
 
-Offline Playwright verification runs serially with a ten-minute global deadline,
+Offline Playwright verification runs serially with a thirty-minute global deadline,
 thirty-second tests, ten-second assertions and no retries. A global timeout does
 not establish complete proof even when every executed test passed.
 Shell locale journeys await the exact successful language-save response before
@@ -904,3 +772,61 @@ service schedules repeated `run --once` rounds independently of that value.
 Default-agent editing uses the ordinary setting-editor flex layout: Prepare/Cancel follow its dropdown on wide screens, with shared responsive wrapping. Grouped-draft guidance stays in the description column.
 
 Inline editor validation follows the controls/actions on its own flex line. Incomplete agent/model selections retain the same selector/action placement and disabled Prepare, while responsive wrapping remains shared.
+
+## Simple guided local setup
+
+REQ-UX-ec09a60a: local enrollment displays detected account and installed choices;
+current-account home/PATH are automatic, with technical overrides in closed
+Advanced. Settings retains saved assertions and reviewed overrides in Advanced.
+REQ-FUNC-f47164f2: CloneLocation offers automatic/custom destinations and an admin
+HostFolderDialog for host directory navigation. See host-folders.md for API,
+filesystem bounds, modal races and no-write selection contracts.
+
+Reviewed configuration apply retries only Windows replace errors 5/32/33, at most six attempts with 50ms between attempts (250ms maximum scheduled delay). Persistent or other OS write failures return `config_write_failed` (HTTP 503), keep the active configuration and pending review, and clean the temporary candidate. Existing state/config locks and revision checks remain in force.
+
+
+Enrollment and Clone project config read remote branch choices and symbolic HEAD
+through the shared Git boundary for all supported forges, including self-hosted
+remotes. Target branch is a default-marked dropdown; same-URL refresh preserves
+only still-existing explicit selections. Empty, malformed, failed and stale
+reads cannot fabricate a default or reuse another repository’s branch choices.
+See Component_Repository_Source.md and REQ-FUNC-b3251e39.
+
+Manual ticket Start preserves paused monitoring. The CLI/worker terminal result
+binds IID/exit/reason; localized operationResultText renders closed failures in
+Tickets, Jobs and general status. See Component_Web_Worker.md and
+Component_Web_Frontend.md.
+
+## Background worker engine processes
+
+CommandWorker's production runner uses shared child pager defaults and Windows
+CREATE_NO_WINDOW with closed stdin, preserving ADORE_HOME, captured UTF-8 output,
+the existing six-hour timeout and authoritative manual admission records.
+Focused proof: test_default_worker_runner_carries_manual_outcome.
+
+## Portable repository sign-in recovery
+
+New/transfer Gitea probes use portable_tea_runner; saved-project probes use
+project_runner so protected credentials stay authoritative. Missing discovery is
+a failed forge_auth check. Ticket APIs expose closed auth codes with localized
+connection guidance; ReadinessEvidence and the connection dialog explain the
+same current-account and current-machine boundary. Enrollment suggestions share
+metadata discovery. See repository-auth.md and projects help #gitea-sign-in.
+
+## Native check diagnostics
+
+REQ-FUNC-ab8c90b6 / REQ-UX-4d08dee5: schema-1 readiness accepts optional
+executor_probe {ready, reason, exit_code} only in executor-local context; strict
+duplicate-free persistence and the frontend reject inconsistent/unknown values.
+Legacy records remain readable and request a fresh check for missing causes.
+localDiagnostics.ts provides four-locale local/model causes shared by Summary
+and ModelConnection. The broad local notice appears once; explicit model results
+show their saved reason. Model test help follows the saved native/container backend.
+Focused proof: test_web_readiness.py, selected native tests and
+web/tests/localDiagnostics.test.mjs source-render/readiness/help tests.
+
+The canonical settingKeys/settingHelp catalog includes the package permission with four-locale guidance; existing host folder/account lookup errors use localized recovery messages.
+
+Localized enrollment browser checks restore the shared account language even after an assertion failure.
+
+Environment browser checks use the semantic executor disclosure; Jobs coverage retains queue/failure assertions with the current single-ticket hint.

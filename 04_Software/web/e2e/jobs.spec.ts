@@ -163,7 +163,7 @@ test("manual start from Tickets reports queueing and the asynchronous worker fai
   await page.locator(".ticket-table tbody tr.ticket-row").filter({ hasText: "#43" }).getByRole("button", { name: "Start", exact: true }).click();
   const notice = page.locator(".ticket-notice");
   await expect(notice).toContainText("Start for #43 queued");
-  await expect(notice).toContainText("The worker will attempt this existing ticket through the configured selection, readiness and approval gates.");
+  await expect(notice).toContainText("Starts only this ticket, even with monitoring paused. All other checks still apply.");
   await expect(notice).toContainText("failed · engine rejected operation");
   await expect(notice).not.toContainText("finished");
 });
@@ -766,6 +766,8 @@ test("repository connection clears tokens and shows scoped verified identity", a
   expect(Math.abs((await trigger.boundingBox())!.y - (await check.boundingBox())!.y)).toBeLessThan(2);
   await trigger.click();
   await expect(area.getByRole("dialog")).toBeVisible();
+  await expect(area.getByRole("button", {name: "Close", exact: true})).toHaveCount(0);
+  await expect(area.getByRole("button", {name: "Cancel", exact: true})).toHaveCount(1);
   await area.getByLabel("Repository server", {exact: true}).fill("https://git.example.com");
   const token = area.getByLabel("Access token", {exact: true});
   await token.fill("test-only-value");
@@ -785,7 +787,7 @@ test("repository connection clears tokens and shows scoped verified identity", a
   await page.keyboard.press("Escape");
   await expect(area.getByRole("dialog")).not.toBeVisible();
   await trigger.click(); await expect(token).toHaveValue("");
-  await area.getByRole("button", {name: "Close", exact: true}).click();
+  await area.getByRole("button", {name: "Cancel", exact: true}).click();
   await expect(area.getByRole("dialog")).not.toBeVisible();
 });
 

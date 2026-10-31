@@ -8,6 +8,14 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # Environment guide
 
+Portable user delivery is built natively with `python 02_Tools/create_package.py`
+with automatic frontend compilation/licensing. It includes managed CPython and locked
+web dependencies; uv and network access are needed only on the build host.
+Windows ZIP/Linux TAR.GZ output goes to repository-relative `07_Delivery/`.
+Run `python 02_Tools/verify_package.py <archive>` on each matching host; it uses
+an isolated home and empty host PATH, and removes temporary data on exit; results go to the console only.
+User startup uses Start-ADORE.cmd/start-adore.sh with no host Python setup.
+
 ## Toolchain
 
 Python 3.11 or later with `uv`; the runtime itself uses only the standard
@@ -22,10 +30,11 @@ the installed web runtime serves local assets without Node.js.
 
 ## Setup
 
-From `04_Software`, `uv sync` creates `.venv` with the locked dependencies and
+Run `python 02_Tools/setup_environment.py` to prepare the source environment
+without tests or service installation. From `04_Software`, `uv sync` creates `.venv` with the locked dependencies and
 the `dev` group and installs the `adore` command in editable mode. Operator
 installation on a host follows `01_Documentation/Getting_Started.md`;
-unattended installation follows `04_Software/deploy/README.md`.
+unattended installation follows `02_Tools/deploy/README.md`.
 Frontend calculation tests use Node.js 22.18 or later for native TypeScript loading.
 For web development use `uv sync --extra web --group dev` from `04_Software`,
 then `npm ci` and `npx playwright install chromium` in `04_Software/web`.
@@ -64,11 +73,9 @@ The package has no build step: run `adore` from the synced `.venv`
 `run --dry-run`, `run --once` or `run --loop`. Executor images are built from
 `04_Software/docker/` as its README documents: the generic
 `adore-executor-base:1.0.0`, the optional `adore-egress-proxy:1.0.0`, and one
-project image per runtime project. Runtime bundles are produced by
-`02_Tools/package_runtime.ps1` or `package_runtime.sh` into `07_Delivery/`.
-The optional host-specific offline web media comes from
-`02_Tools/package_web_offline.py`; its installer uses local locked wheels with
-`pip --no-index`, and its launcher starts API and worker processes.
+project image per runtime project. The three public tools are `setup_environment.py`, `create_package.py` and
+`verify_package.py` under `02_Tools/`. Delivery contains only final native
+portable archives and optional adjacent hashes; no technical outputs are retained.
 For web service monitoring, `/api/v1/health` checks the API listener and
 `/api/v1/ready` requires a recent heartbeat from the separate control worker.
 
@@ -79,7 +86,7 @@ commands, run from `workdir = "04_Software"`; the suite is fully offline.
 Focused work runs `pytest -q tests/test_<component>.py` from `04_Software`.
 The final proof for a governed task is
 `python .agentic/aegis.py check --task TASK-<id> --strict --run`. A release
-additionally passes `python 02_Tools/check_release_consistency.py
+additionally passes `python 02_Tools/internal/check_release_consistency.py
 --require-artifacts`. Outcomes belong in task evidence, not here.
 
 ## Platform details
@@ -100,7 +107,7 @@ runtimes receive mount-path translation and `WSLENV` propagation from ADORE.
   first poll.
 - `01_Documentation/Security_And_Credentials.md` - where every credential
   lives.
-- `04_Software/deploy/README.md` - systemd and Task Scheduler installation.
+- `02_Tools/deploy/README.md` - systemd and Task Scheduler installation.
 - `04_Software/docker/README.md` - executor and proxy image build commands.
 - `02_Tools/README.md` - release check and packaging scripts.
 - `01_Documentation/Web_Interface.md` - optional web setup and offline media.
@@ -121,6 +128,10 @@ Selected preparation profiles use `execution.preparation = "path.yml#job@full-co
 
 ## Native local prerequisites
 
+Native child environments preserve the account's PATH and inherited PATHEXT so
+Windows shells resolve installed executable names. Forge credential variables
+remain filtered; project tools are still installed by the operator.
+
 Local profiles require independently installed CLI/native Python under the ADORE
 service account. Windows needs executable entrypoints (or installed Node/JS argv)
 and Jobs; Linux needs delegated cgroup v2 with kill. Local execution skips images/
@@ -130,3 +141,74 @@ independently prepared. See 01_Documentation/Local_Execution.md.
 ## Project image build clients
 
 The server administrator builds and verifies executor images externally with the installed Docker/Podman runtime, then selects it in enrollment or the reviewed Settings flow, or updates the existing profile. The GUI supplies a read-only Dockerfile/profile guide and image suggestions from the server's local images. Existing native owned process scopes and delegated Linux `ADORE_BUILD_CGROUP_ROOT` remain available for retained interrupted build cleanup; queued requests are refused. See `01_Documentation/Project_Executor_Images.md`. Full run/model/forge acceptance has separate authority.
+
+Local enrollment and Agent and model command editing detect installed native
+executors and known npm entrypoints on the actual Windows/Linux ADORE host,
+with explicit manual executable paths. Discovery reads files without executing
+CLIs; existing auth/model checks and native isolation remain separate. See
+`01_Documentation/Local_Execution.md` and knowledge/executor-discovery.md.
+
+Native enrollment uses a read-only detected account with automatic home/PATH.
+Full commands and environment overrides stay under Advanced. Clone destinations
+have automatic/custom selection and an administrator host folder navigator;
+selection is read-only and actual clone publication retains its existing checks.
+See knowledge/host-folders.md and 01_Documentation/Web_Interface.md.
+
+Reviewed web configuration saves preserve the active file and pending review on write errors; brief Windows replacement contention uses six attempts with at most 250ms total scheduled delay and explicit localized failure.
+
+## Automatic command presentation
+
+ADORE applies GIT_PAGER=cat/PAGER=cat per automatic child process, including
+native executors and container exec. Windows host/supervisor/executor launches
+use CREATE_NO_WINDOW. No global Git settings are required. The defaults affect
+new launches; existing services/jobs retain the version and environment already
+loaded. Ordinary children inherit the environment; explicitly requested GUI or
+new-console windows are controlled by the tool that creates them.
+Focused offline proof: test_automatic_processes.py and runner/native/worker/
+container environment tests. See 01_Documentation/Local_Execution.md.
+
+## Portable repository authentication
+
+Gitea CLI auth belongs to the account running ADORE on each machine. Standard
+XDG/account configuration discovery is shared by runtime, web probes and
+enrollment. Existing project connections retain priority; no private application
+cache paths or credentials belong in delivery archives. Missing/ambiguous auth
+uses Project Summary -> Connect repository -> Repository server / Access token ->
+Verify and connect -> Check host prerequisites. See Security_And_Credentials.md.
+Focused tests: test_gitea_auth.py and repository connection/source cases.
+
+## Native check diagnostics
+
+Check host prerequisites uses the same installed command/account/auth and accepts
+version output on stdout or stderr. Closed diagnostic causes include native
+permission/scope/cleanup boundaries. Test AI connection reuses saved native argv
+in an empty temporary folder and reports model/provider errors without raw output.
+Targeted tests inject native/process/CLI boundaries and do not contact a model.
+
+Windows no-console executor launch needs explicit stdout/stderr bindings from
+the supervisor to its child. The native helper closes stdin and retains the
+existing parent capture pipes; no global terminal/Git/OpenCode settings are needed.
+
+## Agent package image readiness
+
+Opted-in container.system_packages jobs require a rebuilt compatible Linux image with root-owned OS Python/id, sudo/visudo and a supported package manager. ADORE configures sudo permission but installs no bootstrap tools on job start. Native execution rejects the permission. Agent package downloads obey container.egress. See 01_Documentation/Agent_Dependency_Installation.md; live package acceptance is separate from offline injected tests.
+
+
+## Container Git context
+
+Fresh repository containers use a read-only container-native Git pointer while
+the host keeps its own pointer. Git selects independent and nested repositories
+normally; managed repository-selection environment fields are provisioning
+metadata. Warm containers preserve their creation-time binding and installed
+contents. WSL container commands use direct argument execution; custom wrappers
+identify their command boundary explicitly. See knowledge/isolation.md and
+01_Documentation/Operations_Guide.md for ownership and recovery contracts.
+
+## Container timeout recovery
+
+Shared container commands address observed immutable IDs. Actual timeouts require
+verified same-resource interruption before output retention, with deferred verified
+restart at the next command/provision. Dependencies/files/user/egress are retained.
+Unconfirmed recovery blocks active admission and becomes terminal infrastructure
+failure; cancellation and explicit owned release keep authority. No new runtime
+package or state schema is required. See knowledge/execution.md and Operations_Guide.

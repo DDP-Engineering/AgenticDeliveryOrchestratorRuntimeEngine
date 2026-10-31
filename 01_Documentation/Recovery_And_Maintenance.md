@@ -48,8 +48,8 @@ approved.
 
 `adore retry` re-runs the same decision against the same durable state. One
 failure is therefore immune to it: `FORBIDDEN_STAGE_TRANSITION`, raised when the
-journal reports a stage ADORE cannot legally reach from the one it recorded, and
-the stages in between carry no Log entry of their own. Retrying replays the
+journal skips forward and the stages in between carry no Log entry of their
+own. Backward routes within the selected path continue automatically. Retrying replays the
 identical refusal.
 
 Read the journal, decide which stage the work genuinely reached, then move
@@ -63,6 +63,12 @@ adore --profile <name> retry <run-id>
 The terminal comment for this failure names that command. Reset changes only
 ADORE's record; the AEGIS journal stays untouched, and the run re-verifies from
 the stage you chose rather than trusting the executor's claim.
+
+A failed stage checkpoint reports `CHECKPOINT_FAILED` at the stage recorded by
+AEGIS and keeps the worktree. Correct the Git failure before Retry. Existing
+failed jobs remain failed until an explicit Retry; updating the application does
+not restart them. `STALE_WORKING` means a working run has lost its conductor,
+not that AEGIS returned to an earlier stage.
 
 ## Stage-Failure Accounting
 
@@ -169,3 +175,17 @@ Native recovery requires pinned backend/account/environment and intact runtime/l
 
 See [Local execution](Local_Execution.md) for platform prerequisites, configuration,
 authentication, process ownership and acceptance coverage.
+
+## Retrying after an installed executor update
+
+For a failed local job, use Retry in Jobs or `adore --profile <name> retry <run-id>`.
+Explicit Retry accepts changes to the inherited environment and installed executor
+on the same host/account, checks the executor version and resumes the saved AEGIS
+task in its existing worktree. The job's branch, history and cumulative budgets are
+kept. Automatic monitoring does not authorize this refresh. Changed execution
+settings, another host/account or corrupt recovery evidence require correction.
+If rearming fails, the command exits with an error and Jobs shows the saved cause,
+including an unavailable executable, invalid version, command exit or timeout.
+This rule applies to all supported native executors and projects, with no special
+case for a ticket or forge. It does not issue a model request; Test AI connection
+remains the explicit provider/model check.

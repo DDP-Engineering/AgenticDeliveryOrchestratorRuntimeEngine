@@ -37,10 +37,14 @@ from adore.branding import PACKAGE_NAME, PRODUCT_NAME
 from adore.clone_cleanup import clone_decision, project_clone_decision
 from adore.config import Config, load_config, validate_config
 from adore.config_edit import ConfigEditLockedError, config_edit_lock
+from adore.forge import ForgeError
+from adore.local_execution import local_probe_failure
+from adore.local_process import LocalExecutionError
 from adore.orchestrator import LockHeldError, Orchestrator
 from adore.preparation import PreparationError, preview_plan, public_plan
 from adore.process_log import ProcessLogger, process_log_path
 from adore.profiles import ProfileError, ProfileStore, resolve_config_path
+from adore.start_result import emit_retry_result, emit_start_result
 from adore.state import StateError, StateStore
 from adore.util import force_rmtree, parse_duration, run_command
 from adore.wizard import ConsoleAsker, ScriptedAsker, WizardError, run_wizard
@@ -601,6 +605,15 @@ def _cmd_run(args: argparse.Namespace) -> int:
     @param[in]  args Parsed arguments.
     @return     Process exit code.
     """
+    def finish(code: int, reason: str) -> int:
+        """@brief Append secret-free terminal evidence for a manual worker request."""
+        if args.ticket is not None and not args.dry_run:
+            emit_start_result(args.ticket, code, reason)
+        return code
+
+    if args.ticket is not None and (args.ticket < 1 or not args.once or args.loop):
+        print("error: --ticket requires a positive IID and --once")
+        return finish(EXIT_ERROR, "invalid_request")
     profile_store = ProfileStore()
     try:
         _path, profile_name = resolve_config_path(
@@ -609,17 +622,19 @@ def _cmd_run(args: argparse.Namespace) -> int:
         )
         if profile_name and profile_store.load(profile_name).archived:
             print(f"error: profile {profile_name!r} is archived; restore it before pickup")
-            return EXIT_ERROR
+            return finish(EXIT_ERROR, "project_archived")
     except ProfileError as exc:
         print(f"error: {exc}")
-        return EXIT_ERROR
-    built = _engine(args)
+        return finish(EXIT_ERROR, "configuration_invalid")
+    try:
+        built = _engine(args)
+    except Exception:  # noqa: BLE001 - manual result must not expose setup secrets
+        if args.ticket is None:
+            raise
+        return finish(EXIT_ERROR, "engine_setup_failed")
     if built is None:
-        return EXIT_ERROR
+        return finish(EXIT_ERROR, "configuration_invalid")
     config, engine = built
-    if args.ticket is not None and (args.ticket < 1 or not args.once or args.loop):
-        print("error: --ticket requires a positive IID and --once")
-        return EXIT_ERROR
     logger = ProcessLogger(process_log_path(config.state.store_root))
     engine.log = logger.emit
     poll_options = {"ticket_iid": args.ticket} if args.ticket is not None else {}
@@ -637,7 +652,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
         logger.emit(f"error: {exc} ({store.lock_path})")
         logger.emit("hint: stop or wait for a live holder; `adore cleanup` reclaims "
                     "only a provably stale local lock")
-        return EXIT_ERROR
+        return finish(EXIT_ERROR, "lock_held")
     except Exception as exc:  # noqa: BLE001 - one pass must not traceback
         # `run --loop` survives an unexpected fault and keeps polling, so a
         # single pass must not be noisier than the daemon for the same cause:
@@ -645,9 +660,13 @@ def _cmd_run(args: argparse.Namespace) -> int:
         # just a nonzero exit with an ugly log. The run itself is already
         # failed and journaled by the engine.
         logger.emit(f"error: {exc}")
-        return EXIT_ERROR
+        reason = ("repository_unavailable" if isinstance(exc, ForgeError) else
+                  "state_unavailable" if isinstance(exc, StateError) else "engine_fault")
+        return finish(EXIT_ERROR, reason)
     logger.emit(json.dumps(summary))
-    return EXIT_ERROR if args.ticket is not None and summary["picked"] is None else EXIT_OK
+    if args.ticket is not None and summary["picked"] is None:
+        return finish(EXIT_ERROR, summary.get("start_reason", "not_eligible"))
+    return finish(EXIT_OK, "started")
 
 
 def _cmd_run_op(args: argparse.Namespace) -> int:
@@ -656,9 +675,25 @@ def _cmd_run_op(args: argparse.Namespace) -> int:
     @param[in]  args Parsed arguments (args.run_id set).
     @return     Process exit code.
     """
-    built = _engine(args)
+    def finish(code: int, reason: str) -> int:
+        """@brief Bind Retry outcomes without changing other operator commands."""
+        if args.command == "retry":
+            emit_retry_result(args.run_id, code, reason)
+        return code
+
+    try:
+        built = _engine(args)
+    except (LocalExecutionError, PermissionError) as exc:
+        if args.command != "retry":
+            raise
+        reason = local_probe_failure(exc, "engine-setup-failed").replace("-", "_")
+        return finish(EXIT_ERROR, reason)
+    except Exception:  # noqa: BLE001 - Retry must return a closed setup outcome
+        if args.command != "retry":
+            raise
+        return finish(EXIT_ERROR, "engine_setup_failed")
     if built is None:
-        return EXIT_ERROR
+        return finish(EXIT_ERROR, "configuration_invalid")
     config, engine = built
     store = _store(config)
     if args.command == "handoff":
@@ -700,17 +735,45 @@ def _cmd_run_op(args: argparse.Namespace) -> int:
                 print("cancelled" if ok else f"no such run: {args.run_id}")
                 return EXIT_OK if ok else EXIT_ERROR
             if args.command == "retry":
+                try:
+                    before = store.load(args.run_id)
+                except FileNotFoundError:
+                    print(f"cannot retry: {args.run_id}")
+                    return finish(EXIT_ERROR, "run_unavailable")
                 ok = (engine.retry(args.run_id, reprepare=True) if args.reprepare
                       else engine.retry(args.run_id))
-                print("retried" if ok else f"cannot retry: {args.run_id}")
-                return EXIT_OK if ok else EXIT_ERROR
+                if not ok:
+                    reason = ("notification_pending" if before.notification_outbox else
+                              "not_failed" if before.lifecycle != "failed" else
+                              "reprepare_unavailable" if args.reprepare else "run_unavailable")
+                    print(f"cannot retry: {args.run_id} ({reason})")
+                    return finish(EXIT_ERROR, reason)
+                after = store.load(args.run_id)
+                if after.lifecycle == "failed":
+                    print(f"retry failed: {after.outcome}")
+                    return finish(EXIT_ERROR, "retry_failed")
+                print("retried")
+                return finish(EXIT_OK, "retried")
             engine.cancel(args.run_id, outcome="deleted")
             store.delete_run(args.run_id)
             print(f"deleted {args.run_id}")
             return EXIT_OK
     except LockHeldError as exc:
         print(f"error: {exc}")
-        return EXIT_ERROR
+        return finish(EXIT_ERROR, "lock_held")
+    except (StateError, OSError) as exc:
+        if args.command != "retry":
+            raise
+        print(f"retry state unavailable: {type(exc).__name__}")
+        return finish(EXIT_ERROR, "state_unavailable")
+    except ForgeError:
+        if args.command != "retry":
+            raise
+        return finish(EXIT_ERROR, "repository_unavailable")
+    except Exception:  # noqa: BLE001 - no untrusted exception text in web results
+        if args.command != "retry":
+            raise
+        return finish(EXIT_ERROR, "engine_fault")
 
 
 def _cmd_stats(args: argparse.Namespace) -> int:

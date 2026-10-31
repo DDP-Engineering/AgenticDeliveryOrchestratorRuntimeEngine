@@ -52,7 +52,7 @@ When unattended ADORE polling is installed or removed, the host installer shall 
 verification = "Inspection: review the Ubuntu and Windows installers for fail-fast validation, uninstall scope, and explicit open-egress override; perform the documented host-specific smoke checks before a release."
 
 # Repo-relative, forward slashes. The source files this behavior lives in.
-affected_paths = ["04_Software/deploy/install-ubuntu.sh", "04_Software/deploy/install-windows.ps1", "04_Software/deploy/adore.service"]
+affected_paths = ["02_Tools/deploy/install-ubuntu.sh", "02_Tools/deploy/install-windows.ps1", "02_Tools/deploy/adore.service"]
 
 # "tests/path/test_file.py::test_name" entries. Kept current during build;
 # these select the impacted regression set.

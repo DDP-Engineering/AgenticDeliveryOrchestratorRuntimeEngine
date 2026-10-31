@@ -23,14 +23,17 @@ from __future__ import annotations
 
 # IMPORTS
 import json
+import os
 from pathlib import Path
 import re
 import shlex
 import shutil
+import stat
 
 from adore.branding import DEFAULT_QUESTIONS_FILE
-from adore.execution import SHELL_HEADER, ExecutionPaths
+from adore.execution import SHELL_HEADER, ExecutionPaths, redact_output
 from adore.executor.base import ExecTarget, Executor, GateRun
+from adore.isolation import IsolationError
 from adore.util import utc_now_iso
 
 # CONSTANTS
@@ -107,6 +110,7 @@ class FileProtocolExecutor(Executor):
         *,
         timeout: float | None = None,
         archive_stem: str = "",
+        package_secrets: dict[str, str] | None = None,
     ) -> GateRun:
         """
         @brief      Run one gate headless; read every result from files.
@@ -130,6 +134,8 @@ class FileProtocolExecutor(Executor):
         @param[in]  prompt Gate instruction (native argv or container script).
         @param[in]  timeout Wall-clock bound (run budgets).
         @param[in]  archive_stem Optional immutable archive name stem.
+        @param[in]  package_secrets Enable bounded/redacted package-job retention;
+                                   None preserves legacy output handling.
         @return     A GateRun describing the outcome.
         """
         worktree = Path(worktree)
@@ -192,8 +198,15 @@ class FileProtocolExecutor(Executor):
 
         if native is not None and hasattr(execute, "read_output"):
             execute.read_output(questions_path, optional=True)
-        output = self._read(output_path)
-        stderr = self._read(stderr_path) or result.stderr
+        if package_secrets is not None:
+            output, usage, tokens_reported, cost_reported = self._retain_package_output(
+                output_path, package_secrets, collect_usage=True,
+            )
+            stderr, *_unused = self._retain_package_output(stderr_path, package_secrets)
+            stderr = stderr or redact_output(result.stderr, package_secrets)
+        else:
+            output = self._read(output_path)
+            stderr = self._read(stderr_path) or result.stderr
         artifacts: list[str] = []
         if archive_stem:
             try:
@@ -217,11 +230,17 @@ class FileProtocolExecutor(Executor):
                     artifact_dirs=artifacts,
                 )
             artifacts.append(str(archive_dir))
-        questions = self._read(questions_path)
+        if package_secrets is not None:
+            questions, *_unused = self._retain_package_output(questions_path, package_secrets)
+        else:
+            questions = self._read(questions_path)
         if native is not None:
             questions = getattr(execute, "redact", lambda text: text)(questions)
-        tokens_in, tokens_out, cost, cache_read, cache_write = (
-            self._extract_usage_detail(output))
+        if package_secrets is None:
+            usage = self._extract_usage_detail(output)
+            tokens_reported = self._tokens_reported(output)
+            cost_reported = self._cost_reported(output)
+        tokens_in, tokens_out, cost, cache_read, cache_write = usage
         return GateRun(
             exit_code=result.exit_code,
             has_questions=questions_path.is_file(),
@@ -233,9 +252,9 @@ class FileProtocolExecutor(Executor):
             tokens_out=tokens_out,
             cache_read_tokens=cache_read,
             cache_write_tokens=cache_write,
-            tokens_reported=self._tokens_reported(output),
+            tokens_reported=tokens_reported,
             cost_usd=cost,
-            cost_reported=self._cost_reported(output),
+            cost_reported=cost_reported,
             artifact_dirs=artifacts,
         )
 
@@ -325,8 +344,8 @@ class FileProtocolExecutor(Executor):
             suffix += 1
         archive_dir.mkdir()
         shutil.copy2(io_dir / GATE_SCRIPT, archive_dir / GATE_SCRIPT)
-        (archive_dir / OUTPUT_FILE).write_text(output, encoding="utf-8")
-        (archive_dir / STDERR_FILE).write_text(stderr, encoding="utf-8")
+        (archive_dir / OUTPUT_FILE).write_bytes(output.encode("utf-8"))
+        (archive_dir / STDERR_FILE).write_bytes(stderr.encode("utf-8"))
         meta = {
             "created_at": utc_now_iso(),
             "archive_stem": archive_stem,
@@ -352,6 +371,58 @@ class FileProtocolExecutor(Executor):
         """
         safe = _ARCHIVE_STEM_RE.sub("-", value.strip()).strip(".-")
         return safe or "launch"
+
+    def _retain_package_output(
+        self, path: Path, secrets: dict[str, str], *, collect_usage: bool = False,
+    ) -> tuple[str, tuple[int, int, float, int | None, int | None], bool, bool]:
+        """@brief Bound/redact retained package output without following linked files.
+        @param[in] path Owned gate output file.
+        @param[in] secrets Known model credential values, retained in memory only.
+        @param[in] collect_usage Parse every original event before retention truncation.
+        @return Sanitized output, complete usage, token and cost coverage.
+        @exception IsolationError Linked, changed or unreadable output.
+        @note Live writes during a gate still use the existing gate transport.
+        """
+        try:
+            before = path.lstat()
+        except FileNotFoundError:
+            return "", (0, 0, 0.0, None, None), False, False
+        if not stat.S_ISREG(before.st_mode) or any(p.is_symlink() for p in path.parents):
+            raise IsolationError("package output is linked or not a regular file")
+        try:
+            with path.open("r+b") as handle:
+                opened = os.fstat(handle.fileno())
+                if (before.st_dev, before.st_ino) != (opened.st_dev, opened.st_ino):
+                    raise IsolationError("package output identity changed")
+                totals = [0, 0, 0.0, None, None]
+                tokens_reported = cost_reported = False
+                if collect_usage:
+                    # Stream complete original JSONL records, independently of
+                    # retained text. Late usage must still count toward budgets.
+                    for line in handle:
+                        event = line.decode("utf-8", errors="replace")
+                        detail = self._extract_usage_detail(event)
+                        for index, value in enumerate(detail):
+                            if value is not None:
+                                totals[index] = (totals[index] or 0) + value
+                        tokens_reported = tokens_reported or self._tokens_reported(event)
+                        cost_reported = cost_reported or self._cost_reported(event)
+                    handle.seek(0)
+                limit = 65536
+                # Read beyond the boundary to redact a credential crossing it.
+                overlap = max((len(value.encode()) for value in secrets.values()), default=0)
+                raw = handle.read(limit + overlap + 1)
+                truncated = opened.st_size > limit
+                output = redact_output(raw.decode("utf-8", errors="replace"), secrets)
+                if truncated:
+                    output = output.encode()[:limit - 32].decode("utf-8", errors="ignore")
+                    output += "\n[ADORE output truncated]\n"
+                handle.seek(0)
+                handle.write(output.encode())
+                handle.truncate()
+            return output, tuple(totals), tokens_reported, cost_reported
+        except (OSError, ValueError, TypeError, AttributeError, OverflowError) as exc:
+            raise IsolationError("package output retention failed") from exc
 
     @staticmethod
     def _read(path: Path) -> str:

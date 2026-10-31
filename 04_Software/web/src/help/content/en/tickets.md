@@ -6,7 +6,7 @@ ADORE picks up tickets from your forge repository (GitHub, GitLab or Gitea) when
 
 Each project has a **Monitoring** state, shown as **Active** or **Paused** in the Projects table and on the project's Summary tab. While monitoring is Active, ADORE checks the repository for ready tickets at a regular interval (60 seconds by default; see **Ticket check interval (seconds)** in [Project settings](/help/settings)). It takes the eligible ticket with the highest priority first (P1, then P2, then P3), then the lowest number, and advances one job at a time.
 
-An administrator can use **Pause monitoring** and **Activate monitoring** on the project's Summary tab. Paused monitoring stops new pickups; running jobs continue.
+An administrator can use **Pause monitoring** and **Activate monitoring** on the project's Summary tab. Paused monitoring stops automatic pickups; running jobs continue.
 
 ## Create the labels first {#labels}
 
@@ -58,10 +58,12 @@ Nothing is read until you press **Read tickets**. It loads up to 500 open ticket
 
 **Start** queues a job; the worker still applies the usual gates. If the ticket lacks the ready or a priority label, ADORE asks you to confirm, lets you choose a priority, and **Add labels and start** adds them in the repository first. Start is unavailable for closed, held or excluded tickets, tickets missing required acceptance criteria, and tickets with a job. **Retry** replaces Start when the job failed. **Stop** asks for confirmation, cancels an unfinished job and removes the ready label so monitoring does not pick the ticket up again. **Details** shows description and comments.
 
+**Start** manually starts only the selected ticket, including while **Monitoring** is **Paused**, and keeps monitoring paused. Capacity, repository workflow, eligibility, conductor locks and approval checks still apply. A failed operation displays its concrete reason; if the result is invalid or uncertain, inspect the host logs before retrying.
+
 ## Checklist for a first ticket {#checklist}
 
 1. Create all nine labels in the forge repository.
-2. Check that Monitoring is Active.
+2. For automatic pickup, check that Monitoring is Active; for manual Start, it may stay Paused.
 3. Write a clear title and a description with acceptance criteria.
 4. Add a priority label, and optionally `bug`, `fix`, `change` or `agent-quick`.
 5. Add `agent-ready` last.

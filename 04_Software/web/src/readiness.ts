@@ -5,6 +5,7 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
 import { ApiError } from "./errors.ts";
+import { validLocalProbe, type LocalProbe } from "./localDiagnostics.ts";
 
 export const readinessKeys = ["git", "forge_cli", "forge_auth", "container_runtime", "executor_cli", "aegis_files", "model_endpoint"] as const;
 export type ReadinessKey = typeof readinessKeys[number];
@@ -12,6 +13,7 @@ export type ProjectReadiness = {
   status: "failed" | "partial" | "verified" | "stale"; project_id: string; revision: string; context: "api-host"; checked_at: string;
   checks: Record<ReadinessKey, boolean | null | "not-checked">;
   model_probe: { context: "executor-container" | "executor-local"; ready: boolean; model: string; reason: string };
+  executor_probe?: LocalProbe;
 };
 const reasons = new Set(["ready", "credential-missing", "tool-stream-incompatible", "redirect-rejected", "http-error", "endpoint-unreachable-or-incompatible", "probe-failed", "not-configured", "unsupported-executor", "invalid-endpoint", "invalid-provider-config", "invalid-credential-reference", "image-missing", "timeout", "runtime-error"]);
 const object = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
@@ -34,6 +36,8 @@ export function readReadiness(value: unknown, project: string): ProjectReadiness
       || typeof probe.model !== "string" || (probe.model !== "" && !/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}$/.test(probe.model))
       || typeof probe.reason !== "string" || !(reasons.has(probe.reason) || /^http-[45]\d\d$/.test(probe.reason))) return reject();
   const skipped = probe.reason === "unsupported-executor" || probe.reason === "not-configured";
+  if ("executor_probe" in value && (probe.context !== "executor-local"
+      || !validLocalProbe(value.executor_probe, value.checks.executor_cli === true))) return reject();
   if (value.checks.model_endpoint !== (skipped ? "not-checked" : probe.ready)
       || probe.ready !== (probe.reason === "ready")) return reject();
   const evidence = value as ProjectReadiness;

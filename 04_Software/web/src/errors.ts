@@ -18,9 +18,23 @@ export class ApiError extends Error {
   }
 }
 
+/** Shared recovery steps use the interface field and action names. */
+export const repositoryConnectionHelp: Record<Locale, string> = {
+  en: "In Project Summary, choose Connect repository. Enter Repository server and Access token, choose Verify and connect, then Check host prerequisites. Existing CLI sign-in must belong to the account running ADORE on this computer.",
+  ro: "În Rezumatul proiectului, alege Conectează depozitul. Completează Serverul depozitului și Token de acces, apasă Verifică și conectează, apoi verifică cerințele gazdei. Autentificarea CLI trebuie să aparțină contului care rulează ADORE pe acest calculator.",
+  fr: "Dans le Résumé du projet, choisissez Connecter le dépôt. Saisissez Serveur du dépôt et Jeton d’accès, puis Vérifier et connecter et contrôlez les prérequis. La connexion CLI doit appartenir au compte qui exécute ADORE sur cet ordinateur.",
+  de: "Wählen Sie in der Projektübersicht Repository verbinden. Geben Sie Repository-Server und Zugriffstoken ein, wählen Sie Prüfen und verbinden und prüfen Sie die Host-Voraussetzungen. Die CLI-Anmeldung muss zum ADORE-Konto auf diesem Rechner gehören.",
+};
+
 /** Localized sentences for every API and client error code. */
 export const errorMessages: Record<Locale, Record<string, string>> = {
   en: {
+    host_folder_unavailable: "The server folder cannot be read. Choose an accessible folder or try again.",
+    local_host_identity_unavailable: "The server account identity is unavailable. Ask the administrator to check the ADORE service account.",
+    gitea_auth_missing: "No local Gitea sign-in was found. " + repositoryConnectionHelp.en,
+    gitea_auth_login_missing: "The configured Gitea login is unavailable on this computer. " + repositoryConnectionHelp.en,
+    gitea_auth_ambiguous: "Several Gitea logins are available; choose an account explicitly. " + repositoryConnectionHelp.en,
+    gitea_auth_invalid: "The local Gitea login configuration could not be read safely. " + repositoryConnectionHelp.en,
     environment_managed_externally: "The executor environment is prepared outside ADORE. Ask the server administrator; existing environment changes can be discarded.",
     execution_plan_invalid: "The executor preparation plan is invalid. Check the server profile and reviewed recipe.",
     execution_plan_stale: "The preparation source changed. Review and update the server profile before running.",
@@ -87,6 +101,7 @@ export const errorMessages: Record<Locale, Record<string, string>> = {
     project_exists: "A project with this name already exists.",
     repository_url_invalid: "Use an https, http or ssh repository address without a password, such as https://github.com/owner/repository.",
     repository_unreachable: "The ADORE server could not read this repository. Check the address and that the server account has access (SSH key or credentials).",
+    repository_branches_invalid: "The repository returned an invalid or oversized branch list. Check the remote repository and read it again.",
     clone_path_occupied: "Another folder already exists at the clone location. Move it away or use an existing clone.",
     repository_clone_failed: "Cloning the repository on the ADORE server failed. Check that the server account can read it, then create again.",
     repository_aegis_missing: "The repository has no installed AEGIS workflow (.agentic/aegis.py and aegis.toml). Install AEGIS in it first.",
@@ -133,6 +148,12 @@ export const errorMessages: Record<Locale, Record<string, string>> = {
     unexpected_response: "The server sent an unexpected response.",
   },
   fr: {
+    host_folder_unavailable: "Le dossier du serveur est illisible. Choisissez un dossier accessible ou réessayez.",
+    local_host_identity_unavailable: "L’identité du compte serveur est indisponible. Demandez à l’administrateur de vérifier le compte ADORE.",
+    gitea_auth_missing: "Aucune connexion Gitea locale trouvée. " + repositoryConnectionHelp.fr,
+    gitea_auth_login_missing: "Le compte Gitea configuré est indisponible sur cet ordinateur. " + repositoryConnectionHelp.fr,
+    gitea_auth_ambiguous: "Plusieurs comptes Gitea existent ; choisissez-en un explicitement. " + repositoryConnectionHelp.fr,
+    gitea_auth_invalid: "La configuration locale des comptes Gitea ne peut pas être lue de façon sûre. " + repositoryConnectionHelp.fr,
     environment_managed_externally: "L’environnement est préparé hors d’ADORE. Contacter l’administrateur du serveur ; les anciennes modifications peuvent être abandonnées.",
     execution_plan_invalid: "Le plan de préparation est invalide. Vérifier le profil du serveur et la recette examinée.",
     execution_plan_stale: "La source de préparation a changé. Examiner et actualiser le profil du serveur avant l’exécution.",
@@ -199,6 +220,7 @@ export const errorMessages: Record<Locale, Record<string, string>> = {
     project_exists: "Un projet portant ce nom existe déjà.",
     repository_url_invalid: "Utilisez une adresse de dépôt https, http ou ssh sans mot de passe, par exemple https://github.com/proprietaire/depot.",
     repository_unreachable: "Le serveur ADORE n’a pas pu lire ce dépôt. Vérifiez l’adresse et l’accès du compte serveur (clé SSH ou identifiants).",
+    repository_branches_invalid: "La liste des branches du dépôt est invalide ou trop grande. Vérifiez le dépôt distant et relisez-le.",
     clone_path_occupied: "Un autre dossier existe déjà à l’emplacement du clone. Déplacez-le ou utilisez un clone existant.",
     repository_clone_failed: "Le clonage du dépôt sur le serveur ADORE a échoué. Vérifiez que le compte serveur peut le lire, puis recréez.",
     repository_aegis_missing: "Le dépôt n’a pas de workflow AEGIS installé (.agentic/aegis.py et aegis.toml). Installez d’abord AEGIS.",
@@ -245,6 +267,12 @@ export const errorMessages: Record<Locale, Record<string, string>> = {
     unexpected_response: "Le serveur a envoyé une réponse inattendue.",
   },
   de: {
+    host_folder_unavailable: "Der Serverordner kann nicht gelesen werden. Wählen Sie einen zugänglichen Ordner oder versuchen Sie es erneut.",
+    local_host_identity_unavailable: "Die Identität des Serverkontos ist nicht verfügbar. Lassen Sie das ADORE-Dienstkonto prüfen.",
+    gitea_auth_missing: "Keine lokale Gitea-Anmeldung gefunden. " + repositoryConnectionHelp.de,
+    gitea_auth_login_missing: "Die konfigurierte Gitea-Anmeldung ist auf diesem Rechner nicht verfügbar. " + repositoryConnectionHelp.de,
+    gitea_auth_ambiguous: "Mehrere Gitea-Anmeldungen verfügbar; wählen Sie ein Konto ausdrücklich. " + repositoryConnectionHelp.de,
+    gitea_auth_invalid: "Die lokale Gitea-Anmeldekonfiguration konnte nicht sicher gelesen werden. " + repositoryConnectionHelp.de,
     environment_managed_externally: "Die Executor-Umgebung wird außerhalb von ADORE vorbereitet. Den Serveradministrator kontaktieren; alte Änderungen können verworfen werden.",
     execution_plan_invalid: "Der Vorbereitungsplan ist ungültig. Serverprofil und geprüftes Rezept kontrollieren.",
     execution_plan_stale: "Die Vorbereitungsquelle hat sich geändert. Das Serverprofil vor der Ausführung prüfen und aktualisieren.",
@@ -311,6 +339,7 @@ export const errorMessages: Record<Locale, Record<string, string>> = {
     project_exists: "Ein Projekt mit diesem Namen existiert bereits.",
     repository_url_invalid: "Verwenden Sie eine https-, http- oder ssh-Repository-Adresse ohne Passwort, z. B. https://github.com/besitzer/repository.",
     repository_unreachable: "Der ADORE-Server konnte dieses Repository nicht lesen. Prüfen Sie die Adresse und den Zugriff des Serverkontos (SSH-Schlüssel oder Zugangsdaten).",
+    repository_branches_invalid: "Das Repository lieferte eine ungültige oder zu große Branch-Liste. Prüfen und lesen Sie das Remote-Repository erneut.",
     clone_path_occupied: "Am Klonordner liegt bereits ein anderer Ordner. Verschieben Sie ihn oder verwenden Sie einen vorhandenen Klon.",
     repository_clone_failed: "Das Klonen des Repositorys auf dem ADORE-Server ist fehlgeschlagen. Prüfen Sie den Lesezugriff des Serverkontos und erstellen Sie erneut.",
     repository_aegis_missing: "Im Repository ist kein AEGIS-Workflow installiert (.agentic/aegis.py und aegis.toml). Installieren Sie zuerst AEGIS.",
@@ -357,6 +386,12 @@ export const errorMessages: Record<Locale, Record<string, string>> = {
     unexpected_response: "Der Server hat eine unerwartete Antwort gesendet.",
   },
   ro: {
+    host_folder_unavailable: "Directorul serverului nu poate fi citit. Alegeți un director accesibil sau încercați din nou.",
+    local_host_identity_unavailable: "Identitatea contului serverului nu este disponibilă. Cereți administratorului să verifice contul serviciului ADORE.",
+    gitea_auth_missing: "Nu a fost găsită o autentificare Gitea locală. " + repositoryConnectionHelp.ro,
+    gitea_auth_login_missing: "Loginul Gitea configurat nu este disponibil pe acest calculator. " + repositoryConnectionHelp.ro,
+    gitea_auth_ambiguous: "Există mai multe loginuri Gitea; alege explicit un cont. " + repositoryConnectionHelp.ro,
+    gitea_auth_invalid: "Configurația locală a loginurilor Gitea nu a putut fi citită în siguranță. " + repositoryConnectionHelp.ro,
     environment_managed_externally: "Mediul executorului se pregătește în afara ADORE. Solicitați administratorului serverului; modificările vechi ale mediului pot fi abandonate.",
     execution_plan_invalid: "Planul de pregătire al executorului nu este valid. Verificați profilul de pe server și rețeta revizuită.",
     execution_plan_stale: "Sursa pregătirii s-a schimbat. Revizuiți și actualizați profilul de pe server înainte de rulare.",
@@ -423,6 +458,7 @@ export const errorMessages: Record<Locale, Record<string, string>> = {
     project_exists: "Există deja un proiect cu acest nume.",
     repository_url_invalid: "Folosiți o adresă de repository https, http sau ssh fără parolă, de exemplu https://github.com/proprietar/repository.",
     repository_unreachable: "Serverul ADORE nu a putut citi acest repository. Verificați adresa și accesul contului de server (cheie SSH sau credențiale).",
+    repository_branches_invalid: "Lista ramurilor repository-ului este invalidă sau prea mare. Verificați repository-ul remote și recitiți-l.",
     clone_path_occupied: "La locul clonei există deja alt dosar. Mutați-l sau folosiți o clonă existentă.",
     repository_clone_failed: "Clonarea repository-ului pe serverul ADORE a eșuat. Verificați că acel cont îl poate citi, apoi creați din nou.",
     repository_aegis_missing: "Repository-ul nu are workflow-ul AEGIS instalat (.agentic/aegis.py și aegis.toml). Instalați întâi AEGIS.",

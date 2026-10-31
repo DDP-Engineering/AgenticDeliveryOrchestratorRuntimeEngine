@@ -1,0 +1,29 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-FUNC-a8865e64"
+
+title = "Classify native OpenCode model responses accurately"
+
+status = "active"
+
+requirement = "When explicitly testing a local model through its configured executor, ADORE shall verify the completed challenge, recognize completed OpenCode text with its completion timestamp when the finish event is absent, and classify provider authentication/model failures even on exit zero while rejecting malformed, incomplete, wrong-challenge or tool-bearing output."
+verification = "Offline native runner tests cover four executors, OpenCode completed text without finish, timestamp/shape/duplicate boundaries, zero-exit provider failures, nonzero/timeout/cleanup and unchanged configured command authority."
+affected_paths = ["04_Software/adore/web/model_connection.py"]
+
+linked_tests = ["04_Software/tests/test_local_execution.py::test_native_opencode_completion_and_provider_errors", "04_Software/tests/test_local_execution.py::test_local_model_response_contract_all_executors", "04_Software/tests/test_model_connection.py"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-22
+updated = 2026-10-22

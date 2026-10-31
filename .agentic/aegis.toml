@@ -39,7 +39,7 @@ tests = ["04_Software/tests/", "04_Software/web/tests/"]
 docs = [
   "00_Planning/", "01_Documentation/", "05_SoftwareDocu/",
   "README.md", "CHANGELOG.md", "LICENSE.txt",
-  "02_Tools/README.md", "04_Software/README.md", "04_Software/deploy/README.md",
+  "02_Tools/README.md", "04_Software/README.md", "02_Tools/deploy/README.md",
   "04_Software/docker/README.md", "07_Delivery/README.md",
 ]
 
@@ -91,3 +91,8 @@ run = ["test", "lint", "frontend"]
 # Optional code navigation through the add-on in .agentic/plugins/codegraph/.
 # Indexes the Python files under [layout] source and tests.
 enabled = true
+
+# Generate all supported Mermaid diagram types during AEGIS Design.
+[diagrams]
+enabled = true
+types = ["structure", "sequence", "state"]

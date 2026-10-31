@@ -58,3 +58,17 @@ Native nonce challenges use local_probe and the same configured argv/account/env
 See [Local execution](../01_Documentation/Local_Execution.md) and
 [Local execution component](Component_Local_Execution.md). Focused native proof:
 `04_Software/tests/test_local_execution.py`.
+
+## Native completion and failure classification
+
+The configured native command/account/environment remains authoritative. A
+completed exact OpenCode nonce text part with finite positive `time.end` and
+optional finite nonnegative `time.start <= end`, followed by clean process exit,
+proves the short access challenge even if `step_finish` was omitted. Plain text
+without completion evidence, wrong nonce, duplicate/invalid JSON, invalid parts,
+error events and tool events or a tool-calls finish never become success.
+Typed OpenCode provider/model errors and HTTP authentication failures are mapped
+to `credential-invalid`, `model-unavailable` or `connection-failed`, including
+structured error events emitted with exit zero. Output stays bounded/redacted;
+no raw provider response enters the saved result. Missing native executable and
+corrupt auth are classified explicitly. Container probe behavior is retained.

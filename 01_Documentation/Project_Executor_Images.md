@@ -110,3 +110,7 @@ configuration flow; existing dedicated AI endpoint edits remain available.
 Retained queued image-build requests fail without launching a runtime.
 Old pending candidates for other environment keys remain readable and discardable;
 they cannot be applied. Existing profiles, installed images and database schema are retained.
+
+## Images for adaptive agent installation
+
+Rebuild the current base image to include sudo before enabling `container.system_packages`. No existing image is rebuilt automatically. Compatible images supply root-owned OS Python, id, sudo/visudo and a supported package manager; the default user remains non-root. Agents may then install missing system packages directly, with egress configured separately. See [Agent dependency installation](Agent_Dependency_Installation.md).

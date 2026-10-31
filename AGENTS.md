@@ -47,13 +47,21 @@ wording in the managed AEGIS digest below or in `.agentic/AGENTS.md`.
     setup guides, configuration references, presentations, and operational
     guidance. AI agents update it when software interfaces, user-visible
     behavior, or implementation-facing guidance changes.
-  - `02_Tools/` holds scripts for development environment setup, delivery,
-    packaging, and related repository automation.
+  - `02_Tools/` is the required source location for all environment setup,
+    installation, packaging, deployment, service setup, launch, and related
+    repository automation scripts, including Windows and Linux variants.
+    Keep these scripts here, including any deployment subdirectories, rather
+    than under `04_Software/` or elsewhere in the source tree. Generated
+    delivery bundles may include copies of these scripts.
   - `05_SoftwareDocu/` holds component implementation documentation. AI agents
     update it in the same change as component behavior, contracts,
     responsibilities, dependencies, or workflow integration.
-  - `07_Delivery/` holds generated delivery packages and release handoff
-    artifacts.
+  - `07_Delivery/` holds only final user delivery archives and optional adjacent
+    SHA-256 files. Do not retain README files, reports, logs, extracted packages,
+    intermediate builds or technical subdirectories there. Resolve it relative
+    to the repository root; keep machine-specific absolute paths out of scripts.
+    Use automatically cleaned OS temporary directories for build/verification
+    work and print verification results to the console without saving reports.
 - Keep the orchestrator forge-agnostic (GitLab, GitHub and Gitea behind one
   adapter) and executor-agnostic (opencode, pi.dev, codex behind one launcher).
 - Keep the delivery boundary strict: the orchestrator may open a draft MR/PR but
@@ -70,6 +78,9 @@ wording in the managed AEGIS digest below or in `.agentic/AGENTS.md`.
   cost, files touched).
 
 ## Testing Rules
+
+- Do not add or run automated tests for deployment or environment setup scripts.
+  These repository tools do not use the product testing/AEGIS workflow.
 
 - **Every public behavior gets one clear-path (happy) test plus negative tests
   at its trust boundaries.** A contract is proven twice: once that it works,
@@ -144,7 +155,7 @@ documentation conventions. Use the referenced
   1. roll `## [Unreleased]` into a dated `## [x.y.z] - YYYY-MM-DD` section in
      the root `CHANGELOG.md`;
   2. bump every release-version declaration to the same `x.y.z`;
-  3. keep generated runtime package names in `02_Tools/package_runtime.*`
+  3. keep generated package names in `02_Tools/create_package.py`
      derived from that version rather than hardcoding a separate one.
 - Use Semantic Versioning: MAJOR for breaking CLI/config/state/executor
   contracts, MINOR for backward-compatible capabilities, and PATCH for fixes
@@ -168,13 +179,13 @@ need to remember them.
   entries per category in a release; merge or rewrite related notes instead.
 - Record the decision as one task journal Log line at build:
   `release-notes: added | updated | none (<reason>)`.
-- Before validate, run `python 02_Tools/check_release_notes.py --since <task
+- Before validate, run `python 02_Tools/internal/check_release_notes.py --since <task
   base>`. It fails on contract errors and warns when `CHANGELOG.md` changed
   without the release notes; resolve the warning or justify it in the journal.
 - When cutting a release, rename `Unreleased` to the new version with the date
   of its changelog heading, in the same change as the other release steps, and
-  list `adore/release_notes.toml` in `REQUIRED_BUNDLE_FILES` of
-  `02_Tools/check_release_consistency.py` if it is not there yet.
+  ensure `adore/release_notes.toml` remains included by the application wheel
+  and the portable package manifest.
 
 ### Help content rules
 

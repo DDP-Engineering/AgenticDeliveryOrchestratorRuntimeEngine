@@ -16,6 +16,7 @@
 from datetime import datetime
 from pathlib import Path
 import re
+import sys
 from threading import Event, Thread
 import time
 
@@ -655,3 +656,58 @@ def test_worker_resumes_automatic_polling_after_quiet_window(tmp_path, monkeypat
 
     CommandWorker(profiles, web, runner=runner).run_forever(interval=1, stop=stop)
     assert starts == [3]
+
+
+@pytest.mark.parametrize("evidence,code,status,reason", [
+    ('{"schema":1,"ticket":42,"exit_code":1,"reason":"at_capacity"}', 1, "failed", "at_capacity"),
+    ('{"schema":1,"ticket":42,"exit_code":0,"reason":"started"}', 0, "succeeded", "started"),
+    ('{"schema":1,"ticket":43,"exit_code":1,"reason":"held"}', 1, "failed", "invalid_result"),
+    ('{"schema":1,"ticket":42,"exit_code":0,"reason":"held"}', 1, "failed", "invalid_result"),
+    ('{"schema":1,"ticket":42,"exit_code":1,"reason":"PRIVATE"}', 1, "failed", "invalid_result"),
+    ('{"schema":1,"schema":1,"ticket":42,"exit_code":1,"reason":"held"}',
+     1, "failed", "invalid_result"),
+    ('{}', 0, "uncertain", "invalid_result"),
+    ('x' * 2049, 1, "failed", "invalid_result"),
+], ids=lambda value: 'oversized' if isinstance(value, str) and len(value) > 200 else None)
+def test_worker_reports_bound_manual_start_reason(tmp_path, evidence, code, status, reason):
+    """@brief Corrupt/secret-bearing CLI output cannot become a user-facing reason."""
+    from adore.util import CommandResult
+    profiles = ProfileStore(tmp_path / "home")
+    profiles.create("alpha")
+    web = WebStore(profiles.home / "web.db")
+    actor = web.authenticate("admin", "admin")
+    op = web.enqueue(actor["id"], "alpha", "start", "42", "manual-reason")
+    def runner(argv, env):
+        return CommandResult(argv=argv, exit_code=code,
+            stdout="PRIVATE raw log\nADORE_START_RESULT " + evidence + "\n",
+            stderr="PRIVATE stderr")
+    assert CommandWorker(profiles, web, runner=runner).run_pending() == 1
+    result = web.operation(op["id"])
+    assert result["status"] == status
+    assert result["result"] == ("completed" if reason == "started" else "start:" + reason)
+    assert "PRIVATE" not in result["result"]
+
+
+@pytest.mark.parametrize("timeout", [False, True])
+def test_default_worker_runner_carries_manual_outcome(tmp_path, monkeypatch, timeout):
+    """@brief Production runner preserves admission evidence and timeout uncertainty."""
+    import subprocess
+    from types import SimpleNamespace
+    profiles = ProfileStore(tmp_path / "home")
+    profiles.create("alpha")
+    web = WebStore(profiles.home / "web.db")
+    actor = web.authenticate("admin", "admin")
+    op = web.enqueue(actor["id"], "alpha", "start", "42", "default-start")
+    def completed(argv, **kwargs):
+        assert kwargs["env"]["GIT_PAGER"] == kwargs["env"]["PAGER"] == "cat"
+        assert kwargs["stdin"] == subprocess.DEVNULL
+        assert kwargs.get("creationflags", 0) == (0x08000000 if sys.platform == "win32" else 0)
+        if timeout:
+            raise subprocess.TimeoutExpired(argv, 21600)
+        return SimpleNamespace(returncode=1, stderr="PRIVATE", stdout=(
+            'ADORE_START_RESULT {"schema":1,"ticket":42,"exit_code":1,"reason":"held"}\n'))
+    monkeypatch.setattr("adore.web.commands.subprocess.run", completed)
+    assert CommandWorker(profiles, web).run_pending() == 1
+    result = web.operation(op["id"])
+    assert result["status"] == ("uncertain" if timeout else "failed")
+    assert result["result"] == ("outcome uncertain" if timeout else "start:held")

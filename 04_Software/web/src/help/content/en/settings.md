@@ -28,6 +28,8 @@ Each row has a label, a description that is always visible, an **Active value** 
 
 A **Default** badge means the project's `config.toml` does not set the value, so ADORE's default applies. Editing it writes a value for this project only. A row marked **Not editable here** is changed in `config.toml` on the server. A row marked **Apply only with pickup paused and no active jobs** needs the extra condition described below.
 
+Detection starts automatically when local execution is selected; switching agents uses the detected list. Open **Advanced** for **Detect installed executors** if you need to refresh it. For local execution, choose a detected installation or enter an executable path; see [Detect installed executors](/help/executors#installed-executors). Open **Advanced** for the full command, a manual executable path, home/PATH overrides and Linux cgroup delegation. Leave home and PATH empty for automatic values. PATH means tool directories, not the executable file. Account names in Settings verify the current identity; they do not switch users.
+
 ## Editing {#editing}
 
 1. Choose **Edit** beside the Active value, enter the new value and choose **Prepare candidate**. This writes only a pending candidate; the live configuration is unchanged.
@@ -42,6 +44,16 @@ Rules that apply:
 - Settings that change identity or runtime also need monitoring paused. Choose **Pause monitoring** on Summary and let active work finish; pausing does not interrupt a running job.
 - New values apply to later jobs. Existing jobs keep their configuration.
 
+Brief Windows file locks are retried automatically. If settings still cannot be saved, the reviewed candidate stays available: check file access and retry **Apply change**.
+
 ## Original TOML {#toml}
 
 Beside the Project settings heading, administrators have **Preview raw configuration** and **Download raw configuration**. Preview opens a closable dialog and keeps the text only in memory. Download gives the saved `config.toml` exactly as stored, with comments, formatting and any inline secrets, so handle it as a secret. Neither includes a pending candidate, resolved defaults, separate `.env` files or external credentials. Developers cannot use them. A downloaded file can be enrolled again with [Import project config](/help/projects#import-project) once its secrets are replaced with environment references.
+
+## Agent system packages {#system-packages}
+
+**Allow agent system package installation**
+
+In Settings → Agent and model, administrators can enable this separate permission through Prepare candidate and Apply change. It is off by default and available for container projects. Rebuild or select a compatible image with sudo first, then start a fresh job. The agent runs package commands directly, reads failures and adapts within job limits.
+
+Network access remains separate: open permits reachable sources, allowlist-proxy permits allowed HTTP/HTTPS domains, and none permits only available local sources. Package scripts have administrative rights inside the container; mounted project folders remain shared with the server. Installed system packages remain when the same container resumes; a fresh container requires reassessment and installation.

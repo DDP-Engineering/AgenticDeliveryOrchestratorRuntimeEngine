@@ -405,7 +405,8 @@ def test_container_provision_creates_when_absent(tmp_path: Path) -> None:
              safe runtime env inline, secret keys without values, and sleep
              infinity; the io dir is created on demand.
     """
-    runner = FakeRunner(_fail("Error: No such object: adore-run-x"), _ok("cid"))
+    runner = FakeRunner(_fail("Error: No such object: adore-run-x"), _ok("cid"),
+                        _ok("adore-git-binding-v1\n"))
     manager = _manager(runner)
     io_dir = tmp_path / "state" / "runs" / "x" / "io"
     manager.provision(
@@ -424,7 +425,8 @@ def test_container_provision_creates_when_absent(tmp_path: Path) -> None:
     env_values = [run_argv[i + 1] for i, part in enumerate(run_argv[:-1])
                   if part == "--env"]
     assert "HOME=/home/adore" in env_values
-    assert "GIT_DIR=/adore/repo/.git/worktrees/x" in env_values
+    assert "GIT_DIR" in env_values  # unset image defaults, not a global selector
+    assert not any(value.startswith("GIT_DIR=") for value in env_values)
     assert "CODEX_HOME=/home/adore/.adore-codex" in env_values
     assert "UV_LINK_MODE=copy" in env_values
     assert "HOME" not in env_values  # bare key would take the WSL user's HOME
@@ -942,7 +944,8 @@ def test_container_exec_returns_result_as_data() -> None:
     runner = FakeRunner(_fail("gate failed", exit_code=3))
     result = _manager(runner).exec("c", ["opencode", "run", "prompt"])
     assert result.exit_code == 3
-    assert runner.calls[0][:3] == ["docker", "exec", "c"]
+    assert runner.calls[0][:2] == ["docker", "exec"]
+    assert runner.calls[0][-4:] == ["c", "opencode", "run", "prompt"]
 
 
 def test_container_exec_passes_safe_env_inline_and_secret_env_bare() -> None:
@@ -955,12 +958,14 @@ def test_container_exec_passes_safe_env_inline_and_secret_env_bare() -> None:
         "c",
         ["env"],
         env={"CODEX_HOME": "/home/adore/.adore-codex", "UV_LINK_MODE": "copy",
-             "OPENAI_API_KEY": "sk-secret"},
+             "OPENAI_API_KEY": "sk-secret", "GIT_PAGER": "less", "pager": "more"},
     )
     argv = runner.calls[0]
     assert argv[:2] == ["docker", "exec"]
     assert "CODEX_HOME=/home/adore/.adore-codex" in argv
     assert "UV_LINK_MODE=copy" in argv
+    assert "GIT_PAGER=cat" in argv and "PAGER=cat" in argv
+    assert "GIT_PAGER=less" not in argv and "pager" not in argv
     assert "OPENAI_API_KEY" in argv
     assert not any("sk-secret" in part for part in argv)
     assert argv[-2:] == ["c", "env"]
@@ -979,12 +984,11 @@ def test_container_verify_required_tools_execs_checks() -> None:
         ["make --version", "terraform --version"],
         env={"UV_LINK_MODE": "copy"},
     )
-    assert runner.calls[0] == [
-        "docker", "exec", "--env", "UV_LINK_MODE=copy", "c", "make", "--version",
-    ]
-    assert runner.calls[1] == [
-        "docker", "exec", "--env", "UV_LINK_MODE=copy", "c", "terraform", "--version",
-    ]
+    for argv, tool in zip(runner.calls, ["make", "terraform"], strict=True):
+        assert argv[:2] == ["docker", "exec"]
+        assert argv[-3:] == ["c", tool, "--version"]
+        assert argv[2:-3:2] == ["--env"] * 3
+        assert set(argv[3:-3:2]) == {"UV_LINK_MODE=copy", "GIT_PAGER=cat", "PAGER=cat"}
 
 
 def test_container_exec_is_never_unbounded() -> None:
@@ -1132,7 +1136,7 @@ def test_wsl_runtime_prefixes_every_command() -> None:
     manager = _wsl_manager(runner)
     assert manager.wsl_mode is True
     assert manager.status("c") == "running"
-    assert runner.calls[0][:5] == ["wsl", "-d", "Ubuntu-24.04", "--", "docker"]
+    assert runner.calls[0][:5] == ["wsl", "-d", "Ubuntu-24.04", "--exec", "docker"]
     assert runner.calls[0][5] == "inspect"
 
 
@@ -1141,7 +1145,8 @@ def test_wsl_provision_translates_mounts_and_sets_wslenv(tmp_path: Path) -> None
     @brief   In WSL mode mount sources are /mnt/<drive>/ paths; safe runtime
              env values are inline, while secret env values cross via WSLENV.
     """
-    runner = FakeRunner(_fail("No such container"), _ok("cid"))
+    runner = FakeRunner(_fail("No such container"), _ok("cid"),
+                        _ok("adore-git-binding-v1\n"))
     manager = _wsl_manager(runner)
     io_dir = tmp_path / "io"
     manager.provision(
@@ -1157,7 +1162,8 @@ def test_wsl_provision_translates_mounts_and_sets_wslenv(tmp_path: Path) -> None
     assert f"{wsl_mount_path(io_dir)}:{CONTAINER_IO_MOUNT}" in run_argv
     env_values = [run_argv[i + 1] for i, part in enumerate(run_argv[:-1])
                   if part == "--env"]
-    assert "GIT_DIR=/adore/repo/.git/worktrees/x" in env_values
+    assert "GIT_DIR" in env_values
+    assert not any(value.startswith("GIT_DIR=") for value in env_values)
     assert not any("sk-secret" in part for part in run_argv)
     process_env = runner.envs[1]
     assert process_env is not None
@@ -1189,7 +1195,7 @@ def test_wsl_allowlist_proxy_prefixes_network_commands(tmp_path: Path) -> None:
     )
     manager.provision("adore-run-x", r"D:\repo", r"D:\wt", tmp_path / "io", {})
     for call in runner.calls:
-        assert call[:5] == ["wsl", "-d", "Ubuntu-24.04", "--", "docker"]
+        assert call[:5] == ["wsl", "-d", "Ubuntu-24.04", "--exec", "docker"]
     assert runner.calls[1][5:8] == ["network", "create", "--internal"]
     assert runner.calls[4][5:8] == ["network", "connect", "--alias"]
     assert runner.calls[5][5:7] == ["run", "--detach"]

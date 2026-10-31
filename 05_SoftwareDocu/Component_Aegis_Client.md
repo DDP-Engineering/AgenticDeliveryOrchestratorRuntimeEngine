@@ -25,7 +25,9 @@ only the Python companion CLI shipped by AEGIS and JSON schema 1.
 - validate bounded JSON, UTF-8, contained POSIX paths, headers, stage/path/type,
   checklist/log data, finding counts and verification command results;
 - distinguish typed protocol, timeout and task failures;
-- decide documented full/quick stage transitions.
+- accept same-stage work, adjacent forward progress and any backward route on
+  the selected full/quick path; completed tasks stay terminal and forward jumps
+  require existing journal evidence.
 
 It does not edit journals, transition stages, approve delivery, commit, push or
 call a forge.
@@ -104,3 +106,16 @@ AegisClient uses native run_files for local Python argv with the same bounded st
 See [Local execution](../01_Documentation/Local_Execution.md) and
 [Local execution component](Component_Local_Execution.md). Focused native proof:
 `04_Software/tests/test_local_execution.py`.
+
+
+## Rebuilt AEGIS 0.14 compatibility evidence
+
+The 2026-10-22 AEGIS 0.14.0 delivery retains the client-used version/task/status/
+check/evolution/report API and schema 1. tests/fixtures/aegis_0_14_0.json records
+actual official-archive CLI output and generated journal text with source/archive
+hashes. Capture ran in automatically cleaned temporary storage with Git and the
+configured verification runner injected; the fixture proves serialization and
+client consumption, not a live product suite. Tests replay every called surface
+and reject changed schema, identity/path and contradictory check evidence, without
+a sibling checkout or host CLI. The client needs no alternate-parser fallback.
+See [AEGIS compatibility](../01_Documentation/AEGIS_Compatibility.md).

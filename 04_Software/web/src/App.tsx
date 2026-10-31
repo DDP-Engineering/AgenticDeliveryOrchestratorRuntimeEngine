@@ -9,9 +9,11 @@ import { aggregateMetrics, aggregateUsage, type Metrics, type Usage } from "./me
 import { sortUsageRows, type UsageSortKey } from "./usageSort";
 import { messages, type Locale, type MessageKey } from "./i18n";
 import { ModelConnection, validModelEvidence, type ModelEvidence } from "./ModelConnection";
-import { agentSettingsCopy, executorSettingLabel, executorSelectionDraft, validExecutorSelection, validCredentialNames, credentialEditorCopy } from "./executorSettings";
+import { agentSettingsCopy, executorSettingLabel, executorSelectionDraft, validExecutorSelection, validCredentialNames, credentialEditorCopy, systemPackageCopy } from "./executorSettings";
 import { CredentialNamesEditor } from "./CredentialNamesEditor";
 import { ExecutorSelectionEditor } from "./ExecutorSelectionEditor";
+import { LocalExecutorPicker, LocalExecutionIdentity } from "./LocalExecutorPicker";
+import { setupCopy } from "./setupCopy";
 import { ExecutorCredentials, executorCopy } from "./ExecutorCredentials";
 import { RepositoryConnection } from "./RepositoryConnection";
 import { ReadinessEvidence, readinessDetailsLabel, readinessCloseLabel } from "./ReadinessEvidence";
@@ -43,7 +45,7 @@ import { UserCreation, AccountAccessEditor, AccessReview, validAccount, type Acc
 import { userCopy } from "./userCopy";
 import { companyLogo, DashboardShell, type ShellLink } from "./DashboardShell";
 import { TicketWorkspace } from "./TicketWorkspace";
-import { ticketCopy } from "./ticketCopy";
+import { ticketCopy, operationResultText } from "./ticketCopy";
 import { DataFeedback, ProjectEmpty, StatusBadge, type DataState, type ScopedState } from "./Presentation";
 import { HelpCenter, HelpLink } from "./HelpCenter";
 import { readServerImages, type ServerImages } from "./serverImages";
@@ -1110,7 +1112,7 @@ export default function App() {
 
         {error ? <div className="alert" role="alert">{describeError(locale, error)}<button onClick={() => setError("")} aria-label={t("close")}>×</button></div> : null}
         {(notice || (operationVisible && operation)) && <div className="notice" role="status">
-          {notice || (operation && <>{t("operationStatus")}: #{operation.id} · {operation.status}{operation.result && operation.result !== "completed" ? ` · ${operation.result}` : ""}</>)}
+          {notice || (operation && <>{t("operationStatus")}: #{operation.id} · {operation.status}{operation.result && operation.result !== "completed" ? ` · ${operationResultText(operation.result, locale)}` : ""}</>)}
           <button onClick={() => { setNotice(""); setOperationVisible(false); }} aria-label={t("close")}>×</button>
         </div>}
         {["overview", "projects", "projectDetails", "jobs", "metrics"].includes(page) && projectsState !== "ready" && <DataFeedback state={projectsState} t={t} />}
@@ -1196,7 +1198,7 @@ export default function App() {
           {projectTab === "history" && <JobWorkspace admin={isAdmin} {...hubWorkspaceProps} mode="history" fixedScope />}
           {projectTab === "configuration" && <>
           {configDataState !== "ready" && <DataFeedback state={configDataState} t={t} />}
-          {projectConfig && <SettingsList key={`${selected}-${projectConfig.revision}`} project={selected} revision={projectConfig.revision} csrf={session.csrf} branchCandidate={projectPendingConfig} config={projectConfig.config} settings={projectConfig.settings || []} t={t} locale={locale} canEdit={isAdmin} disabled={!!projectPendingConfig || configBusy || pendingReadFailed || isAdmin && !pendingReady} onStage={stageSetting} executorBefore={selectedProject && <><ModelConnection heading={agentSettingsCopy[locale].connection} key={`${session.user.id}:${selected}:${projectConfig.revision}:${projectConfig.model_connection?.checked_at || "untested"}`} project={selectedProject.id} revision={projectConfig.revision} executor={selectedProject.executor} model={String(settingValue(projectConfig.config,`executor.commands.${selectedProject.executor}.model`))} locale={locale} saved={projectConfig.model_connection} readOnly={!isAdmin || selectedProject.archived} onResult={value=>setConfig(current=>current?{...current,model_connection:value}:current)} test={()=>request(`/projects/${encodeURIComponent(selected)}/model-connection-test`,"POST",{},session.csrf)} />
+          {projectConfig && <SettingsList key={`${selected}-${projectConfig.revision}`} project={selected} revision={projectConfig.revision} csrf={session.csrf} branchCandidate={projectPendingConfig} config={projectConfig.config} settings={projectConfig.settings || []} t={t} locale={locale} canEdit={isAdmin} disabled={!!projectPendingConfig || configBusy || pendingReadFailed || isAdmin && !pendingReady} onStage={stageSetting} executorBefore={selectedProject && <><ModelConnection local={projectConfig.executor_environment?.backend === "local"} heading={agentSettingsCopy[locale].connection} key={`${session.user.id}:${selected}:${projectConfig.revision}:${projectConfig.model_connection?.checked_at || "untested"}`} project={selectedProject.id} revision={projectConfig.revision} executor={selectedProject.executor} model={String(settingValue(projectConfig.config,`executor.commands.${selectedProject.executor}.model`))} locale={locale} saved={projectConfig.model_connection} readOnly={!isAdmin || selectedProject.archived} onResult={value=>setConfig(current=>current?{...current,model_connection:value}:current)} test={()=>request(`/projects/${encodeURIComponent(selected)}/model-connection-test`,"POST",{},session.csrf)} />
                   <p className="muted">{executorCopy[locale].modelHelp}</p></>} executorAuthentication={selectedProject && <>{isAdmin && !selectedProject.archived && <ExecutorCredentials embedded key={`${session.user.id}:${selected}:${projectConfig.revision}`} project={selectedProject.id} revision={projectConfig.revision} executor={selectedProject.executor} locale={locale} disabled={!!projectPendingConfig || configBusy || pendingReadFailed || !pendingReady || !selectedProject.paused} read={() => request(`/projects/${encodeURIComponent(selected)}/executor-credentials`)} write={(method,body)=>request(`/projects/${encodeURIComponent(selected)}/executor-credentials`,method,body,session.csrf)} onChanged={()=>setConfig(current=>current?{...current,model_connection:null}:current)} />}</>} executorAfter={selectedProject && <><ExecutorEnvironment environment={projectConfig.executor_environment} executor={selectedProject.executor} locale={locale} />{isAdmin && selected && projectConfig && !projectConfig.local_execution && (projectConfig.config.executor as { default?: string } | undefined)?.default === "opencode" && <section className="executor-endpoint"><h3>{t("localEndpoint")}</h3><p className="muted">{t("localEndpointHelp")}</p><p className="muted">{t("localProviderHelp")}</p>{(projectConfig.config.executor as { default?: string } | undefined)?.default === "opencode" && <form key={`${selected}-${projectConfig.revision}`} className="form-grid config-form endpoint-form" onSubmit={saveEndpoint}><fieldset className="endpoint-fields" disabled={!!projectPendingConfig || configBusy || pendingReadFailed || isAdmin && !pendingReady}><FormLegend t={t} /><input type="hidden" name="model" value={(projectConfig.config.executor as { commands?: { opencode?: { model?: string } } }).commands?.opencode?.model || ""} /><Field name="endpoint" label={t("localEndpoint")} type="url" defaultValue={(projectConfig.config.container as { runtime_env?: { OPENAI_BASE_URL?: string } } | undefined)?.runtime_env?.OPENAI_BASE_URL || ""} required /><label>{t("endpointAuth")}<select name="auth_env"><option value="">{t("none")}</option><option value="OPENAI_API_KEY">OPENAI_API_KEY</option></select></label><label>{t("endpointProtocol")}<select name="protocol"><option value="openai-chat-completions">OpenAI chat completions</option></select></label><Field name="timeout_seconds" label={t("endpointTimeout")} type="number" defaultValue={String(projectConfig.local_endpoint_timeout_seconds || 300)} required /><Field name="ca_file" label={t("endpointCa")} defaultValue={(projectConfig.config.container as { runtime_env?: { NODE_EXTRA_CA_CERTS?: string } } | undefined)?.runtime_env?.NODE_EXTRA_CA_CERTS || ""} /><button className="primary form-submit" disabled={!!projectPendingConfig || configBusy || pendingReadFailed || isAdmin && !pendingReady}>{settingsCopy[locale].prepare}</button></fieldset></form>}</section>}
                   {isAdmin && selected && <section className="executor-prices"><h3>{t("estimatedPrices")}</h3><p className="muted">{t("priceHelp")}</p>
                     {priceModel ? <form key={selected} className="form-grid" onSubmit={savePrice}><FormLegend t={t} /><input type="hidden" name="executor" value={priceExecutor} /><input type="hidden" name="model" value={priceModel} /><label><span>{t("effectiveFrom")}<RequiredMark /></span><input name="effective_from" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required /></label><label><span>{t("inputRate")}<RequiredMark /></span><input name="input_usd_per_million" type="number" min="0" max="1000000" step="0.000001" required /></label><label><span>{t("outputRate")}<RequiredMark /></span><input name="output_usd_per_million" type="number" min="0" max="1000000" step="0.000001" required /></label><button className="primary form-submit" type="submit">{t("save")}</button></form> : <p className="muted">{t("priceNeedsModel")}</p>}
@@ -1457,6 +1459,8 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
   };
   const editor = (row:SettingRow) => <form className="setting-editor" onSubmit={event => void submit(event, row)}>
           {row.input === "agent-selection" ? <ExecutorSelectionEditor value={draft} config={config} settings={settings} locale={locale} disabled={disabled} onChange={setDraft}/>
+          : /^executor\.commands\.[^.]+\.command$/.test(row.key) && settingValue(config,"execution.backend")==="local" ? <LocalExecutorPicker
+            agent={row.key.split(".")[2]} value={draft} onChange={setDraft} locale={locale} disabled={disabled} autoFill={false}/>
           : row.input === "credential-names" ? <CredentialNamesEditor value={draft} choices={row.choices} locale={locale} disabled={disabled} onChange={setDraft}/>
           : row.input === "duration" ? <div className="duration-inputs">
             <label>{editorCopy.amount}<input type="number" min={1} step={1} aria-label={label(row)} aria-describedby={`help-${row.key}`} disabled={disabled} value={durationParts(draft).amount} onChange={event => setDraft(event.target.value + durationParts(draft).unit)} /></label>
@@ -1482,7 +1486,7 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
         </form>;
   const renderRow = (row:SettingRow) => <div className="setting-row" key={row.key} id={`setting-${row.key}`} tabIndex={-1}>
         <div>
-          <strong>{label(row)}</strong><p className="setting-essential" id={`help-${row.key}`}>{row.key === "executor.default" ? agentSettingsCopy[locale].setup : row.key === "executor.env_keys" ? agentSettingsCopy[locale].variableHelp : settingHelp(row.key, locale) ?? t("settingGeneralHelp")}</p>
+          <strong>{label(row)}</strong><p className="setting-essential" id={`help-${row.key}`}>{row.key === "container.system_packages" ? systemPackageCopy[locale].help : row.key === "executor.default" ? agentSettingsCopy[locale].setup : row.key === "executor.env_keys" ? agentSettingsCopy[locale].variableHelp : settingHelp(row.key, locale) ?? t("settingGeneralHelp")}</p>
           {row.source !== "project" && <span className="setting-badge">{t("settingDefault")}</span>}
           {canEdit && row.input !== "none" && row.restart && <small className="setting-note">{t("settingRestartShort")}</small>}
           {canEdit && row.input === "none" && <small className="setting-note">{t("settingNotEditableShort")}</small>}
@@ -1501,6 +1505,7 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
       return <details key={group.name} data-setting-purpose={group.name} open={executorOnly}>
       <summary>{copy[group.name as keyof typeof copy]} <span className="muted">({group.rows.length})</span></summary>
       {group.name === "executor" && <div className="executor-settings-content executor-connection-area">{executorBefore}</div>}
+      {group.name === "executor" && canEdit && settingValue(config,"execution.backend")==="local" && <LocalExecutionIdentity locale={locale}/>}
       {group.name === "technical" && <p className="muted">{technicalSettingsHelp[locale]}</p>}
       {group.name === "reviews" && settingValue(config, "delivery.target_branch") !== undefined && <div className="setting-row setting-reference">
         <div><strong>{copy.integrationBranch}</strong><p className="setting-essential">{copy.integrationBranchHelp}</p>
@@ -1527,10 +1532,11 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
           </div>
           <p className="muted">{branchNamingCopy[locale].example}</p>
         </section>}
-        {(["clarification", "recovery", "stageLimits", "statisticsFiles", "authentication"] as const).map(topic => {
+        {(["clarification", "recovery", "stageLimits", "statisticsFiles", "authentication", "localTechnical"] as const).map(topic => {
           const rows = group.rows.filter(row => settingSubgroup(row.key) === topic);
           return rows.length > 0 && <details className="setting-topic" data-setting-topic={topic} key={topic}>
-            <summary>{copy[topic]} <span className="muted">({rows.length})</span></summary>
+            <summary>{topic === "localTechnical" ? setupCopy[locale].advanced : copy[topic]} <span className="muted">({rows.length})</span></summary>
+            {topic === "localTechnical" && <p className="field-hint">{setupCopy[locale].overrideHelp}</p>}
             <div className="setting-list">{rows.map(renderRow)}</div>
             {topic === "authentication" && executorAuthentication}
           </details>;

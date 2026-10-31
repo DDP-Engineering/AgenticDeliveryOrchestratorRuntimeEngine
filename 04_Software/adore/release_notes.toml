@@ -4,7 +4,7 @@
 # See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 #
 # User-facing release notes shown in About > What's new. Rules: AGENTS.md
-# "Release notes rules"; check: python 02_Tools/check_release_notes.py.
+# "Release notes rules"; check: python 02_Tools/internal/check_release_notes.py.
 # One [[release]] per release, "Unreleased" first, then released versions
 # newest first with the date of their CHANGELOG.md heading. Each entry has a
 # category (new | improved | fixed), a short topic and a text of at most 100
@@ -14,6 +14,31 @@ schema = 1
 
 [[release]]
 version = "Unreleased"
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Jobs", fr = "Tâches", de = "Aufträge", ro = "Lucrări" }
+text = { en = "Jobs keep progress and dependencies; Retry checks tools; expired container commands stop safely.", fr = "Progrès et dépendances conservés ; Relancer vérifie les outils ; arrêt sûr des commandes expirées.", de = "Aufträge behalten Fortschritt und Pakete; Wiederholen prüft Werkzeuge; abgelaufene Befehle stoppen.", ro = "Lucrările păstrează progresul și dependențele; Reia verifică uneltele; comenzile expirate se opresc." }
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Executors", fr = "Exécuteurs", de = "Executoren", ro = "Executori" }
+text = { en = "Windows executors find tools, check models reliably and keep output archives within size limits.", fr = "Les outils Windows sont détectés, les modèles vérifiés et les archives restent limitées.", de = "Windows-Werkzeuge und Modelltests funktionieren zuverlässig; Ausgaben bleiben begrenzt.", ro = "Uneltele și modelele Windows sunt verificate corect; arhivele păstrează limita de dimensiune." }
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
+text = { en = "Projects reuse local Gitea sign-in and explain how to connect when it is missing.", fr = "Les projets réutilisent la connexion Gitea locale et expliquent comment la configurer.", de = "Projekte nutzen lokale Gitea-Anmeldungen und erklären bei Bedarf die Verbindung.", ro = "Proiectele reutilizează autentificarea Gitea locală și explică pașii de conectare dacă lipsește." }
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Jobs", fr = "Tâches", de = "Aufträge", ro = "Lucrări" }
+text = { en = "Git targets the right repository in new jobs; commands avoid pagers and Windows console pop-ups.", fr = "Git cible le bon dépôt dans les nouvelles tâches ; commandes sans pagineurs ni consoles Windows.", de = "Git nutzt bei neuen Aufträgen das richtige Repository; Befehle ohne Pager und Windows-Konsolen.", ro = "Git folosește repository-ul corect în lucrări noi; comenzile evită paginarea și consolele Windows." }
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Tickets", fr = "Tickets", de = "Tickets", ro = "Tichete" }
+text = { en = "Manual Start works with monitoring paused and shows clear failure reasons.", fr = "Démarrer fonctionne avec la surveillance en pause et explique les échecs.", de = "Manuelles Starten funktioniert bei pausierter Überwachung und zeigt klare Fehlergründe.", ro = "Pornirea manuală funcționează cu monitorizarea în pauză și afișează motivele eșecurilor." }
 
 [[release.entry]]
 category = "new"
@@ -43,7 +68,7 @@ text = { en = "Administrators create accounts and choose the projects each devel
 [[release.entry]]
 category = "new"
 topic = { en = "Executors", fr = "Exécuteurs", de = "Ausführung", ro = "Executori" }
-text = { en = "Prepare a project's executor image from a short Dockerfile kept in its repository.", fr = "Préparez l'image d'exécution d'un projet à partir d'un court Dockerfile de son dépôt.", de = "Das Ausführungsimage eines Projekts aus einem kurzen Dockerfile im Repository vorbereiten.", ro = "Pregătiți imaginea de execuție a unui proiect dintr-un Dockerfile scurt din depozitul său." }
+text = { en = "Prepare project images and let agents install system packages inside their containers.", fr = "Préparez les images et autorisez les agents à installer des paquets système dans leur conteneur.", de = "Projekt-Images vorbereiten und Agenten die Installation von Systempaketen im Container erlauben.", ro = "Pregătiți imaginile și permiteți agenților să instaleze pachete de sistem în container." }
 
 [[release.entry]]
 category = "new"
@@ -68,12 +93,12 @@ text = { en = "How ADORE works opens a help center; What's new lists each releas
 [[release.entry]]
 category = "improved"
 topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
-text = { en = "Before you create a project, see which settings keep their defaults.", fr = "Avant de créer un projet, voyez quels paramètres gardent leur valeur par défaut.", de = "Vor dem Anlegen sehen Sie, welche Einstellungen ihre Standardwerte behalten.", ro = "Înainte de a crea un proiect, vedeți ce setări își păstrează valorile implicite." }
+text = { en = "Choose clone folders and remote branches easily, with the repository’s default branch selected.", fr = "Choisissez dossier et branche distante ; la branche par défaut du dépôt est présélectionnée.", de = "Klonordner und Remote-Branch einfach wählen; der Standardbranch ist vorausgewählt.", ro = "Alegeți simplu folderul clonei și ramura remote, cu ramura implicită preselectată." }
 
 [[release.entry]]
 category = "improved"
 topic = { en = "Agents", fr = "Agents", de = "Agenten", ro = "Agenți" }
-text = { en = "Choose whether the agent runs in an image on the server or installed on it, with image suggestions.", fr = "Choisissez si l'agent tourne dans une image du serveur ou y est installé, avec suggestions d'images.", de = "Wählen Sie, ob der Agent in einem Server-Image läuft oder dort installiert ist; mit Vorschlägen.", ro = "Alegeți dacă agentul rulează într-o imagine de pe server sau instalat pe el, cu sugestii de imagini." }
+text = { en = "Local agents are detected automatically; advanced options stay grouped.", fr = "Les agents locaux sont détectés automatiquement ; les options avancées restent regroupées.", de = "Lokale Agenten werden automatisch erkannt; erweiterte Optionen bleiben eingeklappt.", ro = "Executorii locali sunt detectați automat; opțiunile avansate rămân grupate." }
 
 [[release.entry]]
 category = "improved"
@@ -118,7 +143,7 @@ text = { en = "About shows the DDP Engineering logo and the version, with licens
 [[release.entry]]
 category = "fixed"
 topic = { en = "Interface", fr = "Interface", de = "Oberfläche", ro = "Interfață" }
-text = { en = "Disabled buttons look disabled; enrolling starts with a clear Read repository button.", fr = "Les boutons désactivés en ont l'air ; l'inscription commence par Lire le dépôt.", de = "Deaktivierte Schaltflächen wirken deaktiviert; Registrierung beginnt mit Repository lesen.", ro = "Butoanele dezactivate arată dezactivate; înrolarea începe clar cu Citește repository-ul." }
+text = { en = "Disabled buttons look disabled; repository connection uses a single Cancel button.", fr = "Les boutons désactivés sont clairs ; la connexion du dépôt garde un seul bouton Annuler.", de = "Deaktivierte Schaltflächen sind erkennbar; Repository-Verbindung hat nur Abbrechen.", ro = "Butoanele dezactivate sunt clare; conectarea repository-ului păstrează doar Anulează." }
 
 [[release.entry]]
 category = "fixed"
@@ -127,18 +152,10 @@ text = { en = "Handoff statuses show their accented letters again in German, Fre
 
 [[release.entry]]
 category = "fixed"
-topic = { en = "Delivery", fr = "Livraison", de = "Auslieferung", ro = "Livrare" }
-text = { en = "GitHub and GitLab can open draft merge requests again.", fr = "GitHub et GitLab peuvent de nouveau ouvrir des demandes de fusion brouillons.", de = "GitHub und GitLab können wieder Entwurfs-Merge-Requests öffnen.", ro = "GitHub și GitLab pot deschide din nou cereri de îmbinare schiță." }
+topic = { en = "Delivery", fr = "Livraison", de = "Lieferung", ro = "Livrare" }
+text = { en = "Draft reviews, busy-ticket resumes and retries after brief push failures work again.", fr = "Revues en brouillon, reprises de tickets occupés et nouvelles tentatives de publication corrigées.", de = "Review-Entwürfe, belegte Tickets und Wiederholungen nach kurzen Push-Fehlern funktionieren.", ro = "Funcționează review-urile draft, reluarea tichetelor ocupate și reîncercarea publicării." }
 
-[[release.entry]]
-category = "fixed"
-topic = { en = "Delivery", fr = "Livraison", de = "Auslieferung", ro = "Livrare" }
-text = { en = "A job waiting on a busy ticket now resumes.", fr = "Une tâche en attente sur un ticket occupé reprend désormais.", de = "Ein Auftrag, der auf ein belegtes Ticket wartet, wird jetzt fortgesetzt.", ro = "O lucrare care așteaptă un tichet ocupat se reia acum." }
 
-[[release.entry]]
-category = "fixed"
-topic = { en = "Delivery", fr = "Livraison", de = "Auslieferung", ro = "Livrare" }
-text = { en = "A brief push failure no longer ends a fully validated job.", fr = "Un bref échec d'envoi n'interrompt plus une tâche entièrement validée.", de = "Ein kurzer Push-Fehler beendet keinen vollständig geprüften Auftrag mehr.", ro = "Un eșec scurt de push nu mai încheie o lucrare complet validată." }
 
 [[release.entry]]
 category = "fixed"
@@ -148,7 +165,7 @@ text = { en = "Errors appear as sentences in your language instead of raw codes.
 [[release.entry]]
 category = "fixed"
 topic = { en = "Settings", fr = "Paramètres", de = "Einstellungen", ro = "Setări" }
-text = { en = "Edits from the web or the command line keep the file's line endings.", fr = "Les modifications depuis le web ou la ligne de commande gardent les fins de ligne du fichier.", de = "Änderungen über Web oder Kommandozeile behalten die Zeilenenden der Datei.", ro = "Modificările din web sau din linia de comandă păstrează terminațiile de linie ale fișierului." }
+text = { en = "Settings preserve line endings and retry brief Windows file locks when saving.", fr = "Les réglages gardent les fins de ligne et réessaient les blocages Windows brefs.", de = "Einstellungen behalten Zeilenenden und wiederholen kurze Windows-Dateisperren beim Speichern.", ro = "Setările păstrează terminațiile de linie și reîncearcă blocajele scurte Windows la salvare." }
 
 [[release]]
 version = "0.13.0"

@@ -22,7 +22,9 @@ timestamps, bounded output helpers, and reparse-point-safe cleanup support.
 ## Public interface
 
 `run_command()` takes an argv sequence and returns `CommandResult`, preserving
-stdout, stderr, exit code, duration, and the authoritative timeout flag.
+stdout, stderr, exit code and the authoritative timeout flag.
+`automatic_environment` copies and fixes child pager values;
+`background_process_options` supplies Windows no-console launch options.
 Helpers parse configuration durations, normalize UTC timestamps, bound external
 text/bytes, and remove only an explicitly selected tree without following
 Windows reparse points.
@@ -56,7 +58,18 @@ Commands use injected argv runners and typed captured results; retained source n
 ```mermaid
 flowchart LR
     Caller([Caller]) --> API[util]
-    API --> Runner([Injected command target])
+    API --> Policy[Child pager / Windows console policy]
+    Policy --> Runner([Injected command target])
     Runner --> Result[Validated typed result]
     Result --> Caller
 ```
+
+## Automatic child policy
+
+`automatic_environment` returns a child-only copy with case-normalized
+GIT_PAGER/PAGER set to cat; explicit mappings retain their isolation.
+`background_process_options` returns CREATE_NO_WINDOW only on Windows.
+`run_command` applies both and closes stdin while preserving captured result,
+exact newline decoding and timeout/OS-error contracts. Native, worker and regex
+launches reuse this policy. Focused proof: test_automatic_processes.py plus
+runner tests in test_util.py. Requirements: REQ-PLAT-989c6478, REQ-PLAT-967d0c80.

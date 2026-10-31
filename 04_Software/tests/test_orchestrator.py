@@ -228,6 +228,7 @@ class FakeContainers:
     """@brief Container lifecycle fake."""
 
     def __init__(self) -> None:
+        self.runtime_state = {"status": "running"}
         self.stopped: list[str] = []
         self.interrupted: list[str] = []
         self.interrupt_event = Event()
@@ -237,11 +238,31 @@ class FakeContainers:
         self.cleanup_networks: list[str] = []
         self.cleanup_calls: list[tuple[set[str], set[str]]] = []
 
+    @property
+    def status_value(self):
+        """@brief Read the runtime state shared by shallow image-manager copies."""
+        return self.runtime_state["status"]
+
+    @status_value.setter
+    def status_value(self, value):
+        """@brief Update the shared external-runtime lifecycle receipt."""
+        self.runtime_state["status"] = value
+
     def ensure_volumes(self):
         return None
 
     def provision(self, *args, **kwargs):
+        self.status_value = "running"
         return "created"
+
+    def resource_identity(self, name):
+        """@brief Supply authoritative runtime identity without invoking a CLI."""
+        return {"container_id": "d" * 64, "image_id": "sha256:" + "e" * 64,
+                "status": self.status_value}
+
+    def start(self, name):
+        """@brief Resume the same injected container."""
+        self.status_value = "running"
 
     def verify_required_tools(self, *args, **kwargs):
         return None
@@ -250,9 +271,11 @@ class FakeContainers:
         return CommandResult(exit_code=0)
 
     def stop(self, name):
+        self.status_value = "exited"
         self.stopped.append(name)
 
     def interrupt(self, name):
+        self.status_value = "exited"
         self.interrupted.append(name)
         self.interrupt_event.set()
 
@@ -550,6 +573,169 @@ def sequence(*stages: str, path="full", task_type="feature") -> list[AegisTask]:
 
 
 # PUBLIC API
+
+
+@pytest.mark.parametrize("prior_failure", [False, True])
+def test_retry_continues_design_return_and_exposes_stage_before_checkpoint(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, prior_failure: bool,
+) -> None:
+    """@brief Legal return starts fresh Specify work and exposes durable web evidence."""
+    from adore.profiles import ProfileStore
+    from adore.web.jobs import read_jobs
+
+    engine, forge, worktrees, _, executor = make_engine(tmp_path)
+    run = make_run(engine)
+    run.stage = "design"
+    run.lifecycle = "failed"
+    engine.store.save(run)
+    engine.store.pause()
+    monkeypatch.setattr(orchestrator_module, "_STALE_WORKING_GRACE_SECONDS", 0)
+    snapshots = sequence("design", "specify", "design", "build", "validate", "deliver")
+    if prior_failure:
+        executor.results.append(GateRun(exit_code=2, stderr="OLD_DESIGN_FAILURE"))
+        snapshots.insert(0, task("design"))
+    client = FakeAegis(snapshots)
+    client.probe = lambda: None
+    monkeypatch.setattr(orchestrator_module, "AegisClient", lambda *args: client)
+    profiles = ProfileStore(tmp_path / "profiles")
+    item = profiles.create("project", store_root=str(engine.store.root), platform="github")
+    observed = []
+    commit = worktrees.commit_all_if_dirty
+
+    def checkpoint(run_id, message):
+        """@brief Observe the public Jobs projection while checkpoint work is pending."""
+        engine.poll_once(locked=True)
+        rows, _ = read_jobs(profiles, [item])
+        observed.append((message, rows[0]["stage"], rows[0]["lifecycle"]))
+        return commit(run_id, message)
+
+    monkeypatch.setattr(worktrees, "commit_all_if_dirty", checkpoint)
+
+    assert engine.retry(run.run_id)
+
+    saved = engine.store.load(run.run_id)
+    assert saved.lifecycle == "awaiting-approval"
+    assert saved.stage == "deliver"
+    assert saved.stage_failures == 0
+    assert len(saved.failure_history) == int(prior_failure)
+    assert observed[0] == (f"ADORE checkpoint {TASK_ID} design", "specify", "working")
+    events = engine.store.read_journal(run.run_id)
+    stages = [(event["previous"], event["current"]) for event in events
+              if event["event"] == "stage-advanced"]
+    assert stages[:2] == [("design", "specify"), ("specify", "design")]
+    assert len(executor.prompts) == 5 + int(prior_failure)
+    specify_prompt = executor.prompts[1 + int(prior_failure)]
+    assert "current stage: specify; path: full" in specify_prompt
+    assert "OLD_DESIGN_FAILURE" not in specify_prompt
+    assert engine.store.is_paused()
+    assert all(event["stage"] == event["current"] for event in events
+               if event["event"] == "stage-advanced")
+    assert not worktrees.pushes
+    assert forge.opened == []
+
+
+@pytest.mark.parametrize("following", ["specify", "build"])
+def test_retry_stage_checkpoint_failure_retains_actual_stage_and_cause(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, following: str,
+) -> None:
+    """@brief Checkpoint failures leave a typed terminal outcome at the accepted stage."""
+    engine, forge, worktrees, _, executor = make_engine(tmp_path)
+    run = make_run(engine)
+    run.stage = "design"
+    run.lifecycle = "failed"
+    engine.store.save(run)
+    client = FakeAegis([task("design"), task(following)])
+    client.probe = lambda: None
+    monkeypatch.setattr(orchestrator_module, "AegisClient", lambda *args: client)
+
+    def fail_checkpoint(*args):
+        """@brief Simulate a Git commit failure after the executor's journal transition."""
+        raise IsolationError("commit failed; dirty files retained")
+
+    monkeypatch.setattr(worktrees, "commit_all_if_dirty", fail_checkpoint)
+
+    assert engine.retry(run.run_id)
+
+    saved = engine.store.load(run.run_id)
+    assert saved.stage == following
+    assert saved.lifecycle == "failed"
+    assert saved.outcome == "CHECKPOINT_FAILED: commit failed; dirty files retained"
+    assert len(executor.prompts) == 1
+    assert not worktrees.removed
+    assert not worktrees.pushes
+    # A later public poll must retain the original failure, even past stale grace.
+    monkeypatch.setattr(orchestrator_module, "_STALE_WORKING_GRACE_SECONDS", 0)
+    engine.store.pause()
+    engine.poll_once()
+    assert engine.store.load(run.run_id).outcome == saved.outcome
+
+
+@pytest.mark.parametrize("following,wrong_branch", [("deliver", False), ("specify", True)])
+def test_retry_refuses_untrusted_design_return(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, following: str, wrong_branch: bool,
+) -> None:
+    """@brief Unevidenced forward skips and foreign tasks cannot authorize another session."""
+    engine, forge, worktrees, _, executor = make_engine(tmp_path)
+    run = make_run(engine)
+    run.stage = "design"
+    run.lifecycle = "failed"
+    engine.store.save(run)
+    updated = task(following)
+    if wrong_branch:
+        updated = replace(updated, header={**updated.header, "branch": "foreign"})
+    client = FakeAegis([task("design"), updated])
+    client.probe = lambda: None
+    monkeypatch.setattr(orchestrator_module, "AegisClient", lambda *args: client)
+
+    assert engine.retry(run.run_id)
+
+    saved = engine.store.load(run.run_id)
+    assert saved.lifecycle == "failed"
+    assert saved.stage == "design"
+    assert saved.outcome.startswith("AEGIS_PROTOCOL:" if wrong_branch
+                                    else "FORBIDDEN_STAGE_TRANSITION:")
+    assert len(executor.prompts) == 1
+    assert not worktrees.checkpoints
+
+
+def test_retry_backward_routes_remain_iteration_bounded(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """@brief Repeated AEGIS returns consume the existing cumulative run budget."""
+    engine, _, _, _, executor = make_engine(tmp_path)
+    engine.config.budgets.max_iterations = 2
+    run = make_run(engine)
+    run.stage = "design"
+    run.lifecycle = "failed"
+    engine.store.save(run)
+    client = FakeAegis(sequence("design", "specify", "design"))
+    client.probe = lambda: None
+    monkeypatch.setattr(orchestrator_module, "AegisClient", lambda *args: client)
+
+    assert engine.retry(run.run_id)
+
+    saved = engine.store.load(run.run_id)
+    assert saved.lifecycle == "failed"
+    assert saved.stage == "design"
+    assert saved.outcome.startswith("BUDGET_EXHAUSTED:")
+    assert len(executor.prompts) == 2
+
+
+def test_poll_still_detects_a_working_run_without_a_conductor(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """@brief Relaxed routing does not retain a genuinely orphaned execution slot."""
+    engine, _, _, _, executor = make_engine(tmp_path)
+    run = make_run(engine)
+    engine.store.pause()
+    monkeypatch.setattr(orchestrator_module, "_STALE_WORKING_GRACE_SECONDS", 0)
+
+    engine.poll_once()
+
+    saved = engine.store.load(run.run_id)
+    assert saved.lifecycle == "failed"
+    assert saved.outcome.startswith("STALE_WORKING:")
+    assert not executor.prompts
 
 
 @pytest.mark.parametrize(
@@ -2867,3 +3053,67 @@ def test_loop_polling_cadence_matches_web_errors_and_success(
     assert delays == expected
     assert engine.store.acquire_lock()
     engine.store.release_lock()
+
+
+def test_manual_start_preserves_monitoring_pause(tmp_path, monkeypatch):
+    """@brief Manual admission selects one IID without enabling automatic pickup."""
+    engine, forge, _, _, _ = make_engine(tmp_path)
+    forge.ticket.labels = [engine.config.labels.lifecycle.ready, "P2"]
+    selected = []
+    monkeypatch.setattr(engine, "_probe_repository_payload", lambda: None)
+    monkeypatch.setattr(engine, "_claim_and_conduct", lambda ticket: selected.append(ticket.iid))
+    engine.store.pause()
+    assert engine.poll_once()["picked"] is None
+    assert engine.poll_once(ticket_iid=forge.ticket.iid)["picked"] == forge.ticket.iid
+    assert selected == [forge.ticket.iid]
+    assert engine.store.is_paused()
+    assert engine.poll_once()["picked"] is None
+    assert selected == [forge.ticket.iid]
+
+
+@pytest.mark.parametrize("iid", [0, -1, True, "7"])
+def test_manual_start_rejects_invalid_identity(tmp_path, iid):
+    """@brief Malformed manual identities cannot bypass the monitoring gate."""
+    engine, _, _, _, _ = make_engine(tmp_path)
+    engine.store.pause()
+    with pytest.raises(ValueError):
+        engine.poll_once(ticket_iid=iid)
+    assert engine.store.is_paused()
+
+
+@pytest.mark.parametrize("blocker", ["held", "capacity", "payload", "missing"])
+def test_paused_manual_start_reports_its_actual_blocker(tmp_path, monkeypatch, blocker):
+    """@brief Explicit admission retains capacity, workflow and ticket trust gates."""
+    from adore.aegis import AegisError
+    engine, forge, _, _, _ = make_engine(tmp_path)
+    forge.ticket.labels = [engine.config.labels.lifecycle.ready, "P2"]
+    selected = []
+    monkeypatch.setattr(engine, "_probe_repository_payload", lambda: None)
+    monkeypatch.setattr(engine, "_claim_and_conduct", lambda ticket: selected.append(ticket.iid))
+    engine.store.pause()
+    if blocker == "held":
+        forge.ticket.labels.append(engine.config.labels.control.hold)
+    elif blocker == "capacity":
+        engine.store.save(RunState(run_id="busy", ticket_iid=88, lifecycle="working"))
+        monkeypatch.setattr(engine, "_reconcile_runs", lambda summary: None)
+        engine.config.polling.max_concurrent_runs = 1
+    elif blocker == "payload":
+        def unavailable():
+            raise AegisError("PRIVATE workflow error")
+        monkeypatch.setattr(engine, "_probe_repository_payload", unavailable)
+    result = engine.poll_once(ticket_iid=999 if blocker == "missing" else forge.ticket.iid)
+    assert result["picked"] is None
+    assert result["start_reason"] == {"held": "held", "capacity": "at_capacity",
+        "payload": "workflow_unavailable", "missing": "ticket_unavailable"}[blocker]
+    assert engine.store.is_paused() and selected == []
+
+
+@pytest.mark.parametrize("stage", ["frame", "specify", "design", "build", "validate", "deliver"])
+def test_stage_prompt_preserves_aegis_journal_authoring_contract(tmp_path, stage):
+    """@brief New AEGIS journal guidance applies to every stage without new authority."""
+    engine, forge, _, _, _ = make_engine(tmp_path)
+    prompt = engine._stage_prompt(make_run(engine), forge.ticket, task(stage), "", "")
+    assert ".agentic/templates/task.md" in prompt
+    assert "legal prologue" in prompt and "authoring-guide link" in prompt
+    assert "same task ID" in prompt and "append-only" in prompt
+    assert "Do exactly ONE stage" in prompt and "Never commit, push" in prompt

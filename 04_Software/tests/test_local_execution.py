@@ -18,6 +18,7 @@ import io
 import json
 from pathlib import Path
 import subprocess
+import sys
 
 from adore import execution
 from adore.config import ExecutorCommand, default_config, validate_config
@@ -62,6 +63,9 @@ def local_fixture(tmp_path, monkeypatch):
         "path": str(tools),
     }
     monkeypatch.setattr("adore.local_execution.native_context", lambda: context)
+    # Probe tests inject the controller factory too. Its unused scope constructor
+    # must not load Windows APIs when these same offline fixtures run on Linux.
+    monkeypatch.setattr("adore.local_execution.NativeScopes", lambda *_args: None)
 
     class Controller:
         """@brief Injected native command boundary records environment and redaction."""
@@ -88,6 +92,130 @@ def local_fixture(tmp_path, monkeypatch):
 
 
 # PUBLIC API / TESTS
+
+
+@pytest.mark.parametrize("mode,reason,code", [
+    ("ready", "ready", 0), ("stderr", "ready", 0),
+    ("codex-version", "ready", 0), ("ansi-version", "ready", 0),
+    ("missing", "executable-missing", None), ("auth", "credential-missing", 0),
+    ("corrupt-auth", "credential-invalid", None),
+    ("exit", "executor-exit", 7), ("timeout", "timeout", 124),
+    ("version", "version-invalid", 0),
+])
+def test_local_prerequisite_retains_safe_cause(tmp_path, monkeypatch, mode, reason, code):
+    """@brief Native prerequisites distinguish availability/auth/version without raw output."""
+    from adore.web.app import _probe_setup
+
+    config, context, _, controller, _ = local_fixture(tmp_path, monkeypatch)
+    config.executor.env_keys = []
+    auth = Path(context["home"]) / ".local/share/opencode/auth.json"
+    auth.parent.mkdir(parents=True)
+    if mode != "auth":
+        auth.write_text("bad-PRIVATE" if mode == "corrupt-auth" else "{}", encoding="utf-8")
+    if mode == "missing":
+        (Path(context["path"]) / "opencode.exe").unlink()
+
+    def execute(argv, **kwargs):
+        kwargs["stdout"].write_text("" if mode == "stderr" else
+            "PRIVATE output" if mode == "version" else
+            "codex-cli 0.115.0" if mode == "codex-version" else
+            "\x1b[32m1.2.3\x1b[0m" if mode == "ansi-version" else "1.2.3", encoding="utf-8")
+        kwargs["stderr"].write_text("1.2.3" if mode == "stderr" else "", encoding="utf-8")
+        return CommandResult(exit_code=7 if mode == "exit" else
+                             124 if mode == "timeout" else 0, timed_out=mode == "timeout")
+
+    controller.run_files = execute
+    monkeypatch.setattr("adore.local_execution.LocalProcessController", lambda *a: controller)
+    result = _probe_setup(config, lambda argv, **kw: CommandResult(stdout="version 1.2.3"))
+    assert result["checks"]["executor_cli"] is (reason == "ready")
+    assert result["executor_probe"] == {"ready": reason == "ready", "reason": reason,
+                                        "exit_code": code}
+    assert "PRIVATE" not in json.dumps(result)
+
+
+@pytest.mark.parametrize("mode,reason", [
+    ("timestamp", "ready"), ("bad-time", "invalid-response"),
+    ("wrong-nonce", "invalid-response"), ("tool-finish", "invalid-response"),
+    ("tool-part", "invalid-response"), ("bool-time", "invalid-response"),
+    ("reversed-time", "invalid-response"), ("duplicate", "invalid-response"),
+    ("huge-time", "invalid-response"),
+    ("auth-error", "credential-invalid"), ("model-error", "model-unavailable"),
+    ("error-after-success", "credential-invalid"), ("stderr-auth", "credential-invalid"),
+])
+def test_native_opencode_completion_and_provider_errors(tmp_path, monkeypatch, mode, reason):
+    """@brief Completed text and zero-exit structured provider errors are interpreted correctly."""
+    from adore.web.model_connection import probe_model_connection
+
+    config, _, _, controller, _ = local_fixture(tmp_path, monkeypatch)
+    monkeypatch.setattr("adore.local_execution.LocalProcessController", lambda *a: controller)
+
+    def execute(argv, **kwargs):
+        nonce = argv[-1].split()[-1]
+        events = [{"type": "text", "part": {"text": nonce,
+                   "time": {"start": 10, "end": 11 if mode != "bad-time" else "bad"}}}]
+        if mode == "wrong-nonce":
+            events[0]["part"]["text"] = "wrong"
+        if mode == "bool-time":
+            events[0]["part"]["time"]["end"] = True
+        if mode == "reversed-time":
+            events[0]["part"]["time"]["end"] = 9
+        if mode == "huge-time":
+            events[0]["part"]["time"]["end"] = 10 ** 999
+        if mode == "tool-finish":
+            events.append({"type": "step_finish", "part": {"reason": "tool-calls"}})
+        if mode == "tool-part":
+            events.append({"type": "message.part.updated", "part": {"type": "tool"}})
+        if mode in {"auth-error", "error-after-success", "model-error"}:
+            if mode != "error-after-success":
+                events = []
+            events.append({"type": "error", "error": {
+                "name": "ProviderModelNotFoundError" if mode == "model-error" else "APIError",
+                "data": {"statusCode": 401, "message": "PRIVATE-PROVIDER-DETAIL"}}})
+        raw = "\n".join(map(json.dumps, events))
+        if mode == "duplicate":
+            raw = raw.replace('"end": 11', '"end": 11, "end": 12')
+        kwargs["stdout"].write_text(raw, encoding="utf-8")
+        kwargs["stderr"].write_text("HTTP 401 Unauthorized PRIVATE" if mode == "stderr-auth"
+                                    else "", encoding="utf-8")
+        return CommandResult(exit_code=1 if mode == "stderr-auth" else 0)
+
+    controller.run_files = execute
+    result = probe_model_connection(config, None, tmp_path / "absent.env")
+    assert result["reason"] == reason
+    assert result["ready"] is (reason == "ready")
+    assert "PRIVATE" not in json.dumps(result)
+
+
+@pytest.mark.parametrize("mode,reason", [("account", "account-mismatch"),
+    ("permission", "permission-denied"), ("wrapped-permission", "permission-denied"),
+    ("cleanup", "cleanup-failed")])
+def test_local_prerequisite_account_scope_and_cleanup(tmp_path, monkeypatch, mode, reason):
+    """@brief Real native boundary failures remain visible and cannot report success."""
+    from adore.local_execution import probe_local_executor
+
+    config, _, _, controller, _ = local_fixture(tmp_path, monkeypatch)
+    root = tmp_path / "probe"
+    root.mkdir()
+    monkeypatch.setattr("adore.local_execution.tempfile.mkdtemp", lambda **kw: str(root))
+    monkeypatch.setattr("adore.local_execution.LocalProcessController", lambda *a: controller)
+    if mode == "account":
+        config.local.account = "different-account"
+    elif mode in {"permission", "wrapped-permission"}:
+        def denied(*a, **kw):
+            if mode == "wrapped-permission":
+                try:
+                    raise PermissionError("PRIVATE-OS-DETAIL")
+                except PermissionError as exc:
+                    raise LocalExecutionError("native launch ownership failed") from exc
+            raise PermissionError("PRIVATE-OS-DETAIL")
+        controller.run_files = denied
+    else:
+        def cleanup(*a, **kw):
+            raise LocalExecutionError("native scope cleanup not confirmed")
+        controller.recover = cleanup
+    result = probe_local_executor(config)
+    assert result["ready"] is False and result["reason"] == reason
+    assert "PRIVATE" not in json.dumps(result)
 
 
 def test_local_selection_is_explicit_and_rejects_container_contracts(tmp_path):
@@ -120,12 +248,38 @@ def test_local_backend_is_available_through_the_shared_contract():
     assert hasattr(execution, "LocalBackend"), "local backend adapter is absent"
 
 
+@pytest.mark.parametrize("system", ["Windows", "Linux"])
+@pytest.mark.parametrize("pathext", [".COM;.EXE;.BAT;.CMD", None])
+def test_local_environment_preserves_executable_extensions(tmp_path, monkeypatch, system, pathext):
+    """@brief Preserve inherited shell extensions without inheriting unapproved secrets."""
+    config, context, _, _, _ = local_fixture(tmp_path, monkeypatch)
+    context["system"] = system
+    if pathext is None:
+        monkeypatch.delenv("PATHEXT", raising=False)
+    else:
+        monkeypatch.setenv("PATHEXT", pathext)
+    monkeypatch.setenv("GITEA_TOKEN", "forge-secret")
+    monkeypatch.setenv("UNAPPROVED_SECRET", "unapproved")
+
+    env = local_environment(config, context)
+
+    if pathext is None:
+        assert "PATHEXT" not in env
+    else:
+        assert env["PATHEXT"] == pathext
+    assert env["PATH"] == context["path"]
+    assert "GITEA_TOKEN" not in env and "UNAPPROVED_SECRET" not in env
+
+
 def test_local_environment_preserves_auth_without_forge_credentials(tmp_path, monkeypatch):
     """@brief Native account auth is reused in place and approved secrets stay in memory."""
     config, context, backend, controller, work = local_fixture(tmp_path, monkeypatch)
     monkeypatch.setenv("GITHUB_TOKEN", "forge-secret")
     monkeypatch.setenv("UNAPPROVED_SECRET", "unapproved")
+    config.local.environment.update(git_pager="less", PAGER="more")
+    backend = LocalBackend(config, context=context, controller=controller)
     env = local_environment(config, context, {"OPENAI_API_KEY": "provider-secret"})
+    assert env["GIT_PAGER"] == env["PAGER"] == "cat" and "git_pager" not in env
     assert "GITHUB_TOKEN" not in env and "UNAPPROVED_SECRET" not in env
     assert env["HOME"] == context["home"] and env["OPENAI_API_KEY"] == "provider-secret"
     auth = Path(context["home"]) / ".local/share/opencode/auth.json"
@@ -136,6 +290,7 @@ def test_local_environment_preserves_auth_without_forge_credentials(tmp_path, mo
     resource = backend.resource_identity("run-1")
     target = backend.bind("run-1", env, resource)
     assert target(["opencode", "--version"], timeout=1).ok
+    assert controller.calls[0][1]["env"]["GIT_PAGER"] == "cat"
     assert controller.calls[0][1]["secrets"] == ["existing-subscription-secret", "provider-secret"]
     assert auth.read_text() == '{"provider":{"refresh":"existing-subscription-secret"}}'
     assert not any(
@@ -291,7 +446,13 @@ def test_native_launch_records_ownership_before_release_and_redacts(tmp_path, mo
             return 7 if mode == "nonzero" else 0
 
     process = Process()
-    controller = LocalProcessController(scopes, spawn=lambda *args, **kwargs: process)
+    def spawn(argv, **kwargs):
+        assert kwargs["env"]["GIT_PAGER"] == kwargs["env"]["PAGER"] == "cat"
+        assert kwargs["env"]["HOME"] == "selected"
+        assert kwargs.get("creationflags", 0) == (0x08000000 if sys.platform == "win32" else 0)
+        return process
+
+    controller = LocalProcessController(scopes, spawn=spawn)
     stdout, stderr = tmp_path / "stdout", tmp_path / "stderr"
     result = controller.run_files(
         ["installed.exe", "space path"],
@@ -688,12 +849,13 @@ def test_local_portable_export_excludes_all_native_settings(tmp_path, monkeypatc
 
 def test_local_endpoint_probe_uses_owned_native_python(tmp_path, monkeypatch):
     """@brief Explicit compatible endpoint checks share native account policy without images."""
-    import sys
-
     from adore.web.endpoint_probe import probe_endpoint
 
-    config, _, _, controller, _ = local_fixture(tmp_path, monkeypatch)
-    config.workflow.aegis_python = sys.executable
+    config, context, _, controller, _ = local_fixture(tmp_path, monkeypatch)
+    # Match the fixture's injected Windows identity on every test host.
+    python = Path(context["path"]) / "python.exe"
+    python.write_bytes(b"injected native Python executable")
+    config.workflow.aegis_python = str(python)
     config.local.environment = {
         "OPENAI_BASE_URL": "http://model.test/v1",
         "OPENCODE_CONFIG_CONTENT": json.dumps(
@@ -844,9 +1006,43 @@ def test_local_child_release_barrier_and_cancel_are_native(tmp_path, monkeypatch
     assert bool(calls) is not cancel
     if calls:
         assert calls[0][0] == ["native", "prompt with spaces"]
+        assert calls[0][1]["creationflags"] == 0x08000000
     envelope.write_text('{"unexpected":true}')
     with pytest.raises(ValueError):
         local_child.main(str(envelope))
+
+
+@pytest.mark.parametrize("status", [0, 7])
+def test_windows_supervisor_preserves_redirected_output(tmp_path, monkeypatch, status):
+    """@brief A no-console supervisor must deliver both executor streams and its real exit."""
+    from contextlib import redirect_stderr, redirect_stdout
+    from types import SimpleNamespace
+
+    from adore import local_child
+
+    release = tmp_path / "release"
+    release.touch()
+    envelope = tmp_path / "command.json"
+    envelope.write_text(json.dumps({"argv": ["installed.exe", "--version"],
+        "cwd": str(tmp_path), "release": str(release),
+        "scope": {"kind": "windows-job", "name": "owned"}}), encoding="utf-8")
+    captured, errors = io.StringIO(), io.StringIO()
+
+    def launch(argv, **kwargs):
+        # Windows CREATE_NO_WINDOW does not reliably inherit an implicit stream.
+        # Model that boundary: only explicitly forwarded handles retain output.
+        if kwargs.get("stdout") is not None:
+            kwargs["stdout"].write("1.19.3\n")
+        if kwargs.get("stderr") is not None:
+            kwargs["stderr"].write("executor diagnostic\n")
+        assert kwargs["creationflags"] == 0x08000000
+        return SimpleNamespace(returncode=status)
+
+    monkeypatch.setattr(local_child.subprocess, "run", launch)
+    with redirect_stdout(captured), redirect_stderr(errors):
+        assert local_child.main(str(envelope)) == status
+    assert captured.getvalue() == "1.19.3\n"
+    assert errors.getvalue() == "executor diagnostic\n"
 
 
 @pytest.mark.parametrize("query_ok", [True, False])

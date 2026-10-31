@@ -14,6 +14,11 @@ own names. No guide assumes a particular target repository.
 
 ## Start Here
 
+For the packaged web application, start with the compact
+[user guide](User_Guide/README.md). Its three files are the documentation included
+in the self-contained Windows/Linux user distributions; the guides below retain
+the complete source and advanced administration references.
+
 Follow these guides in order when introducing ADORE to a host or a project:
 
 1. [Getting_Started.md](Getting_Started.md) - understand the operating model,
@@ -29,6 +34,9 @@ Follow these guides in order when introducing ADORE to a host or a project:
    retry, reset, cancel, delete, and clean up runs safely.
 
 ## Reference Guides
+
+- [AEGIS_Compatibility.md](AEGIS_Compatibility.md) - verified companion delivery,
+  workflow changes and compatibility evidence.
 
 - [Configuration_Reference.md](Configuration_Reference.md) - every
   `config.toml` setting, profile resolution, defaults, and validation rules.
@@ -58,3 +66,7 @@ See [Local execution](Local_Execution.md) for platform prerequisites, configurat
 authentication, process ownership and acceptance coverage.
 
 - [Project executor images](Project_Executor_Images.md): explicit GUI image build, verification, selection and operator recovery.
+
+## Adaptive container dependencies
+
+[Agent dependency installation](Agent_Dependency_Installation.md) describes direct agent system-package installation, opt-in rights, independent egress and recovery.

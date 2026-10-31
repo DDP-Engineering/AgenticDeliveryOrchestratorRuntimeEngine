@@ -12,6 +12,22 @@ import { ApiError, describeError, errorMessages } from "../src/errors.ts";
 const locales = ["en", "fr", "de", "ro"];
 const clientCodes = ["network_error", "unexpected_response", "request_failed"];
 
+test("portable Gitea authentication explains the repository connection flow in four locales", () => {
+  const terms = {
+    en: ["Connect repository", "Repository server", "Access token"],
+    ro: ["Conectează depozitul", "Serverul depozitului", "Token de acces"],
+    fr: ["Connecter le dépôt", "Serveur du dépôt", "Jeton d’accès"],
+    de: ["Repository verbinden", "Repository-Server", "Zugriffstoken"],
+  };
+  for (const locale of locales) {
+    for (const code of ["gitea_auth_missing", "gitea_auth_login_missing", "gitea_auth_ambiguous", "gitea_auth_invalid"]) {
+      const message = describeError(locale, new ApiError(code));
+      for (const term of terms[locale]) assert.ok(message.includes(term), `${locale}:${code}:${term}`);
+      assert.ok(!message.includes(code));
+    }
+  }
+});
+
 /** Every code the API source can emit: _error calls, code maps and literal bodies. */
 function apiCodes() {
   const source = readFileSync(new URL("../../adore/web/app.py", import.meta.url), "utf8");

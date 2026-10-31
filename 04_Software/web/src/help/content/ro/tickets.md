@@ -6,7 +6,7 @@ ADORE preia tichete din repository-ul dumneavoastră de pe forge (GitHub, GitLab
 
 Fiecare proiect are o stare **Monitorizare**, afișată ca **Activă** sau **În pauză** în tabelul Proiecte și în fila Rezumat a proiectului. Cât timp monitorizarea este Activă, ADORE verifică repository-ul pentru tichete pregătite la un interval regulat (60 de secunde implicit; vezi **Interval de verificare (secunde)** în [Setările proiectului](/help/settings)). Preia mai întâi tichetul eligibil cu cea mai mare prioritate (P1, apoi P2, apoi P3), apoi pe cel cu numărul cel mai mic, și avansează o lucrare pe rând.
 
-Un administrator poate folosi **Pune monitorizarea în pauză** și **Activează monitorizarea** în fila Rezumat a proiectului. Monitorizarea în pauză oprește preluările noi; lucrările în curs continuă.
+Un administrator poate folosi **Pune monitorizarea în pauză** și **Activează monitorizarea** în fila Rezumat a proiectului. Monitorizarea în pauză oprește preluările automate; lucrările în curs continuă.
 
 ## Creați mai întâi etichetele {#labels}
 
@@ -58,10 +58,12 @@ Nimic nu se citește până nu apăsați **Citește tichetele**. Încarcă pân�
 
 **Pornește** pune o lucrare în coadă; workerul aplică în continuare verificările obișnuite. Dacă tichetului îi lipsește eticheta ready sau o etichetă de prioritate, ADORE vă cere confirmarea, vă lasă să alegeți o prioritate, iar **Adaugă etichetele și pornește** le adaugă mai întâi în repository. Pornirea nu este disponibilă pentru tichetele închise, blocate sau excluse, pentru tichetele fără criteriile de acceptare cerute și pentru tichetele care au o lucrare. **Reia** înlocuiește Pornește când lucrarea a eșuat. **Oprește** cere confirmare, anulează o lucrare neterminată și elimină eticheta ready, pentru ca monitorizarea să nu mai preia tichetul. **Detalii** afișează descrierea și comentariile.
 
+**Pornește** pornește manual doar tichetul selectat, inclusiv cu **Monitorizare** **În pauză**, și păstrează monitorizarea în pauză. Se aplică în continuare limita de lucrări, fluxul din repository, eligibilitatea, blocarea conductorului și aprobările. O operație eșuată afișează motivul concret; dacă rezultatul este invalid sau incert, consultă logurile gazdei înainte de reluare.
+
 ## Listă de verificare pentru primul tichet {#checklist}
 
 1. Creați toate cele nouă etichete în repository-ul de pe forge.
-2. Verificați că Monitorizarea este Activă.
+2. Pentru preluare automată, verifică Monitorizarea Activă; pentru Pornește manual, poate rămâne În pauză.
 3. Scrieți un titlu clar și o descriere cu criterii de acceptare.
 4. Adăugați o etichetă de prioritate și, opțional, `bug`, `fix`, `change` sau `agent-quick`.
 5. Adăugați `agent-ready` ultima.

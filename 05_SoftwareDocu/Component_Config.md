@@ -88,3 +88,14 @@ LocalConfig supplies account/home/path/environment/cgroup_root. Explicit executi
 See [Local execution](../01_Documentation/Local_Execution.md) and
 [Local execution component](Component_Local_Execution.md). Focused native proof:
 `04_Software/tests/test_local_execution.py`.
+
+## Background branch rule evaluation
+
+The one-second isolated Python regex subprocess uses shared automatic-process
+options and pager defaults. Its JSON stdin remains the only rule/name transport;
+stdout parsing and closed timeout/process-error findings retain their contract.
+Focused proof: `tests/test_automatic_processes.py` and `tests/test_branch_naming.py`.
+
+## Agent-controlled system packages
+
+Strict boolean container.system_packages defaults false. Enabled mode is container-only, rejects host-oriented runtime overrides and requires the Codex container sandbox preset. Egress remains independent. See [Package permissions](Component_Package_Permissions.md) and the operator dependency-installation guide.

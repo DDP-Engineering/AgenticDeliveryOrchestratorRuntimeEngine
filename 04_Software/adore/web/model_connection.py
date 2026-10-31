@@ -16,6 +16,7 @@
 
 # IMPORTS
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -188,7 +189,28 @@ def _native_response(kind: str, output: str, nonce: str) -> bool:
                 return False
             if kind == "opencode":
                 part = event.get("part", {})
-                found |= typ == "text" and part.get("text", "").strip() == nonce
+                if not isinstance(part, dict):
+                    return False
+                if part.get("type") == "tool" or (
+                        typ == "step_finish" and part.get("reason") != "stop"):
+                    return False
+                answer = typ == "text" and part.get("text", "").strip() == nonce
+                if typ == "text" and not answer:
+                    return False
+                found |= answer
+                stamp = part.get("time", {})
+                if not isinstance(stamp, dict):
+                    return False
+                if "end" in stamp:
+                    end, start = stamp["end"], stamp.get("start", 0)
+                    if (type(end) not in {int, float} or type(start) not in {int, float}
+                            or not math.isfinite(end) or not math.isfinite(start)
+                            or not 0 <= start <= end or end <= 0):
+                        return False
+                    # Some OpenCode versions omit step_finish on shutdown.
+                    # A completed exact nonce text part plus clean process exit
+                    # proves this short access challenge, never a full job.
+                    complete |= answer
                 complete |= typ == "step_finish" and part.get("reason") == "stop"
             elif kind == "pi" and typ == "message_end":
                 msg = event.get("message", {})
@@ -212,8 +234,57 @@ def _native_response(kind: str, output: str, nonce: str) -> bool:
                 found |= event.get("result", "").strip() == nonce
                 complete |= event.get("subtype") == "success" and event.get("is_error") is False
         return found and complete
-    except (ValueError, TypeError, AttributeError):
+    except (ValueError, TypeError, AttributeError, OverflowError):
         return False
+
+
+def _native_model_reason(kind: str, gate, nonce: str) -> str:
+    """@brief Classify bounded provider failures before interpreting nonce completion.
+    @param[in] kind Selected native executor.
+    @param[in] gate Captured, redacted native result.
+    @param[in] nonce Expected exact challenge answer.
+    @return Closed cause only; provider messages never enter persisted evidence.
+    """
+    from adore.util import strict_json_loads
+
+    if gate.timed_out:
+        return "timeout"
+    if gate.exit_code == 127:
+        return "cli-missing"
+    if gate.exit_code:
+        # Match recognizable failures even when the CLI did not emit JSON.
+        if re.search(r"\b(?:HTTP[/\d.]*\s+(?:401|403)|unauthorized|authentication failed)\b",
+                     gate.stderr[:65536], re.I):
+            return "credential-invalid"
+        if re.search(r"\bmodel (?:not found|unavailable)\b", gate.stderr[:65536], re.I):
+            return "model-unavailable"
+    try:
+        if len(gate.output.encode("utf-8")) > 1048576:
+            return "invalid-response"
+        if kind == "opencode":
+            events = [strict_json_loads(line) for line in gate.output.splitlines() if line.strip()]
+            for event in events:
+                if not isinstance(event, dict):
+                    return "invalid-response"
+                if event.get("type") == "error":
+                    error = event.get("error")
+                    if not isinstance(error, dict):
+                        return "invalid-response"
+                    name, data = error.get("name"), error.get("data", {})
+                    if not isinstance(name, str) or not isinstance(data, dict):
+                        return "invalid-response"
+                    if name in {"ProviderModelNotFoundError", "ModelNotFoundError"}:
+                        return "model-unavailable"
+                    status = data.get("statusCode")
+                    if name in {"ProviderAuthError", "AuthenticationError"} or (
+                            type(status) is int and status in {401, 403}):
+                        return "credential-invalid"
+                    return "connection-failed"
+    except (ValueError, TypeError, UnicodeError):
+        return "connection-failed" if gate.exit_code else "invalid-response"
+    if gate.exit_code:
+        return "connection-failed"
+    return "ready" if _native_response(kind, gate.output, nonce) else "invalid-response"
 
 
 def probe_model_connection(config, runner, env_file: Path) -> dict:
@@ -231,7 +302,7 @@ def probe_model_connection(config, runner, env_file: Path) -> dict:
         return result
     if config.execution.backend == "local":
         from adore.executor.launcher import build_executor
-        from adore.local_execution import local_probe
+        from adore.local_execution import local_probe, local_probe_failure
 
         nonce = "ADORE_OK_" + uuid4().hex
         try:
@@ -240,13 +311,15 @@ def probe_model_connection(config, runner, env_file: Path) -> dict:
                 gate = executor.run_gate(target, work, exchange,
                     "Connection test. Do not call tools or read files. Reply exactly: " + nonce,
                     timeout=45)
-                reason = ("timeout" if gate.timed_out else
-                          "connection-failed" if gate.exit_code else
-                          "ready" if _native_response(kind, gate.output, nonce)
-                          else "invalid-response")
+                reason = _native_model_reason(kind, gate, nonce)
                 result.update(ready=reason == "ready", reason=reason)
-        except (OSError, ValueError, TypeError, IsolationError):
-            result["reason"] = "runtime-error"
+        except TimeoutError:
+            result["reason"] = "timeout"
+        except (OSError, ValueError, TypeError, IsolationError) as exc:
+            cause = local_probe_failure(exc)
+            result["reason"] = {"executable-missing": "cli-missing",
+                                "credential-invalid": "credential-invalid"}.get(
+                                    cause, "runtime-error")
         return result
     deadline = monotonic() + 90
 

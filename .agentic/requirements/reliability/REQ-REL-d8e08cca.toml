@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-REL-d8e08cca"
+
+title = "Preserve owned container state during timeout recovery"
+
+status = "active"
+
+requirement = "During timeout recovery, the execution backend shall preserve the original container identity, image, persistent filesystem and configured execution authority."
+
+verification = "Offline lifecycle tests admit same-resource recovery without create/remove/policy mutations; controlled Docker acceptance compares resource/image/network/user identity and a filesystem marker before and after recovery."
+
+affected_paths = ["04_Software/adore/execution.py"]
+
+linked_tests = ["04_Software/tests/test_container_timeout.py::test_timeout_parks_then_resumes_the_original_container", "04_Software/tests/test_container_timeout.py::test_bound_commands_address_the_admitted_immutable_id", "04_Software/tests/test_container_timeout.py::test_operator_stop_cancels_pending_automatic_restart"]
+
+
+spec = "specs/REQ-FUNC-bff135e2.md"
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-30
+updated = 2026-10-30

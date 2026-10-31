@@ -59,6 +59,8 @@ Shared CLI/web defaults are acceptance=false, priority=true and maximum addition
 
 ## Key behaviors
 
+- REQ-SEC-c5d56d9f / REQ-FUNC-c405688e: strict container.system_packages defaults false; native mode, unsafe host-oriented run arguments and incompatible Codex workspace sandbox presets fail validation.
+
 - REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: LocalConfig supplies account/home/path/environment/cgroup_root. Explicit execution.backend=local rejects recipes, restricted egress, staging and container-only options. Non-secret local maps reject managed/forge variables and literal inline provider credentials. Container remains the default.
 
 Native ownership/auth route to `local-execution.md`; focused proof is
@@ -73,26 +75,19 @@ Native ownership/auth route to `local-execution.md`; focused proof is
   validator.
 - `REQ-REL-94e653aa` - checkpoint publication defaults to enabled and respects explicit overrides.
 
-## Architecture
-
-```mermaid
-flowchart LR
-    toml[(config.toml)] --> load[load_config]
-    load --> model[Typed Config]
-    model --> validate[validate_config]
-    validate --> branch[branch_naming_preview]
-    preview([Scoped web preview]) --> branch
-    branch --> regex([Bounded Python regex process])
-    validate --> conductor([Orchestrator])
-    validate --> web([Web configuration API])
-```
-
-Both CLI and web use the same validated model before changing runtime policy.
 
 ## Files
+
+- `04_Software/tests/test_system_packages.py`: package authority, independent egress, recovery and reviewed settings contracts.
 
 - `04_Software/tests/test_local_execution.py`: native integration/negative proof.
 
 
 - `04_Software/adore/config.py`
 - `04_Software/tests/test_config.py`
+
+## Background rule subprocess
+
+Branch rule evaluation uses shared automatic environment/no-console helpers,
+with the existing bounded JSON-stdin protocol and explicit error findings.
+Focused proof: test_automatic_processes.py and test_branch_naming.py.

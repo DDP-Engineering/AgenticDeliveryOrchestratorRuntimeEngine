@@ -38,7 +38,7 @@ status = "active"
 # Do not contort prose to fit a pattern - a constraint that reads better
 # plainly is better plainly.
 requirement = """
-When a governed stage fails, the conductor shall apply the configured attempt limit, reset it only after successful stage progress, and classify typed executor and AEGIS timeouts distinctly.
+When a governed stage fails, the conductor shall apply the configured attempt limit, reset it only after an accepted stage transition, and preserve the actual failure cause and observed stage, including typed executor and AEGIS timeouts or a failed stage checkpoint.
 """
 
 # The observation that settles whether the behavior holds — not a
@@ -49,14 +49,14 @@ When a governed stage fails, the conductor shall apply the configured attempt li
 # "Inspection:" and name the method, and `check` records the requirement
 # as verified by hand instead of counting it among the tests still owed.
 # The prefix alone is not enough — it has to say what someone does.
-verification = "Automated orchestrator tests cover repeated stage failure, counter reset, typed executor timeout, and bounded AEGIS timeout retry."
+verification = "Automated orchestrator tests cover repeated stage failure, counter reset, typed executor timeout, bounded AEGIS timeout retry, durable current-stage evidence and a failed checkpoint retaining CHECKPOINT_FAILED through later polls; active conduction is protected while genuinely orphaned runs remain detectable."
 
 # Repo-relative, forward slashes. The source files this behavior lives in.
 affected_paths = ["04_Software/adore/orchestrator.py"]
 
 # "tests/path/test_file.py::test_name" entries. Kept current during build;
 # these select the impacted regression set.
-linked_tests = ["04_Software/tests/test_orchestrator.py::test_two_failures_then_success_resets_counter_and_questions_do_not_consume_it", "04_Software/tests/test_orchestrator.py::test_exact_third_failed_attempt_aborts_without_fourth_launch", "04_Software/tests/test_orchestrator.py::test_executor_timeout_classification_uses_typed_flag", "04_Software/tests/test_orchestrator.py::test_aegis_timeout_retries_inside_the_same_conductor"]
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_two_failures_then_success_resets_counter_and_questions_do_not_consume_it", "04_Software/tests/test_orchestrator.py::test_exact_third_failed_attempt_aborts_without_fourth_launch", "04_Software/tests/test_orchestrator.py::test_executor_timeout_classification_uses_typed_flag", "04_Software/tests/test_orchestrator.py::test_aegis_timeout_retries_inside_the_same_conductor", "04_Software/tests/test_orchestrator.py::test_retry_stage_checkpoint_failure_retains_actual_stage_and_cause", "04_Software/tests/test_orchestrator.py::test_poll_still_detects_a_working_run_without_a_conductor"]
 
 # --- optional below this line ---
 
@@ -67,4 +67,4 @@ priority = "normal"   # low | normal | high
 rationale = "Retries should be bounded, explainable, and consistent after restart."
 
 created = 2026-08-15
-updated = 2026-08-15
+updated = 2026-10-22

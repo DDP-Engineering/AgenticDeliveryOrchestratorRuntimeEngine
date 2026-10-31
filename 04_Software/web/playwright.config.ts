@@ -21,7 +21,9 @@ export default defineConfig({
   retries: 0,
   forbidOnly: true,
   timeout: 30_000,
-  globalTimeout: 600_000,
+  // The complete serial suite covers all feature journeys; keep a finite total budget
+  // while preserving the individual test, assertion and action deadlines.
+  globalTimeout: 1_800_000,
   expect: { timeout: 10_000 },
   reporter: [["list"], ["html", { open: "never" }]],
   use: {

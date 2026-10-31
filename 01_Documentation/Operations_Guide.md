@@ -22,6 +22,10 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 AEGIS stage is recorded separately as `frame`, `specify`, `design`, `build`,
 `validate`, `deliver`, or `done`. Quick tasks omit specify/design.
+AEGIS may return to any earlier stage on the selected path, including Design
+to Specify. ADORE saves the observed stage before checkpoint work and continues
+in a fresh executor session within the existing run budgets. Jobs displays that
+saved stage. Completed tasks stay terminal.
 If the source ticket is closed while a run is parked for clarification,
 awaiting approval, or still has an open MR/PR in review, the next poll cancels
 it with outcome `ticket closed` and releases its resources. A merged MR/PR takes
@@ -174,3 +178,37 @@ Native runs retain budgets, AEGIS, questions, approval and draft publication. Pa
 
 See [Local execution](Local_Execution.md) for platform prerequisites, configuration,
 authentication, process ownership and acceptance coverage.
+
+
+## Git repositories used by container tests
+
+New repository execution environments let Git discover the repository selected
+by the current directory or `git -C`. A test may create and commit in a temporary
+or nested repository without redirecting that operation to the job's worktree.
+The host worktree's Git pointer stays unchanged.
+
+Retry keeps the existing container and its installed dependencies. Containers
+created with the historical Git environment retain that environment during reuse;
+newly created containers use the native discovery mode. An upgrade does not
+replace active resources. Normal cancellation/deletion remains the explicit
+resource-release boundary.
+
+A missing or corrupt native binding produces an isolation error with preserved
+evidence. Review the saved run IO data and runtime error before retrying; ADORE
+rejects unknown binding modes rather than silently changing the execution target.
+For WSL, ordinary `wsl -d Ubuntu -- docker` or Podman runtime settings use direct
+command execution internally. Custom wrappers specify their command boundary
+with `--` or `--exec`.
+
+## Container command timeouts
+
+When a container command exceeds its deadline, ADORE stops that verified container
+before processing its output. A later admitted command resumes the same container;
+installed packages and files remain. The timeout still counts under the configured
+attempt and cumulative limits. Network access and package permission are unchanged.
+
+If the runtime cannot confirm safe interruption or restart, the job fails with an
+infrastructure error and no further executor attempt. Inspect retained evidence
+and runtime ownership before using explicit Retry. Cancel and delete retain their
+normal authority; ADORE never automatically replaces a container to hide the error.
+A preparation timeout still needs its existing explicit replay procedure.

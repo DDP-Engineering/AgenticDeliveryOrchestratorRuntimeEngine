@@ -31,7 +31,9 @@ After observing a human merge, the shared CLI/web conductor honors `delivery.rem
 - compose each stage prompt as an explicit autopilot-to-deliver instruction
   that has the executor record `interaction: autopilot` in the journal and
   forbids commit, push, MR/PR creation, merge, and child task journals;
-- validate full/quick progression and documented validation rollback;
+- validate full/quick progression and accept AEGIS returns to any earlier stage
+  on the selected path; persist the accepted stage before checkpoint work so
+  Jobs shows the authoritative stage;
 - create an unpushed local checkpoint commit after every successful stage,
   using the configured agent identity even when the host clone has no
   repository or global Git identity;
@@ -104,8 +106,15 @@ project deletion: it releases only the containers and worktrees recorded for
 this project's own runs, keeps human-owned (handed-off and handoff-pending)
 runs' resources and reports their worktrees as retained, and never sweeps by
 name prefix or worktree root, which other projects may share. Multiple AEGIS findings in
-one invocation count once. A successful
-stage transition resets the counter. Questions do not consume it.
+one invocation count once. An accepted
+stage transition resets the counter. Backward routes start fresh sessions and
+consume the existing cumulative run budgets. A fresh stage clears obsolete
+remediation context while the failure history remains saved. Questions do not
+consume attempts.
+A stage checkpoint Git failure records `CHECKPOINT_FAILED` at the newly observed
+stage, stops execution and preserves the worktree. Remote checkpoint ownership
+failures keep their existing codes; genuinely orphaned working runs remain
+`STALE_WORKING`.
 The active wall-clock budget restarts when clarification resumes, a review
 revision begins, approval is invalidated for re-conduction, or an operator
 explicitly retries. Iteration, cost, and file budgets remain cumulative.
@@ -228,3 +237,58 @@ See [Local execution](../01_Documentation/Local_Execution.md) and
 forge/unexpected-error logging, local quiet windows and interrupt cleanup.
 Success resets backoff; a quiet round preserves it. Each wait begins after the
 round completes. Offline regression: `test_loop_polling_cadence_matches_web_errors_and_success`.
+
+## Manual ticket admission
+
+`poll_once(ticket_iid=IID)` validates a positive integer and admits only that
+freshly read forge ticket while preserving the monitoring pause marker. Existing
+reconciliation, conductor lock, capacity, AEGIS payload, shared ticket eligibility
+and publication approval boundaries remain active. Untargeted polling retains
+the pause gate. Refused manual admission adds a closed `start_reason` code to
+the summary; no ticket text or credential enters that code.
+
+## Explicit native Retry
+
+retry() revalidates only the native plan's environment_sha256, executable and
+executable_sha256. All other policy settings, machine/account and resource
+ownership stay fixed. It preserves task, worktree, branch, history and cumulative
+iteration/cost/file budgets. After receipt/plan refresh, normal provisioning runs
+the bounded executor version check before rereading the durable AEGIS task.
+RETRY_REVALIDATION_FAILED records the actual recovery refusal; prerequisite
+failures retain their existing typed cause. Automatic polls cannot authorize this
+refresh. The bool return reports accepted operation; CLI checks the resulting
+lifecycle before reporting success. All jobs, native executors and forge adapters
+share this path. Focused proof: tests/test_retry_revalidation.py.
+
+
+## Installed AEGIS journal authoring guidance
+
+The shared stage prompt directs every executor to the target repository's
+.agentic/templates/task.md before journal edits. It names preservation of the
+original legal prologue, any retained authoring-guide link, the same task ID,
+append-only Log/Rulings and updates of current stage fields, checklist/Handoff/
+report as directed by the installed guidance. Failed edits repair the same
+journal. Existing installed step files own the procedure, optional diagrams and
+review/proof order; ADORE retains one-stage sessions, budgets and publication
+approval. No payload, plugin, target repository or schema is rewritten.
+Focused proof: test_stage_prompt_preserves_aegis_journal_authoring_contract and
+existing executor_prompt tests.
+
+## Agent-controlled system packages
+
+Opted-in system-package jobs persist policy/resource plans even without recipes, authorize before agent work and fail closed on policy, container or image drift. The stage prompt reports package rights and independent network mode. Direct installations run within existing gate budgets; no broker selects or installs packages. See [Package permissions](Component_Package_Permissions.md) and the operator dependency-installation guide.
+
+## Container timeout recovery
+
+The shared bound backend settles timed-out container descendants before retaining
+output or admitting another command. It parks and later resumes the same verified
+resource, preserving installed dependencies and the independent egress policy.
+Unconfirmed recovery raises ExecutionRecoveryError; active conduction persists the
+existing INFRASTRUCTURE_EXHAUSTED terminal outcome without spending another
+executor attempt. A pending operator cancellation takes precedence. Successful
+timeout recovery preserves the original typed timeout classification and existing
+bounded stage-failure policy. Preparation replay rules remain unchanged.
+
+Contracts: REQ-FUNC-bff135e2, REQ-REL-ea593cbb, REQ-REL-d8e08cca and
+REQ-DATA-62052e16. Offline coverage is tests/test_container_timeout.py, including
+public retry persistence, plus preparation/native/conductor regressions.

@@ -33,3 +33,14 @@ corporate instance. Gitea continues to route through its selected tea login.
 
 `tests/test_doctor.py` covers valid version/schema-1 detection, missing payload,
 malformed/blocked status, wrong version/schema, and guidance.
+
+## 5. Portable Gitea authentication
+
+`auth_status("gitea")` uses the shared portable tea runner and a bounded account
+API request. Authentication requires HTTP success and a strict, bounded JSON
+identity with a valid login; exit status alone is insufficient. Missing CLI is
+reported separately. Failed/corrupt identities return value-free Connect
+repository guidance. `external_auth=False` lets a caller-owned scoped runner
+retain authority; web readiness uses this mode after binding project credentials.
+Other forge probes retain their existing routing. Focused proof: doctor and
+Gitea-auth tests, including missing/ambiguous metadata and protected scopes.

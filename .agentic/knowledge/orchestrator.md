@@ -58,13 +58,41 @@ does not refresh historical run timestamps.
 
 ## Key behaviors
 
+- REQ-REL-6922cfe5 / REQ-FUNC-c405688e: package-enabled jobs persist a policy/resource plan without requiring a recipe, grant authority before agent work, pass bounded retention credentials and describe direct sudo/network limits in each stage prompt. Resource/policy drift fails closed.
+
+REQ-FUNC-8adb68f9: Every stage prompt points to the installed
+.agentic/templates/task.md before editing a journal, preserving the original
+legal prologue, any retained guide link, same task ID and append-only history.
+Failed edits repair that journal; current checklist/Handoff/report updates follow
+installed instructions. One-stage, no-child, budgets and publication limits
+remain authoritative. Optional diagrams and review/proof order belong to AEGIS.
+Focused proof: test_stage_prompt_preserves_aegis_journal_authoring_contract.
+
+
+REQ-FUNC-ffb9ed29: Explicit native retry alone refreshes volatile environment and
+installed-executable identity after saved plan, stable configuration and ownership
+checks. It retains job/task/worktree/branch/resource/history and cumulative budgets,
+then runs normal version provisioning and conduction. A refused refresh persists
+RETRY_REVALIDATION_FAILED with its cause; automatic polls do not authorize it.
+The bool retry result means accepted; CLI inspects final lifecycle before success.
+Focused proof: tests/test_retry_revalidation.py, all agents and injected OS paths.
+
+
+Accepted AEGIS returns, including Design -> Specify, continue in fresh sessions
+within cumulative budgets, clearing obsolete stage remediation context while
+retaining failure history. The conductor persists the observed stage and a
+stage-bearing transition event before Git checkpoint work; Jobs reads this saved
+state. Typed checkpoint Git failure becomes CHECKPOINT_FAILED at that stage,
+preserving the worktree. Active conduction retains its ownership marker; genuine
+orphaned runs still fail as STALE_WORKING.
+
 - REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: The conductor selects the shared native backend and pins plan/resource, retaining the same AEGIS/executor/approval loop. Native provisioning skips images/setup/auth copies. Retry/parking preserve identity; local cleanup removes worktrees only after verified control. Container cleanup protects persisted native runs after backend drift.
 
 Native ownership/auth route to `local-execution.md`; focused proof is
 `04_Software/tests/test_local_execution.py`.
 
 
-Container profiles without recipes retain the existing recovery/profile-update contract and empty execution record; immutable preparation policy applies to recipe runs.
+Container profiles without recipes or enabled package permission retain the existing recovery/profile-update contract and empty execution record; immutable execution policy applies to recipe and package-enabled runs.
 
 - `REQ-FUNC-e5419c07`: Resolve/persist plan, pin base commit, bind identity, provision/check/stage auth, then execute bounded preparation before AEGIS/AI. Immutable receipts and policy/resource IDs guard resume; explicit replay recreates the owned container and retains worktree/history.
 
@@ -78,35 +106,12 @@ Container profiles without recipes retain the existing recovery/profile-update c
 - `REQ-REL-94e653aa` - configurable remote checkpoints and durable human handoff
   preserve DCP recovery evidence and the fresh approval boundary.
 
-## Architecture
-
-```mermaid
-flowchart LR
-    cli([CLI run or web worker]) --> conductor[Orchestrator]
-    conductor --> auth[repository_auth.project_runner]
-    auth --> forge[(Forge adapter)]
-    conductor --> state[(StateStore)]
-    Source[(Exact tracked Git blob)] --> Plan[preparation.resolve_plan]
-    Plan --> conductor
-    conductor --> Backend[ContainerBackend]
-    Backend --> Runtime([ContainerManager])
-    conductor --> Native[LocalBackend]
-    Native --> Owned([Native process scopes and file target])
-    Backend --> Target[BoundTarget paths and identity]
-    conductor --> Preparation[Bounded file preparation runner]
-    Preparation --> state
-    Target --> aegis[AEGIS client]
-    Target --> executor
-    conductor --> aegis
-    conductor --> executor[Executor launcher]
-    conductor --> metrics[Terminal metrics]
-    executor --> state
-```
-
-The conductor is the only stage owner; API requests do not conduct in the HTTP
-process.
 
 ## Files
+
+- `04_Software/tests/test_system_packages.py`: package authority, independent egress, recovery and reviewed settings contracts.
+
+- `04_Software/tests/test_retry_revalidation.py`: explicit Retry and bound outcome proof.
 
 - `04_Software/tests/test_local_execution.py`: native integration/negative proof.
 
@@ -122,3 +127,23 @@ process.
 forge/unexpected-error logging, local quiet windows and interrupt cleanup.
 Success resets backoff; a quiet round preserves it. Each wait begins after the
 round completes. Offline regression: `test_loop_polling_cadence_matches_web_errors_and_success`.
+
+Manual admission with a positive explicit ticket_iid bypasses only automatic
+monitoring pause, retains that marker, and freshly checks the selected ticket.
+Capacity, payload, lock and eligibility remain authoritative; refused manual
+admission returns a closed start_reason in its summary.
+
+## Container timeout recovery
+
+The shared bound backend settles timed-out container descendants before retaining
+output or admitting another command. It parks and later resumes the same verified
+resource, preserving installed dependencies and the independent egress policy.
+Unconfirmed recovery raises ExecutionRecoveryError; active conduction persists the
+existing INFRASTRUCTURE_EXHAUSTED terminal outcome without spending another
+executor attempt. A pending operator cancellation takes precedence. Successful
+timeout recovery preserves the original typed timeout classification and existing
+bounded stage-failure policy. Preparation replay rules remain unchanged.
+
+Contracts: REQ-FUNC-bff135e2, REQ-REL-ea593cbb, REQ-REL-d8e08cca and
+REQ-DATA-62052e16. Offline coverage is tests/test_container_timeout.py, including
+public retry persistence, plus preparation/native/conductor regressions.

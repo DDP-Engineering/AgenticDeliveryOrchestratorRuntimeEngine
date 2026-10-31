@@ -28,6 +28,8 @@ Jede Zeile hat ein Label, eine stets sichtbare Beschreibung sowie die Angaben **
 
 Ein Badge **Standard** bedeutet, dass die `config.toml` des Projekts den Wert nicht setzt, sodass der ADORE-Standard gilt. Beim Bearbeiten wird ein Wert nur für dieses Projekt geschrieben. Eine Zeile mit **Hier nicht änderbar** wird in der `config.toml` auf dem Server geändert. Eine Zeile mit **Nur bei pausierter Aufnahme ohne aktive Aufträge anwendbar** braucht die unten beschriebene zusätzliche Bedingung.
 
+Die Erkennung startet automatisch bei lokaler Ausführung; ein Agentenwechsel nutzt die erkannte Liste. Zum Aktualisieren öffnen Sie **Erweitert** und **Installierte Executoren erkennen**. Für lokale Ausführung wählen Sie eine erkannte Installation oder geben einen Programmpfad ein; siehe [Installierte Executoren erkennen](/help/executors#installed-executors). Öffnen Sie **Erweitert** für den vollständigen Befehl, einen manuellen Programmpfad, Ordner/PATH-Werte und die Linux-cgroup-Delegierung. Ordner und PATH für automatische Werte leer lassen. PATH bezeichnet Werkzeugordner, keine Programmdatei. Kontonamen in Einstellungen prüfen die aktuelle Identität, ohne Benutzer zu wechseln.
+
 ## Bearbeiten {#editing}
 
 1. Wählen Sie **Bearbeiten** neben dem Aktiven Wert, geben Sie den neuen Wert ein und wählen Sie **Kandidat vorbereiten**. Das schreibt nur einen ausstehenden Kandidaten; die aktive Konfiguration bleibt unverändert.
@@ -42,6 +44,16 @@ Es gelten diese Regeln:
 - Einstellungen, die Identität oder Laufzeit ändern, brauchen zusätzlich eine pausierte Überwachung. Wählen Sie auf der Zusammenfassung **Überwachung pausieren** und lassen Sie aktive Arbeit abschließen; das Pausieren unterbricht keinen laufenden Auftrag.
 - Neue Werte gelten für spätere Aufträge. Bestehende Aufträge behalten ihre Konfiguration.
 
+Kurze Dateisperren unter Windows werden automatisch erneut versucht. Können die Einstellungen weiterhin nicht gespeichert werden, bleibt der geprüfte Entwurf erhalten: Prüfen Sie den Dateizugriff und wählen Sie erneut **Anwenden**.
+
 ## Original-TOML {#toml}
 
 Neben der Überschrift Projekteinstellungen haben Administratoren **Originalkonfiguration anzeigen** und **Originalkonfiguration herunterladen**. Die Anzeige öffnet einen schließbaren Dialog und hält den Text nur im Speicher. Der Download liefert die gespeicherte `config.toml` genau wie abgelegt, mit Kommentaren, Formatierung und eventuell eingebetteten Geheimnissen, behandeln Sie sie also als Geheimnis. Keine der beiden Funktionen enthält einen ausstehenden Kandidaten, aufgelöste Standardwerte, separate `.env`-Dateien oder externe Zugangsdaten. Entwickler können sie nicht nutzen. Eine heruntergeladene Datei lässt sich mit [Projektkonfiguration importieren](/help/projects#import-project) erneut registrieren, sobald ihre Geheimnisse durch Umgebungsreferenzen ersetzt sind.
+
+## Systempakete des Agenten {#system-packages}
+
+**Systempaketinstallation durch den Agenten erlauben**
+
+Unter Einstellungen → Agent und Modell aktivieren Administratoren diese separate Berechtigung über Kandidat vorbereiten und Änderung übernehmen. Sie ist standardmäßig aus und für Container-Projekte verfügbar. Zuerst ein kompatibles Image mit sudo erstellen oder wählen, danach einen neuen Auftrag starten. Der Agent führt Paketbefehle direkt aus, prüft Fehler und passt seine Schritte innerhalb der Auftragsgrenzen an.
+
+Netzwerkzugriff bleibt separat: open erlaubt erreichbare Quellen, allowlist-proxy erlaubte HTTP/HTTPS-Domains und none nur verfügbare lokale Quellen. Paketskripte haben administrative Rechte im Container; eingebundene Projektordner bleiben mit dem Server geteilt. Systempakete bleiben beim Fortsetzen desselben Containers erhalten; ein neuer Container erfordert erneute Prüfung und Installation.

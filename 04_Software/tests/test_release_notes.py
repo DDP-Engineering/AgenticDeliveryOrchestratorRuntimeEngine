@@ -10,11 +10,14 @@
 """
 @file test_release_notes.py
 @brief Tests for the checked four-locale release notes and their About exposure.
+@details CLI contract fixtures use injected read-only Git responses; no real
+         Git initialization, index changes or commits occur in unit tests.
 """
 
 from __future__ import annotations
 
 # IMPORTS
+import importlib.util
 from pathlib import Path
 import re
 import shutil
@@ -30,7 +33,7 @@ import pytest
 # CONSTANTS
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-CHECKER = REPO_ROOT / "02_Tools" / "check_release_notes.py"
+CHECKER = REPO_ROOT / "02_Tools" / "internal" / "check_release_notes.py"
 NOTES = "04_Software/adore/release_notes.toml"
 LOCALES = ("en", "fr", "de", "ro")
 
@@ -103,10 +106,30 @@ def _run(root: Path, *extra: str) -> subprocess.CompletedProcess[str]:
                           check=False, capture_output=True, text=True, encoding="utf-8")
 
 
-def _git(root: Path, *args: str) -> None:
-    """@brief Run git in a fixture repository with a fixed identity."""
-    subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@example.invalid",
-                    "-c", "core.autocrlf=false", *args], cwd=root, check=True, capture_output=True)
+def _offline_checker(monkeypatch, root: Path, changed: list[str], untracked: list[str]):
+    """@brief Load the public checker with injected read-only Git responses.
+    @param[in] monkeypatch Restore the subprocess boundary after each test.
+    @param[in] root Fixture repository root.
+    @param[in] changed Tracked paths returned by the fake diff query.
+    @param[in] untracked Paths returned by the fake untracked query.
+    @return Loaded checker module with the bounded query double.
+    """
+    spec = importlib.util.spec_from_file_location("offline_release_notes_checker", CHECKER)
+    checker = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checker)
+
+    def git(argv, **kwargs):
+        """@brief Admit only the two exact read-only query shapes the checker owns."""
+        assert argv[:3] == ["git", "-C", str(root)]
+        if argv[3:] == ["diff", "--name-only", "--end-of-options", "HEAD", "--"]:
+            values = changed
+        else:
+            assert argv[3:] == ["ls-files", "--others", "--exclude-standard"]
+            values = untracked
+        return subprocess.CompletedProcess(argv, 0, "\n".join(values), "")
+
+    monkeypatch.setattr(checker.subprocess, "run", git)
+    return checker
 
 
 # PUBLIC API / TESTS
@@ -158,32 +181,24 @@ def test_contract_failures_are_reported(tmp_path, notes: str, expected: str) -> 
     assert expected in result.stdout
 
 
-def test_since_warns_when_changelog_changes_without_release_notes(tmp_path) -> None:
+def test_since_warns_when_changelog_changes_without_release_notes(tmp_path, monkeypatch, capsys):
     """@brief The --since mode warns, without failing, about a changelog-only change."""
     root = _fixture(tmp_path, VALID)
-    _git(root, "init", "-q")
-    _git(root, "add", "-A")
-    _git(root, "commit", "-q", "-m", "base")
-    with (root / "CHANGELOG.md").open("ab") as handle:
-        handle.write(b"\n- A new user-visible change.\n")
-    result = _run(root, "--since", "HEAD")
-    assert result.returncode == 0, result.stdout + result.stderr
-    assert "WARN" in result.stdout
-    (root / NOTES).write_bytes(VALID.replace("their sort order", "their order").encode())
-    result = _run(root, "--since", "HEAD")
-    assert result.returncode == 0 and "WARN" not in result.stdout, result.stdout
+    changed = ["CHANGELOG.md"]
+    checker = _offline_checker(monkeypatch, root, changed, [])
+    assert checker.main(["--repo-root", str(root), "--since", "HEAD"]) == 0
+    assert "WARN" in capsys.readouterr().out
+    changed.append(NOTES)
+    assert checker.main(["--repo-root", str(root), "--since", "HEAD"]) == 0
+    assert "WARN" not in capsys.readouterr().out
 
 
-def test_since_counts_new_untracked_release_notes(tmp_path) -> None:
+def test_since_counts_new_untracked_release_notes(tmp_path, monkeypatch, capsys):
     """@brief A release notes file not yet added to git counts as changed."""
     root = _fixture(tmp_path, VALID)
-    _git(root, "init", "-q")
-    _git(root, "add", "CHANGELOG.md", "04_Software/adore/__init__.py")
-    _git(root, "commit", "-q", "-m", "base")
-    with (root / "CHANGELOG.md").open("ab") as handle:
-        handle.write(b"\n- A new user-visible change.\n")
-    result = _run(root, "--since", "HEAD")
-    assert result.returncode == 0 and "WARN" not in result.stdout, result.stdout
+    checker = _offline_checker(monkeypatch, root, ["CHANGELOG.md"], [NOTES])
+    assert checker.main(["--repo-root", str(root), "--since", "HEAD"]) == 0
+    assert "WARN" not in capsys.readouterr().out
 
 
 def test_parse_rejects_malformed_shape() -> None:

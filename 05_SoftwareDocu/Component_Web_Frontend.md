@@ -683,7 +683,7 @@ acceptance. API and external command boundaries remain simulated offline.
 
 `npm run validate` runs the Node helper suite, UI/E2E TypeScript checks,
 an isolated Vite build in `.e2e-dist` and the Playwright Chromium journeys.
-`playwright.config.ts` bounds the complete browser suite to 600 seconds, with
+`playwright.config.ts` bounds the complete browser suite to 1800 seconds, with
 30-second test and 10-second assertion limits, one worker and no retries.
 Locale journeys await the successful preference-save response so their final
 English restore persists before the disposable browser context closes.
@@ -856,3 +856,78 @@ browser and helper tests verify the shared presentation surface.
 ## Agent selection editor
 
 executorSettings.ts supplies four-locale generic labels, exact selection/list guards and existing-value drafts; ExecutorSelectionEditor.tsx renders one draft field in each existing row, choosing saved commands/models or server presets and requiring an explicit model for a new agent. CredentialNamesEditor.tsx adds distinct names from a native dropdown and shows removable selected names; duplicates are disabled and malformed drafts cannot enable preparation. SettingsList hides other agents' command/model rows, groups private API keys inside Authentication, and PendingReview displays changed selection fields and discloses all three in the complete comparison. routes.ts redirects old /executor links to /configuration for both roles. The field editors and selected-name list wrap at390px without horizontal overflow. Offline executor/settings/images/model-connection browser journeys cover migration, role boundaries, four locales and narrow layout.
+
+## Simple enrollment controls
+
+LocalExecutorPicker keeps installed choices and actual account visible with
+command/manual/environment fields under closed Advanced. CloneLocation selects
+automatic/custom paths. HostFolderPicker uses a native modal, current-account
+home and server directory metadata, with generation/abort guards and focus
+restoration. Manual/custom input and automatic reset retain the same draft and
+existing review/create flow. Host contract and limits are documented in
+[Host folder selection](Component_Host_Folders.md).
+
+### Compact project setup controls
+
+HostFolderPicker uses a compact host directory list with single selection,
+double-click/keyboard opening, address/Back/Parent navigation and exact existing
+folder confirmation. New paths remain editable in the enrollment form.
+EnrollmentWizard groups Agent and model into two independent vertical field
+columns; native detection is automatic and optional refresh lives in Advanced.
+All four locales, narrow layouts, cancellation and existing manual authority apply.
+
+
+The enrollment Target branch control is a required native dropdown populated by
+the shared repository-source `branches` list for GitHub/GitLab/Gitea, including
+self-hosted remotes. Remote symbolic HEAD supplies the initially selected marked
+default. Explicit selection survives same-URL refresh only while advertised; URL
+changes, failed reads and stale replies cannot reuse earlier branch metadata.
+A missing default requires a choice; an empty list disables continuation with
+localized guidance. The shared wizard applies this to Clone project config too.
+
+## Manual start feedback
+
+Tickets explains that manual Start targets one ticket and retains paused
+monitoring. Ticket, job and general operation results resolve `start:<reason>`
+through the four-locale `operationResultText` presentation helper in ticketCopy.
+Known admission failures explain the concrete gate; unknown reason keys use a
+local invalid-result message. Historical operation text remains readable.
+
+## Repository connection recovery
+
+The four-locale `repositoryConnectionHelp` in errors.ts is shared with readiness
+remediation. Missing/ambiguous/invalid Gitea login codes identify Project Summary,
+Connect repository, Repository server, Access token, Verify and connect and a
+fresh host check. The connection dialog explains automatic local CLI auth reuse
+and the current-machine/account boundary before its existing token instructions.
+The projects help topic documents standard discovery and the same recovery flow.
+
+## Local check presentation
+
+`localDiagnostics.ts` supplies closed optional local probe validation and shared
+four-locale prerequisite/model guidance. ReadinessEvidence shows the broad native
+notice once, a concise executor purpose and the measured cause/exit code on
+failure. Legacy records ask for a fresh host check. Explicit model evidence uses
+its actual reason; missing local model tests point to Test AI connection.
+ModelConnection gets its local/container context from the saved execution backend
+and describes the appropriate temporary environment. No local remediation refers
+to container connectivity. Focused Node proof renders the actual Summary component
+from source without writing assets or launching a browser.
+
+## Explicit Retry feedback
+
+operationResultText renders bound retry reasons in English, Romanian, French and
+German. A retry:failed result includes the requested job's persisted terminal
+cause; unknown reason keys use the localized invalid-result message. Operation
+status is failed when rearming fails, even if the conductor accepted the request.
+Focused proof: web/tests/manualStart.test.mjs.
+
+## Agent-controlled system packages
+
+Agent and model shows the localized container-only system-package permission row through the generic boolean editor and existing candidate review. The description explains independent network access, sudo-capable image and a fresh job after changes. See [Package permissions](Component_Package_Permissions.md) and the operator dependency-installation guide.
+
+The canonical settingKeys catalog and every locale in settingHelp include container.system_packages, reusing the Agent and model permission description. Existing host-folder/account lookup failures have localized recovery messages in all four locales.
+
+Localized enrollment browser scenarios restore the shared fixture account language in finally blocks, preserving isolation when assertions fail.
+
+Environment-instruction browser checks select the executor disclosure by its purpose rather than a fixed setting count. Jobs notice coverage checks the current single-ticket hint and preserves queued, failed and not-finished assertions.

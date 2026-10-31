@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-FUNC-bff135e2"
+
+title = "Settle timed-out container commands before reuse"
+
+status = "active"
+
+requirement = "When a bound container command reports a timeout, the execution backend shall quiesce that command's remaining container processes before admitting a subsequent bound command."
+
+verification = "Offline public bound-target tests inject a timeout and observe verified quiescence before later execution; ordinary completion and a normal exit 124 do not trigger timeout recovery. Controlled disposable Docker acceptance confirms the original timed-out writer is absent before a later command."
+
+affected_paths = ["04_Software/adore/execution.py", "04_Software/web/src/help/content/en/jobs.md", "04_Software/web/src/help/content/fr/jobs.md", "04_Software/web/src/help/content/de/jobs.md", "04_Software/web/src/help/content/ro/jobs.md", "04_Software/adore/release_notes.toml", "04_Software/adore/web/static/index.html", "04_Software/adore/web/static/assets/index-BjR5GEqz.js"]
+
+linked_tests = ["04_Software/tests/test_container_timeout.py::test_timeout_parks_then_resumes_the_original_container", "04_Software/tests/test_container_timeout.py::test_ordinary_exits_do_not_trigger_timeout_recovery", "04_Software/tests/test_container_timeout.py::test_normal_provision_resumes_a_confirmed_timeout_resource"]
+
+
+spec = "specs/REQ-FUNC-bff135e2.md"
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-30
+updated = 2026-10-30

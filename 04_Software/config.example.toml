@@ -222,6 +222,9 @@ preparation_total_timeout_seconds = 900
 preparation_max_attempts = 2
 
 [container]
+# Opt-in direct agent package-manager sudo; rebuild a compatible image first.
+# Network stays independently configured under [container.egress].
+system_packages = false
 # "docker" | "podman", optionally wrapped when the daemon lives elsewhere -
 # e.g. Docker Engine inside WSL2 (no Docker Desktop):
 #   runtime = "wsl -d Ubuntu-24.04 -- docker"

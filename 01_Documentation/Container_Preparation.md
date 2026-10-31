@@ -121,7 +121,7 @@ under `preparation/attempt-N/step-M.json` remain outside the mounted exchange
 folder. Each stream is capped at 64 KiB per step; inherited credential values and the already-staged supported executor auth values are redacted before file retention. Job details show status, attempts,
 image and authoritative step exits, timestamps, timeouts and cancellation.
 
-Profiles without recipes retain their existing recovery/profile-update contract and do not acquire preparation records. Recipe success is reusable only with the same plan, policy, verified container and image
+Profiles without recipes or enabled system-package permission retain their existing recovery/profile-update contract and do not acquire execution records. Recipe success is reusable only with the same plan, policy, verified container and image
 IDs and intact evidence. Changed/missing resources, configuration drift, corrupt
 state/receipts and incomplete setup fail closed. Ordinary retry does not replay
 partial setup. Inspect evidence, then explicitly authorize:
@@ -147,3 +147,7 @@ cache volume, run arguments) are external operator actions; backend, container r
 and image selection use enrollment or the reviewed settings flow. Container recipes
 retain normalized image/command authority. Portable rule exports keep their existing narrow allowlist and never carry executable selection,
 runtime environment, credentials or recipes.
+
+## Adaptive agent dependency installation
+
+Optional `container.system_packages = true` lets the agent install system packages directly after reviewed recipes, or without a recipe. The agent observes failures and adapts commands; ADORE grants permission and preserves network policy. Package-enabled jobs persist their execution/resource identity even without recipes. A not-required recipe status does not assert installed dependencies. See [Agent dependency installation](Agent_Dependency_Installation.md).

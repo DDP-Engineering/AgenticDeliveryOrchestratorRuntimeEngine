@@ -10,7 +10,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 ## Routing
 
 Use for project-scoped repository tokens, GUI Connect repository and isolation of
-tea/gh/glab credentials. Start at adore/repository_auth.py and
+tea/gh/glab credentials, portable tea config discovery and missing-login recovery.
+Start at adore/repository_auth.py, adore/gitea_auth.py and
 tests/test_repository_connection.py. API authorization/UI belongs to web-interface.md;
 Git clone/push belongs to isolation.md and host provisioning to doctor.md.
 
@@ -61,6 +62,10 @@ flowchart LR
     read --> secret
     images([ImageBuildService redaction]) --> read
     load --> runner
+    load --> external[portable_tea_runner when no scoped record]
+    external --> discovery[discover_tea_logins]
+    discovery --> metadata([Bounded tea login metadata])
+    external --> cli
 ```
 
 API holds idle/config locks and records audit separately. Command configuration
@@ -69,5 +74,37 @@ is temporary; only the protected scoped record persists.
 ## Files
 
 - 04_Software/adore/repository_auth.py
+- 04_Software/adore/gitea_auth.py
+- 04_Software/tests/test_gitea_auth.py
 - 04_Software/tests/test_repository_connection.py
 - 05_SoftwareDocu/Component_Repository_Auth.md
+
+
+The Connect repository dialog uses Cancel as its single dismissal button,
+beside Verify and connect. Cancel and Escape clear the in-memory draft token.
+
+Failed Gitea web readiness checks log bounded metadata, closed missing-login
+reason codes and host config-file presence flags. Arbitrary stderr, credentials,
+account names and filesystem paths stay out of these diagnostics; the boolean
+readiness response remains unchanged. See Component_Repository_Auth.md.
+
+## Portable current-account Gitea discovery
+
+`gitea_auth.py` owns safe TeaLogin metadata, discover_tea_logins and
+portable_tea_runner. Standard absolute roots come from XDG/current Windows
+Local/Roaming AppData/home or Linux home; explicit XDG and the first populated
+CLI source are authoritative. The library never reads/copies credential contents
+or searches private application caches. Strict bounded metadata rejects
+ambiguity, duplicate fields/names, invalid URLs/defaults and excessive output.
+
+project_runner prioritizes protected scoped records. An absent external Gitea
+record enables a single pre-HTTP missing-login recovery, selecting the configured
+name, one default or sole login. Success, HTTP failures and other providers keep
+their authority. CLI doctor and new/transfer probes reuse the wrapper; saved-project probes
+avoid rewrapping protected credentials. API reads map closed auth errors and
+readiness keeps boolean failure. Enrollment uses the same safe metadata and
+omits ambiguous suggestions. UI/help offers localized connection instructions.
+
+Requirements: REQ-FUNC-cacfa8b2 and REQ-UX-163a1c99. Proof: test_gitea_auth.py,
+test_repository_connection.py, test_repository_source.py, errors.test.mjs and
+help.test.mjs.

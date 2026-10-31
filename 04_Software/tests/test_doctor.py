@@ -116,25 +116,50 @@ def test_auth_status_authenticated_unauth_and_missing() -> None:
     assert not missing.present and not missing.authenticated
 
 
-def test_auth_status_gitea_probes_whoami_not_auth_status() -> None:
+def test_auth_status_gitea_probes_verified_account_api() -> None:
     """
-    @brief   The gitea probe must be `tea whoami`: tea has no `auth status`
-             subcommand AND exits 0 for unknown subcommands ("No help topic"),
-             so the generic probe would fake an authenticated state.
+    @brief   Gitea authentication requires a successful account API, not CLI exit alone.
     """
     runner = FakeRunner({
-        "tea whoami": _ok("# dpasare"),
+        "tea api -i --method GET user": CommandResult(
+            stdout='{"login":"dpasare"}', stderr="HTTP/1.1 200 OK"),
         # what the WRONG probe would see: tea exits 0 with a help-topic error
         "tea auth status": _ok("No help topic for 'auth'"),
     })
     good = doctor.auth_status("gitea", runner)
     assert good.cli == "tea"
     assert good.present and good.authenticated
-    assert runner.calls == [["tea", "whoami"]]
-    bad = doctor.auth_status("gitea", FakeRunner({"tea whoami": _fail("Error: no login")}))
+    assert runner.calls == [["tea", "api", "-i", "--method", "GET", "user"]]
+    bad = doctor.auth_status("gitea", FakeRunner({
+        "tea api -i --method GET user": _fail("Error: no login")}))
     assert bad.present and not bad.authenticated
     missing = doctor.auth_status("gitea", FakeRunner({}))
     assert not missing.present and not missing.authenticated
+
+
+@pytest.mark.parametrize("result", [
+    CommandResult(stdout='{"login":"alice"}', stderr="HTTP/1.1 401 Unauthorized"),
+    CommandResult(stdout='{"login":"alice","login":"bob"}', stderr="HTTP/1.1 200 OK"),
+    CommandResult(stdout='{"login":"alice","bad":NaN}', stderr="HTTP/1.1 200 OK"),
+    CommandResult(stdout="PRIVATE-OUTPUT", stderr="HTTP/1.1 200 OK"),
+    CommandResult(stdout='{"login":"bad identity"}', stderr="HTTP/1.1 200 OK"),
+    CommandResult(stdout='{"login":"alice"}'),
+    CommandResult(stdout=" " * 1000001, stderr="HTTP/1.1 200 OK"),
+    CommandResult(stdout='{"login":"alice"}', stderr="HTTP/1.1 200 OK", timed_out=True),
+])
+def test_auth_status_gitea_rejects_unverified_identity(result) -> None:
+    """@brief Malformed identities, missing HTTP proof and timeout never authenticate."""
+    status = doctor.auth_status("gitea", FakeRunner({"tea api": result}))
+    assert status.present and not status.authenticated
+    assert "Connect repository" in status.detail
+    assert "PRIVATE" not in status.detail
+
+
+def test_auth_status_gitea_respects_caller_credential_authority() -> None:
+    """@brief A caller-owned credential scope disables external-login discovery."""
+    runner = FakeRunner({"tea api": _fail("Error: no available login")})
+    assert not doctor.auth_status("gitea", runner, external_auth=False).authenticated
+    assert len(runner.calls) == 1
 
 
 def test_detect_runtimes_windows_lists_wsl_distros() -> None:

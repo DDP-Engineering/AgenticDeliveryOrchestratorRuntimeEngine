@@ -28,6 +28,26 @@ test("model connection results reflect actual passed and failed probe evidence",
   value.status = "failed"; value.model_probe.ready = false; value.model_probe.reason = "http-401"; value.checks.model_endpoint = false;
   assert.equal(readinessVerdict(readReadiness(value, project)), "failed");
 });
+
+test("optional native causes roundtrip and legacy records remain readable", () => {
+  const value = evidence(); value.model_probe.context = "executor-local";
+  value.checks.executor_cli = false; value.status = "failed";
+  assert.equal(readReadiness(value, project).executor_probe, undefined);
+  value.executor_probe = {ready: false, reason: "executor-exit", exit_code: 7};
+  assert.deepEqual(readReadiness(value, project).executor_probe, value.executor_probe);
+  for (const change of [null, {}, {ready: true, reason: "ready", exit_code: 0},
+    {ready: false, reason: "PRIVATE", exit_code: 7},
+    {ready: false, reason: "executor-exit", exit_code: true},
+    {ready: false, reason: "executor-exit", exit_code: 0},
+    {ready: false, reason: "executor-exit", exit_code: null},
+    {ready: false, reason: "executor-exit", exit_code: 1e20},
+    {ready: false, reason: "version-invalid", exit_code: null},
+    {ready: false, reason: "executor-exit", exit_code: 7, detail: "PRIVATE"}]) {
+    assert.throws(() => readReadiness({...value, executor_probe: change}, project));
+  }
+  value.model_probe.context = "executor-container";
+  assert.throws(() => readReadiness(value, project));
+});
 test("corrupt scope status keys dates and contradictory probe results fail closed", () => {
   for (const mutate of [v => v.project_id = "other", v => v.status = "unexpected", v => v.context = "other", v => v.revision = "bad",
     v => v.checked_at = "invalid", v => v.checked_at = "2099-01-01T00:00:00Z", v => v.checked_at = "2026-10-06T10:00:00",

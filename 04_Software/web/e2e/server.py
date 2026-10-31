@@ -197,9 +197,13 @@ def main() -> None:
                                      "adore-test:latest\n")
             if argv[:2] == ["git", "ls-remote"]:
                 # A repository URL read: unreachable hosts fail, others report a main branch.
-                if "unreachable" in argv[-2]:
+                if "unreachable" in argv[argv.index("--") + 1]:
                     return CommandResult(argv=argv, exit_code=128, stderr="Permission denied")
-                return CommandResult(argv=argv, stdout="ref: refs/heads/main\tHEAD\n" + "c" * 40 + "\tHEAD\n")
+                return CommandResult(argv=argv, stdout="ref: refs/heads/main\tHEAD\n"
+                                     + "c" * 40 + "\tHEAD\n"
+                                     + "c" * 40 + "\trefs/heads/main\n"
+                                     + "d" * 40 + "\trefs/heads/develop\n"
+                                     + "e" * 40 + "\trefs/heads/task/interface\n")
             if argv[:3] == ["tea", "logins", "list"]:
                 return CommandResult(argv=argv, stdout=json.dumps(
                     [{"name": "fixture", "url": "http://forge.e2e.invalid:3000"}]))

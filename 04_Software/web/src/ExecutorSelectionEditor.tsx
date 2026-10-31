@@ -7,6 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 import type {Locale} from "./i18n";
 import type {SettingMeta} from "./settings";
 import {agentNames,agentSettingsCopy,codingAgents,executorSelectionDraft,type ExecutorSelection} from "./executorSettings";
+import {LocalExecutorPicker} from "./LocalExecutorPicker";
 
 /** One field of the atomic draft stays in its existing setting row. */
 export function ExecutorSelectionEditor({field="agent",value,config,settings,locale,disabled,onChange}:{field?:"agent"|"command"|"model";value:string;config:Record<string,unknown>;settings:SettingMeta[];locale:Locale;disabled:boolean;onChange:(value:string)=>void}) {
@@ -20,6 +21,9 @@ export function ExecutorSelectionEditor({field="agent",value,config,settings,loc
   next.command ||= String(settings.find(s=>s.key===`executor.commands.${next.agent}.command`)?.choices?.[0] || "");
   change(next);
  }}>{codingAgents.map(agent=><option key={agent} value={agent}>{agentNames[agent]}</option>)}</select>;
+ if (field==="command" && (config.execution as {backend?:string}|undefined)?.backend==="local") return <LocalExecutorPicker
+  agent={draft.agent} value={draft.command} locale={locale} disabled={disabled} autoFill={false}
+  onChange={command=>change({...draft,command})}/>;
  if (field==="command") return choices.length ? <select aria-label={c.command} disabled={disabled} value={draft.command} onChange={e=>change({...draft,command:e.target.value})}>
   {!choices.includes(draft.command)&&<option value={draft.command}>{draft.command || "—"}</option>}
   {choices.map(command=><option key={command} value={command}>{command}</option>)}

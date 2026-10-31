@@ -42,6 +42,16 @@ Das Ergebnis lautet **KI-Modell verbunden** oder **KI-Verbindung nicht bestätig
 
 Host-Prüfungen für ein lokales Projekt überspringen die Container-Engine und prüfen den nativen Agenten und seine Anmeldung.
 
+## Installierte Executoren erkennen {#installed-executors}
+
+Bei **Auf dem Server installiert** erkennt ADORE OpenCode, Pi, Codex und Qwen Code auf dem Ausführungsrechner. **Ausführung als** zeigt Rechner und Konto; bei einer portablen Desktop-Installation ist dies der Computer, auf dem ADORE läuft. Die erste erkannte Installation ergänzt bei der Anmeldung einen leeren oder standardmäßigen Befehl. **Erkannte Installationen** erlaubt die Auswahl einer anderen Installation. Gespeicherte Befehle und manuelle Änderungen bleiben erhalten.
+
+ADORE verwendet automatisch sein Prozesskonto, dessen Kontoordner, den Werkzeug-PATH und die gespeicherte Executor-Anmeldung. Es startet einen neuen Prozess und verbindet sich nicht mit einem offenen Terminal. Ein Dienst verwendet sein Dienstkonto.
+
+Die Erkennung startet automatisch bei lokaler Ausführung; ein Agentenwechsel nutzt die erkannte Liste. Zum Aktualisieren öffnen Sie **Erweitert** und **Installierte Executoren erkennen**. Unter **Erweitert** geben Sie den **Programmpfad auf dem ADORE-Rechner** ein und wählen **Programm verwenden** oder bearbeiten den **Executor-Startbefehl**. Windows verwendet eine echte `.exe`; Node-Agenten benötigen den installierten Node/JavaScript-Befehl. Die Erkennung liest Installationsorte, ohne Werkzeuge zu installieren, Konten anzumelden oder Modelle zu testen.
+
+Öffnen Sie **Erweitert** für den vollständigen Befehl, einen manuellen Programmpfad, Ordner/PATH-Werte und die Linux-cgroup-Delegierung. Ordner und PATH für automatische Werte leer lassen. PATH bezeichnet Werkzeugordner, keine Programmdatei. Kontonamen in Einstellungen prüfen die aktuelle Identität, ohne Benutzer zu wechseln.
+
 ## Projekt-Image {#project-image}
 
 Für ein Container-Projekt zeigt Einstellungen → Agent und Modell **Executor läuft in einem Container**, die Angabe **Verwendetes Image** und einen Aufklapper **Anleitung zur Vorbereitung der Umgebung**. Die Weboberfläche definiert oder baut das Image nicht, und eine Dockerfile im Repository startet keinen Build. Der Administrator bereitet es auf dem Server vor:
@@ -59,6 +69,8 @@ USER adore
 
 Um das Image zu verwenden, wählen Sie in Schritt 2 der Registrierung die **Container-Laufzeit** (Docker oder Podman) und das **Executor-Image**, oder bearbeiten Sie dieselben Zeilen in den Einstellungen. Das Image ist ein freies Textfeld mit Vorschlägen aus den Images auf dem ADORE-Server für diese Laufzeit (nur für Administratoren); ein Hinweis erscheint, wenn das eingegebene Image nicht auf dem Server ist, ein weiterer, wenn die Liste nicht gelesen werden kann. Die Wahl eines Executors schlägt ein Image vor, dessen Tag mit dem Executor-Namen und einem Bindestrich beginnt (zum Beispiel `pi-`), bevorzugt `adore-executor-base:`; es ersetzt nur den alten Standard oder einen früheren Vorschlag, nie einen eingegebenen Wert.
 
+Setzen Sie bei einem eigenen WSL-Laufzeitbefehl `--` oder `--exec` vor den Containerbefehl. Die Standardeinträge für Docker und Podman werden automatisch behandelt.
+
 Bestätigen Sie anschließend mit **Host-Voraussetzungen prüfen** und **KI-Verbindung testen**.
 
 ## Lokaler Endpunkt für OpenCode {#local-endpoint}
@@ -66,3 +78,17 @@ Bestätigen Sie anschließend mit **Host-Voraussetzungen prüfen** und **KI-Verb
 Für ein Container-Projekt mit OpenCode sehen Administratoren unter Agent und Modell zusätzlich **URL des OpenAI-kompatiblen Endpunkts**, für ein Modell in Ihrem eigenen Netzwerk. Geben Sie die URL, optional eine **Umgebungsreferenz für Zugangsdaten**, das **Anfragezeitlimit (Sekunden)** und, für HTTPS mit privater CA, die **CA-Datei im Executor-Image** ein. Das Protokoll ist fest auf OpenAI Chat Completions eingestellt. **Kandidat vorbereiten** prüft URL und Modell gemeinsam.
 
 Die URL muss aus dem Executor-Container erreichbar sein, in dem localhost der Container selbst ist, und das Image muss das Anbieterpaket bereits enthalten. Das Speichern testet die Erreichbarkeit nicht und fügt keinen Cloud-Fallback hinzu; **Host-Voraussetzungen prüfen** testet einen gestreamten Werkzeugaufruf aus einem temporären Container.
+
+## Ergebnisse lokaler Prüfungen {#local-check-results}
+
+Unter Übersicht prüft **Host-Voraussetzungen prüfen** die Version des installierten Executors und dessen vorhandene Anmeldung. Die lokale Ausführung zeigt einen kurzen Zweck und die gemessene Ursache: Programmdatei, Version/Exitcode, Zeitlimit, Konto, Zugangsdaten, Rechte, Prozessvorbereitung oder Bereinigung. Ältere Ergebnisse ohne gespeicherte Ursache verlangen eine neue Prüfung.
+
+Nutzen Sie **KI-Verbindung testen** unter Einstellungen → Agent und Modell separat. Bei lokaler Ausführung verwendet es den gespeicherten nativen Befehl und die Anmeldung des ADORE-Kontos in einem leeren temporären Ordner. Anbietergebühren sind möglich. Das Ergebnis unterscheidet abgelehnte Zugangsdaten, nicht verfügbares Modell, Verbindung/Zeitlimit und ungültige oder unvollständige Ausgabe. Beheben Sie die Ursache vor einer erneuten Prüfung; eine erfolgreiche Verbindung beweist keinen vollständigen Auftrag oder Werkzeugunterstützung.
+
+## Systempakete des Agenten {#system-packages}
+
+**Systempaketinstallation durch den Agenten erlauben**
+
+Unter Einstellungen → Agent und Modell aktivieren Administratoren diese separate Berechtigung über Kandidat vorbereiten und Änderung übernehmen. Sie ist standardmäßig aus und für Container-Projekte verfügbar. Zuerst ein kompatibles Image mit sudo erstellen oder wählen, danach einen neuen Auftrag starten. Der Agent führt Paketbefehle direkt aus, prüft Fehler und passt seine Schritte innerhalb der Auftragsgrenzen an.
+
+Netzwerkzugriff bleibt separat: open erlaubt erreichbare Quellen, allowlist-proxy erlaubte HTTP/HTTPS-Domains und none nur verfügbare lokale Quellen. Paketskripte haben administrative Rechte im Container; eingebundene Projektordner bleiben mit dem Server geteilt. Systempakete bleiben beim Fortsetzen desselben Containers erhalten; ein neuer Container erfordert erneute Prüfung und Installation.

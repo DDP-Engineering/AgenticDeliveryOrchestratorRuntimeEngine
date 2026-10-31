@@ -1,0 +1,57 @@
+{
+  "copyright": "Copyright (c) 2026 DDP Engineering",
+  "license": "PolyForm Noncommercial License 1.0.0; commercial use requires a separate commercial license. See LICENSE.txt. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0",
+  "generated_at": "2026-10-16T18:43:22.384767+00:00",
+  "version": "0.13.0",
+  "result": "passed",
+  "scope": "Delivery organization and packaging/testing defaults; no product implementation changes",
+  "root_entries": [
+    "README.md",
+    "_technical",
+    "adore-0.13.0-linux-x64.tar.gz",
+    "adore-0.13.0-windows-x64.zip"
+  ],
+  "technical_entries_moved_without_deletion": 29,
+  "archives": [
+    {
+      "file": "adore-0.13.0-windows-x64.zip",
+      "bytes": 31039771,
+      "sha256": "3394c8392b508fe700a803854fab49cc590eb008634f423d01e04d3e1fb8269d",
+      "unchanged_from_previous_verified_delivery": true,
+      "native_acceptance_checks": 25,
+      "native_acceptance_result": "passed",
+      "receipt": "07_Delivery/_technical/verification/portable-check-windows/result.json"
+    },
+    {
+      "file": "adore-0.13.0-linux-x64.tar.gz",
+      "bytes": 79495758,
+      "sha256": "58c48630c8717633ceaae3201d44e7b43bf01a04d9a5b6cee856f43af2761c47",
+      "unchanged_from_previous_verified_delivery": true,
+      "native_acceptance_checks": 25,
+      "native_acceptance_result": "passed",
+      "receipt": "07_Delivery/_technical/verification/portable-check-linux/result.json"
+    }
+  ],
+  "tooling_tests": {
+    "windows": {
+      "total": 16,
+      "passed": 14,
+      "platform_skips": 2
+    },
+    "ubuntu": {
+      "total": 16,
+      "passed": 16
+    },
+    "release_consistency_tests_passed": 5
+  },
+  "release_consistency_require_artifacts": "passed",
+  "checksums_from_their_directory": "passed",
+  "headless_status": "Existing complete packages include CLI wrappers; separate smaller CLI-only editions are not generated.",
+  "release_notes": "none (packaging organization and documentation only)",
+  "help": "none (no application interface or workflow changes)",
+  "notes": [
+    "Native Linux acceptance ran in Ubuntu under WSL.",
+    "Existing Downloads installation and user data were not changed.",
+    "No application rebuild or archive replacement was required."
+  ]
+}

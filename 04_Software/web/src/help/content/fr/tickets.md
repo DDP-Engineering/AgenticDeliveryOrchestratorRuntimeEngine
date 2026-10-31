@@ -6,7 +6,7 @@ ADORE prend en charge les tickets de votre dépôt sur la forge (GitHub, GitLab 
 
 Chaque projet a un état de **Surveillance**, affiché comme **Active** ou **En pause** dans le tableau Projets et dans l’onglet Résumé du projet. Tant que la surveillance est Active, ADORE interroge le dépôt à intervalle régulier pour trouver des tickets prêts (60 secondes par défaut ; voir **Intervalle de scrutation (secondes)** dans [Paramètres du projet](/help/settings)). Il prend en premier le ticket éligible de plus haute priorité (P1, puis P2, puis P3), puis le plus petit numéro, et fait avancer une tâche à la fois.
 
-Un administrateur peut utiliser **Suspendre la surveillance** et **Activer la surveillance** dans l’onglet Résumé du projet. Une surveillance en pause arrête les nouvelles prises en charge ; les tâches en cours continuent.
+Un administrateur peut utiliser **Suspendre la surveillance** et **Activer la surveillance** dans l’onglet Résumé du projet. Une surveillance en pause arrête les prises en charge automatiques ; les tâches en cours continuent.
 
 ## Créer d’abord les étiquettes {#labels}
 
@@ -58,10 +58,12 @@ Rien n’est lu tant que vous n’appuyez pas sur **Lire les tickets**. Cela cha
 
 **Démarrer** met une tâche en file ; le worker applique toujours les contrôles habituels. Si le ticket n’a pas l’étiquette de disponibilité ou de priorité, ADORE vous demande de confirmer, vous laisse choisir une priorité, et **Ajouter les étiquettes et démarrer** les ajoute d’abord dans le dépôt. Démarrer n’est pas disponible pour les tickets fermés, bloqués ou exclus, les tickets sans les critères d’acceptation requis et les tickets qui ont une tâche. **Relancer** remplace Démarrer lorsque la tâche a échoué. **Arrêter** demande une confirmation, annule une tâche inachevée et retire l’étiquette de disponibilité pour que la surveillance ne reprenne pas le ticket. **Détails** affiche la description et les commentaires.
 
+**Démarrer** lance manuellement le seul ticket sélectionné, même avec la **Surveillance** **En pause**, et laisse la surveillance en pause. Capacité, workflow du dépôt, éligibilité, verrou du conducteur et approbations restent vérifiés. Une opération échouée affiche sa raison précise ; si le résultat est invalide ou incertain, consultez les journaux de l’hôte avant de réessayer.
+
 ## Liste de contrôle pour un premier ticket {#checklist}
 
 1. Créez les neuf étiquettes dans le dépôt de la forge.
-2. Vérifiez que la surveillance est Active.
+2. Pour la prise en charge automatique, vérifiez la surveillance Active ; pour Démarrer manuellement, elle peut rester En pause.
 3. Rédigez un titre clair et une description avec des critères d’acceptation.
 4. Ajoutez une étiquette de priorité et, si vous le souhaitez, `bug`, `fix`, `change` ou `agent-quick`.
 5. Ajoutez `agent-ready` en dernier.

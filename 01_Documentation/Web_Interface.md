@@ -455,65 +455,28 @@ confirm forge, executor, or model connectivity.
 
 ## Offline delivery
 
-On a build machine with network access and a Python matching the target OS,
-architecture, and Python minor version, build the frontend and run:
+Use the complete Windows ZIP or Ubuntu/Linux TAR.GZ from `07_Delivery/`.
+Extract it and start `Start-ADORE.cmd` or `./start-adore.sh`. Python, ADORE,
+its web dependencies, compiled interface, worker and user guides are included.
+No host Python/uv/Node.js or installation step is needed to open the application.
+Git, forge authentication, executors, project tooling/images and any model
+services remain the configured project's prerequisites.
+
+From a checkout, the build host uses the three repository commands:
 
 ```text
-python 02_Tools/package_web_offline.py --output 07_Delivery
+python 02_Tools/setup_environment.py
+python 02_Tools/create_package.py
+python 02_Tools/verify_package.py
 ```
 
-Use `--forge gitea --executor pi --runtime docker` when preparing media for a
-host with that combination. The defaults accept any installed supported forge
-and executor CLI. The media records these tool requirements alongside Git and
-the container runtime.
-
-The resulting `adore-web-<version>-<os>-<arch>-py<version>` directory contains
-the application wheel, dependency wheels pinned by `uv.lock`, license,
-checksums, installer, and
-launcher. `--image <tag>` can include a previously built Docker or Podman image
-archive. Copy the directory to the target, where installation uses only local
-wheels and `pip --no-index`:
-
-```text
-python install.py --target <runtime-directory>
-python launch.py --target <runtime-directory> --home <ADORE_HOME>
-```
-
-Run `python install.py --check-only` before installation to verify media
-checksums and matching host/tool prerequisites without creating a runtime.
-When image archives are present, pass `--load-images` to install them before
-the Python runtime is created; otherwise their exact tags must already exist
-in the selected container runtime.
-When building media, `--image TAG` embeds a prepared image archive and
-`--require-image TAG` records a preinstalled image prerequisite without copying
-its bytes. Both forms make the installer verify the exact tag before it writes
-the Python runtime. The latter is suitable for large project images already
-supplied offline on the host. With one listed image and a selected `--executor`,
-the installer also checks that binary inside the image without network access;
-use `--executor-image TAG` to select it when media lists several images.
-
-The combined launcher restarts the API and worker together after an unexpected
-exit, up to three times with short increasing delays. Use `--restart-limit 0`
-to disable restarts or a value through 10 for a different finite limit. It
-exits nonzero after the limit, so a host service manager can alert an operator.
-Stop the launcher with Ctrl-C for a graceful shutdown of both children.
-
-The target needs the matching Python with `venv` and `ensurepip` (on Ubuntu,
-install `python3-venv` from local installation media first, or supply a Python
-distribution that includes it), a suitable
-Docker/Podman/WSL runtime, a host forge CLI, repository-local AEGIS,
-credentials, and prepared project images. The generic web bundle does not
-contain arbitrary project toolchains or model weights. Supply those separately
-or preinstall them offline; missing prerequisites are operator setup errors.
-The executor CLI belongs inside the selected project image, not on the API
-host. Project readiness checks it there without pulling the image.
-The installer verifies every bundled file, rejects unlisted files in the media,
-and checks `ensurepip`, the recorded host tool groups and any required image
-tags before creating the target. When invoked through a
-symlinked Python executable, it restarts through that executable's real path
-before creating the virtual environment. It performs no Internet
-download.
-Cloud forges and AI services may still need network access at runtime.
+Use `python3` on Linux if necessary. Build and verify on each matching native
+Windows or Ubuntu/Linux x64 host. Setup prepares the source environment;
+packaging builds/licenses the frontend automatically and includes a managed
+Python with locked dependencies. Verification uses automatically cleaned
+temporary data and prints results without retaining logs or reports.
+Only the final archives and optional adjacent hashes remain in `07_Delivery/`.
+The former separate wheelhouse installation flow is retired.
 
 ## Manual backup and restore
 
@@ -1162,3 +1125,71 @@ service schedules repeated `run --once` rounds independently of that value.
 Project Settings exposes interval, jitter and error backoff controls. Standalone
 CLI startup mode is configured in the server TOML; its saved value remains
 available in raw configuration and the effective API catalog.
+
+## Installed local executor discovery
+
+Local enrollment and launch-command editing in Agent and model Settings offer
+automatic native executor suggestions, manual executable paths and an editable
+command. See [Local execution](Local_Execution.md#installed-executor-selection).
+The administrator-only `GET /api/v1/local-executors` reads bounded host paths
+without launching tools and returns no-store host/account and launch references.
+
+## Simple local setup and clone folders
+
+Native enrollment shows detected installations and **Runs as** automatically.
+The current ADORE process account, its home/PATH and existing executor sign-in
+are used by default. **Advanced**, initially closed, contains the full command,
+manual executable path, home/PATH overrides and Linux delegated cgroup root.
+Settings groups local account assertions and environment overrides in Advanced.
+
+After Read repository, **Automatic location** retains the proposed clone path.
+**Custom location** enables manual input and **Choose folder…**. This administrator
+dialog browses directories on the ADORE host (Windows drives or Linux root), not
+the browser computer. Choose an existing directory, or give a new subfolder name;
+selection writes nothing. Clear the name to reuse an existing clone. Cancel keeps
+the draft, and Automatic location restores the proposed path. Invalid, linked,
+UNC/device or unreadable paths fail explicitly; limited lists suggest a typed
+location. Clone validation and creation remain at the final reviewed action.
+
+Reviewed configuration apply retries only Windows replace errors 5/32/33, at most six attempts with 50ms between attempts (250ms maximum scheduled delay). Persistent or other OS write failures return `config_write_failed` (HTTP 503), keep the active configuration and pending review, and clean the temporary candidate. Existing state/config locks and revision checks remain in force.
+
+### Compact host folder and executor selection
+
+Custom clone location opens a compact web folder chooser on the ADORE host.
+One click selects a row; double-click or Enter opens it. Back, Parent and the
+address bar navigate; Select folder confirms the exact existing folder. New
+destinations are typed in the main clone-path field. Cancel preserves the draft.
+The chooser performs no writes.
+
+Agent and model groups controls in independent columns, stacked on narrow
+screens. Native executor discovery starts automatically; changing the agent uses
+the detected list. Optional re-detection, manual paths/commands and environment
+overrides live under Advanced. Existing manually entered commands remain intact.
+
+
+During enrollment and Clone project config, **Read repository** reads remote
+branches through Git for GitHub, GitLab and Gitea, including self-hosted instances,
+using the ADORE account’s existing Git credentials. **Target branch** offers a
+dropdown with the repository’s default branch selected and marked. Rereading
+refreshes choices and preserves a manually selected branch if it still exists.
+Changing the URL or a failed reread clears previous discovery. A remote without
+a reported default needs an explicit selection; an empty repository needs a
+branch before enrollment can continue. This read does not clone or change the
+repository. Forge kind for an unknown self-hosted host still requires selection.
+
+
+The **Connect repository** dialog closes with **Cancel** beside **Verify and
+connect**, or with Escape. Dismissing clears the draft token without submitting.
+
+## Manual Start and monitoring
+
+Jobs > Tickets > Start manually admits only that ticket, including when
+Monitoring is Paused. It leaves automatic monitoring paused. Shared eligibility,
+capacity, repository workflow, conductor locking and approval checks remain in
+effect. Operation feedback names the concrete failed check in the selected
+interface language. Invalid or uncertain engine results require host-log
+inspection before retrying.
+
+## Agent system package permission
+
+For container projects, Settings > Agent and model includes a reviewed boolean **Allow agent system package installation** (false by default). Admins prepare and apply the change through existing revision/pause/idle guards; developers have read-only access. The setting changes no network option and requires a compatible image and a fresh job. See [Agent dependency installation](Agent_Dependency_Installation.md).

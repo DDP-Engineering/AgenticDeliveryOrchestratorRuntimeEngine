@@ -230,3 +230,33 @@ Local worktrees are not host sandboxes. Use a dedicated least-privilege account.
 
 See [Local execution](Local_Execution.md) for platform prerequisites, configuration,
 authentication, process ownership and acceptance coverage.
+
+## Portable Gitea authentication
+
+ADORE first uses the protected project connection created by **Project Summary →
+Connect repository**. With no saved connection, successful external tea commands
+retain their existing authentication. An exact pre-HTTP missing-login failure
+triggers bounded metadata discovery through `tea logins list --output json`.
+ADORE does not read or copy tea credential file contents.
+
+The current tea view has precedence. An explicit absolute `XDG_CONFIG_HOME`
+remains authoritative, including when empty. Otherwise fallback candidates are
+`tea/config.yml` under the Windows account's `LOCALAPPDATA`, `APPDATA` and
+`USERPROFILE/.config`, or Linux `HOME/.config`. Paths come from the current
+account environment and are never application-specific. The first populated
+configuration is authoritative. A configured login must exist there; otherwise
+exactly one default or the sole login is selected. Ambiguity and malformed CLI
+metadata stop recovery. The original API operation is retried at most once;
+HTTP failures, unknown CLI errors and protected credentials never trigger a
+switch to other credentials. Other forge behavior is unchanged.
+
+If authentication is missing, open the project's **Summary**, choose **Connect
+repository**, enter **Repository server** (origin and optional port) and **Access
+token**, then **Verify and connect**. HTTP requires explicit acknowledgement.
+Run **Check host prerequisites** afterward. This is separate from Git clone/push
+credentials. On a new machine, authenticate its local account or use this form;
+delivery archives contain no user credentials or machine-specific auth paths.
+
+## Agent package installation authority
+
+Explicit `container.system_packages = true` authorizes direct package-manager sudo for the measured non-root container user. Package scripts have effective container-root authority, including access to existing mounted repo/worktree/IO/cache and credentials already available there. The mode refuses host-oriented runtime overrides and never adds forge credentials or changes egress. Disabled means ADORE grants no sudo authority; custom-image privileges remain operator-owned. See [Agent dependency installation](Agent_Dependency_Installation.md).

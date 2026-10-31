@@ -51,7 +51,7 @@ def recipe_engine(tmp_path, monkeypatch, failure="exit"):
         return {
             "container_id": control["cid"],
             "image_id": "sha256:" + "e" * 64,
-            "status": "running",
+            "status": containers.status_value,
         }
 
     containers.resource_identity = identity

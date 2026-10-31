@@ -15,7 +15,7 @@
          a category (new, improved, fixed) and a topic and text in every
          supported locale. `parse_release_notes` enforces the document shape the
          web API serves; `contract_issues` enforces the authoring contract that
-         `02_Tools/check_release_notes.py` applies in the test suite.
+         `02_Tools/internal/check_release_notes.py` applies in the test suite.
 @example
     releases = load_release_notes()
     assert not contract_issues(releases)

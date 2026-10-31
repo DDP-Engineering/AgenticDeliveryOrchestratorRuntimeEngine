@@ -57,6 +57,8 @@ so the launcher leaves billed cost unavailable for administrator price rules.
 
 ## Key behaviors
 
+- REQ-FUNC-c405688e: optional package_secrets enables post-gate known-credential redaction and 64 KiB retained stdout/stderr, live and archived. Complete original usage is streamed before retention truncation; linked output fails closed. Native and disabled profiles retain existing behavior.
+
 - REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: Native run_files receives argv tokenized before prompt replacement, preserving fresh sessions, questions, usage and archives. gate.sh is a legal-header native launch description. Native files are contained bounded UTF-8 and redacted before retention, including the conductor questions file.
 
 Native ownership/auth route to `local-execution.md`; focused proof is
@@ -69,24 +71,10 @@ Native ownership/auth route to `local-execution.md`; focused proof is
 - `REQ-FUNC-c6e5282d` - questions parking and immutable launch archives.
 - `REQ-FUNC-448cbde7` - usage and cost coverage for web metrics.
 
-## Architecture
-
-```mermaid
-flowchart LR
-    conductor([Orchestrator]) --> factory[build_executor]
-    factory --> gate[FileProtocolExecutor.run_gate]
-    gate --> io[(Run IO files)]
-    gate --> container([ExecTarget])
-    container --> output[(output.jsonl and stderr)]
-    output --> gate
-    gate --> result[GateRun]
-    result --> conductor
-```
-
-The file protocol decouples prompts and results from host/container argument
-quoting; the caller owns stage policy.
 
 ## Files
+
+- `04_Software/tests/test_system_packages.py`: package authority, independent egress, recovery and reviewed settings contracts.
 
 - `04_Software/tests/test_local_execution.py`: native integration/negative proof.
 
@@ -94,3 +82,5 @@ quoting; the caller owns stage policy.
 - `04_Software/adore/executor/base.py` - typed gate result and common helpers.
 - `04_Software/adore/executor/launcher.py` - file protocol and parsers.
 - `04_Software/tests/test_executor.py` - launch, timeout and usage contracts.
+
+Retained stdout/stderr archives encode the returned text directly as UTF-8 bytes. Host newline conversion cannot enlarge bounded package logs; multiline, redaction-expansion and malformed-UTF-8 cases are covered through the public gate interface. Complete original usage remains independent of text retention.

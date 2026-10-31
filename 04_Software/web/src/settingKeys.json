@@ -29,6 +29,7 @@
   "container.runtime_env",
   "container.runtime_env.*",
   "container.selinux_relabel",
+  "container.system_packages",
   "container.uv_cache_volume",
   "delivery.approval_label",
   "delivery.draft",

@@ -150,6 +150,7 @@ export function settingPurpose(key: string): string {
 
 /** Environment settings administrators choose in Agent and model; the rest stays external. */
 export const CHOSEN_ENVIRONMENT_KEYS = new Set(["execution.backend", "container.runtime", "container.image",
+  "container.system_packages",
   "local.account", "local.home", "local.path", "local.cgroup_root"]);
 
 /** Only known informational worktree fields accompany the external environment. */
@@ -164,7 +165,8 @@ export function settingVisible(key: string, executorOnly = false, agent?:string,
 }
 
 /** Optional topic disclosures inside a workflow category; ordinary rows stay direct. */
-export function settingSubgroup(key: string): "clarification" | "recovery" | "stageLimits" | "statisticsFiles" | "authentication" | null {
+export function settingSubgroup(key: string): "clarification" | "recovery" | "stageLimits" | "statisticsFiles" | "authentication" | "localTechnical" | null {
+  if (["local.account", "local.home", "local.path", "local.cgroup_root"].includes(key)) return "localTechnical";
   if (["executor.env_keys", "executor.stage_host_auth"].includes(key)) return "authentication";
   if (key.startsWith("clarification.")) return "clarification";
   if (key.startsWith("recovery.")) return "recovery";

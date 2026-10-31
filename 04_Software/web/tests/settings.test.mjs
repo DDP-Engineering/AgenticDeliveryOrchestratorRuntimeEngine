@@ -101,7 +101,7 @@ test("flow visibility omits inactive and external fields and keeps technical row
  assert.equal(STATUS_LABEL_KEYS.size, 6);
  assert.equal(STATUS_LABEL_KEYS.has("labels.lifecycle.answered"), true);
  assert.equal(STATUS_LABEL_KEYS.has("labels.lifecycle.ready"), false);
- for (const [key, expected] of [["clarification.max_rounds","clarification"], ["recovery.max_transient_retries","recovery"], ["workflow.stage_timeout_overrides.build","stageLimits"], ["metrics.db_path","statisticsFiles"], ["metrics.capture_tokens",null]]) assert.equal(settingSubgroup(key), expected);
+ for (const [key, expected] of [["clarification.max_rounds","clarification"], ["recovery.max_transient_retries","recovery"], ["workflow.stage_timeout_overrides.build","stageLimits"], ["metrics.db_path","statisticsFiles"], ["metrics.capture_tokens",null], ["local.account","localTechnical"], ["local.home","localTechnical"], ["local.path","localTechnical"], ["local.cgroup_root","localTechnical"]]) assert.equal(settingSubgroup(key), expected);
 });
 
 test("only branch naming worktree fields get text editors under server authority", () => {

@@ -48,6 +48,18 @@ orchestrator and human delivery policy.
 
 ## Key behaviors
 
+The rebuilt AEGIS 0.14.0 delivery retains every client-used command and schema 1.
+Golden fixture tests/fixtures/aegis_0_14_0.json pins official archive/CLI hashes;
+test_aegis_014_compatibility.py replays all called surfaces and rejects corrupt
+identity/schema/path or contradictory check data. Capture injects Git/verification
+and proves serialization only; unit tests require no sibling checkout or real CLI.
+Supported range and parser behavior remain unchanged.
+
+
+AEGIS owns backward routing: any earlier stage on the selected full/quick path
+is accepted. Same-stage work and adjacent progress remain valid; completed tasks
+stay terminal and forward jumps retain their journal-evidence rule.
+
 - REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: AegisClient uses native run_files for local Python argv with the same bounded strict file/AEGIS JSON contracts. Container shell transport remains available. Native Python paths may contain spaces.
 
 Native ownership/auth route to `local-execution.md`; focused proof is
@@ -78,6 +90,9 @@ flowchart LR
 ```
 
 ## Files
+
+- `04_Software/tests/test_aegis_014_compatibility.py`: captured rebuilt-release contract replay.
+- `04_Software/tests/fixtures/aegis_0_14_0.json`: golden CLI evidence and release hashes.
 
 - `04_Software/tests/test_local_execution.py`: native integration/negative proof.
 

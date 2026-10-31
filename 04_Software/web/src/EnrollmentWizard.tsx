@@ -11,6 +11,9 @@ import { enrollmentCopy } from "./enrollmentCopy";
 import { transferCopy, validTransferSettings, type TransferSource } from "./transferCopy";
 import { portableFields } from "./portable";
 import { localCopy } from "./localExecution";
+import { setupCopy } from "./setupCopy";
+import { CloneLocation } from "./HostFolderPicker";
+import { LocalExecutorPicker } from "./LocalExecutorPicker";
 import { proposeImage, readServerImages, type ServerImages } from "./serverImages";
 import { forgeLabelsCopy, LabelReportView, validLabelReport, type LabelReport } from "./ForgeLabels";
 import { settingDisplayLabel } from "./settingLabels";
@@ -39,11 +42,19 @@ type Verification = { status: "failed" | "partial" | "verified"; draft_revision:
 type Created = { id: string; name: string; display_name: string; pickup_state: string; paused: boolean };
 /** What Read repository found for a repository URL; nothing is written on the server yet. */
 type Detected = { url: string; kind: string | null; login: string; repo: string; default_branch: string | null;
-  name: string; display_name: string; repo_path: string; clone: "new" | "existing" };
+  branches: string[]; name: string; display_name: string; repo_path: string; clone: "new" | "existing" };
+/** Mirror the bounded Git short-ref contract before displaying server choices. */
+const validBranch = (name: unknown): name is string => typeof name === "string" && name.length > 0 && name.length <= 1024
+  && name !== "@" && !/^[-/]|[/.]$/.test(name) && !/[\x00-\x20\x7f~^:?*\[]/.test(name)
+  && !["..", "//", "@{", "\\", "\ufffd"].some(part => name.includes(part))
+  && name.split("/").every(part => !part.startsWith(".") && !part.endsWith(".lock"));
 const validDetected = (value: unknown): value is Detected => {
   const item = value as Detected;
   return !!item && typeof item.url === "string" && (item.kind === null || ["gitlab", "github", "gitea"].includes(item.kind))
     && typeof item.login === "string" && typeof item.repo === "string" && (item.default_branch === null || typeof item.default_branch === "string")
+    && Array.isArray(item.branches) && item.branches.length <= 10_000 && item.branches.every(validBranch)
+    && new Set(item.branches).size === item.branches.length
+    && (item.default_branch === null || item.branches.includes(item.default_branch))
     && /^[a-z0-9][a-z0-9._-]{0,63}$/.test(item.name) && typeof item.display_name === "string" && typeof item.repo_path === "string"
     && ["new", "existing"].includes(item.clone);
 };
@@ -130,7 +141,9 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
   const [detecting, setDetecting] = useState(false);
   // Tagged images on the server for the chosen runtime (suggestions, never a limit).
   const [images, setImages] = useState<ServerImages | null>(null);
+  const [localSystem, setLocalSystem] = useState("");
   const proposedImage = useRef("");
+  const selectedBranch = useRef<{ url: string; branch: string } | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [verification, setVerification] = useState<Verification | null>(null);
   const [stale, setStale] = useState(false);
@@ -182,7 +195,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
     const target = focusTarget.current;
     const element = target ? document.getElementById(target) : null;
     focusTarget.current = null;
-    if (element) element.focus();
+    if (element) { element.closest("details")?.setAttribute("open", ""); element.focus(); }
     else heading.current?.focus({ preventScroll: true });
   }, [step]);
   useEffect(() => { if (findings.length || failure) summary.current?.focus(); }, [findings, failure]);
@@ -192,7 +205,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
     focusTarget.current = field ? "enroll-" + field : null;
     setStep(next);
     if (next === step) {
-      if (field) document.getElementById("enroll-" + field)?.focus();
+      if (field) { const element=document.getElementById("enroll-" + field); element?.closest("details")?.setAttribute("open", ""); element?.focus(); }
       else heading.current?.focus();
     }
   };
@@ -209,11 +222,12 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
     if (fields[1].includes(field) || fields[2].includes(field)) setReferencesConfirmed(false);
     operation.current = null; setBusy(null);
     const prefilled = field === "clone_url" && detected ? detected.display_name : null;
-    if (field === "clone_url") setDetected(null);
+    if (field === "clone_url") { setDetected(null); selectedBranch.current = null; }
+    if (field === "target_branch") selectedBranch.current = { url: draft.clone_url.trim(), branch: value };
     setDraft(current => ({ ...current, [field]: value,
       ...(prefilled !== null && current.display_name === prefilled ? { display_name: "" } : {}),
       // A new URL needs a new read and a new derived ID.
-      ...(field === "clone_url" ? { name: "", repo: "", repo_path: "" } : {}),
+      ...(field === "clone_url" ? { name: "", repo: "", repo_path: "", target_branch: "" } : {}),
       ...(field === "execution_backend" ? {auth_mode: value === "local" ? "existing" : "api-key"} : {}),
       ...(field === "executor_cli" && current.execution_backend !== "local" && !["opencode", "codex"].includes(value) ? { auth_mode: "api-key" } : {}) }));
   };
@@ -230,6 +244,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
       const value = draft[key];
       let valid = !!value.trim();
       if (key === "clone_url") valid = !!detected && detected.url === value;
+      if (key === "target_branch") valid = !!detected?.branches.includes(value);
       if (key === "kind") valid = ["gitlab", "github", "gitea"].includes(value);
       if (key === "name") valid = /^[a-z0-9][a-z0-9._-]{0,63}$/.test(value);
       if (key === "display_name") valid = value === value.trim() && value.length > 0 && value.length <= 120 &&
@@ -289,17 +304,21 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
     if (detecting) return;
     if (!draft.clone_url.trim()) { setFindings([{ code: "invalid_input", field: "clone_url", remediation: c.readFirst }]); return; }
     const token = generation.current;
-    setDetecting(true); setFailure(null); setFindings([]);
+    setDetecting(true); setDetected(null); setFailure(null); setFindings([]);
     try {
       const value = await call("repository-source", { url: draft.clone_url.trim() });
       if (!alive.current || token !== generation.current) return;
-      if (!validDetected(value)) throw new ApiError("unexpected_response");
+      if (!validDetected(value) || value.url !== draft.clone_url.trim()) throw new ApiError("unexpected_response");
       dirty.current = true; generation.current++;
       if (preview || verification || reviewed) setStale(true);
       setPreview(null); setVerification(null); setReviewed(null); setReferencesConfirmed(false);
       setDetected(value);
+      const selected = selectedBranch.current;
+      const keepBranch = selected?.url === value.url && value.branches.includes(selected.branch);
+      if (!keepBranch) selectedBranch.current = null;
       setDraft(current => ({ ...current, clone_url: value.url, name: value.name, repo: value.repo, repo_path: value.repo_path,
-        kind: value.kind ?? "", login: value.login, target_branch: value.default_branch ?? current.target_branch,
+        kind: value.kind ?? "", login: value.login,
+        target_branch: keepBranch && selected ? selected.branch : value.default_branch ?? "",
         display_name: current.display_name.trim() ? current.display_name : value.display_name }));
     } catch (cause) { if (alive.current && token === generation.current) reject(cause); }
     finally { if (alive.current) setDetecting(false); }
@@ -392,22 +411,41 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
     ["env_keys", "auth_mode"].includes(key) ? "credentials" : fields[2].includes(key) ? "environment" :
     numeric.includes(key as typeof numeric[number]) ? "limits" : "rules";
   const control = (key: FieldName) => {
-    if (key === "login" && draft.kind !== "gitea" || key === "env_keys" && ["host-auth", "existing"].includes(draft.auth_mode)
+    if (key === "local_account" || key === "login" && draft.kind !== "gitea" || key === "env_keys" && ["host-auth", "existing"].includes(draft.auth_mode)
+        || key === "local_cgroup_root" && localSystem === "Windows"
         || key.startsWith("local_") && draft.execution_backend !== "local"
         || key === "executor_command" && draft.execution_backend !== "local"
         || ["runtime", "image"].includes(key) && draft.execution_backend === "local") return null;
+    if (key === "repo_path" && detected) return <CloneLocation key={key} value={draft.repo_path} automatic={detected.repo_path}
+      label={labels.repo_path} locale={locale} onChange={path=>change("repo_path",path)}
+      invalid={findings.some(item=>fieldFor(item.field)==="repo_path")}/>;
+    if (key === "executor_command") return <div className="enrollment-field" key={key}>
+      <LocalExecutorPicker agent={draft.executor_cli} value={draft.executor_command} locale={locale}
+        id="enroll-executor_command" label={labels.executor_command} onSystem={setLocalSystem}
+        onChange={command => change("executor_command", command)}>
+        <p className="field-hint">{setupCopy[locale].overrideHelp}</p>
+        <div className="enrollment-grid">{(["local_home", "local_path", "local_cgroup_root"] as FieldName[]).map(control)}</div>
+      </LocalExecutorPicker>
+    </div>;
     const options: Partial<Record<FieldName, string[]>> = { kind: [...(draft.kind ? [] : [""]), "gitlab", "github", "gitea"],
+      target_branch: detected ? [...(detected.default_branch ? [detected.default_branch] : []),
+        ...detected.branches.filter(branch => branch !== detected.default_branch)] : undefined,
       // A cloned WSL-wrapped runtime stays selectable instead of silently showing docker.
       execution_backend: ["container", "local"], runtime: ["docker", "podman", ...(draft.runtime && !["docker", "podman"].includes(draft.runtime) ? [draft.runtime] : [])],
       executor_cli: ["opencode", "codex", "pi", "qwen"],
       auth_mode: draft.execution_backend === "local" ? ["existing", "api-key"] : ["api-key", ...(["opencode", "codex"].includes(draft.executor_cli) ? ["host-auth"] : [])] };
     const error = findings.some(item => fieldFor(item.field) === key);
     const common = { id: "enroll-" + key, value: draft[key],
-      "aria-describedby": "enrollment-help-" + helpId(key) + (error ? " error-" + key : ""),
+      "aria-describedby": "enrollment-help-" + helpId(key) + (error ? " error-" + key : "")
+        + (key === "target_branch" && detected ? " enrollment-branch-help" : ""),
       "aria-invalid": error || undefined, onChange: (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => change(key, event.target.value) };
     return <div className="enrollment-field" key={key}>
       <label htmlFor={common.id}>{labels[key]}{!["description", "login", "local_home", "local_path", "local_cgroup_root", "executor_command", "reviewers", "env_keys"].includes(key) && <span aria-hidden="true"> *</span>}</label>
-      {options[key] ? <select {...common}>{options[key]?.map(value => <option value={value} key={value}>{value === "existing" ? localCopy[locale].existing : value === "" ? c.chooseForge
+      {options[key] ? <select {...common} required={key === "target_branch"}
+        disabled={key === "target_branch" && !detected?.branches.length}>
+        {key === "target_branch" && !draft.target_branch && <option value="" disabled>{setupCopy[locale].chooseBranch}</option>}
+        {options[key]?.map(value => <option value={value} key={value}>{key === "target_branch" && value === detected?.default_branch ? `${value} (${setupCopy[locale].defaultBranch})`
+        : value === "existing" ? localCopy[locale].existing : value === "" ? c.chooseForge
         : key === "execution_backend" ? (value === "local" ? c.installed : c.container) : value}</option>)}</select> :
         <input {...common} readOnly={!!transfer && numeric.includes(key as typeof numeric[number])} type={numeric.includes(key as typeof numeric[number]) ? "number" : "text"}
           step={key === "max_cost_usd" ? "any" : "1"} autoComplete="off"
@@ -416,6 +454,9 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
           maxLength={key === "display_name" ? 120 : key === "name" ? 64 : 1024}
           list={key === "image" && images?.available ? "enroll-image-options" : undefined} />}
       {key === "image" && images?.available && <datalist id="enroll-image-options">{images.images.map(name => <option value={name} key={name} />)}</datalist>}
+      {key === "target_branch" && detected && <p className="field-hint" id="enrollment-branch-help">{
+        !detected.branches.length ? setupCopy[locale].noBranches : detected.default_branch
+          ? setupCopy[locale].branchHelp : setupCopy[locale].noDefaultBranch}</p>}
       {key === "image" && images && (!images.available ? <p className="field-hint">{c.imagesUnavailable}</p>
         : draft.image.trim() && !images.images.includes(draft.image.trim()) && <p className="field-hint" role="status">{c.imageMissing}</p>)}
       {error && <p className="field-hint" id={"error-" + key}><strong>{c.invalid}</strong></p>}
@@ -425,7 +466,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
     verification.status === "partial" ? c.partial : c.verified;
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (step >= 4 || step === 1 && !detected || !validateLocal([step])) return;
+    if (step >= 4 || step === 1 && (detecting || !detected) || !validateLocal([step])) return;
     move(step + 1);
   };
   if (created) return <section className="panel enrollment enrollment-complete" role="status">
@@ -490,7 +531,10 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
             {detected && <>{detected.kind === null && <p role="note">{c.forgeUnknown}</p>}
               <div className="enrollment-grid">{(["display_name", "description", "kind", "login", "repo_path", "target_branch"] as FieldName[]).map(control)}</div>
               <p className="field-hint" id="enrollment-clone-note">{draft.repo_path === detected.repo_path && detected.clone === "existing" ? c.cloneExisting : c.cloneEdited}</p></>}
-          </> : <div className="enrollment-grid">{fields[step].map(control)}</div>}
+          </> : step === 2 ? <div className="enrollment-agent-columns">
+            <div className="enrollment-agent-column">{(["executor_cli", "execution_backend", "auth_mode", "env_keys"] as FieldName[]).map(control)}</div>
+            <div className="enrollment-agent-column">{(["model", "runtime", "image", "executor_command"] as FieldName[]).map(control)}</div>
+          </div> : <div className="enrollment-grid">{fields[step].filter(key=>!key.startsWith("local_")).map(control)}</div>}
 
           {transfer && step === 2 && <><p id="transfer-reference-help">{tc.references}</p><label><input id="transfer-references" aria-describedby="transfer-reference-help" type="checkbox" checked={referencesConfirmed}
             onChange={event => { dirty.current = true; generation.current++; setReferencesConfirmed(event.target.checked);
@@ -544,7 +588,8 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
         {(step > 1 || transfer) && <button type="button" className="ghost" disabled={busy === "create"} onClick={() => transfer && step === 1 ? onSourceReview?.() : move(step - 1)}>{c.back}</button>}
         {/* From a URL, the wizard cannot continue until the repository has been read. */}
         {/* Until the repository is read, Read repository is the primary action. */}
-        {step < 4 && <button className={step === 1 && !detected ? "ghost" : "primary"} type="submit" disabled={step === 1 && !detected}>{c.continue}</button>}
+        {step < 4 && <button className={step === 1 && !detected ? "ghost" : "primary"} type="submit"
+          disabled={step === 1 && (detecting || !detected?.branches.length || !draft.target_branch)}>{c.continue}</button>}
         {/* Every step reads Back, Continue (Create on the last step), Cancel in one row. */}
         {step === 4 && <button type="button" className="primary" disabled={!!busy || !preview?.structural_valid} onClick={() => {
           if (!preview?.structural_valid || !preview.revision) return;

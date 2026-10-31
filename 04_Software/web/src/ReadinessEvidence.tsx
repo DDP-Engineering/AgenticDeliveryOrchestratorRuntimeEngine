@@ -8,10 +8,12 @@ import type { ModelEvidence } from "./ModelConnection";
 import { type Locale } from "./i18n";
 import { readinessKeys, type ProjectReadiness } from "./readiness";
 import { localCopy } from "./localExecution";
+import { repositoryConnectionHelp } from "./errors";
+import { localDiagnosticCopy, localFailureText, modelFailureText } from "./localDiagnostics";
 
 const copy = {
   en: {
-    details: "Check details", externalSignIn: "Use Connect repository in Summary to configure this project’s account, or sign in on the ADORE server under its service account. Browser sign-in is separate.",
+    details: "Check details", externalSignIn: repositoryConnectionHelp.en,
     passed: "Performed checks passed", failed: "Attention required", partial: "Verification incomplete",
     coverage: "This checks prerequisites on the ADORE server and in the configured image. It does not test a complete job or confirm Git push permission.",
     ok: "✓ Passed", error: "! Action needed", unknown: "? Could not verify", skipped: "○ Not checked",
@@ -28,7 +30,7 @@ const copy = {
     ],
   },
   ro: {
-    details: "Detaliile verificării", externalSignIn: "Folosește Conectează depozitul din Summary pentru contul acestui proiect, sau configurează contul serviciului pe serverul ADORE. Autentificarea în browser este separată.",
+    details: "Detaliile verificării", externalSignIn: repositoryConnectionHelp.ro,
     passed: "Verificările efectuate au reușit", failed: "Necesită intervenție", partial: "Verificare incompletă",
     coverage: "Verifică cerințele pe serverul ADORE și în imaginea configurată. Nu testează un job complet și nu confirmă permisiunea Git de publicare.",
     ok: "✓ Reușit", error: "! Necesită intervenție", unknown: "? Nu s-a putut verifica", skipped: "○ Neverificat",
@@ -45,7 +47,7 @@ const copy = {
     ],
   },
   fr: {
-    details: "Détails du contrôle", externalSignIn: "Utilisez Connecter le dépôt dans Summary pour ce projet, ou configurez le compte du service sur le serveur ADORE. La connexion au navigateur est séparée.",
+    details: "Détails du contrôle", externalSignIn: repositoryConnectionHelp.fr,
     passed: "Les contrôles effectués ont réussi", failed: "Intervention nécessaire", partial: "Vérification incomplète",
     coverage: "Vérifie les prérequis sur le serveur ADORE et dans l’image configurée. Ne teste pas une tâche complète ni l’autorisation de publication Git.",
     ok: "✓ Réussi", error: "! Intervention nécessaire", unknown: "? Impossible à vérifier", skipped: "○ Non vérifié",
@@ -62,7 +64,7 @@ const copy = {
     ],
   },
   de: {
-    details: "Prüfungsdetails", externalSignIn: "Nutzen Sie Repository verbinden in Summary für dieses Projekt, oder richten Sie das Dienstkonto auf dem ADORE-Server ein. Die Browser-Anmeldung ist separat.",
+    details: "Prüfungsdetails", externalSignIn: repositoryConnectionHelp.de,
     passed: "Durchgeführte Prüfungen bestanden", failed: "Handlung erforderlich", partial: "Prüfung unvollständig",
     coverage: "Prüft Voraussetzungen auf dem ADORE-Server und im konfigurierten Image. Testet keinen vollständigen Job und bestätigt keine Git-Push-Berechtigung.",
     ok: "✓ Bestanden", error: "! Handlung erforderlich", unknown: "? Nicht feststellbar", skipped: "○ Nicht geprüft",
@@ -99,17 +101,19 @@ export function ReadinessEvidence({ evidence, locale, modelReason, modelEvidence
       const value = explicit ? explicit.ready : evidence.checks[key];
       const status = value === true ? "passed" : value === false ? "failed" : value === null ? "unknown" : "skipped";
       const [label, purpose, fix] = local && key === "executor_cli"
-        ? [localCopy[locale].title, localCopy[locale].notice, localCopy[locale].notice]
+        ? [localCopy[locale].title, localDiagnosticCopy[locale].purpose,
+            localFailureText(locale, evidence.executor_probe)]
         : c.rows[index];
       const accessPurpose = {en:"Explicit model access test through the selected executor. Full job and tool support require separate acceptance.",ro:"Test explicit de acces la model prin executorul selectat. Joburile complete și instrumentele necesită acceptare separată.",fr:"Test explicite d’accès au modèle via l’exécuteur. Les tâches complètes et outils nécessitent une validation distincte.",de:"Expliziter Modellzugriffstest über den Executor. Vollständige Aufträge und Werkzeuge benötigen separate Abnahme."}[locale];
       const reason = evidence.model_probe.reason;
       return <div className={`readiness-check ${status}`} key={key}>
-        <div><strong>{label}</strong><p>{explicit ? accessPurpose : purpose}</p>
-          {value === false && <p className="readiness-remediation">{fix}</p>}
+        <div><strong>{label}</strong><p>{explicit || local && key === "model_endpoint" ? accessPurpose : purpose}</p>
+          {value === false && <p className="readiness-remediation">{explicit
+            ? modelFailureText(locale, explicit.reason) : fix}</p>}
           {key === "forge_auth" && value === false && <p>{c.externalSignIn}</p>}
           {value === null && <p className="readiness-remediation">{fix}</p>}
           {explicit && <p>{explicit.executor} · {explicit.model}</p>}
-          {key === "model_endpoint" && !explicit && <p>{reason === "unsupported-executor" ? c.unsupported : reason === "not-configured" ? c.unconfigured : modelReason}{evidence.model_probe.model ? ` (${evidence.model_probe.model})` : ""}</p>}
+          {key === "model_endpoint" && !explicit && <p>{local || reason === "unsupported-executor" ? c.unsupported : reason === "not-configured" ? c.unconfigured : modelReason}{evidence.model_probe.model ? ` (${evidence.model_probe.model})` : ""}</p>}
         </div>
         <strong className="readiness-result">{c[status === "passed" ? "ok" : status === "failed" ? "error" : status === "unknown" ? "unknown" : "skipped"]}</strong>
       </div>;

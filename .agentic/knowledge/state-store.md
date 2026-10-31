@@ -43,6 +43,8 @@ the human-owned worktree remains protected from routine cleanup.
 
 ## Key behaviors
 
+- REQ-REL-6922cfe5: not-required recipe evidence may contain exact resource IDs for an explicitly package-enabled plan; it does not assert installed dependencies. Corrupt identity and unexpected resource authority remain errors.
+
 - REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: Schema-1 execution state accepts the closed native resource with not-required status, zero attempts and empty preparation evidence. PIDs/scopes remain separate authoritative control records. Corrupt/unknown native fields fail closed; legacy container records keep compatibility.
 
 Native ownership/auth route to `local-execution.md`; focused proof is
@@ -59,25 +61,10 @@ Native ownership/auth route to `local-execution.md`; focused proof is
 - `REQ-REL-94e653aa` - checkpoint evidence and exact handoff requests survive
   restart without treating foreign state as a valid run.
 
-## Architecture
-
-```mermaid
-flowchart LR
-    conductor([Orchestrator]) --> store[StateStore]
-    worker([Web worker]) --> marker[(Cancel marker)]
-    operator([Operator]) --> handoff[(Handoff request)]
-    store --> runs[(Run state files)]
-    store --> journal[(JSONL journals)]
-    store --> lock[(Conductor lock)]
-    store --> outbox[(Notification outbox)]
-    marker --> conductor
-    handoff --> conductor
-```
-
-The durable store preserves recovery evidence and refuses corrupt or uncertain
-ownership instead of resetting it.
 
 ## Files
+
+- `04_Software/tests/test_system_packages.py`: package authority, independent egress, recovery and reviewed settings contracts.
 
 - `04_Software/tests/test_local_execution.py`: native integration/negative proof.
 

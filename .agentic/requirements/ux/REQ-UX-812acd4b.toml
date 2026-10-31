@@ -1,0 +1,23 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+id = "REQ-UX-812acd4b"
+title = "Reviewed package installation permission"
+status = "active"
+requirement = """
+When an administrator configures a container project, ADORE shall expose a separately reviewed boolean permission for agent system package installation, defaulting to disabled without changing network settings.
+"""
+verification = """
+Offline API tests inspect metadata, stage/apply an exact boolean candidate with paused idle guards, and reject malformed/unauthorized/stale requests; frontend tests verify localized container-only visibility.
+"""
+affected_paths = ["04_Software/web/src/settingKeys.json", "04_Software/web/src/settingHelp.ts", "04_Software/web/src/App.tsx", "04_Software/web/tests/systemPackages.test.mjs", "04_Software/web/e2e/system-packages.spec.ts", "04_Software/adore/config.py", "04_Software/adore/web/app.py", "04_Software/web/src/settings.ts", "04_Software/web/src/executorSettings.ts"]
+linked_tests = ["04_Software/tests/test_system_packages.py::test_package_setting_requires_review_and_preserves_network", "04_Software/tests/test_system_packages.py::test_package_setting_refuses_non_boolean_candidates"]
+spec = "specs/REQ-FUNC-c405688e.md"
+priority = "normal"
+created = 2026-10-30
+updated = 2026-10-30

@@ -7,6 +7,14 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Getting Started
 
+For the complete portable web application, extract the matching Windows ZIP
+or Linux TAR.GZ from `07_Delivery/`. Start `Start-ADORE.cmd` (Windows) or
+`./start-adore.sh` (Linux). The included Python starts the API and worker and
+opens the browser when ready. No system Python, uv or Node.js setup is needed
+for this package. Read its README for first sign-in, stop controls, data and
+logs. Prepare Git/forge/executor/container tools when configuring projects.
+The following sections describe source/CLI setup.
+
 ADORE selects eligible GitHub, GitLab or Gitea tickets, runs AEGIS
 inside dedicated worktrees with container or native local execution, and opens draft MR/PRs after fresh
 human approval. It never merges.

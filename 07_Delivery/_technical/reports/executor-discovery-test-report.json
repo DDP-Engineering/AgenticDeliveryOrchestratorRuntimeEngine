@@ -1,0 +1,85 @@
+{
+  "copyright": "Copyright (c) 2026 DDP Engineering",
+  "license": "This software is licensed under the PolyForm Noncommercial License 1.0.0. Commercial use requires a separate commercial license. See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0",
+  "version": "0.13.0",
+  "date": "2026-10-15",
+  "feature": "Installed native executor discovery and manual launch selection",
+  "archives": [
+    {
+      "system": "windows",
+      "file": "adore-0.13.0-windows-x64.zip",
+      "bytes": 31488636,
+      "sha256": "9de2f33d5122e35c6d385aef6b15eae57875ceee2eb7fffed59698d651f65ce9",
+      "acceptance": "passed",
+      "checks": 20,
+      "receipt": "portable-check-windows/result.json"
+    },
+    {
+      "system": "linux",
+      "file": "adore-0.13.0-linux-x64.tar.gz",
+      "bytes": 79920770,
+      "sha256": "8a774bee7a96401ea8539a0d18e750f9cd1c46319ac9dc4019a541b24eae01f0",
+      "acceptance": "passed",
+      "checks": 20,
+      "receipt": "portable-check-linux/result.json"
+    }
+  ],
+  "verification": {
+    "backend": {
+      "result": "passed",
+      "passed": 1867,
+      "skipped": 7,
+      "log": "local-executors-backend-retry.log",
+      "command": ".venv/Scripts/python.exe -m pytest -q",
+      "cwd": "04_Software"
+    },
+    "frontend": {
+      "result": "passed",
+      "browser_tests": 199,
+      "command": "npm --prefix 04_Software/web run validate",
+      "log": "local-executors-frontend-retry.log",
+      "includes": [
+        "Node helper tests",
+        "UI and E2E TypeScript checks",
+        "Vite build",
+        "Complete offline Chromium journeys"
+      ],
+      "node_helper_tests": 99
+    },
+    "linux_focused_backend": {
+      "result": "passed",
+      "passed": 117,
+      "host": "Ubuntu/WSL"
+    },
+    "tool_unit_tests": {
+      "windows": {
+        "passed": 12,
+        "skipped": 1
+      },
+      "linux": {
+        "passed": 13,
+        "skipped": 0
+      }
+    },
+    "ruff": "passed",
+    "release_identity": "passed",
+    "release_notes": "passed",
+    "strict_catalog": {
+      "result": "passed",
+      "errors": 0,
+      "warnings": 52,
+      "notes": 22,
+      "command": "python .agentic/aegis.py check --task TASK-fb785166 --strict",
+      "log": "local-executors-strict-catalog.log"
+    }
+  },
+  "notes": [
+    "Native archive acceptance runs without an installed host Python and uses isolated user data and inert executor fixtures.",
+    "No actual model requests or agent jobs were invoked; the running Downloads installation was not modified.",
+    "Two earlier monolithic strict attempts remain in the original validation logs: browser global deadlines and one intermittent existing worker-heartbeat test failed.",
+    "The unchanged heartbeat test passed alone and in the fresh complete backend rerun. Final complete backend and frontend suites passed separately on the same application code.",
+    "The complete serial browser suite now has a finite 1200-second total budget; individual test, action and assertion deadlines are unchanged."
+  ],
+  "report_status": "historical; superseded by the simplified-setup delivery",
+  "superseded_by": "simple-setup-test-report.json"
+}

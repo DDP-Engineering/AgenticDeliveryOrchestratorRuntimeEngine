@@ -42,7 +42,12 @@ from adore.branding import (
     PRODUCT_SLUG,
     UV_CACHE_VOLUME,
 )
-from adore.util import parse_duration, strict_json_loads
+from adore.util import (
+    automatic_environment,
+    background_process_options,
+    parse_duration,
+    strict_json_loads,
+)
 
 # CONSTANTS
 
@@ -383,6 +388,7 @@ class ContainerConfig:
 
     runtime: str = "docker"
     image: str = EXECUTOR_BASE_IMAGE
+    system_packages: bool = False
     keep_parked: bool = True
     parked_ttl_mode: str = "polls"
     parked_ttl_seconds: int = 7200
@@ -865,7 +871,8 @@ def branch_naming_preview(template: str, rule: str, slug: str) -> dict[str, Any]
         try:
             checked = subprocess.run([sys.executable, "-I", "-c", code],
                                      input=json.dumps([rule, name]), capture_output=True,
-                                     text=True, timeout=1)
+                                     text=True, timeout=1,
+                                     env=automatic_environment(), **background_process_options())
             if checked.returncode != 0:
                 raise ValueError("regex process failed")
             matched = json.loads(checked.stdout)
@@ -1044,6 +1051,23 @@ def validate_config(config: Config) -> list[str]:
             "[container] run_args entries must be single option tokens "
             f'starting with "-" (e.g. "--userns=keep-id"): {arg!r}',
         )
+    check(type(config.container.system_packages) is bool,
+          "[container] system_packages must be a boolean")
+    if config.container.system_packages is True:
+        check(config.execution.backend == "container",
+              "[container] system_packages is unavailable for local execution")
+        if default == "codex" and entry is not None:
+            check("--dangerously-bypass-approvals-and-sandbox" in entry.command.split(),
+                  "[container] system_packages requires Codex to use the container as its "
+                  "sandbox; select the container launch preset")
+        # This managed mode cannot inherit host exposure from arbitrary runtime
+        # overrides. Ordinary resource limits and rootless keep-id remain valid.
+        allowed_options = {"--memory", "--memory-swap", "--cpus", "--cpu-shares",
+                           "--pids-limit", "--shm-size", "--userns", "--cpuset-cpus"}
+        for arg in config.container.run_args:
+            check(isinstance(arg, str) and arg.split("=", 1)[0] in allowed_options
+                  and (not arg.startswith("--userns") or arg == "--userns=keep-id"),
+                  "[container] system_packages refuses unsafe run_args overrides")
     check(
         config.container.selinux_relabel in SELINUX_RELABEL_MODES,
         "[container] selinux_relabel must be "

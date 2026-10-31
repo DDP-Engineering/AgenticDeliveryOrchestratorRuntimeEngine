@@ -38,7 +38,7 @@ status = "active"
 # Do not contort prose to fit a pattern - a constraint that reads better
 # plainly is better plainly.
 requirement = """
-When AEGIS returns task or strict-check data, the client shall accept only the pinned task identity, legal stage transition, and internally consistent executed verification evidence.
+When AEGIS returns task or strict-check data, the client shall accept the pinned task identity and internally consistent executed verification evidence, allowing backward routes to any earlier stage on the selected full or quick path while preserving terminal completion and evidence for forward stage jumps.
 """
 
 # The observation that settles whether the behavior holds — not a
@@ -49,14 +49,14 @@ When AEGIS returns task or strict-check data, the client shall accept only the p
 # "Inspection:" and name the method, and `check` records the requirement
 # as verified by hand instead of counting it among the tests still owed.
 # The prefix alone is not enough — it has to say what someone does.
-verification = "Automated AEGIS tests validate pinned task status, reject corrupt journals and path escapes, and reject contradictory strict checks."
+verification = "Automated AEGIS tests accept earlier stages on the selected path and reject unknown paths, forward skips without evidence, completed-task reopening, corrupt journals, path escapes and contradictory strict checks; public retry tests prove fresh sessions and the saved Jobs stage before checkpoint work."
 
 # Repo-relative, forward slashes. The source files this behavior lives in.
-affected_paths = ["04_Software/adore/aegis.py"]
+affected_paths = ["04_Software/adore/aegis.py", "04_Software/adore/orchestrator.py"]
 
 # "tests/path/test_file.py::test_name" entries. Kept current during build;
 # these select the impacted regression set.
-linked_tests = ["04_Software/tests/test_aegis.py::test_task_creation_and_status_are_pinned_and_validated", "04_Software/tests/test_aegis.py::test_task_journal_trust_boundary_fails_closed", "04_Software/tests/test_aegis.py::test_failed_strict_check_is_data_but_contradiction_is_protocol_error", "04_Software/tests/test_aegis.py::test_transition_allowlist"]
+linked_tests = ["04_Software/tests/test_aegis_014_compatibility.py", "04_Software/tests/test_aegis.py::test_task_creation_and_status_are_pinned_and_validated", "04_Software/tests/test_aegis.py::test_task_journal_trust_boundary_fails_closed", "04_Software/tests/test_aegis.py::test_failed_strict_check_is_data_but_contradiction_is_protocol_error", "04_Software/tests/test_aegis.py::test_transition_allowlist", "04_Software/tests/test_orchestrator.py::test_retry_continues_design_return_and_exposes_stage_before_checkpoint", "04_Software/tests/test_orchestrator.py::test_retry_refuses_untrusted_design_return", "04_Software/tests/test_orchestrator.py::test_retry_backward_routes_remain_iteration_bounded"]
 
 # --- optional below this line ---
 
@@ -67,4 +67,4 @@ priority = "normal"   # low | normal | high
 rationale = "The conductor cannot safely act on another task or contradictory governance evidence."
 
 created = 2026-08-15
-updated = 2026-08-15
+updated = 2026-10-22

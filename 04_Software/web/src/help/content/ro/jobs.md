@@ -15,7 +15,7 @@ ADORE parcurge etapele AEGIS pe rând, fiecare încercare într-o sesiune nouă 
 | Validare | Revizuire, suita completă de teste și o verificare strictă, pe care ADORE o repetă apoi singur. |
 | Livrare | După aprobarea dumneavoastră, aprobarea și încheierea se înregistrează, iar MR/PR-ul este publicat. |
 
-Calea rapidă parcurge Încadrare, Construire, Validare și Livrare. Pe calea completă, validarea poate trimite o lucrare înapoi la Specificare, Proiectare sau Construire; pe calea rapidă, doar înapoi la Construire. O etapă primește implicit trei încercări eșuate (**Încercări eșuate permise per etapă**).
+Calea rapidă parcurge Încadrare, Construire, Validare și Livrare. AEGIS poate reveni la orice etapă anterioară din calea aleasă, inclusiv din Proiectare în Specificare. ADORE salvează etapa și continuă într-o sesiune nouă, în limitele existente ale rulării. Lucrări afișează etapa salvată. Sarcinile încheiate rămân finale. O etapă primește implicit trei încercări eșuate (**Încercări eșuate permise per etapă**).
 
 ## Clarificare {#clarification}
 
@@ -42,6 +42,10 @@ Dacă verificările CI eșuează pe MR/PR, decide **Acțiune când verificările
 Când o etapă eșuează, ADORE ține la zi un singur comentariu de incident pe tichet, cu etapa, încercarea, codul erorii, dovezile și următoarea acțiune. După ultima încercare postează un comentariu final, setează `agent-failed`, oprește containerul, păstrează worktree-ul și eliberează locul. Alte cauze sunt un timp de răspuns expirat, un tichet sursă șters și o limită depășită, precum costul sau fișierele modificate. Închiderea tichetului sursă cât timp o lucrare așteaptă o anulează.
 
 În Lucrări, o lucrare eșuată afișează **Eșuate**, iar detaliile ei explică faptul că dovezile de recuperare sunt păstrate. **Reîncearcă** cere workerului să recupereze lucrarea; nu ocolește validarea sau aprobarea. În vizualizarea Tichete, Reia înlocuiește Pornește. Eliminarea `agent-failed` nu reîncearcă. **Anulează** apare pentru lucrările neterminate și cere workerului să se oprească și să curețe. Lucrările încheiate nu pot fi anulate. Administratorii și dezvoltatorii atribuiți le pot folosi pe ambele. O comandă din coadă își arată progresul, de exemplu Comandă în coadă sau Comandă terminată.
+
+Pentru lucrările locale, **Reia** verifică executorul instalat și acceptă actualizarea executabilului sau a mediului moștenit pe același calculator și cont. Păstrează sarcina, worktree-ul, ramura, istoricul și limitele cumulative. Monitorizarea automată nu face această revalidare. Setările de execuție schimbate sau dovezile de recuperare corupte trebuie corectate. Dacă repornirea eșuează, comanda apare eșuată cu motivul salvat: executabil lipsă, versiune invalidă, comandă eșuată sau expirarea timpului. Verificarea versiunii nu trimite cereri modelului; folosește **Testează conexiunea IA** pentru aceasta.
+
+Când o comandă în container depășește limita de timp, ADORE oprește containerul înaintea altei comenzi. Următoarea încercare permisă reia același container, cu dependențele și fișierele instalate; accesul la rețea rămâne neschimbat. Dacă oprirea sau repornirea sigură nu poate fi confirmată, lucrarea eșuează și păstrează dovezile pentru verificare înainte de **Reia**. Pregătirea eșuată păstrează procedura sa explicită de recuperare.
 
 ## Urmărirea lucrărilor {#following-jobs}
 

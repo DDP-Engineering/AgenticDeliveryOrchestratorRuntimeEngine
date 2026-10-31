@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-REL-b8c5946a"
+
+title = "Preserve pinned container contents across Git binding rollout"
+
+status = "active"
+
+requirement = "When an owned executor container is reused during Git binding rollout, the runtime shall preserve its identity and filesystem while honoring its creation-time binding mode."
+
+verification = "Offline public provision tests cover running and stopped pointer-mode resources and legacy resources: no replacement run, existing identity retained, mounted binding evidence checked and legacy mode preserved; malformed mode is rejected."
+
+affected_paths = ["04_Software/adore/isolation.py"]
+
+linked_tests = ["04_Software/tests/test_container_git.py::test_git_binding_warm_reuse_preserves_creation_mode"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-30
+updated = 2026-10-30

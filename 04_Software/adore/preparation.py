@@ -386,6 +386,8 @@ def execution_policy(config: Config) -> dict:
             "stage_host_auth": config.executor.stage_host_auth,
         },
     }
+    if config.container.system_packages is not True:
+        policy["container"].pop("system_packages", None)
     if config.execution.backend == "local":
         from adore.local_execution import local_policy
         from adore.local_process import LocalExecutionError
@@ -437,6 +439,12 @@ def validate_plan(plan: object) -> dict:
     from adore.config import Config, ExecutorCommand
 
     template = execution_policy(Config())
+    if (isinstance(plan.get("policy"), dict)
+            and isinstance(plan["policy"].get("container"), dict)
+            and "system_packages" in plan["policy"]["container"]):
+        if plan["policy"]["container"]["system_packages"] is not True:
+            raise PreparationError("plan.policy.container.system_packages: expected true")
+        template["container"]["system_packages"] = True
     template["executor"]["command"] = asdict(ExecutorCommand())
     if plan["backend"] == "local":
         template.pop("container")

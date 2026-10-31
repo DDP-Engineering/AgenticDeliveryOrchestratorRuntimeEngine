@@ -6,11 +6,11 @@ See the LICENSE.txt file for full license details.
 SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
-# Component: Deployment (`04_Software/deploy/`)
+# Component: Deployment (`02_Tools/deploy/`)
 
 > Component documentation per `component_documentation_template.md`.
-> Sources: `deploy/install-ubuntu.sh`, `deploy/install-windows.ps1`,
-> `deploy/adore.service` (template).
+> Sources: `02_Tools/deploy/install-ubuntu.sh`, `02_Tools/deploy/install-windows.ps1`,
+> `02_Tools/deploy/adore.service` (template).
 > Design context: `00_Planning/ADORE_System_Overview.md`.
 
 ## 1. Purpose
@@ -39,16 +39,22 @@ this one directory as scripts, not code.
   `__ADORE_USER__` placeholders, `WorkingDirectory` at the checkout (so
   `config.toml` and `.env` resolve), optional `EnvironmentFile=-<dir>/.env`,
   `Restart=on-failure` + 30 s backoff, `NoNewPrivileges` / `PrivateTmp`.
-- `deploy/README.md` - the operator-facing deployment procedure.
+- `02_Tools/deploy/README.md` - the operator-facing deployment procedure.
 
 Explicitly not owned: installing prerequisites (checks fail closed with the
 install hint - deterministic, no surprise system changes), secret contents
 (placement only; design 12b), and native OS packaging (single-file exe / deb
-are separate backlog items). The lightweight runtime bundle is owned by
-`02_Tools/package_runtime.*`.
+are separate backlog items). The complete portable user distribution is owned by
+`02_Tools/create_package.py`; service setup is separate.
 
 ## 3. Implementation Overview
 
+- Scripts and the service template live in `02_Tools/deploy/`. In a source
+  checkout they resolve the sibling `04_Software/` as the runtime. Packagers
+  do not copy service setup into ordinary user archives.
+  Configuration, `.env`, `.venv`, Docker build contexts and scheduler working
+  directories all use that runtime path, even when invoked from another directory.
+  Missing `pyproject.toml` or `adore/` stops installation before environment setup.
 - Both scripts are **fail-fast** (`set -euo pipefail` /
   `$ErrorActionPreference = "Stop"` + explicit `$LASTEXITCODE` checks),
   **idempotent**, and **re-runnable** (a re-run after `git pull` refreshes
@@ -108,30 +114,25 @@ Operations afterwards go through the CLI (`status`, `pause`, `cleanup`,
 
 ```bash
 # Ubuntu
-./deploy/install-ubuntu.sh --service          # full: env, config, image, unit
-./deploy/install-ubuntu.sh --allow-open-egress --service
+bash 02_Tools/deploy/install-ubuntu.sh --service          # full: env, config, image, unit
+bash 02_Tools/deploy/install-ubuntu.sh --allow-open-egress --service
 journalctl -u adore -f                          # host service logs
-tail -f .adore/adore.log                         # ADORE-owned run log
-./deploy/install-ubuntu.sh --uninstall         # remove the unit, keep state
+tail -f 04_Software/.adore/adore.log                         # ADORE-owned run log
+bash 02_Tools/deploy/install-ubuntu.sh --uninstall         # remove the unit, keep state
 ```
 
 ```powershell
 # Windows
-.\deploy\install-windows.ps1 -Runtime "wsl -d Ubuntu-24.04 -- docker"
-.\deploy\install-windows.ps1 -AllowOpenEgress
+.\02_Tools\deploy\install-windows.ps1 -Runtime "wsl -d Ubuntu-24.04 -- docker"
+.\02_Tools\deploy\install-windows.ps1 -AllowOpenEgress
 Start-ScheduledTask -TaskName "ADORE Orchestrator & Runtime Engine"
-.\deploy\install-windows.ps1 -Uninstall
+.\02_Tools\deploy\install-windows.ps1 -Uninstall
 ```
 
-## 9. Validation And Tests
+## 9. Verification
 
-- Scripts are not unit-tested (no Python surface); validation is static +
-  behavioral: `bash -n` and **shellcheck clean** for the Ubuntu script; the
-  Windows script executed end-to-end in `-Uninstall` mode (parses, runs,
-  reports, exits 0) on Windows PowerShell 5.1.
-- Minimum validation after a change: re-run `bash -n` + `shellcheck` /
-  the `-Uninstall` smoke, and one full prepare pass (`--skip-image` /
-  `-SkipImageCheck -NoTask`) on the matching platform.
+Do not add or run automated tests for deployment or environment setup scripts.
+Review script changes directly; verify actual user application archives separately.
 
 ## 10. Limitations And Future Work
 
@@ -140,7 +141,7 @@ Start-ScheduledTask -TaskName "ADORE Orchestrator & Runtime Engine"
 - Egress proxy is HTTP/HTTPS proxy based; SSH and other non-proxy-aware
   protocols remain outside v1.
 - Native packaging (Windows exe / Ubuntu deb) is separate future work; the
-  implemented handoff artifact is the runtime bundle from `02_Tools/`.
+  implemented user handoff is the complete portable ZIP/TAR.GZ.
 - The Windows loop task starts at logon (not boot); running as a service
   account at boot needs NSSM or a `-User/-Password` registration - add when
   a dedicated runner machine exists.

@@ -43,9 +43,6 @@ network.
 | `diagram` | Draw the requirement register as a Mermaid coverage map. | In review or handover, when the question is where verification is thin. |
 | `trace` | Export the requirement register as a traceability matrix. | In audit, review or handover, when the whole register has to leave the repository. |
 | `explain` | Show which requirements and tasks govern one path. | Reading unfamiliar code, or before changing a file you did not write. |
-| `know_graph`, `know_graph_check` | Show the knowledge graph's state and freshness (CodeGraph plugin). | Before relying on the graph, and after editing sources. |
-| `know_graph_find`, `know_graph_file`, `know_graph_symbol`, `know_graph_callers`, `know_graph_refs` | Answer symbol questions from the knowledge graph. | To locate definitions and callers before reading or changing code. |
-| `know_graph_index` | Build or update the knowledge graph. | After enabling CodeGraph, and when `know_graph_check` reports it stale. |
 
 ## General help and version
 
@@ -123,7 +120,8 @@ python .agentic/aegis.py init --git
 ```
 
 Afterward, edit `.agentic/aegis.toml` so `[commands]`, `[layout]`, optional
-`[interaction]`, `[records]`, and `[check]` settings describe the repository.
+`[interaction]`, `[diagrams]`, `[records]`, and `[check]` settings describe the
+repository.
 
 ## `task`
 
@@ -455,6 +453,23 @@ candidate; any candidate edit invalidates both. The maximum total rounds are
 Review disabled skips only these optional verdicts and their fix loop; semantic
 review, full validation, the strict check, evidence, and delivery approval stay
 mandatory.
+
+Design diagrams are optional and off by default:
+
+```toml
+[diagrams]
+enabled = false
+types = ["structure"]
+```
+
+`enabled` must be a TOML Boolean; missing or invalid values mean `false`, and no
+stage draws a diagram. With `true`, design ends by drawing Mermaid diagrams of
+the proposed implementation into `.agentic/tasks/diagram_TASK-<id>.md`, as
+described in `.agentic/steps/diagrams.md`. `types` lists any of `structure`,
+`sequence` and `state`; a missing or non-list value means `["structure"]`, and a
+list with no known name draws nothing. `check` warns when
+`enabled` is not a Boolean, `types` is not a list, or a type name is unknown.
+No stage, review or check finding depends on a diagram.
 
 Fingerprint sidecars are local evidence by default:
 
@@ -845,188 +860,18 @@ python .agentic/aegis.py explain src/export/
 python .agentic/aegis.py explain C:\repo\src\export\m3u.py
 ```
 
-## Knowledge graph commands
-
-The `know_graph` commands answer questions about source symbols - where a
-name is defined, what a file declares, who calls a function - from a
-database built by the optional CodeGraph plugin in
-`.agentic/plugins/codegraph/`. The core starts the plugin as an isolated
-child process of the same Python (`-I -B -X utf8`), bounds its time and
-output, checks its response, and prints it. No other command starts the
-plugin or reads its database.
-
-Configuration lives in `[codegraph]` of `.agentic/aegis.toml`:
-
-| Key | Default | Meaning |
-|---|---|---|
-| `enabled` | `false` | Only `true` turns the commands on. |
-| `database` | `.agentic/knowledge/codegraph/codegraph.sqlite` | A `NAME.sqlite` file directly inside `.agentic/knowledge/codegraph/`, where `NAME` uses only letters, digits, `_` and `-`; anything else, including a link out of that folder, is an error. |
-| `max_results` | `20` | Records per answer, 1 through 200. |
-| `max_output_bytes` | `8192` | Bytes per answer, 512 through 32768. |
-| `timeout_seconds` | `5` | Seconds allowed for one query; at least 1. |
-| `check_timeout_seconds` | `30` | Seconds allowed for `know_graph_check`; at least 1. |
-| `index_timeout_seconds` | `0` | Seconds allowed for `know_graph_index`; `0` means no limit. |
-
-The plugin's own keys - indexing scope, file size and parse limits - are
-described in the plugin's `README.md`. In a Git repository the database
-folder must be ignored - add `.agentic/knowledge/codegraph/` to `.gitignore` -
-before `know_graph_index` writes to it.
-
-Behavior shared by every command:
-
-- Every command except `know_graph_index` is read-only: it creates no
-  database, folder or file, and an index is built only when you run
-  `know_graph_index`.
-- While `enabled` is not `true`, each command prints a `disabled` answer and
-  exits 0; when the plugin folder is missing, an `unavailable` answer with
-  reason `plugin_missing`. Neither starts a process.
-- Output is a compact text view; `--json` prints the plugin's JSON envelope
-  unchanged. `know_graph_find`, `know_graph_file`, `know_graph_callers` and
-  `know_graph_refs` take `--limit N` (1 through 200 records), `--max-bytes N`
-  (at least 512; more than 32768 is treated as 32768) and `--page TOKEN` (from
-  a previous answer's `next=` field); `know_graph_symbol` takes `--limit` and
-  `--max-bytes`. A page always carries at least one record.
-- A target that starts with `-` goes after `--`.
-- Answers label each relation `direct-syntax`, `lexical-binding`,
-  `candidate`, `unresolved` or `external`, and cite the files they come from.
-  A `candidate` is never a confirmed call; read the cited source before
-  acting on one.
-- Only status `error` exits 1. A time limit or more than 64 KiB of output
-  stops the plugin's process tree; either, or a malformed response, prints one
-  error line and exits 1.
-
-## `know_graph`
-
-```text
-python .agentic/aegis.py know_graph [--json]
-```
-
-**Description:** Show the database state (`ready`, `missing`,
-`incompatible`, `busy`, `needs_recovery`), the served snapshot, whether this
-Python can index (`tested` or `untested` support), the indexed file counts by
-extraction status, the languages, and whether Git ignores the database folder.
-
-**When to use:** Before relying on the graph, and when another command
-reports the index unavailable.
-
-## `know_graph_check`
-
-```text
-python .agentic/aegis.py know_graph_check [--json]
-```
-
-**Description:** Compare the sources in scope with the last index and report
-freshness: `current`, `stale` with the changed paths, or `unknown` when the
-check could not finish.
-
-**When to use:** Before trusting an answer for files you have just edited.
-
-## `know_graph_find`
-
-```text
-python .agentic/aegis.py know_graph_find [--json] [--limit N] [--max-bytes N] [--page TOKEN] <name>
-```
-
-**Description:** Find symbols by qualified name, name, name prefix,
-identifier words or file path, best matches first. Each result carries a
-symbol ID for the commands below.
-
-**When to use:** To locate a definition without reading whole folders.
-
-## `know_graph_file`
-
-```text
-python .agentic/aegis.py know_graph_file [--json] [--limit N] [--max-bytes N] [--page TOKEN] <path>
-```
-
-**Description:** List the modules, classes, functions and methods one indexed
-file defines, in source order.
-The path may be repository-relative or absolute, with either separator.
-
-**When to use:** To see a file's outline before reading it.
-
-## `know_graph_symbol`
-
-```text
-python .agentic/aegis.py know_graph_symbol [--json] [--limit N] [--max-bytes N] <id>
-```
-
-**Description:** Show one symbol - signature, location and enclosing scope -
-with a bounded neighborhood of callers, callees and references. The ID may be
-the full ID or any unique prefix, such as the short ID other answers print;
-an ambiguous prefix lists the choices. The neighborhood is not paged; a larger
-`--limit` shows more of it.
-
-**When to use:** To understand one symbol in a single call.
-
-## `know_graph_callers`
-
-```text
-python .agentic/aegis.py know_graph_callers [--json] [--limit N] [--max-bytes N] [--page TOKEN] <id>
-```
-
-**Description:** List call sites that bind to the symbol, then call sites
-that match it by name only (`candidate`), each group in file order; paging
-continues through both.
-
-**When to use:** Before changing a function's behavior or signature.
-
-## `know_graph_refs`
-
-```text
-python .agentic/aegis.py know_graph_refs [--json] [--limit N] [--max-bytes N] [--page TOKEN] <id>
-```
-
-**Description:** List every reference bound to the symbol - imports, calls,
-reads and writes - with its label. Call sites that match only by name are
-listed by `know_graph_callers`; other name-only matches are not listed.
-
-**When to use:** Before renaming or removing a symbol.
-
-## `know_graph_index`
-
-```text
-python .agentic/aegis.py know_graph_index [--rebuild] [--json]
-```
-
-**Description:** Build or update the database for the configured scope.
-Unchanged files are reused; `--rebuild` builds a fresh file and replaces the
-old one only after it validates; a first build is made the same way.
-Progress goes to stderr. Indexing refuses to touch an existing file that is
-not a CodeGraph database, refuses while another indexer holds the lock or when
-this Python has no vendored parser, and - in a Git repository - refuses unless
-the database folder is ignored and untracked. Stopping AEGIS stops the
-indexer, and readers keep the last completed snapshot.
-
-**When to use:** Once after enabling CodeGraph, and after source changes that
-`know_graph_check` reports as stale.
-
-**Examples:**
-
-```text
-python .agentic/aegis.py know_graph_index
-python .agentic/aegis.py know_graph_find OrderRepository
-python .agentic/aegis.py know_graph_callers 3f9a1c27be
-python .agentic/aegis.py know_graph_find -- -weird-name
-```
-
 ## Exit behavior and machine-readable output
 
 | Situation | Exit behavior |
 |---|---|
 | `init`, `task`, `req`, `anchor`, `evolution`, `status`, `summary`, `brief`, `components`, `report`, `diagram`, `trace`, or `explain` succeeds | Exit 0. |
-| Unknown option or missing argument | argparse prints usage on stderr and exits 2. |
-| Missing task, invalid configuration, or another expected CLI error | One error line on stderr and exit 1. |
-| A `know_graph` command is answered | Exit 0, including `disabled`, `unavailable`, `not_found`, `ambiguous` and `expired`; exit 1 for status `error`. |
-| A `know_graph` command hits its time limit or the output cap | The plugin's process tree is stopped; one error line on stderr and exit 1. |
-| A `know_graph` command gets a malformed response or no answer | One error line on stderr and exit 1. |
+| Usage, missing task, invalid configuration, or another expected CLI error | One error line on stderr and exit 1. |
 | Plain `check` finds errors or warnings | Exit 0; it remains advisory. |
 | `check --strict` finds a strict failure | Exit 1. |
 | `test` runs a configured command | Return that command's exit code. |
 | A configured command is stopped by its time limit | Exit 124, reported as proving nothing. |
 
-For `anchor --json`, `evolution --json`, `check --json`, `status --json`, and
-the `know_graph` commands with `--json`,
+For `anchor --json`, `evolution --json`, `check --json`, and `status --json`,
 successful stdout contains exactly one JSON document with a `schema` integer.
 On a usage or configuration error, stdout is empty and the error is written to
 stderr; consumers must treat empty stdout as failure, not as an empty result.

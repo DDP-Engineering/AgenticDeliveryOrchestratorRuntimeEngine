@@ -42,7 +42,7 @@ topic, and labels `Unreleased` as In development.
 
 ## 4. Dependencies
 
-- `02_Tools/check_release_notes.py` imports this module from its own checkout
+- `02_Tools/internal/check_release_notes.py` imports this module from its own checkout
   and adds the repository rules: released versions need a `## [x.y.z] - date`
   section in `CHANGELOG.md` with the same date, and the current `__version__`
   needs a release section. `--since <rev>` warns, without failing, when
@@ -54,8 +54,8 @@ topic, and labels `Unreleased` as In development.
 ## 5. Usage
 
 ```bash
-python 02_Tools/check_release_notes.py
-python 02_Tools/check_release_notes.py --since <task base>
+python 02_Tools/internal/check_release_notes.py
+python 02_Tools/internal/check_release_notes.py --since <task base>
 ```
 
 At a release cut, rename `Unreleased` to the new version with the date of its

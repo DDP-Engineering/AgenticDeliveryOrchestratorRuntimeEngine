@@ -15,7 +15,7 @@ ADORE runs the AEGIS stages one at a time, each attempt in a fresh executor sess
 | Validate | Review, the full test suite and a strict check, which ADORE then repeats itself. |
 | Deliver | After your approval, approval and close-out are recorded and the MR/PR is published. |
 
-The quick path runs Frame, Build, Validate and Deliver. On the full path validation can send a job back to Specify, Design or Build; on the quick path only back to Build. A stage gets three failed attempts by default (**Failed attempts allowed per stage**).
+The quick path runs Frame, Build, Validate and Deliver. AEGIS may return to any earlier stage on the selected path, including Design to Specify. ADORE saves that stage and continues in a fresh session within the existing run limits. Jobs shows the saved stage. Completed tasks stay terminal. A stage gets three failed attempts by default (**Failed attempts allowed per stage**).
 
 ## Clarification {#clarification}
 
@@ -42,6 +42,10 @@ If CI checks fail on the MR/PR, **Action when PR/MR CI checks fail** decides: Au
 When a stage fails, ADORE keeps one incident comment on the ticket up to date with the stage, attempt, error code, evidence and next action. After the final attempt it posts a terminal comment, sets `agent-failed`, stops the container, keeps the worktree and frees the slot. Other causes are an expired answer time, a deleted source ticket and an exceeded limit such as cost or changed files. Closing the source ticket while a job waits cancels it.
 
 In Jobs a failed job shows **Failed**, and its detail explains that recovery evidence is kept. **Retry** asks the worker to recover the job; it does not bypass validation or approval. In the Tickets view, Retry replaces Start. Removing `agent-failed` does not retry. **Cancel** appears for unfinished jobs and asks the worker to stop and clean up. Finished jobs cannot be cancelled. Administrators and assigned developers can use both. A queued command shows its progress, such as Command queued or Command completed.
+
+For local jobs, explicit **Retry** rechecks the installed executor and accepts an updated executable or inherited environment on the same computer and account. It keeps the task, worktree, branch, history and cumulative limits. Automatic monitoring does not do this. Changed execution settings or corrupt recovery evidence still need correction. If restarting fails, the command is marked failed and shows the saved cause, such as a missing executable, invalid version, command failure or timeout. No model request is sent by this version check; use **Test AI connection** for that.
+
+When a container command exceeds its time limit, ADORE stops that container before another command can run. The next allowed attempt resumes the same container with its installed dependencies and files; network access stays unchanged. If safe stopping or restarting cannot be confirmed, the job fails and keeps its evidence for inspection before **Retry**. A failed preparation still needs its existing explicit recovery.
 
 ## Following jobs {#following-jobs}
 

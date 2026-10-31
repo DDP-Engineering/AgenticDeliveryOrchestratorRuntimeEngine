@@ -58,6 +58,7 @@ from adore.config import (
 from adore.config_edit import ConfigEditLockedError, config_edit_lock
 from adore.forge import ForgeError, ForgeResponseError
 from adore.forge_labels import ensure_labels, project_labels
+from adore.gitea_auth import GiteaAuthError, portable_tea_runner
 from adore.isolation import ContainerManager, IsolationError
 from adore.portable_settings import (
     MAX_SOURCE_BYTES,
@@ -84,7 +85,7 @@ from adore.repository_auth import (
 )
 from adore.selection import start_blocker, start_preparation
 from adore.state import StateError, StateStore
-from adore.util import CommandRunner, force_rmtree, run_command, strict_json_loads
+from adore.util import CommandResult, CommandRunner, force_rmtree, run_command, strict_json_loads
 from adore.web import analytics
 from adore.web.endpoint_probe import probe_endpoint
 from adore.web.executor_configuration import (
@@ -116,6 +117,7 @@ from adore.web.repository_source import (
     origin_matches,
     parse_repository_url,
     read_origin,
+    remote_branches,
     suggest_id,
     tea_logins,
 )
@@ -555,10 +557,10 @@ def _verification_view(profiles: ProfileStore, profile, revision: str | None) ->
     try:
         if path.stat().st_size > 16384:
             raise ValueError("oversized readiness")
-        value = json.loads(path.read_text(encoding="utf-8"))
+        value = strict_json_loads(path.read_text(encoding="utf-8"))
         keys = {"schema", "project_id", "revision", "checked_at", "context", "checks",
                 "model_probe"}
-        if (not isinstance(value, dict) or set(value) != keys
+        if (not isinstance(value, dict) or set(value) not in (keys, keys | {"executor_probe"})
                 or type(value["schema"]) is not int or value["schema"] != 1
                 or value["project_id"] != profile.project_id
                 or not isinstance(value["revision"], str)
@@ -582,6 +584,12 @@ def _verification_view(profiles: ProfileStore, profile, revision: str | None) ->
             ):
                 raise ValueError("invalid readiness check value")
         probe = value["model_probe"]
+        if "executor_probe" in value:
+            from adore.local_execution import validate_local_probe
+
+            validate_local_probe(value["executor_probe"], checks["executor_cli"])
+            if not isinstance(probe, dict) or probe.get("context") != "executor-local":
+                raise ValueError("native diagnostic in container evidence")
         reasons = {"ready", "credential-missing", "tool-stream-incompatible",
                    "redirect-rejected", "http-error", "endpoint-unreachable-or-incompatible",
                    "probe-failed", "not-configured", "unsupported-executor", "invalid-endpoint",
@@ -612,33 +620,44 @@ def _setup_display(body: ProjectInput | ProjectImportInput) -> str:
                                  else body.name)
 
 
-def _probe_setup(config, probe_runner: CommandRunner, env_file: Path | None = None) -> dict:
+def _probe_setup(config, probe_runner: CommandRunner, env_file: Path | None = None,
+                 *, external_auth: bool = True) -> dict:
     """@brief Run bounded redacted prerequisites for an explicit config snapshot.
 
     @param[in] config Validated configuration snapshot.
     @param[in] probe_runner Injectable external command boundary.
     @param[in] env_file Existing approved provider values for native checks.
+    @param[in] external_auth Discover external auth; False when project_runner owns credentials.
     @return Typed prerequisite checks and redacted model evidence.
     @exception HTTPException A prerequisite command fails to produce usable evidence.
     """
     deadline = monotonic() + 30
+    auth_runner = (portable_tea_runner(probe_runner, login=config.platform.login)
+                   if config.platform.kind == "gitea" and external_auth else probe_runner)
 
     def bounded_runner(argv, *, cwd=None, timeout=None, env=None):
         """@brief Keep a doctor subprocess below one request's probe bound."""
         remaining = deadline - monotonic()
         if remaining <= 0:
             raise TimeoutError("host readiness deadline")
-        tea_auth = argv[:2] == ["tea", "whoami"]
+        tea_auth = (argv[:2] == ["tea", "whoami"]
+                    or (argv[:2] == ["tea", "api"] and argv[-1] == "user"))
         if tea_auth:
             argv = ["tea", "api", "-i", "--method", "GET"]
             if config.platform.login:
                 argv += ["--login", config.platform.login]
             argv += ["user"]
-        result = probe_runner(argv, cwd=cwd,
-                            timeout=min(timeout if timeout is not None else 8,
-                                        8, remaining),
-                            env=env)
+        try:
+            result = auth_runner(argv, cwd=cwd,
+                                 timeout=min(timeout if timeout is not None else 8,
+                                             8, remaining), env=env)
+        except GiteaAuthError as exc:
+            if not tea_auth:
+                raise
+            result = CommandResult(argv=list(argv), exit_code=1, stderr=exc.code)
         if tea_auth:
+            identity_valid = False
+            statuses = re.findall(r"HTTP/\S+\s+(\d{3})", result.stderr)
             def unique_fields(pairs):
                 """@brief Reject duplicate identity fields from the forge boundary."""
                 value = {}
@@ -652,14 +671,48 @@ def _probe_setup(config, probe_runner: CommandRunner, env_file: Path | None = No
                 if len(result.stdout) > 1_000_000:
                     raise ValueError("oversized identity")
                 identity = json.loads(result.stdout, object_pairs_hook=unique_fields)
-                statuses = re.findall(r"HTTP/\S+\s+(\d{3})", result.stderr)
+                identity_valid = bool(
+                    isinstance(identity, dict)
+                    and isinstance(identity.get("login"), str)
+                    and re.fullmatch(r"[A-Za-z0-9_.-]{1,128}", identity["login"]))
                 valid = (result.ok and bool(statuses) and 200 <= int(statuses[-1]) < 300
-                         and isinstance(identity, dict)
-                         and isinstance(identity.get("login"), str)
-                         and re.fullmatch(r"[A-Za-z0-9_.-]{1,128}", identity["login"]))
+                         and identity_valid)
             except (ValueError, TypeError):
                 valid = False
             if not valid:
+                # Classify only exact known CLI errors; never log arbitrary stderr.
+                error = result.stderr.strip()
+                reason = (
+                    "no-logins" if error == "Error: no available login" else
+                    "login-missing" if config.platform.login and error == (
+                        f"Error: login name '{config.platform.login}' does not exist") else
+                    "other"
+                )
+
+                def config_present(root, suffix):
+                    """@brief Observe config presence without opening credential contents."""
+                    if not root:
+                        return "unset"
+                    try:
+                        return "present" if (Path(root) / suffix).is_file() else "absent"
+                    except OSError:
+                        return "unavailable"
+
+                environment = os.environ if env is None else env
+                logging.getLogger(__name__).warning(
+                    "forge_auth_failure kind=gitea exit=%s timeout=%s http=%s "
+                    "identity_valid=%s stdout_length=%s stderr_length=%s named_login=%s "
+                    "reason=%s config_override=%s local_config=%s roaming_config=%s "
+                    "legacy_config=%s",
+                    result.exit_code, result.timed_out, statuses[-1] if statuses else "missing",
+                    identity_valid, len(result.stdout), len(result.stderr),
+                    bool(config.platform.login), reason,
+                    config_present(environment.get("XDG_CONFIG_HOME"), "tea/config.yml"),
+                    config_present(environment.get("LOCALAPPDATA"), "tea/config.yml"),
+                    config_present(environment.get("APPDATA"), "tea/config.yml"),
+                    config_present(environment.get("USERPROFILE") or environment.get("HOME"),
+                                   ".tea/tea.yml"),
+                )
                 result = replace(result, exit_code=1)
         return result
 
@@ -667,22 +720,17 @@ def _probe_setup(config, probe_runner: CommandRunner, env_file: Path | None = No
         config = effective_probe_config(config, runner=bounded_runner)
         git = doctor.detect_git(bounded_runner)
         forge = doctor.detect_platform_cli(config.platform.kind, bounded_runner)
-        auth = doctor.auth_status(config.platform.kind, bounded_runner)
+        auth = doctor.auth_status(config.platform.kind, bounded_runner, external_auth=False)
         runtimes = (doctor.detect_runtimes(bounded_runner)
                     if config.execution.backend == "container" else None)
     except (OSError, UnicodeError, TypeError, ValueError,
             KeyError, TimeoutError, PreparationError) as exc:
         raise _error(503, "readiness_probe_failed") from exc
     if config.execution.backend == "local":
-        from adore.local_execution import local_probe
+        from adore.local_execution import probe_local_executor
 
-        executor = False
-        try:
-            with local_probe(config, env_file) as (backend, target, _, _):
-                backend.verify_required_tools("probe", [], env=target.env)
-                executor = target.auth_available()
-        except (IsolationError, OSError, ValueError):
-            pass
+        executor_probe = probe_local_executor(config, env_file)
+        executor = executor_probe["ready"]
         aegis_root = Path(config.worktree.repo_path) / ".agentic"
         return {"checks": {"git": git.present and not git.detail,
                             "forge_cli": forge.present and not forge.detail,
@@ -691,6 +739,7 @@ def _probe_setup(config, probe_runner: CommandRunner, env_file: Path | None = No
                             "aegis_files": (aegis_root / "aegis.py").is_file()
                             and (aegis_root / "aegis.toml").is_file(),
                             "model_endpoint": "not-checked"},
+                "executor_probe": executor_probe,
                 "model_probe": {"context": "executor-local", "ready": False,
                                 "model": "", "reason": "not-configured"}}
     try:
@@ -1795,7 +1844,7 @@ def _restart_required(key: str) -> bool:
 
 # Environment settings an administrator chooses in the web (reviewed edits only).
 _CHOSEN_ENVIRONMENT_KEYS = frozenset({
-    "execution.backend", "container.runtime", "container.image",
+    "execution.backend", "container.runtime", "container.image", "container.system_packages",
     "local.account", "local.home", "local.path", "local.cgroup_root",
 })
 _IMAGE_LIST_TIMEOUT = 15
@@ -2971,6 +3020,32 @@ def create_app(home: str | Path | None = None,
                   f"failed={len(report['failed'])}")
         return report
 
+    @app.get("/api/v1/host-folders")
+    def host_folders(response: Response,
+                     _user: Annotated[dict, Depends(administrator)],
+                     path: Annotated[str | None, Query(max_length=4096)] = None) -> dict:
+        """@brief List bounded directory metadata on the host for administrator clone selection."""
+        from adore.web.host_folders import HostFolderError, list_host_folders
+
+        response.headers["Cache-Control"] = "no-store"
+        try:
+            return list_host_folders(path)
+        except HostFolderError as exc:
+            raise _error(400, "host_folder_unavailable") from exc
+
+    @app.get("/api/v1/local-executors")
+    def local_executors(response: Response,
+                        _user: Annotated[dict, Depends(administrator)]) -> dict:
+        """@brief Read native host executor suggestions without executing any CLI."""
+        from adore.executor_discovery import discover_executors
+        from adore.local_process import LocalExecutionError
+
+        response.headers["Cache-Control"] = "no-store"
+        try:
+            return discover_executors()
+        except LocalExecutionError as exc:
+            raise _error(503, "local_host_identity_unavailable") from exc
+
     @app.get("/api/v1/executor-images")
     def executor_images(runtime: Literal["docker", "podman"],
                         _user: Annotated[dict, Depends(administrator)]) -> dict:
@@ -3005,6 +3080,10 @@ def create_app(home: str | Path | None = None,
         listing = ls_remote(parsed.url, probe_runner)
         if not listing.ok:
             raise _error(502, "repository_unreachable")
+        try:
+            branches = remote_branches(listing.stdout)
+        except RepositorySourceError as exc:
+            raise _error(502, "repository_branches_invalid") from exc
         kind, login = detect_kind(parsed.host, tea_logins(probe_runner))
 
         def location(name: str) -> Path:
@@ -3026,7 +3105,8 @@ def create_app(home: str | Path | None = None,
             raise _error(409, "project_exists") from exc
         path = location(name)
         return {"url": parsed.url, "kind": kind, "login": login, "repo": parsed.repo,
-                "default_branch": default_branch(listing.stdout), "name": name,
+                "default_branch": default_branch(listing.stdout), "branches": branches,
+                "name": name,
                 "display_name": parsed.name, "repo_path": str(path),
                 "clone": "existing" if path.exists() else "new"}
 
@@ -3498,13 +3578,15 @@ def create_app(home: str | Path | None = None,
             try:
                 evidence = _probe_setup(
                     config, project_runner(profiles.profile_dir(item.name), config, probe_runner),
-                    profiles.config_path(item.name).parent / ".env")
+                    profiles.config_path(item.name).parent / ".env", external_auth=False)
             except RepositoryAuthError as exc:
                 raise _error(503, exc.code) from exc
             checks, model_probe = evidence["checks"], evidence["model_probe"]
             value = {"schema": 1, "project_id": item.project_id, "revision": revision,
                      "context": "api-host", "checked_at": datetime.now(UTC).isoformat(),
                      "checks": checks, "model_probe": model_probe}
+            if "executor_probe" in evidence:
+                value["executor_probe"] = evidence["executor_probe"]
             try:
                 with _web_config_edit_lock(profiles.config_path(item.name)):
                     current = project(name, user)
@@ -4581,6 +4663,8 @@ def create_app(home: str | Path | None = None,
         """@brief Run one forge read, mapping failures to typed API errors."""
         try:
             return read()
+        except GiteaAuthError as exc:
+            raise _error(503, exc.code) from exc
         except (TicketReadError, ForgeResponseError) as exc:
             raise _error(502, "forge_response_invalid") from exc
         except RunReadError as exc:

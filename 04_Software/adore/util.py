@@ -118,6 +118,30 @@ def _decode(stream: bytes | str | None) -> str:
 # PUBLIC API
 
 
+def automatic_environment(env: dict[str, str] | None = None) -> dict[str, str]:
+    """
+    @brief      Copy a child environment and disable interactive pagers.
+    @param[in]  env Replacement environment; None inherits the current process.
+    @return     Independent environment with authoritative Git/generic pager values.
+    @note       Explicit environments retain their account/credential boundary.
+    """
+    source = os.environ if env is None else env
+    result = {key: value for key, value in source.items()
+              if key.upper() not in {"GIT_PAGER", "PAGER"}}
+    result.update(GIT_PAGER="cat", PAGER="cat")
+    return result
+
+
+def background_process_options() -> dict[str, int]:
+    """
+    @brief   Suppress console allocation for automated Windows child processes.
+    @return  Windows CREATE_NO_WINDOW options, or empty options on other hosts.
+    @note    Keeps Job membership and process handles; no detached/breakaway flag.
+    """
+    # The stable Win32 value also permits offline platform simulation on Linux.
+    return {"creationflags": 0x08000000} if sys.platform == "win32" else {}
+
+
 def run_command(
     argv: Sequence[str],
     *,
@@ -152,8 +176,10 @@ def run_command(
             capture_output=True,
             cwd=str(cwd) if cwd is not None else None,
             timeout=timeout,
-            env=env,
+            env=automatic_environment(env),
+            stdin=subprocess.DEVNULL,
             check=False,
+            **background_process_options(),
         )
     except FileNotFoundError as exc:
         return CommandResult(argv=argv_list, exit_code=127, stderr=str(exc))

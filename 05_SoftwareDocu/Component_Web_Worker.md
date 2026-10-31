@@ -103,3 +103,36 @@ outcomes as failed checks. Invalid configuration gets a 60-second recheck with
 no engine invocation. Restart resets cadence; serial work on another project
 may delay a due round. `polling.mode` governs standalone CLI startup; the web
 service schedules repeated `run --once` rounds independently of that value.
+
+## Manual admission results
+
+Start targets one ticket while retaining paused automatic monitoring. The default
+runner returns captured `CommandResult`; injected integer runners remain
+compatible. For Start, the worker validates only the final terminal CLI record
+through `start_result.py`: at most 1024 characters, duplicate-free JSON with
+exact schema/ticket/exit/reason fields, bound to the selected IID and observed
+exit code. Unknown codes, extra fields and mismatched identities/outcomes reject.
+A successful exit with invalid evidence remains uncertain; a failed exit stays
+failed with `start:invalid_result`. Valid failures store `start:<closed reason>`.
+Arbitrary process output and credentials never enter the operation result.
+Automatic polling extracts the exit code from CommandResult without reading
+manual result evidence. Timeout remains uncertain and is never replayed.
+
+## Background engine launch
+
+The production runner applies the shared child-only pager environment and
+Windows no-console options, closes stdin, and retains the existing captured
+UTF-8 streams, six-hour timeout and manual-result validation. The selected
+`ADORE_HOME` and other worker environment values remain available to the child.
+Focused proof: `test_default_worker_runner_carries_manual_outcome`.
+
+## Explicit Retry feedback
+
+The production worker validates the final bounded ADORE_RETRY_RESULT evidence
+against the requested run and observed CLI exit, rejecting duplicate fields,
+unknown reasons and malformed or mismatched output. retry_failed reads only that
+project/run's persisted failed outcome, already public in Jobs, into bounded
+retry:failed feedback. Other refusals use closed retry reasons. Missing failure
+state is reported as state_unavailable; a timeout remains uncertain. Raw stdout
+logs and stderr never become user-facing diagnostic text. Focused offline proof:
+tests/test_retry_revalidation.py; existing queue authorization remains unchanged.

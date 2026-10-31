@@ -75,6 +75,9 @@ class Forge:
                 )
             return CommandResult(
                 argv=argv, stdout="ref: refs/heads/develop\tHEAD\n" + "a" * 40 + "\tHEAD\n"
+                + "a" * 40 + "\trefs/heads/develop\n"
+                + "b" * 40 + "\trefs/heads/main\n"
+                + "c" * 40 + "\trefs/heads/task/interface\n"
             )
         if argv[:2] == ["git", "clone"]:
             dest = Path(argv[-1])
@@ -206,6 +209,7 @@ def test_detection_endpoint_reads_the_repository_without_writing(tmp_path) -> No
             "login": "dcp",
             "repo": "dpasare/Sample.Service",
             "default_branch": "develop",
+            "branches": ["develop", "main", "task/interface"],
             "name": "sample.service",
             "display_name": "Sample.Service",
             "repo_path": str((tmp_path / "home" / "repos" / "sample.service").resolve()),
@@ -213,6 +217,9 @@ def test_detection_endpoint_reads_the_repository_without_writing(tmp_path) -> No
         }
         assert not (tmp_path / "home" / "repos").exists()
         assert not any(call[:2] == ["git", "clone"] for call in forge.calls)
+        assert [call for call in forge.calls if call[:2] == ["git", "ls-remote"]] == [
+            ["git", "ls-remote", "--symref", "--", URL, "HEAD", "refs/heads/*"]
+        ]
         assert (
             client.post(
                 "/api/v1/projects/repository-source", json={"url": "file:///x"}, headers=headers
@@ -230,6 +237,81 @@ def test_detection_endpoint_reads_the_repository_without_writing(tmp_path) -> No
         )
         assert response.status_code == 502
         assert response.json()["detail"]["code"] == "repository_unreachable"
+
+
+@pytest.mark.parametrize("url,kind", [
+    ("https://github.com/team/app.git", "github"),
+    ("https://gitlab.com/team/app.git", "gitlab"),
+    (URL, "gitea"),
+    ("ssh://git@git.enterprise.invalid:2222/team/app.git", None),
+])
+def test_remote_branches_are_forge_independent(tmp_path, url, kind) -> None:
+    """@brief Every supported forge and unknown self-hosted address shares Git discovery."""
+    forge = Forge()
+    with TestClient(create_app(tmp_path / "home", probe_runner=forge)) as client:
+        response = client.post("/api/v1/projects/repository-source", json={"url": url},
+                               headers=_login(client))
+        assert response.status_code == 200
+        assert response.json()["kind"] == kind
+        assert response.json()["default_branch"] == "develop"
+        assert response.json()["branches"] == ["develop", "main", "task/interface"]
+
+
+@pytest.mark.parametrize("output,default,branches", [
+    ("", None, []),
+    ("a" * 40 + "\tHEAD\n" + "b" * 40 + "\trefs/heads/release/2.0\n",
+     None, ["release/2.0"]),
+    ("ref: refs/heads/stable\tHEAD\n" + "a" * 64 + "\tHEAD\n"
+     + "a" * 64 + "\trefs/heads/stable\n", "stable", ["stable"]),
+    ("ref: refs/heads/stable\tHEAD\r\n" + "a" * 40 + "\tHEAD\r\n"
+     + "a" * 40 + "\trefs/heads/stable\r\n", "stable", ["stable"]),
+])
+def test_empty_or_detached_remote_does_not_invent_default(tmp_path, output, default, branches):
+    """@brief Missing symbolic HEAD stays unknown; SHA-256 repositories remain supported."""
+    forge = Forge()
+
+    def runner(argv, **options):
+        if list(argv)[:2] == ["git", "ls-remote"]:
+            return CommandResult(argv=list(argv), stdout=output)
+        return forge(argv, **options)
+
+    with TestClient(create_app(tmp_path / "home", probe_runner=runner)) as client:
+        response = client.post("/api/v1/projects/repository-source", json={"url": URL},
+                               headers=_login(client))
+        assert response.status_code == 200
+        assert response.json()["default_branch"] == default
+        assert response.json()["branches"] == branches
+
+
+@pytest.mark.parametrize("output", [
+    "not Git refs\n",
+    "not-an-object\trefs/heads/main\n",
+    "a" * 40 + "\trefs/heads/main\n" + "b" * 40 + "\trefs/heads/main\n",
+    "ref: refs/heads/missing\tHEAD\n" + "a" * 40 + "\trefs/heads/main\n",
+    "a" * 40 + "\trefs/heads/../bad\n",
+    "a" * 40 + "\trefs/heads/bad.lock\n",
+    "a" * 40 + "\trefs/heads/-option\n",
+    "a" * 40 + "\trefs/heads/a\x00b\n",
+    "a" * 40 + "\trefs/heads/a\x0b\n",
+    "a" * 40 + "\trefs/tags/v1\n",
+    "x" * 2_000_001,
+    "".join("a" * 40 + f"\trefs/heads/branch-{number}\n" for number in range(10_001)),
+], ids=lambda output: f"advertisement-{len(output)}")
+def test_corrupt_or_oversized_remote_refs_fail_closed(tmp_path, output):
+    """@brief An untrusted ref listing cannot become partial or fabricated choices."""
+    forge = Forge()
+
+    def runner(argv, **options):
+        if list(argv)[:2] == ["git", "ls-remote"]:
+            return CommandResult(argv=list(argv), stdout=output)
+        return forge(argv, **options)
+
+    with TestClient(create_app(tmp_path / "home", probe_runner=runner)) as client:
+        response = client.post("/api/v1/projects/repository-source", json={"url": URL},
+                               headers=_login(client))
+        assert response.status_code == 502
+        assert response.json()["detail"]["code"] == "repository_branches_invalid"
+        assert not (tmp_path / "home/repos").exists()
 
 
 def test_create_clones_after_review_and_checks_do_not(tmp_path) -> None:

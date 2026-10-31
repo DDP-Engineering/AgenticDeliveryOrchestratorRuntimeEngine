@@ -110,10 +110,9 @@ protects the worktree from routine cleanup and further autonomous execution.
 
 - The CLI runtime is standard-library Python 3.11+ with no runtime dependencies.
   The optional `web` extra adds FastAPI, Uvicorn and Argon2id support.
-- ADORE conducts AEGIS major 0 at 0.5 or later over JSON schema 1, declared
-  once in `adore/aegis.py`. It never edits the AEGIS payload, and the ADORE
-  release number names the AEGIS release the contract was last re-verified
-  against.
+- ADORE companion version/schema policy is declared in `adore/aegis.py`.
+  It never edits the AEGIS payload. ADORE releases use independent Semantic
+  Versioning; companion compatibility is verified separately.
 - Run state is schema 1 with no migration from earlier lines; unknown or
   corrupt state fails closed.
 - Executors use the selected container/native backend, never receive forge credentials, and never
@@ -121,7 +120,7 @@ protects the worktree from routine cleanup and further autonomous execution.
   and never merges; `delivery.draft` selects draft (`true`, default) or ready (`false`) creation.
 - Secrets live only in the process environment or a gitignored `.env`.
 - Version assignment, packaging and delivery are repository operations outside
-  AEGIS scope, checked by `02_Tools/check_release_consistency.py`. This
+  AEGIS scope, checked by `02_Tools/internal/check_release_consistency.py`. This
   repository's own `.agentic/` companion does not ship in the runtime bundle.
 - Code follows `01_Documentation/Code_Style.md`. Each component keeps a
   contract in `05_SoftwareDocu/` and a page in `.agentic/knowledge/`, updated
@@ -136,7 +135,7 @@ protects the worktree from routine cleanup and further autonomous execution.
   environment verification. The durable queue owns actual command outcomes.
 - `04_Software/web/` is the build-time React source; the packaged static build
   lives in `04_Software/adore/web/static/`.
-- `04_Software/deploy/` holds the host installers and systemd unit;
+- `02_Tools/deploy/` holds the host installers and systemd unit;
   `04_Software/docker/` holds the executor base and egress-proxy images.
 - `01_Documentation/` is operator documentation, `05_SoftwareDocu/` holds
   component contracts, `02_Tools/` holds release tooling, `07_Delivery/` holds
@@ -210,7 +209,7 @@ Project Settings → Agent and model owns agent/model settings and approved prov
 
 ## Reviewed container preparation
 
-`adore/preparation.py` resolves closed exact-Git recipe plans and effective image authority; `adore/execution.py` supplies backend paths/environment, bound commands and owned container lifecycle. Preparation runs in the normal pinned worktree/container before AEGIS/AI, with bounded redacted immutable evidence and explicit capped replay. Optional recipe execution state in schema 1 verifies resource/image/policy identity on reuse. Profiles without recipes retain existing profile-update/recovery behavior and empty preparation records. CLI reviews external preparation plans; GUI shows the effective image and saved run evidence. Host/model probes never execute setup.
+`adore/preparation.py` resolves closed exact-Git recipe plans and effective image authority; `adore/execution.py` supplies backend paths/environment, bound commands and owned container lifecycle. Preparation runs in the normal pinned worktree/container before AEGIS/AI, with bounded redacted immutable evidence and explicit capped replay. Optional recipe execution state in schema 1 verifies resource/image/policy identity on reuse. Profiles without recipes or enabled package permission retain existing profile-update/recovery behavior and empty execution records. CLI reviews external preparation plans; GUI shows the effective image and saved run evidence. Host/model probes never execute setup.
 
 ## Native local execution
 
@@ -221,8 +220,102 @@ sandboxes. See knowledge/local-execution.md and 01_Documentation/Local_Execution
 
 ## Project executor images
 
-Settings → Agent and model shows a compact container notice with the effective image and one expandable instruction disclosure. It identifies standard `executor/Dockerfile`, optional `executor/README.md`, a non-root example, external Docker/Podman build and verification, and the existing profile fields. Only administrators see the actual resolved server `config.toml` path. No controls define or build an image. Enrollment step 2 and Settings → Agent and model let administrators choose Runs in (Container or Installed on the server), Container runtime and Executor image (suggestions from the images on the server, `GET /api/v1/executor-images`) and the local account fields, through the reviewed configuration flow in Settings; the administrator still prepares the image on the server. Other environment keys stay external; specialized profiles use server TOML enrollment. Historical records remain readable/exportable/cancellable; old pending candidates can be discarded, and queued image-build requests fail without runtime execution. See [Project executor images](../../01_Documentation/Project_Executor_Images.md).
+Settings → Agent and model shows a compact container notice with the effective image and one expandable instruction disclosure. It identifies standard `executor/Dockerfile`, optional `executor/README.md`, a non-root example, external Docker/Podman build and verification, and the existing profile fields. Only administrators see the actual resolved server `config.toml` path. No controls define or build an image. Enrollment step 2 and Settings → Agent and model let administrators choose Runs in (Container or Installed on the server), Container runtime and Executor image (suggestions from the images on the server, `GET /api/v1/executor-images`) and local overrides under Advanced, through the reviewed configuration flow in Settings; the administrator still prepares the image on the server. Other environment keys stay external; specialized profiles use server TOML enrollment. Historical records remain readable/exportable/cancellable; old pending candidates can be discarded, and queued image-build requests fail without runtime execution. See [Project executor images](../../01_Documentation/Project_Executor_Images.md).
+
+AEGIS owns backward stage routing within the selected full/quick path. The
+conductor saves accepted stages before checkpoints, continues with fresh bounded
+sessions and preserves typed checkpoint failures at the observed stage. Jobs
+uses this durable state; see knowledge/orchestrator.md and aegis-client.md.
 
 ## Job branch naming
 
 Repository settings uses administrator-reviewed branch template/rule edits with a revision-bound fixed example. Shared CLI/web Python validation rejects malformed formatting, invalid Git samples and incompatible or unevaluable rules; scoped developers can preview without write authority. Runtime paths remain external. See Configuration_Reference.md and knowledge/config.md.
+
+Local enrollment and Agent and model command editing detect installed native
+executors and known npm entrypoints on the actual Windows/Linux ADORE host,
+with explicit manual executable paths. Discovery reads files without executing
+CLIs; existing auth/model checks and native isolation remain separate. See
+`01_Documentation/Local_Execution.md` and knowledge/executor-discovery.md.
+
+Native enrollment uses a read-only detected account with automatic home/PATH.
+Full commands and environment overrides stay under Advanced. Clone destinations
+have automatic/custom selection and an administrator host folder navigator;
+selection is read-only and actual clone publication retains its existing checks.
+See knowledge/host-folders.md and 01_Documentation/Web_Interface.md.
+
+Reviewed web configuration saves preserve the active file and pending review on write errors; brief Windows replacement contention uses six attempts with at most 250ms total scheduled delay and explicit localized failure.
+
+The clone folder chooser uses compact selectable directory rows, address/Back/Parent
+navigation and exact existing-folder confirmation; new destinations remain editable
+in the main form. Agent and model uses independent field columns. Local executor
+discovery is automatic, with optional re-detection under closed Advanced controls.
+
+
+Repository enrollment reads remote branches and symbolic HEAD through Git for
+all supported forge types, including self-hosted addresses. Target branch uses
+a remote dropdown with the default marked and initially selected; explicit
+selection survives rereads while it exists. Empty or unknown defaults require
+clear user action. See Component_Repository_Source.md.
+
+Manual ticket Start admits only the selected eligible ticket while retaining
+paused automatic monitoring. Existing capacity, workflow, lock and approval
+gates remain active. CLI terminal evidence binds the requested IID, exit code
+and closed reason; the worker persists safe outcomes and the interface renders
+localized explanations. See Component_Orchestrator.md, Component_CLI.md and
+Component_Web_Worker.md.
+
+Automated host/native commands use child-only pager defaults and Windows
+CREATE_NO_WINDOW. Container exec forwards the same pager defaults to executor
+children. Output/status/timeout and native Job/cgroup ownership stay authoritative;
+see util.md, local-execution.md and isolation.md knowledge.
+
+Gitea external authentication recovers exact pre-HTTP missing-login errors through
+bounded metadata discovery in standard Windows/Linux account configuration roots.
+Protected project connections and explicit XDG retain priority. Closed failures
+lead to four-locale Connect repository guidance; see repository-auth.md.
+
+Native host checks retain closed measured prerequisite causes and process status
+in optional executor_probe readiness evidence. Summary uses concise local copy
+and actual model failure reasons; native OpenCode challenges accept completed
+exact text timestamps and classify typed provider failures. See local-execution.md
+and model-connection.md knowledge for strict nonce/credential/cleanup boundaries.
+
+Windows native supervisors explicitly forward both captured streams when using
+CREATE_NO_WINDOW. Version and model checks consume the same bounded parent-owned
+pipes; successful exit alone does not fabricate version or model evidence.
+
+
+Explicit native Retry revalidates inherited environment and installed executable
+identity on the same host/account for every supported executor/job, retaining
+progress and cumulative budgets. CLI returns failure for immediate failed rearming;
+web operations display the saved terminal cause with bound run/exit evidence.
+
+
+The rebuilt AEGIS 0.14.0 companion command/schema contract is covered by captured
+release-output replay in test_aegis_014_compatibility.py. Every stage prompt names
+the installed journal authoring guide and preserves task identity, legal content
+and history. Companion updates do not renumber ADORE or replace project payloads.
+
+## Agent-controlled container packages
+
+Explicit container.system_packages enables direct noninteractive package-manager sudo by the normal agent, independent of egress. The conductor pins authority and resource IDs even without recipes and preserves existing stage limits and forge boundaries. Settings reviews the separate boolean; false preserves legacy authority. See knowledge/package-permissions.md and 01_Documentation/Agent_Dependency_Installation.md.
+
+
+## Container Git context
+
+Fresh repository containers use a read-only container-native Git pointer while
+the host keeps its own pointer. Git selects independent and nested repositories
+normally; managed repository-selection environment fields are provisioning
+metadata. Warm containers preserve their creation-time binding and installed
+contents. WSL container commands use direct argument execution; custom wrappers
+identify their command boundary explicitly. See knowledge/isolation.md and
+01_Documentation/Operations_Guide.md for ownership and recovery contracts.
+
+## Container timeout recovery
+
+Shared container commands address observed immutable IDs. Actual timeouts require
+verified same-resource interruption before output retention, with deferred verified
+restart at the next command/provision. Dependencies/files/user/egress are retained.
+Unconfirmed recovery blocks active admission and becomes terminal infrastructure
+failure; cancellation and explicit owned release keep authority. No new runtime
+package or state schema is required. See knowledge/execution.md and Operations_Guide.

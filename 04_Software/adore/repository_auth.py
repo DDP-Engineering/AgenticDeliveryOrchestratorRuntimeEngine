@@ -23,6 +23,7 @@ import tempfile
 from urllib.parse import quote, urlsplit
 
 from adore.forge.base import ForgeError
+from adore.gitea_auth import portable_tea_runner
 from adore.util import CommandRunner, run_command
 
 # CONSTANTS
@@ -334,11 +335,14 @@ def load_connection(directory: Path, config) -> dict | None:
 
 def project_runner(directory: Path, config, runner: CommandRunner = run_command) -> CommandRunner:
     """@brief Load validated profile credentials into a scoped command runner.
-    @return Original runner only when no private credential record exists.
+    @return Protected scoped runner, portable external tea runner, or other forge runner.
     @exception RepositoryAuthError Corruption/scope mismatch never falls back.
     """
     value = load_connection(directory, config)
-    return credential_runner(value, runner) if value is not None else runner
+    if value is not None:
+        return credential_runner(value, runner)
+    return (portable_tea_runner(runner, login=config.platform.login)
+            if config.platform.kind == "gitea" else runner)
 
 
 # END OF FILE

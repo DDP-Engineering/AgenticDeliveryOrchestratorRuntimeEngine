@@ -486,16 +486,27 @@ def test_protocol_rejects_invalid_utf8_marker_timeout_and_unexpected_exit() -> N
     [
         ("frame", "specify", "full", True),
         ("frame", "build", "quick", True),
+        ("design", "specify", "full", True),
+        ("design", "specify", "quick", False),
+        ("design", "specify", "unknown", False),
+        ("design", "frame", "full", True),
+        ("specify", "frame", "full", True),
+        ("build", "specify", "full", True),
+        ("build", "design", "full", True),
+        ("design", "validate", "full", False),
         ("validate", "build", "full", True),
         ("validate", "specify", "full", True),
         ("deliver", "validate", "full", True),
         ("frame", "design", "full", False),
-        ("build", "frame", "quick", False),
-        ("deliver", "build", "full", False),
+        ("build", "frame", "quick", True),
+        ("deliver", "build", "full", True),
+        ("done", "build", "full", False),
+        ("build", "specify", "quick", False),
+        ("frame", "specify", "unknown", False),
     ],
 )
 def test_transition_allowlist(previous: str, current: str, path: str, expected: bool) -> None:
-    """@brief Only documented progression and validation rollback are legal."""
+    """@brief Earlier AEGIS stages are accepted within the path; completion stays terminal."""
     assert allowed_transition(previous, current, path) is expected
 
 

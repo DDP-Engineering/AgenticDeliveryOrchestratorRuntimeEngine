@@ -15,13 +15,14 @@ status = "active"
 
 requirement = """
 When an administrator enrolls a project from a repository URL, the server shall accept only https, http or ssh (including user@host:path) addresses without embedded passwords, derive the repository path, forge kind (github.com, gitlab.com or a matching server tea login, else unset), Gitea login, default branch (git ls-remote), a unique project ID from the repository name (route names such as new, clone and import get a suffix) and propose the clone location <ADORE home>/repos/<project ID>, which the administrator may change to another absolute folder outside ADORE home or under its repos folder; preview and checks shall not write the clone, and creation shall clone the repository there (or reuse an existing clone whose origin matches), require the repository-installed AEGIS files and the target branch, remove a clone it just made when creation fails, and never overwrite another folder.
+Remote branches and symbolic HEAD are read through the same noninteractive Git boundary for GitHub, GitLab and Gitea, including self-hosted instances, using the ADORE account's Git access. Enrollment and Clone project config offer validated remote branches in a dropdown with the advertised default initially selected and marked. Same-URL rereading preserves an explicitly chosen branch only while it still exists; changed URLs, failed reads and stale responses cannot reuse old branch choices. Missing symbolic HEAD requires explicit selection, and an empty remote branch list disables continuation with recovery guidance. Malformed, duplicate, inconsistent or oversized advertisements (over 2 MB or 10,000 branches) fail closed with a typed error instead of supplying partial choices or inventing a default.
 """
 
-verification = "Automated: pytest test_repository_source covers URL parsing and rejection, kind/login detection, default branch parsing, ID suggestion, the detection endpoint, preview without writing, check with AEGIS not checked, create cloning with a fake runner, reuse of a matching clone, refusal of an occupied folder, missing AEGIS and target branch cleanup."
+verification = "Automated: pytest test_repository_source covers URL parsing and rejection, kind/login detection, default branch parsing, ID suggestion, all-forge branch discovery through injected Git commands, empty/detached/SHA-256 remotes, malformed/duplicate/oversized refs, the detection endpoint, preview without writing, check with AEGIS not checked, create cloning with a fake runner, reuse of a matching clone, refusal of an occupied folder, missing AEGIS and target branch cleanup. Offline enrollment browser cases cover default-marked branch choices in four locales, explicit selection retention, removed branches, URL changes, stale/failed/malformed responses, empty repositories and missing defaults."
 
-affected_paths = ["04_Software/adore/web/repository_source.py", "04_Software/adore/web/app.py", "04_Software/adore/wizard.py"]
+affected_paths = ["04_Software/adore/web/repository_source.py", "04_Software/adore/web/app.py", "04_Software/adore/wizard.py", "04_Software/web/src/EnrollmentWizard.tsx", "04_Software/web/src/setupCopy.ts", "04_Software/web/src/errors.ts", "04_Software/web/e2e/server.py"]
 
-linked_tests = ["04_Software/tests/test_repository_source.py"]
+linked_tests = ["04_Software/tests/test_repository_source.py", "04_Software/web/e2e/enrollment.spec.ts"]
 
 
 spec = ""
@@ -30,4 +31,4 @@ priority = "normal"   # low | normal | high
 rationale = ""        # why this behavior exists, if not obvious
 
 created = 2026-10-12
-updated = 2026-10-12
+updated = 2026-10-16

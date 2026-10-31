@@ -15,7 +15,7 @@ ADORE führt die AEGIS-Phasen nacheinander aus, jeden Versuch in einer neuen Exe
 | Validierung | Review, die vollständige Testsuite und eine strenge Prüfung, die ADORE anschließend selbst wiederholt. |
 | Lieferung | Nach Ihrer Freigabe werden Freigabe und Abschluss festgehalten und der MR/PR wird veröffentlicht. |
 
-Der schnelle Pfad durchläuft Rahmen, Umsetzung, Validierung und Lieferung. Auf dem vollständigen Pfad kann die Validierung einen Auftrag zurück zu Spezifikation, Entwurf oder Umsetzung schicken, auf dem schnellen Pfad nur zurück zur Umsetzung. Eine Phase erhält standardmäßig drei Fehlversuche (**Erlaubte Fehlversuche je Phase**).
+Der schnelle Pfad durchläuft Rahmen, Umsetzung, Validierung und Lieferung. AEGIS kann zu jeder früheren Phase des gewählten Pfads zurückkehren, auch vom Entwurf zur Spezifikation. ADORE speichert diese Phase und fährt in einer neuen Sitzung innerhalb der bestehenden Grenzen fort. Aufträge zeigt die gespeicherte Phase. Abgeschlossene Aufgaben bleiben endgültig. Eine Phase erhält standardmäßig drei Fehlversuche (**Erlaubte Fehlversuche pro Phase**).
 
 ## Klärung {#clarification}
 
@@ -42,6 +42,10 @@ Schlagen CI-Prüfungen am MR/PR fehl, entscheidet **Aktion bei fehlgeschlagenen 
 Schlägt eine Phase fehl, hält ADORE einen Störungskommentar am Ticket aktuell, mit Phase, Versuch, Fehlercode, Nachweisen und nächster Aktion. Nach dem letzten Versuch postet es einen abschließenden Kommentar, setzt `agent-failed`, stoppt den Container, behält den Worktree und gibt den Platz frei. Weitere Ursachen sind eine abgelaufene Antwortzeit, ein gelöschtes Quellticket und ein überschrittenes Limit wie Kosten oder geänderte Dateien. Das Schließen des Quelltickets, während ein Auftrag wartet, bricht ihn ab.
 
 Unter Aufträge zeigt ein fehlgeschlagener Auftrag **Fehlgeschlagen**, und seine Details erklären, dass Wiederherstellungsnachweise erhalten bleiben. **Wiederholen** bittet den Worker, den Auftrag wiederherzustellen; es umgeht weder Validierung noch Freigabe. In der Ticketansicht ersetzt Wiederholen das Starten. Das Entfernen von `agent-failed` löst keine Wiederholung aus. **Abbrechen** erscheint bei unbeendeten Aufträgen und bittet den Worker, zu stoppen und aufzuräumen. Beendete Aufträge können nicht abgebrochen werden. Administratoren und zugewiesene Entwickler können beides nutzen. Ein eingereihter Befehl zeigt seinen Fortschritt, etwa Befehl eingereiht oder Befehl abgeschlossen.
+
+Bei lokalen Aufträgen prüft **Wiederholen** den installierten Executor erneut und akzeptiert ein aktualisiertes Programm oder eine geänderte geerbte Umgebung auf demselben Computer und Konto. Aufgabe, Worktree, Branch, Verlauf und kumulative Grenzen bleiben erhalten. Die automatische Überwachung tut dies nicht. Geänderte Ausführungseinstellungen oder beschädigte Wiederherstellungsnachweise müssen korrigiert werden. Scheitert der Neustart, zeigt der Vorgang den gespeicherten Grund: fehlendes Programm, ungültige Version, Befehlsfehler oder Zeitüberschreitung. Diese Versionsprüfung sendet keine Modellanfrage; verwenden Sie dafür **KI-Verbindung testen**.
+
+Überschreitet ein Container-Befehl sein Zeitlimit, stoppt ADORE den Container vor dem nächsten Befehl. Der nächste zulässige Versuch startet denselben Container mit installierten Abhängigkeiten und Dateien; der Netzwerkzugriff bleibt unverändert. Lässt sich sicheres Stoppen oder Starten nicht bestätigen, schlägt der Auftrag fehl und bewahrt Nachweise zur Prüfung vor **Wiederholen**. Eine fehlgeschlagene Vorbereitung benötigt weiterhin ihre ausdrückliche Wiederherstellung.
 
 ## Aufträge verfolgen {#following-jobs}
 
