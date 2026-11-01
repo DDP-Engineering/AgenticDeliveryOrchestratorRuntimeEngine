@@ -9,7 +9,9 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 ## Recovery Invariants
 
-- ADORE reads only run-state schema 1. It migrates no earlier state shape.
+- ADORE reads only run-state schema 1. It migrates no earlier state shape: a
+  `state.json` with unknown or missing keys or an unknown stage is refused, and
+  the message names the run directory to delete.
 - AEGIS task journals, not executor sessions, decide resume stage/path.
 - Failed runs stop their container, release capacity, preserve worktree/state,
   and require explicit `adore retry`.
@@ -145,21 +147,47 @@ lock remains present and is reported as `lock_held_by`; never remove it until
 ownership is verified. Cleanup reports corrupt runs and keeps their state,
 worktree and containers.
 
-In `allowlist-proxy` egress mode every run has its own proxy container and
-egress network. A name that would exceed the runtime length limit keeps its
-start and ends in a short digest of the full executor name. Releases before
-per-run names cut long names instead, so long-named runs could share a proxy.
-Before upgrading from such a release, finish or cancel parked
-`allowlist-proxy` runs whose executor container name is longer than 48
-characters, or remove their executor container so the next pass provisions it
-again; a restarted old executor stays on its old network without a reachable
-proxy. `cleanup` later removes the old proxies and networks once no existing
-executor uses them.
+In `allowlist-proxy` egress mode every run has its own proxy container,
+`<executor container>-egress-proxy`, and egress network,
+`<egress network prefix>-<executor container>`. A name that would exceed the
+runtime length limit keeps its start and ends in a short digest of the full
+executor name. `cleanup` recognises only these names; see
+[Egress Leftovers of Earlier Builds](#egress-leftovers-of-earlier-builds).
 
 Stop the service poller before `retry`, `cancel`, `delete`, or `reset`; these
 commands acquire the same single-conductor lock and refuse a live/unknown
 holder. `pause` prevents new pickup but does not stop the poller or release its
 lock. `logs` is read-only and remains available during conduction.
+
+## Egress Leftovers of Earlier Builds
+
+An earlier ADORE build named the proxy container and egress network of a
+long-named executor by cutting the name at the runtime length limit, instead of
+ending it in a digest. `cleanup` does not recognise those old cut names, so
+remove such leftovers by hand with the container runtime CLI. The commands below use Docker; with
+Podman, run the same commands with `podman`.
+
+1. List the project's containers, proxies included, and the egress networks:
+
+   ```text
+   docker ps -a --filter name=<slug>-run-
+   docker network ls --filter name=<egress network prefix>
+   ```
+
+   The egress network prefix is `container.egress.network_prefix`, by default
+   `adore-egress`.
+
+2. Check that no current run uses them: a name must not belong to the executor
+   container of an active, failed or human-owned run, or to that container's
+   proxy or network. `docker ps -a --filter network=<name>` lists the
+   containers attached to a network.
+
+3. Remove the containers first, then the networks:
+
+   ```text
+   docker rm -f <name>
+   docker network rm <name>
+   ```
 
 ## Container preparation
 

@@ -34,7 +34,6 @@ from adore.polling import PollCadence
 from adore.profiles import ProfileError, ProfileStore
 from adore.state import StateError, StateStore
 from adore.util import in_quiet_hours, output_tail
-from adore.web.image_build import ImageBuildError, ImageBuildService
 from adore.web.jobs import redact_text
 from adore.web.store import WebStore, WebStoreError
 
@@ -89,14 +88,13 @@ class CommandWorker:
     """@brief Execute authorized persisted commands through ADORE's CLI."""
 
     def __init__(self, profiles: ProfileStore, web: WebStore,
-                 runner: Runner = _run, *, image_runner=None) -> None:
+                 runner: Runner = _run) -> None:
         self.profiles = profiles
         self.web = web
         self.runner = runner
         # Unbuffered UTF-8 output keeps the engine's lines in order and every character printable.
         self.environment = {**os.environ, "ADORE_HOME": str(profiles.home),
                             "PYTHONUNBUFFERED": "1", "PYTHONIOENCODING": "utf-8"}
-        self.images = ImageBuildService(profiles, runner=image_runner)
 
     def run_pending(self) -> int:
         """@brief Execute at most one pending command; return 1 if claimed."""
@@ -110,40 +108,30 @@ class CommandWorker:
                       if actor is not None and actor["role"] != "admin" else set())
         except WebStoreError:
             self.web.finish(operation["id"], "failed", "project grants are corrupt")
-            self.reject_image(operation)
             return 1
         if (actor is None or actor["disabled"] or not self.profiles.exists(project)
                 or (actor["role"] != "admin" and project not in grants)):
             self.web.finish(operation["id"], "failed", "permission or project revoked")
-            self.reject_image(operation)
             return 1
         try:
             profile = self.profiles.load(project)
             if profile.project_id != operation["project_id"]:
                 self.web.finish(operation["id"], "failed", "project identity changed")
-                self.reject_image(operation)
                 return 1
             if operation["action"] == "delete":
                 if actor["role"] != "admin" or not profile.archived:
                     self.web.finish(operation["id"], "failed",
                                     "delete requires an administrator and an archived project")
-                    self.reject_image(operation)
                     return 1
             elif profile.archived:
                 self.web.finish(operation["id"], "failed", "project archived")
-                self.reject_image(operation)
                 return 1
         except ProfileError:
             self.web.finish(operation["id"], "failed", "project metadata corrupt")
-            self.reject_image(operation)
             return 1
         argv = [sys.executable, "-m", "adore", "--profile", project]
         action = operation["action"]
         target = operation["run_id"]
-        if action == "image-build":
-            self.web.finish(operation["id"], "failed", "environment managed externally")
-            self.reject_image(operation)
-            return 1
         if action == "cancel":
             try:
                 profile = self.profiles.load(project)
@@ -194,23 +182,6 @@ class CommandWorker:
         if action == "delete" and status == "succeeded":
             self.web.audit(actor["id"], "project-deleted", project)
         return 1
-
-    def reject_image(self, operation: dict) -> None:
-        """@brief Mark a revoked queued image artifact failed without runtime effects.
-        @param[in] operation Identity-bound queue request whose authorization failed.
-        """
-        if operation["action"] != "image-build":
-            return
-        try:
-            profile = self.profiles.load(operation["project"])
-            if profile.project_id != operation["project_id"]:
-                return
-            value = self.images.store(profile.name).operation(operation["run_id"])
-            if value["phase"] == "queued":
-                self.images.set_phase(profile.name, value["id"], "failed",
-                                      error="image_worker_rejected")
-        except (ProfileError, ImageBuildError, OSError, ValueError):
-            pass  # Corruption cannot grant authority; queue retains the failed outcome.
 
     def _signal_pending_cancels(self) -> None:
         """@brief Recheck grants before signalling any active conductor."""
@@ -288,13 +259,6 @@ class CommandWorker:
         next_poll: dict[str, float] = {}
         cadences: dict[str, PollCadence] = {}
         try:
-            for operation in self.web.running_image_builds():
-                try:
-                    profile = self.profiles.load(operation["project"])
-                    if profile.project_id == operation["project_id"]:
-                        self.images.recover(profile.name, operation["run_id"])
-                except (ProfileError, ImageBuildError, OSError, ValueError):
-                    pass  # No authority from corrupt/replaced profiles; evidence stays uncertain.
             self.web.recover_interrupted()
             self.web.touch_worker()
             heartbeat_started = True

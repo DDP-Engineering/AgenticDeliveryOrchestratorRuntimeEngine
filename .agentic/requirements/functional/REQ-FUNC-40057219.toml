@@ -16,7 +16,7 @@ requirement = """
 If an approved run reaches publication while its stage is neither done nor publishing, then the conductor shall fail it without pushing or opening an MR/PR.
 """
 
-verification = "An offline test approves a run saved awaiting approval at the removed deliver stage and observes a PUBLICATION_STAGE failure with no push and no MR/PR."
+verification = "An offline test approves a run saved awaiting approval at the validate stage and observes a PUBLICATION_STAGE failure with no push and no MR/PR."
 
 affected_paths = ["04_Software/adore/orchestrator.py"]
 
@@ -26,7 +26,7 @@ linked_tests = ["04_Software/tests/test_orchestrator.py::test_publication_refuse
 spec = ""
 
 priority = "normal"   # low | normal | high
-rationale = "Only a candidate verified when validate closed the AEGIS task may be published; a run recorded under the removed deliver stage is history."
+rationale = "Only a candidate verified when validate closed the AEGIS task may be published."
 
 created = 2026-10-26
-updated = 2026-10-26
+updated = 2026-11-01

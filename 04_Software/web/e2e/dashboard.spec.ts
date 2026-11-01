@@ -109,14 +109,14 @@ test("CSRF and expired candidate revisions fail closed", async ({ page }) => {
   const pending = await staged.json();
   try {
     const rejected = await page.request.post("/api/v1/projects/beta/config/apply", {
-      headers, data: { candidate_revision: "0".repeat(64) },
+      headers, data: { candidate_revision: "0".repeat(64), base_revision: pending.base_revision },
     });
     expect(rejected.status()).toBe(409);
     expect((await rejected.json()).detail.code).toBe("stale_pending_revision");
     const unchanged = await (await page.request.get("/api/v1/projects/beta/config")).json();
     expect(unchanged.revision).toBe(before.revision);
     const applied = await page.request.post("/api/v1/projects/beta/config/apply", {
-      headers, data: { candidate_revision: pending.candidate_revision },
+      headers, data: { candidate_revision: pending.candidate_revision, base_revision: pending.base_revision },
     });
     expect(applied.status()).toBe(200);
     const stale = await page.request.post("/api/v1/projects/beta/config/pending", { headers, data: body });

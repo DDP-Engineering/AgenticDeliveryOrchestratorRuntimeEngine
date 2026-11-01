@@ -31,8 +31,9 @@ second busy timeout. The store has one schema (`_SCHEMA_VERSION`, 15): a new
 file gets it, and a database in any other version is refused with a message
 naming `web.db` and `web.db.initialized` to delete. There are no migrations
 while ADORE is in development (AGENTS.md "Stored data during development").
-Audit rows carry nullable schema-1 structured evidence, opaque unique event
-correlations and an `audit_attempts` receipt ledger. Unknown or damaged audit schemas, missing columns/uniqueness, invalid dates,
+Audit rows carry schema-1 structured evidence, opaque unique event
+correlations and an `audit_attempts` receipt ledger; an audit row without
+structured evidence is corrupt. Unknown or damaged audit schemas, missing columns/uniqueness, invalid dates,
 ambiguous JSON and nonredacted persisted values raise `WebStoreError` on open
 and audit reads/writes. Runtime run-state schemas retain their separate contract.
 
@@ -43,8 +44,8 @@ phase/result, opaque correlation, operation ID and known SHA-256 revisions.
 Known `before`/`after` values include public account grants/flags, scalar numeric
 or boolean settings, pickup result and project existence. Arbitrary string or
 compound settings are redacted; credentials, environment values, raw exceptions
-and caller idempotency strings are excluded. Recognized compact detail remains
-compatible; arbitrary historical detail is projected as `[redacted]`.
+and caller idempotency strings are excluded. Recognized compact detail is kept;
+arbitrary detail is projected as `[redacted]`.
 
 SQLite account creation, compatible account mutations, project access, password
 replacement, queue submission/completion/recovery and retention mutation record
@@ -66,10 +67,9 @@ redacted attempted evidence for host reconciliation. Receipts and durable
 operations are separate from visible audit retention; deleting visible events
 never permits completion duplication or prevents a valid operation from finishing.
 
-Legacy rows keep recorded IDs/action/time but expose null result/phase/project ID,
-revisions and `before`/`after`. Their actor name was not snapshotted. A mutable old
-project name grants no Dev access to those rows. The read projection describes
-absence explicitly and fabricates no historical differences.
+Every audit write carries structured evidence. A stored row without it is
+corrupt: opening the store and audit reads raise `WebStoreError` rather than
+projecting unknowns.
 
 `users.password_change_required` is set by an administrator reset and cleared
 by a successful own password change; the bootstrap `admin` starts unmarked.
@@ -87,8 +87,7 @@ validates and inserts source events transactionally; exact replay is idempotent,
 changed, truncated or vanished source evidence fails closed, and attributed
 usage is read back from SQLite. An
 administrator can rebuild it from retained journals without changing run state.
-Legacy price rows are retained but not used when their creation predates the
-current profile's creation; the administrator must reconcile those rates.
+Projection source IDs are the usage events' versioned `event_id` values.
 Renames retain bound rates, and replacement profiles cannot inherit them.
 Queued commands are bound to immutable profile IDs. Developer grants are bound
 to immutable profile IDs and stamped with the profile's creation time, so a
@@ -144,8 +143,8 @@ cookie contains an opaque random value; only its SHA-256 digest is stored.
 `limit=None`. `audit_page` selects actor ID, immutable project ID, exact action
 and half-open UTC instants before its count/LIMIT/OFFSET in one SQLite snapshot.
 Actor IDs and offsets reject values outside the SQLite signed 64-bit domain.
-Persisted audit project names use the same safe grammar as new writes, including
-legacy rows; an empty name denotes global scope. Corrupt names raise a redacted
+Persisted audit project names use the same safe grammar as new writes; an empty
+name denotes global scope. Corrupt names raise a redacted
 `WebStoreError` on initialization and public reads rather than exposing URLs.
 The API constrains Dev selection to one granted project and project-safe actions.
 `audit`, `begin_change` and `confirm_change` own committed and filesystem-attempt
@@ -163,8 +162,10 @@ or corrupt persisted values fail closed.
 
 ## 6. Data Contracts
 
-Roles are `admin` and `developer`. Operations are `start`, `retry`, `cancel`
-with `pending`, `running`, `succeeded`, `failed`, or `uncertain` status.
+Roles are `admin` and `developer`. Operations are `start`, `retry`, `cancel`,
+`pause`, `resume` and `delete` with `pending`, `running`, `succeeded`, `failed`,
+or `uncertain` status. Every operation carries an immutable project ID; one
+without it is corrupt.
 `(actor_id, idempotency_key)` is unique. Login failures are keyed by hashed
 username/client identity and windowed to five in ten minutes.
 
@@ -191,12 +192,3 @@ manual stopped-service restore of the default home.
 This is a single-host store. There is no email password recovery or
 multi-host dispatch. The account lockout key uses the direct client address;
 a reverse proxy should preserve a stable trusted address policy.
-
-## Project image queue extension
-
-WebStore.enqueue accepts the fixed image-build action with immutable artifact
-UUID run_id. operation_for_key resolves existing actor idempotency before new
-artifact allocation; API rechecks complete request binding. running_image_builds
-returns only in-flight image queue records for startup reconciliation. Existing
-queue status/schema, atomic audit and project-identity resolution remain the
-authority. Focused HTTP/worker proof: tests/test_web_image_build.py.

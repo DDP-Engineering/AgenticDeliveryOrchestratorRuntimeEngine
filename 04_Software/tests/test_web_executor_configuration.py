@@ -57,7 +57,8 @@ def test_agent_selection_reviews_and_applies_complete_exact_candidate(tmp_path, 
         assert path.read_bytes() == original
         assert client.get("/api/v1/projects/alpha/config/pending").json() == pending
         response = client.post("/api/v1/projects/alpha/config/apply", headers=headers,
-                               json={"candidate_revision": pending["candidate_revision"]})
+                               json={"candidate_revision": pending["candidate_revision"],
+                                     "base_revision": pending["base_revision"]})
         assert response.status_code == 200, response.text
     expected = deepcopy(tomllib.loads(original.decode()))
     expected["executor"]["default"] = agent
@@ -88,7 +89,8 @@ def test_provider_names_are_reviewed_without_changing_private_values(tmp_path, v
         assert pending["proposed_value"] == variables
         assert "offline-private-key" not in response.text
         response = client.post("/api/v1/projects/alpha/config/apply", headers=headers,
-                               json={"candidate_revision": pending["candidate_revision"]})
+                               json={"candidate_revision": pending["candidate_revision"],
+                                     "base_revision": pending["base_revision"]})
         assert response.status_code == 200, response.text
     assert load_config(path).executor.env_keys == variables
     assert env.read_bytes() == private
@@ -164,7 +166,8 @@ def test_agent_selection_rejects_authority_and_persisted_scope_changes(tmp_path,
                 pending["candidate_revision"] = stored["candidate_revision"]
                 assert client.get("/api/v1/projects/alpha/config/pending").status_code == 503
             response = client.post("/api/v1/projects/alpha/config/apply", headers=headers,
-                                   json={"candidate_revision": pending["candidate_revision"]})
+                                   json={"candidate_revision": pending["candidate_revision"],
+                                         "base_revision": pending["base_revision"]})
             assert response.status_code == (409 if mode == "unpaused" else 503), response.text
     assert path.read_bytes() == original
 

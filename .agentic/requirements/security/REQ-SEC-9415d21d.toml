@@ -21,7 +21,7 @@ verification = "Inject nested secret payloads and malformed persisted evidence; 
 
 affected_paths = ["04_Software/adore/web/audit.py", "04_Software/adore/web/store.py", "04_Software/adore/web/app.py", "04_Software/web/src/AuditHistory.tsx"]
 
-linked_tests = ["04_Software/tests/test_web_audit_evidence.py::test_corrupt_legacy_project_fails_closed_on_public_reads", "04_Software/tests/test_web_audit_evidence.py", "04_Software/web/e2e/audit.spec.ts"]
+linked_tests = ["04_Software/tests/test_web_audit_evidence.py::test_corrupt_project_fails_closed_on_public_reads", "04_Software/tests/test_web_audit_evidence.py", "04_Software/web/e2e/audit.spec.ts"]
 
 
 spec = "specs/REQ-DATA-34ed1530.md"
@@ -30,4 +30,4 @@ priority = "normal"   # low | normal | high
 rationale = ""        # why this behavior exists, if not obvious
 
 created = 2026-10-06
-updated = 2026-10-06
+updated = 2026-11-01

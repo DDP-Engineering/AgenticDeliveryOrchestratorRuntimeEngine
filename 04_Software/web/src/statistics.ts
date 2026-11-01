@@ -52,7 +52,7 @@ function jobs(value: unknown, project: string) {
     seen.add(String(row.run_id));
     for (const key of ["lifetime", "in_period", "unallocated"]) amounts(row[key]);
     const coverage = object(row.coverage);
-    for (const [key, source] of [["lifetime_usage_events", "lifetime"], ["period_usage_events", "in_period"], ["unallocated_usage_events", "unallocated"]]) {
+    for (const [key, source] of [["lifetime_usage_events", "lifetime"], ["period_usage_events", "in_period"]]) {
       if (count(coverage[key]) !== object(row[source]).events) invalid();
     }
   }
@@ -72,7 +72,7 @@ export function readStatistics(value: unknown, project: string, selection: Repor
   const totals = object(row.totals);
   for (const [key, value] of Object.entries(totals)) key.includes("tokens") ? tokens(value) : key.includes("cost") ? amount(value) : count(value);
   const coverage = object(row.coverage);
-  for (const key of ["usage_events_with_tokens", "usage_events_without_tokens", "usage_events_unallocated", "runs_with_usage"]) count(coverage[key]);
+  for (const key of ["usage_events_with_tokens", "usage_events_without_tokens", "runs_with_usage"]) count(coverage[key]);
   for (const value of Object.values(coverage)) count(value);
   const quality = object(row.quality);
   for (const key of ["reviewed_jobs", "reworked_jobs", "validated_jobs", "first_pass_validations", "human_merged_jobs", "first_pass_merges", "open_review_jobs", "stage_failures", "operator_retries"]) count(quality[key]);

@@ -8,11 +8,11 @@ id = "REQ-FUNC-6b8494a7"
 title = "Keep executor environment mutations outside the web application"
 status = "active"
 requirement = """
-When a web request or retained queued operation attempts to define or build an image, or to change an environment setting other than execution.backend, container.runtime, container.image and local.account, local.home, local.path and local.cgroup_root, ADORE shall refuse it before configuration, artifact or runtime mutation, preserving scoped historical evidence, discard/recovery and existing executor/model/readiness operations; the listed settings change only through reviewed, validated configuration.
+When a web request attempts to change an environment setting other than execution.backend, container.runtime, container.image and local.account, local.home, local.path and local.cgroup_root, ADORE shall refuse it before configuration or runtime mutation, preserving existing executor/model/readiness operations; the listed settings change only through reviewed, validated configuration. ADORE web offers no image definition or build. A pending candidate that carries an image_build binding or targets an operator-owned environment key shall be refused as pending_config_corrupt on view and apply, and an administrator can still discard it.
 """
-verification = "Authorized API tests refuse other environment keys (direct, staged and legacy candidates) and image definition/build submissions without side effects, accept reviewed edits of the listed keys with validation, and the worker rejects retained queued builds without runtime calls."
+verification = "Authorized API tests refuse other environment keys (direct and staged) without side effects and accept reviewed edits of the listed keys with validation; a pending candidate with an image_build binding or for an operator-owned key answers 503 pending_config_corrupt on view and apply, leaves config.toml unchanged and is discarded through DELETE /api/v1/projects/{name}/config/pending."
 affected_paths = ["04_Software/adore/web/app.py", "04_Software/adore/web/commands.py"]
-linked_tests = ["04_Software/tests/test_web_image_build.py", "04_Software/tests/test_web_pending_config.py::test_legacy_environment_candidate_is_readable_discardable_but_not_applicable", "04_Software/tests/test_executor_environment_choice.py"]
+linked_tests = ["04_Software/tests/test_web_pending_config.py::test_pending_candidate_for_an_external_key_is_corrupt_but_discardable", "04_Software/tests/test_executor_environment_choice.py"]
 priority = "high"
 created = 2026-10-08
-updated = 2026-10-13
+updated = 2026-11-01

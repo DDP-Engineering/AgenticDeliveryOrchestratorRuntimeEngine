@@ -6,7 +6,6 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 */
 import { validExecutorSelection, validCredentialNames, type ExecutorSelection } from "./executorSettings.ts";
 import { validImplementationCollection } from "./implementationSettings.ts";
-import { validImageBinding, type ImageBinding } from "./imageBuild.ts";
 import type { MessageKey } from "./i18n";
 import { validExecutionPlan, type ExecutionPlan } from "./executionPlan.ts";
 
@@ -122,7 +121,7 @@ export function validBranchPreview(value: unknown): value is BranchPreview {
 
 /** CLI-only and technical keys retained by configuration but omitted from operator controls. */
 export const HIDDEN_SETTING_KEYS = new Set([
-  "state.channel", "labels.executor.prefix", "readiness.max_scope_hint",
+  "labels.executor.prefix", "readiness.max_scope_hint",
   "labels.selection.type_feature", "review.trigger", "review.review_reminder_after",
   "clarification.reminder_after", "clarification.timeout_state", "metrics.capture_resource",
   "reconcile.on_ticket_closed", "reconcile.on_ticket_deleted", "reconcile.on_trigger_removed",
@@ -248,7 +247,7 @@ export function validSettingCatalog(settings: unknown): settings is SettingMeta[
   });
 }
 
-export type PendingConfig = { image_build?: ImageBinding; base_revision: string; candidate_revision: string; key: string; value: string; proposed_value: string | number | boolean | string[] | number[] | Record<string, number> | ExecutorSelection; created_at: string; restart_required: boolean; execution_plan?: ExecutionPlan; endpoint?: { protocol: string; model: string; auth_env: string | null; timeout_seconds: number | null; ca_file: string | null } };
+export type PendingConfig = { base_revision: string; candidate_revision: string; key: string; value: string; proposed_value: string | number | boolean | string[] | number[] | Record<string, number> | ExecutorSelection; created_at: string; restart_required: boolean; execution_plan?: ExecutionPlan; endpoint?: { protocol: string; model: string; auth_env: string | null; timeout_seconds: number | null; ca_file: string | null } };
 
 /** A malformed or unbound server candidate never enables Apply. */
 export function validPendingConfig(value: unknown): value is PendingConfig | null {
@@ -268,7 +267,6 @@ export function validPendingConfig(value: unknown): value is PendingConfig | nul
     && (collection || reviewerList || agentSelection || credentials || !["executor.selection", "executor.env_keys", "delivery.reviewers", "recovery.retry_backoff_seconds", "workflow.stage_timeout_overrides"].includes(item.key) && ["string", "number", "boolean"].includes(typeof item.proposed_value))
     && (typeof item.proposed_value !== "number" || Number.isFinite(item.proposed_value))
     && typeof item.restart_required === "boolean"
-    && (item.image_build === undefined || validImageBinding(item.image_build) && item.key === "container.image" && item.image_build.image_id === item.proposed_value && item.image_build.config_revision === item.base_revision)
     && (item.execution_plan === undefined || validExecutionPlan(item.execution_plan))
     && (item.key !== "execution.preparation" || !item.proposed_value || !!item.execution_plan && item.execution_plan.selection === item.proposed_value)
     && typeof item.created_at === "string" && /(?:Z|[+-]\d{2}:\d{2})$/.test(item.created_at) && Number.isFinite(Date.parse(item.created_at))

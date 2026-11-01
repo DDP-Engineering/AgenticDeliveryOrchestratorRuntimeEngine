@@ -36,21 +36,21 @@ project.
    - the executor container `<slug>-run-<run ID>` and the run's recorded
      container name;
    - the egress proxy of each such executor container, under its per-run name
-     and its old cut name (both defined in `specs/REQ-SEC-553ebd62.md`),
-     whatever the current egress mode;
-   - the egress network of each such executor container, in both name forms,
-     under both the canonical `adore-egress` prefix and the configured
+     (defined in `specs/REQ-SEC-553ebd62.md`), whatever the current egress
+     mode;
+   - the egress network of each such executor container, under its per-run
+     name with both the canonical `adore-egress` prefix and the configured
      `network_prefix`, whatever the current egress mode;
    - the worktree directory `<worktree root>/<run ID>`, deregistered from Git
      and then removed from disk.
 5. A resource is removed only when its exact name is derived in step 4 from
-   an eligible run ID **and** is not also derived, in either name form, from a
+   an eligible run ID **and** is not also derived from a
    protected run ID or from any other existing executor container (listed
    under `<slug>-run-`, proxy containers excluded). If that listing fails, no
    proxy or network is removed in that pass. Everything else stays: other
    projects' resources (even with the same slug, network prefix or worktree
-   root), look-alike project names, unrelated folders, and old cut proxy or
-   network names that a protected run or another existing executor shares.
+   root), look-alike project names, unrelated folders, and proxy or network
+   names of an earlier ADORE build, which cleanup does not recognise.
 6. The stale-lock handling is unchanged: a provably stale lock is cleared, a
    live lock is reported with its holder and kept.
 7. Runtime failures stay best-effort per resource: a failed listing or
@@ -82,14 +82,12 @@ project.
 - A's run `gitea-dpasare-alpha-7` has an unreadable `state.json`: its
   worktree, container, proxy and network remain, and the report lists it under
   `corrupt_runs`.
-- Old cut names: for gitea `dpasare/2026_Networked_Intelligent_Lab_Orchestrator`
-  with slug `adore`, runs 26 (`done`) and 27 (`handed-off`) created before
-  per-run names share proxy
-  `adore-run-gitea-dpasare-2026_Networked_Intelligent-egress-proxy` and network
-  `adore-egress-adore-run-gitea-dpasare-2026_Networked_Intellige`. Cleanup
-  removes run 26's container and worktree and keeps the shared proxy and
-  network. The same holds when the other sharer is an existing executor of
-  another project (`dpasare/2026_Networked_Intelligent_Lab_Other`).
+- Names of an earlier build: for gitea
+  `dpasare/2026_Networked_Intelligent_Lab_Orchestrator` with slug `adore`, the
+  old cut proxy `adore-run-gitea-dpasare-2026_Networked_Intelligent-egress-proxy`
+  and network `adore-egress-adore-run-gitea-dpasare-2026_Networked_Intellige`
+  stay when cleanup removes `done` run 26's per-run resources; the operator
+  removes them by hand (01_Documentation/Recovery_And_Maintenance.md).
 
 ## Acceptance
 
@@ -106,9 +104,8 @@ project.
   to the same run IDs; this is pre-existing and outside this contract.
 - Orphans of projects that no longer have a profile belong to no project's
   cleanup; the operator removes them manually.
-- Old cut proxy and network names, made before per-run names, can be shared
-  by several runs and projects. Such a name belongs to every run it is derived
-  from; cleanup keeps it while a protected run or another existing executor
-  derives it.
+- Proxy and network names made by an earlier ADORE build (old cut names) are
+  not recognised; cleanup never removes them, and the operator removes them by
+  hand with the container runtime CLI.
 - A proxy or network whose run has no state, worktree or executor container
   left cannot be tied to a run ID and stays; the operator removes it manually.

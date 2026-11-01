@@ -263,17 +263,11 @@ def test_offline_preview_and_enrollment_publish_separate_states(tmp_path):
         assert client.get(f'/api/v1/projects/{project["id"]}').json()["id"] == project["id"]
 
 
-def test_display_edit_keeps_membership_operations_paths_and_legacy_identity(tmp_path):
+def test_display_edit_keeps_membership_operations_and_paths(tmp_path):
     """@brief Human identity changes preserve all operational ownership."""
     app, profile = _create(tmp_path)
     profiles, web = app.state.profiles, app.state.web_store
-    meta = profiles.profile_dir("alpha") / "profile.json"
-    data = json.loads(meta.read_text(encoding="utf-8"))
-    data.pop("display_name")
-    data.pop("project_id")
-    meta.write_text(json.dumps(data), encoding="utf-8")
-    legacy = profiles.load("alpha")
-    assert legacy.display_name == "alpha"
+    before = profiles.load("alpha")
     dev = web.create_user("dev", "longer-password", "developer")
     web.set_memberships(dev["id"], ["alpha"])
     operation = web.enqueue(dev["id"], "alpha", "start", "42", "old-operation")
@@ -281,18 +275,18 @@ def test_display_edit_keeps_membership_operations_paths_and_legacy_identity(tmp_
     StateStore(profile.store_root).save(RunState(run_id="active-job", ticket_iid=1))
     with TestClient(app) as client:
         headers = _login(client)
-        result = client.put(f"/api/v1/projects/{legacy.project_id}/identity",
+        result = client.put(f"/api/v1/projects/{before.project_id}/identity",
                             json={"display_name": "Serviciu α"}, headers=headers)
         assert result.status_code == 200, result.text
         after = profiles.load("alpha")
-        assert after.project_id == legacy.project_id
+        assert after.project_id == before.project_id
         assert after.name == "alpha" and after.store_root == profile.store_root
         assert profiles.config_path("alpha").read_bytes() == config
         assert web.memberships(dev["id"]) == {"alpha"}
-        assert web.operation(operation["id"])["project_id"] == legacy.project_id
+        assert web.operation(operation["id"])["project_id"] == before.project_id
         assert StateStore(after.store_root).load("active-job").lifecycle == "working"
         headers = _login(client, "dev", "longer-password")
-        value = client.get(f"/api/v1/projects/{legacy.project_id}").json()
+        value = client.get(f"/api/v1/projects/{before.project_id}").json()
         assert value["display_name"] == "Serviciu α"
         assert client.put("/api/v1/projects/alpha/identity", json={"display_name": "Denied"},
                           headers=headers).status_code == 403

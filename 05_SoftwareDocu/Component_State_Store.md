@@ -30,20 +30,21 @@ audit log. The closed run-state schema is `1`.
 
 ## 3. Data Contract
 
-Every `state.json` contains `schema_version: 1`. Missing/wrong schema and unknown
-keys raise `StateError`. Any earlier state shape is rejected with a
-no-migration diagnostic. Outbox/failure/task histories are lists and validation evidence is
+Every `state.json` contains `schema_version: 1`. Missing/wrong schema, unknown
+keys and missing keys raise `StateError`; there are no migrations, so state of
+another ADORE build is refused rather than filled in with defaults.
+`StateStore.load` appends `(run '<id>'; delete <run dir> to remove it)` to
+every refusal. Outbox/failure/task histories are lists and validation evidence is
 an object.
 The schema also carries a verified remote checkpoint commit and a checkpoint
-error. Older schema-1 records load with empty defaults; malformed commit
-digests fail closed. `handoff-pending` and `handed-off` are explicit lifecycle
-states. `handed-off` is terminal for metrics while cleanup protects its worktree.
+error; malformed commit digests fail closed. `handoff-pending` and `handed-off`
+are explicit lifecycle states. `handed-off` is terminal for metrics while
+cleanup protects its worktree.
 The stage is `frame`, `specify`, `design`, `build`, `validate`, `done` or the
-reset pointer `publishing`; `deliver`, which runs recorded before AEGIS 0.15.0
-may carry, still loads for history, while any other stage fails closed.
+reset pointer `publishing`; any other stage, including the removed AEGIS
+`deliver` stage, fails closed as unknown.
 `published_fingerprint` records the candidate fingerprint of the last
-publication that reached review and loads empty from older records;
-`approved_product` is no longer written and stays readable.
+publication that reached review.
 
 Writes use temporary-file replacement. JSONL is append-only; a torn trailing
 line may be skipped because `state.json`, not the log, drives decisions.
@@ -75,16 +76,19 @@ the marker after durable ownership transfer.
 ## 5. Validation and Tests
 
 `tests/test_state.py` covers schema-1 round trips, task history, refusal
-rejection, corrupt state, snapshots, JSONL, locking, public stale reclamation,
+rejection, corrupt state, refusal of a run at a stage this build does not
+conduct (`test_run_at_a_stage_this_build_does_not_conduct_is_refused`) and of
+state missing a current key (`test_state_missing_a_current_key_is_refused`),
+snapshots, JSONL, locking, public stale reclamation,
 unknown-lock fail-closed behavior, pause and cleanup support.
 
 ## Preparation evidence
 
-Schema 1 accepts an optional closed `execution` record. Legacy absent/empty records load without claiming recipe success. Plan/policy fingerprints, actual IDs, sequential outcomes, bounded attempt/history records and complete success are validated on load. State JSON rejects duplicate/non-finite fields. Corruption raises `StateError`. Plan and step artifacts are immutable and checked by the conductor on reuse. See `tests/test_state.py` and `tests/test_preparation_lifecycle.py`.
+Schema 1 carries a closed `execution` record. An empty record (the no-recipe mode) claims no recipe success. Plan/policy fingerprints, actual IDs, sequential outcomes, bounded attempt/history records and complete success are validated on load. State JSON rejects duplicate/non-finite fields. Corruption raises `StateError`. Plan and step artifacts are immutable and checked by the conductor on reuse. See `tests/test_state.py` and `tests/test_preparation_lifecycle.py`.
 
 ## Native execution contract
 
-Schema-1 execution state accepts the closed native resource with not-required status, zero attempts and empty preparation evidence. PIDs/scopes remain separate authoritative control records. Corrupt/unknown native fields fail closed; legacy container records keep compatibility.
+Schema-1 execution state accepts the closed native resource with not-required status, zero attempts and empty preparation evidence. PIDs/scopes remain separate authoritative control records. Corrupt/unknown native fields fail closed; container records and the empty no-recipe record keep their own validation.
 
 See [Local execution](../01_Documentation/Local_Execution.md) and
 [Local execution component](Component_Local_Execution.md). Focused native proof:

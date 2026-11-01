@@ -10,8 +10,8 @@
 """
 @file    analytics.py
 @brief   Shared strict sources, instant scope and measured web consumption.
-@details Reads preserve operational schema and recovery behavior. Legacy absent
-         date attribution is explicit; malformed versioned evidence fails closed.
+@details Reads preserve operational schema and recovery behavior. Summary-only
+         evidence without a date is explicit; malformed evidence fails closed.
 """
 
 # IMPORTS
@@ -141,9 +141,10 @@ class Scope:
 # LOCAL HELPERS
 def instant(value: object) -> datetime | None:
     """
-    @brief Return an aware observed instant; unparseable legacy date is unallocated.
+    @brief Return an aware observed instant.
     @param[in] value Saved timestamp or missing value.
-    @return UTC instant or None; date-only and naive values have no instant.
+    @return UTC instant, or None when no timestamp was recorded.
+    @exception AnalyticsError A naive, date-only or unparseable timestamp.
     """
     if value is None or value == "":
         return None
@@ -151,9 +152,11 @@ def instant(value: object) -> datetime | None:
         raise AnalyticsError("metrics_corrupt")
     try:
         stamp = datetime.fromisoformat(value)
-        return stamp.astimezone(UTC) if stamp.utcoffset() is not None else None
-    except (ValueError, OverflowError):
-        return None
+    except (ValueError, OverflowError) as exc:
+        raise AnalyticsError("metrics_corrupt") from exc
+    if stamp.utcoffset() is None:
+        raise AnalyticsError("metrics_corrupt")
+    return stamp.astimezone(UTC)
 
 
 def _object(raw: bytes, code: str) -> dict:
@@ -195,12 +198,10 @@ def _validate_event(event: dict) -> None:
         raise AnalyticsError("metrics_corrupt")
     if "schema" in event and (type(event["schema"]) is not int or event["schema"] != 1):
         raise AnalyticsError("metrics_corrupt")
-    if "ts" in event:
-        instant(event["ts"])
+    if instant(event.get("ts")) is None:  # The journal stamps every event.
+        raise AnalyticsError("usage_corrupt" if event["event"] == "usage" else "metrics_corrupt")
     if event["event"] == "strict-verification" and type(event.get("passed")) is not bool:
         raise AnalyticsError("metrics_corrupt")
-    if event["event"] == "usage" and "event_id" in event and instant(event.get("ts")) is None:
-        raise AnalyticsError("usage_corrupt")
     if event["event"] != "usage":
         return
     for field in ("executor", "model"):
@@ -292,7 +293,7 @@ def read_sources(store: StateStore) -> list[tuple[RunState, list[dict]]]:
                 seen = {}
                 usage_stamps = {}
                 for event in events:
-                    if event["event"] == "usage" and "event_id" in event:
+                    if event["event"] == "usage":
                         key = event["event_id"]
                         if key in usage_stamps and usage_stamps[key] != event.get("ts"):
                             raise metrics.MetricsError("conflicting consumption timestamp")
@@ -426,7 +427,7 @@ def usage_report(
     @param[in] admin Financial permission.
     @param[in] executor Exact observed executor filter or None.
     @param[in] model Exact observed model filter or None.
-    @param[in] summaries Validated legacy summary evidence without dated attribution.
+    @param[in] summaries Validated summary-only evidence without dated attribution.
     @return Scoped aggregate, composite jobs, explicit lifetime and unallocated evidence.
     @exception AnalyticsError Invalid filter.
     """
@@ -443,7 +444,6 @@ def usage_report(
     totals, lifetime, unallocated = [empty_amounts(admin) for _ in range(3)]
     coverage = {
         "runs_with_usage": 0,
-        "usage_events_unallocated": 0,
         "runs_without_usage": 0,
         "usage_events_with_tokens": 0,
         "usage_events_without_tokens": 0,
@@ -463,11 +463,9 @@ def usage_report(
             ):
                 continue
             value = measured(event, prices, admin)
-            stamp = instant(event.get("ts"))
+            stamp = instant(event["ts"])
             add_amounts(job_lifetime, value)
-            if stamp is None:
-                add_amounts(job_unallocated, value)
-            elif scope.includes(stamp):
+            if scope.includes(stamp):
                 add_amounts(job_period, value)
                 key = (scope.bucket(stamp), event.get("executor"), event.get("model"))
                 row = buckets.setdefault(
@@ -510,7 +508,6 @@ def usage_report(
         add_amounts(lifetime, job_lifetime)
         add_amounts(unallocated, job_unallocated)
         add_amounts(totals, job_period)
-        coverage["usage_events_unallocated"] += job_unallocated["events"]
         if selected:
             coverage["runs_with_usage"] += bool(job_period["events"])
             coverage["runs_without_usage"] += not bool(job_lifetime["events"])
@@ -525,7 +522,6 @@ def usage_report(
                     "coverage": {
                         "lifetime_usage_events": job_lifetime["events"],
                         "period_usage_events": job_period["events"],
-                        "unallocated_usage_events": job_unallocated["events"],
                     },
                 }
             )

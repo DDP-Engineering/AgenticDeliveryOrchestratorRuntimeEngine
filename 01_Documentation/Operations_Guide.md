@@ -23,7 +23,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 AEGIS stage is recorded separately as `frame`, `specify`, `design`, `build`,
 `validate`, or `done`. Quick tasks omit specify/design. Validate closes the
 AEGIS task, so a run stays at `done` while it awaits approval, publishes and
-is in review; history from before AEGIS 0.15.0 may still show `deliver`.
+is in review. A run state that names the removed `deliver` stage is refused.
 If the source ticket is closed while a run is parked for clarification,
 awaiting approval, or still has an open MR/PR in review, the next poll cancels
 it with outcome `ticket closed` and releases its resources. A merged MR/PR takes

@@ -29,7 +29,7 @@ PRESETS = {
     "opencode": "opencode run --dir {worktree} -m {model} --format json {prompt}",
     "pi": "pi -p --mode json --model {model} {prompt}",
     "codex": (
-        "codex exec {resume}--json --model {model} --ignore-user-config "
+        "codex exec --json --model {model} --ignore-user-config "
         "--disable plugins --dangerously-bypass-approvals-and-sandbox {prompt}"
     ),
     "qwen": "qwen -p --model {model} --output-format json {prompt}",
@@ -102,7 +102,8 @@ def test_launch_presets_are_reviewed_and_fail_closed(tmp_path, executor):
         assert staged.status_code == 200, staged.text
         assert staged.json()["proposed_value"] == PRESETS[executor]
         assert path.read_bytes() == saved
-        apply = {"candidate_revision": staged.json()["candidate_revision"]}
+        apply = {"candidate_revision": staged.json()["candidate_revision"],
+                 "base_revision": staged.json()["base_revision"]}
         assert client.post(base + "/apply", json=apply).status_code == 403
         state.resume()
         assert client.post(base + "/apply", json=apply, headers=headers).status_code == 409
@@ -131,7 +132,8 @@ def test_launch_presets_are_reviewed_and_fail_closed(tmp_path, executor):
         assert (
             client.post(
                 base + "/apply",
-                json={"candidate_revision": record["candidate_revision"]},
+                json={"candidate_revision": record["candidate_revision"],
+                      "base_revision": record["base_revision"]},
                 headers=headers,
             ).status_code
             == 503

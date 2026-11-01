@@ -154,12 +154,11 @@ class PlatformConfig:
 @dataclass
 class StateConfig:
     """
-    @brief   [state] - how run state is signaled on the ticket.
-    @details The status comment is always one comment edited in place; there
-             is no per-change mode.
+    @brief   [state] - where run state lives.
+    @details The status comment is always one comment edited in place, with the
+             lifecycle labels; there is no per-change mode.
     """
 
-    channel: str = "comments"
     store_root: str = ""
 
 
@@ -595,7 +594,7 @@ class Config:
 def _build_section(cls: type, data: Any) -> Any:
     """
     @brief      Build one section dataclass from a raw mapping.
-    @details    Unknown keys are ignored here (reported by validate_config);
+    @details    Unknown keys are left out here and refused by validate_config;
                 known keys override the documented defaults.
     @param[in]  cls The section dataclass type.
     @param[in]  data Raw mapping from tomllib (or anything else -> defaults).
@@ -665,8 +664,8 @@ def _command_placeholder_issues(default: str, command: str) -> list[str]:
                 brace the executor does not supply raises `KeyError` at GATE
                 time - after provisioning, once per attempt, until the stage
                 budget is spent - with nothing pointing at the real cause.
-                Only Codex supplies `{resume}`; a shell brace such as
-                `${HOME}` or an inline JSON argument fails the same way.
+                A shell brace such as `${HOME}` or an inline JSON argument
+                fails the same way.
                 Catching it here turns an opaque runtime failure into a setup
                 message.
     @param[in]  default The selected executor kind.
@@ -674,8 +673,6 @@ def _command_placeholder_issues(default: str, command: str) -> list[str]:
     @return     One issue per unsupported or malformed placeholder.
     """
     supported = {"prompt", "model", "worktree"}
-    if default == "codex":
-        supported.add("resume")
     try:
         fields = {
             name for _, name, _, _ in Formatter().parse(command) if name is not None
@@ -763,9 +760,9 @@ def default_config() -> Config:
 def load_config(path: str | Path) -> Config:
     """
     @brief      Load configuration from a TOML file into typed sections.
-    @details    Lenient by design: unknown keys are skipped and missing keys
-                default, so `adore config validate` can report all problems in
-                one pass instead of dying on the first.
+    @details    Missing keys take the documented defaults and unknown keys
+                are left out, so `adore config validate` reports every problem,
+                unknown keys included, in one pass instead of dying on the first.
     @param[in]  path Path to config.toml.
     @return     A populated Config instance.
     @exception  FileNotFoundError When the file does not exist.
@@ -883,6 +880,57 @@ def branch_naming_preview(template: str, rule: str, slug: str) -> dict[str, Any]
     return result
 
 
+def _unknown_key_issues(raw: dict) -> list[str]:
+    """
+    @brief      Name every config.toml key this build does not read.
+    @details    There is no compatibility while ADORE is in development: a key
+                left by an earlier build is refused, not silently ignored.
+                [local] and [execution] are checked by their own validators.
+    @param[in]  raw Parsed config.toml mapping.
+    @return     One issue per unknown key, naming the key to remove.
+    """
+    issues: list[str] = []
+
+    def check(where: str, table: Any, cls: type) -> None:
+        if not isinstance(table, dict):
+            return
+        allowed = {item.name for item in fields(cls)}
+        for key in sorted(set(table) - allowed):
+            issues.append(f"[{where}] unknown key {key!r}: remove it from config.toml")
+
+    for name, cls in (
+        ("agent", AgentConfig), ("platform", PlatformConfig), ("state", StateConfig),
+        ("polling", PollingConfig), ("readiness", ReadinessConfig),
+        ("clarification", ClarificationConfig), ("worktree", WorktreeConfig),
+        ("workflow", WorkflowConfig), ("recovery", RecoveryConfig),
+        ("budgets", BudgetsConfig), ("delivery", DeliveryConfig),
+        ("review", ReviewConfig), ("reconcile", ReconcileConfig),
+        ("metrics", MetricsConfig),
+    ):
+        check(name, raw.get(name), cls)
+    labels = raw.get("labels")
+    if isinstance(labels, dict):
+        tables = {"lifecycle": LifecycleLabels, "selection": SelectionLabels,
+                  "control": ControlLabels, "executor": ExecutorLabels}
+        for key in sorted(set(labels) - tables.keys()):
+            issues.append(f"[labels] unknown key {key!r}: remove it from config.toml")
+        for name, cls in tables.items():
+            check(f"labels.{name}", labels.get(name), cls)
+    executor = raw.get("executor")
+    if isinstance(executor, dict):
+        check("executor", {key: value for key, value in executor.items()
+                           if not isinstance(value, dict)}, ExecutorConfig)
+        for name, table in executor.items():
+            if isinstance(table, dict):
+                check(f"executor.{name}", table, ExecutorCommand)
+    container = raw.get("container")
+    if isinstance(container, dict):
+        check("container", {key: value for key, value in container.items()
+                            if key != "egress"}, ContainerConfig)
+        check("container.egress", container.get("egress"), ContainerEgressConfig)
+    return issues
+
+
 def validate_config(config: Config) -> list[str]:
     """
     @brief      Validate a Config and return a list of human-readable issues.
@@ -901,6 +949,7 @@ def validate_config(config: Config) -> list[str]:
 
     for section in config.raw:
         check(section in KNOWN_SECTIONS, f"unknown section: [{section}]")
+    issues.extend(_unknown_key_issues(config.raw))
 
     check(bool(config.agent.name.strip()), "[agent] name must not be empty")
     check(
@@ -927,11 +976,6 @@ def validate_config(config: Config) -> list[str]:
             f"[platform] login is only supported for gitea, not "
             f"{config.platform.kind!r}",
         )
-
-    check(
-        config.state.channel in ("comments", "labels", "both"),
-        f"[state] channel must be comments/labels/both: {config.state.channel!r}",
-    )
 
     check(
         config.polling.mode in ("loop", "once"),

@@ -54,7 +54,7 @@ The third strict gate passed Python/Ruff but the dashboard apply assertion match
 
 ## Reviewed boundaries and limitations
 
-Backend semantic review checked every changed hunk against config model/validator, candidate byte/digest checks, locks, paused pickup, typed errors, URL redaction and legacy candidate-only compatibility. Frontend review checked catalog authority, one candidate, captured view/session/request identities, ref locking, safe copy and fallback facts. Component knowledge and project context match the built code; environment setup is unchanged. Historical requirements that named replaced bundle hashes now reference the actual generated files; their behavior and verification were not changed.
+Backend semantic review checked every changed hunk against config model/validator, candidate byte/digest checks, locks, paused pickup, typed errors, URL redaction and legacy candidate-only compatibility (superseded 2026-11-01: Apply requires base_revision; there is no candidate-only request). Frontend review checked catalog authority, one candidate, captured view/session/request identities, ref locking, safe copy and fallback facts. Component knowledge and project context match the built code; environment setup is unchanged. Historical requirements that named replaced bundle hashes now reference the actual generated files; their behavior and verification were not changed.
 
 DEVIATION build: backend needed scalar-type enforcement, optional explicit reviewed-base binding and Dev financial filtering beyond the initial projection estimate. Baseline negative tests reproduce criteria 4/7 violations. Corrections remain in existing web routes; core/CLI/state schema/dependencies unchanged.
 

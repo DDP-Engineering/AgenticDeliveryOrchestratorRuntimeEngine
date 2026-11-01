@@ -24,7 +24,9 @@ Implementation settings support reviewed edits for human-answer waiting time (po
 
 `POST /api/v1/projects/{name}/config/branch-preview` accepts the closed strict body `{template, rule, revision}` (512-character text bounds, SHA-256 revision). Scoped users supply CSRF; the shared config lock coordinates preview reads with application, and project grants and before/after revision checks precede evidence release. The route returns the shared config preview plus inspected revision and performs no writes or Git operations. Corrupt source returns `config_corrupt`, stale input returns `stale_config_revision`, and malformed transport fails request validation. Scoped developer reads hide inaccessible project identity with the existing 404 policy.
 
-Only `worktree.branch_template` and `worktree.branch_rule` (text) and the administrator-chosen `execution.backend`, `container.runtime`, `container.image`, `local.account`, `local.home`, `local.path` and `local.cgroup_root` are exceptions to the external environment edit restriction. They advertise editability/restart and retain administrator, validated single-setting candidate, lock, revision, paused/idle and replay integrity gates; a direct PUT of the chosen environment keys returns 409 `pending_config_required`. Every other worktree/container/execution/local setting (for example `execution.preparation`, `container.uv_cache_volume`, `container.run_args`, egress, SELinux, `worktree.*` roots) keeps external ownership and returns 400 `environment_managed_externally`; image definition and builds return 410. Focused proof: `tests/test_web_branch_naming.py`, `tests/test_web_config.py`, `tests/test_web_pending_config.py`.
+Only `worktree.branch_template` and `worktree.branch_rule` (text) and the administrator-chosen `execution.backend`, `container.runtime`, `container.image`, `local.account`, `local.home`, `local.path` and `local.cgroup_root` are exceptions to the external environment edit restriction. They advertise editability/restart and retain administrator, validated single-setting candidate, lock, revision, paused/idle and replay integrity gates; a direct PUT of the chosen environment keys returns 409 `pending_config_required`. Every other worktree/container/execution/local setting (for example `execution.preparation`, `container.uv_cache_volume`, `container.run_args`, egress, SELinux, `worktree.*` roots) keeps external ownership and returns 400 `environment_managed_externally`. The retired image-build routes
+(`/api/v1/projects/{name}/image-build`, its `/export`, `/operations`,
+`/operations/{id}` and `/operations/{id}/cancel`) are removed and answer 404. Focused proof: `tests/test_web_branch_naming.py`, `tests/test_web_config.py`, `tests/test_web_pending_config.py`.
 
 ## 1. Purpose
 
@@ -91,8 +93,8 @@ lifecycle/stage/executor/outcome/UTC date selection precede pagination. Counts
 cover searched scope before secondary filters; snapshot continuations detect
 source/access changes. Strict captured JSONL provides the safe observed detail
 timeline. See `Component_Web_Jobs.md` for exact trust boundaries and fields.
-Project list summaries preserve absent legacy update times as unknown so valid
-jobs remain navigable; a nonempty malformed timestamp still returns a typed error.
+Project list summaries refuse a run whose `updated_at` is empty, malformed or
+naive with 503 `run_state_corrupt`, because every save stamps it.
 Existing run endpoints and queued mutation contracts retain their behavior.
 
 
@@ -295,14 +297,15 @@ Invalid selectors/periods return 422 `invalid_request`, limits return
 `invalid_audit_limit`, and negative offsets retain `invalid_request`.
 Global history requires Admin. Dev must supply one currently granted immutable
 project ID and receives project-safe config/enrollment/lifecycle/operation rows;
-account/access/policy/price/usage/auth, financial configuration and name-only legacy history are excluded
+account/access/policy/price/usage/auth and financial configuration are excluded
 before count/paging. Missing, malformed or unassigned Dev scope returns 403.
 Revocation and replacement cannot inherit history visibility.
 
 Each row exposes recorded actor ID/name/time, action, known stable project and
 resource identity, phase/result, operation ID/opaque correlation, known revisions
-and closed redacted before/after. Legacy absence is null. The store rejects
-corrupt persisted evidence; errors omit sensitive values. `GET /api/v1/audit`
+and closed redacted before/after. Every audit row carries structured evidence;
+the store rejects a row without it, and any other corrupt persisted evidence, as
+corrupt; errors omit sensitive values. `GET /api/v1/audit`
 retains its Admin-only recent/All contract with the same server projection.
 No audit export is exposed.
 
@@ -409,8 +412,8 @@ row/default generation. Credential-bearing URLs are redacted in effective reads.
 discard the single candidate. `POST /api/v1/projects/{name}/config/apply`
 requires its candidate SHA-256 revision and accepts an optional reviewed
 `base_revision`; supplied bases must match the saved base or return 409
-`stale_config_revision`. The dashboard supplies both revisions. Legacy
-candidate-only callers retain exact stored-base/current-byte checks. All four routes are administrator-only;
+`stale_config_revision`. The dashboard supplies both revisions. Callers that
+send only the candidate revision get exact stored-base/current-byte checks. All four routes are administrator-only;
 mutations require CSRF. Apply and direct PUT reject nonterminal or corrupt run
 state, a live conductor lock, and unfinished web operations. High-impact
 `agent`, `platform`, `worktree`, `container` and `executor` edits require
@@ -421,7 +424,12 @@ The compatibility `value` string is canonicalized from that value. Review expose
 saved UTC `created_at` and no invented actor. Safe current endpoint protocol/auth
 variable metadata is returned only when observed in the compatible provider
 configuration; missing metadata remains null. Stored endpoint protocol/credential
-corruption returns 503 `pending_config_corrupt` before review or apply. Preparation
+corruption returns 503 `pending_config_corrupt` before review or apply. A
+candidate carrying an `image_build` binding, or a candidate for an
+operator-owned (externally managed) environment key, could only be staged by an
+earlier build; it is 503 `pending_config_corrupt` on view and on apply, and an
+administrator can still discard it through
+`DELETE /api/v1/projects/{name}/config/pending`. Preparation
 rejects incompatible scalar types and unsafe edited URL credentials with 400
 `invalid_config`; preparing and discarding leave active TOML bytes unchanged.
 
@@ -461,12 +469,14 @@ terminal now, including only actual retained runtime state.
 
 Unique usage is attributed at its own consumption instant. `jobs` uses
 `(project_id,run_id)` with separate `lifetime`, `in_period`, `unallocated`,
-source and coverage. Historical summaries survive runtime-state removal;
-positive summary-only measurements belong to lifetime/unallocated, never a
-fabricated period. Missing individual token fields stay null; explicit measured
-zero stays zero. Neutral legacy summary defaults are unknown. Legacy missing,
-invalid, naive or date-only timestamps contribute unallocated coverage and
-amounts. Financial fields and financial coverage are Admin-only in every nested
+source and coverage. Recorded summaries survive runtime-state removal;
+positive summary-only measurements (a run known only from `metrics.db`, for
+example a deleted one) belong to lifetime/unallocated, never a fabricated
+period. Missing individual token fields stay null; explicit measured zero stays
+zero. Zero summary amounts are unknown. Every usage event carries its versioned
+`event_id` and an aware timestamp: a usage event without an event ID is refused,
+and a naive, date-only or unparseable usage timestamp is `metrics_corrupt`.
+Financial fields and financial coverage are Admin-only in every nested
 projection and export. Reported and estimated costs remain separate; matching
 immutable prices use the consumption UTC day, and never price reported money
 again. Coverage identifies partial evidence rather than asserting a full bill.
@@ -485,10 +495,11 @@ support pooled mean/median without browser date approximation. Recorded zero
 is valid; absent pairs are excluded and inconsistent pairs fail.
 
 Raw state/JSONL and read-only summary rows are validated before filters.
-Malformed JSON, duplicate keys, unsupported schema, invalid fields, conflicting
-versioned identity/timestamp, numeric overflow and invalid versioned timestamps
-fail typed 503 without source rewriting. Invalid scope/identity filters return
-422. Analytical summary reads neither initialize nor migrate runtime data.
+Malformed JSON, duplicate keys, unsupported schema, a summary table with missing
+or extra columns, invalid fields, conflicting versioned identity/timestamp,
+numeric overflow and invalid timestamps fail typed 503 without source rewriting.
+Invalid scope/identity filters return 422. Analytical summary reads neither
+initialize nor migrate runtime data.
 CSV includes scope/project provenance, empty unavailable cells and spreadsheet
 escaping; `X-ADORE-Scope`/`X-ADORE-Coverage` describe empty exports too.
 Project `/api/v1/projects/{name}/jobs-usage.csv` and Admin global
@@ -582,7 +593,7 @@ Existing identity/status/paused fields remain. No read or setup preview probes t
 ### Guided draft preview, verification and creation
 
 `ProjectInput` adds typed bounded run budgets, ready/approval labels and optional
-credential environment names while preserving legacy defaults. Unknown fields are
+credential environment names; omitted fields keep their defaults. Unknown fields are
 forbidden; malformed/duplicate API-key names and host-auth references are rejected (an empty API-key list is allowed)
 with value-free findings. Server clones are absolute existing Git roots.
 Preparation uses the existing wizard in prepare-only mode and its configuration validator.
@@ -646,7 +657,7 @@ change during probes returns `stale_config_revision` without replacing evidence.
 Storage failures return a safe `readiness_store_failed` finding.
 
 Offline contract proof is in `test_web_enrollment.py` and `test_web_errors.py`,
-including concurrency, worker discovery, rollback, legacy identity, secret handling,
+including concurrency, worker discovery, rollback, stable project identity, secret handling,
 RBAC/CSRF, revision races and corrupt persisted evidence.
 
 Restored endpoint CA paths are revalidated before review/apply against the same HTTPS, absolute executor path, bounded length and no traversal/control-character domain as preparation; malformed paths return `pending_config_corrupt`.
@@ -743,17 +754,12 @@ See [Local execution](../01_Documentation/Local_Execution.md) and
 [Local execution component](Component_Local_Execution.md). Focused native proof:
 `04_Software/tests/test_local_execution.py`.
 
-## Project image candidates
+## Project images
 
-Scoped image-build read/save/export/queue/status/cancel routes delegate to
-ImageBuildStore/Service. Administrator mutations reuse CSRF, paused/idle,
-managed state/config locks and operation guards. HTTP queues builds; it never
-builds an image. ConfigEdit.image_build_id is allowed only for container.image.
-Staging proposes the verified immutable ID plus the definition's tool checks;
-public pending validation binds closed image evidence and candidate checks.
-Apply reinspects current definition/config/runtime/base/result/labels and the
-shared preparation plan. See Component_Project_Images.md and
-tests/test_web_image_build.py for current identity/failure contracts.
+Container images are managed outside ADORE. The retired image-build routes are
+removed (they answer 404) and `ConfigEdit` has no `image_build_id`; the
+administrator chooses an installed image for `container.image` through the
+reviewed environment candidate. See Component_Project_Images.md.
 
 ## Reviewed executor configuration
 

@@ -514,14 +514,14 @@ class WorktreeManager:
         """
         @brief Remove an unchanged human-merged run branch using an exact remote lease.
         @param[in] branch Owned run branch selected by the conductor.
-        @param[in] expected Last published commit, or empty for a legacy local branch.
+        @param[in] expected Last published commit, which every publication records.
         @param[in] target Protected delivery target branch.
         @exception IsolationError When identity, transport or deletion cannot be verified.
         @note An already absent branch succeeds without requiring its local counterpart.
         """
         ref = f"refs/heads/{branch}"
         if (not branch or branch.startswith("-") or branch == target
-                or (expected and re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", expected) is None)):
+                or re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", expected or "") is None):
             raise IsolationError("invalid or protected branch cleanup identity")
         self._git("check-ref-format", ref)
 
@@ -538,7 +538,6 @@ class WorktreeManager:
         remote = remote_head()
         if not remote:
             return
-        expected = expected or self.ref_head(ref)
         if remote != expected:
             raise IsolationError("remote run branch changed outside ADORE")
         self.scrub_container_worktree_config()
@@ -952,9 +951,8 @@ class ContainerManager:
         """
         @brief      Names of all executor containers (any state) with a prefix.
         @details    `list_containers` without egress proxy containers: a proxy
-                    name often starts with the executor prefix, and an old cut
-                    proxy name would otherwise count as an executor that still
-                    uses (and so retains) itself.
+                    name often starts with the executor prefix but is not an
+                    executor.
         @param[in]  prefix Container-name prefix ("<slug>-run-").
         @return     Matching executor container names.
         @exception  IsolationError When the runtime fails.
@@ -1021,19 +1019,18 @@ class ContainerManager:
     ) -> list[str]:
         """
         @brief      Best-effort removal of the target executors' proxy containers.
-        @details    Covers each executor's per-run proxy name and its old cut
-                    name. Old cut names can be shared by several executors, so
-                    a name also derived from a retained executor is kept.
-                    Candidates are listed by the proxy suffix, not the executor
-                    prefix: a bounded per-run name of a long slug no longer
-                    starts with `<slug>-run-`.
+        @details    Covers each executor's per-run proxy name; a name also
+                    derived from a retained executor is kept. Candidates are
+                    listed by the proxy suffix, not the executor prefix: a
+                    bounded per-run name of a long slug no longer starts with
+                    `<slug>-run-`.
         @param[in]  targets Exact executor names whose proxies may go.
         @param[in]  retained Exact executor names whose proxies stay.
         @return     Proxy container names successfully removed.
         """
         wanted = (
-            {proxy for name in targets for proxy in self._proxy_names(name)}
-            - {proxy for name in retained for proxy in self._proxy_names(name)}
+            {self._proxy_name(name) for name in targets}
+            - {self._proxy_name(name) for name in retained}
         )
         result = self._run(
             [*self.runtime_argv, "ps", "--all",
@@ -1064,9 +1061,9 @@ class ContainerManager:
         @details    Covers both the canonical ADORE prefix and the current
                     configured prefix even when the current mode is not
                     allowlist-proxy. Arbitrary historical prefixes are never
-                    guessed. Each executor's per-run and old cut network names
-                    are covered; old cut names can be shared, so a name also
-                    derived from a retained executor is kept.
+                    guessed. Each executor's per-run network names are
+                    covered; a name also derived from a retained executor is
+                    kept.
         @param[in]  targets Exact executor names whose networks may go.
         @param[in]  retained Exact executor names whose networks stay.
         @return     Egress network names successfully removed.
@@ -1078,7 +1075,7 @@ class ContainerManager:
                 network
                 for prefix in prefixes
                 for name in executors
-                for network in self._egress_network_names(name, prefix)
+                for network in (self._egress_network_name(name, prefix=prefix),)
             }
 
         wanted = networks(targets) - networks(retained)
@@ -1390,18 +1387,6 @@ class ContainerManager:
         bounded = self._bounded_name(name, _NETWORK_NAME_LIMIT)
         return f"{prefix or self.egress.network_prefix}-{bounded}"
 
-    def _egress_network_names(self, name: str, prefix: str) -> set[str]:
-        """
-        @brief      Per-run and old cut egress network names of one executor.
-        @details    Before per-run names a long name was simply cut, so several
-                    runs could share it; cleanup still recognizes that form.
-        @param[in]  name Executor container name.
-        @param[in]  prefix Owned network prefix.
-        @return     Both name forms (one name when they coincide).
-        """
-        old_cut = f"{prefix}-{self._safe_name(name)[:_NETWORK_NAME_LIMIT]}"
-        return {self._egress_network_name(name, prefix=prefix), old_cut}
-
     def _remove_container(self, name: str) -> None:
         """
         @brief      Idempotently force-remove one exact container name.
@@ -1435,17 +1420,6 @@ class ContainerManager:
         @return     Proxy container name (at most 63 characters).
         """
         return f"{self._bounded_name(name, _PROXY_NAME_LIMIT)}{_PROXY_SUFFIX}"
-
-    def _proxy_names(self, name: str) -> set[str]:
-        """
-        @brief      Per-run and old cut proxy container names of one executor.
-        @details    Before per-run names a long name was simply cut, so several
-                    runs could share it; cleanup still recognizes that form.
-        @param[in]  name Executor container name.
-        @return     Both name forms (one name when they coincide).
-        """
-        old_cut = f"{self._safe_name(name)[:_PROXY_NAME_LIMIT]}{_PROXY_SUFFIX}"
-        return {self._proxy_name(name), old_cut}
 
     def _proxy_env(self) -> dict[str, str]:
         """

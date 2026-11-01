@@ -793,7 +793,8 @@ test("typed Implementation controls review and apply human duration, rounds, ret
   const current = await (await page.request.get("/api/v1/projects/alpha/config")).json();
   const prepared = await page.request.post("/api/v1/projects/alpha/config/pending", {headers:{"X-CSRF-Token":csrf},data:{key,value:typeof value === "object" ? JSON.stringify(value) : String(value),revision:current.revision}});
   expect(prepared.ok()).toBe(true);
-  const result = await page.request.post("/api/v1/projects/alpha/config/apply", {headers:{"X-CSRF-Token":csrf},data:{candidate_revision:(await prepared.json()).candidate_revision}});
+  const candidate = await prepared.json();
+  const result = await page.request.post("/api/v1/projects/alpha/config/apply", {headers:{"X-CSRF-Token":csrf},data:{candidate_revision:candidate.candidate_revision,base_revision:candidate.base_revision}});
   expect(result.ok()).toBe(true);
  }
 });

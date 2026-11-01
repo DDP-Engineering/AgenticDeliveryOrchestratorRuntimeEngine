@@ -14,7 +14,7 @@ title = "Show Statistics trends as one compact table"
 status = "active"
 
 requirement = """
-While a user views the Statistics Trends tab, the interface shall present each period bucket once, as one labeled table row whose started, completed and failed counts carry proportional bars and whose token and Admin money values show plain numbers or a dash, with usage coverage and undated usage as compact values, without time zone labels, a separate chart or a separate estimated-cost section; Admin unpriced usage events appear among the Usage totals and estimated cost per project in the All projects Usage table.
+While a user views the Statistics Trends tab, the interface shall present each period bucket once, as one labeled table row whose started, completed and failed counts carry proportional bars and whose token and Admin money values show plain numbers or a dash, with usage coverage as a compact value, without time zone labels, a separate chart or a separate estimated-cost section; Admin unpriced usage events appear among the Usage totals and estimated cost per project in the All projects Usage table.
 """
 
 verification = "Automated: e2e in four locales finds one trend table (named by the trend-data label) with exact counts and bars, no figure, no Known measurement labels and no UTC text in Trends; as Admin, no Estimated cost section in Trends, Unpriced usage events among the Usage totals and an Estimated cost column in the global All projects Usage table."

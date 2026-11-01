@@ -16,7 +16,7 @@ provisioning, egress and cancellation. Start at
 `04_Software/tests/test_isolation.py`. Run policy belongs to `orchestrator.md`.
 
 
-`REQ-FUNC-93bd42af`: `remove_remote_branch` validates ref/target and exact published or legacy local commit, deletes through host Git with an exact remote lease and verifies absence. Missing refs are idempotent success; malformed output, foreign commits and transport failures raise `IsolationError`.
+`REQ-FUNC-93bd42af`: `remove_remote_branch` validates ref/target and exact published commit, deletes through host Git with an exact remote lease and verifies absence. Missing refs are idempotent success; malformed output, foreign commits and transport failures raise `IsolationError`.
 
 ## Purpose and boundaries
 
@@ -43,9 +43,11 @@ host-side checkpoint commits, so a new clone needs no local Git identity.
 - Every allowlist-proxy run has its own proxy and network name: a long name
   keeps its start and ends in a 10-hex SHA-256 digest of the executor name,
   within 63 characters for the proxy and 48 after the network prefix.
-- Cleanup removes only listed names derived (per-run or old cut form) from the
-  target executors the orchestrator passes and keeps any name also derived
-  from a retained one; it never deletes by prefix alone.
+- Cleanup removes only listed per-run names derived from the target executors
+  the orchestrator passes and keeps any name also derived from a retained one;
+  it never deletes by prefix alone. It does not recognise the old cut proxy and
+  network names of earlier ADORE builds; the operator removes those by hand
+  (`01_Documentation/Recovery_And_Maintenance.md`).
 - Git identity is applied only to ADORE checkpoint commits; it does not
   reconfigure the operator's clone.
 

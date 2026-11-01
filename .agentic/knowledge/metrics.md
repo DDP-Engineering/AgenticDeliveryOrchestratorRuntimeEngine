@@ -36,17 +36,23 @@ distinct outcome without marking it merged or approved.
 Usage comes from append-only journal events. One SQLite row per run and the
 mirror must agree. Strict-verification data determines governance outcome. A
 metrics write failure is visible without overwriting the governed run result.
-The legacy CLI summary reports missing historical usage as zero; the web adapter
+The CLI summary reports missing usage as zero; the web adapter
 distinguishes missing cost coverage from a reported zero and does not add
 summaries and journal events as separate runs.
 The conductor writes one schema-1 `usage-observation` per executor launch,
 identifying reported, unavailable or disabled token/cost telemetry. The web
 adapter deduplicates identical run/attempt observations, rejects conflicts,
-and keeps numeric `usage` events as the only source of totals. Older launches
-without an observation stay unclassified.
-New numeric `usage` events share the run/attempt ID. `metrics.unique_usage_events`
-deduplicates identical replay for terminal summaries and web daily/attributed
-views, and raises `MetricsError` on malformed or conflicting versioned input.
+and keeps numeric `usage` events as the only source of totals. A launch
+without an observation stays unclassified. Only `stage-launch` counts as a
+launch; the retired `delivery-fix` and `revise-start` events do not.
+Every numeric `usage` event carries the versioned identity
+`event_id = "<run_id>:<attempt>"` and the full current fields; one without an
+event ID is refused. `metrics.unique_usage_events` deduplicates identical replay
+for terminal summaries and web daily/attributed views, and raises `MetricsError`
+on malformed or conflicting input.
+`metrics.db` has one current `run_summaries` shape: a table whose columns differ
+is refused with "metrics database <path> was written by another ADORE build;
+delete it to start fresh", never altered in place.
 
 ## Key behaviors
 
@@ -97,12 +103,12 @@ terminal now, including only actual retained runtime state.
 
 Unique usage is attributed at its own consumption instant. `jobs` uses
 `(project_id,run_id)` with separate `lifetime`, `in_period`, `unallocated`,
-source and coverage. Historical summaries survive runtime-state removal;
-positive summary-only measurements belong to lifetime/unallocated, never a
-fabricated period. Missing individual token fields stay null; explicit measured
-zero stays zero. Neutral legacy summary defaults are unknown. Legacy missing,
-invalid, naive or date-only timestamps contribute unallocated coverage and
-amounts. Financial fields and financial coverage are Admin-only in every nested
+source and coverage. Summaries survive runtime-state removal; positive
+summary-only measurements (a run known only from metrics.db, for example a
+deleted one) belong to lifetime/unallocated, never a fabricated period.
+Missing individual token fields stay null; explicit measured zero stays zero.
+A naive, date-only or unparseable usage timestamp is `metrics_corrupt`, and a
+summary table with missing or extra columns fails closed (503). Financial fields and financial coverage are Admin-only in every nested
 projection and export. Reported and estimated costs remain separate; matching
 immutable prices use the consumption UTC day, and never price reported money
 again. Coverage identifies partial evidence rather than asserting a full bill.

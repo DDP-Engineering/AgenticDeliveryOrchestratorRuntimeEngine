@@ -113,31 +113,30 @@ def test_save_load_round_trip(tmp_path: Path) -> None:
     assert loaded.created_at == state.created_at
 
 
-def test_run_saved_at_the_removed_deliver_stage_loads_for_history(tmp_path: Path) -> None:
+def test_run_at_a_stage_this_build_does_not_conduct_is_refused(tmp_path: Path) -> None:
     """
-    @brief   A run persisted before AEGIS 0.15.0 still loads.
-    @details AEGIS 0.15.0 removed the deliver stage and ADORE no longer conducts
-             it, but run history saved at deliver, with the approved product
-             that flow recorded, must stay readable: rejecting it would mark the
-             project's whole job history corrupt. An invented stage still fails
-             closed.
+    @brief   A run at the removed deliver stage, or an invented one, does not load.
+    @details No migrations while ADORE is in development: the refusal names the
+             run directory to delete.
     """
     store = _store(tmp_path)
     store.save(RunState(run_id="gitlab-g-p-15", ticket_iid=15, stage="deliver",
-                        lifecycle="in-review", approved_product="a" * 64))
-    loaded = store.load("gitlab-g-p-15")
-    assert loaded.stage == "deliver" and loaded.approved_product == "a" * 64
+                        lifecycle="in-review"))
+    with pytest.raises(StateError, match="unknown stage") as refused:
+        store.load("gitlab-g-p-15")
+    assert str(store.run_dir("gitlab-g-p-15")) in str(refused.value)
     payload = RunState(run_id="run-1", ticket_iid=1).to_dict()
     payload["stage"] = "delivered"
     with pytest.raises(StateError, match="unknown stage"):
         RunState.from_dict(payload)
 
 
-def test_state_written_before_published_fingerprint_loads_it_empty() -> None:
-    """@brief The additive published fingerprint loads empty from older records."""
+def test_state_missing_a_current_key_is_refused() -> None:
+    """@brief State of another build is never filled in with defaults."""
     payload = RunState(run_id="run-1", ticket_iid=1).to_dict()
     del payload["published_fingerprint"]
-    assert RunState.from_dict(payload).published_fingerprint == ""
+    with pytest.raises(StateError, match="missing keys"):
+        RunState.from_dict(payload)
 
 
 def test_from_dict_rejects_unknown_keys() -> None:

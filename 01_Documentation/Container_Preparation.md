@@ -134,8 +134,8 @@ This removes/recreates only the owned run container, retains the worktree and it
 partial effects, and replays **all** steps within the attempt cap. Prior outcomes
 remain immutable. There is no exactly-once guarantee after a crash. Cancel/delete
 release their existing owned resources; shared images/cache volumes remain.
-Old binaries reject new execution keys; complete/remove affected runs or retain a
-compatible binary for rollback. No earlier run-state schema is migrated.
+Run state is not migrated between ADORE builds: a `state.json` with unknown or
+missing keys is refused, and the message names the run directory to delete.
 
 ## Integration seams
 

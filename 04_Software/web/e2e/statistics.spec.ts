@@ -24,12 +24,12 @@ test.afterEach(async ({ page, request }) => {
   await page.goto("about:blank");
   expect((await request.post("/__e2e__/jobs?mode=reset", { headers: { "X-ADORE-E2E": "local-test" } })).ok()).toBe(true);
 });
-// Hand-calculated fixture: 12 lifetime input, 7 in period, 2 undated; zero output is observed.
+// Hand-calculated fixture: 12 lifetime input, 7 in period; zero output is observed.
 const amounts = (input: number | null, output: number | null, events = 1, admin = true) => ({ events, tokens_in: input, tokens_out: output, cache_read_tokens: null, cache_write_tokens: null,
   ...(admin ? { reported_cost_usd: 0, estimated_cost_usd: null } : {}) });
 const consumption = (id: string, input = 7, run = "ux-working", admin = true) => ({ project_id: id, run_id: run,
-  lifetime: amounts(12, 0, 3, admin), in_period: amounts(input, 0, 1, admin), unallocated: amounts(2, 0, 1, admin), source: "journal",
-  coverage: { lifetime_usage_events: 3, period_usage_events: 1, unallocated_usage_events: 1 } });
+  lifetime: amounts(12, 0, 3, admin), in_period: amounts(input, 0, 1, admin), unallocated: amounts(null, null, 0, admin), source: "journal",
+  coverage: { lifetime_usage_events: 3, period_usage_events: 1 } });
 function analytical(value: any, input = 7) {
   const result = structuredClone(value), id = result.scope.project_ids[0];
   result.jobs = [consumption(id, input)];
@@ -38,7 +38,7 @@ function analytical(value: any, input = 7) {
   result.current_stock = { jobs_now: 1, active_now: 1, waiting_now: 0, review_now: 0, terminal_now: 0, basis: "current_state" };
   result.duration = result.period.duration = { sampled_runs: 2, sum_span_seconds: 120, samples_seconds: [0, 120], avg_span_seconds: 60, median_span_seconds: 60 };
   result.daily = [{ date: "2026-10-25", started: 0, completed: 1, failed: 1, merged: 0, tokens_in: input, tokens_out: 0, mr_revisions: 0, pipeline_repairs: 0, cost_usd: 0, estimated_cost_usd: null }];
-  Object.assign(result.coverage, { usage_events_with_tokens: 1, usage_events_without_tokens: 1, usage_events_unallocated: 1 });
+  Object.assign(result.coverage, { usage_events_with_tokens: 1, usage_events_without_tokens: 1 });
   return result;
 }
 test("statistics summary shows only measures, compact period and job elapsed time in Usage", async ({ page }) => {
@@ -154,7 +154,7 @@ test("trends show one compact table and estimated cost appears once per place", 
   await page.goto(`/projects/${alpha}/statistics?tab=trends`);
   await expect(page.getByRole("heading", { name: "Daily activity", exact: true })).toBeVisible();
   await expect(page.locator(".metric-chips").getByText("Usage coverage", { exact: true })).toBeVisible();
-  await expect(page.locator(".metric-chips").getByText("Usage without a consumption date", { exact: true })).toBeVisible();
+  await expect(page.locator(".metric-chips").getByText("Usage without a consumption date", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Estimated cost (USD)", exact: true })).toHaveCount(0);
   await expect(page.locator("#metrics-tab-panel")).not.toContainText("UTC");
   await page.getByRole("tab", { name: "Usage", exact: true }).click();

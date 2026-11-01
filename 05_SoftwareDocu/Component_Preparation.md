@@ -60,7 +60,7 @@ injected; no real Git/container/model/forge acceptance runs in these tests.
 ## 10. Limitations And Future Work
 
 Only the container adapter is enabled. Local execution (#21) supplies backend-native
-transport; image building (#22) supplies separate verified image/build identity.
+transport; ADORE builds no images, container images are managed outside it.
 Recipes are the published subset, not general Actions compatibility. Interrupted
 setup needs operator inspection and explicit bounded replay, with retained
 worktree partial effects and no exactly-once guarantee.

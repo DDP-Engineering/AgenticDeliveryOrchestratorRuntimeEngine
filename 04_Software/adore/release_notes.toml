@@ -163,7 +163,7 @@ text = { en = "Errors read as sentences in your language; a stalled agent or a r
 [[release.entry]]
 category = "fixed"
 topic = { en = "Settings", fr = "Paramètres", de = "Einstellungen", ro = "Setări" }
-text = { en = "Edits from the web or the command line keep the file's line endings.", fr = "Les modifications depuis le web ou la ligne de commande gardent les fins de ligne du fichier.", de = "Änderungen über Web oder Kommandozeile behalten die Zeilenenden der Datei.", ro = "Modificările din web sau din linia de comandă păstrează terminațiile de linie ale fișierului." }
+text = { en = "Settings and data from earlier versions are refused with what to delete; edits keep line endings.", fr = "Paramètres et données d'anciennes versions refusés, avec quoi effacer ; fins de ligne conservées.", de = "Einstellungen und Daten älterer Versionen werden mit Löschhinweis abgelehnt; Zeilenenden bleiben.", ro = "Setări și date din versiuni anterioare refuzate, cu ce trebuie șters; terminațiile de linie rămân." }
 
 [[release]]
 version = "0.13.0"

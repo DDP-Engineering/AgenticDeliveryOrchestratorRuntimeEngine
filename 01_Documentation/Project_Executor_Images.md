@@ -98,15 +98,19 @@ For native execution, choose **Installed on the server** in **Runs in** (or set
 [Local execution](Local_Execution.md). Specialized profiles use existing server
 TOML enrollment.
 
-## Historical evidence and recovery
+## Environment changes and recovery
 
-Existing image-build records remain in each profile. Authorized scoped read,
-export, status and cancel routes retain evidence and owned interrupted cleanup.
-Definition saves and build submissions return HTTP 410
-`environment_managed_externally`. Environment setting edits/staging/application
-return HTTP 400 with the same code, except `execution.backend`, `container.runtime`,
+ADORE has no image definition or build feature. The routes
+`/api/v1/projects/{name}/image-build`, `/image-build/export`,
+`/image-build/operations`, `/image-build/operations/{id}` and
+`/image-build/operations/{id}/cancel` answer HTTP 404, and the web worker runs
+no image builds. Environment setting edits and staging return HTTP 400
+`environment_managed_externally`, except `execution.backend`, `container.runtime`,
 `container.image` and the `local.*` account keys, which use the reviewed
-configuration flow; existing dedicated AI endpoint edits remain available.
-Retained queued image-build requests fail without launching a runtime.
-Old pending candidates for other environment keys remain readable and discardable;
-they cannot be applied. Existing profiles, installed images and database schema are retained.
+configuration flow; dedicated AI endpoint edits remain available.
+
+A pending candidate with an image-build binding, or for an operator-owned
+environment key, could only be staged by an earlier build. Viewing or applying it
+returns HTTP 503 `pending_config_corrupt`. An administrator removes it with
+**Discard change** in Settings, or through
+`DELETE /api/v1/projects/{name}/config/pending`.

@@ -96,10 +96,10 @@ API detail URL locates the safe local evidence view without disclosing host path
 
 Strict composite detail additionally exposes `timeline`: saved events in append
 order with only normalized UTC `ts` (or null), redacted `event`, and validated
-persisted `stage` (or null), including a `deliver` stage recorded before AEGIS
-0.15.0. Missing stages remain unknown. The timeline is not
-added to list rows. Malformed recorded stage/executor identities in a journal
-fail closed before any result is returned.
+persisted `stage` (or null). Missing stages remain unknown. The timeline is not
+added to list rows. Malformed recorded stage/executor identities in a journal,
+including an event naming the removed `deliver` stage, fail closed
+(`run_journal_corrupt`) before any result is returned.
 
 HTTP(S) source links require valid host/port and exclude credentials, query/fragment,
 controls and backslashes, including percent-decoded forms. Free text redacts
@@ -107,10 +107,12 @@ common token/password/secret/API-key/authorization assignments and Basic/Bearer
 credentials. Descriptions, authors, arbitrary journal values, financial payloads,
 outbox bodies, worktree paths and validation command output are excluded.
 
-Schema-1 state is validated without adding fields or writing defaults. Optional
-legacy ticket/journal files may be absent; malformed files, duplicate JSON keys,
+Schema-1 state is validated without adding fields or writing defaults. Ticket
+and journal files may be absent; malformed files, duplicate JSON keys,
 non-finite constants, parser depth failures, invalid Unicode scalars, torn JSONL records, invalid projected types, mismatched
-ticket/run identity and nonempty malformed timestamps fail closed. Operational
+ticket/run identity and nonempty malformed timestamps fail closed. An empty
+`created_at` or `updated_at` is `run_state_corrupt`, because every save stamps
+both. Operational
 journal recovery retains its existing tolerance for torn lines.
 
 Typed `JobReadError` exposes only a code: 503 `run_state_corrupt`,
@@ -126,7 +128,7 @@ addition/deletion, evidence change, profile rename/archive or authorization chan
 invalidates the continuation; restart at offset zero. Search/page parameters do
 not alter a source revision. Project-scoped revisions cover that selected profile.
 A deleted profile is unavailable; an archived profile retains history. An absent
-legacy runs root is an empty collection; unreadable sources and orphan run folders
+runs root is an empty collection; unreadable sources and orphan run folders
 are integrity errors. No source is repaired or reset by reading.
 
 ## 8. Usage
@@ -143,8 +145,9 @@ direct routes, colliding run IDs, timezone ties, source/grant mutations,
 archived/missing metadata, wait evidence, forge anchors, unsafe URLs, corrupt
 state/tickets/journals, secret filtering, IO failures and zero subprocess calls.
 Advanced-filter/timeline tests prove matching, bounds, corruption/redaction and
-attention selection. The project-summary regression treats absent legacy update
-times as unknown while rejecting malformed nonempty times.
+attention selection. `test_project_summary_refuses_a_run_without_an_aware_activity_time`
+proves the project list answers 503 `run_state_corrupt` for an empty, malformed
+or naive update time.
 `test_web_paging.py`, `test_web_rbac.py` and `test_state.py` preserve adjacent
 API and recovery contracts. Final verification uses repository strict validation.
 
@@ -160,4 +163,4 @@ measured duration and usage contracts.
 
 ## Preparation projection
 
-Authorized job reads validate `RunState.execution` then expose only preparation status, attempt count, image, fingerprint and ordered timestamp/exit/timeout/cancel summaries. Legacy jobs carry null. Source scripts, policy and raw streams remain outside the job projection. Existing composite identity, authorization and optimistic snapshots are preserved.
+Authorized job reads validate `RunState.execution` then expose only preparation status, attempt count, image, fingerprint and ordered timestamp/exit/timeout/cancel summaries. Jobs without a recipe selection (including the empty no-recipe record) carry null. Source scripts, policy and raw streams remain outside the job projection. Existing composite identity, authorization and optimistic snapshots are preserved.

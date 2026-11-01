@@ -473,12 +473,6 @@ class Orchestrator:
         if run.lifecycle in {"handed-off", "handoff-pending"}:
             self.log("human-owned run cannot be reset for automatic execution")
             return False
-        if run.stage == "deliver":
-            # deliver is history from AEGIS before 0.15.0. Its old approval stays
-            # in the run state, so any reset could lead on to publishing it.
-            self.log("a run recorded at the removed deliver stage cannot be reset; "
-                     "cancel or delete it")
-            return False
         run.stage = stage
         run.lifecycle = "failed"
         run.stage_failures = 0
@@ -496,7 +490,7 @@ class Orchestrator:
                  slug, egress network prefix or worktree root. Active, failed,
                  human-owned and corrupt runs keep their resources, and a
                  proxy or network any other existing executor still derives
-                 (an old cut name can be shared) stays. Without the executor
+                 stays. Without the executor
                  listing no proxy or network is removed.
         @return  Lock outcome, removed resources (sorted) and corrupt run IDs.
         """

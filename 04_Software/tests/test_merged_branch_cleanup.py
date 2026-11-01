@@ -136,17 +136,13 @@ def test_git_identity_failure_never_deletes(tmp_path, results):
     assert not any("push" in call for call in runner.calls)
 
 
-@pytest.mark.parametrize("expected", ["a" * 40, ""])
-def test_remote_branch_removal_uses_exact_lease(tmp_path, expected):
-    """@brief Current and legacy publication identities authorize only exact leased deletion."""
+def test_remote_branch_removal_uses_exact_lease(tmp_path):
+    """@brief The recorded publication identity authorizes only exact leased deletion."""
     ref = "refs/heads/adore/run-7"
     remote = "a" * 40
-    results = [_ok(), _ok(remote + "\t" + ref)]
-    if not expected:
-        results.append(_ok(remote))
-    runner = FakeRunner(*results, _ok(), _ok())
+    runner = FakeRunner(_ok(), _ok(remote + "\t" + ref), _ok(), _ok())
     WorktreeManager(tmp_path, tmp_path / "worktrees", runner=runner).remove_remote_branch(
-        "adore/run-7", expected, "main",
+        "adore/run-7", remote, "main",
     )
     push = next(call for call in runner.calls if "push" in call)
     assert push[-4:] == ["push", f"--force-with-lease={ref}:{remote}", "origin", f":{ref}"]
@@ -156,7 +152,7 @@ def test_already_removed_branch_is_success_without_local_branch(tmp_path):
     """@brief Native forge auto-deletion and crash recovery are idempotent."""
     runner = FakeRunner(_ok(), _ok())
     WorktreeManager(tmp_path, tmp_path / "worktrees", runner=runner).remove_remote_branch(
-        "adore/run-7", "", "main",
+        "adore/run-7", "a" * 40, "main",
     )
     assert not any("push" in call or "rev-parse" in call for call in runner.calls)
 

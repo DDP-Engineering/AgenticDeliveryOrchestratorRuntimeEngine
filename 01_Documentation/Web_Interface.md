@@ -272,14 +272,13 @@ configuration change recorded them; identifiers show their first 12 characters
 A preparation shows a candidate, with **Prepared** rather than an applied result.
 Discard records removal of a durable pending configuration. **Uncertain** means
 the host could not confirm completion; inspect/reconcile the actual resource
-before attempting recovery. Legacy **Before value not recorded** is unknown,
+before attempting recovery. **Before value not recorded** is unknown,
 not an empty value or an inferred difference. Strings or sensitive settings can
 be explicitly redacted. Passwords/environment values and raw error text are omitted.
 
 Project **History** combines jobs with change evidence for that immutable project.
 Dev receives assigned-project operational changes; administrative account/access,
-price and policy events remain Admin-only. Legacy name-only events do not establish
-Dev visibility. Revoked or replaced grants cannot expose another project's events.
+price and policy events remain Admin-only. Revoked or replaced grants cannot expose another project's events.
 An empty filter result explains that no changes match; failed reads hide data and
 can be retried with **Refresh**. There is no audit download/export action.
 
@@ -686,12 +685,11 @@ The categories are Repository, Tickets, Implementation, PR/MR and review, Statis
 Each row gives an understandable label, visible purpose/units/consequence guidance,
 its **Active value** and **ADORE default**; inherited values carry a **Default** badge. Permanent guidance below the label explains each setting; server catalog metadata still constrains edit types, choices and numeric bounds. Supported reviewer/provider-name lists and retry/stage-limit collections use typed reviewed editors; other unsupported sections remain externally configured. Agent and model offers complete reviewed agent selections and launch presets.
 
-The **Durable job state folder** remains visible read-only. The reserved
-`state.channel` compatibility value stays in TOML/API metadata and has no web
-Settings row; runtime reporting always uses its status comment and lifecycle labels.
+The **Durable job state folder** remains visible read-only. Runtime reporting
+always uses the status comment and lifecycle labels; there is no setting for it.
 
 Choose **Edit**, correct the value and choose **Prepare candidate**. This writes
-only the pending candidate. Pending configuration appears above the settings categories. The main comparison shows changed values only, with adjacent Apply/Discard actions. A candidate with unchanged simple values displays a clear notice and disables Apply; image/plan binding candidates retain their review. Closed Technical details contains the complete safe comparison, effect, preparation time, revisions and Copy safe review. Blocking pause/stale notices remain visible. Object property order is ignored when comparing values; list order is significant. The comparison wraps into labeled value cells on narrow screens. The supported OpenCode endpoint form
+only the pending candidate. Pending configuration appears above the settings categories. The main comparison shows changed values only, with adjacent Apply/Discard actions. A candidate with unchanged simple values displays a clear notice and disables Apply; plan binding candidates retain their review. A pending candidate with an image-build binding, or for an operator-owned environment key, could only be staged by an earlier build: viewing or applying it returns 503 `pending_config_corrupt`, and an administrator discards it with **Discard change** (`DELETE /api/v1/projects/{name}/config/pending`). Closed Technical details contains the complete safe comparison, effect, preparation time, revisions and Copy safe review. Blocking pause/stale notices remain visible. Object property order is ignored when comparing values; list order is significant. The comparison wraps into labeled value cells on narrow screens. The supported OpenCode endpoint form
 prepares its URL/model/connection options together as the existing single edit.
 Copy contains all safe compared values and revision identifiers.
 Credential values, inline provider JSON and credential-bearing URLs are redacted.
@@ -853,9 +851,12 @@ server snapshot. Host writes after final reinspection appear on the next read.
 
 `GET /api/v1/jobs/{project_id}/{run_id}` returns the same safe evidence model.
 Saved ticket titles, ticket/MR links, questions and approval references appear
-only when available. Stage and lifecycle remain separate. Missing legacy
-metadata, timestamps, named responsibility and consumption remain explicitly
-unknown. Actual comment/candidate/MR evidence supports the reported next action;
+only when available. Stage and lifecycle remain separate. Unset optional
+metadata and timestamps, named responsibility and consumption remain explicitly
+unknown. Every save stamps `created_at` and `updated_at`, so an empty one returns
+503 `run_state_corrupt` in job reads, and the project list refuses an empty
+`updated_at` the same way. A journal event naming the removed `deliver` stage
+returns 503 `run_journal_corrupt`. Actual comment/candidate/MR evidence supports the reported next action;
 the API never invents a reviewer, question or completed outcome. Corrupt retained
 state/ticket/journal evidence returns a typed 503, with no partial totals.
 Job reads use local retained snapshots and execute no forge/container/executor
@@ -899,7 +900,7 @@ details. The Statistics export menu includes **Job consumption** CSV for the
 same project/date/timezone/grouping selection. Scope controls are encoded in
 Statistics and Jobs URLs for direct links, reload and browser Back.
 
-Trends shows usage coverage and undated usage as compact values and one table
+Trends shows usage coverage as a compact value and one table
 with a row per period bucket: started, completed and failed counts carry
 proportional bars, and tokens and administrator money show plain values or a
 dash. Administrators find unpriced usage events among the Usage totals and
@@ -926,10 +927,12 @@ Unique usage is attributed at its own consumption instant. `jobs` uses
 source and coverage. Historical summaries survive runtime-state removal;
 positive summary-only measurements belong to lifetime/unallocated, never a
 fabricated period. Missing individual token fields stay null; explicit measured
-zero stays zero. Neutral legacy summary defaults are unknown. Legacy missing,
-invalid, naive or date-only timestamps contribute unallocated coverage and
-amounts. Financial fields and financial coverage are Admin-only in every nested
-projection and export. Reported and estimated costs remain separate; matching
+zero stays zero. A zero token count in summary-only evidence is unknown. Every
+usage event carries the versioned identity `event_id = "<run_id>:<attempt>"` and
+an aware timestamp. A usage event without a timestamp returns 503
+`usage_corrupt`; one without an event ID, or with a naive, date-only or
+unparseable timestamp, returns 503 `metrics_corrupt`. Financial fields and
+financial coverage are Admin-only in every nested projection and export. Reported and estimated costs remain separate; matching
 immutable prices use the consumption UTC day, and never price reported money
 again. Coverage identifies partial evidence rather than asserting a full bill.
 
@@ -948,8 +951,8 @@ is valid; absent pairs are excluded and inconsistent pairs fail.
 
 Raw state/JSONL and read-only summary rows are validated before filters.
 Malformed JSON, duplicate keys, unsupported schema, invalid fields, conflicting
-versioned identity/timestamp, numeric overflow and invalid versioned timestamps
-fail typed 503 without source rewriting. Invalid scope/identity filters return
+versioned identity/timestamp, numeric overflow, invalid timestamps and a summary
+table with missing or extra columns fail typed 503 without source rewriting. Invalid scope/identity filters return
 422. Analytical summary reads neither initialize nor migrate runtime data.
 CSV includes scope/project provenance, empty unavailable cells and spreadsheet
 escaping; `X-ADORE-Scope`/`X-ADORE-Coverage` describe empty exports too.
@@ -1149,7 +1152,7 @@ Native execution is selected with **Runs in → Installed on the server** at enr
 
 ## Project executor images
 
-Settings → Agent and model shows a compact container notice with the effective image and one expandable instruction disclosure. It identifies standard `executor/Dockerfile`, optional `executor/README.md`, a non-root example, external Docker/Podman build and verification, and the existing profile fields. Only administrators see the actual resolved server `config.toml` path. No controls define or build an image; **Executor image** (enrollment step 2 and Settings) selects one that the administrator prepared on the server. Specialized profiles use server TOML enrollment. Historical records remain readable/exportable/cancellable; old pending candidates can be discarded, and queued image-build requests fail without runtime execution. See [Project executor images](Project_Executor_Images.md).
+Settings → Agent and model shows a compact container notice with the effective image and one expandable instruction disclosure. It identifies standard `executor/Dockerfile`, optional `executor/README.md`, a non-root example, external Docker/Podman build and verification, and the existing profile fields. Only administrators see the actual resolved server `config.toml` path. No controls define or build an image; **Executor image** (enrollment step 2 and Settings) selects one that the administrator prepared on the server. Specialized profiles use server TOML enrollment. ADORE has no image-build routes or records: the former `/api/v1/projects/{name}/image-build` routes answer 404, and a pending candidate with an image-build binding returns 503 `pending_config_corrupt` until an administrator discards it. See [Project executor images](Project_Executor_Images.md).
 
 ## Automatic polling cadence
 

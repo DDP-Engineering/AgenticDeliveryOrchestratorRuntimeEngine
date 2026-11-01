@@ -141,7 +141,7 @@ def local_argv(template: str, *, prompt: str, model: str, worktree: str) -> list
     @param[in] prompt Full gate instruction.
     @param[in] model Configured model identifier.
     @param[in] worktree Native ticket worktree.
-    @return Fresh-session argv with empty legacy resume placeholder removed.
+    @return Fresh-session argv.
     @exception LocalExecutionError Unsupported or malformed argv template.
     """
     try:
@@ -149,7 +149,7 @@ def local_argv(template: str, *, prompt: str, model: str, worktree: str) -> list
         if not tokens or any(token in {"&&", "||", ";", "|", ">", "<", "&"} for token in tokens):
             raise ValueError
         result = [
-            token.format(prompt=prompt, model=model, worktree=worktree, resume="")
+            token.format(prompt=prompt, model=model, worktree=worktree)
             for token in tokens
         ]
         return [token for token in result if token]

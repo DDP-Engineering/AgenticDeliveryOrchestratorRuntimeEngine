@@ -28,12 +28,12 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 - Browse a project's open forge tickets from its Jobs tab: a Tickets sub-tab reads them on request with ADORE pickup eligibility and job state, starts a ticket (adding its missing ready and chosen priority labels after confirmation), retries a failed job, stops a ticket (cancels its unfinished job and removes the ready label) and shows its description and comments as plain text; the job table moves to a Jobs sub-tab.
 
-- Compact project Dockerfile definition, durable bounded image build/verification, redacted owned runtime evidence and revision-bound image/tool selection through existing configuration review.
 
 - Native local executor profiles reuse installed account authentication with pinned machine/environment identity, verified Windows Job/Linux cgroup ownership, native AEGIS/gate evidence, backend-aware setup/settings/readiness and user-owned tooling guidance.
 
 ### Changed
 
+- ADORE no longer reads data written by earlier builds: there are no migrations or compatibility while it is in development. Run state at the removed `deliver` stage or missing a current key, `profile.json` with unknown or missing keys, `config.toml` keys this build does not read (such as `[state] channel` or the Codex `{resume}` placeholder), a `metrics.db` with other columns, journal events without a timestamp or with one lacking its UTC offset, usage events without an event ID, pending configuration candidates staged by an earlier build, and audit rows without evidence are refused with a message that names what to delete or fix. The retired image-build subsystem and its `/image-build` routes are removed, and `adore cleanup` no longer recognises container and network names cut by earlier builds; remove such leftovers with the runtime CLI (Recovery_And_Maintenance.md). Statistics Trends no longer shows **Usage without a consumption date**, which every current usage event has. `POST /config/apply` requires `base_revision`, which the browser already sends. Before starting this build, delete the run directories, `metrics.db` and `pending_config.json` that the refusals name, and remove stale keys from `config.toml`.
 - **Test AI connection** for OpenCode, Pi or Codex installed on the server now asks the agent to run `echo <nonce>` with its shell tool and then reply with a second nonce. It reports connected only when the shell call completed and printed the nonce and the reply is exact; a missing, rejected or failed shell call reports the new reason `tool-call-failed`, with guidance in four languages to check the agent's permissions. The local test is bounded at 90 seconds instead of 45 and keeps up to 1 MiB of agent output instead of 64 KiB, so a local Pi test, whose events repeat the whole conversation, can pass at all. Qwen and container profiles keep the no-tool challenge. The help text, the host-check row and the docs no longer say tools are never checked.
 - **BREAKING: ADORE conducts AEGIS 0.15.0, where validate closes the task, and
   requires AEGIS 0.15.0 or newer.** The conducted paths are frame, specify,
@@ -54,11 +54,10 @@ This project follows Keep a Changelog and Semantic Versioning.
   that failed after publication to review, resumes publication of an approved
   unpublished candidate (also after `reset --to publishing`) and conducts any
   other run from done; publication refuses a run outside stage done or the
-  publishing pointer with `PUBLICATION_STAGE`, and `reset` refuses every
-  target for a run recorded at deliver. The probe and the readiness check refuse an older AEGIS with a
+  publishing pointer with `PUBLICATION_STAGE`. The probe and the readiness check refuse an older AEGIS with a
   message naming 0.15.0, so runs begun under the deliver flow, including runs
-  already in review, are not carried over; run records and run-journal events that name deliver still load for
-  history. Stage prompts name `advance`, `log` and `pause` (`pause --blocked`
+  already in review, are not carried over; run records and run-journal events that name deliver
+  are refused. Stage prompts name `advance`, `log` and `pause` (`pause --blocked`
   for questions), the continuation context names `brief` and the journal State,
   and the human handoff note names `brief` and the full task journal instead of
   the retired Handoff and Stage report sections. Re-verified against the installed 0.15.0 CLI: the version line,
@@ -131,7 +130,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 - Allow `delivery.draft = false` to create review-ready PR/MRs after fresh human publication approval; settings show localized Draft/Ready for review choices. Existing review records retain their state, and ADORE never merges.
 
-- Move execution environment preparation outside ADORE: Executor configuration now shows conditional container Dockerfile/server-profile instructions and effective image; Settings and guided enrollment omit environment editors. Retired web build/config mutations fail closed while existing profiles, historical evidence and owned recovery remain.
+- Move execution environment preparation outside ADORE: Executor configuration now shows conditional container Dockerfile/server-profile instructions and effective image; Settings and guided enrollment omit environment editors.
 
 - Unify executor settings and Provider credentials in one panel with heading Test AI connection; offer server-validated launch command presets through reviewed dropdown edits.
 
@@ -167,7 +166,7 @@ This project follows Keep a Changelog and Semantic Versioning.
   nonnegative jitter and quiet hours, with independent per-project waits after
   completion. Polling settings remain available with localized scope guidance.
 
-- Hide the ineffective State reporting channel from web Settings while retaining the read-only durable job state folder and compatible TOML.
+- Remove the ineffective State reporting channel (`[state] channel`); the read-only durable job state folder stays.
 
 - Complete localized corrective messages for environment, preparation, model and executor credential failures.
 
@@ -260,7 +259,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 - Authorized global/project job read API with composite identities, complete
   paging/search/status groups and optimistic source revisions. Persisted titles,
-  activity and waiting evidence retain honest legacy/usage unknowns; strict local
+  activity and waiting evidence keep honest unknowns; strict local
   source/URL validation fails closed without external refresh commands (#11).
 
 - Guided exact server TOML enrollment with localized source/effect explanations,
@@ -304,7 +303,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 - Project hubs separate pickup from revision/time-bound verification and expose
   Summary, Settings and History alongside existing Admin Prices/Access and
-  Jobs/Statistics links. Missing legacy activity remains unknown; unsafe or corrupt
+  Jobs/Statistics links. Unsafe or corrupt
   job evidence hides data, and changed page sources require explicit restart (#12).
 
 
@@ -365,7 +364,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 - `metrics.capture_tokens` now appears in a project's Configuration and can be changed there and with `adore config set`; it was hidden and refused as a secret because its name contains "tokens". It must be true or false; any other value is refused and never shown, and other secret-looking names stay hidden and refused.
 - The configuration reference and the example configuration now say that a closed source ticket cancels a waiting run (a deleted ticket or a closed-unmerged MR/PR fails it, and a run in review follows its MR/PR first), and that `remove_source_branch` takes effect only on GitLab.
 - Configuration edits from the web interface and `adore config set` keep the file's CR LF or LF line endings on every OS; staging a new table in a CR LF file on Windows no longer fails as invalid configuration, and `config set` no longer rewrites every line ending.
-- In `allowlist-proxy` egress mode every run gets its own proxy container and egress network: long names end in a short digest of the executor name instead of being cut to a shared value, so a run no longer starts behind another run's proxy or loses it when that run ends. Upgrade note: finish, cancel or re-provision parked long-named `allowlist-proxy` runs from an earlier release first (see Recovery and Maintenance).
+- In `allowlist-proxy` egress mode every run gets its own proxy container and egress network: long names end in a short digest of the executor name instead of being cut to a shared value, so a run no longer starts behind another run's proxy or loses it when that run ends. Proxies and networks named by an earlier build are not recognised; remove them by hand (see Recovery and Maintenance).
 - `adore cleanup` works only on the selected project's runs: on a host where projects share the agent slug, egress network prefix or worktree root it no longer removes another project's containers, proxies, networks or worktrees, nor a proxy or network another existing executor still uses, and runs with corrupt state keep their worktree and containers.
 - Required-field markers now sit on the same line as their label instead of below it.
 - Web error banners now show a sentence in the selected language instead of raw error codes, and clear after a later successful action or a view change.
@@ -516,7 +515,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 - Inclusive UTC daily reporting periods for project/global metrics and CSV,
   with dated-event period totals separate from all-time totals.
 - Terminal job elapsed-time sample count, average and median in Metrics, with
-  a separate UTC completion-period view and explicit undated-history coverage.
+  a separate UTC completion-period view.
 - Evidence-based reviewer-rework, first-validation and human-merge quality
   rates with eligible-job denominators and open-review counts.
 - Account-scoped language and theme preferences with browser fallback before
@@ -678,8 +677,8 @@ This project follows Keep a Changelog and Semantic Versioning.
   on Windows, so the new push-access probe reported a missing git binary or a
   raw OS code. It now names the directory that does not exist.
 - **An executor command template could carry a placeholder nothing fills.** The
-  launcher renders the template with `str.format`, so `{resume}` on a non-Codex
-  executor, or a shell `${HOME}`, raised `KeyError` at gate time once per
+  launcher renders the template with `str.format`, so an unsupported placeholder
+  such as `{resume}`, or a shell `${HOME}`, raised `KeyError` at gate time once per
   attempt until the stage budget was spent, with nothing pointing at the cause.
   Configuration validation now rejects unsupported and malformed placeholders
   at setup.
@@ -702,9 +701,7 @@ This project follows Keep a Changelog and Semantic Versioning.
   self-heal relaunch and the per-executor `_extract_session_id` hooks could
   never run; `GateRun.session_id` and the `session` argument are gone with
   them. Every gate was, and remains, a fresh executor session with the durable
-  AEGIS journal as the resume authority. Codex's `{resume}` template slot is
-  still accepted and always resolves to empty, so existing profiles keep
-  working.
+  AEGIS journal as the resume authority.
 - `adore init` now probes host git push access with `git ls-remote` in the
   target clone. That credential is separate from the platform CLI login and was
   previously unverified until `_publish` reached the push, where a failure
@@ -749,8 +746,7 @@ This project follows Keep a Changelog and Semantic Versioning.
   `CANDIDATE_MUTATION`, `DIRTY_DELIVERY`, `CLOSE_OUT_FAILED`,
   `CLOSE_OUT_NOT_DONE` and `CLOSE_OUT_PUSH_FAILED` failures are gone with them,
   and `deliver` is no longer a reset target or a stage-timeout key.
-  `RunState.approved_product` stays readable in schema-1 state and is no
-  longer written.
+  `RunState.approved_product` is gone.
 
 - Remove the Jobs Advanced filters (exact status, stage, observed executor, outcome text and update dates) and their `/api/v1/jobs-page` parameters; Jobs keeps search and the status group.
 

@@ -172,8 +172,9 @@ approval freshness and publishes the same candidate; without a fresh approval
 it conducts the run from done. A run whose candidate already reached review
 (its fingerprint equals the recorded `published_fingerprint`) returns to
 review on retry. Publication refuses a run outside stage done or publishing
-with `PUBLICATION_STAGE`, and reset refuses every target for a run
-recorded at `deliver`. Existing open branch MRs are adopted before creation.
+with `PUBLICATION_STAGE`; a run saved at the removed `deliver` stage is
+refused when its state loads, so reset never reaches it. Existing open branch
+MRs are adopted before creation.
 
 Two triggers feed one governed revision path: the revise label a human applies,
 and a newly `failed` forge pipeline when `[review] on_pipeline_failure` is

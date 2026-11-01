@@ -97,8 +97,7 @@ Container profiles without recipes retain the existing recovery/profile-update c
 - `REQ-FUNC-67469d47` - a failed independent check is routed back from done.
 - `REQ-FUNC-67bd56c8` - publication pushes and opens or adopts the MR/PR with no executor session or AEGIS command.
 - `REQ-FUNC-fbc3fca5` - prompts name `advance`, `log` and `pause`; continuations name `brief` and the State.
-- `REQ-FUNC-f9bdb5d2` - reset accepts only the conducted stages and publishing,
-  and refuses every target for a run recorded at deliver.
+- `REQ-FUNC-f9bdb5d2` - reset accepts only the conducted stages and publishing.
 - `REQ-FUNC-d8d1b95b` - retry returns a published candidate to review, resumes an
   approved unpublished one and conducts any other run from done.
 - `REQ-FUNC-40057219` - publication refuses a run outside stage done or publishing.

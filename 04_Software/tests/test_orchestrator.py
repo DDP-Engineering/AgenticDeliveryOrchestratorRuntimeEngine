@@ -43,6 +43,8 @@ from adore.state import RunState, StateError, StateStore, content_hash
 from adore.util import CommandResult, utc_now_iso
 import pytest
 
+from tests.usage_events import versioned_usage
+
 # CONSTANTS
 
 TASK_ID = "TASK-abc123ef"
@@ -1765,10 +1767,10 @@ def test_retry_conducts_a_published_run_reset_to_an_earlier_stage(
 def test_publication_refuses_a_run_outside_the_done_stage(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """@brief A run recorded at the removed deliver stage is history, never published."""
+    """@brief An approved run that is not at the done stage is never published."""
     engine, forge, worktrees, _, executor = make_engine(tmp_path)
     run = _approved_run(engine, worktrees)
-    run.stage = "deliver"
+    run.stage = "validate"
     engine.store.save(run)
     forge.ticket.labels.append("agent-approved")
     monkeypatch.setattr(orchestrator_module, "AegisClient", _NoAegis)
@@ -1889,28 +1891,6 @@ def test_retry_publishes_a_review_round_candidate_not_yet_published(
     assert saved.lifecycle == "in-review"
     assert saved.published_fingerprint == worktrees.fingerprint
     assert executor.prompts == []
-
-
-@pytest.mark.parametrize("target", orchestrator_module.RESETTABLE_STAGES)
-def test_reset_refuses_every_target_for_a_run_recorded_at_deliver(
-    tmp_path: Path, target: str,
-) -> None:
-    """
-    @brief   A run recorded at the removed deliver stage is never reset.
-    @details Its old approval stays in the run state, so a reset to validate
-             followed by one to publishing would publish it without the
-             current flow's verification.
-    """
-    engine, _, _, _, _ = make_engine(tmp_path)
-    run = make_run(engine)
-    run.stage = "deliver"
-    run.lifecycle = "failed"
-    engine.store.save(run)
-
-    assert not engine.reset(run.run_id, target)
-
-    saved = engine.store.load(run.run_id)
-    assert saved.stage == "deliver" and saved.lifecycle == "failed"
 
 
 def test_done_task_without_evidence_returns_to_validate_before_approval(
@@ -2906,7 +2886,7 @@ def test_disabled_cost_cap_preserves_other_bounds_and_usage(tmp_path, monkeypatc
     engine, _, worktrees, _, _ = make_engine(tmp_path)
     engine.config.budgets.max_cost_usd = 0
     run = make_run(engine)
-    engine.store.journal(run.run_id, "usage", cost_usd=6.22)
+    engine.store.journal(run.run_id, "usage", **versioned_usage(run.run_id, 1, cost_usd=6.22))
     if bound == "iterations":
         run.iterations = engine.config.budgets.max_iterations
     elif bound == "clock":
@@ -2933,7 +2913,7 @@ def test_reported_cost_cap_controls_validation_resume_without_erasing_usage(tmp_
     engine.config.budgets.max_cost_usd = cap
     run = make_run(engine)
     run.stage = "validate"
-    engine.store.journal(run.run_id, "usage", cost_usd=6.22)
+    engine.store.journal(run.run_id, "usage", **versioned_usage(run.run_id, 2, cost_usd=6.22))
     engine._conduct_task(run, forge.ticket, FakeAegis(sequence("validate", "done")), "")
     assert run.lifecycle == ("awaiting-approval" if cap == 0 else "failed")
     assert any(e.get("cost_usd") == 6.22 for e in engine.store.read_journal(run.run_id))
@@ -3103,38 +3083,6 @@ def test_cleanup_keeps_resources_of_runs_with_corrupt_state(tmp_path: Path) -> N
         assert report[key] == [], key
 
 
-def test_cleanup_keeps_truncated_egress_names_shared_with_a_protected_run(
-    tmp_path: Path,
-) -> None:
-    """
-    @brief   A done and a handed-off run of a long-named project created before
-             per-run names share old cut proxy and network names; the done
-             run's executor and worktree go, the shared proxy and network stay.
-    """
-    engine, _, worktrees, _, _ = make_engine(tmp_path)
-    engine.config.platform.kind = "gitea"
-    engine.config.platform.repo = "dpasare/2026_Networked_Intelligent_Lab_Orchestrator"
-    done, human = (f"gitea-dpasare-2026_Networked_Intelligent_Lab_Orchestrator-{iid}"
-                   for iid in (26, 27))
-    engine.store.save(RunState(run_id=done, ticket_iid=26, lifecycle="done"))
-    engine.store.save(RunState(run_id=human, ticket_iid=27, lifecycle="handed-off"))
-    root, runtime = _shared_host(tmp_path, engine, worktrees, dirs=[done, human])
-    proxy = "adore-run-gitea-dpasare-2026_Networked_Intelligent-egress-proxy"
-    network = "adore-egress-adore-run-gitea-dpasare-2026_Networked_Intellige"
-    runtime.containers |= {f"adore-run-{done}", f"adore-run-{human}", proxy}
-    runtime.networks.add(network)
-
-    report = engine.cleanup()
-
-    assert report["containers_removed"] == [f"adore-run-{done}"]
-    assert report["proxy_containers_removed"] == []
-    assert report["egress_networks_removed"] == []
-    assert report["worktrees_removed"] == [done]
-    assert runtime.containers == {f"adore-run-{human}", proxy}
-    assert runtime.networks == {network}
-    assert (root / human).is_dir() and not (root / done).exists()
-
-
 def test_cleanup_continues_when_the_container_runtime_fails(tmp_path: Path) -> None:
     """
     @brief   Failed runtime listings and sweeps are skipped: cleanup still
@@ -3183,34 +3131,6 @@ def test_cleanup_reports_only_worktrees_it_removed(
     assert report["worktrees_removed"] == []
 
 
-def test_cleanup_keeps_old_cut_names_another_projects_executor_uses(tmp_path: Path) -> None:
-    """
-    @brief   A done run's old cut proxy and network that another project's
-             existing executor also derives stay; the done run's executor and
-             worktree go.
-    """
-    engine, _, worktrees, _, _ = make_engine(tmp_path)
-    engine.config.platform.kind = "gitea"
-    engine.config.platform.repo = "dpasare/2026_Networked_Intelligent_Lab_Orchestrator"
-    done = "gitea-dpasare-2026_Networked_Intelligent_Lab_Orchestrator-26"
-    engine.store.save(RunState(run_id=done, ticket_iid=26, lifecycle="done"))
-    root, runtime = _shared_host(tmp_path, engine, worktrees, dirs=[done])
-    other = "adore-run-gitea-dpasare-2026_Networked_Intelligent_Lab_Other-3"
-    proxy = "adore-run-gitea-dpasare-2026_Networked_Intelligent-egress-proxy"
-    network = "adore-egress-adore-run-gitea-dpasare-2026_Networked_Intellige"
-    runtime.containers |= {f"adore-run-{done}", other, proxy}
-    runtime.networks.add(network)
-
-    report = engine.cleanup()
-
-    assert report["containers_removed"] == [f"adore-run-{done}"]
-    assert report["proxy_containers_removed"] == []
-    assert report["egress_networks_removed"] == []
-    assert runtime.containers == {other, proxy}
-    assert runtime.networks == {network}
-    assert not (root / done).exists()
-
-
 def test_cleanup_removes_no_proxy_or_network_when_executor_listing_fails(
     tmp_path: Path,
 ) -> None:
@@ -3247,32 +3167,6 @@ def test_cleanup_removes_no_proxy_or_network_when_executor_listing_fails(
 
     assert calls == ["executors"]
     assert report["worktrees_removed"] == [run_id]
-
-
-def test_cleanup_removes_unshared_old_cut_names_of_a_finished_run(tmp_path: Path) -> None:
-    """
-    @brief   A done long-named run's old cut proxy and network go when no other
-             executor exists: a proxy never counts as an executor that still
-             uses (and would so retain) its own old cut name.
-    """
-    engine, _, worktrees, _, _ = make_engine(tmp_path)
-    engine.config.platform.kind = "gitea"
-    engine.config.platform.repo = "dpasare/2026_Networked_Intelligent_Lab_Orchestrator"
-    done = "gitea-dpasare-2026_Networked_Intelligent_Lab_Orchestrator-26"
-    engine.store.save(RunState(run_id=done, ticket_iid=26, lifecycle="done"))
-    root, runtime = _shared_host(tmp_path, engine, worktrees, dirs=[done])
-    proxy = "adore-run-gitea-dpasare-2026_Networked_Intelligent-egress-proxy"
-    network = "adore-egress-adore-run-gitea-dpasare-2026_Networked_Intellige"
-    runtime.containers |= {f"adore-run-{done}", proxy}
-    runtime.networks.add(network)
-
-    report = engine.cleanup()
-
-    assert report["containers_removed"] == [f"adore-run-{done}"]
-    assert report["proxy_containers_removed"] == [proxy]
-    assert report["egress_networks_removed"] == [network]
-    assert runtime.containers == set() and runtime.networks == set()
-    assert not (root / done).exists()
 
 
 @pytest.mark.parametrize("backoff, expected", [

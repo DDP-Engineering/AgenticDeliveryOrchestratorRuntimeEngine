@@ -29,6 +29,8 @@ from adore.web.app import create_app
 from fastapi.testclient import TestClient
 import pytest
 
+from tests.usage_events import versioned_usage
+
 
 # PUBLIC API
 @pytest.mark.parametrize("relative", [False, True])
@@ -125,9 +127,11 @@ def test_scope_uses_half_open_local_midnights_and_own_events(tmp_path, day, star
     state = StateStore(profile.store_root)
     state.save(RunState(run_id="cross", ticket_iid=1, lifecycle="failed"))
     state.journal("cross", "picked", ts="2026-01-01T00:00:00Z")
-    state.journal("cross", "usage", ts=start, tokens_in=7, tokens_out=2)
+    state.journal("cross", "usage", **versioned_usage("cross", 32, ts=start,
+                  tokens_in=7, tokens_out=2))
     state.journal("cross", "stage-failed", ts=start)
-    state.journal("cross", "usage", ts=end, tokens_in=11, tokens_out=3)
+    state.journal("cross", "usage", **versioned_usage("cross", 33,
+                                                      ts=end, tokens_in=11, tokens_out=3))
     state.journal("cross", "checkpoint-pushed", ts=end)
     with TestClient(create_app(profiles.home)) as client:
         client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
@@ -152,7 +156,7 @@ def test_scope_uses_half_open_local_midnights_and_own_events(tmp_path, day, star
 
 
 def test_jobs_keep_lifetime_period_unallocated_and_composite_identity(tmp_path):
-    """@brief Cross-period job evidence is separate from undated legacy summaries."""
+    """@brief Cross-period job evidence is separate from undated summary-only runs."""
     profiles = ProfileStore(tmp_path / "home")
     identities = []
     for name, amount in (("alpha", 5), ("beta", 13)):
@@ -160,33 +164,30 @@ def test_jobs_keep_lifetime_period_unallocated_and_composite_identity(tmp_path):
         identities.append(profile.project_id)
         state = StateStore(profile.store_root)
         state.save(RunState(run_id="same", ticket_iid=1, lifecycle="working"))
-        for stamp, count in (
+        for attempt, (stamp, count) in enumerate((
             ("2026-01-01T12:00:00Z", 3),
             ("2026-01-02T12:00:00Z", amount),
-            ("invalid", 7),
-        ):
+        ), start=1):
             state.journal(
                 "same",
-                "usage",
+                "usage", **versioned_usage("same", attempt,
                 ts=stamp,
                 tokens_in=count,
                 tokens_out=0,
                 executor="codex",
                 model="m",
                 cost_usd=0,
-                cost_reported=True,
-            )
+                cost_reported=True),)
         state.save(RunState(run_id="unknown", ticket_iid=2, lifecycle="working"))
         state.save(RunState(run_id="zero", ticket_iid=3, lifecycle="working"))
         state.journal(
             "zero",
-            "usage",
+            "usage", **versioned_usage("zero", 35,
             ts="2026-01-02T00:00:00Z",
             tokens_in=0,
             tokens_out=0,
             cost_usd=0,
-            cost_reported=True,
-        )
+            cost_reported=True),)
         state.save(RunState(run_id="summary", ticket_iid=4, lifecycle="done"))
         metrics.record_summary(
             state.root / "metrics.db",
@@ -202,11 +203,10 @@ def test_jobs_keep_lifetime_period_unallocated_and_composite_identity(tmp_path):
         for index, (name, amount) in enumerate((("alpha", 5), ("beta", 13))):
             job = next(j for j in body[name]["jobs"] if j["run_id"] == "same")
             assert job["project_id"] == identities[index]
-            assert job["lifetime"]["tokens_in"] == 10 + amount
+            assert job["lifetime"]["tokens_in"] == 3 + amount
             assert job["in_period"]["tokens_in"] == amount
-            assert job["unallocated"]["tokens_in"] == 7
             usage = client.get(f"/api/v1/projects/{name}/usage" + suffix).json()
-            assert usage["unallocated"]["tokens_in"] == 26  # undated 7 + summary 19
+            assert usage["unallocated"]["tokens_in"] == 19  # the summary-only run
             assert usage["totals"]["tokens_in"] == amount
             assert usage["coverage"]["summary_only_runs"] == 1
         all_time = client.get("/api/v1/projects/alpha/metrics").json()
@@ -371,22 +371,21 @@ def test_price_history_uses_consumption_utc_day_and_filtered_job_csv(tmp_path):
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
     state.save(RunState(run_id="r", ticket_iid=1, lifecycle="working"))
-    for stamp, amount, reported in (
+    for attempt, (stamp, amount, reported) in enumerate((
         ("2026-01-01T22:30:00Z", 1_000_000, False),
         ("2026-01-02T00:30:00Z", 0, False),
         ("2026-01-02T01:00:00Z", 1_000_000, True),
-    ):
+    ), start=1):
         state.journal(
             "r",
-            "usage",
+            "usage", **versioned_usage("r", attempt,
             ts=stamp,
             executor="codex",
             model="m",
             tokens_in=amount,
             tokens_out=0,
             cost_usd=0,
-            cost_reported=reported,
-        )
+            cost_reported=reported),)
     app = create_app(profiles.home)
     app.state.web_store.add_price("alpha", "codex", "m", "2026-01-01", "2", "4", 1)
     app.state.web_store.add_price("alpha", "codex", "m", "2026-01-02", "9", "4", 1)
@@ -409,52 +408,42 @@ def test_price_history_uses_consumption_utc_day_and_filtered_job_csv(tmp_path):
         assert json.loads(empty.headers["X-ADORE-Scope"])[0] == body["scope"]
 
 
-def test_legacy_summary_reads_are_read_only_and_unknown_columns_fail_closed(tmp_path):
-    """@brief Old table reads retain bytes and neutral defaults without ALTER TABLE."""
+@pytest.mark.parametrize("columns", ["run_id TEXT PRIMARY KEY, tokens_in INTEGER", "extra"])
+def test_summary_table_of_another_build_fails_closed_untouched(tmp_path, columns):
+    """@brief Missing or extra summary columns fail closed; reads never change the file."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
     state.save(RunState(run_id="r", ticket_iid=1, lifecycle="done"))
     db = state.root / "metrics.db"
-    with sqlite3.connect(db) as connection:
-        connection.execute(
-            "CREATE TABLE run_summaries (run_id TEXT PRIMARY KEY, tokens_in INTEGER)"
-        )
-        connection.execute("INSERT INTO run_summaries VALUES ('r',5)")
+    if columns == "extra":
+        metrics.record_summary(db, metrics.RunSummary(run_id="r", tokens_in=5))
+        with sqlite3.connect(db) as connection:
+            connection.execute("ALTER TABLE run_summaries ADD COLUMN future_schema INTEGER")
+    else:
+        with sqlite3.connect(db) as connection:
+            connection.execute(f"CREATE TABLE run_summaries ({columns})")
+            connection.execute("INSERT INTO run_summaries VALUES ('r',5)")
     before = sha256(db.read_bytes()).hexdigest()
     with TestClient(create_app(profiles.home)) as client:
         client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
-        body = client.get("/api/v1/projects/alpha/metrics").json()
-        assert body["unallocated"]["tokens_in"] == 5
-        assert sha256(db.read_bytes()).hexdigest() == before
-        with sqlite3.connect(db) as connection:
-            connection.execute("ALTER TABLE run_summaries ADD COLUMN future_schema INTEGER")
-        before = sha256(db.read_bytes()).hexdigest()
         assert client.get("/api/v1/projects/alpha/metrics").status_code == 503
-        assert sha256(db.read_bytes()).hexdigest() == before
+    assert sha256(db.read_bytes()).hexdigest() == before
 
 
-def test_missing_dates_partial_usage_and_current_stock_remain_explicit(tmp_path):
-    """@brief Unallocated/partial measurements never become period zero or dates."""
+@pytest.mark.parametrize("stamp", [None, "", "2026-01-01", "2026-01-01T00:00:00", "invalid"])
+def test_usage_without_an_aware_timestamp_fails_closed(tmp_path, stamp):
+    """@brief The current writer stamps every usage event in UTC; anything else is corrupt."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
     state.save(RunState(run_id="r", ticket_iid=1, lifecycle="working"))
-    for stamp in (None, "", "2026-01-01", "2026-01-01T00:00:00", "invalid"):
-        state.journal("r", "usage", ts=stamp, tokens_in=3)
-    state.journal("r", "usage", ts="2026-01-01T00:00:00Z")
+    state.journal("r", "usage", **versioned_usage("r", 1, ts=stamp, tokens_in=3))
     with TestClient(create_app(profiles.home)) as client:
         client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
-        body = client.get("/api/v1/projects/alpha/metrics?day_from=2026-01-01").json()
-        assert body["unallocated"]["tokens_in"] == 15
-        assert body["unallocated"]["tokens_out"] is None
-        assert body["coverage"]["usage_events_unallocated"] == 5
-        assert body["totals"]["tokens_in"] is None
-        assert body["totals"]["tokens_out"] is None
-        assert body["totals"]["started"] == 0
-        assert body["current_stock"]["active_now"] == 1
-        assert body["current_stock"]["basis"] == "current_state"
-        assert body["scope"]["mode"] == "interval"
+        response = client.get("/api/v1/projects/alpha/metrics?day_from=2026-01-01")
+        assert response.status_code == 503
+        assert response.json()["detail"]["code"] in ("usage_corrupt", "metrics_corrupt")
 
 
 # END OF FILE
@@ -468,10 +457,10 @@ def test_numeric_boundaries_fail_before_filtering(tmp_path, fault):
     state = StateStore(profile.store_root)
     state.save(RunState(run_id="r", ticket_iid=1, lifecycle="working"))
     if fault == "sum-overflow":
-        for _ in range(2):
+        for attempt in (1, 2):
             state.journal(
-                "r", "usage", ts="2026-01-02T00:00:00Z", cost_usd=1e308, cost_reported=True
-            )
+                "r", "usage", **versioned_usage("r", attempt, ts="2026-01-02T00:00:00Z",
+                cost_usd=1e308, cost_reported=True),)
     elif fault == "versioned-time":
         state.journal(
             "r",
@@ -489,15 +478,9 @@ def test_numeric_boundaries_fail_before_filtering(tmp_path, fault):
             cost_reported=False,
         )
     else:
-        state.journal(
-            "r",
-            "usage",
-            ts="2026-01-02T00:00:00Z",
-            executor="codex",
-            model="m",
-            tokens_in=10**400,
-            tokens_out=0,
-        )
+        state.journal("r", "usage", **versioned_usage(
+            "r", 1, ts="2026-01-02T00:00:00Z", executor="codex", model="m",
+            tokens_in=10**400))
     app = create_app(profiles.home)
     if fault == "estimate-overflow":
         app.state.web_store.add_price("alpha", "codex", "m", "2026-01-01", "1", "1", 1)

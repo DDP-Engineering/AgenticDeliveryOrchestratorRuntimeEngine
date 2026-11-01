@@ -59,8 +59,8 @@ injected; no real Git/container/model/forge acceptance runs in these tests.
 
 ## 10. Limitations And Future Work
 
-Container and native local adapters are enabled. Image building (#22) remains a
-separate image/build identity capability.
+Container and native local adapters are enabled. ADORE builds no images:
+container images are managed outside it.
 Recipes are the published subset, not general Actions compatibility. Interrupted
 setup needs operator inspection and explicit bounded replay, with retained
 worktree partial effects and no exactly-once guarantee.

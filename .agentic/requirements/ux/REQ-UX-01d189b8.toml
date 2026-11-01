@@ -12,7 +12,7 @@ For an authorized container project, Agent and model shall display the effective
 """
 verification = "API/browser tests observe the effective image, Admin path and Dev omission, the disclosure, environment choices in guided enrollment and a reviewed image edit in Agent and model with developer read-only access, in four locales."
 affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/settings.ts", "04_Software/web/src/serverImages.ts", "04_Software/web/src/ExecutorEnvironment.tsx", "04_Software/web/src/EnrollmentWizard.tsx", "04_Software/web/src/enrollmentCopy.ts", "04_Software/web/src/styles.css", "04_Software/adore/web/app.py"]
-linked_tests = ["04_Software/tests/test_web_image_build.py", "04_Software/web/e2e/enrollment.spec.ts", "04_Software/web/e2e/settings.spec.ts", "04_Software/web/e2e/images.spec.ts", "04_Software/tests/test_executor_environment_choice.py"]
+linked_tests = ["04_Software/web/e2e/enrollment.spec.ts", "04_Software/web/e2e/settings.spec.ts", "04_Software/web/e2e/images.spec.ts", "04_Software/tests/test_executor_environment_choice.py"]
 priority = "high"
 created = 2026-10-08
-updated = 2026-10-13
+updated = 2026-11-01

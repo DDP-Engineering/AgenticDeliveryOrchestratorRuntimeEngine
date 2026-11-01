@@ -45,6 +45,11 @@ and delivery policy before an orchestration run begins. It forbids forge
 credentials in executor environment allowlists, rejects unsafe executor modes,
 requires boolean review-state delivery, and validates paths, labels, retries, duration,
 and resource limits instead of letting a later component guess.
+`validate_config()` refuses every key this build does not read, in every
+section and subtable (`labels.*`, `executor.<name>`, `container.egress`), with
+`[section] unknown key 'x': remove it from config.toml`; missing keys take the
+documented defaults. `[state] channel` and the Codex `{resume}` placeholder no
+longer exist and are refused as an unknown key and an unsupported placeholder.
 ADORE-managed `stage_host_auth` supports only OpenCode and Codex. Pi may use an
 operator-provided credential mount with staging disabled; unsupported
 executor/staging pairs fail validation before a run starts.

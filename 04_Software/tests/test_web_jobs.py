@@ -41,7 +41,7 @@ def _fixture(tmp_path):
             store.save(RunState(run_id=run_id, ticket_iid=1, lifecycle=lifecycle,
                                 stage="build", outcome="" if run_id == "same" else "merged"))
             _state(store, run_id, updated_at="2026-10-05T10:00:00+00:00" if index == 0
-                   else "2026-10-05T13:00:00+03:00", created_at="")
+                   else "2026-10-05T13:00:00+03:00", created_at="2026-10-05T09:00:00+00:00")
         store.save_ticket("same", {"iid": 1, "title": f"Actual {items[index].name}",
                                    "web_url": "https://forge.example/org/repo/issues/1",
                                    "description": "SECRET_DESCRIPTION"})
@@ -95,25 +95,6 @@ def test_job_list_has_no_advanced_filters_and_detail_keeps_safe_timeline(tmp_pat
         assert "observed_executors" not in detail
 
 
-def test_history_naming_the_removed_deliver_stage_stays_readable(tmp_path):
-    """
-    @brief   Job history from before AEGIS 0.15.0 keeps its deliver stage.
-    @details ADORE no longer conducts deliver, but a saved run and its journal
-             events that name it are history: the list and detail read them as
-             they were recorded.
-    """
-    _, items, stores, app = _fixture(tmp_path)
-    _state(stores[1], "same", lifecycle="in-review", stage="deliver")
-    stores[1].journal("same", "stage-launch", stage="deliver")
-    with TestClient(app) as client:
-        _login(client)
-        page = _get(client)
-        assert any(row["stage"] == "deliver" for row in page["items"])
-        detail = client.get(f"/api/v1/jobs/{items[1].project_id}/same").json()["job"]
-        assert detail["stage"] == "deliver"
-        assert detail["timeline"][-1]["stage"] == "deliver"
-
-
 @pytest.mark.parametrize("field,value", [("executor", 12), ("executor", ""),
                                          ("stage", "unknown-stage")])
 def test_global_projected_timeline_corruption_fails_closed(tmp_path, field, value):
@@ -127,19 +108,16 @@ def test_global_projected_timeline_corruption_fails_closed(tmp_path, field, valu
         assert response.json() == {"detail": {"code": "run_journal_corrupt"}}
 
 
-def test_project_summary_preserves_legacy_missing_activity(tmp_path):
-    """@brief Legacy absent activity remains unknown so strict jobs stay reachable."""
+@pytest.mark.parametrize("stamp", ["", "malformed", "2026-10-05T10:00:00"])
+def test_project_summary_refuses_a_run_without_an_aware_activity_time(tmp_path, stamp):
+    """@brief Every save stamps updated_at in UTC; anything else is corrupt run state."""
     _, _, stores, app = _fixture(tmp_path)
-    for run_id in ("same", "old"):
-        _state(stores[0], run_id, updated_at="")
+    _state(stores[0], "same", updated_at=stamp)
     with TestClient(app) as client:
         _login(client)
         response = client.get("/api/v1/projects")
-        assert response.status_code == 200
-        alpha = next(item for item in response.json() if item["name"] == "alpha")
-        assert alpha["last_activity"] is None
-        _state(stores[0], "same", updated_at="malformed")
-        assert client.get("/api/v1/projects").status_code == 503
+        assert response.status_code == 503
+        assert response.json()["detail"]["code"] == "run_state_corrupt"
 
 
 def test_global_pages_search_groups_and_collision_identity(tmp_path):
@@ -208,7 +186,7 @@ def test_persisted_wait_evidence_unknowns_archive_and_last_activity(tmp_path):
     _state(stores[1], "same", lifecycle="awaiting-approval", approval_comment_id=9,
            candidate_fingerprint="a" * 40, candidate_base_ref="b" * 40,
            approval_presented_at="2026-10-05T11:00:00Z")
-    _state(stores[0], "old", updated_at="", outcome="", stage="done")
+    _state(stores[0], "old", outcome="", stage="done")
     with TestClient(app) as client:
         _login(client)
         page = _get(client)
@@ -227,13 +205,12 @@ def test_persisted_wait_evidence_unknowns_archive_and_last_activity(tmp_path):
         assert approval["project_archived"] is True
         assert approval["waiting"]["next_action"] == "review_candidate_on_ticket"
         assert approval["waiting"]["evidence_url"].endswith("#issuecomment-9")
-        legacy = client.get(f"/api/v1/jobs/{items[0].project_id}/old").json()["job"]
-        assert legacy["ticket_title"] is None and legacy["ticket_url"] is None
-        assert legacy["last_activity_at"] is None and legacy["outcome"] == ""
-        assert legacy["coverage"]["ticket"] == "missing"
-        assert legacy["coverage"]["journal"] == "missing"
-        assert legacy["waiting"]["availability"] == "unknown"
-        assert page["items"][-1]["run_id"] == "old"
+        bare = client.get(f"/api/v1/jobs/{items[0].project_id}/old").json()["job"]
+        assert bare["ticket_title"] is None and bare["ticket_url"] is None
+        assert bare["outcome"] == ""
+        assert bare["coverage"]["ticket"] == "missing"
+        assert bare["coverage"]["journal"] == "missing"
+        assert bare["waiting"]["availability"] == "unknown"
         # A stage alone must never create an action.
         _state(stores[0], "old", lifecycle="awaiting-approval", stage="done")
         assert client.get(f"/api/v1/jobs/{items[0].project_id}/old").json()["job"][
@@ -512,21 +489,6 @@ def test_broken_runs_root_symlink_fails_closed(tmp_path, monkeypatch):
         _login(client)
         response = client.get("/api/v1/jobs-page")
         assert response.status_code == 503
-
-
-def test_minimal_schema1_legacy_state_reads_without_migration(tmp_path):
-    """@brief Absent optional legacy fields use unknowns while stored bytes stay exact."""
-    _, items, stores, app = _fixture(tmp_path)
-    path = stores[0].run_dir("old") / "state.json"
-    path.write_text('{"schema_version":1,"run_id":"old","ticket_iid":1}', encoding="utf-8")
-    before = path.read_bytes()
-    with TestClient(app) as client:
-        _login(client)
-        row = client.get(f"/api/v1/jobs/{items[0].project_id}/old").json()["job"]
-        assert row["stage"] == "frame" and row["lifecycle"] == "working"
-        assert row["last_activity_at"] is None and row["ticket_title"] is None
-        assert row["waiting"]["availability"] == "unknown"
-    assert path.read_bytes() == before
 
 
 @pytest.mark.parametrize("payload", [b"\xff", pytest.param(

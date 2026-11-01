@@ -70,8 +70,18 @@ configuration; validation rejects their host-auth setting before a run starts.
 ## 4. Inputs and Outputs
 
 Input is a TOML file plus derived profile paths. Output is a `Config` dataclass
-and a stable list of validation problems. An unknown top-level section is an
-error; unknown keys inside legacy sections are ignored; unknown `[execution]` keys fail closed.
+and a stable list of validation problems. Missing keys take the documented
+defaults. There is no compatibility with earlier builds: an unknown top-level
+section is an error, and `validate_config` refuses any key the build does not
+read, in every section and subtable (`labels.*`, `executor.<name>`,
+`container.egress`), with `[section] unknown key 'x': remove it from
+config.toml`; `[local]` and `[execution]` have their own strict validators. The
+removed `[state] channel` key is refused like any other unknown key.
+
+Executor command templates support only the `{prompt}`, `{model}` and
+`{worktree}` placeholders; any other placeholder, including the removed Codex
+`{resume}`, is refused as unsupported. The default Codex command is
+`codex exec --json --model {model} --ignore-user-config --disable plugins --dangerously-bypass-approvals-and-sandbox {prompt}`.
 
 ## 5. Validation and Tests
 
@@ -81,7 +91,7 @@ and existing cross-platform configuration rules.
 
 ## Reviewed preparation settings
 
-`ExecutionConfig` is a closed `[execution]` table: container backend, optional exact Git selection, step/total timeout and attempt cap. Image may be empty only with preparation. Grammar/source validation belongs to `preparation.py`. Defaults preserve old profiles. See [Container preparation](../01_Documentation/Container_Preparation.md) and `tests/test_preparation.py`.
+`ExecutionConfig` is a closed `[execution]` table: container backend, optional exact Git selection, step/total timeout and attempt cap. Image may be empty only with preparation. Grammar/source validation belongs to `preparation.py`. Missing keys take the documented defaults. See [Container preparation](../01_Documentation/Container_Preparation.md) and `tests/test_preparation.py`.
 
 ## Native execution contract
 

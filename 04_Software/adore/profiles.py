@@ -33,7 +33,7 @@ import os
 from pathlib import Path
 import re
 import unicodedata
-from uuid import NAMESPACE_URL, uuid4, uuid5
+from uuid import uuid4
 
 from adore import __version__
 from adore.branding import PRODUCT_SLUG, PROFILE_HOME_ENV
@@ -145,31 +145,30 @@ def validate_profile_id(name: object) -> str:
 
 def _profile_from_dict(data: dict, name: str) -> Profile:
     """
-    @brief      Build a Profile from parsed JSON, tolerating unknown keys.
-    @details    Forward-compatible like config loading: unknown keys are
-                dropped and missing keys default. The directory name is the
-                authoritative identity, so it always overrides any stored
-                name.
+    @brief      Build a Profile from the parsed JSON this build writes.
+    @details    There are no migrations while ADORE is in development: unknown
+                or missing keys mean another build wrote the file, which is
+                refused. The directory name is the authoritative identity, so
+                it always overrides any stored name.
     @param[in]  data Parsed profile.json mapping.
     @param[in]  name The profile's directory name (source of truth).
     @return     The reconstructed Profile.
+    @exception  ProfileError For a file of another build or invalid values.
     """
-    known = {key: value for key, value in data.items() if key in _PROFILE_FIELDS}
-    if "project_id" not in known:
-        legacy_name = data.get("name")
-        created_at = data.get("created_at")
-        if (not isinstance(legacy_name, str) or not legacy_name
-                or not isinstance(created_at, str) or not created_at):
-            raise ProfileError(f"corrupt profile.json for {name!r}: missing project ID")
-        known["project_id"] = uuid5(
-            NAMESPACE_URL, f"adore-legacy-project:{created_at}:{legacy_name}"
-        ).hex
+    unknown = sorted(set(data) - _PROFILE_FIELDS)
+    missing = sorted(_PROFILE_FIELDS - set(data))
+    if unknown or missing:
+        raise ProfileError(
+            f"profile.json of project {name!r} was written by another ADORE build "
+            f"(unknown keys {unknown}, missing keys {missing}); delete or fix that file"
+        )
+    known = dict(data)
     if (not isinstance(known["project_id"], str)
             or not re.fullmatch(r"[0-9a-f]{32}", known["project_id"])):
         raise ProfileError(f"corrupt profile.json for {name!r}: invalid project ID")
     known["name"] = name
-    known["display_name"] = validate_display_name(known.get("display_name", name))
-    if type(known.get("archived", False)) is not bool:
+    known["display_name"] = validate_display_name(known["display_name"])
+    if type(known["archived"]) is not bool:
         raise ProfileError(f"corrupt profile.json for {name!r}: invalid archived flag")
     return Profile(**known)
 
@@ -370,15 +369,10 @@ class ProfileStore:
         @param[in]  profile The Profile to write.
         """
         validate_display_name(profile.display_name or profile.name)
-        # An absent value on a manually constructed legacy Profile uses its ID.
+        # Without a display name the profile ID is shown.
         profile.display_name = profile.display_name or profile.name
         if not profile.created_at:
             profile.created_at = self._now()
-        if not profile.project_id:
-            profile.project_id = uuid5(
-                NAMESPACE_URL,
-                f"adore-legacy-project:{profile.created_at}:{profile.name}",
-            ).hex
         if not re.fullmatch(r"[0-9a-f]{32}", profile.project_id):
             raise ProfileError(f"invalid project ID for {profile.name!r}")
         profile.updated_at = self._now()

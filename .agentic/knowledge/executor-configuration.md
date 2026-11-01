@@ -20,10 +20,9 @@ One project-owned workspace; protected provider variable edits and durable model
 GET/PUT/DELETE executor-credentials (Admin), config GET model_connection, model test POST persistence. See Component_Executor_Configuration.md for exact schemas/error/status contracts.
 
 
-credential_values exposes the existing strict bounded private dotenv read solely
-for in-memory image-source/output rejection/redaction. No values are exported or
-forwarded to builds. Corruption fails closed; missing input is empty. Focused
-proof lives in test_image_build.py and existing provider credential boundaries.
+credential_values exposes the existing strict bounded private dotenv read. No
+values are exported. Corruption fails closed; missing input is empty. It has no
+caller since the image-build subsystem was removed.
 
 ## Invariants
 
@@ -51,8 +50,6 @@ flowchart TD
     Tab --> Candidate[Atomic agent / names-only config apply]
     Tab --> Credentials[Private credential routes]
     Credentials --> Env[Project .env]
-    Images[ImageBuildService redaction] --> Reader[credential_values]
-    Reader --> Env
     Env --> Launcher[Existing launcher / probe]
     Launcher --> Evidence[model-connection.json]
     Evidence --> Config[Validated config read]
@@ -84,6 +81,10 @@ read-only, 15 s timeout, drops `<none>`) returns {runtime, available, images} fo
 image suggestions (serverImages.ts); choosing an executor proposes a
 `<executor>-*` tag, never over a typed value. API-key mode allows empty
 env_keys. All other container/execution/local/worktree keys stay refused (400
-environment_managed_externally). Existing dedicated AI endpoint and
-executor/model/credential operations remain. Focused proof: test_web_image_build.py,
-test_executor_environment_choice.py and images.spec.ts.
+environment_managed_externally). A pending candidate with an `image_build`
+binding or for an operator-owned key, which only an earlier build could stage,
+is 503 `pending_config_corrupt` on view and apply; an administrator can still
+discard it (DELETE /api/v1/projects/{name}/config/pending). ADORE web has no
+image definition or build routes. Existing dedicated AI endpoint and
+executor/model/credential operations remain. Focused proof:
+test_executor_environment_choice.py, test_web_pending_config.py and images.spec.ts.

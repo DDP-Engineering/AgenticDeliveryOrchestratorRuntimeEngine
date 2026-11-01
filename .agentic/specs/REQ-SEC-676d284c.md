@@ -29,19 +29,17 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
   `password_change_required`; missing CSRF on a mutation -> 403
   `csrf_required`; non-administrator on an admin route -> 403
   `admin_required`.
-- The bootstrap `admin` account of a fresh store is created unmarked, and
-  accounts that exist when a store upgrades to schema 13 start unmarked.
+- The bootstrap `admin` account of a fresh store is created unmarked.
 - Unauthenticated routes (`/health`, `/ready`, `/about`, `POST /session`) are
   unaffected.
 
 ## Data / interface
 
-- SQLite `users` gains `password_change_required INTEGER NOT NULL DEFAULT 0`.
-- `PRAGMA user_version` becomes 13. A fresh store is created at 13. Stores at
-  versions 1-12 upgrade forward by adding the column with default 0. A store
-  at version 13 whose `users` table lacks the column raises `WebStoreError`
-  ("web database missing password policy"), which the API reports as 503
-  `web_store_corrupt`. Versions above 13 remain unsupported.
+- SQLite `users` has `password_change_required INTEGER NOT NULL DEFAULT 0`.
+- The web store has one schema; a database of another schema version is
+  refused (REQ-DATA-a1d82c3b), never upgraded. A store at the current version
+  whose `users` table lacks the column raises `WebStoreError` ("web database
+  missing password policy"), which the API reports as 503 `web_store_corrupt`.
 - Account dictionaries returned by the store and API (`POST /session`,
   `GET /me`, `GET /users`) include `password_change_required: bool`.
 
@@ -59,10 +57,9 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 ## Acceptance
 
-- Store tests: fresh store version 13 with unmarked admin; schema-12 store
-  upgrades to 13 with unmarked accounts; reset marks; successful change clears;
-  failed change keeps; mark persists after reopening the store; version-13
-  store without the column fails closed.
+- Store tests: fresh store with unmarked admin; reset marks; successful change
+  clears; failed change keeps; mark persists after reopening the store; a
+  current store without the column fails closed.
 - API tests: gating and allowlist above, check order 401 before 403, CSRF still
   required on allowlisted mutations.
 

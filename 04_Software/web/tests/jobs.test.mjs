@@ -32,13 +32,11 @@ test("complete projection preserves unknowns and composite identity", () => {
   assert.equal(activityAge("2026-10-05T00:00:00Z", Date.parse("2026-10-05T00:01:00Z")), "recent");
 });
 
-test("history that names the removed deliver stage stays readable and labelled", () => {
-  const detail = readJobDetail({ job: { ...job(), stage: "deliver",
-    timeline: [{ ts: null, event: "stage-launch", stage: "deliver" }] }, complete: true, snapshot }, id, "one");
-  assert.equal(detail.stage, "deliver");
-  assert.deepEqual(detail.timeline.map(row => row.stage), ["deliver"]);
-  assert.equal(messages.en.deliverStage, "Deliver");
-  for (const locale of ["fr", "de", "ro"]) assert.ok(messages[locale].deliverStage, locale);
+test("a stage this build does not conduct fails closed", () => {
+  assert.throws(() => readJobDetail({ job: { ...job(), stage: "deliver" }, complete: true, snapshot }, id, "one"));
+  assert.throws(() => readJobDetail({ job: { ...job(),
+    timeline: [{ ts: null, event: "stage-launch", stage: "deliver" }] }, complete: true, snapshot }, id, "one"));
+  for (const locale of ["en", "fr", "de", "ro"]) assert.equal(messages[locale].deliverStage, undefined, locale);
 });
 
 test("incomplete malformed unauthorized and colliding duplicates fail closed", () => {

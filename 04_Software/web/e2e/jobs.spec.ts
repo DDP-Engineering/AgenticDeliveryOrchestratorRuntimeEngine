@@ -298,7 +298,6 @@ test("missing evidence and stale worker activity do not fabricate telemetry or a
   await expect(page.getByText("Worker unavailable or heartbeat stale", { exact: true })).toBeVisible();
   const detail = page.locator(".detail-panel");
   await expect(detail.getByRole("heading", { name: "Ticket title not recorded" })).toBeVisible();
-  await expect(detail).toContainText("No activity timestamp recorded.");
   await expect(detail).toContainText("saved evidence does not identify an action location");
   await expect(detail.locator(".next-action-panel a")).toHaveCount(0);
   await expect(detail.locator(".job-consumption").first()).toContainText("Input tokens: —");

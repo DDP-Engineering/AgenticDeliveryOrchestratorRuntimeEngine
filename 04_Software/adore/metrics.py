@@ -100,8 +100,11 @@ def _seconds_between(start: str, end: str) -> int:
 def _connect(db_path: str | Path) -> sqlite3.Connection:
     """
     @brief      Open (creating on demand) the metrics database.
+    @details    There are no migrations while ADORE is in development: a table
+                whose columns differ from RunSummary is refused, not extended.
     @param[in]  db_path SQLite file path.
     @return     Connection with the schema ensured.
+    @exception  MetricsError When the database was written by another build.
     """
     path = Path(db_path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -116,20 +119,11 @@ def _connect(db_path: str | Path) -> sqlite3.Connection:
         str(row[1])
         for row in connection.execute(f"PRAGMA table_info({_TABLE})").fetchall()
     }
-    for item in fields(RunSummary):
-        if item.name in existing:
-            continue
-        affinity = (
-            "REAL" if item.type == "float" else
-            "INTEGER" if item.type == "int" else "TEXT"
-        )
-        default = (
-            "0.0" if affinity == "REAL" else
-            "0" if affinity == "INTEGER" else "''"
-        )
-        connection.execute(
-            f"ALTER TABLE {_TABLE} ADD COLUMN {item.name} {affinity} "
-            f"NOT NULL DEFAULT {default}"
+    if existing != {item.name for item in fields(RunSummary)}:
+        connection.close()
+        raise MetricsError(
+            f"metrics database {path} was written by another ADORE build; "
+            "delete it to start fresh"
         )
     return connection
 
@@ -208,16 +202,17 @@ def unique_usage_events(events: list[dict], run_id: str) -> list[dict]:
     @param[in] run_id Run owning those records.
     @return Journal records with identical versioned usage replays removed.
     @exception MetricsError Malformed or conflicting versioned evidence.
-    @note Legacy usage without an event ID retains its original behavior.
     """
     seen: dict[str, tuple] = {}
     result: list[dict] = []
     for event in events:
         if not isinstance(event, dict):
             raise MetricsError("non-object journal record")
-        if event.get("event") != "usage" or "event_id" not in event:
+        if event.get("event") != "usage":
             result.append(event)
             continue
+        if "event_id" not in event:
+            raise MetricsError("usage event without an event ID")
         attempt = event.get("attempt")
         incoming = event.get("tokens_in")
         outgoing = event.get("tokens_out")
@@ -232,6 +227,7 @@ def unique_usage_events(events: list[dict], run_id: str) -> list[dict]:
         includes_cache = event.get("input_includes_cache")
         if (type(attempt) is not int or attempt < 1
                 or event.get("event_id") != f"{run_id}:{attempt}"
+                or type(event.get("ts")) is not str or not event["ts"]
                 or type(context) is not str or not 0 < len(context) <= 80
                 or type(executor) is not str or not 0 < len(executor) <= 200
                 or (model is not None and (type(model) is not str or len(model) > 200))
@@ -268,8 +264,8 @@ def summarize_run(store: StateStore, run_id: str,
     @brief      Compute a run's summary from its journal, state, and ticket.
     @details    The journal is the source of truth: AEGIS stage outcomes,
                 usage events (tokens/cost per launch), park/resume gaps, and
-                the time to the MR all come from its timestamps. Legacy partial
-                data remains best effort; malformed versioned usage fails closed.
+                the time to the MR all come from its timestamps. Malformed
+                usage fails closed.
     @param[in]  store The state store holding the run.
     @param[in]  run_id Stable run identifier.
     @param[in]  files_changed Files-touched count when the caller still has a
@@ -308,9 +304,7 @@ def summarize_run(store: StateStore, run_id: str,
     for event in events:
         name = event.get("event", "")
         ts = event.get("ts", "")
-        # Summary column names remain stable while schema-1 journal events use
-        # the AEGIS task-stage vocabulary.
-        if name in ("stage-launch", "delivery-fix", "revise-start"):
+        if name == "stage-launch":
             summary.executor_launches += 1
         elif name == "stage-advanced":
             summary.gates_passed += 1
@@ -393,9 +387,8 @@ def load_analytical_summaries(db_path: str | Path) -> list[RunSummary]:
     """
     @brief Read summary evidence without creating or extending its database.
     @param[in] db_path Existing metrics database; absence is an empty source.
-    @return Validated summaries, retaining neutral missing legacy columns.
+    @return Validated summaries.
     @exception MetricsError Corrupt, unsupported or unreadable summary source.
-    @note Operational load_summaries retains its CLI compatibility behavior.
     """
     path = Path(db_path)
     if not path.exists():
@@ -407,7 +400,7 @@ def load_analytical_summaries(db_path: str | Path) -> list[RunSummary]:
             names = [str(row[1]) for row in connection.execute(
                 f"PRAGMA table_info({_TABLE})").fetchall()]
             fields_by_name = {f.name: f for f in fields(RunSummary)}
-            if not names or "run_id" not in names or set(names) - fields_by_name.keys():
+            if set(names) != fields_by_name.keys():
                 raise MetricsError("unsupported metrics table")
             rows = connection.execute(f"SELECT {', '.join(names)} FROM {_TABLE}").fetchall()
         result = []

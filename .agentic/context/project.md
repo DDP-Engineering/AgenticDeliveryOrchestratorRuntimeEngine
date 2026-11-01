@@ -83,7 +83,7 @@ OpenCode, Pi, Codex and Qwen Code.
   existing terminal history comes from the declared server state location.
   Its additive global job API scans complete authorized current/archived history,
   uses composite project/run identities and optimistic content revisions, and
-  exposes actual persisted waiting evidence with explicit legacy/usage unknowns.
+  exposes actual persisted waiting evidence with explicit usage unknowns.
   Strict read validation preserves the engine's schema-1 recovery contracts.
 
 `python .agentic/aegis.py components` lists the knowledge page that routes
@@ -117,8 +117,9 @@ protects the worktree from routine cleanup and further autonomous execution.
   once in `adore/aegis.py`. It never edits the AEGIS payload, and the ADORE
   release number names the AEGIS release the contract was last re-verified
   against.
-- Run state is schema 1 with no migration from earlier lines; unknown or
-  corrupt state fails closed.
+- Run state is schema 1 with no migration from earlier builds; state with
+  unknown or missing keys, an unknown stage (the removed `deliver` included) or
+  corrupt values fails closed with the run directory to delete.
 - Executors use the selected container/native backend, never receive forge credentials, and never
   commit, push, open or merge. ADORE owns checkpoints, push and draft creation
   and never merges; `delivery.draft` selects draft (`true`, default) or ready (`false`) creation.
@@ -177,7 +178,7 @@ Web analytical summaries use the profile-configured statistics database with CLI
 Web analytics resolves inclusive local calendar controls to canonical half-open
 UTC instants with explicit all-time. Scoped lifecycle/consumption/quality and
 server-selected duration samples share that contract. Current-state stock,
-per-job lifetime and undated unallocated measurements are separately named;
+per-job lifetime and unallocated summary-only measurements are separately named;
 unknown amounts are null and all financial evidence is Admin-only. Analytical
 source reads fail closed and preserve operational persistence/CLI contracts.
 
@@ -185,7 +186,7 @@ The Statistics browser presents canonical scope-bound measures and CSV actions,
 explicit all-time versus current stock, honest zero/unknown/partial evidence,
 reported versus estimated Admin money, server samples, and labeled trends with
 accessible tables. Job list/detail consumption uses immutable project/run
-identity and selected-period/lifetime/undated measurements. Reporting routes
+identity and selected-period/lifetime/unallocated measurements. Reporting routes
 preserve calendar/timezone/group selections; stale, revoked and malformed reads
 hide evidence. Four locales and both themes share these responsibilities.
 
@@ -194,10 +195,10 @@ hide evidence. Four locales and both themes share these responsibilities.
 Web mutations record closed redacted actor/time, known stable identity and
 before/after/revision evidence. SQLite account/access/queue/policy mutations own
 atomic evidence; filesystem attempts retain uncertainty through crashes and use
-separate replay receipts for single confirmation. Schema-14 audit upgrade preserves
-historic unknown values and identity and rejects corrupt storage. Authorized
-actor/project/action/UTC filters precede server counts/paging; Dev project history
-excludes administrative and name-only legacy rows. Change history presents
+separate replay receipts for single confirmation. Every audit write carries
+structured evidence; a row without it, or corrupt audit storage, fails closed.
+Authorized actor/project/action/UTC filters precede server counts/paging; Dev
+project history excludes administrative rows. Change history presents
 who/what/when/result; System status owns independent audit retention and deletion
 impact. Credentials, environment values and raw errors remain excluded.
 
@@ -226,7 +227,7 @@ the account's `~/.opencode` and `~/.agents/skills` are still read. See knowledge
 
 ## Project executor images
 
-Settings → Agent and model shows a compact container notice with the effective image and one expandable instruction disclosure. It identifies standard `executor/Dockerfile`, optional `executor/README.md`, a non-root example, external Docker/Podman build and verification, and the existing profile fields. Only administrators see the actual resolved server `config.toml` path. No controls define or build an image. Enrollment step 2 and Settings → Agent and model let administrators choose Runs in (Container or Installed on the server), Container runtime and Executor image (suggestions from the images on the server, `GET /api/v1/executor-images`) and the local account fields, through the reviewed configuration flow in Settings; the administrator still prepares the image on the server. Other environment keys stay external; specialized profiles use server TOML enrollment. Historical records remain readable/exportable/cancellable; old pending candidates can be discarded, and queued image-build requests fail without runtime execution. See [Project executor images](../../01_Documentation/Project_Executor_Images.md).
+Settings → Agent and model shows a compact container notice with the effective image and one expandable instruction disclosure. It identifies standard `executor/Dockerfile`, optional `executor/README.md`, a non-root example, external Docker/Podman build and verification, and the existing profile fields. Only administrators see the actual resolved server `config.toml` path. No controls define or build an image. Enrollment step 2 and Settings → Agent and model let administrators choose Runs in (Container or Installed on the server), Container runtime and Executor image (suggestions from the images on the server, `GET /api/v1/executor-images`) and the local account fields, through the reviewed configuration flow in Settings; the administrator still prepares the image on the server. Other environment keys stay external; specialized profiles use server TOML enrollment. ADORE has no image-build subsystem; its former routes answer 404. A pending candidate with an `image_build` binding or for an operator-owned key, which only an earlier build could stage, is 503 `pending_config_corrupt` on view and apply and can only be discarded. See [Project executor images](../../01_Documentation/Project_Executor_Images.md).
 
 ## Job branch naming
 

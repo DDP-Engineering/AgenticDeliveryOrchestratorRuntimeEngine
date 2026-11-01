@@ -440,7 +440,7 @@ def test_local_gate_preserves_native_argv_files_and_archives(tmp_path):
             return CommandResult(argv=[argv[0], "[native-file-launch]"])
 
     executor = CodexExecutor(
-        "codex exec {resume}--json --model {model} {prompt}", "provider/model", "questions.md"
+        "codex exec --json --model {model} {prompt}", "provider/model", "questions.md"
     )
     result = executor.run_gate(
         Target(), work, exchange, "space path & literal", timeout=2, archive_stem="native-build"

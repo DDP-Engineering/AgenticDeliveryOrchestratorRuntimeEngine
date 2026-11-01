@@ -11,14 +11,14 @@ const selection = { from: "", through: "", timezone: "UTC", granularity: "day" }
 const amounts = (input = null, output = null) => ({ events: input === null && output === null ? 0 : 1,
   tokens_in: input, tokens_out: output, cache_read_tokens: null, cache_write_tokens: null });
 const job = (id = "alpha") => ({ project_id: id, run_id: "same-run", lifetime: amounts(7, 5), in_period: amounts(0, 0),
-  unallocated: amounts(), source: "journal", coverage: { lifetime_usage_events: 1, period_usage_events: 1, unallocated_usage_events: 0 } });
+  unallocated: amounts(), source: "journal", coverage: { lifetime_usage_events: 1, period_usage_events: 1 } });
 const scope = (id = "alpha") => ({ project_ids: [id], mode: "all_time", from: null, to: null, interval: "[from,to)", timezone: "UTC", granularity: "day", interval_seconds: null });
 const fixture = () => {
   const duration = { sampled_runs: 2, avg_span_seconds: 60, median_span_seconds: 60, sum_span_seconds: 120, samples_seconds: [0, 120] };
   return { scope: scope(), jobs: [job()], current_stock: { active_now: 1, jobs_now: 1, waiting_now: 0, review_now: 0, terminal_now: 0, basis: "current_state" },
     totals: { runs: 1, started: 1, completed: 1, failed: 1, tokens_in: 0, tokens_out: 0 },
     period: { from: null, to: null, started: 1, completed: 1, failed: 1, tokens_in: 0, tokens_out: 0, mr_revisions: 0, pipeline_repairs: 0, duration }, duration,
-    coverage: { usage_events_with_tokens: 1, usage_events_without_tokens: 0, usage_events_unallocated: 0, runs_with_usage: 1 },
+    coverage: { usage_events_with_tokens: 1, usage_events_without_tokens: 0, runs_with_usage: 1 },
     quality: { reviewed_jobs: 0, reworked_jobs: 0, validated_jobs: 0, first_pass_validations: 0, human_merged_jobs: 0, first_pass_merges: 0, open_review_jobs: 0, stage_failures: 0, operator_retries: 0,
       review_rework_rate: null, first_validation_rate: null, first_pass_merge_rate: null }, runs: [],
     daily: [{ date: "2026-10-25", started: 1, completed: 1, failed: 1, tokens_in: 0, tokens_out: 0, mr_revisions: 0, pipeline_repairs: 0 }] };

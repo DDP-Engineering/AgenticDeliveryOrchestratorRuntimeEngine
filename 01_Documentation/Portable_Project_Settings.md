@@ -94,8 +94,7 @@ malformed nested values, nonfinite numbers, encoding/depth failures and checksum
 mismatches with `PortableSettingsError`. It returns no partial values.
 Export accepts active UTF-8 TOML up to 512 KiB, validates recognized declared
 structure and the existing configuration contract, then projects the allowlist.
-Unknown declared source fields also fail closed even if the legacy loader would
-ignore them. Correct the active file on the ADORE host and preview again;
+Unknown declared source fields also fail closed. Correct the active file on the ADORE host and preview again;
 configuration values and host paths never appear in export errors.
 
 ## API and other formats

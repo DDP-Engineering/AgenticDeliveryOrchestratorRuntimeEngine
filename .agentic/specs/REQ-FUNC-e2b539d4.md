@@ -76,14 +76,13 @@ setup. Timing begins before setup and gate budgets include setup. Setup adds
 no fabricated cost telemetry. Generated dependency files keep existing product
 file accounting; evidence files outside the worktree use separate fixed limits.
 
-## Durable recovery and compatibility
+## Durable recovery
 
-Run-state schema remains 1, with an additive optional closed `execution` record.
-Absent record means the legacy container contract, not recipe success; any
-recipe profile on an already active legacy run fails closed. No earlier schema
-is migrated. Old binaries reject new keys; rollback requires compatible binary
-or completion/removal of affected runs. This is a backward-compatible MINOR
-capability for old profiles; no version is assigned by this task.
+Run-state schema remains 1, with a closed `execution` record. An empty record
+means the legacy container contract, not recipe success; any recipe profile on
+an already active legacy run fails closed. No earlier schema is migrated: run
+state with unknown or missing keys was written by another ADORE build and is
+refused with the run directory to delete. No version is assigned by this task.
 
 Persist complete plan before setup, actual container/image IDs before steps,
 and running state before every side effect. Complete success is reusable only
@@ -102,10 +101,10 @@ The backend protocol owns target paths/shell/environment, provisioning/tool
 readiness, bound commands, identity, interruption/stop and owned-resource cleanup.
 The conductor owns ticket/AEGIS/recovery/approval/publication. #21 supplies a local
 adapter and native gate transport through these paths; recipe+local is rejected
-before any setup. #22 supplies verified image/build identity to the same plan and
-revision-bound configuration operations, keeping build egress separate.
+before any setup. Project images are prepared outside ADORE and selected by
+reference; ADORE builds no images.
 
 All new contracts use offline injected runners, including source/runtime/state
-trust boundaries. Full Python/frontend suites, integrated legacy/recipe/local/
-built-image acceptance, and live model/forge/runtime acceptance remain deferred
+trust boundaries. Full Python/frontend suites, integrated legacy/recipe/local
+acceptance, and live model/forge/runtime acceptance remain deferred
 under the originating user's explicit focused-validation instruction.

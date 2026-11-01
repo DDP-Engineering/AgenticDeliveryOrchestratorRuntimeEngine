@@ -32,7 +32,6 @@ import adore.web.app as web_app
 from adore.web.commands import CommandWorker
 from adore.wizard import run_wizard
 from fastapi import BackgroundTasks, HTTPException, Request
-from tests.test_image_build import ImageRuntime
 import uvicorn
 
 # CONSTANTS
@@ -114,7 +113,6 @@ def main() -> None:
                 "# See LICENSE.txt. SPDX-License-Identifier: "
                 "LicenseRef-PolyForm-Noncommercial-1.0.0\n", encoding="utf-8")
         probe_mode = {"mode": "failed"}
-        image_runtime = ImageRuntime()
         # Offline forge tickets shared by the fixture projects (their configs keep the
         # example repository); Stop really removes the ready label here.
         forge_issues = [
@@ -175,8 +173,6 @@ def main() -> None:
 
         def fixture_probe(argv, **_kwargs):
             """@brief Simulate explicit readiness without any external services."""
-            if "image-build" in Path(_kwargs.get("cwd") or ".").parts:
-                return image_runtime(argv, **_kwargs)
             if argv[:1] == ["glab"]:
                 answer = fixture_forge(list(argv))
                 if answer is not None:
@@ -314,16 +310,12 @@ def main() -> None:
                         roots[0].journal(run_id, "gate-passed", stage=observed, ts=stamp)
                 else:
                     roots[0].journal(run_id, "gate-started", stage=stage, executor="pi", ts=stamp)
-            # Cross-project collision and real absent legacy ticket/journal/activity.
+            # Cross-project collision, and a run with no saved ticket or journal.
             roots[1].save(RunState(run_id="ux-working", ticket_iid=42, lifecycle="working",
                                    stage="build", updated_at=stamp))
             roots[1].save_ticket("ux-working", {"iid": 42, "title": "Actual beta collision",
                                               "web_url": "https://forge.example/offline/beta/issues/42"})
             roots[0].save(RunState(run_id="ux-missing", ticket_iid=99, stage="build"))
-            missing = roots[0].run_dir("ux-missing") / "state.json"
-            value = json.loads(missing.read_text(encoding="utf-8"))
-            value.update(created_at="", updated_at="")
-            missing.write_text(json.dumps(value), encoding="utf-8")
             return ids
 
         @app.post("/__e2e__/enrollment")
@@ -344,8 +336,7 @@ def main() -> None:
         store = app.state.web_store
         developer = store.create_user("developer", "test-password", "developer")
         store.set_memberships(developer["id"], ["alpha"])
-        worker = CommandWorker(
-            profiles, store, runner=simulated_command, image_runner=image_runtime)
+        worker = CommandWorker(profiles, store, runner=simulated_command)
         stop = Event()
 
         @asynccontextmanager

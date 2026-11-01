@@ -57,9 +57,9 @@ the `adore` package. An optional web API also exposes selected controls.
     without `--force` (resetting may repeat orchestration work: executor cost,
     ticket churn), then tells the operator to `adore retry`. It moves only
     ADORE's pointer to `frame`, `specify`, `design`, `build`, `validate` or
-    `publishing`, refusing any other target, and every target for a run
-    recorded at `deliver`, with the run unchanged; AEGIS still owns the
-    governed stage;
+    `publishing`, refusing any other target with the run unchanged (a run
+    saved at the removed `deliver` stage is already refused when its state
+    loads); AEGIS still owns the governed stage;
   - `adore profile delete <name> --force --remove-resources [--remove-clone]` - under the
     conductor lock, refuses unfinished or corrupt runs, removes the containers,
     egress resources and worktrees recorded for the project's own runs except

@@ -17,7 +17,7 @@ requirement = """
 While a user reads change history, opening an event's evidence shall show it in a full-width row below the event without changing the table's column widths, show operation correlations and configuration revisions shortened to their first 12 characters with the full value available on hover, and list base and candidate revisions only when they were recorded.
 """
 
-verification = "Automated: e2e opens Change history with a routed page whose first event has a correlation and a base revision but no candidate, expands its evidence and finds the column header positions unchanged, a detail row, the 12-character correlation and base revision with the full values as titles, no Candidate revision entry, and the legacy Before value not recorded text kept."
+verification = "Automated: e2e opens Change history with a routed page whose first event has a correlation and a base revision but no candidate, expands its evidence and finds the column header positions unchanged, a detail row, the 12-character correlation and base revision with the full values as titles, no Candidate revision entry, and the Before value not recorded text kept."
 
 affected_paths = ["04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/styles.css", "04_Software/adore/web/static/"]
 
@@ -30,4 +30,4 @@ priority = "normal"   # low | normal | high
 rationale = ""        # why this behavior exists, if not obvious
 
 created = 2026-10-12
-updated = 2026-10-12
+updated = 2026-11-01

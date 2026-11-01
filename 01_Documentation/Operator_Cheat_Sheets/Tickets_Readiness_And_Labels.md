@@ -65,8 +65,8 @@ Defaults can be renamed in `config.toml`, but the roles stay the same.
 
 ## ADORE-Managed Lifecycle Labels
 
-ADORE applies these labels on every state change regardless of `[state]
-channel`; that setting is validated for compatibility but not consulted.
+ADORE applies these labels on every state change, together with its one status
+comment; there is no setting to turn them off.
 
 | Default label | Meaning |
 | --- | --- |

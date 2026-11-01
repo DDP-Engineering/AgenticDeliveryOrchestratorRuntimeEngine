@@ -424,7 +424,7 @@ class WebStore:
             source = metrics.unique_usage_events(journal, run_id)
             usage = []
             observations: dict[str, tuple[tuple, str]] = {}
-            for index, event in enumerate(source):
+            for event in source:
                 if event.get("event") == "usage-observation":
                     value = metrics.validate_usage_observation(event, run_id)
                     key = value[0]
@@ -446,8 +446,8 @@ class WebStore:
                         or (money is not None and (type(money) not in (int, float) or money < 0
                                                    or not math.isfinite(money)))):
                     raise WebStoreError("malformed usage amounts")
-                key = event.get("event_id", f"legacy:{index}")
-                if not isinstance(key, str) or len(key) > 200:
+                key = event.get("event_id")
+                if not isinstance(key, str) or not key or len(key) > 200:
                     raise WebStoreError("malformed usage source identity")
                 payload = json.dumps(event, sort_keys=True, separators=(",", ":"),
                                      allow_nan=False)
@@ -1102,8 +1102,6 @@ class WebStore:
         """@brief Resolve a queued command's immutable target to its current label."""
         operation = dict(row)
         project_id = operation["project_id"]
-        if not project_id:
-            return operation  # Historical terminal row without proven identity.
         if (not isinstance(project_id, str)
                 or not re.fullmatch(r"[0-9a-f]{32}", project_id)):
             raise WebStoreError("operation identity is corrupt")
@@ -1120,7 +1118,7 @@ class WebStore:
     ) -> dict[str, Any]:
         """@brief Persist an idempotent operation request."""
         if (
-            action not in ("start", "retry", "cancel", "pause", "resume", "delete", "image-build")
+            action not in ("start", "retry", "cancel", "pause", "resume", "delete")
             or not key
             or len(key) > 128
         ):
@@ -1185,16 +1183,6 @@ class WebStore:
                 "SELECT * FROM operations WHERE actor_id=? AND idempotency_key=?",
                 (actor_id, key)).fetchone()
         return self._operation_with_current_project(row) if row else None
-
-    def running_image_builds(self) -> list[dict]:
-        """@brief Enumerate in-flight image requests for owned startup reconciliation.
-        @return Durable running image operations, never replay requests.
-        """
-        with self._connect() as connection:
-            rows = connection.execute(
-                "SELECT * FROM operations WHERE action='image-build' AND status='running'"
-            ).fetchall()
-        return [self._operation_with_current_project(row) for row in rows]
 
     def has_unfinished_operations(self, project: str) -> bool:
         """@brief Check for queued or executing operations before project archive."""
@@ -1333,16 +1321,17 @@ class WebStore:
             and (type(actor_id) is not int or actor_id < 1)
         ):
             raise WebStoreError("audit row is corrupt")
-        encoded = None
-        if payload is not None:
-            event_key = event_key or secrets.token_hex(32)
-            try:
-                audit_contract.validate(payload)
-                encoded = json.dumps(
-                    payload, sort_keys=True, separators=(",", ":"), allow_nan=False
-                )
-            except (ValueError, TypeError) as exc:
-                raise WebStoreError("audit row is corrupt") from exc
+        # Every audit row carries structured evidence; none is written without it.
+        if payload is None:
+            raise WebStoreError("audit row is corrupt")
+        event_key = event_key or secrets.token_hex(32)
+        try:
+            audit_contract.validate(payload)
+            encoded = json.dumps(
+                payload, sort_keys=True, separators=(",", ":"), allow_nan=False
+            )
+        except (ValueError, TypeError) as exc:
+            raise WebStoreError("audit row is corrupt") from exc
         detail = self._safe_detail(action, detail, payload)
         try:
             connection.execute(
@@ -1357,7 +1346,7 @@ class WebStore:
 
     @staticmethod
     def _safe_detail(action, detail, payload=None):
-        """@brief Keep recognized compact metadata; redact arbitrary legacy/error text."""
+        """@brief Keep recognized compact metadata; redact arbitrary or error text."""
         if not detail:
             return ""
         if action in ("config-staged", "config-applied", "config-updated"):
@@ -1547,7 +1536,7 @@ class WebStore:
 
     @staticmethod
     def _audit_projection(row) -> dict:
-        """@brief Validate storage and project legacy unknowns without fabricated evidence."""
+        """@brief Validate one stored audit row and project its structured evidence."""
         item = dict(row)
         try:
             audit_contract.instant(item["created_at"])
@@ -1570,13 +1559,11 @@ class WebStore:
             ):
                 raise ValueError("invalid correlation")
             if raw is None:
-                item.update({field: None for field in audit_contract.FIELDS - {"schema", "actor"}})
-                item["actor"] = None  # Legacy identity name was never snapshotted.
-            else:
-                item.update(audit_contract.decode(raw))
+                raise ValueError("audit row has no evidence")
+            item.update(audit_contract.decode(raw))
             item["correlation"] = key
             item["detail"] = WebStore._safe_detail(
-                item["action"], item["detail"], item if raw else None
+                item["action"], item["detail"], item
             )
             return item
         except (ValueError, TypeError, KeyError) as exc:

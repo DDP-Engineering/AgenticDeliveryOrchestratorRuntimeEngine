@@ -23,6 +23,8 @@ from adore.web.app import create_app
 from adore.web.store import WebStore
 from fastapi.testclient import TestClient
 
+from tests.usage_events import versioned_usage
+
 
 def test_prices_follow_project_identity_across_rename_and_name_reuse(tmp_path):
     """@brief A rate follows its profile ID and never attaches to a replacement."""
@@ -84,15 +86,16 @@ def test_estimates_use_effective_rate_without_double_counting_reported_cost(tmp_
     run = RunState(run_id="run-1", ticket_iid=7, lifecycle="done")
     state.save(run)
     state.journal("run-1", "picked", ts="2026-01-01T00:00:00+00:00")
-    for stamp, model, reported in (
+    for attempt, (stamp, model, reported) in enumerate((
             ("2026-01-20T00:00:00+00:00", "local-1", False),
             ("2026-02-20T00:00:00+00:00", "local-1", False),
             ("2026-02-21T00:00:00+00:00", "local-1", True),
-            ("2026-02-22T00:00:00+00:00", "unknown", False)):
-        state.journal("run-1", "usage", ts=stamp, executor="codex", model=model,
+            ("2026-02-22T00:00:00+00:00", "unknown", False)), start=1):
+        state.journal("run-1", "usage", **versioned_usage("run-1", attempt,
+                                                          ts=stamp, executor="codex", model=model,
                       tokens_in=1_000_000, tokens_out=1_000_000,
                       cost_usd=0.3 if reported else 0.0,
-                      cost_reported=reported)
+                      cost_reported=reported))
     metrics.record_summary(state.root / "metrics.db", metrics.summarize_run(state, "run-1"))
     app = create_app(profiles.home)
     web = app.state.web_store
@@ -160,8 +163,8 @@ def test_nonfinite_journal_cost_is_not_exposed(tmp_path):
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
     state.save(RunState(run_id="run-1", ticket_iid=7, lifecycle="working"))
-    state.journal("run-1", "usage", tokens_in=4, tokens_out=2,
-                  cost_usd="NaN", cost_reported=True)
+    state.journal("run-1", "usage", **versioned_usage("run-1", 31, tokens_in=4, tokens_out=2,
+                  cost_usd="NaN", cost_reported=True))
     app = create_app(profiles.home)
     with TestClient(app) as client:
         client.post("/api/v1/session", json={

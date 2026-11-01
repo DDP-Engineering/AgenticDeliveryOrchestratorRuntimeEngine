@@ -40,7 +40,7 @@ const lifecycleKeys: Record<string, MessageKey> = {
   "awaiting-approval": "awaitingApprovalStatus", "in-review": "inReviewStatus", "handoff-pending": "handoffPendingStatus",
   "handed-off": "handedOffStatus", done: "done", failed: "failed", cancelled: "cancelled",
 };
-const stageKeys: Record<string, MessageKey> = { frame: "frameStage", specify: "specifyStage", design: "designStage", build: "buildStage", validate: "validateStage", deliver: "deliverStage", done: "done", publishing: "publishingStatus" };
+const stageKeys: Record<string, MessageKey> = { frame: "frameStage", specify: "specifyStage", design: "designStage", build: "buildStage", validate: "validateStage", done: "done", publishing: "publishingStatus" };
 const label = (value: string, keys: Record<string, MessageKey>, t: Props["t"]) => keys[value] ? t(keys[value]) : value;
 const normalizeFailure = (cause: unknown) => cause instanceof ApiError ? cause : new ApiError("unexpected_response");
 const readOperation = (value: unknown): Operation => {

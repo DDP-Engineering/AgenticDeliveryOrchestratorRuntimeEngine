@@ -37,19 +37,20 @@ snapshot to reject additions, deletion, rename, archive, changed evidence or gra
 This is optimistic consistency, not a durable frozen snapshot or a transaction against
 uncoordinated host writes; a mutation after final reinspection is visible next request.
 No server cache or live forge fetch. Deleted projects have no retained searchable profile;
-archived projects retain authorized history. Missing state roots are empty legacy sources;
+archived projects retain authorized history. Missing state roots are empty sources;
 unreadable roots/files and malformed run folders fail closed.
 
 ## Evidence
 
 Exact state values remain independent; stage never implies lifecycle/outcome/action.
-last_activity_at is max of valid updated_at and journal ts values; null if absent.
-created_at and updated_at are optional legacy timestamps, invalid nonempty values fail.
+last_activity_at is max of updated_at and journal ts values.
+Every save stamps created_at and updated_at; an empty, malformed or naive value fails
+as run_state_corrupt.
 Ticket title and web_url come from optional ticket.json; iid if present must match state.
 Missing ticket/journal files are explicit coverage states, malformed ones are errors.
 Wait reason/action use only lifecycle-matching persisted evidence: parked questions plus
-question_comment_id and an event timestamp at/after the current parked_at; absent
-legacy correlation remains unknown. Awaiting approval comment ID plus presented candidate digests;
+question_comment_id and an event timestamp at/after the current parked_at; an absent
+correlation remains unknown. Awaiting approval comment ID plus presented candidate digests;
 in-review MR URL. Role is human_responder/human_approver/human_reviewer only with that
 actual evidence; responsible_person remains null because no assignee snapshot exists.
 Evidence locations use composite API detail URL and safe forge comment/MR anchors,
@@ -58,10 +59,10 @@ and an unknown forge retains the observed ticket URL; never worktree paths, comm
 Unknown evidence yields null values and availability=unknown, with no invented questions.
 Consumption is {availability: unknown}; metrics are a later contract.
 
-## Trust and compatibility
+## Trust
 
 Strict JSON parsing rejects duplicate keys, non-finite constants and parser depth
-failures; projected strings require valid Unicode scalars. RunState.from_dict validates existing schema 1, with additional read-surface type checks.
+failures; projected strings require valid Unicode scalars. RunState.from_dict validates schema 1 and refuses unknown or missing keys, with additional read-surface type checks.
 Read raw journal JSONL strictly: malformed/torn lines fail this evidence read, while the
 operational recovery reader remains unchanged. No state/journal writes, migrations, optional
 schema fields or historical reset. Expose only selected fields; redact credential patterns in

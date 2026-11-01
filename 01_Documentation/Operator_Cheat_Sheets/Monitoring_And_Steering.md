@@ -86,7 +86,7 @@ Treat the AEGIS strict-check outcome (`ok` or `failed`) separately from the
 ADORE lifecycle outcome. Both remain visible in journals, reports, exports,
 ticket comments, and draft MR/PRs.
 
-If metrics were added after older terminal runs, rebuild summaries once:
+If metrics were enabled after some runs had already finished, rebuild summaries once:
 
 ```powershell
 .\.venv\Scripts\adore.exe --profile <profile-name> stats --rebuild

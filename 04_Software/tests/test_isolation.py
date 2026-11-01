@@ -747,18 +747,6 @@ def test_cleanup_egress_sweeps_keep_names_shared_with_retained_runs() -> None:
     assert len(runner.calls) == 4
 
 
-def test_cleanup_egress_sweeps_remove_unshared_old_cut_names() -> None:
-    """@brief A finished run's old cut proxy and network go when nothing else derives them."""
-    done = "adore-run-gitea-dpasare-2026_Networked_Intelligent_Lab_Orchestrator-26"
-    old_proxy = "adore-run-gitea-dpasare-2026_Networked_Intelligent-egress-proxy"
-    old_network = "adore-egress-adore-run-gitea-dpasare-2026_Networked_Intellige"
-    runner = FakeRunner(_ok(old_proxy), _ok(), _ok(old_network), _ok())
-    manager = _manager(runner)
-
-    assert manager.cleanup_egress_proxies({done}, set()) == [old_proxy]
-    assert manager.cleanup_egress_networks({done}, set()) == [old_network]
-
-
 def test_cleanup_egress_proxy_sweep_finds_proxies_of_long_slugs() -> None:
     """
     @brief   A per-run proxy whose bounded name no longer starts with a long

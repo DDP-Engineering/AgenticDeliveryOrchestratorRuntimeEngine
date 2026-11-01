@@ -83,7 +83,8 @@ command = '"C:\Tools\node.exe" "C:\Tools\agent\cli.js" -p --mode json --model {m
 ```
 
 Templates are tokenized before replacement: prompt/model/path spaces stay in their
-argument. Each gate starts fresh and `{resume}` becomes empty. Shell compounds,
+argument. Each gate starts a fresh session; the only placeholders are `{prompt}`,
+`{model}` and `{worktree}`. Shell compounds,
 redirection and shell executables are unsupported. Set `workflow.aegis_python`
 to installed native Python when `python3` is unavailable; its path may contain spaces.
 

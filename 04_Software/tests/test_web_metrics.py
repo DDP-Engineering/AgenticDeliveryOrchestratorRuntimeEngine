@@ -23,6 +23,8 @@ from adore.web.store import WebStoreError
 from fastapi.testclient import TestClient
 import pytest
 
+from tests.usage_events import versioned_usage
+
 
 def test_daily_usage_and_financial_privacy(tmp_path):
     """@brief Usage is bucketed by event day; developer gets no money fields."""
@@ -32,7 +34,8 @@ def test_daily_usage_and_financial_privacy(tmp_path):
     run = RunState(run_id="run-1", ticket_iid=42, lifecycle="done")
     state.save(run)
     state.journal(run.run_id, "picked")
-    state.journal(run.run_id, "usage", tokens_in=12, tokens_out=3, cost_usd=0.1)
+    state.journal(run.run_id, "usage", **versioned_usage(run.run_id, 3,
+                                                         tokens_in=12, tokens_out=3, cost_usd=0.1))
     metrics.record_summary(state.root / "metrics.db", metrics.summarize_run(state, run.run_id))
     app = create_app(profiles.home)
     web = app.state.web_store
@@ -85,9 +88,9 @@ def test_usage_projection_replay_and_missing_source_fail_closed(tmp_path):
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
     state.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="working"))
-    state.journal("run-1", "usage", ts="2026-01-01T12:00:00Z",
+    state.journal("run-1", "usage", **versioned_usage("run-1", 4, ts="2026-01-01T12:00:00Z",
                   executor="opencode", model="local/test", tokens_in=5,
-                  tokens_out=1, cost_usd=0)
+                  tokens_out=1, cost_usd=0))
     app = create_app(profiles.home)
     with TestClient(app) as client:
         client.post("/api/v1/session", json={
@@ -101,9 +104,9 @@ def test_usage_projection_replay_and_missing_source_fail_closed(tmp_path):
                 "SELECT COUNT(*) FROM usage_projection WHERE project_id=?",
                 (profile.project_id,),
             ).fetchone()[0] == 1
-        state.journal("run-1", "usage", ts="2026-01-02T12:00:00Z",
+        state.journal("run-1", "usage", **versioned_usage("run-1", 5, ts="2026-01-02T12:00:00Z",
                       executor="opencode", model="local/test", tokens_in=7,
-                      tokens_out=2, cost_usd=0)
+                      tokens_out=2, cost_usd=0))
         response = client.get("/api/v1/projects/alpha/usage")
         assert response.status_code == 200, response.text
         assert response.json()["totals"]["tokens_in"] == 12
@@ -111,7 +114,7 @@ def test_usage_projection_replay_and_missing_source_fail_closed(tmp_path):
             assert connection.execute("SELECT COUNT(*) FROM usage_projection").fetchone()[0] == 2
     with sqlite3.connect(app.state.web_store.path) as connection:
         connection.execute("UPDATE usage_projection SET event_json='{}' "
-                           "WHERE source_id='legacy:0'")
+                           "WHERE source_id='run-1:4'")
     with TestClient(app) as client:
         client.post("/api/v1/session", json={
             "username": "admin", "password": "admin"})
@@ -213,9 +216,9 @@ def test_admin_rebuilds_archived_usage_without_changing_run_state(tmp_path):
                   review_round=0, executor="opencode", model="local/test",
                   token_status="reported", cost_status="unavailable",
                   tokens_in=5, tokens_out=1, cost_usd=None)
-    state.journal("run-1", "usage", ts="2026-01-01T12:00:00Z",
+    state.journal("run-1", "usage", **versioned_usage("run-1", 6, ts="2026-01-01T12:00:00Z",
                   executor="opencode", model="local/test", tokens_in=5,
-                  tokens_out=1, cost_usd=0)
+                  tokens_out=1, cost_usd=0))
     before = state.load("run-1").to_dict()
     app = create_app(profiles.home)
     dev = app.state.web_store.create_user("dev", "longer-password", "developer")
@@ -251,10 +254,10 @@ def test_reporting_timezone_and_weekly_monthly_buckets(tmp_path):
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
     state.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="working"))
-    state.journal("run-1", "usage", ts="2026-03-28T22:30:00Z",
-                  tokens_in=3, tokens_out=1, cost_usd=0)
-    state.journal("run-1", "usage", ts="2026-03-29T21:30:00Z",
-                  tokens_in=7, tokens_out=2, cost_usd=0)
+    state.journal("run-1", "usage", **versioned_usage("run-1", 7, ts="2026-03-28T22:30:00Z",
+                  tokens_in=3, tokens_out=1, cost_usd=0))
+    state.journal("run-1", "usage", **versioned_usage("run-1", 8, ts="2026-03-29T21:30:00Z",
+                  tokens_in=7, tokens_out=2, cost_usd=0))
     with TestClient(create_app(profiles.home)) as client:
         client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
         utc = client.get("/api/v1/projects/alpha/metrics")
@@ -282,7 +285,7 @@ def test_reporting_timezone_and_weekly_monthly_buckets(tmp_path):
         attributed = client.get("/api/v1/projects/alpha/usage" + query)
         assert [(row["date"], row["tokens_in"]) for row in attributed.json()["daily"]] == [
             ("2026-03-23", 3), ("2026-03-30", 7)]
-        assert "2026-03-23,,,1,3,1" in client.get(
+        assert "2026-03-23,codex,example,1,3,1" in client.get(
             "/api/v1/projects/alpha/usage.csv" + query).text
         assert client.get("/api/v1/projects/alpha/metrics?"
                           "timezone=No%2FSuch_Zone").status_code == 422
@@ -313,8 +316,8 @@ def test_launch_coverage_is_idempotent_and_cost_status_is_admin_only(tmp_path):
     }
     state.journal("run-1", "usage-observation", **observation)
     state.journal("run-1", "usage-observation", **observation)
-    state.journal("run-1", "usage", tokens_in=10, tokens_out=2,
-                  cost_usd=0, executor="codex", model="example")
+    state.journal("run-1", "usage", **versioned_usage("run-1", 9, tokens_in=10, tokens_out=2,
+                  cost_usd=0, executor="codex", model="example"))
     state.journal("run-1", "usage-observation", schema=1,
                   event_id="run-1:2", attempt=2, stage="validate",
                   review_round=0, executor="codex", model="example",
@@ -434,15 +437,16 @@ def test_versioned_usage_replay_is_idempotent_in_views(tmp_path):
         assert attributed.json()["detail"]["code"] == "usage_corrupt"
 
 
-def test_token_only_legacy_event_has_unknown_cost(tmp_path):
-    """@brief A legacy zero default never proves a zero-dollar charge."""
+def test_unreported_zero_cost_is_unknown(tmp_path):
+    """@brief A zero cost the executor did not report never proves a zero-dollar charge."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
     run = RunState(run_id="run-1", ticket_iid=42, lifecycle="done")
     state.save(run)
     state.journal(run.run_id, "picked")
-    state.journal(run.run_id, "usage", tokens_in=12, tokens_out=3, cost_usd=0.0)
+    state.journal(run.run_id, "usage", **versioned_usage(run.run_id, 10,
+                                                         tokens_in=12, tokens_out=3, cost_usd=0.0))
     metrics.record_summary(state.root / "metrics.db", metrics.summarize_run(state, run.run_id))
     app = create_app(profiles.home)
     with TestClient(app) as client:
@@ -475,8 +479,8 @@ def test_scoped_daily_csv_omits_developer_cost(tmp_path):
     state = StateStore(profile.store_root)
     state.save(RunState(run_id="run-1", ticket_iid=7, lifecycle="done"))
     state.journal("run-1", "picked")
-    state.journal("run-1", "usage", tokens_in=4, tokens_out=2,
-                  cost_usd=0.02, cost_reported=True)
+    state.journal("run-1", "usage", **versioned_usage("run-1", 11, tokens_in=4, tokens_out=2,
+                  cost_usd=0.02, cost_reported=True))
     app = create_app(profiles.home)
     web = app.state.web_store
     dev = web.create_user("dev", "longer-password", "developer")
@@ -501,8 +505,8 @@ def test_csv_ignores_invalid_journal_dates(tmp_path):
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
     state.save(RunState(run_id="run-1", ticket_iid=7, lifecycle="done"))
-    state.journal("run-1", "usage", ts="=1+1,,,,,,", tokens_in=4,
-                  tokens_out=2, cost_usd=0.02)
+    state.journal("run-1", "usage", **versioned_usage("run-1", 12, ts="=1+1,,,,,,", tokens_in=4,
+                  tokens_out=2, cost_usd=0.02))
     app = create_app(profiles.home)
     with TestClient(app) as client:
         client.post("/api/v1/session", json={
@@ -517,12 +521,10 @@ def test_daily_usage_converts_timestamp_offsets_to_utc(tmp_path):
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
     state.save(RunState(run_id="run-1", ticket_iid=7, lifecycle="working"))
-    state.journal("run-1", "usage", ts="2026-03-30T00:15:00+02:00",
-                  tokens_in=5, tokens_out=1)
-    state.journal("run-1", "usage", ts="2026-03-29T22:30:00Z",
-                  tokens_in=7, tokens_out=2)
-    state.journal("run-1", "usage", ts="2026-03-30garbage",
-                  tokens_in=1000, tokens_out=1000)
+    state.journal("run-1", "usage", **versioned_usage("run-1", 13, ts="2026-03-30T00:15:00+02:00",
+                  tokens_in=5, tokens_out=1))
+    state.journal("run-1", "usage", **versioned_usage("run-1", 14, ts="2026-03-29T22:30:00Z",
+                  tokens_in=7, tokens_out=2))
     app = create_app(profiles.home)
     with TestClient(app) as client:
         client.post("/api/v1/session", json={
@@ -531,6 +533,12 @@ def test_daily_usage_converts_timestamp_offsets_to_utc(tmp_path):
         assert [day["date"] for day in body["daily"]] == ["2026-03-29"]
         assert body["daily"][0]["tokens_in"] == 12
         assert body["totals"]["tokens_in"] == 12
+        # An unparseable or naive timestamp is not something the current build writes.
+        state.journal("run-1", "usage", **versioned_usage("run-1", 15, ts="2026-03-30garbage",
+                      tokens_in=1000, tokens_out=1000))
+        response = client.get("/api/v1/projects/alpha/metrics")
+        assert response.status_code == 503
+        assert response.json()["detail"]["code"] == "metrics_corrupt"
 
 
 def test_metric_period_scopes_totals_and_filters_exports(tmp_path):
@@ -544,33 +552,30 @@ def test_metric_period_scopes_totals_and_filters_exports(tmp_path):
     beta_state.save(RunState(run_id="beta-1", ticket_iid=2, lifecycle="working"))
     alpha_state.journal(
         "alpha-1",
-        "usage",
+        "usage", **versioned_usage("alpha-1", 16,
         ts="2026-01-01T12:00:00Z",
         tokens_in=3,
         tokens_out=1,
         cost_usd=0.2,
-        cost_reported=True,
-    )
+        cost_reported=True),)
     alpha_state.journal(
         "alpha-1",
-        "usage",
+        "usage", **versioned_usage("alpha-1", 17,
         ts="2026-01-01T23:30:00-02:00",
         executor="codex",
         model="local-1",
         tokens_in=7,
         tokens_out=2,
         cost_usd=0,
-        cost_reported=False,
-    )
+        cost_reported=False),)
     beta_state.journal(
         "beta-1",
-        "usage",
+        "usage", **versioned_usage("beta-1", 18,
         ts="2026-01-02T12:00:00Z",
         tokens_in=11,
         tokens_out=4,
         cost_usd=0.4,
-        cost_reported=True,
-    )
+        cost_reported=True),)
     app = create_app(profiles.home)
     web = app.state.web_store
     web.add_price("alpha", "codex", "local-1", "2026-01-01", "2", "4", 1)
@@ -630,14 +635,14 @@ def test_metric_period_scopes_totals_and_filters_exports(tmp_path):
         assert client.get("/api/v1/metrics?day_from=invalid").status_code == 422
 
 
-def test_period_does_not_assign_legacy_summary_usage_to_a_day(tmp_path):
+def test_period_does_not_assign_summary_only_usage_to_a_day(tmp_path):
     """@brief Summary-only consumption is explicit lifetime/unallocated evidence."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
-    state.save(RunState(run_id="legacy", ticket_iid=3, lifecycle="done"))
+    state.save(RunState(run_id="summary-only", ticket_iid=3, lifecycle="done"))
     metrics.record_summary(state.root / "metrics.db", metrics.RunSummary(
-        run_id="legacy", tokens_in=9, tokens_out=2))
+        run_id="summary-only", tokens_in=9, tokens_out=2))
     with TestClient(create_app(profiles.home)) as client:
         client.post("/api/v1/session", json={
             "username": "admin", "password": "admin"})
@@ -760,15 +765,15 @@ def test_attributed_usage_filters_project_global_and_csv_without_cost_leak(tmp_p
     second = StateStore(beta.store_root)
     first.save(RunState(run_id="first", ticket_iid=1))
     second.save(RunState(run_id="second", ticket_iid=2))
-    first.journal("first", "usage", ts="2026-01-01T12:00:00Z",
+    first.journal("first", "usage", **versioned_usage("first", 19, ts="2026-01-01T12:00:00Z",
                   executor="opencode", model="local/a", tokens_in=5,
-                  tokens_out=2, cost_usd=0)
-    first.journal("first", "usage", ts="2026-01-02T00:30:00+02:00",
+                  tokens_out=2, cost_usd=0))
+    first.journal("first", "usage", **versioned_usage("first", 20, ts="2026-01-02T00:30:00+02:00",
                   executor="codex", model="cloud/b", tokens_in=7,
-                  tokens_out=3, cost_usd=0.4, cost_reported=True)
-    second.journal("second", "usage", ts="2026-01-01T13:00:00Z",
+                  tokens_out=3, cost_usd=0.4, cost_reported=True))
+    second.journal("second", "usage", **versioned_usage("second", 21, ts="2026-01-01T13:00:00Z",
                    executor="opencode", model="local/a", tokens_in=11,
-                   tokens_out=4, cost_usd=0)
+                   tokens_out=4, cost_usd=0))
     app = create_app(profiles.home)
     web = app.state.web_store
     web.add_price("alpha", "opencode", "local/a", "2026-01-01", "2", "4", 1)
@@ -821,8 +826,8 @@ def test_attributed_usage_rejects_corrupt_persisted_identity(tmp_path):
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
     state.save(RunState(run_id="first", ticket_iid=1))
-    state.journal("first", "usage", ts="2026-01-01T12:00:00Z",
-                  executor={"bad": "value"}, model="local/a", tokens_in=5)
+    state.journal("first", "usage", **versioned_usage("first", 22, ts="2026-01-01T12:00:00Z",
+                  executor={"bad": "value"}, model="local/a", tokens_in=5))
     with TestClient(create_app(profiles.home)) as client:
         client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
         response = client.get("/api/v1/projects/alpha/usage")
@@ -837,8 +842,8 @@ def test_attributed_usage_csv_escapes_model_formula(tmp_path):
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
     state.save(RunState(run_id="first", ticket_iid=1))
-    state.journal("first", "usage", ts="2026-01-01T12:00:00Z",
-                  executor="opencode", model="=1+1", tokens_in=5)
+    state.journal("first", "usage", **versioned_usage("first", 23, ts="2026-01-01T12:00:00Z",
+                  executor="opencode", model="=1+1", tokens_in=5))
     with TestClient(create_app(profiles.home)) as client:
         client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
         export = client.get("/api/v1/projects/alpha/usage.csv")
@@ -890,9 +895,9 @@ def test_global_daily_csv_is_admin_only_and_identifies_repository(tmp_path):
     profile = profiles.create("alpha", repo="=1+1", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
     state.save(RunState(run_id="run-1", ticket_iid=7, lifecycle="done"))
-    state.journal("run-1", "usage", ts="2026-01-05T00:00:00+00:00",
+    state.journal("run-1", "usage", **versioned_usage("run-1", 24, ts="2026-01-05T00:00:00+00:00",
                   tokens_in=4, tokens_out=2, cost_usd=0.02,
-                  cost_reported=True)
+                  cost_reported=True))
     app = create_app(profiles.home)
     web = app.state.web_store
     dev = web.create_user("dev", "longer-password", "developer")
@@ -917,9 +922,9 @@ def test_live_run_usage_is_in_project_totals(tmp_path):
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
     state.save(RunState(run_id="live-1", ticket_iid=8, lifecycle="working"))
-    state.journal("live-1", "usage", ts="2026-01-05T00:00:00+00:00",
+    state.journal("live-1", "usage", **versioned_usage("live-1", 25, ts="2026-01-05T00:00:00+00:00",
                   tokens_in=10, tokens_out=4, cost_usd=0.3,
-                  cost_reported=True)
+                  cost_reported=True))
     app = create_app(profiles.home)
     with TestClient(app) as client:
         client.post("/api/v1/session", json={
@@ -967,18 +972,18 @@ def test_revision_cost_attribution_is_admin_only_and_preserves_unknowns(tmp_path
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
     state.save(RunState(run_id="run-1", ticket_iid=7, lifecycle="in-review"))
-    state.journal("run-1", "usage", ts="2026-01-02T00:00:00+00:00",
-                  tokens_in=10, tokens_out=2, cost_usd=0.5, cost_reported=True)
+    state.journal("run-1", "usage", **versioned_usage("run-1", 26, ts="2026-01-02T00:00:00+00:00",
+                  tokens_in=10, tokens_out=2, cost_usd=0.5, cost_reported=True))
     state.journal("run-1", "revision-started", ts="2026-01-03T00:00:00+00:00",
                   trigger="revise-label")
-    state.journal("run-1", "usage", ts="2026-01-03T00:01:00+00:00",
+    state.journal("run-1", "usage", **versioned_usage("run-1", 27, ts="2026-01-03T00:01:00+00:00",
                   executor="codex", model="local-1", tokens_in=1_000_000,
-                  tokens_out=1_000_000, cost_usd=0.0, cost_reported=False)
+                  tokens_out=1_000_000, cost_usd=0.0, cost_reported=False))
     state.journal("run-1", "revision-started", ts="2026-01-04T00:00:00+00:00",
                   trigger="pipeline-failed")
-    state.journal("run-1", "usage", ts="2026-01-04T00:01:00+00:00",
+    state.journal("run-1", "usage", **versioned_usage("run-1", 28, ts="2026-01-04T00:01:00+00:00",
                   executor="codex", model="local-1", tokens_in=3,
-                  tokens_out=4, cost_usd=0.25, cost_reported=True)
+                  tokens_out=4, cost_usd=0.25, cost_reported=True))
     state.journal("run-1", "revision-started", ts="2026-01-05T00:00:00+00:00",
                   trigger="revise-label")
     state.journal("run-1", "revision-started", ts="2026-01-06T00:00:00+00:00",
@@ -1088,10 +1093,11 @@ def test_quality_cost_per_job_uses_evidence_denominators_and_role_privacy(tmp_pa
     ):
         state.save(RunState(run_id=run_id, ticket_iid=1,
                             lifecycle=lifecycle, outcome=outcome))
-        state.journal(run_id, "usage", executor="codex", model="local-1",
+        state.journal(run_id, "usage", **versioned_usage(run_id, 29,
+                                                         executor="codex", model="local-1",
                       tokens_in=1_000_000, tokens_out=0,
                       cost_usd=4 if cost_reported else 0,
-                      cost_reported=cost_reported)
+                      cost_reported=cost_reported))
         state.journal(run_id, "stage-failed", stage="build")
         state.journal(run_id, "operator-retry", stage="build")
         if outcome == "merged by human":

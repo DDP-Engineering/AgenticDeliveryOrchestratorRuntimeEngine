@@ -70,13 +70,12 @@ See [Local execution](../01_Documentation/Local_Execution.md) and
 [Local execution component](Component_Local_Execution.md). Focused proof:
 `04_Software/tests/test_local_execution.py`.
 
-## Image source/output credential boundary
+## Credential value reads
 
 credential_values returns nonempty values from the existing strict bounded
-private dotenv parser solely for in-memory rejection/redaction. ImageBuildService
-uses these values without forwarding or exporting them. Missing .env is empty;
-corrupt stored bytes fail closed. Image definition/runtime secret tests and
-existing provider credential tests cover this shared read.
+private dotenv parser solely for in-memory rejection/redaction; it never
+forwards or exports them. Missing .env is empty; corrupt stored bytes fail
+closed. Existing provider credential tests cover the shared parser.
 
 ## Environment selection and external guidance
 
@@ -112,9 +111,14 @@ executor/Dockerfile, executor/README.md, non-root structure, external build/chec
 and server config fields. It neither reads repository Dockerfiles nor issues
 mutation requests. The image itself (Dockerfile and build) stays prepared on the server
 by the administrator. Settings/enrollment omit controls for image definition and build.
-Legacy pending environment Apply is disabled while Discard remains. API guards preserve the
-existing dedicated AI endpoint exception. Proof: test_web_image_build.py and
-web/e2e/images.spec.ts; operator steps: Project_Executor_Images.md.
+A pending candidate for an operator-owned environment key, or one carrying an
+`image_build` binding, could only be staged by an earlier build: it is 503
+`pending_config_corrupt` on view and on apply, and Discard remains. API guards preserve the
+existing dedicated AI endpoint exception. Proof:
+`test_pending_candidate_for_an_external_key_is_corrupt_but_discardable` in
+test_web_pending_config.py, `test_pending_image_build_binding_is_corrupt_but_discardable`
+in test_executor_environment_choice.py and web/e2e/images.spec.ts; operator steps:
+Project_Executor_Images.md.
 
 ## Reviewed selection and variable-name contracts
 

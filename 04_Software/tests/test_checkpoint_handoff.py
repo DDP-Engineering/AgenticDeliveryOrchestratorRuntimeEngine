@@ -235,12 +235,13 @@ def test_checkpoint_handoff_request_after_gate_prevents_next_session(tmp_path):
     assert not engine.store.handoff_requested(run.run_id)
 
 
-def test_checkpoint_handoff_state_additive_and_strict(tmp_path):
-    """@brief Existing records load; corrupt checkpoint identities fail closed."""
+def test_checkpoint_handoff_state_is_strict(tmp_path):
+    """@brief Missing or corrupt checkpoint identities fail closed."""
     original = RunState("run-1", 1).to_dict()
-    for key in ["checkpoint_remote_commit", "checkpoint_error"]:
-        original.pop(key, None)
-    assert RunState.from_dict(original).checkpoint_remote_commit == ""
+    missing = {key: value for key, value in original.items()
+               if key not in ("checkpoint_remote_commit", "checkpoint_error")}
+    with pytest.raises(StateError, match="missing keys"):
+        RunState.from_dict(missing)
     original["checkpoint_remote_commit"] = "not-a-commit"
     with pytest.raises(StateError):
         RunState.from_dict(original)

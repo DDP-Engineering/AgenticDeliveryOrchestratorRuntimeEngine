@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Native local execution, version 1 (#21)
 
-## Selection and compatibility
+## Selection
 
 `[execution] backend = "local"` is explicit; omitted backend stays container.
 Local mode rejects nonempty preparation, container egress other than open,
@@ -45,8 +45,8 @@ Machine/account, effective non-secret environment and selected executable identi
 are pinned with the reviewed local plan. Missing/corrupt/replaced records, changed
 backend/config/home/PATH/executable or incompatible active legacy runs fail closed;
 restore the original environment or start a fresh run. Legacy container recovery
-retains its previous behavior. Local records are an additive closed alternative
-within schema 1; older binaries reject them. Portable working-rule exports omit
+retains its previous behavior. Local records are a closed alternative within
+schema 1. Portable working-rule exports omit
 backend/machine/account/path/runtime identity and local environment.
 
 ## Process ownership and recovery
