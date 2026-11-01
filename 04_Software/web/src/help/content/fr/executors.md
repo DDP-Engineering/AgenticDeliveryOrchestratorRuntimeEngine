@@ -35,6 +35,7 @@ Le résultat est **Modèle IA connecté** ou **Connexion IA non vérifiée**, av
 | S’exécute dans | Un conteneur Docker ou Podman temporaire sur le serveur ADORE | Le serveur ADORE lui-même, sous le compte du système d’exploitation du service, dans un worktree dédié |
 | Environnement | Une image de projet préparée par l’administrateur | Les outils, versions et bibliothèques que vous installez vous-même sur ce serveur |
 | Connexion | Clés API listées ou connexion de l’hôte | La connexion existante de l’agent sur ce compte, réutilisée telle quelle |
+| Réglages de l’agent | Les réglages de l’image, plus le [point d’accès local pour OpenCode](#local-endpoint) s’il est défini | Pour OpenCode, un dossier de réglages géré par ADORE : agents, fournisseurs, extensions et autorisations de votre dossier de réglages OpenCode personnel ne sont pas utilisés, `git push` et les outils de la forge sont bloqués, et les dossiers `.opencode` et `.agents/skills` du dossier personnel du compte s’appliquent toujours |
 | Isolation | Conteneur avec une politique réseau | Uniquement le worktree ; les commandes peuvent atteindre tout ce que le compte peut atteindre, utilisez donc un compte dédié aux privilèges minimaux |
 | Choisi | **Exécution** → **Conteneur**, par défaut, à l’étape 2 de l’inscription ou dans Paramètres → Agent et modèle | **Exécution** → **Installé sur le serveur**, ou le profil du serveur ou l’inscription TOML |
 

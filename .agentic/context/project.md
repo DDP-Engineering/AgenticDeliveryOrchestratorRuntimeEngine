@@ -220,7 +220,9 @@ Project Settings → Agent and model owns agent/model settings and approved prov
 LocalBackend and owned Windows Job/Linux delegated cgroup scopes share the existing
 conductor. Actual machine/account, non-secret environment and installed executable
 identity are pinned. Tools and auth remain operator-owned; worktrees are not host
-sandboxes. See knowledge/local-execution.md and 01_Documentation/Local_Execution.md.
+sandboxes. OpenCode profiles resolve an ADORE-managed configuration home and
+permission policy instead of the account's personal OpenCode configuration home;
+the account's `~/.opencode` and `~/.agents/skills` are still read. See knowledge/local-execution.md and 01_Documentation/Local_Execution.md.
 
 ## Project executor images
 

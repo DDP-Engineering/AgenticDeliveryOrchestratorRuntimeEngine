@@ -171,6 +171,81 @@ def test_local_environment_keeps_windows_system_names(tmp_path, monkeypatch):
     assert not any(key.upper() in linux for key in system)
 
 
+def test_local_opencode_environment_isolates_personal_configuration(tmp_path, monkeypatch):
+    """@brief OpenCode resolves an ADORE-managed config home; auth data stays in place."""
+    config, context, *_ = local_fixture(tmp_path, monkeypatch)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "personal-config"))
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "account-data"))
+    managed = str(Path(config.state.store_root).resolve() / "executor-config")
+    env = local_environment(config, context)
+    assert env["XDG_CONFIG_HOME"] == managed
+    assert env["OPENCODE_DISABLE_CLAUDE_CODE"] == "1"
+    assert env["XDG_DATA_HOME"] == str(tmp_path / "account-data")
+    config.executor.default = "codex"
+    other = local_environment(config, context)
+    assert other["XDG_CONFIG_HOME"] == str(tmp_path / "personal-config")
+    assert "OPENCODE_DISABLE_CLAUDE_CODE" not in other
+
+
+def test_local_opencode_environment_applies_permission_policy(tmp_path, monkeypatch):
+    """@brief OpenCode tool calls run non-interactively while push and forge CLIs are denied."""
+    config, context, *_ = local_fixture(tmp_path, monkeypatch)
+    env = local_environment(config, context)
+    assert json.loads(env["OPENCODE_PERMISSION"]) == {
+        "edit": "allow",
+        "bash": {
+            "*": "allow", "git push*": "deny", "tea *": "deny", "gh *": "deny", "glab *": "deny"
+        },
+    }
+    config.executor.default = "codex"
+    assert "OPENCODE_PERMISSION" not in local_environment(config, context)
+
+
+def test_local_environment_values_override_managed_opencode_settings(tmp_path, monkeypatch):
+    """@brief Explicit operator values replace managed OpenCode entries and their directory."""
+    config, context, _, controller, _ = local_fixture(tmp_path, monkeypatch)
+    own = str(tmp_path / "operator-config")
+    config.local.environment.update(XDG_CONFIG_HOME=own, OPENCODE_PERMISSION='{"bash":"ask"}')
+    env = local_environment(config, context)
+    assert env["XDG_CONFIG_HOME"] == own and env["OPENCODE_PERMISSION"] == '{"bash":"ask"}'
+    assert env["OPENCODE_DISABLE_CLAUDE_CODE"] == "1"
+    config.local.environment["OPENCODE_DISABLE_CLAUDE_CODE"] = "0"
+    assert local_environment(config, context)["OPENCODE_DISABLE_CLAUDE_CODE"] == "0"
+    managed = Path(config.state.store_root) / "executor-config"
+    if managed.exists():
+        managed.rmdir()
+    LocalBackend(config, context=context, controller=controller)
+    assert not managed.exists()
+    # Windows names are case-insensitive: an explicit lowercase name replaces the managed one;
+    # other names keep their existing exact-name behavior.
+    monkeypatch.setenv("LANG", "C")
+    config.local.environment = {"xdg_config_home": own, "lang": "en"}
+    env = local_environment(config, context)
+    assert [key for key in env if key.upper() == "XDG_CONFIG_HOME"] == ["xdg_config_home"]
+    assert env["LANG"] == "C" and env["lang"] == "en"
+    # Linux names are case-sensitive, and other executors keep their inherited names.
+    linux = local_environment(config, {**context, "system": "Linux"})
+    assert linux["XDG_CONFIG_HOME"] == str(managed.resolve()) and linux["xdg_config_home"] == own
+    personal = str(tmp_path / "personal-config")
+    monkeypatch.setenv("XDG_CONFIG_HOME", personal)
+    config.executor.default = "codex"
+    assert local_environment(config, context)["XDG_CONFIG_HOME"] == personal
+    config.executor.default = "opencode"
+    LocalBackend(config, context=context, controller=controller)
+    assert not managed.exists()
+
+
+def test_local_backend_refuses_unavailable_managed_opencode_directory(tmp_path, monkeypatch):
+    """@brief A managed config path that is not a directory stops before any native launch."""
+    config, context, _, controller, _ = local_fixture(tmp_path, monkeypatch)
+    managed = Path(config.state.store_root) / "executor-config"
+    assert managed.is_dir()
+    managed.rmdir()
+    managed.write_text("not a directory")
+    with pytest.raises(LocalExecutionError, match="managed executor configuration"):
+        LocalBackend(config, context=context, controller=controller)
+
+
 @pytest.mark.parametrize("change", ["policy", "resource", "auth", "executable"])
 def test_local_identity_and_auth_fail_closed_before_native_commands(tmp_path, monkeypatch, change):
     """@brief Drift and corrupt auth/runtime input cannot authorize native commands."""
@@ -419,13 +494,15 @@ def test_local_conductor_pins_target_parks_retries_and_never_lists_containers(
 
     from tests.test_orchestrator import FakeAegis, FakeExecutor, make_engine, make_run, task
 
-    config, _, backend, controller, work = local_fixture(tmp_path, monkeypatch)
+    config, context, _, controller, work = local_fixture(tmp_path, monkeypatch)
     engine, _, trees, containers, executor = make_engine(
         tmp_path,
         executor=FakeExecutor(GateRun(exit_code=0, has_questions=True, questions="Question")),
     )
-    engine.config, engine.backend = config, backend
+    # The pinned environment includes the state root, so bind the backend after moving it.
     config.state.store_root = str(engine.store.root)
+    backend = LocalBackend(config, context=context, controller=controller)
+    engine.config, engine.backend = config, backend
     config.platform.kind = "github"
     # This native retry scenario uses a worktree fake without remote transport.
     config.delivery.publish_checkpoints = False
@@ -812,9 +889,11 @@ def test_container_cleanup_retains_persisted_native_worktree(tmp_path, monkeypat
     """@brief Restoring a container profile cannot release a native run's worktree."""
     from tests.test_orchestrator import make_engine, make_run
 
-    config, _, backend, _, work = local_fixture(tmp_path, monkeypatch)
+    config, context, _, controller, work = local_fixture(tmp_path, monkeypatch)
     engine, _, trees, _, _ = make_engine(tmp_path)
+    # The pinned environment includes the state root, so bind the backend after moving it.
     config.state.store_root = str(engine.store.root)
+    backend = LocalBackend(config, context=context, controller=controller)
     run = make_run(engine)
     backend.provision(run.container, work, work, engine._io_dir(run.run_id), {})
     run.execution = {

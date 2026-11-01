@@ -118,6 +118,11 @@ text = { en = "About shows the DDP Engineering logo and the version, with licens
 [[release.entry]]
 category = "fixed"
 topic = { en = "Executors", fr = "Exécuteurs", de = "Ausführung", ro = "Executori" }
+text = { en = "Local OpenCode jobs use ADORE's own settings folder instead of your personal one.", fr = "Les tâches OpenCode locales utilisent le dossier de réglages d'ADORE, pas le vôtre.", de = "Lokale OpenCode-Aufträge nutzen ADOREs Einstellungsordner statt Ihres persönlichen.", ro = "Lucrările OpenCode locale folosesc dosarul de setări ADORE, nu pe cel personal." }
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Executors", fr = "Exécuteurs", de = "Ausführung", ro = "Executori" }
 text = { en = "Local jobs on Windows pass verification; finish or cancel local jobs before upgrading.", fr = "Tâches locales Windows vérifiées ; terminez ou annulez les tâches locales avant la mise à jour.", de = "Lokale Aufträge unter Windows bestehen die Prüfung; lokale Aufträge vor dem Update beenden.", ro = "Lucrările locale pe Windows trec verificarea; încheiați-le sau anulați-le înainte de actualizare." }
 
 [[release.entry]]

@@ -1,0 +1,20 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-17d58879"
+title = "Let explicit local environment values override managed OpenCode settings"
+status = "active"
+requirement = """
+Where the profile's [local].environment sets XDG_CONFIG_HOME, OPENCODE_DISABLE_CLAUDE_CODE or OPENCODE_PERMISSION, ADORE shall pass that explicit value to native local OpenCode commands instead of the managed value, matching the name case-insensitively on Windows.
+"""
+verification = "Offline: an OpenCode local profile whose [local].environment sets XDG_CONFIG_HOME and OPENCODE_PERMISSION yields an environment with exactly those values and still the managed OPENCODE_DISABLE_CLAUDE_CODE, an explicit OPENCODE_DISABLE_CLAUDE_CODE=0 replaces the managed 1, an explicit lowercase xdg_config_home on Windows leaves no uppercase managed entry and no managed folder; without explicit values the managed ones appear."
+affected_paths = ["04_Software/adore/local_execution.py"]
+linked_tests = ["04_Software/tests/test_local_execution.py::test_local_environment_values_override_managed_opencode_settings"]
+spec = ""
+priority = "normal"
+rationale = "Operators who prepared their own OpenCode configuration keep control."
+created = 2026-10-31
+updated = 2026-11-01

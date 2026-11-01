@@ -35,6 +35,7 @@ The result is **AI model connected** or **AI connection could not be verified**,
 | Runs in | A temporary Docker or Podman container on the ADORE server | The ADORE server itself, under the service's operating system account, in a dedicated worktree |
 | Environment | A project image prepared by the administrator | Tools, versions and libraries you install yourself on that server |
 | Sign-in | Listed API keys or host sign-in | The agent's existing login on that account, reused in place |
+| Agent settings | The image's settings, plus the [local endpoint for OpenCode](#local-endpoint) when set | For OpenCode, a settings folder managed by ADORE: agents, providers, plugins and permissions from your personal OpenCode settings folder are not used, `git push` and the forge tools are blocked, and `.opencode` and `.agents/skills` folders in the account's home still apply |
 | Isolation | Container with a network policy | Only the worktree; commands can reach whatever the account can, so use a dedicated least-privilege account |
 | Chosen | **Runs in** → **Container**, the default, on enrollment step 2 or in Settings → Agent and model | **Runs in** → **Installed on the server**, or the server profile or TOML enrollment |
 

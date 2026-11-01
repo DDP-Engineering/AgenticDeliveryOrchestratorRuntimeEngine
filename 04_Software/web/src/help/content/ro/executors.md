@@ -35,6 +35,7 @@ Rezultatul este **Model AI conectat** sau **Conexiunea AI nu a putut fi verifica
 | Rulează în | Un container Docker sau Podman temporar pe serverul ADORE | Chiar serverul ADORE, sub contul de sistem de operare al serviciului, într-un worktree dedicat |
 | Mediu | O imagine de proiect pregătită de administrator | Unelte, versiuni și biblioteci pe care le instalați singuri pe acel server |
 | Autentificare | Chei API listate sau autentificare pe gazdă | Autentificarea existentă a agentului pe acel cont, reutilizată pe loc |
+| Setările agentului | Setările imaginii, plus [endpoint-ul local pentru OpenCode](#local-endpoint) dacă este setat | Pentru OpenCode, un dosar de setări gestionat de ADORE: agenții, furnizorii, pluginurile și permisiunile din dosarul dvs. personal de setări OpenCode nu se folosesc, `git push` și uneltele forge sunt blocate, iar dosarele `.opencode` și `.agents/skills` din directorul personal al contului se aplică în continuare |
 | Izolare | Container cu politică de rețea | Doar worktree-ul; comenzile pot ajunge oriunde poate ajunge contul, deci folosiți un cont dedicat cu privilegii minime |
 | Alegere | **Rulează în** → **Container**, implicit, la pasul 2 al înrolării sau în Setări → Agent și model | **Rulează în** → **Instalat pe server**, sau în profilul serverului ori prin înrolare TOML |
 

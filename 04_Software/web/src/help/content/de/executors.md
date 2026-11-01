@@ -35,6 +35,7 @@ Das Ergebnis lautet **KI-Modell verbunden** oder **KI-Verbindung nicht bestätig
 | Läuft in | Einem temporären Docker- oder Podman-Container auf dem ADORE-Server | Dem ADORE-Server selbst, unter dem Betriebssystemkonto des Dienstes, in einem eigenen Worktree |
 | Umgebung | Einem vom Administrator vorbereiteten Projekt-Image | Werkzeugen, Versionen und Bibliotheken, die Sie selbst auf diesem Server installieren |
 | Anmeldung | Aufgeführte API-Schlüssel oder Host-Anmeldung | Die vorhandene Anmeldung des Agenten auf diesem Konto, an Ort und Stelle weiterverwendet |
+| Agent-Einstellungen | Die Einstellungen des Images, dazu der [lokale Endpunkt für OpenCode](#local-endpoint), falls gesetzt | Für OpenCode ein von ADORE verwalteter Einstellungsordner: Agenten, Anbieter, Plugins und Berechtigungen aus Ihrem persönlichen OpenCode-Einstellungsordner werden nicht verwendet, `git push` und die Forge-Werkzeuge sind gesperrt, und die Ordner `.opencode` und `.agents/skills` im Home-Verzeichnis des Kontos gelten weiterhin |
 | Isolation | Container mit Netzwerkrichtlinie | Nur der Worktree; Befehle erreichen alles, was das Konto erreicht, verwenden Sie daher ein eigenes Konto mit minimalen Rechten |
 | Gewählt | **Ausführung** → **Container**, Standard, in Schritt 2 der Registrierung oder unter Einstellungen → Agent und Modell | **Ausführung** → **Auf dem Server installiert**, oder im Serverprofil oder per TOML-Registrierung |
 

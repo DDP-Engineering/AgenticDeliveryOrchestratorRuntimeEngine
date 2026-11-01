@@ -20,7 +20,13 @@ allowlist: `SYSTEM_ENV_KEYS` on every platform plus `WINDOWS_SYSTEM_ENV_KEYS`
 (PATHEXT, PROCESSOR_*, NUMBER_OF_PROCESSORS, OS, SystemDrive, ProgramData,
 ProgramFiles*, CommonProgramFiles*, ALLUSERSPROFILE, PUBLIC) on Windows; account-
 derived and forge credential names stay out, and the result is pinned as
-`environment_sha256`. `local_process.py` owns durable leases,
+`environment_sha256`. For OpenCode profiles it adds `XDG_CONFIG_HOME` =
+`managed_opencode_config` (`<state root>/executor-config`),
+`OPENCODE_DISABLE_CLAUDE_CODE=1` and `OPENCODE_PERMISSION` =
+`OPENCODE_PERMISSION_POLICY` before `[local].environment`, so explicit values win
+(for the three managed names on Windows regardless of name case);
+`LocalBackend` creates the managed folder (or raises `LocalExecutionError`) before
+any native launch. `local_process.py` owns durable leases,
 Windows Jobs and Linux delegated cgroups. `local_child.py` joins its scope and
 holds a durable release barrier before project commands. Project tools are user-owned.
 
