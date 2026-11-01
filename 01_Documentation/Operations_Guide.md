@@ -58,6 +58,7 @@ appended to `journal.jsonl` under the profile state root.
 | `AEGIS_PROTOCOL` | Wrong version/schema, malformed CLI output, identity/path violation. | Repair the target payload/journal; do not repeatedly launch an executor. |
 | `AEGIS_TIMEOUT` / `EXECUTOR_TIMEOUT` | The bounded command runner reports that it killed an AEGIS or executor process. | Inspect resource pressure and the configured bound; stderr wording and exit code alone do not produce this classification. |
 | `NOTIFICATION_DELIVERY` | Required ticket/MR write failed. | Restore forge transport. Polling replays the outbox without an execution slot. |
+| `NO_STAGE_PROGRESS` | The executor exited 0 but AEGIS stayed at the same stage; the evidence ends with the executor's last stderr lines (up to 20, colour codes removed). | Read those lines first, for example auto-rejected tool permissions, fix the executor setup, then let the next attempt run or retry. |
 | `BUDGET_EXHAUSTED` | Iteration/time/cost/file cap reached. | Adjust scope/config deliberately, then retry. |
 | `STALE_WORKING` | A conductor died or lost ownership. | Inspect evidence, reconcile the worktree, then retry. |
 | `CLARIFICATION_TIMEOUT` / `REVIEW_LIMIT` | Human/review bound exhausted. | Decide manually; retry only with a new explicit intent. |

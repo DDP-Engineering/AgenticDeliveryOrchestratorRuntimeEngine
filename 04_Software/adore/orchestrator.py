@@ -116,6 +116,14 @@ _REDACTIONS = (
     re.compile(r"(?i)(api[_-]?key\s*[:=]\s*)(\S+)"),
 )
 _MAX_EVIDENCE = 6000
+# Executor stderr shown with NO_STAGE_PROGRESS: the decisive line is usually the last.
+_STDERR_TAIL_LINES = 20
+_STDERR_TAIL_CHARS = 2000
+# CSI, OSC (BEL or ST terminated), DCS/SOS/PM/APC strings, then any other ESC sequence.
+_ANSI_ESCAPE = re.compile(
+    r"\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07\x1b\n]*(?:\x07|\x1b\\)?"
+    r"|[PX^_][^\x1b\n]*(?:\x1b\\)?|[ -/]*[0-~])"
+)
 _TICKET_CONTENT_CHANGED_NOTE = "ticket content changed since pickup"
 # Valid only while the single-conductor lock prevents another process from
 # reconciling a legitimately long-running stage as abandoned.
@@ -129,12 +137,38 @@ class _CheckpointHalted(IsolationError):
 # HELPER FUNCTIONS
 
 
-def _sanitize(value: Any, limit: int = _MAX_EVIDENCE) -> str:
-    """@brief Render bounded evidence with common credential forms redacted."""
+def _sanitize(value: Any, limit: int | None = _MAX_EVIDENCE) -> str:
+    """@brief Render evidence with common credential forms redacted, keeping its end.
+    @param[in] limit Characters kept from the end, or None to keep the whole text.
+    """
     text = str(value).replace("\x00", "")
     for pattern in _REDACTIONS:
         text = pattern.sub(r"\1[REDACTED]", text)
-    return text[-limit:]
+    return text if limit is None else text[-limit:]
+
+
+def _stderr_tail(stderr: str) -> str:
+    """@brief Last executor stderr lines without ANSI escapes, bounded for evidence.
+    @param[in] stderr Gate stderr as read from the run's io directory.
+    @return The last 20 lines within 2000 characters, or "" when stderr is blank.
+    """
+    text = _ANSI_ESCAPE.sub("", str(stderr).replace("\x00", ""))
+    # Redact the whole text first: a line or character cut can split a key from its value.
+    lines = _sanitize(text, None).strip().splitlines()
+    return "\n".join(lines[-_STDERR_TAIL_LINES:])[-_STDERR_TAIL_CHARS:]
+
+
+def _head_and_tail(text: str, limit: int) -> str:
+    """@brief Bound text but keep its first line, which carries the failure sentence.
+    @param[in] text Sanitized evidence.
+    @param[in] limit Maximum length of the result.
+    @return The text when it fits, otherwise its first line, "...", and its end.
+    """
+    if len(text) <= limit:
+        return text
+    head = text.split("\n", 1)[0][: limit // 2]
+    marker = "\n...\n"
+    return head + marker + text[-(limit - len(head) - len(marker)):]
 
 
 def _task_type(ticket: Ticket, config: Config) -> str:
@@ -1077,11 +1111,11 @@ class Orchestrator:
                         + _sanitize("\n".join(added))
                     )
                     continue
-                if not self._stage_failure(
-                    run,
-                    "NO_STAGE_PROGRESS",
-                    f"executor exited zero but AEGIS remained at {task.stage}",
-                ):
+                evidence = f"executor exited zero but AEGIS remained at {task.stage}"
+                tail = _stderr_tail(result.stderr)
+                if tail:
+                    evidence += "\nExecutor stderr (last lines):\n" + tail
+                if not self._stage_failure(run, "NO_STAGE_PROGRESS", evidence):
                     return
                 failure_context = "Complete or legally route the current AEGIS stage."
                 continue
@@ -1916,7 +1950,8 @@ class Orchestrator:
     def _terminal_failure(self, run: RunState, code: str, evidence: str) -> None:
         """@brief Enter failed, stop execution, preserve worktree and post separately."""
         run.lifecycle = "failed"
-        run.outcome = f"{code}: {_sanitize(evidence, 2000)}"
+        # Unbounded first: the 6000-character cut would drop the sentence at the start.
+        run.outcome = f"{code}: {_head_and_tail(_sanitize(evidence, None), 2000)}"
         self.store.save(run)
         with contextlib.suppress(IsolationError):
             self.backend.stop(run.container, expected=run.execution.get("resource") or None)

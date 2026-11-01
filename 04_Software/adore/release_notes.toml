@@ -158,7 +158,7 @@ text = { en = "A brief push failure no longer ends a fully validated job.", fr =
 [[release.entry]]
 category = "fixed"
 topic = { en = "Messages", fr = "Messages", de = "Meldungen", ro = "Mesaje" }
-text = { en = "Errors appear as sentences in your language instead of raw codes.", fr = "Les erreurs s'affichent en phrases dans votre langue au lieu de codes bruts.", de = "Fehler erscheinen als Sätze in Ihrer Sprache statt als rohe Codes.", ro = "Erorile apar ca propoziții în limba dumneavoastră, nu drept coduri brute." }
+text = { en = "Errors appear as sentences in your language; a stalled agent shows its last error lines.", fr = "Les erreurs s'affichent en phrases dans votre langue ; un agent bloqué montre ses dernières erreurs.", de = "Fehler erscheinen als Sätze in Ihrer Sprache; ein festgefahrener Agent zeigt seine letzten Fehler.", ro = "Erorile apar ca propoziții în limba dumneavoastră; un agent blocat arată ultimele linii de eroare." }
 
 [[release.entry]]
 category = "fixed"

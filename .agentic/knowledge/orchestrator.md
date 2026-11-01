@@ -104,6 +104,11 @@ Container profiles without recipes retain the existing recovery/profile-update c
 - `REQ-FUNC-40057219` - publication refuses a run outside stage done or publishing.
 - `REQ-FUNC-ab65704b` - recorded deviations lead the approval presentation.
 - `REQ-FUNC-83133b5e` - deterministic stage failure and timeout recovery.
+- `REQ-FUNC-93bd3c8e` - NO_STAGE_PROGRESS evidence carries the gate's stderr tail
+  after its sentence: NUL and ANSI stripped (an open OSC/DCS string stops at its
+  line) and redacted on the whole stderr before the 20-line/2000-character cut, so
+  a cut never splits a key from its secret; the terminal `run.outcome` keeps the
+  sentence through `_head_and_tail` over `_sanitize(evidence, None)`, for every code.
 - `REQ-FUNC-1ec4a21d` - durable notification outbox replay.
 - `REQ-FUNC-f9946b6b` - selected-ticket web start uses the normal conductor.
 - `REQ-FUNC-448cbde7` - usage events carry executor/model/review-round context
