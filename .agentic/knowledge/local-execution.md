@@ -23,7 +23,7 @@ tools and interactive account authentication.
 ## Public interface
 
 LocalBackend provision/bind/resource_identity/verify_required_tools/stop/interrupt/remove;
-LocalTarget run_files/call/read_output/redact/auth_available; local_policy,
+LocalTarget run_files/call/read_output/redact/auth_available and `output_limit` (64 KiB default for non-AEGIS output; Test AI connection raises it to 1 MiB); local_policy,
 local_environment, managed_opencode_config, local_argv and local_probe;
 OPENCODE_PERMISSION_POLICY. LocalProcessController launch/interrupt/
 recover delegates to NativeScopes; child.main enforces scope membership and release.

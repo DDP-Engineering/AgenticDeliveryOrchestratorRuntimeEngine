@@ -11,7 +11,8 @@
 @file    model_connection.py
 @brief   Explicit bounded model tests through configured executor CLIs.
 @details Temporary empty workspaces use project egress and executor credentials.
-         A completed nonce response proves connectivity, not job/tool readiness.
+         A completed nonce response proves connectivity; native OpenCode, Pi and Codex
+         must also complete one shell call. Neither proves complete-job readiness.
 """
 
 # IMPORTS
@@ -32,7 +33,12 @@ from adore.util import load_env_file
 
 # CONSTANTS
 KINDS = {"opencode", "pi", "codex", "qwen"}
+# Installed agents whose local test must also prove one completed shell tool call.
+TOOL_KINDS = {"opencode", "pi", "codex"}
+LOCAL_TIMEOUT_SECONDS = 90
+LOCAL_OUTPUT_BYTES = 1048576
 REASONS = {
+    "tool-call-failed",
     "ready",
     "timeout",
     "image-missing",
@@ -216,6 +222,74 @@ def _native_response(kind: str, output: str, nonce: str) -> bool:
         return False
 
 
+def _shell_call_succeeded(kind: str, event: dict, tool_nonce: str) -> bool:
+    """@brief Recognize one completed, successful shell call that printed the tool nonce.
+    @param[in] kind Configured executor parser (opencode, pi or codex).
+    @param[in] event One decoded JSON event.
+    @param[in] tool_nonce Token the shell command had to print.
+    @return True only for the executor's successful shell-call event carrying the nonce.
+    """
+    typ = event.get("type")
+    if kind == "opencode":
+        part = event.get("part", {})
+        state = part.get("state", {}) if isinstance(part, dict) else {}
+        return (typ == "tool_use" and part.get("tool") == "bash"
+                and state.get("status") == "completed"
+                and tool_nonce in str(state.get("output", "")))
+    if kind == "pi":
+        result = event.get("result")
+        content = result.get("content", []) if isinstance(result, dict) else []
+        return (typ == "tool_execution_end" and event.get("toolName") == "bash"
+                and event.get("isError") is False
+                and any(tool_nonce in str(p.get("text", "")) for p in content
+                        if isinstance(p, dict)))
+    item = event.get("item", {})
+    return (typ == "item.completed" and item.get("type") == "command_execution"
+            and item.get("status") == "completed" and item.get("exit_code") == 0
+            and tool_nonce in str(item.get("aggregated_output", "")))
+
+
+def _native_tool_response(kind: str, output: str, tool_nonce: str, nonce: str) -> str:
+    """@brief Decide a local tool challenge: shell call first, then the exact final reply.
+    @param[in] kind Configured executor parser (opencode, pi or codex).
+    @param[in] output Bounded, redacted JSON-lines event stream.
+    @param[in] tool_nonce Token the shell command had to print.
+    @param[in] nonce Unique expected final reply.
+    @return ready, tool-call-failed or invalid-response.
+    """
+    from adore.util import strict_json_loads
+
+    try:
+        events = [strict_json_loads(line) for line in output.splitlines() if line.strip()]
+        if not all(isinstance(event, dict) for event in events):
+            return "invalid-response"
+        if not any(_shell_call_succeeded(kind, event, tool_nonce) for event in events):
+            return "tool-call-failed"
+        if kind == "opencode":
+            replied = any(e.get("type") == "text"
+                          and str(e.get("part", {}).get("text", "")).strip() == nonce
+                          for e in events)
+            complete = any(e.get("type") == "step_finish"
+                           and e.get("part", {}).get("reason") == "stop" for e in events)
+        elif kind == "pi":
+            final = [e["message"] for e in events if e.get("type") == "message_end"
+                     and isinstance(e.get("message"), dict)
+                     and e["message"].get("role") == "assistant"]
+            last = final[-1] if final else {}
+            text = "".join(str(p.get("text", "")) for p in last.get("content", [])
+                           if isinstance(p, dict) and p.get("type") == "text")
+            replied, complete = text.strip() == nonce, last.get("stopReason") == "stop"
+        else:
+            messages = [e["item"] for e in events if e.get("type") == "item.completed"
+                        and isinstance(e.get("item"), dict)
+                        and e["item"].get("type") == "agent_message"]
+            replied = bool(messages) and str(messages[-1].get("text", "")).strip() == nonce
+            complete = any(e.get("type") == "turn.completed" for e in events)
+        return "ready" if replied and complete else "invalid-response"
+    except (ValueError, TypeError, AttributeError, KeyError):
+        return "invalid-response"
+
+
 def probe_model_connection(config, runner, env_file: Path) -> dict:
     """@brief Run one bounded challenge through the selected container/native target.
     @param[in] config Validated project snapshot.
@@ -234,14 +308,22 @@ def probe_model_connection(config, runner, env_file: Path) -> dict:
         from adore.local_execution import local_probe
 
         nonce = "ADORE_OK_" + uuid4().hex
+        tool_nonce = "ADORE_TOOL_" + uuid4().hex
+        prompt = ("Connection test. Run this shell command exactly once: echo " + tool_nonce
+                  + ". Then reply with exactly: " + nonce if kind in TOOL_KINDS
+                  else "Connection test. Do not call tools or read files. Reply exactly: "
+                  + nonce)
         try:
             with local_probe(config, env_file) as (_, target, work, exchange):
+                # Pi repeats the conversation in its events; keep what the container keeps.
+                target.output_limit = LOCAL_OUTPUT_BYTES
                 executor = build_executor(kind, config.executor.commands[kind].command, model)
-                gate = executor.run_gate(target, work, exchange,
-                    "Connection test. Do not call tools or read files. Reply exactly: " + nonce,
-                    timeout=45)
+                gate = executor.run_gate(target, work, exchange, prompt,
+                                         timeout=LOCAL_TIMEOUT_SECONDS)
                 reason = ("timeout" if gate.timed_out else
                           "connection-failed" if gate.exit_code else
+                          _native_tool_response(kind, gate.output, tool_nonce, nonce)
+                          if kind in TOOL_KINDS else
                           "ready" if _native_response(kind, gate.output, nonce)
                           else "invalid-response")
                 result.update(ready=reason == "ready", reason=reason)

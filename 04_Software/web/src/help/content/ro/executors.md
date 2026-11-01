@@ -24,9 +24,9 @@ Valorile credențialelor nu apar niciodată în revizuiri, înregistrări de aud
 
 ## Testarea conexiunii AI {#test-connection}
 
-Administratorii aleg **Testează conexiunea AI** sub **Conexiune AI**. Aceasta trimite o singură cerere scurtă prin agentul configurat, într-un container temporar, ceea ce poate genera costuri la furnizor. Proiectul trebuie să fie inactiv, cu setări salvate valide și fără modificări în așteptare; imaginea are nevoie de Python și de agent.
+Administratorii aleg **Testează conexiunea AI** sub **Conexiune AI**. Aceasta trimite o singură cerere scurtă prin agentul configurat, într-un container temporar sau, pentru un agent instalat pe server, într-un dosar temporar, ceea ce poate genera costuri la furnizor. Proiectul trebuie să fie inactiv, cu setări salvate valide și fără modificări în așteptare; pentru un proiect în container, imaginea are nevoie de Python și de agent.
 
-Rezultatul este **Model AI conectat** sau **Conexiunea AI nu a putut fi verificată**, cu îndrumări pentru o depășire a timpului, o imagine sau un agent lipsă, credențiale greșite sau un model indisponibil. Dovedește doar accesul la model, nu și suportul pentru instrumente, și nu pornește nicio lucrare. Rezultatul salvat este legat de modelul, setările și credențialele curente și apare în verificările gazdei din Rezumat. Dezvoltatorii îl văd, dar nu pot rula testul.
+Rezultatul este **Model AI conectat** sau **Conexiunea AI nu a putut fi verificată**, cu îndrumări pentru o depășire a timpului, o imagine sau un agent lipsă, credențiale greșite, un model indisponibil sau o comandă shell pe care agentul nu a putut-o rula. Pentru OpenCode, Pi sau Codex instalate pe server, cererea îi cere agentului să ruleze și o comandă shell, iar rezultatul este conectat doar dacă acea comandă a rulat; altfel testul dovedește doar accesul la model. Nu pornește nicio lucrare. Rezultatul salvat este legat de modelul, setările și credențialele curente și apare în verificările gazdei din Rezumat. Dezvoltatorii îl văd, dar nu pot rula testul.
 
 ## Unde rulează lucrările {#where-jobs-run}
 

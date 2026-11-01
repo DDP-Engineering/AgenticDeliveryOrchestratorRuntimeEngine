@@ -24,9 +24,9 @@ Les valeurs d’identifiants n’apparaissent jamais dans les revues, les enregi
 
 ## Tester la connexion IA {#test-connection}
 
-Les administrateurs choisissent **Tester la connexion IA** sous **Connexion IA**. Cela envoie une courte requête via l’agent configuré dans un conteneur temporaire, ce qui peut entraîner des frais du fournisseur. Le projet doit être inactif, avec des paramètres enregistrés valides et aucun changement en attente ; l’image doit contenir Python et l’agent.
+Les administrateurs choisissent **Tester la connexion IA** sous **Connexion IA**. Cela envoie une courte requête via l’agent configuré dans un conteneur temporaire, ou dans un dossier temporaire pour un agent installé sur le serveur, ce qui peut entraîner des frais du fournisseur. Le projet doit être inactif, avec des paramètres enregistrés valides et aucun changement en attente ; pour un projet en conteneur, l’image doit contenir Python et l’agent.
 
-Le résultat est **Modèle IA connecté** ou **Connexion IA non vérifiée**, avec des indications en cas de délai dépassé, d’image ou d’agent absent, d’identifiants incorrects ou de modèle indisponible. Il prouve uniquement l’accès au modèle, pas la prise en charge des outils, et ne démarre aucune tâche. Le résultat enregistré est lié au modèle, aux paramètres et aux identifiants actuels et apparaît dans les contrôles de l’hôte du Résumé. Les développeurs le voient mais ne peuvent pas lancer le test.
+Le résultat est **Modèle IA connecté** ou **Connexion IA non vérifiée**, avec des indications en cas de délai dépassé, d’image ou d’agent absent, d’identifiants incorrects, de modèle indisponible ou d’une commande shell que l’agent n’a pas pu exécuter. Pour OpenCode, Pi ou Codex installés sur le serveur, la requête demande aussi à l’agent d’exécuter une commande shell, et le résultat n’est connecté que si cette commande s’est exécutée ; sinon le test prouve uniquement l’accès au modèle. Il ne démarre aucune tâche. Le résultat enregistré est lié au modèle, aux paramètres et aux identifiants actuels et apparaît dans les contrôles de l’hôte du Résumé. Les développeurs le voient mais ne peuvent pas lancer le test.
 
 ## Où s’exécutent les tâches {#where-jobs-run}
 

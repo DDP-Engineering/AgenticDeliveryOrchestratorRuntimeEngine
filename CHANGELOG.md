@@ -34,6 +34,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- **Test AI connection** for OpenCode, Pi or Codex installed on the server now asks the agent to run `echo <nonce>` with its shell tool and then reply with a second nonce. It reports connected only when the shell call completed and printed the nonce and the reply is exact; a missing, rejected or failed shell call reports the new reason `tool-call-failed`, with guidance in four languages to check the agent's permissions. The local test is bounded at 90 seconds instead of 45 and keeps up to 1 MiB of agent output instead of 64 KiB, so a local Pi test, whose events repeat the whole conversation, can pass at all. Qwen and container profiles keep the no-tool challenge. The help text, the host-check row and the docs no longer say tools are never checked.
 - **BREAKING: ADORE conducts AEGIS 0.15.0, where validate closes the task, and
   requires AEGIS 0.15.0 or newer.** The conducted paths are frame, specify,
   design, build, validate and done, and the quick path frame, build, validate

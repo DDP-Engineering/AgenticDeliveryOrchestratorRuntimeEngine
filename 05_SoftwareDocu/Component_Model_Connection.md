@@ -29,11 +29,11 @@ Executor secrets use selected profile `.env` plus ambient environment precedence
 
 ## 6. Data Contracts
 
-API evidence adds project_id, SHA-256 revision and UTC checked_at. GUI accepts exact current project/executor/model/revision. Reasons: ready, timeout, image-missing, cli-missing, credential-invalid, model-unavailable, connection-failed, invalid-response, runtime-error. Duplicate fields, malformed output, wrong nonce, missing completion or observed tool calls fail closed. Raw stdout/stderr is never returned.
+API evidence adds project_id, SHA-256 revision and UTC checked_at. GUI accepts exact current project/executor/model/revision. Reasons: ready, timeout, image-missing, cli-missing, credential-invalid, model-unavailable, connection-failed, invalid-response, runtime-error, tool-call-failed. The pure frontend module `web/src/modelEvidence.ts` holds the reason set, `validModelEvidence`, the four-locale copy and `modelGuidance`. Duplicate fields, malformed output, wrong nonce or missing completion fail closed; observed tool calls fail closed in containers and for native Qwen, while native OpenCode, Pi and Codex must show one successful shell call. `executor_settings.REASONS` is the same set as `model_connection.REASONS`, so persisted evidence accepts every probe reason. Raw stdout/stderr is never returned.
 
 ## 7. Workflow Integration
 
-Executor configuration offers Test AI connection at the panel heading right, alongside the settings and embedded Provider credentials; Summary shows the current saved model result only inside expanded host-check details. Each explicit click can incur provider charges. Inference is capped at 45 seconds and container combined output at 1 MiB (local streams at 64 KiB each); setup/inference share a 90-second deadline, followed by cleanup commands capped at 8 seconds each. Cleanup failures become API errors.
+Executor configuration offers Test AI connection at the panel heading right, alongside the settings and embedded Provider credentials; Summary shows the current saved model result only inside expanded host-check details. Each explicit click can incur provider charges. Container inference is capped at 45 seconds and the native gate at 90 seconds; container combined output is capped at 1 MiB (local stdout also at 1 MiB through `LocalTarget.output_limit`, local stderr at 64 KiB); setup/inference share a 90-second deadline, followed by cleanup commands capped at 8 seconds each. Cleanup failures become API errors.
 
 ## 8. Usage
 
@@ -45,7 +45,7 @@ Save executor/model credentials as for normal execution, ensure its local image 
 
 ## 10. Limitations
 
-A model response proves no tool capability, Git push permission, AEGIS execution or complete job. Current results are persisted in model-connection.json by executor_settings.py, validated against immutable identity/configuration/credential inputs, and reused by Summary and host-check access presentation. Stale results are suppressed and corrupt results rejected. See Component_Executor_Configuration.md for storage/auth contracts. Full regression is deferred during iterative GUI work; real paid provider checks remain operator-triggered acceptance.
+A container or Qwen response proves no tool capability; a native OpenCode, Pi or Codex result proves one shell call. Neither proves Git push permission, AEGIS execution or complete job. Current results are persisted in model-connection.json by executor_settings.py, validated against immutable identity/configuration/credential inputs, and reused by Summary and host-check access presentation. Stale results are suppressed and corrupt results rejected. See Component_Executor_Configuration.md for storage/auth contracts. Full regression is deferred during iterative GUI work; real paid provider checks remain operator-triggered acceptance.
 
 ## Effective preparation image
 
@@ -53,7 +53,7 @@ Explicit model connection resolves the selected Git recipe through its bounded r
 
 ## Native execution contract
 
-Native nonce challenges use local_probe and the same configured argv/account/environment as gates, with 45-second inference and verified scope cleanup. Incomplete/malformed/wrong-nonce/tool-bearing events fail closed. No login or complete-job/tool-acceptance claim; container diagnostics keep fixed commands.
+Native challenges use local_probe and the same configured argv/account/environment as gates, with a 90-second gate bound and verified scope cleanup. For OpenCode, Pi and Codex the prompt asks for `echo <ADORE_TOOL nonce>` and then the exact reply; `_native_tool_response` requires the executor's successful shell event carrying that nonce (otherwise `tool-call-failed`) and then the completed reply (otherwise `invalid-response`), per `.agentic/specs/REQ-FUNC-8f369d55.md`. Qwen keeps the no-tool nonce challenge, where tool-bearing events fail closed. No login or complete-job claim; container diagnostics keep fixed commands.
 
 See [Local execution](../01_Documentation/Local_Execution.md) and
 [Local execution component](Component_Local_Execution.md). Focused native proof:

@@ -562,6 +562,8 @@ class LocalTarget:
     def __init__(self, backend: LocalBackend, name: str, env: dict, resource: dict) -> None:
         self.backend, self.name, self.env, self.resource = backend, name, dict(env), resource
         self.paths = ExecutionPaths(worktree=resource["worktree"], io=resource["io"], shell="")
+        # Bound for non-AEGIS native output; Test AI connection raises it on its probe target.
+        self.output_limit = 65536
 
     def _auth_path(self) -> Path:
         """@brief Locate the installed executor's existing account credential store."""
@@ -633,7 +635,7 @@ class LocalTarget:
         try:
             from adore.aegis import AEGIS_STDOUT_FILE, MAX_JSON_BYTES
 
-            limit = MAX_JSON_BYTES if path.name == AEGIS_STDOUT_FILE else 65536
+            limit = MAX_JSON_BYTES if path.name == AEGIS_STDOUT_FILE else self.output_limit
             if optional and not path.exists() and not path.is_symlink():
                 return ""
             if (
@@ -683,7 +685,7 @@ class LocalTarget:
             run_id=self.resource["id"],
             host=self.resource["host"],
             secrets=secrets,
-            stdout_limit=MAX_JSON_BYTES if stdout.name == AEGIS_STDOUT_FILE else 65536,
+            stdout_limit=MAX_JSON_BYTES if stdout.name == AEGIS_STDOUT_FILE else self.output_limit,
         )
         self.read_output(stdout)
         self.read_output(stderr)

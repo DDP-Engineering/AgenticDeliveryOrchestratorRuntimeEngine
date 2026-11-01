@@ -1,0 +1,20 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-NFR-ac3e9541"
+title = "Bound the local Test AI connection at 90 seconds"
+status = "active"
+requirement = """
+ADORE shall bound the executor gate of a native local Test AI connection at 90 seconds.
+"""
+verification = "Offline: the local model connection test passes timeout=90 to the executor gate, and a gate that times out yields reason timeout."
+affected_paths = ["04_Software/adore/web/model_connection.py"]
+linked_tests = ["04_Software/tests/test_local_execution.py::test_local_model_challenge_requires_a_completed_shell_call"]
+spec = ""
+priority = "normal"
+rationale = "The challenge now needs two model turns: the tool call and the reply."
+created = 2026-11-01
+updated = 2026-11-01

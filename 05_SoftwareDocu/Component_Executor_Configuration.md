@@ -60,7 +60,7 @@ Official provider references: [Pi](https://pi.dev/docs/latest/providers), [Qwen]
 
 ## 10. Limitations
 
-Model catalogs, executor installation and a universal browser OAuth broker remain external. New supported command tables can be enrolled through a complete reviewed selection. New custom provider names require external TOML configuration; retained custom names can be selected or removed. Only recognized auth mounts are fingerprinted; opaque external credential sources still require an explicit fresh test. Connectivity does not prove tool support, Git publication or a complete job. Full regression remains deferred during the user's iterative live changes.
+Model catalogs, executor installation and a universal browser OAuth broker remain external. New supported command tables can be enrolled through a complete reviewed selection. New custom provider names require external TOML configuration; retained custom names can be selected or removed. Only recognized auth mounts are fingerprinted; opaque external credential sources still require an explicit fresh test. Connectivity proves one shell call only for native OpenCode, Pi and Codex; it does not prove Git publication or a complete job. Full regression remains deferred during the user's iterative live changes.
 
 ## Native execution contract
 

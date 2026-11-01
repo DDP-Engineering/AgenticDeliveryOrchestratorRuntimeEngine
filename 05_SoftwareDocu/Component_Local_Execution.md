@@ -87,7 +87,7 @@ full epic integration remain operator work; offline proof does not prove real
 Job/cgroup availability.
 
 Native AEGIS stdout preserves the established 4 MiB JSON exchange bound; gate
-stdout, stderr and questions remain bounded at 64 KiB. Native stream decoding
+stdout, stderr and questions remain bounded at 64 KiB through `LocalTarget.output_limit`; Test AI connection raises its probe target's stdout bound to 1 MiB, as in the container test, because Pi repeats the whole conversation in its events. Native stream decoding
 rejects invalid UTF-8; truncated JSON cannot become successful AEGIS evidence.
 The shared drain retains container defaults. Saved local readiness checks reuse
 approved profile .env values in memory through the same native environment.

@@ -163,10 +163,14 @@ Explicit host readiness checks Git/forge/AEGIS files and selected native CLI/aut
 without Docker/Podman, images or recipes. Container rows are hidden locally.
 Readiness does not prove project dependencies or an entire job. **Test AI connection**
 sends a bounded nonce challenge through the same configured CLI/account/environment
-and may incur cost. Only a completed matching response without observed tool calls
-reports ready. It initiates no login. Compatible endpoint checks use owned native
+and may incur cost. For OpenCode, Pi and Codex the challenge asks the agent to run
+`echo <nonce>` with its shell tool and then reply with a second nonce; only a completed
+shell call that printed the nonce plus the exact reply reports ready, and a missing,
+rejected or failed shell call reports `tool-call-failed`. Qwen keeps the no-tool
+challenge: only a completed matching response without observed tool calls reports
+ready. It initiates no login. Compatible endpoint checks use owned native
 Python with an 8-second command bound. Executor version checks are bounded at
-10 seconds; model inference at 45 seconds. Gates retain configured budgets.
+10 seconds; the model challenge at 90 seconds. Gates retain configured budgets.
 
 ## Durable recovery and cleanup
 
@@ -201,7 +205,9 @@ AEGIS `--run`, integrated epic #23 and live OS/executor/provider/forge acceptanc
 are explicitly deferred for this change.
 
 Native AEGIS stdout preserves the established 4 MiB JSON exchange bound; gate
-stdout, stderr and questions remain bounded at 64 KiB. Native stream decoding
+stdout, stderr and questions remain bounded at 64 KiB; Test AI connection keeps up to 1 MiB
+of executor stdout, as the container test does, because Pi repeats the whole
+conversation in its events. Native stream decoding
 rejects invalid UTF-8; truncated JSON cannot become successful AEGIS evidence.
 The shared drain retains container defaults. Saved local readiness checks reuse
 approved profile .env values in memory through the same native environment.

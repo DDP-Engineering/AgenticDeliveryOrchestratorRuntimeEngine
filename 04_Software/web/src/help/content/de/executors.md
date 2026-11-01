@@ -24,9 +24,9 @@ Werte von Zugangsdaten erscheinen nie in Prüfungen, Audit-Einträgen oder Expor
 
 ## KI-Verbindung testen {#test-connection}
 
-Administratoren wählen **KI-Verbindung testen** unter **KI-Verbindung**. Das sendet eine kurze Anfrage über den konfigurierten Agenten in einem temporären Container, wodurch Anbietergebühren entstehen können. Das Projekt muss inaktiv sein, gültige gespeicherte Einstellungen und keine ausstehende Änderung haben; das Image braucht Python und den Agenten.
+Administratoren wählen **KI-Verbindung testen** unter **KI-Verbindung**. Das sendet eine kurze Anfrage über den konfigurierten Agenten in einem temporären Container oder, bei einem auf dem Server installierten Agenten, in einem temporären Ordner, wodurch Anbietergebühren entstehen können. Das Projekt muss inaktiv sein, gültige gespeicherte Einstellungen und keine ausstehende Änderung haben; bei einem Container-Projekt braucht das Image Python und den Agenten.
 
-Das Ergebnis lautet **KI-Modell verbunden** oder **KI-Verbindung nicht bestätigt**, mit Hinweisen bei Zeitüberschreitung, fehlendem Image oder Agenten, falschen Zugangsdaten oder nicht verfügbarem Modell. Es belegt nur den Modellzugriff, nicht die Unterstützung von Werkzeugen, und startet keinen Auftrag. Das gespeicherte Ergebnis ist an das aktuelle Modell, die Einstellungen und die Zugangsdaten gebunden und erscheint in den Host-Prüfungen der Zusammenfassung. Entwickler sehen es, können den Test aber nicht ausführen.
+Das Ergebnis lautet **KI-Modell verbunden** oder **KI-Verbindung nicht bestätigt**, mit Hinweisen bei Zeitüberschreitung, fehlendem Image oder Agenten, falschen Zugangsdaten, nicht verfügbarem Modell oder einem Shell-Befehl, den der Agent nicht ausführen konnte. Bei auf dem Server installiertem OpenCode, Pi oder Codex bittet die Anfrage den Agenten zusätzlich, einen Shell-Befehl auszuführen, und das Ergebnis lautet nur dann verbunden, wenn dieser Befehl lief; sonst belegt der Test nur den Modellzugriff. Er startet keinen Auftrag. Das gespeicherte Ergebnis ist an das aktuelle Modell, die Einstellungen und die Zugangsdaten gebunden und erscheint in den Host-Prüfungen der Zusammenfassung. Entwickler sehen es, können den Test aber nicht ausführen.
 
 ## Wo Aufträge laufen {#where-jobs-run}
 

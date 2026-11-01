@@ -118,7 +118,7 @@ text = { en = "About shows the DDP Engineering logo and the version, with licens
 [[release.entry]]
 category = "fixed"
 topic = { en = "Executors", fr = "Exécuteurs", de = "Ausführung", ro = "Executori" }
-text = { en = "Local OpenCode jobs use ADORE's own settings folder instead of your personal one.", fr = "Les tâches OpenCode locales utilisent le dossier de réglages d'ADORE, pas le vôtre.", de = "Lokale OpenCode-Aufträge nutzen ADOREs Einstellungsordner statt Ihres persönlichen.", ro = "Lucrările OpenCode locale folosesc dosarul de setări ADORE, nu pe cel personal." }
+text = { en = "Local OpenCode uses ADORE's settings; AI tests of local OpenCode, Pi, Codex run a command.", fr = "OpenCode local suit les réglages d'ADORE ; test IA local : OpenCode, Pi, Codex lancent une commande.", de = "Lokales OpenCode nutzt ADOREs Einstellungen; lokaler KI-Test: OpenCode, Pi, Codex starten Befehle.", ro = "OpenCode local folosește setările ADORE; testul AI local la OpenCode, Pi, Codex rulează o comandă." }
 
 [[release.entry]]
 category = "fixed"

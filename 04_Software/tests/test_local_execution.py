@@ -593,12 +593,10 @@ def test_local_model_challenge_uses_configured_native_cli_and_rejects_incomplete
 
     def command(argv, **kwargs):
         assert kwargs["env"]["HOME"] == context["home"]
-        nonce = argv[-1].split()[-1]
-        events = [
-            {"type": "text", "part": {"text": nonce}},
-            {"type": "step_finish", "part": {"reason": "stop"}},
-        ]
-        kwargs["stdout"].write_text("\n".join(json.dumps(v) for v in events[: 1 if bad else 2]))
+        tool, nonce = _challenge_nonces(argv)
+        events = _tool_challenge_stream("opencode", tool, nonce)
+        kept = events[:-1] if bad else events  # bad drops the final step_finish (stop)
+        kwargs["stdout"].write_text("\n".join(json.dumps(v) for v in kept))
         kwargs["stderr"].write_text("")
         return CommandResult()
 
@@ -1016,32 +1014,18 @@ def test_local_model_response_contract_all_executors(tmp_path, monkeypatch, kind
     monkeypatch.setattr("adore.local_execution.LocalProcessController", lambda *args: controller)
 
     def execute(argv, **kwargs):
-        nonce = argv[-1].split()[-1]
-        events = {
-            "opencode": [
-                {"type": "text", "part": {"text": nonce}},
-                {"type": "step_finish", "part": {"reason": "stop"}},
-            ],
-            "pi": [
-                {
-                    "type": "message_end",
-                    "message": {
-                        "role": "assistant",
-                        "content": [{"type": "text", "text": nonce}],
-                        "stopReason": "stop",
-                    },
-                }
-            ],
-            "codex": [
-                {"type": "item.completed", "item": {"type": "agent_message", "text": nonce}},
-                {"type": "turn.completed"},
-            ],
-            "qwen": [{"type": "result", "result": nonce, "subtype": "success", "is_error": False}],
-        }[kind]
+        tool, nonce = _challenge_nonces(argv)
+        events = _tool_challenge_stream(kind, tool, nonce)
+        if kind == "qwen":
+            assert tool is None
+            events = [{"type": "result", "result": nonce, "subtype": "success",
+                       "is_error": False}]
         if violation == "incomplete":
             events = [{"type": "text", "part": {"text": nonce}}]
         if violation == "tool":
-            events.insert(0, {"type": "tool", "part": {"type": "tool"}})
+            # Qwen still refuses tools; the other agents must run the shell call.
+            events = ([{"type": "tool", "part": {"type": "tool"}}, *events] if kind == "qwen"
+                      else _tool_challenge_stream(kind, tool, nonce, "failed"))
         text = json.dumps(events) if kind == "qwen" else "\n".join(map(json.dumps, events))
         kwargs["stdout"].write_text("{bad" if violation == "bad-json" else text)
         kwargs["stderr"].write_text("")
@@ -1052,6 +1036,193 @@ def test_local_model_response_contract_all_executors(tmp_path, monkeypatch, kind
         config, lambda *a, **kw: pytest.fail("container call"), tmp_path / "absent.env"
     )
     assert result["ready"] is (violation == "none")
+
+
+@pytest.mark.parametrize("kind", ["pi", "codex"])
+def test_local_pi_and_codex_judge_only_the_last_assistant_message(kind):
+    """@brief An early message with the nonce does not count when the final reply differs."""
+    from adore.web.model_connection import _native_tool_response
+
+    tool, nonce = "ADORE_TOOL_" + "a" * 32, "ADORE_OK_" + "b" * 32
+    stream = "\n".join(map(json.dumps, _tool_challenge_stream(kind, tool, nonce, "early-reply")))
+    assert _native_tool_response(kind, stream, tool, nonce) == "invalid-response"
+
+
+def test_local_codex_shell_call_needs_exit_code_zero():
+    """@brief A Codex command needs status completed and exit code 0 to count as a shell call."""
+    from adore.web.model_connection import _native_tool_response
+
+    tool, nonce = "ADORE_TOOL_" + "a" * 32, "ADORE_OK_" + "b" * 32
+    for variant in ("shell-exit", "shell-status"):
+        events = _tool_challenge_stream("codex", tool, nonce, variant)
+        stream = "\n".join(map(json.dumps, events))
+        assert _native_tool_response("codex", stream, tool, nonce) == "tool-call-failed"
+    good = "\n".join(map(json.dumps, _tool_challenge_stream("codex", tool, nonce)))
+    assert _native_tool_response("codex", good, tool, nonce) == "ready"
+
+
+def test_local_model_test_keeps_large_pi_streams_while_gates_keep_64_kib(tmp_path, monkeypatch):
+    """@brief Pi repeats the conversation in its events; the test keeps 1 MiB, jobs 64 KiB."""
+    from adore.web.model_connection import probe_model_connection
+
+    config, context, backend, controller, work = local_fixture(tmp_path, monkeypatch)
+    limits = []
+    io_dir = Path(config.state.store_root) / "runs/run-1/io"
+    backend.provision("run-1", work, work, io_dir, {})
+    controller.run_files = lambda argv, **kwargs: (
+        limits.append(kwargs["stdout_limit"]), kwargs["stdout"].write_text("ok"),
+        kwargs["stderr"].write_text(""), CommandResult())[-1]
+    gate = backend.bind("run-1", backend.environment)
+    assert gate.run_files(["opencode", "--version"], io_dir / "out.txt", io_dir / "err.txt").ok
+    assert limits == [65536]
+    (Path(context["path"]) / "pi.exe").write_bytes(b"installed")
+    config.executor.default = "pi"
+    config.executor.commands["pi"] = ExecutorCommand(command="pi --model {model} {prompt}",
+                                                     model="openai/model")
+    monkeypatch.setattr("adore.local_execution.LocalProcessController", lambda *args: controller)
+
+    def execute(argv, **kwargs):
+        tool, nonce = _challenge_nonces(argv)
+        limits.append(kwargs["stdout_limit"])
+        history = {"type": "message_end", "message": {"role": "system", "content": "x" * 95000}}
+        stream = [history, history, history, *_tool_challenge_stream("pi", tool, nonce)]
+        kwargs["stdout"].write_text("\n".join(map(json.dumps, stream)))
+        kwargs["stderr"].write_text("")
+        return CommandResult()
+
+    controller.run_files = execute
+    result = probe_model_connection(
+        config, lambda *a, **kw: pytest.fail("container call"), tmp_path / "absent.env"
+    )
+    assert (result["ready"], result["reason"], limits) == (True, "ready", [65536, 1048576])
+
+
+def _challenge_nonces(argv):
+    """@brief Read the tool nonce (when asked) and the trailing reply nonce from the prompt."""
+    import re
+
+    found = re.search(r"ADORE_TOOL_[0-9a-f]{32}", argv[-1])
+    return (found.group(0) if found else None), argv[-1].split()[-1]
+
+
+def _tool_challenge_stream(kind, tool, nonce, variant="ok"):
+    """@brief Event streams shaped like OpenCode 1.19.4, Pi 1.4.0 and Codex 0.159.3 output."""
+    shell_output = "unrelated\n" if variant == "wrong-output" else f"{tool}\n"
+    failed = variant == "failed"
+    other = variant == "other-tool"  # the nonce printed by a tool that is not the shell
+    shell = {
+        "opencode": {"type": "tool_use", "part": {"tool": "read" if other else "bash", "state": {
+            "status": "error" if failed else "completed", "output": shell_output,
+            "error": "The user rejected permission to use this specific tool call."
+            if failed else None}}},
+        "pi": {"type": "tool_execution_end", "toolName": "read" if other else "bash",
+               "isError": failed, "result": {"content": [{"type": "text", "text": shell_output}]}},
+        "codex": {"type": "item.completed", "item": {
+            "type": "mcp_tool_call" if other else "command_execution",
+            "status": "failed" if failed or variant == "shell-status" else "completed",
+            "exit_code": 1 if failed or variant == "shell-exit" else 0,
+            "aggregated_output": shell_output + "\r\n"}},
+    }.get(kind)
+    reply = {"reply-only": f"{tool} {nonce}", "wrong-reply": "ADORE_OK_other",
+             "early-reply": "ADORE_OK_other"}.get(variant, nonce)
+    early = nonce if variant == "early-reply" else "I'll run the command once."
+    finished = variant != "unfinished"
+    replied = variant != "no-reply"
+    # The tool-use turn before the final answer, as recorded live; the Pi tool_execution_end
+    # with result None is synthetic and exercises the guard for malformed events.
+    before = {
+        "opencode": [],
+        "pi": [{"type": "message_end", "message": {"role": "assistant", "stopReason": "toolUse",
+                "content": [{"type": "toolCall", "name": "bash", "text": early}]}},
+               {"type": "tool_execution_end", "toolName": "bash", "isError": False,
+                "result": None}],
+        "codex": [{"type": "item.completed", "item": {"type": "agent_message", "text": early}}],
+    }.get(kind, [])
+    if kind == "pi" and variant == "early-reply":
+        before[0]["message"]["content"] = [{"type": "text", "text": early}]
+    between = ([{"type": "step_finish", "part": {"reason": "tool-calls"}}]
+               if kind == "opencode" else [])
+    if variant in ("extra-tool", "extra-tool-after"):  # a failed other tool spoils nothing
+        failed_other = {
+            "opencode": {"type": "tool_use", "part": {"tool": "read", "state": {
+                "status": "error", "output": ""}}},
+            "pi": {"type": "tool_execution_end", "toolName": "read", "isError": True,
+                   "result": {"content": []}},
+            "codex": {"type": "item.completed", "item": {
+                "type": "mcp_tool_call", "status": "failed"}},
+        }[kind]
+        if variant == "extra-tool":
+            before = [*before, failed_other]
+        else:
+            between = [*between, failed_other]
+    final = {
+        "opencode": [*([{"type": "text", "part": {"text": reply}}] if replied else []),
+                     {"type": "step_finish", "part": {"reason": "stop" if finished else "length"}}],
+        "pi": ([{"type": "message_end", "message": {
+            "role": "assistant", "stopReason": "stop" if finished else "length",
+            "content": [{"type": "text", "text": reply}]}}] if replied else []),
+        "codex": [*([{"type": "item.completed", "item": {"type": "agent_message", "text": reply}}]
+                    if replied else []),
+                  *([{"type": "turn.completed"}] if finished else [])],
+    }.get(kind, [])
+    if variant in ("no-tool", "reply-only"):
+        return [*before, *final]
+    return [*before, shell, *between, *final]
+
+
+@pytest.mark.parametrize("kind", ["opencode", "pi", "codex"])
+@pytest.mark.parametrize(
+    "variant, reason",
+    [
+        ("ok", "ready"),
+        ("failed", "tool-call-failed"),
+        ("no-tool", "tool-call-failed"),
+        ("wrong-output", "tool-call-failed"),
+        ("reply-only", "tool-call-failed"),
+        ("wrong-reply", "invalid-response"),
+        ("no-reply", "invalid-response"),
+        ("unfinished", "invalid-response"),
+        ("other-tool", "tool-call-failed"),
+        ("extra-tool", "ready"),
+        ("extra-tool-after", "ready"),
+        ("bad-json", "invalid-response"),
+        ("non-object", "invalid-response"),
+        ("timeout", "timeout"),
+        ("exit", "connection-failed"),
+    ],
+)
+def test_local_model_challenge_requires_a_completed_shell_call(
+    tmp_path, monkeypatch, kind, variant, reason
+):
+    """@brief Installed agents must run the shell nonce before their reply counts as ready."""
+    from adore.web.model_connection import probe_model_connection
+
+    config, context, _, controller, _ = local_fixture(tmp_path, monkeypatch)
+    (Path(context["path"]) / (kind + ".exe")).write_bytes(b"installed")
+    config.executor.default = kind
+    config.executor.commands[kind] = ExecutorCommand(
+        command=kind + " --model {model} {prompt}", model="openai/model"
+    )
+    monkeypatch.setattr("adore.local_execution.LocalProcessController", lambda *args: controller)
+    seen = {}
+
+    def execute(argv, **kwargs):
+        tool, nonce = _challenge_nonces(argv)
+        seen["timeout"], seen["tool"] = kwargs["timeout"], tool
+        stream = _tool_challenge_stream(kind, tool, nonce, variant)
+        text = "\n".join(map(json.dumps, stream))
+        tail = {"bad-json": "\n{bad", "non-object": "\n[1]"}.get(variant, "")
+        kwargs["stdout"].write_text(text + tail)
+        kwargs["stderr"].write_text("")
+        return CommandResult(exit_code=1 if variant == "exit" else 0,
+                             timed_out=variant == "timeout")
+
+    controller.run_files = execute
+    result = probe_model_connection(
+        config, lambda *a, **kw: pytest.fail("container call"), tmp_path / "absent.env"
+    )
+    assert seen["tool"] is not None and seen["timeout"] == 90
+    assert (result["ready"], result["reason"]) == (reason == "ready", reason)
 
 
 def test_local_aegis_preserves_the_existing_json_exchange_bound(tmp_path, monkeypatch):

@@ -24,9 +24,9 @@ Credential values never appear in reviews, audit records or exports. An empty va
 
 ## Test AI connection {#test-connection}
 
-Administrators choose **Test AI connection** under **AI connection**. It sends one short request through the configured agent in a temporary container, which may incur provider charges. The project must be idle with valid saved settings and no pending change; the image needs Python and the agent.
+Administrators choose **Test AI connection** under **AI connection**. It sends one short request through the configured agent in a temporary container, or in a temporary folder for an agent installed on the server, which may incur provider charges. The project must be idle with valid saved settings and no pending change; for a container project the image needs Python and the agent.
 
-The result is **AI model connected** or **AI connection could not be verified**, with guidance for a timeout, missing image or agent, bad credentials or unavailable model. It proves model access only, not tool support, and starts no job. The saved result is bound to the current model, settings and credentials and appears in the Summary host checks. Developers see it but cannot run the test.
+The result is **AI model connected** or **AI connection could not be verified**, with guidance for a timeout, missing image or agent, bad credentials, unavailable model or a shell command the agent could not run. For OpenCode, Pi or Codex installed on the server the request also asks the agent to run one shell command, and the result is connected only when that command ran; otherwise the test proves model access only. It starts no job. The saved result is bound to the current model, settings and credentials and appears in the Summary host checks. Developers see it but cannot run the test.
 
 ## Where jobs run {#where-jobs-run}
 
