@@ -727,6 +727,94 @@ def test_start_follows_archive_csrf_access_and_missing_ticket_boundaries(tmp_pat
     assert foreign.status_code == 404 and foreign.json()["detail"]["code"] == "project_not_found"
 
 
+def _pickup(tmp_path: Path, stopped: bool) -> None:
+    """
+    @brief      Stop or start the project's pickup the way `adore pause/resume` do.
+    @param[in]  tmp_path Test directory holding the project's state root.
+    @param[in]  stopped True to stop pickup, False to start it.
+    """
+    state = StateStore(tmp_path / "state")
+    if stopped:
+        state.pause()
+    else:
+        state.resume()
+
+
+def _prepared(profiles: ProfileStore) -> int:
+    """
+    @brief      Count recorded prepared starts.
+    @return     Number of ticket-start-prepared audit rows.
+    """
+    with sqlite3.connect(profiles.home / "web.db") as connection:
+        return connection.execute(
+            "SELECT COUNT(*) FROM audit WHERE action='ticket-start-prepared'"
+        ).fetchone()[0]
+
+
+def test_start_with_pickup_stopped_is_refused_before_any_label(tmp_path: Path) -> None:
+    """
+    @brief   Stopped pickup refuses Start with no label, queue or prepared start.
+    """
+    profiles = _project(tmp_path)
+    forge = Forge([_issue(13, "P2")])
+    with TestClient(create_app(profiles.home, probe_runner=forge)) as client:
+        csrf = _admin(client)
+        _pickup(tmp_path, stopped=True)
+        refused = _start(client, csrf, 13, key="start-while-stopped")
+        writes_while_stopped = [call for call in forge.calls if call[2:3] == ["update"]]
+        starts_while_stopped, prepared_while_stopped = _starts(profiles), _prepared(profiles)
+        _pickup(tmp_path, stopped=False)
+        resumed = _start(client, csrf, 13, key="start-after-resume")
+    assert refused.status_code == 409
+    assert refused.json()["detail"] == {"code": "ticket_not_startable", "message": "pickup_paused"}
+    assert writes_while_stopped == [] and starts_while_stopped == [] and prepared_while_stopped == 0
+    assert resumed.status_code == 200, resumed.text
+    assert resumed.json()["labels_added"] == ["agent-ready"]
+    assert _starts(profiles) == [{"action": "start", "run_id": "13"}]
+
+
+def test_start_replay_from_before_pickup_stopped_returns_original_operation(
+    tmp_path: Path,
+) -> None:
+    """
+    @brief   A start queued before pickup stopped replays its operation, not a refusal.
+    """
+    profiles = _project(tmp_path)
+    with TestClient(
+        create_app(profiles.home, probe_runner=Forge([_issue(12, "agent-ready", "P2")]))
+    ) as client:
+        csrf = _admin(client)
+        first = _start(client, csrf, 12, key="start-before-stop")
+        _pickup(tmp_path, stopped=True)
+        replay = _start(client, csrf, 12, key="start-before-stop")
+    assert replay.status_code == 200, replay.text
+    assert replay.json()["operation_id"] == first.json()["operation_id"]
+
+
+def test_listing_with_pickup_stopped_blocks_start_by_pickup_paused(tmp_path: Path) -> None:
+    """
+    @brief   Stopped pickup makes Start unavailable without changing pickup eligibility.
+    """
+    profiles = _project(tmp_path)
+    issues = [_issue(12, "agent-ready", "P2"), _issue(13, "P2"), _issue(15, "agent-hold")]
+    with TestClient(create_app(profiles.home, probe_runner=Forge(issues))) as client:
+        _admin(client)
+        active = {row["iid"]: row for row in client.get("/api/v1/projects/alpha/tickets").json()[
+            "tickets"]}
+        _pickup(tmp_path, stopped=True)
+        stopped = {row["iid"]: row for row in client.get("/api/v1/projects/alpha/tickets").json()[
+            "tickets"]}
+    for iid in (12, 13):
+        row = stopped[iid]
+        assert (row["can_start"], row["blocked_by"], row["adds_ready_label"],
+                row["needs_priority"]) == (False, "pickup_paused", False, False)
+    assert active[12]["can_start"] and active[13]["adds_ready_label"]
+    assert stopped[15]["blocked_by"] == "held" and stopped[15] == active[15]
+    for iid in (12, 13, 15):
+        assert (stopped[iid]["startable"], stopped[iid]["reason"]) == (
+            active[iid]["startable"], active[iid]["reason"])
+
+
 def test_start_replay_with_same_key_returns_original_operation(tmp_path: Path) -> None:
     """
     @brief   Replaying a start key returns the queued operation even after a run exists.

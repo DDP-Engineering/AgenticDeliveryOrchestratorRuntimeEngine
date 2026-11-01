@@ -1,0 +1,20 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-ef5a60d0"
+title = "Mark tickets blocked by stopped pickup in the ticket list"
+status = "active"
+requirement = """
+When an authorized user lists a project's tickets while its pickup is stopped, ADORE shall return every ticket that Start could otherwise prepare with can_start false, blocked_by pickup_paused and no ready or priority label to add, and leave tickets with their own unmet Start rule and every pickup eligibility value unchanged.
+"""
+verification = "Automated web API tests: on a paused project an eligible ticket and a ticket missing the ready label both report can_start false, blocked_by pickup_paused, adds_ready_label false and needs_priority false, while a held ticket keeps blocked_by held and every startable/reason value equals the active-pickup list; with pickup active the list is unchanged."
+affected_paths = ["04_Software/adore/web/tickets.py"]
+linked_tests = ["04_Software/tests/test_web_tickets.py::test_listing_with_pickup_stopped_blocks_start_by_pickup_paused"]
+spec = ""
+priority = "normal"
+rationale = "The Tickets view must show that Start is unavailable before the operator presses it."
+created = 2026-11-01
+updated = 2026-11-01

@@ -20,8 +20,10 @@ from __future__ import annotations
 # IMPORTS
 import argparse
 from collections.abc import Callable
+from dataclasses import dataclass
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 from threading import Event, Thread
@@ -31,25 +33,55 @@ from adore.config import load_config, validate_config
 from adore.polling import PollCadence
 from adore.profiles import ProfileError, ProfileStore
 from adore.state import StateError, StateStore
-from adore.util import in_quiet_hours
+from adore.util import in_quiet_hours, output_tail
 from adore.web.image_build import ImageBuildError, ImageBuildService
+from adore.web.jobs import redact_text
 from adore.web.store import WebStore, WebStoreError
 
+
 # DATA MODELS / TYPEDEFINITIONS
-Runner = Callable[[list[str], dict[str, str]], int]
+@dataclass(frozen=True)
+class CommandOutcome:
+    """@brief Exit code and combined stdout/stderr of one engine command."""
+
+    code: int
+    output: str = ""
+
+
+# A runner may return a bare exit code when it has no output to keep.
+Runner = Callable[[list[str], dict[str, str]], int | CommandOutcome]
+
+
+# The line `adore run --once --ticket N` prints when it starts no job.
+_NOT_STARTED = re.compile(
+    r"^error: ticket #(\d+) not started: "
+    r"(pickup_paused|at_capacity|aegis_probe_failed|not_eligible|conductor_busy)$",
+    re.MULTILINE,
+)
 
 
 # HELPER FUNCTIONS
-def _run(argv: list[str], env: dict[str, str]) -> int:
-    """@brief Run a fixed CLI argument vector with a finite timeout."""
+def _run(argv: list[str], env: dict[str, str]) -> CommandOutcome:
+    """@brief Run a fixed CLI argument vector with a finite timeout, keeping its output.
+    @details stderr joins stdout so the kept lines stay in the order they were printed.
+    """
     try:
         result = subprocess.run(
-            argv, env=env, capture_output=True, text=True,
-            check=False, timeout=21600,
+            argv, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, encoding="utf-8", errors="replace", check=False, timeout=21600,
         )
-    except subprocess.TimeoutExpired:
-        return 124
-    return result.returncode
+    except subprocess.TimeoutExpired as exc:
+        output = exc.output
+        if isinstance(output, bytes):
+            output = output.decode("utf-8", "replace")
+        return CommandOutcome(124, output or "")
+    return CommandOutcome(result.returncode, result.stdout or "")
+
+
+def _refusal_reason(output: str, ticket: str) -> str:
+    """@brief Return the stable code the CLI printed for this ticket, or ""."""
+    codes = [code for iid, code in _NOT_STARTED.findall(output) if iid == ticket]
+    return codes[-1] if codes else ""
 
 
 # PUBLIC API
@@ -61,7 +93,9 @@ class CommandWorker:
         self.profiles = profiles
         self.web = web
         self.runner = runner
-        self.environment = {**os.environ, "ADORE_HOME": str(profiles.home)}
+        # Unbuffered UTF-8 output keeps the engine's lines in order and every character printable.
+        self.environment = {**os.environ, "ADORE_HOME": str(profiles.home),
+                            "PYTHONUNBUFFERED": "1", "PYTHONIOENCODING": "utf-8"}
         self.images = ImageBuildService(profiles, runner=image_runner)
 
     def run_pending(self) -> int:
@@ -140,11 +174,13 @@ class CommandWorker:
             self.web.finish(operation["id"], "failed", "invalid operation")
             return 1
         try:
-            code = self._run_with_cancel_watch(argv)
+            outcome = self._run_with_cancel_watch(argv)
         except Exception:  # noqa: BLE001 - unexpected outcome needs reconciliation
             self.web.finish(operation["id"], "uncertain", "worker invocation failed")
             return 1
-        if type(code) is not int:
+        code, output = ((outcome.code, outcome.output) if isinstance(outcome, CommandOutcome)
+                        else (outcome, ""))
+        if type(code) is not int or type(output) is not str:
             self.web.finish(operation["id"], "uncertain", "invalid engine outcome")
             return 1
         status = "uncertain" if code == 124 else "succeeded" if code == 0 else "failed"
@@ -152,7 +188,9 @@ class CommandWorker:
             "completed" if code == 0 else
             "outcome uncertain" if code == 124 else "engine rejected operation"
         )
-        self.web.finish(operation["id"], status, result)
+        detail = output_tail(output, redact_text) if code != 0 else ""
+        reason = _refusal_reason(output, target) if status == "failed" and action == "start" else ""
+        self.web.finish(operation["id"], status, result, reason=reason, detail=detail)
         if action == "delete" and status == "succeeded":
             self.web.audit(actor["id"], "project-deleted", project)
         return 1
@@ -197,7 +235,7 @@ class CommandWorker:
                 # The claimed command will report the unavailable run or state.
                 continue
 
-    def _run_with_cancel_watch(self, argv: list[str]) -> int:
+    def _run_with_cancel_watch(self, argv: list[str]) -> int | CommandOutcome:
         """@brief Watch queued cancellations around one blocking engine command."""
         done = Event()
 
@@ -222,7 +260,8 @@ class CommandWorker:
         """@brief Poll one project while watching for newly authorized cancels."""
         argv = [sys.executable, "-m", "adore", "--profile", project,
                 "run", "--once"]
-        return self._run_with_cancel_watch(argv)
+        outcome = self._run_with_cancel_watch(argv)
+        return outcome.code if isinstance(outcome, CommandOutcome) else outcome
 
     def run_forever(self, *, interval: float = 2.0,
                     heartbeat_interval: float = 2.0,

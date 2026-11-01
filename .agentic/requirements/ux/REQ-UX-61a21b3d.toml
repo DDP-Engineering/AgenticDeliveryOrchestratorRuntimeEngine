@@ -1,0 +1,20 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-61a21b3d"
+title = "Show ticket Start and Stop confirmations under their row"
+status = "active"
+requirement = """
+When a user opens the Start confirmation or the Stop confirmation of a ticket, the Tickets view shall render it as a row directly below that ticket's row spanning the table width, with at most one confirmation open at a time.
+"""
+verification = "Automated browser test: opening Start on a ticket renders the confirmation as the row immediately after that ticket's row; opening Stop on another ticket closes the Start confirmation and renders the Stop confirmation immediately after its own row; Keep running closes it."
+affected_paths = ["04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/styles.css"]
+linked_tests = ["04_Software/web/e2e/tickets.spec.ts"]
+spec = ""
+priority = "normal"
+rationale = "The confirmation appeared above the table, off-screen for lower rows."
+created = 2026-11-01
+updated = 2026-11-01

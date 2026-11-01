@@ -124,6 +124,7 @@ from adore.web.repository_source import (
 )
 from adore.web.store import WebStore, WebStoreError
 from adore.web.tickets import (
+    PICKUP_PAUSED,
     RunReadError,
     TicketReadError,
     comment_view,
@@ -4614,7 +4615,9 @@ def create_app(home: str | Path | None = None,
     @app.post("/api/v1/projects/{name}/tickets/{iid}/start")
     def start_ticket(name: str, iid: int, body: TicketStartInput,
                      user: Annotated[dict, Depends(mutation)]) -> dict:
-        """@brief Add a ticket's missing ready/priority labels, then queue its start."""
+        """@brief Add a ticket's missing ready/priority labels, then queue its start.
+        @details Refused with pickup_paused, before any forge call, while pickup is stopped.
+        """
         item = project(name, user)
         if item.archived:
             raise _error(409, "project_archived")
@@ -4628,6 +4631,8 @@ def create_app(home: str | Path | None = None,
                 raise _error(409, "idempotency_conflict")
             return {"operation_id": replayed["id"], "status": replayed["status"],
                     "labels_added": []}
+        if _store_for(profiles, item).is_paused():
+            raise _error(409, "ticket_not_startable", PICKUP_PAUSED)
         config = ticket_config(item)
         job = ticket_read(lambda: existing_job(_store_for(profiles, item), config, iid))
         forge = ticket_forge(item, config)
@@ -4727,7 +4732,8 @@ def create_app(home: str | Path | None = None,
             if not gone:
                 raise
         return {key: operation[key] for key in
-                ("id", "project", "action", "status", "result", "created_at", "updated_at")}
+                ("id", "project", "action", "status", "result", "reason", "detail",
+                 "created_at", "updated_at")}
 
     @app.get("/{path:path}", include_in_schema=False)
     def frontend(path: str) -> Response:

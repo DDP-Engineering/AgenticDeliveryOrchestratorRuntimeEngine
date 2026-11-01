@@ -377,7 +377,13 @@ A changed page revision hides previous results and offers **Reload first page**.
 
 To start an existing ticket, use **Start** in the Tickets sub-tab, for one
 project or for All projects. The worker applies existing readiness, ready/hold/exclude and
-approval gates; archived projects retain history with start hidden.
+approval gates; archived projects retain history with start hidden. Start is
+unavailable while the project's monitoring is paused; an administrator activates
+it in the project Summary. A confirmation opens under its ticket. When the worker
+cannot start a queued ticket, the result says why in the user's language
+(monitoring paused, all execution slots busy, AEGIS check failed, ticket no longer
+eligible, another ADORE process busy) and shows the engine's last lines; labels
+Start added stay on the ticket until normal pickup takes it or Stop removes them.
 Retry and Cancel explain their effects and appear only for supported current
 states. A queued command is waiting for the worker. Its actual operation result
 then shows completed, failed or uncertain; unreadable status leaves completion
@@ -431,12 +437,12 @@ Language and theme can be chosen on the login page before authentication.
 After login, Settings saves each choice to the current account; it follows the
 user across browsers. Until an account has a saved value, the browser's saved
 choice (or system default) applies. A failed save restores the prior choice.
-After upgrading a web identity database from schema 1-3, administrators must
-reassign developer project access. Older grants were tied only to profile names;
-schema 4 clears them so a replacement profile cannot inherit access.
-Schema 6 adds account presentation preferences without changing passwords,
-sessions, memberships or prices. Schema 13 adds the reset marker; upgraded
-accounts, including `admin`, keep signing in normally.
+ADORE does not upgrade a web identity database while it is in development. A
+database from another schema version stops startup with a message naming
+`web.db` and `web.db.initialized` in the ADORE home; delete both to start again
+with a fresh `admin` account. Developer project access is tied to the
+immutable project, so a replacement profile under the same name does not
+inherit it.
 
 Error banners show a sentence in the selected language for the API's error
 code, followed by any server detail. API error bodies always have the form
@@ -448,7 +454,7 @@ code, followed by any server detail. API error bodies always have the form
 ten seconds; a missing or stale worker returns 503. These endpoints do not
 require a browser session and reveal no account or project data. A graceful
 worker stop clears readiness immediately; after an abrupt stop it expires within
-ten seconds. Schema 5 adds the worker heartbeat without resetting accounts.
+ten seconds.
 Administration shows this control-worker status and refreshes it every five
 seconds. Ready means the command worker has a recent heartbeat; it does not
 confirm forge, executor, or model connectivity.
@@ -541,9 +547,9 @@ the complete directory into an empty target home plus any external state
 roots, and start the API and worker. Verify that the changed administrator
 password still works, `admin` / `admin` does not return, profiles and runs are
 present, and metrics/prices match the backup. Never restore only `web.db` or
-delete the `.initialized` marker to trigger bootstrap. After an upgrade,
-restore the matching package alongside its backup; reverse database migrations
-are not supported.
+delete the `.initialized` marker to trigger bootstrap. A backup works only with
+the build that wrote it: ADORE does not migrate web databases, so restore the
+matching package alongside its backup.
 
 ## Portable working rules
 

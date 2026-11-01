@@ -38,6 +38,8 @@ from adore.web import audit as audit_contract
 
 # CONSTANTS
 _HASHER = PasswordHasher()
+# The only schema this build reads or writes; there are no migrations (AGENTS.md).
+_SCHEMA_VERSION = 15
 _SCHEMA = """
 CREATE TABLE users (
     id INTEGER PRIMARY KEY, username TEXT NOT NULL UNIQUE,
@@ -62,6 +64,7 @@ CREATE TABLE operations (
     status TEXT NOT NULL, result TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
     idempotency_key TEXT NOT NULL,
+    reason TEXT NOT NULL DEFAULT '', detail TEXT NOT NULL DEFAULT '',
     UNIQUE(actor_id, idempotency_key)
 );
 CREATE TABLE audit (
@@ -116,22 +119,6 @@ CREATE TABLE usage_cursor (
     journal_length INTEGER NOT NULL, journal_sha256 TEXT NOT NULL,
     PRIMARY KEY(project_id, run_id)
 );
-"""
-_PREFERENCES_SCHEMA = """
-CREATE TABLE IF NOT EXISTS user_preferences (
-    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    language TEXT, theme TEXT
-)
-"""
-_PRICE_SCHEMA = """
-CREATE TABLE IF NOT EXISTS prices (
-    id INTEGER PRIMARY KEY, project TEXT NOT NULL, executor TEXT NOT NULL,
-    model TEXT NOT NULL, effective_from TEXT NOT NULL,
-    input_usd_per_million TEXT NOT NULL,
-    output_usd_per_million TEXT NOT NULL,
-    actor_id INTEGER NOT NULL REFERENCES users(id), created_at TEXT NOT NULL,
-    UNIQUE(project, executor, model, effective_from)
-)
 """
 
 
@@ -245,162 +232,14 @@ class WebStore:
                         "VALUES (?,?,?,?)",
                         ("admin", _HASHER.hash("admin"), "admin", _now()),
                     )
-                    connection.execute("PRAGMA user_version=14")
-                elif version == 1:
-                    connection.execute(
-                        "CREATE TABLE login_failures (identity_hash TEXT PRIMARY KEY, "
-                        "failures INTEGER NOT NULL, window_started TEXT NOT NULL)"
+                    connection.execute(f"PRAGMA user_version={_SCHEMA_VERSION}")
+                elif version != _SCHEMA_VERSION:
+                    # No migrations while ADORE is in development (AGENTS.md).
+                    raise WebStoreError(
+                        f"web database schema {version} is not supported by this build "
+                        f"(it needs schema {_SCHEMA_VERSION}); delete {self.path} and "
+                        f"{marker} to start fresh"
                     )
-                    connection.execute(_PRICE_SCHEMA)
-                elif version == 2:
-                    connection.execute(_PRICE_SCHEMA)
-                elif version not in (3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14):
-                    raise WebStoreError("unsupported or corrupt web database schema")
-                if version in (1, 2, 3):
-                    columns = {row[1] for row in connection.execute(
-                        "PRAGMA table_info(memberships)"
-                    ).fetchall()}
-                    if "profile_created_at" not in columns:
-                        connection.execute(
-                            "ALTER TABLE memberships ADD COLUMN "
-                            "profile_created_at TEXT NOT NULL DEFAULT ''"
-                        )
-                    # Legacy name-only grants cannot prove which incarnation
-                    # of a profile they belonged to; require administrator regrant.
-                    connection.execute(
-                        "DELETE FROM memberships WHERE profile_created_at=''"
-                    )
-                    connection.execute("PRAGMA user_version=4")
-                if version in (1, 2, 3, 4):
-                    connection.execute(
-                        "CREATE TABLE IF NOT EXISTS worker_heartbeat ("
-                        "singleton INTEGER PRIMARY KEY CHECK(singleton=1), "
-                        "updated_at TEXT NOT NULL)"
-                    )
-                    connection.execute("PRAGMA user_version=5")
-                if version in (1, 2, 3, 4, 5):
-                    connection.execute(_PREFERENCES_SCHEMA)
-                    connection.execute("PRAGMA user_version=6")
-                if version in (1, 2, 3, 4, 5, 6):
-                    columns = {row[1] for row in connection.execute(
-                        "PRAGMA table_info(memberships)"
-                    ).fetchall()}
-                    if "project_id" not in columns:
-                        connection.execute(
-                            "ALTER TABLE memberships ADD COLUMN "
-                            "project_id TEXT NOT NULL DEFAULT ''"
-                        )
-                    for row in connection.execute(
-                        "SELECT user_id,project,profile_created_at FROM memberships"
-                    ).fetchall():
-                        identity = _profile_identity(self.path.parent, row["project"])
-                        if identity is None or identity[1] != row["profile_created_at"]:
-                            connection.execute(
-                                "DELETE FROM memberships WHERE user_id=? AND project=?",
-                                (row["user_id"], row["project"]),
-                            )
-                        else:
-                            connection.execute(
-                                "UPDATE memberships SET project_id=? "
-                                "WHERE user_id=? AND project=?",
-                                (identity[0], row["user_id"], row["project"]),
-                            )
-                    connection.execute("PRAGMA user_version=7")
-                if version in (1, 2, 3, 4, 5, 6, 7):
-                    columns = {row[1] for row in connection.execute(
-                        "PRAGMA table_info(operations)"
-                    ).fetchall()}
-                    if "project_id" not in columns:
-                        connection.execute(
-                            "ALTER TABLE operations ADD COLUMN "
-                            "project_id TEXT NOT NULL DEFAULT ''"
-                        )
-                    # Old queued commands carry only a mutable profile label.
-                    # Their target cannot be proven after a rename/replacement.
-                    connection.execute(
-                        "UPDATE operations SET status='uncertain', "
-                        "result='project identity needs operator reconciliation', "
-                        "updated_at=? WHERE status IN ('pending','running') "
-                        "AND project_id=''",
-                        (_now(),),
-                    )
-                    connection.execute("PRAGMA user_version=8")
-                if version in (1, 2, 3, 4, 5, 6, 7, 8):
-                    # Preserve legacy rates, but attach only rows whose creation
-                    # follows the current profile's creation stamp. Older rates
-                    # stay visible in the database for manual reconciliation.
-                    connection.execute(
-                        "CREATE TABLE prices_next ("
-                        "id INTEGER PRIMARY KEY, project TEXT NOT NULL, "
-                        "project_id TEXT NOT NULL, executor TEXT NOT NULL, "
-                        "model TEXT NOT NULL, effective_from TEXT NOT NULL, "
-                        "input_usd_per_million TEXT NOT NULL, "
-                        "output_usd_per_million TEXT NOT NULL, "
-                        "actor_id INTEGER NOT NULL REFERENCES users(id), "
-                        "created_at TEXT NOT NULL, "
-                        "UNIQUE(project_id,executor,model,effective_from))"
-                    )
-                    for row in connection.execute("SELECT * FROM prices").fetchall():
-                        identity = _profile_identity(self.path.parent, row["project"])
-                        bound = (identity[0] if identity is not None
-                                 and row["created_at"] >= identity[1]
-                                 else f"legacy-unbound-{row['id']}")
-                        connection.execute(
-                            "INSERT INTO prices_next VALUES(?,?,?,?,?,?,?,?,?,?)",
-                            (row["id"], row["project"], bound, row["executor"],
-                             row["model"], row["effective_from"],
-                             row["input_usd_per_million"],
-                             row["output_usd_per_million"], row["actor_id"],
-                             row["created_at"]),
-                        )
-                    connection.execute("DROP TABLE prices")
-                    connection.execute("ALTER TABLE prices_next RENAME TO prices")
-                    connection.execute("PRAGMA user_version=9")
-                if version in (1, 2, 3, 4, 5, 6, 7, 8, 9):
-                    connection.execute(
-                        "CREATE TABLE IF NOT EXISTS usage_projection ("
-                        "project_id TEXT NOT NULL, run_id TEXT NOT NULL, "
-                        "source_id TEXT NOT NULL, event_json TEXT NOT NULL, "
-                        "PRIMARY KEY(project_id,run_id,source_id))"
-                    )
-                    connection.execute("PRAGMA user_version=10")
-                if version in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10):
-                    connection.execute(
-                        "CREATE TABLE IF NOT EXISTS usage_observation_projection ("
-                        "project_id TEXT NOT NULL, run_id TEXT NOT NULL, "
-                        "source_id TEXT NOT NULL, event_json TEXT NOT NULL, "
-                        "PRIMARY KEY(project_id,run_id,source_id))"
-                    )
-                    connection.execute(
-                        "CREATE TABLE IF NOT EXISTS usage_cursor ("
-                        "project_id TEXT NOT NULL, run_id TEXT NOT NULL, "
-                        "journal_length INTEGER NOT NULL, "
-                        "journal_sha256 TEXT NOT NULL, "
-                        "PRIMARY KEY(project_id,run_id))"
-                    )
-                    connection.execute("PRAGMA user_version=11")
-                if version in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11):
-                    connection.execute(
-                        "CREATE TABLE IF NOT EXISTS audit_policy ("
-                        "singleton INTEGER PRIMARY KEY CHECK(singleton=1), "
-                        "retention_days INTEGER, max_bytes INTEGER)"
-                    )
-                    connection.execute(
-                        "INSERT OR IGNORE INTO audit_policy(singleton,retention_days,max_bytes) "
-                        "VALUES (1,NULL,NULL)"
-                    )
-                    connection.execute("PRAGMA user_version=12")
-                if version in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12):
-                    if "password_change_required" not in {
-                        row[1] for row in connection.execute(
-                            "PRAGMA table_info(users)"
-                        ).fetchall()
-                    }:
-                        connection.execute(
-                            "ALTER TABLE users ADD COLUMN "
-                            "password_change_required INTEGER NOT NULL DEFAULT 0"
-                        )
-                    connection.execute("PRAGMA user_version=13")
                 if "password_change_required" not in {
                     row[1] for row in connection.execute(
                         "PRAGMA table_info(users)"
@@ -460,22 +299,6 @@ class WebStore:
                     ).fetchall()
                 }):
                     raise WebStoreError("web database missing audit policy")
-                # The audit upgrade shares initialization's BEGIN IMMEDIATE. Validate
-                # historic rows first; malformed input rolls back every schema change.
-                if version in range(1, 14):
-                    for row in connection.execute("SELECT * FROM audit").fetchall():
-                        self._audit_projection(row)
-                    connection.execute("ALTER TABLE audit ADD COLUMN evidence TEXT")
-                    connection.execute("ALTER TABLE audit ADD COLUMN event_key TEXT")
-                    connection.execute("CREATE UNIQUE INDEX audit_event_key ON audit(event_key)")
-                    connection.execute(
-                        "CREATE TABLE audit_attempts (event_key TEXT PRIMARY KEY, "
-                        "actor_id INTEGER NOT NULL, action TEXT NOT NULL, project TEXT NOT NULL, "
-                        "created_at TEXT NOT NULL, evidence TEXT, "
-                        "confirmed INTEGER NOT NULL DEFAULT 0 "
-                        "CHECK(confirmed IN (0,1)))"
-                    )
-                    connection.execute("PRAGMA user_version=14")
                 self._audit_storage(connection)
                 for row in connection.execute("SELECT * FROM audit").fetchall():
                     self._audit_projection(row)
@@ -1434,8 +1257,12 @@ class WebStore:
                 )
         return len(rows)
 
-    def finish(self, operation_id: int, status: str, result: str) -> None:
-        """@brief Commit terminal result/evidence together; exact replay is idempotent."""
+    def finish(self, operation_id: int, status: str, result: str, *,
+               reason: str = "", detail: str = "") -> None:
+        """@brief Commit terminal result/evidence together; exact replay is idempotent.
+        @param[in] reason Stable code of an engine refusal, or "".
+        @param[in] detail Bounded, redacted tail of the engine's output, or "".
+        """
         if status not in ("succeeded", "failed", "uncertain"):
             raise WebStoreError("invalid completion status")
         try:
@@ -1452,15 +1279,19 @@ class WebStore:
                     return
                 if row["status"] != "running":
                     raise WebStoreError("operation was not claimed")
-                self._finish(connection, row, status, result)
+                self._finish(connection, row, status, result, reason, detail)
         except sqlite3.DatabaseError as exc:
             raise WebStoreError("operation storage is corrupt") from exc
 
-    def _finish(self, connection, row, status, result):
-        """@brief Confirm only observed worker outcome; arbitrary error text is excluded."""
+    def _finish(self, connection, row, status, result, reason="", detail=""):
+        """@brief Confirm only observed worker outcome; arbitrary error text is excluded.
+        @details Result, reason and engine detail stay on the operation row; the audit
+                 evidence records only the action and its status.
+        """
         connection.execute(
-            "UPDATE operations SET status=?,result=?,updated_at=? WHERE id=?",
-            (status, result[:1000], _now(), row["id"]),
+            "UPDATE operations SET status=?,result=?,reason=?,detail=?,updated_at=? "
+            "WHERE id=?",
+            (status, result[:1000], reason[:64], detail[-2000:], _now(), row["id"]),
         )
         after = (
             {"pickup": "stopped" if row["action"] == "pause" else "active"}
@@ -1754,7 +1585,7 @@ class WebStore:
     @staticmethod
     def _audit_storage(connection):
         """@brief Reject unsupported/corrupt audit shapes on initialization and every read/write."""
-        if connection.execute("PRAGMA user_version").fetchone()[0] != 14:
+        if connection.execute("PRAGMA user_version").fetchone()[0] != _SCHEMA_VERSION:
             raise WebStoreError("audit row is corrupt")
         expected = {"id", "actor_id", "action", "project", "detail", "created_at",
                     "evidence", "event_key"}

@@ -61,7 +61,7 @@ Badges tragen neben der Farbe auch ein Symbol, und Auftragslisten zeigen die akt
 
 Unter Aufträge beschränkt **Status** die Liste auf **Aktive Aufträge**, **Wartend**, **Menschliche Prüfung** oder **Beendete Jobs**. Das Überwachungs-Badge eines Projekts lautet **Aktiv** oder **Pausiert**, ein archiviertes Projekt zeigt **Archiviert**. Die Umgebungsprüfung lautet **Geprüft**, **Teilweise geprüft**, **Prüfung fehlgeschlagen**, **Prüfung veraltet** oder **Ungeprüft**; Ungeprüft bedeutet, dass kein aktueller Nachweis vorliegt, nicht dass eine Prüfung fehlgeschlagen ist.
 
-Nach **Starten**, **Wiederholen** oder **Abbrechen** meldet ein Hinweis den Befehl als eingereiht, laufend, abgeschlossen, fehlgeschlagen oder ungewiss. Prüfen Sie einen ungewissen Befehl, bevor Sie ihn erneut senden.
+Nach **Starten**, **Wiederholen** oder **Abbrechen** meldet ein Hinweis den Befehl als eingereiht, laufend, abgeschlossen, fehlgeschlagen oder ungewiss. Prüfen Sie einen ungewissen Befehl, bevor Sie ihn erneut senden. Ein fehlgeschlagener oder ungewisser Befehl nennt außerdem den Grund, wenn die Engine einen angibt, und zeigt die letzten Zeilen der Engine.
 
 ## Automatische Aktualisierung, Sprache und Design {#preferences}
 

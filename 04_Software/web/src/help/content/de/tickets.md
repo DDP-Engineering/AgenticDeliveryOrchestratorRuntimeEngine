@@ -55,8 +55,11 @@ Es wird nichts gelesen, bis Sie **Tickets lesen** drücken. Das lädt bis zu 500
 | Akzeptanzkriterien fehlen | Erforderlicher Text nicht gefunden. |
 | Hat einen Auftrag oder Auftrag: ... | ADORE hat bereits einen Auftrag; der Auftragsstatus wird angezeigt. |
 | Nicht offen | Das Ticket ist geschlossen. |
+| Überwachung pausiert | Die Überwachung des Projekts ist pausiert; ein Administrator aktiviert sie in der Projekt-Zusammenfassung. Bis dahin ist Starten nicht verfügbar. |
 
 **Starten** reiht einen Auftrag ein; der Worker wendet weiterhin die üblichen Prüfungen an. Fehlt dem Ticket das Bereitschafts- oder ein Prioritätslabel, bittet ADORE um Bestätigung, lässt Sie eine Priorität wählen, und **Labels hinzufügen und starten** ergänzt sie zuerst im Repository. Starten ist nicht verfügbar für geschlossene, angehaltene oder ausgeschlossene Tickets, für Tickets ohne erforderliche Akzeptanzkriterien und für Tickets mit einem Auftrag. **Wiederholen** ersetzt Starten, wenn der Auftrag fehlgeschlagen ist. **Stoppen** fragt nach Bestätigung, bricht einen unvollständigen Auftrag ab und entfernt das Bereitschaftslabel, damit die Überwachung das Ticket nicht erneut aufnimmt. **Details** zeigt Beschreibung und Kommentare.
+
+**Starten** ist auch nicht verfügbar, solange die Überwachung des Projekts pausiert ist. Die Bestätigung öffnet sich direkt unter ihrem Ticket und nennt die Labels, die sie hinzufügt, einschließlich der gewählten Priorität. Kann der Worker ein eingereihtes Ticket nicht starten, nennt die Meldung den Grund in Ihrer Sprache (Überwachung pausiert, alle Ausführungsplätze belegt, AEGIS-Prüfung fehlgeschlagen, Ticket nicht mehr geeignet oder ein anderer ADORE-Prozess beschäftigt) und zeigt die letzten Zeilen der Engine-Ausgabe. Labels, die Starten hinzugefügt hat, bleiben am Ticket: ADORE übernimmt es, sobald seine Regeln es erlauben, und **Stoppen** entfernt sie.
 
 ## Checkliste für ein erstes Ticket {#checklist}
 

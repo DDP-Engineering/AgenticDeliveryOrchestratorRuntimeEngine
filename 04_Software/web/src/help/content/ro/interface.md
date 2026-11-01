@@ -61,7 +61,7 @@ Insignele au un simbol, nu doar culoare, iar listele de lucrări arată etapa cu
 
 Pe pagina Lucrări, **Stare** restrânge lista la **Lucrări active**, **În așteptare**, **Revizie umană** sau **Joburi încheiate**. Insigna Monitorizare a unui proiect afișează **Activă** sau **În pauză**, iar un proiect arhivat afișează **Arhivat**. Verificarea mediului afișează **Verificat**, **Verificat parțial**, **Verificare eșuată**, **Verificare învechită** sau **Neverificat**; Neverificat înseamnă că nu există dovezi curente, nu că o verificare a eșuat.
 
-După **Pornește**, **Reîncearcă** sau **Anulează**, o notificare raportează comanda ca fiind în coadă, în execuție, finalizată, eșuată sau incertă. Verificați o comandă incertă înainte de a o trimite din nou.
+După **Pornește**, **Reîncearcă** sau **Anulează**, o notificare raportează comanda ca fiind în coadă, în execuție, finalizată, eșuată sau incertă. Verificați o comandă incertă înainte de a o trimite din nou. O comandă eșuată sau incertă spune și motivul, când motorul îl numește, și arată ultimele linii ale motorului.
 
 ## Actualizări automate, limbă și temă {#preferences}
 

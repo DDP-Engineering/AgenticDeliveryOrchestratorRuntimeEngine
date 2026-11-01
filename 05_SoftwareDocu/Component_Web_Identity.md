@@ -27,11 +27,12 @@ both check current membership.
 ## 3. Implementation Overview
 
 Each method opens a short-lived SQLite connection with foreign keys and a ten
-second busy timeout. Schema 14 adds nullable schema-1 structured audit evidence,
-opaque unique event correlations and an `audit_attempts` receipt ledger. The
-explicit upgrade runs inside the initialization `BEGIN IMMEDIATE`, validates
-legacy rows before committing and preserves account/grant/operation identities.
-Unknown or damaged audit schemas, missing columns/uniqueness, invalid dates,
+second busy timeout. The store has one schema (`_SCHEMA_VERSION`, 15): a new
+file gets it, and a database in any other version is refused with a message
+naming `web.db` and `web.db.initialized` to delete. There are no migrations
+while ADORE is in development (AGENTS.md "Stored data during development").
+Audit rows carry nullable schema-1 structured evidence, opaque unique event
+correlations and an `audit_attempts` receipt ledger. Unknown or damaged audit schemas, missing columns/uniqueness, invalid dates,
 ambiguous JSON and nonredacted persisted values raise `WebStoreError` on open
 and audit reads/writes. Runtime run-state schemas retain their separate contract.
 
@@ -70,21 +71,18 @@ revisions and `before`/`after`. Their actor name was not snapshotted. A mutable 
 project name grants no Dev access to those rows. The read projection describes
 absence explicitly and fabricates no historical differences.
 
-Schema 13 adds `users.password_change_required`: an
-administrator reset sets it, a successful own password change clears it, and
-the bootstrap `admin` plus accounts upgraded from earlier schemas start
-unmarked. A schema-13 store without the column fails closed.
-Schema 12 adds an audit-policy singleton; upgrades leave
-existing users and audit rows intact. Its two nullable bounds default to
-unlimited and pruning runs transactionally on policy changes, audit writes and
+`users.password_change_required` is set by an administrator reset and cleared
+by a successful own password change; the bootstrap `admin` starts unmarked.
+An audit-policy singleton holds two nullable bounds that default to
+unlimited; pruning runs transactionally on policy changes, audit writes and
 audit reads. The byte sum includes structured JSON and correlation text.
 The policy PUT reports the number of deleted visible events. Events older than the day bound or beyond the stored UTF-8 text
 byte bound are deleted oldest first. The byte bound does not cap SQLite file
-allocation. Corrupt policy values or timestamps fail closed. Schema 9 binds
-price versions to immutable profile IDs.
-Schema 10 adds a numeric usage projection keyed by immutable project ID, run ID
-and journal source ID. Schema 11 adds launch-coverage projection rows and a
-per-run journal cursor with source length and SHA-256 digest. `reconcile_usage`
+allocation. Corrupt policy values or timestamps fail closed. Price versions are
+bound to immutable profile IDs.
+A numeric usage projection is keyed by immutable project ID, run ID and journal
+source ID, with launch-coverage projection rows and a per-run journal cursor
+holding source length and SHA-256 digest. `reconcile_usage`
 validates and inserts source events transactionally; exact replay is idempotent,
 changed, truncated or vanished source evidence fails closed, and attributed
 usage is read back from SQLite. An
@@ -92,19 +90,13 @@ administrator can rebuild it from retained journals without changing run state.
 Legacy price rows are retained but not used when their creation predates the
 current profile's creation; the administrator must reconcile those rates.
 Renames retain bound rates, and replacement profiles cannot inherit them.
-Schema 8 binds queued commands to immutable profile IDs;
-upgrading name-only pending/running commands marks them `uncertain` for operator
-reconciliation. Schema 7 binds developer grants to immutable profile IDs and
-migrates only rows whose stored name and creation stamp still match a profile.
-Renames retain those grants; deleted or replaced profiles cannot inherit them.
-Schema 6 stores optional language and theme preferences
-per account; upgrading from schema 5 preserves accounts and prior data.
-Schema 5 stores the single control worker heartbeat;
-upgrading from schema 4 keeps users, sessions, grants and prices. Schema 4 stamps each developer grant with the profile's
-creation time, so replacing a profile under the same name does not inherit its
-grants. Upgrading from schemas 1-3 clears name-only grants; administrators must
-reassign them. Accounts and prices are retained. Schema 3 added immutable dated
-price rows, and schema 2 added login-failure windows.
+Queued commands are bound to immutable profile IDs. Developer grants are bound
+to immutable profile IDs and stamped with the profile's creation time, so a
+profile replaced under the same name does not inherit them; renames retain
+them. Each account stores optional language and theme preferences, the single
+control worker records a heartbeat, prices are immutable dated rows and login
+failures are counted in windows. A finished operation keeps a stable refusal
+`reason` and a bounded, redacted `detail` of the engine's last output lines.
 An interrupted `running` operation becomes `uncertain` on worker startup and
 is never automatically replayed.
 The archive guard queries queued and running operations for a project before
@@ -188,7 +180,7 @@ invoking the CLI. With API and worker stopped, backups must include `web.db` and
 
 `tests/test_web_audit_evidence.py` covers structured account/access/config/import/
 clone/pickup evidence, nested secrets, transactional faults, filesystem crash/
-replay, legacy upgrade, corrupt schema/JSON, authorized filters/counts/pages,
+replay, corrupt schema/JSON, authorized filters/counts/pages,
 periods, administrative exclusions and retention/receipt separation.
 `tests/test_web_auth.py` covers bootstrap, hashing, restart, corruption,
 deletion, rate limit, password reset, session revocation, disablement, and

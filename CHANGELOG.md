@@ -143,6 +143,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- **Start** on a ticket no longer fails silently when the project's monitoring is paused. With pickup stopped, Tickets marks the ticket *Monitoring paused*, explains that an administrator activates monitoring in the project Summary, and the API refuses the Start with 409 `ticket_not_startable` (`pickup_paused`) before writing any label. When the worker cannot start a queued ticket, `adore run --once --ticket N` prints `error: ticket #N not started: <code>` (`pickup_paused`, `at_capacity`, `aegis_probe_failed`, `not_eligible`, `conductor_busy`) and the operation keeps that `reason` plus a `detail` with the engine's last 20 lines (at most 2000 characters, ANSI removed, credentials redacted), shown as a sentence in the user's language and a bounded block in Tickets, Jobs and the project status and returned by `GET /api/v1/operations/{id}`; every failed engine operation keeps its `detail`. Labels a refused Start added stay on the ticket, and the notice names them. Start and Stop confirmations open under their ticket, and the Start message names the chosen priority label instead of the word Priority. The web database schema changed (operations gain `reason` and `detail`) and is not migrated: delete `web.db` and `web.db.initialized` in the ADORE home before starting this build. ADORE now refuses a web database from any other schema with a message naming both files, and no longer upgrades older ones.
 - A `NO_STAGE_PROGRESS` stage failure (the executor exited 0 but AEGIS stayed at the same stage) now carries the executor's last stderr lines in its evidence: up to 20 lines and 2000 characters, ANSI colour codes removed and credentials redacted on the whole stderr before it is cut, so a cut never separates a key from its secret. The incident and terminal comments on the ticket, the run journal and Job details show it, so a cause such as auto-rejected tool permissions is visible without reading `io/stderr.log` on the server. When a failed job's evidence exceeds 2000 characters, for any error code, Job details now keeps its first line, such as `stage build failed on attempt 3/3: …`, then `...` and the end, instead of only the end.
 - Native local OpenCode runs no longer use the service account's personal OpenCode configuration home, whose `ask` permissions made every tool call auto-reject and fail the stage with `NO_STAGE_PROGRESS`. Every local command of an OpenCode profile gets `XDG_CONFIG_HOME` = `<state root>/executor-config` (created by ADORE; an unusable path stops the job), `OPENCODE_DISABLE_CLAUDE_CODE=1` and `OPENCODE_PERMISSION` allowing edits and shell commands while denying `git push`, `tea`, `gh` and `glab`. Agents, prompts, MCP servers, plugins, providers, model overrides and the small model from `~/.config/opencode` no longer apply, nor does Claude Code compatibility (`~/.claude` skills and instructions, and the repository's `.claude/skills` and `CLAUDE.md` fallback); the repository's own OpenCode configuration, AGENTS.md and the existing sign-in still do. A model from a personal provider needs `OPENCODE_CONFIG_CONTENT` in `[local].environment`. OpenCode still reads `~/.opencode` and `~/.agents/skills` in the account's home. Explicit `[local].environment` values for the three managed names win (case-insensitive on Windows). The pinned local environment changes: finish or cancel local runs before upgrading.
 - Native local execution on Windows passes the standard Windows machine/system variables (`PATHEXT`, `PROCESSOR_ARCHITECTURE` and the other `PROCESSOR_*` names, `NUMBER_OF_PROCESSORS`, `OS`, `SystemDrive`, `ProgramData`, `ProgramFiles`, `ProgramFiles(x86)`, `ProgramW6432`, the `CommonProgramFiles*` names, `ALLUSERSPROFILE`, `PUBLIC`) to executor gates, readiness probes and strict verification. Project tooling detects the platform again (`platform.machine()` was empty) and `%SystemDrive%` no longer turns into a literal folder inside the worktree. Account names (`HOMEDRIVE`, `HOMEPATH`, `USERDOMAIN`) and forge credentials stay excluded. The pinned local environment changes with this fix: finish or cancel local runs before upgrading, because a local run started on the earlier build is treated as drifted.
@@ -212,8 +213,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 - Structured redacted web change evidence with known before/after and revisions,
   distinct preparation/application/discard results, atomic identity/access/queue
-  evidence, durable filesystem uncertainty and idempotent completion. Explicit
-  web schema-14 upgrade preserves legacy unknowns and rejects corruption.
+  evidence, durable filesystem uncertainty and idempotent completion. Corrupt
+  or unknown audit storage is rejected.
   Authorized server-filtered/paged history and project evidence accompany
   separate administrative retention settings and deletion impact (#19).
 
@@ -327,7 +328,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 - Audit and Overview job tables load one page at a time from the server (new `/api/v1/audit-page`; job pages accept several lifecycles), and background refresh pauses while the browser tab is hidden.
 - Forms mark required fields, example placeholders are styled and prefixed as examples, and password fields state the 8-character minimum.
 - On phones, wide tables show a scroll shadow and Jobs filters collapse behind a counted Filters button.
-- An administrator password reset now requires the account to choose a new password at its next sign-in; until then the web interface shows only a change-password screen and the API returns `password_change_required`. The identity database moves to schema 13; existing accounts, including `admin`, are not affected.
+- An administrator password reset now requires the account to choose a new password at its next sign-in; until then the web interface shows only a change-password screen and the API returns `password_change_required`. The bootstrap `admin` account is not affected.
 - Web API errors now always carry a stable snake_case `detail.code` with optional `detail.message` diagnostics, including request validation (`invalid_request`), account and price failures, and unknown API paths (404 `not_found`).
 - Ticket timelines show the latest recorded events first; subsequent pages move toward older history.
 - Selected-ticket timelines on Jobs now use a table with 10/25/50/All row choices and page navigation.
@@ -519,15 +520,13 @@ This project follows Keep a Changelog and Semantic Versioning.
 - Evidence-based reviewer-rework, first-validation and human-merge quality
   rates with eligible-job denominators and open-review counts.
 - Account-scoped language and theme preferences with browser fallback before
-  login and a schema-6 migration preserving existing identity data.
+  login.
 
 ### Changed
 
-- Web identity schema 4 binds developer grants to the profile creation time.
-  Upgrading from schemas 1-3 clears older name-only grants; administrators must
-  reassign access to the current profiles.
-- Web identity schema 5 adds worker heartbeat storage while preserving existing
-  users, sessions, grants and prices.
+- Developer grants are bound to the profile creation time, so a profile
+  replaced under the same name does not inherit them.
+- The web store records the control worker's heartbeat.
 
 - **ADORE now watches the forge pipeline on a published draft and can repair
   it.** Each poll of an `in-review` run reads the verdict through the new

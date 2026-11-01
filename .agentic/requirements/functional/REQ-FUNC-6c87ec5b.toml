@@ -1,0 +1,20 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-6c87ec5b"
+title = "Name why a single-ticket engine pass started nothing"
+status = "active"
+requirement = """
+When a poll pass of `adore run --once --ticket N` completes without picking that ticket, or cannot start because another process holds the conductor lock, the CLI shall print the line `error: ticket #N not started: <code>`, where code is pickup_paused, at_capacity, aegis_probe_failed, not_eligible or conductor_busy, and exit 1; earlier failures (archived profile, unusable configuration, an unexpected pass error) keep their own error line.
+"""
+verification = "Automated CLI tests with a fake engine: a paused store, a capacity summary, an AEGIS probe error, a pass that picks no ticket and a held conductor lock each print the matching line for the requested ticket and exit 1; a pass that picks the ticket prints no such line and exits 0; a run without --ticket prints none."
+affected_paths = ["04_Software/adore/cli.py"]
+linked_tests = ["04_Software/tests/test_smoke.py::test_cli_single_ticket_run_names_why_it_started_nothing", "04_Software/tests/test_smoke.py::test_cli_run_once_without_ticket_prints_no_not_started_line"]
+spec = ""
+priority = "normal"
+rationale = "The web worker, cron and Task Scheduler need one stable reason line, not a JSON summary."
+created = 2026-11-01
+updated = 2026-11-01

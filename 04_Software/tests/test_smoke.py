@@ -481,6 +481,74 @@ def test_cli_run_once_reserves_lock_advice_for_lock_contention(
 
 
 @pytest.mark.parametrize(
+    ("outcome", "code"),
+    [
+        ({"picked": None, "paused": True}, "pickup_paused"),
+        ({"picked": None, "at_capacity": True}, "at_capacity"),
+        ({"picked": None, "payload_error": "probe failed"}, "aegis_probe_failed"),
+        ({"picked": None}, "not_eligible"),
+        (LockHeldError("another instance holds the lock"), "conductor_busy"),
+        ({"picked": 42}, None),
+    ],
+)
+def test_cli_single_ticket_run_names_why_it_started_nothing(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    outcome: dict | Exception,
+    code: str | None,
+) -> None:
+    """@brief `run --once --ticket N` prints one stable reason line when it starts no job."""
+    config = _config_file(tmp_path)
+
+    class TicketEngine:
+        """@brief Minimal single-ticket engine returning one scripted pass."""
+
+        def __init__(self) -> None:
+            self.log = print
+
+        def poll_once(self, *, dry_run: bool = False, ticket_iid: int | None = None) -> dict:
+            assert ticket_iid == 42
+            if isinstance(outcome, Exception):
+                raise outcome
+            return {"resumed": 0, **outcome}
+
+    monkeypatch.setattr(
+        "adore.cli.Orchestrator.from_config", lambda _config, **_kwargs: TicketEngine()
+    )
+    status = main(["-c", config, "run", "--once", "--ticket", "42"])
+    reasons = [line for line in capsys.readouterr().out.splitlines()
+               if line.startswith("error: ticket #")]
+    if code is None:
+        assert status == EXIT_OK and reasons == []
+    else:
+        assert status == EXIT_ERROR
+        assert reasons == [f"error: ticket #42 not started: {code}"]
+
+
+def test_cli_run_once_without_ticket_prints_no_not_started_line(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """@brief A polling pass that picks nothing is normal and names no ticket."""
+    config = _config_file(tmp_path)
+
+    class PausedEngine:
+        """@brief Engine whose pass finds pickup stopped."""
+
+        def __init__(self) -> None:
+            self.log = print
+
+        def poll_once(self, *, dry_run: bool = False) -> dict:
+            return {"picked": None, "paused": True}
+
+    monkeypatch.setattr(
+        "adore.cli.Orchestrator.from_config", lambda _config, **_kwargs: PausedEngine()
+    )
+    assert main(["-c", config, "run", "--once"]) == EXIT_OK
+    assert "not started" not in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
     "argv",
     [
         ["retry", "run-1"],

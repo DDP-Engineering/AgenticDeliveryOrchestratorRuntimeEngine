@@ -316,7 +316,13 @@ Previous/Next; a new read resets to the first page),
 shows eligibility, the blocking rule or job state with Start (confirming and
 choosing a priority when it must add labels), Retry for a failed job, confirmed Stop
 and Details (description plus comments loaded on first expand), and starts work only
-from the table (disabled actions are visibly dimmed); forge text is
+from the table (disabled actions are visibly dimmed). Start and Stop confirmations
+open as one row directly under their ticket, and the Start message names the
+selected priority label; a `pickup_paused` blocker shows Monitoring paused plus a
+per-project explanation, also used for a 409 `pickup_paused`. The followed
+operation shows its `reason` as a localized sentence (`operationReason.ts`, shared
+with `JobWorkspace` and the project status line), its `detail` lines in a bounded
+`pre`, and for a refused Start the labels it left on the ticket; forge text is
 rendered as React text and only http(s) links open, with `noopener noreferrer`.
 The Jobs sub-tab renders `JobWorkspace` in jobs mode with a fixed scope, no start
 form and the hub's `onOpen`, so job detail stays in the tab; Statistics renders the

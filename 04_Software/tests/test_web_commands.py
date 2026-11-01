@@ -14,8 +14,12 @@
 """
 
 from datetime import datetime
+import os
 from pathlib import Path
 import re
+import sqlite3
+import subprocess
+import sys
 from threading import Event, Thread
 import time
 
@@ -25,8 +29,8 @@ from adore.profiles import ProfileStore
 from adore.state import RunState, StateStore
 from adore.util import in_quiet_hours
 from adore.web.app import create_app
-from adore.web.commands import CommandWorker
-from adore.web.store import WebStore
+from adore.web.commands import CommandOutcome, CommandWorker, _run
+from adore.web.store import WebStore, WebStoreError
 from fastapi.testclient import TestClient
 import pytest
 
@@ -655,3 +659,150 @@ def test_worker_resumes_automatic_polling_after_quiet_window(tmp_path, monkeypat
 
     CommandWorker(profiles, web, runner=runner).run_forever(interval=1, stop=stop)
     assert starts == [3]
+
+
+def _queued_start(tmp_path, ticket="42"):
+    """@brief One member's start operation for project alpha."""
+    profiles = ProfileStore(tmp_path / "home")
+    profiles.create("alpha")
+    web = WebStore(profiles.home / "web.db")
+    user = web.create_user("dev", "longer-password", "developer")
+    web.set_memberships(user["id"], ["alpha"])
+    return profiles, web, web.enqueue(user["id"], "alpha", "start", ticket, "start-key")
+
+
+@pytest.mark.parametrize("case", ["ansi-token", "long", "timeout", "success", "bare-int"])
+def test_failed_engine_operation_keeps_bounded_redacted_detail(tmp_path, case):
+    """@brief A failed engine command leaves its last output lines, redacted, on the operation."""
+    outcome = {
+        "ansi-token": CommandOutcome(1, "starting\n\x1b[31mERROR\x1b[0m token=abc123secret\n"
+                                        "last line\n"),
+        "long": CommandOutcome(1, "\n".join(f"line {index}" for index in range(500))),
+        "timeout": CommandOutcome(124, "partial output\n"),
+        "success": CommandOutcome(0, "all fine\n"),
+        "bare-int": 1,
+    }[case]
+    profiles, web, queued = _queued_start(tmp_path)
+
+    assert CommandWorker(profiles, web, runner=lambda _argv, _env: outcome).run_pending() == 1
+
+    saved = web.operation(queued["id"])
+    detail = saved["detail"]
+    assert saved["reason"] == ""
+    if case == "ansi-token":
+        assert saved["status"] == "failed" and detail.endswith("last line")
+        assert "\x1b" not in detail and "abc123secret" not in detail
+        assert "token=[REDACTED]" in detail
+    elif case == "long":
+        assert detail.splitlines() == [f"line {index}" for index in range(480, 500)]
+    elif case == "timeout":
+        assert saved["status"] == "uncertain" and detail == "partial output"
+    elif case == "success":
+        assert saved["status"] == "succeeded" and detail == ""
+    else:
+        assert saved["status"] == "failed" and detail == ""
+
+
+@pytest.mark.parametrize(
+    ("line", "reason"),
+    [
+        *[(f"error: ticket #42 not started: {code}", code) for code in (
+            "pickup_paused", "at_capacity", "aegis_probe_failed", "not_eligible",
+            "conductor_busy")],
+        ("error: ticket #43 not started: at_capacity", ""),
+        ("error: ticket #42 not started: something_else", ""),
+        ("error: unexpected fault", ""),
+    ],
+)
+def test_refused_start_records_the_engine_reason(tmp_path, line, reason):
+    """@brief A refused start keeps the CLI's stable code for its own ticket only."""
+    profiles, web, queued = _queued_start(tmp_path)
+    output = '{"picked": null}\n' + line + "\n"
+
+    CommandWorker(profiles, web, runner=lambda _argv, _env: CommandOutcome(1, output)).run_pending()
+
+    saved = web.operation(queued["id"])
+    assert saved["status"] == "failed"
+    assert saved["reason"] == reason
+    assert saved["detail"].endswith(line)
+
+
+def test_engine_runner_keeps_stdout_and_stderr_in_one_output():
+    """@brief The real runner returns the exit code and both streams for the detail."""
+    script = ("import sys; print('to stdout', flush=True); "
+              "print('to stderr', file=sys.stderr); sys.exit(3)")
+
+    outcome = _run([sys.executable, "-c", script], dict(os.environ))
+
+    assert outcome.code == 3
+    assert "to stdout" in outcome.output and "to stderr" in outcome.output
+
+
+def test_worker_environment_keeps_engine_output_ordered_and_utf8(tmp_path):
+    """@brief The CLI child writes unbuffered UTF-8, so the detail keeps print order and text."""
+    profiles = ProfileStore(tmp_path / "home")
+    worker = CommandWorker(profiles, WebStore(profiles.home / "web.db"))
+    script = ("import sys; print('stdout first'); print('Ștefan ș'); "
+              "print('stderr last', file=sys.stderr); sys.exit(3)")
+
+    outcome = _run([sys.executable, "-c", script], worker.environment)
+
+    assert outcome.code == 3
+    assert outcome.output.splitlines() == ["stdout first", "Ștefan ș", "stderr last"]
+
+
+@pytest.mark.parametrize("partial", [b"partial line\n", "partial line\n", None])
+def test_engine_runner_timeout_keeps_partial_output(monkeypatch, partial):
+    """@brief A timed-out engine command keeps what it printed, as bytes or text."""
+    def expire(argv, **_kwargs):
+        raise subprocess.TimeoutExpired(argv, 21600, output=partial)
+
+    monkeypatch.setattr("adore.web.commands.subprocess.run", expire)
+
+    assert _run(["adore"], {}) == CommandOutcome(124, "partial line\n" if partial else "")
+
+
+def test_project_poll_returns_the_exit_code_of_a_full_outcome(tmp_path):
+    """@brief Automatic polling still reads only the exit code of a runner outcome."""
+    profiles = ProfileStore(tmp_path / "home")
+    profiles.create("alpha")
+    worker = CommandWorker(profiles, WebStore(profiles.home / "web.db"),
+                           runner=lambda _argv, _env: CommandOutcome(7, "polled"))
+
+    assert worker.poll_project("alpha") == 7
+
+
+def test_operation_api_returns_reason_and_detail(tmp_path):
+    """@brief GET /api/v1/operations/{id} exposes the stored reason and detail."""
+    profiles = ProfileStore(tmp_path / "home")
+    profiles.create("alpha")
+    app = create_app(profiles.home)
+    web = app.state.web_store
+    admin = web.authenticate("admin", "admin")
+    queued = web.enqueue(admin["id"], "alpha", "start", "42", "api-key")
+    output = "error: ticket #42 not started: pickup_paused\n"
+    CommandWorker(profiles, web, runner=lambda _argv, _env: CommandOutcome(1, output)).run_pending()
+
+    with TestClient(app) as client:
+        client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
+        body = client.get(f"/api/v1/operations/{queued['id']}").json()
+    assert body["status"] == "failed"
+    assert body["reason"] == "pickup_paused"
+    assert body["detail"] == "error: ticket #42 not started: pickup_paused"
+
+
+@pytest.mark.parametrize("version", [14, 16])
+def test_web_database_of_another_schema_is_refused_untouched(tmp_path, version):
+    """@brief No migration: another schema version stops startup and names what to delete."""
+    profiles, web, _queued = _queued_start(tmp_path)
+    with sqlite3.connect(web.path) as connection:
+        connection.execute(f"PRAGMA user_version={version}")
+    before = web.path.read_bytes()
+
+    with pytest.raises(WebStoreError) as refused:
+        WebStore(web.path)
+
+    message = str(refused.value)
+    assert f"schema {version}" in message and "not supported" in message
+    assert str(web.path) in message and "web.db.initialized" in message
+    assert web.path.read_bytes() == before

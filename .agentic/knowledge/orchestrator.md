@@ -109,6 +109,8 @@ Container profiles without recipes retain the existing recovery/profile-update c
   line) and redacted on the whole stderr before the 20-line/2000-character cut, so
   a cut never splits a key from its secret; the terminal `run.outcome` keeps the
   sentence through `_head_and_tail` over `_sanitize(evidence, None)`, for every code.
+  The strip-redact-cut is the shared `util.output_tail`, also used by the web
+  worker's operation detail with its own redaction.
 - `REQ-FUNC-1ec4a21d` - durable notification outbox replay.
 - `REQ-FUNC-f9946b6b` - selected-ticket web start uses the normal conductor.
 - `REQ-FUNC-448cbde7` - usage events carry executor/model/review-round context

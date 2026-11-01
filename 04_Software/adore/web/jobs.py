@@ -37,12 +37,18 @@ _GROUPS = {
     "in-review": "review", "done": "terminal", "failed": "terminal",
     "cancelled": "terminal", "stale": "terminal", "handed-off": "terminal",
 }
+# The lookbehind starts a key only at the start of its word, keeping long runs linear.
 _SECRET = re.compile(
-    r"(?i)((?:[\w.-]*(?:token|password|secret|api[_-]?key|authorization)[\w.-]*)"
+    r"(?i)((?<![\w.-])(?:[\w.-]*(?:token|password|secret|api[_-]?key|authorization)[\w.-]*)"
     r"[\"']?\s*[:=]\s*)"
     r'''("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^\s,;}]+)'''
 )
 _AUTH = re.compile(r"(?i)(\b(?:Bearer|Basic)\s+)\S+")
+# A bounded scheme keeps runs such as "a.a.a." linear; real schemes are short.
+_URL_CREDENTIAL = re.compile(r"(?i)(\b[a-z][a-z0-9+.-]{0,31}://[^/\s:@]+:)[^@\s/]+(@)")
+_FORGE_TOKEN = re.compile(
+    r"\b(?:gh[pousr]_[A-Za-z0-9]{16,}|github_pat_[A-Za-z0-9_]{16,}|glpat-[A-Za-z0-9_-]{16,})"
+)
 
 
 # DATA MODELS / TYPEDEFINITIONS
@@ -75,7 +81,7 @@ def _text(value: object, code: str) -> str:
         value.encode("utf-8")
     except UnicodeError as exc:
         raise JobReadError(code) from exc
-    return _SECRET.sub(r"\1[REDACTED]", _AUTH.sub(r"\1[REDACTED]", value))
+    return redact_text(value)
 
 
 def _stamp(value: object, code: str) -> str | None:
@@ -371,6 +377,17 @@ def _view(item: Profile, run_id: str, sources: dict) -> dict:
 
 
 # PUBLIC API
+def redact_text(value: str) -> str:
+    """
+    @brief Mask credential values in free text shown in the web interface.
+    @param[in] value Text such as projected run evidence or engine output.
+    @return Text with key=value, quoted, Bearer/Basic, URL and forge-token credentials masked.
+    """
+    value = _URL_CREDENTIAL.sub(r"\1[REDACTED]\2", value)
+    value = _FORGE_TOKEN.sub("[REDACTED]", value)
+    return _SECRET.sub(r"\1[REDACTED]", _AUTH.sub(r"\1[REDACTED]", value))
+
+
 def read_jobs(profiles: ProfileStore, items: list[Profile]) -> tuple[list[dict], str]:
     """
     @brief Capture a complete authorized projection and optimistic source revision.

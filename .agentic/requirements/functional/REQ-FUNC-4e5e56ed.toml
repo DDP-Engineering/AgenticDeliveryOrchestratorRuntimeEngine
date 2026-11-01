@@ -1,0 +1,20 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-4e5e56ed"
+title = "Refuse a ticket Start while project pickup is stopped"
+status = "active"
+requirement = """
+When an authorized user starts a ticket of a project whose pickup is stopped, ADORE shall return 409 ticket_not_startable with reason pickup_paused without writing any forge label, queuing any operation or recording a prepared start, while a replayed idempotency key of a start queued before pickup stopped still returns its original operation.
+"""
+verification = "Automated web API tests: on a paused project, Start of a ticket missing the ready label returns 409 with error ticket_not_startable and reason pickup_paused, the fake forge records no label write, no operation is queued and no ticket-start-prepared audit exists; after resume the same request adds the label and queues the start; a key used before the pause replays its original operation."
+affected_paths = ["04_Software/adore/web/app.py"]
+linked_tests = ["04_Software/tests/test_web_tickets.py::test_start_with_pickup_stopped_is_refused_before_any_label", "04_Software/tests/test_web_tickets.py::test_start_replay_from_before_pickup_stopped_returns_original_operation"]
+spec = ""
+priority = "normal"
+rationale = "Stopped pickup means no new work; a Start must not label the ticket and then fail."
+created = 2026-11-01
+updated = 2026-11-01

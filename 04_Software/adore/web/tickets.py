@@ -38,6 +38,8 @@ REQUEST_DEADLINE = 60.0
 COMMAND_TIMEOUT = 30.0
 #: Run lifecycles that no longer have work to cancel.
 FINISHED_LIFECYCLES = ("done", "failed", "cancelled", "handed-off", "handoff-pending")
+#: Start blocker while the project's pickup is stopped (`adore pause`).
+PICKUP_PAUSED = "pickup_paused"
 
 # DATA MODELS / TYPEDEFINITIONS
 
@@ -134,17 +136,22 @@ def ticket_view(forge: Forge, config: Config, state: StateStore) -> dict[str, An
         tickets = forge.list_open(TICKET_LIMIT + 1)
     except ForgeResponseError as exc:
         raise TicketReadError("malformed issue record") from exc
+    paused = state.is_paused()
     rows = []
     for ticket in tickets[:TICKET_LIMIT]:
         job = _job(state, config, ticket.iid)
         reason = ineligibility(ticket, config, has_run=job is not None)
         preparation = start_preparation(ticket, config, has_run=job is not None)
+        if preparation is not None and paused:
+            # Stopped pickup keeps pickup eligibility but makes Start unavailable.
+            preparation, blocked_by = None, PICKUP_PAUSED
+        else:
+            blocked_by = (None if preparation is not None
+                          else start_blocker(ticket, config, has_run=job is not None))
         rows.append(
             {
                 "can_start": preparation is not None,
-                "blocked_by": None
-                if preparation is not None
-                else start_blocker(ticket, config, has_run=job is not None),
+                "blocked_by": blocked_by,
                 "adds_ready_label": bool(preparation and preparation[0]),
                 "needs_priority": bool(preparation and preparation[1]),
                 "iid": ticket.iid,

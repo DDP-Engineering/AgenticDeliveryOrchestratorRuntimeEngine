@@ -242,7 +242,7 @@ SQLite bytes, authorization, scope and financial redaction.
 
 - Fresh identity stores bootstrap `admin` / `admin` once with an Argon2id hash.
   A corrupt or deleted initialized store does not recreate the default login.
-- Schema 6 stores optional per-account language and theme. Authenticated
+- Accounts store optional language and theme. Authenticated
   preference reads and CSRF-protected partial updates remain account-scoped;
   null values use the browser fallback and corrupt rows fail closed.
 - Developer routes check membership before reading a project and omit all
@@ -253,19 +253,17 @@ SQLite bytes, authorization, scope and financial redaction.
   row/default/review generation. Other project identities return
   404.
   Configuration mutations, account management and global metrics require admin.
-- Schema 7 binds grants to immutable profile IDs. Older creation-stamped grants
-  migrate only while they still match the original profile; name-only grants
-  are cleared. Schema 9 binds rates to project IDs, retaining older rates
-  without applying them if their profile ownership cannot be proven. Schema 8
-  binds queued operations to project IDs and marks
-  unprovable legacy pending work uncertain. Renames retain grants and queued
-  targets, while a reused name cannot inherit either.
+- Grants, rates and queued operations are bound to immutable profile IDs.
+  Renames retain grants and queued targets, while a reused name cannot inherit
+  either. The web store has one schema (15); a database in another version is
+  refused with a message naming `web.db` and `web.db.initialized` to delete,
+  never migrated (AGENTS.md "Stored data during development").
 - Mutations require CSRF; sessions are opaque, expiring and revocable.
 - Administrator password reset revokes target sessions and sets the schema-13
   reset marker; until the account changes its own password, only `/me`,
   `/me/preferences`, `/me/password` and sign-out answer, and other
   authenticated routes return 403 `password_change_required`. The bootstrap
-  `admin` and upgraded accounts start unmarked.
+  `admin` starts unmarked.
 - Every API error body is `{"detail": {"code", "message"?, "issues"?}}` with a stable
   snake_case code; store sentences map to fixed codes, unknown text becomes
   `request_rejected`, validation is 422 `invalid_request`, and unknown
@@ -447,6 +445,21 @@ Python/Ruff and frontend validation. CLI summary/export semantics are preserved.
   and performs normal teardown; a revoked grant creates no marker.
 - Selected-ticket starts retain the conductor's readiness and approval gates.
   The web layer never merges.
+- Stopped pickup refuses a ticket Start with 409 `ticket_not_startable`
+  (`pickup_paused`) right after the idempotency replay and before any forge
+  call; the ticket view reports `blocked_by: pickup_paused` with nothing to add
+  and unchanged eligibility (REQ-FUNC-4e5e56ed, REQ-FUNC-ef5a60d0).
+- The worker runs the CLI with stderr joined to stdout (`CommandOutcome`; a
+  runner may still return a bare exit code). A non-zero exit or timeout keeps a
+  `detail` tail from `util.output_tail` with `jobs.redact_text` (redacted before
+  the 20-line/2000-character cut), and a refused start keeps the CLI's
+  not-started code for its own ticket as `reason` (REQ-FUNC-fbb6448c,
+  REQ-FUNC-6055f2c6). Both stay on the operation row (schema 15), never in audit
+  evidence. The UI localizes `reason` through `operationReason.ts` in Tickets,
+  Jobs and the project status, names a refused Start's kept labels only for a
+  failure with a known reason, and opens Start/Stop confirmations as a row under their
+  ticket (REQ-UX-3cafa0cc, REQ-UX-5fb31254, REQ-UX-21f0f5a5, REQ-UX-61a21b3d,
+  REQ-UX-c18f6fec).
 - Offline installation verifies the manifest and runs `pip --no-index`.
 - About exposes bundled project license text and versioned third-party notices.
 - Below 760px, primary navigation opens from a labeled collapsible menu and
@@ -476,9 +489,9 @@ projects cannot briefly show another project's values. Audit policy defaults to 
 and its System status form displays saved day/MiB limits, representing unlimited as zero.
 Zero or blank maps to API null; bounded values convert to integer days/bytes
 through `04_Software/web/src/auditPolicy.ts`, covered by offline Node tests.
-Administrators can set day and stored-text byte limits. Schema 14 validates
-closed evidence, upgrades legacy unknowns atomically and prunes oldest visible
-events with structured JSON included in bytes. SQLite mutations and evidence
+Administrators can set day and stored-text byte limits. The store validates
+closed evidence and prunes oldest visible events with structured JSON included
+in bytes. SQLite mutations and evidence
 share transactions. Filesystem mutations start uncertain and confirm after
 completion; pending config replay preserves original before and finalizes once.
 Separate receipts keep deduplication after audit retention removes visible rows;

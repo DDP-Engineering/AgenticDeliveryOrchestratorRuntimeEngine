@@ -594,10 +594,28 @@ def _engine(args: argparse.Namespace) -> tuple[Config, Orchestrator] | None:
     )
 
 
+def _not_started_code(summary: dict) -> str:
+    """
+    @brief      Name the stable reason a single-ticket pass started no job.
+    @param[in]  summary Poll summary whose `picked` is None.
+    @return     pickup_paused, at_capacity, aegis_probe_failed or not_eligible.
+    """
+    if summary.get("paused"):
+        return "pickup_paused"
+    if summary.get("at_capacity"):
+        return "at_capacity"
+    if summary.get("payload_error"):
+        return "aegis_probe_failed"
+    return "not_eligible"
+
+
 def _cmd_run(args: argparse.Namespace) -> int:
     """
     @brief      Handle `adore run [--loop|--once|--dry-run]`.
-    @details    Default mode comes from [polling] mode; flags override.
+    @details    Default mode comes from [polling] mode; flags override. A
+                `--once --ticket N` pass that starts no job ends with the line
+                `error: ticket #N not started: <code>`, which the web worker
+                reads as the operation's reason.
     @param[in]  args Parsed arguments.
     @return     Process exit code.
     """
@@ -637,6 +655,8 @@ def _cmd_run(args: argparse.Namespace) -> int:
         logger.emit(f"error: {exc} ({store.lock_path})")
         logger.emit("hint: stop or wait for a live holder; `adore cleanup` reclaims "
                     "only a provably stale local lock")
+        if args.ticket is not None:
+            logger.emit(f"error: ticket #{args.ticket} not started: conductor_busy")
         return EXIT_ERROR
     except Exception as exc:  # noqa: BLE001 - one pass must not traceback
         # `run --loop` survives an unexpected fault and keeps polling, so a
@@ -647,7 +667,10 @@ def _cmd_run(args: argparse.Namespace) -> int:
         logger.emit(f"error: {exc}")
         return EXIT_ERROR
     logger.emit(json.dumps(summary))
-    return EXIT_ERROR if args.ticket is not None and summary["picked"] is None else EXIT_OK
+    if args.ticket is not None and summary["picked"] is None:
+        logger.emit(f"error: ticket #{args.ticket} not started: {_not_started_code(summary)}")
+        return EXIT_ERROR
+    return EXIT_OK
 
 
 def _cmd_run_op(args: argparse.Namespace) -> int:

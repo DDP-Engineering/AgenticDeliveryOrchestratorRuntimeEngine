@@ -56,10 +56,15 @@ def simulated_command(argv: list[str], _env: dict[str, str]) -> int:
 
     @param[in] argv Fixed conductor command produced by the real worker.
     @param[in] _env Isolated environment supplied by the worker.
-    @return Zero for tickets 42 and 44 and idle polls; seven for ticket 43.
+    @return Zero for tickets 42 and 44, idle polls and pickup control; seven for ticket 43.
     @exception ValueError An unexpected command reaches the fake boundary.
     """
     if argv[-2:] == ["run", "--once"]:
+        return 0
+    if argv[-1] in {"pause", "resume"} and argv[-3] == "--profile":
+        # Pickup control changes only local state, as `adore pause/resume` does.
+        state = StateStore(Path(os.environ["ADORE_HOME"]) / "state" / argv[-2])
+        state.pause() if argv[-1] == "pause" else state.resume()
         return 0
     if argv[-4:-1] == ["run", "--once", "--ticket"]:
         if argv[-1] in {"42", "44"}:

@@ -23,24 +23,6 @@ from adore.web.app import create_app
 from adore.web.store import WebStore
 from fastapi.testclient import TestClient
 
-from tests.test_web_auth import _legacy_audit
-
-
-def test_price_schema_upgrade_preserves_changed_admin(tmp_path):
-    """@brief A schema-two upgrade never reboots admin/admin credentials."""
-    path = tmp_path / "web.db"
-    store = WebStore(path)
-    admin = store.authenticate("admin", "admin")
-    store.change_password(admin["id"], "admin", "new-long-password")
-    with sqlite3.connect(path) as connection:
-        connection.execute("DROP TABLE prices")
-        _legacy_audit(connection)
-        connection.execute("PRAGMA user_version=2")
-    upgraded = WebStore(path)
-    assert upgraded.authenticate("admin", "new-long-password")
-    assert upgraded.authenticate("admin", "admin") is None
-    assert upgraded.list_prices("alpha") == []
-
 
 def test_prices_follow_project_identity_across_rename_and_name_reuse(tmp_path):
     """@brief A rate follows its profile ID and never attaches to a replacement."""
@@ -55,32 +37,6 @@ def test_prices_follow_project_identity_across_rename_and_name_reuse(tmp_path):
     web.add_price("alpha", "codex", "local-1", "2026-01-01", "5", "9", 1)
     assert web.list_prices("alpha")[0]["input_usd_per_million"] == "5"
     assert web.list_prices("renamed")[0]["input_usd_per_million"] == "2"
-
-
-def test_legacy_price_binding_rejects_older_recycled_name(tmp_path):
-    """@brief Upgrade keeps pre-replacement rates but does not attach them."""
-    profiles = ProfileStore(tmp_path)
-    profiles.create("alpha")
-    web = WebStore(tmp_path / "web.db")
-    with sqlite3.connect(web.path) as connection:
-        connection.execute("DROP TABLE prices")
-        connection.execute(
-            "CREATE TABLE prices (id INTEGER PRIMARY KEY, project TEXT NOT NULL, "
-            "executor TEXT NOT NULL, model TEXT NOT NULL, effective_from TEXT NOT NULL, "
-            "input_usd_per_million TEXT NOT NULL, output_usd_per_million TEXT NOT NULL, "
-            "actor_id INTEGER NOT NULL, created_at TEXT NOT NULL, "
-            "UNIQUE(project,executor,model,effective_from))"
-        )
-        connection.execute(
-            "INSERT INTO prices VALUES(1,'alpha','codex','local-1',"
-            "'2026-01-01','2','4',1,'2020-01-01T00:00:00+00:00')"
-        )
-        _legacy_audit(connection)
-        connection.execute("PRAGMA user_version=8")
-    upgraded = WebStore(web.path)
-    assert upgraded.list_prices("alpha") == []
-    with sqlite3.connect(web.path) as connection:
-        assert connection.execute("SELECT COUNT(*) FROM prices").fetchone()[0] == 1
 
 
 def test_admin_prices_are_immutable_and_developer_cannot_read(tmp_path):

@@ -1,0 +1,20 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-3cafa0cc"
+title = "Explain a ticket Start blocked by stopped pickup"
+status = "active"
+requirement = """
+When the ticket list marks a ticket blocked by pickup_paused, or a Start returns 409 with reason pickup_paused, the Tickets view shall disable that ticket's Start and say in the user's locale that pickup is stopped for the project and must be started from the project summary, by an administrator, before a ticket can start.
+"""
+verification = "Automated browser test of the Tickets view (English): a listed ticket with blocked_by pickup_paused shows Monitoring paused with a disabled Start and the view shows the stopped-monitoring explanation; a Start answering 409 with reason pickup_paused shows that explanation instead of the generic ticket_not_startable sentence and disables that ticket's Start with Monitoring paused without a new read; a held ticket keeps its own status. The other locales carry the same keys, which the TicketCopy type enforces at typecheck."
+affected_paths = ["04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/ticketCopy.ts"]
+linked_tests = ["04_Software/web/e2e/tickets.spec.ts"]
+spec = ""
+priority = "normal"
+rationale = "The operator learns the next action instead of meeting a failed operation."
+created = 2026-11-01
+updated = 2026-11-01

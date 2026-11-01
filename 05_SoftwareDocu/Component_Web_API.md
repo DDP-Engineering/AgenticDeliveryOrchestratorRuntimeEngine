@@ -319,7 +319,7 @@ state nor manufacture persisted preparation/discard events. Account/grant and
 queue changes own their SQLite evidence transaction. Precondition rejection
 records no successful application; worker failure/timeout/restart records
 rejected or uncertain outcome. See `Component_Web_Identity.md` for receipt,
-redaction, schema upgrade and replay details.
+redaction, schema and replay details.
 
 The project
 runs page accepts `lifecycle` more than once and returns runs in any listed
@@ -689,7 +689,22 @@ missing ready label and the chosen configured priority label, then queues the
 400 `priority_required`, and a failed label write 503 `forge_write_failed`
 with nothing queued (audited `uncertain`). Replaying the same idempotency key
 returns the original start operation; a malformed ticket record returns 502
-`forge_response_invalid`.
+`forge_response_invalid`. While the project's pickup is stopped a Start returns
+409 `ticket_not_startable` with message `pickup_paused` before any forge call
+(an earlier key still replays), and the ticket list reports `can_start: false`,
+`blocked_by: "pickup_paused"` and nothing to add for tickets Start could
+otherwise prepare; eligibility (`startable`, `reason`) is unchanged.
+`GET /api/v1/operations/{id}` returns `id`, `project`, `action`, `status`,
+`result`, `reason`, `detail` and the timestamps. The worker runs the CLI with
+stderr joined to stdout; a non-zero exit or timeout stores in `detail` the last
+20 lines (at most 2000 characters) with NUL/ANSI removed and credentials
+redacted (`jobs.redact_text`) before the cut, and a refused start stores the
+code of the CLI's `error: ticket #N not started: <code>` line for its own
+ticket in `reason` (`pickup_paused`, `at_capacity`, `aegis_probe_failed`,
+`not_eligible`, `conductor_busy`). Both live only on the operation row, never in
+the audit evidence. The web database has one schema (15); a database in any
+other version is refused with a message naming the files to delete, never
+migrated.
 `GET /api/v1/projects/{name}/tickets/{iid}/comments` returns human comments
 in forge order without system notes, or 404 `ticket_not_found`.
 `POST /api/v1/projects/{name}/tickets/{iid}/stop` (CSRF, idempotency key;

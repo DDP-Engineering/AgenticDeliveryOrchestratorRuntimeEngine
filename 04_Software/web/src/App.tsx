@@ -39,6 +39,7 @@ import { statisticsCopy } from "./statisticsCopy";
 import { JobWorkspace } from "./JobWorkspace";
 import { SortHeader } from "./SortHeader";
 import { jobCopy } from "./jobCopy";
+import { outcomeText } from "./operationReason";
 import { UserCreation, AccountAccessEditor, AccessReview, validAccount, type Account } from "./UserCreation";
 import { userCopy } from "./userCopy";
 import { companyLogo, DashboardShell, type ShellLink } from "./DashboardShell";
@@ -59,7 +60,7 @@ type Session = { user: User; csrf: string };
 type Preferences = { language: Locale | null; theme: "light" | "dark" | "system" | null };
 type Project = { display_name: string; pickup_state: string; verification: { status: string; checked_at?: string | null; revision?: string | null }; validation: { structural_valid: boolean }; id: string; name: string; description: string; platform: string; repo: string; runtime: string; executor: string; readiness: string; last_activity: string | null; paused: boolean; archived: boolean; runs: number; invalid_runs: string[] };
 type Config = { executor_environment?: ExecutorEnvironmentInfo; local_execution?: { machine: string; account: string; system: string } | null; execution_plan?: ExecutionPlan | null; model_connection?: ModelEvidence | null; config: Record<string, unknown>; revision: string; issues: string[]; local_endpoint_timeout_seconds?: number | null; local_endpoint?: { protocol: string; auth_env: string | null } | null; settings?: SettingMeta[] };
-type Operation = { id: number; status: string; result?: string; action?: string };
+type Operation = { id: number; status: string; result?: string; reason?: string; detail?: string; action?: string };
 type Price = { id: number; executor: string; model: string; effective_from: string; input_usd_per_million: string; output_usd_per_million: string };
 type Page = "overview" | "projects" | "createProject" | "importProject" | "cloneProject" | "projectDetails" | "jobs" | "metrics" | "administration" | "adminUsers" | "adminAudit" | "settings" | "help";
 type MetricsTab = "summary" | "usage" | "quality" | "trends" | "projects";
@@ -572,7 +573,9 @@ export default function App() {
   }, [notice]);
 
   useEffect(() => {
-    if (!operationVisible || !operation || ["pending", "running"].includes(operation.status)) return;
+    // A failure with engine lines stays until it is closed; other outcomes fade after 5 s.
+    if (!operationVisible || !operation || ["pending", "running"].includes(operation.status) ||
+      ["failed", "uncertain"].includes(operation.status) && operation.detail) return;
     const timer = window.setTimeout(() => setOperationVisible(false), 5000);
     return () => window.clearTimeout(timer);
   }, [operationVisible, operation?.id, operation?.status]);
@@ -1110,7 +1113,7 @@ export default function App() {
 
         {error ? <div className="alert" role="alert">{describeError(locale, error)}<button onClick={() => setError("")} aria-label={t("close")}>×</button></div> : null}
         {(notice || (operationVisible && operation)) && <div className="notice" role="status">
-          {notice || (operation && <>{t("operationStatus")}: #{operation.id} · {operation.status}{operation.result && operation.result !== "completed" ? ` · ${operation.result}` : ""}</>)}
+          {notice || (operation && <>{t("operationStatus")}: #{operation.id} · {operation.status}{outcomeText(locale, operation) && operation.result !== "completed" ? ` · ${outcomeText(locale, operation)}` : ""}{operation.status !== "succeeded" && operation.detail && <pre className="operation-detail" tabIndex={0}>{operation.detail}</pre>}</>)}
           <button onClick={() => { setNotice(""); setOperationVisible(false); }} aria-label={t("close")}>×</button>
         </div>}
         {["overview", "projects", "projectDetails", "jobs", "metrics"].includes(page) && projectsState !== "ready" && <DataFeedback state={projectsState} t={t} />}

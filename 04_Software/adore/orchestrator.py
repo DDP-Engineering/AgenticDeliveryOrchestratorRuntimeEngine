@@ -94,6 +94,7 @@ from adore.util import (
     in_quiet_hours,
     iso_to_datetime,
     load_env_file,
+    output_tail,
     run_command,
     strict_json_loads,
     utc_now_iso,
@@ -119,11 +120,6 @@ _MAX_EVIDENCE = 6000
 # Executor stderr shown with NO_STAGE_PROGRESS: the decisive line is usually the last.
 _STDERR_TAIL_LINES = 20
 _STDERR_TAIL_CHARS = 2000
-# CSI, OSC (BEL or ST terminated), DCS/SOS/PM/APC strings, then any other ESC sequence.
-_ANSI_ESCAPE = re.compile(
-    r"\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07\x1b\n]*(?:\x07|\x1b\\)?"
-    r"|[PX^_][^\x1b\n]*(?:\x1b\\)?|[ -/]*[0-~])"
-)
 _TICKET_CONTENT_CHANGED_NOTE = "ticket content changed since pickup"
 # Valid only while the single-conductor lock prevents another process from
 # reconciling a legitimately long-running stage as abandoned.
@@ -152,10 +148,8 @@ def _stderr_tail(stderr: str) -> str:
     @param[in] stderr Gate stderr as read from the run's io directory.
     @return The last 20 lines within 2000 characters, or "" when stderr is blank.
     """
-    text = _ANSI_ESCAPE.sub("", str(stderr).replace("\x00", ""))
-    # Redact the whole text first: a line or character cut can split a key from its value.
-    lines = _sanitize(text, None).strip().splitlines()
-    return "\n".join(lines[-_STDERR_TAIL_LINES:])[-_STDERR_TAIL_CHARS:]
+    return output_tail(stderr, lambda text: _sanitize(text, None),
+                       lines=_STDERR_TAIL_LINES, chars=_STDERR_TAIL_CHARS)
 
 
 def _head_and_tail(text: str, limit: int) -> str:

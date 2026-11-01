@@ -55,8 +55,11 @@ Nothing is read until you press **Read tickets**. It loads up to 500 open ticket
 | Missing acceptance criteria | Required text not found. |
 | Has a job or Job: ... | ADORE already has a job; the job state is shown. |
 | Not open | The ticket is closed. |
+| Monitoring paused | Monitoring is paused for the project; an administrator activates it in the project Summary. Start stays unavailable until then. |
 
 **Start** queues a job; the worker still applies the usual gates. If the ticket lacks the ready or a priority label, ADORE asks you to confirm, lets you choose a priority, and **Add labels and start** adds them in the repository first. Start is unavailable for closed, held or excluded tickets, tickets missing required acceptance criteria, and tickets with a job. **Retry** replaces Start when the job failed. **Stop** asks for confirmation, cancels an unfinished job and removes the ready label so monitoring does not pick the ticket up again. **Details** shows description and comments.
+
+**Start** is also unavailable while the project's monitoring is paused. A confirmation opens directly under its ticket and names the labels it adds, including the priority you choose. If the worker cannot start a queued ticket, the notice says why in your language (monitoring paused, all execution slots busy, AEGIS check failed, ticket no longer eligible, or another ADORE process busy) and shows the last lines of the engine output. Labels that Start added stay on the ticket: ADORE picks it up when its rules allow, and **Stop** removes them.
 
 ## Checklist for a first ticket {#checklist}
 

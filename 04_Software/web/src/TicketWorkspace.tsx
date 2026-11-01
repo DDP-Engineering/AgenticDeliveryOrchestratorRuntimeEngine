@@ -9,6 +9,7 @@ import { ApiError, describeError } from "./errors";
 import { messages, type Locale } from "./i18n";
 import { safeEvidenceLink } from "./jobModel";
 import { startVisiblePolling } from "./polling";
+import { keptLabels, outcomeText } from "./operationReason";
 import { fill, ticketCopy } from "./ticketCopy";
 import { HelpLink } from "./HelpCenter";
 import { CONTEXT_TOPICS } from "./help/topics.ts";
@@ -23,9 +24,10 @@ type Ticket = {
 type TicketList = { read_at: string; truncated: boolean; ready_label: string; priority_labels: string[]; tickets: Ticket[] };
 type StartResult = { operation_id: number; status: Operation["status"]; labels_added: string[] };
 type Comment = { author: string; created_at: string; body: string };
-type Operation = { id: number; status: "pending" | "running" | "succeeded" | "failed" | "uncertain"; result?: string };
+type Operation = { id: number; status: "pending" | "running" | "succeeded" | "failed" | "uncertain"; result?: string; reason?: string; detail?: string };
 type StopResult = { cancel_operation_id: number | null; ready_label: "removed" | "absent" | "failed"; ready_label_error: string | null };
-type Notice = { lines: string[]; operation?: Operation };
+/** A notice follows one queued operation; `labels` are those its Start added to the ticket. */
+type Notice = { lines: string[]; operation?: Operation; labels?: string[] };
 type CommentState = { state: "loading" } | { state: "ready"; comments: Comment[] } | { state: "error"; error: unknown };
 type Project = { id: string; name: string; display_name?: string; archived: boolean };
 type Props = {
@@ -38,7 +40,11 @@ type StartRequest = { row: Row; addsReady: boolean; needsPriority: boolean };
 
 const FINISHED = ["done", "failed", "cancelled", "handed-off", "handoff-pending"];
 const REASONS = ["not_open", "missing_ready_label", "held", "excluded", "has_job", "missing_priority_label", "missing_acceptance_criteria"];
+// Stopped pickup blocks Start without changing a ticket's pickup eligibility.
+const PICKUP_PAUSED = "pickup_paused";
+const BLOCKERS = [...REASONS, PICKUP_PAUSED];
 const text = (value: unknown): value is string => typeof value === "string";
+const pickupPaused = (failure: unknown) => failure instanceof ApiError && failure.code === "ticket_not_startable" && failure.detail === PICKUP_PAUSED;
 const invalid = () => new ApiError("unexpected_response");
 
 /** Validate the ticket list: forge-derived values arrive as untrusted strings. */
@@ -54,9 +60,15 @@ function readTicketList(value: unknown): TicketList {
       !(job === null || job && text(job.run_id) && text(job.lifecycle)) ||
       ![item.can_start, item.adds_ready_label, item.needs_priority].every(flag => typeof flag === "boolean") ||
       !item.can_start && (item.adds_ready_label || item.needs_priority) ||
-      !(item.blocked_by === null ? item.can_start : !item.can_start && REASONS.includes(item.blocked_by))) throw invalid();
+      !(item.blocked_by === null ? item.can_start : !item.can_start && BLOCKERS.includes(item.blocked_by))) throw invalid();
   }
   return list;
+}
+
+/** Mark the tickets Start could prepare as blocked once the server reports stopped pickup. */
+function withPickupPaused(items: Array<{ project: Project; list: TicketList }>, projectId: string) {
+  return items.map(item => item.project.id !== projectId ? item : { ...item, list: { ...item.list, tickets: item.list.tickets.map(ticket =>
+    ticket.can_start ? { ...ticket, can_start: false, blocked_by: PICKUP_PAUSED, adds_ready_label: false, needs_priority: false } : ticket) } });
 }
 
 function readComments(value: unknown, iid: number): Comment[] {
@@ -69,7 +81,7 @@ function readOperation(value: unknown): Operation {
   const operation = value as Operation;
   if (!operation || !Number.isSafeInteger(operation.id) || operation.id < 1 ||
     !["pending", "running", "succeeded", "failed", "uncertain"].includes(operation.status) ||
-    operation.result !== undefined && !text(operation.result)) throw invalid();
+    [operation.result, operation.reason, operation.detail].some(value => value !== undefined && !text(value))) throw invalid();
   return operation;
 }
 
@@ -121,7 +133,7 @@ export function TicketWorkspace({ projects, showProject = false, locale, csrf, r
 
   const read = async () => {
     if (reading) return;
-    setReading(true); setReadErrors([]);
+    setReading(true); setReadErrors([]); setStarting(null); setConfirm(null);
     const results = await Promise.allSettled(projects.map(async project => ({ project, list: readTicketList(await request(`${base(project)}/tickets`)) })));
     if (mounted.current) {
       setLists(results.flatMap(result => result.status === "fulfilled" ? [result.value] : []));
@@ -134,6 +146,8 @@ export function TicketWorkspace({ projects, showProject = false, locale, csrf, r
   const pages = size === "all" ? 1 : Math.max(1, Math.ceil(rows.length / size));
   const first = size === "all" ? 0 : Math.min(offset, (pages - 1) * size);
   const shown = size === "all" ? rows : rows.slice(first, first + size);
+  // A confirmation belongs to a visible row; another page closes it.
+  useEffect(() => { setStarting(null); setConfirm(null); }, [first, size]);
 
   const toggle = async (row: Row) => {
     if (expanded.includes(row.key)) { setExpanded(items => items.filter(item => item !== row.key)); return; }
@@ -154,8 +168,12 @@ export function TicketWorkspace({ projects, showProject = false, locale, csrf, r
     try {
       const result = readStart(await request(`${base(row.project)}/tickets/${iid}/start`, "POST", { idempotency_key: crypto.randomUUID(), ...(chosen ? { priority: chosen } : {}) }, csrf));
       const lines = [...(result.labels_added.length ? [fill(copy.labelsAdded, { labels: result.labels_added.join(", ") })] : []), named(row, fill(copy.startQueued, { iid, id: result.operation_id })), copy.startEffect];
-      if (mounted.current) { setNotice({ lines, operation: { id: result.operation_id, status: result.status } }); setQueued(items => [...items, row.key]); }
-    } catch (cause) { if (mounted.current) setActionError({ error: cause, project: row.project }); }
+      if (mounted.current) { setNotice({ lines, operation: { id: result.operation_id, status: result.status }, labels: result.labels_added }); setQueued(items => [...items, row.key]); }
+    } catch (cause) {
+      if (!mounted.current) return;
+      setActionError({ error: cause, project: row.project });
+      if (pickupPaused(cause)) setLists(items => items && withPickupPaused(items, row.project.id));
+    }
     finally { if (mounted.current) setBusy(false); }
   };
   const requestStart = (row: Row) => {
@@ -206,7 +224,10 @@ export function TicketWorkspace({ projects, showProject = false, locale, csrf, r
   }, [operation?.id, operation?.status]);
 
   const status = ({ ticket, list }: Row) => ticket.job ? fill(copy.job, { lifecycle: ticket.job.lifecycle }) :
+    ticket.blocked_by === PICKUP_PAUSED ? copy.pickup_paused :
     ticket.reason === null ? copy.startable : fill(copy[(ticket.blocked_by ?? ticket.reason) as keyof typeof copy] as string, { label: list.ready_label });
+  const pausedLists = (lists ?? []).filter(({ list }) => list.tickets.some(ticket => ticket.blocked_by === PICKUP_PAUSED));
+  const failure = notice?.operation && ["failed", "uncertain"].includes(notice.operation.status) ? notice.operation : null;
   const stoppable = ({ ticket, list }: Row) => !!ticket.job && !FINISHED.includes(ticket.job.lifecycle) || ticket.labels.includes(list.ready_label);
   const columns = showProject ? 6 : 5;
 
@@ -218,17 +239,13 @@ export function TicketWorkspace({ projects, showProject = false, locale, csrf, r
         <HelpLink topic={CONTEXT_TOPICS.tickets} locale={locale} />
       </div>
       {readErrors.map(({ project, error }) => <p className="alert" role="alert" key={project.id}>{showProject ? `${projectName(project)}: ` : ""}{describeError(locale, error)}</p>)}
-      {actionError !== null && <p className="alert" role="alert">{showProject ? `${projectName(actionError.project)}: ` : ""}{describeError(locale, actionError.error)}</p>}
-      {starting && <div className="ticket-start-confirm" role="alertdialog" aria-label={copy.startTicket}>
-        <p>{named(starting.row, fill(copy.startConfirm, { iid: starting.row.ticket.iid, labels: [...(starting.addsReady ? [starting.row.list.ready_label] : []), ...(starting.needsPriority ? [copy.priority] : [])].join(", ") }))}</p>
-        {starting.needsPriority && <label>{copy.priority}<select aria-label={copy.priority} value={priority} onChange={event => setPriority(event.target.value)}>{starting.row.list.priority_labels.map(label => <option key={label} value={label}>{label}</option>)}</select></label>}
-        <div className="button-row"><button className="primary" type="button" disabled={busy || starting.needsPriority && !priority} onClick={() => void start(starting.row, starting.needsPriority ? priority : "")}>{copy.startTicket}</button><button className="ghost" type="button" onClick={() => setStarting(null)}>{copy.keep}</button></div>
+      {actionError !== null && <p className="alert" role="alert">{showProject ? `${projectName(actionError.project)}: ` : ""}{pickupPaused(actionError.error) ? copy.pickupStopped : describeError(locale, actionError.error)}</p>}
+      {pausedLists.map(({ project }) => <p className="notice ticket-pickup-stopped" role="status" key={project.id}>{showProject ? `${projectName(project)}: ` : ""}{copy.pickupStopped}</p>)}
+      {notice && <div className="notice ticket-notice" role="status">{notice.lines.map(line => <p key={line}>{line}</p>)}
+        {notice.operation && <p className="muted">#{notice.operation.id} · {copy.operation[notice.operation.status]}{outcomeText(locale, notice.operation) ? ` · ${outcomeText(locale, notice.operation)}` : ""}</p>}
+        {failure?.detail && <pre className="operation-detail" tabIndex={0}>{failure.detail}</pre>}
+        {keptLabels(notice.operation, notice.labels).length > 0 && <p>{fill(copy.labelsKept, { labels: keptLabels(notice.operation, notice.labels).join(", ") })}</p>}
       </div>}
-      {confirm !== null && <div className="ticket-stop-confirm" role="alertdialog" aria-label={copy.stopTicket}>
-        <p>{named(confirm, fill(copy.stopConfirm, { iid: confirm.ticket.iid, label: confirm.list.ready_label }))}</p>
-        <div className="button-row"><button className="danger" type="button" disabled={busy} onClick={() => void stop(confirm)}>{copy.stopTicket}</button><button className="ghost" type="button" onClick={() => setConfirm(null)}>{copy.keepRunning}</button></div>
-      </div>}
-      {notice && <div className="notice ticket-notice" role="status">{notice.lines.map(line => <p key={line}>{line}</p>)}{notice.operation && <p className="muted">#{notice.operation.id} · {copy.operation[notice.operation.status]}{notice.operation.result ? ` · ${notice.operation.result}` : ""}</p>}</div>}
       {!lists && !reading && readErrors.length === 0 && <p className="muted">{copy.notRead}</p>}
       {lists && lists.length > 0 && rows.length === 0 && <p className="muted">{copy.none}</p>}
       {(lists ?? []).filter(item => item.list.truncated).map(({ project }) => <p className="muted" key={project.id}>{showProject ? `${projectName(project)}: ` : ""}{copy.truncated}</p>)}
@@ -255,6 +272,16 @@ export function TicketWorkspace({ projects, showProject = false, locale, csrf, r
                 <button className="ghost" type="button" aria-expanded={open} aria-controls={detailId} onClick={() => void toggle(row)}>{open ? copy.hide : copy.details}</button>
               </div></td>
             </tr>
+            {/* A confirmation opens directly under the ticket it acts on. */}
+            {starting?.row.key === row.key && <tr className="ticket-confirm-row"><td colSpan={columns}><div className="ticket-start-confirm" role="alertdialog" aria-label={copy.startTicket}>
+              <p>{named(row, fill(copy.startConfirm, { iid: ticket.iid, labels: [...(starting.addsReady ? [row.list.ready_label] : []), ...(starting.needsPriority && priority ? [priority] : [])].join(", ") }))}</p>
+              {starting.needsPriority && <label>{copy.priority}<select aria-label={copy.priority} value={priority} onChange={event => setPriority(event.target.value)}>{row.list.priority_labels.map(label => <option key={label} value={label}>{label}</option>)}</select></label>}
+              <div className="button-row"><button className="primary" type="button" disabled={busy || starting.needsPriority && !priority} onClick={() => void start(row, starting.needsPriority ? priority : "")}>{copy.startTicket}</button><button className="ghost" type="button" onClick={() => setStarting(null)}>{copy.keep}</button></div>
+            </div></td></tr>}
+            {confirm?.key === row.key && <tr className="ticket-confirm-row"><td colSpan={columns}><div className="ticket-stop-confirm" role="alertdialog" aria-label={copy.stopTicket}>
+              <p>{named(row, fill(copy.stopConfirm, { iid: ticket.iid, label: row.list.ready_label }))}</p>
+              <div className="button-row"><button className="danger" type="button" disabled={busy} onClick={() => void stop(row)}>{copy.stopTicket}</button><button className="ghost" type="button" onClick={() => setConfirm(null)}>{copy.keepRunning}</button></div>
+            </div></td></tr>}
             {open && <tr className="ticket-detail-row"><td colSpan={columns}><div className="ticket-detail" id={detailId}>
               <h3>{copy.description}</h3>
               <p className="ticket-text">{ticket.description || copy.noDescription}</p>

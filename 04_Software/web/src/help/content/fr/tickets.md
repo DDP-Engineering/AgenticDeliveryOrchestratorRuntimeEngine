@@ -55,8 +55,11 @@ Rien n’est lu tant que vous n’appuyez pas sur **Lire les tickets**. Cela cha
 | Critères d’acceptation manquants | Le texte requis est introuvable. |
 | A une tâche ou Tâche : ... | ADORE a déjà une tâche ; son état est affiché. |
 | Non ouvert | Le ticket est fermé. |
+| Surveillance en pause | La surveillance du projet est en pause ; un administrateur l’active dans le Résumé du projet. Démarrer reste indisponible d’ici là. |
 
 **Démarrer** met une tâche en file ; le worker applique toujours les contrôles habituels. Si le ticket n’a pas l’étiquette de disponibilité ou de priorité, ADORE vous demande de confirmer, vous laisse choisir une priorité, et **Ajouter les étiquettes et démarrer** les ajoute d’abord dans le dépôt. Démarrer n’est pas disponible pour les tickets fermés, bloqués ou exclus, les tickets sans les critères d’acceptation requis et les tickets qui ont une tâche. **Relancer** remplace Démarrer lorsque la tâche a échoué. **Arrêter** demande une confirmation, annule une tâche inachevée et retire l’étiquette de disponibilité pour que la surveillance ne reprenne pas le ticket. **Détails** affiche la description et les commentaires.
+
+**Démarrer** est aussi indisponible tant que la surveillance du projet est en pause. La confirmation s’ouvre juste sous son ticket et nomme les étiquettes qu’elle ajoute, y compris la priorité choisie. Si le worker ne peut pas démarrer un ticket mis en file, la notification indique pourquoi dans votre langue (surveillance en pause, tous les emplacements d’exécution occupés, vérification AEGIS échouée, ticket plus éligible ou autre processus ADORE occupé) et affiche les dernières lignes de la sortie du moteur. Les étiquettes ajoutées par Démarrer restent sur le ticket : ADORE le prend en charge quand ses règles le permettent, et **Arrêter** les retire.
 
 ## Liste de contrôle pour un premier ticket {#checklist}
 

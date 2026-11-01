@@ -18,10 +18,12 @@
 import json
 from pathlib import Path
 import subprocess
+import time
 
 from adore.profiles import ProfileStore
 from adore.state import RunState, StateStore
 from adore.web.app import create_app
+from adore.web.jobs import redact_text
 from fastapi.testclient import TestClient
 import pytest
 
@@ -581,3 +583,31 @@ def test_job_preparation_projection_is_closed_and_rejects_false_success(tmp_path
         execution["status"] = "success"  # Missing the second step cannot claim success.
         _state(stores[0], "same", execution=execution)
         assert client.get(url).status_code == 503
+
+
+@pytest.mark.parametrize("unit", ["x", "a.", "a-", "a+"])
+def test_redact_text_stays_linear_on_long_word_runs(unit):
+    """@brief Long identifier or dotted runs are redacted without a quadratic scan."""
+    text = unit * (40_000 // len(unit)) + " token=abc123"
+    started = time.monotonic()
+    redacted = redact_text(text)
+    assert time.monotonic() - started < 1.0
+    assert redacted.endswith(" token=[REDACTED]")
+
+
+@pytest.mark.parametrize(
+    ("raw", "secret"),
+    [
+        ("clone https://oauth2:glpat-abcdefghij1234567890@gitlab.example/x.git",
+         "glpat-abcdefghij1234567890"),
+        ("remote https://user:hunter2@host/repo", "hunter2"),
+        ("using ghp_abcdefghijklmnopqrstuvwxyz0123456789 now",
+         "ghp_abcdefghijklmnopqrstuvwxyz0123456789"),
+        ("found glpat-AbCdEfGhIjKlMnOpQrSt in a log", "glpat-AbCdEfGhIjKlMnOpQrSt"),
+        ("github_pat_11ABCDEFG0123456789_abcdefghijklmnopqrstuvwxyz", "11ABCDEFG0123456789"),
+    ],
+)
+def test_redact_text_masks_url_credentials_and_forge_tokens(raw, secret):
+    """@brief Credentials in remote URLs and well-known forge tokens never reach the page."""
+    redacted = redact_text(raw)
+    assert secret not in redacted and "[REDACTED]" in redacted

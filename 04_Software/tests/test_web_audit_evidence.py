@@ -108,11 +108,11 @@ def test_authorized_server_filters_counts_and_paging(tmp_path):
         assert page.json()["items"][0]["project_id"] == alpha.project_id
 
 
-def test_legacy_rows_have_explicit_unknowns_and_schema14(tmp_path):
-    """@brief Upgrade preserves identities and historical unknown values."""
+def test_legacy_shaped_rows_have_explicit_unknowns(tmp_path):
+    """@brief An audit row without evidence reads back with explicit unknown values."""
     web = WebStore(tmp_path / "web.db")
     with sqlite3.connect(web.path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 14
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 15
         connection.execute(
             "INSERT INTO audit(actor_id,action,project,detail,created_at) "
             "VALUES (1,'old','alpha','historic','2020-01-01T00:00:00+00:00')"
@@ -286,31 +286,6 @@ def test_retention_does_not_break_filesystem_confirmation(tmp_path):
     assert web.recent_audit() == []
 
 
-def test_schema13_upgrade_preserves_actual_legacy_identity(tmp_path):
-    """@brief A genuine old audit shape upgrades atomically without historic fabrication."""
-    web = WebStore(tmp_path / "web.db")
-    web.change_password(1, "admin", "replacement-password")
-    with sqlite3.connect(web.path) as connection:
-        connection.execute("DROP TABLE audit")
-        connection.execute("DROP TABLE audit_attempts")
-        connection.execute(
-            "CREATE TABLE audit(id INTEGER PRIMARY KEY, actor_id INTEGER, "
-            "action TEXT NOT NULL, project TEXT NOT NULL DEFAULT '', "
-            "detail TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL)"
-        )
-        connection.execute(
-            "INSERT INTO audit VALUES(7,1,'config-applied','alpha',"
-            "'budgets.max_iterations','2020-01-01T00:00:00+00:00')"
-        )
-        connection.execute("PRAGMA user_version=13")
-    restored = WebStore(web.path)
-    assert restored.authenticate("admin", "replacement-password")["id"] == 1
-    row = restored.recent_audit()[0]
-    assert row["id"] == 7 and row["action"] == "config-applied"
-    assert all(row[field] is None for field in ("result", "before", "after", "project_id"))
-    assert restored.audit_policy() == {"retention_days": None, "max_bytes": None}
-
-
 @pytest.mark.parametrize(
     "damage", ["schema", "timestamp", "json", "secret", "duplicate", "column", "index", "attempt"]
 )
@@ -348,27 +323,6 @@ def test_corrupt_audit_storage_fails_closed_without_identity_reset(tmp_path, dam
     with sqlite3.connect(web.path) as connection:
         assert connection.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 1
         assert connection.execute("SELECT password_hash FROM users").fetchone()[0] != "admin"
-
-
-def test_bad_legacy_upgrade_rolls_back_schema_atomically(tmp_path):
-    """@brief Invalid old audit rows leave the version and identity intact."""
-    web = WebStore(tmp_path / "web.db")
-    with sqlite3.connect(web.path) as connection:
-        connection.execute("DROP TABLE audit")
-        connection.execute("DROP TABLE audit_attempts")
-        connection.execute(
-            "CREATE TABLE audit(id INTEGER PRIMARY KEY, actor_id INTEGER, "
-            "action TEXT NOT NULL, project TEXT NOT NULL DEFAULT '', "
-            "detail TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL)"
-        )
-        connection.execute("INSERT INTO audit VALUES(1,1,'config-applied','alpha','','bad')")
-        connection.execute("PRAGMA user_version=13")
-    with pytest.raises(WebStoreError):
-        WebStore(web.path)
-    with sqlite3.connect(web.path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 13
-        assert "evidence" not in {row[1] for row in connection.execute("PRAGMA table_info(audit)")}
-        assert connection.execute("SELECT COUNT(*) FROM audit").fetchone()[0] == 1
 
 
 def test_operation_completion_fault_rolls_back_status_and_event(tmp_path):
