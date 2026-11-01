@@ -99,7 +99,7 @@ export function ReadinessEvidence({ evidence, locale, modelReason, modelEvidence
       const value = explicit ? explicit.ready : evidence.checks[key];
       const status = value === true ? "passed" : value === false ? "failed" : value === null ? "unknown" : "skipped";
       const [label, purpose, fix] = local && key === "executor_cli"
-        ? [localCopy[locale].title, localCopy[locale].notice, localCopy[locale].notice]
+        ? [localCopy[locale].title, localCopy[locale].agentPurpose, localCopy[locale].agentFix]
         : c.rows[index];
       const accessPurpose = {en:"Explicit model access test through the selected executor; OpenCode, Pi or Codex installed on the server must also run a shell command. A complete job requires separate acceptance.",ro:"Test explicit de acces la model prin executorul selectat; OpenCode, Pi sau Codex instalate pe server trebuie să ruleze și o comandă shell. Un job complet necesită acceptare separată.",fr:"Test explicite d’accès au modèle via l’exécuteur ; OpenCode, Pi ou Codex installés sur le serveur doivent aussi exécuter une commande shell. Une tâche complète nécessite une validation distincte.",de:"Expliziter Modellzugriffstest über den Executor; auf dem Server installiertes OpenCode, Pi oder Codex muss auch einen Shell-Befehl ausführen. Ein vollständiger Auftrag benötigt separate Abnahme."}[locale];
       const reason = evidence.model_probe.reason;

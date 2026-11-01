@@ -707,6 +707,24 @@ for (const scenario of ["passed", "partial", "model-passed", "model-failed", "un
   });
 }
 
+test("local host prerequisites state the local notice once and give the agent row its own fix", async ({ page }) => {
+  await page.route("**/api/v1/projects/*/readiness-check", route => {
+    const result = readinessFixture(decodeURIComponent(new URL(route.request().url()).pathname.split("/")[4]), { executor_cli: false });
+    result.model_probe = { context: "executor-local", ready: false, model: "", reason: "not-configured" };
+    return route.fulfill({ status: 200, json: result });
+  });
+  await signIn(page);
+  await page.goto("/projects/alpha");
+  await page.getByRole("button", { name: "Check host prerequisites", exact: true }).click();
+  const panel = page.locator(".readiness-evidence");
+  await expect(panel.locator(".readiness-check")).toHaveCount(6);
+  const agent = panel.locator(".readiness-check").filter({ hasText: "Local execution" });
+  await expect(agent).toContainText("its existing sign-in or a provider API key is available");
+  await expect(agent).toContainText("save a provider API key in Settings → Agent and model");
+  await expect(agent).not.toContainText("A worktree is not a host sandbox");
+  await expect(panel.locator("p").filter({ hasText: "A worktree is not a host sandbox" })).toHaveCount(1);
+});
+
 test("host prerequisite explanations support four locales and dark theme", async ({ page }, info) => {
   await page.route("**/api/v1/projects/*/readiness-check", route => route.fulfill({ status: 200,
     json: readinessFixture(decodeURIComponent(new URL(route.request().url()).pathname.split("/")[4]), { forge_auth: false }) }));

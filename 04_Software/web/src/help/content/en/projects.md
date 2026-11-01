@@ -39,7 +39,7 @@ Choose **Clone project config** on [Projects](/projects) to start a new project 
 A new project starts with monitoring stopped. Developers see it once an administrator grants access on its **Access** tab. On the **Summary** tab:
 
 1. Choose **Connect repository**. Enter the forge server address and an access token created on the forge, then **Verify and connect**. This confirms the account and read access to the repository. The token stays on the server, never in the browser. Alternatively, sign in the forge tool under the ADORE service account.
-2. Choose **Check host prerequisites**. The details cover Git, the repository command tool, repository sign-in, the container engine, the agent in the image, the AEGIS files and the AI model connection. This is not a full job and does not prove push permission.
+2. Choose **Check host prerequisites**. The details cover Git, the repository command tool, repository sign-in, the container engine, the agent in the image, the AEGIS files and the AI model connection. For a project that runs on the server itself, **Local execution** replaces the container engine and image rows: it checks the agent's tools for the server account and its existing sign-in or a provider API key. This is not a full job and does not prove push permission.
 3. Run **Test AI connection** in Settings, as described in [Executors and models](/help/executors#test-connection).
 4. Choose **Activate monitoring**. The Monitoring tile changes from Paused to Active and ADORE starts picking up tickets that carry the ready label. **Pause monitoring** stops new pickups but does not interrupt a running job.
 

@@ -148,12 +148,12 @@ text = { en = "GitHub and GitLab can open draft merge requests again.", fr = "Gi
 [[release.entry]]
 category = "fixed"
 topic = { en = "Delivery", fr = "Livraison", de = "Auslieferung", ro = "Livrare" }
-text = { en = "A job waiting on a busy ticket now resumes.", fr = "Une tâche en attente sur un ticket occupé reprend désormais.", de = "Ein Auftrag, der auf ein belegtes Ticket wartet, wird jetzt fortgesetzt.", ro = "O lucrare care așteaptă un tichet ocupat se reia acum." }
+text = { en = "A job waiting on a busy ticket resumes; a brief push failure no longer ends a validated job.", fr = "La tâche attendant un ticket occupé reprend ; un bref échec d'envoi n'arrête plus une tâche validée.", de = "Aufträge an belegten Tickets laufen weiter; ein kurzer Push-Fehler beendet keinen geprüften Auftrag.", ro = "O lucrare care așteaptă un tichet ocupat se reia; un eșec scurt de push nu mai oprește una validată." }
 
 [[release.entry]]
 category = "fixed"
-topic = { en = "Delivery", fr = "Livraison", de = "Auslieferung", ro = "Livrare" }
-text = { en = "A brief push failure no longer ends a fully validated job.", fr = "Un bref échec d'envoi n'interrompt plus une tâche entièrement validée.", de = "Ein kurzer Push-Fehler beendet keinen vollständig geprüften Auftrag mehr.", ro = "Un eșec scurt de push nu mai încheie o lucrare complet validată." }
+topic = { en = "Interface", fr = "Interface", de = "Oberfläche", ro = "Interfață" }
+text = { en = "The local host check says once where the agent runs and how to fix a missing agent sign-in.", fr = "La vérification locale dit une fois où l'agent s'exécute et comment corriger sa connexion.", de = "Die lokale Prüfung nennt den Ausführungsort einmal und erklärt, wie die Agent-Anmeldung gelingt.", ro = "Verificarea locală spune o dată unde rulează agentul și cum se repară autentificarea lui." }
 
 [[release.entry]]
 category = "fixed"
