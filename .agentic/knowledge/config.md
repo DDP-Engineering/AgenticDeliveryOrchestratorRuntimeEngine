@@ -49,12 +49,23 @@ and resource limits instead of letting a later component guess.
 section and subtable (`labels.*`, `[executor]`, `container.egress`), with
 `[section] unknown key 'x': remove it from config.toml`; missing keys take the
 documented defaults. `[state] channel`, `[executor] default`,
-`[executor] stage_host_auth`, any `[executor.<name>]` table and
+`[executor] stage_host_auth`, an inline `[executor] api_key`, unknown
+`[executor.endpoint]` keys, any other `[executor.<name>]` table and
 `[labels.executor]` are refused this way.
-Pi is the only coding agent. `ExecutorConfig` holds `model` (required,
-provider/model), `command` (default `branding.PI_NATIVE_COMMAND`,
-`pi -p --mode json --model {model} {prompt}`, used only by a native run),
-`mode`, `questions_file` and `env_keys`. The command must contain `{prompt}`,
+Pi is the only coding agent. `ExecutorConfig` holds `provider` (required: a Pi
+API-key provider id from the shipped catalog `adore/pi_catalog.json`,
+`chatgpt` or `custom`), `model` (required, the model ID within the provider,
+matching `pi_providers.MODEL_ID_RE`), `endpoint` (`ExecutorEndpointConfig`:
+`base_url`, `api` default `openai-completions`), `command` (default
+`branding.PI_NATIVE_COMMAND`, `pi -p --mode json --model {model} {prompt}`,
+used only by a native run), `mode`, `questions_file` and `env_keys` (default
+empty; additional secret names, the provider's key variable is always passed).
+`_provider_issues` requires `[executor.endpoint]` for `custom` and refuses the
+table for any other provider; `base_url` is http(s) with a host and no user
+info, query or fragment, and `api` is one of `openai-completions`,
+`openai-responses`, `anthropic-messages`, `google-generative-ai`. `custom` with
+`[execution] backend = "local"` is refused (no ADORE-owned agent directory for
+`models.json`). The command must contain `{prompt}`,
 must not contain the `--auto` token, and may use only the `{prompt}`, `{model}`
 and `{worktree}` placeholders (a literal brace is doubled). `[container]
 runtime_env` and `[local] environment` names starting `OPENCODE_`, `CODEX_` or
@@ -85,7 +96,7 @@ Native ownership/auth route to `local-execution.md`; focused proof is
 
 - `REQ-FUNC-ca17a8e8` - boolean review-state delivery and credential isolation.
 - `REQ-FUNC-97e17737` - executor and egress policy validation.
-- `REQ-FUNC-2df31adf` - Pi is the only executor; `[executor]` needs only a model.
+- `REQ-FUNC-2df31adf` - Pi is the only executor; `[executor]` needs a provider and a model.
 - `REQ-FUNC-78b0ad95` - configuration of another coding agent is refused with the fix.
 - `REQ-FUNC-7ce5b17a` - web-created and imported profiles share the typed
   validator.
@@ -97,5 +108,5 @@ Native ownership/auth route to `local-execution.md`; focused proof is
 - `04_Software/tests/test_local_execution.py`: native integration/negative proof.
 
 
-- `04_Software/adore/config.py`
+- `04_Software/adore/config.py`, `04_Software/adore/pi_providers.py`
 - `04_Software/tests/test_config.py`

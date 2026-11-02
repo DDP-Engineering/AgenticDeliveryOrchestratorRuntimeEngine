@@ -27,8 +27,12 @@ means.
 
 ## Public interface
 
-- `build_executor(command_template, model, questions_file)` returns a
-  `PiExecutor`; Pi is the only executor implementation.
+- `build_executor(command_template, model, questions_file, *, provider,
+  models)` returns a `PiExecutor`; Pi is the only executor implementation.
+  `model` is the model ID within the provider, `provider` the
+  `[executor] provider` (mapped by `pi_providers.pi_provider`: `chatgpt` ->
+  `openai`, `custom` -> `adore-endpoint`), `models` the endpoint
+  `models.json` for `custom` (else None).
 - `FileProtocolExecutor.run_gate(...)` accepts an injected backend command seam,
   worktree/io paths, prompt, timeout, archive stem and an optional `cancel`
   check; it returns a typed `GateRun`.
@@ -37,8 +41,8 @@ means.
   the container only if the gate still runs that long after the cancel.
 - `PiExecutor.run_gate` on a target with `spawn` runs Pi through
   `pi_rpc.run_pi_rpc(spawn, argv, env, prompt, ...) -> PiRpcResult` with the
-  fixed `pi_rpc_argv(model)` and `PI_RPC_ENV`; other targets keep the file
-  protocol.
+  fixed `pi_rpc_argv(model, provider)` and `PI_RPC_ENV`; other targets keep
+  the file protocol, where `{model}` is `<pi provider>/<model id>`.
 - `GateRun` reports exit status, typed `timed_out`, questions, bounded output,
   usage, explicit token/cost coverage, and archive information.
 
@@ -65,10 +69,17 @@ so the launcher leaves billed cost unavailable for administrator price rules.
 
 Container Pi runs `node /opt/pi/.../cli.js --mode rpc --no-session
 --no-approve --no-skills --no-extensions --no-prompt-templates --no-themes
---no-mcp -e /opt/adore/pi/adore-guard.ts --model <model>` with
+--no-mcp -e /opt/adore/pi/adore-guard.ts --provider <pi provider> --model
+<model id>` with
 `PI_CODING_AGENT_DIR=/home/adore/.adore-pi-agent`, `PI_OFFLINE=1`,
 `PI_TELEMETRY=0`, `PI_SKIP_VERSION_CHECK=1`; the prompt goes over stdin and the
-configured `[executor] command` is not used. A launch is complete only on
+configured `[executor] command` is not used. For an OpenAI-compatible
+endpoint, before Pi starts each gate, `_place_models` writes the
+key-free `models.json` to the io dir as `pi-models.json` (`MODELS_FILE`) and
+runs `cp /adore/io/pi-models.json /home/adore/.adore-pi-agent/models.json`
+through the exec seam; a failed copy fails the gate (non-zero exit, stderr
+`Pi models.json could not be placed in the agent directory: ...`) without
+starting Pi. A launch is complete only on
 `agent_settled` that is not aborted with a last assistant stopReason other
 than `error`; the exit code is not the result. Timeout or cancel sends `abort`,
 waits 10 s for settling, closes stdin, terminates after 5 s and kills after 5
@@ -94,7 +105,7 @@ Native ownership/auth route to `local-execution.md`; focused proof is
 
 - `REQ-FUNC-e397f7f6`: Bound targets supply shell/worktree/IO paths and verified resource identity; plain injected callables retain the container defaults. Prompts/scripts remain file transported and quoted.
 
-- `REQ-FUNC-2df31adf` - every stage launches Pi with `[executor] model`.
+- `REQ-FUNC-2df31adf` - every stage launches Pi with `[executor] provider` and `model`.
 - `REQ-FUNC-59ccdb74` - WSL-safe file transport and typed timeout propagation
   for file-protocol launches.
 - `REQ-FUNC-116450ef` - container Pi stage through one RPC process.

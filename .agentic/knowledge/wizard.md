@@ -41,12 +41,17 @@ Secrets are never written: only required environment-variable names are
 derived. The wizard validates branch-rule compatibility and reports missing
 tools or unsuitable AEGIS payloads as setup guidance, not a hidden mutation.
 Pi is the only coding agent, so the wizard asks no agent question. It asks the
-model (`provider/model`, default `openai/gpt-5.5`); a container profile uses
-the api-key auth mode without a question, and a local profile asks the
-installed native Pi argv (default `branding.PI_NATIVE_COMMAND`) and api-key or
-existing (the local account's own Pi sign-in). It writes `[executor] model`,
-`command` only when it differs from the default, and `env_keys` (empty for
-existing, else the provider key names implied by the model).
+provider (default `openai`, validated against `pi_providers.provider_ids()`),
+for `custom` the endpoint base URL and API type (default `openai-completions`),
+then the model ID within the provider (`MODEL_ID_RE`; default `gpt-5.5` only
+for `openai`); a container profile uses the api-key auth mode without a
+question, and a local profile asks the installed native Pi argv (default
+`branding.PI_NATIVE_COMMAND`) and api-key or existing (the local account's own
+Pi sign-in). It writes `[executor] provider`, `model`, `command` only when it
+differs from the default, `env_keys = []` (additional names; the provider's key
+variable always reaches Pi) and `[executor.endpoint]` for `custom`. Container
+next steps name the provider's credential variable (none for `chatgpt`, whose
+sign-in is not available yet).
 The reported-cost prompt accepts finite nonnegative USD input; zero disables
 that cap for a subscription/local model while other run limits remain.
 
@@ -64,7 +69,7 @@ Native ownership/auth route to `local-execution.md`; focused proof is
 - `REQ-FUNC-3d8f6f5e` - offline preparation and field-specific safe findings;
   `test_web_enrollment.py` proves preparation and preserved default CLI mode.
 
-- `REQ-FUNC-2df31adf` - the wizard writes Pi's model without an agent choice.
+- `REQ-FUNC-2df31adf` - the wizard writes Pi's provider and model without an agent choice.
 - `REQ-FUNC-5771eecc` - generated configuration validates before it is saved.
 - `REQ-FUNC-6c82ad42` - invalid/unconfirmed answers cannot create or overwrite a profile.
 - `REQ-FUNC-7ce5b17a` - web project creation reuses guided answers and the

@@ -120,10 +120,10 @@ If a process stops after replacing TOML but before updating profile labels,
 retrying Apply with the same candidate revision reconciles the labels and
 clears the pending record. Candidate bytes and revision remain identical on
 Windows and Linux.
-There is no local model endpoint edit: local OpenAI-compatible endpoints
-are not configurable in this version. The separate readiness route checks the
-Pi binary in the configured image with a no-network, no-pull container; it
-has no model endpoint check.
+An OpenAI-compatible endpoint is edited only through the reviewed
+`executor.connection` candidate (section "Reviewed executor configuration").
+The separate readiness route checks the Pi binary in the configured image with
+a no-network, no-pull container; it has no model endpoint check.
 
 ## 4. Dependencies
 
@@ -180,9 +180,9 @@ a comment-only source edit invalidates confirmation.
 config/candidate revisions and 16 `mapping` rows (`key`, `source_value`,
 `server_value`, `effect: "copy-rule"`). Server values are installed defaults.
 All portable rules override target defaults; target identity, repository, runtime,
-model, references, labels and reviewers are supplied afresh. Credential
-references are excluded from sources. Provider setup uses the target model and
-supported auth.
+provider, model, endpoint, references, labels and reviewers are supplied
+afresh. Credential references are excluded from sources. Provider setup uses
+the target provider and model and supported auth.
 
 `transfer-check` and `transfer-create` add reviewed `revision`. Check uses the
 existing bounded explicit ephemeral probes and rechecks source afterwards.
@@ -257,7 +257,12 @@ authenticated route returns 403 `password_change_required` after the 401
 session check and before CSRF and role checks. Account objects include
 `password_change_required`. `/api/v1/about` reports the running version and
 full bundled license text.
-It also returns the bundled third-party component notices, compiled from the
+`GET /api/v1/pi-providers` (any signed-in user) returns the shipped Pi
+provider catalog as `{pi_version, providers: [{id, name, variable, models}],
+chatgpt: {id}, custom: {id, variable, apis}}` from
+`pi_providers.public_catalog()`; an unreadable catalog returns 503
+`provider_catalog_unavailable`.
+`/api/v1/about` also returns the bundled third-party component notices, compiled from the
 locked web dependencies, and `release_notes` from the packaged
 `adore/release_notes.toml` (empty when unreadable). About remains available
 before login.
@@ -391,7 +396,11 @@ for a map the project emptied, or null when it has no such key).
 Catalog rows additionally supply `type` (boolean/integer/number/text/list/map),
 `choices`, inclusive `minimum` and `maximum` (null when unbounded). Types derive
 from built-in configuration model defaults; `executor.command` offers the Pi launch
-preset (container projects only) and scalar domains project the existing validator. Whole-config
+preset (container projects only), `executor.provider` the provider ids and
+`executor.endpoint.api` the endpoint API types, and scalar domains project the
+existing validator. The rows `executor.provider`, `executor.model`,
+`executor.endpoint.base_url` and `executor.endpoint.api` report `edit_key`
+`executor.connection`. Whole-config
 validation remains decisive for dependent rules. Corrupt declared scalar types
 return 503 `config_corrupt`. Dev configuration omits `budgets.max_cost_usd` before
 row/default generation. Credential-bearing URLs are redacted in effective reads.
@@ -577,8 +586,10 @@ Existing identity/status/paused fields remain. No read or setup preview probes t
 
 ### Guided draft preview, verification and creation
 
-`ProjectInput` adds typed bounded run budgets, ready/approval labels and optional
-credential environment names; omitted fields keep their defaults. Unknown fields are
+`ProjectInput` adds typed bounded run budgets, ready/approval labels, `provider`,
+`model`, `endpoint_base_url` and `endpoint_api` (the endpoint fields only for
+provider `custom`) and optional additional credential environment names; omitted
+fields keep their defaults. Enrollment takes no secret value. Unknown fields are
 forbidden; malformed/duplicate API-key names, and API-key names with `auth_mode` `existing` (a local project's own Pi sign-in), are rejected (an empty API-key list is allowed)
 with value-free findings. Server clones are absolute existing Git roots.
 Preparation uses the existing wizard in prepare-only mode and its configuration validator.
@@ -589,8 +600,10 @@ config bytes across requests. No external commands or profile writes occur durin
 editable setting whose effective value equals ADORE's built-in default, as `[{key, value}]`,
 shown read-only on Review and create) for a valid
 candidate. The draft SHA-256 binds exact config bytes, profile name, display name and
-description. Review includes complete setup, resolved env-key names and absolute config,
-state and worktree paths. Invalid candidates keep null review/digests and structured findings.
+description. Review includes complete setup, resolved env-key names, `provider`, `model`,
+`endpoint_base_url` and `endpoint_api` (empty unless `custom`),
+`credential_variable` (the variable to save after creation; null for
+`chatgpt`) and absolute config, state and worktree paths. Invalid candidates keep null review/digests and structured findings.
 
 `ReviewedProjectInput` requires a 64-hex revision for the additive Admin/CSRF routes:
 
@@ -714,15 +727,15 @@ and an unreadable run to 503 `run_state_corrupt`; no partial list is returned. I
 
 ## Explicit AI connection test
 
-Administrators use **Settings → Agent and model → Test AI connection** for the configured Pi model. Each explicit click sends one short request in a temporary container, or in a temporary folder for Pi installed on the server, and may incur provider charges. The project must be idle with valid saved settings and no pending configuration/operations; a container project's installed image must contain Python and Pi.
+Administrators use **Settings → Agent and model → Test AI connection** for the configured Pi provider and model. Each explicit click sends one short request over Pi's RPC mode in a temporary container, or in a temporary folder for Pi installed on the server, and may incur provider charges. The project must be idle with valid saved settings and no pending configuration/operations; a container project's installed image must contain the pinned Pi.
 
-Only a valid completed challenge response reports connected. Failures provide redacted guidance for credentials, model availability, image, CLI version or network. The action reuses executor credentials and egress and starts no job. For Pi installed on the server it also requires one completed shell command (a failure reports **tool-call-failed** with permission guidance); in a container it proves no tool capability. Evidence is durably saved, bound to current project/model/configuration and credential inputs. Summary and host-check details reuse the current access result. Host-check time/version are internally validated and hidden from Summary/check details. See Component_Model_Connection.md.
+Only a valid completed challenge response reports connected: one completed shell command printing a nonce, then the exact reply (a failed shell call reports **tool-call-failed** with permission guidance). A container project whose provider needs a key with none saved or set reports **credential-missing** without starting a container. Failures provide redacted guidance for a missing or invalid credential, model availability, rate limits, provider errors, image, CLI version or network. The action reuses executor credentials and egress and starts no job. Evidence is durably saved, bound to current project/model/configuration and credential inputs. Summary and host-check details reuse the current access result. Host-check time/version are internally validated and hidden from Summary/check details. See Component_Model_Connection.md.
 
 ## Project executor configuration
 
-**Project → Settings → Agent and model** configures Pi, ADORE's only coding agent; there is no agent choice. It shows Test AI connection, the model (`executor.model`), the launch command (`executor.command`; only the Pi preset for container projects, validated native argv for local projects), allowed credential variables (`executor.env_keys`), project API keys, the execution environment and estimated prices. Model and command are ordinary reviewed settings (prepare candidate, review, apply on a paused/idle project). Installed agents and runtime preparation remain external. The old `/executor` URL redirects to Settings. Developers read non-secret settings/results without mutation actions.
+**Project → Settings → Agent and model** configures Pi, ADORE's only coding agent; there is no agent choice. It shows Test AI connection, the agent connection (Provider, Model, and for an OpenAI-compatible endpoint Endpoint base URL and Endpoint API type), the launch command (`executor.command`; only the Pi preset for container projects, validated native argv for local projects), additional credential variables (`executor.env_keys`), the provider API key, the execution environment and estimated prices. The connection and the command are reviewed settings (prepare candidate, review, apply on a paused/idle project). Installed agents and runtime preparation remain external. The old `/executor` URL redirects to Settings. Developers read non-secret settings/results without mutation actions.
 
-The names-only credential selector offers known provider names and retained custom names. An empty list suits a local project that reuses the account's own Pi sign-in. Applying names does not delete saved `.env` values. Project API keys offers private Save/Disconnect for known allowed variables and shows sources only; key changes require paused pickup and idle/pending-free state. Explicit Test AI connection remains the evidence of model access and may incur provider charges. See [Executor configuration](../05_SoftwareDocu/Component_Executor_Configuration.md) for the exact API/storage contracts.
+The names-only selector for additional credential variables offers the known provider key variables and retained custom names; it defaults to empty because the provider's key variable is always passed. Applying names does not delete saved `.env` values. Provider API key offers private Save/Disconnect for the configured provider's credential variable only (none for a ChatGPT subscription, whose sign-in is not available yet) and shows its source only; key changes require paused pickup and idle/pending-free state. Explicit Test AI connection remains the evidence of model access and may incur provider charges. See [Executor configuration](../05_SoftwareDocu/Component_Executor_Configuration.md) for the exact API/storage contracts.
 
 ## Preparation review and apply
 
@@ -745,4 +758,4 @@ reviewed environment candidate. See Component_Project_Images.md.
 
 ## Reviewed executor configuration
 
-`executor.model` and `executor.command` are ordinary single-key candidates (there is no agent selection); executor.env_keys owns a complete names-only list. All require pending review and existing paused/idle apply guards. Public pending values and persisted scope are closed and checked against the unchanged base. Source-only private credential APIs retain their contracts. See [Executor configuration and credentials](Component_Executor_Configuration.md) and test_web_executor_configuration.py.
+`executor.connection` is a virtual candidate key whose value is strict JSON `{provider, model, base_url, api}` (endpoint fields empty unless the provider is `custom`); it is staged through `POST config/pending`, applied like other candidates, and rewrites `[executor] provider`/`model` and removes or adds `[executor.endpoint]` while preserving unrelated TOML (verified by re-parse). Its review value is that object. `executor.provider`, `executor.model`, `executor.endpoint.base_url` and `executor.endpoint.api` cannot be staged individually (400 `setting_not_editable`). `executor.command` is an ordinary single-key candidate (there is no agent selection); executor.env_keys owns a complete names-only list. All require pending review and existing paused/idle apply guards. Public pending values and persisted scope are closed and checked against the unchanged base. Source-only private credential APIs retain their contracts. See [Executor configuration and credentials](Component_Executor_Configuration.md) and test_web_executor_configuration.py.

@@ -40,6 +40,7 @@ from adore.branding import (
 from adore.execution import SHELL_HEADER, ExecutionPaths
 from adore.executor import pi_rpc
 from adore.executor.base import ExecTarget, Executor, GateRun
+from adore.pi_providers import pi_provider
 from adore.util import CommandResult, utc_now_iso
 
 # CONSTANTS
@@ -48,6 +49,9 @@ GATE_SCRIPT = "gate.sh"
 OUTPUT_FILE = "output.jsonl"
 STDERR_FILE = "stderr.log"
 ARCHIVE_DIR = "archive"
+#: io-dir file holding the endpoint models.json before it is copied into Pi's
+#: agent directory (outside the worktree, so the executor never commits it).
+MODELS_FILE = "pi-models.json"
 
 _ARCHIVE_STEM_RE = re.compile(r"[^A-Za-z0-9_.-]+")
 
@@ -393,15 +397,45 @@ class PiExecutor(FileProtocolExecutor):
              boundary stays that no forge credential is in the container. The
              configured [executor] command is not used there.
 
+             `--provider` names the Pi provider (`openai` for a ChatGPT
+             subscription, `adore-endpoint` for an OpenAI-compatible
+             endpoint) and `--model` the model id. For an endpoint the
+             generated models.json is written to the io dir and copied into
+             the ADORE-owned agent directory through the exec seam before Pi
+             starts; a failed copy fails the gate without starting Pi.
+
              A native target has no `spawn` seam and keeps the file protocol
              with the configured template, where completed `turn_end` events
-             carry the usage.
+             carry the usage; `{model}` is `<pi provider>/<model id>` there.
 
              Usage is summed over the assistant turns, cached prompt tokens
              included in input. Pi's cost is an executor estimate, not
              provider-billed cost, so no cost is reported; administrator price
              rules may estimate from the captured tokens.
     """
+
+    def __init__(
+        self,
+        command_template: str,
+        model: str,
+        questions_file: str = DEFAULT_QUESTIONS_FILE,
+        *,
+        provider: str = "",
+        models: dict | None = None,
+    ) -> None:
+        """
+        @brief      Configure Pi from the [executor] section.
+        @param[in]  command_template Native Pi argv template.
+        @param[in]  model Model id within the provider.
+        @param[in]  questions_file Clarification questions filename.
+        @param[in]  provider `[executor] provider` ("" keeps a bare `--model`).
+        @param[in]  models Endpoint models.json document, or None.
+        """
+        self.provider = pi_provider(provider) if provider else ""
+        self.model_id = model
+        self.models = models
+        native_model = f"{self.provider}/{model}" if self.provider else model
+        super().__init__(command_template, native_model, questions_file)
 
     def run_gate(
         self,
@@ -444,7 +478,11 @@ class PiExecutor(FileProtocolExecutor):
         stderr_path = io_dir / STDERR_FILE
         output_path.unlink(missing_ok=True)
         stderr_path.unlink(missing_ok=True)
-        argv = pi_rpc_argv(self.model)
+        argv = pi_rpc_argv(self.model_id, self.provider)
+        if self.models is not None:
+            placed = self._place_models(execute, io_dir)
+            if placed is not None:
+                return placed
         with (io_dir / GATE_SCRIPT).open("w", encoding="utf-8", newline="\n") as handle:
             handle.write(
                 SHELL_HEADER
@@ -492,6 +530,29 @@ class PiExecutor(FileProtocolExecutor):
             cost_reported=False,
             artifact_dirs=artifacts,
         )
+
+    def _place_models(self, execute: ExecTarget, io_dir: Path) -> GateRun | None:
+        """
+        @brief      Put the endpoint models.json into Pi's agent directory.
+        @details    The document holds no key (only `$ADORE_ENDPOINT_API_KEY` or
+                    a placeholder); it is written host-side into the io dir and
+                    copied inside the container, so a kept-warm container gets
+                    the current file for every gate.
+        @param[in]  execute Exec seam bound to the run's target.
+        @param[in]  io_dir HOST path of the run's io exchange dir.
+        @return     None when placed; a failed GateRun otherwise.
+        """
+        paths = getattr(execute, "paths", ExecutionPaths())
+        (io_dir / MODELS_FILE).write_bytes(
+            (json.dumps(self.models, ensure_ascii=True, indent=1) + "\n").encode("utf-8"))
+        result = execute(["cp", f"{paths.io}/{MODELS_FILE}",
+                          f"{CONTAINER_PI_AGENT_DIR}/models.json"], timeout=60)
+        if result.ok:
+            return None
+        detail = (result.stderr or result.stdout or "").strip()[:500]
+        return GateRun(exit_code=result.exit_code or 1, timed_out=result.timed_out,
+                       stderr=("Pi models.json could not be placed in the agent directory: "
+                               + detail).strip())
 
     def cancel_grace_seconds(self, execute: ExecTarget) -> float | None:
         """
@@ -563,30 +624,37 @@ class PiExecutor(FileProtocolExecutor):
                 cache_write if observed else None)
 
 
-def pi_rpc_argv(model: str) -> list[str]:
+def pi_rpc_argv(model: str, provider: str = "") -> list[str]:
     """
     @brief      Fixed command line of a container Pi RPC launch.
-    @param[in]  model Model in provider/model form.
-    @return     `node <cli.js> --mode rpc ... -e <guard> --model <model>`.
+    @param[in]  model Model id within the provider.
+    @param[in]  provider Pi provider id ("" passes only `--model`).
+    @return     `node <cli.js> --mode rpc ... -e <guard> [--provider <p>] --model <model>`.
     """
     return ["node", CONTAINER_PI_CLI, *PI_RPC_FLAGS, "-e", CONTAINER_PI_GUARD,
-            "--model", model]
+            *(["--provider", provider] if provider else []), "--model", model]
 
 
 def build_executor(
     command_template: str,
     model: str,
     questions_file: str = DEFAULT_QUESTIONS_FILE,
+    *,
+    provider: str = "",
+    models: dict | None = None,
 ) -> Executor:
     """
     @brief      Construct the Pi launcher (config selection point).
     @details    Pi is the only implementation of the executor interface.
     @param[in]  command_template Native Pi argv template ([executor] command).
-    @param[in]  model Model in provider/model form.
+    @param[in]  model Model id within the provider.
     @param[in]  questions_file Clarification questions filename.
+    @param[in]  provider `[executor] provider`.
+    @param[in]  models Endpoint models.json for `provider = "custom"`, else None.
     @return     A PiExecutor.
     """
-    return PiExecutor(command_template, model, questions_file)
+    return PiExecutor(command_template, model, questions_file,
+                      provider=provider, models=models)
 
 
 # END OF FILE

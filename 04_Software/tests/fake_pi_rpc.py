@@ -16,6 +16,8 @@
          followed the same command type in the fixture, so the client decides
          when to send `abort`. Response ids are rewritten to the client's ids.
          Options inject the failure modes the recordings do not contain.
+         `<NONCE>` and `<TOOL_NONCE>` in a recording (the Test AI connection
+         challenge) are replaced by the nonces of the prompt actually sent.
 @example python fake_pi_rpc.py fixture.jsonl --record commands.log --hang
 """
 
@@ -25,8 +27,13 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import re
 import sys
 import time
+
+# CONSTANTS
+#: Placeholder -> value, filled from the prompt the client sent.
+NONCES: dict[str, str] = {}
 
 # HELPER FUNCTIONS
 
@@ -58,6 +65,8 @@ def _write(record: object, key_hint: str) -> None:
     @param[in]  key_hint Replacement for the fixture's redacted key hint.
     """
     text = json.dumps(record, ensure_ascii=False)
+    for placeholder, value in NONCES.items():
+        text = text.replace(placeholder, value)
     if key_hint:
         text = text.replace("<REDACTED_KEY_HINT>", key_hint)
     sys.stdout.buffer.write(text.encode("utf-8") + b"\n")
@@ -153,6 +162,13 @@ def main() -> int:
                 handle.write(raw)
         command = json.loads(raw)
         kind = command.get("type")
+        if kind == "prompt":
+            message = str(command.get("message", ""))
+            for placeholder, pattern in (("<NONCE>", r"ADORE_OK_[0-9a-f]+"),
+                                         ("<TOOL_NONCE>", r"ADORE_TOOL_[0-9a-f]+")):
+                found = re.search(pattern, message)
+                if found:
+                    NONCES[placeholder] = found.group(0)
         if options.ignore_abort and kind == "abort":
             continue
         if options.hang and kind == "abort":

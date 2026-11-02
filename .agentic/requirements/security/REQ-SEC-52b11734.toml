@@ -1,0 +1,29 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-SEC-52b11734"
+
+title = "Pass the provider API key to Pi only as its environment variable"
+
+status = "active"
+
+requirement = """When ADORE launches or tests Pi for a project, it shall pass the configured provider's key only as the environment variable Pi defines for that provider (or ADORE_ENDPOINT_API_KEY for an endpoint), read from the project credential store or the server environment, together with the configured additional names, and never as an argument or a configuration value."""
+
+verification = "A fake-process launch shows the provider variable in the container environment for openai and the endpoint variable for custom, not in any runtime argv; a stage run built by Orchestrator.from_config carries the provider's key as a secret and, for an endpoint, a models.json that names only the variable."
+
+affected_paths = ["04_Software/adore/config.py", "04_Software/adore/orchestrator.py", "04_Software/adore/web/model_connection.py", "04_Software/adore/web/executor_settings.py", "04_Software/adore/local_execution.py", "04_Software/adore/pi_providers.py"]
+
+linked_tests = ["04_Software/tests/test_pi_providers.py::test_secret_names_add_the_provider_variable_to_additional_names", "04_Software/tests/test_model_connection.py::test_rpc_probe_reports_each_outcome_distinctly", "04_Software/tests/test_model_connection.py::test_endpoint_probe_places_models_json_and_passes_the_endpoint_key", "04_Software/tests/test_orchestrator.py::test_from_config_wires_the_provider_key_and_endpoint_models_into_stage_runs"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-02
+updated = 2026-11-02

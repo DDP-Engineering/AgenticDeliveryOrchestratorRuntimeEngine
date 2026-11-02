@@ -28,7 +28,8 @@ repo = "group/project"
 repo_path = "../runtime-project"
 
 [executor]
-model = "openai/gpt-5.4-fast"
+provider = "openai"
+model = "gpt-5.4-fast"
 
 [delivery]
 reviewers = ["reviewer.one"]

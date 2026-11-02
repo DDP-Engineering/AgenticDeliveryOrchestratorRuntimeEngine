@@ -27,6 +27,12 @@ The implemented tools are the release checker and the runtime-bundle packager:
 - `check_release_notes.py` - checks the four-locale user-facing release notes
   in `04_Software/adore/release_notes.toml` (contract, changelog dates, current
   version); `--since <rev>` warns when `CHANGELOG.md` changed without them.
+- `generate_pi_catalog.py` - writes `04_Software/adore/pi_catalog.json`, the
+  Pi providers, key variables and models offered in Settings and enrollment,
+  by running the pinned Pi's `--list-models` offline (`PI_OFFLINE=1`, one
+  placeholder provider variable at a time, variables from Pi's
+  `docs/providers.md`). Rerun it whenever the pinned Pi version changes;
+  pass `--node <Node 22>` and `--cli <prefix>/.../pi-coding-agent/dist/bundle/cli.js`.
 - `stamp_web_assets.py` - stamps built JS/CSS with the project license and
   copies license/third-party notices. Its default is `adore/web/static`;
   `--output <directory>` selects an existing isolated build containing

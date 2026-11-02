@@ -1,0 +1,29 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-FUNC-75711382"
+
+title = "Review and apply the agent connection as one change"
+
+status = "active"
+
+requirement = """When an administrator prepares a provider, model and endpoint in Settings -> Agent and model, ADORE shall stage them as one reviewed candidate that rewrites `[executor] provider`, `model` and `[executor.endpoint]` together, shows each active and proposed value, applies at the existing idle boundary, and refuses an invalid or unrelated-changing candidate."""
+
+verification = "API tests stage and apply openai -> custom (endpoint table added) and custom -> anthropic (endpoint table removed) preserving other TOML; an invalid provider, a malformed URL, a custom selection without URL and extra fields are refused with the file unchanged."
+
+affected_paths = ["04_Software/adore/web/executor_configuration.py", "04_Software/adore/web/app.py", "04_Software/web/src/AgentConnectionEditor.tsx", "04_Software/web/src/settings.ts", "04_Software/web/src/App.tsx", "04_Software/adore/cli.py"]
+
+linked_tests = ["04_Software/tests/test_web_executor_configuration.py::test_connection_is_one_reviewed_edit_and_no_agent_choice_exists", "04_Software/tests/test_web_executor_configuration.py::test_connection_adds_and_removes_the_endpoint_table", "04_Software/tests/test_web_executor_configuration.py::test_invalid_connection_is_refused_and_files_stay", "04_Software/web/tests/agentConnection.test.mjs", "04_Software/web/e2e/executor-config.spec.ts", "04_Software/tests/test_web_executor_configuration.py::test_numeric_looking_model_id_stays_a_string"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-02
+updated = 2026-11-02

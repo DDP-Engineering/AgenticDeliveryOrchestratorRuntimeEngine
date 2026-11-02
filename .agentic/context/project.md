@@ -55,7 +55,7 @@ ADORE's only coding agent.
   worker faults remain visible, with reporting/technical evidence in dedicated views.
   Header help discloses localized delivery meanings beside Refresh/About; sidebar
   Jobs supplies scoped full-history navigation.
-  Settings → Agent and model unifies the Pi model, launch command, provider credentials and model testing
+  Settings → Agent and model unifies the Pi provider, model and OpenAI-compatible endpoint (one reviewed `executor.connection` edit; models from the pinned Pi catalog), launch command, the provider's API key and RPC model testing
   (no agent choice), with the exact launch preset for container projects through reviewed apply, inline field editors retaining row columns and a names-only credential dropdown with removable selections.
   Settings uses six purpose
   categories and closed informational Technical details, with clarification/recovery/statistics-path topics and one Repository branch editor linked from PR/MR, visible catalog guidance and exact single-candidate active/proposed

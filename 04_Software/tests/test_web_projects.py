@@ -104,7 +104,7 @@ def test_web_project_has_stable_absolute_worktree_root(tmp_path, monkeypatch):
         body = {
             "name": "alpha", "kind": "gitlab", "repo": "group/alpha",
             "repo_path": str(clone), "reviewers": "reviewer",
-            "model": "openai/gpt-5.5",
+            "provider": "openai", "model": "gpt-5.5",
             "auth_mode": "api-key", "image": "adore-test:latest",
         }
         headers = {"X-CSRF-Token": session["csrf"]}

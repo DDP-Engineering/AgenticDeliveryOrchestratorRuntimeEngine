@@ -43,6 +43,15 @@ from adore.branding import (
     PRODUCT_SLUG,
     UV_CACHE_VOLUME,
 )
+from adore.pi_providers import (
+    CUSTOM,
+    DEFAULT_ENDPOINT_API,
+    ENDPOINT_APIS,
+    MODEL_ID_RE,
+    CatalogError,
+    provider_ids,
+    valid_endpoint_url,
+)
 from adore.util import parse_duration
 
 # CONSTANTS
@@ -247,24 +256,40 @@ class LabelsConfig:
 
 
 @dataclass
+class ExecutorEndpointConfig:
+    """
+    @brief   [executor.endpoint] - an OpenAI-compatible endpoint for `provider = "custom"`.
+    @details `base_url` is the address as seen from where Pi runs (inside the
+             container); `api` is the Pi API type the endpoint speaks. Its
+             optional key is a credential (ADORE_ENDPOINT_API_KEY), never a
+             value here.
+    """
+
+    base_url: str = ""
+    api: str = DEFAULT_ENDPOINT_API
+
+
+@dataclass
 class ExecutorConfig:
     """
     @brief   [executor] - how ADORE launches Pi, its only coding agent.
-    @details `model` is the Pi model in provider/model form. `command` is the
+    @details `provider` is a Pi API-key provider id, `chatgpt` or `custom`
+             (an OpenAI-compatible endpoint described by [executor.endpoint]);
+             `model` is the model id within that provider. `command` is the
              argv template of a native (installed) Pi run; a container run
-             uses the image's pinned Pi and ignores it. env_keys names the
-             secret subset injected into the executor (from the environment /
-             .env); only these keys ever reach it (design 12b: scope
-             minimally).
+             uses the image's pinned Pi and ignores it. The provider's key
+             variable always reaches Pi; env_keys names additional secrets
+             injected into the executor (from the environment / .env); only
+             these keys ever reach it (design 12b: scope minimally).
     """
 
+    provider: str = ""
     model: str = ""
+    endpoint: ExecutorEndpointConfig = field(default_factory=ExecutorEndpointConfig)
     command: str = PI_NATIVE_COMMAND
     mode: str = "thick"
     questions_file: str = ""
-    env_keys: list[str] = field(
-        default_factory=lambda: ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]
-    )
+    env_keys: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -603,6 +628,22 @@ def _build_labels(data: Any) -> LabelsConfig:
     )
 
 
+def _build_executor(data: Any) -> ExecutorConfig:
+    """
+    @brief      Build [executor] including the nested [executor.endpoint].
+    @details    A non-table endpoint value is left at its defaults and refused
+                by validate_config.
+    @param[in]  data Raw [executor] mapping.
+    @return     A populated ExecutorConfig.
+    """
+    if not isinstance(data, dict):
+        return ExecutorConfig()
+    section = _build_section(ExecutorConfig, {key: value for key, value in data.items()
+                                              if key != "endpoint"})
+    section.endpoint = _build_section(ExecutorEndpointConfig, data.get("endpoint"))
+    return section
+
+
 def _build_container(data: Any) -> ContainerConfig:
     """
     @brief      Build [container] including the nested [container.egress].
@@ -736,7 +777,7 @@ def load_config(path: str | Path) -> Config:
         polling=_build_section(PollingConfig, raw.get("polling")),
         readiness=_build_section(ReadinessConfig, raw.get("readiness")),
         labels=_build_labels(raw.get("labels")),
-        executor=_build_section(ExecutorConfig, raw.get("executor")),
+        executor=_build_executor(raw.get("executor")),
         execution=_build_section(ExecutionConfig, raw.get("execution")),
         local=_build_section(LocalConfig, raw.get("local")),
         clarification=_build_section(ClarificationConfig, raw.get("clarification")),
@@ -878,11 +919,66 @@ def _unknown_key_issues(raw: dict) -> list[str]:
     # A table of a removed coding agent ([executor.<name>]) is a key of
     # [executor] here, so it is refused by name like any other key.
     check("executor", raw.get("executor"), ExecutorConfig)
+    if isinstance(raw.get("executor"), dict):
+        check("executor.endpoint", raw["executor"].get("endpoint"), ExecutorEndpointConfig)
     container = raw.get("container")
     if isinstance(container, dict):
         check("container", {key: value for key, value in container.items()
                             if key != "egress"}, ContainerConfig)
         check("container.egress", container.get("egress"), ContainerEgressConfig)
+    return issues
+
+
+def _provider_issues(config: Config) -> list[str]:
+    """
+    @brief      Validate [executor] provider, model and [executor.endpoint].
+    @details    The provider is a Pi API-key provider from the shipped catalog,
+                `chatgpt` or `custom`; [executor.endpoint] is present exactly
+                for `custom`, with an http(s) base URL that carries no user
+                info, query or fragment (a key is a credential, never a URL
+                part) and a supported Pi API type. A local run cannot use an
+                endpoint: it has no ADORE-owned agent directory for models.json.
+    @param[in]  config Loaded configuration (with its raw mapping).
+    @return     One issue per problem, naming the key.
+    """
+    executor = config.executor
+    issues: list[str] = []
+    try:
+        known = provider_ids()
+    except CatalogError as exc:
+        return [f"[executor] provider cannot be checked: {exc}"]
+    if not isinstance(executor.provider, str) or not executor.provider.strip():
+        issues.append('[executor] provider is required: a Pi API-key provider id, '
+                      '"chatgpt" or "custom"')
+    elif executor.provider not in known:
+        issues.append(f"[executor] provider {executor.provider!r} is not a Pi API-key provider, "
+                      '"chatgpt" or "custom"')
+    if not isinstance(executor.model, str) or not executor.model.strip():
+        issues.append("[executor] model is required")
+    elif not MODEL_ID_RE.fullmatch(executor.model):
+        issues.append(f"[executor] model {executor.model!r} must be one model id without "
+                      "spaces, quotes or control characters (at most 200 characters)")
+    raw_executor = config.raw.get("executor")
+    raw_endpoint = raw_executor.get("endpoint") if isinstance(raw_executor, dict) else None
+    if executor.provider != CUSTOM:
+        if raw_endpoint is not None:
+            issues.append('[executor.endpoint] is used only with provider = "custom": '
+                          "remove it from config.toml")
+        return issues
+    if config.execution.backend == "local":
+        issues.append('[executor] provider "custom" needs a container run: a local run uses '
+                      "the account's own Pi agent directory")
+    if not isinstance(raw_endpoint, dict):
+        issues.append('[executor.endpoint] base_url is required for provider = "custom"')
+        return issues
+    base_url = executor.endpoint.base_url
+    if not valid_endpoint_url(base_url):
+        issues.append("[executor.endpoint] base_url must be an http(s) address with a host and "
+                      "no user name, password, query, fragment, spaces or quotes (the address "
+                      f"as seen from the container): {base_url!r}")
+    if executor.endpoint.api not in ENDPOINT_APIS:
+        issues.append(f"[executor.endpoint] api must be one of {', '.join(ENDPOINT_APIS)}: "
+                      f"{executor.endpoint.api!r}")
     return issues
 
 
@@ -954,10 +1050,10 @@ def validate_config(config: Config) -> list[str]:
         "[executor] env_keys must not expose forge credentials to executors: "
         f"{sorted(_FORGE_CREDENTIAL_ENV & set(config.executor.env_keys))}",
     )
+    issues.extend(_provider_issues(config))
     command = config.executor.command
     issues.extend(_command_placeholder_issues(command))
     check(bool(command.strip()), "[executor] command is required")
-    check(bool(config.executor.model.strip()), "[executor] model is required")
     check("{prompt}" in command, "[executor] command must contain a {prompt} placeholder")
     check(
         "--auto" not in command.split(),

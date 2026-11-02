@@ -20,6 +20,7 @@ from __future__ import annotations
 # IMPORTS
 from collections import deque
 from dataclasses import replace
+import json
 import os
 from pathlib import Path
 from threading import Event
@@ -2716,6 +2717,39 @@ def test_from_config_env_filter_and_process_precedence(
         "ADORE_TEST_SECRET": "process",
         "ADORE_FILE_ONLY": "file-only",
     }
+
+
+@pytest.mark.parametrize("keyed", [False, True])
+def test_from_config_wires_the_provider_key_and_endpoint_models_into_stage_runs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    keyed: bool,
+) -> None:
+    """
+    @brief   A stage run receives the provider's key variable as a secret, Pi's
+             provider, and for an endpoint the models.json naming its key.
+    """
+    for name in ("OPENAI_API_KEY", "ADORE_ENDPOINT_API_KEY"):
+        monkeypatch.delenv(name, raising=False)
+    env_file = tmp_path / ".env"
+    env_file.write_text("OPENAI_API_KEY=openai-file-key\n" + (
+        "ADORE_ENDPOINT_API_KEY=endpoint-file-key\n" if keyed else ""), encoding="utf-8")
+    config = make_config(tmp_path)
+    config.executor.provider, config.executor.model = "openai", "gpt-5.4"
+    engine = Orchestrator.from_config(config, env_file=env_file)
+    assert engine.secrets == {"OPENAI_API_KEY": "openai-file-key"}
+    assert (engine.executor.provider, engine.executor.model_id) == ("openai", "gpt-5.4")
+    assert engine.executor.models is None
+
+    config.executor.provider, config.executor.model = "custom", "qwen/qwen3.5-9b"
+    config.executor.endpoint.base_url = "http://172.27.80.1:1234/v1"
+    engine = Orchestrator.from_config(config, env_file=env_file)
+    assert engine.secrets == ({"ADORE_ENDPOINT_API_KEY": "endpoint-file-key"} if keyed else {})
+    assert engine.executor.provider == "adore-endpoint"
+    endpoint = engine.executor.models["providers"]["adore-endpoint"]
+    assert endpoint["apiKey"] == ("$ADORE_ENDPOINT_API_KEY" if keyed else "adore-no-key")
+    assert endpoint["baseUrl"] == "http://172.27.80.1:1234/v1"
+    assert "endpoint-file-key" not in json.dumps(engine.executor.models)
 
 
 def test_terminal_status_failure_preserves_lifecycle_and_outcome(tmp_path: Path) -> None:

@@ -44,7 +44,8 @@ repo_path = "{repo_path}"
 root = "{worktrees}"
 
 [executor]
-model = "openai/gpt-5.5"
+provider = "openai"
+model = "gpt-5.5"
 
 [delivery]
 reviewers = []

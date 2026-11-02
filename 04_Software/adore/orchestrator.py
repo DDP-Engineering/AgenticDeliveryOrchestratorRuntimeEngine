@@ -73,6 +73,7 @@ from adore.isolation import (
     WorktreeManager,
     build_container_env,
 )
+from adore.pi_providers import ENDPOINT_KEY_VARIABLE, models_json, secret_names
 from adore.polling import PollCadence
 from adore.preparation import PreparationError, execution_policy, resolve_plan
 from adore.repository_auth import project_runner
@@ -240,7 +241,7 @@ class Orchestrator:
         @return     Production-wired orchestrator.
         """
         env = {**load_env_file(env_file), **os.environ}
-        secrets = {key: env[key] for key in config.executor.env_keys if env.get(key)}
+        secrets = {key: env[key] for key in secret_names(config.executor) if env.get(key)}
         return cls(
             config=config,
             forge=build_forge(
@@ -265,6 +266,8 @@ class Orchestrator:
                 config.executor.command,
                 config.executor.model,
                 config.executor.questions_file,
+                provider=config.executor.provider,
+                models=models_json(config.executor, ENDPOINT_KEY_VARIABLE in secrets),
             ),
             secrets=secrets,
         )
@@ -3013,7 +3016,7 @@ class Orchestrator:
         if self.config.execution.backend == "local":
             env = self.backend.executor_environment()
             env.update({key: value for key, value in self.secrets.items()
-                        if key in self.config.executor.env_keys})
+                        if key in secret_names(self.config.executor)})
             return env
         env = build_container_env(
             self.worktrees.admin_dir_name(run.run_id),

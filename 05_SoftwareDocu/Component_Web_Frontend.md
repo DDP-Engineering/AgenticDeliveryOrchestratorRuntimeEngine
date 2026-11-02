@@ -97,9 +97,9 @@ Project Settings retains the effective durable state folder as a read-only row.
 `state.channel` is removed: it is not in the setting catalog, and config
 validation refuses it as an unknown key.
 
-**Project → Settings → Agent and model** configures Pi, ADORE's only coding agent; there is no agent choice. It shows Test AI connection, the model (`executor.model`, an ordinary reviewed setting), the launch command (`executor.command`; a container project may choose only the one Pi preset, a local project edits validated native argv), allowed credential variables (`executor.env_keys`), project API keys, the execution environment (`execution.backend`, the container runtime and image, and the local account, home, PATH and cgroup root for local projects, with external container guidance) and estimated prices. A new model ID must be supplied explicitly. Credential names are added through a dropdown and remain visible as individually removable selections. Model, command, backend, runtime and image edits go only through the reviewed flow (prepare candidate, review, apply). While the image row is edited it offers the same server image suggestions. Installed agents and runtime preparation remain external. The old `/executor` URL redirects to Settings. Developers read non-secret settings/results without mutation actions.
+**Project → Settings → Agent and model** configures Pi, ADORE's only coding agent; there is no agent choice. It shows Test AI connection, the agent connection (Provider, Model, and for an OpenAI-compatible endpoint Endpoint base URL and Endpoint API type; one reviewed candidate, `executor.connection`), the launch command (`executor.command`; a container project may choose only the one Pi preset, a local project edits validated native argv), additional credential variables (`executor.env_keys`), the provider API key, the execution environment (`execution.backend`, the container runtime and image, and the local account, home, PATH and cgroup root for local projects, with external container guidance) and estimated prices. A new model ID must be supplied explicitly. Credential names are added through a dropdown and remain visible as individually removable selections. Connection, command, backend, runtime and image edits go only through the reviewed flow (prepare candidate, review, apply). While the image row is edited it offers the same server image suggestions. Installed agents and runtime preparation remain external. The old `/executor` URL redirects to Settings. Developers read non-secret settings/results without mutation actions.
 
-The names-only credential selector offers known provider names and retained custom names. An empty list (`env_keys = []`) suits a local project that reuses the account's own Pi sign-in. Applying names does not delete saved `.env` values. Project API keys offers private Save/Disconnect for known allowed variables and shows sources only; key changes require paused pickup and idle/pending-free state. Explicit Test AI connection remains the evidence of model access and may incur provider charges.
+The names-only selector for additional credential variables offers the known provider key variables and retained custom names; it defaults to empty (`env_keys = []`) because the provider's key variable is always passed. Applying names does not delete saved `.env` values. Provider API key offers private Save/Disconnect for the configured provider's credential variable only (none for a ChatGPT subscription, whose sign-in is not available yet) and shows its source only; key changes require paused pickup and idle/pending-free state. Explicit Test AI connection remains the evidence of model access and may incur provider charges.
 
 The shared shell presents Overview, Projects, Jobs and Statistics as semantic
 links, with My account for each authenticated user and administrator-only
@@ -247,13 +247,18 @@ Continue is disabled until the read succeeds. There is no existing-clone mode; t
 reuses a clone at the chosen path when its origin matches. Every text field shows an example
 placeholder. Reviewers are optional (an empty list requests no review), in the wizard and
 in the Settings reviewer editor.
-Actual provider/model values are entered explicitly. **Runs in** offers Container or
+Step 2 offers **Provider** (OpenAI-compatible endpoint, ChatGPT subscription and Pi's
+API-key providers from `GET /api/v1/pi-providers`), **Model** (any typed ID, with Pi's
+models for the provider as a datalist) and, only for an endpoint, **Endpoint base URL**
+and **Endpoint API type**; a help paragraph names the credential variable to save after
+creation (`credentialNote`), because enrollment takes no secret. Review and create lists
+them plus **Credential to save after creation**. **Runs in** offers Container or
 Installed on the server (`execution.backend`); Container adds **Container runtime**
 and a free-text **Executor image** whose suggestions come from `serverImages.ts`
 (`GET /api/v1/executor-images`), and Installed shows the native command and local
 account fields. There is no agent choice: Pi is the only coding agent. A
 container project uses API-key mode; a local project chooses API-key mode or
-the account's own Pi sign-in (`existing`). Credential references are optional.
+the account's own Pi sign-in (`existing`). Additional credential references are optional.
 `ForgeLabels.tsx` offers the label option on Review and create (ticked by default; after
 creation the wizard calls `labels/ensure` and shows the report, a failure leaving the project
 created) and **Create missing labels** in Settings → Repository.
@@ -461,7 +466,8 @@ localized common labels and localized setting guidance for remaining headings.
 `settingsCopy.ts` supplies four-locale category, effect and recovery copy.
 
 `PendingReview` compares safe active values to typed server-derived proposed values,
-names the affected display project. Pending configuration appears above the settings categories. The main comparison shows changed values only, with adjacent Apply/Discard actions. A candidate with unchanged simple values displays a clear notice and disables Apply; plan binding candidates retain their review. Closed Technical details contains the complete safe comparison, effect, preparation time, revisions and Copy safe review. Blocking pause/stale notices remain visible. Object property order is ignored when comparing values; list order is significant. The comparison wraps into labeled value cells on narrow screens. Preparation focuses the review heading; discard returns keyboard
+names the affected display project. An `executor.connection` candidate is shown as four
+rows: Provider, Model, Endpoint base URL and Endpoint API type. Pending configuration appears above the settings categories. The main comparison shows changed values only, with adjacent Apply/Discard actions. A candidate with unchanged simple values displays a clear notice and disables Apply; plan binding candidates retain their review. Closed Technical details contains the complete safe comparison, effect, preparation time, revisions and Copy safe review. Blocking pause/stale notices remain visible. Object property order is ignored when comparing values; list order is significant. The comparison wraps into labeled value cells on narrow screens. Preparation focuses the review heading; discard returns keyboard
 focus to the edited row. Safe clipboard
 copy uses only review values and full revisions. A single mutation ref lock and
 captured session/request/view identities suppress duplicate submission and late
@@ -532,7 +538,18 @@ Administrators use **Preview raw configuration** or **Download raw configuration
 branding, responsive menu, header and content focus. `Presentation.tsx` owns
 `DataFeedback`, `ProjectEmpty`, `StatusBadge` and `DeliveryGlossary`.
 `App.tsx` owns session, project hubs, SettingsList/PendingReview, configuration/statistics mutations and route/history flow.
-`settings.ts` owns purpose grouping and strict catalog/candidate transport validation;
+`settings.ts` owns purpose grouping and strict catalog/candidate transport validation
+(input kind `connection` for rows whose `edit_key` is `executor.connection`,
+`connectionRowVisible` hiding the endpoint rows unless the provider is `custom`, and
+`validPendingConfig` accepting the connection JSON);
+`agentConnection.ts` owns the connection types, `validConnection`, `connectionOf`, the
+provider catalog read (`readProviderCatalog`), four-locale `connectionCopy` and
+`credentialNote`; `AgentConnectionEditor.tsx` edits the connection (provider select with
+OpenAI-compatible endpoint, ChatGPT subscription and an optgroup of API-key providers;
+model input with Pi's models as a datalist; endpoint URL and API select only for
+`custom`, with help that the address is as seen from the container and that
+`host.docker.internal` works only on Docker Desktop; a note naming the credential
+variable, or that ChatGPT sign-in is not available yet);
 `settingsCopy.ts` owns clear labels and localized single-candidate guidance.
 `JobWorkspace.tsx` owns scoped jobs/attention/detail, visible polling and command
 feedback. `jobModel.ts` validates complete counts, composite identity, saved
@@ -794,9 +811,9 @@ narrow/dark layout, token clearing and wrong-scope rejection.
 
 ## Explicit AI connection test
 
-Administrators use **Settings → Agent and model → Test AI connection** for the configured Pi model. Each explicit click sends one short request in a temporary container, or in a temporary folder for Pi installed on the server, and may incur provider charges. The project must be idle with valid saved settings and no pending configuration/operations; a container project's installed image must contain Python and Pi.
+Administrators use **Settings → Agent and model → Test AI connection** for the configured Pi provider and model. Each explicit click sends one short request over Pi's RPC mode in a temporary container, or in a temporary folder for Pi installed on the server, and may incur provider charges. The project must be idle with valid saved settings and no pending configuration/operations; a container project's installed image must contain the pinned Pi.
 
-Only a valid completed challenge response reports connected. Failures provide redacted guidance for credentials, model availability, image, CLI version or network. The action reuses executor credentials and egress and starts no job. For Pi installed on the server it also requires one completed shell command (a failure reports **tool-call-failed** with permission guidance); in a container it proves no tool capability. Evidence is durably saved, bound to current project/model/configuration and credential inputs. Summary and host-check details reuse the current access result. Host-check time/version are internally validated and hidden from Summary/check details. See Component_Model_Connection.md.
+Only a valid completed challenge response reports connected: one completed shell command printing a nonce, then the exact reply (a failed shell call reports **tool-call-failed** with permission guidance). `modelEvidence.ts` gives four-locale guidance for every reason, including **credential-missing** (no key saved or set; no container starts), **credential-invalid**, **connection-failed**, **model-unavailable**, **rate-limited** and **provider-error**. The action reuses executor credentials and egress and starts no job. Evidence is durably saved, bound to current project/model/configuration and credential inputs. Summary and host-check details reuse the current access result. Host-check time/version are internally validated and hidden from Summary/check details. See Component_Model_Connection.md.
 
 
 ## Project setting scope and guidance
@@ -807,9 +824,9 @@ Proof: web/e2e/settings.spec.ts project settings keep defaults and single guidan
 
 ## Project executor configuration
 
-**Project → Settings → Agent and model** configures Pi, ADORE's only coding agent; there is no agent choice. It shows Test AI connection, the model (`executor.model`, an ordinary reviewed setting), the launch command (`executor.command`; a container project may choose only the one Pi preset, a local project edits validated native argv), allowed credential variables (`executor.env_keys`), project API keys, the execution environment (`execution.backend`, the container runtime and image, and the local account, home, PATH and cgroup root for local projects, with external container guidance) and estimated prices. A new model ID must be supplied explicitly. Credential names are added through a dropdown and remain visible as individually removable selections. Model, command, backend, runtime and image edits go only through the reviewed flow (prepare candidate, review, apply). While the image row is edited it offers the same server image suggestions. Installed agents and runtime preparation remain external. The old `/executor` URL redirects to Settings. Developers read non-secret settings/results without mutation actions.
+**Project → Settings → Agent and model** configures Pi, ADORE's only coding agent; there is no agent choice. It shows Test AI connection, the agent connection (Provider, Model, and for an OpenAI-compatible endpoint Endpoint base URL and Endpoint API type; one reviewed candidate, `executor.connection`), the launch command (`executor.command`; a container project may choose only the one Pi preset, a local project edits validated native argv), additional credential variables (`executor.env_keys`), the provider API key, the execution environment (`execution.backend`, the container runtime and image, and the local account, home, PATH and cgroup root for local projects, with external container guidance) and estimated prices. A new model ID must be supplied explicitly. Credential names are added through a dropdown and remain visible as individually removable selections. Connection, command, backend, runtime and image edits go only through the reviewed flow (prepare candidate, review, apply). While the image row is edited it offers the same server image suggestions. Installed agents and runtime preparation remain external. The old `/executor` URL redirects to Settings. Developers read non-secret settings/results without mutation actions.
 
-The names-only credential selector offers known provider names and retained custom names. An empty list (`env_keys = []`) suits a local project that reuses the account's own Pi sign-in. Applying names does not delete saved `.env` values. Project API keys offers private Save/Disconnect for known allowed variables and shows sources only; key changes require paused pickup and idle/pending-free state. Explicit Test AI connection remains the evidence of model access and may incur provider charges. See [Executor configuration](../05_SoftwareDocu/Component_Executor_Configuration.md) for the exact API/storage contracts.
+The names-only selector for additional credential variables offers the known provider key variables and retained custom names; it defaults to empty (`env_keys = []`) because the provider's key variable is always passed. Applying names does not delete saved `.env` values. Provider API key offers private Save/Disconnect for the configured provider's credential variable only (none for a ChatGPT subscription, whose sign-in is not available yet) and shows its source only; key changes require paused pickup and idle/pending-free state. Explicit Test AI connection remains the evidence of model access and may incur provider charges. See [Executor configuration](../05_SoftwareDocu/Component_Executor_Configuration.md) for the exact API/storage contracts.
 
 ### Transient application notifications
 
@@ -849,4 +866,4 @@ browser and helper tests verify the shared presentation surface.
 
 ## Agent and model settings
 
-executorSettings.ts supplies four-locale labels and row help for the Pi settings `executor.model`, `executor.command` and `executor.env_keys`, and the names-only credential guard; there is no agent choice. The model and the launch command are ordinary reviewed rows edited by the generic SettingsList editor: a container project offers only the Pi preset for the command, a local project accepts native argv. CredentialNamesEditor.tsx adds distinct names from a native dropdown and shows removable selected names; duplicates are disabled and malformed drafts cannot enable preparation. SettingsList groups private API keys inside Authentication. routes.ts redirects old /executor links to /configuration for both roles. The field editors and selected-name list wrap at 390px without horizontal overflow. Offline executor/settings/images/model-connection browser journeys cover role boundaries, four locales and narrow layout.
+executorSettings.ts supplies four-locale labels and row help for the Pi settings `executor.provider` ("Provider"), `executor.model` ("Model"), `executor.endpoint.base_url` ("Endpoint base URL"), `executor.endpoint.api` ("Endpoint API type"), `executor.command` and `executor.env_keys` ("Additional credential variables"), and the names-only credential guard; there is no agent choice. The provider, model and endpoint rows open `AgentConnectionEditor` for one `executor.connection` candidate; the launch command is an ordinary reviewed row edited by the generic SettingsList editor: a container project offers only the Pi preset for the command, a local project accepts native argv. ExecutorCredentials.tsx ("Provider API key") accepts whichever variable the server names and shows the ChatGPT note for `chatgpt`. CredentialNamesEditor.tsx adds distinct names from a native dropdown and shows removable selected names; duplicates are disabled and malformed drafts cannot enable preparation. SettingsList groups private API keys inside Authentication. routes.ts redirects old /executor links to /configuration for both roles. The field editors and selected-name list wrap at 390px without horizontal overflow. Offline executor/settings/images/model-connection browser journeys cover role boundaries, four locales and narrow layout.

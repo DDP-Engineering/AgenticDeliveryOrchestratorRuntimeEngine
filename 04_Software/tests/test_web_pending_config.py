@@ -383,7 +383,7 @@ def test_developer_catalog_redacts_financial_setting_and_credential_url(tmp_path
     """@brief Granted Dev gets safe purpose rows without financial or URL secrets."""
     profiles, path, _state = _project(tmp_path)
     path.write_text(path.read_text(encoding="utf-8").replace(
-        'model = "openai/gpt-5.5"',
+        'model = "gpt-5.5"',
         'model = "https://user:secret-value@model.local/v1"'), encoding="utf-8")
     assert "secret-value" in path.read_text(encoding="utf-8")
     app = create_app(profiles.home)

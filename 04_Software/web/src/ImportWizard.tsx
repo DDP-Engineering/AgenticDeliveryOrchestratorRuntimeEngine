@@ -15,7 +15,7 @@ type Draft = { name: string; display_name: string; description: string; config_t
 type Review = { name: string; display_name: string; description: string; config_path: string;
   paths: Record<string, string>; resolved_paths: Record<string, string>;
   platform: Record<string, string>; target_branch: string;
-  agent: Record<string, string>; executor: { model: string; env_keys: string[] };
+  agent: Record<string, string>; executor: { provider: string; model: string; endpoint_base_url: string; env_keys: string[] };
   container: Record<string, string> };
 type Preview = { revision: string; config_revision: string; review: Review | null;
   validation: { structural_valid: boolean; issues: Finding[] }; issues: string[] };
@@ -150,7 +150,8 @@ export function ImportWizard({ locale, csrf, t, onCancel, onOpen, onCreated, reg
           !stringRecord(value.review.agent, ["name", "slug", "email"]) ||
           !stringRecord(value.review.container, ["runtime", "image", "egress"]) ||
           typeof value.review.target_branch !== "string" || !value.review.executor ||
-          Object.keys(value.review.executor).length !== 2 || typeof value.review.executor.model !== "string" ||
+          Object.keys(value.review.executor).length !== 4 || typeof value.review.executor.model !== "string" ||
+          typeof value.review.executor.provider !== "string" || typeof value.review.executor.endpoint_base_url !== "string" ||
           !Array.isArray(value.review.executor.env_keys) || value.review.executor.env_keys.some(key =>
             typeof key !== "string" || !/^[A-Z][A-Z0-9_]{0,63}$/.test(key))))
         throw new ApiError("unexpected_response");

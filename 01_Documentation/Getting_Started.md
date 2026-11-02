@@ -57,7 +57,10 @@ runtime = "docker"
 image = "my-project-adore:latest"
 
 [executor]
-model = "openai/gpt-5.5" # Pi model in provider/model form
+provider = "openai"   # Pi API-key provider, "chatgpt" or "custom" (an endpoint)
+model = "gpt-5.5"     # model ID within the provider
+# The key goes in .env beside config.toml as OPENAI_API_KEY (never here),
+# or in Settings -> Agent and model.
 
 [workflow]
 aegis_python = "python"

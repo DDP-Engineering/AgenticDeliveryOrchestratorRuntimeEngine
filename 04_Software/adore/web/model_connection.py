@@ -10,119 +10,73 @@
 """
 @file    model_connection.py
 @brief   Explicit bounded model tests through Pi, ADORE's only coding agent.
-@details Temporary empty workspaces use project egress and executor credentials.
-         A completed nonce response proves connectivity; a native (installed) Pi
-         must also complete one shell call. Neither proves complete-job readiness.
+@details A container test runs one `pi --mode rpc` process in a temporary empty
+         container under the project's egress and credentials: Pi must run
+         one shell command that prints a tool nonce, then reply with exactly
+         a reply nonce. Pi's own failure class becomes a closed reason
+         (invalid key, unreachable provider or endpoint, unknown model, rate
+         limit). A provider that needs a credential and has none is reported
+         before any container starts. A native (installed) Pi runs the same
+         challenge through its file protocol. Neither proves complete-job
+         readiness.
 """
 
 # IMPORTS
 import json
 import os
 from pathlib import Path
-import re
+import subprocess
 import tempfile
 from time import monotonic
 from uuid import uuid4
 
-from adore.branding import EXECUTOR_NAME
+from adore.branding import CONTAINER_PI_AGENT_DIR, EXECUTOR_NAME
 from adore.isolation import ContainerManager, IsolationError
+from adore.pi_providers import (
+    ENDPOINT_KEY_VARIABLE,
+    MODEL_ID_RE,
+    credential_required,
+    credential_variable,
+    models_json,
+    pi_provider,
+    secret_names,
+)
 from adore.preparation import PreparationError, effective_probe_config
 from adore.util import load_env_file
 
 # CONSTANTS
 LOCAL_TIMEOUT_SECONDS = 90
 LOCAL_OUTPUT_BYTES = 1048576
+#: Wall-clock bound of the Pi run inside the temporary container.
+CONTAINER_TIMEOUT_SECONDS = 60
 REASONS = {
     "tool-call-failed",
     "ready",
     "timeout",
     "image-missing",
     "cli-missing",
+    "credential-missing",
     "credential-invalid",
     "model-unavailable",
     "connection-failed",
+    "rate-limited",
+    "provider-error",
     "invalid-response",
     "runtime-error",
 }
-# This script returns a closed result rather than transmitting raw provider output.
-_RUNNER = r"""
-# Copyright (c) 2026 DDP Engineering
-# This software is licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a separate commercial license.
-# See the LICENSE.txt file for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-import json, shutil, subprocess, sys, tempfile, time
-model, nonce = sys.argv[1:]
-prompt = "Connection test. Do not call tools or read files. Reply exactly: " + nonce
-command = ["pi", "-p", "--mode", "json", "--no-session", "--no-tools",
-           "--no-extensions", "--no-skills", "--no-prompt-templates", "--model", model, prompt]
-def unique(pairs):
-    value = {}
-    for k,v in pairs:
-        if k in value: raise ValueError()
-        value[k] = v
-    return value
-def emit(reason):
-    print(json.dumps({"ready": reason == "ready", "reason": reason}))
-if not shutil.which("pi"):
-    emit("cli-missing"); sys.exit(0)
-reason = "invalid-response"
-try:
- with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as err:
-    process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=out, stderr=err)
-    end = time.monotonic() + 45
-    while process.poll() is None:
-        if time.monotonic() >= end or out.tell() + err.tell() > 1048576:
-            process.kill(); process.wait()
-            emit("timeout" if time.monotonic() >= end else "invalid-response")
-            sys.exit(0)
-        time.sleep(.05)
-    if out.tell() + err.tell() > 1048576:
-        emit("invalid-response"); sys.exit(0)
-    out.seek(0); err.seek(0)
-    raw = out.read().decode("utf-8", errors="strict")
-    failure = (raw + err.read().decode("utf-8", errors="replace")).lower()
-    if process.returncode:
-        if any(x in failure for x in ("401", "403", "unauthorized", "authentication", "api key")):
-            reason = "credential-invalid"
-        elif "model not found" in failure:
-            reason = "model-unavailable"
-        else:
-            reason = "connection-failed"
-    else:
-        events = [json.loads(line, object_pairs_hook=unique)
-                  for line in raw.splitlines() if line.strip()]
-        found, complete, bad = False, False, False
-        for event in events:
-            if not isinstance(event, dict): raise ValueError()
-            typ = event.get("type", "")
-            if typ in ("error", "turn.failed", "tool_execution_start", "tool_use"):
-                bad = True
-            if typ == "message_end":
-                msg = event.get("message", {})
-                content = msg.get("content", [])
-                if msg.get("role") == "assistant":
-                    bad |= any(p.get("type") == "toolCall" for p in content)
-                    answer = "".join(p.get("text", "") for p in content
-                                     if p.get("type") == "text").strip() == nonce
-                    found |= answer
-                    complete |= msg.get("stopReason") == "stop" and answer
-        reason = "ready" if found and complete and not bad else "invalid-response"
-except Exception:
-    reason = "invalid-response"
-emit(reason)
-"""
+#: Pi failure class (`pi_rpc`) -> reason.
+_FAILURE_REASONS = {
+    "credential": "credential-invalid",
+    "sign-in": "credential-invalid",
+    "model": "model-unavailable",
+    "network": "connection-failed",
+    "rate-limit": "rate-limited",
+    "provider": "provider-error",
+}
+_MODELS_FILE = "pi-models.json"
 
 
-# PUBLIC API
-def _unique_result(pairs):
-    """@brief Reject duplicate fields in the external diagnostic envelope."""
-    value = {}
-    for key, item in pairs:
-        if key in value:
-            raise ValueError("duplicate diagnostic field")
-        value[key] = item
-    return value
+# HELPER FUNCTIONS
 
 
 def _shell_call_succeeded(event: dict, tool_nonce: str) -> bool:
@@ -166,33 +120,64 @@ def _native_tool_response(output: str, tool_nonce: str, nonce: str) -> str:
         return "invalid-response"
 
 
-def probe_model_connection(config, runner, env_file: Path) -> dict:
+def _challenge() -> tuple[str, str, str]:
+    """@brief A fresh shell-then-reply challenge: (prompt, tool nonce, reply nonce)."""
+    nonce = "ADORE_OK_" + uuid4().hex
+    tool_nonce = "ADORE_TOOL_" + uuid4().hex
+    prompt = ("Connection test. Run this shell command exactly once: echo " + tool_nonce
+              + ". Then reply with exactly: " + nonce)
+    return prompt, tool_nonce, nonce
+
+
+def _rpc_reason(result, tool_nonce: str, nonce: str) -> str:
+    """
+    @brief      Turn one Pi RPC outcome into a closed reason.
+    @param[in]  result `PiRpcResult` of the challenge run.
+    @param[in]  tool_nonce Token the shell command had to print.
+    @param[in]  nonce Expected final reply.
+    @return     A member of REASONS.
+    """
+    if result.outcome == "completed":
+        return _native_tool_response(result.output, tool_nonce, nonce)
+    if result.outcome == "failed":
+        return _FAILURE_REASONS.get(result.failure, "provider-error")
+    if result.outcome == "timed-out":
+        return "timeout"
+    if result.exit_code in (126, 127):
+        return "cli-missing"
+    return "invalid-response"
+
+
+# PUBLIC API
+
+
+def probe_model_connection(config, runner, env_file: Path, *,
+                           popen=subprocess.Popen) -> dict:
     """@brief Run one bounded challenge through the selected container/native target.
     @param[in] config Validated project snapshot.
     @param[in] runner Injectable external runtime boundary.
     @param[in] env_file Selected profile executor secret file.
+    @param[in] popen Process factory of the streaming `exec -i` (tests inject a fake Pi).
     @return Closed redacted executor/model/readiness/reason evidence.
     @exception IsolationError Cleanup cannot be confirmed.
     """
-    model = config.executor.model
+    executor = config.executor
+    model = executor.model
     result = {"executor": EXECUTOR_NAME, "model": model, "ready": False,
               "reason": "runtime-error"}
-    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}", model):
+    if not isinstance(model, str) or not MODEL_ID_RE.fullmatch(model):
         return result
     if config.execution.backend == "local":
         from adore.executor.launcher import build_executor
         from adore.local_execution import local_probe
 
-        nonce = "ADORE_OK_" + uuid4().hex
-        tool_nonce = "ADORE_TOOL_" + uuid4().hex
-        prompt = ("Connection test. Run this shell command exactly once: echo " + tool_nonce
-                  + ". Then reply with exactly: " + nonce)
+        prompt, tool_nonce, nonce = _challenge()
         try:
             with local_probe(config, env_file) as (_, target, work, exchange):
                 # Pi repeats the conversation in its events; keep what the container keeps.
                 target.output_limit = LOCAL_OUTPUT_BYTES
-                executor = build_executor(config.executor.command, model)
-                gate = executor.run_gate(target, work, exchange, prompt,
+                launcher = build_executor(executor.command, model, provider=executor.provider)
+                gate = launcher.run_gate(target, work, exchange, prompt,
                                          timeout=LOCAL_TIMEOUT_SECONDS)
                 reason = ("timeout" if gate.timed_out else
                           "connection-failed" if gate.exit_code else
@@ -200,6 +185,11 @@ def probe_model_connection(config, runner, env_file: Path) -> dict:
                 result.update(ready=reason == "ready", reason=reason)
         except (OSError, ValueError, TypeError, IsolationError):
             result["reason"] = "runtime-error"
+        return result
+    saved = {**load_env_file(env_file), **os.environ}
+    variable = credential_variable(executor.provider)
+    if credential_required(executor.provider) and not (variable and saved.get(variable)):
+        result["reason"] = "credential-missing"
         return result
     deadline = monotonic() + 90
 
@@ -233,10 +223,10 @@ def probe_model_connection(config, runner, env_file: Path) -> dict:
         root = Path(directory)
         for child in ("repo", "work", "io"):
             (root / child).mkdir()
-        (root / "io" / "probe.py").write_text(_RUNNER, encoding="utf-8")
         env = dict(config.container.runtime_env)
-        saved = {**load_env_file(env_file), **os.environ}
-        env.update({key: saved[key] for key in config.executor.env_keys if saved.get(key)})
+        secrets = {key: saved[key] for key in secret_names(executor) if saved.get(key)}
+        env.update(secrets)
+        models = models_json(executor, ENDPOINT_KEY_VARIABLE in secrets)
         provisioned = False
         try:
             images = [config.container.image]
@@ -249,28 +239,32 @@ def probe_model_connection(config, runner, env_file: Path) -> dict:
             runtime.ensure_volumes()
             provisioned = True
             runtime.provision(name, root / "repo", root / "work", root / "io", env)
-            checked = runtime.exec(
-                name,
-                ["python", "/adore/io/probe.py", model, "ADORE_OK_" + uuid4().hex],
-                timeout=50,
-                env=env,
-            )
-            try:
-                value = json.loads(checked.stdout, object_pairs_hook=_unique_result)
-            except (ValueError, TypeError):
-                result["reason"] = "invalid-response"
-                return result
-            if (
-                not checked.ok
-                or not isinstance(value, dict)
-                or set(value) != {"ready", "reason"}
-                or type(value["ready"]) is not bool
-                or value["reason"] not in REASONS
-                or value["ready"] != (value["reason"] == "ready")
-            ):
-                result["reason"] = "invalid-response"
-            else:
-                result.update(value)
+            if models is not None:
+                (root / "io" / _MODELS_FILE).write_bytes(
+                    json.dumps(models, ensure_ascii=True).encode("utf-8"))
+                if not runtime.exec(name, ["cp", f"/adore/io/{_MODELS_FILE}",
+                                           f"{CONTAINER_PI_AGENT_DIR}/models.json"],
+                                    timeout=10).ok:
+                    return result
+            from adore.executor import pi_rpc
+            from adore.executor.launcher import PI_RPC_ENV, pi_rpc_argv
+
+            prompt, tool_nonce, nonce = _challenge()
+            values = [value for value in secrets.values() if len(value) >= 4]
+
+            def redact(text: str) -> str:
+                for value in values:
+                    text = text.replace(value, "[REDACTED]")
+                return text
+
+            remaining = max(1.0, min(CONTAINER_TIMEOUT_SECONDS, deadline - monotonic() - 10))
+            launched = pi_rpc.run_pi_rpc(
+                lambda argv, extra: runtime.spawn(name, argv, env=extra, popen=popen),
+                pi_rpc_argv(model, pi_provider(executor.provider)), dict(PI_RPC_ENV), prompt,
+                timeout=remaining, output_path=root / "io" / "output.jsonl",
+                stderr_path=root / "io" / "stderr.log", redact=redact)
+            reason = _rpc_reason(launched, tool_nonce, nonce)
+            result.update(ready=reason == "ready", reason=reason)
         except TimeoutError:
             result["reason"] = "timeout"
         except (OSError, ValueError, TypeError, IsolationError):

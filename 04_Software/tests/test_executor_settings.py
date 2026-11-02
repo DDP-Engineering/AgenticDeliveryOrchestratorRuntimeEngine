@@ -324,3 +324,103 @@ def test_credentials_changing_during_test_do_not_publish_evidence(tmp_path, monk
         )
         assert response.status_code == 409
         assert not (profiles.profile_dir("alpha") / "model-connection.json").exists()
+
+
+def _login(client) -> dict:
+    """@brief Sign in as the seeded administrator and return the CSRF header."""
+    csrf = client.post(
+        "/api/v1/session", json={"username": "admin", "password": "admin"}
+    ).json()["csrf"]
+    return {"X-CSRF-Token": csrf}
+
+
+def test_credential_follows_the_configured_provider(tmp_path, monkeypatch):
+    """@brief Only the configured provider's variable is shown and saved; chatgpt has none."""
+    from tests.test_model_connection import set_executor
+
+    for name in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "ADORE_ENDPOINT_API_KEY"):
+        monkeypatch.delenv(name, raising=False)
+    profiles = project(tmp_path)
+    StateStore(tmp_path / "state").pause()
+    env = profiles.profile_dir("alpha") / ".env"
+    module = importlib.import_module("adore.web.app")
+    with TestClient(module.create_app(profiles.home)) as client:
+        headers = _login(client)
+
+        def view():
+            return client.get("/api/v1/projects/alpha/executor-credentials").json()
+
+        def save(variable):
+            return client.put("/api/v1/projects/alpha/executor-credentials", headers=headers,
+                              json={"variable": variable, "token": "private-key-value",
+                                    "revision": view()["revision"]})
+
+        assert view()["variables"] == [{"name": "OPENAI_API_KEY", "source": "missing"}]
+        assert save("ANTHROPIC_API_KEY").status_code == 400
+        assert not env.exists()
+        set_executor(profiles, "custom", "qwen/qwen3.5-9b", "http://172.27.80.1:1234/v1")
+        assert view()["variables"] == [{"name": "ADORE_ENDPOINT_API_KEY", "source": "missing"}]
+        assert save("ADORE_ENDPOINT_API_KEY").status_code == 200
+        assert view()["variables"] == [{"name": "ADORE_ENDPOINT_API_KEY", "source": "project"}]
+        assert "ADORE_ENDPOINT_API_KEY=private-key-value" in env.read_text(encoding="utf-8")
+        path = profiles.config_path("alpha")
+        path.write_text(path.read_text(encoding="utf-8").split("\n[executor.endpoint]")[0]
+                        .replace('provider = "custom"', 'provider = "chatgpt"'),
+                        encoding="utf-8")
+        assert view()["variables"] == []
+        assert save("OPENAI_API_KEY").status_code == 400
+
+
+def test_provider_key_never_leaves_the_credential_store(tmp_path, monkeypatch):
+    """@brief After save, review/apply and a test run the key is only in the profile .env."""
+    from adore.config import load_config
+    from adore.web import model_connection
+
+    from tests.test_model_connection import SECRET, Runtime
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    profiles = project(tmp_path)
+    StateStore(tmp_path / "state").pause()
+    module = importlib.import_module("adore.web.app")
+    runtime = Runtime(tmp_path, "failed_invalid_api_key", "--key-hint", "sk-test****6789")
+    monkeypatch.setattr(module, "probe_model_connection", lambda config, runner, env_file:
+                        model_connection.probe_model_connection(
+                            config, runtime.runner, env_file, popen=runtime.popen))
+    responses = []
+    with TestClient(module.create_app(profiles.home)) as client:
+        headers = _login(client)
+        revision = client.get("/api/v1/projects/alpha/config").json()["revision"]
+        responses.append(client.put("/api/v1/projects/alpha/executor-credentials",
+                                    headers=headers, json={"variable": "OPENAI_API_KEY",
+                                                           "token": SECRET,
+                                                           "revision": revision}))
+        tested = client.post("/api/v1/projects/alpha/model-connection-test", headers=headers)
+        assert tested.json()["reason"] == "credential-invalid"
+        responses.append(tested)
+        view = client.get("/api/v1/projects/alpha/config").json()
+        staged = client.post("/api/v1/projects/alpha/config/pending", headers=headers, json={
+            "key": "executor.connection", "revision": view["revision"],
+            "value": json.dumps({"provider": "openai", "model": "gpt-5.4",
+                                 "base_url": "", "api": ""})})
+        responses.append(staged)
+        responses.append(client.post("/api/v1/projects/alpha/config/apply", headers=headers,
+                                     json={"candidate_revision": staged.json()[
+                                         "candidate_revision"],
+                                         "base_revision": staged.json()["base_revision"]}))
+        for path in ("/api/v1/projects/alpha/config", "/api/v1/projects/alpha/config/pending",
+                     "/api/v1/projects/alpha/config/raw",
+                     "/api/v1/projects/alpha/executor-credentials",
+                     "/api/v1/projects/alpha", "/api/v1/projects", "/api/v1/audit",
+                     "/api/v1/audit-page"):
+            responses.append(client.get(path))
+    assert all(response.status_code == 200 for response in responses[:4]), \
+        [response.text for response in responses[:4]]
+    assert all(SECRET not in response.text and "sk-test" not in response.text
+               for response in responses)
+    assert load_config(profiles.config_path("alpha")).executor.model == "gpt-5.4"
+    holders = [path for path in profiles.home.rglob("*")
+               if path.is_file() and SECRET.encode() in path.read_bytes()]
+    assert holders == [profiles.profile_dir("alpha") / ".env"]
+    assert all(SECRET.encode() not in path.read_bytes()
+               for path in (tmp_path / "state").rglob("*") if path.is_file())

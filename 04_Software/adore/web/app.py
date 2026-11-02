@@ -61,6 +61,13 @@ from adore.config_edit import ConfigEditLockedError, config_edit_lock
 from adore.forge import ForgeError, ForgeResponseError
 from adore.forge_labels import ensure_labels, project_labels
 from adore.isolation import ContainerManager, IsolationError
+from adore.pi_providers import (
+    ENDPOINT_APIS,
+    MODEL_ID_RE,
+    credential_variable,
+    provider_ids,
+    public_catalog,
+)
 from adore.portable_settings import (
     MAX_SOURCE_BYTES,
     PORTABLE_FIELDS,
@@ -88,7 +95,14 @@ from adore.selection import start_blocker, start_preparation
 from adore.state import StateError, StateStore
 from adore.util import CommandRunner, force_rmtree, run_command, strict_json_loads
 from adore.web import analytics
-from adore.web.executor_configuration import LAUNCH_PRESETS
+from adore.web.executor_configuration import (
+    CONNECTION_KEY,
+    CONNECTION_KEYS,
+    LAUNCH_PRESETS,
+    connection_value,
+    set_connection,
+    valid_connection,
+)
 from adore.web.executor_settings import (
     PROVIDER_KEYS,
     ExecutorSettingsError,
@@ -283,7 +297,10 @@ class ProjectInput(BaseModel):
     local_home: str = ""
     local_path: str = ""
     local_cgroup_root: str = ""
+    provider: str = ""
     model: str = ""
+    endpoint_base_url: str = Field(default="", max_length=512)
+    endpoint_api: str = ""
     runtime: str = "docker"
     image: str = ""
     target_branch: str = "main"
@@ -702,7 +719,7 @@ def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, 
         if not str(answers[field]).strip():
             issues.append(_finding("setup_field_invalid", field,
                                    "Supply a non-empty supported value."))
-    for field in ("model", "image"):
+    for field in ("provider", "model", "image"):
         if field == "image" and body.execution_backend == "local":
             continue
         if field in body.model_fields_set and not str(answers[field]).strip():
@@ -767,7 +784,7 @@ def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, 
         issues.append(_finding("setup_field_invalid", "env_keys",
                                "Use unique uppercase environment names; the existing sign-in "
                                "mode forwards none."))
-    for key in ("model", "image"):
+    for key in ("provider", "model", "image", "endpoint_base_url", "endpoint_api"):
         if not answers[key]:
             del answers[key]
     answers["confirm"] = "yes"
@@ -815,7 +832,13 @@ def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, 
         preview["review"] = {
             **body.model_dump(exclude={"revision", "env_keys"}),
             "display_name": display,
+            "provider": config.executor.provider,
             "model": config.executor.model,
+            "endpoint_base_url": (config.executor.endpoint.base_url
+                                  if config.executor.provider == "custom" else ""),
+            "endpoint_api": (config.executor.endpoint.api
+                             if config.executor.provider == "custom" else ""),
+            "credential_variable": credential_variable(config.executor.provider),
             "executor_command": config.executor.command,
             "image": config.container.image, "env_keys": config.executor.env_keys,
             "hold_label": config.labels.control.hold,
@@ -1336,6 +1359,8 @@ def _valid_candidate_scalar(key: str, proposed: object, backend: str = "containe
     """
     if key in COLLECTION_KEYS:
         return valid_collection(key, proposed)
+    if key == CONNECTION_KEY:
+        return valid_connection(proposed)
     if key == "delivery.reviewers":
         return valid_reviewers(proposed)
     if key in {"container.image", "container.runtime"}:
@@ -1345,8 +1370,7 @@ def _valid_candidate_scalar(key: str, proposed: object, backend: str = "containe
                                               or proposed in _LAUNCH_PRESETS.get(key, ()))
     expected = _value_at(default_config().to_dict(), key)
     if key == "executor.model":
-        return (isinstance(proposed, str)
-                and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}", proposed) is not None)
+        return isinstance(proposed, str) and MODEL_ID_RE.fullmatch(proposed) is not None
     if type(expected) is float:
         return type(proposed) in (int, float) and math.isfinite(proposed)
     if isinstance(expected, str | int | bool):
@@ -1371,6 +1395,8 @@ def _set_candidate_value(text: str, key: str, value: str) -> str:
     """
     if key in COLLECTION_KEYS:
         return set_collection(text, key, value)
+    if key == CONNECTION_KEY:
+        return set_connection(text, value)
     if key != "delivery.reviewers":
         return _set_toml_scalar(text, key, value)
     reviewers = json.loads(value)
@@ -1409,8 +1435,8 @@ def _set_candidate_value(text: str, key: str, value: str) -> str:
 
 
 def _candidate_value(tree: dict, key: str):
-    """@brief Read one scalar or collection value of a candidate."""
-    return _value_at(tree, key)
+    """@brief Read one scalar or collection value, or the complete connection review."""
+    return connection_value(tree) if key == CONNECTION_KEY else _value_at(tree, key)
 
 
 def _candidate_config_edit(path: Path, body: ConfigEdit) -> tuple[bytes, str]:
@@ -1508,12 +1534,12 @@ def _public_pending_config(value: dict, *, active_text: str | None = None) -> di
         if _secret_config_keys({"setting": proposed}):
             raise ValueError("unsafe proposed value")
         claimed = (strict_json_loads(value["value"])
-                   if value["key"] in COLLECTION_KEYS
+                   if value["key"] in COLLECTION_KEYS or value["key"] == CONNECTION_KEY
                    else _value_at(tomllib.loads(_set_candidate_value(
                        "", value["key"], value["value"])), value["key"]))
         if type(claimed) is not type(proposed) or claimed != proposed:
             raise ValueError("candidate review metadata differs from its value")
-        if (value["key"] in COLLECTION_KEYS
+        if ((value["key"] in COLLECTION_KEYS or value["key"] == CONNECTION_KEY)
                 and active_text is not None
                 and sha256(active_text.encode("utf-8")).hexdigest() == value["base_revision"]
                 and candidate != tomllib.loads(_set_candidate_value(
@@ -1584,8 +1610,10 @@ def _editable_setting_key(key: str) -> bool:
     if key in {"metrics.db_path", "metrics.export_jsonl", "metrics.html_out",
                "workflow.aegis_python"}:
         return False
-    if key in {"clarification.answer_timeout", "clarification.max_rounds"}:
+    if key in {"clarification.answer_timeout", "clarification.max_rounds", CONNECTION_KEY}:
         return True
+    if key in CONNECTION_KEYS:
+        return False
     return not (
         _is_secret_key(key)
         or not _SETTING_KEY_RE.fullmatch(key)
@@ -1649,6 +1677,8 @@ def _setting_domain(key: str, value: object, config: dict, declared: object) -> 
         "platform.kind": ["gitlab", "github", "gitea"],
         "polling.mode": ["loop", "once"],
         "executor.mode": ["thick", "headless"],
+        "executor.provider": list(provider_ids()),
+        "executor.endpoint.api": list(ENDPOINT_APIS),
         "executor.env_keys": sorted(
             PROVIDER_KEYS | set(config.get("executor", {}).get("env_keys", []))),
         "clarification.timeout_state": ["failed", "stale"],
@@ -1718,7 +1748,7 @@ def _setting_metadata(config: dict, raw: bytes) -> list[dict]:
     leaves.append(("workflow.stage_timeout_overrides",
                    config.get("workflow", {}).get("stage_timeout_overrides", {})))
     for key, value in leaves:
-        edit_key = key
+        edit_key = CONNECTION_KEY if key in CONNECTION_KEYS else key
         settings.append({
             "key": key,
             "edit_key": edit_key,
@@ -1868,7 +1898,11 @@ def _inspect_project_import(
                       "target_branch": config.delivery.target_branch,
                       "agent": {"name": config.agent.name, "slug": config.agent.slug,
                                 "email": config.agent.email},
-                      "executor": {"model": config.executor.model,
+                      "executor": {"provider": config.executor.provider,
+                                   "model": config.executor.model,
+                                   "endpoint_base_url": (
+                                       config.executor.endpoint.base_url
+                                       if config.executor.provider == "custom" else ""),
                                    "env_keys": config.executor.env_keys},
                       "container": {"runtime": ("local" if config.execution.backend == "local"
                                                 else config.container.runtime),
@@ -2608,6 +2642,14 @@ def create_app(home: str | Path | None = None,
                   f"created={len(report['created'])} existing={len(report['existing'])} "
                   f"failed={len(report['failed'])}")
         return report
+
+    @app.get("/api/v1/pi-providers")
+    def pi_providers(_user: Annotated[dict, Depends(principal)]) -> dict:
+        """@brief Pi's API-key providers and models (pinned catalog) plus chatgpt/custom."""
+        try:
+            return public_catalog()
+        except ValueError as exc:
+            raise _error(503, "provider_catalog_unavailable") from exc
 
     @app.get("/api/v1/executor-images")
     def executor_images(runtime: Literal["docker", "podman"],
@@ -3485,7 +3527,7 @@ def create_app(home: str | Path | None = None,
                 phase="prepare",
                 base_revision=value["base_revision"],
                 candidate_revision=value["candidate_revision"],
-                before={"value": _value_at(tomllib.loads(raw.decode()), body.key)},
+                before={"value": _candidate_value(tomllib.loads(raw.decode()), body.key)},
             )
             _write_pending_config(pending_path, value)
             web.confirm_change(
@@ -3553,7 +3595,7 @@ def create_app(home: str | Path | None = None,
                     base_revision=pending["base_revision"],
                     candidate_revision=pending["candidate_revision"],
                     before=(
-                        {"value": _value_at(tomllib.loads(raw.decode()), pending["key"])}
+                        {"value": _candidate_value(tomllib.loads(raw.decode()), pending["key"])}
                         if not already_applied
                         else None
                     ),
@@ -3588,7 +3630,7 @@ def create_app(home: str | Path | None = None,
                     web.confirm_change(
                         attempt,
                         after={
-                            "value": _value_at(
+                            "value": _candidate_value(
                                 tomllib.loads(pending["candidate_text"]), pending["key"]
                             )
                         },

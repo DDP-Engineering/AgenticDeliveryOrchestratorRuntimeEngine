@@ -255,7 +255,8 @@ repo = "group/project"
 repo_path = "../runtime-project"
 
 [executor]
-model = "openai/gpt-5.4-fast"
+provider = "openai"
+model = "gpt-5.4-fast"
 
 [delivery]
 reviewers = ["dan.pasare"]
@@ -424,7 +425,7 @@ def test_config_view_reports_each_settings_source_and_editability(tmp_path):
         assert settings["metrics.db_path"]["default"] == ".adore/metrics.db"  # derived
         assert settings["agent.slug"]["default"] == "adore"
         model = settings["executor.model"]
-        assert model["edit_key"] == "executor.model"
+        assert model["edit_key"] == "executor.connection"
         assert model["source"] == "project" and model["editable"] and model["restart"]
         assert model["default"] == ""  # no universal model default
         command = settings["executor.command"]
@@ -446,13 +447,14 @@ def test_config_view_reports_each_settings_source_and_editability(tmp_path):
         revision = body["revision"]
         target = "/api/v1/projects/alpha/config/pending"
         for key, value in (("budgets.max_wall_clock_seconds", "7200"),
-                           ("executor.model", "openai/gpt-5.4"),
+                           ("executor.connection", '{"provider":"openai","model":"gpt-5.4",'
+                                                   '"base_url":"","api":""}'),
                            ("polling.poll_interval_seconds", "60")):
             staged = client.post(target, json={"key": key, "value": value,
                                                "revision": revision}, headers=csrf)
             assert staged.status_code == 200, (key, staged.text)
             assert client.delete(target, headers=csrf).status_code == 200
-        for key in ("executor.unknown.command", "state.store_root",
+        for key in ("executor.unknown.command", "state.store_root", "executor.model",
                     "clarification.reminder_after", "container.runtime_env.api_key"):
             refused = client.post(target, json={"key": key, "value": "x",
                                                 "revision": revision}, headers=csrf)

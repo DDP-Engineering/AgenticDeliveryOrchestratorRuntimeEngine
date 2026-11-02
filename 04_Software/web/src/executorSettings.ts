@@ -5,13 +5,14 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
 import type {Locale} from "./i18n";
+import {connectionCopy} from "./agentConnection.ts";
 
 /** Pi is ADORE's only coding agent; these settings configure how it runs. */
 export const agentSettingsCopy = {
- en:{command:"Executor launch command",model:"Executor model identifier",variables:"Allowed credential variables",authentication:"Authentication",connection:"AI connection",variableHelp:"Select only the provider variables this project needs. These are names, not API key values. An empty list is valid when a local Pi uses its own sign-in.",modelHelp:"Enter the Pi model ID in provider/model form, such as openai/gpt-5.5. There is no universal model default.",commandHelp:"Container projects run the Pi pinned in the executor image and use the preset. Local projects run the installed Pi with this argv."},
- ro:{command:"Comanda de lansare a executorului",model:"Identificatorul modelului executorului",variables:"Variabile de autentificare permise",authentication:"Autentificare",connection:"Conexiune AI",variableHelp:"Selectează doar variabilele furnizorilor necesari proiectului. Sunt nume, nu valorile cheilor API. Lista poate fi goală când un Pi local folosește propria autentificare.",modelHelp:"Introdu ID-ul modelului Pi în forma furnizor/model, de exemplu openai/gpt-5.5. Nu există un model implicit universal.",commandHelp:"Proiectele în container rulează Pi fixat în imaginea executorului și folosesc presetarea. Proiectele locale rulează Pi instalat cu aceste argumente."},
- fr:{command:"Commande de lancement de l’exécuteur",model:"Identifiant du modèle de l’exécuteur",variables:"Variables d’identification autorisées",authentication:"Authentification",connection:"Connexion IA",variableHelp:"Sélectionnez uniquement les variables nécessaires aux fournisseurs du projet. Ce sont des noms, pas les clés API. Une liste vide convient quand un Pi local utilise sa propre connexion.",modelHelp:"Saisissez l’ID du modèle Pi au format fournisseur/modèle, par exemple openai/gpt-5.5. Aucun modèle universel par défaut.",commandHelp:"Les projets en conteneur exécutent le Pi épinglé dans l’image et utilisent le préréglage. Les projets locaux exécutent le Pi installé avec ces arguments."},
- de:{command:"Executor-Startbefehl",model:"Executor-Modellkennung",variables:"Erlaubte Zugangsdaten-Variablen",authentication:"Authentifizierung",connection:"KI-Verbindung",variableHelp:"Wählen Sie nur benötigte Anbieter-Variablen. Dies sind Namen, keine API-Schlüsselwerte. Eine leere Liste ist möglich, wenn ein lokales Pi seine eigene Anmeldung nutzt.",modelHelp:"Geben Sie die Pi-Modell-ID im Format Anbieter/Modell ein, z. B. openai/gpt-5.5. Es gibt kein universelles Standardmodell.",commandHelp:"Container-Projekte führen das im Executor-Image fixierte Pi mit der Vorgabe aus. Lokale Projekte führen das installierte Pi mit diesen Argumenten aus."},
+ en:{command:"Executor launch command",model:"Model",variables:"Additional credential variables",authentication:"Authentication",connection:"AI connection",variableHelp:"Extra secret variables Pi receives besides the provider's own key variable. These are names, not values; most projects need none.",modelHelp:"The model within the provider, such as gpt-5.5 for OpenAI. There is no universal model default.",commandHelp:"Container projects run the Pi pinned in the executor image and use the preset. Local projects run the installed Pi with this argv."},
+ ro:{command:"Comanda de lansare a executorului",model:"Model",variables:"Variabile de autentificare suplimentare",authentication:"Autentificare",connection:"Conexiune AI",variableHelp:"Variabile secrete suplimentare primite de Pi pe lângă variabila cheii furnizorului. Sunt nume, nu valori; majoritatea proiectelor nu au nevoie de ele.",modelHelp:"Modelul furnizorului, de exemplu gpt-5.5 pentru OpenAI. Nu există un model implicit universal.",commandHelp:"Proiectele în container rulează Pi fixat în imaginea executorului și folosesc presetarea. Proiectele locale rulează Pi instalat cu aceste argumente."},
+ fr:{command:"Commande de lancement de l’exécuteur",model:"Modèle",variables:"Variables d’identification supplémentaires",authentication:"Authentification",connection:"Connexion IA",variableHelp:"Variables secrètes supplémentaires reçues par Pi en plus de la variable de clé du fournisseur. Ce sont des noms, pas des valeurs ; la plupart des projets n’en ont pas besoin.",modelHelp:"Le modèle du fournisseur, par exemple gpt-5.5 pour OpenAI. Aucun modèle universel par défaut.",commandHelp:"Les projets en conteneur exécutent le Pi épinglé dans l’image et utilisent le préréglage. Les projets locaux exécutent le Pi installé avec ces arguments."},
+ de:{command:"Executor-Startbefehl",model:"Modell",variables:"Zusätzliche Zugangsdaten-Variablen",authentication:"Authentifizierung",connection:"KI-Verbindung",variableHelp:"Zusätzliche geheime Variablen, die Pi neben der Schlüsselvariable des Anbieters erhält. Dies sind Namen, keine Werte; die meisten Projekte brauchen keine.",modelHelp:"Das Modell des Anbieters, z. B. gpt-5.5 für OpenAI. Es gibt kein universelles Standardmodell.",commandHelp:"Container-Projekte führen das im Executor-Image fixierte Pi mit der Vorgabe aus. Lokale Projekte führen das installierte Pi mit diesen Argumenten aus."},
 };
 
 /** Names-only list, including retained custom names; server verifies provider/forge scope. */
@@ -21,19 +22,26 @@ export function validCredentialNames(value:unknown):value is string[] {
 
 /** Labels of the Agent and model settings. */
 export function executorSettingLabel(key:string,locale:Locale):string|null {
- const c=agentSettingsCopy[locale];
+ const c=agentSettingsCopy[locale], connection=connectionCopy[locale];
  if (key==="executor.env_keys") return c.variables;
  if (key==="executor.command") return c.command;
  if (key==="executor.model") return c.model;
+ if (key==="executor.provider") return connection.provider;
+ if (key==="executor.endpoint.base_url") return connection.baseUrl;
+ if (key==="executor.endpoint.api") return connection.api;
+ if (key==="executor.connection") return c.connection;
  return null;
 }
 
 /** Row help of the Agent and model settings. */
 export function executorSettingHelp(key:string,locale:Locale):string|null {
- const c=agentSettingsCopy[locale];
+ const c=agentSettingsCopy[locale], connection=connectionCopy[locale];
  if (key==="executor.env_keys") return c.variableHelp;
  if (key==="executor.command") return c.commandHelp;
  if (key==="executor.model") return c.modelHelp;
+ if (key==="executor.provider" || key==="executor.connection") return connection.providerHelp;
+ if (key==="executor.endpoint.base_url") return connection.baseUrlHelp;
+ if (key==="executor.endpoint.api") return connection.apiHelp;
  return null;
 }
 

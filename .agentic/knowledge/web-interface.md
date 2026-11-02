@@ -288,15 +288,32 @@ SQLite bytes, authorization, scope and financial redaction.
   `forge_auth`, `container_runtime`, `executor_cli` and `aegis_files`; model
   access is proved only by the explicit Test AI connection. WSL runtime
   detection remains unverified; CLI output and credentials are never returned.
-- Model, launch command and credential-name edits use the reviewed candidate
-  flow in Settings → Agent and model (executor-configuration.md); there is no
-  AI endpoint form.
+- Provider/model/endpoint, launch command and credential-name edits use the
+  reviewed candidate flow in Settings → Agent and model
+  (executor-configuration.md). Provider, model and the OpenAI-compatible
+  endpoint are one virtual candidate key, `executor.connection` (strict JSON
+  `{provider, model, base_url, api}`), edited by `AgentConnectionEditor.tsx`;
+  the rows `executor.provider`, `executor.model`, `executor.endpoint.base_url`
+  and `executor.endpoint.api` report that `edit_key` and cannot be staged
+  individually (400 `setting_not_editable`). `PendingReview` shows the
+  candidate as four rows (Provider, Model, Endpoint base URL, Endpoint API
+  type); `settings.ts` input kind `connection`, `connectionRowVisible` hides
+  the endpoint rows unless the provider is `custom`.
+- `GET /api/v1/pi-providers` (any signed-in user; 503
+  `provider_catalog_unavailable` when the shipped catalog is unreadable)
+  returns `{pi_version, providers[{id, name, variable, models}], chatgpt:{id},
+  custom:{id, variable, apis}}`; `agentConnection.ts` reads it
+  (`readProviderCatalog`) for the provider select and the model datalist.
 - Project creation offers no coding-agent choice: Pi is the only agent, and
   `ProjectInput` has no `executor_cli` field (422 when sent). `auth_mode` is
   `api-key` or `existing` (the local account's own Pi sign-in, with empty
   `env_keys`); any other value, such as `host-auth`, is 422. A container project
-  uses api-key. The project view reports `executor` = `pi`, and import review
-  shows `executor` = {model, env_keys}.
+  uses api-key. `ProjectInput` takes `provider`, `model`, `endpoint_base_url`
+  and `endpoint_api` (endpoint only for `custom`) and no secret; the setup
+  preview review returns `provider`, `model`, `endpoint_base_url`,
+  `endpoint_api` and `credential_variable` (the variable to save after
+  creation). The project view reports `executor` = `pi`, and import review
+  shows `executor` = {provider, model, endpoint_base_url (empty unless custom), env_keys}.
 - Web-created profiles use an absolute, project-specific worktree root under
   ADORE home. ADORE uses the configured agent identity for host-side checkpoint
   commits, even when the fresh clone has no local Git identity.
@@ -346,7 +363,10 @@ SQLite bytes, authorization, scope and financial redaction.
   as separate pages (/projects/new, /projects/import, /projects/clone).
   Administrators open Enroll new project as a five-step guided page with visible localized
   instructions. Clone paths identify existing Git clones on the ADORE host;
-  the model value is Pi's provider/model ID; environment setup is external. Back retains
+  step 2 asks Provider, Model (with Pi's models as a datalist) and, for an
+  OpenAI-compatible endpoint, Endpoint base URL and Endpoint API type, and names
+  the credential variable to save after creation; review lists them plus
+  "Credential to save after creation"; environment setup is external. Back retains
   the memory draft, Cancel warns about loss, and completion confirms stopped pickup
   before the explicit Open project action.
   Exact configuration enrollment mounts ImportWizard with four-locale visible file
@@ -801,14 +821,14 @@ HTTP and a valid unique JSON login. CLI exit zero alone does not authenticate.
 
 ## Explicit AI connection test
 
-Administrators use **Settings → Agent and model → Test AI connection** for the configured Pi model. Each explicit click sends one short request in a temporary container, or in a temporary folder for a Pi installed on the server, and may incur provider charges. The project must be idle with valid saved settings and no pending configuration/operations; a container project's installed image must contain Python and Pi.
+Administrators use **Settings → Agent and model → Test AI connection** for the configured Pi provider and model. Each explicit click sends one short request over Pi's RPC mode in a temporary container, or in a temporary folder for a Pi installed on the server, and may incur provider charges. The project must be idle with valid saved settings and no pending configuration/operations; a container project's installed image must contain the pinned Pi.
 
-Only a valid completed challenge response reports connected. Failures provide redacted guidance for credentials, model availability, image, CLI version or network. The action reuses executor credentials and egress and starts no job. For a Pi installed on the server it also requires one completed shell command (a failure reports **tool-call-failed** with permission guidance); in a container it proves no tool capability. Persisted evidence is bound to current project/model/configuration/credentials and presented consistently in Summary and host verification. Host-check time/version are internally validated and hidden from Summary/check details. See Component_Model_Connection.md and Component_Executor_Configuration.md.
+Only a valid completed challenge response reports connected: one completed shell command printing a nonce, then the exact reply (a failed shell call reports **tool-call-failed** with permission guidance). Failures provide redacted guidance (`modelEvidence.ts`) for a missing key (**credential-missing**, no container starts), an invalid key, model availability, rate limits, provider errors, image, CLI version or network. The action reuses executor credentials and egress and starts no job. Persisted evidence is bound to current project/model/configuration/credentials and presented consistently in Summary and host verification. Host-check time/version are internally validated and hidden from Summary/check details. See Component_Model_Connection.md and Component_Executor_Configuration.md.
 
 
 ## Project setting scope and guidance
 
-Project Settings displays the selected project's effective configuration controls and inherited defaults. Model, launch command and credential fields belong to Settings → Agent and model; the backend, container runtime and image are reviewed edits there, while other environment setup is externally managed. The durable job state folder remains a read-only row. config.toml has no `state.channel` key; validation refuses it as unknown, and SettingsList shows no such row. Descriptions remain permanently below each label and provide the editor's accessible description. There is no per-row Help disclosure or override-only filter. The default/source marker describes value origin, not ADORE-wide scope. Polling intervals, per-project concurrency, executor and recovery settings remain per-project. Global capacity and audit retention belong to Administration. No project setting is promoted into a global policy by this presentation.
+Project Settings displays the selected project's effective configuration controls and inherited defaults. Provider, model, endpoint, launch command and credential fields belong to Settings → Agent and model; the backend, container runtime and image are reviewed edits there, while other environment setup is externally managed. The durable job state folder remains a read-only row. config.toml has no `state.channel` key; validation refuses it as unknown, and SettingsList shows no such row. Descriptions remain permanently below each label and provide the editor's accessible description. There is no per-row Help disclosure or override-only filter. The default/source marker describes value origin, not ADORE-wide scope. Polling intervals, per-project concurrency, executor and recovery settings remain per-project. Global capacity and audit retention belong to Administration. No project setting is promoted into a global policy by this presentation.
 
 Proof: web/e2e/settings.spec.ts project settings keep defaults and single guidance (administrator/developer), plus existing candidate edit/discard journey.
 
@@ -824,11 +844,11 @@ The application shows one dismissible notification for ordinary feedback or the 
 
 Editable settings place **Edit** beside **Active value** in the value column, including narrow screens. Administrators retain candidate review/apply/discard and disabled-state safeguards; developers have read-only rows.
 
-Project Settings purpose categories are collapsed on entry. Opening a category shows equal-width description and active-value columns separated by24px; below640px they stack at full width. Native disclosures retain keyboard operation. Agent and model groups AI connection, the Pi model and launch command, closed Authentication and external environment guidance. Its inline field editors retain the existing row columns and stack using the normal mobile layout; the credential-name dropdown and removable selections wrap within the value column.
+Project Settings purpose categories are collapsed on entry. Opening a category shows equal-width description and active-value columns separated by24px; below640px they stack at full width. Native disclosures retain keyboard operation. Agent and model groups AI connection, the Pi provider, model, endpoint and launch command, closed Authentication (additional credential variables and Provider API key) and external environment guidance. Its inline field editors retain the existing row columns and stack using the normal mobile layout; the credential-name dropdown and removable selections wrap within the value column.
 
 ## External executor environment seam
 
-ExecutorEnvironment.tsx supplies a compact conditional container notice with four-locale external Dockerfile/build/profile instructions. Config GET returns the effective image and Admin-only resolved config path. Enrollment step 2 and Settings → Agent and model offer Runs in (container | local), Container runtime and Executor image with suggestions from `GET /api/v1/executor-images` (Admin, read-only; serverImages.ts) and local account fields; credential names are optional in API-key mode. They omit image definition and build controls. Mutation guards for the other environment keys precede all config writes and staging/application; the dedicated existing AI endpoint is retained. The image-build routes are removed and answer 404. A pending candidate with an `image_build` binding or for an operator-owned key is 503 `pending_config_corrupt` on view and apply, and an administrator can still discard it. Focused proof: test_executor_environment_choice.py, test_web_pending_config.py, images.spec.ts, enrollment.spec.ts. Detailed ownership: project-images.md.
+ExecutorEnvironment.tsx supplies a compact conditional container notice with four-locale external Dockerfile/build/profile instructions. Config GET returns the effective image and Admin-only resolved config path. Enrollment step 2 and Settings → Agent and model offer Runs in (container | local), Container runtime and Executor image with suggestions from `GET /api/v1/executor-images` (Admin, read-only; serverImages.ts) and local account fields; additional credential names are optional. They omit image definition and build controls. Mutation guards for the other environment keys precede all config writes and staging/application; the dedicated existing AI connection test is retained. The image-build routes are removed and answer 404. A pending candidate with an `image_build` binding or for an operator-owned key is 503 `pending_config_corrupt` on view and apply, and an administrator can still discard it. Focused proof: test_executor_environment_choice.py, test_web_pending_config.py, images.spec.ts, enrollment.spec.ts. Detailed ownership: project-images.md.
 
 External ownership and preparation/model/credential errors have localized corrective messages in errors.ts; errors.test.mjs checks server-code coverage and diagnostic/generic fallback.
 
@@ -847,6 +867,6 @@ no engine invocation. Restart resets cadence; serial work on another project
 may delay a due round. `polling.mode` governs standalone CLI startup; the web
 service schedules repeated `run --once` rounds independently of that value.
 
-Model and launch-command editing uses the ordinary setting-editor flex layout: Prepare/Cancel follow the control on wide screens, with shared responsive wrapping.
+Connection and launch-command editing uses the ordinary setting-editor flex layout: Prepare/Cancel follow the control on wide screens, with shared responsive wrapping.
 
 Inline editor validation follows the controls/actions on its own flex line. Incomplete model or command edits keep the same control/action placement and disabled Prepare, while responsive wrapping remains shared.

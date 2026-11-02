@@ -32,8 +32,9 @@ image = "adore-executor-base:1.0.0"
 runtime_env = { UV_LINK_MODE = "copy" }
 
 [executor]
-model = "provider/model"
-env_keys = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]
+provider = "openai"
+model = "gpt-5.5"
+env_keys = []
 
 [workflow]
 default_kind = "feature"

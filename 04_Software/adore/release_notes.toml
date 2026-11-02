@@ -43,12 +43,12 @@ text = { en = "Administrators create accounts and choose the projects each devel
 [[release.entry]]
 category = "new"
 topic = { en = "Executors", fr = "Exécuteurs", de = "Ausführung", ro = "Executori" }
-text = { en = "Prepare a project's executor image from a short Dockerfile kept in its repository.", fr = "Préparez l'image d'exécution d'un projet à partir d'un court Dockerfile de son dépôt.", de = "Das Ausführungsimage eines Projekts aus einem kurzen Dockerfile im Repository vorbereiten.", ro = "Pregătiți imaginea de execuție a unui proiect dintr-un Dockerfile scurt din depozitul său." }
+text = { en = "Prepare an executor image from a short Dockerfile, or run Pi on the host with its own sign-in.", fr = "Préparez l'image d'exécution d'un court Dockerfile, ou exécutez Pi sur l'hôte avec sa connexion.", de = "Image aus kurzem Dockerfile vorbereiten oder Pi mit eigener Anmeldung auf dem Host starten.", ro = "Pregătiți imaginea dintr-un Dockerfile scurt sau rulați Pi pe gazdă cu autentificarea lui." }
 
 [[release.entry]]
 category = "new"
-topic = { en = "Executors", fr = "Exécuteurs", de = "Ausführung", ro = "Executori" }
-text = { en = "Run coding agents directly on the host, reusing their existing sign-in.", fr = "Exécutez les agents de code directement sur l'hôte, avec leur connexion existante.", de = "Coding-Agenten direkt auf dem Host ausführen, mit ihrer bestehenden Anmeldung.", ro = "Rulați agenții de cod direct pe gazdă, folosind autentificarea lor existentă." }
+topic = { en = "Agent and model", fr = "Agent et modèle", de = "Agent und Modell", ro = "Agent și model" }
+text = { en = "Choose the AI provider and model, save its API key, or use your own server such as LM Studio.", fr = "Choisissez fournisseur IA et modèle, enregistrez sa clé API, ou votre serveur comme LM Studio.", de = "KI-Anbieter und Modell wählen, API-Schlüssel speichern oder eigenen Server wie LM Studio nutzen.", ro = "Alegeți furnizorul AI și modelul, salvați cheia API sau folosiți propriul server, ca LM Studio." }
 
 [[release.entry]]
 category = "new"
@@ -118,7 +118,7 @@ text = { en = "About shows the DDP Engineering logo and the version, with licens
 [[release.entry]]
 category = "fixed"
 topic = { en = "Executors", fr = "Exécuteurs", de = "Ausführung", ro = "Executori" }
-text = { en = "The AI connection test of a local Pi also checks that it can run a command.", fr = "Le test de connexion IA d'un Pi local vérifie aussi qu'il peut lancer une commande.", de = "Der KI-Verbindungstest eines lokalen Pi prüft auch, ob er einen Befehl ausführen kann.", ro = "Testul conexiunii AI pentru un Pi local verifică și că poate rula o comandă." }
+text = { en = "Test AI connection checks that Pi runs a command and names the cause: key, server or model.", fr = "Le test de connexion IA vérifie une commande de Pi et nomme la cause : clé, serveur ou modèle.", de = "KI-Verbindungstest prüft einen Pi-Befehl und nennt die Ursache: Schlüssel, Server oder Modell.", ro = "Testul conexiunii AI verifică dacă Pi rulează o comandă și numește cauza: cheie, server sau model." }
 
 [[release.entry]]
 category = "fixed"

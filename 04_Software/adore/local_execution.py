@@ -41,6 +41,7 @@ from adore.local_process import (
     native_context,
     read_record,
 )
+from adore.pi_providers import secret_names
 from adore.util import CommandResult, strict_json_loads
 
 # CONSTANTS
@@ -174,7 +175,7 @@ def local_environment(config, context: dict, secrets: dict | None = None) -> dic
         USERNAME=context["account"],
     )
     env.setdefault("PI_CODING_AGENT_DIR", str(Path(home) / ".pi" / "agent"))
-    approved = set(config.executor.env_keys)
+    approved = set(secret_names(config.executor))
     env.update({key: value for key, value in (secrets or {}).items() if key in approved})
     return env
 
@@ -519,13 +520,13 @@ class LocalTarget:
         """@brief Check bounded existing auth or approved provider values without login."""
         self._secrets()
         return self._auth_path().is_file() or any(
-            self.env.get(key) for key in self.backend.config.executor.env_keys
+            self.env.get(key) for key in secret_names(self.backend.config.executor)
         )
 
     def _secrets(self) -> list[str]:
         """@brief Read approved existing auth values only for in-memory redaction."""
         config = self.backend.config
-        values = {self.env[key] for key in config.executor.env_keys if self.env.get(key)}
+        values = {self.env[key] for key in secret_names(config.executor) if self.env.get(key)}
         path = self._auth_path()
         if path.exists():
             try:

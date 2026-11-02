@@ -34,7 +34,8 @@ repo = "grp/proj"
 repo_path = "x"
 
 [executor]
-model = "openai/gpt-5.5"
+provider = "openai"
+model = "gpt-5.5"
 
 [delivery]
 reviewers = ["dan.pasare"]

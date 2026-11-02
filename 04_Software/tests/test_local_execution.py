@@ -92,7 +92,8 @@ def test_local_selection_is_explicit_and_rejects_container_contracts(tmp_path):
     config = default_config()
     config.platform.repo = "owner/repo"
     config.worktree.repo_path = str(tmp_path)
-    config.executor.model = "openai/model"
+    config.executor.provider = "openai"
+    config.executor.model = "model"
     config.delivery.reviewers = ["reviewer"]
     assert config.execution.backend == "container"
     config.execution.backend = "local"
@@ -657,7 +658,7 @@ def test_local_native_settings_accept_installed_entrypoint_and_refuse_shell(tmp_
     text = (
         '[execution]\nbackend="local"\n[platform]\nrepo="owner/repo"\n'
         "[worktree]\nrepo_path=" + json.dumps(str(work)) + "\n"
-        '[delivery]\nreviewers=["reviewer"]\n[executor]\nmodel="openai/model"\n'
+        '[delivery]\nreviewers=["reviewer"]\n[executor]\nprovider="openai"\nmodel="model"\n'
     )
     path.write_text(text)
     command = json.dumps(str(Path(context["path"]) / "pi.exe")) + " -p {prompt}"

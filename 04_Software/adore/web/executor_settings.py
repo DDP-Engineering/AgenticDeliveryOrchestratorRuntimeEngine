@@ -11,6 +11,9 @@
 @file    executor_settings.py
 @brief   Private provider credentials and durable model connectivity evidence.
 @details Uses the existing profile .env contract; malformed stored inputs fail closed.
+         The web manages exactly one credential: the variable Pi reads the
+         configured provider's key from (ADORE_ENDPOINT_API_KEY for an
+         OpenAI-compatible endpoint; none for a ChatGPT subscription).
 """
 
 # IMPORTS
@@ -23,23 +26,13 @@ import re
 import tempfile
 
 from adore.branding import EXECUTOR_NAME
+from adore.pi_providers import MODEL_ID_RE, credential_variable, key_variables, secret_names
 from adore.web.model_connection import REASONS as MODEL_TEST_REASONS
 
 # CONSTANTS
-PROVIDER_KEYS = frozenset(
-    {
-        "OPENAI_API_KEY",
-        "ANTHROPIC_API_KEY",
-        "GEMINI_API_KEY",
-        "GOOGLE_API_KEY",
-        "OPENROUTER_API_KEY",
-        "DASHSCOPE_API_KEY",
-        "AZURE_OPENAI_API_KEY",
-        "MISTRAL_API_KEY",
-        "XAI_API_KEY",
-        "GROQ_API_KEY",
-    }
-)
+#: Every credential variable a provider choice can name (Pi's key variables
+#: plus the endpoint key); the allowlist of additional names offered too.
+PROVIDER_KEYS = key_variables()
 # One closed reason set for probing and for persisted evidence.
 REASONS = frozenset(MODEL_TEST_REASONS)
 RESULT_KEYS = {"project_id", "revision", "checked_at", "executor", "model", "ready", "reason"}
@@ -123,8 +116,13 @@ def _atomic(path: Path, raw: bytes) -> None:
 
 
 def credential_view(directory: Path, config) -> dict:
-    """@brief Return only configured API variable names and effective credential sources."""
+    """@brief Return the configured provider's credential name and source, never its value.
+    @param[in] directory Project profile directory holding `.env`.
+    @param[in] config Validated project configuration.
+    @return `{"variables": [{"name", "source"}]}`; empty for a ChatGPT subscription.
+    """
     _, values = _environment(directory)
+    variable = credential_variable(config.executor.provider)
     return {
         "variables": [
             {
@@ -135,7 +133,7 @@ def credential_view(directory: Path, config) -> dict:
                 if values.get(key)
                 else "missing",
             }
-            for key in sorted(PROVIDER_KEYS.intersection(config.executor.env_keys))
+            for key in ([variable] if variable else [])
         ]
     }
 
@@ -146,7 +144,7 @@ def update_credential(directory: Path, config, variable: str, token: str | None)
     @exception ExecutorSettingsError Unsafe input, ambient override or corrupt dotenv.
     """
     lines, _ = _environment(directory)
-    if variable not in PROVIDER_KEYS or variable not in config.executor.env_keys:
+    if variable is None or variable != credential_variable(config.executor.provider):
         raise ExecutorSettingsError("executor_credential_invalid")
     if variable in os.environ:
         raise ExecutorSettingsError("executor_credential_external")
@@ -176,13 +174,13 @@ def update_credential(directory: Path, config, variable: str, token: str | None)
 
 
 def credential_binding(directory: Path, config) -> str:
-    """@brief Bind evidence to the effective values of the allowlisted provider keys.
+    """@brief Bind evidence to the effective values of every secret Pi receives.
     @note The digest stays server-side; values are read only for change detection.
     """
     _, values = _environment(directory)
     effective = {
         key: os.environ[key] if key in os.environ else values.get(key, "")
-        for key in config.executor.env_keys
+        for key in secret_names(config.executor)
     }
     return sha256(json.dumps(effective, sort_keys=True).encode("utf-8")).hexdigest()
 
@@ -196,7 +194,7 @@ def validate_model_result(value: dict, project_id: str) -> None:
             or value["project_id"] != project_id
             or not re.fullmatch(r"[0-9a-f]{64}", value["revision"])
             or value["executor"] != EXECUTOR_NAME
-            or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}", value["model"])
+            or not isinstance(value["model"], str) or not MODEL_ID_RE.fullmatch(value["model"])
             or type(value["ready"]) is not bool
             or value["reason"] not in REASONS
             or value["ready"] != (value["reason"] == "ready")

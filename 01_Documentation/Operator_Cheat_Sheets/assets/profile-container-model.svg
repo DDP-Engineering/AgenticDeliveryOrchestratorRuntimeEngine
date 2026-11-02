@@ -70,6 +70,6 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
     <text class="small" x="18" y="82">one worktree</text>
   </g>
   <path class="line" d="M875 266 H923" />
-  <text class="small" x="660" y="360">Secrets stay outside images; ADORE injects only configured env_keys at run time.</text>
+  <text class="small" x="660" y="360">Secrets stay outside images; ADORE injects only the provider key and env_keys at run time.</text>
 </svg>
 

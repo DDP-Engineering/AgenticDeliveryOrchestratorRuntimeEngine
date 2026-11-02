@@ -339,6 +339,8 @@ def test_import_reviews_all_locations_and_binds_declared_identity(tmp_path):
         assert review["resolved_paths"]["state.store_root"] == str((tmp_path / "state").resolve())
         assert review["config_path"] == str(profiles.config_path("alpha").resolve())
         assert "agent" in review and "executor" in review and "container" in review
+        assert review["executor"] == {"provider": "openai", "model": "gpt-5.5",
+                                      "endpoint_base_url": "", "env_keys": []}
         for mutation in ({"display_name": "Changed"}, {"description": "Changed"},
                          {"name": "beta"}, {"config_text": document + "# changed\n"}):
             response = client.post("/api/v1/projects/import", json={

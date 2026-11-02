@@ -53,8 +53,9 @@ for subscription or local execution while iteration, time and file caps remain.
 
 ## 3. Security Validation
 
-Executor `env_keys` may contain model-provider keys but known forge credential
-names are rejected. Container-managed Git/proxy/home values cannot be
+Executor `env_keys` may contain additional model-provider keys but known
+forge credential names are rejected. A provider's key is never a
+configuration value: it reaches Pi only through its credential variable. Container-managed Git/proxy/home values cannot be
 overridden. Commands remain noninteractive and shell control input is rejected
 where appropriate. `container.selinux_relabel` accepts only the values in
 `SELINUX_RELABEL_OPTIONS`, which maps each accepted mode to the per-mount
@@ -79,16 +80,46 @@ read, in every section and subtable (`labels.*`, `container.egress`), with
 key is refused like any other unknown key.
 
 `ExecutorConfig` (`[executor]`) configures Pi, ADORE's only coding agent:
-`model` (required, Pi `provider/model`), `command`, `mode` (`thick` or
-`headless`), `questions_file` and `env_keys` (default `OPENAI_API_KEY`,
-`ANTHROPIC_API_KEY`). The removed `default` and `stage_host_auth` keys and
-every `[executor.<name>]` table are refused as unknown `[executor]` keys, and
-the removed `[labels] executor` table as an unknown `[labels]` key. There is
-no migration.
+`provider` (required), `model` (required, the model ID within the provider),
+`endpoint` (`ExecutorEndpointConfig`), `command`, `mode` (`thick` or
+`headless`), `questions_file` and `env_keys` (default empty: additional
+secret names; the provider's key variable is always passed). The removed
+`default` and `stage_host_auth` keys and every other `[executor.<name>]` table
+are refused as unknown `[executor]` keys, and the removed `[labels] executor`
+table as an unknown `[labels]` key. Unknown keys inside `[executor]` and
+`[executor.endpoint]`, such as an inline `api_key`, are refused by name. There
+is no migration.
+
+`_provider_issues` checks the provider rules against the shipped Pi catalog
+(`adore/pi_providers.py`, `pi_catalog.json`): `provider` is a Pi API-key
+provider id from the catalog, `chatgpt` or `custom`; `model` matches
+`MODEL_ID_RE` (`[A-Za-z0-9~][A-Za-z0-9._:/@+~-]{0,199}`: no whitespace,
+quotes or control characters, at most 200 characters). `[executor.endpoint]`
+(`base_url`, `api`, default `openai-completions`; also `openai-responses`,
+`anthropic-messages`, `google-generative-ai`) is required for `custom` and,
+when the table is present in the file, refused for any other provider.
+`base_url` is an http(s) address with a host and no user name, password,
+query or fragment, as seen from the container. `custom` with
+`[execution] backend = "local"` is refused: a local run has no ADORE-owned
+agent directory for Pi's `models.json`. An unreadable catalog is reported as
+an `[executor] provider` issue.
 
 ```toml
 [executor]
-model = "openai/gpt-5.4-fast"
+provider = "openai"
+model = "gpt-5.5"
+```
+
+An OpenAI-compatible endpoint (container run only):
+
+```toml
+[executor]
+provider = "custom"
+model = "qwen3-coder"
+
+[executor.endpoint]
+base_url = "http://192.168.1.20:1234/v1"
+api = "openai-completions"
 ```
 
 `command` is the argv template of a native (local) Pi run only; the default
@@ -102,7 +133,9 @@ pinned Pi over RPC. Templates support only the `{prompt}`, `{model}` and
 
 `tests/test_config.py` covers defaults, recovery bounds, AEGIS stage names,
 approval-label collisions, forge credential denial, container trust boundaries
-and existing cross-platform configuration rules.
+and existing cross-platform configuration rules. `tests/test_pi_providers.py`
+covers the shipped catalog, provider/model/endpoint validation, the local-run
+refusal of `custom`, `secret_names` and `models_json`.
 
 ## Reviewed preparation settings
 

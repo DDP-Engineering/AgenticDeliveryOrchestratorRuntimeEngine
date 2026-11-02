@@ -31,7 +31,8 @@ repo = "group/project"
 repo_path = "../runtime-project"
 
 [executor]
-model = "openai/gpt-5.4-fast"
+provider = "openai"
+model = "gpt-5.4-fast"
 
 [delivery]
 reviewers = ["dan.pasare"]
@@ -145,11 +146,12 @@ def test_removed_agent_environment_is_refused_with_the_fix(tmp_path, table, name
             "removed coding agent: remove it from config.toml") in issues
 
 
-def test_pi_is_the_only_executor_and_needs_only_a_model(tmp_path: Path) -> None:
-    """@brief [executor] model alone is valid; the Pi launch template is the default."""
+def test_pi_is_the_only_executor_and_needs_only_a_provider_and_model(tmp_path: Path) -> None:
+    """@brief [executor] provider and model are valid; the Pi launch template is the default."""
     config = load_config(_write_config(tmp_path, MINIMAL_VALID))
     assert validate_config(config) == []
-    assert config.executor.model == "openai/gpt-5.4-fast"
+    assert (config.executor.provider, config.executor.model) == ("openai", "gpt-5.4-fast")
+    assert config.executor.env_keys == []
     assert config.executor.command == "pi -p --mode json --model {model} {prompt}"
 
 
@@ -468,7 +470,8 @@ repo = "group/project"
 repo_path = "../runtime-project"
 
 [executor]
-model = "openai/gpt-5.4-fast"
+provider = "openai"
+model = "gpt-5.4-fast"
 
 [delivery]
 reviewers = ["dan.pasare"]

@@ -54,8 +54,8 @@ for daily interactive work after you trust the selection.
 | Per-run container | One isolated claim of one ticket. | Created by ADORE; a failed run retains it for explicit retry or cleanup. |
 
 Do not put secrets into images. Model provider keys and forge tokens belong in
-the host environment or `.env`, and only configured `env_keys` reach the
-executor container.
+the host environment or `.env`, and only the configured provider's key
+variable and `env_keys` reach the executor container.
 
 ## Select The Image In The Profile
 

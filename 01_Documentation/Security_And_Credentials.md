@@ -17,7 +17,7 @@ with [Getting_Started.md](Getting_Started.md) and
 | Need | Preferred location | Boundary |
 | --- | --- | --- |
 | Forge access | Authenticated `glab`, `gh` or `tea` session for the run-as account, or a real process environment variable | Host forge CLI |
-| Model-provider key | ADORE runtime environment or its `.env` file | Only configured executor-container `env_keys` |
+| Model-provider key | The project's credential store (profile `.env`, saved from Settings → Agent and model) or the ADORE runtime environment | Only the configured provider's key variable plus configured `env_keys` |
 | Profile settings | A profile `config.toml` | Non-secret configuration only |
 | Project tools | A project-specific container image | No credentials |
 | Service secrets | Operating-system secret store or service environment file | Process environment, with normal host controls |
@@ -76,8 +76,8 @@ the forge; they are the final delivery boundary.
 For CLI engine commands, ADORE reads `.env` beside the resolved profile/config
 first and falls back to cwd `.env` when no adjacent file exists. Direct library
 callers default to cwd `.env`. The real process environment overrides file
-values. ADORE passes only configured `[executor] env_keys` to executor
-containers.
+values. ADORE passes only the configured provider's key variable and the
+names in `[executor] env_keys` to executor containers.
 
 Therefore a `GITLAB_TOKEN` or `GITHUB_TOKEN` stored only in that `.env` file is
 not used by `glab` or `gh` on the host. Use an authenticated CLI session or put
@@ -88,25 +88,39 @@ start. `tea` reads its logins only from its own config file
 
 ## Executor Credentials
 
-Pi, ADORE's only coding agent, runs inside an ADORE-managed container. Give it
-only the model-provider keys it needs by listing their names in
-`[executor] env_keys`.
+Pi, ADORE's only coding agent, runs inside an ADORE-managed container. It
+receives exactly one model credential: the key of the configured
+`[executor] provider`, under the environment variable Pi reads for that
+provider. The key never appears in `config.toml`; an inline key field is
+refused as an unknown key.
 
 ```toml
 [executor]
-env_keys = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]
+provider = "openai"
+model = "gpt-5.5"
 ```
 
-Provide the corresponding values through the ADORE process environment or an
-`.env` beside the selected profile/config (cwd is the fallback):
+Save the key in **Settings → Agent and model → Provider API key**, which writes
+it to the project's credential store (the profile `.env`, mode 0600), or provide
+it through the ADORE process environment or that `.env` (cwd is the fallback):
 
 ```dotenv
 OPENAI_API_KEY=<provider-key>
-ANTHROPIC_API_KEY=<provider-key>
 ```
 
-Only key names listed in `env_keys` reach the executor container. Keep the list
-limited to model-provider credentials. ADORE rejects known forge credential
+The variable follows the provider (`ANTHROPIC_API_KEY` for `anthropic`,
+`GEMINI_API_KEY` for `google`, and so on). An OpenAI-compatible endpoint
+(`provider = "custom"`) takes an optional `ADORE_ENDPOINT_API_KEY`; the
+generated Pi `models.json` names that variable (`$ADORE_ENDPOINT_API_KEY`) or a
+literal placeholder, never the key. A ChatGPT subscription has no key variable;
+its sign-in is not available yet. The web interface shows only the variable
+name and whether it is set for the project or on the server, and its value
+never appears in API responses, audit records, logs or Test AI connection
+results.
+
+`[executor] env_keys` lists additional secrets Pi receives besides the
+provider's key; most projects need none. Only those names and the provider's
+variable reach the executor container. ADORE rejects known forge credential
 names (`GITHUB_TOKEN`, `GH_TOKEN`, `GITLAB_TOKEN`, `GLAB_TOKEN`, `GITEA_TOKEN`,
 and `TEA_TOKEN`) in `env_keys`. The executor prompt also forbids commit, push,
 MR/PR creation, merge, and creating AEGIS child task journals (`task --parent`)
@@ -171,7 +185,7 @@ Before the first real poll, confirm:
 
 1. The run-as account can authenticate the selected forge CLI.
 2. The profile contains no secret values.
-3. Pi has only the keys listed in `env_keys`.
+3. Pi has only the provider's key and the keys listed in `env_keys`.
 4. The target project's branch protections require human review and merge.
 5. The chosen image contains no secret files.
 6. The configured egress mode meets the target project's policy.

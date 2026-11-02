@@ -43,7 +43,8 @@ repo_path = "../runtime-project"
 root      = "__WORKTREE_ROOT__"
 
 [executor]
-model = "openai/gpt-5.4-fast"
+provider = "openai"
+model = "gpt-5.4-fast"
 
 [delivery]
 reviewers = ["dan.pasare"]

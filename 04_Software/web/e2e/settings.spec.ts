@@ -5,7 +5,7 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
 import { agentSettingsCopy } from "../src/executorSettings";
-import { settingVisible } from "../src/settings";
+import { connectionRowVisible, settingVisible } from "../src/settings";
 import { test, expect, type Page } from "@playwright/test";
 import { branchNamingCopy, implementationLabels, pipelineFailureCopy, statisticsDatabaseCopy } from "../src/settingsCopy";
 
@@ -511,7 +511,8 @@ for (const user of ["admin", "developer"]) {
   await expect(stateFolder).toBeVisible();
   await expect(stateFolder).toContainText(configuration.config.state.store_root);
   await expect(stateFolder.getByRole("button")).toHaveCount(0);
-  const shown = configuration.settings.filter((s:{key:string}) => settingVisible(s.key, false));
+  const shown = configuration.settings.filter((s:{key:string}) => settingVisible(s.key, false)
+    && connectionRowVisible(s.key, configuration.config.executor.provider));
   await expect(panel.locator(".setting-row[id]")).toHaveCount(shown.length);
   await expect(panel.locator(".setting-actions details")).toHaveCount(0);
   await expect(panel.getByRole("checkbox")).toHaveCount(0);

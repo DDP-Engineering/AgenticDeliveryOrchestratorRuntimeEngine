@@ -52,10 +52,15 @@ executor; the launcher only composes commands and collects outcomes.
   event reading, completion on `agent_settled`, `abort` on the stage timeout
   or a cancel, termination after a grace period, failure classification and
   usage summed per turn; returns a `PiRpcResult`.
-- `build_executor(command_template, model, questions_file)` - the config
-  selection point; returns a `PiExecutor`. `command_template` is the native
-  `[executor] command` (default `pi -p --mode json --model {model} {prompt}`,
-  `branding.PI_NATIVE_COMMAND`).
+- `build_executor(command_template, model, questions_file, *, provider,
+  models)` - the config selection point; returns a `PiExecutor`.
+  `command_template` is the native `[executor] command` (default
+  `pi -p --mode json --model {model} {prompt}`, `branding.PI_NATIVE_COMMAND`);
+  `model` is the model ID within the provider; `provider` is the
+  `[executor] provider` value, turned into Pi's provider id by
+  `pi_providers.pi_provider` (`openai` for `chatgpt`, `adore-endpoint` for
+  `custom`, else the id); `models` is the endpoint `models.json` document
+  (`pi_providers.models_json`) for `custom`, else None.
 
 Explicitly not owned: *which* gate to run and what to do with the outcome
 (orchestrator, design 7a), container lifecycle (isolation), posting anything
@@ -71,7 +76,7 @@ headless CLI may buffer stdout so live streaming looks hung.
 1. Delete a stale questions file from the worktree - its presence after the
    gate must mean it was written by THIS gate.
 2. Render the command from the `[executor] command` template: `{prompt}` ->
-   shell-quoted prompt text, `{model}` -> quoted model, `{worktree}` ->
+   shell-quoted prompt text, `{model}` -> quoted `<pi provider>/<model id>`, `{worktree}` ->
    `/adore/work` (the container-side mount). No other placeholder is
    supplied. Nothing is appended for continuation: each gate is a fresh session.
 3. Write `gate.sh` (LF endings; Windows CRLF would break `sh`) into the
@@ -114,13 +119,22 @@ the container, so the executor cannot push regardless.
 which verifies the pinned container identity, then calls
 `ContainerManager.spawn`: `<runtime> exec -i` with `exec`'s environment rules):
 
-1. Clear the stale questions file, `output.jsonl` and `stderr.log`; write a
-   descriptive `gate.sh` with the argv and environment (no shell runs; the
-   prompt never enters it).
+1. Clear the stale questions file, `output.jsonl` and `stderr.log`. For an
+   OpenAI-compatible endpoint (`models` set), write the document to the io dir
+   as `pi-models.json` (`MODELS_FILE`) and run
+   `cp /adore/io/pi-models.json /home/adore/.adore-pi-agent/models.json`
+   through the exec seam, every gate, so a kept-warm container always has the
+   current file; a failed copy returns a failed `GateRun` (the copy's exit
+   code, or 1) with stderr `Pi models.json could not be placed in the agent
+   directory: ...` and Pi is not started. The document holds no key: `apiKey`
+   is `$ADORE_ENDPOINT_API_KEY` when that secret is set, else the literal
+   `adore-no-key`. Then write a descriptive `gate.sh` with the argv and
+   environment (no shell runs; the prompt never enters it).
 2. Start `node /opt/pi/lib/node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js
    --mode rpc --no-session --no-approve --no-skills --no-extensions
    --no-prompt-templates --no-themes --no-mcp -e /opt/adore/pi/adore-guard.ts
-   --model <model>` with `PI_CODING_AGENT_DIR=/home/adore/.adore-pi-agent`,
+   --provider <pi provider> --model <model id>` (`pi_rpc_argv(model,
+   provider)`) with `PI_CODING_AGENT_DIR=/home/adore/.adore-pi-agent`,
    `PI_OFFLINE=1`, `PI_TELEMETRY=0`, `PI_SKIP_VERSION_CHECK=1` (inline
    `--env` values; the provider key keeps the bare-key rule). Nothing comes
    from the personal `~/.pi`, `~/.agents/skills` or the project's `.pi`; the
@@ -170,8 +184,9 @@ in depth: the boundary stays that no forge credential is in the container.
 
 ## 6. Data Contracts
 
-- io-dir filenames: `gate.sh`, `output.jsonl`, `stderr.log`; archive root:
-  `archive/` (module constants shared with tests).
+- io-dir filenames: `gate.sh`, `output.jsonl`, `stderr.log`, and
+  `pi-models.json` for an endpoint; archive root: `archive/` (module constants
+  shared with tests).
 - Archive directory shape: `<stem>-attempt<N>` with a numeric suffix on rare
   collisions so archives are never overwritten. Missing output/stderr becomes
   an empty archive file with presence flags in `meta.json`.
@@ -222,7 +237,7 @@ from functools import partial
 from adore.executor.launcher import build_executor
 
 executor = build_executor("pi -p --mode json --model {model} {prompt}",
-                          "openai/gpt-5.4-fast")
+                          "gpt-5.5", provider="openai")
 # A container target is the orchestrator's BoundTarget (it has `spawn`, so
 # the gate runs over Pi RPC); a native target uses the command above.
 run = executor.run_gate(target, worktree_path, io_path, intake_prompt,
@@ -255,12 +270,16 @@ elif run.ok:
   abort and kill, cancel abort, six provider failure classes with key-hint
   redaction, crash before settling, malformed record, start failure, large
   output and an over-limit record, the guard run, the isolation argv and
-  environment, the usage event through `_journal_usage`, and the conductor's
-  cancel grace. `tests/test_isolation.py` covers `ContainerManager.spawn`.
+  environment, the usage event through `_journal_usage`, the conductor's
+  cancel grace, `--provider`/`--model` on RPC and `<pi provider>/<model id>`
+  in the native template, and the endpoint `models.json` placed before Pi
+  starts (a failed copy fails the stage). `tests/test_isolation.py` covers
+  `ContainerManager.spawn`; `tests/test_pi_providers.py` covers the provider
+  rules and `models_json`.
 - Live check 2026-11-02 (image built from this Dockerfile in WSL Docker, a
   fake chat-completions endpoint in the container, no key): see the TASK-41fd0159
   journal for the recorded guard and isolation result.
-- Minimum validation after a change: `uv run --group dev pytest tests/test_executor.py tests/test_pi_rpc.py`.
+- Minimum validation after a change: `uv run --group dev pytest tests/test_executor.py tests/test_pi_rpc.py tests/test_pi_providers.py`.
 
 ## 10. Limitations And Future Work
 

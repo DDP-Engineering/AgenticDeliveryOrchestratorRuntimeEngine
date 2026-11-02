@@ -125,10 +125,21 @@ exclude = "no-agent"          # permanently human-only, ignore always
 # agent choice. A container run uses the Pi pinned in the executor image,
 # driven over its RPC mode, and reads AGENTS.md natively. Keys of removed
 # agents (`default`, `stage_host_auth`, `[executor.<name>]` tables) are refused.
-# Model in provider/model form; the provider API key comes from .env.
-model = "openai/gpt-5.5"
+# Provider: one of Pi's API-key providers (for example "openai", "anthropic",
+# "google", "openrouter", "mistral"; Settings -> Agent and model lists them all),
+# "chatgpt" (ChatGPT subscription; its sign-in is not available yet) or
+# "custom" (an OpenAI-compatible endpoint such as LM Studio, Ollama or vLLM,
+# described in [executor.endpoint] below).
+provider = "openai"
+# Model id within the provider (Pi's list, or any id the provider accepts).
+model = "gpt-5.5"
+# The provider's API key is a credential, never a value in this file: save it in
+# Settings -> Agent and model, or put it in .env beside this config.toml under
+# the variable Pi reads for the provider (OPENAI_API_KEY for "openai",
+# ANTHROPIC_API_KEY for "anthropic", ADORE_ENDPOINT_API_KEY for "custom").
 # Argv template of a native (local) Pi run only; a container run ignores it.
-# ADORE substitutes {prompt}, {model} and {worktree}. SAFETY: never add --auto;
+# ADORE substitutes {prompt}, {model} (as provider/model) and {worktree}.
+# SAFETY: never add --auto;
 # the executor never touches the remote - the orchestrator owns push and MR
 # creation.
 # command = "pi -p --mode json --model {model} {prompt}"
@@ -142,9 +153,21 @@ mode = "thick"
 # after a gate is the deterministic "needs clarification" signal.
 # Leave out to derive "<SLUG>_QUESTIONS.md".
 questions_file = "ADORE_QUESTIONS.md"
-# The ONLY environment variables passed into the executor container (values
-# come from the host environment or .env; design: scope secrets minimally).
-env_keys = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]
+# Additional secret variables passed to Pi besides the provider's key variable
+# (values come from the host environment or .env; scope secrets minimally).
+env_keys = []
+
+# Only with provider = "custom": the OpenAI-compatible endpoint. base_url is the
+# address AS SEEN FROM THE CONTAINER: "localhost" is the container itself, and
+# host.docker.internal reaches the host only on Docker Desktop. On Docker Engine
+# (Linux, or inside WSL) use the host's LAN address or the Docker network
+# gateway; for a server on Windows reached from WSL Docker, the WSL default
+# gateway. api is the Pi API type the server speaks: "openai-completions"
+# (LM Studio, Ollama, vLLM), "openai-responses", "anthropic-messages" or
+# "google-generative-ai". An endpoint key, if any, is ADORE_ENDPOINT_API_KEY.
+# [executor.endpoint]
+# base_url = "http://192.168.1.20:1234/v1"
+# api = "openai-completions"
 
 # ----- Clarification -----------------------------------------------------------
 # Bounds for parked runs (executor asked a question, waiting on a human).

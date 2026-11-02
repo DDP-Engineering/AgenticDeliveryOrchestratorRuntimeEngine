@@ -87,16 +87,59 @@ Pi is ADORE's only coding agent. The `[executor]` table holds:
 
 | Key | Meaning | Default |
 | --- | --- | --- |
-| `executor.model` | Pi model in `provider/model` form, for example `openai/gpt-5.4`. | required |
+| `executor.provider` | A Pi API-key provider id (for example `openai`, `anthropic`, `google`, `openrouter`, `mistral`; Settings → Agent and model lists them all), `chatgpt` (ChatGPT subscription; its sign-in is not available yet) or `custom` (an OpenAI-compatible endpoint). | required |
+| `executor.model` | Model ID within the provider, for example `gpt-5.4`; Pi's list or any ID the provider accepts. | required |
+| `executor.endpoint.base_url` | Only with `custom`: the endpoint address as seen from the container. | required with `custom` |
+| `executor.endpoint.api` | Only with `custom`: `openai-completions`, `openai-responses`, `anthropic-messages` or `google-generative-ai`. | `openai-completions` |
 | `executor.command` | Argv template of a native (installed on the server) Pi run. A container run ignores it and starts the image's pinned Pi in RPC mode. | `pi -p --mode json --model {model} {prompt}` |
 | `executor.mode` | `thick` or `headless`; see below. | `thick` |
 | `executor.questions_file` | Clarification questions file the agent writes in the worktree. | `<SLUG>_QUESTIONS.md` |
-| `executor.env_keys` | Model-provider environment variables passed to Pi. | `["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]` |
+| `executor.env_keys` | Additional secret variables passed to Pi besides the provider's key variable. | `[]` |
 
 ```toml
 [executor]
-model = "openai/gpt-5.5"
+provider = "openai"
+model = "gpt-5.5"
 ```
+
+An OpenAI-compatible endpoint (LM Studio, Ollama, vLLM):
+
+```toml
+[executor]
+provider = "custom"
+model = "qwen/qwen3.5-9b"
+
+[executor.endpoint]
+base_url = "http://192.168.1.20:1234/v1"
+api = "openai-completions"
+```
+
+The provider list and each provider's models come from the Pi version ADORE
+pins (Pi 1.4.0), generated offline into `adore/pi_catalog.json` by
+`02_Tools/generate_pi_catalog.py`; a model ID outside the list is accepted.
+`provider` is refused when missing or unknown, `model` when missing or not one
+ID (no spaces, quotes or control characters, at most 200 characters).
+`[executor.endpoint]` is required for `custom` and refused for any other
+provider; its `base_url` must be `http` or `https` with a host and no user
+name, password, query or fragment, and `custom` needs a container run (a
+local run has no ADORE-owned Pi agent directory). An inline key such as
+`[executor] api_key` or `[executor.endpoint] key` is refused as an unknown key.
+
+The provider's API key is a credential, never a value in `config.toml`: save it
+in Settings → Agent and model or put it in the profile `.env` under the
+variable Pi reads for the provider (`OPENAI_API_KEY` for `openai`,
+`ANTHROPIC_API_KEY` for `anthropic`, `GEMINI_API_KEY` for `google`, and so on;
+`ADORE_ENDPOINT_API_KEY`, optional, for `custom`). Pi receives it only as that
+variable. For `custom` ADORE writes Pi's `models.json` into the ADORE-owned
+agent directory before every stage: one provider `adore-endpoint` with the
+base URL, API type and model, and `apiKey` set to `$ADORE_ENDPOINT_API_KEY`
+when that key is set or to the placeholder `adore-no-key` when it is not.
+`base_url` is the address as seen from the container: `localhost` is the
+container itself, and `host.docker.internal` reaches the host only on Docker
+Desktop; with Docker Engine on Linux or in WSL use the host's network address
+(for a server on Windows reached from Docker in WSL, the WSL default gateway).
+With `allowlist-proxy` or `none` egress, the endpoint must be reachable under
+that policy.
 
 `executor.command` must be non-interactive, contain `{prompt}` and not use
 `--auto`. The supported placeholders are `{prompt}`, `{model}` and
@@ -104,7 +147,7 @@ model = "openai/gpt-5.5"
 `executor.stage_host_auth` and every `[executor.<name>]` table (`opencode`,
 `codex`, `qwen`, `pi`) are refused with `[executor] unknown key '<key>':
 remove it from config.toml`.
-`executor.env_keys` is the allowlist of model-provider environment variables copied into a container. Forge credential
+`executor.env_keys` lists additional secret variables copied into a container; the provider's key variable is always added. Forge credential
 names such as `GITHUB_TOKEN`, `GH_TOKEN`, `GITLAB_TOKEN`, `GLAB_TOKEN`,
 `GITEA_TOKEN`, and `TEA_TOKEN` are rejected.
 
@@ -137,7 +180,7 @@ reserved and do not currently change that behavior.
 
 For CLI engine commands, `.env` beside the resolved `config.toml` is loaded
 first; if absent, cwd `.env` is used. The real process environment has highest
-precedence, and only names in `executor.env_keys` reach the executor container.
+precedence, and only the provider's key variable and the names in `executor.env_keys` reach the executor container.
 
 ## Workflow
 
@@ -304,7 +347,7 @@ SQLite bytes, authorization, scope and financial redaction.
 
 ## Web executor configuration
 
-**Project → Settings → Agent and model** shows **Test AI connection**, the Pi model (`executor.model`), the launch command (`executor.command`), the allowed credential variables (`executor.env_keys`), **Provider API keys**, the execution environment and estimated prices. There is no agent choice: Pi is the only coding agent. The model and the launch command are ordinary reviewed settings: Prepare reviews the change, then Apply writes one complete paused/idle candidate. A model ID must be supplied explicitly. For a container project the launch command offers only the Pi preset, because a container run starts the image's pinned Pi in RPC mode; a local project accepts any native argv that contains `{prompt}` and does not use `--auto`. Runtime preparation remains external. The old `/executor` URL redirects to Settings. Developers read non-secret settings/results without mutation actions. An OpenAI-compatible endpoint (for example LM Studio) cannot be configured in this version.
+**Project → Settings → Agent and model** shows **Test AI connection**, the provider (`executor.provider`), the model (`executor.model`), for an endpoint its base URL and API type (`executor.endpoint.*`), the launch command (`executor.command`), the additional credential variables (`executor.env_keys`), **Provider API key**, the execution environment and estimated prices. There is no agent choice: Pi is the only coding agent. Provider, model and endpoint are edited together and staged as one reviewed candidate (`executor.connection`); the model list comes from the pinned Pi and any typed ID is accepted. The launch command is an ordinary reviewed setting. Prepare reviews the change, then Apply writes one complete paused/idle candidate. For a container project the launch command offers only the Pi preset, because a container run starts the image's pinned Pi in RPC mode; a local project accepts any native argv that contains `{prompt}` and does not use `--auto`. **Provider API key** saves or removes only the configured provider's variable (none for a ChatGPT subscription). Runtime preparation remains external. The old `/executor` URL redirects to Settings. Developers read non-secret settings/results without mutation actions.
 
 The names-only credential selector offers known provider names and retained custom names. An empty list suits a local project that uses the account's existing Pi sign-in. Applying names does not delete saved `.env` values. Provider API keys offers private Save/Disconnect for known allowed variables and shows sources only; key changes require paused pickup and idle/pending-free state. A container project always uses provider API keys; no host sign-in is copied into the container. Explicit Test AI connection runs Pi and remains the evidence of model access; it may incur provider charges. New jobs use applied values; active jobs retain their durable configuration. Current model evidence is invalidated by configuration/credential drift.
 

@@ -38,6 +38,38 @@ test("guided enrollment begins at repository and identity with visible step navi
   await expect(page.getByRole("button", { name: "Use an existing clone on this server", exact: true })).toHaveCount(0);
 });
 
+test("step 2 offers Pi providers and an OpenAI-compatible endpoint and names the credential", async ({ page }) => {
+  await enter(page);
+  await repository(page, "e2e-endpoint");
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  const provider = page.getByLabel(/^Provider \*/);
+  const help = page.locator("#enrollment-help-agent");
+  await expect(provider).toHaveValue("openai");
+  await expect(help).toContainText("OPENAI_API_KEY");
+  await expect(help).toContainText(enrollmentCopy.en.keyAfterCreate);
+  await expect(page.locator('#enroll-model-options option[value="gpt-5.5"]')).toHaveCount(1);
+  await expect(page.getByLabel(/^Endpoint base URL/)).toHaveCount(0);
+  await provider.selectOption("chatgpt");
+  await expect(help).toContainText("Sign in with ChatGPT is not available yet.");
+  await provider.selectOption("custom");
+  await expect(help).toContainText("ADORE_ENDPOINT_API_KEY");
+  await expect(help).toContainText("host.docker.internal");
+  await page.getByLabel(/^Model \*/).fill("qwen/qwen3.5-9b");
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(page.locator(".enrollment-errors")).toContainText("Endpoint base URL");
+  await page.getByLabel(/^Endpoint base URL/).fill("http://172.27.80.1:1234/v1");
+  await expect(page.getByLabel(/^Endpoint API type/)).toHaveValue("openai-completions");
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.getByLabel("Reviewers", { exact: false }).fill("fixture-reviewer");
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await validate(page);
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  const agent = page.locator(".enrollment-review").nth(1);
+  for (const text of ["OpenAI-compatible endpoint", "qwen/qwen3.5-9b", "http://172.27.80.1:1234/v1",
+    "openai-completions", enrollmentCopy.en.credentialVariable, "ADORE_ENDPOINT_API_KEY"]) await expect(agent).toContainText(text);
+  await expect(page.locator(".enrollment")).not.toContainText("sk-");
+});
+
 test("enrollment reads a repository URL, derives the ID and clones at creation", async ({ page }) => {
   await enter(page);
   const home = dirname(await fixture(page, "partial"));
@@ -167,7 +199,7 @@ async function repository(page: Page, name = "e2e-valid") {
 }
 async function environment(page: Page) {
   await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await page.getByLabel(/^Model \*/).fill("openai/fixture-model");
+  await page.getByLabel(/^Model \*/).fill("fixture-model");
   await page.getByLabel("Credential environment references", { exact: false }).fill("LOCAL_API_KEY");
 }
 async function verification(page: Page, name = "e2e-valid") {

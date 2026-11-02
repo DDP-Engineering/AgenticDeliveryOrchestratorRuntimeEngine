@@ -43,7 +43,8 @@ Runtime configuration is `config.toml`, started from
 `04_Software/config.example.toml` and documented in
 `01_Documentation/Configuration_Reference.md`. `adore init <profile>` creates
 it under the profile home, `%APPDATA%\adore` on Windows or `~/.config/adore`
-on Linux, unless `ADORE_HOME` overrides the location. Executor provider keys
+on Linux, unless `ADORE_HOME` overrides the location. The executor provider key
+(the variable Pi reads for `[executor].provider`) and any additional secrets
 named by `[executor].env_keys` live only in a gitignored `.env` beside the
 configuration or in the process environment; forge authentication belongs to
 the host CLI. Run state, the conductor lock and metrics live under the

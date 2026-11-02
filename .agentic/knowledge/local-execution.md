@@ -34,6 +34,8 @@ pinned runtime/lease/scope, immutable ownership and PID birth before control.
 Scope assignment and durable ownership precede project code. Confirm descendants
 drained before release; corruption/control failure preserves evidence/worktrees.
 No recovered PID-only kill, login, credential copies, forge env or tool installs.
+`[executor] provider = "custom"` (an OpenAI-compatible endpoint) is refused for
+a local run: it has no ADORE-owned agent directory for Pi's `models.json`.
 Worktrees are not host sandboxes; container egress/recipes cannot be selected.
 Gates and probes share one bound target and one `local_environment` result; the
 conductor remains the stage owner. The environment is an explicit allowlist:
@@ -42,10 +44,12 @@ NUMBER_OF_PROCESSORS, OS, SystemDrive, ProgramData, ProgramFiles*, CommonProgram
 ALLUSERSPROFILE, PUBLIC) on Windows, then `[local].environment` (explicit
 values replace inherited ones), then the managed account names, home and PATH,
 then `PI_CODING_AGENT_DIR` defaulting to `<home>/.pi/agent` when neither the
-process nor `[local].environment` sets it, then the approved provider keys.
+process nor `[local].environment` sets it, then the approved provider keys
+(`pi_providers.secret_names`: `[executor] env_keys` plus the provider's
+credential variable).
 The installed Pi reuses its existing sign-in in place: `auth_available()` is
-true when `$PI_CODING_AGENT_DIR/auth.json` exists or an approved
-`[executor] env_keys` value is set; ADORE never logs in or copies credentials,
+true when `$PI_CODING_AGENT_DIR/auth.json` exists or an approved secret
+(provider credential variable or `[executor] env_keys`) is set; ADORE never logs in or copies credentials,
 and reads the auth file only to redact its values from retained output.
 `local_policy` (also `config plan`) writes nothing; its pinned environment
 digest covers the whole built environment, so changing the allowlist,

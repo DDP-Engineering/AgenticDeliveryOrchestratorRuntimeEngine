@@ -1,0 +1,29 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-FUNC-ae32f094"
+
+title = "Offer Pi's providers and models from the pinned Pi catalog"
+
+status = "active"
+
+requirement = """When the web interface or the CLI wizard offers providers and models, ADORE shall list Pi's single-variable API-key providers with their key variable and models as read offline from the pinned Pi, plus ChatGPT subscription and OpenAI-compatible endpoint, and shall accept a model id typed outside the list."""
+
+verification = "The catalog test checks the shipped catalog names the pinned Pi version, unique provider ids, one key variable each, non-empty model lists and no forge-token provider; an authenticated API read returns it and an anonymous read is refused; a setting test accepts a model id that is not in the list."
+
+affected_paths = ["04_Software/adore/pi_providers.py", "04_Software/adore/pi_catalog.json", "04_Software/adore/web/app.py", "02_Tools/generate_pi_catalog.py", "04_Software/web/src/agentConnection.ts", "04_Software/adore/wizard.py"]
+
+linked_tests = ["04_Software/tests/test_pi_providers.py::test_shipped_catalog_matches_the_pinned_pi_and_lists_key_providers", "04_Software/tests/test_pi_providers.py::test_corrupt_catalog_fails_closed", "04_Software/tests/test_web_executor_configuration.py::test_provider_catalog_is_served_to_signed_in_users_only", "04_Software/tests/test_pi_providers.py::test_valid_provider_model_and_endpoint_are_accepted"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-02
+updated = 2026-11-02

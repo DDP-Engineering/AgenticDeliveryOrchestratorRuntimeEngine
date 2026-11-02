@@ -52,7 +52,7 @@ def _body(tmp_path, **changes):
     return {"name": "alpha", "display_name": "Alpha service", "kind": "gitea",
             "repo": "owner/alpha", "login": "ddp", "repo_path": str(clone),
             "reviewers": "reviewer", "auth_mode": "api-key", "image": "adore-test:latest",
-            "model": "openai/gpt-5.5", **changes}
+            "provider": "openai", "model": "gpt-5.5", **changes}
 
 
 def _login(client, username="admin", password="admin"):
@@ -746,6 +746,50 @@ def test_preview_lists_the_settings_that_keep_their_defaults(tmp_path):
     assert all(set(item) == {"key", "value"} for item in kept["defaults"])
     # A value changed in the wizard is no longer a default.
     assert "budgets.max_cost_usd" not in {item["key"] for item in changed["defaults"]}
+
+
+def test_enrollment_reviews_an_endpoint_provider_and_names_its_credential(tmp_path):
+    """@brief Step 2 provider/endpoint answers reach the reviewed config; no key is asked."""
+    app = create_app(tmp_path / "home", probe_runner=_no_probe)
+    body = _body(tmp_path, provider="custom", model="qwen/qwen3.5-9b",
+                 endpoint_base_url="http://172.27.80.1:1234/v1",
+                 endpoint_api="openai-completions")
+    with TestClient(app) as client:
+        headers = _login(client)
+        preview = client.post("/api/v1/projects/setup-preview", json=body, headers=headers).json()
+        assert preview["structural_valid"], preview
+        review = preview["review"]
+        assert (review["provider"], review["model"]) == ("custom", "qwen/qwen3.5-9b")
+        assert review["endpoint_base_url"] == "http://172.27.80.1:1234/v1"
+        assert review["endpoint_api"] == "openai-completions"
+        assert review["credential_variable"] == "ADORE_ENDPOINT_API_KEY"
+        created = client.post("/api/v1/projects/setup-create", json={
+            **body, "revision": preview["revision"]}, headers=headers)
+        assert created.status_code == 200, created.text
+        config = load_config(app.state.profiles.config_path("alpha"))
+        assert config.executor.provider == "custom"
+        assert config.executor.endpoint.base_url == "http://172.27.80.1:1234/v1"
+        openai = client.post("/api/v1/projects/setup-preview", headers=headers,
+                             json=_body(tmp_path, name="beta")).json()
+        assert openai["review"]["credential_variable"] == "OPENAI_API_KEY"
+        assert openai["review"]["endpoint_base_url"] == ""
+
+
+@pytest.mark.parametrize(("changes", "field"), [
+    ({"provider": "no-such-provider"}, "provider"),
+    ({"provider": "custom", "model": "m"}, "endpoint_base_url"),
+    ({"provider": "custom", "model": "m", "endpoint_base_url": "http://u:p@h/v1"},
+     "endpoint_base_url"),
+    ({"provider": "anthropic", "model": ""}, "model"),
+])
+def test_enrollment_refuses_an_invalid_provider_selection(tmp_path, changes, field):
+    """@brief An unknown provider, an endpoint without URL and a missing model are findings."""
+    app = create_app(tmp_path / "home", probe_runner=_no_probe)
+    with TestClient(app) as client:
+        preview = client.post("/api/v1/projects/setup-preview", headers=_login(client),
+                              json=_body(tmp_path, **changes)).json()
+    assert preview["structural_valid"] is False
+    assert any(issue["field"] == field for issue in preview["issues"]), preview["issues"]
 
 
 # END OF FILE

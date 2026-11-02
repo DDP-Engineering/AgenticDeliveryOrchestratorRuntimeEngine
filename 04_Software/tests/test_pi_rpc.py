@@ -401,4 +401,86 @@ def test_orchestrator_interrupts_when_the_rpc_grace_runs_out(tmp_path: Path) -> 
     assert engine.store.load(run.run_id).lifecycle == "cancelled"
 
 
+class CopyTarget(SpawnTarget):
+    """
+    @brief   Container-target double that also records exec-seam commands.
+    """
+
+    def __init__(self, fake: FakePi, *, copy_ok: bool = True) -> None:
+        super().__init__(fake)
+        self.copy_ok = copy_ok
+        self.commands: list[list[str]] = []
+
+    def __call__(self, argv, *, timeout=None):
+        from adore.util import CommandResult
+
+        self.commands.append(list(argv))
+        assert not self.fake.processes, "models.json must be in place before Pi starts"
+        return CommandResult(argv=list(argv), exit_code=0 if self.copy_ok else 1,
+                             stderr="" if self.copy_ok else "cp: permission denied")
+
+
+def test_pi_executor_passes_the_provider_and_model_id(tmp_path: Path) -> None:
+    """@brief An API-key provider starts Pi with --provider and --model and no models.json."""
+    worktree, io_dir = _dirs(tmp_path)
+    fake = FakePi(tmp_path, "run_tool_calls_chatgpt")
+    target = CopyTarget(fake)
+    run = PiExecutor("pi", "gpt-5.4", provider="openai").run_gate(
+        target, worktree, io_dir, PROMPT, timeout=30)
+    assert run.ok
+    assert fake.argv[fake.argv.index("--provider") + 1] == "openai"
+    assert fake.argv[fake.argv.index("--model") + 1] == "gpt-5.4"
+    assert target.commands == [] and not (io_dir / "pi-models.json").exists()
+    chatgpt = FakePi(tmp_path, "run_tool_calls_chatgpt")
+    assert PiExecutor("pi", "gpt-5.6-luna", provider="chatgpt").run_gate(
+        SpawnTarget(chatgpt), worktree, io_dir, PROMPT, timeout=30).ok
+    assert chatgpt.argv[chatgpt.argv.index("--provider") + 1] == "openai"
+
+
+def test_pi_executor_writes_the_endpoint_models_json_before_pi_starts(tmp_path: Path) -> None:
+    """@brief custom: models.json in io, copied into the agent dir, then Pi on adore-endpoint."""
+    worktree, io_dir = _dirs(tmp_path)
+    fake = FakePi(tmp_path, "run_tool_calls_chatgpt")
+    target = CopyTarget(fake)
+    models = {"providers": {"adore-endpoint": {
+        "baseUrl": "http://172.27.80.1:1234/v1", "api": "openai-completions",
+        "apiKey": "$ADORE_ENDPOINT_API_KEY", "models": [{"id": "qwen/qwen3.5-9b"}]}}}
+    run = PiExecutor("pi", "qwen/qwen3.5-9b", provider="custom", models=models).run_gate(
+        target, worktree, io_dir, PROMPT, timeout=30)
+    assert run.ok
+    assert json.loads((io_dir / "pi-models.json").read_text("utf-8")) == models
+    assert target.commands == [["cp", "/adore/io/pi-models.json",
+                                CONTAINER_PI_AGENT_DIR + "/models.json"]]
+    assert fake.argv[fake.argv.index("--provider") + 1] == "adore-endpoint"
+    assert fake.argv[fake.argv.index("--model") + 1] == "qwen/qwen3.5-9b"
+    assert "ADORE_ENDPOINT_API_KEY" not in json.dumps(fake.env)
+    assert fake.env["PI_CODING_AGENT_DIR"] == CONTAINER_PI_AGENT_DIR
+
+
+def test_pi_executor_fails_the_stage_when_models_json_cannot_be_placed(tmp_path: Path) -> None:
+    """@brief A failed copy fails the gate with a reason and never starts Pi."""
+    worktree, io_dir = _dirs(tmp_path)
+    fake = FakePi(tmp_path, "run_tool_calls_chatgpt")
+    models = {"providers": {"adore-endpoint": {"baseUrl": "http://h/v1",
+              "api": "openai-completions", "apiKey": "adore-no-key", "models": [{"id": "m"}]}}}
+    run = PiExecutor("pi", "m", provider="custom", models=models).run_gate(
+        CopyTarget(fake, copy_ok=False), worktree, io_dir, PROMPT, timeout=30)
+    assert not run.ok and run.exit_code == 1 and not run.timed_out
+    assert "models.json" in run.stderr
+    assert fake.processes == []
+
+
+def test_native_pi_template_receives_provider_and_model(tmp_path: Path) -> None:
+    """@brief A native launch substitutes {model} as provider/model."""
+    from adore.util import CommandResult
+
+    def execute(argv, *, timeout=None):
+        return CommandResult(exit_code=0)
+
+    worktree, io_dir = _dirs(tmp_path)
+    PiExecutor("pi -p --mode json --model {model} {prompt}", "claude-x",
+               provider="anthropic").run_gate(execute, worktree, io_dir, PROMPT, timeout=5)
+    assert "--model anthropic/claude-x" in (io_dir / GATE_SCRIPT).read_text("utf-8")
+
+
 # END OF FILE

@@ -4,31 +4,44 @@ Un executor este ceea ce ADORE lansează pentru fiecare lucrare: agentul de prog
 
 ## Ce este un executor {#what}
 
-Pentru fiecare lucrare, ADORE pornește Pi, singurul său agent de programare, într-o copie de lucru izolată, iar Pi parcurge etapele AEGIS ale repository-ului cu modelul configurat. Pi nu face niciodată commit sau push și nu vede credențialele forge; acestea le face ADORE. ADORE nu preia liste de modele. Într-un container, ADORE folosește Pi inclus în imaginea executorului; pentru un proiect instalat pe server, Pi trebuie să fie deja instalat pentru contul serverului. Modificările se aplică doar lucrărilor noi.
+Pentru fiecare lucrare, ADORE pornește Pi, singurul său agent de codare, într-o copie de lucru izolată, iar Pi parcurge etapele AEGIS ale repository-ului cu furnizorul și modelul configurate. Pi nu face commit, nu face push și nu vede credențiale de forge; ADORE se ocupă de acestea. În container, ADORE folosește Pi inclus în imaginea executorului; pentru un proiect instalat pe server, Pi trebuie să fie deja instalat pentru contul serverului. Modificările se aplică doar lucrărilor noi.
 
-## Alegerea modelului {#agent-and-model}
+## Alegerea furnizorului și a modelului {#agent-and-model}
 
-Deschideți **Setări → Agent și model**. Rândurile sunt **Identificatorul modelului executorului** și **Comanda de lansare a executorului**.
+Deschideți **Setări → Agent și model**. Rândurile sunt **Furnizor**, **Model**, **Comanda de lansare a executorului** și, pentru un endpoint, **Adresa de bază a endpointului** și **Tipul API al endpointului**. **Modifică** pe oricare dintre rândurile de furnizor, model sau endpoint deschide un singur editor pentru toate, revizuite și aplicate ca o singură modificare.
 
-Introduceți singuri ID-ul modelului: modelul Pi în forma `provider/model`, de exemplu `openai/gpt-5.4`. Nu există o valoare implicită universală. Într-un container, ADORE pornește singur Pi inclus în imagine, prin modul său RPC cu setări fixe, și îl oprește la limita de timp a etapei sau la anulare; acolo comanda de lansare nu este folosită, deci se oferă doar presetarea Pi. Pentru un proiect instalat pe server, comanda de lansare pornește Pi instalat, are implicit valoarea `pi -p --mode json --model {model} {prompt}`, trebuie să conțină `{prompt}` și nu poate folosi `--auto`. Fiecare rând este o setare obișnuită: **Pregătește candidatul** o revizuiește, iar **Aplică** o scrie. Așteptați-vă să puneți mai întâi monitorizarea în pauză; vezi [Setările proiectului](/help/settings#editing).
+- **Furnizor**: unul dintre furnizorii Pi cu cheie API (OpenAI, Anthropic, Google Gemini, OpenRouter, Mistral și alții), **Abonament ChatGPT** sau **Endpoint compatibil OpenAI**.
+- **Model**: alegeți din lista Pi pentru acel furnizor sau scrieți orice ID de model acceptat de furnizor, de exemplu `gpt-5.4`. Lista vine cu versiunea Pi livrată de ADORE și se citește fără acces la internet. Nu există un model implicit universal.
+- **Abonament ChatGPT**: autentificarea cu ChatGPT nu este disponibilă în această versiune; alegeți un furnizor cu cheie API sau un endpoint pentru a rula lucrări.
 
-Un model servit în propria rețea printr-un endpoint compatibil OpenAI, de exemplu LM Studio, nu poate fi configurat în această versiune.
+**Pregătește candidatul** arată valoarea activă și propusă a fiecărui câmp, iar **Aplică** le scrie; așteptați-vă să opriți mai întâi monitorizarea, vedeți [Setările proiectului](/help/settings#editing). În container, ADORE pornește singur Pi inclus în imagine, prin modul său RPC cu setări fixe, și îl oprește la limita de timp a etapei sau la anulare; comanda de lansare nu este folosită acolo, deci este oferită doar presetarea Pi. Pentru un proiect instalat pe server, comanda de lansare pornește Pi instalat, are implicit valoarea `pi -p --mode json --model {model} {prompt}` (`{model}` devine furnizor/model), trebuie să conțină `{prompt}` și nu trebuie să folosească `--auto`.
+
+## Endpoint compatibil OpenAI {#endpoint}
+
+Pentru un model servit în propria rețea, de exemplu LM Studio, Ollama sau vLLM, alegeți **Endpoint compatibil OpenAI** și completați:
+
+- **Adresa de bază a endpointului**: adresa văzută din container, de exemplu `http://192.168.1.20:1234/v1`. `localhost` este containerul însuși. `host.docker.internal` ajunge la gazdă doar cu Docker Desktop; cu Docker Engine pe Linux sau în WSL folosiți adresa de rețea a gazdei, iar pentru un server pe Windows accesat din Docker în WSL, gateway-ul implicit al WSL.
+- **Tipul API al endpointului**: `openai-completions` pentru LM Studio, Ollama și vLLM; sunt acceptate și `openai-responses`, `anthropic-messages` și `google-generative-ai`.
+- **Model**: ID-ul modelului servit de endpoint.
+
+Cheia endpointului este opțională: salvați-o la Autentificare ca ADORE_ENDPOINT_API_KEY. ADORE descrie endpointul lui Pi pentru fiecare lucrare; adresa nu conține niciodată nume de utilizator, parolă sau interogare. Cu o politică de rețea restrictivă, adresa endpointului trebuie permisă. Un endpoint este disponibil doar pentru proiectele în container.
 
 ## Autentificare {#credentials}
 
-Deschideți **Autentificare** în același grup. Un proiect se poate autentifica în trei moduri.
+Deschideți **Autentificare** în același grup.
 
-- **Chei API de furnizor.** Alegeți o **Variabilă credențiale** (de exemplu OPENAI_API_KEY sau ANTHROPIC_API_KEY), introduceți **Cheie API** și alegeți **Salvează cheia API**. ADORE o stochează privat pe server și nu o mai afișează niciodată; **Deconectează cheia API a proiectului** o elimină. Variabila trebuie mai întâi listată în **Variabile de autentificare permise**, care conține doar nume (**Adaugă o variabilă de autentificare**). Schimbarea unei chei cere monitorizarea în pauză, un proiect inactiv și nicio modificare în așteptare, și nu testează cheia.
-- **Autentificarea existentă a contului.** Doar pentru un proiect instalat pe server: Pi folosește propria autentificare pentru contul serverului, configurată în afara interfeței web. Un proiect în container folosește întotdeauna chei API de furnizor; nicio autentificare nu este copiată în container.
-- **Valori gestionate de mediu.** O variabilă deja setată în mediul serverului ADORE este etichetată **Setată pe serverul ADORE; administrată extern**. Interfața web nu o poate suprascrie.
+- **Cheia API a furnizorului.** Panoul numește variabila de care are nevoie furnizorul configurat, de exemplu OPENAI_API_KEY pentru OpenAI sau ANTHROPIC_API_KEY pentru Anthropic. Introduceți **Cheie API** și alegeți **Salvează cheia API**. ADORE o păstrează privat în depozitul de credențiale al proiectului pe server, niciodată în fișierul de configurare, o transmite lui Pi doar ca acea variabilă și nu o mai afișează niciodată; **Deconectează cheia API a proiectului** o elimină. Schimbarea unei chei cere monitorizarea oprită, un proiect inactiv și nicio propunere în așteptare și nu testează cheia.
+- **Autentificarea existentă a contului.** Doar pentru un proiect instalat pe server: Pi folosește propria autentificare pentru contul serverului, configurată în afara interfeței web. Un proiect în container folosește întotdeauna cheia API a furnizorului; nicio autentificare nu este copiată în container.
+- **Valori gestionate de mediu.** O variabilă deja setată în mediul serverului ADORE poartă eticheta **Setată pe serverul ADORE; administrată extern**. Interfața web nu o poate suprascrie.
+- **Variabile de autentificare suplimentare.** Doar nume (**Adaugă o variabilă de autentificare**) ale unor secrete suplimentare primite de Pi pe lângă cheia furnizorului; majoritatea proiectelor nu au nevoie de ele.
 
-Valorile credențialelor nu apar niciodată în revizuiri, înregistrări de audit sau exporturi. O listă goală de variabile este validă pentru un proiect instalat pe server care folosește autentificarea existentă a contului.
+Valorile credențialelor nu apar niciodată în fișierul de configurare, în revizuiri, în înregistrările de audit, în jurnale sau în exporturi.
 
 ## Testarea conexiunii AI {#test-connection}
 
-Administratorii aleg **Testează conexiunea AI** sub **Conexiune AI**. Aceasta trimite o singură cerere scurtă prin Pi, într-un container temporar sau, pentru Pi instalat pe server, într-un dosar temporar, ceea ce poate genera costuri la furnizor. Proiectul trebuie să fie inactiv, cu setări salvate valide și fără modificări în așteptare; pentru un proiect în container, imaginea configurată trebuie să existe pe server.
+Administratorii aleg **Testează conexiunea AI** la **Conexiune AI**. Testul pornește Pi o dată într-un container temporar, sau într-un dosar temporar pentru Pi instalat pe server, îi cere să ruleze o comandă shell și apoi să răspundă cu un text fix și poate genera costuri la furnizor. Proiectul trebuie să fie inactiv, cu setări salvate valide și fără propunere în așteptare; pentru un proiect în container, imaginea configurată trebuie să existe pe server.
 
-Rezultatul este **Model AI conectat** sau **Conexiunea AI nu a putut fi verificată**, cu îndrumări pentru o depășire a timpului, o imagine sau un Pi lipsă, credențiale greșite, un model indisponibil sau o comandă shell pe care Pi nu a putut-o rula. Într-un container, Pi răspunde fără să folosească unelte, deci testul dovedește doar accesul la model. Pentru Pi instalat pe server, cererea îi cere lui Pi să ruleze și o comandă shell, iar rezultatul este conectat doar dacă acea comandă a rulat. Nu pornește nicio lucrare. Rezultatul salvat este legat de modelul, setările și credențialele curente și apare în verificările gazdei din Rezumat. Dezvoltatorii îl văd, dar nu pot rula testul.
+Rezultatul este **Model AI conectat** doar dacă comanda shell a rulat și răspunsul a sosit. Altfel, **Conexiunea AI nu a putut fi verificată** vine cu îndrumări proprii pentru: nicio credențială salvată, o cheie respinsă de furnizor, un furnizor sau endpoint la care Pi nu a putut ajunge, un model necunoscut furnizorului sau endpointului, o limită de rată, altă eroare a furnizorului, depășirea timpului, o imagine sau un Pi lipsă, ori o comandă shell pe care Pi nu a putut-o rula. Nu pornește nicio lucrare. Rezultatul salvat este legat de furnizorul, modelul, setările și credențialele actuale și apare în verificările gazdei din Rezumat. Dezvoltatorii îl văd, dar nu pot rula testul.
 
 ## Unde rulează lucrările {#where-jobs-run}
 
@@ -36,7 +49,7 @@ Rezultatul este **Model AI conectat** sau **Conexiunea AI nu a putut fi verifica
 |---|---|---|
 | Rulează în | Un container Docker sau Podman temporar pe serverul ADORE | Chiar serverul ADORE, sub contul de sistem de operare al serviciului, într-un worktree dedicat |
 | Mediu | O imagine de proiect pregătită de administrator | Unelte, versiuni și biblioteci pe care le instalați singuri pe acel server |
-| Autentificare | Chei API de furnizor listate | Chei API de furnizor listate sau autentificarea Pi existentă pe acel cont, reutilizată pe loc |
+| Autentificare | Cheia API a furnizorului | Cheia API a furnizorului sau autentificarea Pi existentă pe acel cont, reutilizată pe loc |
 | Setările agentului | Pi inclus în imagine, cu setări stabilite de ADORE; setările și abilitățile Pi personale nu sunt citite | Pi instalat pentru acel cont, pornit cu comanda de lansare și cu setările Pi ale acelui cont |
 | Izolare | Container cu politică de rețea | Doar worktree-ul; comenzile pot ajunge oriunde poate ajunge contul, deci folosiți un cont dedicat cu privilegii minime |
 | Alegere | **Rulează în** → **Container**, implicit, la pasul 2 al înrolării sau în Setări → Agent și model | **Rulează în** → **Instalat pe server**, sau în profilul serverului ori prin înrolare TOML |

@@ -68,9 +68,10 @@ cgroup_root = "" # Linux: absolute delegated root; Windows: unused
 environment = { LANG = "en_US.UTF-8" } # Non-secret settings only
 
 [executor]
-model = "openai/your-model"
+provider = "openai"
+model = "your-model"
 command = "pi -p --mode json --model {model} {prompt}" # the default
-env_keys = [] # Existing account Pi sign-in; approved keys may instead use protected .env
+env_keys = [] # Additional secrets only; the provider's key variable is always passed
 ```
 
 The native command must contain `{prompt}` and must not use `--auto`. For a
@@ -91,9 +92,12 @@ tool-check manifests, SELinux relabel and custom `container.runtime_env`. Remove
 these when changing backend. Use `local.environment` for non-secret
 config-location settings. Unknown local fields, managed HOME/PATH/account overrides
 and forge credential variables reject. Approved provider secrets belong in the
-protected profile `.env` or process environment through `executor.env_keys`.
-A model served by a local OpenAI-compatible endpoint (for example LM Studio)
-cannot be configured in this version.
+protected profile `.env` or process environment under the provider's variable
+(for example `OPENAI_API_KEY`); the local Pi may instead use the account's own
+sign-in. `{model}` in the command becomes `<provider>/<model>`. An
+OpenAI-compatible endpoint (`provider = "custom"`) needs a container run and
+is refused for a local one: ADORE writes its `models.json` only into its own
+agent directory.
 
 A native Pi runs with the account's own Pi agent directory
 (`PI_CODING_AGENT_DIR`, default `~/.pi/agent`): its sign-in, settings, extensions

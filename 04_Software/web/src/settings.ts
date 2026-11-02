@@ -4,6 +4,7 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
+import { CONNECTION_KEY, CUSTOM, validConnection } from "./agentConnection.ts";
 import { validCredentialNames } from "./executorSettings.ts";
 import { validImplementationCollection } from "./implementationSettings.ts";
 import type { MessageKey } from "./i18n";
@@ -25,7 +26,7 @@ export type SettingMeta = {
 };
 
 /** How a row's value is edited in the browser; `none` means not editable here. */
-export type InputKind = "boolean" | "number" | "choice" | "text" | "reviewers" | "duration" | "retry-delays" | "stage-timeouts" | "credential-names" | "none";
+export type InputKind = "boolean" | "number" | "choice" | "text" | "reviewers" | "duration" | "retry-delays" | "stage-timeouts" | "credential-names" | "connection" | "none";
 
 type CommonKind = "text" | "positive" | "forge" | "runtime";
 
@@ -73,6 +74,7 @@ export const settingValue = (config: Record<string, unknown>, key: string): unkn
     current && typeof current === "object" ? (current as Record<string, unknown>)[part] : undefined, config);
 
 const inputKind = (item: SettingMeta): InputKind => {
+  if (item.editable && item.edit_key === CONNECTION_KEY) return "connection";
   if (item.editable && item.key === "executor.env_keys") return "credential-names";
   if (item.key === "metrics.db_path") return "none";
   if (settingPurpose(item.key) === "technical" || item.key.startsWith("worktree.") && !BRANCH_NAMING_KEYS.has(item.key)) return "none";
@@ -157,6 +159,11 @@ export function settingVisible(key: string, executorOnly = false, backend = "con
   if (["container.", "execution.", "local."].some(prefix => key.startsWith(prefix))) return false;
   if (key.startsWith("worktree.") && !["worktree.repo_path", "worktree.root", "worktree.branch_template", "worktree.branch_rule"].includes(key)) return false;
   return !executorOnly || key.startsWith("executor.");
+}
+
+/** Endpoint rows matter only for an OpenAI-compatible endpoint. */
+export function connectionRowVisible(key: string, provider: unknown): boolean {
+  return !key.startsWith("executor.endpoint.") || provider === CUSTOM;
 }
 
 /** Optional topic disclosures inside a workflow category; ordinary rows stay direct. */
@@ -244,7 +251,7 @@ export function validSettingCatalog(settings: unknown): settings is SettingMeta[
   });
 }
 
-export type PendingConfig = { base_revision: string; candidate_revision: string; key: string; value: string; proposed_value: string | number | boolean | string[] | number[] | Record<string, number>; created_at: string; restart_required: boolean; execution_plan?: ExecutionPlan };
+export type PendingConfig = { base_revision: string; candidate_revision: string; key: string; value: string; proposed_value: string | number | boolean | string[] | number[] | Record<string, number> | Record<string, string>; created_at: string; restart_required: boolean; execution_plan?: ExecutionPlan };
 
 /** A malformed or unbound server candidate never enables Apply. */
 export function validPendingConfig(value: unknown): value is PendingConfig | null {
@@ -257,10 +264,12 @@ export function validPendingConfig(value: unknown): value is PendingConfig | nul
       && name.length > 0 && name.length <= 255 && !name.startsWith("-") && !/[\s\u0000-\u001f\u007f]/.test(name));
   const credentials = item.key === "executor.env_keys" && validCredentialNames(item.proposed_value);
   const collection = validImplementationCollection(item.key, item.proposed_value);
+  const connection = item.key === CONNECTION_KEY && validConnection(item.proposed_value);
+  const json = reviewerList || collection || credentials || connection;
   return digest(item.base_revision) && digest(item.candidate_revision)
     && typeof item.key === "string" && item.key.length > 0 && typeof item.value === "string"
-    && item.value === (reviewerList || collection || credentials ? JSON.stringify(item.proposed_value) : typeof item.proposed_value === "boolean" ? String(item.proposed_value).toLowerCase() : String(item.proposed_value))
-    && (collection || reviewerList || credentials || !["executor.env_keys", "delivery.reviewers", "recovery.retry_backoff_seconds", "workflow.stage_timeout_overrides"].includes(item.key) && ["string", "number", "boolean"].includes(typeof item.proposed_value))
+    && item.value === (json ? JSON.stringify(item.proposed_value) : typeof item.proposed_value === "boolean" ? String(item.proposed_value).toLowerCase() : String(item.proposed_value))
+    && (json || ![CONNECTION_KEY, "executor.env_keys", "delivery.reviewers", "recovery.retry_backoff_seconds", "workflow.stage_timeout_overrides"].includes(item.key) && ["string", "number", "boolean"].includes(typeof item.proposed_value))
     && (typeof item.proposed_value !== "number" || Number.isFinite(item.proposed_value))
     && typeof item.restart_required === "boolean"
     && (item.execution_plan === undefined || validExecutionPlan(item.execution_plan))

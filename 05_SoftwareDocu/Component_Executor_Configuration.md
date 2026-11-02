@@ -13,15 +13,15 @@ Provide a single project executor/model workspace and protected provider key lif
 
 ## 2. Responsibilities
 
-`web/executor_configuration.py` holds the reviewed Pi launch-command preset (`LAUNCH_PRESETS`); `web/implementation_settings.py` validates names-only lists. `web/executor_settings.py` validates private profile inputs, edits one approved .env variable atomically, and binds/loads model evidence. `web/app.py` owns roles, CSRF, immutable project selection, configuration/conductor locks and audit attempts/confirmations. The existing config candidate and launcher own applied TOML changes and actual job injection.
+`web/executor_configuration.py` holds the reviewed Pi launch-command preset (`LAUNCH_PRESETS`) and the atomic agent connection edit (`CONNECTION_KEY = "executor.connection"`, `valid_connection`, `connection_value`, `set_connection`); `web/implementation_settings.py` validates names-only lists. `adore/pi_providers.py` owns the shipped Pi provider catalog and the provider rules (credential variable, Pi provider id, secret names, endpoint `models.json`). `web/executor_settings.py` validates private profile inputs, edits one approved .env variable atomically, and binds/loads model evidence. `web/app.py` owns roles, CSRF, immutable project selection, configuration/conductor locks and audit attempts/confirmations. The existing config candidate and launcher own applied TOML changes and actual job injection.
 
 ## 3. Implementation Overview
 
-**Project → Settings → Agent and model** configures Pi, ADORE's only coding agent; there is no agent choice. It shows Test AI connection, the model (`executor.model`, an ordinary reviewed setting), the launch command (`executor.command`; a container project may choose only the one Pi preset, a local project edits validated native argv), allowed credential variables (`executor.env_keys`), project API keys, the execution environment (`execution.backend`, the container runtime and image, and the local account, home, PATH and cgroup root for local projects, with external container guidance) and estimated prices. Model, command, backend, runtime and image edits go only through the reviewed flow (prepare candidate, review, apply); a new model ID must be supplied explicitly. Credential names are added through a dropdown and remain visible as individually removable selections. While the image row is edited it offers the same server image suggestions. Installed agents and runtime preparation remain external. The old `/executor` URL redirects to Settings. Developers read non-secret settings/results without mutation actions.
+**Project → Settings → Agent and model** configures Pi, ADORE's only coding agent; there is no agent choice. It shows Test AI connection, the agent connection (Provider, Model, and for an OpenAI-compatible endpoint Endpoint base URL and Endpoint API type, reviewed and applied together as `executor.connection`), the launch command (`executor.command`; a container project may choose only the one Pi preset, a local project edits validated native argv), additional credential variables (`executor.env_keys`), the provider API key, the execution environment (`execution.backend`, the container runtime and image, and the local account, home, PATH and cgroup root for local projects, with external container guidance) and estimated prices. Connection, command, backend, runtime and image edits go only through the reviewed flow (prepare candidate, review, apply); a new model ID must be supplied explicitly (the Model field suggests Pi's models for the provider and accepts any typed ID). Credential names are added through a dropdown and remain visible as individually removable selections. While the image row is edited it offers the same server image suggestions. Installed agents and runtime preparation remain external. The old `/executor` URL redirects to Settings. Developers read non-secret settings/results without mutation actions.
 
-The names-only credential selector offers known provider names and retained custom names. An empty list (`env_keys = []`) suits a local project that uses the account's own Pi sign-in. Applying names does not delete saved `.env` values. Project API keys offers private Save/Disconnect for known allowed variables and shows sources only; key changes require paused pickup and idle/pending-free state. Explicit Test AI connection remains the evidence of model access and may incur provider charges.
+The names-only selector for additional credential variables offers the known provider key variables and retained custom names; it defaults to empty (`env_keys = []`) because the provider's own key variable is always passed. Applying names does not delete saved `.env` values. Provider API key offers private Save/Disconnect for exactly one variable, the one Pi reads the configured provider's key from (`ADORE_ENDPOINT_API_KEY`, optional, for an endpoint; none for a ChatGPT subscription, whose sign-in is not available yet), and shows its source only; key changes require paused pickup and idle/pending-free state. Explicit Test AI connection remains the evidence of model access and may incur provider charges.
 
-Save API key / Disconnect project API key operate on the selected profile's `.env`. `executor.env_keys` is the authoritative existing allowlist; the form offers known provider API names already in it. Ambient variables (including explicitly empty values) take precedence and are managed externally. Source indicators distinguish missing, project and environment. Saving is not authentication success; explicit Test AI connection provides that evidence.
+Save API key / Disconnect project API key operate on the selected profile's `.env` and accept only the configured provider's credential variable (`pi_providers.credential_variable`). Ambient variables (including explicitly empty values) take precedence and are managed externally. Source indicators distinguish missing, project and environment. Saving is not authentication success; explicit Test AI connection provides that evidence.
 
 ## 4. Dependencies
 
@@ -29,18 +29,18 @@ Standard library filesystem/JSON/hash functions; existing ProfileStore, StateSto
 
 ## 5. Inputs And Outputs
 
-GET `/api/v1/projects/{identity}/executor-credentials` (Admin) returns `{project_id, revision, variables:[{name, source}]}`.
+GET `/api/v1/projects/{identity}/executor-credentials` (Admin) returns `{project_id, revision, variables:[{name, source}]}`; `variables` holds only the configured provider's credential variable (empty for `chatgpt`) with source environment, project or missing.
 PUT takes exact `{revision, variable, token}`; DELETE exact `{revision, variable}`. Monitoring must be paused, state valid and idle, with no pending configuration/operations. Archived projects reject mutations. Return values contain no key or credential digest. Authentication errors have stable value-free codes.
 
 Config GET includes `model_connection`, a current public result or null. Model test POST stores and returns the same closed result. Summary displays current access only in expanded host-check details; host-check AI access uses that result when present. Readiness has no separate model endpoint check.
 
 ## 6. Data Contracts
 
-Provider keys: OPENAI_API_KEY, ANTHROPIC_API_KEY, GEMINI_API_KEY, GOOGLE_API_KEY, OPENROUTER_API_KEY, DASHSCOPE_API_KEY, AZURE_OPENAI_API_KEY, MISTRAL_API_KEY, XAI_API_KEY, GROQ_API_KEY. Membership also requires the project's executor allowlist. Variable names do not promise provider/model availability in an installed CLI.
+Provider keys: `PROVIDER_KEYS = pi_providers.key_variables()`, the key variables of the shipped Pi catalog (OPENAI_API_KEY, ANTHROPIC_API_KEY, OPENROUTER_API_KEY and so on) plus ADORE_ENDPOINT_API_KEY; it is the allowlist of `executor.env_keys` names. The credential view and save accept only `credential_variable(provider)`. Variable names do not promise provider/model availability in an installed CLI.
 
 Dotenv reads are bounded to 64 KiB, reject symlinks, duplicate names, malformed lines, invalid UTF-8/control characters and unbalanced surrounding quotes. Atomic same-directory replacement preserves other lines; generated files have legal headers, POSIX mode 0600 and fsync before rename. The existing launcher consumes this same profile environment with ambient precedence; active job environments remain unchanged.
 
-`model-connection.json` is schema 1: exact public fields project_id/revision/checked_at/executor/model/ready/reason plus internal schema/binding. The 64-character SHA256 binding covers the effective values of the allowlisted provider keys. Exact field sets, types, identity, UTC time, model grammar and ready/reason consistency are checked before staleness. Duplicate/foreign/corrupt evidence produces 503. Config/credential drift returns null. GUI credential mutations remove previous model evidence, preventing revival after a key is removed/restored. Test rechecks identity/config/binding after execution and validates output before atomic evidence publication.
+`model-connection.json` is schema 1: exact public fields project_id/revision/checked_at/executor/model/ready/reason plus internal schema/binding. The 64-character SHA256 binding covers the effective values of every secret Pi receives (`pi_providers.secret_names`: `env_keys` plus the provider's credential variable). Exact field sets, types, identity, UTC time, model grammar (`MODEL_ID_RE`) and ready/reason consistency are checked before staleness. Duplicate/foreign/corrupt evidence produces 503. Config/credential drift returns null. GUI credential mutations remove previous model evidence, preventing revival after a key is removed/restored. Test rechecks identity/config/binding after execution and validates output before atomic evidence publication.
 
 ## 7. Workflow Integration
 
@@ -48,9 +48,9 @@ New jobs load applied executor/model settings. Existing jobs retain their durabl
 
 ## 8. Usage
 
-Open Project → Settings → Agent and model for credentials. Prepare/apply the model change, pause monitoring for credential changes, choose an allowed API variable and Save API key. Test AI connection explicitly, then inspect Summary/check details.
+Open Project → Settings → Agent and model for credentials. Prepare/apply the provider and model change, pause monitoring for credential changes, and Save API key for the variable the provider names. Test AI connection explicitly, then inspect Summary/check details.
 
-Container projects use API keys. A local project may instead reuse the account's own Pi sign-in at `PI_CODING_AGENT_DIR` (default `~/.pi/agent/auth.json`), created outside ADORE. Host sign-in staging into containers is not supported. The GUI key removal changes only that project variable; it leaves ambient credentials and the account's Pi sign-in intact.
+Container projects use a provider API key or an OpenAI-compatible endpoint (whose `models.json` ADORE writes into the ADORE-owned agent directory before every stage). A local project may instead reuse the account's own Pi sign-in at `PI_CODING_AGENT_DIR` (default `~/.pi/agent/auth.json`), created outside ADORE. Host sign-in staging into containers is not supported. The GUI key removal changes only that project variable; it leaves ambient credentials and the account's Pi sign-in intact.
 
 Official provider reference: [Pi](https://pi.dev/docs/latest/providers).
 
@@ -60,7 +60,7 @@ Official provider reference: [Pi](https://pi.dev/docs/latest/providers).
 
 ## 10. Limitations
 
-Model catalogs, executor installation and a browser OAuth broker remain external. Local OpenAI-compatible endpoints (such as LM Studio) are not configurable in this version, and ChatGPT subscription sign-in comes later. New custom provider names require external TOML configuration; retained custom names can be selected or removed. Opaque external credential sources (such as the account's Pi sign-in) are not fingerprinted and require an explicit fresh test. Connectivity proves one shell call only for native Pi; it does not prove Git publication or a complete job. Full regression remains deferred during the user's iterative live changes.
+The provider catalog is the snapshot shipped with the pinned Pi (`adore/pi_catalog.json`); executor installation and a browser OAuth broker remain external. ChatGPT subscription sign-in is not available yet. An OpenAI-compatible endpoint needs a container run. New custom additional variable names require external TOML configuration; retained custom names can be selected or removed. Opaque external credential sources (such as the account's Pi sign-in) are not fingerprinted and require an explicit fresh test. Connectivity proves one shell call in a container and for native Pi; it does not prove Git publication or a complete job. Full regression remains deferred during the user's iterative live changes.
 
 ## Native execution contract
 
@@ -96,8 +96,8 @@ queried yields `available: false` with no images. The image fields in enrollment
 Settings offer these as suggestions (`serverImages.ts`) and show a notice when the typed
 image is not on the server or the list cannot be read.
 
-Credential variable names are optional in API-key mode: leave them empty when the image
-or the installed executor signs in by itself (`env_keys = []`).
+Additional credential variable names are optional (`env_keys = []`): the provider's key
+variable is always passed, so list only further secrets the executor needs.
 
 `ExecutorEnvironment.tsx` is a read-only four-locale notice in Settings → Agent and model,
 rendered only for container profiles. Config GET `executor_environment` has
@@ -120,6 +120,6 @@ Project_Executor_Images.md.
 
 ## Reviewed selection and variable-name contracts
 
-`executor.model` and `executor.command` are ordinary single-key candidates of `POST config/pending`; there is no agent selection key. `executor.model` must match the bounded `provider/model` grammar. A container project's `executor.command` must equal the Pi preset in `LAUNCH_PRESETS` (`branding.PI_NATIVE_COMMAND`); a local project accepts any nonempty validated native argv.
+`executor.connection` is a virtual candidate key of `POST config/pending` whose value is strict JSON `{provider, model, base_url, api}`: a provider from `pi_providers.provider_ids()`, a model matching `MODEL_ID_RE`, and an http(s) `base_url` plus an API type from `ENDPOINT_APIS` exactly when the provider is `custom` (both empty otherwise). `set_connection` rewrites `[executor] provider` and `model` and removes or adds the `[executor.endpoint]` table, preserving unrelated TOML (verified by re-parsing). The configuration rows `executor.provider`, `executor.model`, `executor.endpoint.base_url` and `executor.endpoint.api` map to edit key `executor.connection` and cannot be staged individually (400 `setting_not_editable`). `executor.command` is an ordinary single-key candidate; there is no agent selection key. A container project's `executor.command` must equal the Pi preset in `LAUNCH_PRESETS` (`branding.PI_NATIVE_COMMAND`); a local project accepts any nonempty validated native argv.
 
-`executor.env_keys` candidates accept a complete distinct uppercase name list, bounded to32 entries; known provider names or retained existing custom names only. Forge variables and credential values fail closed. Direct PUT of either selection or variable names refuses with `pending_config_required`. Pending reads/apply reconstruct these candidates against the active base and reject unrelated persisted changes, even with a recomputed candidate hash. Existing role, CSRF, revision, idle and configuration locks remain authoritative.
+`executor.env_keys` candidates accept a complete distinct uppercase name list, bounded to 32 entries; names from `PROVIDER_KEYS` or retained existing custom names only. Forge variables and credential values fail closed. Direct PUT of either selection or variable names refuses with `pending_config_required`. Pending reads/apply reconstruct these candidates against the active base and reject unrelated persisted changes, even with a recomputed candidate hash. Existing role, CSRF, revision, idle and configuration locks remain authoritative.

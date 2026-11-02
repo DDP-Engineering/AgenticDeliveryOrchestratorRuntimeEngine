@@ -1,0 +1,29 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-FUNC-ae57faed"
+
+title = "Write Pi's models.json for an OpenAI-compatible endpoint"
+
+status = "active"
+
+requirement = """When a container stage or Test AI connection runs with `provider = "custom"`, ADORE shall write Pi's models.json into the ADORE-owned agent directory with one provider `adore-endpoint` holding the configured base URL, API type, the configured model and the key reference `$ADORE_ENDPOINT_API_KEY` when that key is set or the literal placeholder `adore-no-key` when it is not."""
+
+verification = "A fake-process launch for a custom endpoint checks the written models.json (with and without a key) and the copy into the agent directory before Pi starts; an API-key provider writes none; a failed copy fails the stage without starting Pi."
+
+affected_paths = ["04_Software/adore/pi_providers.py", "04_Software/adore/executor/launcher.py", "04_Software/adore/web/model_connection.py", "04_Software/adore/orchestrator.py"]
+
+linked_tests = ["04_Software/tests/test_pi_providers.py::test_endpoint_models_json_has_the_spike_shape_with_and_without_a_key", "04_Software/tests/test_pi_rpc.py::test_pi_executor_writes_the_endpoint_models_json_before_pi_starts", "04_Software/tests/test_pi_rpc.py::test_pi_executor_fails_the_stage_when_models_json_cannot_be_placed", "04_Software/tests/test_model_connection.py::test_endpoint_probe_places_models_json_and_passes_the_endpoint_key", "04_Software/tests/test_model_connection.py::test_endpoint_probe_stops_when_models_json_cannot_be_placed", "04_Software/tests/test_orchestrator.py::test_from_config_wires_the_provider_key_and_endpoint_models_into_stage_runs"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-02
+updated = 2026-11-02
